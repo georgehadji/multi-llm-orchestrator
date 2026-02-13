@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "multi-llm-orchestrator"
+version = "1.0.0"
+description = "Local multi-LLM orchestrator for autonomous project completion"
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.30",
+    "anthropic>=0.30",
+    "google-genai>=1.0",
+    "aiosqlite>=0.19",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "jsonschema>=4.0",
+]
+
+[project.scripts]
+orchestrator = "orchestrator.cli:main"
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W"]
