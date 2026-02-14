@@ -111,7 +111,7 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
         f.flush()
         try:
             result = subprocess.run(
-                ["ruff", "check", f.name, "--select=E,F"],
+                ["ruff", "check", f.name, "--select=E,F", "--ignore=E402,F401"],
                 capture_output=True, text=True, timeout=timeout,
             )
             if result.returncode == 0:

@@ -38,6 +38,7 @@ class Model(str, Enum):
     GPT_4O_MINI = "gpt-4o-mini"
     GEMINI_PRO = "gemini-2.5-pro"
     GEMINI_FLASH = "gemini-2.5-flash"
+    KIMI_K2_5 = "kimi-k2.5"
 
 
 class ProjectStatus(str, Enum):
@@ -68,6 +69,8 @@ def get_provider(model: Model) -> str:
         return "openai"
     elif val.startswith("gemini"):
         return "google"
+    elif val.startswith("kimi"):
+        return "kimi"
     return "unknown"
 
 
@@ -83,6 +86,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GPT_4O_MINI:   {"input": 0.15,  "output": 0.60},
     Model.GEMINI_PRO:    {"input": 1.25,  "output": 10.0},
     Model.GEMINI_FLASH:  {"input": 0.15,  "output": 0.60},
+    Model.KIMI_K2_5:     {"input": 2.00,  "output": 8.00},
 }
 
 
@@ -91,13 +95,13 @@ COST_TABLE: dict[Model, dict[str, float]] = {
 # ─────────────────────────────────────────────
 
 ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    TaskType.CODE_GEN:     [Model.CLAUDE_SONNET, Model.GPT_4O, Model.GEMINI_PRO],
-    TaskType.CODE_REVIEW:  [Model.GPT_4O, Model.CLAUDE_OPUS, Model.GEMINI_PRO],
-    TaskType.REASONING:    [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.CODE_GEN:     [Model.CLAUDE_SONNET, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.CODE_REVIEW:  [Model.GPT_4O, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GEMINI_PRO],
+    TaskType.REASONING:    [Model.CLAUDE_OPUS, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
     TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
     TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.CLAUDE_HAIKU],
     TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
-    TaskType.EVALUATE:     [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.EVALUATE:     [Model.CLAUDE_OPUS, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
 }
 
 
@@ -113,6 +117,7 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     Model.GPT_4O_MINI:   Model.GEMINI_FLASH,
     Model.GEMINI_PRO:    Model.CLAUDE_OPUS,
     Model.GEMINI_FLASH:  Model.GPT_4O_MINI,
+    Model.KIMI_K2_5:     Model.GPT_4O,
 }
 
 

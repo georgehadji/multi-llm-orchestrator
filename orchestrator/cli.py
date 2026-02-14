@@ -19,7 +19,9 @@ import sys
 from .models import Budget
 from .engine import Orchestrator
 from .state import StateManager
+from dotenv import load_dotenv
 
+load_dotenv(override=True)
 
 def setup_logging(verbose: bool = False):
     level = logging.DEBUG if verbose else logging.INFO
@@ -119,9 +121,9 @@ def _print_results(state):
     print("-" * 60)
 
     for tid, result in state.results.items():
-        emoji = "✓" if result.status.value == "completed" else "✗" if result.status.value == "failed" else "~"
+        mark = "OK  " if result.status.value == "completed" else "FAIL" if result.status.value == "failed" else "DEG "
         print(
-            f"  {emoji} {tid}: score={result.score:.3f} "
+            f"  [{mark}] {tid}: score={result.score:.3f} "
             f"[{result.model_used.value}] "
             f"iters={result.iterations} "
             f"cost=${result.cost_usd:.4f}"
