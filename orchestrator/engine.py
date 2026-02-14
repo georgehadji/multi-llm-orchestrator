@@ -334,6 +334,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         total_cost = 0.0
         degraded_count = 0
         scores_history: list[float] = []
+        det_passed = True  # default: True until a deterministic check runs
 
         logger.info(f"Executing {task.id} ({task.type.value}): "
                      f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}")
