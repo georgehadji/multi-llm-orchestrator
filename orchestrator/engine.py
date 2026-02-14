@@ -26,12 +26,16 @@ from typing import Optional
 from .models import (
     Budget, BUDGET_PARTITIONS, FALLBACK_CHAIN, Model, ProjectState,
     ProjectStatus, ROUTING_TABLE, Task, TaskResult, TaskStatus, TaskType,
-    get_max_iterations, get_provider, estimate_cost,
+    get_max_iterations, get_provider, estimate_cost, build_default_profiles,
 )
 from .api_clients import UnifiedClient, APIResponse
 from .validators import run_validators, all_validators_pass, ValidationResult
 from .cache import DiskCache
 from .state import StateManager
+from .policy import ModelProfile, Policy, PolicySet, JobSpec  # noqa: F401
+from .policy_engine import PolicyEngine, PolicyViolationError  # noqa: F401
+from .planner import ConstraintPlanner
+from .telemetry import TelemetryCollector
 
 logger = logging.getLogger("orchestrator")
 
@@ -51,7 +55,9 @@ class Orchestrator:
     def __init__(self, budget: Optional[Budget] = None,
                  cache: Optional[DiskCache] = None,
                  state_manager: Optional[StateManager] = None,
-                 max_concurrency: int = 3):
+                 max_concurrency: int = 3,
+                 profiles: Optional[dict[Model, ModelProfile]] = None,
+                 policy_set: Optional[PolicySet] = None):
         self.budget = budget or Budget()
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
@@ -66,9 +72,48 @@ class Orchestrator:
                 self.api_health[model] = False
                 logger.warning(f"{model.value}: provider SDK/key not available")
 
+        # ── Policy-driven constraint solver components ────────────────────────
+        # Seeded from static tables; TelemetryCollector updates profiles at runtime.
+        self._policy_set: PolicySet = policy_set or PolicySet()
+        _profiles = profiles or build_default_profiles()
+        self._policy_engine = PolicyEngine()
+        self._telemetry = TelemetryCollector(_profiles)
+        self._planner = ConstraintPlanner(
+            profiles=_profiles,
+            policy_engine=self._policy_engine,
+            api_health=self.api_health,
+        )
+
     # ─────────────────────────────────────────
     # Public API
     # ─────────────────────────────────────────
+
+    async def run_job(self, spec: JobSpec) -> "ProjectState":
+        """
+        New first-class entry point accepting a JobSpec with full policy support.
+        Sets the active policy_set and budget for the duration of this run,
+        then delegates to run_project().
+
+        Example:
+            from orchestrator import JobSpec, Budget, PolicySet, Policy, TaskType
+            spec = JobSpec(
+                project_description="Build auth service",
+                success_criteria="Tests pass",
+                budget=Budget(max_usd=8.0),
+                policy_set=PolicySet(global_policies=[
+                    Policy("gdpr", allow_training_on_output=False),
+                ]),
+                quality_targets={TaskType.CODE_GEN: 0.90},
+            )
+            state = await orch.run_job(spec)
+        """
+        self._policy_set = spec.policy_set
+        self.budget = spec.budget
+        # Apply quality_targets: override Task acceptance_threshold per type at execute time
+        # (engine._execute_task uses task.acceptance_threshold which was set in __post_init__)
+        # Store for use in _execute_task if overrides exist
+        self._quality_targets: dict[TaskType, float] = spec.quality_targets
+        return await self.run_project(spec.project_description, spec.success_criteria)
 
     async def run_project(self, project_description: str,
                           success_criteria: str,
@@ -266,7 +311,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         Core loop: generate → critique → revise → evaluate
         With plateau detection and deterministic validation.
         """
-        models = self._get_available_models(task.type)
+        models = self._get_available_models(task.type, task_id=task.id)
         if not models:
             return TaskResult(
                 task_id=task.id, output="", score=0.0,
@@ -275,7 +320,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             )
 
         primary = models[0]
-        reviewer = self._select_reviewer(primary, task.type)
+        reviewer = self._select_reviewer(primary, task.type, task_id=task.id)
 
         # Build context from dependencies
         context = self._gather_dependency_context(task.dependencies)
@@ -311,12 +356,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 gen_cost = gen_response.cost_usd
                 self.budget.charge(gen_cost, "generation")
                 total_cost += gen_cost
+                self._telemetry.record_call(primary, gen_response.latency_ms, gen_cost, True)
             except Exception as e:
                 logger.error(f"Generation failed for {task.id}: {e}")
                 self.api_health[primary] = False
+                self._telemetry.record_call(primary, 0.0, 0.0, False)
                 degraded_count += 1
-                # Try fallback
-                fb = self._get_fallback(primary)
+                # Try adaptive replan
+                fb = self._get_fallback(primary, task_type=task.type, task_id=task.id)
                 if fb:
                     try:
                         gen_response = await self.client.call(
@@ -395,8 +442,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # ── EVALUATE ──
             if det_passed:
                 score = await self._evaluate(task, output)
+                # Feed evaluator score back to TelemetryCollector so the planner
+                # learns which models produce high-quality output over time.
+                self._telemetry.record_call(
+                    primary, 0.0, 0.0, True, quality_score=score
+                )
             else:
                 score = 0.0  # Override: deterministic failure
+                self._telemetry.record_call(primary, 0.0, 0.0, False)
 
             self.budget.charge(0.0, "evaluation")  # cost tracked in _evaluate
             total_cost += 0  # _evaluate charges internally
@@ -516,51 +569,76 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     # Model selection & fallback
     # ─────────────────────────────────────────
 
-    def _get_available_models(self, task_type: TaskType) -> list[Model]:
-        candidates = ROUTING_TABLE.get(task_type, [])
-        available = [m for m in candidates if self.api_health.get(m, False)]
-        if not available:
-            # Any healthy model
-            available = [m for m in Model if self.api_health.get(m, False)]
-        return available
+    def _get_available_models(self, task_type: TaskType,
+                               task_id: str = "") -> list[Model]:
+        """
+        Policy-driven model selection via ConstraintPlanner.
+        Returns [best_model] if a compliant candidate exists, or falls back
+        to any healthy model (legacy behaviour) if the planner returns None.
+
+        The backwards-compatible list[Model] return type is preserved so that
+        callers that use models[0] continue to work without changes.
+        """
+        policies = self._policy_set.policies_for(task_id)
+        best = self._planner.select_model(
+            task_type=task_type,
+            policies=policies,
+            budget_remaining=self.budget.remaining_usd,
+            task_id=task_id,
+        )
+        if best is None:
+            # No planner result — legacy fallback to any healthy model
+            return [m for m in Model if self.api_health.get(m, False)]
+        return [best]
 
     def _get_cheapest_available(self) -> Model:
-        """Return cheapest healthy model for utility tasks."""
+        """Return cheapest healthy model for utility tasks (decomposition)."""
         from .models import COST_TABLE
         healthy = [m for m in Model if self.api_health.get(m, False)]
         if not healthy:
             raise RuntimeError("No healthy models available")
         return min(healthy, key=lambda m: COST_TABLE[m]["output"])
 
-    def _select_reviewer(self, generator: Model, task_type: TaskType) -> Optional[Model]:
+    def _select_reviewer(self, generator: Model, task_type: TaskType,
+                          task_id: str = "") -> Optional[Model]:
         """
-        Select reviewer from different provider than generator.
-        Counterfactual: Same-provider review → vulnerability Ψ:
-        shared training biases cause systematic blind spots.
+        Policy-compliant cross-provider reviewer selection via ConstraintPlanner.
+        Invariant preserved: reviewer provider ≠ generator provider when possible.
+        Counterfactual: Same-provider review → shared training biases (blind spots).
         """
-        gen_provider = get_provider(generator)
-        candidates = self._get_available_models(task_type)
+        policies = self._policy_set.policies_for(task_id)
+        return self._planner.select_reviewer(
+            generator=generator,
+            task_type=task_type,
+            policies=policies,
+            budget_remaining=self.budget.remaining_usd,
+        )
 
-        for c in candidates:
-            if get_provider(c) != gen_provider:
-                return c
+    def _get_fallback(self, failed_model: Model,
+                      task_type: Optional[TaskType] = None,
+                      task_id: str = "") -> Optional[Model]:
+        """
+        Adaptive re-planning via ConstraintPlanner.replan() when task_type is known.
+        Falls back to legacy FALLBACK_CHAIN logic for decomposition calls
+        (which have no task_type context).
+        """
+        if task_type is None:
+            # Legacy code path: decomposition or callers without task_type context
+            fb = FALLBACK_CHAIN.get(failed_model)
+            if fb and self.api_health.get(fb, False):
+                return fb
+            for m in Model:
+                if m != failed_model and self.api_health.get(m, False):
+                    return m
+            return None
 
-        # If all same provider, use different tier
-        for c in candidates:
-            if c != generator:
-                return c
-
-        return None  # No reviewer available
-
-    def _get_fallback(self, failed_model: Model) -> Optional[Model]:
-        fb = FALLBACK_CHAIN.get(failed_model)
-        if fb and self.api_health.get(fb, False):
-            return fb
-        # Any healthy model
-        for m in Model:
-            if m != failed_model and self.api_health.get(m, False):
-                return m
-        return None
+        policies = self._policy_set.policies_for(task_id)
+        return self._planner.replan(
+            failed_model=failed_model,
+            task_type=task_type,
+            policies=policies,
+            budget_remaining=self.budget.remaining_usd,
+        )
 
     # ─────────────────────────────────────────
     # DAG & dependency management
