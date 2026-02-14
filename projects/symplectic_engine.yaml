@@ -1,0 +1,115 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Symplectic Game Physics Engine
+# ──────────────────────────────────────────────────────────────────────────────
+# Τρέξε με:
+#   python -m orchestrator --file projects/symplectic_engine.yaml
+# ──────────────────────────────────────────────────────────────────────────────
+
+project: |
+  Build a 2D symplectic physics engine in Python using Pygame.
+
+  The engine must implement the following components:
+
+  1. INTEGRATORS (core/integrators.py)
+     Five integrators as pure functions f(x, v, a, dt) -> (x_new, v_new):
+     - naive_euler: x += v*dt, v += a*dt  (intentionally unstable)
+     - symplectic_euler: v += a*dt, x += v_new*dt  (one-line fix)
+     - stormer_verlet: position-only Verlet (requires x_prev)
+     - velocity_verlet / leapfrog: half-kick → drift → half-kick
+     - yoshida4: 4th-order composition of 3 Verlet sub-steps with
+       coefficients w0 = -2^(1/3)/(2-2^(1/3)), w1 = 1/(2-2^(1/3))
+
+  2. PHYSICS WORLD (core/world.py, core/bodies.py)
+     - RigidBody dataclass: mass, position (Vec2), velocity (Vec2),
+       force accumulator, radius
+     - PhysicsWorld: list of bodies, tick(dt, integrator), reset(),
+       add_body(), apply_gravity(), detect_collisions()
+     - Spring constraint between two bodies (Hooke's law)
+     - Hamiltonian calculator: H = sum(0.5*m*v² + V) for the scene
+
+  3. THREE PHYSICS SCENES (scenes/)
+     a) double_pendulum.py
+        - Two-link pendulum: angles θ1, θ2 as generalised coordinates
+        - Full nonlinear equations of motion (no small-angle approximation)
+        - Draws pivot, rod1, bob1, rod2, bob2
+        - Leaves a fading trail (last 300 positions) on each bob
+
+     b) billiards.py
+        - N=20 balls in a closed box, elastic collisions (coefficient of
+          restitution = 1.0)
+        - Maxwell-Boltzmann temperature display: T = mean(m*v²) / k_B
+        - Color-codes balls by current speed (blue=slow, red=fast)
+
+     c) cloth.py
+        - 20x20 mass-spring grid, top row pinned (fixed)
+        - Springs: structural (horizontal/vertical) + shear (diagonal)
+        - Mouse interaction: left-click-drag pulls nearest node
+        - Gravity pulls the cloth downward
+
+  4. SPLIT-SCREEN RENDERER (renderer/split_view.py)
+     - 1280x720 window divided vertically: left = Euler, right = user-
+       selected symplectic integrator
+     - Both worlds tick from identical initial conditions each reset
+     - Left panel has a red "UNSTABLE" overlay when |H| > 10 * |H0|
+     - Right panel label shows the active integrator name
+
+  5. HUD (renderer/hud.py)
+     - dt slider: range 0.001 to 0.50, logarithmic, updated every frame
+     - Integrator selector for right panel:
+       [Symplectic Euler | Verlet | Leapfrog | Yoshida4]
+     - Scene selector: [Double Pendulum | Billiards | Cloth]
+     - Per-panel live Hamiltonian value: "H = 847.3 J"
+     - FPS counter (top-right)
+     - [R] key resets both worlds to identical initial conditions
+
+  6. ENERGY PLOT PANEL (renderer/energy_plot.py)
+     - Toggled with [E] key; renders below the split view (window expands)
+     - Plots H(t) for both integrators as separate coloured lines
+     - X-axis: last 10 seconds of simulation time
+     - Y-axis: auto-scaled, marks H0 as a dashed horizontal line
+     - Uses pygame.draw (no matplotlib dependency at runtime)
+
+  7. MAIN ENTRY POINT (main.py)
+     - Parses optional --scene argument (default: double_pendulum)
+     - Initialises Pygame, creates SplitView, runs at 60 FPS target
+     - Clean exit on window close or [Q] key
+
+  8. UNIT TESTS (tests/test_integrators.py)
+     - For each integrator, simulate a simple harmonic oscillator
+       (m=1, k=1, x0=1, v0=0) for 1000 steps at dt=0.01
+     - Assert: symplectic integrators keep |ΔH/H0| < 1e-3 over all steps
+     - Assert: naive Euler's energy grows monotonically (ΔH > 0 per step
+       on average)
+     - Assert: Yoshida4 keeps |ΔH/H0| < 1e-6 (higher-order accuracy)
+
+criteria: |
+  - All 5 integrators pass the harmonic oscillator unit tests with the
+    thresholds specified above
+  - Split-screen renders both worlds simultaneously at >= 30 FPS with
+    the double pendulum scene and dt=0.02
+  - The "UNSTABLE" overlay appears on the Euler panel within 5 simulated
+    seconds when dt >= 0.05 for the double pendulum scene
+  - The dt slider smoothly changes timestep; both worlds reset to
+    identical initial conditions when [R] is pressed
+  - Cloth simulation responds to mouse drag without crashing
+  - Energy plot panel toggles correctly with [E] key and shows diverging
+    Euler line vs stable symplectic line
+  - All source files pass ruff linting (line-length 100)
+  - All public classes and functions have docstrings and type hints
+  - README.md includes: installation instructions, controls reference,
+    and a one-paragraph explanation of why symplectic integrators
+    preserve energy structure
+
+budget_usd: 4.0
+time_seconds: 3600
+project_id: "symplectic-engine-v1"
+
+quality_targets:
+  code_generation:   0.92
+  code_review:       0.90
+  complex_reasoning: 0.95
+  evaluation:        0.93
+
+policies:
+  - name: no_training
+    allow_training_on_output: false
