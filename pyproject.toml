@@ -12,6 +12,7 @@ dependencies = [
     "anthropic>=0.30",
     "google-genai>=1.0",
     "aiosqlite>=0.19",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
