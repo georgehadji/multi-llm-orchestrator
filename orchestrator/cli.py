@@ -3,6 +3,10 @@
 CLI Entry Point — run orchestrator from terminal
 =================================================
 Usage:
+    # From a YAML project file (recommended):
+    python -m orchestrator --file projects/my_project.yaml
+
+    # Inline flags:
     python -m orchestrator.cli --project "Build a FastAPI auth service" \
                                --criteria "All tests pass, docs complete" \
                                --budget 8.0 --time 5400
@@ -19,6 +23,7 @@ import sys
 from .models import Budget
 from .engine import Orchestrator
 from .state import StateManager
+from .project_file import load_project_file
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -34,8 +39,18 @@ def setup_logging(verbose: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Multi-LLM Orchestrator — Local AI Project Runner"
+        description="Multi-LLM Orchestrator — Local AI Project Runner",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  python -m orchestrator --file projects/my_project.yaml\n"
+            "  python -m orchestrator -p 'Build a CLI tool' -c 'Tests pass' -b 3.0\n"
+            "  python -m orchestrator --resume abc123\n"
+            "  python -m orchestrator --list-projects\n"
+        ),
     )
+    parser.add_argument("--file", "-f", type=str, default="",
+                        help="Path to a YAML project file (overrides --project/--criteria)")
     parser.add_argument("--project", "-p", type=str, help="Project description")
     parser.add_argument("--criteria", "-c", type=str, help="Success criteria")
     parser.add_argument("--budget", "-b", type=float, default=8.0,
@@ -55,6 +70,47 @@ def main():
     args = parser.parse_args()
     setup_logging(args.verbose)
     logger = logging.getLogger("orchestrator.cli")
+
+    # ── Load from YAML file ────────────────────────────────────────────────────
+    if args.file:
+        try:
+            result = load_project_file(args.file)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        spec = result.spec
+        concurrency = result.concurrency
+        # CLI flags override file values if explicitly provided
+        project_id = result.project_id if not args.project_id else args.project_id
+        if args.verbose:
+            setup_logging(verbose=True)
+
+        orch = Orchestrator(
+            budget=spec.budget,
+            policy_set=spec.policy_set,
+            max_concurrency=concurrency,
+        )
+
+        print(f"Project file : {args.file}")
+        print(f"Project      : {spec.project_description[:80]}")
+        print(f"Budget       : ${spec.budget.max_usd} / {spec.budget.max_time_seconds}s")
+        if spec.policy_set.global_policies:
+            names = [p.name for p in spec.policy_set.global_policies]
+            print(f"Policies     : {', '.join(names)}")
+        if spec.quality_targets:
+            qt = {k.value: v for k, v in spec.quality_targets.items()}
+            print(f"Quality      : {qt}")
+        print("-" * 60)
+
+        state = asyncio.run(orch.run_job(spec) if project_id == "" else
+                            orch.run_project(
+                                spec.project_description,
+                                spec.success_criteria,
+                                project_id=project_id,
+                            ))
+        _print_results(state)
+        return
 
     # List projects
     if args.list_projects:
