@@ -13,6 +13,7 @@ Schema reference (all fields except `project` and `criteria` are optional):
     concurrency: 3                          # default 3
     verbose: false                          # default false
     project_id: "my-project-v1"            # default: auto-generated
+    output_dir: "./results"                # optional: write output files here
     quality_targets:
       code_generation: 0.90
       code_review:     0.88
@@ -54,6 +55,7 @@ class ProjectFileResult:
     concurrency: int
     verbose: bool
     project_id: str
+    output_dir: Optional[str] = None   # write output files here (optional)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -104,6 +106,8 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
     concurrency = int(raw.get("concurrency", 3))
     verbose = bool(raw.get("verbose", False))
     project_id = str(raw.get("project_id", "")).strip()
+    output_dir_raw = raw.get("output_dir", None)
+    output_dir: Optional[str] = str(output_dir_raw).strip() if output_dir_raw else None
 
     # ── Quality targets ───────────────────────────────────────────────────────
     quality_targets: dict[TaskType, float] = {}
@@ -138,6 +142,7 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
         concurrency=concurrency,
         verbose=verbose,
         project_id=project_id,
+        output_dir=output_dir,
     )
 
 

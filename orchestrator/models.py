@@ -128,12 +128,12 @@ DEFAULT_THRESHOLDS: dict[TaskType, float] = {
 }
 
 MAX_OUTPUT_TOKENS: dict[TaskType, int] = {
-    TaskType.CODE_GEN:     1500,
-    TaskType.CODE_REVIEW:  1200,
-    TaskType.REASONING:    1200,
-    TaskType.WRITING:      1000,
-    TaskType.DATA_EXTRACT: 800,
-    TaskType.SUMMARIZE:    400,
+    TaskType.CODE_GEN:     4096,  # raised: LLM was truncating mid-class at 1500
+    TaskType.CODE_REVIEW:  2048,  # raised: review needs room for full analysis
+    TaskType.REASONING:    2048,
+    TaskType.WRITING:      2048,
+    TaskType.DATA_EXTRACT: 1024,
+    TaskType.SUMMARIZE:    512,
     TaskType.EVALUATE:     600,
 }
 

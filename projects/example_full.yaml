@@ -34,6 +34,14 @@ verbose: false           # true = debug logging
 # Ορίζοντάς το μπορείς να κάνεις resume αν διακοπεί.
 project_id: "rate-limiter-v1"
 
+# ── Output directory (προαιρετικό) ────────────────────
+# Αν οριστεί, τα αποτελέσματα γράφονται σε αρχεία:
+#   .py  για code_generation tasks
+#   .md  για code_review / reasoning / writing / evaluation
+#   .json για data_extraction (fallback .md αν δεν είναι JSON)
+# + summary.json και README.md
+# output_dir: "./results/rate-limiter-v1"
+
 # ── Quality targets (ανά task type) ──────────────────
 # Τιμές 0.0–1.0. Default είναι τα DEFAULT_THRESHOLDS του κώδικα.
 quality_targets:

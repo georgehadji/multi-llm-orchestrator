@@ -25,6 +25,7 @@ from .models import Budget
 from .engine import Orchestrator
 from .state import StateManager
 from .project_file import load_project_file
+from .output_writer import write_output_dir
 
 
 def setup_logging(verbose: bool = False):
@@ -68,6 +69,9 @@ async def _async_resume(args):
         project_id=args.resume,
     )
     _print_results(state)
+    if args.output_dir:
+        path = write_output_dir(state, args.output_dir, project_id=args.resume)
+        print(f"\nOutput written to: {path}")
 
 
 async def _async_file_project(args):
@@ -82,6 +86,8 @@ async def _async_file_project(args):
     concurrency = args.concurrency if args.concurrency != 3 else result.concurrency
     # Re-apply logging with file's verbose setting merged with CLI flag
     setup_logging(args.verbose or result.verbose)
+    # CLI --output-dir overrides YAML output_dir
+    output_dir = args.output_dir or result.output_dir or ""
 
     budget = spec.budget
 
@@ -89,6 +95,8 @@ async def _async_file_project(args):
     print(f"Loading project from: {args.file}")
     print(f"Project: {spec.project_description[:80]}")
     print(f"Budget: ${budget.max_usd} / {budget.max_time_seconds}s")
+    if output_dir:
+        print(f"Output dir: {output_dir}")
     print("-" * 60)
 
     orch = Orchestrator(budget=budget, max_concurrency=concurrency)
@@ -99,6 +107,9 @@ async def _async_file_project(args):
         project_id=result.project_id,
     )
     _print_results(state)
+    if output_dir:
+        path = write_output_dir(state, output_dir, project_id=orch._project_id)
+        print(f"\nOutput written to: {path}")
 
 
 async def _async_new_project(args):
@@ -116,6 +127,9 @@ async def _async_new_project(args):
         project_id=args.project_id,
     )
     _print_results(state)
+    if args.output_dir:
+        path = write_output_dir(state, args.output_dir, project_id=orch._project_id)
+        print(f"\nOutput written to: {path}")
 
 
 def main():
@@ -139,6 +153,8 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--file", "-f", type=str, default="",
                         help="Load project spec from a YAML file")
+    parser.add_argument("--output-dir", "-o", type=str, default="",
+                        help="Write structured output files to this directory")
 
     args = parser.parse_args()
     setup_logging(args.verbose)

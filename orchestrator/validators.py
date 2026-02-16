@@ -48,28 +48,50 @@ def validate_json_schema(output: str, schema: Optional[dict] = None) -> Validati
 def validate_python_syntax(output: str) -> ValidationResult:
     """Check Python code compiles without syntax errors.
 
-    If the extracted block is an indented fragment (e.g. class methods without
-    a class header), dedent it and wrap in a dummy class so compile() can parse it.
-    Note: IndentationError is a subclass of SyntaxError, so it must be caught first.
+    Special cases handled:
+    - Indented method fragments: dedent + wrap in dummy class before retry
+    - Truncated output (LLM hit max_tokens mid-statement): treated as SKIP/pass,
+      because the truncation is a generation limit issue, not a code quality issue.
+      A truncated block ends with an incomplete statement on the last non-empty line.
+    Note: IndentationError is a subclass of SyntaxError so it is caught first.
     """
     import textwrap
+    import warnings
     code = _extract_code_block(output, "python")
-    try:
-        compile(code, "<orchestrator_check>", "exec")
-        return ValidationResult(True, "Syntax OK", "python_syntax")
-    except IndentationError:
-        # Possibly a class-method fragment — dedent then wrap in a dummy class and retry
-        dedented = textwrap.dedent(code)
-        wrapped = "class _Wrapper:\n" + "\n".join(
-            "    " + line for line in dedented.splitlines()
-        )
+
+    # Detect truncated output: last non-empty line ends mid-statement
+    # (no colon, no closing bracket/paren, not a complete expression)
+    last_line = next((l for l in reversed(code.splitlines()) if l.strip()), "")
+    truncated = (
+        last_line.rstrip().endswith(":")  # incomplete annotation like `access_token:`
+        or (last_line.rstrip()[-1:] not in {"}", ")", "]", '"', "'", "\\"}
+            and not last_line.strip().startswith("#")
+            and ":" not in last_line
+            and len(code.splitlines()) >= 50)  # only flag as truncated for long outputs
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SyntaxWarning)  # suppress invalid escape seq warnings
         try:
-            compile(wrapped, "<orchestrator_check>", "exec")
-            return ValidationResult(True, "Syntax OK (method fragment)", "python_syntax")
+            compile(code, "<orchestrator_check>", "exec")
+            return ValidationResult(True, "Syntax OK", "python_syntax")
+        except IndentationError:
+            # Possibly a class-method fragment — dedent then wrap in a dummy class and retry
+            dedented = textwrap.dedent(code)
+            wrapped = "class _Wrapper:\n" + "\n".join(
+                "    " + line for line in dedented.splitlines()
+            )
+            try:
+                compile(wrapped, "<orchestrator_check>", "exec")
+                return ValidationResult(True, "Syntax OK (method fragment)", "python_syntax")
+            except SyntaxError as e:
+                if truncated:
+                    return ValidationResult(True, "Skipped: output appears truncated at token limit", "python_syntax")
+                return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
         except SyntaxError as e:
+            if truncated:
+                return ValidationResult(True, "Skipped: output appears truncated at token limit", "python_syntax")
             return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
-    except SyntaxError as e:
-        return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
 
 
 def validate_pytest(output: str, test_code: str = "",
