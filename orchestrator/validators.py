@@ -4,15 +4,16 @@ Deterministic Validators
 Non-negotiable checks that override LLM-based scoring.
 If deterministic check fails → score = 0.0 regardless of LLM evaluation.
 
-Counterfactual: Without deterministic validators → vulnerability Ψ:
-LLM evaluator gives high score to syntactically broken code or
-structurally invalid data, causing cascading downstream failures.
+FIX #1: validate_ruff now cleans up temp files via try/finally.
+FIX #8: run_validators filters kwargs per-validator using inspect.signature.
 """
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -47,7 +48,6 @@ def validate_json_schema(output: str, schema: Optional[dict] = None) -> Validati
 def validate_python_syntax(output: str) -> ValidationResult:
     """Check Python code compiles without syntax errors."""
     try:
-        # Extract code from markdown fences if present
         code = _extract_code_block(output, "python")
         compile(code, "<orchestrator_check>", "exec")
         return ValidationResult(True, "Syntax OK", "python_syntax")
@@ -74,7 +74,6 @@ def validate_pytest(output: str, test_code: str = "",
             test_content = f"from generated_code import *\n\n{test_code}"
             test_path.write_text(test_content)
         else:
-            # If no explicit tests, at least check import
             test_path = Path(tmpdir) / "test_import.py"
             test_path.write_text(
                 "def test_import():\n    import generated_code\n"
@@ -91,7 +90,8 @@ def validate_pytest(output: str, test_code: str = "",
             else:
                 return ValidationResult(
                     False,
-                    f"Tests failed (exit {result.returncode}):\n{result.stdout[-500:]}\n{result.stderr[-300:]}",
+                    f"Tests failed (exit {result.returncode}):\n"
+                    f"{result.stdout[-500:]}\n{result.stderr[-300:]}",
                     "pytest"
                 )
         except subprocess.TimeoutExpired:
@@ -101,32 +101,47 @@ def validate_pytest(output: str, test_code: str = "",
 
 
 def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
-    """Run ruff linter on generated Python code."""
+    """
+    Run ruff linter on generated Python code.
+    FIX #1: Temp file is always cleaned up via try/finally.
+    """
     code = _extract_code_block(output, "python")
     if not code.strip():
         return ValidationResult(False, "No Python code found", "ruff")
 
-    with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
-        f.write(code)
-        f.flush()
-        try:
-            result = subprocess.run(
-                ["ruff", "check", f.name, "--select=E,F", "--ignore=E402,F401"],
-                capture_output=True, text=True, timeout=timeout,
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False
+        ) as f:
+            tmp_path = f.name
+            f.write(code)
+            f.flush()
+
+        result = subprocess.run(
+            ["ruff", "check", tmp_path, "--select=E,F"],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        if result.returncode == 0:
+            return ValidationResult(True, "No lint errors", "ruff")
+        else:
+            return ValidationResult(
+                False,
+                f"Lint issues:\n{result.stdout[-500:]}",
+                "ruff"
             )
-            if result.returncode == 0:
-                return ValidationResult(True, "No lint errors", "ruff")
-            else:
-                return ValidationResult(
-                    False,
-                    f"Lint issues:\n{result.stdout[-500:]}",
-                    "ruff"
-                )
-        except FileNotFoundError:
-            logger.warning("ruff not installed, skipping lint check")
-            return ValidationResult(True, "ruff not available, skipped", "ruff")
-        except subprocess.TimeoutExpired:
-            return ValidationResult(False, "ruff timed out", "ruff")
+    except FileNotFoundError:
+        logger.warning("ruff not installed, skipping lint check")
+        return ValidationResult(True, "ruff not available, skipped", "ruff")
+    except subprocess.TimeoutExpired:
+        return ValidationResult(False, "ruff timed out", "ruff")
+    finally:
+        # FIX #1: Always clean up temp file
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def validate_latex(output: str, timeout: int = 30) -> ValidationResult:
@@ -184,6 +199,23 @@ VALIDATORS = {
 }
 
 
+def _filter_kwargs_for(fn, kwargs: dict) -> dict:
+    """
+    FIX #8: Only pass kwargs that the validator function actually accepts.
+    Prevents TypeError from mismatched signatures.
+    """
+    sig = inspect.signature(fn)
+    params = sig.parameters
+    # If function has **kwargs, pass everything
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return kwargs
+    accepted = {k for k, p in params.items()
+                if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                              inspect.Parameter.KEYWORD_ONLY)
+                and k != "output"}  # 'output' is positional arg
+    return {k: v for k, v in kwargs.items() if k in accepted}
+
+
 def run_validators(output: str, validator_names: list[str],
                    **kwargs) -> list[ValidationResult]:
     """Run all specified validators. Returns list of results."""
@@ -192,7 +224,8 @@ def run_validators(output: str, validator_names: list[str],
         fn = VALIDATORS.get(name)
         if fn:
             try:
-                result = fn(output, **kwargs)
+                filtered = _filter_kwargs_for(fn, kwargs)
+                result = fn(output, **filtered)
                 results.append(result)
             except Exception as e:
                 results.append(ValidationResult(False, f"Validator crash: {e}", name))
@@ -212,15 +245,12 @@ def all_validators_pass(results: list[ValidationResult]) -> bool:
 def _extract_code_block(text: str, language: str = "python") -> str:
     """Extract first code block from markdown-fenced output."""
     import re
-    # Try fenced block first
     pattern = rf"```{language}\s*\n(.*?)```"
     match = re.search(pattern, text, re.DOTALL)
     if match:
         return match.group(1)
-    # Try generic fence
     pattern = r"```\s*\n(.*?)```"
     match = re.search(pattern, text, re.DOTALL)
     if match:
         return match.group(1)
-    # Assume entire output is code
     return text

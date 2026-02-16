@@ -5,11 +5,10 @@ Implements the full generate → critique → revise → evaluate pipeline
 with cross-model review, deterministic validation, budget enforcement,
 plateau detection, and fallback routing.
 
-Architecture decisions (Nash Equilibrium analysis):
-- Path A: Single-model with self-review → fast, cheap, low quality ceiling
-- Path B: Multi-model with cross-review → moderate cost, high quality ceiling
-- Path C: All-models consensus → expensive, diminishing returns past 2 reviewers
-→ Selected: Path B (Minimax Regret: worst-case quality is highest)
+FIX #5: Budget checked within iteration loop (mid-task), not just pre-task.
+FIX #6: Topological sort uses collections.deque instead of list.sort()+pop(0).
+FIX #7: Resume restores persisted budget state instead of creating fresh Budget.
+FIX #10: All StateManager calls are now awaited (async migration).
 """
 
 from __future__ import annotations
@@ -20,22 +19,18 @@ import json
 import logging
 import re
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import Optional
 
 from .models import (
     Budget, BUDGET_PARTITIONS, FALLBACK_CHAIN, Model, ProjectState,
     ProjectStatus, ROUTING_TABLE, Task, TaskResult, TaskStatus, TaskType,
-    get_max_iterations, get_provider, estimate_cost, build_default_profiles,
+    get_max_iterations, get_provider, estimate_cost,
 )
 from .api_clients import UnifiedClient, APIResponse
 from .validators import run_validators, all_validators_pass, ValidationResult
 from .cache import DiskCache
 from .state import StateManager
-from .policy import ModelProfile, Policy, PolicySet, JobSpec  # noqa: F401
-from .policy_engine import PolicyEngine, PolicyViolationError  # noqa: F401
-from .planner import ConstraintPlanner
-from .telemetry import TelemetryCollector
 
 logger = logging.getLogger("orchestrator")
 
@@ -47,7 +42,7 @@ class Orchestrator:
     Invariants maintained:
     1. Cross-review always uses different provider than generator
     2. Deterministic validators override LLM scores
-    3. Budget ceiling is never exceeded
+    3. Budget ceiling is never exceeded (checked mid-task per iteration)
     4. State is checkpointed after each task
     5. Plateau detection prevents runaway iteration
     """
@@ -55,9 +50,7 @@ class Orchestrator:
     def __init__(self, budget: Optional[Budget] = None,
                  cache: Optional[DiskCache] = None,
                  state_manager: Optional[StateManager] = None,
-                 max_concurrency: int = 3,
-                 profiles: Optional[dict[Model, ModelProfile]] = None,
-                 policy_set: Optional[PolicySet] = None):
+                 max_concurrency: int = 3):
         self.budget = budget or Budget()
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
@@ -66,61 +59,19 @@ class Orchestrator:
         self.results: dict[str, TaskResult] = {}
         self._project_id: str = ""
 
-        # Check which providers are actually available
         for model in Model:
             if not self.client.is_available(model):
                 self.api_health[model] = False
                 logger.warning(f"{model.value}: provider SDK/key not available")
 
-        # ── Policy-driven constraint solver components ────────────────────────
-        # Seeded from static tables; TelemetryCollector updates profiles at runtime.
-        self._policy_set: PolicySet = policy_set or PolicySet()
-        _profiles = profiles or build_default_profiles()
-        self._policy_engine = PolicyEngine()
-        self._telemetry = TelemetryCollector(_profiles)
-        self._planner = ConstraintPlanner(
-            profiles=_profiles,
-            policy_engine=self._policy_engine,
-            api_health=self.api_health,
-        )
-
     # ─────────────────────────────────────────
     # Public API
     # ─────────────────────────────────────────
 
-    async def run_job(self, spec: JobSpec) -> "ProjectState":
-        """
-        New first-class entry point accepting a JobSpec with full policy support.
-        Sets the active policy_set and budget for the duration of this run,
-        then delegates to run_project().
-
-        Example:
-            from orchestrator import JobSpec, Budget, PolicySet, Policy, TaskType
-            spec = JobSpec(
-                project_description="Build auth service",
-                success_criteria="Tests pass",
-                budget=Budget(max_usd=8.0),
-                policy_set=PolicySet(global_policies=[
-                    Policy("gdpr", allow_training_on_output=False),
-                ]),
-                quality_targets={TaskType.CODE_GEN: 0.90},
-            )
-            state = await orch.run_job(spec)
-        """
-        self._policy_set = spec.policy_set
-        self.budget = spec.budget
-        # Apply quality_targets: override Task acceptance_threshold per type at execute time
-        # (engine._execute_task uses task.acceptance_threshold which was set in __post_init__)
-        # Store for use in _execute_task if overrides exist
-        self._quality_targets: dict[TaskType, float] = spec.quality_targets
-        return await self.run_project(spec.project_description, spec.success_criteria)
-
     async def run_project(self, project_description: str,
                           success_criteria: str,
                           project_id: str = "") -> ProjectState:
-        """
-        Main entry point. Decomposes project → executes tasks → returns state.
-        """
+        """Main entry point. Decomposes project → executes tasks → returns state."""
         if not project_id:
             project_id = hashlib.md5(
                 f"{project_description[:100]}{time.time()}".encode()
@@ -131,7 +82,7 @@ class Orchestrator:
         logger.info(f"Budget: ${self.budget.max_usd}, {self.budget.max_time_seconds}s")
 
         # Check if resumable
-        existing = self.state_mgr.load_project(project_id)
+        existing = await self.state_mgr.load_project(project_id)
         if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
             logger.info(f"Resuming project {project_id} from checkpoint")
             return await self._resume_project(existing)
@@ -155,7 +106,7 @@ class Orchestrator:
 
         # Final status determination
         state.status = self._determine_final_status(state)
-        self.state_mgr.save_project(project_id, state)
+        await self.state_mgr.save_project(project_id, state)
 
         self._log_summary(state)
         return state
@@ -165,10 +116,7 @@ class Orchestrator:
     # ─────────────────────────────────────────
 
     async def _decompose(self, project: str, criteria: str) -> dict[str, Task]:
-        """
-        Use cheapest capable model to break project into atomic tasks.
-        Returns parsed Task objects.
-        """
+        """Use cheapest capable model to break project into atomic tasks."""
         valid_types = [t.value for t in TaskType]
         prompt = f"""You are a project decomposition engine. Break this project into
 atomic, executable tasks.
@@ -205,7 +153,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             return self._parse_decomposition(response.text)
         except Exception as e:
             logger.error(f"Decomposition failed: {e}")
-            # Fallback: try another model
             fallback = self._get_fallback(model)
             if fallback:
                 try:
@@ -223,7 +170,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
     def _parse_decomposition(self, text: str) -> dict[str, Task]:
         """Parse LLM output into Task objects with defensive handling."""
-        # Strip markdown fences if present
         text = text.strip()
         if text.startswith("```"):
             text = re.sub(r"^```\w*\n?", "", text)
@@ -233,7 +179,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         try:
             items = json.loads(text)
         except json.JSONDecodeError:
-            # Try to find JSON array in text
             match = re.search(r'\[.*\]', text, re.DOTALL)
             if match:
                 items = json.loads(match.group())
@@ -270,7 +215,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             success_criteria: str) -> ProjectState:
         """Execute all tasks in dependency order."""
         for task_id in execution_order:
-            # Pre-flight checks
             if not self.budget.can_afford(0.01):
                 logger.warning("Budget exhausted, halting")
                 break
@@ -280,7 +224,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             task = tasks[task_id]
 
-            # Check dependencies met
             deps_ok = all(
                 self.results.get(dep, TaskResult(dep, "", 0.0, Model.GPT_4O_MINI)).status
                 == TaskStatus.COMPLETED
@@ -295,23 +238,22 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 )
                 continue
 
-            # Execute
             result = await self._execute_task(task)
             self.results[task_id] = result
             task.status = result.status
 
-            # Checkpoint
+            # Checkpoint (async)
             state = self._make_state(project_desc, success_criteria, tasks)
-            self.state_mgr.save_checkpoint(self._project_id, task_id, state)
+            await self.state_mgr.save_checkpoint(self._project_id, task_id, state)
 
         return self._make_state(project_desc, success_criteria, tasks)
 
     async def _execute_task(self, task: Task) -> TaskResult:
         """
         Core loop: generate → critique → revise → evaluate
-        With plateau detection and deterministic validation.
+        With plateau detection, deterministic validation, and mid-task budget checks.
         """
-        models = self._get_available_models(task.type, task_id=task.id)
+        models = self._get_available_models(task.type)
         if not models:
             return TaskResult(
                 task_id=task.id, output="", score=0.0,
@@ -320,9 +262,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             )
 
         primary = models[0]
-        reviewer = self._select_reviewer(primary, task.type, task_id=task.id)
+        reviewer = self._select_reviewer(primary, task.type)
 
-        # Build context from dependencies
         context = self._gather_dependency_context(task.dependencies)
         full_prompt = task.prompt
         if context:
@@ -334,14 +275,23 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         total_cost = 0.0
         degraded_count = 0
         scores_history: list[float] = []
-        det_passed = True  # default: True until a deterministic check runs
 
         logger.info(f"Executing {task.id} ({task.type.value}): "
                      f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}")
 
         for iteration in range(task.max_iterations):
+            # FIX #5: Mid-task budget check — estimate minimum cost for one
+            # generate+critique+revise+evaluate cycle (~0.02 USD min)
             if not self.budget.can_afford(0.02):
-                logger.warning(f"Budget low, stopping {task.id} at iteration {iteration}")
+                logger.warning(
+                    f"Budget insufficient mid-task for {task.id} "
+                    f"at iteration {iteration} "
+                    f"(remaining: ${self.budget.remaining_usd:.4f})"
+                )
+                break
+
+            if not self.budget.time_remaining():
+                logger.warning(f"Time limit reached mid-task for {task.id}")
                 break
 
             # ── GENERATE ──
@@ -357,14 +307,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 gen_cost = gen_response.cost_usd
                 self.budget.charge(gen_cost, "generation")
                 total_cost += gen_cost
-                self._telemetry.record_call(primary, gen_response.latency_ms, gen_cost, True)
             except Exception as e:
                 logger.error(f"Generation failed for {task.id}: {e}")
                 self.api_health[primary] = False
-                self._telemetry.record_call(primary, 0.0, 0.0, False)
                 degraded_count += 1
-                # Try adaptive replan
-                fb = self._get_fallback(primary, task_type=task.type, task_id=task.id)
+                fb = self._get_fallback(primary)
                 if fb:
                     try:
                         gen_response = await self.client.call(
@@ -376,12 +323,20 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         output = gen_response.text
                         self.budget.charge(gen_response.cost_usd, "generation")
                         total_cost += gen_response.cost_usd
-                        primary = fb  # Update for this iteration
+                        primary = fb
                     except Exception as e2:
                         logger.error(f"Fallback generation also failed: {e2}")
                         break
                 else:
                     break
+
+            # FIX #5: Re-check budget after generation before critique
+            if not self.budget.can_afford(0.005):
+                logger.warning(f"Budget depleted after generation for {task.id}")
+                scores_history.append(0.0)
+                if not best_output:
+                    best_output = output
+                break
 
             # ── CRITIQUE (cross-model) ──
             critique = ""
@@ -404,7 +359,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     logger.warning(f"Critique failed for {task.id}: {e}")
                     self.api_health[reviewer] = False
                     degraded_count += 1
-                    # Continue without critique
 
             # ── REVISE (if critique exists) ──
             if critique:
@@ -426,7 +380,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     total_cost += revise_response.cost_usd
                 except Exception as e:
                     logger.warning(f"Revision failed for {task.id}: {e}")
-                    # Keep original output
 
             # ── DETERMINISTIC VALIDATION ──
             det_passed = True
@@ -443,18 +396,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # ── EVALUATE ──
             if det_passed:
                 score = await self._evaluate(task, output)
-                # Feed evaluator score back to TelemetryCollector so the planner
-                # learns which models produce high-quality output over time.
-                self._telemetry.record_call(
-                    primary, 0.0, 0.0, True, quality_score=score
-                )
             else:
-                score = 0.0  # Override: deterministic failure
-                self._telemetry.record_call(primary, 0.0, 0.0, False)
+                score = 0.0
 
-            self.budget.charge(0.0, "evaluation")  # cost tracked in _evaluate
-            total_cost += 0  # _evaluate charges internally
-
+            self.budget.charge(0.0, "evaluation")
             scores_history.append(score)
 
             if score > best_score:
@@ -472,14 +417,12 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 logger.info(f"  {task.id}: threshold met at iteration {iteration + 1}")
                 break
 
-            # Plateau detection: Δscore < 0.02 for 2 consecutive
             if len(scores_history) >= 2:
                 delta = abs(scores_history[-1] - scores_history[-2])
                 if delta < 0.02:
                     logger.info(f"  {task.id}: plateau detected (Δ={delta:.4f})")
                     break
 
-        # Determine status
         status = TaskStatus.COMPLETED if best_score >= task.acceptance_threshold else TaskStatus.DEGRADED
         if best_score == 0.0 and not det_passed:
             status = TaskStatus.FAILED
@@ -499,13 +442,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         )
 
     async def _evaluate(self, task: Task, output: str) -> float:
-        """
-        LLM-based scoring. Uses evaluation-tier model.
-        Self-consistency: runs twice, checks Δ ≤ 0.05.
-        """
+        """LLM-based scoring with self-consistency (2 runs, Δ ≤ 0.05)."""
         eval_models = self._get_available_models(TaskType.EVALUATE)
         if not eval_models:
-            return 0.5  # Can't evaluate, return neutral score
+            return 0.5
 
         eval_model = eval_models[0]
         eval_prompt = (
@@ -518,13 +458,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         )
 
         scores = []
-        for run in range(2):  # Two runs for self-consistency
+        for run in range(2):
             try:
                 response = await self.client.call(
                     eval_model, eval_prompt,
                     system="You are a precise evaluator. Score exactly, return only JSON.",
                     max_tokens=300,
-                    temperature=0.1,  # Low temp for consistency
+                    temperature=0.1,
                     timeout=30,
                 )
                 self.budget.charge(response.cost_usd, "evaluation")
@@ -547,9 +487,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         return scores[0] if scores else 0.5
 
     def _parse_score(self, text: str) -> float:
-        """Extract score from LLM evaluation response."""
         text = text.strip()
-        # Try JSON parse
         try:
             if text.startswith("```"):
                 text = re.sub(r"^```\w*\n?", "", text)
@@ -559,7 +497,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             return max(0.0, min(1.0, score))
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
-        # Try regex fallback
         match = re.search(r'"?score"?\s*[:=]\s*([0-9]*\.?[0-9]+)', text)
         if match:
             return max(0.0, min(1.0, float(match.group(1))))
@@ -570,83 +507,52 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     # Model selection & fallback
     # ─────────────────────────────────────────
 
-    def _get_available_models(self, task_type: TaskType,
-                               task_id: str = "") -> list[Model]:
-        """
-        Policy-driven model selection via ConstraintPlanner.
-        Returns [best_model] if a compliant candidate exists, or falls back
-        to any healthy model (legacy behaviour) if the planner returns None.
-
-        The backwards-compatible list[Model] return type is preserved so that
-        callers that use models[0] continue to work without changes.
-        """
-        policies = self._policy_set.policies_for(task_id)
-        best = self._planner.select_model(
-            task_type=task_type,
-            policies=policies,
-            budget_remaining=self.budget.remaining_usd,
-            task_id=task_id,
-        )
-        if best is None:
-            # No planner result — legacy fallback to any healthy model
-            return [m for m in Model if self.api_health.get(m, False)]
-        return [best]
+    def _get_available_models(self, task_type: TaskType) -> list[Model]:
+        candidates = ROUTING_TABLE.get(task_type, [])
+        available = [m for m in candidates if self.api_health.get(m, False)]
+        if not available:
+            available = [m for m in Model if self.api_health.get(m, False)]
+        return available
 
     def _get_cheapest_available(self) -> Model:
-        """Return cheapest healthy model for utility tasks (decomposition)."""
         from .models import COST_TABLE
         healthy = [m for m in Model if self.api_health.get(m, False)]
         if not healthy:
             raise RuntimeError("No healthy models available")
         return min(healthy, key=lambda m: COST_TABLE[m]["output"])
 
-    def _select_reviewer(self, generator: Model, task_type: TaskType,
-                          task_id: str = "") -> Optional[Model]:
-        """
-        Policy-compliant cross-provider reviewer selection via ConstraintPlanner.
-        Invariant preserved: reviewer provider ≠ generator provider when possible.
-        Counterfactual: Same-provider review → shared training biases (blind spots).
-        """
-        policies = self._policy_set.policies_for(task_id)
-        return self._planner.select_reviewer(
-            generator=generator,
-            task_type=task_type,
-            policies=policies,
-            budget_remaining=self.budget.remaining_usd,
-        )
+    def _select_reviewer(self, generator: Model, task_type: TaskType) -> Optional[Model]:
+        gen_provider = get_provider(generator)
+        candidates = self._get_available_models(task_type)
 
-    def _get_fallback(self, failed_model: Model,
-                      task_type: Optional[TaskType] = None,
-                      task_id: str = "") -> Optional[Model]:
-        """
-        Adaptive re-planning via ConstraintPlanner.replan() when task_type is known.
-        Falls back to legacy FALLBACK_CHAIN logic for decomposition calls
-        (which have no task_type context).
-        """
-        if task_type is None:
-            # Legacy code path: decomposition or callers without task_type context
-            fb = FALLBACK_CHAIN.get(failed_model)
-            if fb and self.api_health.get(fb, False):
-                return fb
-            for m in Model:
-                if m != failed_model and self.api_health.get(m, False):
-                    return m
-            return None
+        for c in candidates:
+            if get_provider(c) != gen_provider:
+                return c
 
-        policies = self._policy_set.policies_for(task_id)
-        return self._planner.replan(
-            failed_model=failed_model,
-            task_type=task_type,
-            policies=policies,
-            budget_remaining=self.budget.remaining_usd,
-        )
+        for c in candidates:
+            if c != generator:
+                return c
+
+        return None
+
+    def _get_fallback(self, failed_model: Model) -> Optional[Model]:
+        fb = FALLBACK_CHAIN.get(failed_model)
+        if fb and self.api_health.get(fb, False):
+            return fb
+        for m in Model:
+            if m != failed_model and self.api_health.get(m, False):
+                return m
+        return None
 
     # ─────────────────────────────────────────
     # DAG & dependency management
     # ─────────────────────────────────────────
 
     def _topological_sort(self, tasks: dict[str, Task]) -> list[str]:
-        """Kahn's algorithm with cycle detection."""
+        """
+        Kahn's algorithm with cycle detection.
+        FIX #6: Uses deque for O(1) popleft instead of list.sort()+pop(0) O(n²).
+        """
         in_degree = {tid: 0 for tid in tasks}
         graph = defaultdict(list)
 
@@ -656,29 +562,30 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     graph[dep].append(tid)
                     in_degree[tid] += 1
 
-        queue = [tid for tid, deg in in_degree.items() if deg == 0]
+        # Sort initial zero-degree nodes for determinism, then use deque
+        queue = deque(sorted(tid for tid, deg in in_degree.items() if deg == 0))
         result = []
 
         while queue:
-            # Sort for determinism
-            queue.sort()
-            node = queue.pop(0)
+            node = queue.popleft()
             result.append(node)
+            # Sort neighbors for deterministic ordering before extending
+            newly_ready = []
             for neighbor in graph[node]:
                 in_degree[neighbor] -= 1
                 if in_degree[neighbor] == 0:
-                    queue.append(neighbor)
+                    newly_ready.append(neighbor)
+            newly_ready.sort()
+            queue.extend(newly_ready)
 
         if len(result) != len(tasks):
             cycle_tasks = set(tasks.keys()) - set(result)
             logger.error(f"Dependency cycle detected involving: {cycle_tasks}")
-            # Include non-cyclic tasks, skip cyclic ones
             return result
 
         return result
 
     def _gather_dependency_context(self, dep_ids: list[str]) -> str:
-        """Collect outputs from completed dependency tasks."""
         parts = []
         for dep_id in dep_ids:
             result = self.results.get(dep_id)
@@ -691,14 +598,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     # ─────────────────────────────────────────
 
     def _determine_final_status(self, state: ProjectState) -> ProjectStatus:
-        """
-        SUCCESS when ALL:
-        1. All tasks ≥ threshold
-        2. No unmet dependencies
-        3. No task in degraded fallback >50% iterations
-        4. Deterministic checks passed
-        5. Within budget
-        """
         if not state.results:
             return ProjectStatus.SYSTEM_FAILURE
 
@@ -708,7 +607,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         budget_ok = state.budget.remaining_usd >= 0
         time_ok = state.budget.time_remaining()
 
-        # Check degraded fallback ratio
         degraded_heavy = any(
             r.degraded_fallback_count > r.iterations * 0.5
             for r in state.results.values()
@@ -727,7 +625,22 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             return ProjectStatus.PARTIAL_SUCCESS
 
     async def _resume_project(self, state: ProjectState) -> ProjectState:
-        """Resume from last checkpoint."""
+        """
+        Resume from last checkpoint.
+        FIX #7: Restore persisted budget (spent_usd, phase_spent) instead of
+        creating a fresh Budget. Only reset start_time for the new session.
+        """
+        # Restore budget state from checkpoint
+        self.budget.spent_usd = state.budget.spent_usd
+        self.budget.phase_spent = dict(state.budget.phase_spent)
+        # Reset start_time so the new session gets fresh wall-clock tracking
+        self.budget.start_time = time.time()
+
+        logger.info(
+            f"Restored budget: ${self.budget.spent_usd:.4f} already spent, "
+            f"${self.budget.remaining_usd:.4f} remaining"
+        )
+
         self.results = dict(state.results)
         remaining = [
             tid for tid in state.execution_order

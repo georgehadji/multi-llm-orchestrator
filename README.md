@@ -12,7 +12,7 @@ State is checkpointed to SQLite after every task. Interrupted runs are resumable
 ┌─────────────────────────────────────────────────────┐
 │                   ORCHESTRATOR                       │
 │                                                      │
-│  Decompose → Route → Generate → Critique → Revise   │
+│  Decompose → Route → Generate → Critique → Revis e   │
 │       ↑                                    │         │
 │       └──── Evaluate ← Deterministic Check ┘         │
 │                                                      │

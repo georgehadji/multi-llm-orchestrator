@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\" /B)",
+      "Bash(pip show:*)",
+      "Bash(git -C \"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\" config user.email \"georgehadji@users.noreply.github.com\")",
+      "Bash(git -C \"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\" config:*)",
+      "Bash(git -C \"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\" add .gitignore __init__.py __main__.py api_clients.py cache.py cli.py engine.py models.py pyproject.toml README.md state.py validators.py)",
+      "Bash(git -C \"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\" status --short)",
+      "Bash(git -C \"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\" commit -m \"$\\(cat <<''EOF''\nInitial release: multi-LLM orchestrator v1.0.0\n\nAsync orchestration engine that decomposes projects into atomic tasks,\nroutes each to the optimal provider \\(OpenAI / Anthropic / Google\\), and\nruns cross-provider generate → critique → revise → evaluate cycles.\n\nFeatures:\n- Unified async API client with retry, semaphore, and disk cache\n- JSON state persistence \\(SQLite WAL\\) with per-task checkpointing\n- Deterministic validators: python_syntax, pytest, ruff, json_schema, latex, length\n- Budget and time ceiling enforcement with phase partitioning\n- Resume from last checkpoint after crash or interruption\n- Topological task graph with Kahn''s algorithm for dependency ordering\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(gh repo create:*)",
+      "Bash(pip install:*)",
+      "Bash(dir:*)",
+      "Bash(git mv:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: restructure as proper Python package under orchestrator/\n\nMove all source modules into orchestrator/ subdirectory so that\nsetuptools package discovery works correctly and pip install -e .\nsucceeds on any setuptools version >= 68.\n\nAlso fix build-backend from setuptools.backends._legacy \\(requires\nsetuptools >= 71\\) to the stable setuptools.build_meta.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(python -m orchestrator:*)",
+      "Bash(python:*)",
+      "WebFetch(domain:platform.moonshot.ai)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create --title \"feat: add Kimi K2.5 provider + fix Windows CLI issues\" --body \"$\\(cat <<''EOF''\n## Summary\n\n- **New provider: Kimi K2.5** \\(Moonshot AI via `api.moonshot.cn`\\) — integrated using the OpenAI-compatible SDK with a custom `base_url`. Added to `ROUTING_TABLE` for `CODE_GEN`, `CODE_REVIEW`, `REASONING`, and `EVALUATE` task types, with `GPT-4o` as fallback.\n- **Fixed Windows terminal crash** in `cli.py` — replaced Unicode `✓`/`✗` emoji with ASCII `[OK  ]`/`[FAIL]`/`[DEG ]` markers to avoid `UnicodeEncodeError` on Windows \\(cp1252/cp1253 terminals\\).\n- **Fixed ruff false positives** in `validators.py` — added `--ignore=E402,F401` to suppress \"import not at top\" and \"unused import\" errors on multi-file LLM-generated code.\n- **Reliable `.env` loading** — added `load_dotenv\\(override=True\\)` at both `cli.py` module level and inside `_init_clients\\(\\)` to ensure API keys are always read before client initialization.\n- **Debug helpers** — added `check_outputs.py` and `check_state.py` scripts for inspecting project run results.\n\n## Test plan\n\n- [ ] Set `KIMI_API_KEY` in `.env` and verify `Kimi K2.5 client initialized` in logs\n- [ ] Run orchestrator on Windows and confirm no `UnicodeEncodeError` in output\n- [ ] Run a project with ruff validation and confirm E402/F401 no longer fail generated code\n- [ ] Run `python check_outputs.py` and `python check_state.py` after a project run\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\nEOF\n\\)\")",
+      "Bash(findstr:*)",
+      "Bash(git -C \"E:/Documents/Vibe-Coding/Ai Orchestrator\" diff orchestrator/cli.py)",
+      "Bash(gh pr:*)",
+      "Skill(commit-commands:commit-push-pr)",
+      "Skill(commit-commands:commit-push-pr:*)"
+    ]
+  }
+}

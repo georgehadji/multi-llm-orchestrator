@@ -2,9 +2,6 @@
 Multi-LLM Orchestrator — Core Models & Types
 =============================================
 All data structures, enums, routing tables, cost tables, budget logic.
-
-Counterfactual: If using plain dicts instead of typed structures →
-vulnerability Ψ: typo in model/task names causes silent routing failures.
 """
 
 from __future__ import annotations
@@ -38,7 +35,6 @@ class Model(str, Enum):
     GPT_4O_MINI = "gpt-4o-mini"
     GEMINI_PRO = "gemini-2.5-pro"
     GEMINI_FLASH = "gemini-2.5-flash"
-    KIMI_K2_5 = "kimi-k2.5"
 
 
 class ProjectStatus(str, Enum):
@@ -69,8 +65,6 @@ def get_provider(model: Model) -> str:
         return "openai"
     elif val.startswith("gemini"):
         return "google"
-    elif val.startswith("kimi"):
-        return "kimi"
     return "unknown"
 
 
@@ -86,7 +80,6 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GPT_4O_MINI:   {"input": 0.15,  "output": 0.60},
     Model.GEMINI_PRO:    {"input": 1.25,  "output": 10.0},
     Model.GEMINI_FLASH:  {"input": 0.15,  "output": 0.60},
-    Model.KIMI_K2_5:     {"input": 2.00,  "output": 8.00},
 }
 
 
@@ -95,13 +88,13 @@ COST_TABLE: dict[Model, dict[str, float]] = {
 # ─────────────────────────────────────────────
 
 ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    TaskType.CODE_GEN:     [Model.CLAUDE_SONNET, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
-    TaskType.CODE_REVIEW:  [Model.GPT_4O, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GEMINI_PRO],
-    TaskType.REASONING:    [Model.CLAUDE_OPUS, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.CODE_GEN:     [Model.CLAUDE_SONNET, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.CODE_REVIEW:  [Model.GPT_4O, Model.CLAUDE_OPUS, Model.GEMINI_PRO],
+    TaskType.REASONING:    [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
     TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
     TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.CLAUDE_HAIKU],
     TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
-    TaskType.EVALUATE:     [Model.CLAUDE_OPUS, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.EVALUATE:     [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
 }
 
 
@@ -117,7 +110,6 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     Model.GPT_4O_MINI:   Model.GEMINI_FLASH,
     Model.GEMINI_PRO:    Model.CLAUDE_OPUS,
     Model.GEMINI_FLASH:  Model.GPT_4O_MINI,
-    Model.KIMI_K2_5:     Model.GPT_4O,
 }
 
 
@@ -290,70 +282,3 @@ def prompt_hash(model: str, prompt: str, max_tokens: int,
 def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
     costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# ModelProfile factory — bridges static tables → new constraint planner
-# ─────────────────────────────────────────────────────────────────────────────
-
-def build_default_profiles() -> "dict[Model, object]":
-    """
-    Construct ModelProfile objects seeded from the existing static tables.
-
-    Called once at Orchestrator.__init__() to initialize the ConstraintPlanner.
-    TelemetryCollector will update the mutable telemetry fields at runtime.
-
-    Key design decisions:
-    - quality_score is initialised as 1.0 - (priority_rank * 0.05) so that
-      the initial planner state exactly matches the original ROUTING_TABLE
-      priority order (rank 0 → 1.0, rank 1 → 0.95, rank 2 → 0.90, rank 3 → 0.85).
-      This means switching to the planner causes zero behaviour change at startup.
-    - region defaults to "global"; production deployments should override
-      per-model regions in an external config or via Orchestrator(profiles=...).
-    - compliance_tags defaults to [] (conservative: no tags claimed).
-
-    Import of ModelProfile is delayed to avoid the circular import:
-    policy.py imports Budget/Model/TaskType from models.py; models.py must
-    not import from policy.py at module load time.
-
-    Returns
-    -------
-    dict[Model, ModelProfile]
-    """
-    from .policy import ModelProfile  # delayed import — avoids circular
-
-    profiles: dict[Model, ModelProfile] = {}
-
-    for model in Model:
-        provider = get_provider(model)
-        costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
-
-        # Build capable_task_types: preserve ROUTING_TABLE priority as rank
-        capable: dict[TaskType, int] = {}
-        for task_type, model_list in ROUTING_TABLE.items():
-            if model in model_list:
-                rank = model_list.index(model)
-                capable[task_type] = rank
-
-        # Initialize quality_score from ROUTING_TABLE priority so that
-        # the planner's initial ordering exactly matches the static table.
-        # A model that appears first in every task type it handles has a
-        # higher initial quality_score than one that appears later.
-        if capable:
-            best_rank = min(capable.values())
-        else:
-            best_rank = 99
-        initial_quality = max(0.5, 1.0 - best_rank * 0.05)
-
-        profiles[model] = ModelProfile(
-            model=model,
-            provider=provider,
-            cost_per_1m_input=costs["input"],
-            cost_per_1m_output=costs["output"],
-            capable_task_types=capable,
-            quality_score=initial_quality,
-            region="global",
-            compliance_tags=[],
-        )
-
-    return profiles

@@ -1,24 +1,26 @@
 """
-State Persistence — SQLite-backed project state for crash recovery
-==================================================================
+State Persistence — async SQLite-backed project state for crash recovery
+========================================================================
 Saves full project state after each task completion.
 Enables resume from last checkpoint on HALT/crash.
 
 Serialization: JSON (not pickle) — safe for untrusted DB files,
 human-readable, and grep-able for debugging.
 
-Counterfactual: Without state persistence → vulnerability Ψ:
-any crash loses all progress, budget already spent is unrecoverable.
+FIX #10: Migrated from sync sqlite3 to async aiosqlite for consistency
+         with cache.py. All public methods are now async.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import sqlite3
 import time
 from pathlib import Path
 from typing import Optional
+
+import aiosqlite
 
 from .models import (
     Budget, Model, ProjectState, ProjectStatus,
@@ -79,7 +81,6 @@ def _task_from_dict(d: dict) -> Task:
         dependencies=d.get("dependencies", []),
         hard_validators=d.get("hard_validators", []),
     )
-    # Restore persisted values (override __post_init__ defaults)
     t.acceptance_threshold = d["acceptance_threshold"]
     t.max_iterations = d["max_iterations"]
     t.max_output_tokens = d["max_output_tokens"]
@@ -149,40 +150,52 @@ def _state_from_dict(d: dict) -> ProjectState:
 
 
 # ─────────────────────────────────────────────
-# StateManager
+# StateManager (async)
 # ─────────────────────────────────────────────
 
 class StateManager:
+    """
+    FIX #10: Async aiosqlite-backed state manager.
+    Persistent connection with one-time schema init.
+    """
+
     def __init__(self, db_path: Path = DEFAULT_STATE_PATH):
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(db_path), check_same_thread=False)
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self._init_schema()
+        self._db_path = str(db_path)
+        self._conn: Optional[aiosqlite.Connection] = None
+        self._lock = asyncio.Lock()
 
-    def _init_schema(self):
-        self.conn.executescript("""
-            CREATE TABLE IF NOT EXISTS projects (
-                project_id TEXT PRIMARY KEY,
-                state      TEXT NOT NULL,
-                status     TEXT NOT NULL,
-                created_at REAL NOT NULL,
-                updated_at REAL NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS checkpoints (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                project_id TEXT NOT NULL,
-                task_id    TEXT NOT NULL,
-                state      TEXT NOT NULL,
-                created_at REAL NOT NULL,
-                FOREIGN KEY (project_id) REFERENCES projects(project_id)
-            );
-        """)
-        self.conn.commit()
+    async def _get_conn(self) -> aiosqlite.Connection:
+        if self._conn is None:
+            async with self._lock:
+                if self._conn is None:
+                    self._conn = await aiosqlite.connect(self._db_path)
+                    await self._conn.execute("PRAGMA journal_mode=WAL")
+                    await self._conn.executescript("""
+                        CREATE TABLE IF NOT EXISTS projects (
+                            project_id TEXT PRIMARY KEY,
+                            state      TEXT NOT NULL,
+                            status     TEXT NOT NULL,
+                            created_at REAL NOT NULL,
+                            updated_at REAL NOT NULL
+                        );
+                        CREATE TABLE IF NOT EXISTS checkpoints (
+                            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                            project_id TEXT NOT NULL,
+                            task_id    TEXT NOT NULL,
+                            state      TEXT NOT NULL,
+                            created_at REAL NOT NULL,
+                            FOREIGN KEY (project_id) REFERENCES projects(project_id)
+                        );
+                    """)
+                    await self._conn.commit()
+        return self._conn
 
-    def save_project(self, project_id: str, state: ProjectState):
+    async def save_project(self, project_id: str, state: ProjectState):
         now = time.time()
         blob = json.dumps(_state_to_dict(state))
-        self.conn.execute(
+        db = await self._get_conn()
+        await db.execute(
             """INSERT OR REPLACE INTO projects
                (project_id, state, status, created_at, updated_at)
                VALUES (?, ?, ?, COALESCE(
@@ -190,49 +203,66 @@ class StateManager:
                ), ?)""",
             (project_id, blob, state.status.value, project_id, now, now)
         )
-        self.conn.commit()
+        await db.commit()
 
-    def save_checkpoint(self, project_id: str, task_id: str, state: ProjectState):
+    async def save_checkpoint(self, project_id: str, task_id: str,
+                              state: ProjectState):
         blob = json.dumps(_state_to_dict(state))
-        self.conn.execute(
-            "INSERT INTO checkpoints (project_id, task_id, state, created_at) VALUES (?, ?, ?, ?)",
+        db = await self._get_conn()
+        await db.execute(
+            "INSERT INTO checkpoints (project_id, task_id, state, created_at) "
+            "VALUES (?, ?, ?, ?)",
             (project_id, task_id, blob, time.time())
         )
-        self.conn.commit()
+        await db.commit()
         logger.info(f"Checkpoint saved: project={project_id}, task={task_id}")
 
-    def load_project(self, project_id: str) -> Optional[ProjectState]:
-        row = self.conn.execute(
+    async def load_project(self, project_id: str) -> Optional[ProjectState]:
+        db = await self._get_conn()
+        async with db.execute(
             "SELECT state FROM projects WHERE project_id = ?", (project_id,)
-        ).fetchone()
+        ) as cursor:
+            row = await cursor.fetchone()
         if row:
             return _state_from_dict(json.loads(row[0]))
         return None
 
-    def load_latest_checkpoint(self, project_id: str) -> Optional[ProjectState]:
-        row = self.conn.execute(
+    async def load_latest_checkpoint(self, project_id: str) -> Optional[ProjectState]:
+        db = await self._get_conn()
+        async with db.execute(
             """SELECT state FROM checkpoints
                WHERE project_id = ? ORDER BY created_at DESC LIMIT 1""",
             (project_id,)
-        ).fetchone()
+        ) as cursor:
+            row = await cursor.fetchone()
         if row:
             return _state_from_dict(json.loads(row[0]))
         return None
 
-    def list_projects(self) -> list[dict]:
-        rows = self.conn.execute(
-            "SELECT project_id, status, created_at, updated_at FROM projects ORDER BY updated_at DESC"
-        ).fetchall()
+    async def list_projects(self) -> list[dict]:
+        db = await self._get_conn()
+        async with db.execute(
+            "SELECT project_id, status, created_at, updated_at "
+            "FROM projects ORDER BY updated_at DESC"
+        ) as cursor:
+            rows = await cursor.fetchall()
         return [
             {"project_id": r[0], "status": r[1],
              "created_at": r[2], "updated_at": r[3]}
             for r in rows
         ]
 
-    def delete_project(self, project_id: str):
-        self.conn.execute("DELETE FROM checkpoints WHERE project_id = ?", (project_id,))
-        self.conn.execute("DELETE FROM projects WHERE project_id = ?", (project_id,))
-        self.conn.commit()
+    async def delete_project(self, project_id: str):
+        db = await self._get_conn()
+        await db.execute(
+            "DELETE FROM checkpoints WHERE project_id = ?", (project_id,)
+        )
+        await db.execute(
+            "DELETE FROM projects WHERE project_id = ?", (project_id,)
+        )
+        await db.commit()
 
-    def close(self):
-        self.conn.close()
+    async def close(self):
+        if self._conn is not None:
+            await self._conn.close()
+            self._conn = None

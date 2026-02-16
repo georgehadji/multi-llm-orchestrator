@@ -100,7 +100,7 @@ criteria: |
     and a one-paragraph explanation of why symplectic integrators
     preserve energy structure
 
-budget_usd: 4.0
+budget_usd: 8.0
 time_seconds: 3600
 project_id: "symplectic-engine-v1"
 
