@@ -101,6 +101,19 @@ class UnifiedClient:
         except ImportError:
             logger.warning("google-genai package not installed")
 
+        # Kimi K2.5 (moonshot.cn) — OpenAI-compatible API
+        try:
+            kimi_key = os.environ.get("KIMI_API_KEY") or os.environ.get("MOONSHOT_API_KEY")
+            if kimi_key:
+                from openai import AsyncOpenAI
+                self._clients["kimi"] = AsyncOpenAI(
+                    api_key=kimi_key,
+                    base_url="https://api.moonshot.cn/v1",
+                )
+                logger.info("Kimi K2.5 client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for Kimi K2.5)")
+
     def is_available(self, model: Model) -> bool:
         provider = get_provider(model)
         return provider in self._clients
@@ -177,6 +190,8 @@ class UnifiedClient:
             return await self._call_anthropic(model, prompt, system, max_tokens, temperature)
         elif provider == "google":
             return await self._call_google(model, prompt, system, max_tokens, temperature)
+        elif provider == "kimi":
+            return await self._call_kimi(model, prompt, system, max_tokens, temperature)
         else:
             raise ValueError(f"Unknown provider for {model.value}")
 
@@ -268,5 +283,35 @@ class UnifiedClient:
             text=text,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            model=model,
+        )
+
+    async def _call_kimi(self, model: Model, prompt: str,
+                          system: str, max_tokens: int,
+                          temperature: float) -> APIResponse:
+        """
+        Kimi K2.5 via moonshot.cn OpenAI-compatible endpoint.
+        Uses the same AsyncOpenAI client pointed at base_url=https://api.moonshot.cn/v1.
+        Model value: "moonshot-v1" (maps to the default Kimi K2.5 model).
+        """
+        client = self._clients["kimi"]
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.completions.create(
+            model=model.value,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        choice = response.choices[0]
+        usage = response.usage
+
+        return APIResponse(
+            text=choice.message.content or "",
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
             model=model,
         )

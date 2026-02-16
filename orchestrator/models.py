@@ -35,6 +35,7 @@ class Model(str, Enum):
     GPT_4O_MINI = "gpt-4o-mini"
     GEMINI_PRO = "gemini-2.5-pro"
     GEMINI_FLASH = "gemini-2.5-flash"
+    KIMI_K2_5 = "moonshot-v1"
 
 
 class ProjectStatus(str, Enum):
@@ -65,6 +66,8 @@ def get_provider(model: Model) -> str:
         return "openai"
     elif val.startswith("gemini"):
         return "google"
+    elif val.startswith("moonshot"):
+        return "kimi"
     return "unknown"
 
 
@@ -80,6 +83,8 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GPT_4O_MINI:   {"input": 0.15,  "output": 0.60},
     Model.GEMINI_PRO:    {"input": 1.25,  "output": 10.0},
     Model.GEMINI_FLASH:  {"input": 0.15,  "output": 0.60},
+    # Kimi K2.5: moonshot.cn pricing (per 1M tokens)
+    Model.KIMI_K2_5:     {"input": 0.14,  "output": 0.56},
 }
 
 
@@ -88,13 +93,15 @@ COST_TABLE: dict[Model, dict[str, float]] = {
 # ─────────────────────────────────────────────
 
 ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    TaskType.CODE_GEN:     [Model.CLAUDE_SONNET, Model.GPT_4O, Model.GEMINI_PRO],
+    # Kimi K2.5 is positioned as a cost-effective alternative for code and reasoning.
+    # It ranks 3rd for CODE_GEN (after Sonnet & GPT-4o) and 4th for REASONING/EVALUATE.
+    TaskType.CODE_GEN:     [Model.CLAUDE_SONNET, Model.GPT_4O, Model.KIMI_K2_5, Model.GEMINI_PRO],
     TaskType.CODE_REVIEW:  [Model.GPT_4O, Model.CLAUDE_OPUS, Model.GEMINI_PRO],
-    TaskType.REASONING:    [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.REASONING:    [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO, Model.KIMI_K2_5],
     TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
     TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.CLAUDE_HAIKU],
     TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
-    TaskType.EVALUATE:     [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.EVALUATE:     [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO, Model.KIMI_K2_5],
 }
 
 
@@ -110,6 +117,7 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     Model.GPT_4O_MINI:   Model.GEMINI_FLASH,
     Model.GEMINI_PRO:    Model.CLAUDE_OPUS,
     Model.GEMINI_FLASH:  Model.GPT_4O_MINI,
+    Model.KIMI_K2_5:     Model.CLAUDE_SONNET,   # cross-provider fallback → Anthropic
 }
 
 
@@ -282,3 +290,38 @@ def prompt_hash(model: str, prompt: str, max_tokens: int,
 def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
     costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
+
+
+def build_default_profiles() -> "dict[Model, ModelProfile]":
+    """
+    Build a ModelProfile for every Model enum value using the static
+    COST_TABLE and ROUTING_TABLE as the source of truth.
+
+    Called once at Orchestrator construction time. Telemetry fields
+    (quality_score, trust_factor, avg_latency_ms, …) start at their
+    defaults and are updated at runtime by TelemetryCollector.
+
+    Lazy-imports ModelProfile from policy to avoid a circular import
+    (policy.py → models.py, models.py → policy.py would be circular).
+    """
+    # Lazy import to avoid circular dependency: policy.py imports models.py
+    from .policy import ModelProfile  # noqa: PLC0415
+
+    # Build capability map: {TaskType → priority_rank} for each model
+    # Priority rank = index in ROUTING_TABLE list (0 = highest priority)
+    capability_map: dict[Model, dict[TaskType, int]] = {m: {} for m in Model}
+    for task_type, model_list in ROUTING_TABLE.items():
+        for rank, model in enumerate(model_list):
+            capability_map[model][task_type] = rank
+
+    profiles: dict[Model, ModelProfile] = {}
+    for model in Model:
+        costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
+        profiles[model] = ModelProfile(
+            model=model,
+            provider=get_provider(model),
+            cost_per_1m_input=costs["input"],
+            cost_per_1m_output=costs["output"],
+            capable_task_types=capability_map.get(model, {}),
+        )
+    return profiles
