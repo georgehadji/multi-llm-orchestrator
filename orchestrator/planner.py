@@ -34,6 +34,10 @@ from .models import Model, TaskType, get_provider
 from .optimization import GreedyBackend, OptimizationBackend
 from .policy import ModelProfile, Policy
 from .policy_engine import PolicyEngine
+# TYPE_CHECKING import to avoid circular dependency (cost.py does not import planner.py)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .cost import CostPredictor
 
 logger = logging.getLogger("orchestrator.planner")
 
@@ -78,12 +82,14 @@ class ConstraintPlanner:
         profiles: dict[Model, ModelProfile],
         policy_engine: PolicyEngine,
         api_health: dict[Model, bool],
-        backend: Optional[OptimizationBackend] = None,  # noqa: F821 — used below
+        backend: Optional[OptimizationBackend] = None,
+        cost_predictor: Optional["CostPredictor"] = None,
     ):
         self._profiles = profiles
         self._policy_engine = policy_engine
         self._api_health = api_health
         self._backend: OptimizationBackend = backend or GreedyBackend()
+        self._cost_predictor: Optional["CostPredictor"] = cost_predictor
 
     def set_backend(self, backend: OptimizationBackend) -> None:
         """
@@ -302,9 +308,18 @@ class ConstraintPlanner:
         task_type: TaskType,
     ) -> float:
         """
-        Estimate the cost of a single call for the given task type using the
-        typical token volumes defined at module level.
+        Estimate the cost of a single call for the given task type.
+
+        If a CostPredictor has learned data for (model, task_type), its EMA
+        estimate is used instead of the static token-based calculation.
+        Falls back to the static estimate when no predictor is set or when
+        the predictor returns zero (not yet calibrated for this combination).
         """
+        if self._cost_predictor is not None:
+            predicted = self._cost_predictor.predict(profile.model, task_type)
+            if predicted > 0:
+                return predicted
+        # Static fallback: typical token volumes × per-1M-token pricing
         input_t = _TYPICAL_INPUT_TOKENS.get(task_type, 500)
         output_t = _TYPICAL_OUTPUT_TOKENS.get(task_type, 600)
         return profile.estimate_cost(input_t, output_t)

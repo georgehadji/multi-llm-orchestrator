@@ -44,6 +44,10 @@ from .planner import ConstraintPlanner
 from .telemetry import TelemetryCollector
 from .audit import AuditLog
 from .optimization import OptimizationBackend
+from .hooks import HookRegistry, EventType
+from .metrics import MetricsExporter
+from .agents import TaskChannel
+from .cost import BudgetHierarchy, CostPredictor
 
 logger = logging.getLogger("orchestrator")
 
@@ -66,7 +70,9 @@ class Orchestrator:
     def __init__(self, budget: Optional[Budget] = None,
                  cache: Optional[DiskCache] = None,
                  state_manager: Optional[StateManager] = None,
-                 max_concurrency: int = 3):
+                 max_concurrency: int = 3,
+                 budget_hierarchy: Optional["BudgetHierarchy"] = None,
+                 cost_predictor: Optional["CostPredictor"] = None):
         self.budget = budget or Budget()
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
@@ -97,6 +103,14 @@ class Orchestrator:
         self._active_policies: PolicySet = PolicySet()
         # Context truncation limit per dependency (chars) — configurable
         self.context_truncation_limit: int = 3000
+        # Improvement 3: event hooks + metrics exporter
+        self._hook_registry: HookRegistry = HookRegistry()
+        self._metrics_exporter: Optional[MetricsExporter] = None
+        # Improvement 5: named TaskChannels for inter-task messaging
+        self._channels: dict[str, TaskChannel] = {}
+        # Improvement 6: cross-run budget hierarchy + adaptive cost predictor
+        self._budget_hierarchy: Optional[BudgetHierarchy] = budget_hierarchy
+        self._cost_predictor: Optional[CostPredictor] = cost_predictor
 
     # ─────────────────────────────────────────
     # Public API
@@ -110,6 +124,49 @@ class Orchestrator:
     def audit_log(self) -> "AuditLog":
         """Read-only access to the policy audit log."""
         return self._audit_log
+
+    @property
+    def cost_predictor(self) -> Optional["CostPredictor"]:
+        """Read-only access to the CostPredictor, if one was configured."""
+        return self._cost_predictor
+
+    def add_hook(self, event: str, callback) -> None:
+        """Register an event hook callback. See orchestrator.hooks.EventType for event names."""
+        self._hook_registry.add(event, callback)
+
+    def set_metrics_exporter(self, exporter: "MetricsExporter") -> None:
+        """Set the MetricsExporter to use when export_metrics() is called."""
+        self._metrics_exporter = exporter
+
+    def export_metrics(self) -> None:
+        """Export live per-model telemetry stats via the configured MetricsExporter."""
+        if self._metrics_exporter is None:
+            return
+        self._metrics_exporter.export(self._build_metrics_dict())
+
+    def get_channel(self, name: str) -> "TaskChannel":
+        """Return the named TaskChannel, creating it lazily on first access."""
+        if name not in self._channels:
+            self._channels[name] = TaskChannel()
+        return self._channels[name]
+
+    def _build_metrics_dict(self) -> dict:
+        """Build a per-model metrics dict from live ModelProfile data."""
+        result: dict = {}
+        for model, profile in self._profiles.items():
+            result[model.value] = {
+                "call_count":           profile.call_count,
+                "failure_count":        profile.failure_count,
+                "success_rate":         profile.success_rate,
+                "avg_latency_ms":       profile.avg_latency_ms,
+                "latency_p95_ms":       profile.latency_p95_ms,
+                "quality_score":        profile.quality_score,
+                "trust_factor":         profile.trust_factor,
+                "avg_cost_usd":         profile.avg_cost_usd,
+                "validator_fail_count": profile.validator_fail_count,
+                "error_rate":           self._telemetry.error_rate(model),
+            }
+        return result
 
     async def run_project(self, project_description: str,
                           success_criteria: str,
@@ -165,6 +222,15 @@ class Orchestrator:
         """
         self.budget = spec.budget
         self._active_policies = spec.policy_set
+        # BudgetHierarchy pre-flight check (Improvement 6)
+        if self._budget_hierarchy is not None:
+            job_id = getattr(spec, "job_id", "") or ""
+            team   = getattr(spec, "team",   "") or ""
+            if not self._budget_hierarchy.can_afford_job(job_id, team, spec.budget.max_usd):
+                raise ValueError(
+                    f"BudgetHierarchy rejects job '{job_id}': "
+                    "org/team/job limits would be exceeded"
+                )
         return await self.run_project(
             project_description=spec.project_description,
             success_criteria=spec.success_criteria,
@@ -290,6 +356,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 f"Phase '{phase}' exceeded soft cap: "
                 f"${spent:.4f} / ${cap:.4f} ({ratio:.0%})"
             )
+            self._hook_registry.fire(
+                EventType.BUDGET_WARNING,
+                phase=phase, spent=spent, cap=cap, ratio=ratio,
+            )
 
     async def _execute_all(self, tasks: dict[str, Task],
                             execution_order: list[str],
@@ -320,9 +390,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 )
                 continue
 
+            self._hook_registry.fire(EventType.TASK_STARTED, task_id=task_id, task=task)
             result = await self._execute_task(task)
             self.results[task_id] = result
             task.status = result.status
+            self._hook_registry.fire(EventType.TASK_COMPLETED, task_id=task_id, result=result)
 
             # Check phase budget soft caps after each task
             for phase in ("generation", "cross_review", "evaluation"):
@@ -397,6 +469,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 output = gen_response.text
                 gen_cost = gen_response.cost_usd
                 self.budget.charge(gen_cost, "generation")
+                if self._cost_predictor is not None:
+                    self._cost_predictor.record(primary, task.type, gen_cost)
                 total_cost += gen_cost
                 total_input_tokens += gen_response.input_tokens
                 total_output_tokens += gen_response.output_tokens
@@ -452,6 +526,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     )
                     critique = critique_response.text
                     self.budget.charge(critique_response.cost_usd, "cross_review")
+                    if self._cost_predictor is not None:
+                        self._cost_predictor.record(primary, task.type, critique_response.cost_usd)
                     total_cost += critique_response.cost_usd
                 except Exception as e:
                     logger.warning(f"Critique failed for {task.id}: {e}")
@@ -489,6 +565,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     logger.warning(
                         f"Deterministic check failed for {task.id}: "
                         f"{[f'{v.validator_name}: {v.details}' for v in failed]}"
+                    )
+                    # Record validator failure in telemetry + fire hook (Improvement 3)
+                    self._telemetry.record_validator_failure(primary)
+                    self._hook_registry.fire(
+                        EventType.VALIDATION_FAILED,
+                        task_id=task.id,
+                        model=primary.value,
+                        validators=task.hard_validators,
                     )
 
             # ── EVALUATE ──

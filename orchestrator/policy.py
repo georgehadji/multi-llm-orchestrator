@@ -107,6 +107,11 @@ class ModelProfile:
     call_count: int = 0
     failure_count: int = 0
 
+    # ── Extended telemetry (Improvement 3) ───────────────────────────────────
+    avg_cost_usd:         float       = 0.0                           # EMA of actual per-call USD cost
+    validator_fail_count: int         = 0                             # cumulative deterministic-check failures
+    latency_samples:      list[float] = field(default_factory=list)   # sorted buffer, last 50 samples
+
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Compute estimated USD cost for a hypothetical call."""
         return (

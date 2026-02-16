@@ -2,8 +2,8 @@
 TelemetryCollector — updates ModelProfile stats after each API call.
 =====================================================================
 Uses Exponential Moving Average (EMA, alpha=0.1) for latency and quality,
-a fixed-size rolling window (last 10 calls) for success_rate, and a
-multiplicative trust_factor that degrades on failures and recovers on success.
+a fixed-size rolling window (last 10 calls) for success_rate, a sorted
+latency buffer (last 50 samples) for real p95 computation, and cost EMA.
 
 Adaptive re-planning rationale:
   These updated profiles feed directly into ConstraintPlanner._score(), so
@@ -16,6 +16,7 @@ Thread-safety: NOT thread-safe. The asyncio event loop serialises all updates.
 """
 from __future__ import annotations
 
+import bisect
 import collections
 import logging
 from typing import Optional
@@ -26,7 +27,7 @@ from .policy import ModelProfile
 logger = logging.getLogger("orchestrator.telemetry")
 
 # ── EMA configuration ──────────────────────────────────────────────────────────
-_EMA_ALPHA: float = 0.1        # learning rate for latency and quality EMAs
+_EMA_ALPHA: float = 0.1        # learning rate for latency, quality, and cost EMAs
 
 # ── Success rate rolling window ────────────────────────────────────────────────
 _SUCCESS_WINDOW: int = 10      # number of recent calls to track
@@ -35,6 +36,9 @@ _SUCCESS_WINDOW: int = 10      # number of recent calls to track
 _TRUST_DEGRADE: float = 0.95   # multiplier on each failure / policy violation
 _TRUST_RECOVER: float = 1.001  # multiplier on each success
 _TRUST_CAP: float = 1.0        # ceiling (trust can never exceed 1.0)
+
+# ── Latency p95 buffer ─────────────────────────────────────────────────────────
+_LATENCY_BUFFER_SIZE: int = 50  # sorted circular buffer for real p95 computation
 
 
 class TelemetryCollector:
@@ -54,6 +58,10 @@ class TelemetryCollector:
             m: collections.deque(maxlen=_SUCCESS_WINDOW)
             for m in profiles
         }
+        # Sorted latency buffer per model (ascending order, capped at _LATENCY_BUFFER_SIZE)
+        self._latency_buffers: dict[Model, list[float]] = {
+            m: [] for m in profiles
+        }
 
     # ─────────────────────────────────────────────────────────────────────────
     # Public API
@@ -63,7 +71,7 @@ class TelemetryCollector:
         self,
         model: Model,
         latency_ms: float,
-        cost_usd: float,  # noqa: ARG002 — reserved for future cost-EMA tracking
+        cost_usd: float,
         success: bool,
         quality_score: Optional[float] = None,
     ) -> None:
@@ -76,10 +84,10 @@ class TelemetryCollector:
             The model that was called.
         latency_ms : float
             Round-trip latency in milliseconds. Pass 0.0 for cache hits or
-            quality-feedback-only calls (these are excluded from latency EMA).
+            quality-feedback-only calls (these are excluded from latency tracking).
         cost_usd : float
-            Actual cost of the call in USD (reserved; not currently tracked
-            per-call in the profile, but available for future cost-EMA).
+            Actual cost of the call in USD. Pass 0.0 for cache hits or failed
+            calls (these are excluded from cost EMA to avoid dragging it to zero).
         success : bool
             True if the call succeeded (no exception, no policy violation).
         quality_score : Optional[float]
@@ -96,20 +104,35 @@ class TelemetryCollector:
         if not success:
             profile.failure_count += 1
 
-        # ── Latency EMA (skip if latency_ms <= 0, e.g. cache hits) ──────────
+        # ── Latency EMA + real p95 (skip if latency_ms <= 0, e.g. cache hits) ─
         if latency_ms > 0:
             profile.avg_latency_ms = (
                 _EMA_ALPHA * latency_ms
                 + (1 - _EMA_ALPHA) * profile.avg_latency_ms
             )
-            # p95 approximated as 2× mean (a sorted-sample implementation
-            # would be more accurate but adds memory overhead per model)
-            profile.latency_p95_ms = profile.avg_latency_ms * 2.0
+
+            # Real p95 via sorted buffer (bisect maintains ascending order)
+            buf = self._latency_buffers.setdefault(model, [])
+            bisect.insort(buf, latency_ms)
+            if len(buf) > _LATENCY_BUFFER_SIZE:
+                buf.pop(0)   # discard the oldest/smallest sample
+            profile.latency_samples = list(buf)
+            idx = int(0.95 * len(buf))
+            profile.latency_p95_ms = buf[min(idx, len(buf) - 1)]
+
+        # ── Cost EMA (skip if cost_usd <= 0 to avoid dragging EMA to zero) ───
+        if cost_usd > 0:
+            profile.avg_cost_usd = (
+                _EMA_ALPHA * cost_usd
+                + (1 - _EMA_ALPHA) * profile.avg_cost_usd
+            )
 
         # ── Success rate: rolling window ──────────────────────────────────────
-        self._success_windows[model].append(success)
-        window = self._success_windows[model]
-        profile.success_rate = sum(window) / len(window)
+        win = self._success_windows.setdefault(
+            model, collections.deque(maxlen=_SUCCESS_WINDOW)
+        )
+        win.append(success)
+        profile.success_rate = sum(win) / len(win)
 
         # ── Quality EMA (only when evaluator score available) ─────────────────
         if quality_score is not None:
@@ -128,12 +151,35 @@ class TelemetryCollector:
             profile.trust_factor *= _TRUST_DEGRADE
 
         logger.debug(
-            "Telemetry %s: trust=%.4f sr=%.3f lat=%.0fms q=%.3f",
+            "Telemetry %s: trust=%.4f sr=%.3f lat=%.0fms q=%.3f cost=%.6f",
             model.value,
             profile.trust_factor,
             profile.success_rate,
             profile.avg_latency_ms,
             profile.quality_score,
+            profile.avg_cost_usd,
+        )
+
+    def record_validator_failure(self, model: Model) -> None:
+        """
+        Increment the validator_fail_count for the model.
+
+        Called by engine.py when deterministic validators (pytest, ruff, etc.)
+        fail for a task that used this model. The count feeds into MetricsExporter
+        for observability and can be used to down-rank models with high fail rates.
+        """
+        profile = self._profiles.get(model)
+        if profile is None:
+            logger.warning(
+                "TelemetryCollector: record_validator_failure called for unknown model %r",
+                model,
+            )
+            return
+        profile.validator_fail_count += 1
+        logger.warning(
+            "Validator failure recorded for %s — total=%d",
+            model.value,
+            profile.validator_fail_count,
         )
 
     def record_policy_violation(self, model: Model) -> None:
@@ -151,6 +197,17 @@ class TelemetryCollector:
             model.value,
             profile.trust_factor,
         )
+
+    def error_rate(self, model: Model) -> float:
+        """
+        Return the error rate for the model: failure_count / call_count.
+
+        Returns 0.0 if the model is unknown or has never been called.
+        """
+        profile = self._profiles.get(model)
+        if profile is None or profile.call_count == 0:
+            return 0.0
+        return profile.failure_count / profile.call_count
 
     def get_profiles(self) -> dict[Model, ModelProfile]:
         """

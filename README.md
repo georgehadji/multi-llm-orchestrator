@@ -298,10 +298,17 @@ orchestrator/
 ├── state.py           # StateManager: JSON save/load/resume
 ├── project_file.py    # YAML project file loader (--file flag)
 ├── output_writer.py   # Structured output writer (--output-dir flag)
-├── policy.py          # Policy, PolicySet, ModelProfile, JobSpec
-├── policy_engine.py   # PolicyEngine: compliance checker
+├── policy.py          # Policy, PolicySet, ModelProfile, JobSpec, PolicyHierarchy
+├── policy_engine.py   # PolicyEngine: compliance checker (HARD/SOFT/MONITOR modes)
+├── policy_dsl.py      # YAML/JSON policy loader + PolicyAnalyzer (contradiction checks)
 ├── planner.py         # ConstraintPlanner: multi-objective model selection
-└── telemetry.py       # TelemetryCollector: EMA latency/quality tracking
+├── telemetry.py       # TelemetryCollector: EMA latency/quality/cost, real p95
+├── hooks.py           # HookRegistry + EventType lifecycle events
+├── metrics.py         # MetricsExporter: Console / JSON / Prometheus formats
+├── optimization.py    # OptimizationBackend: Greedy / WeightedSum / Pareto
+├── audit.py           # AuditLog + AuditRecord (JSONL structured audit trail)
+├── cost.py            # BudgetHierarchy, CostPredictor (EMA), CostForecaster
+└── agents.py          # AgentPool (multi-orchestrator) + TaskChannel (pub-sub)
 
 projects/
 ├── example_simple.yaml    # Minimal 3-field project example
@@ -330,3 +337,271 @@ results/
 | Resume iterates `execution_order` from saved state; verify order is correct for dependency chains | Prefer `--project-id` on initial run so resume is deterministic |
 | `_ensure_schema` called on every cache operation (minor overhead) | Acceptable for current scale; add a connection-level init flag if profiling shows cost |
 | Kimi K2.5 model name `moonshot-v1` maps to the default tier; for a specific snapshot append the date (e.g. `moonshot-v1-8k`) | Set the `KIMI_MODEL` env var or hardcode in `Model.KIMI_K2_5` if needed |
+
+---
+
+## Advanced Features
+
+### Improvement 1 — Optimization Backends
+
+Three pluggable model-selection strategies are available:
+
+| Backend | Strategy | Best for |
+|---------|----------|----------|
+| `GreedyBackend` | Highest `quality × trust / cost` | Default; fast single-winner selection |
+| `WeightedSumBackend` | Weighted sum of normalised metrics | Tunable trade-off between cost, quality, speed |
+| `ParetoBackend` | Pareto-front filtering + scoring | Non-dominated solutions; principled multi-objective |
+
+```python
+from orchestrator import Orchestrator, Budget
+from orchestrator.optimization import ParetoBackend, WeightedSumBackend
+
+orch = Orchestrator(budget=Budget(max_usd=10.0))
+
+# Switch to Pareto-optimal routing
+orch.set_optimization_backend(ParetoBackend())
+
+# Or tune weighted routing
+orch.set_optimization_backend(WeightedSumBackend(
+    w_quality=0.5, w_trust=0.3, w_cost=0.2
+))
+```
+
+---
+
+### Improvement 2 — Policy Governance
+
+Policy constraints are **first-class artifacts** — every routing decision can be explained in terms of compliance tags, region constraints, cost caps, and latency SLAs.
+
+```python
+from orchestrator.policy import Policy, PolicySet, EnforcementMode, PolicyHierarchy
+
+# 4-level hierarchy: Org → Team → Job → Node
+hier = PolicyHierarchy(
+    org=[Policy("gdpr", allow_training_on_output=False)],
+    team={"eng": [Policy("eu_only", allowed_regions=["eu", "global"])]},
+)
+policies = hier.policies_for(team="eng", job_id="job_001")
+
+# Audit log (structured JSONL)
+from orchestrator.audit import AuditLog
+log = AuditLog()
+log.flush_jsonl("audit.jsonl")
+```
+
+`EnforcementMode` options: `HARD` (block on any violation), `SOFT` (allow soft violations), `MONITOR` (log only).
+
+---
+
+### Improvement 3 — Telemetry, Hooks & Metrics Export
+
+#### Event Hooks
+
+Subscribe to engine lifecycle events without modifying core logic:
+
+```python
+from orchestrator import Orchestrator, Budget
+from orchestrator.hooks import EventType
+
+orch = Orchestrator(budget=Budget(max_usd=10.0))
+
+orch.add_hook(EventType.TASK_COMPLETED, lambda task_id, result, **_:
+    print(f"[{task_id}] score={result.score:.3f}"))
+
+orch.add_hook(EventType.BUDGET_WARNING, lambda phase, ratio, **_:
+    print(f"WARNING: {phase} at {ratio:.0%} of budget"))
+
+orch.add_hook(EventType.VALIDATION_FAILED, lambda task_id, model, **_:
+    print(f"Validator failed for {task_id} using {model}"))
+```
+
+Available events: `TASK_STARTED`, `TASK_COMPLETED`, `VALIDATION_FAILED`, `BUDGET_WARNING`, `MODEL_SELECTED`.
+
+#### Metrics Export
+
+```python
+from orchestrator.metrics import ConsoleExporter, JSONExporter, PrometheusExporter
+
+# ASCII table to stdout
+orch.set_metrics_exporter(ConsoleExporter())
+orch.export_metrics()
+
+# JSON file (for dashboards)
+orch.set_metrics_exporter(JSONExporter("/tmp/orchestrator_metrics.json"))
+orch.export_metrics()
+
+# Prometheus text format (for node_exporter textfile collector)
+orch.set_metrics_exporter(PrometheusExporter("/var/lib/node_exporter/orchestrator.prom"))
+orch.export_metrics()
+```
+
+Exported metrics per model: `calls_total`, `success_rate`, `latency_avg_ms`, `latency_p95_ms`, `quality_score`, `trust_factor`, `cost_avg_usd`, `validator_failures_total`.
+
+**Real p95 latency** is computed from a sorted rolling buffer of the last 50 samples — more accurate than the previous `2 × avg` approximation. **Cost EMA** tracks actual per-call USD spend, skipping cache hits and failures (which would corrupt the moving average toward zero).
+
+---
+
+### Improvement 4 — Policy DSL (YAML/JSON)
+
+Externalize compliance rules from Python code into declarative files:
+
+```yaml
+# policies.yaml
+global:
+  - name: gdpr
+    allow_training_on_output: false
+    enforcement_mode: hard
+team:
+  eng:
+    - name: eu_only
+      allowed_regions: [eu, global]
+job:
+  job_001:
+    - name: cost_cap
+      max_cost_per_task_usd: 0.50
+      max_latency_ms: 5000.0
+```
+
+```python
+from orchestrator.policy_dsl import load_policy_file, PolicyAnalyzer
+
+hierarchy = load_policy_file("policies.yaml")   # pyyaml required for .yml/.yaml
+# JSON always works without extra dependencies:
+hierarchy = load_policy_file("policies.json")
+
+# Static contradiction analysis before running
+from orchestrator.policy import Policy
+report = PolicyAnalyzer.analyze(hierarchy.policies_for(team="eng"))
+if not report.is_clean():
+    print("Policy errors:", report.errors)
+    print("Policy warnings:", report.warnings)
+```
+
+`PolicyAnalyzer` detects: allowed ∩ blocked provider overlap (error), empty `allowed_regions` (error), disjoint cross-policy `allowed_providers` (warning), missing cost cap / latency SLA (info).
+
+> **Soft dependency:** `pyyaml` is only required for `.yaml`/`.yml` files. JSON loading uses stdlib `json` and always works.
+
+---
+
+### Improvement 5 — Advanced Agents (AgentPool + TaskChannel)
+
+#### AgentPool — Multi-Orchestrator Meta-Controller
+
+Run multiple Orchestrators in parallel (A/B testing, ensemble, load distribution):
+
+```python
+from orchestrator import Orchestrator, Budget, AgentPool
+from orchestrator.optimization import ParetoBackend, GreedyBackend
+from orchestrator.policy import JobSpec
+
+pool = AgentPool()
+pool.add_agent("pareto", Orchestrator(budget=Budget(max_usd=5.0)))
+pool.add_agent("greedy", Orchestrator(budget=Budget(max_usd=5.0)))
+
+spec = JobSpec(
+    project_description="Build a FastAPI auth service",
+    success_criteria="All tests pass",
+    budget=Budget(max_usd=5.0),
+)
+
+results = asyncio.run(pool.run_parallel({"pareto": spec, "greedy": spec}))
+best = pool.best_result(results)   # highest mean TaskResult.score
+
+# Merge telemetry across all agents for global observability
+merged_profiles = pool.merge_telemetry()
+```
+
+- One failing agent does not cancel other agents (`asyncio.gather(return_exceptions=True)`)
+- `merge_telemetry()` averages EMA fields and sums counters across all agents
+
+#### TaskChannel — Inter-Task Messaging
+
+Share structured results between upstream and downstream tasks within a run:
+
+```python
+# In task handler / hook:
+ch = orch.get_channel("artifacts")
+await ch.put({"type": "schema", "content": schema_json})
+
+# In a downstream hook (non-destructive read):
+msgs = ch.peek_all()   # items remain in queue after peek
+```
+
+---
+
+### Improvement 6 — Economic / Cost Layer
+
+#### Hierarchical Budget Caps (Cross-Run)
+
+```python
+from orchestrator.cost import BudgetHierarchy, CostPredictor, CostForecaster, RiskLevel
+from orchestrator import Budget
+
+# Cross-run org/team/job caps (persist across multiple run_job() calls)
+hier = BudgetHierarchy(
+    org_max_usd=100.0,
+    team_budgets={"eng": 30.0},
+    job_budgets={"job_001": 10.0},
+)
+orch = Orchestrator(budget=Budget(max_usd=10.0), budget_hierarchy=hier)
+# run_job() will raise ValueError if any cap would be exceeded
+```
+
+#### Adaptive Cost Prediction (EMA)
+
+```python
+predictor = CostPredictor(alpha=0.1)  # EMA; falls back to COST_TABLE for unknown pairs
+
+# Record actual observed costs during execution
+predictor.record(Model.KIMI_K2_5, TaskType.CODE_GEN, actual_cost_usd=0.000032)
+
+# Predict future cost (EMA or COST_TABLE fallback)
+est = predictor.predict(Model.KIMI_K2_5, TaskType.CODE_GEN)
+
+# Find the cheapest model for a task type
+cheapest = predictor.cheapest_model(TaskType.CODE_GEN, candidates=[...])
+```
+
+Wire the predictor into the engine for live adaptation:
+
+```python
+orch = Orchestrator(budget=Budget(max_usd=10.0), cost_predictor=predictor)
+```
+
+#### Pre-Flight Cost Forecasting
+
+```python
+from orchestrator.cost import CostForecaster, RiskLevel
+from orchestrator.models import build_default_profiles
+
+profiles = build_default_profiles()
+report = CostForecaster.forecast(tasks, profiles, predictor, budget=Budget(max_usd=10.0))
+
+print(f"Estimated total: ${report.estimated_total_usd:.4f}")
+print(f"Risk level: {report.risk_level.value}")  # low / medium / high
+print(f"Breakdown: {report.estimated_per_phase}")
+
+if report.risk_level == RiskLevel.HIGH:
+    print("WARNING: estimated cost exceeds 80% of budget!")
+```
+
+Risk thresholds: **LOW** < 50 %, **MEDIUM** 50–80 %, **HIGH** ≥ 80 % of `budget.max_usd`.
+
+---
+
+## Differentiation
+
+| Capability | This Orchestrator | LangChain / AutoGen |
+|------------|-------------------|---------------------|
+| **Policy-as-code** | First-class `Policy` / `PolicySet` / `PolicyHierarchy` with static analysis | Ad-hoc guardrails, no formal policy model |
+| **Pareto-optimal routing** | `ParetoBackend` selects non-dominated models across quality, trust, cost | No multi-objective routing |
+| **Real p95 latency** | Sorted 50-sample buffer; true p95 | Not tracked |
+| **Hierarchical budgets** | Org → Team → Job cross-run caps via `BudgetHierarchy` | Per-run only |
+| **Adaptive cost EMA** | Per-(model × task_type) EMA; COST_TABLE fallback | No cost prediction |
+| **Pre-flight forecasting** | `CostForecaster` estimates spend + risk before execution starts | No pre-flight estimation |
+| **Policy DSL** | YAML/JSON externalized compliance rules + `PolicyAnalyzer` contradiction checks | No declarative policy files |
+| **Event hooks** | `HookRegistry` with 5 lifecycle events; exception-isolated callbacks | Limited observability hooks |
+| **Prometheus metrics** | Native Prometheus text format export; no `prometheus_client` dependency | Requires external integration |
+| **Multi-agent ensemble** | `AgentPool` runs N orchestrators in parallel; `merge_telemetry()` aggregates | Single-agent by default |
+| **Inter-task messaging** | `TaskChannel` (asyncio.Queue wrapper) with non-destructive `peek_all()` | No typed inter-task channels |
+| **Audit log** | Structured JSONL with `AuditRecord` per decision | No built-in audit trail |
