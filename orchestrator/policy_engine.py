@@ -14,9 +14,10 @@ Policy-as-code novelty:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from .models import Model
-from .policy import ModelProfile, Policy
+from .policy import EnforcementMode, ModelProfile, Policy
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -60,10 +61,37 @@ class PolicyCheckResult:
 
     passed=True and violations=[] means the model is fully compliant.
     passed=False and violations=[...] lists every specific rule that was broken.
+
+    raw_passed reflects whether violations were found before EnforcementMode
+    override. passed is the effective result after the mode is applied.
     """
     passed: bool
     violations: list[str] = field(default_factory=list)
     model: Model = None  # type: ignore[assignment]  # populated by check()
+    raw_passed: bool = True   # before EnforcementMode override
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Violation severity classification for SOFT mode
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Keywords identifying "hard" violations: these always block in SOFT mode.
+# Any violation message not matching these keywords is treated as "soft"
+# (latency SLA, cost cap) and allowed through in SOFT mode.
+_HARD_VIOLATION_PREFIXES = (
+    "blocked_providers",
+    "allowed_providers",
+    "allowed_regions",
+    "blocked_models",
+    "allow_training_on_output",
+    "pii_allowed",
+)
+
+
+def _is_hard_violation(violation: str) -> bool:
+    """Return True if the violation message represents a hard (structural) violation."""
+    v_lower = violation.lower()
+    return any(kw in v_lower for kw in _HARD_VIOLATION_PREFIXES)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +103,8 @@ class PolicyEngine:
     Stateless compliance checker. The same instance is reused across all tasks.
     All check methods are deterministic given the same (model, profile, policies).
 
+    Optionally accepts an AuditLog to record one entry per check() call.
+
     Checks performed by check() in order:
       1. blocked_providers      — hard blacklist
       2. allowed_providers      — whitelist (None = all allowed)
@@ -85,11 +115,22 @@ class PolicyEngine:
       7. pii_allowed            → requires "pii_allowed" compliance tag
     """
 
+    def __init__(self, audit_log: Optional[object] = None):
+        """
+        Parameters
+        ----------
+        audit_log : AuditLog | None
+            Optional AuditLog instance. If provided, every check() call emits
+            one AuditRecord. Pass None (default) to disable auditing.
+        """
+        self._audit_log = audit_log
+
     def check(
         self,
         model: Model,
         profile: ModelProfile,
         policies: list[Policy],
+        task_id: str = "",
     ) -> PolicyCheckResult:
         """
         Evaluate all policies against the (model, profile) pair.
@@ -98,11 +139,31 @@ class PolicyEngine:
           passed=True  if all policies are satisfied (violations=[])
           passed=False if any policy is violated (violations lists each one)
 
+        EnforcementMode (per policy, most-permissive across all policies wins):
+          MONITOR → always passed=True (violations still logged)
+          SOFT    → only hard violations (provider/model/region/compliance) block
+          HARD    → any violation blocks (default)
+
         Does NOT raise. Use enforce() to get exception-based enforcement.
         """
         violations: list[str] = []
+        # Track the most-permissive mode across all policies
+        # MONITOR (2) > SOFT (1) > HARD (0)
+        _MODE_RANK = {
+            EnforcementMode.HARD:    0,
+            EnforcementMode.SOFT:    1,
+            EnforcementMode.MONITOR: 2,
+            None:                    0,  # None → HARD
+        }
+        effective_mode_rank = 0
+        effective_mode = EnforcementMode.HARD
 
         for policy in policies:
+            mode = policy.enforcement_mode  # type: ignore[attr-defined]
+            rank = _MODE_RANK.get(mode, 0)
+            if rank > effective_mode_rank:
+                effective_mode_rank = rank
+                effective_mode = mode if mode is not None else EnforcementMode.HARD
 
             # 1. Blocked providers (hard blacklist)
             if (
@@ -170,17 +231,53 @@ class PolicyEngine:
                         f"compliance tag; model has: {profile.compliance_tags}"
                     )
 
-        return PolicyCheckResult(
-            passed=(len(violations) == 0),
+        raw_passed = (len(violations) == 0)
+
+        # Apply enforcement mode to determine effective result
+        if not raw_passed:
+            if effective_mode == EnforcementMode.MONITOR:
+                effective_passed = True   # log but allow
+            elif effective_mode == EnforcementMode.SOFT:
+                # Block only if any hard violation exists
+                has_hard = any(_is_hard_violation(v) for v in violations)
+                effective_passed = not has_hard
+            else:
+                # HARD (default): block on any violation
+                effective_passed = False
+        else:
+            effective_passed = True
+
+        result = PolicyCheckResult(
+            passed=effective_passed,
             violations=violations,
             model=model,
+            raw_passed=raw_passed,
         )
+
+        # Emit audit record if audit log is configured
+        if self._audit_log is not None:
+            self._audit_log.record(
+                task_id=task_id,
+                model=model.value,
+                passed=effective_passed,
+                raw_passed=raw_passed,
+                violations=violations,
+                enforcement_mode=(
+                    effective_mode.value
+                    if effective_mode is not None
+                    else EnforcementMode.HARD.value
+                ),
+                policies_applied=[p.name for p in policies],
+            )
+
+        return result
 
     def enforce(
         self,
         model: Model,
         profile: ModelProfile,
         policies: list[Policy],
+        task_id: str = "pre-flight",
     ) -> None:
         """
         Call check() and raise PolicyViolationError if any violations are found.
@@ -189,10 +286,10 @@ class PolicyEngine:
         configuration drift (e.g. region tags changed between selection
         and execution).
         """
-        result = self.check(model, profile, policies)
+        result = self.check(model, profile, policies, task_id=task_id)
         if not result.passed:
             raise PolicyViolationError(
-                task_id="pre-flight",
+                task_id=task_id,
                 policies=policies,
                 reason="; ".join(result.violations),
             )

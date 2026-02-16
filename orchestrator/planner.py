@@ -31,6 +31,7 @@ import logging
 from typing import Optional
 
 from .models import Model, TaskType, get_provider
+from .optimization import GreedyBackend, OptimizationBackend
 from .policy import ModelProfile, Policy
 from .policy_engine import PolicyEngine
 
@@ -77,10 +78,23 @@ class ConstraintPlanner:
         profiles: dict[Model, ModelProfile],
         policy_engine: PolicyEngine,
         api_health: dict[Model, bool],
+        backend: Optional[OptimizationBackend] = None,  # noqa: F821 — used below
     ):
         self._profiles = profiles
         self._policy_engine = policy_engine
         self._api_health = api_health
+        self._backend: OptimizationBackend = backend or GreedyBackend()
+
+    def set_backend(self, backend: OptimizationBackend) -> None:
+        """
+        Swap the optimization strategy at runtime.
+
+        Example
+        -------
+            from orchestrator.optimization import ParetoBackend
+            planner.set_backend(ParetoBackend())
+        """
+        self._backend = backend
 
     # ─────────────────────────────────────────────────────────────────────────
     # Primary selection
@@ -119,11 +133,15 @@ class ConstraintPlanner:
             )
             return None
 
-        best = max(candidates, key=lambda m: self._score(m, task_type))
-        logger.info(
-            "select_model: chose %s for %s (score=%.4f, task=%s)",
-            best.value, task_type.value, self._score(best, task_type), task_id,
+        best = self._backend.select(
+            candidates, self._profiles, task_type, self._estimate_typical_cost
         )
+        if best is not None:
+            logger.info(
+                "select_model: chose %s for %s (backend=%s, task=%s)",
+                best.value, task_type.value,
+                type(self._backend).__name__, task_id,
+            )
         return best
 
     def select_reviewer(
@@ -161,22 +179,28 @@ class ConstraintPlanner:
             if get_provider(m) != gen_provider and m != generator
         ]
         if cross_provider:
-            best = max(cross_provider, key=lambda m: self._score(m, task_type))
-            logger.info(
-                "select_reviewer: cross-provider %s for generator=%s",
-                best.value, generator.value,
+            best = self._backend.select(
+                cross_provider, self._profiles, task_type, self._estimate_typical_cost
             )
-            return best
+            if best is not None:
+                logger.info(
+                    "select_reviewer: cross-provider %s for generator=%s",
+                    best.value, generator.value,
+                )
+                return best
 
         # Fallback: any different model (same provider allowed)
         different_model = [m for m in candidates if m != generator]
         if different_model:
-            best = max(different_model, key=lambda m: self._score(m, task_type))
-            logger.warning(
-                "select_reviewer: same-provider fallback %s "
-                "(no cross-provider candidates available)", best.value,
+            best = self._backend.select(
+                different_model, self._profiles, task_type, self._estimate_typical_cost
             )
-            return best
+            if best is not None:
+                logger.warning(
+                    "select_reviewer: same-provider fallback %s "
+                    "(no cross-provider candidates available)", best.value,
+                )
+                return best
 
         logger.warning(
             "select_reviewer: no reviewer available for generator=%s",
@@ -211,11 +235,14 @@ class ConstraintPlanner:
             )
             return None
 
-        best = max(remaining, key=lambda m: self._score(m, task_type))
-        logger.info(
-            "replan: selected %s as fallback for failed %s",
-            best.value, failed_model.value,
+        best = self._backend.select(
+            remaining, self._profiles, task_type, self._estimate_typical_cost
         )
+        if best is not None:
+            logger.info(
+                "replan: selected %s as fallback for failed %s",
+                best.value, failed_model.value,
+            )
         return best
 
     # ─────────────────────────────────────────────────────────────────────────

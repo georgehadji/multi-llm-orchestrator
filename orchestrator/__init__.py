@@ -23,10 +23,15 @@ from .engine import Orchestrator
 from .cache import DiskCache
 from .state import StateManager
 from .validators import run_validators, async_run_validators, VALIDATORS
-from .policy import ModelProfile, Policy, PolicySet, JobSpec
+from .policy import (
+    ModelProfile, Policy, PolicySet, JobSpec,
+    EnforcementMode, RateLimit, PolicyHierarchy,
+)
 from .policy_engine import PolicyEngine, PolicyViolationError
 from .planner import ConstraintPlanner
 from .telemetry import TelemetryCollector
+from .optimization import OptimizationBackend, GreedyBackend, WeightedSumBackend, ParetoBackend
+from .audit import AuditLog, AuditRecord
 
 __all__ = [
     # Core
@@ -40,4 +45,10 @@ __all__ = [
     "PolicyEngine", "PolicyViolationError",
     "ConstraintPlanner", "TelemetryCollector",
     "build_default_profiles",
+    # Governance — Improvement 2
+    "EnforcementMode", "RateLimit", "PolicyHierarchy",
+    # Optimization backends — Improvement 1
+    "OptimizationBackend", "GreedyBackend", "WeightedSumBackend", "ParetoBackend",
+    # Audit log
+    "AuditLog", "AuditRecord",
 ]

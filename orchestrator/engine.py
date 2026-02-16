@@ -42,6 +42,8 @@ from .policy import ModelProfile, Policy, PolicySet, JobSpec
 from .policy_engine import PolicyEngine
 from .planner import ConstraintPlanner
 from .telemetry import TelemetryCollector
+from .audit import AuditLog
+from .optimization import OptimizationBackend
 
 logger = logging.getLogger("orchestrator")
 
@@ -83,7 +85,8 @@ class Orchestrator:
 
         # Policy-driven components (initialised with default profiles from static tables)
         self._profiles: dict[Model, ModelProfile] = build_default_profiles()
-        self._policy_engine = PolicyEngine()
+        self._audit_log = AuditLog()
+        self._policy_engine = PolicyEngine(audit_log=self._audit_log)
         self._planner = ConstraintPlanner(
             profiles=self._profiles,
             policy_engine=self._policy_engine,
@@ -98,6 +101,15 @@ class Orchestrator:
     # ─────────────────────────────────────────
     # Public API
     # ─────────────────────────────────────────
+
+    def set_optimization_backend(self, backend: "OptimizationBackend") -> None:
+        """Swap the ConstraintPlanner's optimization strategy at runtime."""
+        self._planner.set_backend(backend)
+
+    @property
+    def audit_log(self) -> "AuditLog":
+        """Read-only access to the policy audit log."""
+        return self._audit_log
 
     async def run_project(self, project_description: str,
                           success_criteria: str,

@@ -18,9 +18,40 @@ engine.py imports from both.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
 
 from .models import Model, TaskType, Budget
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EnforcementMode — controls how violations are handled
+# ─────────────────────────────────────────────────────────────────────────────
+
+class EnforcementMode(str, Enum):
+    """
+    Controls how PolicyEngine handles violations.
+
+    MONITOR — log the violation but allow the model through (observability only)
+    SOFT    — block hard violations (provider/model/region/compliance) but allow
+              soft violations (latency SLA, cost cap) through
+    HARD    — block on any violation (default; existing behaviour)
+    """
+    MONITOR = "monitor"
+    SOFT    = "soft"
+    HARD    = "hard"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RateLimit — per-policy rate cap (enforcement counted externally)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@dataclass
+class RateLimit:
+    """Per-scope rate cap attached to a Policy. Actual enforcement is external."""
+    calls_per_minute:  Optional[int]   = None
+    cost_usd_per_hour: Optional[float] = None
+    tokens_per_day:    Optional[int]   = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -121,6 +152,10 @@ class Policy:
     max_cost_per_task_usd: Optional[float] = None    # hard per-task cap
     max_latency_ms: Optional[float] = None           # reject if avg_latency > this
 
+    # ── Enforcement mode ──────────────────────────────────────────────────────
+    enforcement_mode: Optional["EnforcementMode"] = None   # None → HARD (default)
+    rate_limit: Optional["RateLimit"] = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PolicySet — container of policies with per-node overrides
@@ -190,3 +225,56 @@ class JobSpec:
     quality_targets: dict[TaskType, float] = field(default_factory=dict)
     preferred_regions: list[str] = field(default_factory=list)
     max_parallel_tasks: int = 3
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PolicyHierarchy — 4-level additive policy merge (Org → Team → Job → Node)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PolicyHierarchy:
+    """
+    4-level policy merge: Org → Team → Job → Node.
+    Each level's policies extend (not replace) parent-level policies.
+
+    Example:
+        hier = PolicyHierarchy(
+            org=[Policy("gdpr", allow_training_on_output=False)],
+            team={"eng": [Policy("eu_only", allowed_regions=["eu"])]},
+        )
+        policies = hier.policies_for(team="eng", job_id="job_001", task_id="t_007")
+    """
+
+    def __init__(
+        self,
+        org:  Optional[list["Policy"]]            = None,
+        team: Optional[dict[str, list["Policy"]]] = None,
+        job:  Optional[dict[str, list["Policy"]]] = None,
+        node: Optional[dict[str, list["Policy"]]] = None,
+    ):
+        self._org  = org  or []
+        self._team = team or {}
+        self._job  = job  or {}
+        self._node = node or {}
+
+    def policies_for(
+        self,
+        team:    str = "",
+        job_id:  str = "",
+        task_id: str = "",
+    ) -> list["Policy"]:
+        """Return merged policy list: org + team[team] + job[job_id] + node[task_id]."""
+        return (
+            list(self._org)
+            + list(self._team.get(team, []))
+            + list(self._job.get(job_id, []))
+            + list(self._node.get(task_id, []))
+        )
+
+    def as_policy_set(
+        self,
+        team:    str = "",
+        job_id:  str = "",
+        task_id: str = "",
+    ) -> "PolicySet":
+        """Convert to a flat PolicySet compatible with the existing engine API."""
+        return PolicySet(global_policies=self.policies_for(team, job_id, task_id))
