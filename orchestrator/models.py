@@ -93,15 +93,16 @@ COST_TABLE: dict[Model, dict[str, float]] = {
 # ─────────────────────────────────────────────
 
 ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    # Kimi K2.5 is positioned as a cost-effective alternative for code and reasoning.
-    # It ranks 3rd for CODE_GEN (after Sonnet & GPT-4o) and 4th for REASONING/EVALUATE.
-    TaskType.CODE_GEN:     [Model.CLAUDE_SONNET, Model.GPT_4O, Model.KIMI_K2_5, Model.GEMINI_PRO],
-    TaskType.CODE_REVIEW:  [Model.GPT_4O, Model.CLAUDE_OPUS, Model.GEMINI_PRO],
-    TaskType.REASONING:    [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO, Model.KIMI_K2_5],
+    # Kimi K2.5 is the primary model for code, review, reasoning and evaluation —
+    # lowest cost ($0.14/$0.56 per 1M tokens) with strong performance on structured tasks.
+    # Higher-cost models (Sonnet, GPT-4o, Opus) are fallbacks when Kimi is unavailable.
+    TaskType.CODE_GEN:     [Model.KIMI_K2_5, Model.CLAUDE_SONNET, Model.GPT_4O, Model.GEMINI_PRO],
+    TaskType.CODE_REVIEW:  [Model.KIMI_K2_5, Model.GPT_4O, Model.CLAUDE_OPUS, Model.GEMINI_PRO],
+    TaskType.REASONING:    [Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
     TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
     TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.CLAUDE_HAIKU],
     TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
-    TaskType.EVALUATE:     [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO, Model.KIMI_K2_5],
+    TaskType.EVALUATE:     [Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
 }
 
 
@@ -110,14 +111,14 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
 # ─────────────────────────────────────────────
 
 FALLBACK_CHAIN: dict[Model, Model] = {
-    Model.CLAUDE_OPUS:   Model.GPT_4O,
-    Model.CLAUDE_SONNET: Model.GPT_4O,
-    Model.CLAUDE_HAIKU:  Model.GPT_4O_MINI,
-    Model.GPT_4O:        Model.CLAUDE_OPUS,
-    Model.GPT_4O_MINI:   Model.GEMINI_FLASH,
-    Model.GEMINI_PRO:    Model.CLAUDE_OPUS,
-    Model.GEMINI_FLASH:  Model.GPT_4O_MINI,
-    Model.KIMI_K2_5:     Model.CLAUDE_SONNET,   # cross-provider fallback → Anthropic
+    Model.CLAUDE_OPUS:   Model.KIMI_K2_5,     # Kimi is primary; Opus falls back to it
+    Model.CLAUDE_SONNET: Model.KIMI_K2_5,     # Sonnet falls back to Kimi (cross-provider)
+    Model.CLAUDE_HAIKU:  Model.GPT_4O_MINI,   # light tasks: stay in cheap tier
+    Model.GPT_4O:        Model.KIMI_K2_5,     # GPT-4o falls back to Kimi (cross-provider)
+    Model.GPT_4O_MINI:   Model.GEMINI_FLASH,  # mini tasks: Gemini Flash as budget option
+    Model.GEMINI_PRO:    Model.KIMI_K2_5,     # Gemini Pro falls back to Kimi
+    Model.GEMINI_FLASH:  Model.GPT_4O_MINI,   # flash tasks: GPT-4o-mini as fallback
+    Model.KIMI_K2_5:     Model.CLAUDE_SONNET, # Kimi's own fallback → Anthropic Sonnet
 }
 
 

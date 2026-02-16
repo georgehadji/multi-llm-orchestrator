@@ -64,6 +64,13 @@ pip install pytest ruff jsonschema   # optional validators
 ## CLI
 
 ```bash
+
+# Αποθήκευση output σε φάκελο
+python -m orchestrator \
+  --project "Build a rate-limiter library" \
+  --criteria "pytest passes, ruff clean" \
+  --output-dir ./my_results
+
 # New project (inline)
 python -m orchestrator \
   --project  "Build a FastAPI auth service with JWT" \
@@ -200,13 +207,15 @@ Phase 2–5 — Per-task (up to max_iterations per task type)
 
 | Task type | Priority order | Max tokens |
 |-----------|---------------|------------|
-| `code_generation` | Claude Sonnet → GPT-4o → Kimi K2.5 → Gemini Pro | 4096 |
-| `code_review` | GPT-4o → Claude Opus → Gemini Pro | 2048 |
-| `complex_reasoning` | Claude Opus → GPT-4o → Gemini Pro → **Kimi K2.5** | 2048 |
+| `code_generation` | **Kimi K2.5** → Claude Sonnet → GPT-4o → Gemini Pro | 4096 |
+| `code_review` | **Kimi K2.5** → GPT-4o → Claude Opus → Gemini Pro | 2048 |
+| `complex_reasoning` | **Kimi K2.5** → Claude Opus → GPT-4o → Gemini Pro | 2048 |
 | `creative_writing` | Claude Opus → GPT-4o → Gemini Pro | 2048 |
 | `data_extraction` | Gemini Flash → GPT-4o-mini → Claude Haiku | 1024 |
 | `summarization` | Gemini Flash → Claude Haiku → GPT-4o-mini | 512 |
-| `evaluation` | Claude Opus → GPT-4o → Gemini Pro → Kimi K2.5 | 600 |
+| `evaluation` | **Kimi K2.5** → Claude Opus → GPT-4o → Gemini Pro | 600 |
+
+Kimi K2.5 is the **primary model** for code generation, code review, reasoning, and evaluation — it is the cheapest option ($0.14/$0.56 per 1M tokens) and falls back to Claude Sonnet if unavailable. Creative writing, data extraction, and summarization retain their original routing where Kimi offers no advantage.
 
 The reviewer is always from a **different provider** than the generator (prevents shared-bias blind spots). Falls back to a different model tier, then any healthy model.
 
