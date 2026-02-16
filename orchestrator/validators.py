@@ -6,10 +6,13 @@ If deterministic check fails → score = 0.0 regardless of LLM evaluation.
 
 FIX #1: validate_ruff now cleans up temp files via try/finally.
 FIX #8: run_validators filters kwargs per-validator using inspect.signature.
+FEAT:   async_run_validators() offloads all subprocess validators to threads
+        so the event loop is never blocked (pytest, ruff, latex).
 """
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import logging
@@ -99,114 +102,128 @@ def validate_pytest(output: str, test_code: str = "",
     """
     Run pytest on generated code. Writes to temp dir, executes, checks exit code.
     Requires pytest installed in environment.
+    For async callers use async_run_validators() which offloads via asyncio.to_thread().
     """
     code = _extract_code_block(output, "python")
     if not code.strip():
         return ValidationResult(False, "No Python code found in output", "pytest")
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        code_path = Path(tmpdir) / "generated_code.py"
-        code_path.write_text(code)
+    def _run_sync() -> ValidationResult:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            code_path = Path(tmpdir) / "generated_code.py"
+            code_path.write_text(code)
 
-        if test_code:
-            test_path = Path(tmpdir) / "test_generated.py"
-            test_content = f"from generated_code import *\n\n{test_code}"
-            test_path.write_text(test_content)
-        else:
-            test_path = Path(tmpdir) / "test_import.py"
-            test_path.write_text(
-                "def test_import():\n    import generated_code\n"
-            )
-
-        try:
-            result = subprocess.run(
-                ["python", "-m", "pytest", str(tmpdir), "-v", "--tb=short"],
-                capture_output=True, text=True, timeout=timeout,
-                cwd=tmpdir,
-            )
-            if result.returncode == 0:
-                return ValidationResult(True, result.stdout[-500:], "pytest")
+            if test_code:
+                test_path = Path(tmpdir) / "test_generated.py"
+                test_content = f"from generated_code import *\n\n{test_code}"
+                test_path.write_text(test_content)
             else:
-                return ValidationResult(
-                    False,
-                    f"Tests failed (exit {result.returncode}):\n"
-                    f"{result.stdout[-500:]}\n{result.stderr[-300:]}",
-                    "pytest"
+                test_path = Path(tmpdir) / "test_import.py"
+                test_path.write_text(
+                    "def test_import():\n    import generated_code\n"
                 )
-        except subprocess.TimeoutExpired:
-            return ValidationResult(False, f"Pytest timed out after {timeout}s", "pytest")
-        except FileNotFoundError:
-            return ValidationResult(False, "pytest not found in PATH", "pytest")
+
+            try:
+                result = subprocess.run(
+                    ["python", "-m", "pytest", str(tmpdir), "-v", "--tb=short"],
+                    capture_output=True, text=True, timeout=timeout,
+                    cwd=tmpdir,
+                )
+                if result.returncode == 0:
+                    return ValidationResult(True, result.stdout[-500:], "pytest")
+                else:
+                    return ValidationResult(
+                        False,
+                        f"Tests failed (exit {result.returncode}):\n"
+                        f"{result.stdout[-500:]}\n{result.stderr[-300:]}",
+                        "pytest"
+                    )
+            except subprocess.TimeoutExpired:
+                return ValidationResult(False, f"Pytest timed out after {timeout}s", "pytest")
+            except FileNotFoundError:
+                return ValidationResult(False, "pytest not found in PATH", "pytest")
+
+    return _run_sync()
 
 
 def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
     """
     Run ruff linter on generated Python code.
     FIX #1: Temp file is always cleaned up via try/finally.
+    For async callers use async_run_validators() which offloads via asyncio.to_thread().
     """
     code = _extract_code_block(output, "python")
     if not code.strip():
         return ValidationResult(False, "No Python code found", "ruff")
 
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            suffix=".py", mode="w", delete=False
-        ) as f:
-            tmp_path = f.name
-            f.write(code)
-            f.flush()
-
-        result = subprocess.run(
-            ["ruff", "check", tmp_path, "--select=E,F"],
-            capture_output=True, text=True, timeout=timeout,
-        )
-        if result.returncode == 0:
-            return ValidationResult(True, "No lint errors", "ruff")
-        else:
-            return ValidationResult(
-                False,
-                f"Lint issues:\n{result.stdout[-500:]}",
-                "ruff"
-            )
-    except FileNotFoundError:
-        logger.warning("ruff not installed, skipping lint check")
-        return ValidationResult(True, "ruff not available, skipped", "ruff")
-    except subprocess.TimeoutExpired:
-        return ValidationResult(False, "ruff timed out", "ruff")
-    finally:
-        # FIX #1: Always clean up temp file
-        if tmp_path and os.path.exists(tmp_path):
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-
-
-def validate_latex(output: str, timeout: int = 30) -> ValidationResult:
-    """Check LaTeX compiles (requires pdflatex)."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tex_path = Path(tmpdir) / "check.tex"
-        tex_path.write_text(output)
+    def _run_sync() -> ValidationResult:
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(
+                suffix=".py", mode="w", delete=False
+            ) as f:
+                tmp_path = f.name
+                f.write(code)
+                f.flush()
+
             result = subprocess.run(
-                ["pdflatex", "-interaction=nonstopmode", "-halt-on-error",
-                 str(tex_path)],
+                ["ruff", "check", tmp_path, "--select=E,F"],
                 capture_output=True, text=True, timeout=timeout,
-                cwd=tmpdir,
             )
             if result.returncode == 0:
-                return ValidationResult(True, "LaTeX compiled", "latex")
+                return ValidationResult(True, "No lint errors", "ruff")
             else:
                 return ValidationResult(
                     False,
-                    f"LaTeX compilation failed:\n{result.stderr[-500:]}",
-                    "latex"
+                    f"Lint issues:\n{result.stdout[-500:]}",
+                    "ruff"
                 )
         except FileNotFoundError:
-            return ValidationResult(True, "pdflatex not available, skipped", "latex")
+            logger.warning("ruff not installed, skipping lint check")
+            return ValidationResult(True, "ruff not available, skipped", "ruff")
         except subprocess.TimeoutExpired:
-            return ValidationResult(False, "LaTeX compilation timed out", "latex")
+            return ValidationResult(False, "ruff timed out", "ruff")
+        finally:
+            # FIX #1: Always clean up temp file
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+
+    return _run_sync()
+
+
+def validate_latex(output: str, timeout: int = 30) -> ValidationResult:
+    """
+    Check LaTeX compiles (requires pdflatex).
+    For async callers use async_run_validators() which offloads via asyncio.to_thread().
+    """
+    def _run_sync() -> ValidationResult:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tex_path = Path(tmpdir) / "check.tex"
+            tex_path.write_text(output)
+            try:
+                result = subprocess.run(
+                    ["pdflatex", "-interaction=nonstopmode", "-halt-on-error",
+                     str(tex_path)],
+                    capture_output=True, text=True, timeout=timeout,
+                    cwd=tmpdir,
+                )
+                if result.returncode == 0:
+                    return ValidationResult(True, "LaTeX compiled", "latex")
+                else:
+                    return ValidationResult(
+                        False,
+                        f"LaTeX compilation failed:\n{result.stderr[-500:]}",
+                        "latex"
+                    )
+            except FileNotFoundError:
+                return ValidationResult(True, "pdflatex not available, skipped", "latex")
+            except subprocess.TimeoutExpired:
+                return ValidationResult(False, "LaTeX compilation timed out", "latex")
+
+    return _run_sync()
 
 
 def validate_length_bounds(output: str, min_chars: int = 10,
@@ -275,6 +292,38 @@ def run_validators(output: str, validator_names: list[str],
 
 def all_validators_pass(results: list[ValidationResult]) -> bool:
     return all(r.passed for r in results)
+
+
+# Subprocess-based validators that block the CPU — offloaded to threads
+# when called from async context via async_run_validators().
+_SUBPROCESS_VALIDATORS = {"pytest", "ruff", "latex"}
+
+
+async def async_run_validators(output: str, validator_names: list[str],
+                               **kwargs) -> list[ValidationResult]:
+    """
+    Async variant of run_validators().
+
+    Pure-Python validators (json_schema, python_syntax, length) run inline.
+    Subprocess validators (pytest, ruff, latex) are offloaded to a thread pool
+    via asyncio.to_thread() so the event loop is never blocked.
+    """
+    results: list[ValidationResult] = []
+    for name in validator_names:
+        fn = VALIDATORS.get(name)
+        if not fn:
+            logger.warning(f"Unknown validator: {name}")
+            continue
+        filtered = _filter_kwargs_for(fn, kwargs)
+        try:
+            if name in _SUBPROCESS_VALIDATORS:
+                result = await asyncio.to_thread(fn, output, **filtered)
+            else:
+                result = fn(output, **filtered)
+            results.append(result)
+        except Exception as e:
+            results.append(ValidationResult(False, f"Validator crash: {e}", name))
+    return results
 
 
 # ─────────────────────────────────────────────

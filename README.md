@@ -200,13 +200,13 @@ Phase 2–5 — Per-task (up to max_iterations per task type)
 
 | Task type | Priority order | Max tokens |
 |-----------|---------------|------------|
-| `code_generation` | Claude Sonnet → GPT-4o → **Kimi K2.5** → Gemini Pro | 4096 |
+| `code_generation` | Claude Sonnet → GPT-4o → Kimi K2.5 → Gemini Pro | 4096 |
 | `code_review` | GPT-4o → Claude Opus → Gemini Pro | 2048 |
 | `complex_reasoning` | Claude Opus → GPT-4o → Gemini Pro → **Kimi K2.5** | 2048 |
 | `creative_writing` | Claude Opus → GPT-4o → Gemini Pro | 2048 |
 | `data_extraction` | Gemini Flash → GPT-4o-mini → Claude Haiku | 1024 |
 | `summarization` | Gemini Flash → Claude Haiku → GPT-4o-mini | 512 |
-| `evaluation` | Claude Opus → GPT-4o → Gemini Pro → **Kimi K2.5** | 600 |
+| `evaluation` | Claude Opus → GPT-4o → Gemini Pro → Kimi K2.5 | 600 |
 
 The reviewer is always from a **different provider** than the generator (prevents shared-bias blind spots). Falls back to a different model tier, then any healthy model.
 
@@ -223,7 +223,7 @@ Max iterations per task: 3 (code, reasoning) / 2 (all others).
 | GPT-4o-mini | $0.15 | $0.60 | OpenAI |
 | Gemini 2.5 Pro | $1.25 | $10.00 | Google |
 | Gemini 2.5 Flash | $0.15 | $0.60 | Google |
-| **Kimi K2.5** | **$0.14** | **$0.56** | **Kimi** |
+| Kimi K2.5 | $0.14 | $0.56 | Kimi |
 
 > Kimi K2.5 is the most cost-effective option — cheaper than GPT-4o-mini and Gemini Flash.
 
@@ -317,8 +317,7 @@ results/
 
 | Issue | Workaround |
 |-------|-----------|
-| Budget ceiling checked before each task, not enforced mid-task | Set `--budget` 10–15% below true ceiling |
-| `validate_ruff` writes a temp file without cleanup | Schedule periodic `tmp` cleanup or disable `ruff` validator |
+| Budget ceiling checked before each task **and** mid-iteration, but not mid-API-call | Set `--budget` 10–15% below true ceiling for safety |
 | Resume iterates `execution_order` from saved state; verify order is correct for dependency chains | Prefer `--project-id` on initial run so resume is deterministic |
 | `_ensure_schema` called on every cache operation (minor overhead) | Acceptable for current scale; add a connection-level init flag if profiling shows cost |
 | Kimi K2.5 model name `moonshot-v1` maps to the default tier; for a specific snapshot append the date (e.g. `moonshot-v1-8k`) | Set the `KIMI_MODEL` env var or hardcode in `Model.KIMI_K2_5` if needed |

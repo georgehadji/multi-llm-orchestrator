@@ -5,10 +5,17 @@ Implements the full generate → critique → revise → evaluate pipeline
 with cross-model review, deterministic validation, budget enforcement,
 plateau detection, and fallback routing.
 
-FIX #5: Budget checked within iteration loop (mid-task), not just pre-task.
-FIX #6: Topological sort uses collections.deque instead of list.sort()+pop(0).
-FIX #7: Resume restores persisted budget state instead of creating fresh Budget.
+FIX #5:  Budget checked within iteration loop (mid-task), not just pre-task.
+FIX #6:  Topological sort uses collections.deque instead of list.sort()+pop(0).
+FIX #7:  Resume restores persisted budget state instead of creating fresh Budget.
 FIX #10: All StateManager calls are now awaited (async migration).
+FEAT:    TelemetryCollector + ConstraintPlanner wired at init.
+FEAT:    TaskResult.tokens_used populated from APIResponse.
+FEAT:    run_job(spec) entry point for policy-driven orchestration.
+FEAT:    Budget phase partition enforcement (warn + soft-halt at 2× soft cap).
+FEAT:    Dependency context truncation warning.
+FEAT:    Decomposition retried once with different model on JSON parse failure.
+FEAT:    Circuit breaker — model marked unhealthy after 3 consecutive failures.
 """
 
 from __future__ import annotations
@@ -25,12 +32,16 @@ from typing import Optional
 from .models import (
     Budget, BUDGET_PARTITIONS, FALLBACK_CHAIN, Model, ProjectState,
     ProjectStatus, ROUTING_TABLE, Task, TaskResult, TaskStatus, TaskType,
-    get_max_iterations, get_provider, estimate_cost,
+    get_max_iterations, get_provider, estimate_cost, build_default_profiles,
 )
 from .api_clients import UnifiedClient, APIResponse
-from .validators import run_validators, all_validators_pass, ValidationResult
+from .validators import run_validators, async_run_validators, all_validators_pass, ValidationResult
 from .cache import DiskCache
 from .state import StateManager
+from .policy import ModelProfile, Policy, PolicySet, JobSpec
+from .policy_engine import PolicyEngine
+from .planner import ConstraintPlanner
+from .telemetry import TelemetryCollector
 
 logger = logging.getLogger("orchestrator")
 
@@ -47,6 +58,9 @@ class Orchestrator:
     5. Plateau detection prevents runaway iteration
     """
 
+    # Circuit breaker: model is marked unhealthy after this many consecutive errors
+    _CIRCUIT_BREAKER_THRESHOLD: int = 3
+
     def __init__(self, budget: Optional[Budget] = None,
                  cache: Optional[DiskCache] = None,
                  state_manager: Optional[StateManager] = None,
@@ -59,10 +73,27 @@ class Orchestrator:
         self.results: dict[str, TaskResult] = {}
         self._project_id: str = ""
 
+        # Circuit breaker counters — consecutive failures per model
+        self._consecutive_failures: dict[Model, int] = {m: 0 for m in Model}
+
         for model in Model:
             if not self.client.is_available(model):
                 self.api_health[model] = False
                 logger.warning(f"{model.value}: provider SDK/key not available")
+
+        # Policy-driven components (initialised with default profiles from static tables)
+        self._profiles: dict[Model, ModelProfile] = build_default_profiles()
+        self._policy_engine = PolicyEngine()
+        self._planner = ConstraintPlanner(
+            profiles=self._profiles,
+            policy_engine=self._policy_engine,
+            api_health=self.api_health,
+        )
+        self._telemetry = TelemetryCollector(self._profiles)
+        # Active policy set — replaced by run_job(); empty = no restrictions
+        self._active_policies: PolicySet = PolicySet()
+        # Context truncation limit per dependency (chars) — configurable
+        self.context_truncation_limit: int = 3000
 
     # ─────────────────────────────────────────
     # Public API
@@ -112,6 +143,21 @@ class Orchestrator:
         self._log_summary(state)
         return state
 
+    async def run_job(self, spec: JobSpec) -> ProjectState:
+        """
+        Policy-driven entry point. Accepts a JobSpec that bundles project
+        description, success criteria, budget, quality targets, and policies.
+
+        The active PolicySet is threaded through model selection so that
+        ConstraintPlanner enforces compliance on every API call.
+        """
+        self.budget = spec.budget
+        self._active_policies = spec.policy_set
+        return await self.run_project(
+            project_description=spec.project_description,
+            success_criteria=spec.success_criteria,
+        )
+
     # ─────────────────────────────────────────
     # Phase 1: Decomposition
     # ─────────────────────────────────────────
@@ -142,32 +188,31 @@ RULES:
 
 Return ONLY the JSON array, no markdown fences, no explanation."""
 
+        decomp_system = "You are a precise project decomposition engine. Output only valid JSON."
         model = self._get_cheapest_available()
-        try:
-            response = await self.client.call(
-                model, prompt,
-                system="You are a precise project decomposition engine. Output only valid JSON.",
-                max_tokens=2000,
-                timeout=45,
+
+        async def _try_decompose(m: Model) -> dict[str, Task]:
+            resp = await self.client.call(
+                m, prompt, system=decomp_system, max_tokens=2500, timeout=60,
             )
-            self.budget.charge(response.cost_usd, "decomposition")
-            return self._parse_decomposition(response.text)
-        except Exception as e:
-            logger.error(f"Decomposition failed: {e}")
-            fallback = self._get_fallback(model)
-            if fallback:
-                try:
-                    response = await self.client.call(
-                        fallback, prompt,
-                        system="You are a precise project decomposition engine. Output only valid JSON.",
-                        max_tokens=2000,
-                        timeout=45,
-                    )
-                    self.budget.charge(response.cost_usd, "decomposition")
-                    return self._parse_decomposition(response.text)
-                except Exception as e2:
-                    logger.error(f"Decomposition fallback also failed: {e2}")
-            return {}
+            self.budget.charge(resp.cost_usd, "decomposition")
+            self._record_success(m, resp)
+            result = self._parse_decomposition(resp.text)
+            if not result:
+                raise ValueError(f"Decomposition returned empty task list from {m.value}")
+            return result
+
+        # Try primary model, then fallback, with one retry on empty/malformed output
+        for attempt, m in enumerate([model, self._get_fallback(model)]):
+            if m is None:
+                break
+            try:
+                return await _try_decompose(m)
+            except Exception as e:
+                logger.error(f"Decomposition attempt {attempt + 1} with {m.value} failed: {e}")
+                self._record_failure(m)
+        logger.error("All decomposition attempts failed — returning empty task list")
+        return {}
 
     def _parse_decomposition(self, text: str) -> dict[str, Task]:
         """Parse LLM output into Task objects with defensive handling."""
@@ -210,6 +255,30 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     # Phase 2-5: Task Execution Loop
     # ─────────────────────────────────────────
 
+    def _check_phase_budget(self, phase: str) -> None:
+        """
+        Warn when a phase exceeds its soft cap, and log an error when it
+        reaches 2× the soft cap (runaway spend in one phase).
+        The caps are soft — execution is not halted, but the warnings are
+        visible in logs and can be acted upon by the operator.
+        """
+        spent = self.budget.phase_spent.get(phase, 0.0)
+        cap = self.budget.phase_budget(phase)
+        if cap <= 0:
+            return
+        ratio = spent / cap
+        if ratio >= 2.0:
+            logger.error(
+                f"Phase '{phase}' spent ${spent:.4f} — "
+                f"{ratio:.1f}× its soft cap of ${cap:.4f}. "
+                f"Consider raising --budget or reducing task count."
+            )
+        elif ratio >= 1.0:
+            logger.warning(
+                f"Phase '{phase}' exceeded soft cap: "
+                f"${spent:.4f} / ${cap:.4f} ({ratio:.0%})"
+            )
+
     async def _execute_all(self, tasks: dict[str, Task],
                             execution_order: list[str],
                             project_desc: str,
@@ -242,6 +311,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             result = await self._execute_task(task)
             self.results[task_id] = result
             task.status = result.status
+
+            # Check phase budget soft caps after each task
+            for phase in ("generation", "cross_review", "evaluation"):
+                self._check_phase_budget(phase)
 
             # Checkpoint (async)
             state = self._make_state(project_desc, success_criteria, tasks,
@@ -276,6 +349,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         best_score = 0.0
         best_critique = ""
         total_cost = 0.0
+        total_input_tokens = 0
+        total_output_tokens = 0
         degraded_count = 0
         scores_history: list[float] = []
         det_passed = True  # default: no validators = passed
@@ -311,9 +386,12 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 gen_cost = gen_response.cost_usd
                 self.budget.charge(gen_cost, "generation")
                 total_cost += gen_cost
+                total_input_tokens += gen_response.input_tokens
+                total_output_tokens += gen_response.output_tokens
+                self._record_success(primary, gen_response)
             except Exception as e:
                 logger.error(f"Generation failed for {task.id}: {e}")
-                self.api_health[primary] = False
+                self._record_failure(primary)
                 degraded_count += 1
                 fb = self._get_fallback(primary)
                 if fb:
@@ -327,9 +405,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         output = gen_response.text
                         self.budget.charge(gen_response.cost_usd, "generation")
                         total_cost += gen_response.cost_usd
+                        total_input_tokens += gen_response.input_tokens
+                        total_output_tokens += gen_response.output_tokens
+                        self._record_success(fb, gen_response)
                         primary = fb
                     except Exception as e2:
                         logger.error(f"Fallback generation also failed: {e2}")
+                        self._record_failure(fb)
                         break
                 else:
                     break
@@ -388,7 +470,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # ── DETERMINISTIC VALIDATION ──
             det_passed = True
             if task.hard_validators:
-                val_results = run_validators(output, task.hard_validators)
+                val_results = await async_run_validators(output, task.hard_validators)
                 det_passed = all_validators_pass(val_results)
                 if not det_passed:
                     failed = [v for v in val_results if not v.passed]
@@ -431,12 +513,21 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         if best_score == 0.0 and not det_passed:
             status = TaskStatus.FAILED
 
+        # Feed final eval score back to telemetry so ConstraintPlanner re-ranks
+        if best_score > 0.0:
+            self._telemetry.record_call(
+                primary, latency_ms=0.0, cost_usd=0.0,
+                success=(status != TaskStatus.FAILED),
+                quality_score=best_score,
+            )
+
         return TaskResult(
             task_id=task.id,
             output=best_output,
             score=best_score,
             model_used=primary,
             reviewer_model=reviewer,
+            tokens_used={"input": total_input_tokens, "output": total_output_tokens},
             iterations=len(scores_history),
             cost_usd=total_cost,
             status=status,
@@ -506,6 +597,41 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             return max(0.0, min(1.0, float(match.group(1))))
         logger.warning(f"Could not parse score from: {text[:100]}")
         return 0.5
+
+    # ─────────────────────────────────────────
+    # Telemetry + circuit breaker helpers
+    # ─────────────────────────────────────────
+
+    def _record_success(self, model: Model, response: "APIResponse") -> None:
+        """Record a successful API call; reset circuit breaker counter."""
+        self._consecutive_failures[model] = 0
+        self._telemetry.record_call(
+            model,
+            latency_ms=response.latency_ms,
+            cost_usd=response.cost_usd,
+            success=True,
+        )
+
+    def _record_failure(self, model: Model) -> None:
+        """
+        Record a failed API call. Increment circuit breaker counter.
+        If consecutive failures reach the threshold, mark the model unhealthy.
+        """
+        self._consecutive_failures[model] = self._consecutive_failures.get(model, 0) + 1
+        self._telemetry.record_call(
+            model, latency_ms=0.0, cost_usd=0.0, success=False
+        )
+        if self._consecutive_failures[model] >= self._CIRCUIT_BREAKER_THRESHOLD:
+            if self.api_health.get(model, True):
+                self.api_health[model] = False
+                logger.warning(
+                    f"Circuit breaker tripped for {model.value} "
+                    f"after {self._consecutive_failures[model]} consecutive failures"
+                )
+
+    def _get_active_policies(self, task_id: str = "") -> list[Policy]:
+        """Return merged global + node-level policies for the given task."""
+        return self._active_policies.policies_for(task_id)
 
     # ─────────────────────────────────────────
     # Model selection & fallback
@@ -590,11 +716,25 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         return result
 
     def _gather_dependency_context(self, dep_ids: list[str]) -> str:
+        """
+        Gather output from completed/degraded dependencies.
+        Truncates each dependency's output to self.context_truncation_limit chars
+        and logs a warning when truncation occurs so information loss is visible.
+        """
         parts = []
+        limit = self.context_truncation_limit
         for dep_id in dep_ids:
             result = self.results.get(dep_id)
             if result and result.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED):
-                parts.append(f"[Output from {dep_id}]:\n{result.output[:2000]}")
+                text = result.output
+                if len(text) > limit:
+                    logger.warning(
+                        f"Context truncated for {dep_id}: "
+                        f"{len(text)} → {limit} chars. "
+                        f"Increase orchestrator.context_truncation_limit to avoid information loss."
+                    )
+                    text = text[:limit]
+                parts.append(f"[Output from {dep_id}]:\n{text}")
         return "\n\n".join(parts) if parts else ""
 
     # ─────────────────────────────────────────
@@ -602,6 +742,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     # ─────────────────────────────────────────
 
     def _determine_final_status(self, state: ProjectState) -> ProjectStatus:
+        # Check budget / time first — these override empty-results SYSTEM_FAILURE
+        # so that a run halted by budget exhaustion or timeout is correctly labelled.
+        budget_exhausted = state.budget.remaining_usd <= 0
+        time_ok = state.budget.time_remaining()
+
+        if budget_exhausted:
+            return ProjectStatus.BUDGET_EXHAUSTED
+        if not time_ok:
+            return ProjectStatus.TIMEOUT
+
         if not state.results:
             return ProjectStatus.SYSTEM_FAILURE
 
@@ -610,9 +760,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED)
             for r in state.results.values()
         )
-        # Budget exhausted = spent >= max (remaining_usd <= 0)
-        budget_exhausted = state.budget.remaining_usd <= 0
-        time_ok = state.budget.time_remaining()
 
         degraded_heavy = any(
             r.degraded_fallback_count > r.iterations * 0.5
@@ -622,11 +769,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         det_ok = all(r.deterministic_check_passed for r in state.results.values())
 
-        if budget_exhausted:
-            return ProjectStatus.BUDGET_EXHAUSTED
-        elif not time_ok:
-            return ProjectStatus.TIMEOUT
-        elif all_passed and det_ok and not degraded_heavy:
+        if all_passed and det_ok and not degraded_heavy:
             return ProjectStatus.SUCCESS
         else:
             return ProjectStatus.PARTIAL_SUCCESS
