@@ -105,6 +105,7 @@ class Orchestrator:
         )
 
         # Final status determination
+        state.execution_order = execution_order
         state.status = self._determine_final_status(state)
         await self.state_mgr.save_project(project_id, state)
 
@@ -226,7 +227,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             deps_ok = all(
                 self.results.get(dep, TaskResult(dep, "", 0.0, Model.GPT_4O_MINI)).status
-                == TaskStatus.COMPLETED
+                in (TaskStatus.COMPLETED, TaskStatus.DEGRADED)
                 for dep in task.dependencies
             )
             if not deps_ok:
@@ -243,10 +244,12 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             task.status = result.status
 
             # Checkpoint (async)
-            state = self._make_state(project_desc, success_criteria, tasks)
+            state = self._make_state(project_desc, success_criteria, tasks,
+                                     execution_order=execution_order)
             await self.state_mgr.save_checkpoint(self._project_id, task_id, state)
 
-        return self._make_state(project_desc, success_criteria, tasks)
+        return self._make_state(project_desc, success_criteria, tasks,
+                                execution_order=execution_order)
 
     async def _execute_task(self, task: Task) -> TaskResult:
         """
@@ -275,6 +278,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         total_cost = 0.0
         degraded_count = 0
         scores_history: list[float] = []
+        det_passed = True  # default: no validators = passed
 
         logger.info(f"Executing {task.id} ({task.type.value}): "
                      f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}")
@@ -601,10 +605,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         if not state.results:
             return ProjectStatus.SYSTEM_FAILURE
 
+        # COMPLETED or DEGRADED both count as "passed" for final status
         all_passed = all(
-            r.status == TaskStatus.COMPLETED for r in state.results.values()
+            r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED)
+            for r in state.results.values()
         )
-        budget_ok = state.budget.remaining_usd >= 0
+        # Budget exhausted = spent >= max (remaining_usd <= 0)
+        budget_exhausted = state.budget.remaining_usd <= 0
         time_ok = state.budget.time_remaining()
 
         degraded_heavy = any(
@@ -615,12 +622,12 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         det_ok = all(r.deterministic_check_passed for r in state.results.values())
 
-        if all_passed and budget_ok and det_ok and not degraded_heavy:
-            return ProjectStatus.SUCCESS
-        elif not budget_ok:
+        if budget_exhausted:
             return ProjectStatus.BUDGET_EXHAUSTED
         elif not time_ok:
             return ProjectStatus.TIMEOUT
+        elif all_passed and det_ok and not degraded_heavy:
+            return ProjectStatus.SUCCESS
         else:
             return ProjectStatus.PARTIAL_SUCCESS
 
@@ -660,7 +667,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
     def _make_state(self, project_desc: str, criteria: str,
                      tasks: dict[str, Task],
-                     status: ProjectStatus = ProjectStatus.PARTIAL_SUCCESS
+                     status: ProjectStatus = ProjectStatus.PARTIAL_SUCCESS,
+                     execution_order: Optional[list[str]] = None,
                      ) -> ProjectState:
         return ProjectState(
             project_description=project_desc,
@@ -670,7 +678,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             results=dict(self.results),
             api_health={m.value: h for m, h in self.api_health.items()},
             status=status,
-            execution_order=list(tasks.keys()) if tasks else [],
+            execution_order=execution_order if execution_order is not None else list(tasks.keys()),
         )
 
     def _log_summary(self, state: ProjectState):

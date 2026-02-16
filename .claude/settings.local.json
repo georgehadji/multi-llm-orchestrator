@@ -26,7 +26,9 @@
       "Bash(git -C \"E:/Documents/Vibe-Coding/Ai Orchestrator\" diff orchestrator/cli.py)",
       "Bash(gh pr:*)",
       "Skill(commit-commands:commit-push-pr)",
-      "Skill(commit-commands:commit-push-pr:*)"
+      "Skill(commit-commands:commit-push-pr:*)",
+      "Bash(git rm:*)",
+      "Bash(ls \"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\\\\orchestrator\"\" && cat \"E:DocumentsVibe-CodingAi OrchestratorREADME.md \")"
     ]
   }
 }

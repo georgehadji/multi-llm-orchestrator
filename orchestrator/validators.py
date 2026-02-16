@@ -46,11 +46,28 @@ def validate_json_schema(output: str, schema: Optional[dict] = None) -> Validati
 
 
 def validate_python_syntax(output: str) -> ValidationResult:
-    """Check Python code compiles without syntax errors."""
+    """Check Python code compiles without syntax errors.
+
+    If the extracted block is an indented fragment (e.g. class methods without
+    a class header), dedent it and wrap in a dummy class so compile() can parse it.
+    Note: IndentationError is a subclass of SyntaxError, so it must be caught first.
+    """
+    import textwrap
+    code = _extract_code_block(output, "python")
     try:
-        code = _extract_code_block(output, "python")
         compile(code, "<orchestrator_check>", "exec")
         return ValidationResult(True, "Syntax OK", "python_syntax")
+    except IndentationError:
+        # Possibly a class-method fragment — dedent then wrap in a dummy class and retry
+        dedented = textwrap.dedent(code)
+        wrapped = "class _Wrapper:\n" + "\n".join(
+            "    " + line for line in dedented.splitlines()
+        )
+        try:
+            compile(wrapped, "<orchestrator_check>", "exec")
+            return ValidationResult(True, "Syntax OK (method fragment)", "python_syntax")
+        except SyntaxError as e:
+            return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
     except SyntaxError as e:
         return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
 
@@ -243,14 +260,36 @@ def all_validators_pass(results: list[ValidationResult]) -> bool:
 # ─────────────────────────────────────────────
 
 def _extract_code_block(text: str, language: str = "python") -> str:
-    """Extract first code block from markdown-fenced output."""
+    """Extract first code block from markdown-fenced output.
+
+    Strategy (in order):
+    1. Fenced block with explicit language tag  ```python ... ```
+    2. Fenced block without language tag        ``` ... ```
+    3. Heuristic: find the first top-level Python statement line
+       (must start at column 0: import/from/def/class/@/if __name__)
+       and return everything from that line onward.
+    4. Return the full text unchanged as a last resort.
+    """
     import re
-    pattern = rf"```{language}\s*\n(.*?)```"
-    match = re.search(pattern, text, re.DOTALL)
+
+    # 1. Fenced with language tag
+    match = re.search(rf"```{language}\s*\n(.*?)```", text, re.DOTALL)
     if match:
         return match.group(1)
-    pattern = r"```\s*\n(.*?)```"
-    match = re.search(pattern, text, re.DOTALL)
+
+    # 2. Generic fenced block
+    match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
     if match:
         return match.group(1)
+
+    # 3. Heuristic: first top-level (column-0) Python statement
+    #    Excludes prose that starts with words like "Here", "The", "This", etc.
+    code_start_re = re.compile(
+        r"^(import |from \w|def |class |@\w|if __name__|async def )", re.MULTILINE
+    )
+    m = code_start_re.search(text)
+    if m:
+        return text[m.start():]
+
+    # 4. Fallback: return as-is
     return text

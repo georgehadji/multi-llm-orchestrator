@@ -18,9 +18,13 @@ import asyncio
 import logging
 import sys
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from .models import Budget
 from .engine import Orchestrator
 from .state import StateManager
+from .project_file import load_project_file
 
 
 def setup_logging(verbose: bool = False):
@@ -29,6 +33,7 @@ def setup_logging(verbose: bool = False):
         level=level,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
         datefmt="%H:%M:%S",
+        force=True,  # re-apply even if already configured
     )
 
 
@@ -61,6 +66,37 @@ async def _async_resume(args):
         existing.project_description,
         existing.success_criteria,
         project_id=args.resume,
+    )
+    _print_results(state)
+
+
+async def _async_file_project(args):
+    try:
+        result = load_project_file(args.file)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+    spec = result.spec
+
+    # CLI flags override file values when explicitly provided
+    concurrency = args.concurrency if args.concurrency != 3 else result.concurrency
+    # Re-apply logging with file's verbose setting merged with CLI flag
+    setup_logging(args.verbose or result.verbose)
+
+    budget = spec.budget
+
+    # Print banner BEFORE Orchestrator init so it appears before WARNING logs
+    print(f"Loading project from: {args.file}")
+    print(f"Project: {spec.project_description[:80]}")
+    print(f"Budget: ${budget.max_usd} / {budget.max_time_seconds}s")
+    print("-" * 60)
+
+    orch = Orchestrator(budget=budget, max_concurrency=concurrency)
+
+    state = await orch.run_project(
+        project_description=spec.project_description,
+        success_criteria=spec.success_criteria,
+        project_id=result.project_id,
     )
     _print_results(state)
 
@@ -101,6 +137,8 @@ def main():
     parser.add_argument("--concurrency", type=int, default=3,
                         help="Max simultaneous API calls (default: 3)")
     parser.add_argument("--verbose", "-v", action="store_true")
+    parser.add_argument("--file", "-f", type=str, default="",
+                        help="Load project spec from a YAML file")
 
     args = parser.parse_args()
     setup_logging(args.verbose)
@@ -113,10 +151,14 @@ def main():
         asyncio.run(_async_resume(args))
         return
 
+    if args.file:
+        asyncio.run(_async_file_project(args))
+        return
+
     if not args.project:
-        parser.error("--project is required for new projects")
+        parser.error("--project is required for new projects (or use --file <yaml>)")
     if not args.criteria:
-        parser.error("--criteria is required for new projects")
+        parser.error("--criteria is required for new projects (or use --file <yaml>)")
 
     asyncio.run(_async_new_project(args))
 
@@ -129,7 +171,7 @@ def _print_results(state):
     print("-" * 60)
 
     for tid, result in state.results.items():
-        emoji = "✓" if result.status.value == "completed" else "✗" if result.status.value == "failed" else "~"
+        emoji = "OK" if result.status.value == "completed" else "FAIL" if result.status.value == "failed" else "~"
         print(
             f"  {emoji} {tid}: score={result.score:.3f} "
             f"[{result.model_used.value}] "
