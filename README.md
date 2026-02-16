@@ -1,6 +1,6 @@
 # multi-llm-orchestrator
 
-Decomposes a project description into atomic tasks, routes each to the optimal provider (OpenAI / Anthropic / Google), runs cross-provider generate → critique → revise cycles, and iterates until a quality threshold is met or a budget ceiling is hit.
+Decomposes a project description into atomic tasks, routes each to the optimal provider (OpenAI / Anthropic / Google / Kimi), runs cross-provider generate → critique → revise cycles, and iterates until a quality threshold is met or a budget ceiling is hit.
 
 State is checkpointed to SQLite after every task. Interrupted runs are resumable by project ID.
 
@@ -12,16 +12,16 @@ State is checkpointed to SQLite after every task. Interrupted runs are resumable
 ┌─────────────────────────────────────────────────────┐
 │                   ORCHESTRATOR                       │
 │                                                      │
-│  Decompose → Route → Generate → Critique → Revis e   │
+│  Decompose → Route → Generate → Critique → Revise    │
 │       ↑                                    │         │
 │       └──── Evaluate ← Deterministic Check ┘         │
 │                                                      │
 │  [Async Disk Cache]  [JSON State]  [Budget Control]  │
 └──────────┬──────────────┬──────────────┬─────────────┘
-           │              │              │
-     ┌─────┴─────┐  ┌────┴────┐  ┌─────┴─────┐
-     │  OpenAI   │  │ Gemini  │  │  Claude   │
-     └───────────┘  └─────────┘  └───────────┘
+           │              │              │              │
+     ┌─────┴─────┐  ┌────┴────┐  ┌─────┴─────┐  ┌────┴────┐
+     │  OpenAI   │  │ Gemini  │  │  Claude   │  │  Kimi   │
+     └───────────┘  └─────────┘  └───────────┘  └─────────┘
 ```
 
 ---
@@ -31,11 +31,12 @@ State is checkpointed to SQLite after every task. Interrupted runs are resumable
 - Python ≥ 3.10
 - At least one provider key (others are skipped gracefully)
 
-| Variable | Provider |
-|----------|----------|
-| `OPENAI_API_KEY` | OpenAI (GPT-4o, GPT-4o-mini) |
-| `ANTHROPIC_API_KEY` | Anthropic (Claude Opus, Sonnet, Haiku) |
-| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Google (Gemini Pro, Flash) |
+| Variable | Provider | Models |
+|----------|----------|--------|
+| `OPENAI_API_KEY` | OpenAI | GPT-4o, GPT-4o-mini |
+| `ANTHROPIC_API_KEY` | Anthropic | Claude Opus, Sonnet, Haiku |
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Google | Gemini 2.5 Pro, Flash |
+| `KIMI_API_KEY` or `MOONSHOT_API_KEY` | Kimi (moonshot.cn) | Kimi K2.5 (moonshot-v1) |
 
 ---
 
@@ -52,21 +53,29 @@ pip install pytest ruff jsonschema
 Or without editable install:
 
 ```bash
-pip install openai anthropic google-genai aiosqlite
-pip install pytest ruff jsonschema   # optional
+pip install openai anthropic google-genai aiosqlite pyyaml python-dotenv
+pip install pytest ruff jsonschema   # optional validators
 ```
+
+> **Note:** The `openai` package is also used for Kimi K2.5 (OpenAI-compatible API). No extra dependency needed.
 
 ---
 
 ## CLI
 
 ```bash
-# New project
+# New project (inline)
 python -m orchestrator \
   --project  "Build a FastAPI auth service with JWT" \
   --criteria "All endpoints tested, OpenAPI spec complete" \
   --budget   8.0 \
   --time     5400
+
+# From YAML project file
+python -m orchestrator --file projects/example_full.yaml
+
+# Save outputs to a directory
+python -m orchestrator --file projects/example_full.yaml --output-dir ./results
 
 # Resume interrupted run
 python -m orchestrator --resume <project_id>
@@ -81,12 +90,14 @@ python -m orchestrator --list-projects
 |------|------|---------|-------------|
 | `--project` / `-p` | str | — | Project description (**required** for new runs) |
 | `--criteria` / `-c` | str | — | Acceptance criteria (**required** for new runs) |
+| `--file` / `-f` | path | — | Load project spec from a YAML file |
 | `--budget` / `-b` | float | 8.0 | Spend ceiling in USD |
 | `--time` / `-t` | float | 5400 | Wall-clock limit in seconds |
 | `--project-id` | str | auto | Explicit ID (auto-generated if blank) |
 | `--resume` | str | — | Resume project by ID |
 | `--list-projects` | flag | — | Print saved project IDs and statuses |
 | `--concurrency` | int | 3 | Max simultaneous API calls |
+| `--output-dir` / `-o` | path | — | Write structured output files to directory |
 | `--verbose` / `-v` | flag | off | Enable DEBUG logging |
 
 ---
@@ -187,19 +198,34 @@ Phase 2–5 — Per-task (up to max_iterations per task type)
 
 ## Model Routing
 
-| Task type | Primary | Reviewer |
-|-----------|---------|----------|
-| `code_generation` | Claude Sonnet | GPT-4o |
-| `code_review` | GPT-4o | Claude Opus |
-| `complex_reasoning` | Claude Opus | GPT-4o |
-| `creative_writing` | Claude Opus | GPT-4o |
-| `data_extraction` | Gemini Flash | GPT-4o-mini |
-| `summarization` | Gemini Flash | Claude Haiku |
-| `evaluation` | Claude Opus | GPT-4o |
+| Task type | Priority order | Max tokens |
+|-----------|---------------|------------|
+| `code_generation` | Claude Sonnet → GPT-4o → **Kimi K2.5** → Gemini Pro | 4096 |
+| `code_review` | GPT-4o → Claude Opus → Gemini Pro | 2048 |
+| `complex_reasoning` | Claude Opus → GPT-4o → Gemini Pro → **Kimi K2.5** | 2048 |
+| `creative_writing` | Claude Opus → GPT-4o → Gemini Pro | 2048 |
+| `data_extraction` | Gemini Flash → GPT-4o-mini → Claude Haiku | 1024 |
+| `summarization` | Gemini Flash → Claude Haiku → GPT-4o-mini | 512 |
+| `evaluation` | Claude Opus → GPT-4o → Gemini Pro → **Kimi K2.5** | 600 |
 
-Reviewer is always from a **different provider** than the generator. Falls back to a different model tier, then any healthy model.
+The reviewer is always from a **different provider** than the generator (prevents shared-bias blind spots). Falls back to a different model tier, then any healthy model.
 
 Max iterations per task: 3 (code, reasoning) / 2 (all others).
+
+### Cost reference (per 1M tokens)
+
+| Model | Input | Output | Provider |
+|-------|-------|--------|----------|
+| Claude Opus | $15.00 | $75.00 | Anthropic |
+| Claude Sonnet | $3.00 | $15.00 | Anthropic |
+| Claude Haiku | $0.80 | $4.00 | Anthropic |
+| GPT-4o | $2.50 | $10.00 | OpenAI |
+| GPT-4o-mini | $0.15 | $0.60 | OpenAI |
+| Gemini 2.5 Pro | $1.25 | $10.00 | Google |
+| Gemini 2.5 Flash | $0.15 | $0.60 | Google |
+| **Kimi K2.5** | **$0.14** | **$0.56** | **Kimi** |
+
+> Kimi K2.5 is the most cost-effective option — cheaper than GPT-4o-mini and Gemini Flash.
 
 ---
 
@@ -254,14 +280,35 @@ Specified per-task in the decomposed JSON under `"hard_validators"`. A failure f
 orchestrator/
 ├── __init__.py        # Exports: Orchestrator, Budget, Model, Task, TaskResult
 ├── __main__.py        # python -m orchestrator entry point
-├── cli.py             # argparse CLI
-├── models.py          # Enums, dataclasses, routing/cost tables, Budget
-├── api_clients.py     # UnifiedClient: async, semaphore, retry, cache
+├── cli.py             # argparse CLI (--file, --output-dir, --resume, …)
+├── models.py          # Enums, routing/cost tables, Budget, build_default_profiles()
+├── api_clients.py     # UnifiedClient: OpenAI / Anthropic / Google / Kimi
 ├── engine.py          # Orchestrator: decompose → execute → checkpoint
 ├── validators.py      # Deterministic validator registry
 ├── cache.py           # DiskCache (aiosqlite, SHA-256 keyed, WAL)
 ├── state.py           # StateManager: JSON save/load/resume
-└── pyproject.toml     # Package metadata, ruff config
+├── project_file.py    # YAML project file loader (--file flag)
+├── output_writer.py   # Structured output writer (--output-dir flag)
+├── policy.py          # Policy, PolicySet, ModelProfile, JobSpec
+├── policy_engine.py   # PolicyEngine: compliance checker
+├── planner.py         # ConstraintPlanner: multi-objective model selection
+└── telemetry.py       # TelemetryCollector: EMA latency/quality tracking
+
+projects/
+├── example_simple.yaml    # Minimal 3-field project example
+├── example_full.yaml      # All fields documented with comments
+└── symplectic_engine.yaml # Full physics engine project spec
+```
+
+### Output directory structure (`--output-dir`)
+
+```
+results/
+├── task_001_code_generation.py    # fence-stripped Python
+├── task_002_code_review.md        # raw LLM prose
+├── task_003_data_extraction.json  # pretty-printed JSON
+├── summary.json                   # all scores, costs, raw outputs
+└── README.md                      # human-readable results table
 ```
 
 ---
@@ -272,6 +319,6 @@ orchestrator/
 |-------|-----------|
 | Budget ceiling checked before each task, not enforced mid-task | Set `--budget` 10–15% below true ceiling |
 | `validate_ruff` writes a temp file without cleanup | Schedule periodic `tmp` cleanup or disable `ruff` validator |
-| Google client uses `asyncio.get_event_loop()` (deprecated ≥ 3.12) | Pin Python ≤ 3.11 until upstream `google-genai` fixes async support |
 | Resume iterates `execution_order` from saved state; verify order is correct for dependency chains | Prefer `--project-id` on initial run so resume is deterministic |
 | `_ensure_schema` called on every cache operation (minor overhead) | Acceptable for current scale; add a connection-level init flag if profiling shows cost |
+| Kimi K2.5 model name `moonshot-v1` maps to the default tier; for a specific snapshot append the date (e.g. `moonshot-v1-8k`) | Set the `KIMI_MODEL` env var or hardcode in `Model.KIMI_K2_5` if needed |
