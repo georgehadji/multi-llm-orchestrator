@@ -11,12 +11,15 @@ Usage:
     python -m orchestrator --list-projects
 
 FIX #10 cascade: CLI now uses asyncio.run for StateManager async calls.
+FEAT:   Output is always written to a folder. If --output-dir is omitted,
+        a default path of ./outputs/<project_id> is used automatically.
 """
 
 import argparse
 import asyncio
 import logging
 import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -26,6 +29,15 @@ from .engine import Orchestrator
 from .state import StateManager
 from .project_file import load_project_file
 from .output_writer import write_output_dir
+
+
+def _default_output_dir(project_id: str) -> str:
+    """
+    Build a default output path when --output-dir is not supplied.
+    Format: ./outputs/<project_id>
+    The directory is created by write_output_dir, not here.
+    """
+    return str(Path("outputs") / project_id)
 
 
 def setup_logging(verbose: bool = False):
@@ -69,9 +81,9 @@ async def _async_resume(args):
         project_id=args.resume,
     )
     _print_results(state)
-    if args.output_dir:
-        path = write_output_dir(state, args.output_dir, project_id=args.resume)
-        print(f"\nOutput written to: {path}")
+    output_dir = args.output_dir or _default_output_dir(args.resume)
+    path = write_output_dir(state, output_dir, project_id=args.resume)
+    print(f"\nOutput written to: {path}")
 
 
 async def _async_file_project(args):
@@ -86,17 +98,12 @@ async def _async_file_project(args):
     concurrency = args.concurrency if args.concurrency != 3 else result.concurrency
     # Re-apply logging with file's verbose setting merged with CLI flag
     setup_logging(args.verbose or result.verbose)
-    # CLI --output-dir overrides YAML output_dir
-    output_dir = args.output_dir or result.output_dir or ""
-
     budget = spec.budget
 
     # Print banner BEFORE Orchestrator init so it appears before WARNING logs
     print(f"Loading project from: {args.file}")
     print(f"Project: {spec.project_description[:80]}")
     print(f"Budget: ${budget.max_usd} / {budget.max_time_seconds}s")
-    if output_dir:
-        print(f"Output dir: {output_dir}")
     print("-" * 60)
 
     orch = Orchestrator(budget=budget, max_concurrency=concurrency)
@@ -107,9 +114,10 @@ async def _async_file_project(args):
         project_id=result.project_id,
     )
     _print_results(state)
-    if output_dir:
-        path = write_output_dir(state, output_dir, project_id=orch._project_id)
-        print(f"\nOutput written to: {path}")
+    # CLI --output-dir > YAML output_dir > auto default
+    output_dir = args.output_dir or result.output_dir or _default_output_dir(orch._project_id)
+    path = write_output_dir(state, output_dir, project_id=orch._project_id)
+    print(f"\nOutput written to: {path}")
 
 
 async def _async_new_project(args):
@@ -127,9 +135,9 @@ async def _async_new_project(args):
         project_id=args.project_id,
     )
     _print_results(state)
-    if args.output_dir:
-        path = write_output_dir(state, args.output_dir, project_id=orch._project_id)
-        print(f"\nOutput written to: {path}")
+    output_dir = args.output_dir or _default_output_dir(orch._project_id)
+    path = write_output_dir(state, output_dir, project_id=orch._project_id)
+    print(f"\nOutput written to: {path}")
 
 
 def main():
