@@ -137,6 +137,8 @@ class AppBuilder:
 
             # -- Determine overall success --
             result.success = local_verify.success
+            if docker and result.docker_verify is not None:
+                result.success = result.success and result.docker_verify.success
             if result.errors:
                 result.success = False
 

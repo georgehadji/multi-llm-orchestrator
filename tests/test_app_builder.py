@@ -71,7 +71,13 @@ def test_build_with_app_type_override(tmp_path):
     import asyncio
 
     builder = AppBuilder()
-    with _mock_pipeline(tmp_path):
+    cli_profile = AppProfile(app_type="cli")
+    yaml_mock = MagicMock(return_value=cli_profile)
+    detect_mock = AsyncMock(return_value=AppProfile(app_type="fastapi"))  # should NOT be called
+
+    with _mock_pipeline(tmp_path) as mocks, \
+         patch("orchestrator.app_builder.AppDetector.detect_from_yaml", yaml_mock), \
+         patch("orchestrator.app_builder.AppDetector.detect", detect_mock):
         result = asyncio.run(builder.build(
             description="Build a CLI tool",
             criteria="Must parse args",
@@ -79,7 +85,8 @@ def test_build_with_app_type_override(tmp_path):
             app_type_override="cli",
         ))
 
-    assert isinstance(result, AppBuildResult)
+    yaml_mock.assert_called_once_with("cli")
+    detect_mock.assert_not_called()
     assert result.profile.app_type == "cli"
 
 
