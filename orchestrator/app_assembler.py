@@ -48,7 +48,8 @@ class AppAssembler:
         ----------
         results:    dict[task_id, TaskResult]
         tasks:      dict[task_id, Task]
-        scaffold:   dict[rel_path, content] — used to note which scaffold files were kept
+        scaffold:   dict[rel_path, content] — scaffold files already written to disk by ScaffoldEngine;
+                    any that were not overwritten by a task are recorded in files_written
         output_dir: root directory for all written files
         """
         output_dir = Path(output_dir)
@@ -66,7 +67,7 @@ class AppAssembler:
 
             # Skip if output is empty or whitespace-only
             if not result.output or not result.output.strip():
-                report.files_skipped.append(task.target_path)
+                report.files_skipped.append(f"{task_id} (empty output)")
                 logger.warning("Task %s produced empty output; skipping %s", task_id, task.target_path)
                 continue
 
@@ -75,6 +76,14 @@ class AppAssembler:
             dest.write_text(result.output, encoding="utf-8")
             report.files_written.append(task.target_path)
             logger.debug("Assembled: %s", task.target_path)
+
+        # Record scaffold files that exist on disk (written earlier by ScaffoldEngine)
+        # and were not overwritten by any task
+        task_paths = set(report.files_written)
+        for rel_path in scaffold:
+            if rel_path not in task_paths and (output_dir / rel_path).exists():
+                report.files_written.append(rel_path)
+                logger.debug("Scaffold file kept: %s", rel_path)
 
         # Run ImportFixer — ensure __init__.py exists for every Python package dir
         self._ensure_init_files(output_dir, report)

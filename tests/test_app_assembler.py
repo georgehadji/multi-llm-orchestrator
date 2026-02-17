@@ -94,7 +94,7 @@ def test_assemble_skips_task_with_empty_output(tmp_path):
     report = assembler.assemble(results, tasks, {}, tmp_path)
 
     assert not (tmp_path / "src" / "main.py").exists()
-    assert "src/main.py" in report.files_skipped
+    assert any("t1" in s for s in report.files_skipped)
 
 
 def test_assemble_skips_task_with_no_target_path(tmp_path):
@@ -106,7 +106,7 @@ def test_assemble_skips_task_with_no_target_path(tmp_path):
     report = assembler.assemble(results, tasks, {}, tmp_path)
 
     assert len(report.files_written) == 0
-    assert "t1" in report.files_skipped[0] or len(report.files_skipped) >= 1
+    assert any("t1" in s for s in report.files_skipped)
 
 
 def test_assemble_preserves_scaffold_files(tmp_path):
