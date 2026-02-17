@@ -282,6 +282,35 @@ class ProjectState:
 
 
 # ─────────────────────────────────────────────
+# JobSpec — App Builder job specification
+# ─────────────────────────────────────────────
+
+@dataclass
+class JobSpec:
+    """
+    App Builder job specification.
+
+    A lightweight spec for the App Builder pipeline, separate from the
+    policy-oriented JobSpec in policy.py.
+
+    Fields
+    ------
+    description      : Human-readable description of the app to build.
+    success_criteria : Acceptance criteria for the build.
+    app_type         : Optional override for the app type (e.g. "fastapi",
+                       "cli", "library").  Empty string means auto-detect.
+    docker           : Whether to run Docker-based verification.
+    output_dir       : Where to write the generated app.  Empty string means
+                       auto-generate a temp directory.
+    """
+    description: str
+    success_criteria: str
+    app_type: str = ""
+    docker: bool = False
+    output_dir: str = ""
+
+
+# ─────────────────────────────────────────────
 # Utilities
 # ─────────────────────────────────────────────
 

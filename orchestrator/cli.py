@@ -31,6 +31,71 @@ from .project_file import load_project_file
 from .output_writer import write_output_dir
 
 
+def cmd_build(args) -> None:
+    """
+    Handle the 'build' subcommand: build a complete app from a description.
+
+    Uses the AppBuilder pipeline to generate, assemble, and verify an app.
+    """
+    import tempfile
+    from pathlib import Path
+    from orchestrator.app_builder import AppBuilder
+
+    output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
+
+    builder = AppBuilder()
+    result = asyncio.run(builder.build(
+        description=args.description,
+        criteria=args.criteria,
+        output_dir=Path(output_dir),
+        app_type_override=args.app_type or None,
+        docker=args.docker,
+    ))
+
+    if result.success:
+        print(f"Build successful: {result.output_dir}")
+    else:
+        errors = ", ".join(result.errors) if result.errors else "unknown error"
+        print(f"Build failed: {errors}")
+
+
+def _build_subparsers(subparsers) -> None:
+    """Register the 'build' subcommand on the given subparsers action."""
+    build_parser = subparsers.add_parser(
+        "build",
+        help="Build a complete app from a description",
+    )
+    build_parser.add_argument(
+        "--description", "-d",
+        required=True,
+        help="App description",
+    )
+    build_parser.add_argument(
+        "--criteria", "-c",
+        default="The app must work correctly",
+        help="Success criteria (default: 'The app must work correctly')",
+    )
+    build_parser.add_argument(
+        "--app-type", "-t",
+        dest="app_type",
+        default="",
+        help="Force app type (fastapi/cli/library/generic)",
+    )
+    build_parser.add_argument(
+        "--docker",
+        action="store_true",
+        default=False,
+        help="Run Docker-based verification after build",
+    )
+    build_parser.add_argument(
+        "--output-dir", "-o",
+        dest="output_dir",
+        default="",
+        help="Directory to write the generated app (default: auto-generated temp dir)",
+    )
+    build_parser.set_defaults(func=cmd_build)
+
+
 def _default_output_dir(project_id: str) -> str:
     """
     Build a default output path when --output-dir is not supplied.
@@ -141,9 +206,16 @@ async def _async_new_project(args):
 
 
 def main():
+    # ── Top-level parser ─────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(
         description="Multi-LLM Orchestrator — Local AI Project Runner"
     )
+
+    # ── Subcommands (e.g. 'build') ────────────────────────────────────────────
+    subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+    _build_subparsers(subparsers)
+
+    # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
     parser.add_argument("--criteria", "-c", type=str, help="Success criteria")
     parser.add_argument("--budget", "-b", type=float, default=8.0,
@@ -165,7 +237,14 @@ def main():
                         help="Write structured output files to this directory")
 
     args = parser.parse_args()
-    setup_logging(args.verbose)
+    setup_logging(getattr(args, "verbose", False))
+
+    # Dispatch subcommand if present
+    if args.subcommand is not None:
+        func = getattr(args, "func", None)
+        if func is not None:
+            func(args)
+        return
 
     if args.list_projects:
         asyncio.run(_async_list_projects())
