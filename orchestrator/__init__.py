@@ -20,6 +20,8 @@ from .models import (
     ProjectState, ProjectStatus, build_default_profiles,
 )
 from .engine import Orchestrator
+from .app_builder import AppBuildResult, AppBuilder
+from .app_detector import AppDetector, AppProfile
 from .cache import DiskCache
 from .state import StateManager
 from .validators import run_validators, async_run_validators, VALIDATORS
@@ -47,6 +49,8 @@ __all__ = [
     "Orchestrator", "Budget", "Model", "Task", "TaskResult",
     "TaskType", "TaskStatus", "ProjectState", "ProjectStatus",
     "DiskCache", "StateManager",
+    # App Builder pipeline
+    "AppBuilder", "AppBuildResult", "AppDetector", "AppProfile",
     # Validators
     "run_validators", "async_run_validators", "VALIDATORS",
     # Policy / planner / telemetry
