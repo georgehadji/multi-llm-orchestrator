@@ -14,6 +14,7 @@ verify_docker():
 """
 from __future__ import annotations
 
+import json
 import logging
 import subprocess
 import sys
@@ -212,7 +213,7 @@ class AppVerifier:
             "COPY requirements.txt* ./\n"
             "RUN pip install --no-cache-dir -r requirements.txt || true\n"
             "COPY . .\n"
-            f'CMD {run_cmd.split()}\n'
+            f'CMD {json.dumps(run_cmd.split())}\n'
         )
         (output_dir / "Dockerfile").write_text(dockerfile_content, encoding="utf-8")
         logger.debug("Generated Dockerfile")

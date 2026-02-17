@@ -135,6 +135,30 @@ def test_verify_local_no_run_command_skips_startup(tmp_path):
     assert report.startup_ok is True
 
 
+def test_verify_local_startup_fails_when_process_exits_immediately(tmp_path):
+    """If the app process exits immediately (poll() returns non-None), startup_ok must be False."""
+    profile = AppProfile(app_type="fastapi", test_command="pytest", run_command="uvicorn src.main:app")
+
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = ""
+    mock_result.stderr = ""
+
+    # Process exits immediately (returncode = 1)
+    mock_proc = MagicMock()
+    mock_proc.poll.return_value = 1  # non-None = exited
+    mock_proc.returncode = 1
+
+    verifier = AppVerifier()
+    with patch("subprocess.run", return_value=mock_result), \
+         patch("subprocess.Popen", return_value=mock_proc), \
+         patch("time.sleep"):  # skip the 0.5s sleep
+        report = verifier.verify_local(tmp_path, profile)
+
+    assert report.startup_ok is False
+    assert len(report.errors) >= 1
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # AppVerifier.verify_docker — mocked Docker
 # ─────────────────────────────────────────────────────────────────────────────
