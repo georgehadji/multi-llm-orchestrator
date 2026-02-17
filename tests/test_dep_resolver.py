@@ -112,3 +112,16 @@ def test_resolve_empty_directory(tmp_path):
     report = resolver.resolve(tmp_path)
     assert isinstance(report.packages, list)
     assert len(report.packages) == 0
+
+
+def test_resolve_updates_pyproject_toml(tmp_path):
+    """When pyproject.toml exists with a dependencies list, resolve() must update it."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "myapp"\ndependencies = []\n', encoding="utf-8"
+    )
+    (tmp_path / "main.py").write_text("import fastapi\n", encoding="utf-8")
+    report = DependencyResolver().resolve(tmp_path)
+    assert report.pyproject_updated is True
+    content = pyproject.read_text(encoding="utf-8")
+    assert "fastapi" in content

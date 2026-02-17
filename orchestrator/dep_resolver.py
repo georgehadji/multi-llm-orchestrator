@@ -154,7 +154,7 @@ class DependencyResolver:
                         raw_imports.add(top_level)
             elif isinstance(node, ast.ImportFrom):
                 # Skip relative imports (level > 0)
-                if node.level and node.level > 0:
+                if (node.level or 0) > 0:
                     continue
                 if node.module:
                     top_level = node.module.split(".")[0]
