@@ -42,7 +42,7 @@ class ScaffoldEngine:
         """
         Create the scaffold for the given profile in output_dir.
 
-        Returns the template dict (relative path -> content).
+        Returns only files that were actually written (skips pre-existing files).
         Files that already exist on disk are NOT overwritten.
         """
         template = _TEMPLATE_MAP.get(profile.app_type)
@@ -55,6 +55,7 @@ class ScaffoldEngine:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        written: dict[str, str] = {}
         for rel_path, content in template.items():
             dest = output_dir / rel_path
             if dest.exists():
@@ -63,5 +64,6 @@ class ScaffoldEngine:
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(content, encoding="utf-8")
             logger.debug("Scaffolded: %s", rel_path)
+            written[rel_path] = content
 
-        return dict(template)  # return a copy
+        return written

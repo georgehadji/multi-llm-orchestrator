@@ -98,7 +98,7 @@ def test_scaffold_all_types_have_readme(tmp_path):
 
 
 def test_scaffold_does_not_overwrite_existing_file(tmp_path):
-    """scaffold() must NOT overwrite an existing file that already has content."""
+    """scaffold() must NOT overwrite an existing file and must NOT include it in the return dict."""
     engine = ScaffoldEngine()
     profile = AppProfile(app_type="fastapi")
     # Pre-create src/main.py with custom content
@@ -107,6 +107,18 @@ def test_scaffold_does_not_overwrite_existing_file(tmp_path):
 
     result = engine.scaffold(profile, tmp_path)
 
-    # The returned dict still has src/main.py in it (template content)
-    # But the file on disk must still have the custom content
+    # File on disk must still have the custom content
     assert (tmp_path / "src" / "main.py").read_text(encoding="utf-8") == "# custom content\n"
+    # Skipped file must NOT appear in the returned dict
+    assert "src/main.py" not in result
+
+
+def test_scaffold_all_types_have_pyproject_toml(tmp_path):
+    """Every template must include a pyproject.toml file."""
+    engine = ScaffoldEngine()
+    for app_type in ["fastapi", "cli", "library", "generic"]:
+        out = tmp_path / app_type
+        out.mkdir()
+        profile = AppProfile(app_type=app_type)
+        result = engine.scaffold(profile, out)
+        assert "pyproject.toml" in result, f"{app_type} template missing pyproject.toml"
