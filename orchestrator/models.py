@@ -182,6 +182,9 @@ class Task:
     max_output_tokens: int = 1500
     status: TaskStatus = TaskStatus.PENDING
     hard_validators: list[str] = field(default_factory=list)
+    # App Builder fields (Improvement 8)
+    target_path: str = ""     # e.g. "src/routes/auth.py"
+    module_name: str = ""     # e.g. "src.routes.auth"
 
     def __post_init__(self):
         self.acceptance_threshold = DEFAULT_THRESHOLDS.get(
