@@ -120,6 +120,8 @@ class AppDetector:
         """Return an AppProfile for a given app_type string without calling the LLM."""
         defaults = _TYPE_DEFAULTS.get(app_type, _FALLBACK_DEFAULTS)
         # If unknown type, fall back to script defaults but preserve the intent
+        if app_type not in _TYPE_DEFAULTS:
+            logger.warning("Unknown app_type '%s' in YAML; falling back to 'script'", app_type)
         resolved_type = app_type if app_type in _TYPE_DEFAULTS else "script"
         return AppProfile(
             app_type=resolved_type,
@@ -177,8 +179,12 @@ class AppDetector:
         text = raw.strip()
         if text.startswith("```"):
             lines = text.splitlines()
-            # Remove first and last fence lines
-            text = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+            # Remove opening fence (```json, ```, etc.) and closing fence (```)
+            content_lines = [
+                line for i, line in enumerate(lines)
+                if i > 0 and not (line.strip() == "```")
+            ]
+            text = "\n".join(content_lines).strip()
 
         data = json.loads(text)
 

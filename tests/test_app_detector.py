@@ -59,7 +59,7 @@ def test_detect_from_yaml_cli():
     detector = AppDetector()
     profile = detector.detect_from_yaml("cli")
     assert profile.app_type == "cli"
-    assert "cli.py" in profile.entry_point or profile.entry_point != ""
+    assert profile.entry_point == "cli.py"
 
 
 def test_detect_from_yaml_unknown_falls_back_to_script():
