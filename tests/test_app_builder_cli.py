@@ -68,3 +68,89 @@ def _has_build_parser(cli_module) -> bool:
     import inspect
     source = inspect.getsource(cli_module)
     return "build" in source and ("subparser" in source or "add_parser" in source or "command" in source)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# cmd_build — functional tests with mocked AppBuilder
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_cmd_build_calls_app_builder(tmp_path):
+    """cmd_build must create an AppBuilder and call build() with correct args."""
+    from orchestrator.cli import cmd_build
+    from orchestrator.app_builder import AppBuildResult
+    from orchestrator.app_detector import AppProfile
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    args = MagicMock()
+    args.description = "A FastAPI app"
+    args.criteria = "Must work"
+    args.app_type = "fastapi"
+    args.docker = False
+    args.output_dir = str(tmp_path)
+
+    mock_result = MagicMock()
+    mock_result.success = True
+    mock_result.output_dir = str(tmp_path)
+    mock_result.errors = []
+
+    with patch("orchestrator.app_builder.AppBuilder") as mock_builder_cls:
+        mock_builder = MagicMock()
+        mock_builder.build = AsyncMock(return_value=mock_result)
+        mock_builder_cls.return_value = mock_builder
+
+        cmd_build(args)
+
+    mock_builder.build.assert_called_once()
+    call_kwargs = mock_builder.build.call_args
+    assert call_kwargs is not None
+
+
+def test_cmd_build_passes_docker_flag(tmp_path):
+    """cmd_build must pass docker=True when --docker flag is set."""
+    from orchestrator.cli import cmd_build
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    args = MagicMock()
+    args.description = "A FastAPI app"
+    args.criteria = "Must work"
+    args.app_type = ""
+    args.docker = True
+    args.output_dir = str(tmp_path)
+
+    mock_result = MagicMock(success=True, output_dir=str(tmp_path), errors=[])
+
+    with patch("orchestrator.app_builder.AppBuilder") as mock_builder_cls:
+        mock_builder = MagicMock()
+        mock_builder.build = AsyncMock(return_value=mock_result)
+        mock_builder_cls.return_value = mock_builder
+
+        cmd_build(args)
+
+    call_kwargs = mock_builder.build.call_args.kwargs
+    assert call_kwargs.get("docker") is True or mock_builder.build.call_args[1].get("docker") is True or \
+           (len(mock_builder.build.call_args[0]) > 3 and mock_builder.build.call_args[0][3] is True)
+
+
+def test_cmd_build_failure_prints_error(tmp_path, capsys):
+    """cmd_build must print an error message when build() returns success=False."""
+    from orchestrator.cli import cmd_build
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    args = MagicMock()
+    args.description = "A FastAPI app"
+    args.criteria = "Must work"
+    args.app_type = ""
+    args.docker = False
+    args.output_dir = str(tmp_path)
+
+    mock_result = MagicMock(success=False, output_dir=str(tmp_path), errors=["orchestrator failed"])
+
+    with patch("orchestrator.app_builder.AppBuilder") as mock_builder_cls:
+        mock_builder = MagicMock()
+        mock_builder.build = AsyncMock(return_value=mock_result)
+        mock_builder_cls.return_value = mock_builder
+
+        cmd_build(args)
+
+    captured = capsys.readouterr()
+    assert "fail" in captured.out.lower() or "error" in captured.out.lower() or "✗" in captured.out

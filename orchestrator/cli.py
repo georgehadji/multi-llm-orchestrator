@@ -220,7 +220,7 @@ def main():
     parser.add_argument("--criteria", "-c", type=str, help="Success criteria")
     parser.add_argument("--budget", "-b", type=float, default=8.0,
                         help="Max budget in USD (default: 8.0)")
-    parser.add_argument("--time", "-t", type=float, default=5400,
+    parser.add_argument("--time", type=float, default=5400,
                         help="Max time in seconds (default: 5400)")
     parser.add_argument("--project-id", type=str, default="",
                         help="Project ID (auto-generated if empty)")
