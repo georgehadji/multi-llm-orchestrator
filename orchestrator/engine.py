@@ -515,9 +515,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             # ── GENERATE ──
             # Kimi K2.5 uses internal reasoning tokens and needs longer timeouts.
-            # Code tasks get 120s, all tasks on Kimi get 180s.
+            # Code tasks get 120s, all tasks on Kimi get 240s.
             if get_provider(primary) == "kimi":
-                gen_timeout = 180
+                gen_timeout = 240
             elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
                 gen_timeout = 120
             else:

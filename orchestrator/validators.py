@@ -168,14 +168,17 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
                 f.flush()
 
             # Pass 1: auto-fix all safe fixable issues in-place
+            # Ignore E501 (line too long) — LLMs often produce long lines which is
+            # a cosmetic style issue, not a functional problem.
             subprocess.run(
-                ["ruff", "check", tmp_path, "--select=E,F", "--fix", "--unsafe-fixes"],
+                ["ruff", "check", tmp_path, "--select=E,F", "--ignore=E501",
+                 "--fix", "--unsafe-fixes"],
                 capture_output=True, timeout=timeout,
             )
 
-            # Pass 2: report any remaining errors
+            # Pass 2: report any remaining errors (still ignoring E501)
             result = subprocess.run(
-                ["ruff", "check", tmp_path, "--select=E,F"],
+                ["ruff", "check", tmp_path, "--select=E,F", "--ignore=E501"],
                 capture_output=True,
                 encoding="utf-8",
                 errors="replace",
