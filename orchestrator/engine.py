@@ -218,9 +218,10 @@ class Orchestrator:
             return state
 
         finally:
-            # Always close DB connection so the aiosqlite background thread
-            # finishes its callbacks before asyncio.run() closes the loop.
+            # Always close both DB connections so aiosqlite background threads
+            # finish their callbacks before asyncio.run() closes the loop.
             await self.state_mgr.close()
+            await self.cache.close()
 
     async def run_job(self, spec: JobSpec) -> ProjectState:
         """
@@ -351,7 +352,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 items = _try_parse(match.group())
 
         if not isinstance(items, list):
-            logger.error("Could not parse decomposition output as JSON")
+            logger.error(
+                "Could not parse decomposition output as JSON. "
+                f"Raw response (first 500 chars): {text[:500]!r}"
+            )
             return {}
 
         tasks = {}

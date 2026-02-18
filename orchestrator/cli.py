@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)  # override=True: .env values win over empty system env vars
 
 from .models import Budget
 from .engine import Orchestrator

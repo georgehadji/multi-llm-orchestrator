@@ -105,7 +105,14 @@ class DiskCache:
     async def close(self):
         """Close persistent connection."""
         if self._conn is not None:
-            await self._conn.close()
-            self._conn = None
-            self._schema_ready = False
-            logger.debug("Cache connection closed")
+            try:
+                await self._conn.close()
+                # Yield control so the aiosqlite background thread can finish
+                # its final callbacks before asyncio.run() closes the loop.
+                await asyncio.sleep(0)
+            except Exception:
+                pass
+            finally:
+                self._conn = None
+                self._schema_ready = False
+                logger.debug("Cache connection closed")
