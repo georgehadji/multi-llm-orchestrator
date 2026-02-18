@@ -32,6 +32,65 @@ from .project_file import load_project_file
 from .output_writer import write_output_dir
 
 
+def cmd_analyze(args) -> None:
+    """
+    Handle the 'analyze' subcommand: read a codebase and produce an analysis report.
+
+    Uses CodebaseReader to scan files and CodebaseAnalyzer to run multi-LLM analysis.
+    """
+    from orchestrator.analyzer import CodebaseAnalyzer
+    from pathlib import Path
+
+    path = Path(args.path).resolve()
+    if not path.exists():
+        print(f"ERROR: Path does not exist: {path}", file=sys.stderr)
+        sys.exit(1)
+
+    focus = [f.strip() for f in args.focus.split(",")] if args.focus else None
+    include_exts = (
+        {ext if ext.startswith(".") else f".{ext}" for ext in args.extensions.split(",")}
+        if args.extensions else None
+    )
+
+    analyzer = CodebaseAnalyzer(
+        max_context_tokens=args.context_tokens,
+        max_concurrency=args.concurrency,
+    )
+
+    print(f"Analyzing: {path}")
+    if focus:
+        print(f"Focus areas: {', '.join(focus)}")
+    print(f"Budget: ${args.budget:.2f} | Context limit: {args.context_tokens:,} tokens")
+    print("-" * 60)
+
+    report = asyncio.run(analyzer.analyze(
+        path=path,
+        focus=focus,
+        budget_usd=args.budget,
+        include_exts=include_exts,
+        max_tokens_per_section=args.section_tokens,
+    ))
+
+    # Print summary
+    print(f"\nAnalysis complete: {len(report.sections)} sections | "
+          f"${report.total_cost:.4f} | {report.elapsed_s:.1f}s")
+    print(f"Files analyzed: {report.files_analyzed} | "
+          f"Languages: {', '.join(sorted(report.languages))}")
+
+    # Write report
+    output_path = Path(args.output) if args.output else path / "ANALYSIS_REPORT.md"
+    output_path.write_text(report.markdown, encoding="utf-8")
+    print(f"\nReport written to: {output_path}")
+
+    # Print preview
+    if not args.quiet:
+        print("\n" + "=" * 60)
+        preview = report.markdown[:2000]
+        print(preview)
+        if len(report.markdown) > 2000:
+            print(f"\n... ({len(report.markdown):,} chars total — see {output_path})")
+
+
 def cmd_build(args) -> None:
     """
     Handle the 'build' subcommand: build a complete app from a description.
@@ -58,6 +117,70 @@ def cmd_build(args) -> None:
     else:
         errors = ", ".join(result.errors) if result.errors else "unknown error"
         print(f"Build failed: {errors}")
+
+
+def _analyze_subparsers(subparsers) -> None:
+    """Register the 'analyze' subcommand on the given subparsers action."""
+    ap = subparsers.add_parser(
+        "analyze",
+        help="Analyze a codebase and produce an improvement report",
+    )
+    ap.add_argument(
+        "--path", "-p",
+        required=True,
+        help="Root directory of the codebase to analyze",
+    )
+    ap.add_argument(
+        "--focus", "-f",
+        default="",
+        help=(
+            "Comma-separated focus areas: architecture, quality, security, "
+            "performance, improvements (default: all)"
+        ),
+    )
+    ap.add_argument(
+        "--extensions", "-e",
+        default="",
+        help="Comma-separated file extensions to include (e.g. .py,.ts). Default: all code files",
+    )
+    ap.add_argument(
+        "--budget", "-b",
+        type=float,
+        default=3.0,
+        help="Max API spend in USD (default: 3.0)",
+    )
+    ap.add_argument(
+        "--context-tokens",
+        dest="context_tokens",
+        type=int,
+        default=60_000,
+        help="Max tokens for the codebase context passed to each LLM (default: 60000)",
+    )
+    ap.add_argument(
+        "--section-tokens",
+        dest="section_tokens",
+        type=int,
+        default=4096,
+        help="Max output tokens per analysis section (default: 4096)",
+    )
+    ap.add_argument(
+        "--concurrency",
+        type=int,
+        default=2,
+        help="Max simultaneous API calls (default: 2)",
+    )
+    ap.add_argument(
+        "--output", "-o",
+        default="",
+        help="Output file path for the report (default: <path>/ANALYSIS_REPORT.md)",
+    )
+    ap.add_argument(
+        "--quiet", "-q",
+        action="store_true",
+        default=False,
+        help="Suppress report preview in terminal",
+    )
+    ap.set_defaults(func=cmd_analyze)
 
 
 def _build_subparsers(subparsers) -> None:
@@ -214,6 +337,7 @@ def main():
 
     # ── Subcommands (e.g. 'build') ────────────────────────────────────────────
     subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+    _analyze_subparsers(subparsers)
     _build_subparsers(subparsers)
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
