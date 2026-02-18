@@ -143,7 +143,10 @@ DEFAULT_THRESHOLDS: dict[TaskType, float] = {
     TaskType.CODE_REVIEW:  0.85,
     TaskType.REASONING:    0.90,
     TaskType.WRITING:      0.80,
-    TaskType.EVALUATE:     0.95,
+    # EVALUATE: lowered from 0.95 — evaluation outputs are open-ended prose;
+    # scoring ≥ 0.95 requires near-perfect structured responses which LLMs
+    # rarely produce without a domain-specific rubric.
+    TaskType.EVALUATE:     0.80,
 }
 
 MAX_OUTPUT_TOKENS: dict[TaskType, int] = {

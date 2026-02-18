@@ -111,24 +111,34 @@ def validate_pytest(output: str, test_code: str = "",
 
     def _run_sync() -> ValidationResult:
         with tempfile.TemporaryDirectory() as tmpdir:
+            # Always write with utf-8: LLM output may contain non-ASCII chars
+            # that fail on Windows cp1252 default encoding.
             code_path = Path(tmpdir) / "generated_code.py"
-            code_path.write_text(code)
+            code_path.write_text(code, encoding="utf-8")
 
             if test_code:
                 test_path = Path(tmpdir) / "test_generated.py"
                 test_content = f"from generated_code import *\n\n{test_code}"
-                test_path.write_text(test_content)
+                test_path.write_text(test_content, encoding="utf-8")
             else:
                 test_path = Path(tmpdir) / "test_import.py"
                 test_path.write_text(
-                    "def test_import():\n    import generated_code\n"
+                    "# -*- coding: utf-8 -*-\n"
+                    "def test_import():\n    import generated_code\n",
+                    encoding="utf-8",
                 )
+
+            # Set PYTHONIOENCODING so pytest's own output is UTF-8 on Windows
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"  # Python 3.7+ UTF-8 mode
 
             try:
                 result = subprocess.run(
                     ["python", "-m", "pytest", str(tmpdir), "-v", "--tb=short"],
                     capture_output=True, text=True, timeout=timeout,
-                    cwd=tmpdir,
+                    cwd=tmpdir, env=env,
+                    encoding="utf-8", errors="replace",
                 )
                 if result.returncode == 0:
                     return ValidationResult(True, result.stdout[-500:], "pytest")

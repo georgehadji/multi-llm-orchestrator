@@ -102,8 +102,10 @@ class Orchestrator:
         self._telemetry = TelemetryCollector(self._profiles)
         # Active policy set — replaced by run_job(); empty = no restrictions
         self._active_policies: PolicySet = PolicySet()
-        # Context truncation limit per dependency (chars) — configurable
-        self.context_truncation_limit: int = 12000
+        # Context truncation limit per dependency (chars) — configurable.
+        # Raised from 12000: code_review outputs routinely reach 16000+ chars
+        # and truncation causes the next task to miss critical review findings.
+        self.context_truncation_limit: int = 20000
         # Improvement 3: event hooks + metrics exporter
         self._hook_registry: HookRegistry = HookRegistry()
         self._metrics_exporter: Optional[MetricsExporter] = None
@@ -591,6 +593,21 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # ── CRITIQUE (cross-model) ──
             critique = ""
             if reviewer and reviewer != primary:
+                # Reviewer token budget: reasoning models (Kimi K2.5, DeepSeek-R1)
+                # consume their token budget on internal chain-of-thought, so they
+                # need the same doubled budget as when generating. Standard models
+                # only need 800 tokens to produce a focused critique.
+                _rev_provider = get_provider(reviewer)
+                _reviewer_is_reasoning = (
+                    _rev_provider == "kimi" or
+                    (_rev_provider == "deepseek" and reviewer.value == "deepseek-reasoner")
+                )
+                if _reviewer_is_reasoning:
+                    critique_max_tokens = min(task.max_output_tokens * 2, 8192)
+                    critique_timeout = 240
+                else:
+                    critique_max_tokens = 1200  # raised: 800 was too low for detailed reviews
+                    critique_timeout = 60
                 try:
                     critique_response = await self.client.call(
                         reviewer,
@@ -599,8 +616,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         f"ORIGINAL TASK: {task.prompt}\n\n"
                         f"OUTPUT TO REVIEW:\n{output}",
                         system="You are a critical reviewer. Find flaws, be specific.",
-                        max_tokens=800,
-                        timeout=45,
+                        max_tokens=critique_max_tokens,
+                        timeout=critique_timeout,
                     )
                     critique = critique_response.text
                     self.budget.charge(critique_response.cost_usd, "cross_review")
