@@ -1,6 +1,7 @@
 """
 Project File Loader — load a JobSpec from a YAML file
 ======================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Supports a human-friendly YAML schema that maps onto the full
 Policy / PolicySet / JobSpec / Budget API.
 

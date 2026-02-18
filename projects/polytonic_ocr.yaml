@@ -1,0 +1,224 @@
+# ──────────────────────────────────────────────────────
+# Polytonic Greek OCR — Production-Grade System
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/polytonic_ocr.yaml
+# ──────────────────────────────────────────────────────
+
+# ── Βασικά (υποχρεωτικά) ──────────────────────────────
+project: |
+  Build a production-ready OCR system for polytonic Greek text using pure Python + ONNX optimization.
+  
+  The system must implement:
+  
+  1. ONNX Inference Engine
+     - Export PyTorch TrOCR model to ONNX format (opset 17)
+     - GPU acceleration via CUDAExecutionProvider with FP16 precision
+     - Dynamic batch processing with automatic padding
+     - Model quantization (INT8) for reduced memory footprint
+     - Session warm-up and LRU caching for repeated images
+  
+  2. Image Preprocessing Pipeline
+     - Deskewing using Hough transform (±5° tolerance)
+     - Adaptive binarization with Sauvola thresholding (NOT Otsu)
+     - Noise removal via morphological operations
+     - Aspect-ratio preserving resize to 384×384
+     - NCHW tensor format conversion with normalization
+  
+  3. Unicode Normalization & Validation
+     - NFD/NFC dual-pass normalization
+     - Greek-specific diacritic reordering (breathing > accent > iota subscript)
+     - Monotonic accent validation (max 1 accent per word)
+     - Breathing mark position validation (initial vowels/rho only)
+     - Combined confidence scoring (OCR × linguistic validity)
+  
+  4. Ensemble Fallback System
+     - Primary: ONNX TrOCR inference
+     - Secondary: Tesseract 5.x with ancient Greek (grc) language
+     - Conditional fallback when confidence < 0.85
+     - Text merging via Levenshtein distance (similarity > 0.7)
+     - Source tracking ('onnx', 'tesseract', 'merged')
+  
+  5. FastAPI REST Service
+     - POST /ocr endpoint with multipart file upload
+     - Input validation: file type, size limit (10MB max)
+     - Pydantic response models with validation results
+     - Health check endpoint
+     - Rate limiting via SlowAPI
+  
+  6. Async Task Queue
+     - Celery workers with Redis backend
+     - Priority queues (urgent/batch processing)
+     - Result storage with 24h TTL
+     - Graceful degradation on GPU unavailability
+  
+  Architecture constraints:
+  - Pure Python implementation (3.10+)
+  - No Rust/C++/Go polyglot complexity
+  - Hexagonal architecture: domain logic isolated from frameworks
+  - Functional core, imperative shell separation
+  - Atomic operations with comprehensive error handling
+
+criteria: |
+  Performance Requirements:
+  - P95 latency ≤ 240ms per image (300 DPI A4) on GPU
+  - Throughput ≥ 40 images/second with batch_size=8
+  - GPU memory usage ≤ 5GB for batch processing
+  - CPU fallback functional with ≤ 3x latency degradation
+  
+  Accuracy Requirements:
+  - Character Error Rate (CER) ≤ 2.5% on clean scans
+  - Word Error Rate (WER) ≤ 5.0% on degraded documents
+  - Diacritic accuracy ≥ 98.5% (critical for polytonic)
+  - False positive rate ≤ 1% on accent validation
+  
+  Code Quality:
+  - Type hints throughout, passes mypy --strict
+  - Pydantic models for all data structures
+  - Unit tests ≥ 85% coverage (pytest)
+  - Integration tests for full pipeline
+  - Parametric stress tests (OOM, GPU failure, model corruption)
+  
+  Documentation:
+  - README with installation, usage examples, benchmarks
+  - API documentation (OpenAPI/Swagger auto-generated)
+  - Architectural Decision Records (ADRs) for key choices
+  - Deployment guide (Docker Compose + GPU setup)
+  
+  Security & Compliance:
+  - Input sanitization (defusedxml for any XML parsing)
+  - SHA256 model integrity verification
+  - OWASP Top 10 compliance (file upload validation)
+  - No training on user data (GDPR compliance)
+  
+  Production Readiness:
+  - Docker containerization with NVIDIA runtime
+  - Prometheus metrics (latency, error rate, confidence distribution)
+  - Structured logging (JSON format)
+  - Graceful shutdown with in-flight request handling
+  - Health checks for liveness/readiness probes
+
+# ── Budget & χρόνος ───────────────────────────────────
+budget_usd: 12.0         # Increased για ML model optimization
+time_seconds: 7200       # 2 ώρες για training export + testing
+
+# ── Logging & παράλληλες κλήσεις ─────────────────────
+concurrency: 4           # Παράλληλα API calls
+verbose: true            # Debug logging enabled
+
+# ── Σταθερό ID (για resume) ───────────────────────────
+project_id: "polytonic-ocr-onnx-v1"
+
+# ── Output directory ──────────────────────────────────
+output_dir: "./results/polytonic-ocr"
+
+# ── Quality targets ───────────────────────────────────
+quality_targets:
+  code_generation:   0.92   # ML pipeline requires higher quality
+  code_review:       0.90   # Strict validation για production
+  complex_reasoning: 0.94   # Architecture decisions critical
+  evaluation:        0.95   # Performance benchmarks must be accurate
+
+# ── Policies (compliance) ─────────────────────────────
+policies:
+  - name: no_training
+    allow_training_on_output: false   # GDPR: no training on OCR results
+  
+  - name: performance_sla
+    max_latency_ms: 500    # P95 target για production
+  
+  # Uncomment για EU-only (αν GDPR-sensitive data):
+  # - name: eu_only
+  #   allowed_regions: [eu]
+
+# ── Additional Implementation Notes ───────────────────
+# 
+# Critical Files to Generate:
+# 
+# 1. model_export.py
+#    - PyTorch → ONNX conversion
+#    - Dynamic axes configuration
+#    - INT8 quantization
+#    - Model verification
+# 
+# 2. inference.py
+#    - ONNXInferenceEngine class
+#    - Batch processing logic
+#    - GPU/CPU provider selection
+#    - Session optimization
+# 
+# 3. preprocessing.py
+#    - Image pipeline functions
+#    - Deskew, binarize, denoise
+#    - Aspect ratio preservation
+#    - Tensor format conversion
+# 
+# 4. postprocessing.py
+#    - PolytonicValidator class
+#    - Unicode normalization
+#    - Accent/breathing validation
+#    - Confidence scoring
+# 
+# 5. ensemble.py
+#    - EnsembleOCR class
+#    - Tesseract integration
+#    - Text merging algorithm
+#    - Source tracking
+# 
+# 6. main.py
+#    - FastAPI application
+#    - /ocr endpoint
+#    - Pydantic schemas
+#    - Error handling
+# 
+# 7. tasks.py
+#    - Celery task definitions
+#    - Async processing
+#    - Result storage
+# 
+# 8. tests/
+#    - test_inference.py (ONNX engine)
+#    - test_preprocessing.py (image ops)
+#    - test_validation.py (Unicode rules)
+#    - test_ensemble.py (fallback logic)
+#    - test_api.py (endpoint integration)
+#    - test_stress.py (OOM, GPU failure)
+# 
+# 9. docker-compose.yml
+#    - API service (GPU-enabled)
+#    - Redis service
+#    - Worker replicas
+#    - Volume mounts
+# 
+# 10. Dockerfile
+#     - CUDA base image
+#     - Python dependencies
+#     - Model artifacts
+#     - Health check
+# 
+# Performance Benchmarking:
+# - Use hyperfine για latency measurement
+# - matplotlib για throughput graphs
+# - Memory profiling με memory_profiler
+# - GPU utilization tracking (nvidia-smi)
+# 
+# Black Swan Test Cases:
+# - Palimpsest (overwritten text)
+# - Ligatures (merged glyphs)
+# - Water-damaged pages
+# - 17th-century printer abbreviations
+# - Mixed Latin/Greek scripts
+# - Out-of-vocabulary proper nouns
+# 
+# Falsification Tests:
+# - Measure WER on nonsense words vs real inflections
+# - Verify Sauvola > Otsu on aged paper dataset
+# - Confirm FP16 accuracy degradation < 1%
+# - Test ensemble improvement vs single model
+# 
+# Contingency Logic:
+# - GPU failure → CPU fallback with alert
+# - OOM → reduce batch_size dynamically
+# - Model corruption → SHA256 verification failure
+# - Tesseract unavailable → ONNX-only mode
+# - Redis down → synchronous processing fallback

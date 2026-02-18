@@ -1,0 +1,46 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project 3: Vue 3 Kanban Board (Trello-like)
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_vue_kanban.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a Trello-like Kanban board using Vue 3 Composition API and TypeScript.
+
+  The board must include:
+  1. Multiple columns (e.g. To Do, In Progress, Review, Done) — add/rename/delete columns
+  2. Cards with title, description, due date, priority label (low/medium/high), assignee avatar
+  3. Drag-and-drop cards between columns using vue-draggable-plus
+  4. Card detail modal: edit all fields, add checklist items, add comments
+  5. Board-level search: filter cards by title in real time
+  6. Persistent state using localStorage (full board state survives page reload)
+  7. Keyboard shortcut: press N to create a new card in the first column
+  8. Pinia for state management
+  9. Tailwind CSS styling
+
+criteria: |
+  - Drag and drop moves cards between columns correctly
+  - Board state persists after page reload
+  - Card modal opens and saves edits correctly
+  - Search filters cards across all columns in real time
+  - Columns can be added, renamed, and deleted without losing other data
+  - Keyboard shortcut N opens new card form
+  - Unit tests for Pinia store actions
+  - npm run build completes without TypeScript errors
+
+budget_usd: 3.0
+time_seconds: 3600
+concurrency: 3
+project_id: "frontend-vue-kanban-v1"
+output_dir: "./outputs/frontend_vue_kanban"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.88
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

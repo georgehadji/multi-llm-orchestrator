@@ -1,6 +1,7 @@
 """
 MetricsExporter — pluggable metrics export for live orchestrator telemetry.
 ===========================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Follows the same ABC + concrete-class pattern as OptimizationBackend.
 
 Three built-in exporters:

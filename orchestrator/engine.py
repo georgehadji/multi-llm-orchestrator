@@ -1,6 +1,7 @@
 """
 Orchestrator Engine — Core Control Loop
 ========================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Implements the full generate → critique → revise → evaluate pipeline
 with cross-model review, deterministic validation, budget enforcement,
 plateau detection, and fallback routing.
@@ -102,7 +103,7 @@ class Orchestrator:
         # Active policy set — replaced by run_job(); empty = no restrictions
         self._active_policies: PolicySet = PolicySet()
         # Context truncation limit per dependency (chars) — configurable
-        self.context_truncation_limit: int = 3000
+        self.context_truncation_limit: int = 12000
         # Improvement 3: event hooks + metrics exporter
         self._hook_registry: HookRegistry = HookRegistry()
         self._metrics_exporter: Optional[MetricsExporter] = None
@@ -190,6 +191,7 @@ class Orchestrator:
         # Phase 1: Decompose
         tasks = await self._decompose(project_description, success_criteria)
         if not tasks:
+            await self.state_mgr.close()
             return self._make_state(
                 project_description, success_criteria, {},
                 ProjectStatus.SYSTEM_FAILURE
@@ -210,6 +212,7 @@ class Orchestrator:
         await self.state_mgr.save_project(project_id, state)
 
         self._log_summary(state)
+        await self.state_mgr.close()
         return state
 
     async def run_job(self, spec: JobSpec) -> ProjectState:
@@ -271,7 +274,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         async def _try_decompose(m: Model) -> dict[str, Task]:
             resp = await self.client.call(
-                m, prompt, system=decomp_system, max_tokens=2500, timeout=60,
+                m, prompt, system=decomp_system, max_tokens=4096, timeout=180,
             )
             self.budget.charge(resp.cost_usd, "decomposition")
             self._record_success(m, resp)
@@ -288,27 +291,60 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 return await _try_decompose(m)
             except Exception as e:
                 logger.error(f"Decomposition attempt {attempt + 1} with {m.value} failed: {e}")
-                self._record_failure(m)
+                self._record_failure(m, error=e)
         logger.error("All decomposition attempts failed — returning empty task list")
         return {}
 
     def _parse_decomposition(self, text: str) -> dict[str, Task]:
         """Parse LLM output into Task objects with defensive handling."""
         text = text.strip()
-        if text.startswith("```"):
-            text = re.sub(r"^```\w*\n?", "", text)
-            text = re.sub(r"\n?```$", "", text)
-        text = text.strip()
 
-        try:
-            items = json.loads(text)
-        except json.JSONDecodeError:
-            match = re.search(r'\[.*\]', text, re.DOTALL)
+        # Strip markdown fences (``` or ```json)
+        if text.startswith("```"):
+            text = re.sub(r"^```[a-zA-Z]*\s*\n?", "", text)
+            text = re.sub(r"\n?```\s*$", "", text)
+            text = text.strip()
+
+        def _try_parse(s: str):
+            """Attempt json.loads; on failure try progressively more aggressive fixes."""
+            # 1. Direct parse
+            try:
+                return json.loads(s)
+            except json.JSONDecodeError:
+                pass
+            # 2. Strip trailing commas before ] or } (common LLM mistake)
+            cleaned = re.sub(r',\s*([}\]])', r'\1', s)
+            try:
+                return json.loads(cleaned)
+            except json.JSONDecodeError:
+                pass
+            # 3. Remove control characters (except \n \r \t)
+            cleaned2 = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', cleaned)
+            try:
+                return json.loads(cleaned2)
+            except json.JSONDecodeError:
+                pass
+            return None
+
+        # Try full text first
+        items = _try_parse(text)
+
+        # If the top-level is a dict, look for a key that holds the array
+        if isinstance(items, dict):
+            for v in items.values():
+                if isinstance(v, list):
+                    items = v
+                    break
+
+        # Extract first [...] block and retry
+        if not isinstance(items, list):
+            match = re.search(r'\[.*?\]', text, re.DOTALL)
             if match:
-                items = json.loads(match.group())
-            else:
-                logger.error("Could not parse decomposition output as JSON")
-                return {}
+                items = _try_parse(match.group())
+
+        if not isinstance(items, list):
+            logger.error("Could not parse decomposition output as JSON")
+            return {}
 
         tasks = {}
         for item in items:
@@ -378,11 +414,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             deps_ok = all(
                 self.results.get(dep, TaskResult(dep, "", 0.0, Model.GPT_4O_MINI)).status
-                in (TaskStatus.COMPLETED, TaskStatus.DEGRADED)
+                in (TaskStatus.COMPLETED, TaskStatus.DEGRADED, TaskStatus.FAILED)
                 for dep in task.dependencies
             )
             if not deps_ok:
-                logger.warning(f"Skipping {task_id}: unmet dependencies")
+                logger.warning(f"Skipping {task_id}: unmet dependencies (deps not yet run)")
                 self.results[task_id] = TaskResult(
                     task_id=task_id, output="", score=0.0,
                     model_used=Model.GPT_4O_MINI,
@@ -458,13 +494,17 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 break
 
             # ── GENERATE ──
+            # Use a longer timeout for code generation (large outputs take time)
+            gen_timeout = 120 if task.type in (
+                TaskType.CODE_GEN, TaskType.CODE_REVIEW
+            ) else 60
             try:
                 gen_response = await self.client.call(
                     primary, full_prompt,
                     system=f"You are an expert executing a {task.type.value} task. "
                            f"Produce high-quality, complete output.",
                     max_tokens=task.max_output_tokens,
-                    timeout=60,
+                    timeout=gen_timeout,
                 )
                 output = gen_response.text
                 gen_cost = gen_response.cost_usd
@@ -477,7 +517,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 self._record_success(primary, gen_response)
             except Exception as e:
                 logger.error(f"Generation failed for {task.id}: {e}")
-                self._record_failure(primary)
+                self._record_failure(primary, error=e)
                 degraded_count += 1
                 fb = self._get_fallback(primary)
                 if fb:
@@ -497,7 +537,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         primary = fb
                     except Exception as e2:
                         logger.error(f"Fallback generation also failed: {e2}")
-                        self._record_failure(fb)
+                        self._record_failure(fb, error=e2)
                         break
                 else:
                     break
@@ -547,7 +587,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         f"Produce the complete improved version.",
                         system=f"You are revising a {task.type.value} task based on peer review.",
                         max_tokens=task.max_output_tokens,
-                        timeout=60,
+                        timeout=gen_timeout,
                     )
                     output = revise_response.text
                     self.budget.charge(revise_response.cost_usd, "generation")
@@ -708,11 +748,35 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             success=True,
         )
 
-    def _record_failure(self, model: Model) -> None:
+    def _record_failure(self, model: Model, error: Optional[Exception] = None) -> None:
         """
         Record a failed API call. Increment circuit breaker counter.
         If consecutive failures reach the threshold, mark the model unhealthy.
+        401 Unauthorized errors immediately mark the model unhealthy (permanent auth failure).
         """
+        # 401/404/400 = permanent failure — mark unhealthy immediately, no retries needed
+        # 401 = bad API key, 404 = wrong model name, 400 = bad request (e.g. invalid param)
+        error_str = str(error) if error else ""
+        is_permanent_error = (
+            "401" in error_str or "invalid_authentication" in error_str.lower()
+            or "404" in error_str or "not found" in error_str.lower()
+            or ("400" in error_str and "invalid_request_error" in error_str.lower())
+        )
+        if is_permanent_error:
+            if self.api_health.get(model, True):
+                self.api_health[model] = False
+                if "401" in error_str:
+                    reason = "auth error (401) — check your API key"
+                elif "404" in error_str:
+                    reason = "model not found (404) — check model name"
+                else:
+                    reason = f"invalid request (400) — {error_str[error_str.find('message'):error_str.find('message')+80]}"
+                logger.warning(
+                    f"Model {model.value} marked unhealthy immediately: {reason}."
+                )
+            self._telemetry.record_call(model, latency_ms=0.0, cost_usd=0.0, success=False)
+            return
+
         self._consecutive_failures[model] = self._consecutive_failures.get(model, 0) + 1
         self._telemetry.record_call(
             model, latency_ms=0.0, cost_usd=0.0, success=False

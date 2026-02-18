@@ -1,6 +1,7 @@
 """
 OptimizationBackend — pluggable scoring strategies for ConstraintPlanner.
 =========================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Three concrete backends ship with the orchestrator:
 
   GreedyBackend      — current scalar: quality × trust / (cost + ε).

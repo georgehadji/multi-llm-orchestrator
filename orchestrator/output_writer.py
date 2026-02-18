@@ -1,6 +1,7 @@
 """
 Output Directory Writer
 =======================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Writes structured output from a completed ProjectState to a directory.
 
 Directory layout:

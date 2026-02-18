@@ -1,0 +1,90 @@
+# ──────────────────────────────────────────────────────
+# Data Analysis 5: Greek Real Estate Market Analysis
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/analysis_greek_real_estate.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a comprehensive analysis of the Greek real estate market with price trends,
+  geographic visualisation, and predictive modelling.
+
+  The project must:
+  1. DATA LOADING & SOURCES
+     - Scrape or load Spitogatos listings data:
+       * Use requests + BeautifulSoup to scrape search results from spitogatos.gr
+       * Fields: price, area_m2, location (neighbourhood, city), property_type,
+         floor, year_built, energy_class, number_of_rooms
+       * Scrape at least 500 listings per city: Athens, Thessaloniki, Heraklion, Patras
+       * Respect robots.txt, add 1–2s delay between requests
+     - Bank of Greece historical price index data (price per m² per region, 2018–2025):
+       https://www.bankofgreece.gr/en/main-tasks/monetary-policy/residential-property-prices
+     - ELSTAT income and population data per municipality (for correlation analysis)
+     - Alternative: use a pre-collected CSV dataset if scraping is not feasible
+       (document the source clearly in README)
+
+  2. PRICE ANALYSIS
+     - Price per m² distribution per city (violin + box plots)
+     - Top 10 most expensive and cheapest neighbourhoods per city
+     - Price vs area scatter plot (log scale, coloured by city)
+     - Price vs floor number (does higher floor = higher price?)
+     - Energy class impact on price (A+ vs B vs C vs D — mean price comparison)
+     - New construction (≤5 years) vs old (>20 years) price premium
+
+  3. TEMPORAL TRENDS (Bank of Greece data)
+     - Price per m² trend 2018–2025 per region (line chart)
+     - Year-over-year % change per region (bar chart, highlight COVID dip)
+     - Athens vs Thessaloniki vs islands price gap evolution
+     - Real price (inflation-adjusted) vs nominal price comparison
+
+  4. PREDICTIVE MODELLING
+     - Feature engineering: encode categorical variables, compute age from year_built
+     - Train a price prediction model (Random Forest + XGBoost)
+     - Feature importance: which factors drive price most?
+       (expected: location > area > energy_class > floor)
+     - Cross-validation R² score and RMSE
+     - SHAP values for model interpretability (shap library)
+
+  5. GEOGRAPHIC VISUALISATION
+     - Folium choropleth map: average price per m² per municipality
+     - Heatmap of listing density (where are most properties listed?)
+     - Interactive map with popups showing neighbourhood avg price
+
+  6. DASHBOARD
+     - Plotly Dash app with:
+       * City selector
+       * Property type filter (apartment / house / studio)
+       * Price range slider
+       * Map tab (folium embedded or plotly mapbox)
+       * Trends tab (Bank of Greece historical data)
+       * Predict tab: input property features → get price estimate
+
+  Use: pandas, numpy, plotly, dash, folium, geopandas, scikit-learn,
+       xgboost, shap, requests, beautifulsoup4, seaborn
+
+criteria: |
+  - At least 500 listings loaded per city (scraped or from pre-collected dataset)
+  - Historical price trend chart covers 2018–2025 for at least 3 regions
+  - Price prediction model achieves R² ≥ 0.70 on test set
+  - SHAP feature importance plot identifies top 5 price drivers
+  - Folium map renders with neighbourhood-level price colour coding
+  - Dashboard runs with: python dashboard.py (localhost:8050)
+  - Predict tab returns a price estimate for user-input property features
+  - README with data sources, scraping methodology, and key findings
+  - All code passes ruff linting
+
+budget_usd: 4.0
+time_seconds: 4800
+concurrency: 3
+project_id: "analysis-greek-real-estate-v1"
+output_dir: "./outputs/analysis_greek_real_estate"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.92
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

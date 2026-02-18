@@ -1,6 +1,7 @@
 """
 Cost Layer — hierarchical budgets, adaptive cost prediction, project forecasting.
 ==================================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Three independent components:
 
 BudgetHierarchy

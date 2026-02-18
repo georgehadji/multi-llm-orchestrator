@@ -1,5 +1,6 @@
 """
 DependencyResolver — scans Python source files and resolves third-party dependencies.
+Author: Georgios-Chrysovalantis Chatzivantsidis
 
 Steps:
 1. Recursively find all .py files in output_dir

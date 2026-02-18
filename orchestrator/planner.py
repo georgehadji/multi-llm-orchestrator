@@ -1,6 +1,7 @@
 """
 ConstraintPlanner — policy-compliant, multi-objective model selection.
 ======================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Replaces the three static lookups in engine.py:
   _get_available_models()  →  select_model()
   _select_reviewer()       →  select_reviewer()

@@ -1,5 +1,6 @@
 """
 ScaffoldEngine — creates folder structure and boilerplate for a new app.
+Author: Georgios-Chrysovalantis Chatzivantsidis
 
 Usage:
     engine = ScaffoldEngine()

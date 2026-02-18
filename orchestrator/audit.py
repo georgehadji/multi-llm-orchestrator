@@ -1,6 +1,7 @@
 """
 AuditLog — structured per-check audit records for policy decisions.
 ====================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Every call to PolicyEngine.check() emits one AuditRecord capturing:
   - which model was evaluated
   - which policies were applied

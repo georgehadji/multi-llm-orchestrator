@@ -1,6 +1,7 @@
 """
 HookRegistry — lightweight event hook system for the orchestration lifecycle.
 =============================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Provides a simple pub-sub mechanism for observing engine events without
 modifying core orchestration logic. Callbacks are synchronous (fire-and-forget);
 async callers can wrap with asyncio.create_task() if needed.

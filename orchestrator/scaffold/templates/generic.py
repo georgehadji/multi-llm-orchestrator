@@ -1,4 +1,7 @@
-"""Generic/fallback scaffold template — used for unknown app types."""
+"""Generic/fallback scaffold template — used for unknown app types.
+
+Author: Georgios-Chrysovalantis Chatzivantsidis
+"""
 from __future__ import annotations
 
 FILES: dict[str, str] = {

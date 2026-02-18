@@ -1,6 +1,7 @@
 """
 TelemetryCollector — updates ModelProfile stats after each API call.
 =====================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Uses Exponential Moving Average (EMA, alpha=0.1) for latency and quality,
 a fixed-size rolling window (last 10 calls) for success_rate, a sorted
 latency buffer (last 50 samples) for real p95 computation, and cost EMA.

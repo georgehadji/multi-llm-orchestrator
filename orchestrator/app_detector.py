@@ -1,5 +1,6 @@
 """
 AppDetector — analyses a project description and returns an AppProfile.
+Author: Georgios-Chrysovalantis Chatzivantsidis
 
 Detection logic:
 - If app_type_override is provided (YAML field) → skip LLM, return profile directly

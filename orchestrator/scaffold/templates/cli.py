@@ -1,4 +1,7 @@
-"""CLI application scaffold template."""
+"""CLI application scaffold template.
+
+Author: Georgios-Chrysovalantis Chatzivantsidis
+"""
 from __future__ import annotations
 
 CLI_ENTRY = '''\

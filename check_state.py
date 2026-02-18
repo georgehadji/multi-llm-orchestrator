@@ -1,3 +1,4 @@
+# Author: Georgios-Chrysovalantis Chatzivantsidis
 import os
 import sys
 os.environ['PYTHONIOENCODING'] = 'utf-8'

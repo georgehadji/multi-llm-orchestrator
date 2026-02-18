@@ -1,6 +1,7 @@
 """
 Disk Cache — prompt hash → response persistence
 ================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 SQLite-backed cache for deduplicating identical API calls.
 Uses aiosqlite for non-blocking async I/O and WAL mode for
 concurrent read/write safety under multi-task execution.

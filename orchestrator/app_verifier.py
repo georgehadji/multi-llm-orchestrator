@@ -1,5 +1,6 @@
 """
 AppVerifier — verifies a generated app by running local tests and Docker checks.
+Author: Georgios-Chrysovalantis Chatzivantsidis
 
 verify_local():
   1. pip install -r requirements.txt (if requirements.txt exists)

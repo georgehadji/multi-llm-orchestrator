@@ -1,6 +1,7 @@
 """
 Policy data model — compliance rules, job specifications, and model profiles.
 =============================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 All types here are pure dataclasses with no side effects. They are seeded from
 the existing ROUTING_TABLE / COST_TABLE / FALLBACK_CHAIN via
 models.build_default_profiles() at Orchestrator construction time.

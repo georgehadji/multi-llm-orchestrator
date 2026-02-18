@@ -1,4 +1,7 @@
-"""FastAPI application scaffold template."""
+"""FastAPI application scaffold template.
+
+Author: Georgios-Chrysovalantis Chatzivantsidis
+"""
 from __future__ import annotations
 
 FASTAPI_MAIN = '''\

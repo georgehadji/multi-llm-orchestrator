@@ -1,6 +1,7 @@
 """
 Multi-LLM Orchestrator
 ======================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Local multi-model orchestration for autonomous project completion.
 Supports: OpenAI GPT, Google Gemini, Anthropic Claude, Kimi K2.5.
 

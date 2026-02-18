@@ -1,5 +1,6 @@
 # ──────────────────────────────────────────────────────
 # Απλό project — μόνο τα απαραίτητα πεδία
+# Author: Georgios-Chrysovalantis Chatzivantsidis
 # Τρέξε με:
 #   python -m orchestrator --file projects/example_simple.yaml
 # ──────────────────────────────────────────────────────

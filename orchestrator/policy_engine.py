@@ -1,6 +1,7 @@
 """
 PolicyEngine — validates a (model, profile) pair against a list of policies.
 =============================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Purely functional: check() returns a result object; enforce() raises on failure.
 No state is mutated here. Trust degradation after violations is handled by
 TelemetryCollector.record_policy_violation() in engine.py.

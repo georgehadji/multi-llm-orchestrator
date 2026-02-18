@@ -1,6 +1,7 @@
 """
 API Clients — Unified interface for OpenAI, Anthropic, Google
 =============================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Each provider has its own SDK idiom. This module normalizes them
 into a single async call_model() interface.
 
@@ -292,7 +293,7 @@ class UnifiedClient:
         """
         Kimi K2.5 via moonshot.cn OpenAI-compatible endpoint.
         Uses the same AsyncOpenAI client pointed at base_url=https://api.moonshot.cn/v1.
-        Model value: "moonshot-v1" (maps to the default Kimi K2.5 model).
+        Note: kimi-k2.5 only accepts temperature=1 (hardcoded, ignores caller value).
         """
         client = self._clients["kimi"]
         messages = []
@@ -304,7 +305,7 @@ class UnifiedClient:
             model=model.value,
             messages=messages,
             max_tokens=max_tokens,
-            temperature=temperature,
+            temperature=1,  # kimi-k2.5 only accepts temperature=1
         )
         choice = response.choices[0]
         usage = response.usage

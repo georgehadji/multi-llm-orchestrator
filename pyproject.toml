@@ -24,6 +24,10 @@ dev = [
 [project.scripts]
 orchestrator = "orchestrator.cli:main"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["orchestrator*"]
+
 [tool.ruff]
 line-length = 100
 select = ["E", "F", "W"]

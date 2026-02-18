@@ -1,6 +1,7 @@
 """
 Deterministic Validators
 ========================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Non-negotiable checks that override LLM-based scoring.
 If deterministic check fails → score = 0.0 regardless of LLM evaluation.
 
@@ -160,15 +161,25 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
         tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(
-                suffix=".py", mode="w", delete=False
+                suffix=".py", mode="w", encoding="utf-8", delete=False
             ) as f:
                 tmp_path = f.name
                 f.write(code)
                 f.flush()
 
+            # Pass 1: auto-fix all safe fixable issues in-place
+            subprocess.run(
+                ["ruff", "check", tmp_path, "--select=E,F", "--fix", "--unsafe-fixes"],
+                capture_output=True, timeout=timeout,
+            )
+
+            # Pass 2: report any remaining errors
             result = subprocess.run(
                 ["ruff", "check", tmp_path, "--select=E,F"],
-                capture_output=True, text=True, timeout=timeout,
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
             )
             if result.returncode == 0:
                 return ValidationResult(True, "No lint errors", "ruff")

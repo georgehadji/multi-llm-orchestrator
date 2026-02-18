@@ -1,6 +1,7 @@
 """
 Policy DSL — YAML/JSON policy file loader and static analyzer.
 ==============================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Allows policy definitions to be externalised from Python code into
 YAML or JSON files, enabling non-programmer configuration of compliance rules.
 

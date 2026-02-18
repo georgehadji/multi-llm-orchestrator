@@ -1,5 +1,6 @@
 """
 AppAssembler — writes TaskResult outputs to target files inside output_dir.
+Author: Georgios-Chrysovalantis Chatzivantsidis
 
 Steps:
 1. For each TaskResult, write result.output to task.target_path inside output_dir

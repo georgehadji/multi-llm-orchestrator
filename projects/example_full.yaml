@@ -1,5 +1,6 @@
 # ──────────────────────────────────────────────────────
 # Full project file — όλες οι διαθέσιμες επιλογές
+# Author: Georgios-Chrysovalantis Chatzivantsidis
 # Τρέξε με:
 #   python -m orchestrator --file projects/example_full.yaml
 # ──────────────────────────────────────────────────────

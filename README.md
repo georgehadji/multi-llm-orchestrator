@@ -1,6 +1,7 @@
 # multi-llm-orchestrator
 
-Decomposes a project description into atomic tasks, routes each to the optimal provider (OpenAI / Anthropic / Google / Kimi), runs cross-provider generate → critique → revise cycles, and iterates until a quality threshold is met or a budget ceiling is hit.
+Decomposes a project description into atomic tasks, routes each to the optimal provider (OpenAI / Anthropic / Google / Kimi), runs cross-provider generate → critique → revise cycles, 
+and iterates until a quality threshold is met or a budget ceiling is hit.
 
 State is checkpointed to SQLite after every task. Interrupted runs are resumable by project ID.
 

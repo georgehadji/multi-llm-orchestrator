@@ -1,6 +1,7 @@
 """
 Multi-LLM Orchestrator — Core Models & Types
 =============================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 All data structures, enums, routing tables, cost tables, budget logic.
 """
 
@@ -29,13 +30,13 @@ class TaskType(str, Enum):
 
 class Model(str, Enum):
     CLAUDE_OPUS = "claude-opus-4-6"
-    CLAUDE_SONNET = "claude-sonnet-4-5-20250929"
+    CLAUDE_SONNET = "claude-sonnet-4-6"
     CLAUDE_HAIKU = "claude-haiku-4-5-20251001"
     GPT_4O = "gpt-4o"
     GPT_4O_MINI = "gpt-4o-mini"
     GEMINI_PRO = "gemini-2.5-pro"
     GEMINI_FLASH = "gemini-2.5-flash"
-    KIMI_K2_5 = "moonshot-v1"
+    KIMI_K2_5 = "kimi-k2.5"
 
 
 class ProjectStatus(str, Enum):
@@ -66,7 +67,7 @@ def get_provider(model: Model) -> str:
         return "openai"
     elif val.startswith("gemini"):
         return "google"
-    elif val.startswith("moonshot"):
+    elif val.startswith("moonshot") or val.startswith("kimi"):
         return "kimi"
     return "unknown"
 
@@ -137,13 +138,13 @@ DEFAULT_THRESHOLDS: dict[TaskType, float] = {
 }
 
 MAX_OUTPUT_TOKENS: dict[TaskType, int] = {
-    TaskType.CODE_GEN:     4096,  # raised: LLM was truncating mid-class at 1500
-    TaskType.CODE_REVIEW:  2048,  # raised: review needs room for full analysis
-    TaskType.REASONING:    2048,
-    TaskType.WRITING:      2048,
-    TaskType.DATA_EXTRACT: 1024,
-    TaskType.SUMMARIZE:    512,
-    TaskType.EVALUATE:     600,
+    TaskType.CODE_GEN:     8192,  # raised: avoid unterminated strings mid-class
+    TaskType.CODE_REVIEW:  4096,  # raised: full analysis without truncation
+    TaskType.REASONING:    4096,
+    TaskType.WRITING:      4096,
+    TaskType.DATA_EXTRACT: 2048,
+    TaskType.SUMMARIZE:    1024,
+    TaskType.EVALUATE:     2048,  # raised: evaluation tasks need more room
 }
 
 

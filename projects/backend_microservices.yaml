@@ -1,0 +1,48 @@
+# ──────────────────────────────────────────────────────
+# Backend Project 5: Microservices με FastAPI + gRPC
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/backend_microservices.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a microservices e-commerce backend with FastAPI and gRPC communication.
+
+  The system consists of 3 services:
+  1. API Gateway (FastAPI): routes requests, handles JWT auth, rate limiting
+  2. Product Service (FastAPI + gRPC server): manages product catalog and inventory
+  3. Order Service (FastAPI + gRPC client): creates and tracks orders
+
+  Each service must implement:
+  - Its own SQLite database (database-per-service pattern)
+  - gRPC protobuf definitions for inter-service communication
+  - Health check endpoint: GET /health
+  - Structured JSON logging with request tracing (X-Request-ID header)
+  - Docker container with Dockerfile
+  - Docker Compose to run all three services together
+
+criteria: |
+  - API Gateway correctly proxies requests to Product and Order services via gRPC
+  - JWT auth at the gateway level protects all routes
+  - Rate limiting at gateway blocks >100 req/min per IP
+  - Product Service CRUD operations persist to its own database
+  - Order Service creates orders and checks inventory via gRPC call to Product Service
+  - X-Request-ID propagates through all services for distributed tracing
+  - All services start cleanly with docker compose up
+  - Integration tests verify the complete order creation flow end-to-end
+
+budget_usd: 4.0
+time_seconds: 4800
+concurrency: 3
+project_id: "backend-microservices-v1"
+output_dir: "./outputs/backend_microservices"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

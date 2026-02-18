@@ -2,6 +2,7 @@
 """
 CLI Entry Point — run orchestrator from terminal
 =================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Usage:
     python -m orchestrator --project "Build a FastAPI auth service" \
                            --criteria "All tests pass, docs complete" \

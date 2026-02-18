@@ -1,6 +1,7 @@
 """
 Agents — AgentPool meta-controller and TaskChannel inter-task messaging.
 ========================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 
 AgentPool
     Meta-controller that manages multiple Orchestrator instances and can

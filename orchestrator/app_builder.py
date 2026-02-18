@@ -1,5 +1,6 @@
 """
 AppBuilder — top-level class that wires all App Builder pipeline components.
+Author: Georgios-Chrysovalantis Chatzivantsidis
 
 Pipeline:
   1. AppDetector.detect()        -> AppProfile

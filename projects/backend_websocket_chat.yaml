@@ -1,0 +1,42 @@
+# ──────────────────────────────────────────────────────
+# Backend Project 2: Real-time WebSocket Chat Server
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/backend_websocket_chat.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a real-time chat server using FastAPI WebSockets and Redis Pub/Sub.
+
+  The server must implement:
+  1. WebSocket endpoint for real-time bidirectional messaging
+  2. Redis Pub/Sub for broadcasting messages across multiple server instances
+  3. Chat rooms — users can join/leave named rooms
+  4. Connection manager to track active WebSocket connections per room
+  5. Message persistence to SQLite (last 100 messages per room)
+  6. REST endpoints: GET /rooms, GET /rooms/{room}/history
+  7. Username-based identity (no full auth required, just a username query param)
+
+criteria: |
+  - WebSocket connections accept and broadcast messages within a room
+  - Messages are persisted and retrievable via REST history endpoint
+  - Disconnected clients are cleanly removed from the connection manager
+  - Redis Pub/Sub enables multi-instance broadcasting
+  - Unit tests for connection manager and message persistence
+  - Load test shows >100 concurrent connections without crash
+
+budget_usd: 3.0
+time_seconds: 3600
+concurrency: 3
+project_id: "backend-websocket-chat-v1"
+output_dir: "./outputs/backend_websocket_chat"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

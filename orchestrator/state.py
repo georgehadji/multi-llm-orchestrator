@@ -1,6 +1,7 @@
 """
 State Persistence — async SQLite-backed project state for crash recovery
 ========================================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Saves full project state after each task completion.
 Enables resume from last checkpoint on HALT/crash.
 
@@ -263,6 +264,11 @@ class StateManager:
         await db.commit()
 
     async def close(self):
+        """Close the aiosqlite connection gracefully before the event loop shuts down."""
         if self._conn is not None:
-            await self._conn.close()
-            self._conn = None
+            try:
+                await self._conn.close()
+            except Exception:
+                pass
+            finally:
+                self._conn = None
