@@ -164,9 +164,11 @@ class StateManager:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = str(db_path)
         self._conn: Optional[aiosqlite.Connection] = None
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None  # lazy — created inside event loop
 
     async def _get_conn(self) -> aiosqlite.Connection:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         if self._conn is None:
             async with self._lock:
                 if self._conn is None:
@@ -268,6 +270,9 @@ class StateManager:
         if self._conn is not None:
             try:
                 await self._conn.close()
+                # Yield control so the aiosqlite background thread can finish
+                # its final callbacks before asyncio.run() closes the loop.
+                await asyncio.sleep(0)
             except Exception:
                 pass
             finally:

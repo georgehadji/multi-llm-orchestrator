@@ -182,38 +182,45 @@ class Orchestrator:
         logger.info(f"Starting project {project_id}")
         logger.info(f"Budget: ${self.budget.max_usd}, {self.budget.max_time_seconds}s")
 
-        # Check if resumable
-        existing = await self.state_mgr.load_project(project_id)
-        if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
-            logger.info(f"Resuming project {project_id} from checkpoint")
-            return await self._resume_project(existing)
+        try:
+            # Check if resumable
+            existing = await self.state_mgr.load_project(project_id)
+            if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
+                logger.info(f"Resuming project {project_id} from checkpoint")
+                state = await self._resume_project(existing)
+                await self.state_mgr.save_project(project_id, state)
+                self._log_summary(state)
+                return state
 
-        # Phase 1: Decompose
-        tasks = await self._decompose(project_description, success_criteria)
-        if not tasks:
-            await self.state_mgr.close()
-            return self._make_state(
-                project_description, success_criteria, {},
-                ProjectStatus.SYSTEM_FAILURE
+            # Phase 1: Decompose
+            tasks = await self._decompose(project_description, success_criteria)
+            if not tasks:
+                return self._make_state(
+                    project_description, success_criteria, {},
+                    ProjectStatus.SYSTEM_FAILURE
+                )
+
+            # Topological sort
+            execution_order = self._topological_sort(tasks)
+            logger.info(f"Execution order: {execution_order}")
+
+            # Phase 2-5: Execute
+            state = await self._execute_all(
+                tasks, execution_order, project_description, success_criteria
             )
 
-        # Topological sort
-        execution_order = self._topological_sort(tasks)
-        logger.info(f"Execution order: {execution_order}")
+            # Final status determination
+            state.execution_order = execution_order
+            state.status = self._determine_final_status(state)
+            await self.state_mgr.save_project(project_id, state)
 
-        # Phase 2-5: Execute
-        state = await self._execute_all(
-            tasks, execution_order, project_description, success_criteria
-        )
+            self._log_summary(state)
+            return state
 
-        # Final status determination
-        state.execution_order = execution_order
-        state.status = self._determine_final_status(state)
-        await self.state_mgr.save_project(project_id, state)
-
-        self._log_summary(state)
-        await self.state_mgr.close()
-        return state
+        finally:
+            # Always close DB connection so the aiosqlite background thread
+            # finishes its callbacks before asyncio.run() closes the loop.
+            await self.state_mgr.close()
 
     async def run_job(self, spec: JobSpec) -> ProjectState:
         """
@@ -336,9 +343,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     items = v
                     break
 
-        # Extract first [...] block and retry
+        # Extract outermost [...] block and retry (greedy — captures the full tasks array)
         if not isinstance(items, list):
-            match = re.search(r'\[.*?\]', text, re.DOTALL)
+            match = re.search(r'\[.*\]', text, re.DOTALL)
             if match:
                 items = _try_parse(match.group())
 
