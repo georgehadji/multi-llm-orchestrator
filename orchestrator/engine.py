@@ -514,20 +514,25 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 break
 
             # ── GENERATE ──
-            # Kimi K2.5 uses internal reasoning tokens and needs longer timeouts.
+            # Kimi K2.5 uses internal reasoning tokens that count against max_tokens
+            # but don't appear in the output. To avoid truncated code, we double the
+            # requested token budget when Kimi is the primary model (cap at 32000).
             # Code tasks get 120s, all tasks on Kimi get 240s.
             if get_provider(primary) == "kimi":
                 gen_timeout = 240
+                effective_max_tokens = min(task.max_output_tokens * 2, 32000)
             elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
                 gen_timeout = 120
+                effective_max_tokens = task.max_output_tokens
             else:
                 gen_timeout = 60
+                effective_max_tokens = task.max_output_tokens
             try:
                 gen_response = await self.client.call(
                     primary, full_prompt,
                     system=f"You are an expert executing a {task.type.value} task. "
                            f"Produce high-quality, complete output.",
-                    max_tokens=task.max_output_tokens,
+                    max_tokens=effective_max_tokens,
                     timeout=gen_timeout,
                 )
                 output = gen_response.text
@@ -610,7 +615,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         f"CRITIQUE:\n{critique}\n\n"
                         f"Produce the complete improved version.",
                         system=f"You are revising a {task.type.value} task based on peer review.",
-                        max_tokens=task.max_output_tokens,
+                        max_tokens=effective_max_tokens,
                         timeout=gen_timeout,
                     )
                     output = revise_response.text
