@@ -482,6 +482,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         primary = models[0]
         reviewer = self._select_reviewer(primary, task.type)
 
+        # Fire MODEL_SELECTED event so hooks can observe routing decisions
+        self._hook_registry.fire(
+            EventType.MODEL_SELECTED,
+            task_id=task.id,
+            model=primary.value,
+            backend=get_provider(primary),
+        )
+
         context = self._gather_dependency_context(task.dependencies)
         full_prompt = task.prompt
         if context:

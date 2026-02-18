@@ -140,29 +140,32 @@ class PolicyEngine:
           passed=True  if all policies are satisfied (violations=[])
           passed=False if any policy is violated (violations lists each one)
 
-        EnforcementMode (per policy, most-permissive across all policies wins):
-          MONITOR → always passed=True (violations still logged)
+        EnforcementMode (per policy, most-restrictive across all policies wins):
+          HARD    → any violation blocks (default; wins over SOFT/MONITOR)
           SOFT    → only hard violations (provider/model/region/compliance) block
-          HARD    → any violation blocks (default)
+          MONITOR → always passed=True (violations still logged)
 
         Does NOT raise. Use enforce() to get exception-based enforcement.
         """
         violations: list[str] = []
-        # Track the most-permissive mode across all policies
-        # MONITOR (2) > SOFT (1) > HARD (0)
+        # Track the most-restrictive mode across all policies.
+        # HARD (0) > SOFT (1) > MONITOR (2) — stricter policies always win.
+        # Rationale: if ANY policy is HARD, all violations must block the model.
+        # A permissive MONITOR policy from one rule must never override a
+        # HARD compliance rule from another (e.g. GDPR region constraint).
         _MODE_RANK = {
-            EnforcementMode.HARD:    0,
+            EnforcementMode.HARD:    0,  # most restrictive → wins
             EnforcementMode.SOFT:    1,
-            EnforcementMode.MONITOR: 2,
+            EnforcementMode.MONITOR: 2,  # most permissive
             None:                    0,  # None → HARD
         }
-        effective_mode_rank = 0
-        effective_mode = EnforcementMode.HARD
+        effective_mode_rank = 2          # start at most-permissive, tighten downward
+        effective_mode = EnforcementMode.MONITOR
 
         for policy in policies:
             mode = policy.enforcement_mode  # type: ignore[attr-defined]
             rank = _MODE_RANK.get(mode, 0)
-            if rank > effective_mode_rank:
+            if rank < effective_mode_rank:  # lower rank = more restrictive = wins
                 effective_mode_rank = rank
                 effective_mode = mode if mode is not None else EnforcementMode.HARD
 

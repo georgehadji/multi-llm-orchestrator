@@ -6,6 +6,9 @@ Detection logic:
 - If app_type_override is provided (YAML field) → skip LLM, return profile directly
 - Otherwise → single async LLM call → parse JSON → return AppProfile
 - Fallback on any error → AppProfile(app_type="script", detected_from="auto")
+
+FIX: _call_llm() is now wired to UnifiedClient using the cheapest available model
+     (gemini-flash or gpt-4o-mini) for a single low-cost classification call.
 """
 from __future__ import annotations
 
@@ -103,6 +106,9 @@ class AppDetector:
         detector = AppDetector()
         profile = await detector.detect(description)          # LLM-based
         profile = await detector.detect(description, "cli")   # YAML override
+
+    Optionally accepts a UnifiedClient for LLM-based detection. If not provided,
+    a new client (with default DiskCache) is created on the first LLM call.
     """
 
     _DETECTION_PROMPT = (
@@ -116,6 +122,25 @@ class AppDetector:
         "  requires_docker: boolean\n\n"
         "Project description:\n{description}"
     )
+
+    def __init__(self, client=None):
+        """
+        Parameters
+        ----------
+        client : UnifiedClient | None
+            Pre-built API client. If None, a new one is lazily created on first
+            LLM call. Accepting an existing client avoids re-initialising all
+            provider SDKs (saves ~1s of startup time in AppBuilder).
+        """
+        self._client = client  # UnifiedClient or None; lazily initialized
+
+    def _get_client(self):
+        """Return the client, creating one lazily if needed."""
+        if self._client is None:
+            from .api_clients import UnifiedClient
+            from .cache import DiskCache
+            self._client = UnifiedClient(cache=DiskCache(), max_concurrency=1)
+        return self._client
 
     def detect_from_yaml(self, app_type: str) -> AppProfile:
         """Return an AppProfile for a given app_type string without calling the LLM."""
@@ -157,17 +182,51 @@ class AppDetector:
 
     async def _call_llm(self, description: str) -> str:
         """
-        Make the actual LLM call.
+        Make a single LLM classification call using the cheapest available model.
 
+        Preference order (cheapest first):
+          gemini-2.5-flash → gpt-4o-mini → deepseek-chat → claude-haiku → any
+
+        The response must be a JSON object matching the detection schema.
         Isolated into its own method so tests can patch it cleanly.
-        In production this would call the orchestrator's LLM client.
-        For now, uses a simple httpx call or raises NotImplementedError if
-        no client is configured — detection will fall back to 'script'.
         """
-        raise NotImplementedError(
-            "AppDetector._call_llm is not wired to an LLM client yet. "
-            "Provide app_type_override or subclass AppDetector to override _call_llm."
+        from .models import Model, ROUTING_TABLE, TaskType
+        client = self._get_client()
+
+        # Pick cheapest available model — detection is a simple classification task
+        _PREFERENCE = [
+            Model.GEMINI_FLASH,
+            Model.GPT_4O_MINI,
+            Model.DEEPSEEK_CHAT,
+            Model.CLAUDE_HAIKU,
+        ]
+        model = next((m for m in _PREFERENCE if client.is_available(m)), None)
+        if model is None:
+            # Ultimate fallback: pick any available model
+            model = next((m for m in Model if client.is_available(m)), None)
+        if model is None:
+            raise RuntimeError(
+                "AppDetector: no LLM provider available. "
+                "Check API keys in .env and provider SDK installation."
+            )
+
+        prompt = self._DETECTION_PROMPT.format(description=description)
+        resp = await client.call(
+            model=model,
+            prompt=prompt,
+            system=(
+                "You are a software architect. Return only a JSON object "
+                "with the exact fields requested — no markdown, no explanation."
+            ),
+            max_tokens=512,
+            temperature=0.1,  # low temperature: classification task
+            timeout=30,
+            retries=1,
         )
+        logger.debug(
+            "AppDetector: used %s for detection (cost $%.6f)", model.value, resp.cost_usd
+        )
+        return resp.text
 
     def _parse_llm_response(self, raw: str) -> AppProfile:
         """

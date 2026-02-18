@@ -384,9 +384,10 @@ class CostForecaster:
                 continue
 
             per_call = predictor.predict(cheapest, task_type)
-            gen_cost    = per_call * 1.0                   # 1 generation call
-            review_cost = per_call * 1.0                   # 1 cross-review call
-            eval_cost   = per_call * _EVAL_OVERHEAD        # ~15% for evaluation
+            max_iter    = getattr(task, "max_iterations", 1) or 1
+            gen_cost    = per_call * max_iter              # N generation calls (one per iteration)
+            review_cost = per_call * max_iter              # N cross-review calls (one per iteration)
+            eval_cost   = per_call * _EVAL_OVERHEAD        # ~15% for evaluation (once per task)
 
             total_gen_cost    += gen_cost
             total_review_cost += review_cost

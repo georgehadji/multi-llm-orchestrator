@@ -235,13 +235,23 @@ class AgentPool:
             total_failures  = sum(p.failure_count       for p in contributing)
             total_val_fails = sum(p.validator_fail_count for p in contributing)
 
-            # Average EMA fields
-            n = len(contributing)
-            avg_latency   = sum(p.avg_latency_ms   for p in contributing) / n
-            lat_p95       = sum(p.latency_p95_ms   for p in contributing) / n
-            quality       = sum(p.quality_score    for p in contributing) / n
-            trust         = sum(p.trust_factor     for p in contributing) / n
-            avg_cost      = sum(p.avg_cost_usd     for p in contributing) / n
+            # Weighted average for EMA fields — weight by call_count so agents
+            # that have made more calls contribute proportionally more to the
+            # merged estimate. Falls back to simple average if all counts are 0.
+            weight_sum = total_calls or len(contributing)  # avoid division by zero
+
+            def _wavg(attr: str) -> float:
+                if total_calls == 0:
+                    return sum(getattr(p, attr) for p in contributing) / len(contributing)
+                return sum(
+                    getattr(p, attr) * p.call_count for p in contributing
+                ) / weight_sum
+
+            avg_latency = _wavg("avg_latency_ms")
+            lat_p95     = _wavg("latency_p95_ms")
+            quality     = _wavg("quality_score")
+            trust       = _wavg("trust_factor")
+            avg_cost    = _wavg("avg_cost_usd")
 
             # Re-derive success_rate
             success_rate = (

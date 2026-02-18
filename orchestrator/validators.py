@@ -54,9 +54,9 @@ def validate_python_syntax(output: str) -> ValidationResult:
 
     Special cases handled:
     - Indented method fragments: dedent + wrap in dummy class before retry
-    - Truncated output (LLM hit max_tokens mid-statement): treated as SKIP/pass,
-      because the truncation is a generation limit issue, not a code quality issue.
-      A truncated block ends with an incomplete statement on the last non-empty line.
+    - Truncated output (LLM hit max_tokens mid-statement): treated as FAIL so the
+      orchestrator retries with a higher token budget. A truncated block ends with
+      an incomplete statement on the last non-empty line.
     Note: IndentationError is a subclass of SyntaxError so it is caught first.
     """
     import textwrap
@@ -74,6 +74,16 @@ def validate_python_syntax(output: str) -> ValidationResult:
             and len(code.splitlines()) >= 50)  # only flag as truncated for long outputs
     )
 
+    # Truncation check before syntax parsing: fail immediately so the engine
+    # knows to retry with a higher max_output_tokens rather than silently passing
+    # incomplete code through to execution/tests.
+    if truncated:
+        return ValidationResult(
+            False,
+            "Output appears truncated at token limit — retry with higher max_output_tokens",
+            "python_syntax",
+        )
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", SyntaxWarning)  # suppress invalid escape seq warnings
         try:
@@ -89,12 +99,8 @@ def validate_python_syntax(output: str) -> ValidationResult:
                 compile(wrapped, "<orchestrator_check>", "exec")
                 return ValidationResult(True, "Syntax OK (method fragment)", "python_syntax")
             except SyntaxError as e:
-                if truncated:
-                    return ValidationResult(True, "Skipped: output appears truncated at token limit", "python_syntax")
                 return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
         except SyntaxError as e:
-            if truncated:
-                return ValidationResult(True, "Skipped: output appears truncated at token limit", "python_syntax")
             return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
 
 
@@ -331,7 +337,16 @@ async def async_run_validators(output: str, validator_names: list[str],
     Pure-Python validators (json_schema, python_syntax, length) run inline.
     Subprocess validators (pytest, ruff, latex) are offloaded to a thread pool
     via asyncio.to_thread() so the event loop is never blocked.
+
+    An overall async deadline is applied to each subprocess validator equal to
+    the 'timeout' kwarg (default: 60 s) + a 5 s grace period.  If the
+    thread does not return within that wall-clock window, the coroutine is
+    cancelled and a FAIL result is returned so the engine can retry.
     """
+    # Wall-clock deadline per subprocess call (subprocess timeout + 5 s grace)
+    _subprocess_timeout = kwargs.get("timeout", 60)
+    _async_deadline = _subprocess_timeout + 5
+
     results: list[ValidationResult] = []
     for name in validator_names:
         fn = VALIDATORS.get(name)
@@ -341,10 +356,21 @@ async def async_run_validators(output: str, validator_names: list[str],
         filtered = _filter_kwargs_for(fn, kwargs)
         try:
             if name in _SUBPROCESS_VALIDATORS:
-                result = await asyncio.to_thread(fn, output, **filtered)
+                coro = asyncio.to_thread(fn, output, **filtered)
+                result = await asyncio.wait_for(coro, timeout=_async_deadline)
             else:
                 result = fn(output, **filtered)
             results.append(result)
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"Validator '{name}' exceeded async deadline of {_async_deadline}s; "
+                "marking as FAIL"
+            )
+            results.append(ValidationResult(
+                False,
+                f"Validator timed out after {_async_deadline}s",
+                name,
+            ))
         except Exception as e:
             results.append(ValidationResult(False, f"Validator crash: {e}", name))
     return results
