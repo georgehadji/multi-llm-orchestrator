@@ -515,12 +515,17 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             # ── GENERATE ──
             # Kimi K2.5 uses internal reasoning tokens that count against max_tokens
-            # but don't appear in the output. To avoid truncated code, we double the
-            # requested token budget when Kimi is the primary model (cap at 32000).
-            # Code tasks get 120s, all tasks on Kimi get 240s.
+            # but don't appear in the output. Account: Level 0 has TPD=1.5M tokens,
+            # so we only double the budget for code tasks (where truncation is fatal);
+            # non-code tasks (reasoning, writing, etc.) use normal token counts.
+            # Timeout: 240s for Kimi (slow reasoning), 120s for code on other models.
             if get_provider(primary) == "kimi":
                 gen_timeout = 240
-                effective_max_tokens = min(task.max_output_tokens * 2, 32000)
+                if task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
+                    # Double token budget: Kimi reasoning tokens eat into output budget
+                    effective_max_tokens = min(task.max_output_tokens * 2, 16384)
+                else:
+                    effective_max_tokens = task.max_output_tokens
             elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
                 gen_timeout = 120
                 effective_max_tokens = task.max_output_tokens
