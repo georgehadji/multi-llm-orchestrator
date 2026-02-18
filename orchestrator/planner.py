@@ -28,12 +28,14 @@ cannot be expressed in a static lookup table.
 """
 from __future__ import annotations
 
+import collections
 import logging
+import time
 from typing import Optional
 
 from .models import Model, TaskType, get_provider
 from .optimization import GreedyBackend, OptimizationBackend
-from .policy import ModelProfile, Policy
+from .policy import ModelProfile, Policy, RateLimit
 from .policy_engine import PolicyEngine
 # TYPE_CHECKING import to avoid circular dependency (cost.py does not import planner.py)
 from typing import TYPE_CHECKING
@@ -44,6 +46,92 @@ logger = logging.getLogger("orchestrator.planner")
 
 # ── Scoring constants ──────────────────────────────────────────────────────────
 _EPSILON: float = 1e-6          # prevents division by zero when cost rounds to 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RateLimitTracker — sliding-window enforcement for policy rate limits
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RateLimitTracker:
+    """
+    Tracks API call events per provider for sliding-window rate-limit enforcement.
+
+    Three independent windows are maintained per provider:
+      - calls_per_minute  : calls in the last 60 s
+      - cost_usd_per_hour : cumulative USD cost in the last 3600 s
+      - tokens_per_day    : cumulative token count in the last 86400 s
+
+    record() must be called after every successful API call.
+    is_within_limits() is called by ConstraintPlanner._apply_filters() before
+    selecting a model; if the provider is at or over any limit, the model is
+    excluded from the candidate set for this selection round.
+
+    Thread-safety note: this class is NOT thread-safe. The orchestrator's async
+    event loop ensures single-threaded access in the normal code path.
+    """
+
+    _WINDOWS = {
+        "calls_per_minute":  60,
+        "cost_usd_per_hour": 3600,
+        "tokens_per_day":    86_400,
+    }
+
+    def __init__(self) -> None:
+        # deque of (timestamp, cost_usd, token_count) per provider
+        self._events: dict[str, collections.deque] = collections.defaultdict(
+            lambda: collections.deque()
+        )
+
+    def record(self, provider: str, cost_usd: float, tokens: int) -> None:
+        """Record one completed API call for rate-limit tracking."""
+        self._events[provider].append((time.monotonic(), cost_usd, tokens))
+
+    def is_within_limits(self, provider: str, rate_limit: RateLimit) -> bool:
+        """
+        Return True if the provider is within all configured rate-limit caps.
+        Prunes expired events before checking; any None cap is treated as unlimited.
+        """
+        now = time.monotonic()
+        events = self._events[provider]
+
+        # Prune events older than the largest window (1 day)
+        max_window = max(self._WINDOWS.values())
+        while events and (now - events[0][0]) > max_window:
+            events.popleft()
+
+        # Collect window totals
+        calls_1min = sum(
+            1 for ts, _, _ in events if (now - ts) <= self._WINDOWS["calls_per_minute"]
+        )
+        cost_1hr = sum(
+            c for ts, c, _ in events if (now - ts) <= self._WINDOWS["cost_usd_per_hour"]
+        )
+        tokens_1day = sum(
+            t for ts, _, t in events if (now - ts) <= self._WINDOWS["tokens_per_day"]
+        )
+
+        if rate_limit.calls_per_minute is not None and calls_1min >= rate_limit.calls_per_minute:
+            logger.debug(
+                "RateLimitTracker: provider '%s' at calls_per_minute limit "
+                "(%d/%d)", provider, calls_1min, rate_limit.calls_per_minute,
+            )
+            return False
+
+        if rate_limit.cost_usd_per_hour is not None and cost_1hr >= rate_limit.cost_usd_per_hour:
+            logger.debug(
+                "RateLimitTracker: provider '%s' at cost_usd_per_hour limit "
+                "($%.4f/$%.4f)", provider, cost_1hr, rate_limit.cost_usd_per_hour,
+            )
+            return False
+
+        if rate_limit.tokens_per_day is not None and tokens_1day >= rate_limit.tokens_per_day:
+            logger.debug(
+                "RateLimitTracker: provider '%s' at tokens_per_day limit "
+                "(%d/%d)", provider, tokens_1day, rate_limit.tokens_per_day,
+            )
+            return False
+
+        return True
 
 # ── Typical token volumes per task type ───────────────────────────────────────
 # Used to estimate cost *before* the call (for budget filtering and scoring).
@@ -91,6 +179,7 @@ class ConstraintPlanner:
         self._api_health = api_health
         self._backend: OptimizationBackend = backend or GreedyBackend()
         self._cost_predictor: Optional["CostPredictor"] = cost_predictor
+        self.rate_limit_tracker = RateLimitTracker()   # shared; record() called externally
 
     def set_backend(self, backend: OptimizationBackend) -> None:
         """
@@ -263,12 +352,49 @@ class ConstraintPlanner:
         budget_remaining: float,
     ) -> list[Model]:
         """
-        Returns models that survive all four filters:
+        Returns models that survive all five filters:
           1. API health
-          2. Policy compliance
+          2. Policy compliance (PolicyEngine.check)
           3. Capability for task_type
           4. Budget (estimated cost ≤ remaining)
+          5. Rate limits (RateLimitTracker sliding-window check per provider)
         """
+        # Collect the most-restrictive RateLimit per provider across all policies
+        # (None means no limit; any non-None limit overrides None for that dimension)
+        provider_rate_limits: dict[str, RateLimit] = {}
+        for policy in policies:
+            rl = policy.rate_limit
+            if rl is None:
+                continue
+            # Merge: take the tighter cap across policies for the same provider.
+            # Since RateLimit is not provider-scoped in the schema, we apply it
+            # globally — each policy's rate_limit constrains ALL providers equally.
+            _GLOBAL_KEY = "__global__"
+            existing = provider_rate_limits.get(_GLOBAL_KEY)
+            if existing is None:
+                provider_rate_limits[_GLOBAL_KEY] = rl
+            else:
+                # Most-restrictive merge: take the minimum non-None cap
+                provider_rate_limits[_GLOBAL_KEY] = RateLimit(
+                    calls_per_minute=(
+                        min(existing.calls_per_minute, rl.calls_per_minute)
+                        if existing.calls_per_minute is not None and rl.calls_per_minute is not None
+                        else existing.calls_per_minute or rl.calls_per_minute
+                    ),
+                    cost_usd_per_hour=(
+                        min(existing.cost_usd_per_hour, rl.cost_usd_per_hour)
+                        if existing.cost_usd_per_hour is not None and rl.cost_usd_per_hour is not None
+                        else existing.cost_usd_per_hour or rl.cost_usd_per_hour
+                    ),
+                    tokens_per_day=(
+                        min(existing.tokens_per_day, rl.tokens_per_day)
+                        if existing.tokens_per_day is not None and rl.tokens_per_day is not None
+                        else existing.tokens_per_day or rl.tokens_per_day
+                    ),
+                )
+
+        global_rate_limit = provider_rate_limits.get("__global__")
+
         result = []
         for model, profile in self._profiles.items():
 
@@ -298,6 +424,17 @@ class ConstraintPlanner:
                     model.value, estimated, budget_remaining,
                 )
                 continue
+
+            # Filter 5: Rate limits — check sliding-window counters for this provider
+            if global_rate_limit is not None:
+                if not self.rate_limit_tracker.is_within_limits(
+                    profile.provider, global_rate_limit
+                ):
+                    logger.debug(
+                        "_apply_filters: %s excluded by rate limit (provider=%s)",
+                        model.value, profile.provider,
+                    )
+                    continue
 
             result.append(model)
 

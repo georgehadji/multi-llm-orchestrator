@@ -72,6 +72,7 @@ class Orchestrator:
                  cache: Optional[DiskCache] = None,
                  state_manager: Optional[StateManager] = None,
                  max_concurrency: int = 3,
+                 max_parallel_tasks: int = 3,
                  budget_hierarchy: Optional["BudgetHierarchy"] = None,
                  cost_predictor: Optional["CostPredictor"] = None):
         self.budget = budget or Budget()
@@ -81,6 +82,9 @@ class Orchestrator:
         self.api_health: dict[Model, bool] = {m: True for m in Model}
         self.results: dict[str, TaskResult] = {}
         self._project_id: str = ""
+        # Max tasks executed concurrently within one dependency level.
+        # JobSpec.max_parallel_tasks overrides this via run_job().
+        self._max_parallel_tasks: int = max(1, max_parallel_tasks)
 
         # Circuit breaker counters — consecutive failures per model
         self._consecutive_failures: dict[Model, int] = {m: 0 for m in Model}
@@ -235,6 +239,9 @@ class Orchestrator:
         """
         self.budget = spec.budget
         self._active_policies = spec.policy_set
+        # JobSpec may override the per-task parallelism limit
+        if spec.max_parallel_tasks > 0:
+            self._max_parallel_tasks = spec.max_parallel_tasks
         # BudgetHierarchy pre-flight check (Improvement 6)
         if self._budget_hierarchy is not None:
             job_id = getattr(spec, "job_id", "") or ""
@@ -423,45 +430,98 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             execution_order: list[str],
                             project_desc: str,
                             success_criteria: str) -> ProjectState:
-        """Execute all tasks in dependency order."""
-        for task_id in execution_order:
+        """
+        Execute all tasks respecting dependencies, with intra-level parallelism.
+
+        Tasks are grouped into dependency levels using _topological_levels().
+        All tasks in the same level have no inter-dependencies and are executed
+        concurrently up to self._max_parallel_tasks simultaneous coroutines.
+
+        A semaphore limits concurrency so that API rate limits and memory usage
+        remain manageable even when many tasks are eligible at once.
+        """
+        levels = self._topological_levels(tasks)
+        semaphore = asyncio.Semaphore(self._max_parallel_tasks)
+
+        async def _run_one(task_id: str) -> None:
+            """Execute a single task under the concurrency semaphore."""
+            async with semaphore:
+                if not self.budget.can_afford(0.01):
+                    logger.warning(f"Budget exhausted, skipping {task_id}")
+                    self.results[task_id] = TaskResult(
+                        task_id=task_id, output="", score=0.0,
+                        model_used=Model.GPT_4O_MINI,
+                        status=TaskStatus.FAILED,
+                    )
+                    return
+                if not self.budget.time_remaining():
+                    logger.warning(f"Time limit reached, skipping {task_id}")
+                    self.results[task_id] = TaskResult(
+                        task_id=task_id, output="", score=0.0,
+                        model_used=Model.GPT_4O_MINI,
+                        status=TaskStatus.FAILED,
+                    )
+                    return
+
+                task = tasks[task_id]
+                self._hook_registry.fire(EventType.TASK_STARTED, task_id=task_id, task=task)
+                result = await self._execute_task(task)
+                self.results[task_id] = result
+                task.status = result.status
+                self._hook_registry.fire(EventType.TASK_COMPLETED, task_id=task_id, result=result)
+
+                for phase in ("generation", "cross_review", "evaluation"):
+                    self._check_phase_budget(phase)
+
+        for level_idx, level in enumerate(levels):
             if not self.budget.can_afford(0.01):
-                logger.warning("Budget exhausted, halting")
+                logger.warning("Budget exhausted, halting before level %d", level_idx)
                 break
             if not self.budget.time_remaining():
-                logger.warning("Time limit reached, halting")
+                logger.warning("Time limit reached, halting before level %d", level_idx)
                 break
 
-            task = tasks[task_id]
-
-            deps_ok = all(
-                self.results.get(dep, TaskResult(dep, "", 0.0, Model.GPT_4O_MINI)).status
-                in (TaskStatus.COMPLETED, TaskStatus.DEGRADED, TaskStatus.FAILED)
-                for dep in task.dependencies
-            )
-            if not deps_ok:
-                logger.warning(f"Skipping {task_id}: unmet dependencies (deps not yet run)")
-                self.results[task_id] = TaskResult(
-                    task_id=task_id, output="", score=0.0,
-                    model_used=Model.GPT_4O_MINI,
-                    status=TaskStatus.FAILED,
+            # Filter tasks with unmet dependencies (defensive: should not occur
+            # in a correctly topologically-sorted graph, but guards against cycles
+            # that slipped through or tasks whose dependencies failed outright)
+            runnable = []
+            for task_id in level:
+                deps_ok = all(
+                    self.results.get(dep, TaskResult(dep, "", 0.0, Model.GPT_4O_MINI)).status
+                    in (TaskStatus.COMPLETED, TaskStatus.DEGRADED, TaskStatus.FAILED)
+                    for dep in tasks[task_id].dependencies
                 )
+                if deps_ok:
+                    runnable.append(task_id)
+                else:
+                    logger.warning(f"Skipping {task_id}: unmet dependencies")
+                    self.results[task_id] = TaskResult(
+                        task_id=task_id, output="", score=0.0,
+                        model_used=Model.GPT_4O_MINI,
+                        status=TaskStatus.FAILED,
+                    )
+
+            if not runnable:
                 continue
 
-            self._hook_registry.fire(EventType.TASK_STARTED, task_id=task_id, task=task)
-            result = await self._execute_task(task)
-            self.results[task_id] = result
-            task.status = result.status
-            self._hook_registry.fire(EventType.TASK_COMPLETED, task_id=task_id, result=result)
+            parallel_count = len(runnable)
+            if parallel_count > 1:
+                logger.info(
+                    "Executing level %d: %d tasks in parallel (max=%d): %s",
+                    level_idx, parallel_count, self._max_parallel_tasks, runnable,
+                )
+            else:
+                logger.info("Executing level %d: %s", level_idx, runnable)
 
-            # Check phase budget soft caps after each task
-            for phase in ("generation", "cross_review", "evaluation"):
-                self._check_phase_budget(phase)
+            await asyncio.gather(*(_run_one(tid) for tid in runnable))
 
-            # Checkpoint (async)
+            # Checkpoint after each level completes
             state = self._make_state(project_desc, success_criteria, tasks,
                                      execution_order=execution_order)
-            await self.state_mgr.save_checkpoint(self._project_id, task_id, state)
+            if runnable:
+                await self.state_mgr.save_checkpoint(
+                    self._project_id, runnable[-1], state
+                )
 
         return self._make_state(project_desc, success_criteria, tasks,
                                 execution_order=execution_order)
@@ -828,6 +888,12 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             cost_usd=response.cost_usd,
             success=True,
         )
+        # Feed rate-limit tracker so _apply_filters can enforce sliding-window caps
+        self._planner.rate_limit_tracker.record(
+            provider=get_provider(model),
+            cost_usd=response.cost_usd,
+            tokens=response.input_tokens + response.output_tokens,
+        )
 
     def _record_failure(self, model: Model, error: Optional[Exception] = None) -> None:
         """
@@ -955,6 +1021,41 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             return result
 
         return result
+
+    def _topological_levels(self, tasks: dict[str, Task]) -> list[list[str]]:
+        """
+        Group tasks into execution levels using Kahn's algorithm.
+
+        Tasks at the same level have no dependencies on each other and can be
+        executed in parallel. Level 0 = tasks with no dependencies, Level 1 =
+        tasks whose only dependencies are in Level 0, and so on.
+
+        Returns a list of levels, each level being a sorted list of task IDs.
+        The union of all levels equals the full topological order.
+        """
+        in_degree = {tid: 0 for tid in tasks}
+        graph: dict[str, list[str]] = defaultdict(list)
+
+        for tid, task in tasks.items():
+            for dep in task.dependencies:
+                if dep in tasks:
+                    graph[dep].append(tid)
+                    in_degree[tid] += 1
+
+        levels: list[list[str]] = []
+        ready = sorted(tid for tid, deg in in_degree.items() if deg == 0)
+
+        while ready:
+            levels.append(ready)
+            next_ready: list[str] = []
+            for node in ready:
+                for neighbor in graph[node]:
+                    in_degree[neighbor] -= 1
+                    if in_degree[neighbor] == 0:
+                        next_ready.append(neighbor)
+            ready = sorted(next_ready)
+
+        return levels
 
     def _gather_dependency_context(self, dep_ids: list[str]) -> str:
         """
