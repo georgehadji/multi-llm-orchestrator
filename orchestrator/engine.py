@@ -514,15 +514,19 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 break
 
             # ── GENERATE ──
-            # Kimi K2.5 uses internal reasoning tokens that count against max_tokens
-            # but don't appear in the output. Account: Level 0 has TPD=1.5M tokens,
-            # so we only double the budget for code tasks (where truncation is fatal);
-            # non-code tasks (reasoning, writing, etc.) use normal token counts.
-            # Timeout: 240s for Kimi (slow reasoning), 120s for code on other models.
-            if get_provider(primary) == "kimi":
+            # Kimi K2.5 and DeepSeek-R1 are chain-of-thought reasoning models whose
+            # internal reasoning tokens count against max_tokens but don't appear in
+            # content output. For code tasks on these models, double the token budget
+            # (cap at 16384) to ensure complete output. Both also need longer timeouts.
+            _provider = get_provider(primary)
+            _is_reasoning_model = (
+                _provider == "kimi" or
+                (_provider == "deepseek" and primary.value == "deepseek-reasoner")
+            )
+            if _is_reasoning_model:
                 gen_timeout = 240
                 if task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
-                    # Double token budget: Kimi reasoning tokens eat into output budget
+                    # Double token budget: reasoning tokens eat into output budget
                     effective_max_tokens = min(task.max_output_tokens * 2, 16384)
                 else:
                     effective_max_tokens = task.max_output_tokens
@@ -609,11 +613,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     degraded_count += 1
 
             # ── REVISE (if critique exists) ──
-            # Skip revision for Kimi K2.5: its reasoning model takes 3-5 minutes
-            # per call, making revision as expensive as fresh generation. Instead,
-            # the critique is embedded into the next iteration's prompt so the
-            # model incorporates feedback on its next generation attempt.
-            if critique and get_provider(primary) != "kimi":
+            # Skip revision for reasoning models (Kimi K2.5, DeepSeek-R1): their
+            # chain-of-thought makes revision calls as slow/expensive as generation.
+            # Instead, embed the critique into the next iteration's prompt so the
+            # model can self-correct on re-generation.
+            if critique and not _is_reasoning_model:
                 try:
                     revise_response = await self.client.call(
                         primary,
@@ -632,9 +636,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     total_cost += revise_response.cost_usd
                 except Exception as e:
                     logger.warning(f"Revision failed for {task.id}: {e}")
-            elif critique and get_provider(primary) == "kimi":
-                # For Kimi: embed critique into the next iteration's prompt
-                # so the model can self-correct on re-generation.
+            elif critique and _is_reasoning_model:
+                # Embed critique into the next iteration's prompt for self-correction.
                 full_prompt = (
                     f"{task.prompt}\n\n"
                     f"--- PEER REVIEW FEEDBACK (incorporate in your response) ---\n"
@@ -643,7 +646,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 )
                 if context:
                     full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
-                logger.debug(f"Kimi: critique embedded into next iteration prompt for {task.id}")
+                logger.debug(
+                    f"{primary.value}: critique embedded into next iteration "
+                    f"prompt for {task.id}"
+                )
 
             # ── DETERMINISTIC VALIDATION ──
             det_passed = True

@@ -115,6 +115,20 @@ class UnifiedClient:
         except ImportError:
             logger.warning("openai package not installed (needed for Kimi K2.5)")
 
+        # DeepSeek (platform.deepseek.com) — OpenAI-compatible API
+        # Supports deepseek-chat (V3) and deepseek-reasoner (R1).
+        try:
+            deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
+            if deepseek_key:
+                from openai import AsyncOpenAI
+                self._clients["deepseek"] = AsyncOpenAI(
+                    api_key=deepseek_key,
+                    base_url="https://api.deepseek.com/v1",
+                )
+                logger.info("DeepSeek client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for DeepSeek)")
+
     def is_available(self, model: Model) -> bool:
         provider = get_provider(model)
         return provider in self._clients
@@ -197,6 +211,8 @@ class UnifiedClient:
             return await self._call_google(model, prompt, system, max_tokens, temperature)
         elif provider == "kimi":
             return await self._call_kimi(model, prompt, system, max_tokens, temperature)
+        elif provider == "deepseek":
+            return await self._call_deepseek(model, prompt, system, max_tokens, temperature)
         else:
             raise ValueError(f"Unknown provider for {model.value}")
 
@@ -326,6 +342,62 @@ class UnifiedClient:
         if not text.strip() and choice.finish_reason == "length":
             raise RuntimeError(
                 f"kimi-k2.5 returned empty content with finish_reason='length'. "
+                f"max_tokens={max_tokens} was too low for the internal reasoning budget. "
+                f"completion_tokens={usage.completion_tokens if usage else '?'}"
+            )
+
+        return APIResponse(
+            text=text,
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            model=model,
+        )
+
+    async def _call_deepseek(self, model: Model, prompt: str,
+                              system: str, max_tokens: int,
+                              temperature: float) -> APIResponse:
+        """
+        DeepSeek via platform.deepseek.com OpenAI-compatible endpoint.
+
+        Supports two models:
+        - deepseek-chat     (DeepSeek-V3): fast, cheap ($0.27/$1.10 per 1M), strong on code
+        - deepseek-reasoner (DeepSeek-R1): o1-class reasoning, slower, slightly more expensive
+
+        Notes:
+        - deepseek-reasoner uses chain-of-thought internally; reasoning_content tokens
+          are billed but not returned in content by default.
+        - Both models support standard temperature values (unlike Kimi K2.5).
+        - DeepSeek-R1 does not support system prompts for reasoning tasks; if the model
+          is reasoner and a system prompt is provided, it is prepended to the user message.
+        """
+        client = self._clients["deepseek"]
+        messages = []
+
+        # DeepSeek-R1 (reasoner) has limited system prompt support in some contexts;
+        # prepend system content to user message as a safe fallback.
+        if model.value == "deepseek-reasoner" and system:
+            messages.append({"role": "user", "content": f"{system}\n\n{prompt}"})
+        else:
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.completions.create(
+            model=model.value,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        choice = response.choices[0]
+        usage = response.usage
+        text = choice.message.content or ""
+
+        # DeepSeek-R1 uses reasoning tokens that count against max_tokens but
+        # don't appear in content. Raise if we got nothing (budget too low) so
+        # the engine retries with a fallback instead of caching an empty response.
+        if model.value == "deepseek-reasoner" and not text.strip() and choice.finish_reason == "length":
+            raise RuntimeError(
+                f"deepseek-reasoner returned empty content with finish_reason='length'. "
                 f"max_tokens={max_tokens} was too low for the internal reasoning budget. "
                 f"completion_tokens={usage.completion_tokens if usage else '?'}"
             )
