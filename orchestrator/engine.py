@@ -604,7 +604,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     degraded_count += 1
 
             # ── REVISE (if critique exists) ──
-            if critique:
+            # Skip revision for Kimi K2.5: its reasoning model takes 3-5 minutes
+            # per call, making revision as expensive as fresh generation. Instead,
+            # the critique is embedded into the next iteration's prompt so the
+            # model incorporates feedback on its next generation attempt.
+            if critique and get_provider(primary) != "kimi":
                 try:
                     revise_response = await self.client.call(
                         primary,
@@ -623,6 +627,18 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     total_cost += revise_response.cost_usd
                 except Exception as e:
                     logger.warning(f"Revision failed for {task.id}: {e}")
+            elif critique and get_provider(primary) == "kimi":
+                # For Kimi: embed critique into the next iteration's prompt
+                # so the model can self-correct on re-generation.
+                full_prompt = (
+                    f"{task.prompt}\n\n"
+                    f"--- PEER REVIEW FEEDBACK (incorporate in your response) ---\n"
+                    f"{critique}\n"
+                    f"--- END FEEDBACK ---"
+                )
+                if context:
+                    full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
+                logger.debug(f"Kimi: critique embedded into next iteration prompt for {task.id}")
 
             # ── DETERMINISTIC VALIDATION ──
             det_passed = True
