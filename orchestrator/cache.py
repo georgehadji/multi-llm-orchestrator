@@ -33,10 +33,12 @@ class DiskCache:
         self._db_path = str(db_path)
         self._conn: Optional[aiosqlite.Connection] = None
         self._schema_ready = False
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None  # lazy — created inside event loop
 
     async def _get_conn(self) -> aiosqlite.Connection:
         """Return persistent connection, initializing schema once."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         if self._conn is None:
             async with self._lock:
                 # Double-check after acquiring lock

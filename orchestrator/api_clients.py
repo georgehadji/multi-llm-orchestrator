@@ -124,20 +124,24 @@ class UnifiedClient:
                    max_tokens: int = 1500,
                    temperature: float = 0.3,
                    timeout: int = 60,
-                   retries: int = 2) -> APIResponse:
+                   retries: int = 2,
+                   bypass_cache: bool = False) -> APIResponse:
         """
         Unified call with cache check → semaphore → retry → provider dispatch.
+        Set bypass_cache=True to skip the cache lookup (e.g. for decomposition
+        calls where a previously-cached bad response should not be reused).
         """
-        cached = await self.cache.get(model.value, prompt, max_tokens, system, temperature)
-        if cached:
-            logger.debug(f"Cache hit for {model.value}")
-            return APIResponse(
-                text=cached["response"],
-                input_tokens=cached["tokens_input"],
-                output_tokens=cached["tokens_output"],
-                model=model,
-                cached=True,
-            )
+        if not bypass_cache:
+            cached = await self.cache.get(model.value, prompt, max_tokens, system, temperature)
+            if cached:
+                logger.debug(f"Cache hit for {model.value}")
+                return APIResponse(
+                    text=cached["response"],
+                    input_tokens=cached["tokens_input"],
+                    output_tokens=cached["tokens_output"],
+                    model=model,
+                    cached=True,
+                )
 
         async with self.semaphore:
             return await self._call_with_retry(

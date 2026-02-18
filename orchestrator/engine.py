@@ -282,6 +282,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         async def _try_decompose(m: Model) -> dict[str, Task]:
             resp = await self.client.call(
                 m, prompt, system=decomp_system, max_tokens=4096, timeout=180,
+                bypass_cache=True,  # never reuse a cached decomposition response
             )
             self.budget.charge(resp.cost_usd, "decomposition")
             self._record_success(m, resp)
