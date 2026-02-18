@@ -297,7 +297,14 @@ class UnifiedClient:
         """
         Kimi K2.5 via moonshot.cn OpenAI-compatible endpoint.
         Uses the same AsyncOpenAI client pointed at base_url=https://api.moonshot.cn/v1.
-        Note: kimi-k2.5 only accepts temperature=1 (hardcoded, ignores caller value).
+
+        Notes:
+        - kimi-k2.5 only accepts temperature=1 (hardcoded, ignores caller value).
+        - kimi-k2.5 uses internal reasoning tokens that count against max_tokens
+          but don't appear in content. Callers should use max_tokens >= 8192 for
+          complex tasks to avoid truncated or empty responses.
+        - If finish_reason == 'length' and content is empty, raise an error so the
+          engine retries with a fallback model rather than caching an empty response.
         """
         client = self._clients["kimi"]
         messages = []
@@ -313,9 +320,18 @@ class UnifiedClient:
         )
         choice = response.choices[0]
         usage = response.usage
+        text = choice.message.content or ""
+
+        # Raise if response was cut off due to token limit with no content produced
+        if not text.strip() and choice.finish_reason == "length":
+            raise RuntimeError(
+                f"kimi-k2.5 returned empty content with finish_reason='length'. "
+                f"max_tokens={max_tokens} was too low for the internal reasoning budget. "
+                f"completion_tokens={usage.completion_tokens if usage else '?'}"
+            )
 
         return APIResponse(
-            text=choice.message.content or "",
+            text=text,
             input_tokens=usage.prompt_tokens if usage else 0,
             output_tokens=usage.completion_tokens if usage else 0,
             model=model,

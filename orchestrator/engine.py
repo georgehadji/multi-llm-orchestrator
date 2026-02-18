@@ -266,7 +266,14 @@ Return ONLY a JSON array. Each element must have:
 - "type": one of {valid_types}
 - "prompt": detailed instruction for the task executor
 - "dependencies": list of task id strings this depends on (empty if none)
-- "hard_validators": list of validator names from: ["json_schema", "python_syntax", "pytest", "ruff", "latex", "length"]
+- "hard_validators": list of validator names — ONLY use these for code tasks:
+  - "python_syntax": only for code_generation tasks that produce Python code
+  - "json_schema": only for tasks that must return valid JSON
+  - "pytest": only for code_generation tasks with runnable tests
+  - "ruff": only for code_generation tasks requiring lint checks
+  - "latex": only for tasks producing LaTeX documents
+  - "length": for tasks requiring minimum/maximum output length
+  - Use [] (empty list) for non-code tasks (reasoning, writing, analysis, evaluation)
 
 RULES:
 - Tasks must be atomic (one clear deliverable each)
@@ -274,6 +281,7 @@ RULES:
 - Include code_review tasks after code_generation tasks
 - Include at least one evaluation task at the end
 - 5-15 tasks total for a medium project
+- Do NOT add hard_validators to reasoning, writing, analysis, or evaluation tasks
 
 Return ONLY the JSON array, no markdown fences, no explanation."""
 
@@ -282,7 +290,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         async def _try_decompose(m: Model) -> dict[str, Task]:
             resp = await self.client.call(
-                m, prompt, system=decomp_system, max_tokens=4096, timeout=180,
+                m, prompt, system=decomp_system, max_tokens=8192, timeout=180,
                 bypass_cache=True,  # never reuse a cached decomposition response
             )
             self.budget.charge(resp.cost_usd, "decomposition")
@@ -506,10 +514,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 break
 
             # ── GENERATE ──
-            # Use a longer timeout for code generation (large outputs take time)
-            gen_timeout = 120 if task.type in (
-                TaskType.CODE_GEN, TaskType.CODE_REVIEW
-            ) else 60
+            # Kimi K2.5 uses internal reasoning tokens and needs longer timeouts.
+            # Code tasks get 120s, all tasks on Kimi get 180s.
+            if get_provider(primary) == "kimi":
+                gen_timeout = 180
+            elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
+                gen_timeout = 120
+            else:
+                gen_timeout = 60
             try:
                 gen_response = await self.client.call(
                     primary, full_prompt,
