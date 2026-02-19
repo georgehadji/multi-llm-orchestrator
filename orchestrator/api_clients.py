@@ -1,12 +1,14 @@
 """
 API Clients — Unified interface for OpenAI, Anthropic, Google
 =============================================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 Each provider has its own SDK idiom. This module normalizes them
 into a single async call_model() interface.
 
-Counterfactual: Without unified interface → vulnerability Ψ:
-provider-specific logic leaks into orchestrator, creating
-O(n_providers × n_features) maintenance surface.
+FIX #2: Google client uses asyncio.to_thread() (Python 3.9+)
+        instead of deprecated asyncio.get_event_loop().
+FIX #3: API keys are never logged; init logs provider availability only.
+FIX #9: Rate-limit detection for all providers (not just OpenAI 429).
 """
 
 from __future__ import annotations
@@ -20,6 +22,18 @@ from .models import Model, get_provider, estimate_cost
 from .cache import DiskCache
 
 logger = logging.getLogger("orchestrator.api")
+
+# FIX #9: Rate-limit error patterns across providers
+_RATE_LIMIT_PATTERNS = (
+    "rate_limit", "rate limit", "429", "too many requests",
+    "resource_exhausted", "quota", "overloaded",
+)
+
+
+def _is_rate_limit_error(error: Exception) -> bool:
+    """Detect rate-limit errors across all providers."""
+    err_str = str(error).lower()
+    return any(p in err_str for p in _RATE_LIMIT_PATTERNS)
 
 
 class APIResponse:
@@ -42,9 +56,9 @@ class UnifiedClient:
     """
     Async API client with:
     - Disk caching
-    - Retry with exponential backoff
+    - Retry with exponential backoff (all providers)
     - Timeout enforcement
-    - Concurrency limiting (≤3 simultaneous, per George's laptop spec)
+    - Concurrency limiting
     """
 
     def __init__(self, cache: Optional[DiskCache] = None,
@@ -57,6 +71,8 @@ class UnifiedClient:
     def _init_clients(self):
         """Lazy-initialize provider SDKs. Missing keys → provider unavailable."""
         import os
+
+        # FIX #3: Never log API key values, only provider availability
 
         # OpenAI
         try:
@@ -78,14 +94,40 @@ class UnifiedClient:
 
         # Google
         try:
-            if os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"):
+            api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+            if api_key:
                 from google import genai
-                import os as _os
-                api_key = _os.environ.get("GOOGLE_API_KEY") or _os.environ.get("GEMINI_API_KEY")
                 self._clients["google"] = genai.Client(api_key=api_key)
                 logger.info("Google GenAI client initialized")
         except ImportError:
             logger.warning("google-genai package not installed")
+
+        # Kimi K2.5 (moonshot.cn) — OpenAI-compatible API
+        try:
+            kimi_key = os.environ.get("KIMI_API_KEY") or os.environ.get("MOONSHOT_API_KEY")
+            if kimi_key:
+                from openai import AsyncOpenAI
+                self._clients["kimi"] = AsyncOpenAI(
+                    api_key=kimi_key,
+                    base_url="https://api.moonshot.cn/v1",
+                )
+                logger.info("Kimi K2.5 client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for Kimi K2.5)")
+
+        # DeepSeek (platform.deepseek.com) — OpenAI-compatible API
+        # Supports deepseek-chat (V3) and deepseek-reasoner (R1).
+        try:
+            deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
+            if deepseek_key:
+                from openai import AsyncOpenAI
+                self._clients["deepseek"] = AsyncOpenAI(
+                    api_key=deepseek_key,
+                    base_url="https://api.deepseek.com/v1",
+                )
+                logger.info("DeepSeek client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for DeepSeek)")
 
     def is_available(self, model: Model) -> bool:
         provider = get_provider(model)
@@ -96,23 +138,25 @@ class UnifiedClient:
                    max_tokens: int = 1500,
                    temperature: float = 0.3,
                    timeout: int = 60,
-                   retries: int = 2) -> APIResponse:
+                   retries: int = 2,
+                   bypass_cache: bool = False) -> APIResponse:
         """
         Unified call with cache check → semaphore → retry → provider dispatch.
+        Set bypass_cache=True to skip the cache lookup (e.g. for decomposition
+        calls where a previously-cached bad response should not be reused).
         """
-        # Cache check
-        cached = await self.cache.get(model.value, prompt, max_tokens, system, temperature)
-        if cached:
-            logger.debug(f"Cache hit for {model.value}")
-            return APIResponse(
-                text=cached["response"],
-                input_tokens=cached["tokens_input"],
-                output_tokens=cached["tokens_output"],
-                model=model,
-                cached=True,
-            )
+        if not bypass_cache:
+            cached = await self.cache.get(model.value, prompt, max_tokens, system, temperature)
+            if cached:
+                logger.debug(f"Cache hit for {model.value}")
+                return APIResponse(
+                    text=cached["response"],
+                    input_tokens=cached["tokens_input"],
+                    output_tokens=cached["tokens_output"],
+                    model=model,
+                    cached=True,
+                )
 
-        # Execute with concurrency limit
         async with self.semaphore:
             return await self._call_with_retry(
                 model, prompt, system, max_tokens, temperature, timeout, retries
@@ -132,7 +176,6 @@ class UnifiedClient:
                 )
                 response.latency_ms = (time.monotonic() - t0) * 1000
 
-                # Cache successful response
                 await self.cache.put(
                     model.value, prompt, max_tokens,
                     response.text, response.input_tokens, response.output_tokens,
@@ -146,8 +189,11 @@ class UnifiedClient:
             except Exception as e:
                 logger.warning(f"Error calling {model.value}: {e} (attempt {attempt + 1})")
                 last_error = e
-                if "rate_limit" in str(e).lower() or "429" in str(e):
-                    await asyncio.sleep(2 ** attempt)
+                # FIX #9: Detect rate-limit errors from ALL providers
+                if _is_rate_limit_error(e):
+                    backoff = 2 ** (attempt + 1)
+                    logger.info(f"Rate-limited by {model.value}, backing off {backoff}s")
+                    await asyncio.sleep(backoff)
                     continue
 
         raise last_error or RuntimeError(f"Failed to call {model.value}")
@@ -163,6 +209,10 @@ class UnifiedClient:
             return await self._call_anthropic(model, prompt, system, max_tokens, temperature)
         elif provider == "google":
             return await self._call_google(model, prompt, system, max_tokens, temperature)
+        elif provider == "kimi":
+            return await self._call_kimi(model, prompt, system, max_tokens, temperature)
+        elif provider == "deepseek":
+            return await self._call_deepseek(model, prompt, system, max_tokens, temperature)
         else:
             raise ValueError(f"Unknown provider for {model.value}")
 
@@ -220,6 +270,10 @@ class UnifiedClient:
     async def _call_google(self, model: Model, prompt: str,
                             system: str, max_tokens: int,
                             temperature: float) -> APIResponse:
+        """
+        FIX #2: Use asyncio.to_thread() instead of deprecated
+        asyncio.get_event_loop().run_in_executor(). Compatible with Python 3.9+.
+        """
         client = self._clients["google"]
         from google.genai import types
 
@@ -230,19 +284,16 @@ class UnifiedClient:
         if system:
             config.system_instruction = system
 
-        # google-genai uses sync API; run in executor
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: client.models.generate_content(
+        def _sync_call():
+            return client.models.generate_content(
                 model=model.value,
                 contents=prompt,
                 config=config,
             )
-        )
+
+        response = await asyncio.to_thread(_sync_call)
 
         text = response.text or ""
-        # Token counts from usage_metadata
         input_tokens = 0
         output_tokens = 0
         if hasattr(response, "usage_metadata") and response.usage_metadata:
@@ -253,5 +304,107 @@ class UnifiedClient:
             text=text,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            model=model,
+        )
+
+    async def _call_kimi(self, model: Model, prompt: str,
+                          system: str, max_tokens: int,
+                          temperature: float) -> APIResponse:
+        """
+        Kimi K2.5 via moonshot.cn OpenAI-compatible endpoint.
+        Uses the same AsyncOpenAI client pointed at base_url=https://api.moonshot.cn/v1.
+
+        Notes:
+        - kimi-k2.5 only accepts temperature=1 (hardcoded, ignores caller value).
+        - kimi-k2.5 uses internal reasoning tokens that count against max_tokens
+          but don't appear in content. Callers should use max_tokens >= 8192 for
+          complex tasks to avoid truncated or empty responses.
+        - If finish_reason == 'length' and content is empty, raise an error so the
+          engine retries with a fallback model rather than caching an empty response.
+        """
+        client = self._clients["kimi"]
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.completions.create(
+            model=model.value,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=1,  # kimi-k2.5 only accepts temperature=1
+        )
+        choice = response.choices[0]
+        usage = response.usage
+        text = choice.message.content or ""
+
+        # Raise if response was cut off due to token limit with no content produced
+        if not text.strip() and choice.finish_reason == "length":
+            raise RuntimeError(
+                f"kimi-k2.5 returned empty content with finish_reason='length'. "
+                f"max_tokens={max_tokens} was too low for the internal reasoning budget. "
+                f"completion_tokens={usage.completion_tokens if usage else '?'}"
+            )
+
+        return APIResponse(
+            text=text,
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            model=model,
+        )
+
+    async def _call_deepseek(self, model: Model, prompt: str,
+                              system: str, max_tokens: int,
+                              temperature: float) -> APIResponse:
+        """
+        DeepSeek via platform.deepseek.com OpenAI-compatible endpoint.
+
+        Supports two models:
+        - deepseek-chat     (DeepSeek-V3): fast, cheap ($0.27/$1.10 per 1M), strong on code
+        - deepseek-reasoner (DeepSeek-R1): o1-class reasoning, slower, slightly more expensive
+
+        Notes:
+        - deepseek-reasoner uses chain-of-thought internally; reasoning_content tokens
+          are billed but not returned in content by default.
+        - Both models support standard temperature values (unlike Kimi K2.5).
+        - DeepSeek-R1 does not support system prompts for reasoning tasks; if the model
+          is reasoner and a system prompt is provided, it is prepended to the user message.
+        """
+        client = self._clients["deepseek"]
+        messages = []
+
+        # DeepSeek-R1 (reasoner) has limited system prompt support in some contexts;
+        # prepend system content to user message as a safe fallback.
+        if model.value == "deepseek-reasoner" and system:
+            messages.append({"role": "user", "content": f"{system}\n\n{prompt}"})
+        else:
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.completions.create(
+            model=model.value,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        choice = response.choices[0]
+        usage = response.usage
+        text = choice.message.content or ""
+
+        # DeepSeek-R1 uses reasoning tokens that count against max_tokens but
+        # don't appear in content. Raise if we got nothing (budget too low) so
+        # the engine retries with a fallback instead of caching an empty response.
+        if model.value == "deepseek-reasoner" and not text.strip() and choice.finish_reason == "length":
+            raise RuntimeError(
+                f"deepseek-reasoner returned empty content with finish_reason='length'. "
+                f"max_tokens={max_tokens} was too low for the internal reasoning budget. "
+                f"completion_tokens={usage.completion_tokens if usage else '?'}"
+            )
+
+        return APIResponse(
+            text=text,
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
             model=model,
         )

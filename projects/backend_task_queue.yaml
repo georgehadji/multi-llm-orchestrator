@@ -1,0 +1,44 @@
+# ──────────────────────────────────────────────────────
+# Backend Project 3: Async Task Queue με Celery + Redis
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/backend_task_queue.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build an asynchronous task queue system using Celery with Redis as broker.
+
+  The system must implement:
+  1. Celery workers with Redis broker and result backend
+  2. Three example task types: image_resize, send_email, generate_report
+  3. FastAPI REST API to enqueue tasks and poll their status
+  4. Task retry logic with exponential backoff (max 3 retries)
+  5. Task prioritization — HIGH, NORMAL, LOW priority queues
+  6. Dead letter queue for permanently failed tasks
+  7. Flower monitoring dashboard integration
+  8. Docker Compose setup: API + worker + Redis + Flower
+
+criteria: |
+  - Tasks are enqueued via POST /tasks and executed asynchronously
+  - GET /tasks/{task_id} returns current status (PENDING/RUNNING/SUCCESS/FAILED)
+  - Retry logic activates on transient failures
+  - Priority queues process HIGH tasks before NORMAL and LOW
+  - Failed tasks land in dead letter queue after max retries
+  - Docker Compose starts all services with a single command
+  - Integration tests verify end-to-end task lifecycle
+
+budget_usd: 3.5
+time_seconds: 3600
+concurrency: 3
+project_id: "backend-task-queue-v1"
+output_dir: "./outputs/backend_task_queue"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

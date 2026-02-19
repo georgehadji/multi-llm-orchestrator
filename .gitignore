@@ -20,6 +20,10 @@ ENV/
 .env.*
 *.env
 
+# Analysis reports (generated output)
+ANALYSIS_REPORT.md
+analysis_report*.md
+
 # Orchestrator runtime data
 ~/.orchestrator_cache/
 *.db
@@ -49,3 +53,4 @@ htmlcov/
 *.whl
 *.tar.gz
 MANIFEST
+APIS.txt

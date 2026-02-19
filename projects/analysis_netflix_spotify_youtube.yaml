@@ -1,0 +1,72 @@
+# ──────────────────────────────────────────────────────
+# Data Analysis 1: Netflix / Spotify / YouTube Analysis
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/analysis_netflix_spotify_youtube.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a comprehensive data analysis pipeline for Netflix, Spotify, and YouTube datasets.
+
+  The project must:
+  1. DATA LOADING & CLEANING
+     - Load Netflix Movies & TV Shows dataset (Kaggle: shivamb/netflix-shows)
+     - Load Spotify Tracks 2025 dataset (Kaggle: maharshipandya/spotify-tracks-dataset)
+     - Load YouTube Trending Videos dataset (Kaggle: datasnaek/youtube-new)
+     - Clean missing values, normalize column types, parse dates
+
+  2. NETFLIX ANALYSIS
+     - Top 10 most common genres globally and per country
+     - Content addition trend over years (line chart)
+     - Movie vs TV Show ratio per country (bar chart)
+     - Average movie duration trend over time
+     - Directors/actors with most titles (top 20)
+
+  3. SPOTIFY ANALYSIS
+     - Most popular artists by average track popularity score
+     - Genre distribution (pie + treemap)
+     - Audio features correlation heatmap (danceability, energy, valence, tempo)
+     - Popularity evolution: compare 2020 vs 2023 vs 2025 top tracks
+     - Top tracks per genre with radar chart of audio features
+
+  4. YOUTUBE ANALYSIS
+     - Most trending categories per country
+     - Views / likes / comments correlation analysis
+     - Time to trending: days from publish to trending
+     - Sentiment analysis of video titles using TextBlob
+
+  5. CROSS-PLATFORM INSIGHTS
+     - Genre popularity comparison: music vs video content
+     - Country-level content consumption heatmap (choropleth map with Plotly)
+
+  6. DASHBOARD
+     - Single HTML dashboard using Plotly Dash or panel
+     - Tabs: Netflix | Spotify | YouTube | Cross-Platform
+     - All charts interactive (hover, zoom, filter)
+
+  Use: pandas, numpy, plotly, dash, textblob, seaborn, matplotlib, kagglehub
+
+criteria: |
+  - All datasets load and clean without errors
+  - Every analysis section produces at least one chart saved as PNG and embedded in dashboard
+  - Choropleth map renders with correct country-level data
+  - Dashboard runs with: python dashboard.py (opens at localhost:8050)
+  - Jupyter notebook with full analysis narrative and all charts
+  - README with dataset sources, setup instructions, and key findings summary
+  - All code passes ruff linting
+
+budget_usd: 3.5
+time_seconds: 4800
+concurrency: 3
+project_id: "analysis-netflix-spotify-youtube-v1"
+output_dir: "./outputs/analysis_netflix_spotify_youtube"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

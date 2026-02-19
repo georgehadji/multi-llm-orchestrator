@@ -1,0 +1,80 @@
+# ──────────────────────────────────────────────────────
+# Data Analysis 3: Greek Elections 2019–2025 Analysis
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/analysis_greek_elections.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a comprehensive analysis of Greek elections (2019, 2023a, 2023b, 2024 EU)
+  with socioeconomic correlation analysis using ELSTAT data.
+
+  The project must:
+  1. DATA LOADING & SOURCES
+     - Election results per constituency (περιφερειακή ενότητα) from:
+       * Υπουργείο Εσωτερικών open data: https://www.ypes.gr/ekloges/
+       * Or use pre-scraped CSV from: https://github.com/ellak-monades-aristeias/greek-elections
+     - ELSTAT socioeconomic data (unemployment rate, median income, age distribution,
+       education level) per regional unit from: https://www.statistics.gr/el/statistics
+     - Merge election results with ELSTAT data on regional unit (NUTS3 level)
+
+  2. VOTE SHARE ANALYSIS
+     - Vote share per party per constituency for each election year
+     - Shift maps: how did each party's vote share change between elections?
+     - Winning party per constituency map (choropleth using Greek GeoJSON)
+     - Urban vs rural voting patterns (classify constituencies by population density)
+
+  3. TEMPORAL TRENDS
+     - Line charts: vote share evolution per major party (ND, SYRIZA, PASOK, KKE, others)
+     - Swing analysis: biggest gainers and losers between 2019 → 2023 → 2024
+     - Turnout trend per constituency over time
+
+  4. SOCIOECONOMIC CORRELATIONS
+     - Scatter plots: unemployment rate vs party vote share per constituency
+     - Scatter plots: median income vs vote share (ND vs SYRIZA vs PASOK)
+     - Age structure correlation: % youth (18–34) vs party preference
+     - Education level correlation: % university educated vs vote share
+     - Multiple regression: predict party vote share from socioeconomic features
+       (use scikit-learn LinearRegression, report R² and coefficients)
+
+  5. GEOGRAPHIC VISUALISATION
+     - Choropleth maps using Greek administrative GeoJSON (NUTS3)
+       * One map per election showing winning party
+       * Vote share gradient map for ND and SYRIZA
+     - Use: geopandas + plotly choropleth_mapbox or folium
+
+  6. DASHBOARD
+     - Plotly Dash app with:
+       * Election selector (2019 / 2023a / 2023b / 2024)
+       * Party selector
+       * Choropleth map tab
+       * Correlation analysis tab (scatter plots with regression line)
+       * Trend tab (line charts per party)
+
+  Use: pandas, numpy, geopandas, plotly, dash, folium, scikit-learn, seaborn
+
+criteria: |
+  - Election data loads for at least 3 election years with constituency-level granularity
+  - Choropleth map renders with Greek NUTS3 boundaries
+  - Correlation analysis produces statistically meaningful scatter plots with R² values
+  - Regression model reports feature importance (coefficients)
+  - Dashboard runs with: python dashboard.py (localhost:8050)
+  - All charts saved as PNG for offline viewing
+  - README with data sources, methodology, and key findings
+  - All code passes ruff linting
+
+budget_usd: 4.0
+time_seconds: 4800
+concurrency: 3
+project_id: "analysis-greek-elections-v1"
+output_dir: "./outputs/analysis_greek_elections"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.92
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false
