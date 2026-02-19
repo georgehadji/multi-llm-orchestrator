@@ -567,7 +567,7 @@ def test_build_default_profiles_all_models():
         p = profiles[model]
         assert p.cost_per_1m_input >= 0
         assert p.cost_per_1m_output >= 0
-        assert p.provider in ("openai", "anthropic", "google", "kimi")
+        assert p.provider in ("openai", "anthropic", "google", "kimi", "deepseek")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

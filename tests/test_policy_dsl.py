@@ -167,7 +167,7 @@ def test_blocked_models_parsed():
     d = {
         "global": [{
             "name": "no_kimi",
-            "blocked_models": ["moonshot-v1"]  # Model.KIMI_K2_5.value
+            "blocked_models": ["kimi-k2.5"]  # Model.KIMI_K2_5.value
         }]
     }
     h = load_policy_dict(d)
