@@ -133,17 +133,18 @@ class TestEnforcementMode:
         assert result.passed is True
         assert len(result.violations) == 2
 
-    def test_most_permissive_mode_wins_across_policies(self):
-        """When multiple policies have different modes, most permissive wins."""
+    def test_most_restrictive_mode_wins_across_policies(self):
+        """When multiple policies have different modes, most restrictive wins (HARD > SOFT > MONITOR).
+        A MONITOR policy must never override a HARD compliance rule (e.g. GDPR)."""
         engine = PolicyEngine()
         profile = _make_profile(provider="openai")
         hard_policy    = Policy(name="hard", blocked_providers=["openai"],
                                 enforcement_mode=EnforcementMode.HARD)
         monitor_policy = Policy(name="monitor", allowed_regions=["eu"],
                                 enforcement_mode=EnforcementMode.MONITOR)
-        # MONITOR is more permissive than HARD → effective mode = MONITOR
+        # HARD is more restrictive → effective mode = HARD → should fail
         result = engine.check(Model.GPT_4O, profile, [hard_policy, monitor_policy])
-        assert result.passed is True   # MONITOR overrides HARD
+        assert result.passed is False   # HARD wins over MONITOR
 
 
 # ── PolicyHierarchy ───────────────────────────────────────────────────────────
