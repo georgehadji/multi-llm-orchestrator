@@ -31,7 +31,7 @@ from collections import defaultdict, deque
 from typing import Optional
 
 from .models import (
-    Budget, BUDGET_PARTITIONS, FALLBACK_CHAIN, Model, ProjectState,
+    AttemptRecord, Budget, BUDGET_PARTITIONS, FALLBACK_CHAIN, Model, ProjectState,
     ProjectStatus, ROUTING_TABLE, Task, TaskResult, TaskStatus, TaskType,
     get_max_iterations, get_provider, estimate_cost, build_default_profiles,
 )
@@ -177,7 +177,8 @@ class Orchestrator:
 
     async def run_project(self, project_description: str,
                           success_criteria: str,
-                          project_id: str = "") -> ProjectState:
+                          project_id: str = "",
+                          output_dir: "Optional[Path]" = None) -> ProjectState:
         """Main entry point. Decomposes project → executes tasks → returns state."""
         if not project_id:
             project_id = hashlib.md5(
@@ -212,7 +213,8 @@ class Orchestrator:
 
             # Phase 2-5: Execute
             state = await self._execute_all(
-                tasks, execution_order, project_description, success_criteria
+                tasks, execution_order, project_description, success_criteria,
+                output_dir=output_dir,
             )
 
             # Final status determination
@@ -254,6 +256,75 @@ class Orchestrator:
         return await self.run_project(
             project_description=spec.project_description,
             success_criteria=spec.success_criteria,
+        )
+
+    async def dry_run(self, project_description: str,
+                      success_criteria: str) -> "ExecutionPlan":
+        """
+        Dry-run: decompose the project, build an execution plan, and return it
+        WITHOUT executing any tasks. (Improvement 12)
+
+        Makes one real API call (decomposition) then stops. No task execution
+        or state persistence happens.
+
+        Returns an ExecutionPlan that can be printed with plan.render().
+        """
+        from .dry_run import (
+            ExecutionPlan, TaskPlan, _TOKEN_ESTIMATES, _DEFAULT_TOKENS,
+        )
+        from .models import estimate_cost, ROUTING_TABLE
+
+        tasks = await self._decompose(project_description, success_criteria)
+        if not tasks:
+            return ExecutionPlan(
+                project_description=project_description,
+                success_criteria=success_criteria,
+            )
+
+        levels = self._topological_levels(tasks)
+        # Build a level_index map: task_id → level
+        level_index: dict[str, int] = {}
+        for lvl_idx, lvl_tasks in enumerate(levels):
+            for tid in lvl_tasks:
+                level_index[tid] = lvl_idx
+
+        task_plans: list[TaskPlan] = []
+        total_cost = 0.0
+
+        for tid, task in tasks.items():
+            model_list = ROUTING_TABLE.get(task.type, [])
+            available = [m for m in model_list if self.api_health.get(m, True)]
+            primary = available[0] if available else (model_list[0] if model_list else None)
+
+            in_tokens, out_tokens = _TOKEN_ESTIMATES.get(
+                task.type.value, _DEFAULT_TOKENS
+            )
+            cost = estimate_cost(primary, in_tokens, out_tokens) if primary else 0.0
+            total_cost += cost
+
+            task_plans.append(TaskPlan(
+                task_id=tid,
+                task_type=task.type.value,
+                prompt_preview=(task.prompt[:80].replace("\n", " ") + "…"
+                                if len(task.prompt) > 80 else task.prompt),
+                dependencies=list(task.dependencies),
+                parallel_level=level_index.get(tid, 0),
+                primary_model=primary.value if primary else "unknown",
+                estimated_cost_usd=round(cost, 6),
+                acceptance_threshold=task.acceptance_threshold,
+                max_iterations=task.max_iterations,
+            ))
+
+        # Sort by (level, task_id) so render is deterministic
+        task_plans.sort(key=lambda t: (t.parallel_level, t.task_id))
+
+        return ExecutionPlan(
+            project_description=project_description,
+            success_criteria=success_criteria,
+            tasks=task_plans,
+            parallel_levels=levels,
+            estimated_total_cost=round(total_cost, 6),
+            num_parallel_levels=len(levels),
         )
 
     # ─────────────────────────────────────────
@@ -429,7 +500,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     async def _execute_all(self, tasks: dict[str, Task],
                             execution_order: list[str],
                             project_desc: str,
-                            success_criteria: str) -> ProjectState:
+                            success_criteria: str,
+                            output_dir: "Optional[Path]" = None) -> ProjectState:
         """
         Execute all tasks respecting dependencies, with intra-level parallelism.
 
@@ -442,6 +514,19 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         """
         levels = self._topological_levels(tasks)
         semaphore = asyncio.Semaphore(self._max_parallel_tasks)
+
+        # Improvement 13: progressive output writer (writes after each task)
+        _progress_writer = None
+        if output_dir is not None:
+            from .progress_writer import ProgressWriter
+            # Build a temporary ProjectState reference for summary.json writes
+            _partial_state = self._make_state(
+                project_desc, success_criteria, tasks,
+                execution_order=execution_order,
+            )
+            # Share the live results dict so summary.json always reflects current state
+            _partial_state.results = self.results
+            _progress_writer = ProgressWriter(Path(output_dir), _partial_state)
 
         async def _run_one(task_id: str) -> None:
             """Execute a single task under the concurrency semaphore."""
@@ -469,6 +554,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 self.results[task_id] = result
                 task.status = result.status
                 self._hook_registry.fire(EventType.TASK_COMPLETED, task_id=task_id, result=result)
+
+                # Improvement 13: write task output immediately after completion
+                if _progress_writer is not None:
+                    await _progress_writer.task_completed(task_id, result, task)
 
                 for phase in ("generation", "cross_review", "evaluation"):
                     self._check_phase_budget(phase)
@@ -526,6 +615,25 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         return self._make_state(project_desc, success_criteria, tasks,
                                 execution_order=execution_order)
 
+    def _build_delta_prompt(self, original_prompt: str, record: "AttemptRecord") -> str:
+        """
+        Build an enriched prompt for the next iteration after a failed attempt.
+        Appends a structured failure summary so the model knows exactly what to fix.
+        """
+        validators_str = (
+            ", ".join(record.validators_failed) if record.validators_failed else "none"
+        )
+        return (
+            f"{original_prompt}\n\n"
+            f"---\n"
+            f"PREVIOUS ATTEMPT FAILED:\n"
+            f"- Model: {record.model_used}\n"
+            f"- Reason: {record.failure_reason}\n"
+            f"- Validators failed: {validators_str}\n\n"
+            f"Please correct specifically: {record.failure_reason}\n"
+            f"---"
+        )
+
     async def _execute_task(self, task: Task) -> TaskResult:
         """
         Core loop: generate → critique → revise → evaluate
@@ -564,6 +672,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         degraded_count = 0
         scores_history: list[float] = []
         det_passed = True  # default: no validators = passed
+        attempt_history: list[AttemptRecord] = []
+        _failed_validator_names: list[str] = []
 
         logger.info(f"Executing {task.id} ({task.type.value}): "
                      f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}")
@@ -743,6 +853,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 det_passed = all_validators_pass(val_results)
                 if not det_passed:
                     failed = [v for v in val_results if not v.passed]
+                    _failed_validator_names = [v.validator_name for v in failed]
                     logger.warning(
                         f"Deterministic check failed for {task.id}: "
                         f"{[f'{v.validator_name}: {v.details}' for v in failed]}"
@@ -774,6 +885,40 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 f"  {task.id} iter {iteration + 1}: score={score:.3f} "
                 f"(best={best_score:.3f}, threshold={task.acceptance_threshold})"
             )
+
+            # ── FAILURE HISTORY + DELTA-PROMPT (Improvement 8) ──
+            _iteration_passed = (score >= task.acceptance_threshold and det_passed)
+            if not _iteration_passed:
+                if not det_passed:
+                    _failure_reason = (
+                        f"Deterministic check failed: validators={_failed_validator_names}"
+                    )
+                else:
+                    _failure_reason = (
+                        f"Score {score:.3f} below threshold {task.acceptance_threshold}"
+                    )
+                _record = AttemptRecord(
+                    attempt_num=iteration + 1,
+                    model_used=primary.value,
+                    output_snippet=output[:200],
+                    failure_reason=_failure_reason,
+                    validators_failed=list(_failed_validator_names),
+                )
+                attempt_history.append(_record)
+                self._hook_registry.fire(
+                    EventType.TASK_RETRY_WITH_HISTORY,
+                    task_id=task.id,
+                    attempt_num=iteration + 1,
+                    record=_record,
+                )
+                # Build delta-prompt for the next iteration (not the last)
+                if iteration < task.max_iterations - 1:
+                    full_prompt = self._build_delta_prompt(task.prompt, _record)
+                    if context:
+                        full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
+
+            # Reset for next iteration
+            _failed_validator_names = []
 
             # ── CONVERGENCE CHECKS ──
             if best_score >= task.acceptance_threshold:
@@ -811,6 +956,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             critique=best_critique,
             deterministic_check_passed=det_passed,
             degraded_fallback_count=degraded_count,
+            attempt_history=attempt_history,
         )
 
     async def _evaluate(self, task: Task, output: str) -> float:

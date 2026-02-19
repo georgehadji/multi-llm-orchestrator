@@ -24,7 +24,7 @@ from typing import Optional
 import aiosqlite
 
 from .models import (
-    Budget, Model, ProjectState, ProjectStatus,
+    AttemptRecord, Budget, Model, ProjectState, ProjectStatus,
     Task, TaskResult, TaskStatus, TaskType,
 )
 
@@ -89,6 +89,26 @@ def _task_from_dict(d: dict) -> Task:
     return t
 
 
+def _attempt_to_dict(a: AttemptRecord) -> dict:
+    return {
+        "attempt_num": a.attempt_num,
+        "model_used": a.model_used,
+        "output_snippet": a.output_snippet,
+        "failure_reason": a.failure_reason,
+        "validators_failed": a.validators_failed,
+    }
+
+
+def _attempt_from_dict(d: dict) -> AttemptRecord:
+    return AttemptRecord(
+        attempt_num=d.get("attempt_num", 1),
+        model_used=d.get("model_used", ""),
+        output_snippet=d.get("output_snippet", ""),
+        failure_reason=d.get("failure_reason", ""),
+        validators_failed=d.get("validators_failed", []),
+    )
+
+
 def _result_to_dict(r: TaskResult) -> dict:
     return {
         "task_id": r.task_id,
@@ -103,6 +123,7 @@ def _result_to_dict(r: TaskResult) -> dict:
         "critique": r.critique,
         "deterministic_check_passed": r.deterministic_check_passed,
         "degraded_fallback_count": r.degraded_fallback_count,
+        "attempt_history": [_attempt_to_dict(a) for a in r.attempt_history],
     }
 
 
@@ -121,6 +142,7 @@ def _result_from_dict(d: dict) -> TaskResult:
         critique=d.get("critique", ""),
         deterministic_check_passed=d.get("deterministic_check_passed", True),
         degraded_fallback_count=d.get("degraded_fallback_count", 0),
+        attempt_history=[_attempt_from_dict(a) for a in d.get("attempt_history", [])],
     )
 
 

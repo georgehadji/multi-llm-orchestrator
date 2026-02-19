@@ -17,7 +17,7 @@ Usage:
 """
 
 from .models import (
-    Budget, Model, Task, TaskResult, TaskType, TaskStatus,
+    AttemptRecord, Budget, Model, Task, TaskResult, TaskType, TaskStatus,
     ProjectState, ProjectStatus, build_default_profiles,
 )
 from .engine import Orchestrator
@@ -44,10 +44,14 @@ from .policy_dsl import load_policy_file, load_policy_dict, PolicyAnalyzer, Anal
 from .cost    import BudgetHierarchy, CostPredictor, CostForecaster, ForecastReport, RiskLevel
 # Improvement 5: advanced agents
 from .agents  import AgentPool, TaskChannel
+# Improvement 13: streaming / progressive output writer
+from .progress_writer import ProgressWriter, ProgressEntry
+# Improvement 12: dry-run / execution plan
+from .dry_run import ExecutionPlan, TaskPlan, DryRunRenderer
 
 __all__ = [
     # Core
-    "Orchestrator", "Budget", "Model", "Task", "TaskResult",
+    "Orchestrator", "AttemptRecord", "Budget", "Model", "Task", "TaskResult",
     "TaskType", "TaskStatus", "ProjectState", "ProjectStatus",
     "DiskCache", "StateManager",
     # App Builder pipeline
@@ -75,4 +79,8 @@ __all__ = [
     "BudgetHierarchy", "CostPredictor", "CostForecaster", "ForecastReport", "RiskLevel",
     # Advanced agents — Improvement 5
     "AgentPool", "TaskChannel",
+    # Streaming output — Improvement 13
+    "ProgressWriter", "ProgressEntry",
+    # Dry-run plan — Improvement 12
+    "ExecutionPlan", "TaskPlan", "DryRunRenderer",
 ]

@@ -322,6 +322,16 @@ def _write_summary_json(
             "cost_usd": round(result.cost_usd, 6),
             "deterministic_check_passed": result.deterministic_check_passed,
             "degraded_fallback_count": result.degraded_fallback_count,
+            "attempt_history": [
+                {
+                    "attempt_num": a.attempt_num,
+                    "model_used": a.model_used,
+                    "output_snippet": a.output_snippet,
+                    "failure_reason": a.failure_reason,
+                    "validators_failed": a.validators_failed,
+                }
+                for a in result.attempt_history
+            ],
             "output_file": file_map.get(task_id, ""),
             "output": result.output,
         })

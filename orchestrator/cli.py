@@ -297,16 +297,32 @@ async def _async_file_project(args):
 
     orch = Orchestrator(budget=budget, max_concurrency=concurrency)
 
+    # CLI --output-dir > YAML output_dir > auto default
+    output_dir = args.output_dir or result.output_dir or _default_output_dir(result.project_id)
     state = await orch.run_project(
         project_description=spec.project_description,
         success_criteria=spec.success_criteria,
         project_id=result.project_id,
+        output_dir=Path(output_dir),
     )
     _print_results(state)
-    # CLI --output-dir > YAML output_dir > auto default
-    output_dir = args.output_dir or result.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
     print(f"\nOutput written to: {path}")
+
+
+async def _async_dry_run(args):
+    """Handle --dry-run: show execution plan without running tasks."""
+    budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
+    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency)
+
+    print(f"DRY-RUN for project: {args.project}")
+    print(f"Criteria: {args.criteria}")
+    print("-" * 60)
+
+    plan = await orch.dry_run(args.project, args.criteria)
+    print(plan.render())
+    await orch.state_mgr.close()
+    await orch.cache.close()
 
 
 async def _async_new_project(args):
@@ -318,10 +334,12 @@ async def _async_new_project(args):
     print(f"Criteria: {args.criteria}")
     print("-" * 60)
 
+    output_dir = args.output_dir or _default_output_dir(args.project_id or "tmp")
     state = await orch.run_project(
         project_description=args.project,
         success_criteria=args.criteria,
         project_id=args.project_id,
+        output_dir=Path(output_dir),
     )
     _print_results(state)
     output_dir = args.output_dir or _default_output_dir(orch._project_id)
@@ -360,6 +378,8 @@ def main():
                         help="Load project spec from a YAML file")
     parser.add_argument("--output-dir", "-o", type=str, default="",
                         help="Write structured output files to this directory")
+    parser.add_argument("--dry-run", "-n", action="store_true", default=False,
+                        help="Show execution plan without running any tasks")
 
     args = parser.parse_args()
     setup_logging(getattr(args, "verbose", False))
@@ -387,6 +407,10 @@ def main():
         parser.error("--project is required for new projects (or use --file <yaml>)")
     if not args.criteria:
         parser.error("--criteria is required for new projects (or use --file <yaml>)")
+
+    if args.dry_run:
+        asyncio.run(_async_dry_run(args))
+        return
 
     asyncio.run(_async_new_project(args))
 
