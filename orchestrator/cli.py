@@ -430,6 +430,16 @@ def main():
         default=False,
         help="After run, print dependency context-size report",
     )
+    parser.add_argument(
+        "--aggregate-metrics",
+        action="store_true",
+        help="Print cross-run model performance aggregation and exit",
+    )
+    parser.add_argument(
+        "--reuse-profiles",
+        action="store_true",
+        help="Seed routing from historical run profiles (future feature)",
+    )
 
     args = parser.parse_args()
     setup_logging(getattr(args, "verbose", False))
@@ -443,6 +453,11 @@ def main():
 
     if args.list_projects:
         asyncio.run(_async_list_projects())
+        return
+
+    if args.aggregate_metrics:
+        print("Cross-run model performance aggregation (no historical data loaded yet).")
+        print("Use ProfileAggregator from orchestrator.aggregator to record runs and query stats.")
         return
 
     if args.resume:
