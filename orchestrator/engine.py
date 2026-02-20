@@ -107,9 +107,10 @@ class Orchestrator:
         # Active policy set — replaced by run_job(); empty = no restrictions
         self._active_policies: PolicySet = PolicySet()
         # Context truncation limit per dependency (chars) — configurable.
-        # Raised from 12000: code_review outputs routinely reach 16000+ chars
-        # and truncation causes the next task to miss critical review findings.
-        self.context_truncation_limit: int = 20000
+        # Raised from 20000: code_generation outputs routinely reach 25000+ chars
+        # and truncation causes code_review tasks to miss the tail of the source,
+        # leading the LLM to claim "source code was not provided".
+        self.context_truncation_limit: int = 40000
         # Improvement 3: event hooks + metrics exporter
         self._hook_registry: HookRegistry = HookRegistry()
         self._metrics_exporter: Optional[MetricsExporter] = None
@@ -251,10 +252,17 @@ class Orchestrator:
                     f"BudgetHierarchy rejects job '{job_id}': "
                     "org/team/job limits would be exceeded"
                 )
-        return await self.run_project(
+        state = await self.run_project(
             project_description=spec.project_description,
             success_criteria=spec.success_criteria,
         )
+        # Charge actual spend to BudgetHierarchy so cross-run caps are enforced.
+        if self._budget_hierarchy is not None:
+            actual_spend = self.budget.max_usd - self.budget.remaining_usd
+            job_id = getattr(spec, "job_id", "") or ""
+            team   = getattr(spec, "team",   "") or ""
+            self._budget_hierarchy.charge_job(job_id, team, actual_spend)
+        return state
 
     # ─────────────────────────────────────────
     # Phase 1: Decomposition
@@ -481,17 +489,35 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 logger.warning("Time limit reached, halting before level %d", level_idx)
                 break
 
-            # Filter tasks with unmet dependencies (defensive: should not occur
-            # in a correctly topologically-sorted graph, but guards against cycles
-            # that slipped through or tasks whose dependencies failed outright)
+            # Filter tasks with unmet or failed dependencies.
+            # A task is runnable only if ALL its dependencies completed or degraded.
+            # If any dependency FAILED, downstream tasks are skipped — executing
+            # them with missing/invalid context would propagate garbage output.
             runnable = []
             for task_id in level:
-                deps_ok = all(
-                    self.results.get(dep, TaskResult(dep, "", 0.0, Model.GPT_4O_MINI)).status
-                    in (TaskStatus.COMPLETED, TaskStatus.DEGRADED, TaskStatus.FAILED)
+                dep_results = [
+                    self.results.get(dep, TaskResult(dep, "", 0.0, Model.GPT_4O_MINI))
                     for dep in tasks[task_id].dependencies
+                ]
+                any_failed = any(r.status == TaskStatus.FAILED for r in dep_results)
+                all_finished = all(
+                    r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED, TaskStatus.FAILED)
+                    for r in dep_results
                 )
-                if deps_ok:
+                if any_failed:
+                    failed_deps = [
+                        r.task_id for r in dep_results
+                        if r.status == TaskStatus.FAILED
+                    ]
+                    logger.warning(
+                        f"Skipping {task_id}: dependencies failed: {failed_deps}"
+                    )
+                    self.results[task_id] = TaskResult(
+                        task_id=task_id, output="", score=0.0,
+                        model_used=Model.GPT_4O_MINI,
+                        status=TaskStatus.FAILED,
+                    )
+                elif all_finished:
                     runnable.append(task_id)
                 else:
                     logger.warning(f"Skipping {task_id}: unmet dependencies")
@@ -553,7 +579,18 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         context = self._gather_dependency_context(task.dependencies)
         full_prompt = task.prompt
         if context:
-            full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
+            # For code_review tasks, the dependency context IS the source code
+            # being reviewed. Make this explicit so the LLM doesn't claim
+            # "source code was not provided".
+            if task.type == TaskType.CODE_REVIEW:
+                full_prompt += (
+                    f"\n\n--- SOURCE CODE TO REVIEW (from prior tasks) ---\n"
+                    f"The following is the actual generated source code you must "
+                    f"review. Do NOT claim the code was not provided.\n\n"
+                    f"{context}"
+                )
+            else:
+                full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
 
         best_output = ""
         best_score = 0.0
@@ -633,8 +670,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         gen_response = await self.client.call(
                             fb, full_prompt,
                             system=f"You are an expert executing a {task.type.value} task.",
-                            max_tokens=task.max_output_tokens,
-                            timeout=60,
+                            max_tokens=effective_max_tokens,
+                            timeout=gen_timeout,
                         )
                         output = gen_response.text
                         self.budget.charge(gen_response.cost_usd, "generation")
@@ -783,8 +820,21 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             if len(scores_history) >= 2:
                 delta = abs(scores_history[-1] - scores_history[-2])
                 if delta < 0.02:
-                    logger.info(f"  {task.id}: plateau detected (Δ={delta:.4f})")
-                    break
+                    # Only stop on plateau if we have a usable score.
+                    # If best_score is still below half the acceptance threshold,
+                    # keep trying — the critique/revision cycle may still help.
+                    if best_score >= task.acceptance_threshold * 0.5:
+                        logger.info(f"  {task.id}: plateau detected (Δ={delta:.4f})")
+                        break
+                    elif len(scores_history) >= 3:
+                        # After 3+ iterations with no improvement AND bad score,
+                        # give up to avoid wasting budget.
+                        logger.info(
+                            f"  {task.id}: plateau at low score after "
+                            f"{len(scores_history)} iters (Δ={delta:.4f}, "
+                            f"best={best_score:.3f})"
+                        )
+                        break
 
         status = TaskStatus.COMPLETED if best_score >= task.acceptance_threshold else TaskStatus.DEGRADED
         if best_score == 0.0 and not det_passed:
@@ -837,7 +887,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     system="You are a precise evaluator. Score exactly, return only JSON.",
                     max_tokens=300,
                     temperature=0.1,
-                    timeout=30,
+                    timeout=60,
                 )
                 self.budget.charge(response.cost_usd, "evaluation")
                 score = self._parse_score(response.text)
@@ -1075,7 +1125,21 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         f"{len(text)} → {limit} chars. "
                         f"Increase orchestrator.context_truncation_limit to avoid information loss."
                     )
-                    text = text[:limit]
+                    # Keep head + tail instead of hard-cutting the end.
+                    # This preserves import block at the top AND the tail
+                    # (often __main__ guards, class definitions, or conclusions).
+                    # Guard: if limit is very small the marker alone may exceed it;
+                    # in that case fall back to a simple head-only truncation.
+                    head_size = int(limit * 0.6)
+                    tail_size = max(0, limit - head_size - 80)  # 80 chars for marker
+                    if tail_size > 0:
+                        text = (
+                            text[:head_size]
+                            + f"\n\n... [TRUNCATED {len(text) - limit} chars] ...\n\n"
+                            + text[-tail_size:]
+                        )
+                    else:
+                        text = text[:limit]
                 parts.append(f"[Output from {dep_id}]:\n{text}")
         return "\n\n".join(parts) if parts else ""
 

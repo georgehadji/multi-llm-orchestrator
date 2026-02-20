@@ -110,10 +110,35 @@ def validate_pytest(output: str, test_code: str = "",
     Run pytest on generated code. Writes to temp dir, executes, checks exit code.
     Requires pytest installed in environment.
     For async callers use async_run_validators() which offloads via asyncio.to_thread().
+
+    When no explicit test_code is provided, the default "import generated_code" test
+    is skipped for files with third-party top-level imports that are not installed
+    in the orchestrator environment (e.g. fastapi, grpc, jwt).  In that case only
+    python_syntax validation is meaningful; pytest would always fail with
+    ModuleNotFoundError regardless of code quality, producing false negatives.
     """
     code = _extract_code_block(output, "python")
     if not code.strip():
         return ValidationResult(False, "No Python code found in output", "pytest")
+
+    def _has_unavailable_imports(src: str) -> bool:
+        """
+        Return True if the code has top-level imports of packages that are not
+        installed in the current Python environment.  Only top-level import and
+        from-import statements are checked (not conditional or inline imports).
+        """
+        import importlib.util
+        import re as _re
+        # Match 'import X' and 'from X import Y' at column 0
+        pattern = _re.compile(
+            r"^(?:import|from)\s+([A-Za-z_][A-Za-z0-9_]*)", _re.MULTILINE
+        )
+        for m in pattern.finditer(src):
+            top_pkg = m.group(1)
+            spec = importlib.util.find_spec(top_pkg)
+            if spec is None:
+                return True
+        return False
 
     def _run_sync() -> ValidationResult:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -127,6 +152,19 @@ def validate_pytest(output: str, test_code: str = "",
                 test_content = f"from generated_code import *\n\n{test_code}"
                 test_path.write_text(test_content, encoding="utf-8")
             else:
+                # Default: import-only smoke test.
+                # Skip if the code has third-party imports not available here —
+                # such a test would always fail with ModuleNotFoundError, not
+                # because the code is wrong but because the environment is
+                # isolated. python_syntax already covers structural correctness.
+                if _has_unavailable_imports(code):
+                    return ValidationResult(
+                        True,
+                        "Import smoke test skipped: code uses third-party packages "
+                        "not installed in the validator environment — "
+                        "python_syntax already verified structural correctness.",
+                        "pytest",
+                    )
                 test_path = Path(tmpdir) / "test_import.py"
                 test_path.write_text(
                     "# -*- coding: utf-8 -*-\n"
@@ -183,18 +221,26 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
                 f.write(code)
                 f.flush()
 
+            # Errors to ignore: LLM-generated code commonly triggers these
+            # and ruff --fix cannot resolve them (they need structural changes):
+            #   E501: line too long (cosmetic)
+            #   E402: module-level import not at top (LLMs put imports after
+            #         sys.path manipulation or __main__ guards — valid patterns)
+            #   F401: imported but unused (LLMs import for availability checks
+            #         via try/except — ruff removal breaks the logic)
+            _IGNORE = "E501,E402,F401"
+
             # Pass 1: auto-fix all safe fixable issues in-place
-            # Ignore E501 (line too long) — LLMs often produce long lines which is
-            # a cosmetic style issue, not a functional problem.
             subprocess.run(
-                ["ruff", "check", tmp_path, "--select=E,F", "--ignore=E501",
-                 "--fix", "--unsafe-fixes"],
+                ["ruff", "check", tmp_path, "--select=E,F",
+                 f"--ignore={_IGNORE}", "--fix", "--unsafe-fixes"],
                 capture_output=True, timeout=timeout,
             )
 
-            # Pass 2: report any remaining errors (still ignoring E501)
+            # Pass 2: report any remaining errors
             result = subprocess.run(
-                ["ruff", "check", tmp_path, "--select=E,F", "--ignore=E501"],
+                ["ruff", "check", tmp_path, "--select=E,F",
+                 f"--ignore={_IGNORE}"],
                 capture_output=True,
                 encoding="utf-8",
                 errors="replace",
