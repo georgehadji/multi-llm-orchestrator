@@ -75,4 +75,32 @@ __all__ = [
     "BudgetHierarchy", "CostPredictor", "CostForecaster", "ForecastReport", "RiskLevel",
     # Advanced agents — Improvement 5
     "AgentPool", "TaskChannel",
+    # Six Improvements: new modules
+    "ProjectEventBus", "ProjectStarted", "TaskStarted", "TaskProgressUpdate",
+    "TaskCompleted", "TaskFailed", "BudgetWarning", "ProjectCompleted", "StreamEvent",
+    "ProgressRenderer",
+    "DagRenderer",
+    "SemanticCache", "DuplicationDetector",
+    "AdaptiveRouter", "ModelState",
+    "ProfileAggregator", "RunRecord",
+    "RemediationEngine", "RemediationStrategy", "RemediationPlan",
 ]
+
+# ── Six Improvements: new modules ──────────────────────────────────────────
+from .streaming import (
+    ProjectEventBus,
+    ProjectStarted,
+    TaskStarted,
+    TaskProgressUpdate,
+    TaskCompleted,
+    TaskFailed,
+    BudgetWarning,
+    ProjectCompleted,
+    StreamEvent,
+)
+from .progress import ProgressRenderer
+from .visualization import DagRenderer
+from .semantic_cache import SemanticCache, DuplicationDetector
+from .adaptive_router import AdaptiveRouter, ModelState
+from .aggregator import ProfileAggregator, RunRecord
+from .remediation import RemediationEngine, RemediationStrategy, RemediationPlan
