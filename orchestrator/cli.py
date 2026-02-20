@@ -30,6 +30,8 @@ from .engine import Orchestrator
 from .state import StateManager
 from .project_file import load_project_file
 from .output_writer import write_output_dir
+from .progress import ProgressRenderer
+from .streaming import ProjectCompleted as _ProjectCompleted
 
 
 def cmd_analyze(args) -> None:
@@ -297,11 +299,15 @@ async def _async_file_project(args):
 
     orch = Orchestrator(budget=budget, max_concurrency=concurrency)
 
-    state = await orch.run_project(
+    renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
+    async for event in orch.run_project_streaming(
         project_description=spec.project_description,
         success_criteria=spec.success_criteria,
         project_id=result.project_id,
-    )
+    ):
+        renderer.handle(event)
+
+    state = await orch.state_mgr.load_project(orch._project_id)
     _print_results(state)
     # CLI --output-dir > YAML output_dir > auto default
     output_dir = args.output_dir or result.output_dir or _default_output_dir(orch._project_id)
@@ -318,11 +324,15 @@ async def _async_new_project(args):
     print(f"Criteria: {args.criteria}")
     print("-" * 60)
 
-    state = await orch.run_project(
+    renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
+    async for event in orch.run_project_streaming(
         project_description=args.project,
         success_criteria=args.criteria,
         project_id=args.project_id,
-    )
+    ):
+        renderer.handle(event)
+
+    state = await orch.state_mgr.load_project(orch._project_id)
     _print_results(state)
     output_dir = args.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
