@@ -121,6 +121,9 @@ class Orchestrator:
         self._cost_predictor: Optional[CostPredictor] = cost_predictor
         # Task 2: streaming event bus (None unless run_project_streaming() is active)
         self._event_bus: Optional["ProjectEventBus"] = None
+        # Task 6: adaptive router v2 — circuit breaker with degraded/disabled states
+        from .adaptive_router import AdaptiveRouter
+        self._adaptive_router = AdaptiveRouter()
 
     # ─────────────────────────────────────────
     # Public API
@@ -1030,6 +1033,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     def _record_success(self, model: Model, response: "APIResponse") -> None:
         """Record a successful API call; reset circuit breaker counter."""
         self._consecutive_failures[model] = 0
+        self._adaptive_router.record_success(model)
+        self._adaptive_router.record_latency(model, response.latency_ms)
         self._telemetry.record_call(
             model,
             latency_ms=response.latency_ms,
@@ -1069,10 +1074,21 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 logger.warning(
                     f"Model {model.value} marked unhealthy immediately: {reason}."
                 )
+            # Task 6: auth/permanent errors permanently disable in adaptive router
+            if "401" in error_str or "invalid_authentication" in error_str.lower():
+                self._adaptive_router.record_auth_failure(model)
             self._telemetry.record_call(model, latency_ms=0.0, cost_usd=0.0, success=False)
             return
 
         self._consecutive_failures[model] = self._consecutive_failures.get(model, 0) + 1
+        # Task 6: record timeout in adaptive router for degradation tracking
+        _is_timeout = (
+            "timeout" in error_str.lower() or "timed out" in error_str.lower()
+            or "asyncio.timeouterror" in error_str.lower()
+            or "TimeoutError" in (type(error).__name__ if error else "")
+        )
+        if _is_timeout:
+            self._adaptive_router.record_timeout(model)
         self._telemetry.record_call(
             model, latency_ms=0.0, cost_usd=0.0, success=False
         )
@@ -1097,6 +1113,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         available = [m for m in candidates if self.api_health.get(m, False)]
         if not available:
             available = [m for m in Model if self.api_health.get(m, False)]
+        # Task 6: also filter out models the adaptive router has degraded/disabled
+        available = [m for m in available if self._adaptive_router.is_available(m)]
         return available
 
     def _get_cheapest_available(self) -> Model:
