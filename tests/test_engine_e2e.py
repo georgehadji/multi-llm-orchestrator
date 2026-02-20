@@ -603,3 +603,67 @@ def test_multi_task_partial_success():
     assert len(state.results) == 3
     scores = [r.score for r in state.results.values()]
     assert any(s >= 0.85 for s in scores)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 24 — Streaming events lifecycle
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_streaming_events_include_task_lifecycle():
+    """Full streaming run: verify event sequence is coherent."""
+    from orchestrator.streaming import (
+        ProjectStarted, TaskStarted, TaskCompleted, ProjectCompleted,
+    )
+
+    decomp = json.dumps([{
+        "id": "task_001", "type": "code_generation",
+        "prompt": "Write hello world", "dependencies": [],
+        "hard_validators": [],
+    }])
+
+    orch = _make_orch(Budget(max_usd=2.0))
+    events = []
+
+    async def mock_call(model, prompt, **kwargs):
+        system = kwargs.get("system", "")
+        if "decomposition" in system.lower():
+            return _api_response(decomp, model)
+        if "evaluat" in prompt.lower() or "score" in prompt.lower():
+            return _api_response(_score_json(0.92, "Good."), model)
+        return _api_response("def hello():\n    return 'Hello'", model)
+
+    async def run():
+        with patch.object(orch.client, "call", side_effect=mock_call):
+            async for ev in orch.run_project_streaming(
+                "Hello world", "Must return Hello"
+            ):
+                events.append(ev)
+
+    _run(run())
+    types = {type(e).__name__ for e in events}
+    assert "ProjectStarted"   in types
+    assert "TaskStarted"      in types
+    assert "TaskCompleted"    in types
+    assert "ProjectCompleted" in types
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 25 — Remediation threshold logic
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_remediation_degrade_quality_lowers_threshold():
+    """Task scoring 0.70 with threshold 0.85 → DEGRADE_QUALITY makes it pass."""
+    from orchestrator.remediation import RemediationEngine, RemediationStrategy
+    from orchestrator.models import TaskResult
+
+    engine = RemediationEngine()
+    # score=0.75: needs remediation at threshold=0.85, but passes after
+    # DEGRADE_QUALITY lowers threshold to 0.85*0.85=0.7225 (0.75 > 0.7225)
+    result = TaskResult(
+        task_id="t1", output="partial output", score=0.75,
+        model_used=Model.DEEPSEEK_CHAT, status=TaskStatus.DEGRADED,
+    )
+    assert engine.should_remediate(result, threshold=0.85)
+    new_threshold = engine.adjusted_threshold(RemediationStrategy.DEGRADE_QUALITY, 0.85)
+    assert new_threshold < 0.85
+    assert not engine.should_remediate(result, threshold=new_threshold)
