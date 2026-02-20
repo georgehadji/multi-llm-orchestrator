@@ -93,3 +93,59 @@ def test_project_completed_fields():
     assert ev.project_id == "proj-1"
     assert ev.tasks_completed == 4
     assert ev.tasks_failed == 1
+
+def test_double_close_is_safe():
+    """Calling close() twice should not enqueue a second sentinel."""
+    bus = ProjectEventBus()
+    received = []
+
+    async def run():
+        sub = bus.subscribe()
+        await bus.publish(TaskStarted("t1", "code_generation", "deepseek-chat"))
+        await bus.close()
+        await bus.close()  # second close should be a no-op
+        async for ev in sub:
+            received.append(ev)
+
+    asyncio.run(run())
+    assert len(received) == 1  # only the one TaskStarted, no extra sentinels
+
+
+def test_publish_after_close_is_silent_noop():
+    """Publishing after close() should not enqueue events."""
+    bus = ProjectEventBus()
+    received = []
+
+    async def run():
+        sub = bus.subscribe()
+        await bus.close()
+        await bus.publish(TaskStarted("t1", "code_generation", "deepseek-chat"))  # after close
+        async for ev in sub:
+            received.append(ev)
+
+    asyncio.run(run())
+    assert len(received) == 0  # nothing after close
+
+
+def test_event_bus_concurrent_subscribers():
+    """Two subscribers drain concurrently -- both should receive all events."""
+    import asyncio
+    bus = ProjectEventBus()
+    recv_a, recv_b = [], []
+
+    async def drain(sub, store):
+        async for ev in sub:
+            store.append(ev)
+
+    async def run():
+        sub_a = bus.subscribe()
+        sub_b = bus.subscribe()
+        await bus.publish(TaskStarted("t1", "code_generation", "deepseek-chat"))
+        await bus.publish(TaskStarted("t2", "code_review", "deepseek-chat"))
+        await bus.close()
+        # drain both subscribers concurrently
+        await asyncio.gather(drain(sub_a, recv_a), drain(sub_b, recv_b))
+
+    asyncio.run(run())
+    assert len(recv_a) == 2
+    assert len(recv_b) == 2

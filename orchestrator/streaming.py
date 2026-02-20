@@ -1,7 +1,7 @@
 """
 Streaming event types for run_project_streaming().
 
-Events flow through ProjectEventBus — an asyncio-based pub-sub hub that
+Events flow through ProjectEventBus -- an asyncio-based pub-sub hub that
 fans out to all subscribers. Each subscriber gets an independent async
 generator (AsyncIterator) over the event stream.
 """
@@ -12,7 +12,7 @@ from typing import AsyncGenerator, AsyncIterator, Optional, Union
 from .models import TaskStatus
 
 
-# ── Event dataclasses ─────────────────────────────────────────────────────────
+# -- Event dataclasses ---------------------------------------------------------
 
 @dataclass
 class ProjectStarted:
@@ -77,7 +77,7 @@ StreamEvent = Union[
 ]
 
 
-# ── Event bus ─────────────────────────────────────────────────────────────────
+# -- Event bus -----------------------------------------------------------------
 
 _SENTINEL = object()   # marks end-of-stream
 
@@ -90,15 +90,15 @@ class ProjectEventBus:
     """
 
     def __init__(self) -> None:
-        self._queues: list[asyncio.Queue] = []
+        self._queues: list[asyncio.Queue[object]] = []
         self._closed = False
 
     def subscribe(self) -> AsyncGenerator[StreamEvent, None]:
-        q: asyncio.Queue = asyncio.Queue()
+        q: asyncio.Queue[object] = asyncio.Queue()
         self._queues.append(q)
         return self._drain(q)
 
-    async def _drain(self, q: asyncio.Queue) -> AsyncGenerator[StreamEvent, None]:
+    async def _drain(self, q: asyncio.Queue[object]) -> AsyncGenerator[StreamEvent, None]:
         while True:
             item = await q.get()
             if item is _SENTINEL:
@@ -106,10 +106,14 @@ class ProjectEventBus:
             yield item
 
     async def publish(self, event: StreamEvent) -> None:
-        for q in self._queues:
+        if self._closed:
+            return
+        for q in list(self._queues):  # snapshot to avoid mutation during iteration
             await q.put(event)
 
     async def close(self) -> None:
+        if self._closed:
+            return
         self._closed = True
-        for q in self._queues:
+        for q in list(self._queues):  # snapshot
             await q.put(_SENTINEL)
