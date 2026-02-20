@@ -68,3 +68,28 @@ def test_event_bus_multiple_subscribers():
     asyncio.run(run())
     assert len(recv_a) == 1
     assert len(recv_b) == 1
+
+
+def test_project_started_fields():
+    ev = ProjectStarted(project_id="proj-1", total_tasks=5, budget_usd=3.0)
+    assert ev.project_id == "proj-1"
+    assert ev.total_tasks == 5
+    assert ev.budget_usd == 3.0
+
+
+def test_budget_warning_fields():
+    ev = BudgetWarning(phase="generation", spent_usd=2.5, cap_usd=5.0, ratio=0.5)
+    assert ev.phase == "generation"
+    assert ev.spent_usd == 2.5
+    assert ev.ratio == 0.5
+
+
+def test_project_completed_fields():
+    ev = ProjectCompleted(
+        project_id="proj-1", status="SUCCESS",
+        total_cost_usd=1.23, elapsed_seconds=300.0,
+        tasks_completed=4, tasks_failed=1,
+    )
+    assert ev.project_id == "proj-1"
+    assert ev.tasks_completed == 4
+    assert ev.tasks_failed == 1

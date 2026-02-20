@@ -8,7 +8,7 @@ generator (AsyncIterator) over the event stream.
 from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
-from typing import AsyncIterator, Optional, Union
+from typing import AsyncGenerator, AsyncIterator, Optional, Union
 from .models import TaskStatus
 
 
@@ -93,12 +93,12 @@ class ProjectEventBus:
         self._queues: list[asyncio.Queue] = []
         self._closed = False
 
-    def subscribe(self) -> AsyncIterator[StreamEvent]:
+    def subscribe(self) -> AsyncGenerator[StreamEvent, None]:
         q: asyncio.Queue = asyncio.Queue()
         self._queues.append(q)
         return self._drain(q)
 
-    async def _drain(self, q: asyncio.Queue) -> AsyncIterator[StreamEvent]:
+    async def _drain(self, q: asyncio.Queue) -> AsyncGenerator[StreamEvent, None]:
         while True:
             item = await q.get()
             if item is _SENTINEL:
