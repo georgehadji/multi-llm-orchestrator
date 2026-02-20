@@ -140,7 +140,10 @@ DEFAULT_THRESHOLDS: dict[TaskType, float] = {
     TaskType.DATA_EXTRACT: 0.90,
     TaskType.SUMMARIZE:    0.80,
     TaskType.CODE_GEN:     0.85,
-    TaskType.CODE_REVIEW:  0.85,
+    # CODE_REVIEW: lowered from 0.85 — review quality depends on how much
+    # source context the LLM received, which is often partial due to truncation.
+    # 0.75 is a realistic target; scores above this reflect genuine analysis.
+    TaskType.CODE_REVIEW:  0.75,
     TaskType.REASONING:    0.90,
     TaskType.WRITING:      0.80,
     # EVALUATE: lowered from 0.95 — evaluation outputs are open-ended prose;
@@ -161,8 +164,13 @@ MAX_OUTPUT_TOKENS: dict[TaskType, int] = {
 
 
 def get_max_iterations(task_type: TaskType) -> int:
-    if task_type in (TaskType.REASONING, TaskType.CODE_GEN, TaskType.CODE_REVIEW):
-        return 3  # heavy
+    if task_type == TaskType.CODE_GEN:
+        return 3  # heavy — needs generate + critique + revise
+    if task_type == TaskType.CODE_REVIEW:
+        return 4  # extra iteration: reviews depend on context quality and
+                  # often need a full second pass after critique improves framing
+    if task_type == TaskType.REASONING:
+        return 3
     return 2  # light
 
 

@@ -85,10 +85,39 @@ def write_output_dir(
 
 def _ext_for(task_type: TaskType, output: str) -> str:
     """
-    Determine the file extension for a task.
+    Determine the file extension for a task output.
+
+    For CODE_GEN tasks, inspect the first fenced code block's language tag to
+    choose the correct extension — Dockerfile, YAML, proto, etc. are common
+    outputs that should NOT be saved as .py files.
+
     DATA_EXTRACT falls back to .md if the output is not valid JSON.
     """
     ext = _EXT.get(task_type, ".md")
+
+    if ext == ".py":
+        # Peek at the first fenced block language tag
+        m = re.search(r"```(\w+)", output)
+        if m:
+            lang = m.group(1).lower()
+            _lang_to_ext = {
+                "dockerfile": ".dockerfile",
+                "yaml": ".yaml",
+                "yml": ".yaml",
+                "proto": ".proto",
+                "protobuf": ".proto",
+                "bash": ".sh",
+                "sh": ".sh",
+                "toml": ".toml",
+                "sql": ".sql",
+                "xml": ".xml",
+                "ini": ".ini",
+            }
+            if lang in _lang_to_ext:
+                return _lang_to_ext[lang]
+        # Default: keep .py for actual Python code
+        return ".py"
+
     if ext == ".json":
         try:
             json.loads(_strip_fences(output).strip())
@@ -104,9 +133,13 @@ def _render_content(task_type: TaskType, raw_output: str, ext: str) -> str:
     .py   → strip markdown fences, return first Python code block only
     .json → strip fences, parse and pretty-print JSON
     .md   → return raw output as-is (LLM prose is already markdown-compatible)
+
+    For .py tasks, if the output actually contains a non-Python code block
+    (Dockerfile, YAML, proto, shell script), return that block as-is rather
+    than running the Python extractor which would truncate to a few chars.
     """
     if ext == ".py":
-        return _extract_python(raw_output)
+        return _extract_code_for_py_task(raw_output)
     if ext == ".json":
         try:
             text = _strip_fences(raw_output).strip()
@@ -118,28 +151,60 @@ def _render_content(task_type: TaskType, raw_output: str, ext: str) -> str:
     return raw_output
 
 
+# Non-Python languages that code_generation tasks commonly produce.
+# Ordered by specificity (longer tags first to avoid ambiguity).
+_NON_PYTHON_FENCE_LANGS = (
+    "dockerfile", "yaml", "yml", "proto", "protobuf",
+    "bash", "sh", "toml", "json", "sql", "xml", "ini",
+)
+
+
 def _extract_python(text: str) -> str:
+    """Alias kept for backward compatibility with existing tests."""
+    return _extract_code_for_py_task(text)
+
+
+def _extract_code_for_py_task(text: str) -> str:
     """
-    Extract the first Python code block from markdown-fenced LLM output.
-    Mirrors the logic in validators._extract_code_block() without importing it
-    (validators has subprocess/tempfile side-effects we don't want here).
+    Extract the best code block from a code_generation task output.
+
+    Strategy:
+    1. Explicit ```python block → return Python code
+    2. Explicit non-Python fenced block (Dockerfile, YAML, proto…) → return as-is
+    3. Generic ``` block → return contents
+    4. Heuristic: first top-level Python statement at column 0
+    5. Fallback: return full text unchanged
+
+    This prevents Dockerfile/YAML content from being discarded because the
+    Python extractor finds no Python imports/defs and returns only a few chars.
     """
-    # 1. Fenced with explicit python tag
-    match = re.search(r"```python\s*\n(.*?)```", text, re.DOTALL)
+    # 1. Explicit python block
+    match = re.search(r"```python\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
     if match:
         return match.group(1)
-    # 2. Generic fenced block
+
+    # 2. Named non-Python block
+    for lang in _NON_PYTHON_FENCE_LANGS:
+        match = re.search(
+            rf"```{lang}\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE
+        )
+        if match:
+            return match.group(1)
+
+    # 3. Generic fenced block
     match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
     if match:
         return match.group(1)
-    # 3. Heuristic: first top-level (column-0) Python statement
+
+    # 4. Heuristic: first top-level Python statement at column 0
     m = re.search(
         r"^(import |from \w|def |class |@\w|if __name__|async def )",
         text, re.MULTILINE
     )
     if m:
         return text[m.start():]
-    # 4. Fallback: return as-is
+
+    # 5. Fallback: return as-is
     return text
 
 

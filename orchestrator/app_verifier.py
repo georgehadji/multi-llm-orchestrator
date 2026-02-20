@@ -43,7 +43,18 @@ class VerifyReport:
 
     @property
     def success(self) -> bool:
-        """True if all local verification checks passed."""
+        """True if the relevant verification checks passed.
+
+        verify_local() only sets local_install_ok/tests_passed/startup_ok.
+        verify_docker() only sets docker_build_ok/docker_run_ok.
+        This property checks whichever fields were actually exercised:
+        - If docker fields were set → docker report → check docker flags only.
+        - Otherwise → local report → check local flags.
+        """
+        if self.docker_build_ok or self.docker_run_ok:
+            # Docker verify report — only docker flags matter here.
+            # Local flags are checked separately via the local_verify report.
+            return self.docker_build_ok and self.docker_run_ok
         return self.local_install_ok and self.tests_passed and self.startup_ok
 
 

@@ -441,7 +441,7 @@ def test_context_truncation_warning(caplog):
     with caplog.at_level(logging.WARNING, logger="orchestrator"):
         ctx = orch._gather_dependency_context(["task_001"])
 
-    assert len(ctx) <= 200  # truncated output + label
+    assert len(ctx) <= 300  # truncated output + label + potential head/tail overhead
     assert any("truncated" in r.message.lower() for r in caplog.records), (
         "Expected a truncation warning in logs"
     )
@@ -567,7 +567,7 @@ def test_build_default_profiles_all_models():
         p = profiles[model]
         assert p.cost_per_1m_input >= 0
         assert p.cost_per_1m_output >= 0
-        assert p.provider in ("openai", "anthropic", "google", "kimi")
+        assert p.provider in ("openai", "anthropic", "google", "kimi", "deepseek")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -17,7 +17,6 @@ Thread-safety: NOT thread-safe. The asyncio event loop serialises all updates.
 """
 from __future__ import annotations
 
-import bisect
 import collections
 import logging
 from typing import Optional
@@ -39,7 +38,7 @@ _TRUST_RECOVER: float = 1.001  # multiplier on each success
 _TRUST_CAP: float = 1.0        # ceiling (trust can never exceed 1.0)
 
 # ── Latency p95 buffer ─────────────────────────────────────────────────────────
-_LATENCY_BUFFER_SIZE: int = 50  # sorted circular buffer for real p95 computation
+_LATENCY_BUFFER_SIZE: int = 50  # circular buffer for real p95 computation
 
 
 class TelemetryCollector:
@@ -59,9 +58,12 @@ class TelemetryCollector:
             m: collections.deque(maxlen=_SUCCESS_WINDOW)
             for m in profiles
         }
-        # Sorted latency buffer per model (ascending order, capped at _LATENCY_BUFFER_SIZE)
-        self._latency_buffers: dict[Model, list[float]] = {
-            m: [] for m in profiles
+        # FIFO latency buffer per model (oldest-first eviction for unbiased p95).
+        # Using deque instead of sorted list: bisect.insort on a sorted list
+        # + pop(0) discards the *smallest* value, biasing the buffer toward
+        # higher latencies. A deque evicts the *oldest* sample, which is correct.
+        self._latency_buffers: dict[Model, collections.deque] = {
+            m: collections.deque(maxlen=_LATENCY_BUFFER_SIZE) for m in profiles
         }
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -112,14 +114,15 @@ class TelemetryCollector:
                 + (1 - _EMA_ALPHA) * profile.avg_latency_ms
             )
 
-            # Real p95 via sorted buffer (bisect maintains ascending order)
-            buf = self._latency_buffers.setdefault(model, [])
-            bisect.insort(buf, latency_ms)
-            if len(buf) > _LATENCY_BUFFER_SIZE:
-                buf.pop(0)   # discard the oldest/smallest sample
-            profile.latency_samples = list(buf)
-            idx = int(0.95 * len(buf))
-            profile.latency_p95_ms = buf[min(idx, len(buf) - 1)]
+            # Real p95 via FIFO deque (oldest sample evicted automatically)
+            buf = self._latency_buffers.setdefault(
+                model, collections.deque(maxlen=_LATENCY_BUFFER_SIZE)
+            )
+            buf.append(latency_ms)
+            sorted_buf = sorted(buf)
+            profile.latency_samples = sorted_buf
+            idx = int(0.95 * len(sorted_buf))
+            profile.latency_p95_ms = sorted_buf[min(idx, len(sorted_buf) - 1)]
 
         # ── Cost EMA (skip if cost_usd <= 0 to avoid dragging EMA to zero) ───
         if cost_usd > 0:
