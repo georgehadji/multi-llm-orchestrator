@@ -1,5 +1,6 @@
 # tests/test_streaming.py
 import asyncio
+import json
 from orchestrator.streaming import (
     TaskStarted, TaskProgressUpdate, TaskCompleted, TaskFailed,
     ProjectStarted, ProjectCompleted, BudgetWarning, ProjectEventBus,
@@ -149,3 +150,61 @@ def test_event_bus_concurrent_subscribers():
     asyncio.run(run())
     assert len(recv_a) == 2
     assert len(recv_b) == 2
+
+
+# ── Integration test ───────────────────────────────────────────────────────────
+
+from unittest.mock import patch
+from orchestrator import Orchestrator, Budget
+from orchestrator.streaming import ProjectStarted, TaskCompleted, ProjectCompleted
+from orchestrator.models import TaskStatus
+
+
+def _make_mock_api_response(text: str):
+    from orchestrator.api_clients import APIResponse
+    from orchestrator.models import Model
+    return APIResponse(text=text, input_tokens=10, output_tokens=20,
+                       model=Model.DEEPSEEK_CHAT)
+
+
+def test_run_project_streaming_yields_events():
+    decomp = json.dumps([{
+        "id": "task_001", "type": "code_generation",
+        "prompt": "Write hello world", "dependencies": [], "hard_validators": [],
+    }])
+    gen_resp = _make_mock_api_response("def hello():\n    return 'Hello'")
+    eval_resp = _make_mock_api_response('{"score": 0.9, "critique": "Good."}')
+    decomp_resp = _make_mock_api_response(decomp)
+
+    orch = Orchestrator(budget=Budget(max_usd=1.0))
+    # Mark all models healthy so routing doesn't short-circuit
+    from orchestrator.models import Model as _Model
+    for _m in _Model:
+        orch.api_health[_m] = True
+
+    async def mock_call(model, prompt, **kwargs):
+        system = kwargs.get("system", "")
+        if "decomposition" in system.lower():
+            return decomp_resp
+        if "evaluat" in prompt.lower() or "score" in prompt.lower():
+            return eval_resp
+        return gen_resp
+
+    events = []
+
+    async def run():
+        with patch.object(orch.client, "call", side_effect=mock_call):
+            async for ev in orch.run_project_streaming(
+                "Write hello world", "Function returns Hello"
+            ):
+                events.append(ev)
+
+    asyncio.run(run())
+    types = [type(e).__name__ for e in events]
+    assert "ProjectStarted" in types
+    assert "TaskStarted" in types
+    assert "TaskCompleted" in types
+    assert "ProjectCompleted" in types
+    # TaskCompleted should have a valid score
+    completed = [e for e in events if isinstance(e, TaskCompleted)]
+    assert all(0.0 <= e.score <= 1.0 for e in completed)

@@ -119,6 +119,8 @@ class Orchestrator:
         # Improvement 6: cross-run budget hierarchy + adaptive cost predictor
         self._budget_hierarchy: Optional[BudgetHierarchy] = budget_hierarchy
         self._cost_predictor: Optional[CostPredictor] = cost_predictor
+        # Task 2: streaming event bus (None unless run_project_streaming() is active)
+        self._event_bus: Optional["ProjectEventBus"] = None
 
     # ─────────────────────────────────────────
     # Public API
@@ -211,6 +213,15 @@ class Orchestrator:
             execution_order = self._topological_sort(tasks)
             logger.info(f"Execution order: {execution_order}")
 
+            # Emit ProjectStarted streaming event
+            if self._event_bus:
+                from .streaming import ProjectStarted
+                await self._event_bus.publish(ProjectStarted(
+                    project_id=self._project_id,
+                    total_tasks=len(tasks),
+                    budget_usd=self.budget.max_usd,
+                ))
+
             # Phase 2-5: Execute
             state = await self._execute_all(
                 tasks, execution_order, project_description, success_criteria
@@ -222,6 +233,23 @@ class Orchestrator:
             await self.state_mgr.save_project(project_id, state)
 
             self._log_summary(state)
+
+            # Emit ProjectCompleted streaming event
+            if self._event_bus:
+                from .streaming import ProjectCompleted
+                completed_count = sum(1 for r in self.results.values()
+                                      if r.status != TaskStatus.FAILED)
+                failed_count = sum(1 for r in self.results.values()
+                                   if r.status == TaskStatus.FAILED)
+                await self._event_bus.publish(ProjectCompleted(
+                    project_id=self._project_id,
+                    status=state.status.value,
+                    total_cost_usd=self.budget.spent_usd,
+                    elapsed_seconds=self.budget.elapsed_seconds,
+                    tasks_completed=completed_count,
+                    tasks_failed=failed_count,
+                ))
+
             return state
 
         finally:
@@ -263,6 +291,36 @@ class Orchestrator:
             team   = getattr(spec, "team",   "") or ""
             self._budget_hierarchy.charge_job(job_id, team, actual_spend)
         return state
+
+    async def run_project_streaming(
+        self,
+        project_description: str,
+        success_criteria: str,
+        project_id: str = "",
+    ):
+        """
+        Streaming variant of run_project().
+        Yields StreamEvent objects as execution progresses.
+        The final event is always ProjectCompleted.
+        """
+        from .streaming import ProjectEventBus
+
+        self._event_bus = ProjectEventBus()
+        subscription = self._event_bus.subscribe()
+
+        async def _run() -> None:
+            try:
+                await self.run_project(project_description, success_criteria, project_id)
+            finally:
+                await self._event_bus.close()
+                self._event_bus = None
+
+        task = asyncio.create_task(_run())
+
+        async for event in subscription:
+            yield event
+
+        await task  # propagate any unhandled exceptions
 
     # ─────────────────────────────────────────
     # Phase 1: Decomposition
@@ -568,6 +626,15 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         primary = models[0]
         reviewer = self._select_reviewer(primary, task.type)
 
+        # Emit TaskStarted streaming event
+        if self._event_bus:
+            from .streaming import TaskStarted
+            await self._event_bus.publish(TaskStarted(
+                task_id=task.id,
+                task_type=task.type.value,
+                model=primary.value,
+            ))
+
         # Fire MODEL_SELECTED event so hooks can observe routing decisions
         self._hook_registry.fire(
             EventType.MODEL_SELECTED,
@@ -807,6 +874,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 best_score = score
                 best_critique = critique
 
+            # Emit TaskProgressUpdate streaming event
+            if self._event_bus:
+                from .streaming import TaskProgressUpdate
+                await self._event_bus.publish(TaskProgressUpdate(
+                    task_id=task.id,
+                    iteration=iteration + 1,
+                    score=score,
+                    best_score=best_score,
+                ))
+
             logger.info(
                 f"  {task.id} iter {iteration + 1}: score={score:.3f} "
                 f"(best={best_score:.3f}, threshold={task.acceptance_threshold})"
@@ -847,6 +924,25 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 success=(status != TaskStatus.FAILED),
                 quality_score=best_score,
             )
+
+        # Emit TaskCompleted or TaskFailed streaming event
+        if self._event_bus:
+            from .streaming import TaskCompleted, TaskFailed
+            if status == TaskStatus.FAILED:
+                await self._event_bus.publish(TaskFailed(
+                    task_id=task.id,
+                    reason="all attempts failed",
+                    model=primary.value,
+                ))
+            else:
+                await self._event_bus.publish(TaskCompleted(
+                    task_id=task.id,
+                    score=best_score,
+                    status=status,
+                    model=primary.value,
+                    cost_usd=total_cost,
+                    iterations=len(scores_history),
+                ))
 
         return TaskResult(
             task_id=task.id,
