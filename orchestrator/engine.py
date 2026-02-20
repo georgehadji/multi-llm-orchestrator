@@ -323,7 +323,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 break
             try:
                 return await _try_decompose(m)
-            except Exception as e:
+            except (Exception, asyncio.CancelledError) as e:
                 logger.error(f"Decomposition attempt {attempt + 1} with {m.value} failed: {e}")
                 self._record_failure(m, error=e)
         logger.error("All decomposition attempts failed — returning empty task list")
@@ -660,7 +660,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 total_input_tokens += gen_response.input_tokens
                 total_output_tokens += gen_response.output_tokens
                 self._record_success(primary, gen_response)
-            except Exception as e:
+            except (Exception, asyncio.CancelledError) as e:
                 logger.error(f"Generation failed for {task.id}: {e}")
                 self._record_failure(primary, error=e)
                 degraded_count += 1
@@ -680,7 +680,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         total_output_tokens += gen_response.output_tokens
                         self._record_success(fb, gen_response)
                         primary = fb
-                    except Exception as e2:
+                    except (Exception, asyncio.CancelledError) as e2:
                         logger.error(f"Fallback generation also failed: {e2}")
                         self._record_failure(fb, error=e2)
                         break
@@ -729,7 +729,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     if self._cost_predictor is not None:
                         self._cost_predictor.record(primary, task.type, critique_response.cost_usd)
                     total_cost += critique_response.cost_usd
-                except Exception as e:
+                except (Exception, asyncio.CancelledError) as e:
                     logger.warning(f"Critique failed for {task.id}: {e}")
                     self.api_health[reviewer] = False
                     degraded_count += 1
@@ -756,7 +756,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     output = revise_response.text
                     self.budget.charge(revise_response.cost_usd, "generation")
                     total_cost += revise_response.cost_usd
-                except Exception as e:
+                except (Exception, asyncio.CancelledError) as e:
                     logger.warning(f"Revision failed for {task.id}: {e}")
             elif critique and _is_reasoning_model:
                 # Embed critique into the next iteration's prompt for self-correction.
@@ -892,7 +892,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 self.budget.charge(response.cost_usd, "evaluation")
                 score = self._parse_score(response.text)
                 scores.append(score)
-            except Exception as e:
+            except (Exception, asyncio.CancelledError) as e:
                 logger.warning(f"Evaluation run {run + 1} failed: {e}")
                 scores.append(0.5)
 

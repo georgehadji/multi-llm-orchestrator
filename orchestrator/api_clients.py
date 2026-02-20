@@ -186,6 +186,18 @@ class UnifiedClient:
             except asyncio.TimeoutError:
                 logger.warning(f"Timeout calling {model.value} (attempt {attempt + 1})")
                 last_error = TimeoutError(f"{model.value} timed out after {timeout}s")
+            except asyncio.CancelledError:
+                # asyncio.wait_for() cancels the inner coroutine when the timeout
+                # fires. httpx may raise CancelledError during its TCP stream
+                # cleanup — this is NOT a parent-task cancellation, just a
+                # side-effect of the timeout. Convert it to a TimeoutError so
+                # the retry loop handles it gracefully instead of propagating.
+                elapsed = time.monotonic() - t0
+                logger.warning(
+                    f"Timeout calling {model.value} (attempt {attempt + 1}) "
+                    f"[CancelledError after {elapsed:.1f}s]"
+                )
+                last_error = TimeoutError(f"{model.value} timed out after {timeout}s")
             except Exception as e:
                 logger.warning(f"Error calling {model.value}: {e} (attempt {attempt + 1})")
                 last_error = e
