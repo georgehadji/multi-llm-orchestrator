@@ -309,11 +309,13 @@ class Orchestrator:
         subscription = self._event_bus.subscribe()
 
         async def _run() -> None:
+            bus = self._event_bus
             try:
                 await self.run_project(project_description, success_criteria, project_id)
             finally:
-                await self._event_bus.close()
-                self._event_bus = None
+                await bus.close()
+                if self._event_bus is bus:
+                    self._event_bus = None
 
         task = asyncio.create_task(_run())
 
