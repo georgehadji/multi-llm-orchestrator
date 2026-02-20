@@ -32,6 +32,7 @@ from .project_file import load_project_file
 from .output_writer import write_output_dir
 from .progress import ProgressRenderer
 from .streaming import ProjectCompleted as _ProjectCompleted
+from .visualization import DagRenderer
 
 
 def cmd_analyze(args) -> None:
@@ -313,6 +314,9 @@ async def _async_file_project(args):
     output_dir = args.output_dir or result.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
     print(f"\nOutput written to: {path}")
+    if getattr(args, "dependency_report", False) and state:
+        renderer = DagRenderer(state.tasks, results=state.results)
+        print("\n" + renderer.dependency_report())
 
 
 async def _async_new_project(args):
@@ -337,6 +341,43 @@ async def _async_new_project(args):
     output_dir = args.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
     print(f"\nOutput written to: {path}")
+    if getattr(args, "dependency_report", False) and state:
+        renderer = DagRenderer(state.tasks, results=state.results)
+        print("\n" + renderer.dependency_report())
+
+
+async def _async_visualize(args):
+    """
+    Decompose the project (without running tasks) and print the requested
+    visualization (--visualize mermaid|ascii) or critical path (--critical-path),
+    then exit.  Requires either --project + --criteria or --file.
+    """
+    if args.file:
+        try:
+            result = load_project_file(args.file)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            sys.exit(1)
+        spec = result.spec
+        project_description = spec.project_description
+        success_criteria = spec.success_criteria
+        budget = spec.budget
+    else:
+        budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
+        project_description = args.project
+        success_criteria = getattr(args, "criteria", "") or ""
+
+    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency)
+    tasks = await orch._decompose(project_description, success_criteria)
+
+    renderer = DagRenderer(tasks)
+    if args.visualize == "mermaid":
+        print(renderer.to_mermaid())
+    elif args.visualize == "ascii":
+        print(renderer.to_ascii())
+    if args.critical_path:
+        path = renderer.critical_path()
+        print("Critical path: " + " -> ".join(path) if path else "Critical path: (empty)")
 
 
 def main():
@@ -370,6 +411,25 @@ def main():
                         help="Load project spec from a YAML file")
     parser.add_argument("--output-dir", "-o", type=str, default="",
                         help="Write structured output files to this directory")
+    parser.add_argument(
+        "--visualize",
+        choices=["mermaid", "ascii"],
+        metavar="FORMAT",
+        default=None,
+        help="Print task dependency graph (mermaid or ascii) after decomposition, then exit",
+    )
+    parser.add_argument(
+        "--critical-path",
+        action="store_true",
+        default=False,
+        help="Print the critical path through the task DAG, then exit",
+    )
+    parser.add_argument(
+        "--dependency-report",
+        action="store_true",
+        default=False,
+        help="After run, print dependency context-size report",
+    )
 
     args = parser.parse_args()
     setup_logging(getattr(args, "verbose", False))
@@ -387,6 +447,16 @@ def main():
 
     if args.resume:
         asyncio.run(_async_resume(args))
+        return
+
+    # --visualize / --critical-path: decompose-only dry-run, then exit.
+    # Works with either --file or --project + --criteria.
+    if args.visualize or args.critical_path:
+        if not args.file and not args.project:
+            parser.error(
+                "--visualize/--critical-path require --file <yaml> or --project + --criteria"
+            )
+        asyncio.run(_async_visualize(args))
         return
 
     if args.file:
