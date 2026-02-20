@@ -1,0 +1,45 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project 2: Next.js E-Commerce Store
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_nextjs_ecommerce.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a Next.js 14 e-commerce storefront with App Router and TypeScript.
+
+  The store must include:
+  1. Home page: hero banner, featured products grid, category filter bar
+  2. Product listing page with URL-based filters (category, price range, sort)
+  3. Product detail page with image gallery, size selector, add-to-cart button
+  4. Shopping cart: slide-over drawer, quantity controls, remove item, total price
+  5. Checkout page: multi-step form (shipping → payment → review) — no real payment
+  6. Server Components for product pages (SSR for SEO)
+  7. Client Components for cart interactions
+  8. Mock product data from a local JSON file (20+ products, 4 categories)
+  9. Tailwind CSS styling with shadcn/ui components
+
+criteria: |
+  - Product listing page filters update URL params without full page reload
+  - Cart state persists across page navigations
+  - Product detail page is server-rendered (check page source for product data)
+  - Checkout form validates all fields before proceeding to next step
+  - Responsive design works at 375px and 1440px
+  - Lighthouse score ≥90 for performance on product listing page
+  - npm run build completes without TypeScript errors
+
+budget_usd: 3.5
+time_seconds: 3600
+concurrency: 3
+project_id: "frontend-nextjs-ecommerce-v1"
+output_dir: "./outputs/frontend_nextjs_ecommerce"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.88
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

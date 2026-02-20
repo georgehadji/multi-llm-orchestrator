@@ -1,0 +1,48 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project 5: React Real-time Collaborative Editor
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_react_realtime.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a real-time collaborative markdown editor using React and WebSockets.
+
+  The editor must include:
+  1. Split-pane layout: markdown editor (left) + live HTML preview (right)
+  2. Syntax highlighting in the editor using CodeMirror 6
+  3. Real-time collaboration: multiple users editing the same document simultaneously
+     via WebSocket (use a simple mock WebSocket server with ws package)
+  4. Presence indicators: show avatars/initials of active collaborators
+  5. Cursor position broadcasting: see other users' cursors in real time
+  6. Document list sidebar: create, rename, delete documents
+  7. Auto-save every 2 seconds to localStorage
+  8. Export document as .md file (download button)
+  9. Toolbar: bold, italic, heading, code block, link buttons insert markdown syntax
+  10. React + TypeScript + Vite
+
+criteria: |
+  - Markdown renders to HTML in real time as user types
+  - Two browser tabs editing the same document stay in sync via WebSocket
+  - Presence indicators show/hide as users connect/disconnect
+  - Toolbar buttons insert correct markdown syntax at cursor position
+  - Auto-save works (content survives page refresh from localStorage)
+  - Export downloads a valid .md file
+  - npm run build completes without TypeScript errors
+  - Unit tests for markdown parsing utility and auto-save logic
+
+budget_usd: 3.5
+time_seconds: 3600
+concurrency: 3
+project_id: "frontend-react-realtime-v1"
+output_dir: "./outputs/frontend_react_realtime"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.88
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

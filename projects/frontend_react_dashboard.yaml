@@ -1,0 +1,45 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project 1: React Admin Dashboard
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_react_dashboard.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a React admin dashboard with TypeScript, Tailwind CSS, and Recharts.
+
+  The dashboard must include:
+  1. Sidebar navigation with collapsible menu and active route highlighting
+  2. Overview page: KPI cards (revenue, users, orders, conversion rate)
+  3. Analytics page: line chart (revenue over time), bar chart (sales by category),
+     pie chart (traffic sources) — all using Recharts with mock data
+  4. Users table: sortable columns, search, pagination, row selection
+  5. Dark/light mode toggle persisted to localStorage
+  6. Responsive layout (mobile sidebar becomes bottom nav)
+  7. React Router v6 for routing
+  8. Zustand for global state (theme, sidebar open/closed)
+
+criteria: |
+  - All pages render without console errors
+  - Charts display correctly with mock data
+  - Dark/light mode toggle works and persists on page reload
+  - Users table search filters results correctly
+  - Responsive layout works at 375px (mobile) and 1440px (desktop)
+  - Unit tests for KPI cards and table filtering logic
+  - npm run build completes without errors
+
+budget_usd: 3.0
+time_seconds: 3600
+concurrency: 3
+project_id: "frontend-react-dashboard-v1"
+output_dir: "./outputs/frontend_react_dashboard"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.88
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

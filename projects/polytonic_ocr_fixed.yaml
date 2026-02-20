@@ -1,0 +1,52 @@
+# ──────────────────────────────────────────────────────
+# Polytonic Greek OCR — Simplified for Orchestrator
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/polytonic_ocr_fixed.yaml
+# ──────────────────────────────────────────────────────
+
+# ── Βασικά ──────────────────────────────────────────
+project: |
+  Build a production-ready OCR system for polytonic Greek text using pure Python + ONNX.
+  
+  Core Components:
+  1. ONNX Inference Engine (PyTorch TrOCR → ONNX export, GPU/FP16, batch processing, INT8 quantization)
+  2. Image Preprocessing (deskew, Sauvola binarization, morphological ops, 384×384 resize, NCHW format)
+  3. Unicode Validation (NFD/NFC normalization, Greek diacritic reordering, accent/breathing validation)
+  4. Ensemble Fallback (ONNX primary, Tesseract secondary, Levenshtein merging at confidence < 0.85)
+  5. FastAPI Service (POST /ocr, file upload validation, Pydantic models, rate limiting, health checks)
+  6. Celery Queue (Redis backend, priority queues, 24h TTL, GPU fallback)
+  
+  Architecture: Hexagonal (domain/infrastructure/application/api), functional core, atomic operations.
+
+criteria: |
+  Performance: P95 ≤ 240ms/image (GPU), ≥40 images/sec (batch=8), ≤5GB GPU memory
+  Accuracy: CER ≤ 2.5%, WER ≤ 5.0%, diacritic accuracy ≥ 98.5%
+  Code: mypy --strict, Pydantic models, ≥85% pytest coverage, integration tests
+  Production: Docker + NVIDIA runtime, Prometheus metrics, JSON logging, graceful shutdown
+  Security: OWASP Top 10, SHA256 model verification, input sanitization, GDPR compliance
+
+# ── Budget & Time ─────────────────────────────────────
+budget_usd: 15.0         # Increased buffer
+time_seconds: 9000       # 2.5 hours
+
+# ── Configuration ─────────────────────────────────────
+concurrency: 4
+verbose: true
+project_id: "polytonic-ocr-v2"
+output_dir: "./results/polytonic-ocr-v2"
+
+# ── Quality Targets ───────────────────────────────────
+quality_targets:
+  code_generation:   0.88   # Slightly lower to avoid over-specification
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+# ── Policies ──────────────────────────────────────────
+policies:
+  - name: no_training
+    allow_training_on_output: false
+  
+  - name: performance_sla
+    max_latency_ms: 8000    # Increased tolerance for complex tasks
