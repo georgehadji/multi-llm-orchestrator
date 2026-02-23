@@ -84,6 +84,8 @@ __all__ = [
     "AdaptiveRouter", "ModelState",
     "ProfileAggregator", "RunRecord",
     "RemediationEngine", "RemediationStrategy", "RemediationPlan",
+    # Observability — OTEL tracing
+    "TracingConfig", "configure_tracing", "get_tracer",
 ]
 
 # ── Six Improvements: new modules ──────────────────────────────────────────
@@ -104,3 +106,6 @@ from .semantic_cache import SemanticCache, DuplicationDetector
 from .adaptive_router import AdaptiveRouter, ModelState
 from .aggregator import ProfileAggregator, RunRecord
 from .remediation import RemediationEngine, RemediationStrategy, RemediationPlan
+
+# ── Observability — OTEL tracing ───────────────────────────────────────────
+from .tracing import TracingConfig, configure_tracing, get_tracer

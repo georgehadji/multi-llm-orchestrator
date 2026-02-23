@@ -157,3 +157,33 @@ def test_unified_client_emits_llm_span(span_exporter):
     assert llm_spans[0].attributes["llm.model"] == Model.GPT_4O_MINI.value
     assert llm_spans[0].attributes.get("llm.tokens_in") == 10
     assert llm_spans[0].attributes.get("llm.tokens_out") == 20
+
+
+def test_full_span_tree_shape(span_exporter):
+    """Smoke test: traced_task nests traced_llm_call, traced_policy_check, traced_remediation."""
+    exporter, provider = span_exporter
+    import orchestrator.tracing as t
+    t._provider = provider
+    t._tracer = provider.get_tracer("test")
+
+    with traced_task("smoke", "CODE"):
+        with traced_llm_call("claude-opus", "generate"):
+            pass
+        with traced_policy_check(2):
+            pass
+        with traced_remediation("auto_retry", "low_score"):
+            pass
+
+    spans = exporter.get_finished_spans()
+    names = {s.name for s in spans}
+    assert names == {
+        "task:smoke",
+        "llm_call:generate",
+        "policy_check",
+        "remediation",
+    }
+    # All children should have task:smoke as parent
+    task_span = next(s for s in spans if s.name == "task:smoke")
+    for s in spans:
+        if s.name != "task:smoke":
+            assert s.parent.span_id == task_span.context.span_id
