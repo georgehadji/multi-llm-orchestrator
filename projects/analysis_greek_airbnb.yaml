@@ -1,0 +1,74 @@
+# ──────────────────────────────────────────────────────
+# Data Analysis 2: Greek Airbnb / Booking.com Analysis
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/analysis_greek_airbnb.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a full data analysis and interactive dashboard for Greek short-term rental market
+  (Airbnb / Booking.com) covering Athens, Thessaloniki, and Greek islands.
+
+  The project must:
+  1. DATA LOADING & CLEANING
+     - Load Inside Airbnb datasets for Athens, Thessaloniki, Crete, Mykonos, Santorini
+       (http://insideairbnb.com/get-the-data/ — listings.csv, reviews.csv, calendar.csv)
+     - Clean price columns (remove $, commas), parse dates, handle missing values
+     - Derive columns: price_per_m2 (estimate), occupancy_rate from calendar, revenue_estimate
+
+  2. PRICE ANALYSIS
+     - Average price per neighbourhood for each city (choropleth + bar chart)
+     - Price distribution per property type (violin plot)
+     - Price vs number of reviews scatter plot
+     - Price vs distance from city center (compute with geopy)
+     - Top 10 most expensive and best value-for-money neighbourhoods
+
+  3. SEASONAL ANALYSIS
+     - Monthly average price per city (line chart — seasonality pattern)
+     - Occupancy rate by month (heatmap: city × month)
+     - Summer vs winter price premium per island
+
+  4. REVIEW & RATING ANALYSIS
+     - Review score distribution per city
+     - Sentiment analysis of review comments using TextBlob (Greek + English)
+     - Correlation: review_scores_rating vs price vs occupancy
+
+  5. HOST ANALYSIS
+     - Superhost vs regular host: price, occupancy, rating comparison
+     - Multi-listing hosts (potential professional operators) — share per city
+
+  6. INTERACTIVE MAP DASHBOARD
+     - Folium map with colour-coded markers by price quartile
+     - Plotly Dash dashboard with:
+       * City selector dropdown
+       * Price range slider
+       * Map tab (folium embedded)
+       * Charts tab: seasonality, neighbourhood prices, review scores
+       * Data table tab with search/filter
+
+  Use: pandas, numpy, plotly, dash, folium, geopy, textblob, seaborn
+
+criteria: |
+  - All city datasets load and merge without errors
+  - Folium map renders with correct colour-coded listings
+  - Seasonal price pattern clearly visible in monthly line chart
+  - Dashboard runs with: python dashboard.py (localhost:8050)
+  - Neighbourhood price ranking produced for all 5 cities
+  - README with data sources, key findings (e.g. "Mykonos avg price: €X/night in August")
+  - All code passes ruff linting
+
+budget_usd: 3.5
+time_seconds: 4800
+concurrency: 3
+project_id: "analysis-greek-airbnb-v1"
+output_dir: "./outputs/analysis_greek_airbnb"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

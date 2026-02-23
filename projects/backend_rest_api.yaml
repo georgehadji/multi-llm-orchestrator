@@ -1,0 +1,42 @@
+# ──────────────────────────────────────────────────────
+# Backend Project 1: REST API με FastAPI + JWT Auth
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/backend_rest_api.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a production-ready REST API with FastAPI and JWT authentication.
+
+  The API must implement:
+  1. User registration and login endpoints with password hashing (bcrypt)
+  2. JWT access tokens (15min) and refresh tokens (7 days)
+  3. Protected routes using FastAPI dependencies
+  4. CRUD endpoints for a "tasks" resource (create, read, update, delete)
+  5. SQLite database with SQLAlchemy ORM and Alembic migrations
+  6. Request/response validation with Pydantic v2 models
+  7. Global error handling and structured JSON error responses
+
+criteria: |
+  - All endpoints return correct HTTP status codes
+  - JWT authentication works correctly (login, refresh, logout)
+  - CRUD operations persist data to SQLite
+  - Pydantic validation rejects invalid input with 422 responses
+  - Unit tests cover auth flow and all CRUD endpoints
+  - API docs available at /docs (Swagger UI)
+
+budget_usd: 3.0
+time_seconds: 3600
+concurrency: 3
+project_id: "backend-rest-api-v1"
+output_dir: "./outputs/backend_rest_api"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

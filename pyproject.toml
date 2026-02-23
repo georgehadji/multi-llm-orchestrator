@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "multi-llm-orchestrator"
-version = "1.0.0"
+version = "1.1.0"
 description = "Local multi-LLM orchestrator for autonomous project completion"
 requires-python = ">=3.10"
 dependencies = [
@@ -20,9 +20,18 @@ dev = [
     "ruff>=0.5",
     "jsonschema>=4.0",
 ]
+tracing = [
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20",
+]
 
 [project.scripts]
 orchestrator = "orchestrator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["orchestrator*"]
 
 [tool.ruff]
 line-length = 100

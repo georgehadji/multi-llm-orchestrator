@@ -1,0 +1,44 @@
+# ──────────────────────────────────────────────────────
+# Backend Project 4: GraphQL API με Strawberry + FastAPI
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/backend_graphql_api.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a GraphQL API for a blog platform using Strawberry and FastAPI.
+
+  The API must implement:
+  1. GraphQL schema with types: User, Post, Comment, Tag
+  2. Queries: posts(limit, offset, tag), post(id), user(id), me
+  3. Mutations: createPost, updatePost, deletePost, addComment, register, login
+  4. Subscriptions: onNewComment(postId) via WebSocket
+  5. DataLoader pattern to solve N+1 query problem
+  6. JWT authentication via HTTP Authorization header
+  7. SQLAlchemy ORM with PostgreSQL-compatible SQLite backend
+  8. Pagination with cursor-based and offset-based support
+
+criteria: |
+  - All queries and mutations return correct data shapes
+  - N+1 problem is eliminated via DataLoader (verified by query count tests)
+  - Subscriptions deliver real-time comment events
+  - Authentication protects mutations (createPost, deletePost require login)
+  - Pagination works correctly for posts list
+  - Unit tests cover all resolvers
+  - GraphQL playground available at /graphql
+
+budget_usd: 3.5
+time_seconds: 3600
+concurrency: 3
+project_id: "backend-graphql-api-v1"
+output_dir: "./outputs/backend_graphql_api"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

@@ -1,0 +1,69 @@
+# ──────────────────────────────────────────────────────
+# Full project file — όλες οι διαθέσιμες επιλογές
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/example_full.yaml
+# ──────────────────────────────────────────────────────
+
+# ── Βασικά (υποχρεωτικά) ──────────────────────────────
+project: |
+  Build a production-ready rate limiter library in Python.
+
+  The library must implement:
+  1. Token Bucket algorithm — configurable rate and burst capacity
+  2. Sliding Window Log algorithm — exact rate limiting
+  3. A unified RateLimiter interface for both algorithms
+  4. Thread-safe implementation using asyncio locks
+
+criteria: |
+  - Both algorithms correctly enforce the specified rate limit
+  - AsyncIO-compatible (async def allow() method)
+  - Unit tests with ≥80% coverage
+  - README with usage examples
+  - Type hints throughout, passes mypy --strict
+
+# ── Budget & χρόνος ───────────────────────────────────
+budget_usd: 5.0          # max δολάρια (default: 8.0)
+time_seconds: 3600       # max δευτερόλεπτα (default: 5400)
+
+# ── Logging & παράλληλες κλήσεις ─────────────────────
+concurrency: 3           # παράλληλα API calls (default: 3)
+verbose: false           # true = debug logging
+
+# ── Σταθερό ID (για resume) ───────────────────────────
+# Αν το αφήσεις κενό, δημιουργείται αυτόματα.
+# Ορίζοντάς το μπορείς να κάνεις resume αν διακοπεί.
+project_id: "rate-limiter-v1"
+
+# ── Output directory (προαιρετικό) ────────────────────
+# Αν οριστεί, τα αποτελέσματα γράφονται σε αρχεία:
+#   .py  για code_generation tasks
+#   .md  για code_review / reasoning / writing / evaluation
+#   .json για data_extraction (fallback .md αν δεν είναι JSON)
+# + summary.json και README.md
+# output_dir: "./results/rate-limiter-v1"
+
+# ── Quality targets (ανά task type) ──────────────────
+# Τιμές 0.0–1.0. Default είναι τα DEFAULT_THRESHOLDS του κώδικα.
+quality_targets:
+  code_generation:  0.90
+  code_review:      0.88
+  complex_reasoning: 0.92
+  evaluation:       0.95
+
+# ── Policies (compliance rules) ───────────────────────
+policies:
+  - name: no_training
+    allow_training_on_output: false   # GDPR: μην χρησιμοποιείς το output για training
+
+  # Uncomment για EU-only:
+  # - name: eu_only
+  #   allowed_regions: [eu]
+
+  # Uncomment για να αποκλείσεις providers:
+  # - name: no_kimi
+  #   blocked_providers: [kimi]
+
+  # Uncomment για latency SLA:
+  # - name: fast_sla
+  #   max_latency_ms: 8000

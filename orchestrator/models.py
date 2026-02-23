@@ -1,10 +1,8 @@
 """
 Multi-LLM Orchestrator — Core Models & Types
 =============================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 All data structures, enums, routing tables, cost tables, budget logic.
-
-Counterfactual: If using plain dicts instead of typed structures →
-vulnerability Ψ: typo in model/task names causes silent routing failures.
 """
 
 from __future__ import annotations
@@ -32,13 +30,15 @@ class TaskType(str, Enum):
 
 class Model(str, Enum):
     CLAUDE_OPUS = "claude-opus-4-6"
-    CLAUDE_SONNET = "claude-sonnet-4-5-20250929"
+    CLAUDE_SONNET = "claude-sonnet-4-6"
     CLAUDE_HAIKU = "claude-haiku-4-5-20251001"
     GPT_4O = "gpt-4o"
     GPT_4O_MINI = "gpt-4o-mini"
     GEMINI_PRO = "gemini-2.5-pro"
     GEMINI_FLASH = "gemini-2.5-flash"
     KIMI_K2_5 = "kimi-k2.5"
+    DEEPSEEK_CHAT = "deepseek-chat"        # DeepSeek-V3 — fast, cheap, strong reasoning
+    DEEPSEEK_REASONER = "deepseek-reasoner"  # DeepSeek-R1 — o1-class reasoning model
 
 
 class ProjectStatus(str, Enum):
@@ -69,8 +69,10 @@ def get_provider(model: Model) -> str:
         return "openai"
     elif val.startswith("gemini"):
         return "google"
-    elif val.startswith("kimi"):
+    elif val.startswith("moonshot") or val.startswith("kimi"):
         return "kimi"
+    elif val.startswith("deepseek"):
+        return "deepseek"
     return "unknown"
 
 
@@ -79,14 +81,18 @@ def get_provider(model: Model) -> str:
 # ─────────────────────────────────────────────
 
 COST_TABLE: dict[Model, dict[str, float]] = {
-    Model.CLAUDE_OPUS:   {"input": 15.0,  "output": 75.0},
-    Model.CLAUDE_SONNET: {"input": 3.0,   "output": 15.0},
-    Model.CLAUDE_HAIKU:  {"input": 0.80,  "output": 4.0},
-    Model.GPT_4O:        {"input": 2.50,  "output": 10.0},
-    Model.GPT_4O_MINI:   {"input": 0.15,  "output": 0.60},
-    Model.GEMINI_PRO:    {"input": 1.25,  "output": 10.0},
-    Model.GEMINI_FLASH:  {"input": 0.15,  "output": 0.60},
-    Model.KIMI_K2_5:     {"input": 2.00,  "output": 8.00},
+    Model.CLAUDE_OPUS:        {"input": 15.0,  "output": 75.0},
+    Model.CLAUDE_SONNET:      {"input": 3.0,   "output": 15.0},
+    Model.CLAUDE_HAIKU:       {"input": 0.80,  "output": 4.0},
+    Model.GPT_4O:             {"input": 2.50,  "output": 10.0},
+    Model.GPT_4O_MINI:        {"input": 0.15,  "output": 0.60},
+    Model.GEMINI_PRO:         {"input": 1.25,  "output": 10.0},
+    Model.GEMINI_FLASH:       {"input": 0.15,  "output": 0.60},
+    # Kimi K2.5: moonshot.cn pricing (per 1M tokens)
+    Model.KIMI_K2_5:          {"input": 0.14,  "output": 0.56},
+    # DeepSeek: platform.deepseek.com pricing (per 1M tokens, cache-miss rates)
+    Model.DEEPSEEK_CHAT:      {"input": 0.27,  "output": 1.10},  # DeepSeek-V3
+    Model.DEEPSEEK_REASONER:  {"input": 0.55,  "output": 2.19},  # DeepSeek-R1
 }
 
 
@@ -95,13 +101,16 @@ COST_TABLE: dict[Model, dict[str, float]] = {
 # ─────────────────────────────────────────────
 
 ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    TaskType.CODE_GEN:     [Model.CLAUDE_SONNET, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
-    TaskType.CODE_REVIEW:  [Model.GPT_4O, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GEMINI_PRO],
-    TaskType.REASONING:    [Model.CLAUDE_OPUS, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
-    TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.GPT_4O, Model.GEMINI_PRO],
-    TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.CLAUDE_HAIKU],
-    TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
-    TaskType.EVALUATE:     [Model.CLAUDE_OPUS, Model.KIMI_K2_5, Model.GPT_4O, Model.GEMINI_PRO],
+    # DeepSeek-V3 (deepseek-chat) is extremely cost-effective ($0.27/$1.10 per 1M)
+    # and strong on code/reasoning. DeepSeek-R1 (deepseek-reasoner) is o1-class.
+    # Kimi K2.5 is cheapest overall but slow; used as fallback for code tasks.
+    TaskType.CODE_GEN:     [Model.DEEPSEEK_CHAT, Model.KIMI_K2_5, Model.CLAUDE_SONNET, Model.GPT_4O],
+    TaskType.CODE_REVIEW:  [Model.DEEPSEEK_CHAT, Model.KIMI_K2_5, Model.GPT_4O, Model.CLAUDE_OPUS],
+    TaskType.REASONING:    [Model.DEEPSEEK_REASONER, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O],
+    TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.GPT_4O, Model.DEEPSEEK_CHAT, Model.GEMINI_PRO],
+    TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.DEEPSEEK_CHAT, Model.CLAUDE_HAIKU],
+    TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.DEEPSEEK_CHAT, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
+    TaskType.EVALUATE:     [Model.DEEPSEEK_CHAT, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O],
 }
 
 
@@ -110,14 +119,16 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
 # ─────────────────────────────────────────────
 
 FALLBACK_CHAIN: dict[Model, Model] = {
-    Model.CLAUDE_OPUS:   Model.GPT_4O,
-    Model.CLAUDE_SONNET: Model.GPT_4O,
-    Model.CLAUDE_HAIKU:  Model.GPT_4O_MINI,
-    Model.GPT_4O:        Model.CLAUDE_OPUS,
-    Model.GPT_4O_MINI:   Model.GEMINI_FLASH,
-    Model.GEMINI_PRO:    Model.CLAUDE_OPUS,
-    Model.GEMINI_FLASH:  Model.GPT_4O_MINI,
-    Model.KIMI_K2_5:     Model.GPT_4O,
+    Model.CLAUDE_OPUS:        Model.DEEPSEEK_REASONER,  # Opus → DeepSeek-R1 (same tier)
+    Model.CLAUDE_SONNET:      Model.DEEPSEEK_CHAT,      # Sonnet → DeepSeek-V3 (cross-provider)
+    Model.CLAUDE_HAIKU:       Model.GPT_4O_MINI,        # light tasks: stay in cheap tier
+    Model.GPT_4O:             Model.DEEPSEEK_CHAT,      # GPT-4o → DeepSeek-V3 (cross-provider)
+    Model.GPT_4O_MINI:        Model.GEMINI_FLASH,       # mini tasks: Gemini Flash as budget option
+    Model.GEMINI_PRO:         Model.DEEPSEEK_CHAT,      # Gemini Pro → DeepSeek-V3
+    Model.GEMINI_FLASH:       Model.GPT_4O_MINI,        # flash tasks: GPT-4o-mini as fallback
+    Model.KIMI_K2_5:          Model.DEEPSEEK_CHAT,      # Kimi → DeepSeek-V3
+    Model.DEEPSEEK_CHAT:      Model.CLAUDE_SONNET,      # DeepSeek-V3 → Sonnet (cross-provider)
+    Model.DEEPSEEK_REASONER:  Model.CLAUDE_OPUS,        # DeepSeek-R1 → Opus (cross-provider)
 }
 
 
@@ -129,26 +140,37 @@ DEFAULT_THRESHOLDS: dict[TaskType, float] = {
     TaskType.DATA_EXTRACT: 0.90,
     TaskType.SUMMARIZE:    0.80,
     TaskType.CODE_GEN:     0.85,
-    TaskType.CODE_REVIEW:  0.85,
+    # CODE_REVIEW: lowered from 0.85 — review quality depends on how much
+    # source context the LLM received, which is often partial due to truncation.
+    # 0.75 is a realistic target; scores above this reflect genuine analysis.
+    TaskType.CODE_REVIEW:  0.75,
     TaskType.REASONING:    0.90,
     TaskType.WRITING:      0.80,
-    TaskType.EVALUATE:     0.95,
+    # EVALUATE: lowered from 0.95 — evaluation outputs are open-ended prose;
+    # scoring ≥ 0.95 requires near-perfect structured responses which LLMs
+    # rarely produce without a domain-specific rubric.
+    TaskType.EVALUATE:     0.80,
 }
 
 MAX_OUTPUT_TOKENS: dict[TaskType, int] = {
-    TaskType.CODE_GEN:     1500,
-    TaskType.CODE_REVIEW:  1200,
-    TaskType.REASONING:    1200,
-    TaskType.WRITING:      1000,
-    TaskType.DATA_EXTRACT: 800,
-    TaskType.SUMMARIZE:    400,
-    TaskType.EVALUATE:     600,
+    TaskType.CODE_GEN:     8192,  # raised: avoid unterminated strings mid-class
+    TaskType.CODE_REVIEW:  4096,  # raised: full analysis without truncation
+    TaskType.REASONING:    4096,
+    TaskType.WRITING:      4096,
+    TaskType.DATA_EXTRACT: 2048,
+    TaskType.SUMMARIZE:    1024,
+    TaskType.EVALUATE:     2048,  # raised: evaluation tasks need more room
 }
 
 
 def get_max_iterations(task_type: TaskType) -> int:
-    if task_type in (TaskType.REASONING, TaskType.CODE_GEN, TaskType.CODE_REVIEW):
-        return 3  # heavy
+    if task_type == TaskType.CODE_GEN:
+        return 3  # heavy — needs generate + critique + revise
+    if task_type == TaskType.CODE_REVIEW:
+        return 4  # extra iteration: reviews depend on context quality and
+                  # often need a full second pass after critique improves framing
+    if task_type == TaskType.REASONING:
+        return 3
     return 2  # light
 
 
@@ -181,6 +203,9 @@ class Task:
     max_output_tokens: int = 1500
     status: TaskStatus = TaskStatus.PENDING
     hard_validators: list[str] = field(default_factory=list)
+    # App Builder fields (Improvement 8)
+    target_path: str = ""     # e.g. "src/routes/auth.py"
+    module_name: str = ""     # e.g. "src.routes.auth"
 
     def __post_init__(self):
         self.acceptance_threshold = DEFAULT_THRESHOLDS.get(
@@ -278,6 +303,35 @@ class ProjectState:
 
 
 # ─────────────────────────────────────────────
+# JobSpec — App Builder job specification
+# ─────────────────────────────────────────────
+
+@dataclass
+class JobSpec:
+    """
+    App Builder job specification.
+
+    A lightweight spec for the App Builder pipeline, separate from the
+    policy-oriented JobSpec in policy.py.
+
+    Fields
+    ------
+    description      : Human-readable description of the app to build.
+    success_criteria : Acceptance criteria for the build.
+    app_type         : Optional override for the app type (e.g. "fastapi",
+                       "cli", "library").  Empty string means auto-detect.
+    docker           : Whether to run Docker-based verification.
+    output_dir       : Where to write the generated app.  Empty string means
+                       auto-generate a temp directory.
+    """
+    description: str
+    success_criteria: str
+    app_type: str = ""
+    docker: bool = False
+    output_dir: str = ""
+
+
+# ─────────────────────────────────────────────
 # Utilities
 # ─────────────────────────────────────────────
 
@@ -290,3 +344,38 @@ def prompt_hash(model: str, prompt: str, max_tokens: int,
 def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
     costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
+
+
+def build_default_profiles() -> "dict[Model, ModelProfile]":
+    """
+    Build a ModelProfile for every Model enum value using the static
+    COST_TABLE and ROUTING_TABLE as the source of truth.
+
+    Called once at Orchestrator construction time. Telemetry fields
+    (quality_score, trust_factor, avg_latency_ms, …) start at their
+    defaults and are updated at runtime by TelemetryCollector.
+
+    Lazy-imports ModelProfile from policy to avoid a circular import
+    (policy.py → models.py, models.py → policy.py would be circular).
+    """
+    # Lazy import to avoid circular dependency: policy.py imports models.py
+    from .policy import ModelProfile  # noqa: PLC0415
+
+    # Build capability map: {TaskType → priority_rank} for each model
+    # Priority rank = index in ROUTING_TABLE list (0 = highest priority)
+    capability_map: dict[Model, dict[TaskType, int]] = {m: {} for m in Model}
+    for task_type, model_list in ROUTING_TABLE.items():
+        for rank, model in enumerate(model_list):
+            capability_map[model][task_type] = rank
+
+    profiles: dict[Model, ModelProfile] = {}
+    for model in Model:
+        costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
+        profiles[model] = ModelProfile(
+            model=model,
+            provider=get_provider(model),
+            cost_per_1m_input=costs["input"],
+            cost_per_1m_output=costs["output"],
+            capable_task_types=capability_map.get(model, {}),
+        )
+    return profiles
