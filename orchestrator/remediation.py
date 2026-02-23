@@ -16,6 +16,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional
 from .models import TaskResult, TaskStatus
+from .tracing import traced_remediation
 
 
 class RemediationStrategy(str, Enum):
@@ -92,3 +93,27 @@ class RemediationEngine:
 
     def plan_from_list(self, strategies: list[str]) -> RemediationPlan:
         return RemediationPlan([RemediationStrategy(s) for s in strategies])
+
+    def apply_strategy(
+        self,
+        plan: RemediationPlan,
+        trigger_reason: str,
+    ) -> Optional[RemediationStrategy]:
+        """
+        Consume the next strategy from *plan*, emit a traced_remediation span,
+        advance the plan, and return the strategy that was applied (or None if
+        the plan is exhausted).
+
+        The caller is responsible for the actual execution logic; this method
+        provides the instrumentation wrapper and plan advancement.
+        """
+        strategy = plan.next_strategy()
+        if strategy is None:
+            return None
+
+        with traced_remediation(strategy.value, trigger_reason) as span:
+            plan.advance()
+            success = not plan.exhausted() or strategy != RemediationStrategy.ABORT_TASK
+            span.set_attribute("remediation.success", success)
+
+        return strategy
