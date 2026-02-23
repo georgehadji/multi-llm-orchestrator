@@ -30,6 +30,7 @@ from .engine import Orchestrator
 from .state import StateManager
 from .project_file import load_project_file
 from .output_writer import write_output_dir
+from .assembler import assemble_project
 from .progress import ProgressRenderer
 from .streaming import ProjectCompleted as _ProjectCompleted
 from .visualization import DagRenderer
@@ -314,6 +315,29 @@ async def _async_file_project(args):
     output_dir = args.output_dir or result.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
     print(f"\nOutput written to: {path}")
+
+    # Assembly: place files into declared target_path locations
+    if state and (result.assemble or result.task_paths):
+        resolved_paths = _resolve_task_paths(result.task_paths, state)
+        assembly_dir = str(Path(output_dir) / "app")
+        assembly = assemble_project(
+            state,
+            assembly_dir,
+            task_paths=resolved_paths,
+            verify_cmd=result.verify_cmd,
+        )
+        print(f"\nAssembled project: {assembly.output_dir}")
+        for f in assembly.files_written:
+            print(f"  + {f}")
+        if assembly.verify_returncode is not None:
+            status = "OK" if assembly.verify_returncode == 0 else "FAILED"
+            print(f"\nVerification [{status}] (exit {assembly.verify_returncode})")
+            if assembly.verify_output:
+                print(assembly.verify_output[:500])
+        if assembly.errors:
+            for err in assembly.errors:
+                print(f"  ! {err}", file=sys.stderr)
+
     if getattr(args, "dependency_report", False) and state:
         renderer = DagRenderer(state.tasks, results=state.results)
         print("\n" + renderer.dependency_report())
@@ -378,6 +402,35 @@ async def _async_visualize(args):
     if args.critical_path:
         path = renderer.critical_path()
         print("Critical path: " + " -> ".join(path) if path else "Critical path: (empty)")
+
+
+def _resolve_task_paths(
+    task_paths: dict[str, str],
+    state,
+) -> dict[str, str]:
+    """
+    Resolve a ``task_paths`` dict from the YAML file into a
+    ``{task_id: target_path}`` mapping.
+
+    Keys may be:
+    - 1-based integer index ("1", "2", …) → resolved against execution_order
+    - Exact task_id string ("task_001", …) → used as-is
+    """
+    if not task_paths:
+        return {}
+    order = state.execution_order or list(state.results.keys())
+    resolved: dict[str, str] = {}
+    for key, target in task_paths.items():
+        # Try numeric index first
+        try:
+            idx = int(key) - 1  # convert 1-based to 0-based
+            if 0 <= idx < len(order):
+                resolved[order[idx]] = target
+            else:
+                resolved[key] = target  # keep as-is, assembler will skip if unknown
+        except ValueError:
+            resolved[key] = target  # already a task_id string
+    return resolved
 
 
 def main():

@@ -84,6 +84,8 @@ __all__ = [
     "AdaptiveRouter", "ModelState",
     "ProfileAggregator", "RunRecord",
     "RemediationEngine", "RemediationStrategy", "RemediationPlan",
+    # App Assembler
+    "ProjectAssembler", "AssemblyResult", "assemble_project",
 ]
 
 # ── Six Improvements: new modules ──────────────────────────────────────────
@@ -104,3 +106,4 @@ from .semantic_cache import SemanticCache, DuplicationDetector
 from .adaptive_router import AdaptiveRouter, ModelState
 from .aggregator import ProfileAggregator, RunRecord
 from .remediation import RemediationEngine, RemediationStrategy, RemediationPlan
+from .assembler import ProjectAssembler, AssemblyResult, assemble_project

@@ -15,6 +15,8 @@ Schema reference (all fields except `project` and `criteria` are optional):
     verbose: false                          # default false
     project_id: "my-project-v1"            # default: auto-generated
     output_dir: "./results"                # optional: write output files here
+    assemble: true                          # optional: assemble into real project tree
+    verify_cmd: "pytest"                    # optional: run after assembly (e.g. npm run build)
     quality_targets:
       code_generation: 0.90
       code_review:     0.88
@@ -33,6 +35,14 @@ Schema reference (all fields except `project` and `criteria` are optional):
         max_latency_ms: 8000
       - name: pii_safe
         pii_allowed: false
+    # Optional: per-task target paths for project assembly
+    # The orchestrator auto-decomposes the project; these entries map
+    # a task index (1-based) or task id to a target file path.
+    task_paths:
+      1: src/main.py
+      2: src/models.py
+      3: tests/test_main.py
+      4: README.md
 """
 from __future__ import annotations
 
@@ -56,7 +66,14 @@ class ProjectFileResult:
     concurrency: int
     verbose: bool
     project_id: str
-    output_dir: Optional[str] = None   # write output files here (optional)
+    output_dir: Optional[str] = None      # write output files here (optional)
+    assemble: bool = False                 # assemble into real project tree
+    verify_cmd: str = ""                   # shell command to run after assembly
+    task_paths: dict[str, str] = None     # {task_id/index -> target_path}
+
+    def __post_init__(self):
+        if self.task_paths is None:
+            self.task_paths = {}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -109,6 +126,17 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
     project_id = str(raw.get("project_id", "")).strip()
     output_dir_raw = raw.get("output_dir", None)
     output_dir: Optional[str] = str(output_dir_raw).strip() if output_dir_raw else None
+    assemble: bool = bool(raw.get("assemble", False))
+    verify_cmd: str = str(raw.get("verify_cmd", "")).strip()
+
+    # ── Per-task target paths (for assembly) ──────────────────────────────────
+    # Accepts either:
+    #   task_paths:
+    #     1: src/main.py          # 1-based index
+    #     task_003: tests/test.py # exact task_id
+    task_paths: dict[str, str] = {}
+    for key, val in (raw.get("task_paths") or {}).items():
+        task_paths[str(key)] = str(val).strip()
 
     # ── Quality targets ───────────────────────────────────────────────────────
     quality_targets: dict[TaskType, float] = {}
@@ -144,6 +172,9 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
         verbose=verbose,
         project_id=project_id,
         output_dir=output_dir,
+        assemble=assemble,
+        verify_cmd=verify_cmd,
+        task_paths=task_paths,
     )
 
 
