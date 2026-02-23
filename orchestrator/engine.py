@@ -49,6 +49,7 @@ from .hooks import HookRegistry, EventType
 from .metrics import MetricsExporter
 from .agents import TaskChannel
 from .cost import BudgetHierarchy, CostPredictor
+from .tracing import traced_task, get_tracer
 
 logger = logging.getLogger("orchestrator")
 
@@ -185,81 +186,84 @@ class Orchestrator:
                           success_criteria: str,
                           project_id: str = "") -> ProjectState:
         """Main entry point. Decomposes project → executes tasks → returns state."""
-        if not project_id:
-            project_id = hashlib.md5(
-                f"{project_description[:100]}{time.time()}".encode()
-            ).hexdigest()[:12]
-        self._project_id = project_id
+        tracer = get_tracer()
+        with tracer.start_as_current_span("run_project") as span:
+            span.set_attribute("project.description", project_description[:200])
+            if not project_id:
+                project_id = hashlib.md5(
+                    f"{project_description[:100]}{time.time()}".encode()
+                ).hexdigest()[:12]
+            self._project_id = project_id
 
-        logger.info(f"Starting project {project_id}")
-        logger.info(f"Budget: ${self.budget.max_usd}, {self.budget.max_time_seconds}s")
+            logger.info(f"Starting project {project_id}")
+            logger.info(f"Budget: ${self.budget.max_usd}, {self.budget.max_time_seconds}s")
 
-        try:
-            # Check if resumable
-            existing = await self.state_mgr.load_project(project_id)
-            if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
-                logger.info(f"Resuming project {project_id} from checkpoint")
-                state = await self._resume_project(existing)
-                await self.state_mgr.save_project(project_id, state)
-                self._log_summary(state)
-                return state
+            try:
+                # Check if resumable
+                existing = await self.state_mgr.load_project(project_id)
+                if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
+                    logger.info(f"Resuming project {project_id} from checkpoint")
+                    state = await self._resume_project(existing)
+                    await self.state_mgr.save_project(project_id, state)
+                    self._log_summary(state)
+                    return state
 
-            # Phase 1: Decompose
-            tasks = await self._decompose(project_description, success_criteria)
-            if not tasks:
-                return self._make_state(
-                    project_description, success_criteria, {},
-                    ProjectStatus.SYSTEM_FAILURE
+                # Phase 1: Decompose
+                tasks = await self._decompose(project_description, success_criteria)
+                if not tasks:
+                    return self._make_state(
+                        project_description, success_criteria, {},
+                        ProjectStatus.SYSTEM_FAILURE
+                    )
+
+                # Topological sort
+                execution_order = self._topological_sort(tasks)
+                logger.info(f"Execution order: {execution_order}")
+
+                # Emit ProjectStarted streaming event
+                if self._event_bus:
+                    from .streaming import ProjectStarted
+                    await self._event_bus.publish(ProjectStarted(
+                        project_id=self._project_id,
+                        total_tasks=len(tasks),
+                        budget_usd=self.budget.max_usd,
+                    ))
+
+                # Phase 2-5: Execute
+                state = await self._execute_all(
+                    tasks, execution_order, project_description, success_criteria
                 )
 
-            # Topological sort
-            execution_order = self._topological_sort(tasks)
-            logger.info(f"Execution order: {execution_order}")
+                # Final status determination
+                state.execution_order = execution_order
+                state.status = self._determine_final_status(state)
+                await self.state_mgr.save_project(project_id, state)
 
-            # Emit ProjectStarted streaming event
-            if self._event_bus:
-                from .streaming import ProjectStarted
-                await self._event_bus.publish(ProjectStarted(
-                    project_id=self._project_id,
-                    total_tasks=len(tasks),
-                    budget_usd=self.budget.max_usd,
-                ))
+                self._log_summary(state)
 
-            # Phase 2-5: Execute
-            state = await self._execute_all(
-                tasks, execution_order, project_description, success_criteria
-            )
+                # Emit ProjectCompleted streaming event
+                if self._event_bus:
+                    from .streaming import ProjectCompleted
+                    completed_count = sum(1 for r in self.results.values()
+                                          if r.status != TaskStatus.FAILED)
+                    failed_count = sum(1 for r in self.results.values()
+                                       if r.status == TaskStatus.FAILED)
+                    await self._event_bus.publish(ProjectCompleted(
+                        project_id=self._project_id,
+                        status=state.status.value,
+                        total_cost_usd=self.budget.spent_usd,
+                        elapsed_seconds=self.budget.elapsed_seconds,
+                        tasks_completed=completed_count,
+                        tasks_failed=failed_count,
+                    ))
 
-            # Final status determination
-            state.execution_order = execution_order
-            state.status = self._determine_final_status(state)
-            await self.state_mgr.save_project(project_id, state)
+                return state
 
-            self._log_summary(state)
-
-            # Emit ProjectCompleted streaming event
-            if self._event_bus:
-                from .streaming import ProjectCompleted
-                completed_count = sum(1 for r in self.results.values()
-                                      if r.status != TaskStatus.FAILED)
-                failed_count = sum(1 for r in self.results.values()
-                                   if r.status == TaskStatus.FAILED)
-                await self._event_bus.publish(ProjectCompleted(
-                    project_id=self._project_id,
-                    status=state.status.value,
-                    total_cost_usd=self.budget.spent_usd,
-                    elapsed_seconds=self.budget.elapsed_seconds,
-                    tasks_completed=completed_count,
-                    tasks_failed=failed_count,
-                ))
-
-            return state
-
-        finally:
-            # Always close both DB connections so aiosqlite background threads
-            # finish their callbacks before asyncio.run() closes the loop.
-            await self.state_mgr.close()
-            await self.cache.close()
+            finally:
+                # Always close both DB connections so aiosqlite background threads
+                # finish their callbacks before asyncio.run() closes the loop.
+                await self.state_mgr.close()
+                await self.cache.close()
 
     async def run_job(self, spec: JobSpec) -> ProjectState:
         """
@@ -620,349 +624,353 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         Core loop: generate → critique → revise → evaluate
         With plateau detection, deterministic validation, and mid-task budget checks.
         """
-        models = self._get_available_models(task.type)
-        if not models:
-            return TaskResult(
-                task_id=task.id, output="", score=0.0,
-                model_used=Model.GPT_4O_MINI,
-                status=TaskStatus.FAILED,
-            )
+        with traced_task(task.id, task.type.value) as span:
+            span.set_attribute("task.description", task.prompt[:200])
+            models = self._get_available_models(task.type)
+            if not models:
+                return TaskResult(
+                    task_id=task.id, output="", score=0.0,
+                    model_used=Model.GPT_4O_MINI,
+                    status=TaskStatus.FAILED,
+                )
 
-        primary = models[0]
-        reviewer = self._select_reviewer(primary, task.type)
+            primary = models[0]
+            reviewer = self._select_reviewer(primary, task.type)
 
-        # Emit TaskStarted streaming event
-        if self._event_bus:
-            from .streaming import TaskStarted
-            await self._event_bus.publish(TaskStarted(
+            # Emit TaskStarted streaming event
+            if self._event_bus:
+                from .streaming import TaskStarted
+                await self._event_bus.publish(TaskStarted(
+                    task_id=task.id,
+                    task_type=task.type.value,
+                    model=primary.value,
+                ))
+
+            # Fire MODEL_SELECTED event so hooks can observe routing decisions
+            self._hook_registry.fire(
+                EventType.MODEL_SELECTED,
                 task_id=task.id,
-                task_type=task.type.value,
                 model=primary.value,
-            ))
-
-        # Fire MODEL_SELECTED event so hooks can observe routing decisions
-        self._hook_registry.fire(
-            EventType.MODEL_SELECTED,
-            task_id=task.id,
-            model=primary.value,
-            backend=get_provider(primary),
-        )
-
-        context = self._gather_dependency_context(task.dependencies)
-        full_prompt = task.prompt
-        if context:
-            # For code_review tasks, the dependency context IS the source code
-            # being reviewed. Make this explicit so the LLM doesn't claim
-            # "source code was not provided".
-            if task.type == TaskType.CODE_REVIEW:
-                full_prompt += (
-                    f"\n\n--- SOURCE CODE TO REVIEW (from prior tasks) ---\n"
-                    f"The following is the actual generated source code you must "
-                    f"review. Do NOT claim the code was not provided.\n\n"
-                    f"{context}"
-                )
-            else:
-                full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
-
-        best_output = ""
-        best_score = 0.0
-        best_critique = ""
-        total_cost = 0.0
-        total_input_tokens = 0
-        total_output_tokens = 0
-        degraded_count = 0
-        scores_history: list[float] = []
-        det_passed = True  # default: no validators = passed
-
-        logger.info(f"Executing {task.id} ({task.type.value}): "
-                     f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}")
-
-        for iteration in range(task.max_iterations):
-            # FIX #5: Mid-task budget check — estimate minimum cost for one
-            # generate+critique+revise+evaluate cycle (~0.02 USD min)
-            if not self.budget.can_afford(0.02):
-                logger.warning(
-                    f"Budget insufficient mid-task for {task.id} "
-                    f"at iteration {iteration} "
-                    f"(remaining: ${self.budget.remaining_usd:.4f})"
-                )
-                break
-
-            if not self.budget.time_remaining():
-                logger.warning(f"Time limit reached mid-task for {task.id}")
-                break
-
-            # ── GENERATE ──
-            # Kimi K2.5 and DeepSeek-R1 are chain-of-thought reasoning models whose
-            # internal reasoning tokens count against max_tokens but don't appear in
-            # content output. For code tasks on these models, double the token budget
-            # (cap at 16384) to ensure complete output. Both also need longer timeouts.
-            _provider = get_provider(primary)
-            _is_reasoning_model = (
-                _provider == "kimi" or
-                (_provider == "deepseek" and primary.value == "deepseek-reasoner")
+                backend=get_provider(primary),
             )
-            if _is_reasoning_model:
-                gen_timeout = 240
-                if task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
-                    # Double token budget: reasoning tokens eat into output budget
-                    effective_max_tokens = min(task.max_output_tokens * 2, 16384)
+
+            context = self._gather_dependency_context(task.dependencies)
+            full_prompt = task.prompt
+            if context:
+                # For code_review tasks, the dependency context IS the source code
+                # being reviewed. Make this explicit so the LLM doesn't claim
+                # "source code was not provided".
+                if task.type == TaskType.CODE_REVIEW:
+                    full_prompt += (
+                        f"\n\n--- SOURCE CODE TO REVIEW (from prior tasks) ---\n"
+                        f"The following is the actual generated source code you must "
+                        f"review. Do NOT claim the code was not provided.\n\n"
+                        f"{context}"
+                    )
                 else:
-                    effective_max_tokens = task.max_output_tokens
-            elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
-                gen_timeout = 120
-                effective_max_tokens = task.max_output_tokens
-            else:
-                gen_timeout = 60
-                effective_max_tokens = task.max_output_tokens
-            try:
-                gen_response = await self.client.call(
-                    primary, full_prompt,
-                    system=f"You are an expert executing a {task.type.value} task. "
-                           f"Produce high-quality, complete output.",
-                    max_tokens=effective_max_tokens,
-                    timeout=gen_timeout,
-                )
-                output = gen_response.text
-                gen_cost = gen_response.cost_usd
-                self.budget.charge(gen_cost, "generation")
-                if self._cost_predictor is not None:
-                    self._cost_predictor.record(primary, task.type, gen_cost)
-                total_cost += gen_cost
-                total_input_tokens += gen_response.input_tokens
-                total_output_tokens += gen_response.output_tokens
-                self._record_success(primary, gen_response)
-            except (Exception, asyncio.CancelledError) as e:
-                logger.error(f"Generation failed for {task.id}: {e}")
-                self._record_failure(primary, error=e)
-                degraded_count += 1
-                fb = self._get_fallback(primary)
-                if fb:
-                    try:
-                        gen_response = await self.client.call(
-                            fb, full_prompt,
-                            system=f"You are an expert executing a {task.type.value} task.",
-                            max_tokens=effective_max_tokens,
-                            timeout=gen_timeout,
-                        )
-                        output = gen_response.text
-                        self.budget.charge(gen_response.cost_usd, "generation")
-                        total_cost += gen_response.cost_usd
-                        total_input_tokens += gen_response.input_tokens
-                        total_output_tokens += gen_response.output_tokens
-                        self._record_success(fb, gen_response)
-                        primary = fb
-                    except (Exception, asyncio.CancelledError) as e2:
-                        logger.error(f"Fallback generation also failed: {e2}")
-                        self._record_failure(fb, error=e2)
-                        break
-                else:
+                    full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
+
+            best_output = ""
+            best_score = 0.0
+            best_critique = ""
+            total_cost = 0.0
+            total_input_tokens = 0
+            total_output_tokens = 0
+            degraded_count = 0
+            scores_history: list[float] = []
+            det_passed = True  # default: no validators = passed
+
+            logger.info(f"Executing {task.id} ({task.type.value}): "
+                         f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}")
+
+            for iteration in range(task.max_iterations):
+                # FIX #5: Mid-task budget check — estimate minimum cost for one
+                # generate+critique+revise+evaluate cycle (~0.02 USD min)
+                if not self.budget.can_afford(0.02):
+                    logger.warning(
+                        f"Budget insufficient mid-task for {task.id} "
+                        f"at iteration {iteration} "
+                        f"(remaining: ${self.budget.remaining_usd:.4f})"
+                    )
                     break
 
-            # FIX #5: Re-check budget after generation before critique
-            if not self.budget.can_afford(0.005):
-                logger.warning(f"Budget depleted after generation for {task.id}")
-                scores_history.append(0.0)
-                if not best_output:
-                    best_output = output
-                break
+                if not self.budget.time_remaining():
+                    logger.warning(f"Time limit reached mid-task for {task.id}")
+                    break
 
-            # ── CRITIQUE (cross-model) ──
-            critique = ""
-            if reviewer and reviewer != primary:
-                # Reviewer token budget: reasoning models (Kimi K2.5, DeepSeek-R1)
-                # consume their token budget on internal chain-of-thought, so they
-                # need the same doubled budget as when generating. Standard models
-                # only need 800 tokens to produce a focused critique.
-                _rev_provider = get_provider(reviewer)
-                _reviewer_is_reasoning = (
-                    _rev_provider == "kimi" or
-                    (_rev_provider == "deepseek" and reviewer.value == "deepseek-reasoner")
+                # ── GENERATE ──
+                # Kimi K2.5 and DeepSeek-R1 are chain-of-thought reasoning models whose
+                # internal reasoning tokens count against max_tokens but don't appear in
+                # content output. For code tasks on these models, double the token budget
+                # (cap at 16384) to ensure complete output. Both also need longer timeouts.
+                _provider = get_provider(primary)
+                _is_reasoning_model = (
+                    _provider == "kimi" or
+                    (_provider == "deepseek" and primary.value == "deepseek-reasoner")
                 )
-                if _reviewer_is_reasoning:
-                    critique_max_tokens = min(task.max_output_tokens * 2, 8192)
-                    critique_timeout = 240
+                if _is_reasoning_model:
+                    gen_timeout = 240
+                    if task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
+                        # Double token budget: reasoning tokens eat into output budget
+                        effective_max_tokens = min(task.max_output_tokens * 2, 16384)
+                    else:
+                        effective_max_tokens = task.max_output_tokens
+                elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
+                    gen_timeout = 120
+                    effective_max_tokens = task.max_output_tokens
                 else:
-                    critique_max_tokens = 1200  # raised: 800 was too low for detailed reviews
-                    critique_timeout = 60
+                    gen_timeout = 60
+                    effective_max_tokens = task.max_output_tokens
                 try:
-                    critique_response = await self.client.call(
-                        reviewer,
-                        f"Review this output for correctness, completeness, and quality. "
-                        f"Be specific about flaws and suggest concrete improvements.\n\n"
-                        f"ORIGINAL TASK: {task.prompt}\n\n"
-                        f"OUTPUT TO REVIEW:\n{output}",
-                        system="You are a critical reviewer. Find flaws, be specific.",
-                        max_tokens=critique_max_tokens,
-                        timeout=critique_timeout,
-                    )
-                    critique = critique_response.text
-                    self.budget.charge(critique_response.cost_usd, "cross_review")
-                    if self._cost_predictor is not None:
-                        self._cost_predictor.record(primary, task.type, critique_response.cost_usd)
-                    total_cost += critique_response.cost_usd
-                except (Exception, asyncio.CancelledError) as e:
-                    logger.warning(f"Critique failed for {task.id}: {e}")
-                    self.api_health[reviewer] = False
-                    degraded_count += 1
-
-            # ── REVISE (if critique exists) ──
-            # Skip revision for reasoning models (Kimi K2.5, DeepSeek-R1): their
-            # chain-of-thought makes revision calls as slow/expensive as generation.
-            # Instead, embed the critique into the next iteration's prompt so the
-            # model can self-correct on re-generation.
-            if critique and not _is_reasoning_model:
-                try:
-                    revise_response = await self.client.call(
-                        primary,
-                        f"Revise your output based on this critique. "
-                        f"Address every specific issue raised.\n\n"
-                        f"ORIGINAL TASK: {task.prompt}\n\n"
-                        f"YOUR OUTPUT:\n{output}\n\n"
-                        f"CRITIQUE:\n{critique}\n\n"
-                        f"Produce the complete improved version.",
-                        system=f"You are revising a {task.type.value} task based on peer review.",
+                    gen_response = await self.client.call(
+                        primary, full_prompt,
+                        system=f"You are an expert executing a {task.type.value} task. "
+                               f"Produce high-quality, complete output.",
                         max_tokens=effective_max_tokens,
                         timeout=gen_timeout,
                     )
-                    output = revise_response.text
-                    self.budget.charge(revise_response.cost_usd, "generation")
-                    total_cost += revise_response.cost_usd
+                    output = gen_response.text
+                    gen_cost = gen_response.cost_usd
+                    self.budget.charge(gen_cost, "generation")
+                    if self._cost_predictor is not None:
+                        self._cost_predictor.record(primary, task.type, gen_cost)
+                    total_cost += gen_cost
+                    total_input_tokens += gen_response.input_tokens
+                    total_output_tokens += gen_response.output_tokens
+                    self._record_success(primary, gen_response)
                 except (Exception, asyncio.CancelledError) as e:
-                    logger.warning(f"Revision failed for {task.id}: {e}")
-            elif critique and _is_reasoning_model:
-                # Embed critique into the next iteration's prompt for self-correction.
-                full_prompt = (
-                    f"{task.prompt}\n\n"
-                    f"--- PEER REVIEW FEEDBACK (incorporate in your response) ---\n"
-                    f"{critique}\n"
-                    f"--- END FEEDBACK ---"
-                )
-                if context:
-                    full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
-                logger.debug(
-                    f"{primary.value}: critique embedded into next iteration "
-                    f"prompt for {task.id}"
-                )
-
-            # ── DETERMINISTIC VALIDATION ──
-            det_passed = True
-            if task.hard_validators:
-                val_results = await async_run_validators(output, task.hard_validators)
-                det_passed = all_validators_pass(val_results)
-                if not det_passed:
-                    failed = [v for v in val_results if not v.passed]
-                    logger.warning(
-                        f"Deterministic check failed for {task.id}: "
-                        f"{[f'{v.validator_name}: {v.details}' for v in failed]}"
-                    )
-                    # Record validator failure in telemetry + fire hook (Improvement 3)
-                    self._telemetry.record_validator_failure(primary)
-                    self._hook_registry.fire(
-                        EventType.VALIDATION_FAILED,
-                        task_id=task.id,
-                        model=primary.value,
-                        validators=task.hard_validators,
-                    )
-
-            # ── EVALUATE ──
-            if det_passed:
-                score = await self._evaluate(task, output)
-            else:
-                score = 0.0
-
-            self.budget.charge(0.0, "evaluation")
-            scores_history.append(score)
-
-            if score > best_score:
-                best_output = output
-                best_score = score
-                best_critique = critique
-
-            # Emit TaskProgressUpdate streaming event
-            if self._event_bus:
-                from .streaming import TaskProgressUpdate
-                await self._event_bus.publish(TaskProgressUpdate(
-                    task_id=task.id,
-                    iteration=iteration + 1,
-                    score=score,
-                    best_score=best_score,
-                ))
-
-            logger.info(
-                f"  {task.id} iter {iteration + 1}: score={score:.3f} "
-                f"(best={best_score:.3f}, threshold={task.acceptance_threshold})"
-            )
-
-            # ── CONVERGENCE CHECKS ──
-            if best_score >= task.acceptance_threshold:
-                logger.info(f"  {task.id}: threshold met at iteration {iteration + 1}")
-                break
-
-            if len(scores_history) >= 2:
-                delta = abs(scores_history[-1] - scores_history[-2])
-                if delta < 0.02:
-                    # Only stop on plateau if we have a usable score.
-                    # If best_score is still below half the acceptance threshold,
-                    # keep trying — the critique/revision cycle may still help.
-                    if best_score >= task.acceptance_threshold * 0.5:
-                        logger.info(f"  {task.id}: plateau detected (Δ={delta:.4f})")
+                    logger.error(f"Generation failed for {task.id}: {e}")
+                    self._record_failure(primary, error=e)
+                    degraded_count += 1
+                    fb = self._get_fallback(primary)
+                    if fb:
+                        try:
+                            gen_response = await self.client.call(
+                                fb, full_prompt,
+                                system=f"You are an expert executing a {task.type.value} task.",
+                                max_tokens=effective_max_tokens,
+                                timeout=gen_timeout,
+                            )
+                            output = gen_response.text
+                            self.budget.charge(gen_response.cost_usd, "generation")
+                            total_cost += gen_response.cost_usd
+                            total_input_tokens += gen_response.input_tokens
+                            total_output_tokens += gen_response.output_tokens
+                            self._record_success(fb, gen_response)
+                            primary = fb
+                        except (Exception, asyncio.CancelledError) as e2:
+                            logger.error(f"Fallback generation also failed: {e2}")
+                            self._record_failure(fb, error=e2)
+                            break
+                    else:
                         break
-                    elif len(scores_history) >= 3:
-                        # After 3+ iterations with no improvement AND bad score,
-                        # give up to avoid wasting budget.
-                        logger.info(
-                            f"  {task.id}: plateau at low score after "
-                            f"{len(scores_history)} iters (Δ={delta:.4f}, "
-                            f"best={best_score:.3f})"
+
+                # FIX #5: Re-check budget after generation before critique
+                if not self.budget.can_afford(0.005):
+                    logger.warning(f"Budget depleted after generation for {task.id}")
+                    scores_history.append(0.0)
+                    if not best_output:
+                        best_output = output
+                    break
+
+                # ── CRITIQUE (cross-model) ──
+                critique = ""
+                if reviewer and reviewer != primary:
+                    # Reviewer token budget: reasoning models (Kimi K2.5, DeepSeek-R1)
+                    # consume their token budget on internal chain-of-thought, so they
+                    # need the same doubled budget as when generating. Standard models
+                    # only need 800 tokens to produce a focused critique.
+                    _rev_provider = get_provider(reviewer)
+                    _reviewer_is_reasoning = (
+                        _rev_provider == "kimi" or
+                        (_rev_provider == "deepseek" and reviewer.value == "deepseek-reasoner")
+                    )
+                    if _reviewer_is_reasoning:
+                        critique_max_tokens = min(task.max_output_tokens * 2, 8192)
+                        critique_timeout = 240
+                    else:
+                        critique_max_tokens = 1200  # raised: 800 was too low for detailed reviews
+                        critique_timeout = 60
+                    try:
+                        critique_response = await self.client.call(
+                            reviewer,
+                            f"Review this output for correctness, completeness, and quality. "
+                            f"Be specific about flaws and suggest concrete improvements.\n\n"
+                            f"ORIGINAL TASK: {task.prompt}\n\n"
+                            f"OUTPUT TO REVIEW:\n{output}",
+                            system="You are a critical reviewer. Find flaws, be specific.",
+                            max_tokens=critique_max_tokens,
+                            timeout=critique_timeout,
                         )
-                        break
+                        critique = critique_response.text
+                        self.budget.charge(critique_response.cost_usd, "cross_review")
+                        if self._cost_predictor is not None:
+                            self._cost_predictor.record(primary, task.type, critique_response.cost_usd)
+                        total_cost += critique_response.cost_usd
+                    except (Exception, asyncio.CancelledError) as e:
+                        logger.warning(f"Critique failed for {task.id}: {e}")
+                        self.api_health[reviewer] = False
+                        degraded_count += 1
 
-        status = TaskStatus.COMPLETED if best_score >= task.acceptance_threshold else TaskStatus.DEGRADED
-        if best_score == 0.0 and not det_passed:
-            status = TaskStatus.FAILED
+                # ── REVISE (if critique exists) ──
+                # Skip revision for reasoning models (Kimi K2.5, DeepSeek-R1): their
+                # chain-of-thought makes revision calls as slow/expensive as generation.
+                # Instead, embed the critique into the next iteration's prompt so the
+                # model can self-correct on re-generation.
+                if critique and not _is_reasoning_model:
+                    try:
+                        revise_response = await self.client.call(
+                            primary,
+                            f"Revise your output based on this critique. "
+                            f"Address every specific issue raised.\n\n"
+                            f"ORIGINAL TASK: {task.prompt}\n\n"
+                            f"YOUR OUTPUT:\n{output}\n\n"
+                            f"CRITIQUE:\n{critique}\n\n"
+                            f"Produce the complete improved version.",
+                            system=f"You are revising a {task.type.value} task based on peer review.",
+                            max_tokens=effective_max_tokens,
+                            timeout=gen_timeout,
+                        )
+                        output = revise_response.text
+                        self.budget.charge(revise_response.cost_usd, "generation")
+                        total_cost += revise_response.cost_usd
+                    except (Exception, asyncio.CancelledError) as e:
+                        logger.warning(f"Revision failed for {task.id}: {e}")
+                elif critique and _is_reasoning_model:
+                    # Embed critique into the next iteration's prompt for self-correction.
+                    full_prompt = (
+                        f"{task.prompt}\n\n"
+                        f"--- PEER REVIEW FEEDBACK (incorporate in your response) ---\n"
+                        f"{critique}\n"
+                        f"--- END FEEDBACK ---"
+                    )
+                    if context:
+                        full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
+                    logger.debug(
+                        f"{primary.value}: critique embedded into next iteration "
+                        f"prompt for {task.id}"
+                    )
 
-        # Feed final eval score back to telemetry so ConstraintPlanner re-ranks
-        if best_score > 0.0:
-            self._telemetry.record_call(
-                primary, latency_ms=0.0, cost_usd=0.0,
-                success=(status != TaskStatus.FAILED),
-                quality_score=best_score,
+                # ── DETERMINISTIC VALIDATION ──
+                det_passed = True
+                if task.hard_validators:
+                    val_results = await async_run_validators(output, task.hard_validators)
+                    det_passed = all_validators_pass(val_results)
+                    if not det_passed:
+                        failed = [v for v in val_results if not v.passed]
+                        logger.warning(
+                            f"Deterministic check failed for {task.id}: "
+                            f"{[f'{v.validator_name}: {v.details}' for v in failed]}"
+                        )
+                        # Record validator failure in telemetry + fire hook (Improvement 3)
+                        self._telemetry.record_validator_failure(primary)
+                        self._hook_registry.fire(
+                            EventType.VALIDATION_FAILED,
+                            task_id=task.id,
+                            model=primary.value,
+                            validators=task.hard_validators,
+                        )
+
+                # ── EVALUATE ──
+                if det_passed:
+                    score = await self._evaluate(task, output)
+                else:
+                    score = 0.0
+
+                self.budget.charge(0.0, "evaluation")
+                scores_history.append(score)
+
+                if score > best_score:
+                    best_output = output
+                    best_score = score
+                    best_critique = critique
+
+                # Emit TaskProgressUpdate streaming event
+                if self._event_bus:
+                    from .streaming import TaskProgressUpdate
+                    await self._event_bus.publish(TaskProgressUpdate(
+                        task_id=task.id,
+                        iteration=iteration + 1,
+                        score=score,
+                        best_score=best_score,
+                    ))
+
+                logger.info(
+                    f"  {task.id} iter {iteration + 1}: score={score:.3f} "
+                    f"(best={best_score:.3f}, threshold={task.acceptance_threshold})"
+                )
+
+                # ── CONVERGENCE CHECKS ──
+                if best_score >= task.acceptance_threshold:
+                    logger.info(f"  {task.id}: threshold met at iteration {iteration + 1}")
+                    break
+
+                if len(scores_history) >= 2:
+                    delta = abs(scores_history[-1] - scores_history[-2])
+                    if delta < 0.02:
+                        # Only stop on plateau if we have a usable score.
+                        # If best_score is still below half the acceptance threshold,
+                        # keep trying — the critique/revision cycle may still help.
+                        if best_score >= task.acceptance_threshold * 0.5:
+                            logger.info(f"  {task.id}: plateau detected (Δ={delta:.4f})")
+                            break
+                        elif len(scores_history) >= 3:
+                            # After 3+ iterations with no improvement AND bad score,
+                            # give up to avoid wasting budget.
+                            logger.info(
+                                f"  {task.id}: plateau at low score after "
+                                f"{len(scores_history)} iters (Δ={delta:.4f}, "
+                                f"best={best_score:.3f})"
+                            )
+                            break
+
+            status = TaskStatus.COMPLETED if best_score >= task.acceptance_threshold else TaskStatus.DEGRADED
+            if best_score == 0.0 and not det_passed:
+                status = TaskStatus.FAILED
+
+            # Feed final eval score back to telemetry so ConstraintPlanner re-ranks
+            if best_score > 0.0:
+                self._telemetry.record_call(
+                    primary, latency_ms=0.0, cost_usd=0.0,
+                    success=(status != TaskStatus.FAILED),
+                    quality_score=best_score,
+                )
+
+            # Emit TaskCompleted or TaskFailed streaming event
+            if self._event_bus:
+                from .streaming import TaskCompleted, TaskFailed
+                if status == TaskStatus.FAILED:
+                    await self._event_bus.publish(TaskFailed(
+                        task_id=task.id,
+                        reason="all attempts failed",
+                        model=primary.value,
+                    ))
+                else:
+                    await self._event_bus.publish(TaskCompleted(
+                        task_id=task.id,
+                        score=best_score,
+                        status=status,
+                        model=primary.value,
+                        cost_usd=total_cost,
+                        iterations=len(scores_history),
+                    ))
+
+            span.set_attribute("task.status", status.value)
+            span.set_attribute("task.score", best_score or 0.0)
+            return TaskResult(
+                task_id=task.id,
+                output=best_output,
+                score=best_score,
+                model_used=primary,
+                reviewer_model=reviewer,
+                tokens_used={"input": total_input_tokens, "output": total_output_tokens},
+                iterations=len(scores_history),
+                cost_usd=total_cost,
+                status=status,
+                critique=best_critique,
+                deterministic_check_passed=det_passed,
+                degraded_fallback_count=degraded_count,
             )
-
-        # Emit TaskCompleted or TaskFailed streaming event
-        if self._event_bus:
-            from .streaming import TaskCompleted, TaskFailed
-            if status == TaskStatus.FAILED:
-                await self._event_bus.publish(TaskFailed(
-                    task_id=task.id,
-                    reason="all attempts failed",
-                    model=primary.value,
-                ))
-            else:
-                await self._event_bus.publish(TaskCompleted(
-                    task_id=task.id,
-                    score=best_score,
-                    status=status,
-                    model=primary.value,
-                    cost_usd=total_cost,
-                    iterations=len(scores_history),
-                ))
-
-        return TaskResult(
-            task_id=task.id,
-            output=best_output,
-            score=best_score,
-            model_used=primary,
-            reviewer_model=reviewer,
-            tokens_used={"input": total_input_tokens, "output": total_output_tokens},
-            iterations=len(scores_history),
-            cost_usd=total_cost,
-            status=status,
-            critique=best_critique,
-            deterministic_check_passed=det_passed,
-            degraded_fallback_count=degraded_count,
-        )
 
     async def _evaluate(self, task: Task, output: str) -> float:
         """LLM-based scoring with self-consistency (2 runs, Δ ≤ 0.05)."""
