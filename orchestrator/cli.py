@@ -224,6 +224,64 @@ def _build_subparsers(subparsers) -> None:
     build_parser.set_defaults(func=cmd_build)
 
 
+def cmd_agent(args) -> None:
+    """
+    Handle the 'agent' subcommand: NL intent → draft specs → submit to ControlPlane.
+    """
+    from orchestrator.orchestration_agent import OrchestrationAgent
+    from orchestrator.control_plane import ControlPlane
+
+    agent = OrchestrationAgent()
+    draft = asyncio.run(agent.draft(args.intent))
+
+    print("\n=== Draft Job Spec ===")
+    import json as _json
+    from dataclasses import asdict
+    print(_json.dumps(asdict(draft.job), indent=2, default=str))
+    print("\n=== Draft Policy Spec ===")
+    print(_json.dumps(asdict(draft.policy), indent=2, default=str))
+    print(f"\nRationale: {draft.rationale}")
+
+    if not args.interactive:
+        return
+
+    while True:
+        feedback = input("\nFeedback (or 'submit' to run, 'quit' to exit): ").strip()
+        if feedback.lower() == "quit":
+            return
+        if feedback.lower() == "submit":
+            break
+        draft = asyncio.run(agent.refine(draft, feedback))
+        print("\n=== Revised Job Spec ===")
+        print(_json.dumps(asdict(draft.job), indent=2, default=str))
+        print(f"\nRationale: {draft.rationale}")
+
+    print("\nSubmitting to ControlPlane...")
+    cp = ControlPlane()
+    state = asyncio.run(cp.submit(draft.job, draft.policy))
+    print(f"Status: {state.status.value}")
+
+
+def _agent_subparsers(subparsers) -> None:
+    """Register the 'agent' subcommand."""
+    ap = subparsers.add_parser(
+        "agent",
+        help="Convert NL intent to typed specs and optionally run via ControlPlane",
+    )
+    ap.add_argument(
+        "--intent", "-i",
+        required=True,
+        help="Natural language description of the job to run",
+    )
+    ap.add_argument(
+        "--interactive",
+        action="store_true",
+        default=False,
+        help="Enter interactive refine loop before submitting",
+    )
+    ap.set_defaults(func=cmd_agent)
+
+
 def _default_output_dir(project_id: str) -> str:
     """
     Build a default output path when --output-dir is not supplied.
@@ -344,10 +402,35 @@ async def _async_file_project(args):
 
 
 async def _async_new_project(args):
+    raw_tasks = getattr(args, "raw_tasks", False)
+
+    if not raw_tasks:
+        # Route through AppBuilder (detects app_type automatically)
+        import tempfile
+        from orchestrator.app_builder import AppBuilder
+        output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
+        print(f"Starting app build (budget: ${args.budget})")
+        print(f"Project: {args.project}")
+        print(f"Criteria: {args.criteria}")
+        print("-" * 60)
+        builder = AppBuilder()
+        result = await builder.build(
+            description=args.project,
+            criteria=args.criteria,
+            output_dir=Path(output_dir),
+        )
+        if result.success:
+            print(f"Build successful: {result.output_dir}")
+        else:
+            errors = ", ".join(result.errors) if result.errors else "unknown error"
+            print(f"Build failed: {errors}")
+        return
+
+    # --raw-tasks: legacy flat-file path (opt-in)
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
     orch = Orchestrator(budget=budget, max_concurrency=args.concurrency)
 
-    print(f"Starting project (budget: ${args.budget}, time: {args.time}s)")
+    print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
     print(f"Project: {args.project}")
     print(f"Criteria: {args.criteria}")
     print("-" * 60)
@@ -443,6 +526,7 @@ def main():
     subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
     _analyze_subparsers(subparsers)
     _build_subparsers(subparsers)
+    _agent_subparsers(subparsers)
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
@@ -492,6 +576,15 @@ def main():
         "--reuse-profiles",
         action="store_true",
         help="Seed routing from historical run profiles (future feature)",
+    )
+    parser.add_argument(
+        "--raw-tasks",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip AppBuilder pipeline and write raw task output files directly "
+            "(legacy behaviour, opt-in)"
+        ),
     )
 
     args = parser.parse_args()

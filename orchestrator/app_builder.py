@@ -178,5 +178,6 @@ class AppBuilder:
         state = await orchestrator.run_project(
             project_description=description,
             success_criteria=criteria,
+            app_profile=profile,
         )
         return state

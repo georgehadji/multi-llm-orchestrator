@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 import logging
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -78,6 +79,8 @@ class ResolveReport:
     requirements_path: str = ""
     pyproject_updated: bool = False
     unresolved: list[str] = field(default_factory=list)
+    npm_install_ok: bool = False
+    npm_install_skipped: bool = True  # True when package.json not present
 
 
 class DependencyResolver:
@@ -91,13 +94,36 @@ class DependencyResolver:
 
     def resolve(self, output_dir: Path) -> ResolveReport:
         """
-        Scan all .py files in output_dir and write requirements.txt.
+        Scan output_dir for dependencies and install them.
 
-        Returns ResolveReport with detected packages (plain import names, deduplicated).
+        Detection order:
+        1. ``package.json`` exists → ``npm install --legacy-peer-deps``
+        2. ``requirements.txt`` / ``pyproject.toml`` exists → pip install
+        3. Both → run both
+
+        Returns ResolveReport.
         """
         output_dir = Path(output_dir)
         report = ResolveReport()
 
+        # ── npm ──────────────────────────────────────────────────────────────
+        package_json = output_dir / "package.json"
+        if package_json.exists():
+            report.npm_install_skipped = False
+            result = subprocess.run(
+                ["npm", "install", "--legacy-peer-deps"],
+                capture_output=True,
+                text=True,
+                cwd=str(output_dir),
+            )
+            if result.returncode == 0:
+                report.npm_install_ok = True
+                logger.debug("npm install succeeded")
+            else:
+                report.npm_install_ok = False
+                logger.warning("npm install failed: %s", result.stderr[:200])
+
+        # ── Python ───────────────────────────────────────────────────────────
         # Collect all third-party import names (plain, top-level)
         raw_imports: set[str] = set()
         for py_file in sorted(output_dir.rglob("*.py")):

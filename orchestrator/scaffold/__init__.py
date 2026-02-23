@@ -14,7 +14,7 @@ from pathlib import Path
 
 from orchestrator.app_detector import AppProfile
 
-from .templates import cli, fastapi, generic, library
+from .templates import cli, fastapi, generic, html, library, nextjs, react_vite
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,9 @@ _TEMPLATE_MAP: dict[str, dict[str, str]] = {
     "cli": cli.FILES,
     "library": library.FILES,
     "script": generic.FILES,
-    "react-fastapi": fastapi.FILES,  # partial — full-stack not fully supported in Phase 1
-    "nextjs": generic.FILES,
+    "react-fastapi": react_vite.FILES,  # frontend; backend uses fastapi.FILES
+    "nextjs": nextjs.FILES,
+    "html": html.FILES,
     "generic": generic.FILES,
 }
 
