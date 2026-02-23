@@ -239,6 +239,211 @@ Max iterations per task: 3 (code, reasoning) / 2 (all others).
 
 ---
 
+## LLM Models Reference
+
+### OpenAI Models
+
+#### GPT-4o
+- **Environment Variable:** `OPENAI_API_KEY`
+- **Model ID:** `gpt-4o`
+- **Context Window:** 128K tokens
+- **Training Data Cutoff:** April 2024
+- **Capabilities:** Vision, advanced reasoning, code generation, complex multi-step tasks
+- **Cost:** $2.50 (input) / $10.00 (output) per 1M tokens
+- **Best For:** Production code generation, architectural decisions, cross-domain reasoning
+- **Specialized Domains:** Python, JavaScript, DevOps, System Design
+- **API Endpoint:** `https://api.openai.com/v1/chat/completions`
+
+#### GPT-4o-mini
+- **Environment Variable:** `OPENAI_API_KEY`
+- **Model ID:** `gpt-4o-mini`
+- **Context Window:** 128K tokens
+- **Training Data Cutoff:** April 2024
+- **Capabilities:** Fast inference, cost-effective reasoning, vision support
+- **Cost:** $0.15 (input) / $0.60 (output) per 1M tokens
+- **Best For:** Data extraction, summarization, rapid iterations, cost-sensitive tasks
+- **Specialized Domains:** Text processing, classification, quick fact retrieval
+- **API Endpoint:** `https://api.openai.com/v1/chat/completions`
+- **Note:** OpenAI's most cost-effective model with vision capabilities
+
+### Google Gemini Models
+
+#### Gemini 2.5 Pro
+- **Environment Variable:** `GOOGLE_API_KEY` or `GEMINI_API_KEY`
+- **Model ID:** `gemini-2.5-pro`
+- **Context Window:** 1M tokens
+- **Training Data Cutoff:** October 2024
+- **Capabilities:** Massive context, multimodal (text, image, video, audio), native file handling
+- **Cost:** $1.25 (input) / $10.00 (output) per 1M tokens
+- **Best For:** Large document processing, long conversation histories, code review of large files
+- **Specialized Domains:** Full-stack web, data analysis, document comprehension
+- **API Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent`
+- **Note:** Largest context window enables processing of entire projects in a single call
+
+#### Gemini 2.5 Flash
+- **Environment Variable:** `GOOGLE_API_KEY` or `GEMINI_API_KEY`
+- **Model ID:** `gemini-2.5-flash`
+- **Context Window:** 1M tokens
+- **Training Data Cutoff:** October 2024
+- **Capabilities:** Fast multimodal processing, optimized for speed, native file support
+- **Cost:** $0.15 (input) / $0.60 (output) per 1M tokens
+- **Best For:** Quick data extraction, image analysis, rapid prototyping, streaming responses
+- **Specialized Domains:** Web scraping, image recognition, rapid content generation
+- **API Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
+- **Note:** Fastest inference speed among major providers; ideal for interactive applications
+
+### Anthropic Claude Models
+
+#### Claude 3.5 Opus
+- **Environment Variable:** `ANTHROPIC_API_KEY`
+- **Model ID:** `claude-3-5-opus-20241022` (or latest)
+- **Context Window:** 200K tokens
+- **Training Data Cutoff:** April 2024
+- **Capabilities:** Advanced reasoning, complex analysis, code generation, strategic thinking
+- **Cost:** $15.00 (input) / $75.00 (output) per 1M tokens
+- **Best For:** Architectural decisions, complex multi-domain problems, expert-level analysis
+- **Specialized Domains:** System architecture, deep reasoning, large codebases
+- **API Endpoint:** `https://api.anthropic.com/v1/messages`
+- **Note:** Most capable Claude model; highest quality for complex reasoning
+
+#### Claude 3.5 Sonnet
+- **Environment Variable:** `ANTHROPIC_API_KEY`
+- **Model ID:** `claude-3-5-sonnet-20241022` (or latest)
+- **Context Window:** 200K tokens
+- **Training Data Cutoff:** April 2024
+- **Capabilities:** Balanced performance, strong code generation, detailed reasoning
+- **Cost:** $3.00 (input) / $15.00 (output) per 1M tokens
+- **Best For:** Default choice for code generation, documentation, balanced quality-cost
+- **Specialized Domains:** Python, JavaScript, system design, technical writing
+- **API Endpoint:** `https://api.anthropic.com/v1/messages`
+- **Note:** Sweet spot for production use; excellent code quality at reasonable cost
+
+#### Claude 3.5 Haiku
+- **Environment Variable:** `ANTHROPIC_API_KEY`
+- **Model ID:** `claude-3-5-haiku-20241022` (or latest)
+- **Context Window:** 200K tokens
+- **Training Data Cutoff:** April 2024
+- **Capabilities:** Lightweight, fast responses, cost-effective reasoning
+- **Cost:** $0.80 (input) / $4.00 (output) per 1M tokens
+- **Best For:** Lightweight tasks, quick filtering, budget-constrained scenarios
+- **Specialized Domains:** Classification, content filtering, simple transformations
+- **API Endpoint:** `https://api.anthropic.com/v1/messages`
+- **Note:** Most affordable Claude; suitable for high-volume operations
+
+### DeepSeek Models
+
+#### DeepSeek Chat
+- **Environment Variable:** `DEEPSEEK_API_KEY`
+- **Model ID:** `deepseek-chat`
+- **Context Window:** 128K tokens
+- **Training Data Cutoff:** 2024
+- **Capabilities:** Fast inference, cost-efficient code generation, reasoning
+- **Cost:** $0.14 (input) / $0.42 (output) per 1M tokens (approximate)
+- **Best For:** Cost-sensitive code generation, rapid prototyping, scalable applications
+- **Specialized Domains:** Python, JavaScript, system utilities
+- **API Endpoint:** `https://api.deepseek.com/v1/chat/completions` (OpenAI-compatible)
+- **Note:** Most cost-effective among fully-featured models
+
+#### DeepSeek Reasoner
+- **Environment Variable:** `DEEPSEEK_API_KEY`
+- **Model ID:** `deepseek-reasoner`
+- **Context Window:** 128K tokens
+- **Training Data Cutoff:** 2024
+- **Capabilities:** Deep reasoning, chain-of-thought inference, complex problem solving
+- **Cost:** $0.55 (input) / $2.19 (output) per 1M tokens (approximate, with thinking tokens)
+- **Best For:** Complex mathematical problems, algorithmic challenges, deep reasoning tasks
+- **Specialized Domains:** Algorithm design, mathematical proofs, logic problems
+- **API Endpoint:** `https://api.deepseek.com/v1/chat/completions` (OpenAI-compatible)
+- **Note:** Specialized reasoning model; streaming extended thinking process
+
+### Kimi (Moonshot) Models
+
+#### Kimi K2.5
+- **Environment Variable:** `KIMI_API_KEY` or `MOONSHOT_API_KEY`
+- **Model ID:** `moonshot-v1` (default tier)
+- **Available Variants:** `moonshot-v1-8k`, `moonshot-v1-32k`, `moonshot-v1-128k`
+- **Context Window:** Configurable (8K / 32K / 128K variants)
+- **Training Data Cutoff:** 2024
+- **Capabilities:** Optimized for Chinese and English, cost-effective, reliable
+- **Cost:** $0.14 (input) / $0.56 (output) per 1M tokens
+- **Best For:** Cost-optimized production use, bilingual applications, high-volume deployments
+- **Specialized Domains:** Web development, general-purpose code, script generation
+- **API Endpoint:** `https://api.moonshot.cn/v1/chat/completions` (OpenAI-compatible)
+- **Note:** Cheapest fully-capable option; strong Chinese language support
+
+---
+
+## Model Selection Strategy
+
+### Automatic Routing
+
+The orchestrator automatically selects models based on task type, cost, and performance metrics:
+
+**Decomposition Phase:**
+- Uses cheapest available model (typically Gemini Flash or GPT-4o-mini)
+- Fast execution critical as it determines overall task structure
+
+**Code Generation (Primary Route):**
+1. Kimi K2.5 — fastest, cheapest
+2. Claude Sonnet — excellent code quality
+3. GPT-4o — highest capability
+4. Gemini Pro — multimodal support
+
+**Code Review (Cross-Provider):**
+1. Kimi K2.5 — cost-effective review
+2. GPT-4o — comprehensive critique
+3. Claude Opus — deep architectural insights
+4. Gemini Pro — multimodal review
+
+**Complex Reasoning:**
+1. Kimi K2.5 — efficient reasoning
+2. Claude Opus — expert-level analysis
+3. GPT-4o — structured thinking
+4. Gemini Pro — multimodal reasoning
+
+**Data Extraction:**
+1. Gemini Flash — fast multimodal extraction
+2. GPT-4o-mini — cost-effective text extraction
+3. Claude Haiku — lightweight extraction
+
+**Evaluation/Scoring:**
+1. Kimi K2.5 — consistent scoring, low cost
+2. Claude Opus — highest quality evaluation
+3. GPT-4o — reliable assessment
+4. Gemini Pro — multimodal evaluation
+
+### Manual Override
+
+Specify preferred models via `ModelProfile` in policy configuration:
+
+```yaml
+global:
+  - name: performance_focused
+    allowed_providers: [anthropic, openai]
+    allowed_models: [claude-opus, gpt-4o]
+
+  - name: cost_focused
+    allowed_providers: [kimi, deepseek]
+    allowed_models: [moonshot-v1, deepseek-chat]
+```
+
+### Model Characteristics Matrix
+
+| Model | Speed | Quality | Cost | Context | Multimodal | Best For |
+|-------|-------|---------|------|---------|-----------|----------|
+| Kimi K2.5 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 128K | No | Production code |
+| DeepSeek Chat | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 128K | No | Fast generation |
+| Gemini Flash | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 1M | Yes | Data extraction |
+| GPT-4o-mini | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 128K | Yes | Quick tasks |
+| Claude Haiku | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 200K | No | Filtering |
+| Claude Sonnet | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | 200K | No | Default choice |
+| Gemini Pro | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | 1M | Yes | Large docs |
+| GPT-4o | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | 128K | Yes | Complex tasks |
+| Claude Opus | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | 200K | No | Expert analysis |
+| DeepSeek Reasoner | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | 128K | No | Deep reasoning |
+
+---
+
 ## Budget Partitions
 
 Soft caps — enforced per-phase, not hard-blocked:
