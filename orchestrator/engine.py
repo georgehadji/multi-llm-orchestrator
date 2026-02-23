@@ -49,7 +49,7 @@ from .hooks import HookRegistry, EventType
 from .metrics import MetricsExporter
 from .agents import TaskChannel
 from .cost import BudgetHierarchy, CostPredictor
-from .tracing import traced_task, get_tracer
+from .tracing import traced_task, get_tracer, TracingConfig, configure_tracing
 
 logger = logging.getLogger("orchestrator")
 
@@ -75,7 +75,8 @@ class Orchestrator:
                  max_concurrency: int = 3,
                  max_parallel_tasks: int = 3,
                  budget_hierarchy: Optional["BudgetHierarchy"] = None,
-                 cost_predictor: Optional["CostPredictor"] = None):
+                 cost_predictor: Optional["CostPredictor"] = None,
+                 tracing_cfg: Optional["TracingConfig"] = None):
         self.budget = budget or Budget()
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
@@ -125,6 +126,9 @@ class Orchestrator:
         # Task 6: adaptive router v2 — circuit breaker with degraded/disabled states
         from .adaptive_router import AdaptiveRouter
         self._adaptive_router = AdaptiveRouter()
+        # Task 7: configure OpenTelemetry tracing if a config was provided
+        if tracing_cfg is not None:
+            configure_tracing(tracing_cfg)
 
     # ─────────────────────────────────────────
     # Public API

@@ -27,6 +27,7 @@ load_dotenv(override=True)  # override=True: .env values win over empty system e
 
 from .models import Budget
 from .engine import Orchestrator
+from .tracing import TracingConfig
 from .state import StateManager
 from .project_file import load_project_file
 from .output_writer import write_output_dir
@@ -259,9 +260,20 @@ async def _async_list_projects():
         await sm.close()
 
 
+def _build_tracing_cfg(args) -> "TracingConfig | None":
+    """Return a TracingConfig when --tracing is set, otherwise None."""
+    if getattr(args, "tracing", False):
+        return TracingConfig(
+            enabled=True,
+            otlp_endpoint=getattr(args, "otlp_endpoint", None),
+        )
+    return None
+
+
 async def _async_resume(args):
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency)
+    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
+                        tracing_cfg=_build_tracing_cfg(args))
     existing = await orch.state_mgr.load_project(args.resume)
     if not existing:
         print(f"Project {args.resume} not found.")
@@ -298,7 +310,8 @@ async def _async_file_project(args):
     print(f"Budget: ${budget.max_usd} / {budget.max_time_seconds}s")
     print("-" * 60)
 
-    orch = Orchestrator(budget=budget, max_concurrency=concurrency)
+    orch = Orchestrator(budget=budget, max_concurrency=concurrency,
+                        tracing_cfg=_build_tracing_cfg(args))
 
     renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
     async for event in orch.run_project_streaming(
@@ -321,7 +334,8 @@ async def _async_file_project(args):
 
 async def _async_new_project(args):
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency)
+    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
+                        tracing_cfg=_build_tracing_cfg(args))
 
     print(f"Starting project (budget: ${args.budget}, time: {args.time}s)")
     print(f"Project: {args.project}")
@@ -367,7 +381,8 @@ async def _async_visualize(args):
         project_description = args.project
         success_criteria = getattr(args, "criteria", "") or ""
 
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency)
+    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
+                        tracing_cfg=_build_tracing_cfg(args))
     tasks = await orch._decompose(project_description, success_criteria)
 
     renderer = DagRenderer(tasks)
@@ -439,6 +454,20 @@ def main():
         "--reuse-profiles",
         action="store_true",
         help="Seed routing from historical run profiles (future feature)",
+    )
+    parser.add_argument(
+        "--tracing",
+        action="store_true",
+        default=False,
+        help="Enable OpenTelemetry distributed tracing. Requires: pip install -e '.[tracing]'"
+    )
+    parser.add_argument(
+        "--otlp-endpoint",
+        type=str,
+        default=None,
+        metavar="URL",
+        help="OTLP gRPC endpoint for tracing export (e.g. http://localhost:4317). "
+             "If --tracing is set but this is omitted, spans are printed to console."
     )
 
     args = parser.parse_args()
