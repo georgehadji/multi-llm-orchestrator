@@ -19,6 +19,7 @@ from typing import Optional
 
 from .models import Model
 from .policy import EnforcementMode, ModelProfile, Policy
+from .tracing import traced_policy_check
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -147,134 +148,137 @@ class PolicyEngine:
 
         Does NOT raise. Use enforce() to get exception-based enforcement.
         """
-        violations: list[str] = []
-        # Track the most-restrictive mode across all policies.
-        # HARD (0) > SOFT (1) > MONITOR (2) — stricter policies always win.
-        # Rationale: if ANY policy is HARD, all violations must block the model.
-        # A permissive MONITOR policy from one rule must never override a
-        # HARD compliance rule from another (e.g. GDPR region constraint).
-        _MODE_RANK = {
-            EnforcementMode.HARD:    0,  # most restrictive → wins
-            EnforcementMode.SOFT:    1,
-            EnforcementMode.MONITOR: 2,  # most permissive
-            None:                    0,  # None → HARD
-        }
-        effective_mode_rank = 2          # start at most-permissive, tighten downward
-        effective_mode = EnforcementMode.MONITOR
+        with traced_policy_check(len(policies)) as span:
+            violations: list[str] = []
+            # Track the most-restrictive mode across all policies.
+            # HARD (0) > SOFT (1) > MONITOR (2) — stricter policies always win.
+            # Rationale: if ANY policy is HARD, all violations must block the model.
+            # A permissive MONITOR policy from one rule must never override a
+            # HARD compliance rule from another (e.g. GDPR region constraint).
+            _MODE_RANK = {
+                EnforcementMode.HARD:    0,  # most restrictive → wins
+                EnforcementMode.SOFT:    1,
+                EnforcementMode.MONITOR: 2,  # most permissive
+                None:                    0,  # None → HARD
+            }
+            effective_mode_rank = 2          # start at most-permissive, tighten downward
+            effective_mode = EnforcementMode.MONITOR
 
-        for policy in policies:
-            mode = policy.enforcement_mode  # type: ignore[attr-defined]
-            rank = _MODE_RANK.get(mode, 0)
-            if rank < effective_mode_rank:  # lower rank = more restrictive = wins
-                effective_mode_rank = rank
-                effective_mode = mode if mode is not None else EnforcementMode.HARD
+            for policy in policies:
+                mode = policy.enforcement_mode  # type: ignore[attr-defined]
+                rank = _MODE_RANK.get(mode, 0)
+                if rank < effective_mode_rank:  # lower rank = more restrictive = wins
+                    effective_mode_rank = rank
+                    effective_mode = mode if mode is not None else EnforcementMode.HARD
 
-            # 1. Blocked providers (hard blacklist)
-            if (
-                policy.blocked_providers is not None
-                and profile.provider in policy.blocked_providers
-            ):
-                violations.append(
-                    f"[{policy.name}] provider '{profile.provider}' is in "
-                    f"blocked_providers {policy.blocked_providers}"
-                )
-
-            # 2. Allowed providers (whitelist — None means all allowed)
-            if (
-                policy.allowed_providers is not None
-                and profile.provider not in policy.allowed_providers
-            ):
-                violations.append(
-                    f"[{policy.name}] provider '{profile.provider}' not in "
-                    f"allowed_providers {policy.allowed_providers}"
-                )
-
-            # 3. Allowed regions (None means all allowed)
-            if (
-                policy.allowed_regions is not None
-                and profile.region not in policy.allowed_regions
-            ):
-                violations.append(
-                    f"[{policy.name}] region '{profile.region}' not in "
-                    f"allowed_regions {policy.allowed_regions}"
-                )
-
-            # 4. Blocked models (specific model-level block)
-            if (
-                policy.blocked_models is not None
-                and model in policy.blocked_models
-            ):
-                violations.append(
-                    f"[{policy.name}] model '{model.value}' is in blocked_models"
-                )
-
-            # 5. Latency SLA
-            if (
-                policy.max_latency_ms is not None
-                and profile.avg_latency_ms > policy.max_latency_ms
-            ):
-                violations.append(
-                    f"[{policy.name}] avg_latency {profile.avg_latency_ms:.0f}ms "
-                    f"> max_latency_ms {policy.max_latency_ms:.0f}ms"
-                )
-
-            # 6. Training consent — policy says no training, model must carry
-            #    "no_train" in its compliance_tags to prove it
-            if not policy.allow_training_on_output:
-                if "no_train" not in profile.compliance_tags:
+                # 1. Blocked providers (hard blacklist)
+                if (
+                    policy.blocked_providers is not None
+                    and profile.provider in policy.blocked_providers
+                ):
                     violations.append(
-                        f"[{policy.name}] allow_training_on_output=False requires "
-                        f"'no_train' compliance tag; model has: {profile.compliance_tags}"
+                        f"[{policy.name}] provider '{profile.provider}' is in "
+                        f"blocked_providers {policy.blocked_providers}"
                     )
 
-            # 7. PII policy — if PII is disallowed, model must carry "pii_allowed" tag
-            if not policy.pii_allowed:
-                if "pii_allowed" not in profile.compliance_tags:
+                # 2. Allowed providers (whitelist — None means all allowed)
+                if (
+                    policy.allowed_providers is not None
+                    and profile.provider not in policy.allowed_providers
+                ):
                     violations.append(
-                        f"[{policy.name}] pii_allowed=False requires 'pii_allowed' "
-                        f"compliance tag; model has: {profile.compliance_tags}"
+                        f"[{policy.name}] provider '{profile.provider}' not in "
+                        f"allowed_providers {policy.allowed_providers}"
                     )
 
-        raw_passed = (len(violations) == 0)
+                # 3. Allowed regions (None means all allowed)
+                if (
+                    policy.allowed_regions is not None
+                    and profile.region not in policy.allowed_regions
+                ):
+                    violations.append(
+                        f"[{policy.name}] region '{profile.region}' not in "
+                        f"allowed_regions {policy.allowed_regions}"
+                    )
 
-        # Apply enforcement mode to determine effective result
-        if not raw_passed:
-            if effective_mode == EnforcementMode.MONITOR:
-                effective_passed = True   # log but allow
-            elif effective_mode == EnforcementMode.SOFT:
-                # Block only if any hard violation exists
-                has_hard = any(_is_hard_violation(v) for v in violations)
-                effective_passed = not has_hard
+                # 4. Blocked models (specific model-level block)
+                if (
+                    policy.blocked_models is not None
+                    and model in policy.blocked_models
+                ):
+                    violations.append(
+                        f"[{policy.name}] model '{model.value}' is in blocked_models"
+                    )
+
+                # 5. Latency SLA
+                if (
+                    policy.max_latency_ms is not None
+                    and profile.avg_latency_ms > policy.max_latency_ms
+                ):
+                    violations.append(
+                        f"[{policy.name}] avg_latency {profile.avg_latency_ms:.0f}ms "
+                        f"> max_latency_ms {policy.max_latency_ms:.0f}ms"
+                    )
+
+                # 6. Training consent — policy says no training, model must carry
+                #    "no_train" in its compliance_tags to prove it
+                if not policy.allow_training_on_output:
+                    if "no_train" not in profile.compliance_tags:
+                        violations.append(
+                            f"[{policy.name}] allow_training_on_output=False requires "
+                            f"'no_train' compliance tag; model has: {profile.compliance_tags}"
+                        )
+
+                # 7. PII policy — if PII is disallowed, model must carry "pii_allowed" tag
+                if not policy.pii_allowed:
+                    if "pii_allowed" not in profile.compliance_tags:
+                        violations.append(
+                            f"[{policy.name}] pii_allowed=False requires 'pii_allowed' "
+                            f"compliance tag; model has: {profile.compliance_tags}"
+                        )
+
+            raw_passed = (len(violations) == 0)
+
+            # Apply enforcement mode to determine effective result
+            if not raw_passed:
+                if effective_mode == EnforcementMode.MONITOR:
+                    effective_passed = True   # log but allow
+                elif effective_mode == EnforcementMode.SOFT:
+                    # Block only if any hard violation exists
+                    has_hard = any(_is_hard_violation(v) for v in violations)
+                    effective_passed = not has_hard
+                else:
+                    # HARD (default): block on any violation
+                    effective_passed = False
             else:
-                # HARD (default): block on any violation
-                effective_passed = False
-        else:
-            effective_passed = True
+                effective_passed = True
 
-        result = PolicyCheckResult(
-            passed=effective_passed,
-            violations=violations,
-            model=model,
-            raw_passed=raw_passed,
-        )
-
-        # Emit audit record if audit log is configured
-        if self._audit_log is not None:
-            self._audit_log.record(
-                task_id=task_id,
-                model=model.value,
+            result = PolicyCheckResult(
                 passed=effective_passed,
-                raw_passed=raw_passed,
                 violations=violations,
-                enforcement_mode=(
-                    effective_mode.value
-                    if effective_mode is not None
-                    else EnforcementMode.HARD.value
-                ),
-                policies_applied=[p.name for p in policies],
+                model=model,
+                raw_passed=raw_passed,
             )
 
-        return result
+            # Emit audit record if audit log is configured
+            if self._audit_log is not None:
+                self._audit_log.record(
+                    task_id=task_id,
+                    model=model.value,
+                    passed=effective_passed,
+                    raw_passed=raw_passed,
+                    violations=violations,
+                    enforcement_mode=(
+                        effective_mode.value
+                        if effective_mode is not None
+                        else EnforcementMode.HARD.value
+                    ),
+                    policies_applied=[p.name for p in policies],
+                )
+
+            span.set_attribute("policy.passed", result.passed)
+            span.set_attribute("policy.violations", len(result.violations))
+            return result
 
     def enforce(
         self,
@@ -290,10 +294,13 @@ class PolicyEngine:
         configuration drift (e.g. region tags changed between selection
         and execution).
         """
-        result = self.check(model, profile, policies, task_id=task_id)
-        if not result.passed:
-            raise PolicyViolationError(
-                task_id=task_id,
-                policies=policies,
-                reason="; ".join(result.violations),
-            )
+        with traced_policy_check(len(policies)) as span:
+            result = self.check(model, profile, policies, task_id=task_id)
+            span.set_attribute("policy.passed", result.passed)
+            span.set_attribute("policy.violations", len(result.violations))
+            if not result.passed:
+                raise PolicyViolationError(
+                    task_id=task_id,
+                    policies=policies,
+                    reason="; ".join(result.violations),
+                )
