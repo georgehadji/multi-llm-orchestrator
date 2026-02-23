@@ -66,39 +66,67 @@ class AppVerifier:
     so they can be mocked in tests.
     """
 
+    _JS_APP_TYPES = frozenset({"nextjs", "react-fastapi", "html"})
+
     def verify_local(self, output_dir: Path, profile: AppProfile) -> VerifyReport:
         """
         Run local verification:
-        1. pip install -r requirements.txt
-        2. Run test_command
-        3. Start app with run_command (startup check)
+        1. Install dependencies (npm or pip depending on app_type)
+        2. Run test_command (npm test or pytest)
+        3. For JS/TS apps: npm run build instead of startup check
+        4. For Python apps: start app with run_command (startup check)
         """
         output_dir = Path(output_dir)
         report = VerifyReport()
 
+        is_js = profile.app_type in self._JS_APP_TYPES
+
         # ── Step 1: Install dependencies ──────────────────────────────────────
-        req_file = output_dir / "requirements.txt"
-        if req_file.exists():
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
-                capture_output=True,
-                text=True,
-                cwd=str(output_dir),
-            )
-            if result.returncode == 0:
-                report.local_install_ok = True
-                logger.debug("pip install succeeded")
+        if is_js:
+            package_json = output_dir / "package.json"
+            if package_json.exists():
+                result = subprocess.run(
+                    ["npm", "install", "--legacy-peer-deps"],
+                    capture_output=True,
+                    text=True,
+                    cwd=str(output_dir),
+                )
+                if result.returncode == 0:
+                    report.local_install_ok = True
+                    logger.debug("npm install succeeded")
+                else:
+                    report.local_install_ok = False
+                    report.errors.append(f"npm install failed: {result.stderr[:200]}")
+                    logger.warning("npm install failed: %s", result.stderr[:100])
+                    return report
             else:
-                report.local_install_ok = False
-                report.errors.append(f"pip install failed: {result.stderr[:200]}")
-                logger.warning("pip install failed: %s", result.stderr[:100])
-                return report  # can't test if install failed
+                report.local_install_ok = True  # no package.json yet — skip
         else:
-            # No requirements.txt → treat install as OK
-            report.local_install_ok = True
+            req_file = output_dir / "requirements.txt"
+            if req_file.exists():
+                result = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
+                    capture_output=True,
+                    text=True,
+                    cwd=str(output_dir),
+                )
+                if result.returncode == 0:
+                    report.local_install_ok = True
+                    logger.debug("pip install succeeded")
+                else:
+                    report.local_install_ok = False
+                    report.errors.append(f"pip install failed: {result.stderr[:200]}")
+                    logger.warning("pip install failed: %s", result.stderr[:100])
+                    return report  # can't test if install failed
+            else:
+                # No requirements.txt → treat install as OK
+                report.local_install_ok = True
 
         # ── Step 2: Run tests ──────────────────────────────────────────────────
-        test_cmd = profile.test_command or "pytest"
+        if is_js:
+            test_cmd = "npm test -- --passWithNoTests"
+        else:
+            test_cmd = profile.test_command or "pytest"
         test_parts = test_cmd.split()
         result = subprocess.run(
             test_parts,
@@ -114,7 +142,23 @@ class AppVerifier:
             report.errors.append(f"Tests failed: {result.stderr[:200]}")
             logger.warning("Tests failed: %s", result.stderr[:100])
 
-        # ── Step 3: Startup check ──────────────────────────────────────────────
+        # ── Step 3: Build check (JS) or startup check (Python) ────────────────
+        if is_js:
+            build_result = subprocess.run(
+                ["npm", "run", "build"],
+                capture_output=True,
+                text=True,
+                cwd=str(output_dir),
+            )
+            if build_result.returncode == 0:
+                report.startup_ok = True
+                logger.debug("npm run build succeeded")
+            else:
+                report.startup_ok = False
+                report.errors.append(f"npm run build failed: {build_result.stderr[:200]}")
+                logger.warning("npm run build failed: %s", build_result.stderr[:100])
+            return report
+
         run_cmd = profile.run_command
         if not run_cmd:
             # No run command — skip startup check

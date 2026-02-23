@@ -188,7 +188,8 @@ class Orchestrator:
 
     async def run_project(self, project_description: str,
                           success_criteria: str,
-                          project_id: str = "") -> ProjectState:
+                          project_id: str = "",
+                          app_profile: Optional["AppProfile"] = None) -> ProjectState:
         """Main entry point. Decomposes project → executes tasks → returns state."""
         tracer = get_tracer()
         with tracer.start_as_current_span("run_project") as span:
@@ -213,7 +214,8 @@ class Orchestrator:
                     return state
 
                 # Phase 1: Decompose
-                tasks = await self._decompose(project_description, success_criteria)
+                tasks = await self._decompose(project_description, success_criteria,
+                                              app_profile=app_profile)
                 if not tasks:
                     return self._make_state(
                         project_description, success_criteria, {},
@@ -339,16 +341,39 @@ class Orchestrator:
     # Phase 1: Decomposition
     # ─────────────────────────────────────────
 
-    async def _decompose(self, project: str, criteria: str) -> dict[str, Task]:
+    async def _decompose(self, project: str, criteria: str,
+                          app_profile: Optional["AppProfile"] = None) -> dict[str, Task]:
         """Use cheapest capable model to break project into atomic tasks."""
         valid_types = [t.value for t in TaskType]
+
+        # Build optional app-context block injected into the prompt
+        app_context_block = ""
+        if app_profile is not None:
+            from orchestrator.scaffold import _TEMPLATE_MAP
+            from orchestrator.scaffold.templates import generic
+            template_files = _TEMPLATE_MAP.get(app_profile.app_type, generic.FILES)
+            scaffold_list = "\n".join(f"  - {p}" for p in sorted(template_files))
+            tech_stack_str = ", ".join(app_profile.tech_stack) if app_profile.tech_stack else "unknown"
+            app_context_block = f"""
+APP_TYPE: {app_profile.app_type}
+TECH_STACK: {tech_stack_str}
+SCAFFOLD_FILES (already exist — fill or extend these):
+{scaffold_list}
+
+Each task JSON element MUST also include:
+- "target_path": the relative file path this task writes (e.g. "app/page.tsx").
+  Use the exact scaffold paths listed above where applicable.
+  Tasks producing non-file outputs (code_review, evaluation) use target_path: "".
+- "tech_context": brief note on the tech stack relevant to this specific file.
+"""
+
         prompt = f"""You are a project decomposition engine. Break this project into
 atomic, executable tasks.
 
 PROJECT: {project}
 
 SUCCESS CRITERIA: {criteria}
-
+{app_context_block}
 Return ONLY a JSON array. Each element must have:
 - "id": string (e.g., "task_001")
 - "type": one of {valid_types}
@@ -464,6 +489,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     prompt=item["prompt"],
                     dependencies=item.get("dependencies", []),
                     hard_validators=item.get("hard_validators", []),
+                    target_path=item.get("target_path", ""),
+                    tech_context=item.get("tech_context", ""),
                 )
                 tasks[task.id] = task
             except (KeyError, ValueError) as e:

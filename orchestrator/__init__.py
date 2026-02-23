@@ -86,6 +86,16 @@ __all__ = [
     "RemediationEngine", "RemediationStrategy", "RemediationPlan",
     # Observability — OTEL tracing
     "TracingConfig", "configure_tracing", "get_tracer",
+    # App Assembler
+    "ProjectAssembler", "AssemblyResult", "assemble_project",
+    # Constraint Control Plane + Always-Complete Apps
+    "SLAs", "InputSpec", "Constraints",
+    "JobSpecV2",
+    "RoutingHint", "ValidationRule", "EscalationRule",
+    "PolicySpecV2",
+    "Decision", "MonitorResult", "ReferenceMonitor",
+    "ControlPlane", "RoutingPlan", "SpecValidationError", "PolicyViolation",
+    "AgentDraft", "OrchestrationAgent",
 ]
 
 # ── Six Improvements: new modules ──────────────────────────────────────────
@@ -109,3 +119,15 @@ from .remediation import RemediationEngine, RemediationStrategy, RemediationPlan
 
 # ── Observability — OTEL tracing ───────────────────────────────────────────
 from .tracing import TracingConfig, configure_tracing, get_tracer
+
+from .assembler import ProjectAssembler, AssemblyResult, assemble_project
+# Constraint Control Plane + Always-Complete Apps
+from .specs import (
+    SLAs, InputSpec, Constraints,
+    JobSpecV2,
+    RoutingHint, ValidationRule, EscalationRule,
+    PolicySpecV2,
+)
+from .reference_monitor import Decision, MonitorResult, ReferenceMonitor
+from .control_plane import ControlPlane, RoutingPlan, SpecValidationError, PolicyViolation
+from .orchestration_agent import AgentDraft, OrchestrationAgent

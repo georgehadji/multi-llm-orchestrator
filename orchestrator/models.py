@@ -206,6 +206,7 @@ class Task:
     # App Builder fields (Improvement 8)
     target_path: str = ""     # e.g. "src/routes/auth.py"
     module_name: str = ""     # e.g. "src.routes.auth"
+    tech_context: str = ""    # brief note on tech stack for this file
 
     def __post_init__(self):
         self.acceptance_threshold = DEFAULT_THRESHOLDS.get(

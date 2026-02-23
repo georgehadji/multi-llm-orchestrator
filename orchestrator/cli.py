@@ -31,6 +31,7 @@ from .tracing import TracingConfig
 from .state import StateManager
 from .project_file import load_project_file
 from .output_writer import write_output_dir
+from .assembler import assemble_project
 from .progress import ProgressRenderer
 from .streaming import ProjectCompleted as _ProjectCompleted
 from .visualization import DagRenderer
@@ -224,6 +225,64 @@ def _build_subparsers(subparsers) -> None:
     build_parser.set_defaults(func=cmd_build)
 
 
+def cmd_agent(args) -> None:
+    """
+    Handle the 'agent' subcommand: NL intent → draft specs → submit to ControlPlane.
+    """
+    from orchestrator.orchestration_agent import OrchestrationAgent
+    from orchestrator.control_plane import ControlPlane
+
+    agent = OrchestrationAgent()
+    draft = asyncio.run(agent.draft(args.intent))
+
+    print("\n=== Draft Job Spec ===")
+    import json as _json
+    from dataclasses import asdict
+    print(_json.dumps(asdict(draft.job), indent=2, default=str))
+    print("\n=== Draft Policy Spec ===")
+    print(_json.dumps(asdict(draft.policy), indent=2, default=str))
+    print(f"\nRationale: {draft.rationale}")
+
+    if not args.interactive:
+        return
+
+    while True:
+        feedback = input("\nFeedback (or 'submit' to run, 'quit' to exit): ").strip()
+        if feedback.lower() == "quit":
+            return
+        if feedback.lower() == "submit":
+            break
+        draft = asyncio.run(agent.refine(draft, feedback))
+        print("\n=== Revised Job Spec ===")
+        print(_json.dumps(asdict(draft.job), indent=2, default=str))
+        print(f"\nRationale: {draft.rationale}")
+
+    print("\nSubmitting to ControlPlane...")
+    cp = ControlPlane()
+    state = asyncio.run(cp.submit(draft.job, draft.policy))
+    print(f"Status: {state.status.value}")
+
+
+def _agent_subparsers(subparsers) -> None:
+    """Register the 'agent' subcommand."""
+    ap = subparsers.add_parser(
+        "agent",
+        help="Convert NL intent to typed specs and optionally run via ControlPlane",
+    )
+    ap.add_argument(
+        "--intent", "-i",
+        required=True,
+        help="Natural language description of the job to run",
+    )
+    ap.add_argument(
+        "--interactive",
+        action="store_true",
+        default=False,
+        help="Enter interactive refine loop before submitting",
+    )
+    ap.set_defaults(func=cmd_agent)
+
+
 def _default_output_dir(project_id: str) -> str:
     """
     Build a default output path when --output-dir is not supplied.
@@ -327,17 +386,65 @@ async def _async_file_project(args):
     output_dir = args.output_dir or result.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
     print(f"\nOutput written to: {path}")
+
+    # Assembly: place files into declared target_path locations
+    if state and (result.assemble or result.task_paths):
+        resolved_paths = _resolve_task_paths(result.task_paths, state)
+        assembly_dir = str(Path(output_dir) / "app")
+        assembly = assemble_project(
+            state,
+            assembly_dir,
+            task_paths=resolved_paths,
+            verify_cmd=result.verify_cmd,
+        )
+        print(f"\nAssembled project: {assembly.output_dir}")
+        for f in assembly.files_written:
+            print(f"  + {f}")
+        if assembly.verify_returncode is not None:
+            status = "OK" if assembly.verify_returncode == 0 else "FAILED"
+            print(f"\nVerification [{status}] (exit {assembly.verify_returncode})")
+            if assembly.verify_output:
+                print(assembly.verify_output[:500])
+        if assembly.errors:
+            for err in assembly.errors:
+                print(f"  ! {err}", file=sys.stderr)
+
     if getattr(args, "dependency_report", False) and state:
         renderer = DagRenderer(state.tasks, results=state.results)
         print("\n" + renderer.dependency_report())
 
 
 async def _async_new_project(args):
+    raw_tasks = getattr(args, "raw_tasks", False)
+
+    if not raw_tasks:
+        # Route through AppBuilder (detects app_type automatically)
+        import tempfile
+        from orchestrator.app_builder import AppBuilder
+        output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
+        print(f"Starting app build (budget: ${args.budget})")
+        print(f"Project: {args.project}")
+        print(f"Criteria: {args.criteria}")
+        print("-" * 60)
+        builder = AppBuilder()
+        result = await builder.build(
+            description=args.project,
+            criteria=args.criteria,
+            output_dir=Path(output_dir),
+        )
+        if result.success:
+            print(f"Build successful: {result.output_dir}")
+        else:
+            errors = ", ".join(result.errors) if result.errors else "unknown error"
+            print(f"Build failed: {errors}")
+        return
+
+    # --raw-tasks: legacy flat-file path (opt-in)
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
     orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
                         tracing_cfg=_build_tracing_cfg(args))
 
-    print(f"Starting project (budget: ${args.budget}, time: {args.time}s)")
+    print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
     print(f"Project: {args.project}")
     print(f"Criteria: {args.criteria}")
     print("-" * 60)
@@ -395,6 +502,35 @@ async def _async_visualize(args):
         print("Critical path: " + " -> ".join(path) if path else "Critical path: (empty)")
 
 
+def _resolve_task_paths(
+    task_paths: dict[str, str],
+    state,
+) -> dict[str, str]:
+    """
+    Resolve a ``task_paths`` dict from the YAML file into a
+    ``{task_id: target_path}`` mapping.
+
+    Keys may be:
+    - 1-based integer index ("1", "2", …) → resolved against execution_order
+    - Exact task_id string ("task_001", …) → used as-is
+    """
+    if not task_paths:
+        return {}
+    order = state.execution_order or list(state.results.keys())
+    resolved: dict[str, str] = {}
+    for key, target in task_paths.items():
+        # Try numeric index first
+        try:
+            idx = int(key) - 1  # convert 1-based to 0-based
+            if 0 <= idx < len(order):
+                resolved[order[idx]] = target
+            else:
+                resolved[key] = target  # keep as-is, assembler will skip if unknown
+        except ValueError:
+            resolved[key] = target  # already a task_id string
+    return resolved
+
+
 def main():
     # ── Top-level parser ─────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(
@@ -405,6 +541,7 @@ def main():
     subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
     _analyze_subparsers(subparsers)
     _build_subparsers(subparsers)
+    _agent_subparsers(subparsers)
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
@@ -468,6 +605,15 @@ def main():
         metavar="URL",
         help="OTLP gRPC endpoint for tracing export (e.g. http://localhost:4317). "
              "If --tracing is set but this is omitted, spans are printed to console."
+    )
+    parser.add_argument(
+        "--raw-tasks",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip AppBuilder pipeline and write raw task output files directly "
+            "(legacy behaviour, opt-in)"
+        ),
     )
 
     args = parser.parse_args()
