@@ -20,6 +20,7 @@ from typing import Optional
 
 from .models import Model, get_provider, estimate_cost
 from .cache import DiskCache
+from .tracing import traced_llm_call
 
 logger = logging.getLogger("orchestrator.api")
 
@@ -158,9 +159,16 @@ class UnifiedClient:
                 )
 
         async with self.semaphore:
-            return await self._call_with_retry(
-                model, prompt, system, max_tokens, temperature, timeout, retries
-            )
+            with traced_llm_call(model.value, "api_call") as span:
+                response = await self._call_with_retry(
+                    model, prompt, system, max_tokens, temperature, timeout, retries
+                )
+                span.set_attribute("llm.tokens_in", response.input_tokens)
+                span.set_attribute("llm.tokens_out", response.output_tokens)
+                span.set_attribute("llm.cost_usd", response.cost_usd)
+                span.set_attribute("llm.latency_ms", response.latency_ms)
+                span.set_attribute("llm.cached", False)
+                return response
 
     async def _call_with_retry(self, model: Model, prompt: str,
                                 system: str, max_tokens: int,

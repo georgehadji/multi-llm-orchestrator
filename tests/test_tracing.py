@@ -131,3 +131,29 @@ def test_nested_spans_have_parent_child_relationship(span_exporter):
     child = next(s for s in spans if s.name == "llm_call:generate")
     parent = next(s for s in spans if s.name == "task:t1")
     assert child.parent.span_id == parent.context.span_id
+
+
+def test_unified_client_emits_llm_span(span_exporter):
+    """UnifiedClient.call() emits an llm_call span."""
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+    from orchestrator.api_clients import UnifiedClient, APIResponse
+    from orchestrator.models import Model
+    import orchestrator.tracing as t
+
+    exporter, provider = span_exporter
+    t._provider = provider
+    t._tracer = provider.get_tracer("test")
+
+    fake_response = APIResponse("hello", 10, 20, Model.GPT_4O_MINI, latency_ms=42.0)
+
+    with patch.object(UnifiedClient, "_call_with_retry", new=AsyncMock(return_value=fake_response)):
+        client = UnifiedClient()
+        resp = asyncio.run(client.call(Model.GPT_4O_MINI, "ping", bypass_cache=True))
+
+    spans = exporter.get_finished_spans()
+    llm_spans = [s for s in spans if s.name.startswith("llm_call:")]
+    assert len(llm_spans) == 1
+    assert llm_spans[0].attributes["llm.model"] == Model.GPT_4O_MINI.value
+    assert llm_spans[0].attributes.get("llm.tokens_in") == 10
+    assert llm_spans[0].attributes.get("llm.tokens_out") == 20
