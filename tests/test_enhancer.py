@@ -2,14 +2,17 @@
 
 import json
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from orchestrator.enhancer import (
     Enhancement,
     _select_enhance_model,
     _parse_enhancements,
     _apply_enhancements,
+    ProjectEnhancer,
 )
 from orchestrator.models import Model
+from orchestrator.api_clients import APIResponse
 
 
 # ─────────────────────────────────────────────
@@ -214,3 +217,172 @@ def test_apply_enhancements_already_patched():
     new_desc, new_crit = _apply_enhancements(description, criteria, [enhancement])
     assert new_desc == "Build app with auth and caching"
     assert new_crit == "Fast; supports auth; and supports caching"
+
+
+# ─────────────────────────────────────────────
+# Tests for ProjectEnhancer class
+# ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_project_enhancer_valid_llm_response():
+    """Valid LLM response should return list of Enhancement objects."""
+    # Create valid JSON response
+    json_response = json.dumps([
+        {
+            "type": "completeness",
+            "title": "Add Performance Metrics",
+            "description": "The project lacks specific performance requirements.",
+            "patch_description": "with response time < 100ms",
+            "patch_criteria": "achieve response time < 100ms for all endpoints"
+        },
+        {
+            "type": "criteria",
+            "title": "Add Error Handling",
+            "description": "Need comprehensive error handling strategy.",
+            "patch_description": "with comprehensive error handling",
+            "patch_criteria": "handles all error cases gracefully"
+        }
+    ])
+
+    # Mock UnifiedClient.call()
+    mock_client = AsyncMock()
+    mock_response = APIResponse(
+        text=json_response,
+        input_tokens=100,
+        output_tokens=150,
+        model=Model.DEEPSEEK_CHAT,
+    )
+    mock_client.call.return_value = mock_response
+
+    # Create enhancer with mocked client
+    enhancer = ProjectEnhancer(client=mock_client)
+
+    # Call analyze
+    result = await enhancer.analyze("Build a web app", "Handle 100 requests/sec")
+
+    # Verify result
+    assert len(result) == 2
+    assert result[0].type == "completeness"
+    assert result[0].title == "Add Performance Metrics"
+    assert result[1].type == "criteria"
+
+
+@pytest.mark.asyncio
+async def test_project_enhancer_invalid_json_response():
+    """Invalid JSON from LLM should return empty list gracefully."""
+    # Create invalid JSON response
+    invalid_json = "not valid json {]"
+
+    # Mock UnifiedClient.call()
+    mock_client = AsyncMock()
+    mock_response = APIResponse(
+        text=invalid_json,
+        input_tokens=100,
+        output_tokens=50,
+        model=Model.DEEPSEEK_CHAT,
+    )
+    mock_client.call.return_value = mock_response
+
+    # Create enhancer with mocked client
+    enhancer = ProjectEnhancer(client=mock_client)
+
+    # Call analyze
+    result = await enhancer.analyze("Build a web app", "Handle 100 requests/sec")
+
+    # Should gracefully return empty list
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_project_enhancer_llm_exception():
+    """LLM exception should return empty list gracefully."""
+    # Mock UnifiedClient.call() to raise exception
+    mock_client = AsyncMock()
+    mock_client.call.side_effect = Exception("LLM call failed")
+
+    # Create enhancer with mocked client
+    enhancer = ProjectEnhancer(client=mock_client)
+
+    # Call analyze
+    result = await enhancer.analyze("Build a web app", "Handle 100 requests/sec")
+
+    # Should gracefully return empty list
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_project_enhancer_model_selection_long_description():
+    """Long combined description should use DEEPSEEK_REASONER model."""
+    # Create long description and criteria (combined > 50 words)
+    long_description = " ".join(["word"] * 35)  # 35 words
+    long_criteria = " ".join(["word"] * 20)      # 20 words
+    # Combined = 55 words > 50, should use DEEPSEEK_REASONER
+
+    json_response = json.dumps([
+        {
+            "type": "completeness",
+            "title": "Test",
+            "description": "Test enhancement",
+            "patch_description": "test patch",
+            "patch_criteria": "test criteria"
+        }
+    ])
+
+    # Mock UnifiedClient.call()
+    mock_client = AsyncMock()
+    mock_response = APIResponse(
+        text=json_response,
+        input_tokens=100,
+        output_tokens=100,
+        model=Model.DEEPSEEK_REASONER,
+    )
+    mock_client.call.return_value = mock_response
+
+    # Create enhancer with mocked client
+    enhancer = ProjectEnhancer(client=mock_client)
+
+    # Call analyze
+    await enhancer.analyze(long_description, long_criteria)
+
+    # Verify DEEPSEEK_REASONER was used
+    call_args = mock_client.call.call_args
+    assert call_args.kwargs["model"] == Model.DEEPSEEK_REASONER
+
+
+@pytest.mark.asyncio
+async def test_project_enhancer_model_selection_short_description():
+    """Short combined description should use DEEPSEEK_CHAT model."""
+    # Create short description and criteria (combined ≤ 50 words)
+    short_description = "Build a web app"  # ~3 words
+    short_criteria = "Must be fast"       # ~3 words
+    # Combined = 6 words ≤ 50, should use DEEPSEEK_CHAT
+
+    json_response = json.dumps([
+        {
+            "type": "completeness",
+            "title": "Test",
+            "description": "Test enhancement",
+            "patch_description": "test patch",
+            "patch_criteria": "test criteria"
+        }
+    ])
+
+    # Mock UnifiedClient.call()
+    mock_client = AsyncMock()
+    mock_response = APIResponse(
+        text=json_response,
+        input_tokens=100,
+        output_tokens=100,
+        model=Model.DEEPSEEK_CHAT,
+    )
+    mock_client.call.return_value = mock_response
+
+    # Create enhancer with mocked client
+    enhancer = ProjectEnhancer(client=mock_client)
+
+    # Call analyze
+    await enhancer.analyze(short_description, short_criteria)
+
+    # Verify DEEPSEEK_CHAT was used
+    call_args = mock_client.call.call_args
+    assert call_args.kwargs["model"] == Model.DEEPSEEK_CHAT

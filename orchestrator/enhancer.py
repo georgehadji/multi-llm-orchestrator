@@ -10,9 +10,13 @@ success criteria before core decomposition runs.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 
 from orchestrator.models import Model
+from orchestrator.api_clients import UnifiedClient
+
+logger = logging.getLogger("orchestrator.enhancer")
 
 
 @dataclass(frozen=True)
@@ -141,11 +145,11 @@ def _apply_enhancements(
     accepted: list[Enhancement]
 ) -> tuple[str, str]:
     """Apply all accepted enhancements to description and criteria.
-    
+
     Appends each enhancement's patches in order:
     - patch_description appended to description: f"{description} {patch}"
     - patch_criteria appended to criteria: f"{criteria}; {patch}"
-    
+
     Parameters
     ----------
     description : str
@@ -154,7 +158,7 @@ def _apply_enhancements(
         Success criteria (may be empty)
     accepted : list[Enhancement]
         List of enhancements to apply
-    
+
     Returns
     -------
     tuple[str, str]
@@ -162,9 +166,113 @@ def _apply_enhancements(
     """
     new_description = description
     new_criteria = criteria
-    
+
     for enhancement in accepted:
         new_description = f"{new_description} {enhancement.patch_description}"
         new_criteria = f"{new_criteria}; {enhancement.patch_criteria}"
-    
+
     return (new_description, new_criteria)
+
+
+class ProjectEnhancer:
+    """LLM-powered enhancement generator for project specifications.
+
+    Generates enhancement suggestions to improve project descriptions and success
+    criteria before core decomposition runs. Uses an LLM to analyze the project
+    and suggest concrete improvements.
+
+    Attributes
+    ----------
+    client : UnifiedClient
+        Async LLM client for making enhancement generation requests
+    """
+
+    def __init__(self, client: UnifiedClient | None = None):
+        """Initialize ProjectEnhancer with optional UnifiedClient.
+
+        Parameters
+        ----------
+        client : UnifiedClient | None
+            Optional pre-configured UnifiedClient. If None, creates a new instance.
+        """
+        self.client = client or UnifiedClient()
+
+    async def analyze(self, description: str, criteria: str) -> list[Enhancement]:
+        """Generate enhancement suggestions for a project description and criteria.
+
+        Combines the description and criteria to select an appropriate model,
+        then prompts the LLM to suggest 3-7 concrete enhancements. The LLM
+        response is parsed into Enhancement objects.
+
+        Parameters
+        ----------
+        description : str
+            The project description to enhance
+        criteria : str
+            The success criteria to enhance
+
+        Returns
+        -------
+        list[Enhancement]
+            List of suggested enhancements, or [] if LLM call fails
+
+        Notes
+        ------
+        - Combines description and criteria for model selection
+        - Uses appropriate model based on combined length
+        - Budget cap: $0.10 per call
+        - Graceful error handling: returns [] on any exception
+        """
+        try:
+            # Select model based on combined length
+            combined = f"{description} {criteria}"
+            model = _select_enhance_model(combined)
+
+            # Create LLM prompt
+            prompt = (
+                "You are a project specification expert. Analyze the following project description "
+                "and success criteria, then suggest 3-7 concrete improvements to make them more complete, realistic, and measurable.\n\n"
+                f"Project Description: {description}\n"
+                f"Success Criteria: {criteria}\n\n"
+                "For each enhancement, provide the following information:\n"
+                "1. type: \"completeness\" | \"criteria\" | \"risk\"\n"
+                "   - \"completeness\" for missing details about what the project should include\n"
+                "   - \"criteria\" for missing or unclear success metrics\n"
+                "   - \"risk\" for unaddressed risks or edge cases\n"
+                "2. title: short title (≤8 words)\n"
+                "3. description: 1-2 sentence explanation of why this improvement is needed\n"
+                "4. patch_description: a clause to append to the project description (e.g., \"with JWT authentication\")\n"
+                "5. patch_criteria: a clause to append to the success criteria (e.g., \"supports JWT authentication\")\n\n"
+                "Return your response as a valid JSON array. Example format:\n"
+                "[\n"
+                "  {\n"
+                "    \"type\": \"completeness\",\n"
+                "    \"title\": \"Add Performance Metrics\",\n"
+                "    \"description\": \"The project lacks specific performance requirements.\",\n"
+                "    \"patch_description\": \"with response time < 100ms for all endpoints\",\n"
+                "    \"patch_criteria\": \"achieve response time < 100ms for all endpoints\"\n"
+                "  }\n"
+                "]\n\n"
+                "Important: Return ONLY the JSON array, with no additional text or markdown formatting."
+            )
+
+            # Call LLM via UnifiedClient
+            llm_response = await self.client.call(
+                model=model,
+                prompt=prompt,
+                max_tokens=2000,
+                temperature=0.7,
+            )
+
+            # Extract text from response
+            llm_text = llm_response.text
+
+            # Parse JSON into Enhancement objects
+            enhancements = _parse_enhancements(llm_text)
+
+            return enhancements
+
+        except Exception as e:
+            # Graceful error handling: never raise
+            logger.warning(f"ProjectEnhancer.analyze failed: {e}", exc_info=True)
+            return []
