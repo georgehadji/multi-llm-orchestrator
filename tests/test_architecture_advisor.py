@@ -234,3 +234,61 @@ async def test_app_builder_uses_architecture_advisor():
     assert hasattr(builder, "_advisor"), "AppBuilder missing _advisor attribute"
     # _advisor must be an ArchitectureAdvisor instance
     assert isinstance(builder._advisor, ArchitectureAdvisor)
+
+
+# ─── engine.py decomposition prompt ──────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_decompose_prompt_includes_arch_fields():
+    """_decompose() prompt contains architectural fields when app_profile has them."""
+    from orchestrator.engine import Orchestrator
+    from orchestrator.models import Budget
+    from orchestrator.api_clients import APIResponse
+
+    orch = Orchestrator(budget=Budget(max_usd=1.0))
+    # Make all models healthy so _get_cheapest_available() doesn't raise
+    for _m in Model:
+        orch.api_health[_m] = True
+
+    decision = ArchitectureDecision(
+        app_type="fastapi",
+        tech_stack=["python", "fastapi"],
+        entry_point="src/main.py",
+        test_command="pytest",
+        run_command="uvicorn src.main:app",
+        requires_docker=False,
+        detected_from="advisor",
+        structural_pattern="hexagonal",
+        topology="monolith",
+        data_paradigm="relational",
+        api_paradigm="rest",
+        rationale="Hexagonal keeps the domain isolated from FastAPI specifics.",
+    )
+
+    # Patch client.call to capture the prompt
+    captured_prompts = []
+    async def mock_call(model, prompt, **kwargs):
+        captured_prompts.append(prompt)
+        import json as _json
+        fake_tasks = _json.dumps([{
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "Write main.py",
+            "dependencies": [],
+            "hard_validators": ["python_syntax"],
+            "target_path": "src/main.py",
+            "tech_context": "FastAPI",
+        }])
+        return APIResponse(text=fake_tasks, input_tokens=100,
+                           output_tokens=50, model=model)
+
+    orch.client.call = mock_call
+
+    await orch._decompose("Build a FastAPI service", "tests pass", app_profile=decision)
+
+    assert len(captured_prompts) >= 1
+    prompt = captured_prompts[0]
+    assert "hexagonal" in prompt.lower()
+    assert "ARCHITECTURE DECISION" in prompt
+    assert "relational" in prompt.lower()
+    assert "rest" in prompt.lower()

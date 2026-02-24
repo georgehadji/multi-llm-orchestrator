@@ -354,12 +354,30 @@ class Orchestrator:
             template_files = _TEMPLATE_MAP.get(app_profile.app_type, generic.FILES)
             scaffold_list = "\n".join(f"  - {p}" for p in sorted(template_files))
             tech_stack_str = ", ".join(app_profile.tech_stack) if app_profile.tech_stack else "unknown"
+
+            # Build architecture block if ArchitectureDecision fields are present
+            arch_block = ""
+            if hasattr(app_profile, "structural_pattern") and app_profile.structural_pattern:
+                rationale_line = (
+                    f"\n  Rationale:          {app_profile.rationale}"
+                    if getattr(app_profile, "rationale", "") else ""
+                )
+                arch_block = f"""
+ARCHITECTURE DECISION:
+  Structural pattern: {app_profile.structural_pattern}
+  Topology:           {app_profile.topology}
+  API paradigm:       {app_profile.api_paradigm}
+  Data paradigm:      {app_profile.data_paradigm}{rationale_line}
+
+Each task MUST follow this architecture — do not invent an alternative structure.
+"""
+
             app_context_block = f"""
 APP_TYPE: {app_profile.app_type}
 TECH_STACK: {tech_stack_str}
 SCAFFOLD_FILES (already exist — fill or extend these):
 {scaffold_list}
-
+{arch_block}
 Each task JSON element MUST also include:
 - "target_path": the relative file path this task writes (e.g. "app/page.tsx").
   Use the exact scaffold paths listed above where applicable.
