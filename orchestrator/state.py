@@ -277,3 +277,86 @@ class StateManager:
                 pass
             finally:
                 self._conn = None
+
+
+# ─────────────────────────────────────────────
+# Migration functions (Task 2: Database Persistence)
+# ─────────────────────────────────────────────
+
+def migrate_add_resume_fields(db_path: str | Path) -> bool:
+    """
+    Add project_description and keywords_json columns to projects table.
+
+    Parameters:
+    -----------
+    db_path : str | Path
+        Path to the SQLite database file
+
+    Returns:
+    --------
+    bool
+        True if migration succeeded, False otherwise
+
+    Notes:
+    ------
+    - Idempotent: safe to call multiple times (checks if columns exist)
+    - Handles empty databases gracefully
+    - Existing projects get NULL for new columns
+    """
+    try:
+        import sqlite3
+
+        db_path = Path(db_path) if isinstance(db_path, str) else db_path
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+
+        # Check if project_description column exists
+        cursor.execute("PRAGMA table_info(projects)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        # Add project_description if it doesn't exist
+        if "project_description" not in columns:
+            cursor.execute(
+                "ALTER TABLE projects ADD COLUMN project_description TEXT"
+            )
+
+        # Add keywords_json if it doesn't exist
+        if "keywords_json" not in columns:
+            cursor.execute(
+                "ALTER TABLE projects ADD COLUMN keywords_json TEXT"
+            )
+
+        conn.commit()
+        conn.close()
+        return True
+
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+        return False
+
+
+def extract_and_store_keywords(description: str | None) -> str | None:
+    """
+    Extract keywords from description and return as JSON string.
+
+    Parameters:
+    -----------
+    description : str | None
+        Project description to extract keywords from
+
+    Returns:
+    --------
+    str | None
+        JSON array string (e.g., '["api", "rest"]') or None if description is None/empty
+    """
+    if not description:
+        return None
+
+    from .resume_detector import _extract_keywords
+
+    keywords = _extract_keywords(description)
+
+    if not keywords:
+        return None
+
+    return json.dumps(keywords)
