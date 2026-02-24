@@ -23,6 +23,7 @@ from .models import (
 from .engine import Orchestrator
 from .app_builder import AppBuildResult, AppBuilder
 from .app_detector import AppDetector, AppProfile
+from .architecture_advisor import ArchitectureDecision, ArchitectureAdvisor
 from .cache import DiskCache
 from .state import StateManager
 from .validators import run_validators, async_run_validators, VALIDATORS
@@ -44,6 +45,7 @@ from .policy_dsl import load_policy_file, load_policy_dict, PolicyAnalyzer, Anal
 from .cost    import BudgetHierarchy, CostPredictor, CostForecaster, ForecastReport, RiskLevel
 # Improvement 5: advanced agents
 from .agents  import AgentPool, TaskChannel
+from .enhancer import Enhancement, ProjectEnhancer
 
 __all__ = [
     # Core
@@ -52,6 +54,8 @@ __all__ = [
     "DiskCache", "StateManager",
     # App Builder pipeline
     "AppBuilder", "AppBuildResult", "AppDetector", "AppProfile",
+    # Architecture Advisor — replaces AppDetector
+    "ArchitectureDecision", "ArchitectureAdvisor",
     # Validators
     "run_validators", "async_run_validators", "VALIDATORS",
     # Policy / planner / telemetry
@@ -75,6 +79,9 @@ __all__ = [
     "BudgetHierarchy", "CostPredictor", "CostForecaster", "ForecastReport", "RiskLevel",
     # Advanced agents — Improvement 5
     "AgentPool", "TaskChannel",
+    # Project Enhancer — LLM-powered spec improvement before decomposition
+    "Enhancement",
+    "ProjectEnhancer",
     # Six Improvements: new modules
     "ProjectEventBus", "ProjectStarted", "TaskStarted", "TaskProgressUpdate",
     "TaskCompleted", "TaskFailed", "BudgetWarning", "ProjectCompleted", "StreamEvent",

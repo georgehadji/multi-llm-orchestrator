@@ -67,17 +67,15 @@ def test_build_success_when_all_steps_pass(tmp_path):
 
 
 def test_build_with_app_type_override(tmp_path):
-    """build() with app_type_override must skip LLM detection and use the override."""
+    """build() with app_type_override must pass the override to ArchitectureAdvisor.analyze."""
     import asyncio
 
     builder = AppBuilder()
     cli_profile = AppProfile(app_type="cli")
-    yaml_mock = MagicMock(return_value=cli_profile)
-    detect_mock = AsyncMock(return_value=AppProfile(app_type="fastapi"))  # should NOT be called
+    analyze_mock = AsyncMock(return_value=cli_profile)
 
     with _mock_pipeline(tmp_path) as mocks, \
-         patch("orchestrator.app_builder.AppDetector.detect_from_yaml", yaml_mock), \
-         patch("orchestrator.app_builder.AppDetector.detect", detect_mock):
+         patch("orchestrator.app_builder.ArchitectureAdvisor.analyze", analyze_mock):
         result = asyncio.run(builder.build(
             description="Build a CLI tool",
             criteria="Must parse args",
@@ -85,11 +83,10 @@ def test_build_with_app_type_override(tmp_path):
             app_type_override="cli",
         ))
 
-    yaml_mock.assert_called_once_with("cli")
-    detect_mock.assert_not_called()
+    analyze_mock.assert_called_once()
+    call_args = analyze_mock.call_args
+    assert call_args[0][2] == "cli"
     assert result.profile.app_type == "cli"
-
-
 def test_build_with_docker_flag(tmp_path):
     """build() with docker=True must call verify_docker."""
     import asyncio
@@ -162,7 +159,7 @@ def _mock_pipeline(tmp_path: Path, docker: bool = False, orchestrator_fails: boo
 
     mocks["verify_docker"] = verify_docker_mock
 
-    with patch("orchestrator.app_builder.AppDetector.detect", detect_mock), \
+    with patch("orchestrator.app_builder.ArchitectureAdvisor.analyze", detect_mock), \
          patch("orchestrator.app_builder.ScaffoldEngine.scaffold", scaffold_mock), \
          patch("orchestrator.app_builder.AppAssembler.assemble", assemble_mock), \
          patch("orchestrator.app_builder.DependencyResolver.resolve", resolve_mock), \

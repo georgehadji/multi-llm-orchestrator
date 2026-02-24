@@ -20,7 +20,9 @@ import argparse
 import asyncio
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
+from typing import Callable, Optional
 
 from dotenv import load_dotenv
 load_dotenv(override=True)  # override=True: .env values win over empty system env vars
@@ -35,6 +37,13 @@ from .assembler import assemble_project
 from .progress import ProgressRenderer
 from .streaming import ProjectCompleted as _ProjectCompleted
 from .visualization import DagRenderer
+from .resume_detector import (
+    ResumeCandidate,
+    _extract_keywords,
+    _is_exact_match,
+    _recency_factor,
+    _score_candidates,
+)
 
 
 def cmd_analyze(args) -> None:
@@ -414,7 +423,165 @@ async def _async_file_project(args):
         print("\n" + renderer.dependency_report())
 
 
+async def _check_resume(
+    description: str,
+    state_mgr,
+    new_project: bool = False,
+    _input_fn: Optional[Callable[[str], str]] = None,
+) -> Optional[str]:
+    """Gate that detects and offers to resume a previous project.
+
+    Algorithm:
+    1. Return None immediately if new_project=True (bypass flag).
+    2. Extract keywords from description.
+    3. Call state_mgr.find_resumable(keywords) with a 200 ms timeout.
+    4. Convert DB rows to ResumeCandidate objects and score them.
+    5. Exact keyword match → auto-resume (print message, return project_id).
+    6. Single fuzzy match → prompt Y/n.
+    7. Multiple fuzzy matches → show numbered list, user picks.
+    8. No matches or timeout → return None (start fresh).
+
+    Parameters
+    ----------
+    description:
+        The new project description supplied by the user.
+    state_mgr:
+        An object with an async ``find_resumable(keywords)`` method.
+    new_project:
+        When True, skip all detection and return None immediately.
+    _input_fn:
+        Callable used to read user input (defaults to built-in ``input``).
+        Injected during tests so the function is testable without mocking
+        builtins.
+
+    Returns
+    -------
+    str | None
+        project_id to resume, or None to start a fresh project.
+    """
+    if new_project:
+        return None
+
+    if _input_fn is None:
+        _input_fn = input
+
+    keywords = _extract_keywords(description)
+    if not keywords:
+        return None
+
+    # ── Fetch candidates with a hard timeout ────────────────────────────────
+    try:
+        rows: list[dict] = await asyncio.wait_for(
+            state_mgr.find_resumable(keywords), timeout=0.2
+        )
+    except (asyncio.TimeoutError, Exception):
+        return None
+
+    if not rows:
+        return None
+
+    # ── Convert DB rows to ResumeCandidate objects ──────────────────────────
+    now = datetime.utcnow()
+    candidates: list[ResumeCandidate] = []
+    for row in rows:
+        # updated_at is stored as a Unix timestamp float in the DB
+        updated_ts = row.get("updated_at") or 0.0
+        try:
+            updated_dt = datetime.utcfromtimestamp(float(updated_ts))
+        except (ValueError, OSError, OverflowError):
+            updated_dt = now
+
+        recency = _recency_factor(updated_dt, reference_time=now)
+        candidates.append(
+            ResumeCandidate(
+                project_id=row["project_id"],
+                description=row.get("description", ""),
+                keywords=row.get("keywords", []),
+                recency_score=recency,
+                similarity_score=0.0,  # computed by _score_candidates
+                overall_score=0.0,     # computed by _score_candidates
+            )
+        )
+
+    # ── Score and filter candidates ──────────────────────────────────────────
+    scored = _score_candidates(keywords, candidates)
+    if not scored:
+        return None
+
+    # ── Check for exact description match (auto-resume) ──────────────────────
+    for candidate in scored:
+        if _is_exact_match(keywords, candidate.keywords):
+            print(
+                f"\nResuming previous project (exact match): {candidate.project_id}\n"
+                f"  {candidate.description[:80]}"
+            )
+            return candidate.project_id
+
+    # ── Single fuzzy match ───────────────────────────────────────────────────
+    if len(scored) == 1:
+        c = scored[0]
+        try:
+            answer = _input_fn(
+                f"\nFound a resumable project:\n"
+                f"  [{c.project_id}] {c.description[:80]}\n"
+                f"Resume it? [Y/n]: "
+            ).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return None
+        if answer in ("y", "yes", ""):
+            return c.project_id
+        return None
+
+    # ── Multiple fuzzy matches ────────────────────────────────────────────────
+    print("\nFound multiple resumable projects:")
+    for i, c in enumerate(scored, start=1):
+        print(f"  {i}. [{c.project_id}] {c.description[:70]}")
+    print(f"  n. Start a new project")
+    try:
+        answer = _input_fn("Pick a number to resume, or 'n' to start fresh: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return None
+
+    if answer == "n" or answer == "":
+        return None
+    try:
+        idx = int(answer) - 1
+        if 0 <= idx < len(scored):
+            return scored[idx].project_id
+    except ValueError:
+        pass
+    return None
+
+
 async def _async_new_project(args):
+    # ── Resume detection gate ────────────────────────────────────────────────
+    if not getattr(args, "new_project", False):
+        state_mgr = StateManager()
+        try:
+            project_id_to_resume = await _check_resume(
+                description=args.project,
+                state_mgr=state_mgr,
+                new_project=getattr(args, "new_project", False),
+            )
+        finally:
+            await state_mgr.close()
+        if project_id_to_resume:
+            args.resume = project_id_to_resume
+            await _async_resume(args)
+            return
+    # ── Enhancement pass (spec improvement before decomposition) ────────────
+    description = args.project
+    criteria = args.criteria
+    no_enhance = getattr(args, "no_enhance", False)
+
+    if not no_enhance:
+        from .enhancer import ProjectEnhancer, _present_enhancements, _apply_enhancements
+        enhancer = ProjectEnhancer()
+        suggestions = await enhancer.analyze(description, criteria)
+        if suggestions:
+            accepted = _present_enhancements(suggestions)
+            description, criteria = _apply_enhancements(description, criteria, accepted)
+    # ─────────────────────────────────────────────────────────────────────────
     raw_tasks = getattr(args, "raw_tasks", False)
 
     if not raw_tasks:
@@ -423,13 +590,13 @@ async def _async_new_project(args):
         from orchestrator.app_builder import AppBuilder
         output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
         print(f"Starting app build (budget: ${args.budget})")
-        print(f"Project: {args.project}")
-        print(f"Criteria: {args.criteria}")
+        print(f"Project: {description}")
+        print(f"Criteria: {criteria}")
         print("-" * 60)
         builder = AppBuilder()
         result = await builder.build(
-            description=args.project,
-            criteria=args.criteria,
+            description=description,
+            criteria=criteria,
             output_dir=Path(output_dir),
         )
         if result.success:
@@ -445,14 +612,14 @@ async def _async_new_project(args):
                         tracing_cfg=_build_tracing_cfg(args))
 
     print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
-    print(f"Project: {args.project}")
-    print(f"Criteria: {args.criteria}")
+    print(f"Project: {description}")
+    print(f"Criteria: {criteria}")
     print("-" * 60)
 
     renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
     async for event in orch.run_project_streaming(
-        project_description=args.project,
-        success_criteria=args.criteria,
+        project_description=description,
+        success_criteria=criteria,
         project_id=args.project_id,
     ):
         renderer.handle(event)
@@ -613,6 +780,20 @@ def main():
         help=(
             "Skip AppBuilder pipeline and write raw task output files directly "
             "(legacy behaviour, opt-in)"
+        ),
+    )
+    parser.add_argument(
+        "--new-project", "-N",
+        action="store_true",
+        default=False,
+        help="Skip resume detection and always start a fresh project",
+    )
+    parser.add_argument(
+        "--no-enhance",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip LLM spec enhancement pass and run original project description directly"
         ),
     )
 
