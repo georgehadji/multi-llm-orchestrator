@@ -1,6 +1,6 @@
 # Multi-LLM Orchestrator — Capabilities Reference
 
-**Version:** 2026.02 | **Updated:** 2026-02-24
+**Version:** 2026.02 | **Updated:** 2026-02-24 | **Latest:** Architecture Advisor for LLM-powered architecture decisions
 
 This document provides a comprehensive overview of all capabilities, features, and advanced functionality available in the multi-llm-orchestrator.
 
@@ -187,7 +187,44 @@ Real-time telemetry tracking across all models:
 
 ## Advanced Capabilities
 
-### 6. Multi-Objective Optimization Backends
+### 6. Architecture Advisor — LLM-Powered Architecture Decisions
+
+**New in 2026-02:** Before generating any code, `ArchitectureAdvisor` makes intelligent architectural decisions:
+
+**Input:** Project description + success criteria
+**Output:** `ArchitectureDecision` specifying:
+- **structural_pattern** (layered, hexagonal, CQRS, event-driven, MVC, script)
+- **topology** (monolith, microservices, serverless, BFF, library)
+- **api_paradigm** (REST, GraphQL, gRPC, CLI, none)
+- **data_paradigm** (relational, document, time-series, key-value, none)
+- **rationale** (2–3 sentences explaining the choices)
+
+**Model Selection:**
+- Descriptions >50 words → DeepSeek Reasoner (multi-dimensional reasoning)
+- Descriptions ≤50 words → DeepSeek Chat (fast, cost-effective)
+- Fallback: Kimi K2.5 → Claude Opus → GPT-4o
+
+**Benefits:**
+- Ensures all generated tasks follow a **consistent, coherent architecture**
+- Reduces rework and architectural drift
+- Injects constraints into decomposition prompt
+- Automatic terminal summary (`🏗 Architecture Decision`)
+- Full backward compatibility with `AppDetector`
+
+**Usage:**
+```python
+advisor = ArchitectureAdvisor()
+decision = await advisor.analyze(
+    description="Build a FastAPI microservice",
+    criteria="High throughput, auto-scaling"
+)
+print(decision.structural_pattern)  # "hexagonal" or chosen pattern
+print(decision.topology)            # "microservices"
+```
+
+---
+
+### 7. Multi-Objective Optimization Backends
 
 Three pluggable routing strategies:
 
@@ -195,50 +232,51 @@ Three pluggable routing strategies:
 - **WeightedSumBackend** — Tunable: `w_quality`, `w_trust`, `w_cost` weights
 - **ParetoBackend** — Principled: non-dominated Pareto-optimal solutions
 
-### 7. Economic Layer & Cost Prediction
+### 8. Economic Layer & Cost Prediction
 
 - **AdaptiveCostPredictor:** EMA-tracked per-(model × task) costs
 - **BudgetHierarchy:** Cross-run org/team/job spending caps
 - **CostForecaster:** Pre-flight estimation with risk assessment
 
-### 8. Multi-Agent Ensembles
+### 9. Multi-Agent Ensembles
 
 - **AgentPool:** Run N orchestrators in parallel (A/B testing, ensemble voting)
 - **TaskChannel:** Pub-sub messaging between tasks with non-destructive peek
 
-### 9. Audit & Compliance
+### 10. Audit & Compliance
 
 - **AuditLog:** Immutable JSONL structured audit trail
 - **PolicyAnalyzer:** Static policy contradiction detection
 
-### 10. App Builder & Scaffolding
+### 11. App Builder & Scaffolding (with Architecture Advisor)
 
 - **AppBuilder:** Auto-generate complete web/backend applications
-- **AppDetector:** Infer app type from project description
+- **ArchitectureAdvisor:** LLM-powered architectural decision making (NEW)
+- **AppDetector/AppProfile:** Legacy support for backward compatibility
 - **Supported types:** Next.js, React+Vite, HTML, FastAPI, GraphQL, microservices
 
-### 11. Constraint Control Plane
+### 12. Constraint Control Plane
 
 - **JobSpecV2/PolicySpecV2:** Structured specs for hard constraint enforcement
 - **ReferenceMonitor:** Synchronous, bypass-proof constraint checker
 - **OrchestrationAgent:** Natural language intent → structured specs
 
-### 12. Semantic Caching & Deduplication
+### 13. Semantic Caching & Deduplication
 
 - **SemanticCache:** Cache based on semantic similarity (not just hash)
 - **DuplicationDetector:** Merge near-duplicate tasks automatically
 
-### 13. Adaptive Routing
+### 14. Adaptive Routing
 
 - **AdaptiveRouter:** Dynamically adjust model selection based on observed performance
 - **ModelState:** Per-model telemetry tracking (latency, quality, trust)
 
-### 14. Remediation Engine
+### 15. Remediation Engine
 
 - **RemediationEngine:** Auto-recovery strategies on task failure
 - **RemediationPlan:** Retry same/fallback model, loosen constraints, escalate, or abort
 
-### 15. Real-Time Progress & Visualization
+### 16. Real-Time Progress & Visualization
 
 - **ProgressRenderer:** Live terminal tree view of task progress
 - **DagRenderer:** Directed acyclic graph visualization with costs
@@ -268,21 +306,22 @@ export ORCHESTRATOR_LOG_LEVEL="INFO"
 
 ## Quick Feature Checklist
 
-| Feature | Status |
-|---------|--------|
-| Multi-provider routing | ✅ |
-| Cost optimization | ✅ |
-| Deterministic validation | ✅ |
-| Cross-provider critique | ✅ |
-| Policy governance | ✅ |
-| OTEL tracing | ✅ |
-| Telemetry & metrics | ✅ |
-| Multi-objective optimization | ✅ |
-| Pre-flight cost forecasting | ✅ |
-| Ensemble/AgentPool | ✅ |
-| Semantic caching | ✅ |
-| App builder | ✅ |
-| Constraint control plane | ✅ |
-| Orchestration agent | ✅ |
-| Remediation engine | ✅ |
-| Real-time visualization | ✅ |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Multi-provider routing | ✅ | 5 providers, 7+ models each |
+| Cost optimization | ✅ | EMA-tracked, adaptive |
+| Deterministic validation | ✅ | 6 validator types |
+| Cross-provider critique | ✅ | Different provider each review |
+| Policy governance | ✅ | HARD/SOFT/MONITOR modes |
+| OTEL tracing | ✅ | Full distributed tracing |
+| Telemetry & metrics | ✅ | Real p95, trust factor EMA |
+| Multi-objective optimization | ✅ | Greedy, Weighted, Pareto |
+| Pre-flight cost forecasting | ✅ | Risk assessment |
+| **Architecture Advisor** | ✅ | **NEW: LLM architecture decisions** |
+| Ensemble/AgentPool | ✅ | Parallel orchestrators |
+| Semantic caching | ✅ | Similarity-based dedup |
+| App builder | ✅ | With ArchitectureAdvisor |
+| Constraint control plane | ✅ | Hard guarantee enforcement |
+| Orchestration agent | ✅ | Natural language → specs |
+| Remediation engine | ✅ | Auto-recovery strategies |
+| Real-time visualization | ✅ | Terminal + DAG rendering |

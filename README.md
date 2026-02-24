@@ -23,6 +23,13 @@ State is checkpointed to SQLite after every task. Interrupted runs are resumable
 │                                                          │
 │  [Async Disk Cache] [JSON State] [Budget Control]        │
 │  [Policy Engine] [Telemetry] [Event Hooks]               │
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │ APP BUILDER PIPELINE (ArchitectureAdvisor)       │   │
+│  │                                                  │   │
+│  │ Architecture Decision → Scaffold → Decompose     │   │
+│  │  (LLM decides: pattern, topology, API, storage) │   │
+│  └──────────────────────────────────────────────────┘   │
 └──────────┬──────────────┬──────────────┬────────────┬───┘
            │              │              │            │
      ┌─────┴─────┐  ┌────┴────┐  ┌─────┴─────┐  ┌────┴────┐
@@ -131,6 +138,63 @@ If DeepSeek is unavailable, the orchestrator automatically falls back to:
 Code Generation:  DeepSeek Chat → Kimi K2.5 → Claude Sonnet → GPT-4o
 Code Review:      DeepSeek Chat → Kimi K2.5 → GPT-4o → Claude Opus
 Reasoning:        DeepSeek Reasoner → Kimi K2.5 → Claude Opus → GPT-4o
+```
+
+---
+
+## AppBuilder: Auto-Generate Complete Applications
+
+**New in 2026-02:** The **Architecture Advisor** makes intelligent decisions about software architecture before code generation.
+
+### How It Works
+
+The AppBuilder pipeline now includes **ArchitectureAdvisor**, which:
+1. **Analyzes** your project description
+2. **Decides** the optimal software architecture based on requirements:
+   - **Structural pattern:** layered | hexagonal | CQRS | event-driven | MVC | script
+   - **Topology:** monolith | microservices | serverless | BFF | library
+   - **API paradigm:** REST | GraphQL | gRPC | CLI | none
+   - **Data paradigm:** relational | document | time-series | key-value | none
+3. **Prints** architecture summary to terminal (🏗 block)
+4. **Injects** architectural constraints into decomposition prompt
+5. **Scaffolds** and generates code following the chosen architecture
+
+### Usage
+
+```python
+import asyncio
+from orchestrator import AppBuilder
+
+async def main():
+    builder = AppBuilder()
+    result = await builder.build(
+        description="FastAPI REST API with JWT authentication",
+        criteria="All endpoints tested, OpenAPI docs complete",
+        output_dir="./my_api",
+    )
+
+    print(f"Status: {result.success}")
+    print(f"Architecture: {result.profile.structural_pattern} / {result.profile.topology}")
+    print(f"Generated: {len(result.assembly.files_written)} files")
+
+asyncio.run(main())
+```
+
+### Model Selection for Architecture Decisions
+
+- **Complex specs** (>50 words): DeepSeek Reasoner (multi-dimensional reasoning)
+- **Simple specs** (≤50 words): DeepSeek Chat (fast, cost-effective)
+- **Fallback chain:** DeepSeek Reasoner → Kimi K2.5 → Claude Opus → GPT-4o
+
+### Terminal Output Example
+
+```
+🏗  Architecture Decision (DeepSeek Chat):
+    Pattern: Layered  │  Topology: Monolith  │  API: REST  │  Storage: Relational
+    FastAPI is well-suited for RESTful services. A layered architecture
+    (routes → services → repositories) keeps the codebase maintainable at
+    this scale. PostgreSQL for persistence; no need for microservices.
+──────────────────────────────────────────────────────────────────────────────
 ```
 
 ---

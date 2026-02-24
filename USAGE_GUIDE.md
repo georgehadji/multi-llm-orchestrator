@@ -295,7 +295,7 @@ async def main():
 asyncio.run(main())
 ```
 
-### Example 8: App Builder
+### Example 8: App Builder with Architecture Advisor
 
 ```python
 import asyncio
@@ -304,21 +304,84 @@ from orchestrator import AppBuilder
 async def main():
     builder = AppBuilder()
 
+    # AppBuilder now uses ArchitectureAdvisor to decide architecture before generation
     result = await builder.build(
-        description="Next.js e-commerce with product listing, cart, checkout",
-        criteria="npm build succeeds, pages load",
-        output_dir="./storefront",
-        app_type="nextjs",  # auto-detected if omitted
+        description="Microservice-ready REST API with JWT auth, database persistence, WebSocket support",
+        criteria="All endpoints tested, OpenAPI docs complete, async handlers for high throughput",
+        output_dir="./my_api",
+        app_type="fastapi",  # auto-detected if omitted
     )
 
-    print(f"Status: {result.status.value}")
-    print(f"Files generated: {len(result.generated_files)}")
-    print(f"Build output: {result.build_log}")
+    print(f"✓ Status: {result.success}")
+    print(f"✓ App Type: {result.profile.app_type}")
+    print(f"✓ Architecture Pattern: {result.profile.structural_pattern}")
+    print(f"✓ Topology: {result.profile.topology}")
+    print(f"✓ API Paradigm: {result.profile.api_paradigm}")
+    print(f"✓ Data Storage: {result.profile.data_paradigm}")
+    print(f"✓ Rationale: {result.profile.rationale}")
+    print(f"✓ Files generated: {len(result.assembly.files_written)}")
 
 asyncio.run(main())
 ```
 
-### Example 9: Policy DSL (YAML)
+**Output Example:**
+```
+✓ Status: True
+✓ App Type: fastapi
+✓ Architecture Pattern: hexagonal
+✓ Topology: monolith
+✓ API Paradigm: rest
+✓ Data Storage: relational
+✓ Rationale: Hexagonal architecture enables easy testing with port abstractions.
+            Monolith avoids operational complexity at this scale. REST is
+            standard for web services. PostgreSQL for ACID consistency.
+✓ Files generated: 23
+```
+
+**How It Works:**
+1. **ArchitectureAdvisor** analyzes your description and constraints
+2. **DeepSeek Chat** (or Reasoner for complex specs) decides the best architecture
+3. **Architecture decision is printed** to terminal (🏗 summary block)
+4. **Decomposition prompt is enriched** with architectural constraints
+5. **All generated code follows the chosen architecture**
+
+### Example 9: Architecture Advisor (Standalone Usage)
+
+```python
+import asyncio
+from orchestrator import ArchitectureAdvisor
+
+async def main():
+    advisor = ArchitectureAdvisor()
+
+    # Get architectural recommendations without building
+    decision = await advisor.analyze(
+        description="Real-time collaborative document editor with conflict resolution",
+        criteria="Low latency, supports 100+ concurrent users, auto-save",
+    )
+
+    print(f"Structural pattern: {decision.structural_pattern}")
+    print(f"Topology: {decision.topology}")
+    print(f"API paradigm: {decision.api_paradigm}")
+    print(f"Data paradigm: {decision.data_paradigm}")
+    print(f"Rationale: {decision.rationale}")
+
+asyncio.run(main())
+```
+
+**Output:**
+```
+Structural pattern: event-driven
+Topology: microservices
+API paradigm: graphql
+Data paradigm: document
+Rationale: Event-driven architecture with eventual consistency enables
+           low-latency conflict resolution across services. Document
+           storage (MongoDB) naturally models collaborative state.
+           GraphQL simplifies real-time subscriptions for clients.
+```
+
+### Example 11: Policy DSL (YAML)
 
 ```python
 from orchestrator.policy_dsl import load_policy_file, PolicyAnalyzer
@@ -356,7 +419,7 @@ job:
       min_quality_score: 0.90
 ```
 
-### Example 10: OTEL Tracing
+### Example 12: OTEL Tracing
 
 ```python
 import asyncio
@@ -611,6 +674,44 @@ orch.add_hook(EventType.TASK_COMPLETED, my_callback)
 
 # Silent (no feedback)
 state = await orch.run_project(...)  # black box
+```
+
+### 6. Use ArchitectureAdvisor for Code Generation
+
+```python
+# Good: Let ArchitectureAdvisor decide (automatic in AppBuilder)
+builder = AppBuilder()
+result = await builder.build(
+    description="REST API with high-throughput requirements",
+    criteria="All endpoints tested",
+    output_dir="./api",
+)
+# Inspect the chosen architecture
+print(result.profile.structural_pattern)  # informed decision
+
+# Less ideal: Hardcoded app_type without architectural consideration
+result = await builder.build(
+    description="...",
+    criteria="...",
+    app_type="fastapi",  # assumes you know the best architecture
+)
+```
+
+### 7. Provide Rich Descriptions for Better Architecture Decisions
+
+```python
+# Good: Specific constraints help the LLM decide
+description = """
+Build a real-time chat application with:
+- 10k concurrent users support
+- Group messaging
+- Message persistence
+- Read receipts
+- Typing indicators
+"""
+
+# Less ideal: Vague description
+description = "Build a chat app"
 ```
 
 ---
