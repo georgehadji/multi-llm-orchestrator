@@ -26,6 +26,7 @@ from .app_detector import AppDetector, AppProfile
 from .architecture_advisor import ArchitectureDecision, ArchitectureAdvisor
 from .cache import DiskCache
 from .state import StateManager
+from .resume_detector import ResumeDetector
 from .validators import run_validators, async_run_validators, VALIDATORS
 from .policy import (
     ModelProfile, Policy, PolicySet, JobSpec,
@@ -51,7 +52,7 @@ __all__ = [
     # Core
     "Orchestrator", "Budget", "Model", "Task", "TaskResult",
     "TaskType", "TaskStatus", "ProjectState", "ProjectStatus",
-    "DiskCache", "StateManager",
+    "DiskCache", "StateManager", "ResumeDetector",
     # App Builder pipeline
     "AppBuilder", "AppBuildResult", "AppDetector", "AppProfile",
     # Architecture Advisor — replaces AppDetector
