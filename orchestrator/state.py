@@ -265,6 +265,40 @@ class StateManager:
         )
         await db.commit()
 
+    async def find_resumable(self, keywords: list[str]) -> list[dict]:
+        """Find projects with matching keywords that are resumable.
+
+        Returns list of dicts with: project_id, description, keywords, status, updated_at
+        Only returns PARTIAL_SUCCESS or IN_PROGRESS projects.
+        ``updated_at`` is a Unix timestamp float from the DB.
+        """
+        db = await self._get_conn()
+        async with db.execute(
+            """SELECT project_id, project_description, keywords_json, status, updated_at
+               FROM projects
+               WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
+               AND keywords_json IS NOT NULL
+               ORDER BY updated_at DESC
+               LIMIT 50""",
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        result = []
+        for row in rows:
+            project_id, desc, kw_json, status, updated_at = row
+            try:
+                keywords_list = json.loads(kw_json) if kw_json else []
+            except json.JSONDecodeError:
+                keywords_list = []
+            result.append({
+                "project_id": project_id,
+                "description": desc or "",
+                "keywords": keywords_list,
+                "status": status,
+                "updated_at": updated_at or 0.0,
+            })
+        return result
+
     async def close(self):
         """Close the aiosqlite connection gracefully before the event loop shuts down."""
         if self._conn is not None:
