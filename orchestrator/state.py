@@ -192,19 +192,26 @@ class StateManager:
                         );
                     """)
                     await self._conn.commit()
+                    # Run migration to add resume detection columns (idempotent)
+                    migrate_add_resume_fields(self._db_path)
         return self._conn
 
     async def save_project(self, project_id: str, state: ProjectState):
         now = time.time()
         blob = json.dumps(_state_to_dict(state))
+
+        # Extract and store resume metadata for auto-resume detection
+        keywords_json = extract_and_store_keywords(state.project_description)
+
         db = await self._get_conn()
         await db.execute(
             """INSERT OR REPLACE INTO projects
-               (project_id, state, status, created_at, updated_at)
+               (project_id, state, status, created_at, updated_at, project_description, keywords_json)
                VALUES (?, ?, ?, COALESCE(
                    (SELECT created_at FROM projects WHERE project_id = ?), ?
-               ), ?)""",
-            (project_id, blob, state.status.value, project_id, now, now)
+               ), ?, ?, ?)""",
+            (project_id, blob, state.status.value, project_id, now, now,
+             state.project_description, keywords_json)
         )
         await db.commit()
 
