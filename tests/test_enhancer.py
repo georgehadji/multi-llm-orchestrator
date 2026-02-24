@@ -13,6 +13,7 @@ from orchestrator.enhancer import (
 )
 from orchestrator.models import Model
 from orchestrator.api_clients import APIResponse
+from orchestrator.cli import _async_new_project
 
 
 # ─────────────────────────────────────────────
@@ -453,3 +454,38 @@ def test_present_ctrl_c_treated_as_no(monkeypatch):
     monkeypatch.setattr("builtins.input", mock_input)
     accepted = _present_enhancements(_make_three_enhancements())
     assert len(accepted) == 1  # first was accepted, then Ctrl-C on second
+
+
+# ─── CLI integration ──────────────────────────────────────────────────────────
+
+import types
+
+
+def test_cli_no_enhance_flag():
+    """--no-enhance flag causes ProjectEnhancer to be skipped entirely."""
+    import asyncio
+
+    with patch("orchestrator.enhancer.ProjectEnhancer.analyze", new_callable=AsyncMock) as mock_analyze:
+        args = types.SimpleNamespace(
+            project="Build a FastAPI auth service",
+            criteria="tests pass",
+            budget=8.0,
+            time=5400,
+            project_id="",
+            output_dir="",
+            concurrency=3,
+            verbose=False,
+            raw_tasks=False,
+            no_enhance=True,   # ← the flag under test
+            tracing=False,
+            otlp_endpoint=None,
+            dependency_report=False,
+            new_project=True,  # skip resume detection too
+        )
+
+        with patch("orchestrator.app_builder.AppBuilder.build", new_callable=AsyncMock) as mock_build:
+            mock_build.return_value = MagicMock(success=True, output_dir="/tmp/test", errors=[])
+            asyncio.run(_async_new_project(args))
+
+        # ProjectEnhancer.analyze must NOT have been called
+        mock_analyze.assert_not_called()

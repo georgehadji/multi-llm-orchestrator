@@ -569,7 +569,19 @@ async def _async_new_project(args):
             args.resume = project_id_to_resume
             await _async_resume(args)
             return
-    # ── existing code continues unchanged ────────────────────────────────────
+    # ── Enhancement pass (spec improvement before decomposition) ────────────
+    description = args.project
+    criteria = args.criteria
+    no_enhance = getattr(args, "no_enhance", False)
+
+    if not no_enhance:
+        from .enhancer import ProjectEnhancer, _present_enhancements, _apply_enhancements
+        enhancer = ProjectEnhancer()
+        suggestions = await enhancer.analyze(description, criteria)
+        if suggestions:
+            accepted = _present_enhancements(suggestions)
+            description, criteria = _apply_enhancements(description, criteria, accepted)
+    # ─────────────────────────────────────────────────────────────────────────
     raw_tasks = getattr(args, "raw_tasks", False)
 
     if not raw_tasks:
@@ -578,13 +590,13 @@ async def _async_new_project(args):
         from orchestrator.app_builder import AppBuilder
         output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
         print(f"Starting app build (budget: ${args.budget})")
-        print(f"Project: {args.project}")
-        print(f"Criteria: {args.criteria}")
+        print(f"Project: {description}")
+        print(f"Criteria: {criteria}")
         print("-" * 60)
         builder = AppBuilder()
         result = await builder.build(
-            description=args.project,
-            criteria=args.criteria,
+            description=description,
+            criteria=criteria,
             output_dir=Path(output_dir),
         )
         if result.success:
@@ -600,14 +612,14 @@ async def _async_new_project(args):
                         tracing_cfg=_build_tracing_cfg(args))
 
     print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
-    print(f"Project: {args.project}")
-    print(f"Criteria: {args.criteria}")
+    print(f"Project: {description}")
+    print(f"Criteria: {criteria}")
     print("-" * 60)
 
     renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
     async for event in orch.run_project_streaming(
-        project_description=args.project,
-        success_criteria=args.criteria,
+        project_description=description,
+        success_criteria=criteria,
         project_id=args.project_id,
     ):
         renderer.handle(event)
@@ -775,6 +787,14 @@ def main():
         action="store_true",
         default=False,
         help="Skip resume detection and always start a fresh project",
+    )
+    parser.add_argument(
+        "--no-enhance",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip LLM spec enhancement pass and run original project description directly"
+        ),
     )
 
     args = parser.parse_args()
