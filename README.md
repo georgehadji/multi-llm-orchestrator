@@ -70,7 +70,68 @@ pip install openai anthropic google-genai aiosqlite pyyaml python-dotenv
 pip install pytest ruff jsonschema   # optional validators
 ```
 
-> **Note:** The `openai` package is also used for Kimi K2.5 (OpenAI-compatible API). No extra dependency needed.
+> **Note:** The `openai` package is also used for Kimi K2.5 and DeepSeek (both OpenAI-compatible APIs). No extra dependencies needed.
+
+---
+
+## Setup DeepSeek (Recommended)
+
+DeepSeek is now the primary routing model for code generation and reasoning tasks. Quick setup:
+
+### 1. Get DeepSeek API Key
+
+```bash
+# Visit https://platform.deepseek.com/
+# 1. Sign up or log in
+# 2. Go to API Settings → Create new secret key
+# 3. Copy the key
+```
+
+### 2. Set Environment Variable
+
+```bash
+# Create .env file
+echo 'DEEPSEEK_API_KEY=sk-...' > .env
+
+# Or export directly
+export DEEPSEEK_API_KEY="sk-..."
+```
+
+### 3. Verify Setup
+
+```bash
+# Quick test
+python -c "import os; print('✓ DeepSeek API key set' if os.getenv('DEEPSEEK_API_KEY') else '✗ No key')"
+```
+
+### 4. Run First Project
+
+```bash
+# DeepSeek will be auto-selected for code generation
+python -m orchestrator \
+  --project "Build a Python REST API with FastAPI and JWT auth" \
+  --criteria "All endpoints tested, OpenAPI docs complete" \
+  --budget 2.0
+```
+
+### Cost Comparison
+
+```
+DeepSeek Chat vs Competitors (for 1M tokens):
+  DeepSeek Chat:  $0.27 input,  $1.10 output  ⭐ FASTEST & CHEAPEST
+  Kimi K2.5:      $0.14 input,  $0.56 output  (slightly cheaper, slower)
+  GPT-4o-mini:    $0.15 input,  $0.60 output  (good but slower)
+  Claude Opus:   $15.00 input, $75.00 output  (for comparison: 50–100× more expensive)
+```
+
+### DeepSeek Fallback Chain
+
+If DeepSeek is unavailable, the orchestrator automatically falls back to:
+```
+Code Generation:  DeepSeek Chat → Kimi K2.5 → Claude Sonnet → GPT-4o
+Code Review:      DeepSeek Chat → Kimi K2.5 → GPT-4o → Claude Opus
+Reasoning:        DeepSeek Reasoner → Kimi K2.5 → Claude Opus → GPT-4o
+```
 
 ---
 
@@ -141,6 +202,53 @@ print(f"${state.budget.spent_usd:.4f}")
 
 for tid, result in state.results.items():
     print(f"{tid}: score={result.score:.3f} model={result.model_used.value}")
+```
+
+### DeepSeek-Optimized Example
+
+```python
+import asyncio
+from orchestrator import Orchestrator, Budget
+
+# Tight budget? Use DeepSeek for maximum value
+budget = Budget(max_usd=1.5, max_time_seconds=1800)  # $1.50, 30 min
+orch = Orchestrator(budget=budget)
+
+state = asyncio.run(orch.run_project(
+    project_description="Build a Python async task queue with worker pool",
+    success_criteria="Unit tests pass, 50+ tasks/sec throughput",
+))
+
+# DeepSeek Chat is automatically selected for code_generation tasks
+# Fallback chain: DeepSeek → Kimi → Claude if needed
+
+print(f"Status: {state.status.value}")
+print(f"Cost: ${state.budget.spent_usd:.4f} (budget: ${budget.max_usd})")
+
+# Check which model was used for each task
+for tid, result in state.results.items():
+    model = result.model_used.value
+    if "deepseek" in model:
+        print(f"  ✓ {tid}: {model} (score: {result.score:.2f})")
+```
+
+### Complex Reasoning with DeepSeek Reasoner
+
+```python
+import asyncio
+from orchestrator import Orchestrator, Budget, Policy, PolicySet, EnforcementMode
+
+# For algorithm design and deep reasoning
+budget = Budget(max_usd=5.0)
+orch = Orchestrator(budget=budget)
+
+state = asyncio.run(orch.run_project(
+    project_description="Design an optimal cache eviction algorithm for a distributed system. Include proof of O(1) operations.",
+    success_criteria="Algorithm explained, pseudo-code provided, trade-offs documented",
+))
+
+# For complex_reasoning tasks, orchestrator auto-routes to DeepSeek Reasoner first
+# Reasoner (~$2.19 per 1M output tokens) is 7× cheaper than Claude Opus with similar capability
 ```
 
 ### `Orchestrator(budget, cache, state_manager, max_concurrency)`
@@ -220,15 +328,19 @@ Phase 2–5 — Per-task (up to max_iterations per task type)
 
 | Task type | Priority order | Max tokens |
 |-----------|---------------|------------|
-| `code_generation` | **Kimi K2.5** → Claude Sonnet → GPT-4o → Gemini Pro | 4096 |
-| `code_review` | **Kimi K2.5** → GPT-4o → Claude Opus → Gemini Pro | 2048 |
-| `complex_reasoning` | **Kimi K2.5** → Claude Opus → GPT-4o → Gemini Pro | 2048 |
-| `creative_writing` | Claude Opus → GPT-4o → Gemini Pro | 2048 |
-| `data_extraction` | Gemini Flash → GPT-4o-mini → Claude Haiku | 1024 |
-| `summarization` | Gemini Flash → Claude Haiku → GPT-4o-mini | 512 |
-| `evaluation` | **Kimi K2.5** → Claude Opus → GPT-4o → Gemini Pro | 600 |
+| `code_generation` | **DeepSeek Chat** → Kimi K2.5 → Claude Sonnet → GPT-4o | 8192 |
+| `code_review` | **DeepSeek Chat** → Kimi K2.5 → GPT-4o → Claude Opus | 4096 |
+| `complex_reasoning` | **DeepSeek Reasoner** → Kimi K2.5 → Claude Opus → GPT-4o | 4096 |
+| `creative_writing` | Claude Opus → GPT-4o → DeepSeek Chat → Gemini Pro | 4096 |
+| `data_extraction` | Gemini Flash → GPT-4o-mini → DeepSeek Chat → Claude Haiku | 2048 |
+| `summarization` | Gemini Flash → DeepSeek Chat → Claude Haiku → GPT-4o-mini | 1024 |
+| `evaluation` | **DeepSeek Chat** → Kimi K2.5 → Claude Opus → GPT-4o | 2048 |
 
-Kimi K2.5 is the **primary model** for code generation, code review, reasoning, and evaluation — it is the cheapest option ($0.14/$0.56 per 1M tokens) and falls back to Claude Sonnet if unavailable. Creative writing, data extraction, and summarization retain their original routing where Kimi offers no advantage.
+**Model Priority Strategy:**
+- **DeepSeek Chat** is now the primary model for code tasks (generation, review) — fastest and most cost-effective at $0.27/$1.10 per 1M tokens
+- **DeepSeek Reasoner** handles complex reasoning — o1-class model for algorithm design and deep analysis
+- **Kimi K2.5** serves as fallback for code tasks ($0.14/$0.56, slightly cheaper but slower)
+- **Claude Opus/GPT-4o** provide cross-provider critique and high-quality creative work
 
 The reviewer is always from a **different provider** than the generator (prevents shared-bias blind spots). Falls back to a different model tier, then any healthy model.
 
@@ -236,18 +348,20 @@ Max iterations per task: 3 (code, reasoning) / 2 (all others).
 
 ### Cost reference (per 1M tokens)
 
-| Model | Input | Output | Provider |
-|-------|-------|--------|----------|
-| Claude Opus | $15.00 | $75.00 | Anthropic |
-| Claude Sonnet | $3.00 | $15.00 | Anthropic |
-| Claude Haiku | $0.80 | $4.00 | Anthropic |
-| GPT-4o | $2.50 | $10.00 | OpenAI |
-| GPT-4o-mini | $0.15 | $0.60 | OpenAI |
-| Gemini 2.5 Pro | $1.25 | $10.00 | Google |
-| Gemini 2.5 Flash | $0.15 | $0.60 | Google |
-| Kimi K2.5 | $0.14 | $0.56 | Kimi |
+| Model | Input | Output | Provider | Tier |
+|-------|-------|--------|----------|------|
+| DeepSeek Chat | $0.27 | $1.10 | DeepSeek | **Ultra-cheap** |
+| Kimi K2.5 | $0.14 | $0.56 | Kimi | **Ultra-cheap** |
+| Gemini 2.5 Flash | $0.15 | $0.60 | Google | Ultra-cheap |
+| GPT-4o-mini | $0.15 | $0.60 | OpenAI | Ultra-cheap |
+| Claude Haiku | $0.80 | $4.00 | Anthropic | Budget |
+| DeepSeek Reasoner | $0.55 | $2.19 | DeepSeek | Standard |
+| Gemini 2.5 Pro | $1.25 | $10.00 | Google | Standard |
+| GPT-4o | $2.50 | $10.00 | OpenAI | Standard |
+| Claude Sonnet | $3.00 | $15.00 | Anthropic | Premium |
+| Claude Opus | $15.00 | $75.00 | Anthropic | Premium |
 
-> Kimi K2.5 is the most cost-effective option — cheaper than GPT-4o-mini and Gemini Flash.
+> **DeepSeek Chat** is now the primary model for most tasks — strong reasoning, fast execution, and excellent value. **Kimi K2.5** is slightly cheaper but slower. DeepSeek Reasoner provides o1-class reasoning capability.
 
 ---
 
@@ -344,29 +458,68 @@ Max iterations per task: 3 (code, reasoning) / 2 (all others).
 
 ### DeepSeek Models
 
-#### DeepSeek Chat
+#### DeepSeek Chat (V3)
 - **Environment Variable:** `DEEPSEEK_API_KEY`
 - **Model ID:** `deepseek-chat`
 - **Context Window:** 128K tokens
-- **Training Data Cutoff:** 2024
-- **Capabilities:** Fast inference, cost-efficient code generation, reasoning
-- **Cost:** $0.14 (input) / $0.42 (output) per 1M tokens (approximate)
-- **Best For:** Cost-sensitive code generation, rapid prototyping, scalable applications
-- **Specialized Domains:** Python, JavaScript, system utilities
+- **Training Data Cutoff:** December 2024
+- **Capabilities:** Advanced code generation, reasoning, vision (experimental), extremely fast inference
+- **Cost:** $0.27 (input) / $1.10 (output) per 1M tokens
+- **Latency:** Ultra-low (~100ms for small prompts)
+- **Best For:** Production code generation, rapid iteration, cost-optimized pipelines, high-throughput scenarios
+- **Specialized Domains:** Python, JavaScript, Go, system design, full-stack development
+- **Strengths vs Claude/GPT:** Better speed/cost ratio; competitive reasoning; strong at structured tasks
+- **Limitations:** Occasional verbose responses; prefers explicit constraints in prompts
 - **API Endpoint:** `https://api.deepseek.com/v1/chat/completions` (OpenAI-compatible)
-- **Note:** Most cost-effective among fully-featured models
+- **Usage Example:**
+  ```python
+  from orchestrator import Orchestrator, Model, Budget
+  orch = Orchestrator(budget=Budget(max_usd=2.0))
+  # Automatically routes code_generation to DeepSeek Chat first
+  state = await orch.run_project(
+      project_description="Build a REST API with FastAPI",
+      success_criteria="All endpoints tested, OpenAPI docs complete"
+  )
+  ```
 
-#### DeepSeek Reasoner
+#### DeepSeek Reasoner (R1)
 - **Environment Variable:** `DEEPSEEK_API_KEY`
 - **Model ID:** `deepseek-reasoner`
 - **Context Window:** 128K tokens
 - **Training Data Cutoff:** 2024
-- **Capabilities:** Deep reasoning, chain-of-thought inference, complex problem solving
-- **Cost:** $0.55 (input) / $2.19 (output) per 1M tokens (approximate, with thinking tokens)
-- **Best For:** Complex mathematical problems, algorithmic challenges, deep reasoning tasks
-- **Specialized Domains:** Algorithm design, mathematical proofs, logic problems
+- **Capabilities:** o1-class reasoning, extended thinking, multi-step problem solving
+- **Cost:** $0.55 (input) / $2.19 (output) per 1M tokens + thinking token surcharge
+- **Latency:** Medium (~500ms–2s with extended thinking)
+- **Best For:** Algorithm design, mathematical proofs, complex system design, deep analysis
+- **Specialized Domains:** Algorithm optimization, mathematical problems, logic puzzles, architecture decisions
+- **Strengths:** Rivals Claude Opus for reasoning tasks; significantly cheaper than Opus
 - **API Endpoint:** `https://api.deepseek.com/v1/chat/completions` (OpenAI-compatible)
-- **Note:** Specialized reasoning model; streaming extended thinking process
+- **Usage Example:**
+  ```python
+  # For complex reasoning, orchestrator auto-routes to DeepSeek Reasoner
+  state = await orch.run_project(
+      project_description="Design an efficient caching strategy for a distributed system",
+      success_criteria="Trade-offs explained, implementation code provided"
+  )
+  ```
+
+---
+
+### When to Use DeepSeek
+
+**Use DeepSeek Chat for:**
+- ✅ Budget-constrained projects
+- ✅ High-volume API calls
+- ✅ Real-time code generation
+- ✅ Production services (fastest generation)
+- ✅ Rapid prototyping iterations
+
+**Use DeepSeek Reasoner for:**
+- ✅ Algorithm design
+- ✅ Mathematical problems
+- ✅ Complex system architecture
+- ✅ Multi-step reasoning tasks
+- ✅ Fallback for Claude Opus (similar tier, 2–3x cheaper)
 
 ### Kimi (Moonshot) Models
 
