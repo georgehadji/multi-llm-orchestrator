@@ -58,17 +58,23 @@ def _parse_response(raw: str) -> ArchitectureDecision:
     fallback_arch = _FALLBACK_ARCH
     try:
         text = raw.strip()
+        # Strip markdown code fences if present (e.g. ```json ... ```)
         if text.startswith("```"):
             lines = text.splitlines()
-            text = chr(10).join(line for i, line in enumerate(lines) if i > 0 and line.strip() != "```").strip()
+            # Drop opening fence line (e.g. "```json") and closing fence line
+            if lines and lines[-1].strip() == "```":
+                lines = lines[1:-1]
+            else:
+                lines = lines[1:]
+            text = "\n".join(lines).strip()
         if not text:
             raise ValueError("empty response")
         data = json.loads(text)
         app_type = str(data.get("app_type", _FALLBACK_TYPE))
         if app_type not in _TYPE_DEFAULTS:
-            logger.warning("Unknown app_type from LLM; using generic")
+            logger.warning("Unknown app_type %r from LLM; normalising to 'generic'", app_type)
             app_type = "generic"
-        type_defaults = _TYPE_DEFAULTS.get(app_type, fallback_defaults)
+        type_defaults = _TYPE_DEFAULTS[app_type]
         arch_defaults = _ARCH_DEFAULTS.get(app_type, fallback_arch)
         return ArchitectureDecision(
             app_type=app_type,

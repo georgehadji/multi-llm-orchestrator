@@ -101,3 +101,10 @@ def test_parse_empty_string():
     result = _parse_response("")
     assert isinstance(result, ArchitectureDecision)
     assert result.app_type == "script"
+
+def test_parse_unknown_app_type():
+    """Unknown app_type value → normalised to 'generic', no exception."""
+    import json
+    result = _parse_response(json.dumps({"app_type": "blockchain-dao"}))
+    assert result.app_type == "generic"
+    assert result.detected_from == "advisor"
