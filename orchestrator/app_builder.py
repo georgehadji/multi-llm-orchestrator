@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import Optional
 
 from orchestrator.app_assembler import AppAssembler, AssemblyReport
-from orchestrator.app_detector import AppDetector, AppProfile
+from orchestrator.architecture_advisor import ArchitectureAdvisor, ArchitectureDecision
+from orchestrator.app_detector import AppProfile  # type alias kept for compat
 from orchestrator.app_verifier import AppVerifier, VerifyReport
 from orchestrator.dep_resolver import DependencyResolver, ResolveReport
 from orchestrator.scaffold import ScaffoldEngine
@@ -59,7 +60,7 @@ class AppBuilder:
     """
 
     def __init__(self) -> None:
-        self._detector = AppDetector()
+        self._advisor = ArchitectureAdvisor()
         self._scaffold = ScaffoldEngine()
         self._assembler = AppAssembler()
         self._resolver = DependencyResolver()
@@ -89,17 +90,15 @@ class AppBuilder:
         result = AppBuildResult(output_dir=str(output_dir))
 
         try:
-            # -- Step 1: Detect app type --
-            logger.info("AppBuilder: detecting app type...")
-            if app_type_override:
-                # Skip LLM detection; use the YAML override directly.
-                profile = self._detector.detect_from_yaml(app_type_override)
-            else:
-                profile = await self._detector.detect(description)
+            # -- Step 1: Decide architecture --
+            logger.info("AppBuilder: running architecture advisor...")
+            profile = await self._advisor.analyze(description, criteria, app_type_override)
             result.profile = profile
             logger.info(
-                "AppBuilder: app_type=%s detected_from=%s",
+                "AppBuilder: app_type=%s pattern=%s topology=%s detected_from=%s",
                 profile.app_type,
+                profile.structural_pattern,
+                profile.topology,
                 profile.detected_from,
             )
 

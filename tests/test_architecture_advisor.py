@@ -219,3 +219,18 @@ def test_app_profile_alias():
     """AppProfile is a type alias for ArchitectureDecision — same object."""
     from orchestrator.app_detector import AppProfile
     assert AppProfile is ArchitectureDecision
+
+
+# ─── AppBuilder integration ───────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_app_builder_uses_architecture_advisor():
+    """AppBuilder.__init__() creates an ArchitectureAdvisor, not an AppDetector."""
+    from orchestrator.app_builder import AppBuilder
+
+    builder = AppBuilder()
+
+    # Must have _advisor attribute
+    assert hasattr(builder, "_advisor"), "AppBuilder missing _advisor attribute"
+    # _advisor must be an ArchitectureAdvisor instance
+    assert isinstance(builder._advisor, ArchitectureAdvisor)
