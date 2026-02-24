@@ -276,3 +276,51 @@ class ProjectEnhancer:
             # Graceful error handling: never raise
             logger.warning(f"ProjectEnhancer.analyze failed: {e}", exc_info=True)
             return []
+
+
+def _present_enhancements(enhancements: list[Enhancement]) -> list[Enhancement]:
+    """Present each enhancement interactively; return accepted ones.
+
+    Y/y/Enter → accept. n/N → reject. Ctrl-C → reject all remaining.
+
+    Parameters
+    ----------
+    enhancements : list[Enhancement]
+        List of enhancement suggestions to present
+
+    Returns
+    -------
+    list[Enhancement]
+        List of enhancements the user accepted
+    """
+    if not enhancements:
+        print("  ✓ Spec looks complete — no suggestions.\n")
+        return []
+
+    total = len(enhancements)
+    print(f"\n  📋 {total} improvement{'s' if total != 1 else ''} found:\n")
+
+    accepted: list[Enhancement] = []
+    try:
+        for i, e in enumerate(enhancements, start=1):
+            print(f"  [{i}/{total}] {e.type} — {e.title}")
+            print(f"        {e.description}")
+            if e.patch_description:
+                print(f"        Adds: \"{e.patch_description}\"")
+            if e.patch_criteria:
+                print(f"        Adds criteria: \"{e.patch_criteria}\"")
+            try:
+                answer = input("        Apply? [Y/n]: ").strip().lower()
+            except KeyboardInterrupt:
+                print("\n  (interrupted — skipping remaining)")
+                break
+            if answer in ("", "y", "yes"):
+                accepted.append(e)
+            print()
+    except Exception as exc:
+        logger.warning("Unexpected error during enhancement prompts: %s", exc)
+
+    applied = len(accepted)
+    print(f"✓ Applied {applied}/{total} enhancements. Running enhanced project...")
+    print("─" * 54)
+    return accepted

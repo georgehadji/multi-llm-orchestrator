@@ -386,3 +386,70 @@ async def test_project_enhancer_model_selection_short_description():
     # Verify DEEPSEEK_CHAT was used
     call_args = mock_client.call.call_args
     assert call_args.kwargs["model"] == Model.DEEPSEEK_CHAT
+
+
+# ─── _present_enhancements ────────────────────────────────────────────────────
+
+from orchestrator.enhancer import _present_enhancements
+
+
+def _make_three_enhancements() -> list[Enhancement]:
+    return [
+        Enhancement("completeness", "Missing: refresh tokens",
+                    "JWT auth needs refresh tokens.", "with refresh tokens (7d)", ""),
+        Enhancement("criteria", "Vague success criteria",
+                    "Tests pass is unmeasurable.", "", "≥80% test coverage"),
+        Enhancement("risk", "Missing: password hashing",
+                    "Plain-text passwords are insecure.", "with bcrypt (cost 12)", ""),
+    ]
+
+
+def test_present_user_accepts_all(monkeypatch):
+    """All 'y' responses → all enhancements returned."""
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    accepted = _present_enhancements(_make_three_enhancements())
+    assert len(accepted) == 3
+
+
+def test_present_user_rejects_all(monkeypatch):
+    """All 'n' responses → empty list returned."""
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    accepted = _present_enhancements(_make_three_enhancements())
+    assert accepted == []
+
+
+def test_present_user_mixed(monkeypatch):
+    """Mixed responses → only 'y' ones returned."""
+    responses = iter(["y", "n", "y"])
+    monkeypatch.setattr("builtins.input", lambda _: next(responses))
+    accepted = _present_enhancements(_make_three_enhancements())
+    assert len(accepted) == 2
+    assert accepted[0].title == "Missing: refresh tokens"
+    assert accepted[1].title == "Missing: password hashing"
+
+
+def test_present_empty_enhancements():
+    """Empty list → prints completion message, returns empty list."""
+    result = _present_enhancements([])
+    assert result == []
+
+
+def test_present_default_is_yes(monkeypatch):
+    """Empty Enter (no input) → treated as 'y' (accept)."""
+    monkeypatch.setattr("builtins.input", lambda _: "")
+    accepted = _present_enhancements(_make_three_enhancements())
+    assert len(accepted) == 3
+
+
+def test_present_ctrl_c_treated_as_no(monkeypatch):
+    """KeyboardInterrupt on any prompt → reject all remaining, return what was accepted so far."""
+    call_count = 0
+    def mock_input(_):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise KeyboardInterrupt
+        return "y"
+    monkeypatch.setattr("builtins.input", mock_input)
+    accepted = _present_enhancements(_make_three_enhancements())
+    assert len(accepted) == 1  # first was accepted, then Ctrl-C on second
