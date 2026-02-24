@@ -211,3 +211,11 @@ def test_detect_from_yaml_unknown_type():
 
     assert result.app_type == "script"
     assert result.detected_from == "yaml_override"
+
+
+# ─── backward compatibility ───────────────────────────────────────────────────
+
+def test_app_profile_alias():
+    """AppProfile is a type alias for ArchitectureDecision — same object."""
+    from orchestrator.app_detector import AppProfile
+    assert AppProfile is ArchitectureDecision

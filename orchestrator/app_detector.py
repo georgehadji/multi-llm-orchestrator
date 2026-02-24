@@ -264,3 +264,10 @@ class AppDetector:
             requires_docker=bool(data.get("requires_docker", defaults["requires_docker"])),
             detected_from="auto",
         )
+
+
+# ── Backward compatibility ────────────────────────────────────────────────────
+# AppProfile is now a type alias for ArchitectureDecision.
+# All existing code importing AppProfile continues to work unchanged.
+from .architecture_advisor import ArchitectureDecision  # noqa: E402
+AppProfile = ArchitectureDecision
