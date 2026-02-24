@@ -45,6 +45,7 @@ from .policy_dsl import load_policy_file, load_policy_dict, PolicyAnalyzer, Anal
 from .cost    import BudgetHierarchy, CostPredictor, CostForecaster, ForecastReport, RiskLevel
 # Improvement 5: advanced agents
 from .agents  import AgentPool, TaskChannel
+from .enhancer import Enhancement, ProjectEnhancer
 
 __all__ = [
     # Core
@@ -78,6 +79,9 @@ __all__ = [
     "BudgetHierarchy", "CostPredictor", "CostForecaster", "ForecastReport", "RiskLevel",
     # Advanced agents — Improvement 5
     "AgentPool", "TaskChannel",
+    # Project Enhancer — LLM-powered spec improvement before decomposition
+    "Enhancement",
+    "ProjectEnhancer",
     # Six Improvements: new modules
     "ProjectEventBus", "ProjectStarted", "TaskStarted", "TaskProgressUpdate",
     "TaskCompleted", "TaskFailed", "BudgetWarning", "ProjectCompleted", "StreamEvent",
