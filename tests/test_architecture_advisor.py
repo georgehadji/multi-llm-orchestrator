@@ -108,3 +108,106 @@ def test_parse_unknown_app_type():
     result = _parse_response(json.dumps({"app_type": "blockchain-dao"}))
     assert result.app_type == "generic"
     assert result.detected_from == "advisor"
+
+# ─── ArchitectureAdvisor ──────────────────────────────────────────────────────
+
+from unittest.mock import AsyncMock, MagicMock
+from orchestrator.architecture_advisor import ArchitectureAdvisor
+
+
+class FakeAPIResponse:
+    def __init__(self, text: str, cost_usd: float = 0.002):
+        self.text = text
+        self.cost_usd = cost_usd
+
+
+@pytest.mark.asyncio
+async def test_analyze_calls_llm_once():
+    """analyze() makes exactly one LLM call."""
+    mock_client = MagicMock()
+    mock_client.call = AsyncMock(return_value=FakeAPIResponse(text=FULL_VALID_JSON))
+
+    advisor = ArchitectureAdvisor(client=mock_client)
+    result = await advisor.analyze("Build a FastAPI service", "tests pass")
+
+    assert mock_client.call.call_count == 1
+    assert isinstance(result, ArchitectureDecision)
+    assert result.app_type == "fastapi"
+
+
+@pytest.mark.asyncio
+async def test_analyze_handles_exception():
+    """LLM call raises -> returns fallback defaults, no crash."""
+    mock_client = MagicMock()
+    mock_client.call = AsyncMock(side_effect=Exception("network error"))
+
+    advisor = ArchitectureAdvisor(client=mock_client)
+    result = await advisor.analyze("Build something", "tests pass")
+
+    assert isinstance(result, ArchitectureDecision)
+    assert result.app_type == "script"
+
+
+@pytest.mark.asyncio
+async def test_analyze_prints_summary(capsys):
+    """Terminal output contains pattern, topology, api, storage."""
+    mock_client = MagicMock()
+    mock_client.call = AsyncMock(return_value=FakeAPIResponse(text=FULL_VALID_JSON))
+
+    advisor = ArchitectureAdvisor(client=mock_client)
+    await advisor.analyze("Build a FastAPI service", "tests pass")
+
+    captured = capsys.readouterr()
+    assert "layered" in captured.out.lower() or "Layered" in captured.out
+    assert "monolith" in captured.out.lower() or "Monolith" in captured.out
+    assert "rest" in captured.out.lower() or "REST" in captured.out
+
+
+@pytest.mark.asyncio
+async def test_analyze_selects_reasoner_for_long_desc():
+    """Descriptions >50 words use DeepSeek Reasoner."""
+    long_desc = " ".join(["word"] * 51)
+    mock_client = MagicMock()
+    mock_client.call = AsyncMock(return_value=FakeAPIResponse(text=FULL_VALID_JSON))
+
+    advisor = ArchitectureAdvisor(client=mock_client)
+    await advisor.analyze(long_desc, "criteria")
+
+    call_args = mock_client.call.call_args
+    used_model = call_args[1].get("model") or call_args[0][0]
+    assert used_model == Model.DEEPSEEK_REASONER
+
+
+@pytest.mark.asyncio
+async def test_analyze_selects_chat_for_short_desc():
+    """Descriptions <=50 words use DeepSeek Chat."""
+    mock_client = MagicMock()
+    mock_client.call = AsyncMock(return_value=FakeAPIResponse(text=FULL_VALID_JSON))
+
+    advisor = ArchitectureAdvisor(client=mock_client)
+    await advisor.analyze("Build a FastAPI auth service", "tests pass")
+
+    call_args = mock_client.call.call_args
+    used_model = call_args[1].get("model") or call_args[0][0]
+    assert used_model == Model.DEEPSEEK_CHAT
+
+
+def test_detect_from_yaml_skips_llm():
+    """detect_from_yaml() returns known defaults without LLM call."""
+    advisor = ArchitectureAdvisor(client=None)
+    result = advisor.detect_from_yaml("fastapi")
+
+    assert result.app_type == "fastapi"
+    assert result.structural_pattern == "layered"
+    assert result.topology == "monolith"
+    assert result.api_paradigm == "rest"
+    assert result.detected_from == "yaml_override"
+
+
+def test_detect_from_yaml_unknown_type():
+    """Unknown app_type_override falls back to script defaults."""
+    advisor = ArchitectureAdvisor(client=None)
+    result = advisor.detect_from_yaml("unknown-framework")
+
+    assert result.app_type == "script"
+    assert result.detected_from == "yaml_override"
