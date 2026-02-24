@@ -14,33 +14,38 @@ State is checkpointed to SQLite after every task. Interrupted runs are resumable
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    ORCHESTRATOR                          │
-│                                                          │
-│  Decompose → Route → Generate → Critique → Revise        │
-│       ↑                                    │             │
-│       └──── Evaluate ← Deterministic Check ┘             │
-│                                                          │
-│  [Async Disk Cache] [JSON State] [Budget Control]        │
-│  [Policy Engine] [Telemetry] [Event Hooks]               │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │ APP BUILDER PIPELINE (ArchitectureAdvisor)       │   │
-│  │                                                  │   │
-│  │ Architecture Decision → Scaffold → Decompose     │   │
-│  │  (LLM decides: pattern, topology, API, storage) │   │
-│  └──────────────────────────────────────────────────┘   │
-└──────────┬──────────────┬──────────────┬────────────┬───┘
-           │              │              │            │
-     ┌─────┴─────┐  ┌────┴────┐  ┌─────┴─────┐  ┌────┴────┐
-     │  OpenAI   │  │ Google  │  │ Anthropic │  │   Kimi  │
-     │(GPT-4o)   │  │(Gemini) │  │ (Claude)  │  │ (K2.5)  │
-     └───────────┘  └─────────┘  └───────────┘  └────┬────┘
-                                                       │
-                                              ┌────────┴──────┐
-                                              │   DeepSeek    │
-                                              │(Chat + R1)    │
-                                              └───────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                         ORCHESTRATOR PIPELINE                      │
+│                                                                    │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │ INPUT ENHANCEMENT (NEW)                                    │  │
+│  │ Auto-Resume Detect → Project Enhancer → Architecture Advisor│ │
+│  │ (Resume if similar)  (LLM spec improve)  (App type detect) │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                           ↓                                       │
+│  Decompose → Route → Generate → Critique → Revise               │
+│       ↑                                    │                    │
+│       └──── Evaluate ← Deterministic Check ┘                    │
+│                                                                    │
+│  [Async Disk Cache] [JSON State] [Budget Control]                │
+│  [Policy Engine] [Telemetry] [Event Hooks]                       │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │ APP BUILDER PIPELINE (ArchitectureAdvisor)               │    │
+│  │ Architecture Decision → Scaffold → Decompose             │    │
+│  │  (LLM decides: pattern, topology, API, storage)          │    │
+│  └──────────────────────────────────────────────────────────┘    │
+└────────────┬──────────────┬──────────────┬────────────┬──────────┘
+             │              │              │            │
+       ┌─────┴─────┐  ┌────┴────┐  ┌─────┴─────┐  ┌────┴────┐
+       │  OpenAI   │  │ Google  │  │ Anthropic │  │   Kimi  │
+       │(GPT-4o)   │  │(Gemini) │  │ (Claude)  │  │ (K2.5)  │
+       └───────────┘  └─────────┘  └───────────┘  └────┬────┘
+                                                         │
+                                                ┌────────┴──────┐
+                                                │   DeepSeek    │
+                                                │(Chat + R1)    │
+                                                └───────────────┘
 ```
 
 ---
@@ -196,6 +201,58 @@ asyncio.run(main())
     this scale. PostgreSQL for persistence; no need for microservices.
 ──────────────────────────────────────────────────────────────────────────────
 ```
+
+---
+
+## 🆕 New Features (Feb 2026)
+
+### Project Enhancer — Intelligent Spec Improvement
+
+Before decomposition, the orchestrator uses an LLM to suggest 3–7 concrete improvements to your project description and success criteria:
+
+```bash
+# Automatic enhancement (suggested improvements with Y/n prompts)
+python -m orchestrator --project "Build a REST API" --criteria "tests pass"
+
+# Skip enhancement and use original spec
+python -m orchestrator --project "Build a REST API" --criteria "tests pass" --no-enhance
+```
+
+**Enhancement Types:**
+- **Completeness** — Missing details about scope/requirements
+- **Criteria** — Vague or unmeasurable success metrics
+- **Risk** — Unaddressed security, performance, or edge cases
+
+### Auto-Resume Detection — Smart Project Resumption
+
+The orchestrator automatically detects incomplete projects with similar descriptions and offers to resume them:
+
+```bash
+# With resume detection (default)
+python -m orchestrator --project "Build a FastAPI auth service"
+# Output: Found similar project - Resume it? [Y/n]
+
+# Skip detection and force fresh start
+python -m orchestrator --project "Build a FastAPI auth service" --new-project
+```
+
+**Resume Workflow:**
+- **Exact match** → Auto-resume (prints confirmation)
+- **Single similar project** → Prompt: "Resume it? [Y/n]"
+- **Multiple similar projects** → Ranked list: pick [1–N / n]
+
+**Scoring:** Keyword matching (Jaccard similarity) + recency weighting (projects from the last 7 days weighted higher)
+
+### ArchitectureAdvisor — LLM-Powered Architecture Decisions
+
+Automatically detects the optimal application architecture for your project:
+
+- **App type detection:** FastAPI, Next.js, React, Django, Flask, etc.
+- **Architectural patterns:** Layered, MVC, microservices, etc.
+- **Technology decisions:** Storage (SQL/NoSQL), caching, queuing, etc.
+- **Scaffolding:** Auto-generates project files matching the detected architecture
+
+Already integrated into AppBuilder (see above).
 
 ---
 

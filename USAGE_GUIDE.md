@@ -103,6 +103,63 @@ python -m orchestrator --resume <project_id>
 python -m orchestrator --list-projects
 ```
 
+### 6. Skip Project Enhancement (Use Original Spec)
+
+By default, the orchestrator uses Project Enhancer to suggest improvements to your project description before decomposition. To skip this and run with your exact specification:
+
+```bash
+python -m orchestrator \
+  --project "Build a FastAPI service" \
+  --criteria "tests pass" \
+  --no-enhance
+```
+
+**When to use `--no-enhance`:**
+- Your spec is already well-defined and specific
+- You want to reproduce exact results (determinism)
+- You prefer not to see LLM-suggested improvements
+- Time-sensitive execution
+
+### 7. Bypass Auto-Resume Detection (Always Start Fresh)
+
+By default, the orchestrator checks for incomplete projects with similar descriptions and offers to resume them. To start a completely fresh project and skip this check:
+
+```bash
+python -m orchestrator \
+  --project "Build a React dashboard" \
+  --criteria "npm build succeeds" \
+  --new-project
+```
+
+Or use the short flag:
+
+```bash
+python -m orchestrator --project "..." --criteria "..." -N
+```
+
+**What happens with resume detection (default):**
+1. Exact keyword match → Auto-resume with message
+2. Single similar project → Prompts: "Resume it? [Y/n]"
+3. Multiple similar projects → Shows ranked list with scores, user picks [1–N / n]
+
+**When to use `--new-project`:**
+- You want a fresh start (don't want resume prompts)
+- Debugging different approaches to the same problem
+- Explicit control over execution flow
+
+### 8. Combine Flags
+
+You can combine `--no-enhance` and `--new-project`:
+
+```bash
+python -m orchestrator \
+  --project "Build a GraphQL API" \
+  --criteria "schema complete, resolvers tested" \
+  --no-enhance \
+  --new-project \
+  --budget 4.0
+```
+
 ---
 
 ## Python API Examples

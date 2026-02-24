@@ -282,6 +282,72 @@ Three pluggable routing strategies:
 - **DagRenderer:** Directed acyclic graph visualization with costs
 - **ProjectEventBus:** Async event streaming for monitoring
 
+### 17. Architecture Advisor
+
+LLM-powered app type detection for intelligent scaffolding:
+
+- **ArchitectureAdvisor:** Analyzes project description to infer optimal app architecture
+- **ArchitectureDecision:** Dataclass capturing: app_type, pattern, topology, api_style, storage_choice
+- **Automatic scaffolding:** Generates project files matching detected architecture (Next.js, FastAPI, React, Django, etc.)
+- **Decomposition injection:** Architecture decision injected into decomposition prompt for context-aware task planning
+- **Model auto-selection:** Uses DeepSeek Reasoner for complex specs (>50 words), Chat for simple ones
+
+**Usage:**
+```bash
+python -m orchestrator --project "Build an e-commerce platform" --criteria "fully functional"
+```
+
+### 18. Project Enhancer
+
+LLM-powered spec improvement before decomposition:
+
+- **Enhancement:** Dataclass for suggested improvements (type: completeness|criteria|risk)
+- **ProjectEnhancer.analyze():** Generates 3–7 LLM suggestions to improve project description and success criteria
+- **_present_enhancements():** Interactive Y/n prompts for user to accept/reject each suggestion
+- **_apply_enhancements():** Patches accepted suggestions into final description and criteria
+- **--no-enhance flag:** Skip enhancement pass to run original spec directly
+- **Model selection:** DeepSeek Reasoner (>50 words combined) vs Chat (≤50 words)
+- **Budget cap:** $0.10 per enhancement request
+
+**Improvement Categories:**
+- **completeness** — Missing details about project scope/requirements
+- **criteria** — Missing or unmeasurable success metrics
+- **risk** — Unaddressed security, performance, or edge case concerns
+
+**Usage:**
+```bash
+# With enhancement (default)
+python -m orchestrator --project "Build a REST API" --criteria "tests pass"
+
+# Skip enhancement pass
+python -m orchestrator --project "Build a REST API" --criteria "tests pass" --no-enhance
+```
+
+### 19. Auto-Resume Detection
+
+Intelligent resume suggestion for similar incomplete projects:
+
+- **ResumeCandidate:** Project resume candidate with keyword matching and scoring
+- **_extract_keywords():** Extracts 3+ character words, filters stopwords, returns sorted
+- **_recency_factor():** Weights recent projects higher (1.0 = created today, 0.1 = 7+ days old)
+- **_score_candidates():** Jaccard similarity on keywords + recency weighting (0.6×similarity + 0.4×recency)
+- **_check_resume():** CLI gate with 200ms timeout for DB lookup
+- **Resume workflows:**
+  - **Exact match** → Auto-resume (prints message)
+  - **Single fuzzy match** → Prompt [Y/n]
+  - **Multiple matches** → Numbered list picker [1–N / n]
+- **--new-project / -N flag:** Bypass resume detection, always start fresh
+- **Database columns:** `project_description`, `keywords_json` added automatically
+
+**Usage:**
+```bash
+# With auto-resume detection (default)
+python -m orchestrator --project "Build a FastAPI service"
+
+# Skip resume detection
+python -m orchestrator --project "Build a FastAPI service" --new-project
+```
+
 ---
 
 ## Environment Variables
@@ -317,7 +383,9 @@ export ORCHESTRATOR_LOG_LEVEL="INFO"
 | Telemetry & metrics | ✅ | Real p95, trust factor EMA |
 | Multi-objective optimization | ✅ | Greedy, Weighted, Pareto |
 | Pre-flight cost forecasting | ✅ | Risk assessment |
-| **Architecture Advisor** | ✅ | **NEW: LLM architecture decisions** |
+| **Architecture Advisor** | ✅ | **LLM architecture decisions** |
+| **Project Enhancer** | ✅ | **LLM spec improvement before decomposition** |
+| **Auto-Resume Detection** | ✅ | **Keyword matching + recency scoring** |
 | Ensemble/AgentPool | ✅ | Parallel orchestrators |
 | Semantic caching | ✅ | Similarity-based dedup |
 | App builder | ✅ | With ArchitectureAdvisor |
