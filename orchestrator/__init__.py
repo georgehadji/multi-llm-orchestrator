@@ -47,6 +47,11 @@ from .cost    import BudgetHierarchy, CostPredictor, CostForecaster, ForecastRep
 # Improvement 5: advanced agents
 from .agents  import AgentPool, TaskChannel
 from .enhancer import Enhancement, ProjectEnhancer
+# Codebase Analysis — Codebase Enhancer feature
+from .codebase_analyzer import CodebaseAnalyzer, CodebaseMap
+from .codebase_profile import CodebaseProfile
+from .codebase_understanding import CodebaseUnderstanding
+from .improvement_suggester import ImprovementSuggester, Improvement
 # Improvement 13: streaming / progressive output writer
 from .progress_writer import ProgressWriter, ProgressEntry
 # Improvement 12: dry-run / execution plan
@@ -87,6 +92,11 @@ __all__ = [
     # Project Enhancer — LLM-powered spec improvement before decomposition
     "Enhancement",
     "ProjectEnhancer",
+    # Codebase Enhancer — Static + semantic analysis + improvement suggestions
+    "CodebaseAnalyzer", "CodebaseMap",
+    "CodebaseProfile",
+    "CodebaseUnderstanding",
+    "ImprovementSuggester", "Improvement",
     # Six Improvements: new modules
     "ProjectEventBus", "ProjectStarted", "TaskStarted", "TaskProgressUpdate",
     "TaskCompleted", "TaskFailed", "BudgetWarning", "ProjectCompleted", "StreamEvent",

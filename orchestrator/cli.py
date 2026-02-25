@@ -930,11 +930,34 @@ try:
         if analyze_codebase:
             import asyncio
             from orchestrator.codebase_understanding import CodebaseUnderstanding
+            from orchestrator.improvement_suggester import ImprovementSuggester
 
             async def run_analysis():
                 understanding = CodebaseUnderstanding()
                 profile = await understanding.analyze(analyze_codebase)
+
+                # Display analysis results
+                print("\n" + "="*60)
+                print("CODEBASE ANALYSIS COMPLETE")
+                print("="*60)
                 print(profile)
+
+                # Generate and display improvement suggestions
+                suggester = ImprovementSuggester()
+                improvements = suggester.suggest(profile)
+
+                if improvements:
+                    print("\n" + "="*60)
+                    print("IMPROVEMENT RECOMMENDATIONS")
+                    print("="*60)
+                    total_effort = sum(i.effort_hours for i in improvements)
+                    print(f"\n{len(improvements)} recommendations | {total_effort}h total effort\n")
+
+                    for i, imp in enumerate(improvements, 1):
+                        print(f"{i}. {imp}")
+                        print(f"   Description: {imp.description}")
+                        print(f"   Impact: {imp.impact}")
+                        print()
 
             asyncio.run(run_analysis())
         else:
