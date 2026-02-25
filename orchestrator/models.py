@@ -29,7 +29,6 @@ class TaskType(str, Enum):
 
 
 class Model(str, Enum):
-    CLAUDE_OPUS = "claude-opus-4-6"
     CLAUDE_SONNET = "claude-sonnet-4-6"
     CLAUDE_HAIKU = "claude-haiku-4-5-20251001"
     GPT_4O = "gpt-4o"
@@ -88,7 +87,6 @@ def get_provider(model: Model) -> str:
 # ─────────────────────────────────────────────
 
 COST_TABLE: dict[Model, dict[str, float]] = {
-    Model.CLAUDE_OPUS:        {"input": 15.0,  "output": 75.0},
     Model.CLAUDE_SONNET:      {"input": 3.0,   "output": 15.0},
     Model.CLAUDE_HAIKU:       {"input": 0.80,  "output": 4.0},
     Model.GPT_4O:             {"input": 2.50,  "output": 10.0},
@@ -117,12 +115,12 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # Kimi K2.5 is cheapest overall but slow; used as fallback for code tasks.
     # Minimax-3 is cost-effective reasoning model; Z.ai GLM-4 is strong general purpose.
     TaskType.CODE_GEN:     [Model.DEEPSEEK_CHAT, Model.MINIMAX_3, Model.KIMI_K2_5, Model.ZAI_GLM, Model.CLAUDE_SONNET, Model.GPT_4O],
-    TaskType.CODE_REVIEW:  [Model.DEEPSEEK_CHAT, Model.KIMI_K2_5, Model.GPT_4O, Model.CLAUDE_OPUS],
-    TaskType.REASONING:    [Model.DEEPSEEK_REASONER, Model.MINIMAX_3, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O],
-    TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.ZAI_GLM, Model.GPT_4O, Model.DEEPSEEK_CHAT, Model.GEMINI_PRO],
+    TaskType.CODE_REVIEW:  [Model.DEEPSEEK_CHAT, Model.MINIMAX_3, Model.KIMI_K2_5, Model.GPT_4O],
+    TaskType.REASONING:    [Model.DEEPSEEK_REASONER, Model.MINIMAX_3, Model.CLAUDE_SONNET, Model.KIMI_K2_5, Model.GPT_4O],
+    TaskType.WRITING:      [Model.ZAI_GLM, Model.CLAUDE_SONNET, Model.GPT_4O, Model.DEEPSEEK_CHAT, Model.GEMINI_PRO],
     TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.DEEPSEEK_CHAT, Model.CLAUDE_HAIKU],
     TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.DEEPSEEK_CHAT, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
-    TaskType.EVALUATE:     [Model.DEEPSEEK_CHAT, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O],
+    TaskType.EVALUATE:     [Model.DEEPSEEK_CHAT, Model.MINIMAX_3, Model.KIMI_K2_5, Model.GPT_4O],
 }
 
 
@@ -131,7 +129,6 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
 # ─────────────────────────────────────────────
 
 FALLBACK_CHAIN: dict[Model, Model] = {
-    Model.CLAUDE_OPUS:        Model.DEEPSEEK_REASONER,  # Opus → DeepSeek-R1 (same tier)
     Model.CLAUDE_SONNET:      Model.DEEPSEEK_CHAT,      # Sonnet → DeepSeek-V3 (cross-provider)
     Model.CLAUDE_HAIKU:       Model.GPT_4O_MINI,        # light tasks: stay in cheap tier
     Model.GPT_4O:             Model.DEEPSEEK_CHAT,      # GPT-4o → DeepSeek-V3 (cross-provider)
@@ -142,7 +139,7 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     Model.MINIMAX_3:          Model.GPT_4O,             # Minimax → GPT-4o (cross-provider, similar tier)
     Model.ZAI_GLM:            Model.CLAUDE_SONNET,      # Z.ai GLM → Sonnet (cross-provider general)
     Model.DEEPSEEK_CHAT:      Model.CLAUDE_SONNET,      # DeepSeek-V3 → Sonnet (cross-provider)
-    Model.DEEPSEEK_REASONER:  Model.CLAUDE_OPUS,        # DeepSeek-R1 → Opus (cross-provider)
+    Model.DEEPSEEK_REASONER:  Model.CLAUDE_SONNET,      # DeepSeek-R1 → Sonnet (cross-provider quality escalation)
 }
 
 

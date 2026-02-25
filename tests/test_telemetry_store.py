@@ -287,8 +287,8 @@ async def test_model_rankings_confidence_levels(tmp_path):
 
     # COLD: 5 calls
     for i in range(5):
-        await store.record_snapshot(f"c{i}", Model.CLAUDE_OPUS, TaskType.CODE_GEN,
-                                    _make_profile(model=Model.CLAUDE_OPUS, quality_score=0.91,
+        await store.record_snapshot(f"c{i}", Model.MINIMAX_3, TaskType.CODE_GEN,
+                                    _make_profile(model=Model.MINIMAX_3, quality_score=0.91,
                                                   avg_cost_usd=0.030, call_count=1))
 
     rankings = await store.model_rankings(days=30)
@@ -296,7 +296,7 @@ async def test_model_rankings_confidence_levels(tmp_path):
 
     assert by_model[Model.DEEPSEEK_CHAT].confidence == "HOT"
     assert by_model[Model.GPT_4O].confidence == "WARM"
-    assert by_model[Model.CLAUDE_OPUS].confidence == "COLD"
+    assert by_model[Model.MINIMAX_3].confidence == "COLD"
 
 
 @pytest.mark.asyncio

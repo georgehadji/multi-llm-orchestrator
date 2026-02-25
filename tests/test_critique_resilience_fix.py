@@ -53,7 +53,7 @@ def test_record_failure_uses_circuit_breaker():
     handler doesn't call it.
     """
     orch = Orchestrator()
-    model = Model.CLAUDE_OPUS
+    model = Model.MINIMAX_3
 
     # _record_failure should track consecutive failures
     assert hasattr(orch, '_consecutive_failures'), \
@@ -83,7 +83,7 @@ def test_three_consecutive_failures_trigger_circuit_breaker():
     Verifies that after 3 transient errors on same model, it gets marked unhealthy.
     """
     orch = Orchestrator()
-    model = Model.CLAUDE_OPUS
+    model = Model.MINIMAX_3
 
     # Reset model to healthy state
     orch.api_health[model] = True
@@ -111,7 +111,7 @@ def test_success_resets_consecutive_failures_counter():
     from unittest.mock import MagicMock
 
     orch = Orchestrator()
-    model = Model.CLAUDE_OPUS
+    model = Model.MINIMAX_3
 
     # Reset model to healthy state
     orch.api_health[model] = True
