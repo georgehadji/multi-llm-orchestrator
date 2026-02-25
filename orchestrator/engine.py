@@ -858,7 +858,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         total_cost += critique_response.cost_usd
                     except (Exception, asyncio.CancelledError) as e:
                         logger.warning(f"Critique failed for {task.id}: {e}")
-                        self.api_health[reviewer] = False
+                        # Use _record_failure() for graduated circuit breaker instead of immediate kill.
+                        # This allows transient errors (429, timeout) to be retried; only permanent
+                        # errors (401, 404) or 3 consecutive failures disable the model.
+                        self._record_failure(reviewer, error=e)
                         degraded_count += 1
 
                 # ── REVISE (if critique exists) ──
