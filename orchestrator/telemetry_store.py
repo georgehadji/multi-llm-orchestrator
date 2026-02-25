@@ -20,6 +20,7 @@ Schema:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from dataclasses import dataclass
@@ -121,6 +122,12 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_model
 
 CREATE INDEX IF NOT EXISTS idx_routing_model
     ON routing_events(model_chosen, task_type, recorded_at);
+
+CREATE TABLE IF NOT EXISTS pending_writes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    payload    TEXT    NOT NULL,
+    created_at REAL    NOT NULL
+);
 """
 
 
@@ -233,6 +240,125 @@ class TelemetryStore:
                 ),
             )
             await db.commit()
+
+    # ── Write-ahead queue (WAL) ───────────────────────────────────────────────
+    #
+    # Problem: asyncio.create_task() fire-and-forget writes are cancelled when
+    # the event loop closes, silently losing telemetry data.
+    #
+    # Fix: enqueue_snapshot() writes the intent to pending_writes *synchronously*
+    # before any fire-and-forget task.  drain_queue() processes the queue
+    # atomically and is called at warm-start time so a subsequent startup can
+    # recover orphaned writes from a prior crashed session.
+
+    async def enqueue_snapshot(
+        self,
+        project_id: str,
+        model: Model,
+        task_type: TaskType,
+        profile: ModelProfile,
+    ) -> None:
+        """
+        Persist a write intent to pending_writes synchronously.
+
+        Call this instead of record_snapshot() for fire-and-forget paths.
+        The row is guaranteed to be durable before this coroutine returns.
+        A subsequent call to drain_queue() (e.g. at warm-start) will commit
+        the data to model_snapshots even if the process crashed in between.
+        """
+        await self._ensure_schema()
+        payload = json.dumps({
+            "project_id": project_id,
+            "model":      model.value,
+            "task_type":  task_type.value,
+            "profile": {
+                "quality_score":        profile.quality_score,
+                "trust_factor":         profile.trust_factor,
+                "avg_latency_ms":       profile.avg_latency_ms,
+                "latency_p95_ms":       profile.latency_p95_ms,
+                "success_rate":         profile.success_rate,
+                "avg_cost_usd":         profile.avg_cost_usd,
+                "call_count":           profile.call_count,
+                "failure_count":        profile.failure_count,
+                "validator_fail_count": profile.validator_fail_count,
+            },
+        })
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                "INSERT INTO pending_writes (payload, created_at) VALUES (?, ?)",
+                (payload, time.time()),
+            )
+            await db.commit()
+
+    async def drain_queue(self) -> int:
+        """
+        Drain all pending_writes into model_snapshots atomically.
+
+        Idempotent: safe to call multiple times; rows that have already been
+        moved are deleted from pending_writes so a second call is a no-op.
+
+        Returns the number of rows drained (0 when the queue is empty).
+        Called at warm-start time so orphaned writes from a prior crashed
+        session are included in this run's routing decisions.
+        """
+        await self._ensure_schema()
+        async with aiosqlite.connect(self._db_path) as db:
+            async with db.execute(
+                "SELECT id, payload FROM pending_writes ORDER BY id"
+            ) as cur:
+                rows = await cur.fetchall()
+
+            if not rows:
+                return 0
+
+            ids_to_delete: list[int] = []
+            for row_id, payload_str in rows:
+                try:
+                    payload     = json.loads(payload_str)
+                    p           = payload["profile"]
+                    await db.execute(
+                        """
+                        INSERT INTO model_snapshots
+                            (project_id, model, task_type, quality_score, trust_factor,
+                             avg_latency_ms, latency_p95_ms, success_rate, avg_cost_usd,
+                             call_count, failure_count, validator_fail_count, recorded_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            payload.get("project_id", ""),
+                            payload["model"],
+                            payload["task_type"],
+                            p["quality_score"],
+                            p["trust_factor"],
+                            p["avg_latency_ms"],
+                            p["latency_p95_ms"],
+                            p["success_rate"],
+                            p["avg_cost_usd"],
+                            p["call_count"],
+                            p["failure_count"],
+                            p["validator_fail_count"],
+                            time.time(),
+                        ),
+                    )
+                except (json.JSONDecodeError, KeyError) as exc:
+                    logger.warning(
+                        "drain_queue: skipping malformed pending_write id=%d: %s",
+                        row_id, exc,
+                    )
+                finally:
+                    # Always remove processed rows — even malformed ones should
+                    # not re-poison the queue on the next startup.
+                    ids_to_delete.append(row_id)
+
+            if ids_to_delete:
+                placeholders = ",".join("?" * len(ids_to_delete))
+                await db.execute(
+                    f"DELETE FROM pending_writes WHERE id IN ({placeholders})",
+                    ids_to_delete,
+                )
+            await db.commit()
+
+        return len(ids_to_delete)
 
     # ── Read API ──────────────────────────────────────────────────────────────
 

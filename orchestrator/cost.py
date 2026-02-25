@@ -155,6 +155,14 @@ class BudgetHierarchy:
         self._team_spent: dict[str, float] = {}
         self._job_spent:  dict[str, float] = {}
 
+        # Pessimistic reservation counters (prevent TOCTOU race between
+        # can_afford_job() and charge_job() across concurrent run_job() calls).
+        # A reservation is claimed atomically when can_afford_job() returns True,
+        # then settled by charge_job() or released by release_reservation().
+        self._reserved_usd:  float = 0.0
+        self._team_reserved: dict[str, float] = {}
+        self._reservations:  dict[str, float] = {}  # job_id → reserved amount
+
     # ── Query ────────────────────────────────────────────────────────────────
 
     def can_afford_job(
@@ -171,23 +179,30 @@ class BudgetHierarchy:
         if estimated_cost <= 0:
             return True
 
-        # Org level
-        if (self._org_spent + estimated_cost) > self._org_max:
+        # Org level — committed = actual spent + already reserved by concurrent jobs
+        committed_org = self._org_spent + self._reserved_usd
+        if (committed_org + estimated_cost) > self._org_max:
             logger.warning(
                 "BudgetHierarchy: org cap would be exceeded "
-                "(spent=%.4f, est=%.4f, max=%.4f)",
-                self._org_spent, estimated_cost, self._org_max,
+                "(spent=%.4f, reserved=%.4f, est=%.4f, max=%.4f)",
+                self._org_spent, self._reserved_usd, estimated_cost, self._org_max,
             )
             return False
 
         # Team level
         if team and team in self._team_max:
-            team_spent = self._team_spent.get(team, 0.0)
-            if (team_spent + estimated_cost) > self._team_max[team]:
+            committed_team = (
+                self._team_spent.get(team, 0.0) + self._team_reserved.get(team, 0.0)
+            )
+            if (committed_team + estimated_cost) > self._team_max[team]:
                 logger.warning(
                     "BudgetHierarchy: team '%s' cap would be exceeded "
-                    "(spent=%.4f, est=%.4f, max=%.4f)",
-                    team, team_spent, estimated_cost, self._team_max[team],
+                    "(spent=%.4f, reserved=%.4f, est=%.4f, max=%.4f)",
+                    team,
+                    self._team_spent.get(team, 0.0),
+                    self._team_reserved.get(team, 0.0),
+                    estimated_cost,
+                    self._team_max[team],
                 )
                 return False
 
@@ -202,10 +217,30 @@ class BudgetHierarchy:
                 )
                 return False
 
+        # All checks passed — atomically reserve the estimated cost so concurrent
+        # callers see the committed amount before this job's charge_job() settles.
+        self._reserved_usd += estimated_cost
+        if team:
+            self._team_reserved[team] = self._team_reserved.get(team, 0.0) + estimated_cost
+        if job_id:
+            self._reservations[job_id] = estimated_cost
         return True
 
     def charge_job(self, job_id: str, team: str, amount: float) -> None:
-        """Deduct amount from org, team, and job spend trackers."""
+        """
+        Settle a job's actual spend, releasing its prior reservation.
+
+        Calling charge_job() without a prior can_afford_job() is supported
+        (backwards-compatible), but the reservation path is the preferred flow.
+        """
+        # Release the reservation made by can_afford_job()
+        reserved = self._reservations.pop(job_id, 0.0)
+        self._reserved_usd = max(0.0, self._reserved_usd - reserved)
+        if team and reserved:
+            self._team_reserved[team] = max(
+                0.0, self._team_reserved.get(team, 0.0) - reserved
+            )
+
         if amount <= 0:
             return
         self._org_spent += amount
@@ -213,6 +248,15 @@ class BudgetHierarchy:
             self._team_spent[team] = self._team_spent.get(team, 0.0) + amount
         if job_id:
             self._job_spent[job_id] = self._job_spent.get(job_id, 0.0) + amount
+
+    def release_reservation(self, job_id: str) -> None:
+        """
+        Free a reservation without charging (e.g. on job abort or error).
+
+        Idempotent: calling for an unknown job_id is a no-op.
+        """
+        reserved = self._reservations.pop(job_id, 0.0)
+        self._reserved_usd = max(0.0, self._reserved_usd - reserved)
 
     def remaining(self, level: str = "org", key: str = "") -> float:
         """
@@ -224,7 +268,9 @@ class BudgetHierarchy:
         key   : team name or job id (required for team/job level)
         """
         if level == "org":
-            return max(0.0, self._org_max - self._org_spent)
+            # Deduct both actual spend and pending reservations so callers see
+            # an accurate picture of what is still freely available.
+            return max(0.0, self._org_max - self._org_spent - self._reserved_usd)
         elif level == "team":
             max_v = self._team_max.get(key, self._org_max)
             spent = self._team_spent.get(key, 0.0)

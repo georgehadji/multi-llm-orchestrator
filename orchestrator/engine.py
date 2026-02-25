@@ -844,20 +844,44 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     def _build_delta_prompt(self, original_prompt: str, record: "AttemptRecord") -> str:
         """
         Build an enriched prompt for the next iteration after a failed attempt.
-        Appends a structured failure summary so the model knows exactly what to fix.
+
+        Uses XML-style tags to delimit the feedback block so that adversarial
+        LLM output cannot escape the block with injected plain-text sentinels
+        or tag sequences.  All user-controlled fields are sanitised before
+        embedding to prevent prompt-injection via failure_reason, validator
+        names, or output_snippet.
         """
-        validators_str = (
-            ", ".join(record.validators_failed) if record.validators_failed else "none"
-        )
+
+        def _sanitize(text: str) -> str:
+            """Strip XML delimiters and the plain sentinel from user-supplied data."""
+            # Remove our own XML tags so injected copies cannot break the structure.
+            text = text.replace("<ORCHESTRATOR_FEEDBACK>", "")
+            text = text.replace("</ORCHESTRATOR_FEEDBACK>", "")
+            # Neutralise the plain sentinel so it cannot appear twice — once
+            # legitimate and once injected — which would confuse the next model.
+            text = text.replace("PREVIOUS ATTEMPT FAILED:", "[PREVIOUS ATTEMPT]:")
+            return text
+
+        safe_reason     = _sanitize(record.failure_reason)
+        safe_validators = [_sanitize(v) for v in record.validators_failed]
+        validators_str  = ", ".join(safe_validators) if safe_validators else "none"
+
+        snippet_section = ""
+        if record.output_snippet:
+            safe_snippet    = _sanitize(record.output_snippet)
+            snippet_section = f"\n- Output snippet: {safe_snippet}"
+
         return (
             f"{original_prompt}\n\n"
-            f"---\n"
+            f"<ORCHESTRATOR_FEEDBACK>\n"
             f"PREVIOUS ATTEMPT FAILED:\n"
+            f"- Attempt: {record.attempt_num}\n"
             f"- Model: {record.model_used}\n"
-            f"- Reason: {record.failure_reason}\n"
-            f"- Validators failed: {validators_str}\n\n"
-            f"Please correct specifically: {record.failure_reason}\n"
-            f"---"
+            f"- Reason: {safe_reason}\n"
+            f"- Validators failed: {validators_str}"
+            f"{snippet_section}\n\n"
+            f"Please correct specifically: {safe_reason}\n"
+            f"</ORCHESTRATOR_FEEDBACK>"
         )
 
     async def _execute_task(self, task: Task) -> TaskResult:
