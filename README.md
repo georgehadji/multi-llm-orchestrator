@@ -17,15 +17,53 @@ pip install -e .                    # Core + aiosqlite
 pip install pytest ruff jsonschema  # Optional validators
 ```
 
-### Set API Keys
+### Environment Setup
+
+Set API keys for providers you'll use (at least one required):
 
 ```bash
+# OpenAI (GPT-4o, GPT-4o-mini)
 export OPENAI_API_KEY="sk-..."
-export DEEPSEEK_API_KEY="sk-..."   # Recommended (best cost/quality ratio)
+
+# DeepSeek (Chat V3, Reasoner R1) — RECOMMENDED
+export DEEPSEEK_API_KEY="sk-..."
+
+# Anthropic (Claude 3.5 Sonnet, Haiku)
 export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Google (Gemini 2.5 Pro, Flash)
+export GOOGLE_API_KEY="AIzaSy..."
+# or
+export GEMINI_API_KEY="AIzaSy..."
+
+# Kimi/Moonshot (K2.5 — 8K/32K/128K variants)
+export KIMI_API_KEY="sk-..."
+# or
+export MOONSHOT_API_KEY="sk-..."
+
+# Minimax (Minimax-3)
+export MINIMAX_API_KEY="..."
+
+# Zhipu (GLM-4)
+export ZHIPU_API_KEY="..."
+
+# Optional: OpenTelemetry tracing
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
+export ORCHESTRATOR_LOG_LEVEL="INFO"
 ```
 
-Or create `.env` and load it.
+**Quickest setup:** Only set `DEEPSEEK_API_KEY` (best cost/quality) + at least one other for fallback.
+
+Or create `.env` file:
+```bash
+cat > .env << 'EOF'
+DEEPSEEK_API_KEY=sk-...
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+EOF
+
+source .env
+```
 
 ### First Project
 
