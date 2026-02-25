@@ -37,6 +37,8 @@ class Model(str, Enum):
     GEMINI_PRO = "gemini-2.5-pro"
     GEMINI_FLASH = "gemini-2.5-flash"
     KIMI_K2_5 = "kimi-k2.5"
+    MINIMAX_3 = "minimax-3"                  # Minimax-4 — efficient reasoning, cost-effective
+    ZAI_GLM = "zai-glm-4"                    # Zhipu GLM-4 — strong on general tasks, competitive pricing
     DEEPSEEK_CHAT = "deepseek-chat"        # DeepSeek-V3 — fast, cheap, strong reasoning
     DEEPSEEK_REASONER = "deepseek-reasoner"  # DeepSeek-R1 — o1-class reasoning model
 
@@ -72,6 +74,10 @@ def get_provider(model: Model) -> str:
         return "google"
     elif val.startswith("moonshot") or val.startswith("kimi"):
         return "kimi"
+    elif val.startswith("minimax"):
+        return "minimax"
+    elif val.startswith("zai") or val.startswith("glm"):
+        return "zhipu"
     elif val.startswith("deepseek"):
         return "deepseek"
     return "unknown"
@@ -91,6 +97,10 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GEMINI_FLASH:       {"input": 0.15,  "output": 0.60},
     # Kimi K2.5: moonshot.cn pricing (per 1M tokens)
     Model.KIMI_K2_5:          {"input": 0.14,  "output": 0.56},
+    # Minimax-3: api.minimaxi.chat pricing (cost-effective reasoning)
+    Model.MINIMAX_3:          {"input": 0.50,  "output": 1.50},
+    # Z.ai GLM-4: open.bigmodel.cn pricing (competitive general purpose)
+    Model.ZAI_GLM:            {"input": 1.00,  "output": 3.50},
     # DeepSeek: platform.deepseek.com pricing (per 1M tokens, cache-miss rates)
     Model.DEEPSEEK_CHAT:      {"input": 0.27,  "output": 1.10},  # DeepSeek-V3
     Model.DEEPSEEK_REASONER:  {"input": 0.55,  "output": 2.19},  # DeepSeek-R1
@@ -105,10 +115,11 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # DeepSeek-V3 (deepseek-chat) is extremely cost-effective ($0.27/$1.10 per 1M)
     # and strong on code/reasoning. DeepSeek-R1 (deepseek-reasoner) is o1-class.
     # Kimi K2.5 is cheapest overall but slow; used as fallback for code tasks.
-    TaskType.CODE_GEN:     [Model.DEEPSEEK_CHAT, Model.KIMI_K2_5, Model.CLAUDE_SONNET, Model.GPT_4O],
+    # Minimax-3 is cost-effective reasoning model; Z.ai GLM-4 is strong general purpose.
+    TaskType.CODE_GEN:     [Model.DEEPSEEK_CHAT, Model.MINIMAX_3, Model.KIMI_K2_5, Model.ZAI_GLM, Model.CLAUDE_SONNET, Model.GPT_4O],
     TaskType.CODE_REVIEW:  [Model.DEEPSEEK_CHAT, Model.KIMI_K2_5, Model.GPT_4O, Model.CLAUDE_OPUS],
-    TaskType.REASONING:    [Model.DEEPSEEK_REASONER, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O],
-    TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.GPT_4O, Model.DEEPSEEK_CHAT, Model.GEMINI_PRO],
+    TaskType.REASONING:    [Model.DEEPSEEK_REASONER, Model.MINIMAX_3, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O],
+    TaskType.WRITING:      [Model.CLAUDE_OPUS, Model.ZAI_GLM, Model.GPT_4O, Model.DEEPSEEK_CHAT, Model.GEMINI_PRO],
     TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.DEEPSEEK_CHAT, Model.CLAUDE_HAIKU],
     TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.DEEPSEEK_CHAT, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
     TaskType.EVALUATE:     [Model.DEEPSEEK_CHAT, Model.KIMI_K2_5, Model.CLAUDE_OPUS, Model.GPT_4O],
@@ -128,6 +139,8 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     Model.GEMINI_PRO:         Model.DEEPSEEK_CHAT,      # Gemini Pro → DeepSeek-V3
     Model.GEMINI_FLASH:       Model.GPT_4O_MINI,        # flash tasks: GPT-4o-mini as fallback
     Model.KIMI_K2_5:          Model.DEEPSEEK_CHAT,      # Kimi → DeepSeek-V3
+    Model.MINIMAX_3:          Model.GPT_4O,             # Minimax → GPT-4o (cross-provider, similar tier)
+    Model.ZAI_GLM:            Model.CLAUDE_SONNET,      # Z.ai GLM → Sonnet (cross-provider general)
     Model.DEEPSEEK_CHAT:      Model.CLAUDE_SONNET,      # DeepSeek-V3 → Sonnet (cross-provider)
     Model.DEEPSEEK_REASONER:  Model.CLAUDE_OPUS,        # DeepSeek-R1 → Opus (cross-provider)
 }
