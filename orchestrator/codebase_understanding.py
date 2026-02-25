@@ -1,11 +1,15 @@
 """LLM-powered semantic understanding of codebases"""
 
+import asyncio
 import json
+import re
 from pathlib import Path
 from typing import Optional, Dict, Any
 
 from orchestrator.codebase_analyzer import CodebaseAnalyzer
 from orchestrator.codebase_profile import CodebaseProfile
+from orchestrator.engine import Orchestrator, Budget
+from orchestrator.models import TaskType
 
 
 class CodebaseUnderstanding:
@@ -35,7 +39,7 @@ class CodebaseUnderstanding:
         prompt = self._build_analysis_prompt(codebase_map, key_file_contents)
 
         # Call LLM for semantic analysis
-        llm_response = await self._call_llm(prompt)
+        llm_response = await self._call_llm_async(prompt)
 
         # Create profile from LLM response
         profile = CodebaseProfile(
@@ -115,17 +119,44 @@ Return as JSON:
 """
         return prompt
 
-    async def _call_llm(self, prompt: str) -> Dict[str, Any]:
+    async def _call_llm_async(self, prompt: str) -> Dict[str, Any]:
         """
-        Call LLM for analysis.
+        Call DeepSeek Reasoner for semantic analysis.
+        Uses orchestrator to route the analysis task.
+        """
+        try:
+            # Create minimal orchestrator for analysis task
+            orch = Orchestrator(budget=Budget(max_usd=1.0))
 
-        This is a stub for integration with orchestrator.
-        Will be replaced with actual orchestrator call.
-        """
-        # TODO: Integrate with orchestrator.run_task()
-        # For now, return placeholder
+            # Run analysis as a reasoning task
+            result = await orch.run_task(
+                task_type=TaskType.REASONING,
+                task_description=prompt,
+                expected_output_format="json",
+            )
+
+            # Parse JSON response
+            if result.score >= 0.75:
+                try:
+                    response_text = result.output
+                    # Extract JSON from response
+                    json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                    if json_match:
+                        return json.loads(json_match.group())
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+
+            # Fallback if LLM call fails
+            return self._default_analysis()
+
+        except Exception as e:
+            print(f"Warning: LLM analysis failed: {e}")
+            return self._default_analysis()
+
+    def _default_analysis(self) -> Dict[str, Any]:
+        """Fallback analysis when LLM is unavailable"""
         return {
-            "purpose": "Project purpose (awaiting LLM)",
+            "purpose": "Project (analysis unavailable)",
             "patterns": [],
             "anti_patterns": [],
             "test_coverage": "unknown",

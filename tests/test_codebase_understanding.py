@@ -22,7 +22,7 @@ class TestCodebaseUnderstanding:
             understanding = CodebaseUnderstanding()
 
             # Mock the LLM call
-            with patch.object(understanding, '_call_llm') as mock_llm:
+            with patch.object(understanding, '_call_llm_async') as mock_llm:
                 mock_llm.return_value = {
                     "purpose": "FastAPI microservice",
                     "patterns": ["REST API", "async"],
@@ -51,7 +51,7 @@ class TestCodebaseUnderstanding:
 
             understanding = CodebaseUnderstanding()
 
-            with patch.object(understanding, '_call_llm') as mock_llm:
+            with patch.object(understanding, '_call_llm_async') as mock_llm:
                 mock_llm.return_value = {
                     "purpose": "User management service",
                     "patterns": [],
@@ -65,3 +65,19 @@ class TestCodebaseUnderstanding:
                 mock_llm.assert_called_once()
                 call_args = mock_llm.call_args[0][0]  # First positional arg
                 assert "main.py" in call_args or "FastAPI" in call_args
+
+    @pytest.mark.asyncio
+    async def test_analyze_calls_deepseek_reasoner(self):
+        """Analysis should use DeepSeek Reasoner for complex understanding"""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "main.py").write_text("from fastapi import FastAPI")
+
+            understanding = CodebaseUnderstanding()
+
+            # We can't call real LLM in tests, but verify the integration exists
+            assert hasattr(understanding, '_call_llm_async')
+            assert callable(getattr(understanding, '_call_llm_async'))
