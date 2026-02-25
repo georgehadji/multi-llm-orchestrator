@@ -51,3 +51,50 @@ class TestCodebaseAnalyzerFileScan:
             result = analyzer.scan(str(root))
 
             assert result.total_lines_of_code == 4
+
+
+class TestLanguageDetection:
+    """Test programming language detection"""
+
+    def test_detect_python_project(self):
+        """Detect that project is Python-based"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "main.py").write_text("# python")
+            (root / "app.py").write_text("# python")
+            (root / "tests").mkdir()
+            (root / "requirements.txt").write_text("fastapi")
+
+            analyzer = CodebaseAnalyzer()
+            result = analyzer.scan(str(root))
+
+            assert result.primary_language == "python"
+            assert result.has_python_tests == True
+
+    def test_detect_javascript_project(self):
+        """Detect that project is JavaScript-based"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "index.js").write_text("// javascript")
+            (root / "app.js").write_text("// javascript")
+            (root / "package.json").write_text('{"name":"app"}')
+
+            analyzer = CodebaseAnalyzer()
+            result = analyzer.scan(str(root))
+
+            assert result.primary_language == "javascript"
+
+    def test_detect_mixed_language_project(self):
+        """Project with multiple languages"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "backend").mkdir()
+            (root / "backend" / "main.py").write_text("# python")
+            (root / "frontend").mkdir()
+            (root / "frontend" / "index.js").write_text("// javascript")
+
+            analyzer = CodebaseAnalyzer()
+            result = analyzer.scan(str(root))
+
+            assert result.primary_language == "python"
+            assert result.secondary_languages == ["javascript"]
