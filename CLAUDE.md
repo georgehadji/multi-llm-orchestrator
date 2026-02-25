@@ -103,17 +103,126 @@ SYSTEM_FAILURE → unexpected error (no results)
 
 ---
 
+## Codebase Enhancer (Phase 1-2 POC)
+
+**Status**: Complete (Static analysis + Semantic understanding)
+
+A feature enabling the orchestrator to analyze existing codebases, understand their functionality, and generate prioritized improvement suggestions. This is a proof-of-concept implementation of Phases 1-2, with Phase 3 (auto-implementation) deferred to future work.
+
+### Architecture
+
+**Three-Stage Pipeline**:
+
+1. **Static Analysis** (`CodebaseAnalyzer`)
+   - Recursive directory scanning with smart filtering (skip .git, node_modules, .venv, etc.)
+   - File counting by language (Python, JavaScript, TypeScript, Go, Rust, Java, C++, Ruby, PHP, Swift)
+   - Project type detection (FastAPI, Django, Flask, Next.js, React, Vue, Go, Rust)
+   - Line-of-code counting with 500-line limits per file to save tokens
+
+2. **Semantic Understanding** (`CodebaseUnderstanding`)
+   - Integrates static analysis with DeepSeek Reasoner via orchestrator.run_task()
+   - Reads key files (README.md, main.py, app.py, index.js, package.json)
+   - Constructs rich prompts combining file counts + key file contents
+   - Parses JSON responses to extract: purpose, primary_patterns, anti_patterns, test_coverage, documentation
+   - Graceful fallback to heuristic-based analysis if LLM unavailable
+
+3. **Improvement Generation** (`ImprovementSuggester`)
+   - Analyzes CodebaseProfile for gaps: test coverage, documentation, anti-patterns, missing infrastructure
+   - Generates suggestions with: title, description, impact statement, effort_hours estimate, priority (HIGH/MEDIUM/LOW), category
+   - Prioritized output sorted by impact and effort (HIGH priority + low effort first)
+
+### Usage
+
+**CLI Command**:
+```bash
+python -m orchestrator --analyze-codebase /path/to/project
+```
+
+**Programmatic**:
+```python
+from orchestrator.codebase_understanding import CodebaseUnderstanding
+from orchestrator.improvement_suggester import ImprovementSuggester
+
+understanding = CodebaseUnderstanding()
+profile = await understanding.analyze(codebase_path="/path/to/project")
+
+suggester = ImprovementSuggester()
+improvements = suggester.suggest(profile)
+
+for imp in improvements:
+    print(f"{imp.priority}: {imp.title} ({imp.effort_hours}h)")
+```
+
+### Components
+
+**Key Classes**:
+- `CodebaseAnalyzer`: Static file scanning, language/project detection
+- `CodebaseMap`: Dataclass with total_files, total_lines_of_code, files_by_language, project_type, has_tests, has_docs
+- `CodebaseProfile`: Semantic profile from LLM analysis
+- `CodebaseUnderstanding`: Orchestrates static analysis + LLM understanding
+- `Improvement`: Suggestion dataclass (title, description, impact, effort_hours, priority, category)
+- `ImprovementSuggester`: Generates prioritized suggestions from profile
+
+**Files**:
+- Created: `orchestrator/codebase_analyzer.py` (216 lines)
+- Created: `orchestrator/codebase_profile.py` (45 lines)
+- Created: `orchestrator/codebase_understanding.py` (180 lines)
+- Created: `orchestrator/improvement_suggester.py` (119 lines)
+- Modified: `orchestrator/cli.py` (added --analyze-codebase command)
+- Modified: `orchestrator/__init__.py` (exported new classes)
+
+### Test Coverage
+
+**16 tests across 5 test files** (all passing):
+- `tests/test_codebase_analyzer.py`: 9 tests (file scanning, language detection, project type detection)
+- `tests/test_codebase_profile.py`: 2 tests (profile creation, string representation)
+- `tests/test_codebase_understanding.py`: 3 tests (async analysis, key file reading, LLM integration)
+- `tests/test_cli_analyze.py`: 1 test (CLI command acceptance)
+- `tests/test_improvement_suggester.py`: 2 tests (suggestion generation, effort estimates)
+- `tests/test_codebase_enhancer_e2e.py`: 4 E2E tests (static analysis workflow, semantic analysis, improvement suggestions, full pipeline)
+
+**Run tests**:
+```bash
+pytest tests/test_codebase_*.py -v
+pytest tests/test_improvement_suggester.py -v
+pytest tests/test_cli_analyze.py -v
+```
+
+### Design Decisions
+
+**DeepSeek Reasoner for Analysis**: Chose reasoning model (TaskType.REASONING) over cheaper models to understand complex architectural patterns and anti-patterns with high accuracy.
+
+**Graceful LLM Fallback**: Static-analysis-only mode available if DeepSeek unavailable, preventing feature breakage on transient errors.
+
+**Configurable Suggestion Rules**: ImprovementSuggester maps CodebaseProfile fields to actionable suggestions, making it easy to extend with domain-specific rules.
+
+**Effort Estimates as Heuristics**: Effort hours (1-6 range) are teaching tools, not precise forecasts. Users adapt based on team context.
+
+### Future Work (Phase 3+)
+
+- Auto-implementation of suggestions (generate code, run tests, commit)
+- Persistent learning across codebases (remember which suggestions succeeded)
+- Integration with GitHub workflows (auto-PR suggestions)
+- Custom suggestion rules per organization (domain-specific improvement patterns)
+
+---
+
 ## Testing
 
-**Test Coverage**: 644 tests passing (baseline: 616)
+**Test Coverage**: 660 tests passing (baseline: 616)
 - Surgical bug fixes: 4 tests (merged to master)
 - Resilience fixes: 9 new tests (all passing)
+- Codebase Enhancer feature: 16 new tests (all passing)
 - Pre-existing stress test failures: 4 (unchanged, documented)
 
 **Key Test Files**:
 - `tests/test_terminal_status_fix.py` — COMPLETED_DEGRADED status distinction
 - `tests/test_critique_resilience_fix.py` — 3-strike circuit breaker behavior
 - `tests/test_budget_hierarchy_integration.py` — BudgetHierarchy charging
+- `tests/test_codebase_analyzer.py` — Static file scanning, language/project detection
+- `tests/test_codebase_understanding.py` — LLM semantic analysis integration
+- `tests/test_improvement_suggester.py` — Improvement suggestion generation
+- `tests/test_codebase_enhancer_e2e.py` — Full pipeline integration
 
 **Running Tests**:
 ```bash
@@ -205,4 +314,4 @@ For questions about architecture, strategy, or development approach, refer to:
 
 ---
 
-**Last Updated**: 2026-02-25 (v1.0 Resilience Hardening)
+**Last Updated**: 2026-02-26 (v1.1 Codebase Enhancer POC - Phases 1-2)
