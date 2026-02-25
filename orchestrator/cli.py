@@ -918,5 +918,33 @@ def _print_results(state):
                 print(f"  ... ({len(result.output)} chars total)")
 
 
+# Click-based CLI for codebase analysis feature
+try:
+    import click
+
+    @click.command()
+    @click.option('--analyze-codebase', type=click.Path(exists=True),
+                  help='Analyze an existing codebase')
+    def cli(analyze_codebase):
+        """AI Orchestrator: Codebase Analysis"""
+        if analyze_codebase:
+            import asyncio
+            from orchestrator.codebase_understanding import CodebaseUnderstanding
+
+            async def run_analysis():
+                understanding = CodebaseUnderstanding()
+                profile = await understanding.analyze(analyze_codebase)
+                print(profile)
+
+            asyncio.run(run_analysis())
+        else:
+            click.echo("Specify --analyze-codebase")
+
+except ImportError:
+    # Click not available, define a no-op cli function
+    def cli(*args, **kwargs):
+        print("Click not installed")
+
+
 if __name__ == "__main__":
     main()
