@@ -400,4 +400,4 @@ def extract_and_store_keywords(description: str | None) -> str | None:
     if not keywords:
         return None
 
-    return json.dumps(keywords)
+    return json.dumps(sorted(keywords))
