@@ -98,3 +98,42 @@ class TestLanguageDetection:
 
             assert result.primary_language == "python"
             assert result.secondary_languages == ["javascript"]
+
+
+class TestProjectTypeDetection:
+    """Test project type detection"""
+
+    def test_detect_fastapi_project(self):
+        """Detect FastAPI project from requirements.txt"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "main.py").write_text("from fastapi import FastAPI")
+            (root / "requirements.txt").write_text("fastapi\nuvicorn\n")
+
+            analyzer = CodebaseAnalyzer()
+            result = analyzer.scan(str(root))
+
+            assert result.project_type == "fastapi"
+
+    def test_detect_nextjs_project(self):
+        """Detect Next.js project from package.json"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "package.json").write_text('{"dependencies":{"next":"14.0.0"}}')
+            (root / "next.config.js").write_text("// config")
+
+            analyzer = CodebaseAnalyzer()
+            result = analyzer.scan(str(root))
+
+            assert result.project_type == "nextjs"
+
+    def test_detect_generic_python_project(self):
+        """Default to generic for unknown projects"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "script.py").write_text("# python")
+
+            analyzer = CodebaseAnalyzer()
+            result = analyzer.scan(str(root))
+
+            assert result.project_type in ["python", "generic"]
