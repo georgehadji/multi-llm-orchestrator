@@ -856,6 +856,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         if self._cost_predictor is not None:
                             self._cost_predictor.record(primary, task.type, critique_response.cost_usd)
                         total_cost += critique_response.cost_usd
+                        # Record success to reset circuit breaker counter for reviewer.
+                        # This ensures counter only tracks consecutive failures, allowing recovery
+                        # from transient errors between successful critiques.
+                        self._record_success(reviewer, critique_response)
                     except (Exception, asyncio.CancelledError) as e:
                         logger.warning(f"Critique failed for {task.id}: {e}")
                         # Use _record_failure() for graduated circuit breaker instead of immediate kill.
@@ -1351,15 +1355,23 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         det_ok = all(r.deterministic_check_passed for r in state.results.values())
 
-        if all_passed and det_ok and not degraded_heavy:
+        # Guard: ensure we actually executed ALL tasks before considering any terminal status.
+        # state.results is sparse; early termination (budget exhausted, timeout) leaves tasks unexecuted.
+        # If we don't check this, partial execution could be incorrectly labeled as terminal,
+        # causing next run to skip _resume_project and leave unfinished tasks permanently unexecuted.
+        all_tasks_executed = len(state.results) == len(state.tasks)
+
+        if all_tasks_executed and all_passed and det_ok and not degraded_heavy:
+            # All tasks executed, all passed execution, all passed validation, no degraded flag.
+            # This is terminal and successful.
             return ProjectStatus.SUCCESS
-        elif all_passed and not det_ok:
+        elif all_tasks_executed and all_passed and not det_ok:
             # All tasks executed and completed, but some failed deterministic validation.
             # This is a terminal status (not resumable) — completed with degraded quality.
             return ProjectStatus.COMPLETED_DEGRADED
         else:
-            # Some tasks never executed (missing results) or degraded_heavy flag set.
-            # This is resumable (genuinely incomplete).
+            # Some tasks never executed (missing results), or degraded_heavy flag set, or partial execution.
+            # This is resumable (genuinely incomplete) regardless of validation results on executed tasks.
             return ProjectStatus.PARTIAL_SUCCESS
 
     async def _resume_project(self, state: ProjectState) -> ProjectState:
