@@ -393,12 +393,12 @@ async def async_run_validators(output: str, validator_names: list[str],
     _subprocess_timeout = kwargs.get("timeout", 60)
     _async_deadline = _subprocess_timeout + 5
 
-    results: list[ValidationResult] = []
-    for name in validator_names:
+    async def _run_one(name: str) -> ValidationResult | None:
+        """Run a single validator and return its result, or None if unknown."""
         fn = VALIDATORS.get(name)
         if not fn:
             logger.warning(f"Unknown validator: {name}")
-            continue
+            return None
         filtered = _filter_kwargs_for(fn, kwargs)
         try:
             if name in _SUBPROCESS_VALIDATORS:
@@ -406,20 +406,23 @@ async def async_run_validators(output: str, validator_names: list[str],
                 result = await asyncio.wait_for(coro, timeout=_async_deadline)
             else:
                 result = fn(output, **filtered)
-            results.append(result)
+            return result
         except asyncio.TimeoutError:
             logger.warning(
                 f"Validator '{name}' exceeded async deadline of {_async_deadline}s; "
                 "marking as FAIL"
             )
-            results.append(ValidationResult(
+            return ValidationResult(
                 False,
                 f"Validator timed out after {_async_deadline}s",
                 name,
-            ))
+            )
         except Exception as e:
-            results.append(ValidationResult(False, f"Validator crash: {e}", name))
-    return results
+            return ValidationResult(False, f"Validator crash: {e}", name)
+
+    outcomes = await asyncio.gather(*(_run_one(name) for name in validator_names))
+    # Filter out None entries (unknown validators that were skipped)
+    return [r for r in outcomes if r is not None]
 
 
 # ─────────────────────────────────────────────

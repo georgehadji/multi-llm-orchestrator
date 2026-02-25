@@ -59,7 +59,13 @@
       "Bash(find:*)",
       "Bash(wc:*)",
       "Bash(ls:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git merge --no-commit --no-ff claude/angry-neumann)",
+      "Bash(git merge --abort)",
+      "Bash(git merge --no-ff claude/angry-neumann)",
+      "Bash(git merge --no-ff claude/wonderful-bardeen)",
+      "Skill(commit-commands:commit)",
+      "Skill(commit-commands:commit:*)"
     ]
   }
 }
