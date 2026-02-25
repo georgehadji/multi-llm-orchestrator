@@ -1,6 +1,6 @@
 # Multi-LLM Orchestrator — Capabilities Reference
 
-**Version:** 2026.02 | **Updated:** 2026-02-25 | **Latest:** Cost-optimized routing with Minimax & Zhipu; Claude Opus removed for 35-95% cost reduction
+**Version:** 2026.02 | **Updated:** 2026-02-26 | **Latest:** Cost-optimized routing with Minimax & Zhipu; Claude Opus removed for 35-95% cost reduction
 
 This document provides a comprehensive overview of all capabilities, features, and advanced functionality available in the multi-llm-orchestrator.
 
@@ -188,8 +188,6 @@ Real-time telemetry tracking across all models:
 
 ---
 
-## Advanced Capabilities
-
 ### 6. Architecture Advisor — LLM-Powered Architecture Decisions
 
 **New in 2026-02:** Before generating any code, `ArchitectureAdvisor` makes intelligent architectural decisions:
@@ -227,10 +225,11 @@ print(decision.topology)            # "microservices"
 
 ---
 
+## Advanced Features
+
 ### 7. Multi-Objective Optimization Backends
 
 Three pluggable routing strategies:
-
 - **GreedyBackend** — Single-winner: maximize `quality × trust / cost`
 - **WeightedSumBackend** — Tunable: `w_quality`, `w_trust`, `w_cost` weights
 - **ParetoBackend** — Principled: non-dominated Pareto-optimal solutions
@@ -251,11 +250,10 @@ Three pluggable routing strategies:
 - **AuditLog:** Immutable JSONL structured audit trail
 - **PolicyAnalyzer:** Static policy contradiction detection
 
-### 11. App Builder & Scaffolding (with Architecture Advisor)
+### 11. App Builder & Scaffolding
 
 - **AppBuilder:** Auto-generate complete web/backend applications
-- **ArchitectureAdvisor:** LLM-powered architectural decision making (NEW)
-- **AppDetector/AppProfile:** Legacy support for backward compatibility
+- **ArchitectureAdvisor:** LLM-powered architectural decision making
 - **Supported types:** Next.js, React+Vite, HTML, FastAPI, GraphQL, microservices
 
 ### 12. Constraint Control Plane
@@ -285,25 +283,9 @@ Three pluggable routing strategies:
 - **DagRenderer:** Directed acyclic graph visualization with costs
 - **ProjectEventBus:** Async event streaming for monitoring
 
-### 17. Architecture Advisor
-
-LLM-powered app type detection for intelligent scaffolding:
-
-- **ArchitectureAdvisor:** Analyzes project description to infer optimal app architecture
-- **ArchitectureDecision:** Dataclass capturing: app_type, pattern, topology, api_style, storage_choice
-- **Automatic scaffolding:** Generates project files matching detected architecture (Next.js, FastAPI, React, Django, etc.)
-- **Decomposition injection:** Architecture decision injected into decomposition prompt for context-aware task planning
-- **Model auto-selection:** Uses DeepSeek Reasoner for complex specs (>50 words), Chat for simple ones
-
-**Usage:**
-```bash
-python -m orchestrator --project "Build an e-commerce platform" --criteria "fully functional"
-```
-
-### 18. Project Enhancer
+### 17. Project Enhancer
 
 LLM-powered spec improvement before decomposition:
-
 - **Enhancement:** Dataclass for suggested improvements (type: completeness|criteria|risk)
 - **ProjectEnhancer.analyze():** Generates 3–7 LLM suggestions to improve project description and success criteria
 - **_present_enhancements():** Interactive Y/n prompts for user to accept/reject each suggestion
@@ -317,19 +299,9 @@ LLM-powered spec improvement before decomposition:
 - **criteria** — Missing or unmeasurable success metrics
 - **risk** — Unaddressed security, performance, or edge case concerns
 
-**Usage:**
-```bash
-# With enhancement (default)
-python -m orchestrator --project "Build a REST API" --criteria "tests pass"
-
-# Skip enhancement pass
-python -m orchestrator --project "Build a REST API" --criteria "tests pass" --no-enhance
-```
-
-### 19. Auto-Resume Detection
+### 18. Auto-Resume Detection
 
 Intelligent resume suggestion for similar incomplete projects:
-
 - **ResumeCandidate:** Project resume candidate with keyword matching and scoring
 - **_extract_keywords():** Extracts 3+ character words, filters stopwords, returns sorted
 - **_recency_factor():** Weights recent projects higher (1.0 = created today, 0.1 = 7+ days old)
@@ -340,16 +312,6 @@ Intelligent resume suggestion for similar incomplete projects:
   - **Single fuzzy match** → Prompt [Y/n]
   - **Multiple matches** → Numbered list picker [1–N / n]
 - **--new-project / -N flag:** Bypass resume detection, always start fresh
-- **Database columns:** `project_description`, `keywords_json` added automatically
-
-**Usage:**
-```bash
-# With auto-resume detection (default)
-python -m orchestrator --project "Build a FastAPI service"
-
-# Skip resume detection
-python -m orchestrator --project "Build a FastAPI service" --new-project
-```
 
 ---
 
@@ -362,6 +324,8 @@ export GOOGLE_API_KEY="AIzaSy..."
 export ANTHROPIC_API_KEY="sk-ant-..."
 export KIMI_API_KEY="sk-..."
 export DEEPSEEK_API_KEY="sk-..."
+export MINIMAX_API_KEY="..."
+export ZHIPU_API_KEY="..."
 
 # Optional tracing
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
@@ -373,11 +337,11 @@ export ORCHESTRATOR_LOG_LEVEL="INFO"
 
 ---
 
-## Quick Feature Checklist
+## Feature Checklist
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Multi-provider routing | ✅ | 5 providers, 7+ models each |
+| Multi-provider routing | ✅ | 7 providers, 11 models |
 | Cost optimization | ✅ | EMA-tracked, adaptive |
 | Deterministic validation | ✅ | 6 validator types |
 | Cross-provider critique | ✅ | Different provider each review |
@@ -386,9 +350,9 @@ export ORCHESTRATOR_LOG_LEVEL="INFO"
 | Telemetry & metrics | ✅ | Real p95, trust factor EMA |
 | Multi-objective optimization | ✅ | Greedy, Weighted, Pareto |
 | Pre-flight cost forecasting | ✅ | Risk assessment |
-| **Architecture Advisor** | ✅ | **LLM architecture decisions** |
-| **Project Enhancer** | ✅ | **LLM spec improvement before decomposition** |
-| **Auto-Resume Detection** | ✅ | **Keyword matching + recency scoring** |
+| Architecture Advisor | ✅ | LLM architecture decisions |
+| Project Enhancer | ✅ | LLM spec improvement before decomposition |
+| Auto-Resume Detection | ✅ | Keyword matching + recency scoring |
 | Ensemble/AgentPool | ✅ | Parallel orchestrators |
 | Semantic caching | ✅ | Similarity-based dedup |
 | App builder | ✅ | With ArchitectureAdvisor |

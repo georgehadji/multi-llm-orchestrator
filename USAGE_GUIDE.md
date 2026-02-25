@@ -1,6 +1,6 @@
 # Multi-LLM Orchestrator — Usage Guide
 
-**Version:** 2026.02 | **Updated:** 2026-02-25 | **Quick Start for Common Tasks**
+**Version:** 2026.02 | **Updated:** 2026-02-26 | **CLI & Python API Reference**
 
 ---
 
@@ -530,7 +530,7 @@ policies = PolicySet(
     policies=[
         Policy(
             name="quality_first",
-            allowed_models=["claude-opus", "gpt-4o"],  # only top models
+            allowed_models=["claude-sonnet", "gpt-4o"],  # only premium models
             min_quality_score=0.95,
             enforcement_mode=EnforcementMode.HARD,
         ),
