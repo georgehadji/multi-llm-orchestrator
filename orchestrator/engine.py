@@ -50,6 +50,7 @@ from .metrics import MetricsExporter
 from .agents import TaskChannel
 from .cost import BudgetHierarchy, CostPredictor
 from .tracing import traced_task, get_tracer, TracingConfig, configure_tracing
+from .telemetry_store import TelemetryStore
 
 logger = logging.getLogger("orchestrator")
 
@@ -76,7 +77,8 @@ class Orchestrator:
                  max_parallel_tasks: int = 3,
                  budget_hierarchy: Optional["BudgetHierarchy"] = None,
                  cost_predictor: Optional["CostPredictor"] = None,
-                 tracing_cfg: Optional["TracingConfig"] = None):
+                 tracing_cfg: Optional["TracingConfig"] = None,
+                 telemetry_store: Optional["TelemetryStore"] = None):
         self.budget = budget or Budget()
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
@@ -129,6 +131,81 @@ class Orchestrator:
         # Task 7: configure OpenTelemetry tracing if a config was provided
         if tracing_cfg is not None:
             configure_tracing(tracing_cfg)
+        # Persistent cross-run learning store (Learn & Show feature)
+        self._telemetry_store: TelemetryStore = (
+            telemetry_store if telemetry_store is not None else TelemetryStore()
+        )
+
+    # ─────────────────────────────────────────
+    # Persistent learning helpers
+    # ─────────────────────────────────────────
+
+    async def _apply_warm_start(self) -> None:
+        """
+        Blend historical ModelProfile data into the in-memory defaults.
+
+        Call this before execution so routing decisions benefit from every
+        prior run.  Blending ratios (per plan learn-and-show-design.md):
+          COLD (<10 calls):  ignore — keep defaults
+          WARM (10-49):      40% historical / 60% default (quality + trust)
+          HOT  (≥50):        100% historical (quality, trust, latency)
+
+        Latency is only overridden at HOT confidence to avoid noise.
+        """
+        from .models import TaskType as _TT
+        for model, profile in self._profiles.items():
+            # Use CODE_GEN as the representative task type for global quality blending.
+            # In future, per-task-type blending can be added here.
+            hist = await self._telemetry_store.load_historical_profile(model, _TT.CODE_GEN)
+            if hist is None:
+                continue  # cold start — keep defaults
+
+            if hist.call_count >= 50:
+                # HOT: 100% historical
+                profile.quality_score  = hist.quality_score
+                profile.trust_factor   = hist.trust_factor
+                profile.avg_latency_ms = hist.avg_latency_ms
+                profile.latency_p95_ms = hist.latency_p95_ms
+            else:
+                # WARM: 40% historical / 60% default blend
+                profile.quality_score = 0.4 * hist.quality_score + 0.6 * profile.quality_score
+                profile.trust_factor  = 0.4 * hist.trust_factor  + 0.6 * profile.trust_factor
+
+    async def _flush_telemetry_snapshots(self, project_id: str) -> None:
+        """
+        Fire-and-forget: snapshot each ModelProfile that was used this run.
+        Only profiles with call_count >= 1 are written.
+        Uses asyncio.create_task so the hot path is never blocked.
+        """
+        from .models import TaskType as _TT
+
+        async def _write_snapshots() -> None:
+            for model, profile in self._profiles.items():
+                if profile.call_count < 1:
+                    continue
+                try:
+                    await self._telemetry_store.record_snapshot(
+                        project_id, model, _TT.CODE_GEN, profile
+                    )
+                except Exception as exc:
+                    logger.warning("TelemetryStore.record_snapshot failed: %s", exc)
+
+        asyncio.create_task(_write_snapshots())
+
+    async def _safe_record_routing_event(
+        self,
+        project_id: str,
+        task_id: str,
+        task_type: "TaskType",
+        result: "TaskResult",
+    ) -> None:
+        """Fire-and-forget wrapper: record a routing event, swallowing exceptions."""
+        try:
+            await self._telemetry_store.record_routing_event(
+                project_id, task_id, task_type, result
+            )
+        except Exception as exc:
+            logger.warning("TelemetryStore.record_routing_event failed: %s", exc)
 
     # ─────────────────────────────────────────
     # Public API
@@ -284,6 +361,8 @@ class Orchestrator:
         # JobSpec may override the per-task parallelism limit
         if spec.max_parallel_tasks > 0:
             self._max_parallel_tasks = spec.max_parallel_tasks
+        # Warm-start: blend historical profiles before execution
+        await self._apply_warm_start()
         # BudgetHierarchy pre-flight check (Improvement 6)
         if self._budget_hierarchy is not None:
             job_id = getattr(spec, "job_id", "") or ""
@@ -303,6 +382,9 @@ class Orchestrator:
             job_id = getattr(spec, "job_id", "") or ""
             team   = getattr(spec, "team",   "") or ""
             self._budget_hierarchy.charge_job(job_id, team, actual_spend)
+        # Persist telemetry snapshots for all models used this run (fire-and-forget)
+        job_id = getattr(spec, "job_id", "") or self._project_id
+        await self._flush_telemetry_snapshots(job_id)
         return state
 
     async def run_project_streaming(
@@ -593,6 +675,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 self.results[task_id] = result
                 task.status = result.status
                 self._hook_registry.fire(EventType.TASK_COMPLETED, task_id=task_id, result=result)
+                # Fire-and-forget routing event (Learn & Show feature)
+                asyncio.create_task(
+                    self._safe_record_routing_event(self._project_id, task_id, task.type, result)
+                )
 
                 for phase in ("generation", "cross_review", "evaluation"):
                     self._check_phase_budget(phase)

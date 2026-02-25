@@ -36,7 +36,10 @@ import json
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .telemetry_store import TelemetryStore
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -198,3 +201,106 @@ class PrometheusExporter(MetricsExporter):
                 fh.write(content)
         else:
             sys.stdout.write(content)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dashboard renderer — persistent cross-run learning view
+# ─────────────────────────────────────────────────────────────────────────────
+
+_SEP = "─" * 72
+
+
+async def render_dashboard(store: "TelemetryStore", days: int = 30) -> str:
+    """
+    Render the full CLI dashboard as a string.
+
+    Reads from TelemetryStore and produces three sections:
+      1. Header — run count, total cost, avg quality, window
+      2. MODEL RANKINGS — sorted by value_score (quality/cost)
+      3. TASK-TYPE LEADERS — best model per task type
+      4. RECOMMENDATIONS — advisory cost/quality suggestions
+
+    Parameters
+    ----------
+    store:
+        A TelemetryStore instance (may point to tmp DB in tests).
+    days:
+        Lookback window in days.
+    """
+    rankings = await store.model_rankings(days=days)
+    leaders  = await store.task_type_leaders(days=days)
+    recs     = await store.recommendations(days=days)
+
+    lines: list[str] = [_SEP]
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    if not rankings:
+        lines.append(" No data yet — run at least one project to populate the dashboard.")
+        lines.append(_SEP)
+        return "\n".join(lines)
+
+    total_calls = sum(r.call_count for r in rankings)
+    avg_quality = sum(r.quality_score for r in rankings) / len(rankings)
+    lines.append(
+        f" {total_calls} calls  |  avg quality {avg_quality:.3f}  |  last {days} days"
+    )
+    lines.append(_SEP)
+
+    # ── Model Rankings ─────────────────────────────────────────────────────────
+    lines.append("")
+    lines.append("MODEL RANKINGS  (value = quality / cost_per_call)")
+    lines.append("")
+
+    conf_symbol = {"HOT": "●", "WARM": "○", "COLD": "·"}
+    for r in rankings:
+        sym = conf_symbol.get(r.confidence, " ")
+        trend_str = ""
+        calls_str = f"{r.call_count} calls"
+        cost_str  = f"${r.avg_cost_usd:.4f}/call"
+        quality_str = f"q:{r.quality_score:.3f}"
+        lines.append(
+            f"  {sym}  {r.model.value:<22}  {r.value_score:>7.2f}  "
+            f"{r.confidence:<5}  {calls_str:<10}  {cost_str:<14}  {quality_str}"
+        )
+
+    lines.append("")
+    lines.append("  ● HOT  ≥50 calls (full historical weight)")
+    lines.append("  ○ WARM 10–49 calls (40% blend)")
+    lines.append("  · COLD <10 calls (defaults only)")
+    lines.append("")
+    lines.append(_SEP)
+
+    # ── Task-Type Leaders ─────────────────────────────────────────────────────
+    lines.append("")
+    lines.append("TASK-TYPE LEADERS")
+    lines.append("")
+
+    if leaders:
+        items = sorted(leaders.items(), key=lambda kv: kv[0].value)
+        for task_type, ranking in items:
+            sym = conf_symbol.get(ranking.confidence, " ")
+            lines.append(
+                f"  {task_type.value:<22}  {ranking.model.value:<22}  "
+                f"q:{ranking.quality_score:.3f}  {sym}"
+            )
+    else:
+        lines.append("  (no task-type data in this window)")
+
+    lines.append("")
+    lines.append(_SEP)
+
+    # ── Recommendations ────────────────────────────────────────────────────────
+    lines.append("")
+    lines.append(f"RECOMMENDATIONS  ({len(recs)})")
+    lines.append("")
+
+    if recs:
+        for i, rec in enumerate(recs, 1):
+            lines.append(f"  [{i}] {rec.message}")
+            lines.append("")
+    else:
+        lines.append("  No actionable recommendations yet — keep running projects.")
+        lines.append("")
+
+    lines.append(_SEP)
+    return "\n".join(lines)

@@ -292,6 +292,32 @@ def _agent_subparsers(subparsers) -> None:
     ap.set_defaults(func=cmd_agent)
 
 
+def cmd_dashboard(args) -> None:
+    """Handle the 'dashboard' subcommand: render persistent cross-run learning."""
+    from .telemetry_store import TelemetryStore
+    from .metrics import render_dashboard
+
+    store = TelemetryStore()
+    output = asyncio.run(render_dashboard(store, days=args.days))
+    print(output)
+
+
+def _dashboard_subparsers(subparsers) -> None:
+    """Register the 'dashboard' subcommand."""
+    dp = subparsers.add_parser(
+        "dashboard",
+        help="Show persistent cross-run model rankings, task leaders, and recommendations",
+    )
+    dp.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        metavar="N",
+        help="Lookback window in days (default: 30)",
+    )
+    dp.set_defaults(func=cmd_dashboard)
+
+
 def _default_output_dir(project_id: str) -> str:
     """
     Build a default output path when --output-dir is not supplied.
@@ -709,6 +735,7 @@ def main():
     _analyze_subparsers(subparsers)
     _build_subparsers(subparsers)
     _agent_subparsers(subparsers)
+    _dashboard_subparsers(subparsers)
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
