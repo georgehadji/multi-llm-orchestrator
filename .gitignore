@@ -30,6 +30,9 @@ analysis_report*.md
 *.db-shm
 *.db-wal
 
+# Git worktrees
+.claude/worktrees/
+
 # IDE
 .vscode/
 .idea/
