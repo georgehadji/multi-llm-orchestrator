@@ -1,6 +1,6 @@
 # Multi-LLM Orchestrator — Capabilities Reference
 
-**Version:** 2026.02 | **Updated:** 2026-02-24 | **Latest:** Architecture Advisor for LLM-powered architecture decisions
+**Version:** 2026.02 | **Updated:** 2026-02-25 | **Latest:** Cost-optimized routing with Minimax & Zhipu; Claude Opus removed for 35-95% cost reduction
 
 This document provides a comprehensive overview of all capabilities, features, and advanced functionality available in the multi-llm-orchestrator.
 
@@ -15,9 +15,11 @@ The orchestrator automatically routes tasks to the optimal AI model based on tas
 **Supported Providers:**
 - **OpenAI** — GPT-4o, GPT-4o-mini
 - **Google** — Gemini 2.5 Pro, Gemini 2.5 Flash
-- **Anthropic** — Claude 3.5 Opus, Claude 3.5 Sonnet, Claude 3.5 Haiku
+- **Anthropic** — Claude 3.5 Sonnet, Claude 3.5 Haiku
 - **Kimi (Moonshot)** — K2.5 (moonshot-v1, with variants: 8K, 32K, 128K context)
 - **DeepSeek** — DeepSeek Chat (V3), DeepSeek Reasoner (R1)
+- **Minimax** — Minimax-3 (frontier reasoning, cost-effective)
+- **Zhipu (Z.ai)** — GLM-4 (strong general purpose, competitive pricing)
 
 **Task Types:** 7 core task types with optimized routing:
 - `code_generation` — Generate code with fallback chains
@@ -43,16 +45,17 @@ Models are pre-ranked by cost-effectiveness for each task type. The orchestrator
 
 | Model | Input | Output | Provider | Tier |
 |-------|-------|--------|----------|------|
-| DeepSeek Chat | $0.27 | $1.10 | DeepSeek | Ultra-cheap |
 | Kimi K2.5 | $0.14 | $0.56 | Kimi | Ultra-cheap |
+| DeepSeek Chat | $0.27 | $1.10 | DeepSeek | Ultra-cheap |
 | Gemini Flash | $0.15 | $0.60 | Google | Ultra-cheap |
 | GPT-4o-mini | $0.15 | $0.60 | OpenAI | Ultra-cheap |
+| Minimax-3 | $0.50 | $1.50 | Minimax | Budget-Efficient |
 | Claude Haiku | $0.80 | $4.00 | Anthropic | Budget |
+| Z.ai GLM-4 | $1.00 | $3.50 | Zhipu | Budget-Efficient |
 | DeepSeek Reasoner | $0.55 | $2.19 | DeepSeek | Standard |
 | Gemini 2.5 Pro | $1.25 | $10.00 | Google | Standard |
 | GPT-4o | $2.50 | $10.00 | OpenAI | Standard |
 | Claude Sonnet | $3.00 | $15.00 | Anthropic | Premium |
-| Claude Opus | $15.00 | $75.00 | Anthropic | Premium |
 
 #### Budget Partitioning
 
@@ -202,7 +205,7 @@ Real-time telemetry tracking across all models:
 **Model Selection:**
 - Descriptions >50 words → DeepSeek Reasoner (multi-dimensional reasoning)
 - Descriptions ≤50 words → DeepSeek Chat (fast, cost-effective)
-- Fallback: Kimi K2.5 → Claude Opus → GPT-4o
+- Fallback: Minimax-3 (frontier reasoning) → Claude Sonnet (quality) → GPT-4o
 
 **Benefits:**
 - Ensures all generated tasks follow a **consistent, coherent architecture**

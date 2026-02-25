@@ -1,6 +1,6 @@
 # multi-llm-orchestrator
 
-Decomposes a project description into atomic tasks, routes each to the optimal provider (OpenAI / Anthropic / Google / Kimi / DeepSeek), runs cross-provider generate → critique → revise cycles,
+Decomposes a project description into atomic tasks, routes each to the optimal provider (OpenAI / Anthropic / Google / Kimi / DeepSeek / Minimax / Zhipu), runs cross-provider generate → critique → revise cycles,
 and iterates until a quality threshold is met or a budget ceiling is hit.
 
 State is checkpointed to SQLite after every task. Interrupted runs are resumable by project ID.
@@ -58,10 +58,12 @@ State is checkpointed to SQLite after every task. Interrupted runs are resumable
 | Variable | Provider | Models |
 |----------|----------|--------|
 | `OPENAI_API_KEY` | OpenAI | GPT-4o, GPT-4o-mini |
-| `ANTHROPIC_API_KEY` | Anthropic | Claude 3.5 Opus, Sonnet, Haiku |
+| `ANTHROPIC_API_KEY` | Anthropic | Claude 3.5 Sonnet, Haiku |
 | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Google | Gemini 2.5 Pro, Flash |
 | `KIMI_API_KEY` or `MOONSHOT_API_KEY` | Kimi (moonshot.cn) | Kimi K2.5 (moonshot-v1, 8K/32K/128K variants) |
 | `DEEPSEEK_API_KEY` | DeepSeek (deepseek.com) | DeepSeek Chat (V3), DeepSeek Reasoner (R1) |
+| `MINIMAX_API_KEY` | Minimax (api.minimaxi.chat) | Minimax-3 (frontier reasoning) |
+| `ZHIPU_API_KEY` | Zhipu (open.bigmodel.cn) | GLM-4 (strong general purpose) |
 
 ---
 
