@@ -491,7 +491,7 @@ async def _check_resume(
         except (ValueError, OSError, OverflowError):
             updated_dt = now
 
-        recency = _recency_factor(updated_dt, reference_time=now)
+        recency = _recency_factor(updated_dt.timestamp(), reference_time=now.timestamp())
         candidates.append(
             ResumeCandidate(
                 project_id=row["project_id"],
