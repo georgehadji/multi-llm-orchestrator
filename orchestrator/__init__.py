@@ -17,7 +17,7 @@ Usage:
 """
 
 from .models import (
-    Budget, Model, Task, TaskResult, TaskType, TaskStatus,
+    AttemptRecord, Budget, Model, Task, TaskResult, TaskType, TaskStatus,
     ProjectState, ProjectStatus, build_default_profiles,
 )
 from .engine import Orchestrator
@@ -47,10 +47,14 @@ from .cost    import BudgetHierarchy, CostPredictor, CostForecaster, ForecastRep
 # Improvement 5: advanced agents
 from .agents  import AgentPool, TaskChannel
 from .enhancer import Enhancement, ProjectEnhancer
+# Improvement 13: streaming / progressive output writer
+from .progress_writer import ProgressWriter, ProgressEntry
+# Improvement 12: dry-run / execution plan
+from .dry_run import ExecutionPlan, TaskPlan, DryRunRenderer
 
 __all__ = [
     # Core
-    "Orchestrator", "Budget", "Model", "Task", "TaskResult",
+    "Orchestrator", "AttemptRecord", "Budget", "Model", "Task", "TaskResult",
     "TaskType", "TaskStatus", "ProjectState", "ProjectStatus",
     "DiskCache", "StateManager", "ResumeDetector",
     # App Builder pipeline
@@ -104,6 +108,10 @@ __all__ = [
     "Decision", "MonitorResult", "ReferenceMonitor",
     "ControlPlane", "RoutingPlan", "SpecValidationError", "PolicyViolation",
     "AgentDraft", "OrchestrationAgent",
+    # Streaming output — Improvement 13
+    "ProgressWriter", "ProgressEntry",
+    # Dry-run plan — Improvement 12
+    "ExecutionPlan", "TaskPlan", "DryRunRenderer",
 ]
 
 # ── Six Improvements: new modules ──────────────────────────────────────────

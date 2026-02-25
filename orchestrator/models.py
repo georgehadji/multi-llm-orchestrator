@@ -235,6 +235,17 @@ class TaskResult:
     critique: str = ""
     deterministic_check_passed: bool = True
     degraded_fallback_count: int = 0
+    attempt_history: list["AttemptRecord"] = field(default_factory=list)
+
+
+@dataclass
+class AttemptRecord:
+    """Records one failed iteration attempt so the next retry has failure context."""
+    attempt_num: int          # 1-based
+    model_used: str           # Model.value — str for easy serialization
+    output_snippet: str       # first 200 chars of output
+    failure_reason: str       # human-readable description
+    validators_failed: list[str] = field(default_factory=list)
 
 
 @dataclass

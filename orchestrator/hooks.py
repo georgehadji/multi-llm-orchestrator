@@ -32,17 +32,19 @@ class EventType(str, Enum):
     Standard lifecycle events fired by Orchestrator.
 
     Callback signatures (all kwargs):
-      TASK_STARTED      — task_id: str, task: Task
-      TASK_COMPLETED    — task_id: str, result: TaskResult
-      VALIDATION_FAILED — task_id: str, model: str, validators: list[str]
-      BUDGET_WARNING    — phase: str, spent: float, cap: float, ratio: float
-      MODEL_SELECTED    — task_id: str, model: str, backend: str
+      TASK_STARTED            — task_id: str, task: Task
+      TASK_COMPLETED          — task_id: str, result: TaskResult
+      VALIDATION_FAILED       — task_id: str, model: str, validators: list[str]
+      BUDGET_WARNING          — phase: str, spent: float, cap: float, ratio: float
+      MODEL_SELECTED          — task_id: str, model: str, backend: str
+      TASK_RETRY_WITH_HISTORY — task_id: str, attempt_num: int, record: AttemptRecord
     """
-    TASK_STARTED      = "task_started"
-    TASK_COMPLETED    = "task_completed"
-    VALIDATION_FAILED = "validation_failed"
-    BUDGET_WARNING    = "budget_warning"
-    MODEL_SELECTED    = "model_selected"
+    TASK_STARTED            = "task_started"
+    TASK_COMPLETED          = "task_completed"
+    VALIDATION_FAILED       = "validation_failed"
+    BUDGET_WARNING          = "budget_warning"
+    MODEL_SELECTED          = "model_selected"
+    TASK_RETRY_WITH_HISTORY = "task_retry_with_history"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

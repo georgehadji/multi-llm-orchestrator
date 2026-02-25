@@ -407,6 +407,9 @@ async def _async_file_project(args):
     orch = Orchestrator(budget=budget, max_concurrency=concurrency,
                         tracing_cfg=_build_tracing_cfg(args))
 
+    # CLI --output-dir > YAML output_dir > auto default
+    output_dir = args.output_dir or result.output_dir or _default_output_dir(result.project_id)
+
     renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
     async for event in orch.run_project_streaming(
         project_description=spec.project_description,
@@ -417,8 +420,6 @@ async def _async_file_project(args):
 
     state = await orch.state_mgr.load_project(orch._project_id)
     _print_results(state)
-    # CLI --output-dir > YAML output_dir > auto default
-    output_dir = args.output_dir or result.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
     print(f"\nOutput written to: {path}")
 
@@ -577,6 +578,21 @@ async def _check_resume(
     except ValueError:
         pass
     return None
+
+
+async def _async_dry_run(args):
+    """Handle --dry-run: show execution plan without running tasks."""
+    budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
+    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency)
+
+    print(f"DRY-RUN for project: {args.project}")
+    print(f"Criteria: {args.criteria}")
+    print("-" * 60)
+
+    plan = await orch.dry_run(args.project, args.criteria)
+    print(plan.render())
+    await orch.state_mgr.close()
+    await orch.cache.close()
 
 
 async def _async_new_project(args):
@@ -823,6 +839,8 @@ def main():
             "Skip LLM spec enhancement pass and run original project description directly"
         ),
     )
+    parser.add_argument("--dry-run", "-n", action="store_true", default=False,
+                        help="Show execution plan without running any tasks")
 
     args = parser.parse_args()
     setup_logging(getattr(args, "verbose", False))
@@ -865,6 +883,10 @@ def main():
         parser.error("--project is required for new projects (or use --file <yaml>)")
     if not args.criteria:
         parser.error("--criteria is required for new projects (or use --file <yaml>)")
+
+    if args.dry_run:
+        asyncio.run(_async_dry_run(args))
+        return
 
     asyncio.run(_async_new_project(args))
 

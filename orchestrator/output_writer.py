@@ -10,10 +10,19 @@ Directory layout:
     ├── task_002_code_review.md        # prose tasks → .md
     ├── task_003_data_extraction.json  # data tasks  → .json (fallback .md)
     ...
+    ├── app/                           # extracted multi-file code (if detected)
+    │   ├── src/App.tsx
+    │   ├── src/store/appStore.ts
+    │   └── ...
     ├── summary.json                   # full machine-readable results
     └── README.md                      # human-readable summary
 
 Called from cli.py after run_project() returns.
+
+Improvement 7 — Code Extractor:
+    When a task output contains multiple named code blocks (e.g. **src/App.tsx**
+    followed by a fenced block), extract each file and write it to output_dir/app/.
+    This turns "here is all the code" LLM prose into a runnable project structure.
 """
 from __future__ import annotations
 
@@ -27,6 +36,100 @@ from typing import Optional
 from .models import ProjectState, TaskType
 
 logger = logging.getLogger("orchestrator.output_writer")
+
+
+# ── Code Extractor (Improvement 7) ───────────────────────────────────────────
+
+# Matches: **path/to/file.ext** or **`path/to/file.ext`** (bold filename header)
+# Also matches dotfiles like **.gitignore** (leading dot, no extension)
+_FILENAME_HEADER = re.compile(
+    r"\*\*`?(\.?[a-zA-Z0-9_@-][a-zA-Z0-9_./ @-]*\.[a-zA-Z0-9]{1,6}|"
+    r"\.[a-zA-Z0-9_-]+)`?\*\*"
+)
+
+# Matches a fenced code block (``` ... ```) with optional language tag
+_CODE_FENCE = re.compile(r"```(?:\w+)?\n(.*?)```", re.DOTALL)
+
+# Extensions we consider "source code" worth extracting
+_SOURCE_EXTS = {
+    ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+    ".py", ".css", ".scss", ".html", ".json", ".toml",
+    ".yaml", ".yml", ".env", ".md", ".sh", ".sql",
+    ".gitignore", ".eslintrc", ".prettierrc",
+}
+
+# Min characters to bother writing (skip near-empty stubs)
+_MIN_CONTENT_LEN = 20
+
+
+def extract_named_files(text: str) -> dict[str, str]:
+    """
+    Extract named code files from LLM output.
+
+    Looks for the pattern:
+        **src/store/appStore.ts**
+        ```typescript
+        <code content>
+        ```
+
+    Returns a dict of {relative_path: code_content}.
+    Paths are normalised (no leading slash, no ``..``).
+    """
+    files: dict[str, str] = {}
+    # Split on filename headers; keep delimiters so we can pair them with blocks
+    parts = _FILENAME_HEADER.split(text)
+    # parts alternates: [prose, filename, prose_after, filename2, prose_after2, ...]
+    # Index 0: text before first header; odd indices: filenames; even indices > 0: text after
+    i = 1
+    while i < len(parts):
+        candidate_path = parts[i].strip()
+        following_text = parts[i + 1] if i + 1 < len(parts) else ""
+        i += 2
+
+        # Only extract recognised source extensions
+        suffix = Path(candidate_path).suffix.lower()
+        if suffix not in _SOURCE_EXTS and not candidate_path.startswith("."):
+            continue
+
+        # Sanitise path: strip leading slashes, reject traversal
+        clean_path = candidate_path.lstrip("/\\").replace("\\", "/")
+        if ".." in clean_path.split("/"):
+            continue
+
+        # Find the first code fence in the text immediately after the header
+        # (look only in the first ~3000 chars to avoid grabbing a distant block)
+        window = following_text[:3000]
+        fence_match = _CODE_FENCE.search(window)
+        if not fence_match:
+            continue
+
+        content = fence_match.group(1)
+        if len(content.strip()) < _MIN_CONTENT_LEN:
+            continue
+
+        # Last-write-wins if the same path appears twice
+        files[clean_path] = content
+
+    return files
+
+
+def write_extracted_files(
+    files: dict[str, str],
+    output_dir: Path,
+) -> list[str]:
+    """
+    Write extracted {path: content} files under output_dir.
+    Creates parent directories as needed.
+    Returns list of written relative paths.
+    """
+    written: list[str] = []
+    for rel_path, content in files.items():
+        dest = output_dir / rel_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(content, encoding="utf-8")
+        written.append(rel_path)
+        logger.debug("Extracted: %s (%d chars)", rel_path, len(content))
+    return written
 
 # ── Extension mapping per TaskType ───────────────────────────────────────────
 _EXT: dict[TaskType, str] = {
@@ -49,11 +152,17 @@ def write_output_dir(
     Write all task outputs + summary files to output_dir.
     Creates the directory (and parents) if it does not exist.
     Returns the resolved absolute Path of the output directory.
+
+    Improvement 7 — Code Extractor:
+        For CODE_GEN tasks that contain multiple named file blocks (e.g. **src/App.tsx**),
+        each file is extracted and written to output_dir/app/<path>.
+        A single task can produce an entire project tree this way.
     """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    file_map: dict[str, str] = {}  # task_id -> filename written
+    file_map: dict[str, str] = {}   # task_id -> raw task filename
+    extracted_total: dict[str, str] = {}  # rel_path -> content (across all tasks)
 
     order = state.execution_order or list(state.results.keys())
     for task_id in order:
@@ -73,8 +182,26 @@ def write_output_dir(
         file_map[task_id] = filename
         logger.info(f"Wrote {filename} ({len(content)} chars, score={result.score:.3f})")
 
+        # Improvement 7: extract named files for CODE_GEN tasks
+        if task.type == TaskType.CODE_GEN:
+            named = extract_named_files(result.output)
+            if named:
+                extracted_total.update(named)
+                logger.info(
+                    "  → Extracted %d named files from %s: %s",
+                    len(named), task_id,
+                    ", ".join(list(named.keys())[:5]) + ("…" if len(named) > 5 else ""),
+                )
+
+    # Write all extracted files under output_dir/app/
+    if extracted_total:
+        app_dir = out / "app"
+        written = write_extracted_files(extracted_total, app_dir)
+        logger.info("Code Extractor: wrote %d files to %s/app/", len(written), out.name)
+        _write_app_readme(app_dir, written, state, project_id)
+
     _write_summary_json(state, out, file_map, project_id)
-    _write_readme(state, out, file_map, project_id)
+    _write_readme(state, out, file_map, project_id, extracted_count=len(extracted_total))
 
     resolved = out.resolve()
     logger.info(f"Output written to: {resolved}")
@@ -260,6 +387,16 @@ def _write_summary_json(
             "cost_usd": round(result.cost_usd, 6),
             "deterministic_check_passed": result.deterministic_check_passed,
             "degraded_fallback_count": result.degraded_fallback_count,
+            "attempt_history": [
+                {
+                    "attempt_num": a.attempt_num,
+                    "model_used": a.model_used,
+                    "output_snippet": a.output_snippet,
+                    "failure_reason": a.failure_reason,
+                    "validators_failed": a.validators_failed,
+                }
+                for a in result.attempt_history
+            ],
             "output_file": file_map.get(task_id, ""),
             "output": result.output,
         })
@@ -286,11 +423,41 @@ def _write_summary_json(
     logger.info("Wrote summary.json")
 
 
+def _write_app_readme(
+    app_dir: Path,
+    written: list[str],
+    state: ProjectState,
+    project_id: str,
+) -> None:
+    """Write app/README.md listing all extracted source files."""
+    lines = [
+        "# Extracted App Files",
+        "",
+        f"Auto-extracted from project: `{project_id}`  ",
+        f"Source project: {state.project_description[:80]}  ",
+        "",
+        "## Files",
+        "",
+    ]
+    for rel_path in sorted(written):
+        lines.append(f"- `{rel_path}`")
+    lines += [
+        "",
+        "> Generated by Code Extractor (Improvement 7).",
+        "> Each file was parsed from named code blocks in LLM task outputs.",
+        "",
+    ]
+    dest = app_dir / "README.md"
+    dest.write_text("\n".join(lines), encoding="utf-8")
+    logger.debug("Wrote app/README.md (%d files listed)", len(written))
+
+
 def _write_readme(
     state: ProjectState,
     out: Path,
     file_map: dict[str, str],
     project_id: str,
+    extracted_count: int = 0,
 ) -> None:
     """Write a human-readable README.md summarizing the project run."""
     b = state.budget
@@ -348,6 +515,16 @@ def _write_readme(
         "- `README.md` — This file",
         "",
     ]
+
+    if extracted_count > 0:
+        lines += [
+            "## Extracted App Files",
+            "",
+            f"The Code Extractor found **{extracted_count}** named source file(s) in the "
+            "task outputs and wrote them to `app/`.  ",
+            "See `app/README.md` for the full file list.",
+            "",
+        ]
 
     dest = out / "README.md"
     dest.write_text("\n".join(lines), encoding="utf-8")
