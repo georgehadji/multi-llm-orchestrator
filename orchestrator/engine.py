@@ -1350,7 +1350,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         if all_passed and det_ok and not degraded_heavy:
             return ProjectStatus.SUCCESS
+        elif all_passed and not det_ok:
+            # All tasks executed and completed, but some failed deterministic validation.
+            # This is a terminal status (not resumable) — completed with degraded quality.
+            return ProjectStatus.COMPLETED_DEGRADED
         else:
+            # Some tasks never executed (missing results) or degraded_heavy flag set.
+            # This is resumable (genuinely incomplete).
             return ProjectStatus.PARTIAL_SUCCESS
 
     async def _resume_project(self, state: ProjectState) -> ProjectState:
