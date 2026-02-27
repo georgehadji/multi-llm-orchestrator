@@ -1,0 +1,135 @@
+# ──────────────────────────────────────────────────────
+# Portfolio: Techno DJ / Producer — High-End WebGL Experience
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Run with:
+#   python -m orchestrator --file projects/website_technodj_webgl.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a high-end cinematic portfolio website for a techno DJ and music producer.
+  Stack: React 18, TypeScript, Three.js, React Three Fiber, GLSL shaders,
+  Tailwind CSS, GSAP, Web Audio API, Vite.
+
+  The website must function as an immersive audiovisual experience, demonstrating
+  mastery of WebGL, shaders, motion design, interaction design, and modern frontend architecture.
+
+  Design language: dark, minimal, futuristic, cinematic, high contrast.
+  Primary palette:
+    background: #050505
+    primary text: #FFFFFF
+    accent: #00F0FF
+    secondary accent: #FF00C8
+
+  Typography: bold grotesk variable font for headings, mono font for metadata.
+
+  1. Immersive Hero — WebGL Scene
+     - Fullscreen Three.js scene rendered via React Three Fiber
+     - Infinite particle tunnel effect using instanced particles
+     - Camera slowly moving forward continuously
+     - Mouse movement controls subtle camera parallax
+     - Scroll controls camera progression deeper into tunnel
+     - DJ name rendered as floating 3D text mesh using MSDF font
+     - Shader-based particle motion using noise and time uniforms
+
+  2. Audio Reactive System
+     - Web Audio API analyzer connected to audio playback
+     - Frequency bands mapped to:
+       * particle scale
+       * particle brightness
+       * shader distortion intensity
+     - Real-time visual response to music playback
+     - Audio toggle button (play / pause)
+
+  3. Cinematic Transitions
+     - GSAP-driven transitions between sections
+     - Smooth camera movement between scene states
+     - Fade and distortion shader transition overlay
+     - No hard cuts; everything interpolated
+
+  4. Releases Section — Interactive 3D Visualizer
+     - Each music release represented as floating 3D object
+     - Objects arranged in 3D space
+     - Raycasting interaction:
+       hover → object glow shader activates
+       click → object expands and reveals metadata overlay
+     - Metadata includes:
+       track title
+       release label
+       year
+       embedded audio player
+
+  5. About Section — Shader-driven portrait
+     - Artist portrait displayed on plane geometry
+     - Custom GLSL shader adds subtle distortion based on mouse position
+     - Parallax effect
+
+  6. Live Events Section — Spatial Timeline
+     - Events represented as floating 3D cards
+     - Cards positioned along depth axis (timeline)
+     - Scroll controls movement through timeline
+     - Hover reveals additional event details
+
+  7. Contact Section — Minimal cinematic close
+     - Large animated typography
+     - Shader-based background noise animation
+     - Hover-animated CTA button
+
+  8. Post Processing Pipeline
+     - EffectComposer with:
+       * Bloom
+       * Chromatic aberration
+       * Noise
+       * Vignette
+     - All effects adjustable via centralized config
+
+  9. Performance Architecture
+     - InstancedMesh used for particle systems
+     - Lazy loading of heavy components
+     - Adaptive pixel ratio based on device performance
+     - GPU-safe shader complexity
+
+  10. Navigation System
+      - Minimal overlay navigation
+      - Smooth animated transitions between sections
+      - Navigation state synchronized with camera position
+
+  Deliver:
+  - Full React + Three.js project file tree
+  - All shader source files (.glsl)
+  - All Three.js scene components
+  - Audio analyzer hook implementation
+  - Post-processing pipeline setup
+  - App.tsx, main.tsx, index.html
+  - package.json with exact dependencies
+  - Modular, reusable architecture suitable for future projects
+
+
+criteria: |
+  - WebGL scene renders at minimum 60 FPS on desktop
+  - Audio reactive visual system responds correctly to frequency data
+  - All transitions smooth, no visible frame drops
+  - No memory leaks or WebGL context errors
+  - No TypeScript errors
+  - No blocking main-thread operations
+  - Proper resource cleanup on component unmount
+  - Fully responsive layout
+  - Works correctly on Chrome, Edge, Firefox
+
+
+budget_usd: 6.0
+time_seconds: 7200
+concurrency: 3
+project_id: "portfolio-techno-dj-webgl-v1"
+output_dir: "./outputs/portfolio_techno_dj_webgl"
+
+
+quality_targets:
+  code_generation:   0.92
+  code_review:       0.82
+  complex_reasoning: 0.94
+  evaluation:        0.86
+
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

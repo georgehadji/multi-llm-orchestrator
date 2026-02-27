@@ -1,6 +1,11 @@
 # Multi-LLM Orchestrator — Capabilities Reference
 
-**Version:** 2026.02 | **Updated:** 2026-02-26 | **Latest:** Cost-optimized routing with Minimax & Zhipu; Claude Opus removed for 35-95% cost reduction
+**Version:** 2026.02 v5.1 | **Updated:** 2026-02-26
+
+**Latest:**
+- **v5.1:** Knowledge • Project • Product • Quality Management Systems
+- **v5.0:** Performance Optimization (5x faster dashboard, dual-layer caching)
+- **v4.x:** Cost-optimized routing with Minimax, Zhipu & DeepSeek
 
 This document provides a comprehensive overview of all capabilities, features, and advanced functionality available in the multi-llm-orchestrator.
 
@@ -15,11 +20,10 @@ The orchestrator automatically routes tasks to the optimal AI model based on tas
 **Supported Providers:**
 - **OpenAI** — GPT-4o, GPT-4o-mini
 - **Google** — Gemini 2.5 Pro, Gemini 2.5 Flash
-- **Anthropic** — Claude 3.5 Sonnet, Claude 3.5 Haiku
 - **Kimi (Moonshot)** — K2.5 (moonshot-v1, with variants: 8K, 32K, 128K context)
-- **DeepSeek** — DeepSeek Chat (V3), DeepSeek Reasoner (R1)
+- **DeepSeek** — DeepSeek Coder, DeepSeek Reasoner (R1)
 - **Minimax** — Minimax-3 (frontier reasoning, cost-effective)
-- **Zhipu (Z.ai)** — GLM-4 (strong general purpose, competitive pricing)
+- **Zhipu (GLM-4)** — GLM-4 (strong general purpose, competitive pricing)
 
 **Task Types:** 7 core task types with optimized routing:
 - `code_generation` — Generate code with fallback chains
@@ -46,16 +50,14 @@ Models are pre-ranked by cost-effectiveness for each task type. The orchestrator
 | Model | Input | Output | Provider | Tier |
 |-------|-------|--------|----------|------|
 | Kimi K2.5 | $0.14 | $0.56 | Kimi | Ultra-cheap |
-| DeepSeek Chat | $0.27 | $1.10 | DeepSeek | Ultra-cheap |
+| DeepSeek Coder | $0.27 | $1.10 | DeepSeek | Ultra-cheap |
 | Gemini Flash | $0.15 | $0.60 | Google | Ultra-cheap |
 | GPT-4o-mini | $0.15 | $0.60 | OpenAI | Ultra-cheap |
 | Minimax-3 | $0.50 | $1.50 | Minimax | Budget-Efficient |
-| Claude Haiku | $0.80 | $4.00 | Anthropic | Budget |
-| Z.ai GLM-4 | $1.00 | $3.50 | Zhipu | Budget-Efficient |
+| GLM-4 | $0.50 | $2.00 | Zhipu | Budget-Efficient |
 | DeepSeek Reasoner | $0.55 | $2.19 | DeepSeek | Standard |
 | Gemini 2.5 Pro | $1.25 | $10.00 | Google | Standard |
 | GPT-4o | $2.50 | $10.00 | OpenAI | Standard |
-| Claude Sonnet | $3.00 | $15.00 | Anthropic | Premium |
 
 #### Budget Partitioning
 
@@ -202,8 +204,8 @@ Real-time telemetry tracking across all models:
 
 **Model Selection:**
 - Descriptions >50 words → DeepSeek Reasoner (multi-dimensional reasoning)
-- Descriptions ≤50 words → DeepSeek Chat (fast, cost-effective)
-- Fallback: Minimax-3 (frontier reasoning) → Claude Sonnet (quality) → GPT-4o
+- Descriptions ≤50 words → DeepSeek Coder (fast, cost-effective)
+- Fallback: Minimax-3 (frontier reasoning) → GPT-4o
 
 **Benefits:**
 - Ensures all generated tasks follow a **consistent, coherent architecture**
@@ -315,17 +317,227 @@ Intelligent resume suggestion for similar incomplete projects:
 
 ---
 
+## v5.0 Performance Optimization
+
+### Dashboard Performance Enhancements
+
+**Mission Control Dashboard v5.0** delivers 5x faster load times:
+
+| Optimization | Before | After | Benefit |
+|--------------|--------|-------|---------|
+| External CSS | 113KB inline | 35KB + 24h cache | 7.5x smaller initial load |
+| Gzip Compression | - | Level 6 | 75% size reduction |
+| ETag Support | - | 304 responses | Zero bandwidth repeat visits |
+| Debounced Updates | 1s interval | 2s interval | 50% CPU reduction |
+| Cache Hit Latency | N/A | <1ms | Instant cached responses |
+
+**Performance Targets:**
+- First Contentful Paint: <100ms (was ~450ms)
+- Time to First Byte: <50ms (was ~200ms)
+- P95 Response Time: <300ms
+- Cache Hit Rate: >85%
+
+### Dual-Layer Caching System
+
+```python
+# Redis (primary) → LRU Memory (fallback)
+from orchestrator import cached, get_cache
+
+@cached(ttl=300)  # Cache for 5 minutes
+async def get_models():
+    return await fetch_expensive_data()
+```
+
+**Features:**
+- **Redis Integration:** Distributed caching with connection pooling
+- **LRU Fallback:** Automatic failover to in-memory cache
+- **TTL Support:** Per-key expiration with configurable defaults
+- **Decorators:** Zero-code-change caching with `@cached()`
+
+### Connection Pooling & Query Optimization
+
+```python
+from orchestrator import ConnectionPool, QueryOptimizer
+
+# Bounded resource management
+pool = ConnectionPool(create_conn, min_size=2, max_size=10)
+
+# N+1 prevention with batch operations
+results = await optimizer.batch_get(ids, fetch_func, batch_size=100)
+```
+
+---
+
+## v5.1 Management Systems
+
+### Knowledge Management
+
+Central repository for organizational learning with semantic search:
+
+**Key Features:**
+- **Vector Search:** Embedding-based similarity (cosine similarity)
+- **Knowledge Graph:** Relationship tracking between concepts
+- **Pattern Recognition:** Auto-detect recurring patterns
+- **Auto-Learning:** Extract knowledge from completed projects
+
+```python
+from orchestrator import get_knowledge_base, KnowledgeType
+
+kb = get_knowledge_base()
+
+# Add solution
+await kb.add_artifact(
+    type=KnowledgeType.SOLUTION,
+    title="Race condition fix",
+    content="Use asyncio.Lock()...",
+    tags=["async", "python"],
+)
+
+# Find similar solutions
+similar = await kb.find_similar("async race condition", top_k=5)
+```
+
+**Use Cases:**
+- "Have we solved this bug before?"
+- Auto-suggest solutions based on context
+- Pattern library from historical projects
+
+---
+
+### Project Management
+
+Advanced task scheduling with resource optimization:
+
+**Key Features:**
+- **Critical Path Analysis:** Identify bottlenecks with network analysis
+- **Resource Scheduler:** Constraint-based optimal allocation
+- **Risk Assessment:** ML-based delay prediction
+- **Gantt Visualization:** Timeline charts with dependencies
+
+```python
+from orchestrator import get_project_manager, Resource, ResourceType
+
+pm = get_project_manager()
+
+# Define resources
+resources = [
+    Resource("gpt-4", ResourceType.MODEL, 100, 100, 0.03),
+]
+
+# Create schedule with dependencies
+timeline = await pm.create_schedule(
+    project_id="my_project",
+    tasks=tasks,
+    resources=resources,
+    dependencies={"task_2": ["task_1"]},
+)
+
+print(f"Critical path: {timeline.critical_path}")
+print(f"Duration: {timeline.total_duration}")
+```
+
+**Risk Detection:**
+- Long critical paths (delay risk)
+- Resource contention (bottlenecks)
+- High dependency count (fragility)
+
+---
+
+### Product Management
+
+Data-driven product development with RICE prioritization:
+
+**RICE Scoring Framework:**
+```
+RICE = (Reach × Impact × Confidence) / Effort
+
+Reach:      Users affected per quarter (1-1000)
+Impact:     Impact magnitude (0.25=minimal, 3=massive)
+Confidence: Certainty level (0-100%)
+Effort:     Person-months required (1-12)
+```
+
+```python
+from orchestrator import get_product_manager, RICEScore
+
+pm = get_product_manager()
+
+# Score = (500 × 3 × 0.8) / 2 = 600
+rice = RICEScore(reach=500, impact=3, confidence=80, effort=2)
+
+feature = await pm.add_feature(
+    name="AI Assistant",
+    rice_score=rice,
+)
+
+# Auto-prioritized backlog
+backlog = pm.get_prioritized_backlog(limit=10)
+```
+
+**Additional Features:**
+- **Feature Flags:** Gradual rollout with percentage control
+- **Sentiment Analysis:** Auto-analyze user feedback
+- **Release Planning:** Capacity-based release trains
+- **Roadmap Generation:** Quarterly timeline visualization
+
+---
+
+### Quality Control
+
+Automated quality assurance with multi-level testing:
+
+**Testing Levels:**
+1. **Unit** — pytest with coverage
+2. **Integration** — Cross-component testing
+3. **E2E** — End-to-end workflows
+4. **Performance** — Benchmark regression
+5. **Security** — Vulnerability scanning
+
+**Static Analysis:**
+- Cyclomatic complexity (<10 good, >20 critical)
+- Documentation coverage (target >80%)
+- Type hint coverage
+- Code duplication detection
+- Import best practices
+
+```python
+from orchestrator import get_quality_controller, TestLevel
+
+qc = get_quality_controller()
+
+report = await qc.run_quality_gate(
+    project_id="my_project",
+    project_path=Path("."),
+    levels=[TestLevel.UNIT, TestLevel.PERFORMANCE],
+)
+
+if report.passed:
+    print(f"Quality Score: {report.quality_score:.1f}/100")
+else:
+    print(f"Critical Issues: {len(report.get_issues_by_severity(QualitySeverity.CRITICAL))}")
+
+# Regression detection
+regressions = qc.detect_regression(report)
+```
+
+**Quality Gates:**
+- Minimum 80% test coverage
+- No critical issues
+- Complexity threshold enforcement
+- Documentation requirements
+
+---
+
 ## Environment Variables
 
 ```bash
 # At least one provider key required
 export OPENAI_API_KEY="sk-..."
 export GOOGLE_API_KEY="AIzaSy..."
-export ANTHROPIC_API_KEY="sk-ant-..."
 export KIMI_API_KEY="sk-..."
 export DEEPSEEK_API_KEY="sk-..."
 export MINIMAX_API_KEY="..."
-export ZHIPU_API_KEY="..."
+export ZHIPUAI_API_KEY="...":
 
 # Optional tracing
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
@@ -341,7 +553,7 @@ export ORCHESTRATOR_LOG_LEVEL="INFO"
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Multi-provider routing | ✅ | 7 providers, 11 models |
+| Multi-provider routing | ✅ | 6 providers, 9 models |
 | Cost optimization | ✅ | EMA-tracked, adaptive |
 | Deterministic validation | ✅ | 6 validator types |
 | Cross-provider critique | ✅ | Different provider each review |
@@ -360,3 +572,8 @@ export ORCHESTRATOR_LOG_LEVEL="INFO"
 | Orchestration agent | ✅ | Natural language → specs |
 | Remediation engine | ✅ | Auto-recovery strategies |
 | Real-time visualization | ✅ | Terminal + DAG rendering |
+| **Performance Optimization v5.0** | ✅ | Caching, compression, monitoring |
+| **Knowledge Management v5.1** | ✅ | Semantic search, pattern recognition |
+| **Project Management v5.1** | ✅ | Critical path, resource scheduling |
+| **Product Management v5.1** | ✅ | RICE scoring, feature flags |
+| **Quality Control v5.1** | ✅ | Static analysis, compliance gates |

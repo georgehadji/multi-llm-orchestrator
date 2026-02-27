@@ -1,0 +1,275 @@
+# ──────────────────────────────────────────────────────
+# Ultra Cinematic WebGL Experience Framework
+# Level: Creative Studio / Awwwards Site of the Year
+# Stack: React, TypeScript, Three.js, GLSL, GSAP, Web Audio API
+# Purpose: High-end portfolio and reusable cinematic experience engine
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build an ultra-high-end cinematic WebGL experience framework capable of delivering
+  immersive, film-quality interactive web experiences.
+
+  This must resemble a digital film intro combined with interactive spatial navigation.
+
+  The system must include:
+
+  procedural world generation
+  volumetric lighting
+  cinematic camera choreography
+  audio-reactive environments
+  shader-driven visual effects
+
+  The experience must position the developer as a high-end creative WebGL engineer.
+
+  Default aesthetic:
+  dark, minimal, techno, cinematic, futuristic
+
+  ─────────────────────────
+  1. Cinematic Intro Sequence (Film-quality)
+  ─────────────────────────
+
+  Create an intro sequence lasting 8–15 seconds:
+
+  Phase 1 — black screen
+
+  Phase 2 — particles slowly emerge from darkness
+
+  Phase 3 — volumetric light beams appear
+
+  Phase 4 — camera begins forward motion
+
+  Phase 5 — procedural environment reveals itself
+
+  Phase 6 — artist logo materializes using shader-based dissolve
+
+  Phase 7 — transition into interactive mode
+
+  Implementation requirements:
+
+  GSAP timeline controlling:
+
+  camera position
+  shader uniforms
+  particle visibility
+  lighting intensity
+
+  No abrupt transitions.
+
+
+  ─────────────────────────
+  2. Procedural World Engine
+  ─────────────────────────
+
+  Create infinite procedural environment using GPU shaders.
+
+  Environment types:
+
+  particle tunnel
+  volumetric fog space
+  abstract geometric structures
+
+  Use:
+
+  simplex noise
+  fbm noise
+  domain warping
+
+  World must evolve over time.
+
+
+  ─────────────────────────
+  3. Volumetric Lighting System
+  ─────────────────────────
+
+  Implement volumetric light scattering shader.
+
+  Light beams must:
+
+  react to camera angle
+  react to audio intensity
+  fade naturally in fog
+
+  Use raymarching or screen-space approximation.
+
+
+  ─────────────────────────
+  4. Cinematic Camera System
+  ─────────────────────────
+
+  Camera must support:
+
+  procedural idle motion
+  cinematic intro animation
+  smooth scroll navigation
+  target focus transitions
+
+  Camera motion must simulate real film camera.
+
+
+  ─────────────────────────
+  5. Audio Reactive World
+  ─────────────────────────
+
+  Environment must react to audio.
+
+  Audio affects:
+
+  particle density
+  light intensity
+  shader distortion
+  camera micro motion
+
+  Implement using Web Audio API analyzer.
+
+
+  ─────────────────────────
+  6. Procedural Particle System (GPU-based)
+  ─────────────────────────
+
+  Use InstancedMesh or GPU simulation.
+
+  Minimum particle count: 50,000
+
+  Particle behavior controlled entirely in shader.
+
+  Uniform inputs:
+
+  uTime
+  uAudio
+  uMouse
+  uScroll
+
+
+  ─────────────────────────
+  7. Shader Effects Library
+  ─────────────────────────
+
+  Implement reusable cinematic shader effects:
+
+  fog shader
+  holographic shader
+  glitch shader
+  dissolve shader
+  chromatic aberration shader
+
+  Central shader library.
+
+
+  ─────────────────────────
+  8. Post Processing Cinematic Pipeline
+  ─────────────────────────
+
+  Implement:
+
+  bloom
+  chromatic aberration
+  depth of field
+  film grain
+  vignette
+
+  Adjustable intensity.
+
+
+  ─────────────────────────
+  9. Spatial Navigation System
+  ─────────────────────────
+
+  Sections exist in 3D world.
+
+  User scroll moves camera through space.
+
+  Each section reveals new spatial environment.
+
+
+  ─────────────────────────
+  10. Identity Materialization Effect
+  ─────────────────────────
+
+  Artist name must appear using:
+
+  particle assembly effect
+
+  or
+
+  shader dissolve reveal
+
+
+  ─────────────────────────
+  11. Interaction System
+  ─────────────────────────
+
+  Mouse movement affects:
+
+  camera orientation
+  shader distortion
+
+  Raycasting supports interaction with objects.
+
+
+  ─────────────────────────
+  12. Performance Requirements
+  ─────────────────────────
+
+  Must maintain:
+
+  ≥60 FPS desktop
+  ≥30 FPS laptop
+
+  Must dynamically adjust quality.
+
+
+  ─────────────────────────
+  13. React Integration
+  ─────────────────────────
+
+  Modular architecture:
+
+  src/
+
+    engine/
+    shaders/
+    scenes/
+    audio/
+    postprocessing/
+    experience/
+
+
+  ─────────────────────────
+  Deliverables:
+  ─────────────────────────
+
+  Full production-ready project
+
+  Complete engine
+
+  All shader source files
+
+  Example techno DJ experience implementation
+
+  Clean reusable architecture
+
+criteria: |
+  - Cinematic intro sequence plays smoothly
+  - Procedural world renders correctly
+  - Volumetric lighting functions correctly
+  - Audio reactive system works
+  - ≥60 FPS desktop performance
+  - No memory leaks
+  - No TypeScript errors
+
+output_dir: "./outputs/ultra_cinematic_webgl_experience"
+
+project_id: "ultra-cinematic-webgl-experience-v1"
+
+quality_targets:
+  code_generation:   0.97
+  code_review:       0.93
+  complex_reasoning: 0.96
+  evaluation:        0.92
+
+time_seconds: 14400
+concurrency: 3
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

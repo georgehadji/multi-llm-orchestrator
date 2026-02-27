@@ -65,7 +65,8 @@
       "Bash(git merge --no-ff claude/angry-neumann)",
       "Bash(git merge --no-ff claude/wonderful-bardeen)",
       "Skill(commit-commands:commit)",
-      "Skill(commit-commands:commit:*)"
+      "Skill(commit-commands:commit:*)",
+      "Bash(git worktree add .claude/worktrees/codebase-enhancer-poc -b feature/codebase-enhancer-poc)"
     ]
   }
 }

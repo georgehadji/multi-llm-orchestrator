@@ -28,22 +28,46 @@ DEFAULT_CACHE_PATH = Path.home() / ".orchestrator_cache" / "cache.db"
 
 
 class DiskCache:
+    """
+    SQLite-backed cache with connection pooling and TTL.
+    
+    OPTIMIZATION: Connection TTL prevents stale connections in long-running
+    processes. Default TTL is 1 hour.
+    """
+    
+    # Connection TTL in seconds (1 hour default)
+    _CONN_TTL: float = 3600.0
+    
     def __init__(self, db_path: Path = DEFAULT_CACHE_PATH):
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = str(db_path)
         self._conn: Optional[aiosqlite.Connection] = None
         self._schema_ready = False
         self._lock: Optional[asyncio.Lock] = None  # lazy — created inside event loop
+        self._conn_created_at: Optional[float] = None  # OPTIMIZATION: Connection TTL tracking
 
     async def _get_conn(self) -> aiosqlite.Connection:
-        """Return persistent connection, initializing schema once."""
+        """
+        Return persistent connection, initializing schema once.
+        
+        OPTIMIZATION: Connection TTL prevents stale connections.
+        If connection is older than _CONN_TTL, it's recreated.
+        """
         if self._lock is None:
             self._lock = asyncio.Lock()
+            
+        # Check if connection needs refresh (TTL expired)
+        if self._conn is not None and self._conn_created_at is not None:
+            if time.time() - self._conn_created_at > self._CONN_TTL:
+                logger.debug("Cache connection TTL expired, refreshing")
+                await self.close()
+        
         if self._conn is None:
             async with self._lock:
                 # Double-check after acquiring lock
                 if self._conn is None:
                     self._conn = await aiosqlite.connect(self._db_path)
+                    self._conn_created_at = time.time()
                     await self._conn.execute("PRAGMA journal_mode=WAL")
                     await self._conn.execute("""
                         CREATE TABLE IF NOT EXISTS cache (
@@ -114,5 +138,6 @@ class DiskCache:
                 pass
             finally:
                 self._conn = None
+                self._conn_created_at = None
                 self._schema_ready = False
                 logger.debug("Cache connection closed")

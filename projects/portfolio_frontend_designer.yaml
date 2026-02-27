@@ -1,0 +1,113 @@
+# ──────────────────────────────────────────────────────
+# Portfolio: Front-End Designer
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/portfolio_frontend_designer.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a portfolio website for a front-end designer — someone who bridges
+  the gap between visual design and code. Stack: React 18, CSS Modules,
+  Framer Motion for animations, no UI component library (all custom).
+
+  The site must demonstrate mastery of both aesthetics AND technical craft.
+  Design language: clean, systematic, inspired by design-systems thinking.
+  Primary palette: near-black (#0D0D0D) background, off-white (#F5F2EE) text,
+  electric indigo (#5C6BC0) accent. Variable font for headings.
+
+  1. Animated entry experience
+     - On first load, lines of text slide up sequentially (staggered Framer
+       Motion variants), then the full page content fades in
+     - Route transitions: page-level clip-path wipe managed by AnimatePresence
+
+  2. Hero
+     - Name + title "Front-End Designer"
+     - Three rotating descriptor words (Design Systems · Motion Design ·
+       Accessible Interfaces) animated with a flip/slide text switcher
+     - "Selected Work ↓" arrow that pulses subtly
+
+  3. Design Tokens / System Showcase section
+     - A live mini design-system panel embedded in the page (not a screenshot)
+     - Shows: color swatches (with hex on hover), type scale specimens
+       (display → body → caption), spacing scale as visual bars, border-radius
+       scale, shadow scale
+     - Proves the designer codes design systems, not just uses them
+
+  4. Selected Projects — 5 case studies
+     - List layout (not grid): each project takes a full row
+     - Left: large project number + category tag
+     - Center: project title + one-line description
+     - Right: year + tech stack pills
+     - On row hover: full-width thumbnail slides up from bottom (CSS clip-path)
+     - Click: expands inline (accordion style) to reveal:
+       * Design challenge, approach, solution
+       * Annotated screenshots as placeholder colored blocks with labels
+       * Figma prototype embed placeholder (a styled iframe placeholder div)
+       * Key metrics: load time improvement, accessibility score, user testing
+         findings (realistic placeholder data)
+
+  5. Motion & Interaction Lab
+     - A dedicated section showing 4 micro-interaction demos, each in its own
+       bordered card with code snippet visible alongside
+     - Demo 1: Magnetic button (mouse attraction effect)
+     - Demo 2: Smooth number counter (animates from 0 to target on scroll)
+     - Demo 3: Liquid/morphing blob SVG (CSS animation)
+     - Demo 4: Focus ring animation system (keyboard vs mouse detection)
+
+  6. Tools & Process
+     - Figma, Storybook, CSS/SCSS, Framer, GSAP, React, TypeScript, Jest
+     - Shown as an animated marquee strip (two rows, opposite directions)
+
+  7. Writing / Thoughts — mini blog preview
+     - 3 article cards: title, excerpt (2 sentences), reading time, date
+     - "Read on Medium →" mock links (href="#")
+
+  8. About
+     - Two-column: left is a large stylized letter initial as an SVG artwork;
+       right is bio + "What I bring" list (Design Thinking, Component API
+       Design, Cross-functional collaboration, Accessibility-first)
+
+  9. Contact
+     - Minimal: one large CTA "Let's make something together →" that is
+       a mailto link styled as a display-size hover-animated button
+     - Below: email address, LinkedIn, GitHub, Dribbble
+
+  10. Navigation
+      - Off-canvas side drawer on all screen sizes (toggle button top-left)
+      - Inside drawer: large numbered nav links with Framer Motion stagger
+
+  Deliver:
+  - Full React project file tree
+  - All component source files with CSS Modules
+  - App.tsx, main.tsx, index.html
+  - package.json with exact dependencies listed
+  - Framer Motion variants extracted into a shared /animations/variants.ts file
+
+criteria: |
+  - Page entry animation completes in under 1.2 s total
+  - Route transitions work when navigating between sections via nav drawer
+  - Project accordion opens and closes with no layout shift
+  - All 4 Motion Lab demos work without errors
+  - Magnetic button effect correctly tracks mouse position
+  - Design token panel renders all tokens accurately
+  - No accessibility violations: focus visible on all interactive elements,
+    proper ARIA roles on drawer and accordion
+  - Responsive at 375 px and 1440 px
+  - No TypeScript errors
+  - CSS custom properties used for all design tokens (in :root)
+
+budget_usd: 4.5
+time_seconds: 4500
+concurrency: 3
+project_id: "portfolio-frontend-designer-v1"
+output_dir: "./outputs/portfolio_frontend_designer"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.75
+  complex_reasoning: 0.88
+  evaluation:        0.80
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

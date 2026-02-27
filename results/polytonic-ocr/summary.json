@@ -1,0 +1,29 @@
+{
+  "project_id": "polytonic-ocr-onnx-v1",
+  "project_description": "Build a production-ready OCR system for polytonic Greek text using pure Python + ONNX optimization.\n\nThe system must implement:\n\n1. ONNX Inference Engine\n   - Export PyTorch TrOCR model to ONNX format (opset 17)\n   - GPU acceleration via CUDAExecutionProvider with FP16 precision\n   - Dynamic batch processing with automatic padding\n   - Model quantization (INT8) for reduced memory footprint\n   - Session warm-up and LRU caching for repeated images\n\n2. Image Preprocessing Pipeline\n   - Deskewing using Hough transform (±5° tolerance)\n   - Adaptive binarization with Sauvola thresholding (NOT Otsu)\n   - Noise removal via morphological operations\n   - Aspect-ratio preserving resize to 384×384\n   - NCHW tensor format conversion with normalization\n\n3. Unicode Normalization & Validation\n   - NFD/NFC dual-pass normalization\n   - Greek-specific diacritic reordering (breathing > accent > iota subscript)\n   - Monotonic accent validation (max 1 accent per word)\n   - Breathing mark position validation (initial vowels/rho only)\n   - Combined confidence scoring (OCR × linguistic validity)\n\n4. Ensemble Fallback System\n   - Primary: ONNX TrOCR inference\n   - Secondary: Tesseract 5.x with ancient Greek (grc) language\n   - Conditional fallback when confidence < 0.85\n   - Text merging via Levenshtein distance (similarity > 0.7)\n   - Source tracking ('onnx', 'tesseract', 'merged')\n\n5. FastAPI REST Service\n   - POST /ocr endpoint with multipart file upload\n   - Input validation: file type, size limit (10MB max)\n   - Pydantic response models with validation results\n   - Health check endpoint\n   - Rate limiting via SlowAPI\n\n6. Async Task Queue\n   - Celery workers with Redis backend\n   - Priority queues (urgent/batch processing)\n   - Result storage with 24h TTL\n   - Graceful degradation on GPU unavailability\n\nArchitecture constraints:\n- Pure Python implementation (3.10+)\n- No Rust/C++/Go polyglot complexity\n- Hexagonal architecture: domain logic isolated from frameworks\n- Functional core, imperative shell separation\n- Atomic operations with comprehensive error handling",
+  "success_criteria": "Performance Requirements:\n- P95 latency ≤ 240ms per image (300 DPI A4) on GPU\n- Throughput ≥ 40 images/second with batch_size=8\n- GPU memory usage ≤ 5GB for batch processing\n- CPU fallback functional with ≤ 3x latency degradation\n\nAccuracy Requirements:\n- Character Error Rate (CER) ≤ 2.5% on clean scans\n- Word Error Rate (WER) ≤ 5.0% on degraded documents\n- Diacritic accuracy ≥ 98.5% (critical for polytonic)\n- False positive rate ≤ 1% on accent validation\n\nCode Quality:\n- Type hints throughout, passes mypy --strict\n- Pydantic models for all data structures\n- Unit tests ≥ 85% coverage (pytest)\n- Integration tests for full pipeline\n- Parametric stress tests (OOM, GPU failure, model corruption)\n\nDocumentation:\n- README with installation, usage examples, benchmarks\n- API documentation (OpenAPI/Swagger auto-generated)\n- Architectural Decision Records (ADRs) for key choices\n- Deployment guide (Docker Compose + GPU setup)\n\nSecurity & Compliance:\n- Input sanitization (defusedxml for any XML parsing)\n- SHA256 model integrity verification\n- OWASP Top 10 compliance (file upload validation)\n- No training on user data (GDPR compliance)\n\nProduction Readiness:\n- Docker containerization with NVIDIA runtime\n- Prometheus metrics (latency, error rate, confidence distribution)\n- Structured logging (JSON format)\n- Graceful shutdown with in-flight request handling\n- Health checks for liveness/readiness probes",
+  "status": "SYSTEM_FAILURE",
+  "generated_at": "2026-02-17T12:13:04",
+  "budget": {
+    "max_usd": 12.0,
+    "spent_usd": 0.0413,
+    "remaining_usd": 11.9587,
+    "elapsed_seconds": 52.7,
+    "remaining_seconds": 7147.3,
+    "phase_spent": {
+      "decomposition": 0.0413,
+      "generation": 0.0,
+      "cross_review": 0.0,
+      "evaluation": 0.0,
+      "reserve": 0.0
+    }
+  },
+  "tasks": [],
+  "totals": {
+    "tasks_completed": 0,
+    "tasks_failed": 0,
+    "tasks_degraded": 0,
+    "total_cost_usd": 0.0,
+    "average_score": 0.0
+  }
+}

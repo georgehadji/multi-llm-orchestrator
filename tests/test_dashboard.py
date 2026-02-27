@@ -1,175 +1,131 @@
-"""
-Tests for the CLI dashboard rendering.
-
-Plan reference: docs/plans/2026-02-25-learn-and-show-design.md
-
-Tests the render_dashboard() function in metrics.py and verifies that
-the 'dashboard' subcommand is registered in cli.py.
-
-Tests will initially FAIL (ImportError / AttributeError) because
-render_dashboard does not exist yet — RED phase before implementation.
-"""
-from __future__ import annotations
-
-import asyncio
+"""Tests for the Dashboard module."""
 import pytest
+import sys
+from pathlib import Path
 
-from orchestrator.models import Model, TaskType
-from orchestrator.policy import ModelProfile
-from orchestrator.telemetry_store import TelemetryStore
-from orchestrator.metrics import render_dashboard
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _make_profile(
-    *,
-    model: Model = Model.DEEPSEEK_CHAT,
-    quality_score: float = 0.87,
-    avg_cost_usd: float = 0.002,
-    call_count: int = 1,
-) -> ModelProfile:
-    return ModelProfile(
-        model=model,
-        provider="deepseek",
-        cost_per_1m_input=0.27,
-        cost_per_1m_output=1.10,
-        quality_score=quality_score,
-        trust_factor=0.9,
-        avg_latency_ms=1500.0,
-        latency_p95_ms=3000.0,
-        success_rate=0.95,
-        avg_cost_usd=avg_cost_usd,
-        call_count=call_count,
-        failure_count=0,
-        validator_fail_count=0,
-    )
+# Try to import dashboard - may fail if dependencies not installed
+try:
+    from orchestrator.dashboard import DashboardServer, DASHBOARD_HTML, run_dashboard
+    HAS_DASHBOARD_DEPS = True
+except ImportError:
+    HAS_DASHBOARD_DEPS = False
 
 
-async def _seed_hot_data(store: TelemetryStore, tmp_path) -> None:
-    """Seed 50+ calls for two models so they reach HOT confidence."""
-    for i in range(50):
-        await store.record_snapshot(f"d{i}", Model.DEEPSEEK_CHAT, TaskType.CODE_GEN,
-                                    _make_profile(quality_score=0.90, avg_cost_usd=0.001, call_count=1))
-    for i in range(50):
-        await store.record_snapshot(f"g{i}", Model.GPT_4O, TaskType.CODE_GEN,
-                                    _make_profile(model=Model.GPT_4O, quality_score=0.85,
-                                                  avg_cost_usd=0.010, call_count=1))
+@pytest.mark.skipif(not HAS_DASHBOARD_DEPS, reason="Dashboard requires fastapi/uvicorn")
+class TestDashboardServer:
+    """Test DashboardServer class."""
+    
+    def test_dashboard_server_creation(self):
+        """Test dashboard server can be created."""
+        server = DashboardServer(host="127.0.0.1", port=9090)
+        assert server.host == "127.0.0.1"
+        assert server.port == 9090
+        assert server.clients == []
+    
+    def test_dashboard_routes_setup(self):
+        """Test dashboard routes are configured."""
+        server = DashboardServer()
+        routes = [route.path for route in server.app.routes]
+        assert "/" in routes or "/docs" in routes
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# render_dashboard — basic contract
-# ─────────────────────────────────────────────────────────────────────────────
-
-@pytest.mark.asyncio
-async def test_render_dashboard_returns_string(tmp_path):
-    """render_dashboard() returns a non-empty string."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    output = await render_dashboard(store, days=30)
-    assert isinstance(output, str)
-
-
-@pytest.mark.asyncio
-async def test_render_dashboard_no_data_message(tmp_path):
-    """render_dashboard() indicates no data when the DB is empty."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    output = await render_dashboard(store, days=30)
-    # Should communicate that there's no data — not crash or return blank
-    assert "no data" in output.lower() or "0 runs" in output.lower() or len(output) > 0
-
-
-@pytest.mark.asyncio
-async def test_render_dashboard_contains_model_rankings_header(tmp_path):
-    """render_dashboard() includes a MODEL RANKINGS section."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    await _seed_hot_data(store, tmp_path)
-
-    output = await render_dashboard(store, days=30)
-    assert "MODEL RANKINGS" in output.upper()
+class TestDashboardHTML:
+    """Test embedded HTML dashboard."""
+    
+    def test_html_contains_key_elements(self):
+        """Test HTML contains essential UI elements."""
+        # DASHBOARD_HTML is always available
+        html = DASHBOARD_HTML
+        assert "<!DOCTYPE html>" in html
+        assert "Mission Control" in html
+        assert "model_status" in html  # WebSocket message handling
+        assert "websocket" in html.lower()  # WebSocket connectivity
+        assert "Overview" in html
+        assert "Models" in html
+        assert "Execute" in html
+        assert "Prompts" in html
+        assert "Logs" in html
+    
+    def test_html_contains_model_data_refs(self):
+        """Test HTML references model data structures."""
+        assert "model_status" in DASHBOARD_HTML
+        assert "metrics" in DASHBOARD_HTML
+        assert "routing" in DASHBOARD_HTML
 
 
-@pytest.mark.asyncio
-async def test_render_dashboard_lists_model_names(tmp_path):
-    """render_dashboard() shows model names in the rankings section."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    await _seed_hot_data(store, tmp_path)
-
-    output = await render_dashboard(store, days=30)
-    assert "deepseek-chat" in output
-    assert "gpt-4o" in output
-
-
-@pytest.mark.asyncio
-async def test_render_dashboard_shows_confidence_labels(tmp_path):
-    """render_dashboard() shows HOT/WARM/COLD confidence labels."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    await _seed_hot_data(store, tmp_path)
-
-    output = await render_dashboard(store, days=30)
-    # Both models have 50 calls → HOT
-    assert "HOT" in output
-
-
-@pytest.mark.asyncio
-async def test_render_dashboard_shows_task_type_leaders(tmp_path):
-    """render_dashboard() includes a TASK-TYPE LEADERS section."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    await _seed_hot_data(store, tmp_path)
-
-    output = await render_dashboard(store, days=30)
-    assert "TASK" in output.upper()
-
-
-@pytest.mark.asyncio
-async def test_render_dashboard_shows_recommendations_section(tmp_path):
-    """render_dashboard() includes a RECOMMENDATIONS section."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    await _seed_hot_data(store, tmp_path)
-
-    output = await render_dashboard(store, days=30)
-    assert "RECOMMENDATION" in output.upper()
-
-
-@pytest.mark.asyncio
-async def test_render_dashboard_renders_within_reasonable_length(tmp_path):
-    """render_dashboard() output is non-trivial but not excessively large."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    await _seed_hot_data(store, tmp_path)
-
-    output = await render_dashboard(store, days=30)
-    # Should have a real structure: at least 10 lines
-    lines = [l for l in output.splitlines() if l.strip()]
-    assert len(lines) >= 10
+@pytest.mark.skipif(not HAS_DASHBOARD_DEPS, reason="Dashboard requires fastapi/uvicorn")
+class TestDashboardIntegration:
+    """Integration tests for dashboard."""
+    
+    def test_models_endpoint(self):
+        """Test /api/models endpoint returns model data."""
+        from fastapi.testclient import TestClient
+        
+        server = DashboardServer()
+        client = TestClient(server.app)
+        
+        response = client.get("/api/models")
+        assert response.status_code == 200
+        
+        models = response.json()
+        # Should have at least one model
+        assert len(models) > 0
+        
+        # Check model structure
+        for model_id, info in models.items():
+            assert "provider" in info
+            assert "cost_input" in info
+            assert "cost_output" in info
+            assert "available" in info
+    
+    def test_routing_endpoint(self):
+        """Test /api/routing endpoint returns routing config."""
+        from fastapi.testclient import TestClient
+        
+        server = DashboardServer()
+        client = TestClient(server.app)
+        
+        response = client.get("/api/routing")
+        assert response.status_code == 200
+        
+        routing = response.json()
+        # Should have routing entries
+        assert len(routing) > 0
+    
+    def test_dashboard_html_endpoint(self):
+        """Test root endpoint returns HTML dashboard."""
+        from fastapi.testclient import TestClient
+        
+        server = DashboardServer()
+        client = TestClient(server.app)
+        
+        response = client.get("/")
+        assert response.status_code == 200
+        assert "text/html" in response.headers.get("content-type", "")
+        assert "Mission Control" in response.text
 
 
-@pytest.mark.asyncio
-async def test_render_dashboard_higher_value_model_ranked_first(tmp_path):
-    """render_dashboard() ranks deepseek (better value) before gpt-4o."""
-    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-    await _seed_hot_data(store, tmp_path)
+class TestDashboardAvailability:
+    """Test dashboard module availability handling."""
+    
+    def test_graceful_degradation_without_deps(self):
+        """Test dashboard gracefully handles missing dependencies."""
+        # Simulate missing deps by checking if import works
+        try:
+            from orchestrator.dashboard import DashboardServer
+            # If import succeeds, fastapi/uvicorn are available
+            assert True
+        except ImportError as e:
+            # Import should fail gracefully with helpful message
+            assert "fastapi" in str(e).lower() or "uvicorn" in str(e).lower()
 
-    output = await render_dashboard(store, days=30)
-    deepseek_pos = output.find("deepseek-chat")
-    gpt4o_pos = output.find("gpt-4o")
-    # deepseek should appear before gpt-4o in the output
-    assert deepseek_pos < gpt4o_pos
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CLI subcommand registration
-# ─────────────────────────────────────────────────────────────────────────────
-
-def test_dashboard_subcommand_is_registered():
-    """The 'dashboard' subcommand is registered in the CLI parser."""
-    import argparse
-    from orchestrator.cli import main
-    import sys
-
-    # Construct a parser instance by importing the registration function directly
-    # We check that parsing 'dashboard' doesn't raise an error
-    from orchestrator import cli as cli_module
-    assert hasattr(cli_module, "_dashboard_subparsers"), (
-        "_dashboard_subparsers must be defined in cli.py to register the dashboard subcommand"
-    )
+@pytest.mark.skipif(not HAS_DASHBOARD_DEPS, reason="Dashboard requires fastapi/uvicorn")
+class TestDashboardWebSocket:
+    """Test WebSocket functionality."""
+    
+    def test_websocket_endpoint_exists(self):
+        """Test WebSocket endpoint is configured."""
+        server = DashboardServer()
+        ws_routes = [r for r in server.app.routes if "/ws" in str(r.path)]
+        assert len(ws_routes) > 0

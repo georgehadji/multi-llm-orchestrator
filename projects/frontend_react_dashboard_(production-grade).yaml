@@ -1,0 +1,346 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project 1: React Admin Dashboard
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_react_dashboard.yaml
+# ──────────────────────────────────────────────────────
+
+project:
+  title: Enterprise-Grade React Admin Dashboard
+  objective: 
+    Build a production-grade, extensible admin dashboard using React, TypeScript,
+    Tailwind CSS, and Recharts. The system must follow modern frontend architecture
+    patterns, strict type safety, accessibility standards, and performance best practices.
+    The result must be portfolio-quality and indistinguishable from real SaaS internal tooling.
+
+  tech_stack:
+    core:
+      - React 18+
+      - TypeScript (strict mode, no implicit any)
+      - Vite (latest stable)
+      - React Router v6+
+      - Zustand (state management)
+      - Tailwind CSS (latest)
+      - Recharts
+
+    quality:
+      - ESLint (strict, no warnings allowed)
+      - Prettier
+      - Vitest
+      - Testing Library (React Testing Library)
+      - Type checking required to pass build
+
+    optional_plus:
+      - TanStack Table (preferred over manual table implementation)
+      - clsx for conditional classes
+      - tailwind-merge
+      - zod for runtime validation
+
+  architecture:
+    paradigm: Feature-based modular architecture
+
+    folder_structure:
+      src/
+        app/
+          router/
+          providers/
+          store/
+
+        features/
+          dashboard/
+            components/
+            hooks/
+            store/
+            types/
+            services/
+
+          analytics/
+          users/
+          layout/
+          theme/
+
+        components/
+          ui/
+          charts/
+          table/
+
+        hooks/
+        lib/
+        utils/
+        types/
+
+    principles:
+      - separation_of_concerns
+      - reusable components
+      - zero business logic in presentational components
+      - strict typing everywhere
+      - no prop drilling (use hooks or store)
+      - scalable for 100+ components
+
+  routing:
+    routes:
+      - /overview
+      - /analytics
+      - /users
+
+    requirements:
+      - lazy loading per route
+      - code splitting enabled
+      - loading fallback UI
+
+  state_management:
+    use: Zustand
+
+  global_state:
+      - name: theme
+          type: "light" | "dark"
+      - name: sidebarOpen
+          type: boolean
+      - name: userPreferences
+
+  persistence:
+      - persist theme and preferences to localStorage
+
+  layout:
+    structure:
+      - AppLayout
+      - Sidebar
+      - Topbar
+      - MainContent
+      - MobileNavigation
+
+    sidebar:
+      features:
+        - collapsible
+        - animated transitions
+        - active route highlighting
+        - keyboard accessible
+
+    mobile:
+      breakpoint: <768px
+      behavior:
+        - sidebar becomes bottom navigation
+        - touch-friendly interaction
+
+    pages:
+
+    overview_page:
+      components:
+        - KPI cards:
+            metrics:
+              - revenue
+              - users
+              - orders
+              - conversion_rate
+
+            requirements:
+              - trend indicator (up/down)
+              - percentage change
+              - animated number transition
+
+    analytics_page:
+      charts:
+        - revenue_line_chart
+        - category_bar_chart
+        - traffic_source_pie_chart
+
+      requirements:
+        - responsive container
+        - tooltips
+        - legends
+        - smooth animation
+        - reusable chart wrapper abstraction
+
+    users_page:
+      table_features:
+        - sortable columns
+        - pagination
+        - search filtering
+        - row selection
+        - selectable rows state
+        - loading state
+        - empty state
+
+      columns:
+        - id
+        - name
+        - email
+        - role
+        - status
+        - created_at
+
+    theme_system:
+    requirements:
+      - light and dark themes
+      - persisted to localStorage
+      - no flicker on reload
+      - Tailwind dark mode via class strategy
+
+    data_layer:
+    source: mock data only
+    structure:
+      - typed interfaces
+      - realistic SaaS-like data
+
+    abstraction:
+      - services layer
+      - easily replaceable with real API
+
+  accessibility:
+    required:
+      - WCAG compliant
+      - keyboard navigable
+      - aria attributes where appropriate
+      - proper semantic HTML
+  
+performance:
+    required:
+      - React.memo where appropriate
+      - useMemo/useCallback optimization
+      - lazy loading routes
+      - avoid unnecessary re-renders
+
+ui_quality:
+    must_look_like:
+      - professional SaaS dashboard
+      - Stripe / Linear / Vercel level polish
+
+    visual_features:
+      - consistent spacing
+      - smooth transitions
+      - skeleton loaders
+      - hover states
+      - focus states
+
+output:
+  deliverables:
+    - complete working codebase
+    - production-ready architecture
+    - no placeholder TODO logic
+    - clean, readable, professional code
+
+enhancements:
+
+  advanced_features:
+
+    - skeleton loading states
+    - reusable generic Table component
+    - reusable Chart wrapper abstraction
+    - reusable Card component
+
+  developer_experience:
+
+    - strict lint rules
+    - consistent naming conventions
+    - predictable architecture
+
+  scalability:
+
+    - architecture must support future API integration
+    - clear service layer abstraction
+
+  visual_polish:
+
+    - smooth transitions
+    - subtle animations
+    - modern SaaS aesthetic
+
+  reliability:
+
+    - no fragile logic
+    - predictable state management
+
+
+
+
+criteria:
+
+  functional:
+
+    - All routes render without runtime or console errors
+    - Sidebar navigation works correctly on desktop and mobile
+    - Theme toggle persists across reloads
+    - Charts render correctly and responsively
+    - Table sorting, filtering, and pagination work correctly
+
+  type_safety:
+
+    - TypeScript strict mode passes
+    - No any types allowed
+    - No type errors
+
+  build:
+
+    - npm run build succeeds
+    - npm run typecheck succeeds
+    - npm run lint succeeds with zero warnings
+
+  performance:
+
+    - No unnecessary re-renders detected
+    - No blocking synchronous operations
+
+  accessibility:
+
+    - All interactive elements keyboard accessible
+    - No accessibility violations detectable by automated tools
+
+  testing:
+
+    required_tests:
+
+      - KPI card rendering test
+      - Theme toggle persistence test
+      - Table filtering logic test
+      - Table sorting logic test
+      - Route rendering test
+
+    tools:
+      - Vitest
+      - React Testing Library
+
+    coverage_target:
+      minimum: 70%
+
+  responsive:
+
+    must_work_at:
+
+      mobile:
+        width: 375px
+
+      tablet:
+        width: 768px
+
+      desktop:
+        width: 1440px
+
+  code_quality:
+
+    must_follow:
+      - modular architecture
+      - reusable components
+      - no duplicate logic
+      - clean abstractions
+
+  portfolio_standard:
+
+    result_must_be:
+      - indistinguishable from real SaaS dashboard
+      - suitable for senior frontend portfolio
+
+budget_usd: 3.0
+time_seconds: 3600
+concurrency: 3
+project_id: "frontend-react-dashboard-v1"
+output_dir: "./outputs/frontend_react_dashboard"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.88
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

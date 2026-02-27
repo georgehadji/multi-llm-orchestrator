@@ -50,7 +50,7 @@ _FALLBACK_ARCH = _ARCH_DEFAULTS["script"]
 
 
 def _select_model(description: str) -> Model:
-    return Model.DEEPSEEK_REASONER if len(description.split()) > 50 else Model.DEEPSEEK_CHAT
+    return Model.DEEPSEEK_REASONER if len(description.split()) > 50 else Model.DEEPSEEK_CODER
 
 
 def _parse_response(raw: str) -> ArchitectureDecision:
@@ -179,7 +179,7 @@ class ArchitectureAdvisor:
             return self.detect_from_yaml(app_type_override)
 
         model = _select_model(description)
-        model_label = "DeepSeek Reasoner" if model == Model.DEEPSEEK_REASONER else "DeepSeek Chat"
+        model_label = "DeepSeek Reasoner" if model == Model.DEEPSEEK_REASONER else "DeepSeek Coder"
 
         try:
             prompt = _USER_PROMPT_TEMPLATE.format(

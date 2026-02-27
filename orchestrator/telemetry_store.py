@@ -134,18 +134,41 @@ CREATE TABLE IF NOT EXISTS pending_writes (
 class TelemetryStore:
     """
     Persistent cross-run telemetry store backed by SQLite.
+    
+    OPTIMIZATION: Supports batch writes for improved throughput.
+    Writes are buffered and flushed either when the buffer is full
+    or when the flush interval expires.
 
     Parameters
     ----------
     db_path:
         Path to the SQLite file. Defaults to ~/.orchestrator_cache/telemetry.db.
         Pass a tmp_path in tests to avoid touching the real store.
+    batch_size:
+        Number of writes to batch before flushing. Default 10.
+    flush_interval_seconds:
+        Maximum time between flushes. Default 5.0 seconds.
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        batch_size: int = 10,
+        flush_interval_seconds: float = 5.0,
+    ) -> None:
         self._db_path = Path(db_path) if db_path is not None else _DEFAULT_DB_PATH
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialised = False
+        
+        # Batching configuration
+        self._batch_size = batch_size
+        self._flush_interval = flush_interval_seconds
+        
+        # Buffers for batching
+        self._snapshot_buffer: list[dict] = []
+        self._routing_buffer: list[dict] = []
+        self._last_flush_time = time.time()
+        self._flush_lock = asyncio.Lock()
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
@@ -172,34 +195,31 @@ class TelemetryStore:
 
         Should be called for every profile that had ≥1 call this run.
         Writes are always INSERT-only (append-only log).
+        
+        OPTIMIZATION: Uses batching for improved throughput. Writes are buffered
+        and flushed either when buffer is full or flush interval expires.
         """
         await self._ensure_schema()
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO model_snapshots
-                    (project_id, model, task_type, quality_score, trust_factor,
-                     avg_latency_ms, latency_p95_ms, success_rate, avg_cost_usd,
-                     call_count, failure_count, validator_fail_count, recorded_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    project_id,
-                    model.value,
-                    task_type.value,
-                    profile.quality_score,
-                    profile.trust_factor,
-                    profile.avg_latency_ms,
-                    profile.latency_p95_ms,
-                    profile.success_rate,
-                    profile.avg_cost_usd,
-                    profile.call_count,
-                    profile.failure_count,
-                    profile.validator_fail_count,
-                    time.time(),
-                ),
-            )
-            await db.commit()
+        
+        # Add to buffer
+        self._snapshot_buffer.append({
+            "project_id": project_id,
+            "model": model.value,
+            "task_type": task_type.value,
+            "quality_score": profile.quality_score,
+            "trust_factor": profile.trust_factor,
+            "avg_latency_ms": profile.avg_latency_ms,
+            "latency_p95_ms": profile.latency_p95_ms,
+            "success_rate": profile.success_rate,
+            "avg_cost_usd": profile.avg_cost_usd,
+            "call_count": profile.call_count,
+            "failure_count": profile.failure_count,
+            "validator_fail_count": profile.validator_fail_count,
+            "recorded_at": time.time(),
+        })
+        
+        # Check if we should flush
+        await self._maybe_flush()
 
     async def record_routing_event(
         self,
@@ -215,31 +235,132 @@ class TelemetryStore:
         ----------
         task_type:
             The TaskType of the task (from Task.type — not stored on TaskResult).
+        
+        OPTIMIZATION: Uses batching for improved throughput.
         """
         await self._ensure_schema()
+        
         reviewer_val = result.reviewer_model.value if result.reviewer_model else None
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO routing_events
-                    (project_id, task_id, task_type, model_chosen, reviewer,
-                     score, cost_usd, iterations, det_passed, recorded_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    project_id,
-                    task_id,
-                    task_type.value,
-                    result.model_used.value,
-                    reviewer_val,
-                    result.score,
-                    result.cost_usd,
-                    result.iterations,
-                    1 if result.deterministic_check_passed else 0,
-                    time.time(),
-                ),
-            )
-            await db.commit()
+        
+        # Add to buffer
+        self._routing_buffer.append({
+            "project_id": project_id,
+            "task_id": task_id,
+            "task_type": task_type.value,
+            "model_chosen": result.model_used.value,
+            "reviewer": reviewer_val,
+            "score": result.score,
+            "cost_usd": result.cost_usd,
+            "iterations": result.iterations,
+            "det_passed": 1 if result.deterministic_check_passed else 0,
+            "recorded_at": time.time(),
+        })
+        
+        # Check if we should flush
+        await self._maybe_flush()
+
+    # ── Batched Write API ─────────────────────────────────────────────────────
+
+    async def _maybe_flush(self) -> None:
+        """
+        Flush buffers if they are full or if the flush interval has expired.
+        
+        This is called automatically by record_snapshot and record_routing_event.
+        """
+        buffer_full = (
+            len(self._snapshot_buffer) >= self._batch_size or
+            len(self._routing_buffer) >= self._batch_size
+        )
+        interval_expired = (
+            time.time() - self._last_flush_time >= self._flush_interval
+        )
+        
+        if buffer_full or interval_expired:
+            await self.flush()
+
+    async def flush(self) -> None:
+        """
+        Explicitly flush all pending writes to the database.
+        
+        This is called automatically when buffers are full or flush interval
+        expires, but can also be called explicitly (e.g., at shutdown).
+        
+        Uses a single transaction for all buffered writes to ensure atomicity.
+        """
+        async with self._flush_lock:
+            if not self._snapshot_buffer and not self._routing_buffer:
+                return
+            
+            await self._ensure_schema()
+            
+            async with aiosqlite.connect(self._db_path) as db:
+                # Flush snapshot buffer
+                for item in self._snapshot_buffer:
+                    await db.execute(
+                        """
+                        INSERT INTO model_snapshots
+                            (project_id, model, task_type, quality_score, trust_factor,
+                             avg_latency_ms, latency_p95_ms, success_rate, avg_cost_usd,
+                             call_count, failure_count, validator_fail_count, recorded_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            item["project_id"],
+                            item["model"],
+                            item["task_type"],
+                            item["quality_score"],
+                            item["trust_factor"],
+                            item["avg_latency_ms"],
+                            item["latency_p95_ms"],
+                            item["success_rate"],
+                            item["avg_cost_usd"],
+                            item["call_count"],
+                            item["failure_count"],
+                            item["validator_fail_count"],
+                            item["recorded_at"],
+                        ),
+                    )
+                
+                # Flush routing buffer
+                for item in self._routing_buffer:
+                    await db.execute(
+                        """
+                        INSERT INTO routing_events
+                            (project_id, task_id, task_type, model_chosen, reviewer,
+                             score, cost_usd, iterations, det_passed, recorded_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            item["project_id"],
+                            item["task_id"],
+                            item["task_type"],
+                            item["model_chosen"],
+                            item["reviewer"],
+                            item["score"],
+                            item["cost_usd"],
+                            item["iterations"],
+                            item["det_passed"],
+                            item["recorded_at"],
+                        ),
+                    )
+                
+                await db.commit()
+            
+            # Clear buffers after successful commit
+            count = len(self._snapshot_buffer) + len(self._routing_buffer)
+            self._snapshot_buffer.clear()
+            self._routing_buffer.clear()
+            self._last_flush_time = time.time()
+            
+            logger.debug(f"Flushed {count} telemetry records to database")
+
+    async def close(self) -> None:
+        """
+        Close the store, flushing any pending writes.
+        
+        Should be called at shutdown to ensure no telemetry is lost.
+        """
+        await self.flush()
 
     # ── Write-ahead queue (WAL) ───────────────────────────────────────────────
     #

@@ -1,0 +1,54 @@
+================================================================================
+  GIT COMMANDS - Copy and paste these into your terminal
+================================================================================
+
+STEP 1: Navigate to project directory
+--------------------------------------
+cd "E:\Documents\Vibe-Coding\Ai Orchestrator"
+
+STEP 2: Check git status
+------------------------
+git status --short
+
+STEP 3: Stage all changes
+-------------------------
+git add -A
+
+STEP 4: Create commit
+---------------------
+git commit -m "feat: v5.1 Management Systems + v5.0 Performance Optimization
+
+🆕 NEW: Management Systems (v5.1)
+- Knowledge Management: Semantic search, pattern recognition
+- Project Management: Critical path analysis, resource scheduling  
+- Product Management: RICE prioritization, feature flags
+- Quality Control: Multi-level testing, compliance gates
+
+⚡ NEW: Performance Optimization (v5.0)
+- Dashboard v5.0: 5x faster load (<100ms FCP)
+- Dual-layer caching: Redis + LRU fallback
+- Connection pooling: Bounded resource management
+- KPI monitoring: Real-time performance tracking
+
+📚 Updated: CAPABILITIES.md, README.md, USAGE_GUIDE.md
+📁 New files: 7 orchestrator modules, tests, docs
+
+Performance targets: FCP<100ms, Cache>85%, P95<300ms"
+
+STEP 5: Verify commit
+---------------------
+git log -1 --oneline
+git log -1 --stat
+
+STEP 6: Push to GitHub (Option A - Direct to main)
+---------------------------------------------------
+git push origin main
+
+STEP 6: Push to GitHub (Option B - Create PR branch)
+----------------------------------------------------
+git checkout -b release/v5.1
+git push -u origin release/v5.1
+
+================================================================================
+  🎉 DONE! Visit https://github.com/gchatz22/multi-llm-orchestrator
+================================================================================

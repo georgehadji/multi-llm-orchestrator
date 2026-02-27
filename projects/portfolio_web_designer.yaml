@@ -1,0 +1,107 @@
+# ──────────────────────────────────────────────────────
+# Portfolio: Web Designer
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/portfolio_web_designer.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a visually stunning portfolio website for a web designer using plain
+  HTML5, CSS3, and vanilla JavaScript (no frameworks, no build tools required).
+  The design must itself be the showpiece — the code IS the portfolio piece.
+
+  Design language: editorial / magazine aesthetic with bold typography,
+  generous whitespace, a muted palette with one vivid accent color (#E84E4F
+  coral-red), and micro-interactions throughout.
+
+  1. Preloader
+     - Minimal SVG logo animation that transitions out with a clip-path reveal
+     - Maximum 1.5 s total preloader duration
+
+  2. Hero section
+     - Full-viewport layout, designer's name in display-size serif font
+     - Subtitle: "Web Designer — Visual Storyteller — Brand Identity"
+     - Custom CSS cursor (circle that follows mouse, blends on hover with
+       mix-blend-mode: difference)
+     - Horizontal marquee strip below hero: logos/wordmarks of tools
+       (Figma, Illustrator, Photoshop, Webflow, Framer — text placeholders OK)
+
+  3. Selected Work / Case Studies — 4 projects
+     - Each case study: full-width thumbnail placeholder (aspect-ratio 16/9,
+       colored gradient per project), project title, client name, category
+     - On hover: title slides up, brief one-line description appears, cursor
+       changes to "View ↗"
+     - Click opens an in-page overlay/modal with:
+       * Problem statement, design process (2–3 phases), outcome metrics
+       * Before/after comparison slider (pure CSS + minimal JS)
+       * Color palette swatches, typography specimen
+       * CTA: "Visit Live Site" (mock href)
+
+  4. Design Process section
+     - Horizontal scrolling timeline (scroll-snap): Discover → Define →
+       Ideate → Prototype → Test → Deliver
+     - Each step: icon (inline SVG), title, 2-sentence description
+
+  5. Skills & Tools
+     - Two asymmetric columns
+     - Left: soft skills as large outlined text (Empathy, Storytelling,
+       Systems Thinking, Communication)
+     - Right: tools grid with animated fill-on-scroll progress arcs (SVG
+       stroke-dashoffset animation triggered by IntersectionObserver)
+
+  6. About / Philosophy section
+     - Pull-quote in large italic serif: designer's design philosophy
+     - Small bio paragraph, headshot placeholder (circular, gradient fill)
+     - Awards / mentions: 3 fake but realistic award badges inline
+
+  7. Testimonials
+     - 3 cards in a CSS scroll-snap carousel (no JS library)
+     - Each: avatar initials placeholder, quote, name, company, role
+
+  8. Contact / Availability
+     - Current availability badge (green dot + "Available for projects")
+     - Email button with copy-to-clipboard icon (JS), LinkedIn, Behance, Dribbble
+     - Subtle animated gradient background on this section
+
+  9. Navigation
+     - Top-right fixed nav, links with underline draw animation on hover
+     - On scroll > 80px: compact pill nav appears center-top (backdrop blur)
+
+  10. Footer
+      - Minimal: name, year, "Designed & coded by hand" tagline
+      - Easter egg: Konami code triggers a confetti burst (pure JS, no lib)
+
+  Deliver:
+  - Single index.html with all HTML structure
+  - style.css (organized with CSS custom properties and clear section comments)
+  - main.js (vanilla JS, no dependencies, well-commented)
+  - /assets/ folder structure description with README for placeholder images
+
+criteria: |
+  - Preloader animates and exits within 1.5 s
+  - Custom cursor follows mouse with lag effect (lerp interpolation)
+  - Project modal opens/closes with smooth clip-path or scale transition
+  - Before/after slider works by dragging a handle
+  - Horizontal process timeline snaps to each step on scroll
+  - Progress arc SVG animations trigger when section enters viewport
+  - Copy-to-clipboard copies email and shows "Copied!" feedback
+  - Mobile layout is clean at 375 px (hamburger or slide-in drawer nav)
+  - No JavaScript errors in browser console on any interaction
+  - CSS custom properties used for all colors and font sizes (easy theming)
+  - Valid HTML5 (no deprecated tags) and CSS3
+
+budget_usd: 4.0
+time_seconds: 4200
+concurrency: 3
+project_id: "portfolio-web-designer-v1"
+output_dir: "./outputs/portfolio_web_designer"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.75
+  complex_reasoning: 0.85
+  evaluation:        0.80
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

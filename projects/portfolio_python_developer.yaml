@@ -1,0 +1,185 @@
+# ──────────────────────────────────────────────────────
+# Portfolio: Python Developer
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/portfolio_python_developer.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a portfolio website for a Python developer using FastAPI (backend API)
+  and a plain HTML/CSS/vanilla-JS frontend — no JS framework. The backend
+  serves the portfolio data as a REST API; the frontend consumes it via fetch.
+  The whole thing runs with `uvicorn main:app` and serves static files too.
+
+  This architecture choice is intentional: it demonstrates that the developer
+  understands full-stack concepts while keeping Python as the primary language.
+
+  Design language: terminal-inspired but clean. Dark mode by default.
+  Colors: #1E1E2E dark background, #CDD6F4 text, #89B4FA blue accent,
+  #A6E3A1 green for success states, #F38BA8 red for errors.
+  Monospace font (JetBrains Mono via Google Fonts) for code; Inter for prose.
+
+  ── BACKEND (FastAPI) ──────────────────────────────────────────────────────
+
+  main.py  (FastAPI application entry point)
+  - Mount /static for frontend files
+  - Include routers from /routers/
+  - CORS middleware (allow all origins for portfolio use)
+  - Serve index.html on GET /
+
+  routers/portfolio.py  (GET /api/portfolio)
+  - Returns full portfolio data as a single JSON response:
+    { profile, skills, projects, experience, education, certifications,
+      blog_posts, github_stats, contact }
+  - All data hardcoded as Python dataclasses / Pydantic models (no DB needed)
+
+  routers/contact.py  (POST /api/contact)
+  - Accepts: { name, email, subject, message }
+  - Validates with Pydantic (email format, min lengths)
+  - Returns: { success: true, message: "Message received!" }
+  - Logs submission to a local contact_log.jsonl file (append mode)
+
+  routers/stats.py  (GET /api/stats)
+  - Returns visitor count (in-memory counter, resets on restart — note this
+    in comments), uptime in seconds, and Python version
+  - GET /api/stats/health → { status: "ok", timestamp: ISO8601 }
+
+  models/  (Pydantic v2 models)
+  - Profile, Skill, Project, Experience, Education, Certification, BlogPost,
+    GitHubStats, ContactMessage, ContactResponse
+  - All models have field validators where appropriate
+  - Skill model includes: name, category, level (1–5), years_used
+  - Project model includes: title, description, tech_stack, github_url,
+    live_url, highlights (list[str]), is_featured (bool)
+
+  tests/test_api.py  (pytest + httpx AsyncClient)
+  - Test GET /api/portfolio returns 200 with expected keys
+  - Test POST /api/contact with valid payload returns success
+  - Test POST /api/contact with invalid email returns 422
+  - Test GET /api/stats/health returns { status: "ok" }
+  - Test GET / serves the HTML page (status 200, content-type text/html)
+
+  requirements.txt:
+    fastapi, uvicorn[standard], pydantic[email], httpx, pytest, pytest-asyncio
+
+  ── FRONTEND (HTML / CSS / Vanilla JS) ────────────────────────────────────
+
+  static/index.html
+  static/style.css
+  static/app.js
+
+  The frontend fetches GET /api/portfolio on load and renders everything
+  dynamically. On page load show a skeleton loader for each section.
+
+  Sections to render:
+
+  1. Header / Nav
+     - Fixed, semi-transparent blur background
+     - Links: About, Skills, Projects, Experience, Blog, Contact
+     - "Available for hire" pulsing green badge (from profile.available field)
+
+  2. Hero
+     - Profile name, title (e.g. "Python Developer & Backend Engineer")
+     - Bio paragraph from profile.bio
+     - Skill category badges: Backend · Data · DevOps · Automation
+     - Download CV button + GitHub + LinkedIn icons
+     - Right side: animated ASCII art snake (pure CSS animation, 6–8 frames)
+
+  3. Skills section
+     - Tabs: Backend | Data & ML | DevOps & Tools | Testing
+     - Each skill: name, years used, proficiency dots (filled/empty circles)
+     - Skills sorted by level descending within each tab
+     - Backend skills to include: Python, FastAPI, Django, Flask, SQLAlchemy,
+       PostgreSQL, Redis, Celery, Docker, REST, GraphQL
+     - Data skills: NumPy, Pandas, Matplotlib, scikit-learn, Jupyter
+     - DevOps: Docker, GitHub Actions, Linux, Nginx, AWS (basic)
+     - Testing: pytest, unittest, coverage, httpx, Faker
+
+  4. Projects section — 6 projects, 3 featured
+     - Featured projects: larger cards with "Featured" badge
+     - Each card: title, description, tech tags, GitHub + live links,
+       highlight bullet points (from project.highlights)
+     - Non-featured: compact list rows
+     - Filter: All | Featured | Web | CLI | Data | Automation
+
+  5. Experience & Education
+     - Vertical timeline
+     - 3 work entries: Senior Python Developer, Backend Developer, Junior Dev
+     - 1 education entry: Computer Science BSc
+     - Each: company, role, dates, 3–4 achievement bullets
+
+  6. Certifications
+     - 3 cert cards: AWS Solutions Architect (Associate), Python Institute PCEP,
+       Docker Certified Associate — realistic but placeholder
+     - Each: issuer logo placeholder (colored initial), name, date, badge color
+
+  7. Blog Posts preview — fetched from /api/portfolio
+     - 3 article cards: title, excerpt, tags (e.g. FastAPI, asyncio, Pydantic),
+       read time, date
+     - Topics: "Building async APIs with FastAPI and asyncio",
+       "Python dataclasses vs Pydantic v2: a practical guide",
+       "Celery beat scheduling: patterns I use in production"
+
+  8. GitHub Stats widget
+     - Fetched from github_stats field in API response (hardcoded mock data)
+     - Shows: total repos, total stars, top languages bar chart (CSS only),
+       contributions this year, longest streak
+
+  9. Live API Explorer widget
+     - A mini interactive section showing the actual portfolio API
+     - Three buttons: "GET /api/portfolio", "GET /api/stats/health",
+       "POST /api/contact (test)"
+     - Clicking a button fires the actual fetch request and renders the raw
+       JSON response in a styled <pre> block with syntax highlighting (JS)
+     - This proves the backend is real and live
+
+  10. Contact form
+      - Fields: name, email, subject, message
+      - Submits to POST /api/contact via fetch
+      - Shows success/error toast based on API response
+      - Client-side validation mirrors server Pydantic rules
+
+  11. Footer
+      - "Built with Python + FastAPI · Deployed on Fly.io"
+      - Uptime counter (fetched from /api/stats, updates every 30 s)
+      - Copyright + GitHub
+
+  Deliver:
+  - Complete file tree
+  - Full source for all Python files (main.py, all routers, all models)
+  - Full source for static/index.html, static/style.css, static/app.js
+  - tests/test_api.py with all 5 tests
+  - requirements.txt
+  - README.md with setup instructions and `uvicorn main:app --reload`
+
+criteria: |
+  - All 5 pytest tests pass with `pytest tests/`
+  - POST /api/contact with invalid email returns HTTP 422
+  - POST /api/contact with valid payload returns { success: true }
+  - GET /api/portfolio returns all required top-level keys
+  - Frontend fetches data on load and renders all sections (no blank sections)
+  - Skeleton loaders appear briefly then are replaced by real content
+  - Project filter correctly shows/hides cards by category
+  - Skills tabs switch content correctly
+  - Live API Explorer buttons fire real fetch requests and display JSON
+  - Contact form shows success toast after mock submission
+  - Uptime counter on footer updates every 30 seconds
+  - No Python type errors (mypy-compatible annotations throughout)
+  - No JavaScript console errors on page load or interactions
+  - Responsive layout works at 375 px and 1440 px
+
+budget_usd: 5.0
+time_seconds: 4800
+concurrency: 3
+project_id: "portfolio-python-developer-v1"
+output_dir: "./outputs/portfolio_python_developer"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.75
+  complex_reasoning: 0.88
+  evaluation:        0.80
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

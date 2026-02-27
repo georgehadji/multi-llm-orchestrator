@@ -33,8 +33,8 @@ class TestClaudeOpusRemovalFromEnum:
         assert len(models) > 0, "Model enum should have at least one model"
         # Should not raise AttributeError
         assert hasattr(Model, 'DEEPSEEK_CHAT')
-        assert hasattr(Model, 'MINIMAX_3')
-        assert hasattr(Model, 'ZAI_GLM')
+        assert hasattr(Model, 'MINIMAX_TEXT_01')
+        assert hasattr(Model, 'GLM_4')
 
 
 class TestClaudeOpusRemovalFromCostTable:
@@ -76,9 +76,9 @@ class TestRoutingTableUpdates:
             pass  # Expected
 
     def test_code_review_has_minimax(self):
-        """CODE_REVIEW should include MINIMAX_3 (replacement for Opus)."""
-        assert Model.MINIMAX_3 in ROUTING_TABLE[TaskType.CODE_REVIEW], \
-            "MINIMAX_3 should be in CODE_REVIEW routing"
+        """CODE_REVIEW should include MINIMAX_TEXT_01 (replacement for Opus)."""
+        assert Model.MINIMAX_TEXT_01 in ROUTING_TABLE[TaskType.CODE_REVIEW], \
+            "MINIMAX_TEXT_01 should be in CODE_REVIEW routing"
 
     def test_reasoning_no_opus(self):
         """REASONING should not contain CLAUDE_OPUS."""
@@ -104,14 +104,14 @@ class TestRoutingTableUpdates:
             pass
 
     def test_writing_has_zai_glm_first(self):
-        """WRITING should have ZAI_GLM as primary replacement."""
-        assert Model.ZAI_GLM in ROUTING_TABLE[TaskType.WRITING], \
-            "ZAI_GLM should be in WRITING routing"
+        """WRITING should have GLM_4 as primary replacement."""
+        assert Model.GLM_4 in ROUTING_TABLE[TaskType.WRITING], \
+            "GLM_4 should be in WRITING routing"
         # Should be first or early in the list
         writing_models = ROUTING_TABLE[TaskType.WRITING]
-        zai_index = writing_models.index(Model.ZAI_GLM)
-        assert zai_index <= 1, \
-            "ZAI_GLM should be primary (#1) or early secondary (#2) in WRITING"
+        glm_index = writing_models.index(Model.GLM_4)
+        assert glm_index <= 1, \
+            "GLM_4 should be primary (#1) or early secondary (#2) in WRITING"
 
     def test_writing_has_sonnet_escalation(self):
         """WRITING should have CLAUDE_SONNET for quality escalation."""
@@ -128,9 +128,9 @@ class TestRoutingTableUpdates:
             pass
 
     def test_evaluate_has_minimax(self):
-        """EVALUATE should include MINIMAX_3 (replacement for Opus)."""
-        assert Model.MINIMAX_3 in ROUTING_TABLE[TaskType.EVALUATE], \
-            "MINIMAX_3 should be in EVALUATE routing"
+        """EVALUATE should include MINIMAX_TEXT_01 (replacement for Opus)."""
+        assert Model.MINIMAX_TEXT_01 in ROUTING_TABLE[TaskType.EVALUATE], \
+            "MINIMAX_TEXT_01 should be in EVALUATE routing"
 
     def test_all_task_types_have_primary_model(self):
         """Every task type must have at least one primary model."""
@@ -236,24 +236,24 @@ class TestModelConsistency:
                 f"{model} has invalid output cost: {costs['output']}"
 
     def test_minimax_cheaper_than_opus_was(self):
-        """MINIMAX_3 should be significantly cheaper than Claude Opus was."""
-        minimax_cost = COST_TABLE[Model.MINIMAX_3]
+        """MINIMAX_TEXT_01 should be significantly cheaper than Claude Opus was."""
+        minimax_cost = COST_TABLE[Model.MINIMAX_TEXT_01]
         # Opus was: input=$15, output=$75
         # Minimax should be much cheaper
         assert minimax_cost["input"] < 5.0, \
-            "MINIMAX_3 input cost should be much lower than Opus's $15"
+            "MINIMAX_TEXT_01 input cost should be much lower than Opus's $15"
         assert minimax_cost["output"] < 10.0, \
-            "MINIMAX_3 output cost should be much lower than Opus's $75"
+            "MINIMAX_TEXT_01 output cost should be much lower than Opus's $75"
 
     def test_zai_glm_cheaper_than_opus_was(self):
-        """ZAI_GLM should be significantly cheaper than Claude Opus was."""
-        zai_cost = COST_TABLE[Model.ZAI_GLM]
+        """GLM_4 should be significantly cheaper than Claude Opus was."""
+        glm_cost = COST_TABLE[Model.GLM_4]
         # Opus was: input=$15, output=$75
         # ZAI GLM should be much cheaper
-        assert zai_cost["input"] < 5.0, \
-            "ZAI_GLM input cost should be much lower than Opus's $15"
-        assert zai_cost["output"] < 20.0, \
-            "ZAI_GLM output cost should be much lower than Opus's $75"
+        assert glm_cost["input"] < 5.0, \
+            "GLM_4 input cost should be much lower than Opus's $15"
+        assert glm_cost["output"] < 20.0, \
+            "GLM_4 output cost should be much lower than Opus's $75"
 
     def test_routing_model_count_reasonable(self):
         """Each task type should have 3-5 models for good fallback coverage."""
