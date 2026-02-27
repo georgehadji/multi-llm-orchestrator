@@ -117,8 +117,8 @@ class TestBudgetConstraints:
                 cost_in=0.10, cost_out=0.40,
                 task_types={TaskType.CODE_GEN: 1},
             ),
-            Model.MINIMAX_3: _make_profile(
-                Model.MINIMAX_3, "minimax",
+            Model.MINIMAX_TEXT_01: _make_profile(
+                Model.MINIMAX_TEXT_01, "minimax",
                 cost_in=0.50, cost_out=1.50,
                 task_types={TaskType.CODE_GEN: 0},
             ),

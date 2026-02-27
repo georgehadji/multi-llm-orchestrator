@@ -1,6 +1,10 @@
 # Multi-LLM Orchestrator — Usage Guide
 
-**Version:** 2026.02 | **Updated:** 2026-02-26 | **CLI & Python API Reference**
+**Version:** 2026.02 v5.1 | **Updated:** 2026-02-26 | **CLI & Python API Reference**
+
+**New in v5.1:** Knowledge Management • Project Management • Product Management • Quality Control
+
+**New in v5.0:** Performance Optimization • Dashboard v5.0 • Caching Layer • KPI Monitoring
 
 ---
 
@@ -16,7 +20,7 @@ pip install -e .
 pip install pytest ruff jsonschema
 
 # From scratch (no editable install)
-pip install openai anthropic google-genai aiosqlite pyyaml python-dotenv
+pip install openai google-genai aiosqlite pyyaml python-dotenv
 ```
 
 ### Environment Setup
@@ -24,7 +28,7 @@ pip install openai anthropic google-genai aiosqlite pyyaml python-dotenv
 ```bash
 # Create .env file with at least one provider key
 echo 'OPENAI_API_KEY=sk-...' > .env
-echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env
+echo 'DEEPSEEK_API_KEY=sk-...' >> .env
 echo 'GOOGLE_API_KEY=AIzaSy...' >> .env
 
 # Load environment
@@ -158,6 +162,54 @@ python -m orchestrator \
   --no-enhance \
   --new-project \
   --budget 4.0
+```
+
+### 9. Launch Mission Control Dashboard
+
+```bash
+# Run optimized dashboard (v5.0)
+python run_optimized_dashboard.py --port 8888
+
+# With Redis caching
+python run_optimized_dashboard.py \
+  --redis-host localhost \
+  --redis-port 6379 \
+  --port 8888
+
+# Allow external access
+python run_optimized_dashboard.py --host 0.0.0.0 --port 8888
+```
+
+**Dashboard Features:**
+- Real-time metrics visualization
+- Sub-100ms load time (5x improvement)
+- Gzip compression & ETag support
+- HTTP polling (2s debounced updates)
+- KPI monitoring with alerts
+
+**Access:** http://localhost:8888
+
+### 10. Run Quality Gate
+
+```bash
+# Python API - run quality checks
+python -c "
+import asyncio
+from pathlib import Path
+from orchestrator import get_quality_controller, TestLevel
+
+async def check():
+    qc = get_quality_controller()
+    report = await qc.run_quality_gate(
+        project_id='my_project',
+        project_path=Path('.'),
+        levels=[TestLevel.UNIT, TestLevel.PERFORMANCE],
+    )
+    print(f'Quality Score: {report.quality_score:.1f}/100')
+    print(f'Passed: {report.passed}')
+
+asyncio.run(check())
+"
 ```
 
 ---
@@ -499,6 +551,144 @@ async def main():
 asyncio.run(main())
 ```
 
+### Example 13: Management Systems (v5.1)
+
+```python
+import asyncio
+from pathlib import Path
+from orchestrator import (
+    get_knowledge_base, get_project_manager,
+    get_product_manager, get_quality_controller,
+    KnowledgeType, RICEScore, FeaturePriority, TestLevel
+)
+
+async def management_systems_example():
+    # ---- KNOWLEDGE MANAGEMENT ----
+    kb = get_knowledge_base()
+    
+    # Add solution to knowledge base
+    await kb.add_artifact(
+        type=KnowledgeType.SOLUTION,
+        title="Async Race Condition Fix",
+        content="Use asyncio.Lock() to protect shared state...",
+        tags=["async", "python", "concurrency"],
+    )
+    
+    # Find similar solutions
+    similar = await kb.find_similar("async race condition", top_k=3)
+    for artifact in similar:
+        print(f"Similar: {artifact.title} ({artifact.similarity_score:.1%})")
+    
+    # ---- PROJECT MANAGEMENT ----
+    from orchestrator.project_manager import Resource, ResourceType
+    from orchestrator.models import Task, TaskType
+    
+    pm = get_project_manager()
+    
+    resources = [
+        Resource("gpt-4", ResourceType.MODEL, 100, 100, 0.03),
+        Resource("claude", ResourceType.MODEL, 100, 100, 0.02),
+    ]
+    
+    tasks = [
+        Task("design", TaskType.ANALYSIS, priority=9),
+        Task("implement", TaskType.CODE_GENERATION, priority=8),
+        Task("test", TaskType.REFACTORING, priority=7),
+    ]
+    
+    timeline = await pm.create_schedule(
+        project_id="my_project",
+        tasks=tasks,
+        resources=resources,
+        dependencies={"test": ["implement"]},
+    )
+    
+    print(f"Critical path: {timeline.critical_path}")
+    print(f"Duration: {timeline.total_duration}")
+    
+    # ---- PRODUCT MANAGEMENT ----
+    pm_product = get_product_manager()
+    
+    # RICE Score = (Reach × Impact × Confidence) / Effort
+    #            = (1000 × 3 × 0.85) / 3 = 850
+    rice = RICEScore(reach=1000, impact=3, confidence=85, effort=3)
+    
+    feature = await pm_product.add_feature(
+        name="AI Code Assistant",
+        description="Context-aware code suggestions",
+        rice_score=rice,
+        priority=FeaturePriority.P0_CRITICAL,
+        tags=["ai", "productivity"],
+    )
+    
+    # Get prioritized backlog
+    backlog = pm_product.get_prioritized_backlog(limit=5)
+    for f in backlog:
+        print(f"{f.name}: RICE={f.rice_score.score:.0f}")
+    
+    # ---- QUALITY CONTROL ----
+    qc = get_quality_controller()
+    
+    report = await qc.run_quality_gate(
+        project_id="my_project",
+        project_path=Path("."),
+        levels=[TestLevel.UNIT, TestLevel.PERFORMANCE],
+    )
+    
+    print(f"Quality Score: {report.quality_score:.1f}/100")
+    print(f"Test Coverage: {report.average_coverage:.1f}%")
+    print(f"Passed: {report.passed}")
+    
+    # Check for regressions
+    regressions = qc.detect_regression(report)
+    if regressions:
+        for reg in regressions:
+            print(f"REGRESSION: {reg['message']}")
+
+asyncio.run(management_systems_example())
+```
+
+### Example 14: Performance Optimization (v5.0)
+
+```python
+import asyncio
+from orchestrator import cached, get_cache, ConnectionPool
+
+# ---- CACHING ----
+
+@cached(ttl=300)  # Cache for 5 minutes
+async def get_expensive_data(query: str):
+    # This will only execute once every 5 minutes for same query
+    return await fetch_from_database(query)
+
+# Direct cache access
+cache = get_cache()
+await cache.set("key", value, ttl=600)
+value = await cache.get("key")
+
+# ---- CONNECTION POOLING ----
+
+async def create_db_connection():
+    # Your connection factory
+    return await asyncpg.connect(DATABASE_URL)
+
+pool = ConnectionPool(
+    create_db_connection,
+    min_size=2,
+    max_size=10,
+)
+
+async with pool.acquire() as conn:
+    await conn.execute("SELECT * FROM table")
+
+# ---- DASHBOARD ----
+
+# Launch optimized dashboard
+# python run_optimized_dashboard.py --port 8888
+
+# Monitor at http://localhost:8888/api/metrics
+```
+
 ---
 
 ## Advanced Recipes
@@ -530,7 +720,7 @@ policies = PolicySet(
     policies=[
         Policy(
             name="quality_first",
-            allowed_models=["claude-sonnet", "gpt-4o"],  # only premium models
+            allowed_models=["deepseek-reasoner", "gpt-4o"],  # only premium models
             min_quality_score=0.95,
             enforcement_mode=EnforcementMode.HARD,
         ),
@@ -593,6 +783,208 @@ asyncio.run(main())
 ```
 
 ### Recipe 5: Monitor & Trace a Run
+
+```python
+import asyncio
+from orchestrator import Orchestrator, Budget, ProjectEventBus
+from orchestrator.monitoring import KPIReporter
+
+async def main():
+    orch = Orchestrator(budget=Budget(max_usd=10.0))
+    
+    # Monitor with KPIs
+    reporter = KPIReporter()
+    
+    state = await orch.run_project(
+        project_description="Build a FastAPI service",
+        success_criteria="tests pass",
+    )
+    
+    # Get health score
+    health = await reporter.get_health_score()
+    print(f"Health Score: {health['overall']:.1f}/100")
+    print(f"Status: {health['status']}")
+
+asyncio.run(main())
+```
+
+### Recipe 6: Continuous Knowledge Capture
+
+```python
+import asyncio
+from orchestrator import get_knowledge_base, KnowledgeType
+
+async def learn_from_projects():
+    kb = get_knowledge_base()
+    
+    # Automatically learn from completed project
+    await kb.learn_from_project(
+        project_id="project_123",
+        artifacts_dir=Path("./results"),
+        decisions=[
+            {
+                "title": "Chose PostgreSQL over MongoDB",
+                "rationale": "ACID compliance required for financial data",
+                "alternatives": ["MongoDB", "DynamoDB"],
+                "tags": ["database", "architecture"],
+            }
+        ],
+    )
+    
+    # Query for recommendations
+    recs = await kb.get_recommendations("Build payment service")
+    for rec in recs:
+        print(f"Suggestion: {rec['title']} ({rec['relevance']})")
+
+asyncio.run(learn_from_projects())
+```
+
+### Recipe 7: RICE-Based Product Planning
+
+```python
+import asyncio
+from orchestrator import get_product_manager, RICEScore, FeaturePriority
+
+async def plan_product():
+    pm = get_product_manager()
+    
+    # Add features with RICE scores
+    features = [
+        ("AI Assistant", RICEScore(1000, 3, 90, 3)),    # Score: 900
+        ("Dark Mode", RICEScore(800, 1, 95, 1)),        # Score: 760
+        ("Export PDF", RICEScore(300, 2, 80, 2)),       # Score: 240
+        ("Mobile App", RICEScore(2000, 3, 60, 12)),     # Score: 300
+    ]
+    
+    for name, rice in features:
+        await pm.add_feature(
+            name=name,
+            description=f"Implement {name}",
+            rice_score=rice,
+            priority=FeaturePriority.P1_HIGH if rice.score > 500 else FeaturePriority.P2_MEDIUM,
+        )
+    
+    # Get auto-prioritized backlog
+    backlog = pm.get_prioritized_backlog(limit=10)
+    print("Prioritized Backlog:")
+    for i, f in enumerate(backlog, 1):
+        print(f"{i}. {f.name} (RICE: {f.rice_score.score:.0f})")
+    
+    # Plan release with top 3 features
+    release = await pm.plan_release(
+        name="Q1 2024 Launch",
+        version="2.0.0",
+        target_date=datetime(2024, 3, 31),
+        capacity=3,
+    )
+    print(f"Release includes {len(release.features)} features")
+
+asyncio.run(plan_product())
+```
+
+### Recipe 8: Project Scheduling with Critical Path
+
+```python
+import asyncio
+from orchestrator import get_project_manager, Resource, ResourceType
+from orchestrator.models import Task, TaskType
+
+async def schedule_project():
+    pm = get_project_manager()
+    
+    # Define resources
+    resources = [
+        Resource("gpt-4", ResourceType.MODEL, 100, 100, 0.03),
+        Resource("deepseek", ResourceType.MODEL, 100, 100, 0.01),
+    ]
+    
+    # Define tasks with dependencies
+    tasks = [
+        Task("requirements", TaskType.ANALYSIS, priority=9),
+        Task("design", TaskType.ANALYSIS, priority=8),
+        Task("implement_api", TaskType.CODE_GENERATION, priority=8),
+        Task("implement_ui", TaskType.CODE_GENERATION, priority=7),
+        Task("integrate", TaskType.REFACTORING, priority=8),
+        Task("test", TaskType.REFACTORING, priority=9),
+    ]
+    
+    # Create schedule
+    timeline = await pm.create_schedule(
+        project_id="web_app",
+        tasks=tasks,
+        resources=resources,
+        dependencies={
+            "design": ["requirements"],
+            "implement_api": ["design"],
+            "implement_ui": ["design"],
+            "integrate": ["implement_api", "implement_ui"],
+            "test": ["integrate"],
+        },
+    )
+    
+    print(f"Project duration: {timeline.total_duration}")
+    print(f"Critical path: {' → '.join(timeline.critical_path)}")
+    print(f"Risks identified: {len(timeline.risks)}")
+    for risk in timeline.risks:
+        print(f"  - {risk.description} (Score: {risk.risk_score:.2f})")
+
+asyncio.run(schedule_project())
+```
+
+### Recipe 9: Comprehensive Quality Pipeline
+
+```python
+import asyncio
+from pathlib import Path
+from orchestrator import get_quality_controller, TestLevel, QualitySeverity
+
+async def quality_pipeline():
+    qc = get_quality_controller()
+    
+    # Run comprehensive quality gate
+    report = await qc.run_quality_gate(
+        project_id="production_app",
+        project_path=Path("."),
+        levels=[
+            TestLevel.UNIT,
+            TestLevel.INTEGRATION,
+            TestLevel.PERFORMANCE,
+            TestLevel.SECURITY,
+        ],
+    )
+    
+    # Check results
+    print(f"\n=== Quality Report ===")
+    print(f"Overall Score: {report.quality_score:.1f}/100")
+    print(f"Test Coverage: {report.average_coverage:.1f}%")
+    print(f"Tests: {sum(1 for t in report.test_results if t.passed)}/{len(report.test_results)} passed")
+    
+    # Issues by severity
+    for severity in QualitySeverity:
+        issues = report.get_issues_by_severity(severity)
+        if issues:
+            print(f"\n{severity.value.upper()} Issues ({len(issues)}):")
+            for issue in issues[:3]:  # Show first 3
+                print(f"  - {issue.description}")
+    
+    # Check for regressions
+    regressions = qc.detect_regression(report)
+    if regressions:
+        print(f"\n⚠️ REGRESSIONS DETECTED:")
+        for reg in regressions:
+            print(f"  - {reg['message']}")
+    
+    # Generate badge
+    if report.passed:
+        print(f"\n✅ Quality Gate PASSED")
+        print(f"Badge: {qc.generate_badge(report)}")
+    else:
+        print(f"\n❌ Quality Gate FAILED")
+
+asyncio.run(quality_pipeline())
+```
+
+### Recipe 10: Monitor & Trace a Run
 
 ```python
 import asyncio
@@ -674,11 +1066,11 @@ state = await orch.run_project(..., project_id="my-project-001")  # resumes
 
 **A:** Check this ranking (per 1M tokens input):
 1. Kimi K2.5: $0.14
-2. DeepSeek Chat: $0.27
-3. Gemini Flash: $0.15
-4. GPT-4o-mini: $0.15
+2. Gemini Flash: $0.15
+3. GPT-4o-mini: $0.15
+4. DeepSeek Coder: $0.27
 
-For fast execution with reasonable cost: DeepSeek Chat or Kimi K2.5.
+For fast execution with reasonable cost: DeepSeek Coder or Kimi K2.5.
 
 ---
 
@@ -771,6 +1163,98 @@ Build a real-time chat application with:
 description = "Build a chat app"
 ```
 
+### 8. Post-Project Analysis
+
+Automatically analyze completed projects and get improvement suggestions:
+
+```python
+import asyncio
+from orchestrator import Orchestrator, Budget
+from pathlib import Path
+
+async def analyze_after_completion():
+    orch = Orchestrator(budget=Budget(max_usd=5.0))
+    
+    # Run project with automatic analysis
+    state = await orch.run_project(
+        project_description="Build a Python CLI tool",
+        success_criteria="pytest passes, CLI works",
+        analyze_on_complete=True,
+        output_dir=Path("./results/cli_tool")
+    )
+    
+    # Analysis runs automatically and prints suggestions
+    # Output includes:
+    # - Quality score (0-100)
+    # - Test coverage
+    # - Improvement suggestions by priority
+    # - Architecture insights
+
+# Manual analysis
+from orchestrator import ProjectAnalyzer
+
+async def manual_analysis():
+    analyzer = ProjectAnalyzer()
+    report = await analyzer.analyze_project(
+        project_path=Path("./results/cli_tool"),
+        project_id="cli_tool_001"
+    )
+    
+    print(f"Quality Score: {report.quality_score:.1f}/100")
+    print(f"Test Coverage: {report.test_coverage:.1f}%")
+    
+    # Print top suggestions
+    for suggestion in report.suggestions[:3]:
+        print(f"[{suggestion.priority.value}] {suggestion.title}")
+        print(f"  Effort: {suggestion.estimated_effort}")
+        print(f"  {suggestion.description[:80]}...")
+
+asyncio.run(analyze_after_completion())
+```
+
+---
+
+## 🐛 Debugging & Troubleshooting
+
+Having issues? Check these resources:
+
+| Resource | Purpose |
+|----------|---------|
+| [DEBUGGING_OVERVIEW.md](./DEBUGGING_OVERVIEW.md) | Navigation to all debugging docs |
+| [DEBUGGING_GUIDE.md](./DEBUGGING_GUIDE.md) | Comprehensive debugging manual |
+| [TROUBLESHOOTING_CHEATSHEET.md](./TROUBLESHOOTING_CHEATSHEET.md) | Quick fixes for common errors |
+| [PROJECT_DEBUGGING.md](./PROJECT_DEBUGGING.md) | Debug generated projects |
+
+### Quick Diagnostic
+
+```python
+from orchestrator import SystemDiagnostic, print_diagnostic_report
+
+async def check():
+    diag = SystemDiagnostic()
+    report = await diag.run_full_check()
+    print_diagnostic_report(report)
+
+import asyncio
+asyncio.run(check())
+```
+
+### Common Commands
+
+```bash
+# Test environment
+python -c "from orchestrator import Orchestrator; print('✓ OK')"
+
+# Check API keys
+echo $OPENAI_API_KEY
+
+# View recent errors
+tail -50 logs/orchestrator.log | grep ERROR
+
+# Run full diagnostic
+python -m orchestrator.diagnostics
+```
+
 ---
 
 ## Next Steps
@@ -779,4 +1263,5 @@ description = "Build a chat app"
 - See **README.md** for architecture details
 - Check `projects/` directory for example YAML specs
 - Run tests: `pytest tests/`
+- Read [docs/debugging/DEBUGGING_GUIDE.md](./docs/debugging/DEBUGGING_GUIDE.md) for troubleshooting
 

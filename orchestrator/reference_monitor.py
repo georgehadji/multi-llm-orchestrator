@@ -53,7 +53,6 @@ _EU_SAFE_MODELS: frozenset[str] = frozenset({
 # Known US-based model name prefixes to block under eu_only
 _US_MODEL_PREFIXES: tuple[str, ...] = (
     "gpt-",
-    "claude-",
     "gemini-",
     "deepseek-",
     "kimi-",

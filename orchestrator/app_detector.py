@@ -185,7 +185,7 @@ class AppDetector:
         Make a single LLM classification call using the cheapest available model.
 
         Preference order (cheapest first):
-          gemini-2.5-flash → gpt-4o-mini → deepseek-chat → claude-haiku → any
+          gemini-2.5-flash → gpt-4o-mini → deepseek-coder → any
 
         The response must be a JSON object matching the detection schema.
         Isolated into its own method so tests can patch it cleanly.
@@ -197,8 +197,7 @@ class AppDetector:
         _PREFERENCE = [
             Model.GEMINI_FLASH,
             Model.GPT_4O_MINI,
-            Model.DEEPSEEK_CHAT,
-            Model.CLAUDE_HAIKU,
+            Model.DEEPSEEK_CODER,
         ]
         model = next((m for m in _PREFERENCE if client.is_available(m)), None)
         if model is None:

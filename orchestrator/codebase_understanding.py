@@ -15,7 +15,7 @@ from orchestrator.models import TaskType
 class CodebaseUnderstanding:
     """Analyze codebase semantically using LLM"""
 
-    def __init__(self, llm_provider: str = "deepseek"):
+    def __init__(self, llm_provider: str = "deepseek-coder"):
         self.analyzer = CodebaseAnalyzer()
         self.llm_provider = llm_provider
 
@@ -122,31 +122,41 @@ Return as JSON:
     async def _call_llm_async(self, prompt: str) -> Dict[str, Any]:
         """
         Call DeepSeek Reasoner for semantic analysis.
-        Uses orchestrator to route the analysis task.
+        Uses UnifiedClient directly for the analysis task.
         """
         try:
-            # Create minimal orchestrator for analysis task
-            orch = Orchestrator(budget=Budget(max_usd=1.0))
+            from .api_clients import UnifiedClient
+            from .models import Model
 
-            # Run analysis as a reasoning task
-            result = await orch.run_task(
-                task_type=TaskType.REASONING,
-                task_description=prompt,
-                expected_output_format="json",
+            client = UnifiedClient()
+            response = await client.call(
+                model=Model.DEEPSEEK_CODER,
+                prompt=prompt,
+                system="You are a code analysis expert. Analyze the codebase and return only valid JSON.",
+                max_tokens=2048,
+                temperature=0.2,
+                timeout=60,
             )
 
             # Parse JSON response
-            if result.score >= 0.75:
+            response_text = response.text
+            # Extract JSON from response (handle markdown fences)
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
                 try:
-                    response_text = result.output
-                    # Extract JSON from response
-                    json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                    if json_match:
-                        return json.loads(json_match.group())
+                    data = json.loads(json_match.group())
+                    # Validate required fields
+                    return {
+                        "purpose": data.get("purpose", "Unknown"),
+                        "patterns": data.get("patterns", []),
+                        "anti_patterns": data.get("anti_patterns", []),
+                        "test_coverage": data.get("test_coverage", "unknown"),
+                        "documentation": data.get("documentation", "unknown"),
+                    }
                 except (json.JSONDecodeError, AttributeError):
                     pass
 
-            # Fallback if LLM call fails
+            # Fallback if parsing fails
             return self._default_analysis()
 
         except Exception as e:

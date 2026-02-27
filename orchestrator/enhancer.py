@@ -50,7 +50,7 @@ def _select_enhance_model(description: str) -> Model:
     """Select the LLM model for enhancement suggestions based on description length.
     
     Uses DEEPSEEK_REASONER (o1-class) for longer descriptions (>50 words)
-    that may require deeper reasoning, and DEEPSEEK_CHAT (V3) for shorter
+    that may require deeper reasoning, and DEEPSEEK_CODER for shorter
     descriptions that are simpler to enhance.
     
     Parameters
@@ -61,12 +61,12 @@ def _select_enhance_model(description: str) -> Model:
     Returns
     -------
     Model
-        DEEPSEEK_REASONER if description has >50 words, DEEPSEEK_CHAT otherwise
+        DEEPSEEK_REASONER if description has >50 words, DEEPSEEK_CODER otherwise
     """
     word_count = len(description.split())
     if word_count > 50:
         return Model.DEEPSEEK_REASONER
-    return Model.DEEPSEEK_CHAT
+    return Model.DEEPSEEK_CODER
 
 
 def _parse_enhancements(llm_output: str) -> list[Enhancement]:

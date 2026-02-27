@@ -29,17 +29,29 @@ class TaskType(str, Enum):
 
 
 class Model(str, Enum):
-    CLAUDE_SONNET = "claude-sonnet-4-6"
-    CLAUDE_HAIKU = "claude-haiku-4-5-20251001"
+    # OpenAI models
     GPT_4O = "gpt-4o"
     GPT_4O_MINI = "gpt-4o-mini"
+    O4_MINI = "o4-mini"                       # OpenAI o4-mini — cost-effective reasoning
+    
+    # Google Gemini models
     GEMINI_PRO = "gemini-2.5-pro"
     GEMINI_FLASH = "gemini-2.5-flash"
+    GEMINI_FLASH_LITE = "gemini-2.5-flash-lite"  # Cheapest Gemini for simple tasks
+    
+    # Moonshot Kimi models
     KIMI_K2_5 = "kimi-k2.5"
-    MINIMAX_3 = "minimax-3"                  # Minimax-4 — efficient reasoning, cost-effective
-    ZAI_GLM = "zai-glm-4"                    # Zhipu GLM-4 — strong on general tasks, competitive pricing
-    DEEPSEEK_CHAT = "deepseek-chat"        # DeepSeek-V3 — fast, cheap, strong reasoning
-    DEEPSEEK_REASONER = "deepseek-reasoner"  # DeepSeek-R1 — o1-class reasoning model
+    
+    # MiniMax models
+    MINIMAX_TEXT_01 = "MiniMax-Text-01"       # MiniMax-Text-01 — efficient reasoning, cost-effective
+    
+    # Zhipu GLM models
+    GLM_4_PLUS = "glm-4-plus"                 # Zhipu GLM-4-Plus — enhanced general tasks
+    GLM_4_FLASH = "glm-4-flash"               # GLM-4-Flash — FREE tier model
+    
+    # DeepSeek models
+    DEEPSEEK_CODER = "deepseek-coder"         # DeepSeek-Coder — code-specialized model
+    DEEPSEEK_REASONER = "deepseek-reasoner"   # DeepSeek-R1 — o1-class reasoning model
 
 
 class ProjectStatus(str, Enum):
@@ -63,11 +75,18 @@ class TaskStatus(str, Enum):
 # Provider detection
 # ─────────────────────────────────────────────
 
+from functools import lru_cache
+
+@lru_cache(maxsize=128)
 def get_provider(model: Model) -> str:
+    """
+    Get provider name for a model.
+    
+    Uses LRU cache for O(1) repeated lookups.
+    Cache size 128 covers all current + future models.
+    """
     val = model.value
-    if val.startswith("claude"):
-        return "anthropic"
-    elif val.startswith("gpt"):
+    if val.startswith("gpt"):
         return "openai"
     elif val.startswith("gemini"):
         return "google"
@@ -87,21 +106,29 @@ def get_provider(model: Model) -> str:
 # ─────────────────────────────────────────────
 
 COST_TABLE: dict[Model, dict[str, float]] = {
-    Model.CLAUDE_SONNET:      {"input": 3.0,   "output": 15.0},
-    Model.CLAUDE_HAIKU:       {"input": 0.80,  "output": 4.0},
+    # OpenAI models
     Model.GPT_4O:             {"input": 2.50,  "output": 10.0},
     Model.GPT_4O_MINI:        {"input": 0.15,  "output": 0.60},
+    Model.O4_MINI:            {"input": 1.50,  "output": 6.00},  # OpenAI o4-mini
+    
+    # Google Gemini models
     Model.GEMINI_PRO:         {"input": 1.25,  "output": 10.0},
     Model.GEMINI_FLASH:       {"input": 0.15,  "output": 0.60},
-    # Kimi K2.5: moonshot.cn pricing (per 1M tokens)
-    Model.KIMI_K2_5:          {"input": 0.14,  "output": 0.56},
-    # Minimax-3: api.minimaxi.chat pricing (cost-effective reasoning)
-    Model.MINIMAX_3:          {"input": 0.50,  "output": 1.50},
-    # Z.ai GLM-4: open.bigmodel.cn pricing (competitive general purpose)
-    Model.ZAI_GLM:            {"input": 1.00,  "output": 3.50},
-    # DeepSeek: platform.deepseek.com pricing (per 1M tokens, cache-miss rates)
-    Model.DEEPSEEK_CHAT:      {"input": 0.27,  "output": 1.10},  # DeepSeek-V3
-    Model.DEEPSEEK_REASONER:  {"input": 0.55,  "output": 2.19},  # DeepSeek-R1
+    Model.GEMINI_FLASH_LITE:  {"input": 0.075, "output": 0.30},  # Cheapest Gemini
+    
+    # Moonshot Kimi models
+    Model.KIMI_K2_5:          {"input": 0.14,  "output": 0.56},  # Cheapest overall
+    
+    # MiniMax models
+    Model.MINIMAX_TEXT_01:    {"input": 0.50,  "output": 1.50},
+    
+    # Zhipu GLM models
+    Model.GLM_4_PLUS:         {"input": 0.50,  "output": 2.00},
+    Model.GLM_4_FLASH:        {"input": 0.00,  "output": 0.00},  # FREE tier
+    
+    # DeepSeek models (cache-miss rates)
+    Model.DEEPSEEK_CODER:     {"input": 0.27,  "output": 1.10},  # Best cost/performance
+    Model.DEEPSEEK_REASONER:  {"input": 0.55,  "output": 2.19},  # o1-class reasoning
 }
 
 
@@ -110,17 +137,66 @@ COST_TABLE: dict[Model, dict[str, float]] = {
 # ─────────────────────────────────────────────
 
 ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    # DeepSeek-V3 (deepseek-chat) is extremely cost-effective ($0.27/$1.10 per 1M)
-    # and strong on code/reasoning. DeepSeek-R1 (deepseek-reasoner) is o1-class.
-    # Kimi K2.5 is cheapest overall but slow; used as fallback for code tasks.
-    # Minimax-3 is cost-effective reasoning model; Z.ai GLM-4 is strong general purpose.
-    TaskType.CODE_GEN:     [Model.DEEPSEEK_CHAT, Model.MINIMAX_3, Model.KIMI_K2_5, Model.ZAI_GLM, Model.CLAUDE_SONNET, Model.GPT_4O],
-    TaskType.CODE_REVIEW:  [Model.DEEPSEEK_CHAT, Model.MINIMAX_3, Model.KIMI_K2_5, Model.GPT_4O],
-    TaskType.REASONING:    [Model.DEEPSEEK_REASONER, Model.MINIMAX_3, Model.CLAUDE_SONNET, Model.KIMI_K2_5, Model.GPT_4O],
-    TaskType.WRITING:      [Model.ZAI_GLM, Model.CLAUDE_SONNET, Model.GPT_4O, Model.DEEPSEEK_CHAT, Model.GEMINI_PRO],
-    TaskType.DATA_EXTRACT: [Model.GEMINI_FLASH, Model.GPT_4O_MINI, Model.DEEPSEEK_CHAT, Model.CLAUDE_HAIKU],
-    TaskType.SUMMARIZE:    [Model.GEMINI_FLASH, Model.DEEPSEEK_CHAT, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI],
-    TaskType.EVALUATE:     [Model.DEEPSEEK_CHAT, Model.MINIMAX_3, Model.KIMI_K2_5, Model.GPT_4O],
+    # OPTIMIZED 2025-02: Based on latest pricing and benchmarks
+    # 
+    # CODE_GEN: DeepSeek #1 (best cost/quality), GPT-4o as premium fallback
+    TaskType.CODE_GEN:     [
+        Model.DEEPSEEK_CODER,      # $0.27/$1.10 — best cost/performance for code
+        Model.GPT_4O,               # $2.50/$10 — premium quality fallback
+        Model.GPT_4O_MINI,          # $0.15/$0.60 — budget option
+        Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
+        Model.KIMI_K2_5,            # $0.14/$0.56 — cheapest but slow
+    ],
+    
+    # CODE_REVIEW: Similar to CODE_GEN but without expensive fallbacks
+    TaskType.CODE_REVIEW:  [
+        Model.DEEPSEEK_CODER,      # Best for code understanding
+        Model.GPT_4O,               # Premium quality
+        Model.GPT_4O_MINI,          # Fast & cheap
+        Model.GEMINI_FLASH,         # 1M context for large reviews
+    ],
+    
+    # REASONING: DeepSeek-R1 competes with o1 at 1/10th cost
+    TaskType.REASONING:    [
+        Model.DEEPSEEK_REASONER,    # $0.55/$2.19 — o1-class reasoning
+        Model.GPT_4O,               # $2.50/$10 — premium
+        Model.O4_MINI,              # $1.50/$6.00 — OpenAI reasoning
+        Model.GEMINI_PRO,           # $1.25/$10 — 1M context
+        Model.MINIMAX_TEXT_01,      # $0.50/$1.50 — alternative
+    ],
+    
+    # WRITING: GPT-4o leads, GLM-4-Flash as FREE fallback
+    TaskType.WRITING:      [
+        Model.GPT_4O,               # Best writing quality
+        Model.GEMINI_PRO,           # 1M context for long docs
+        Model.DEEPSEEK_CODER,       # Good & cheap
+        Model.GLM_4_FLASH,          # FREE — ultimate budget option
+    ],
+    
+    # DATA_EXTRACT: Gemini Flash-Lite cheapest, GLM-4-Flash FREE
+    TaskType.DATA_EXTRACT: [
+        Model.GEMINI_FLASH_LITE,    # $0.075/$0.30 — cheapest option
+        Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
+        Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
+        Model.GLM_4_FLASH,          # FREE — budget fallback
+        Model.DEEPSEEK_CODER,       # Accurate when needed
+    ],
+    
+    # SUMMARIZE: Same optimization as DATA_EXTRACT
+    TaskType.SUMMARIZE:    [
+        Model.GEMINI_FLASH_LITE,    # Cheapest
+        Model.GEMINI_FLASH,         # 1M context
+        Model.GPT_4O_MINI,          # Reliable
+        Model.GLM_4_FLASH,          # FREE
+    ],
+    
+    # EVALUATE: GPT-4o most reliable for evaluation tasks
+    TaskType.EVALUATE:     [
+        Model.GPT_4O,               # Most reliable evaluator
+        Model.DEEPSEEK_CODER,       # Good & cheap
+        Model.O4_MINI,              # Reasoning capabilities
+        Model.MINIMAX_TEXT_01,      # Alternative
+    ],
 }
 
 
@@ -129,17 +205,32 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
 # ─────────────────────────────────────────────
 
 FALLBACK_CHAIN: dict[Model, Model] = {
-    Model.CLAUDE_SONNET:      Model.DEEPSEEK_CHAT,      # Sonnet → DeepSeek-V3 (cross-provider)
-    Model.CLAUDE_HAIKU:       Model.GPT_4O_MINI,        # light tasks: stay in cheap tier
-    Model.GPT_4O:             Model.DEEPSEEK_CHAT,      # GPT-4o → DeepSeek-V3 (cross-provider)
-    Model.GPT_4O_MINI:        Model.GEMINI_FLASH,       # mini tasks: Gemini Flash as budget option
-    Model.GEMINI_PRO:         Model.DEEPSEEK_CHAT,      # Gemini Pro → DeepSeek-V3
-    Model.GEMINI_FLASH:       Model.GPT_4O_MINI,        # flash tasks: GPT-4o-mini as fallback
-    Model.KIMI_K2_5:          Model.DEEPSEEK_CHAT,      # Kimi → DeepSeek-V3
-    Model.MINIMAX_3:          Model.GPT_4O,             # Minimax → GPT-4o (cross-provider, similar tier)
-    Model.ZAI_GLM:            Model.CLAUDE_SONNET,      # Z.ai GLM → Sonnet (cross-provider general)
-    Model.DEEPSEEK_CHAT:      Model.CLAUDE_SONNET,      # DeepSeek-V3 → Sonnet (cross-provider)
-    Model.DEEPSEEK_REASONER:  Model.CLAUDE_SONNET,      # DeepSeek-R1 → Sonnet (cross-provider quality escalation)
+    # OPTIMIZED 2025-02: Cross-provider fallbacks for resilience
+    # Each fallback goes to a different provider to maximize availability
+    
+    # OpenAI fallbacks → DeepSeek (cost-effective, same quality tier)
+    Model.GPT_4O:              Model.DEEPSEEK_CODER,     # Premium → DeepSeek
+    Model.GPT_4O_MINI:         Model.GEMINI_FLASH,       # Budget → Gemini
+    Model.O4_MINI:             Model.DEEPSEEK_REASONER,  # Reasoning → DeepSeek-R1
+    
+    # Gemini fallbacks → OpenAI or DeepSeek
+    Model.GEMINI_PRO:          Model.GPT_4O,             # Pro → GPT-4o
+    Model.GEMINI_FLASH:        Model.GPT_4O_MINI,        # Flash → GPT-4o-mini
+    Model.GEMINI_FLASH_LITE:   Model.GLM_4_FLASH,        # Lite → FREE GLM-4-Flash
+    
+    # Kimi fallback → DeepSeek (both Chinese providers, but DeepSeek better)
+    Model.KIMI_K2_5:           Model.DEEPSEEK_CODER,     # Kimi → DeepSeek
+    
+    # MiniMax fallback → OpenAI
+    Model.MINIMAX_TEXT_01:     Model.GPT_4O,             # Minimax → GPT-4o
+    
+    # GLM fallbacks → OpenAI or Gemini
+    Model.GLM_4_PLUS:          Model.GEMINI_PRO,         # GLM+ → Gemini Pro
+    Model.GLM_4_FLASH:         Model.GEMINI_FLASH_LITE,  # FREE GLM → Cheapest Gemini
+    
+    # DeepSeek fallbacks → OpenAI (premium escalation)
+    Model.DEEPSEEK_CODER:      Model.GPT_4O,             # DeepSeek → GPT-4o
+    Model.DEEPSEEK_REASONER:   Model.O4_MINI,            # R1 → o4-mini (both reasoning)
 }
 
 

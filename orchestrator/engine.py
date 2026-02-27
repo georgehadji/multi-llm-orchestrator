@@ -90,6 +90,9 @@ class Orchestrator:
         # JobSpec.max_parallel_tasks overrides this via run_job().
         self._max_parallel_tasks: int = max(1, max_parallel_tasks)
 
+        # Post-project analysis flag
+        self._analyze_on_complete: bool = False
+
         # Circuit breaker counters — consecutive failures per model
         self._consecutive_failures: dict[Model, int] = {m: 0 for m in Model}
 
@@ -135,6 +138,93 @@ class Orchestrator:
         self._telemetry_store: TelemetryStore = (
             telemetry_store if telemetry_store is not None else TelemetryStore()
         )
+        # Track if we've been entered as a context manager
+        self._entered: bool = False
+
+    # ─────────────────────────────────────────
+    # Async Context Manager
+    # ─────────────────────────────────────────
+
+    async def __aenter__(self) -> "Orchestrator":
+        """
+        Enter async context manager.
+        
+        Ensures all resources are properly initialized and will be cleaned up
+        on exit. Use this pattern for guaranteed resource cleanup:
+        
+            async with Orchestrator() as orch:
+                result = await orch.run_project(...)
+        
+        Returns:
+            Self for use in async with statement
+        """
+        self._entered = True
+        logger.debug("Orchestrator entered as context manager")
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """
+        Exit async context manager, ensuring all resources are cleaned up.
+        
+        Cleanup order:
+        1. Flush any pending telemetry snapshots
+        2. Close cache connection
+        3. Close state manager connection
+        4. Flush audit log
+        
+        Exceptions during cleanup are logged but not raised to avoid masking
+        the original exception.
+        """
+        logger.debug("Orchestrator exiting context manager, cleaning up resources...")
+        
+        # 1. Flush telemetry if we have a project ID
+        if self._project_id:
+            try:
+                await self._flush_telemetry_snapshots(self._project_id)
+                logger.debug("Telemetry snapshots flushed")
+            except Exception as e:
+                logger.warning(f"Failed to flush telemetry snapshots: {e}")
+        
+        # 2. Close cache connection
+        try:
+            await self.cache.close()
+            logger.debug("Cache connection closed")
+        except Exception as e:
+            logger.warning(f"Failed to close cache connection: {e}")
+        
+        # 3. Close state manager connection
+        try:
+            await self.state_mgr.close()
+            logger.debug("State manager connection closed")
+        except Exception as e:
+            logger.warning(f"Failed to close state manager connection: {e}")
+        
+        # 4. Flush audit log if needed
+        try:
+            if hasattr(self._audit_log, 'flush'):
+                await self._audit_log.flush()
+                logger.debug("Audit log flushed")
+        except Exception as e:
+            logger.warning(f"Failed to flush audit log: {e}")
+        
+        # 5. Flush telemetry store
+        try:
+            await self._telemetry_store.flush()
+            logger.debug("Telemetry store flushed")
+        except Exception as e:
+            logger.warning(f"Failed to flush telemetry store: {e}")
+        
+        self._entered = False
+        logger.debug("Orchestrator cleanup complete")
+
+    async def close(self) -> None:
+        """
+        Explicitly close all resources.
+        
+        Called automatically when using async context manager (async with),
+        but can also be called explicitly for manual resource management.
+        """
+        await self.__aexit__(None, None, None)
 
     # ─────────────────────────────────────────
     # Persistent learning helpers
@@ -266,8 +356,20 @@ class Orchestrator:
     async def run_project(self, project_description: str,
                           success_criteria: str,
                           project_id: str = "",
-                          app_profile: Optional["AppProfile"] = None) -> ProjectState:
-        """Main entry point. Decomposes project → executes tasks → returns state."""
+                          app_profile: Optional["AppProfile"] = None,
+                          analyze_on_complete: bool = False,
+                          output_dir: Optional[Path] = None) -> ProjectState:
+        """
+        Main entry point. Decomposes project → executes tasks → returns state.
+        
+        Args:
+            project_description: What to build
+            success_criteria: How to verify success
+            project_id: Optional project identifier
+            app_profile: Optional application profile
+            analyze_on_complete: If True, run post-project analysis
+            output_dir: Directory containing project output (for analysis)
+        """
         tracer = get_tracer()
         with tracer.start_as_current_span("run_project") as span:
             span.set_attribute("project.description", project_description[:200])
@@ -339,6 +441,10 @@ class Orchestrator:
                         tasks_completed=completed_count,
                         tasks_failed=failed_count,
                     ))
+
+                # Post-project analysis and improvement suggestions
+                if analyze_on_complete and output_dir:
+                    await self._analyze_completed_project(state, output_dir)
 
                 return state
 
@@ -1690,3 +1796,66 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 f"cost=${result.cost_usd:.4f}"
             )
         logger.info("=" * 60)
+
+
+    async def _analyze_completed_project(self, state: ProjectState, output_dir: Path):
+        """
+        Analyze completed project and generate improvement suggestions.
+        
+        This runs automatically after project completion if _analyze_on_complete=True.
+        Results are stored in the Knowledge Base and printed to console.
+        """
+        try:
+            from .project_analyzer import ProjectAnalyzer
+            
+            logger.info("🔍 Running post-project analysis...")
+            
+            analyzer = ProjectAnalyzer()
+            report = await analyzer.analyze_project(
+                project_path=output_dir,
+                project_id=state.project_id,
+                run_quality_gate=True
+            )
+            
+            # Print summary
+            summary = analyzer.generate_summary(report)
+            logger.info("\n" + summary)
+            
+            # Save report to file
+            report_file = output_dir / "analysis_report.json"
+            with open(report_file, 'w', encoding='utf-8') as f:
+                json.dump(report.to_dict(), f, indent=2, default=str)
+            logger.info(f"📊 Analysis report saved to: {report_file}")
+            
+            # Print actionable suggestions
+            if report.suggestions:
+                print("\n" + "="*70)
+                print("💡 IMPROVEMENT SUGGESTIONS")
+                print("="*70)
+                
+                for suggestion in report.suggestions[:5]:  # Top 5
+                    priority_icon = {
+                        "critical": "🔴",
+                        "high": "🟠",
+                        "medium": "🟡",
+                        "low": "🔵"
+                    }.get(suggestion.priority.value, "⚪")
+                    
+                    print(f"\n{priority_icon} [{suggestion.priority.value.upper()}] {suggestion.title}")
+                    print(f"   Category: {suggestion.category.value}")
+                    print(f"   Effort: {suggestion.estimated_effort}")
+                    print(f"   Impact: {suggestion.expected_impact}")
+                    print(f"   {suggestion.description[:100]}...")
+                    
+                    if suggestion.code_example:
+                        print(f"\n   Example:")
+                        for line in suggestion.code_example.strip().split('\n')[:3]:
+                            print(f"     {line}")
+                
+                print("\n" + "="*70)
+                print(f"💾 {len(report.suggestions)} suggestions stored in Knowledge Base")
+                print("="*70)
+            
+        except Exception as e:
+            logger.warning(f"Project analysis failed: {e}")
+            # Don't fail the project if analysis fails

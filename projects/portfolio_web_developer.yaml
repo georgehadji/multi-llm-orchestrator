@@ -1,0 +1,85 @@
+# ──────────────────────────────────────────────────────
+# Portfolio: Full-Stack Web Developer
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/portfolio_web_developer.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a professional portfolio website for a full-stack web developer using
+  Next.js 14 (App Router), TypeScript, and Tailwind CSS.
+
+  The portfolio must showcase both frontend and backend capabilities:
+
+  1. Hero section
+     - Name, headline ("Full-Stack Web Developer"), animated role tagline
+     - CTA buttons: "View Projects" (smooth scroll) and "Download CV" (PDF link)
+     - Subtle particle or gradient animated background (pure CSS, no canvas lib)
+
+  2. Tech Stack section
+     - Two columns: Frontend (React, Next.js, TypeScript, Tailwind, Redux) and
+       Backend (Node.js, Express, PostgreSQL, Redis, Docker, REST/GraphQL)
+     - Each skill shown as a pill/badge with a proficiency bar (CSS only)
+
+  3. Projects section — 6 featured projects with:
+     - Thumbnail placeholder (gradient colored by project type)
+     - Title, short description (2–3 sentences), tech stack tags
+     - "Live Demo" and "GitHub" buttons
+     - Filter tabs: All | Frontend | Backend | Full-Stack
+     - Masonry or CSS grid layout, animated card hover (lift + shadow)
+
+  4. Experience & Education timeline
+     - Vertical timeline component, alternating left/right on desktop
+     - Each node: company/institution, role, date range, 3–4 bullet achievements
+     - Include 2 work entries and 1 education entry as realistic placeholders
+
+  5. Open Source / GitHub Activity section
+     - GitHub contribution heatmap (static SVG approximation, hardcoded data)
+     - 3 pinned repos as cards: name, description, stars, language badge
+
+  6. Testimonials section
+     - 3 quote cards with avatar placeholder, name, role, company
+
+  7. Contact section
+     - Email, GitHub, LinkedIn, Twitter icons with hover color transitions
+     - Contact form: name, email, subject, message — client-side validation,
+       success/error toast on mock submit (no backend needed)
+
+  8. Sticky header with glass-morphism blur, mobile hamburger menu
+  9. Footer: copyright, quick links, social icons
+  10. Dark / light mode toggle (localStorage persisted, system preference default)
+  11. SEO: <title>, <meta description>, Open Graph tags in layout.tsx
+  12. Fully static export (next export) — deployable to Vercel / GitHub Pages
+
+  Deliver:
+  - Complete file tree in a code block listing all files
+  - Full source code for every component, page, and config file
+  - package.json, tsconfig.json, tailwind.config.ts, next.config.ts
+  - A /public/cv-placeholder.pdf note (just a README explaining placement)
+
+criteria: |
+  - Project filter tabs correctly show/hide cards by category
+  - Dark/light mode persists on page reload
+  - Contact form validates all fields and shows toast feedback
+  - Smooth scroll works for all nav links
+  - Mobile hamburger menu opens/closes correctly
+  - `next build && next export` completes without TypeScript or lint errors
+  - Lighthouse performance score guidance notes included in README
+  - All components have proper TypeScript types (no `any`)
+  - No external icon libraries — use inline SVGs or Heroicons via npm only
+
+budget_usd: 5.0
+time_seconds: 4800
+concurrency: 3
+project_id: "portfolio-web-developer-v1"
+output_dir: "./outputs/portfolio_web_developer"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.75
+  complex_reasoning: 0.88
+  evaluation:        0.80
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

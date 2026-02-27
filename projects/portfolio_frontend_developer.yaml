@@ -1,0 +1,123 @@
+# ──────────────────────────────────────────────────────
+# Portfolio: Front-End Web Developer
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/portfolio_frontend_developer.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a portfolio website for a front-end web developer with a strong focus
+  on performance, modern tooling, and React expertise.
+  Stack: React 18 + Vite, TypeScript, styled-components (CSS-in-JS),
+  React Query for data, Vitest + React Testing Library for tests.
+
+  The portfolio must demonstrate technical depth through working code demos
+  embedded directly in the page — not screenshots, but live interactive widgets.
+
+  Design language: developer-meets-designer; dark terminal aesthetic mixed with
+  clean card layouts. Colors: #0A0E1A dark navy, #64FFDA mint accent, #CCD6F6
+  text, monospace font for code elements, sans-serif for prose.
+
+  1. Hero
+     - Terminal-style animated intro: lines of text appear as if being typed
+       (simulate "npm create portfolio", then ASCII art name, then role)
+     - Blinking cursor after last line
+     - Two CTA buttons: "See My Work" and "Open GitHub" (styled as terminal
+       commands: `$ view-projects` and `$ github --open`)
+
+  2. Stats Bar (full-width strip)
+     - Animated counters: 3+ years experience, 40+ projects shipped,
+       15+ open-source contributions, 99 Lighthouse score (personal site)
+     - Counts animate up from 0 when strip enters viewport
+
+  3. Live Code Demos section — 3 embedded demos
+     Each demo has a title, description, and a live rendered output side by side
+     with a syntax-highlighted read-only code snippet:
+     - Demo A: Custom useFetch hook — shows a simulated API call with loading/
+       error/success states cycling every 3 s (mock data, no real fetch)
+     - Demo B: Virtualized List — renders 10,000 rows smoothly with a simple
+       windowing implementation; shows row count and scroll FPS counter
+     - Demo C: Form with Zod validation — name, email, password fields;
+       real-time inline error messages; submit logs to console
+
+  4. Projects section — 6 projects
+     - Card layout: project image placeholder (gradient), title, description,
+       tech stack tags, GitHub + Live Demo links
+     - Each card has a performance badge: e.g. "Lighthouse 97 · Bundle 42 kB"
+     - Filter: All | React | Vue | Vanilla JS | Testing
+     - Cards animate in with a staggered fade-up on first render
+
+  5. Open Source Contributions
+     - 4 contribution cards: repo name (e.g. "facebook/react"), PR title,
+       status badge (Merged / Open), description of the contribution,
+       link button
+     - Section header: "I don't just use open source — I contribute to it"
+
+  6. Performance & Quality section
+     - Horizontal bar chart (pure CSS, no chart library) comparing:
+       * Core Web Vitals: LCP, FID, CLS scores for this portfolio itself
+       * Above vs below the fold loading strategy explanation
+     - Short written section on bundle optimization techniques used:
+       code splitting, tree shaking, lazy loading, image optimization
+
+  7. Tech Toolbelt
+     - Two-column grid: Core (React, TypeScript, Vite, Webpack, Next.js,
+       HTML5, CSS3, Sass) and Ecosystem (React Query, Zustand, Redux Toolkit,
+       Framer Motion, Storybook, Vitest, Playwright, ESLint, Prettier)
+     - Each item as a small card with icon placeholder (colored initial letter)
+       and a "years used" label
+
+  8. Experience timeline — 3 roles, realistic placeholder content
+     - Senior Front-End Developer, Mid-level, Junior
+     - Each: company, dates, tech stack used, 3 key achievements
+
+  9. Blog / Articles preview — 3 articles
+     - "Why I moved from Create React App to Vite"
+     - "Testing React components without implementation details"
+     - "CSS-in-JS vs CSS Modules in 2025: a pragmatic comparison"
+     - Each: title, excerpt, tags, read time, date
+
+  10. Contact
+      - Email, GitHub, LinkedIn, Twitter, Dev.to icons
+      - "Currently open to: Full-time roles · Contract work · OSS collaboration"
+      - Contact form with React Hook Form + Zod validation; mock submission
+
+  11. Header: fixed, scroll-aware (thin border appears after 50px scroll),
+      active link highlighting via IntersectionObserver
+  12. Footer: tech stack used to build the site, with commit hash placeholder
+
+  Deliver:
+  - Full Vite + React project structure
+  - All component source files with full TypeScript typings
+  - At least one Vitest test per live demo component
+  - package.json, tsconfig.json, vite.config.ts
+  - README with `npm install && npm run dev` instructions
+
+criteria: |
+  - Terminal typing animation completes correctly and cursor blinks
+  - All 3 live code demos render and behave correctly without errors
+  - Virtualized list renders 10,000 rows without freezing the page
+  - Zod form validation shows inline errors in real time
+  - Project filter correctly shows/hides cards
+  - Animated counters reach correct target values
+  - All Vitest tests pass with `npm run test`
+  - `npm run build` completes without TypeScript or lint errors
+  - No console errors on page load or during interactions
+  - Responsive at 375 px and 1440 px
+  - All interactive elements are keyboard accessible
+
+budget_usd: 5.0
+time_seconds: 4800
+concurrency: 3
+project_id: "portfolio-frontend-developer-v1"
+output_dir: "./outputs/portfolio_frontend_developer"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.75
+  complex_reasoning: 0.88
+  evaluation:        0.80
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

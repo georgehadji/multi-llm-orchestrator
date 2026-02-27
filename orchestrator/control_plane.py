@@ -172,7 +172,7 @@ class ControlPlane:
         Current implementation:
         - eu_only constraint → restrict all tasks to EU-safe models
         - SLA max_cost_usd → prefer cheap models (Gemini Flash, GPT-4o-mini)
-        - SLA min_quality_tier > 0.95 → require high-quality models (Claude Opus, GPT-4o)
+        - SLA min_quality_tier > 0.95 → require high-quality models (GPT-4o, DeepSeek-Reasoner)
         """
         plan = RoutingPlan()
         notes = plan.notes

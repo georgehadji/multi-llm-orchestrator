@@ -1,0 +1,301 @@
+# ──────────────────────────────────────────────────────
+# Cinematic WebGL Portfolio Framework — Reusable Engine
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Purpose: Create reusable high-end WebGL experience system
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a reusable cinematic WebGL portfolio framework using React, TypeScript,
+  Three.js, React Three Fiber, GLSL, GSAP, and Web Audio API.
+
+  The system must function as a modular WebGL experience engine capable of powering
+  multiple high-end portfolio websites, music artist sites, and luxury brand experiences.
+
+  This is NOT a single website. It is a reusable architecture.
+
+  Core design principles:
+  - modular
+  - reusable
+  - cinematic
+  - GPU efficient
+  - production-grade
+  - scalable
+
+  Visual style default preset:
+  dark, minimal, futuristic, techno aesthetic.
+
+  ─────────────────────────
+  1. Core Engine Architecture
+  ─────────────────────────
+
+  Create a centralized Experience Engine:
+
+  src/engine/
+
+    Engine.ts
+      - initializes renderer, scene, camera
+      - manages lifecycle
+
+    Renderer.ts
+      - WebGLRenderer creation
+      - adaptive DPR scaling
+      - resize handling
+
+    CameraRig.ts
+      - cinematic camera system
+      - supports:
+        idle motion
+        scroll motion
+        GSAP animation control
+        section transitions
+
+    SceneManager.ts
+      - manages active scenes
+      - supports scene transitions
+      - supports scene mounting/unmounting
+
+    ResourceManager.ts
+      - manages loading and caching:
+        textures
+        models
+        audio
+
+    PerformanceManager.ts
+      - monitors FPS
+      - dynamically adjusts quality
+
+
+  ─────────────────────────
+  2. Shader System (Reusable)
+  ─────────────────────────
+
+  Create centralized shader library:
+
+  src/shaders/
+
+    noise.glsl
+    fbm.glsl
+    simplex3d.glsl
+    rotate.glsl
+
+    effects/
+      distortion.glsl
+      chromaticAberration.glsl
+      glow.glsl
+      holographic.glsl
+
+  Create ShaderMaterial factory:
+
+  src/engine/shaderFactory.ts
+
+  Allows creation of shader materials with standardized uniforms:
+
+    uniforms:
+      uTime
+      uMouse
+      uResolution
+      uAudioStrength
+
+
+  ─────────────────────────
+  3. Audio Reactive Engine
+  ─────────────────────────
+
+  src/audio/
+
+    AudioEngine.ts
+      - initializes AudioContext
+      - creates analyzer node
+      - exposes frequency data
+
+    useAudio.ts
+      React hook providing:
+
+        bass
+        mid
+        treble
+        average
+
+
+  ─────────────────────────
+  4. Camera System
+  ─────────────────────────
+
+  CameraRig supports:
+
+  - scroll controlled movement
+  - GSAP animated transitions
+  - procedural idle motion
+  - focus targeting on objects
+
+  Must expose API:
+
+    cameraRig.moveTo(position, lookAt, duration)
+
+    cameraRig.idle(enable)
+
+
+  ─────────────────────────
+  5. Scene System
+  ─────────────────────────
+
+  Scene interface:
+
+    interface SceneModule {
+
+      init()
+
+      update(deltaTime)
+
+      destroy()
+
+    }
+
+  Create example scenes:
+
+  src/scenes/
+
+    TunnelScene/
+      particle tunnel using instancing
+
+    VisualizerScene/
+      audio reactive particle system
+
+    IdentityScene/
+      floating 3D logo
+
+
+  ─────────────────────────
+  6. Particle System Engine
+  ─────────────────────────
+
+  src/engine/particles/
+
+    ParticleSystem.ts
+
+  Supports:
+
+  - instancing
+  - GPU animation via shader
+  - audio reactive behavior
+
+
+  ─────────────────────────
+  7. Post Processing Pipeline
+  ─────────────────────────
+
+  src/postprocessing/
+
+    PostProcessingPipeline.ts
+
+  Includes:
+
+    bloom
+    chromatic aberration
+    noise
+    vignette
+
+  Adjustable quality levels.
+
+
+  ─────────────────────────
+  8. Interaction Engine
+  ─────────────────────────
+
+  src/interaction/
+
+    RaycastManager.ts
+
+  Handles:
+
+    hover
+    click
+    focus transitions
+
+
+  ─────────────────────────
+  9. React Integration Layer
+  ─────────────────────────
+
+  src/experience/
+
+    Experience.tsx
+      wraps engine
+
+    ExperienceContext.ts
+
+    CanvasRoot.tsx
+
+
+  ─────────────────────────
+  10. Example Implementation
+  ─────────────────────────
+
+  Build example techno DJ portfolio using the engine.
+
+  Scenes:
+
+    TunnelScene → hero
+    VisualizerScene → music
+    IdentityScene → artist identity
+
+  Includes:
+
+    working audio reactive visuals
+    cinematic transitions
+
+
+  ─────────────────────────
+  11. Performance Requirements
+  ─────────────────────────
+
+  Must maintain:
+
+  ≥60 FPS desktop
+  ≥30 FPS laptop
+
+  Must use:
+
+  InstancedMesh
+  optimized shaders
+  lazy loading
+
+
+  ─────────────────────────
+  Deliver complete project including:
+
+  full folder structure
+  all shader files
+  engine modules
+  reusable components
+  example implementation
+  package.json
+  Vite config
+  TypeScript config
+
+criteria: |
+  - Engine supports multiple scenes
+  - Scenes can be dynamically loaded/unloaded
+  - Audio reactive system functions correctly
+  - Camera transitions smooth
+  - Shader system reusable
+  - No memory leaks
+  - No TypeScript errors
+  - Stable WebGL context
+
+output_dir: "./outputs/cinematic_webgl_framework"
+
+project_id: "cinematic-webgl-framework-v1"
+
+quality_targets:
+  code_generation:   0.95
+  code_review:       0.90
+  complex_reasoning: 0.95
+  evaluation:        0.90
+
+time_seconds: 10800
+concurrency: 3
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

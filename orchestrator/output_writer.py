@@ -11,10 +11,23 @@ Directory layout:
     ├── task_003_data_extraction.json  # data tasks  → .json (fallback .md)
     ...
     ├── app/                           # extracted multi-file code (if detected)
-    │   ├── src/App.tsx
-    │   ├── src/store/appStore.ts
-    │   └── ...
-    ├── summary.json                   # full machine-readable results
+    ├── src/                           # production-ready project structure
+    │   └── <package_name>/
+    │       ├── domain/                # business logic
+    │       ├── application/           # use cases
+    │       ├── infrastructure/        # external services
+    │       ├── config.py              # pydantic settings
+    │       ├── exceptions.py          # exception hierarchy
+    │       └── logging.py             # structured logging
+    ├── tests/                         # test suite
+    ├── docs/                          # documentation
+    ├── main.py                        # CLI entry point
+    ├── pyproject.toml                 # modern Python packaging
+    ├── Makefile                       # development tasks
+    ├── Dockerfile                     # multi-stage container build
+    ├── .github/workflows/ci.yml       # CI/CD pipeline
+    ├── .env.example                   # configuration template
+    ├── summary.json                   # machine-readable results
     └── README.md                      # human-readable summary
 
 Called from cli.py after run_project() returns.
@@ -23,6 +36,11 @@ Improvement 7 — Code Extractor:
     When a task output contains multiple named code blocks (e.g. **src/App.tsx**
     followed by a fenced block), extract each file and write it to output_dir/app/.
     This turns "here is all the code" LLM prose into a runnable project structure.
+
+Improvement 10 — Project Assembler:
+    Automatically generates main.py entry point, config.py, pyproject.toml, Makefile
+    and other files to create a runnable, integrated project from task files.
+    Uses AST-based dependency detection for accurate import extraction.
 """
 from __future__ import annotations
 
@@ -131,6 +149,7 @@ def write_extracted_files(
         logger.debug("Extracted: %s (%d chars)", rel_path, len(content))
     return written
 
+
 # ── Extension mapping per TaskType ───────────────────────────────────────────
 _EXT: dict[TaskType, str] = {
     TaskType.CODE_GEN:     ".py",
@@ -202,6 +221,15 @@ def write_output_dir(
 
     _write_summary_json(state, out, file_map, project_id)
     _write_readme(state, out, file_map, project_id, extracted_count=len(extracted_total))
+
+    # Improvement 10: Generate integrated project files using ProjectAssembler
+    try:
+        from .project_assembler import ProjectAssembler
+        assembler = ProjectAssembler(out, state)
+        created_files = assembler.assemble()
+        logger.info("Project Assembler: created %d integrated files", len(created_files))
+    except Exception as e:
+        logger.warning(f"Project Assembler failed: {e}. Continuing with task files only.")
 
     resolved = out.resolve()
     logger.info(f"Output written to: {resolved}")
@@ -393,7 +421,7 @@ def _write_summary_json(
                     "model_used": a.model_used,
                     "output_snippet": a.output_snippet,
                     "failure_reason": a.failure_reason,
-                    "validators_failed": a.validators_failed,
+                    "validators_failed": a.validifiers_failed,
                 }
                 for a in result.attempt_history
             ],
@@ -513,6 +541,100 @@ def _write_readme(
     lines += [
         "- `summary.json` — Full machine-readable results (includes raw outputs)",
         "- `README.md` — This file",
+        "",
+        "## Integrated Project Structure",
+        "",
+        "This is a **production-ready Python project** with modern tooling and best practices:",
+        "",
+        "### Directory Structure",
+        "",
+        "```",
+        f"{project_id or 'project'}/",
+        "├── src/                          # Source code",
+        f"│   └── {project_id or 'package'}/",
+        "│       ├── domain/               # Business logic (pure, no deps)",
+        "│       ├── application/          # Use cases and orchestration",
+        "│       ├── infrastructure/       # External services, I/O",
+        "│       ├── config.py             # Pydantic Settings",
+        "│       ├── exceptions.py         # Exception hierarchy",
+        "│       └── logging.py            # Structured logging",
+        "├── tests/                        # Test suite",
+        "│   ├── unit/                     # Unit tests",
+        "│   ├── integration/              # Integration tests",
+        "│   └── fixtures/                 # Test data",
+        "├── docs/                         # Documentation",
+        "│   └── adr/                      # Architecture Decision Records",
+        "├── scripts/                      # Utility scripts",
+        "├── main.py                       # CLI entry point",
+        "├── pyproject.toml                # Python packaging & tools",
+        "├── Makefile                      # Common tasks",
+        "├── Dockerfile                    # Multi-stage container build",
+        "├── .github/workflows/ci.yml      # CI/CD pipeline",
+        "├── .pre-commit-config.yaml       # Git hooks",
+        "├── .env.example                  # Configuration template",
+        "└── README.md                     # This file",
+        "```",
+        "",
+        "### Quick Start",
+        "",
+        "```bash",
+        "# 1. Install dependencies",
+        "pip install -e '.[dev]'",
+        "",
+        "# 2. Copy and configure environment",
+        "cp .env.example .env",
+        "# Edit .env with your settings",
+        "",
+        "# 3. Run the pipeline",
+        "make run              # or: python main.py",
+        "",
+        "# 4. Run tests",
+        "make test             # or: pytest",
+        "",
+        "# 5. Check code quality",
+        "make ci               # Run all CI checks",
+        "```",
+        "",
+        "### CLI Commands",
+        "",
+        "```bash",
+        "python main.py              # Run all pipeline steps",
+        "python main.py --list       # Show available steps",
+        "python main.py --step 1     # Run specific step",
+        "python main.py --dry-run    # Preview without executing",
+        "python main.py --health     # Health check",
+        "```",
+        "",
+        "### Development Commands",
+        "",
+        "```bash",
+        "make install-dev      # Install with dev dependencies",
+        "make test             # Run tests with coverage",
+        "make lint             # Run linters (ruff)",
+        "make format           # Format code (black)",
+        "make type-check       # Type check (mypy)",
+        "make security-check   # Security scan (bandit)",
+        "make clean            # Clean build artifacts",
+        "make docker-build     # Build Docker image",
+        "```",
+        "",
+        "### Code Quality Standards",
+        "",
+        "- **Type hints**: All functions have type annotations",
+        "- **MyPy**: Strict mode type checking",
+        "- **Ruff**: Fast Python linting",
+        "- **Black**: Code formatting (line length: 100)",
+        "- **Pre-commit**: Automated checks on git commit",
+        "- **Coverage**: Minimum 80% test coverage",
+        "",
+        "### CI/CD Pipeline",
+        "",
+        "The GitHub Actions workflow runs:",
+        "1. Lint and type check",
+        "2. Security scan (bandit)",
+        "3. Test suite (Python 3.10, 3.11, 3.12)",
+        "4. Docker build (on main branch)",
+        "5. PyPI publish (on release)",
         "",
     ]
 

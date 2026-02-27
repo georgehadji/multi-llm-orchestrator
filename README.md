@@ -25,11 +25,8 @@ Set API keys for providers you'll use (at least one required):
 # OpenAI (GPT-4o, GPT-4o-mini)
 export OPENAI_API_KEY="sk-..."
 
-# DeepSeek (Chat V3, Reasoner R1) — RECOMMENDED
+# DeepSeek (Coder, Reasoner R1) — RECOMMENDED
 export DEEPSEEK_API_KEY="sk-..."
-
-# Anthropic (Claude 3.5 Sonnet, Haiku)
-export ANTHROPIC_API_KEY="sk-ant-..."
 
 # Google (Gemini 2.5 Pro, Flash)
 export GOOGLE_API_KEY="AIzaSy..."
@@ -45,7 +42,7 @@ export MOONSHOT_API_KEY="sk-..."
 export MINIMAX_API_KEY="..."
 
 # Zhipu (GLM-4)
-export ZHIPU_API_KEY="..."
+export ZHIPUAI_API_KEY="..."
 
 # Optional: OpenTelemetry tracing
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
@@ -59,7 +56,7 @@ Or create `.env` file:
 cat > .env << 'EOF'
 DEEPSEEK_API_KEY=sk-...
 OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=AIzaSy...
 EOF
 
 source .env
@@ -78,17 +75,98 @@ Output saved to `./results/`
 
 ---
 
+## Development Setup
+
+### Prerequisites
+
+- Python 3.10+
+- Make (optional, for convenience commands)
+- Docker (optional, for containerized runs)
+
+### Install for Development
+
+```bash
+# Clone repository
+git clone https://github.com/gchatz22/multi-llm-orchestrator.git
+cd multi-llm-orchestrator
+
+# Install with all development dependencies
+make install-dev
+# Or: pip install -e ".[dev,security,tracing]"
+
+# Set up pre-commit hooks
+pre-commit install
+```
+
+### Development Commands
+
+```bash
+# Run tests
+make test              # All tests with coverage
+make test-unit         # Unit tests only
+make test-integration  # Integration tests only
+
+# Code quality
+make lint              # Run ruff linter
+make format            # Format with black
+make type-check        # Type check with mypy
+make security-check    # Security scan with bandit
+
+# Run all CI checks locally
+make ci
+```
+
+### Project Structure
+
+```
+├── orchestrator/          # Main package
+│   ├── domain/           # Business logic (models, policies)
+│   ├── infrastructure/   # External services (API clients, cache)
+│   ├── exceptions.py     # Exception hierarchy
+│   └── logging.py        # Structured logging
+├── tests/                # Test suite
+│   ├── unit/            # Unit tests
+│   └── integration/     # Integration tests
+├── docs/                 # Documentation
+├── pyproject.toml        # Package config & tool settings
+├── Makefile             # Development commands
+└── Dockerfile           # Multi-stage container build
+```
+
+### Environment Configuration
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+### Docker
+
+```bash
+# Build image
+make docker-build
+
+# Run container
+make docker-run
+
+# Run tests in container
+make docker-test
+```
+
+---
+
 ## Providers & Models
 
 | Provider | Models | Cost (per 1M tokens input) |
 |----------|--------|--------------------------|
-| **DeepSeek** | Chat (V3), Reasoner (R1) | $0.27–$0.55 ⭐ |
+| **DeepSeek** | Coder, Reasoner (R1) | $0.27–$0.55 ⭐ |
 | **Kimi** | K2.5 (8K/32K/128K) | $0.14 |
 | **Minimax** | Minimax-3 (frontier reasoning) | $0.50 |
-| **Zhipu** | GLM-4 (general purpose) | $1.00 |
+| **Zhipu** | GLM-4 Plus (general purpose) | $0.50 |
 | **OpenAI** | GPT-4o, GPT-4o-mini | $0.15–$2.50 |
 | **Google** | Gemini 2.5 Pro, Flash | $0.15–$1.25 |
-| **Anthropic** | Claude 3.5 Sonnet, Haiku | $0.80–$3.00 |
 
 ---
 
@@ -101,6 +179,35 @@ Output saved to `./results/`
 - **Resume:** Auto-detect similar projects, resumable by project ID
 - **Policy Control:** HARD/SOFT/MONITOR enforcement for compliance
 - **Observability:** OpenTelemetry tracing, real-time telemetry, event hooks
+
+### 🆕 v5.1 Management Systems
+
+Enterprise-grade management suite for large-scale operations:
+
+| System | Key Features |
+|--------|-------------|
+| **Knowledge Management** | Semantic search, pattern recognition, auto-learning from projects |
+| **Project Management** | Critical path analysis, resource scheduling, risk assessment |
+| **Product Management** | RICE prioritization, feature flags, sentiment analysis |
+| **Quality Control** | Multi-level testing, static analysis, compliance gates |
+| **Project Analyzer** | Automatic post-project analysis & improvement suggestions |
+| **Real-Time Dashboard** | Live metrics from orchestrator telemetry |
+
+### 🆕 v5.0 Performance Optimization
+
+Production-ready performance enhancements:
+
+| Feature | Benefit |
+|---------|---------|
+| **Dual-Layer Caching** | Redis + LRU fallback, sub-millisecond hits |
+| **Dashboard v5.0** | 5x faster load, <100ms FCP, gzip compression |
+| **Connection Pooling** | Bounded resource management |
+| **KPI Monitoring** | Real-time performance tracking with alerts |
+
+**Performance Targets:**
+- First Contentful Paint: <100ms
+- Cache Hit Rate: >85%
+- P95 Response Time: <300ms
 
 ---
 
@@ -139,9 +246,26 @@ python -m orchestrator \
   --no-enhance --new-project
 ```
 
+### 5. Launch Mission Control Dashboard
+
+```bash
+# Run real-time dashboard with live data
+python run_dashboard_realtime.py --port 8888
+
+# Run optimized dashboard
+python run_optimized_dashboard.py --port 8888
+
+# Or with Redis caching
+python run_optimized_dashboard.py --redis-host localhost --port 8888
+
+# View at http://localhost:8888
+```
+
 ---
 
 ## Python API
+
+### Basic Usage
 
 ```python
 import asyncio
@@ -163,12 +287,67 @@ async def main():
 asyncio.run(main())
 ```
 
+### Management Systems API
+
+```python
+from orchestrator import (
+    get_knowledge_base, get_project_manager,
+    get_product_manager, get_quality_controller,
+    KnowledgeType, RICEScore, FeaturePriority, TestLevel
+)
+
+# Knowledge Management
+kb = get_knowledge_base()
+await kb.add_artifact(
+    type=KnowledgeType.SOLUTION,
+    title="Race condition fix",
+    content="Use asyncio.Lock()...",
+    tags=["async", "python"],
+)
+similar = await kb.find_similar("async race condition")
+
+# Project Management
+pm = get_project_manager()
+timeline = await pm.create_schedule(
+    project_id="my_project",
+    tasks=tasks,
+    resources=resources,
+)
+print(f"Critical path: {timeline.critical_path}")
+
+# Product Management
+pm = get_product_manager()
+feature = await pm.add_feature(
+    name="AI Assistant",
+    rice_score=RICEScore(500, 3, 80, 2),  # Score = 600
+    priority=FeaturePriority.P0_CRITICAL,
+)
+backlog = pm.get_prioritized_backlog(limit=10)
+
+# Quality Control
+qc = get_quality_controller()
+report = await qc.run_quality_gate(
+    project_path=Path("."),
+    levels=[TestLevel.UNIT, TestLevel.PERFORMANCE],
+)
+print(f"Quality Score: {report.quality_score:.1f}/100")
+```
+
 ---
 
 ## Documentation
 
+### Main Documentation
 - **[USAGE_GUIDE.md](./USAGE_GUIDE.md)** — CLI reference, Python API examples, best practices
 - **[CAPABILITIES.md](./CAPABILITIES.md)** — Feature deep-dive, architecture details, advanced recipes
+
+### Debugging & Troubleshooting
+- **[docs/debugging/DEBUGGING_GUIDE.md](./docs/debugging/DEBUGGING_GUIDE.md)** — Comprehensive debugging manual
+- **[docs/debugging/TROUBLESHOOTING_CHEATSHEET.md](./docs/debugging/TROUBLESHOOTING_CHEATSHEET.md)** — Quick fixes
+
+### Performance & Management
+- **[docs/performance/PERFORMANCE_OPTIMIZATION.md](./docs/performance/PERFORMANCE_OPTIMIZATION.md)** — Performance optimization
+- **[docs/performance/MANAGEMENT_SYSTEMS.md](./docs/performance/MANAGEMENT_SYSTEMS.md)** — Management systems guide
 
 ---
 
@@ -210,11 +389,10 @@ All configuration can be set via environment variables or Python API:
 # Required: at least one provider key
 export OPENAI_API_KEY="sk-..."
 export DEEPSEEK_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
 export GOOGLE_API_KEY="AIzaSy..."
 export KIMI_API_KEY="sk-..."
 export MINIMAX_API_KEY="..."
-export ZHIPU_API_KEY="..."
+export ZHIPU_API_KEY="...":
 
 # Optional
 export ORCHESTRATOR_CACHE_DIR="~/.orchestrator_cache"

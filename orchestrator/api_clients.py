@@ -1,6 +1,6 @@
 """
-API Clients — Unified interface for OpenAI, Anthropic, Google
-=============================================================
+API Clients — Unified interface for OpenAI, Google, Kimi, DeepSeek, Minimax, Zhipu
+=================================================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis
 Each provider has its own SDK idiom. This module normalizes them
 into a single async call_model() interface.
@@ -9,6 +9,14 @@ FIX #2: Google client uses asyncio.to_thread() (Python 3.9+)
         instead of deprecated asyncio.get_event_loop().
 FIX #3: API keys are never logged; init logs provider availability only.
 FIX #9: Rate-limit detection for all providers (not just OpenAI 429).
+
+Providers:
+- OpenAI (GPT-4o, GPT-4o-mini)
+- Google (Gemini Pro, Gemini Flash)
+- Kimi K2.5 (Moonshot.cn) - OpenAI-compatible
+- DeepSeek (Coder, Reasoner, Coder-V2) - OpenAI-compatible
+- Minimax - OpenAI-compatible
+- Zhipu AI (GLM-4) - OpenAI-compatible
 """
 
 from __future__ import annotations
@@ -58,40 +66,57 @@ class UnifiedClient:
     Async API client with:
     - Disk caching
     - Retry with exponential backoff (all providers)
-    - Timeout enforcement
+    - Timeout enforcement (connect + read timeouts)
     - Concurrency limiting
     """
 
+    # Default timeouts (seconds)
+    DEFAULT_CONNECT_TIMEOUT: float = 10.0   # Time to establish connection
+    DEFAULT_READ_TIMEOUT: float = 60.0      # Time to read response
+    DEFAULT_TOTAL_TIMEOUT: float = 90.0     # Total request timeout
+
     def __init__(self, cache: Optional[DiskCache] = None,
-                 max_concurrency: int = 3):
+                 max_concurrency: int = 3,
+                 connect_timeout: Optional[float] = None,
+                 read_timeout: Optional[float] = None):
         self.cache = cache or DiskCache()
         self.semaphore = asyncio.Semaphore(max_concurrency)
         self._clients: dict[str, object] = {}
+        # Timeout configuration
+        self._connect_timeout = connect_timeout or self.DEFAULT_CONNECT_TIMEOUT
+        self._read_timeout = read_timeout or self.DEFAULT_READ_TIMEOUT
         self._init_clients()
 
     def _init_clients(self):
-        """Lazy-initialize provider SDKs. Missing keys → provider unavailable."""
+        """Lazy-initialize provider SDKs with proper timeout configuration."""
         import os
 
         # FIX #3: Never log API key values, only provider availability
+
+        # Configure timeouts for OpenAI-compatible clients
+        try:
+            import httpx
+            timeout = httpx.Timeout(
+                connect=self._connect_timeout,
+                read=self._read_timeout,
+                write=self._connect_timeout,
+                pool=self._connect_timeout,
+            )
+        except ImportError:
+            # Fallback to float timeout if httpx not available
+            timeout = self._read_timeout
 
         # OpenAI
         try:
             if os.environ.get("OPENAI_API_KEY"):
                 from openai import AsyncOpenAI
-                self._clients["openai"] = AsyncOpenAI()
+                self._clients["openai"] = AsyncOpenAI(
+                    timeout=timeout,
+                    max_retries=0,  # We handle retries ourselves
+                )
                 logger.info("OpenAI client initialized")
         except ImportError:
             logger.warning("openai package not installed")
-
-        # Anthropic
-        try:
-            if os.environ.get("ANTHROPIC_API_KEY"):
-                from anthropic import AsyncAnthropic
-                self._clients["anthropic"] = AsyncAnthropic()
-                logger.info("Anthropic client initialized")
-        except ImportError:
-            logger.warning("anthropic package not installed")
 
         # Google
         try:
@@ -111,13 +136,15 @@ class UnifiedClient:
                 self._clients["kimi"] = AsyncOpenAI(
                     api_key=kimi_key,
                     base_url="https://api.moonshot.cn/v1",
+                    timeout=timeout,
+                    max_retries=0,  # We handle retries ourselves
                 )
                 logger.info("Kimi K2.5 client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for Kimi K2.5)")
 
         # DeepSeek (platform.deepseek.com) — OpenAI-compatible API
-        # Supports deepseek-chat (V3) and deepseek-reasoner (R1).
+        # Supports deepseek-coder, deepseek-reasoner (R1), and deepseek-coder-v2.
         try:
             deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
             if deepseek_key:
@@ -125,10 +152,42 @@ class UnifiedClient:
                 self._clients["deepseek"] = AsyncOpenAI(
                     api_key=deepseek_key,
                     base_url="https://api.deepseek.com/v1",
+                    timeout=timeout,
+                    max_retries=0,  # We handle retries ourselves
                 )
                 logger.info("DeepSeek client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for DeepSeek)")
+
+        # Minimax (api.minimaxi.chat) — OpenAI-compatible API
+        try:
+            minimax_key = os.environ.get("MINIMAX_API_KEY")
+            if minimax_key:
+                from openai import AsyncOpenAI
+                self._clients["minimax"] = AsyncOpenAI(
+                    api_key=minimax_key,
+                    base_url="https://api.minimaxi.chat/v1",
+                    timeout=timeout,
+                    max_retries=0,  # We handle retries ourselves
+                )
+                logger.info("Minimax client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for Minimax)")
+
+        # Zhipu AI (open.bigmodel.cn) — OpenAI-compatible API
+        try:
+            zhipu_key = os.environ.get("ZHIPUAI_API_KEY") or os.environ.get("ZHIPU_API_KEY")
+            if zhipu_key:
+                from openai import AsyncOpenAI
+                self._clients["zhipu"] = AsyncOpenAI(
+                    api_key=zhipu_key,
+                    base_url="https://open.bigmodel.cn/api/paas/v4",
+                    timeout=timeout,
+                    max_retries=0,  # We handle retries ourselves
+                )
+                logger.info("Zhipu AI client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for Zhipu AI)")
 
     def is_available(self, model: Model) -> bool:
         provider = get_provider(model)
@@ -225,14 +284,16 @@ class UnifiedClient:
 
         if provider == "openai":
             return await self._call_openai(model, prompt, system, max_tokens, temperature)
-        elif provider == "anthropic":
-            return await self._call_anthropic(model, prompt, system, max_tokens, temperature)
         elif provider == "google":
             return await self._call_google(model, prompt, system, max_tokens, temperature)
         elif provider == "kimi":
             return await self._call_kimi(model, prompt, system, max_tokens, temperature)
         elif provider == "deepseek":
             return await self._call_deepseek(model, prompt, system, max_tokens, temperature)
+        elif provider == "minimax":
+            return await self._call_minimax(model, prompt, system, max_tokens, temperature)
+        elif provider == "zhipu":
+            return await self._call_zhipu(model, prompt, system, max_tokens, temperature)
         else:
             raise ValueError(f"Unknown provider for {model.value}")
 
@@ -258,32 +319,6 @@ class UnifiedClient:
             text=choice.message.content or "",
             input_tokens=usage.prompt_tokens if usage else 0,
             output_tokens=usage.completion_tokens if usage else 0,
-            model=model,
-        )
-
-    async def _call_anthropic(self, model: Model, prompt: str,
-                               system: str, max_tokens: int,
-                               temperature: float) -> APIResponse:
-        client = self._clients["anthropic"]
-        kwargs = {
-            "model": model.value,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-        if system:
-            kwargs["system"] = system
-
-        response = await client.messages.create(**kwargs)
-        text = ""
-        for block in response.content:
-            if hasattr(block, "text"):
-                text += block.text
-
-        return APIResponse(
-            text=text,
-            input_tokens=response.usage.input_tokens,
-            output_tokens=response.usage.output_tokens,
             model=model,
         )
 
@@ -373,15 +408,73 @@ class UnifiedClient:
             model=model,
         )
 
+    async def _call_minimax(self, model: Model, prompt: str,
+                            system: str, max_tokens: int,
+                            temperature: float) -> APIResponse:
+        """
+        Minimax via api.minimaxi.chat OpenAI-compatible endpoint.
+        Supports Minimax-4 and other models.
+        """
+        client = self._clients["minimax"]
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.completions.create(
+            model=model.value,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        choice = response.choices[0]
+        usage = response.usage
+
+        return APIResponse(
+            text=choice.message.content or "",
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            model=model,
+        )
+
+    async def _call_zhipu(self, model: Model, prompt: str,
+                          system: str, max_tokens: int,
+                          temperature: float) -> APIResponse:
+        """
+        Zhipu AI (GLM-4-Plus) via open.bigmodel.cn OpenAI-compatible endpoint.
+        Supports GLM-4-Plus and other models.
+        """
+        client = self._clients["zhipu"]
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.completions.create(
+            model=model.value,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        choice = response.choices[0]
+        usage = response.usage
+
+        return APIResponse(
+            text=choice.message.content or "",
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            model=model,
+        )
+
     async def _call_deepseek(self, model: Model, prompt: str,
                               system: str, max_tokens: int,
                               temperature: float) -> APIResponse:
         """
         DeepSeek via platform.deepseek.com OpenAI-compatible endpoint.
 
-        Supports two models:
-        - deepseek-chat     (DeepSeek-V3): fast, cheap ($0.27/$1.10 per 1M), strong on code
-        - deepseek-reasoner (DeepSeek-R1): o1-class reasoning, slower, slightly more expensive
+        Supports models:
+        - deepseek-coder     : fast, cheap ($0.27/$1.10 per 1M), strong on code
+        - deepseek-reasoner  : o1-class reasoning, slower, slightly more expensive
 
         Notes:
         - deepseek-reasoner uses chain-of-thought internally; reasoning_content tokens

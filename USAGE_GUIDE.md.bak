@@ -1,0 +1,1060 @@
+# Multi-LLM Orchestrator — Comprehensive Usage Guide
+
+**Author:** Georgios-Chrysovalantis Chatzivantsidis
+
+---
+
+## Table of Contents
+
+1. [Installation & Setup](#installation--setup)
+2. [Quick Start](#quick-start)
+3. [Command Reference](#command-reference)
+4. [Always-Complete Apps](#always-complete-apps)
+5. [Constraint Control Plane](#constraint-control-plane)
+6. [Advanced Workflows](#advanced-workflows)
+7. [Troubleshooting](#troubleshooting)
+8. [API Reference](#api-reference)
+
+---
+
+## Installation & Setup
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/georgehadji/multi-llm-orchestrator.git
+cd multi-llm-orchestrator
+```
+
+### Step 2: Install Dependencies
+
+```bash
+# Using pip
+pip install -e ".[dev]"
+
+# Or using poetry
+poetry install
+```
+
+### Step 3: Set Up API Keys
+
+Create a `.env` file in the project root with your LLM provider API keys:
+
+```bash
+# OpenAI
+OPENAI_API_KEY=sk-proj-...
+
+# Google Gemini
+GOOGLE_GENAI_API_KEY=...
+
+# Anthropic Claude
+ANTHROPIC_API_KEY=sk-ant-...
+
+# DeepSeek
+DEEPSEEK_API_KEY=sk-...
+
+# Kimi
+KIMI_API_KEY=...
+```
+
+**Note:** You only need keys for providers you plan to use. The system falls back gracefully.
+
+### Step 4: Verify Installation
+
+```bash
+# Test the CLI
+python -m orchestrator --help
+
+# Run unit tests
+pytest tests/ -v
+
+# Check provider connectivity
+python -c "from orchestrator import Orchestrator; orch = Orchestrator(); print('Setup complete')"
+```
+
+---
+
+## Quick Start
+
+### Example 1: Generate a FastAPI REST API
+
+**Simplest form:**
+```bash
+python -m orchestrator --project "Build a FastAPI REST API with user authentication" \
+                       --criteria "All tests pass, includes health endpoint" \
+                       --budget 5.0
+```
+
+**What happens:**
+1. LLM detects app type: `fastapi`
+2. Scaffolds: `src/main.py`, `pyproject.toml`, `tests/`
+3. Runs orchestrator to generate code
+4. Installs dependencies (`pip install -r requirements.txt`)
+5. Runs tests (`pytest`)
+6. Verifies app startup
+7. Output in `./outputs/<project_id>/`
+
+**With explicit app type:**
+```bash
+python -m orchestrator --project "Build a FastAPI REST API" \
+                       --criteria "All tests pass" \
+                       --budget 5.0 \
+                       --app-type fastapi \
+                       --output-dir ./my-api
+```
+
+### Example 2: Build a Next.js Frontend
+
+```bash
+python -m orchestrator build \
+  --description "Next.js e-commerce SPA with product catalog and shopping cart" \
+  --criteria "Responsive design, 95+ Lighthouse score, tests pass" \
+  --app-type nextjs \
+  --output-dir ./frontend
+```
+
+**What happens:**
+1. Scaffolds Next.js 14 + Tailwind + Framer Motion
+2. Generates: `app/layout.tsx`, `app/page.tsx`, etc.
+3. Runs `npm install`
+4. Runs `npm test` (or skips if no tests)
+5. Runs `npm run build` (verifies TypeScript + build)
+
+### Example 3: Interactive Constraint-Driven Job
+
+```bash
+python -m orchestrator agent \
+  --intent "Build a CLI tool for data processing, EU data only, no PII logging, budget $2" \
+  --interactive
+```
+
+**Interactive workflow:**
+```
+1. Agent generates specs:
+   - JobSpecV2: goal, inputs, SLAs, constraints
+   - PolicySpecV2: allow/deny rules, routing hints
+   - Rationale: explains each constraint choice
+
+2. You review and provide feedback:
+   "Add ruff validation to all code generation tasks"
+
+3. Agent refines specs
+
+4. You approve: "submit"
+
+5. ControlPlane executes the job with hard constraints enforced
+```
+
+---
+
+## Command Reference
+
+### Default Command (Project Mode)
+
+Routes through **AppBuilder pipeline by default** (detects app type automatically).
+
+```bash
+python -m orchestrator \
+  --project "Build a FastAPI service" \
+  --criteria "All tests pass" \
+  --budget 8.0 \
+  --time 5400 \
+  --concurrency 3 \
+  --output-dir ./apps \
+  --verbose
+```
+
+**Options:**
+- `--project, -p` (required): Natural-language project description
+- `--criteria, -c` (required): Success criteria / acceptance tests
+- `--budget, -b`: Max API spend in USD (default: 8.0)
+- `--time`: Max execution time in seconds (default: 5400)
+- `--concurrency`: Parallel API calls (default: 3)
+- `--output-dir, -o`: Where to write output (default: `./outputs/<project_id>`)
+- `--verbose, -v`: Enable debug logging
+- `--quiet, -q`: Suppress progress output
+- `--raw-tasks`: Skip AppBuilder, use legacy flat-task mode (opt-in)
+
+### `build` Subcommand
+
+Generate a complete, runnable application.
+
+```bash
+python -m orchestrator build \
+  --description "Next.js e-commerce store" \
+  --criteria "Responsive, all tests pass" \
+  --app-type nextjs \
+  --docker \
+  --output-dir ./my-store
+```
+
+**Options:**
+- `--description, -d` (required): App description
+- `--criteria, -c`: Success criteria
+- `--app-type, -t`: Force app type (fastapi, flask, cli, library, nextjs, react-vite, html, generic)
+- `--docker`: Also run Docker verification
+- `--output-dir, -o`: Output directory
+
+**Supported app types:**
+```
+fastapi         → Python REST API
+flask           → Python web framework
+cli             → Python command-line tool
+library         → Python package/library
+nextjs          → React + Next.js 14 + Tailwind
+react-vite      → React + Vite SPA
+html            → Vanilla HTML/CSS/JS
+generic         → Auto-detect
+```
+
+### `agent` Subcommand
+
+Convert natural-language intent → typed specs with optional refinement loop.
+
+```bash
+python -m orchestrator agent \
+  --intent "Build a backup CLI tool, EU data only, no training data" \
+  --interactive
+```
+
+**Options:**
+- `--intent, -i` (required): Natural-language job description
+- `--interactive`: Enter refine loop (optional feedback loop before submission)
+
+**Workflow:**
+1. Agent generates `JobSpecV2 + PolicySpecV2` via LLM
+2. Displays job goal, constraints, and rationale
+3. If `--interactive`: user can provide feedback → agent refines
+4. User approves: "submit" → ControlPlane executes
+5. Returns execution `ProjectState`
+
+### `analyze` Subcommand
+
+Analyze an existing codebase for improvements.
+
+```bash
+python -m orchestrator analyze \
+  --path /path/to/codebase \
+  --focus architecture,security,performance \
+  --budget 3.0 \
+  --output ./analysis.md
+```
+
+**Options:**
+- `--path, -p` (required): Root directory to analyze
+- `--focus, -f`: Comma-separated focus areas (architecture, quality, security, performance, improvements)
+- `--budget, -b`: Max API spend (default: 3.0)
+- `--context-tokens`: Max tokens for codebase context (default: 60000)
+- `--section-tokens`: Max output tokens per section (default: 4096)
+- `--extensions, -e`: File types to include (e.g., `.py,.ts` — default: all)
+- `--output, -o`: Output file (default: `ANALYSIS_REPORT.md`)
+
+**Output:**
+Markdown report with:
+- Architecture assessment
+- Code quality review
+- Security audit
+- Performance analysis
+- Specific improvement recommendations
+
+### Common Flags
+
+All commands support:
+- `--help`: Show command help
+- `--verbose, -v`: Debug logging
+- `--quiet, -q`: Minimal output
+
+---
+
+## Always-Complete Apps
+
+### How Scaffolding Works
+
+Every generated app starts with a **complete, runnable scaffold**:
+
+1. **Scaffold Selection**
+   - LLM detects app type from description
+   - Correct config files (package.json, pyproject.toml, etc.)
+   - Entry points (main.py, app.tsx, index.html)
+
+2. **File Structure**
+   ```
+   my-app/
+   ├── src/                    (app code)
+   ├── tests/                  (test suite)
+   ├── package.json            (dependencies)
+   ├── pyproject.toml          (Python config)
+   ├── README.md
+   ├── .gitignore
+   └── Dockerfile              (optional)
+   ```
+
+3. **Dependency Resolution**
+   - `DependencyResolver` scans generated code
+   - Maps imports → PyPI packages
+   - Writes `requirements.txt` with pinned versions
+   - For JS: runs `npm install --legacy-peer-deps`
+
+4. **Verification**
+   - `AppVerifier` installs dependencies
+   - Runs test suite (pytest / npm test)
+   - Verifies app startup (Python) or build (JS/TS)
+   - Reports success/failure with details
+
+### App Types & Their Scaffolds
+
+#### FastAPI REST API
+```bash
+python -m orchestrator build \
+  --description "User authentication service with JWT" \
+  --app-type fastapi
+```
+
+**Generated files:**
+```
+src/main.py              # FastAPI app + routes
+src/__init__.py
+tests/test_main.py       # Pytest tests
+pyproject.toml           # Project metadata
+requirements.txt         # Dependencies (fastapi, uvicorn, etc.)
+.gitignore
+README.md
+```
+
+**Verification:**
+- `pip install -r requirements.txt`
+- `pytest`
+- `uvicorn src.main:app --reload` (startup check)
+
+#### Next.js 14 + Tailwind
+```bash
+python -m orchestrator build \
+  --description "E-commerce product catalog with filtering" \
+  --app-type nextjs
+```
+
+**Generated files:**
+```
+app/layout.tsx           # Root layout
+app/page.tsx             # Home page
+app/globals.css          # Tailwind CSS
+package.json             # npm dependencies
+tsconfig.json            # TypeScript config
+tailwind.config.ts       # Tailwind config
+next.config.js           # Next.js config
+.gitignore
+README.md
+```
+
+**Verification:**
+- `npm install --legacy-peer-deps`
+- `npm test` (or skip)
+- `npm run build` (TypeScript + Next.js build)
+
+#### React + Vite SPA
+```bash
+python -m orchestrator build \
+  --description "Single-page app with authentication" \
+  --app-type react-vite
+```
+
+**Generated files:**
+```
+src/App.tsx              # Root component
+src/main.tsx             # Entry point
+src/index.css            # Global styles
+package.json
+vite.config.ts           # Vite config
+tsconfig.json
+tailwind.config.ts
+index.html
+```
+
+#### Vanilla HTML/CSS/JS
+```bash
+python -m orchestrator build \
+  --description "Static landing page" \
+  --app-type html
+```
+
+**Generated files:**
+```
+index.html               # HTML structure
+styles/main.css          # CSS
+scripts/main.js          # JavaScript
+.gitignore
+README.md
+```
+
+### Troubleshooting Generated Apps
+
+**Issue: Dependencies won't install**
+```bash
+# For Python:
+pip install -r requirements.txt --upgrade
+# or manually install missing packages
+
+# For npm:
+rm package-lock.json
+npm install --legacy-peer-deps --force
+```
+
+**Issue: Tests fail after generation**
+```bash
+# Check test output
+pytest -v
+# If test file is incomplete, ask orchestrator to improve:
+python -m orchestrator --project "improve test coverage" --criteria "100% code coverage"
+```
+
+**Issue: App won't start**
+```bash
+# Check for syntax errors
+python -m py_compile src/main.py    # Python
+npx tsc --noEmit                     # TypeScript
+npm run build                        # Full build
+```
+
+---
+
+## Constraint Control Plane
+
+### Creating Constraint-Driven Jobs
+
+The **ControlPlane** enforces hard constraints that cannot be bypassed by LLM prompt injection.
+
+#### Step 1: Define JobSpecV2
+
+```python
+from orchestrator import JobSpecV2, InputSpec, SLAs, Constraints
+
+job = JobSpecV2(
+    goal="Process sensitive user data",
+    inputs=InputSpec(
+        data_locality="eu",      # EU-hosted models only
+        contains_pii=True        # Has personally identifiable information
+    ),
+    slas=SLAs(
+        max_cost_usd=2.0,
+        min_quality_tier=0.90,   # Require high-quality models
+        max_latency_ms=5000      # Max response time
+    ),
+    constraints=Constraints(
+        hard=["eu_only", "no_pii_logging"],  # Hard constraints
+        soft={"prefer_low_cost": 0.8}        # Soft preferences
+    ),
+    metrics=["No PII in logs", "EU models only"]
+)
+```
+
+#### Step 2: Define PolicySpecV2
+
+```python
+from orchestrator import PolicySpecV2, RoutingHint, ValidationRule
+
+policy = PolicySpecV2(
+    allow_deny_rules=[
+        {"effect": "deny", "when": "data_locality == us"}  # Deny US-based execution
+    ],
+    routing_hints=[
+        RoutingHint(
+            condition="contains_pii AND eu_only",
+            target="eu_safe_only"  # Route to EU-hosted models
+        )
+    ],
+    validation_rules=[
+        ValidationRule(
+            node_pattern="code_generation",
+            mandatory_validators=["ruff", "python_syntax"]  # Code quality
+        )
+    ]
+)
+```
+
+#### Step 3: Submit to ControlPlane
+
+```python
+import asyncio
+from orchestrator import ControlPlane
+
+async def run():
+    cp = ControlPlane()
+
+    try:
+        state = await cp.submit(job, policy)
+        print(f"Success: {state.status.value}")
+    except SpecValidationError as e:
+        print(f"Invalid specs: {e.errors}")
+    except PolicyViolation as e:
+        print(f"Policy denied: {e}")
+
+asyncio.run(run())
+```
+
+### Hard Constraints Reference
+
+#### `no_training`
+
+**What:** Denies any task that mentions training/fine-tuning.
+
+**Use case:** Protect proprietary datasets from being used to train external models.
+
+**Triggered by keywords:** "fine-tune", "training data", "gradient descent", "backprop", "loss.backward", "model.fit"
+
+**Example:**
+```python
+constraints=Constraints(hard=["no_training"])
+
+# DENIED:
+# "Fine-tune the model on customer data"
+# "Run gradient descent on this training set"
+
+# ALLOWED:
+# "Generate API endpoints"
+# "Optimize this query"
+```
+
+#### `eu_only`
+
+**What:** Restricts all model routing to EU-hosted models when `data_locality="eu"`.
+
+**Use case:** GDPR compliance — ensure data doesn't leave EU jurisdiction.
+
+**Blocked models:** GPT-4o, Claude Opus/Sonnet/Haiku, Gemini, DeepSeek, Kimi
+
+**Allowed models:** Mistral, self-hosted, local LLMs
+
+**Example:**
+```python
+inputs=InputSpec(data_locality="eu"),
+constraints=Constraints(hard=["eu_only"])
+
+# DENIED task routed to: gpt-4o, claude-opus
+# ALLOWED task routed to: mistral-large, self-hosted
+
+# ReferenceMonitor blocks at execution time
+```
+
+#### `no_pii_logging`
+
+**What:** Denies logging/audit validators when data contains PII.
+
+**Use case:** Prevent accidental PII leakage in audit logs.
+
+**Blocked validators:** "logging", "audit_log", "pii_scan"
+
+**Example:**
+```python
+inputs=InputSpec(contains_pii=True),
+constraints=Constraints(hard=["no_pii_logging"])
+
+# Task with hard_validators=["audit_log"] → DENIED
+# Task with hard_validators=["ruff", "pytest"] → ALLOWED
+```
+
+### Soft Constraints (Preferences)
+
+Soft constraints are weighted preferences (0.0–1.0) that influence routing but don't block.
+
+```python
+constraints=Constraints(
+    soft={
+        "prefer_low_cost": 0.9,        # 90% weight on cost efficiency
+        "prefer_low_latency": 0.6,     # 60% weight on response time
+        "prefer_high_quality": 0.8     # 80% weight on output quality
+    }
+)
+```
+
+**How they affect routing:**
+- High weight → prefer cheaper/faster/better models
+- Low weight → willing to trade off
+- Routing plan solves multi-objective optimization
+
+### Using the Orchestration Agent
+
+The **OrchestrationAgent** converts natural-language intent into typed specs.
+
+```python
+from orchestrator import OrchestrationAgent
+
+agent = OrchestrationAgent()
+
+# Step 1: Draft specs from intent
+draft = asyncio.run(agent.draft(
+    "Process EU customer data with high quality, budget $1"
+))
+
+print(f"Goal: {draft.job.goal}")
+print(f"Hard constraints: {draft.job.constraints.hard}")
+print(f"SLAs: max_cost={draft.job.slas.max_cost_usd}")
+print(f"Rationale: {draft.rationale}")
+
+# Step 2: Refine if needed
+refined = asyncio.run(agent.refine(
+    draft,
+    "Also require ruff linting on all generated code"
+))
+
+# Step 3: Submit to ControlPlane
+cp = ControlPlane()
+state = asyncio.run(cp.submit(refined.job, refined.policy))
+```
+
+### Analyzing Runs for Improvement
+
+After a job completes, analyze it for improvement suggestions:
+
+```python
+state = asyncio.run(cp.submit(job, policy))
+
+# B5: Continuous Improvement Loop
+suggestions = asyncio.run(agent.analyze_run(state, job, policy))
+print(suggestions)
+
+# Output:
+# Suggestion: Tighten max_cost_usd to $0.03 for code_generation tasks
+# Suggestion: Add "pytestValidation" to validation_rules
+# Suggestion: Reduce data_locality constraint for parallel task execution
+```
+
+---
+
+## Advanced Workflows
+
+### Workflow 1: Multi-Component System
+
+Generate a full-stack system with frontend, backend, and deployment.
+
+**Step 1: Backend API**
+```bash
+python -m orchestrator build \
+  --description "FastAPI REST API with PostgreSQL, JWT auth, rate limiting" \
+  --criteria "All tests pass, 95% code coverage" \
+  --app-type fastapi \
+  --output-dir ./backend
+```
+
+**Step 2: Frontend**
+```bash
+python -m orchestrator build \
+  --description "Next.js SPA with Tailwind, real-time updates via WebSocket" \
+  --criteria "Responsive, Lighthouse 95+, tests pass" \
+  --app-type nextjs \
+  --output-dir ./frontend
+```
+
+**Step 3: Infrastructure**
+```bash
+python -m orchestrator --project "Docker Compose config for full-stack deployment" \
+                       --criteria "Both services communicate correctly" \
+                       --budget 3.0
+```
+
+### Workflow 2: Compliance-Driven Development
+
+Enforce constraints throughout the entire project.
+
+```python
+from orchestrator import (
+    ControlPlane, JobSpecV2, PolicySpecV2,
+    InputSpec, SLAs, Constraints,
+    RoutingHint, ValidationRule
+)
+import asyncio
+
+async def build_compliant_system():
+    # Define compliance requirements
+    job = JobSpecV2(
+        goal="Build payment processing system",
+        inputs=InputSpec(data_locality="us", contains_pii=False),
+        slas=SLAs(
+            max_cost_usd=5.0,
+            min_quality_tier=0.95  # Payment system needs high quality
+        ),
+        constraints=Constraints(
+            hard=["no_training"],  # Protect proprietary payment logic
+            soft={"prefer_high_quality": 0.95}
+        ),
+        metrics=[
+            "All transactions audit-logged",
+            "PCI DSS compliance",
+            "Stripe integration working"
+        ]
+    )
+
+    policy = PolicySpecV2(
+        validation_rules=[
+            ValidationRule(
+                node_pattern="code_generation",
+                mandatory_validators=["python_syntax", "pytest"]
+            ),
+            ValidationRule(
+                node_pattern="code_review",
+                mandatory_validators=["security_review"]
+            )
+        ]
+    )
+
+    cp = ControlPlane()
+    state = await cp.submit(job, policy)
+
+    return state
+
+state = asyncio.run(build_compliant_system())
+print(f"System built with compliance: {state.status.value}")
+```
+
+### Workflow 3: Performance-Optimized Execution
+
+Route tasks to maximize cost efficiency.
+
+```python
+from orchestrator import Orchestrator, Budget
+
+async def optimize_cost():
+    budget = Budget(max_usd=3.0, max_time_seconds=3600)
+    orch = Orchestrator(budget=budget, max_concurrency=5)
+
+    # Orchestrator automatically:
+    # - Routes simple tasks to gemini-flash (cheapest, fast)
+    # - Routes complex tasks to claude-opus (expensive, best quality)
+    # - Re-routes on validation failure to next-best model
+    # - Stops when budget exhausted
+
+    state = await orch.run_project(
+        project_description="Build a CLI tool with 5 subcommands",
+        success_criteria="All commands working, tests pass"
+    )
+
+    # Review cost breakdown
+    for task_id, result in state.results.items():
+        print(f"{task_id}: ${result.cost_usd:.4f} ({result.model_used.value})")
+
+    print(f"Total cost: ${state.budget.spent_usd:.4f}")
+
+asyncio.run(optimize_cost())
+```
+
+### Workflow 4: Interactive Refinement Loop
+
+Use the agent for human-in-the-loop spec refinement.
+
+```bash
+# Start interactive agent session
+python -m orchestrator agent \
+  --intent "Build a data visualization dashboard" \
+  --interactive
+```
+
+**Interactive session:**
+```
+[Agent generates specs]
+Goal: Build a data visualization dashboard
+Constraints: none
+Rationale: No specific constraints mentioned
+
+Your feedback (or 'submit' to run, 'quit' to exit):
+> Add EU data requirement
+
+[Agent refines]
+Updated Constraints: hard: ["eu_only"]
+Updated Rationale: User requested EU data handling
+
+Your feedback:
+> Also require 90% test coverage
+
+[Agent refines]
+Updated Metrics: [..., "90% test coverage"]
+
+Your feedback:
+> submit
+
+[ControlPlane.submit() executes the job]
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues & Solutions
+
+#### Issue: "No LLM provider available"
+
+**Cause:** API keys not set or all providers unavailable.
+
+**Solution:**
+```bash
+# Check .env file
+cat .env
+
+# Verify at least one key is set
+echo $OPENAI_API_KEY  # or other provider
+
+# Test connectivity
+python -c "from orchestrator import Orchestrator; o = Orchestrator()"
+```
+
+#### Issue: "Budget exhausted"
+
+**Cause:** Project ran out of allocated budget.
+
+**Solution:**
+```bash
+# Increase budget for next run
+python -m orchestrator --project "..." --criteria "..." --budget 10.0  # Increased
+
+# Or check cost breakdown
+python -m orchestrator --output-dir ./results
+# Review results/project_id/metrics.json
+```
+
+#### Issue: "Tests failed after generation"
+
+**Cause:** Generated code has bugs or incomplete tests.
+
+**Solution:**
+```bash
+# Ask orchestrator to improve test coverage
+python -m orchestrator --project "Improve test coverage for the FastAPI app" \
+                       --criteria "100% coverage, all tests pass"
+
+# Or manually debug
+cd ./app && pytest -v
+```
+
+#### Issue: "npm install fails"
+
+**Cause:** Package conflicts or incompatible versions.
+
+**Solution:**
+```bash
+cd ./app
+rm package-lock.json
+npm install --legacy-peer-deps --force
+
+# Or update DependencyResolver to use compatible versions
+```
+
+#### Issue: "App won't start"
+
+**Cause:** Syntax errors, missing dependencies, or configuration issues.
+
+**Solution:**
+```bash
+# Python app
+python -m py_compile src/main.py
+pytest
+
+# JS/TS app
+npx tsc --noEmit
+npm run build
+
+# Check generated code for obvious errors
+grep -r "TODO\|FIXME" src/
+```
+
+#### Issue: "Policy violation - constraint denied task"
+
+**Cause:** ReferenceMonitor blocked execution due to hard constraint.
+
+**Solution:**
+```python
+# Review which constraint triggered
+state = await cp.submit(job, policy)
+# Error message shows: "Constraint X violated because..."
+
+# Either:
+# 1. Remove constraint if no longer needed
+job.constraints.hard.remove("eu_only")
+
+# 2. Update task to satisfy constraint
+# (e.g., don't mention training if no_training is set)
+
+# 3. Adjust policy if constraint is too strict
+policy.allow_deny_rules = [...]
+```
+
+### Debug Mode
+
+Enable verbose logging to troubleshoot:
+
+```bash
+python -m orchestrator --project "..." --criteria "..." --verbose
+```
+
+**Output includes:**
+- LLM calls and costs
+- Task routing decisions
+- Validator results
+- Constraint checks
+- Detailed error messages
+
+---
+
+## API Reference
+
+### Core Classes
+
+#### `Orchestrator`
+
+Main orchestration engine.
+
+```python
+from orchestrator import Orchestrator, Budget
+
+orch = Orchestrator(
+    budget=Budget(max_usd=8.0, max_time_seconds=5400),
+    max_concurrency=3
+)
+
+# Run project
+state = await orch.run_project(
+    project_description="...",
+    success_criteria="..."
+)
+
+# Stream events
+async for event in orch.run_project_streaming(...):
+    print(event)
+```
+
+#### `AppBuilder`
+
+Build complete, verified applications.
+
+```python
+from orchestrator import AppBuilder
+
+builder = AppBuilder()
+result = await builder.build(
+    description="FastAPI REST API",
+    criteria="All tests pass",
+    output_dir=Path("./my-api"),
+    app_type_override="fastapi",  # Optional
+    docker=False
+)
+
+print(f"Success: {result.success}")
+print(f"Errors: {result.errors}")
+```
+
+#### `ControlPlane`
+
+Enforce constraints and route jobs.
+
+```python
+from orchestrator import ControlPlane, JobSpecV2, PolicySpecV2
+
+cp = ControlPlane()
+state = await cp.submit(job_spec, policy_spec)
+```
+
+#### `OrchestrationAgent`
+
+Convert intent to specs.
+
+```python
+from orchestrator import OrchestrationAgent
+
+agent = OrchestrationAgent()
+
+# Draft from intent
+draft = await agent.draft("Build a CLI tool")
+
+# Refine
+refined = await agent.refine(draft, "Add ruff validation")
+
+# Analyze run
+suggestions = await agent.analyze_run(state, job, policy)
+```
+
+### Data Classes
+
+#### `Task`
+
+```python
+from orchestrator import Task, TaskType
+
+task = Task(
+    id="task_001",
+    type=TaskType.CODE_GEN,
+    prompt="Generate a FastAPI endpoint",
+    dependencies=["task_000"],
+    hard_validators=["python_syntax", "pytest"],
+    target_path="src/routes/users.py",
+    tech_context="FastAPI, SQLAlchemy ORM"
+)
+```
+
+#### `JobSpecV2`
+
+```python
+from orchestrator import JobSpecV2, InputSpec, SLAs, Constraints
+
+job = JobSpecV2(
+    goal="Process customer data",
+    inputs=InputSpec(data_locality="eu", contains_pii=True),
+    slas=SLAs(max_cost_usd=2.0, min_quality_tier=0.90),
+    constraints=Constraints(hard=["eu_only"], soft={"prefer_low_cost": 0.8}),
+    metrics=["EU compliance", "PII protected"]
+)
+```
+
+#### `PolicySpecV2`
+
+```python
+from orchestrator import PolicySpecV2, RoutingHint, ValidationRule
+
+policy = PolicySpecV2(
+    allow_deny_rules=[{"effect": "deny", "when": "data_locality == us"}],
+    routing_hints=[RoutingHint(condition="eu_only", target="eu_safe_only")],
+    validation_rules=[ValidationRule(node_pattern="code_generation", mandatory_validators=["ruff"])]
+)
+```
+
+### Enums
+
+#### Task Types
+```python
+TaskType.CODE_GENERATION      # Generate code
+TaskType.CODE_REVIEW          # Review code
+TaskType.COMPLEX_REASONING    # Reasoning
+TaskType.CREATIVE_WRITING     # Creative tasks
+TaskType.DATA_EXTRACTION      # Extract structured data
+TaskType.SUMMARIZATION        # Summarize text
+TaskType.EVALUATION           # Evaluate output quality
+```
+
+#### Models
+```python
+Model.CLAUDE_OPUS             # claude-opus-4-6
+Model.CLAUDE_SONNET           # claude-sonnet-4-6
+Model.CLAUDE_HAIKU            # claude-haiku-4-5
+Model.GPT_4O                  # gpt-4o
+Model.GPT_4O_MINI             # gpt-4o-mini
+Model.GEMINI_PRO              # gemini-2.5-pro
+Model.GEMINI_FLASH            # gemini-2.5-flash
+Model.DEEPSEEK_CHAT           # deepseek-chat
+Model.DEEPSEEK_REASONER       # deepseek-reasoner
+Model.KIMI_K2_5               # kimi-k2.5
+```
+
+---
+
+## Summary
+
+| Task | Command |
+|---|---|
+| Build app | `python -m orchestrator build --description "..." --app-type nextjs` |
+| Run project | `python -m orchestrator --project "..." --criteria "..."` |
+| Interactive specs | `python -m orchestrator agent --intent "..." --interactive` |
+| Analyze codebase | `python -m orchestrator analyze --path /path/to/code` |
+| Show help | `python -m orchestrator --help` |
+
+**For more details:** See [CAPABILITIES.md](CAPABILITIES.md)
+
+---
+
+**Version:** 1.1.0
+**Author:** Georgios-Chrysovalantis Chatzivantsidis

@@ -957,7 +957,7 @@ class TestS11PlannerScoring:
         costs = [0.1, 1.0, 5.0, 10.0, 15.0]
         models_used = [
             Model.GPT_4O_MINI, Model.GPT_4O, Model.GEMINI_PRO,
-            Model.CLAUDE_SONNET, Model.MINIMAX_3,
+            Model.CLAUDE_SONNET, Model.MINIMAX_TEXT_01,
         ]
         for model, c in zip(models_used, costs):
             profiles[model] = ModelProfile(
