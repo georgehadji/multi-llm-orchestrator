@@ -189,7 +189,7 @@ git push origin release/v5.1
 ## 🎯 After Push
 
 1. **Verify on GitHub:**
-   - Go to https://github.com/gchatz22/multi-llm-orchestrator
+   - Go to https://github.com/georgehadji/multi-llm-orchestrator
    - Check the commit appears
    - Verify all files are present
 
@@ -214,7 +214,7 @@ git push origin release/v5.1
 git remote -v
 
 # If HTTPS, use SSH instead:
-git remote set-url origin git@github.com:gchatz22/multi-llm-orchestrator.git
+git remote set-url origin git@github.com:georgehadji/multi-llm-orchestrator.git
 ```
 
 ### "Updates were rejected"

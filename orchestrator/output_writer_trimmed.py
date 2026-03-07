@@ -411,7 +411,7 @@ def _write_summary_json(
                     "model_used": a.model_used,
                     "output_snippet": a.output_snippet,
                     "failure_reason": a.failure_reason,
-                    "validators_failed": a.validifiers_failed,
+                    "validators_failed": a.validators_failed,
                 }
                 for a in result.attempt_history
             ],
@@ -480,15 +480,22 @@ def _write_readme(
     """Write a human-readable README.md summarizing the project run."""
     b = state.budget
     budget_pct = (b.spent_usd / b.max_usd * 100) if b.max_usd > 0 else 0.0
+    
+    # Import the detect function from output_writer
+    from orchestrator.output_writer import _detect_project_type
+    project_type, install_instructions = _detect_project_type(file_map, out)
 
     lines = [
         f"# Project: {state.project_description[:80]}",
         "",
+        f"**Project Type**: {project_type}  ",
         f"**Project ID**: `{project_id}`  ",
         f"**Status**: `{state.status.value}`  ",
         f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  ",
         f"**Budget used**: ${b.spent_usd:.4f} / ${b.max_usd} ({budget_pct:.1f}%)  ",
         f"**Time elapsed**: {b.elapsed_seconds:.1f}s  ",
+        "",
+        install_instructions,
         "",
         "## Success Criteria",
         "",

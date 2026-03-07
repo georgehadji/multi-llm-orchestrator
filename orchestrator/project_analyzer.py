@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from enum import Enum
 import asyncio
 
-from .logging import get_logger
+from .log_config import get_logger
 from .knowledge_base import get_knowledge_base, KnowledgeType
 from .quality_control import QualityController, TestLevel
 

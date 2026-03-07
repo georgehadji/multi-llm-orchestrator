@@ -29,29 +29,156 @@ class TaskType(str, Enum):
 
 
 class Model(str, Enum):
-    # OpenAI models
+    # ═══════════════════════════════════════════════════════
+    # OPENAI MODELS
+    # ═══════════════════════════════════════════════════════
     GPT_4O = "gpt-4o"
     GPT_4O_MINI = "gpt-4o-mini"
-    O4_MINI = "o4-mini"                       # OpenAI o4-mini — cost-effective reasoning
+    GPT_5 = "gpt-5"
+    GPT_5_MINI = "gpt-5-mini"
+    GPT_5_NANO = "gpt-5-nano"
+    GPT_5_2 = "gpt-5.2"
+    GPT_5_2_PRO = "gpt-5.2-pro"
+    GPT_4_1 = "gpt-4.1"
+    GPT_4_1_MINI = "gpt-4.1-mini"
+    GPT_4_1_NANO = "gpt-4.1-nano"
+    O1 = "o1"
+    O3 = "o3"
+    O3_MINI = "o3-mini"
+    O3_PRO = "o3-pro"
+    O4_MINI = "o4-mini"
     
-    # Google Gemini models
+    # ═══════════════════════════════════════════════════════
+    # GOOGLE GEMINI MODELS
+    # ═══════════════════════════════════════════════════════
     GEMINI_PRO = "gemini-2.5-pro"
     GEMINI_FLASH = "gemini-2.5-flash"
-    GEMINI_FLASH_LITE = "gemini-2.5-flash-lite"  # Cheapest Gemini for simple tasks
+    GEMINI_FLASH_LITE = "gemini-2.5-flash-lite"
+    GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite-preview"
+    GEMINI_2_0_FLASH = "gemini-2.0-flash"
+    GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite"
+    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
+    GEMINI_1_5_PRO = "gemini-1.5-pro"
     
-    # Moonshot Kimi models
+    # ═══════════════════════════════════════════════════════
+    # ANTHROPIC CLAUDE MODELS
+    # ═══════════════════════════════════════════════════════
+    CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022"
+    CLAUDE_3_OPUS = "claude-3-opus-20240229"
+    CLAUDE_3_HAIKU = "claude-3-haiku-20240307"
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
+    CLAUDE_OPUS_4_5 = "claude-opus-4-5"
+    CLAUDE_OPUS_4_6 = "claude-opus-4-6"
+    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    
+    # ═══════════════════════════════════════════════════════
+    # DEEPSEEK MODELS
+    # ═══════════════════════════════════════════════════════
+    DEEPSEEK_CHAT = "deepseek-chat"
+    DEEPSEEK_REASONER = "deepseek-reasoner"
+    DEEPSEEK_V3 = "deepseek-v3"
+    DEEPSEEK_V3_2 = "deepseek-v3.2"
+    DEEPSEEK_R1 = "deepseek-r1"
+    
+    # ═══════════════════════════════════════════════════════
+    # MINIMAX MODELS
+    # ═══════════════════════════════════════════════════════
+    MINIMAX_TEXT_01 = "MiniMax-Text-01"
+    MINIMAX_M2 = "minimax-m2"
+    MINIMAX_M2_5 = "minimax-m2.5"
+    
+    # ═══════════════════════════════════════════════════════
+    # MISTRAL AI MODELS
+    # ═══════════════════════════════════════════════════════
+    MISTRAL_NEMO = "mistral-nemo"
+    MISTRAL_SMALL_3_1 = "mistral-small-3.1"
+    MISTRAL_MEDIUM_3 = "mistral-medium-3"
+    MISTRAL_LARGE_3 = "mistral-large-3"
+    CODESTRAL = "codestral"
+    DEVSTRAL = "devstral"
+    MAGISTRAL_SMALL = "magistral-small"
+    MAGISTRAL_MEDIUM = "magistral-medium"
+    MINISTRAL_3B = "ministral-3b"
+    MINISTRAL_8B = "ministral-8b"
+    
+    # ═══════════════════════════════════════════════════════
+    # XAI GROK MODELS
+    # ═══════════════════════════════════════════════════════
+    GROK_3 = "grok-3"
+    GROK_3_MINI = "grok-3-mini"
+    GROK_4 = "grok-4"
+    GROK_4_1_FAST = "grok-4.1-fast"
+    
+    # ═══════════════════════════════════════════════════════
+    # COHERE MODELS
+    # ═══════════════════════════════════════════════════════
+    COMMAND_R = "command-r"
+    COMMAND_R_PLUS = "command-r-plus"
+    COMMAND_R7B = "command-r7b"
+    COMMAND_A = "command-a"
+    
+    # ═══════════════════════════════════════════════════════
+    # ALIBABA QWEN MODELS
+    # ═══════════════════════════════════════════════════════
+    QWEN_PLUS = "qwen-plus"
+    QWEN_TURBO = "qwen-turbo"
+    QWEN_MAX = "qwen-max"
+    QWEN_LONG = "qwen-long"
+    QWEN_3_235B = "qwen3-235b-a22b"
+    QWEN_3_CODER_30B = "qwen3-coder-30b"
+    QWEN_3_32B = "qwen3-32b"
+    QWEN_VL = "qwen-vl"
+    QWEN_MATH = "qwen-math"
+    
+    # ═══════════════════════════════════════════════════════
+    # BYTEDANCE SEED MODELS
+    # ═══════════════════════════════════════════════════════
+    SEED_2_0_PRO = "seed-2.0-pro"
+    SEED_2_0_LITE = "seed-2.0-lite"
+    SEED_2_0_MINI = "seed-2.0-mini"
+    SEED_2_0_CODE = "seed-2.0-code"
+    
+    # ═══════════════════════════════════════════════════════
+    # ZHIPU GLM MODELS
+    # ═══════════════════════════════════════════════════════
+    GLM_4 = "glm-4"
+    GLM_4_6 = "glm-4.6"
+    GLM_4_7 = "glm-4.7"
+    GLM_4_FLASH = "glm-4-flash"
+    GLM_4_AIR = "glm-4-air"
+    GLM_5 = "glm-5"
+    
+    # ═══════════════════════════════════════════════════════
+    # BAIDU ERNIE MODELS
+    # ═══════════════════════════════════════════════════════
+    ERNIE_4_0_8K = "ernie-4.0-8k"
+    ERNIE_4_0_TURBO = "ernie-4.0-turbo"
+    ERNIE_4_5_21B = "ernie-4.5-21b"
+    ERNIE_4_5_300B = "ernie-4.5-300b"
+    ERNIE_SPEED = "ernie-speed"
+    ERNIE_SPEED_PRO = "ernie-speed-pro"
+    ERNIE_NOVEL = "ernie-novel"
+    
+    # ═══════════════════════════════════════════════════════
+    # MOONSHOT KIMI MODELS
+    # ═══════════════════════════════════════════════════════
+    KIMI_K1_5 = "kimi-k1.5"
+    KIMI_K2 = "kimi-k2"
     KIMI_K2_5 = "kimi-k2.5"
     
-    # MiniMax models
-    MINIMAX_TEXT_01 = "MiniMax-Text-01"       # MiniMax-Text-01 — efficient reasoning, cost-effective
+    # ═══════════════════════════════════════════════════════
+    # TENCENT HUNYUAN MODELS
+    # ═══════════════════════════════════════════════════════
+    HUNYUAN_LITE = "hunyuan-lite"
+    HUNYUAN_STANDARD = "hunyuan-standard"
+    HUNYUAN_PRO = "hunyuan-pro"
     
-    # Zhipu GLM models
-    GLM_4_PLUS = "glm-4-plus"                 # Zhipu GLM-4-Plus — enhanced general tasks
-    GLM_4_FLASH = "glm-4-flash"               # GLM-4-Flash — FREE tier model
-    
-    # DeepSeek models
-    DEEPSEEK_CODER = "deepseek-coder"         # DeepSeek-Coder — code-specialized model
-    DEEPSEEK_REASONER = "deepseek-reasoner"   # DeepSeek-R1 — o1-class reasoning model
+    # ═══════════════════════════════════════════════════════
+    # BAICHUAN MODELS
+    # ═══════════════════════════════════════════════════════
+    BAICHUAN_3 = "baichuan-3"
+    BAICHUAN_4 = "baichuan-4"
 
 
 class ProjectStatus(str, Enum):
@@ -77,27 +204,45 @@ class TaskStatus(str, Enum):
 
 from functools import lru_cache
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=256)
 def get_provider(model: Model) -> str:
     """
     Get provider name for a model.
     
     Uses LRU cache for O(1) repeated lookups.
-    Cache size 128 covers all current + future models.
+    Cache size 256 covers all current + future models.
     """
-    val = model.value
-    if val.startswith("gpt"):
+    val = model.value.lower()
+    if val.startswith("gpt") or val.startswith("o1") or val.startswith("o3") or val.startswith("o4"):
         return "openai"
     elif val.startswith("gemini"):
         return "google"
-    elif val.startswith("moonshot") or val.startswith("kimi"):
-        return "kimi"
+    elif val.startswith("claude"):
+        return "anthropic"
     elif val.startswith("minimax"):
         return "minimax"
-    elif val.startswith("zai") or val.startswith("glm"):
-        return "zhipu"
     elif val.startswith("deepseek"):
         return "deepseek"
+    elif val.startswith("mistral") or val.startswith("codestral") or val.startswith("devstral") or val.startswith("magistral"):
+        return "mistral"
+    elif val.startswith("grok"):
+        return "xai"
+    elif val.startswith("command"):
+        return "cohere"
+    elif val.startswith("qwen"):
+        return "alibaba"
+    elif val.startswith("seed"):
+        return "bytedance"
+    elif val.startswith("glm"):
+        return "zhipu"
+    elif val.startswith("ernie"):
+        return "baidu"
+    elif val.startswith("kimi"):
+        return "moonshot"
+    elif val.startswith("hunyuan"):
+        return "tencent"
+    elif val.startswith("baichuan"):
+        return "baichuan"
     return "unknown"
 
 
@@ -106,29 +251,156 @@ def get_provider(model: Model) -> str:
 # ─────────────────────────────────────────────
 
 COST_TABLE: dict[Model, dict[str, float]] = {
-    # OpenAI models
-    Model.GPT_4O:             {"input": 2.50,  "output": 10.0},
+    # ═══════════════════════════════════════════════════════
+    # OPENAI
+    # ═══════════════════════════════════════════════════════
+    Model.GPT_4O:             {"input": 2.50,  "output": 10.00},
     Model.GPT_4O_MINI:        {"input": 0.15,  "output": 0.60},
-    Model.O4_MINI:            {"input": 1.50,  "output": 6.00},  # OpenAI o4-mini
+    Model.GPT_5:              {"input": 1.25,  "output": 10.00},
+    Model.GPT_5_MINI:         {"input": 0.25,  "output": 2.00},
+    Model.GPT_5_NANO:         {"input": 0.05,  "output": 0.40},
+    Model.GPT_5_2:            {"input": 1.75,  "output": 14.00},
+    Model.GPT_5_2_PRO:        {"input": 21.00, "output": 168.00},
+    Model.GPT_4_1:            {"input": 2.00,  "output": 8.00},
+    Model.GPT_4_1_MINI:       {"input": 0.40,  "output": 1.60},
+    Model.GPT_4_1_NANO:       {"input": 0.10,  "output": 0.40},
+    Model.O1:                 {"input": 15.00, "output": 60.00},
+    Model.O3:                 {"input": 2.00,  "output": 8.00},
+    Model.O3_MINI:            {"input": 1.10,  "output": 4.40},
+    Model.O3_PRO:             {"input": 20.00, "output": 80.00},
+    Model.O4_MINI:            {"input": 1.50,  "output": 6.00},
     
-    # Google Gemini models
-    Model.GEMINI_PRO:         {"input": 1.25,  "output": 10.0},
-    Model.GEMINI_FLASH:       {"input": 0.15,  "output": 0.60},
-    Model.GEMINI_FLASH_LITE:  {"input": 0.075, "output": 0.30},  # Cheapest Gemini
+    # ═══════════════════════════════════════════════════════
+    # GOOGLE GEMINI
+    # ═══════════════════════════════════════════════════════
+    Model.GEMINI_PRO:             {"input": 1.25,  "output": 10.00},
+    Model.GEMINI_FLASH:           {"input": 0.15,  "output": 0.60},
+    Model.GEMINI_FLASH_LITE:      {"input": 0.075, "output": 0.30},
+    Model.GEMINI_3_1_FLASH_LITE:  {"input": 0.25,  "output": 1.50},
+    # GEMINI_2_0_FLASH removed - deprecated by Google
+    # GEMINI_2_0_FLASH_LITE removed - deprecated by Google
+    Model.GEMINI_2_5_FLASH_LITE:  {"input": 0.10,  "output": 0.40},
+    Model.GEMINI_1_5_PRO:         {"input": 3.50,  "output": 10.50},
     
-    # Moonshot Kimi models
-    Model.KIMI_K2_5:          {"input": 0.14,  "output": 0.56},  # Cheapest overall
+    # ═══════════════════════════════════════════════════════
+    # ANTHROPIC CLAUDE
+    # ═══════════════════════════════════════════════════════
+    Model.CLAUDE_3_5_SONNET:  {"input": 3.00,  "output": 15.00},
+    Model.CLAUDE_3_OPUS:      {"input": 15.00, "output": 75.00},
+    Model.CLAUDE_3_HAIKU:     {"input": 0.25,  "output": 1.25},
+    Model.CLAUDE_SONNET_4_5:  {"input": 3.00,  "output": 15.00},
+    Model.CLAUDE_SONNET_4_6:  {"input": 3.00,  "output": 15.00},
+    Model.CLAUDE_OPUS_4_5:    {"input": 5.00,  "output": 25.00},
+    Model.CLAUDE_OPUS_4_6:    {"input": 5.00,  "output": 25.00},
+    Model.CLAUDE_HAIKU_4_5:   {"input": 1.00,  "output": 5.00},
     
-    # MiniMax models
+    # ═══════════════════════════════════════════════════════
+    # DEEPSEEK
+    # ═══════════════════════════════════════════════════════
+    Model.DEEPSEEK_CHAT:      {"input": 0.28,  "output": 0.42},
+    Model.DEEPSEEK_REASONER:  {"input": 0.28,  "output": 0.42},
+    Model.DEEPSEEK_V3:        {"input": 0.27,  "output": 1.10},
+    Model.DEEPSEEK_V3_2:      {"input": 0.28,  "output": 0.40},
+    Model.DEEPSEEK_R1:        {"input": 0.55,  "output": 2.19},
+    
+    # ═══════════════════════════════════════════════════════
+    # MINIMAX
+    # ═══════════════════════════════════════════════════════
     Model.MINIMAX_TEXT_01:    {"input": 0.50,  "output": 1.50},
+    Model.MINIMAX_M2:         {"input": 0.50,  "output": 1.50},
+    Model.MINIMAX_M2_5:       {"input": 0.50,  "output": 1.50},
     
-    # Zhipu GLM models
-    Model.GLM_4_PLUS:         {"input": 0.50,  "output": 2.00},
-    Model.GLM_4_FLASH:        {"input": 0.00,  "output": 0.00},  # FREE tier
+    # ═══════════════════════════════════════════════════════
+    # MISTRAL AI
+    # ═══════════════════════════════════════════════════════
+    Model.MISTRAL_NEMO:       {"input": 0.02,  "output": 0.04},
+    Model.MISTRAL_SMALL_3_1:  {"input": 0.03,  "output": 0.11},
+    Model.MISTRAL_MEDIUM_3:   {"input": 0.40,  "output": 2.00},
+    Model.MISTRAL_LARGE_3:    {"input": 0.50,  "output": 1.50},
+    Model.CODESTRAL:          {"input": 0.30,  "output": 0.90},
+    Model.DEVSTRAL:           {"input": 0.10,  "output": 0.30},
+    Model.MAGISTRAL_SMALL:    {"input": 0.50,  "output": 1.50},
+    Model.MAGISTRAL_MEDIUM:   {"input": 2.00,  "output": 5.00},
+    Model.MINISTRAL_3B:       {"input": 0.04,  "output": 0.04},
+    Model.MINISTRAL_8B:       {"input": 0.10,  "output": 0.10},
     
-    # DeepSeek models (cache-miss rates)
-    Model.DEEPSEEK_CODER:     {"input": 0.27,  "output": 1.10},  # Best cost/performance
-    Model.DEEPSEEK_REASONER:  {"input": 0.55,  "output": 2.19},  # o1-class reasoning
+    # ═══════════════════════════════════════════════════════
+    # XAI GROK
+    # ═══════════════════════════════════════════════════════
+    Model.GROK_3:             {"input": 2.00,  "output": 10.00},
+    Model.GROK_3_MINI:        {"input": 0.10,  "output": 0.30},
+    Model.GROK_4:             {"input": 3.00,  "output": 15.00},
+    Model.GROK_4_1_FAST:      {"input": 0.20,  "output": 0.50},
+    
+    # ═══════════════════════════════════════════════════════
+    # COHERE
+    # ═══════════════════════════════════════════════════════
+    Model.COMMAND_R:          {"input": 0.15,  "output": 0.60},
+    Model.COMMAND_R_PLUS:     {"input": 2.50,  "output": 10.00},
+    Model.COMMAND_R7B:        {"input": 0.15,  "output": 0.0375},
+    Model.COMMAND_A:          {"input": 2.50,  "output": 10.00},
+    
+    # ═══════════════════════════════════════════════════════
+    # ALIBABA QWEN
+    # ═══════════════════════════════════════════════════════
+    Model.QWEN_PLUS:          {"input": 0.50,  "output": 1.50},
+    Model.QWEN_TURBO:         {"input": 0.20,  "output": 0.60},
+    Model.QWEN_MAX:           {"input": 2.00,  "output": 6.00},
+    Model.QWEN_LONG:          {"input": 0.10,  "output": 0.40},
+    Model.QWEN_3_235B:        {"input": 0.136, "output": 0.544},
+    Model.QWEN_3_CODER_30B:   {"input": 0.15,  "output": 0.60},
+    Model.QWEN_3_32B:         {"input": 0.20,  "output": 0.80},
+    Model.QWEN_VL:            {"input": 0.50,  "output": 1.50},
+    Model.QWEN_MATH:          {"input": 0.50,  "output": 1.50},
+    
+    # ═══════════════════════════════════════════════════════
+    # BYTEDANCE SEED
+    # ═══════════════════════════════════════════════════════
+    Model.SEED_2_0_PRO:       {"input": 0.47,  "output": 2.37},
+    Model.SEED_2_0_LITE:      {"input": 0.20,  "output": 1.00},
+    Model.SEED_2_0_MINI:      {"input": 0.05,  "output": 0.25},
+    Model.SEED_2_0_CODE:      {"input": 0.30,  "output": 1.20},
+    
+    # ═══════════════════════════════════════════════════════
+    # ZHIPU GLM
+    # ═══════════════════════════════════════════════════════
+    Model.GLM_4:              {"input": 4.00,  "output": 8.00},
+    Model.GLM_4_6:            {"input": 2.37,  "output": 11.06},
+    Model.GLM_4_7:            {"input": 3.00,  "output": 15.00},
+    Model.GLM_4_FLASH:        {"input": 0.50,  "output": 1.00},
+    Model.GLM_4_AIR:          {"input": 1.00,  "output": 2.00},
+    Model.GLM_5:              {"input": 7.00,  "output": 17.00},
+    
+    # ═══════════════════════════════════════════════════════
+    # BAIDU ERNIE
+    # ═══════════════════════════════════════════════════════
+    Model.ERNIE_4_0_8K:       {"input": 4.20,  "output": 8.40},
+    Model.ERNIE_4_0_TURBO:    {"input": 4.20,  "output": 8.40},
+    Model.ERNIE_4_5_21B:      {"input": 0.056, "output": 0.224},
+    Model.ERNIE_4_5_300B:     {"input": 0.224, "output": 0.88},
+    Model.ERNIE_SPEED:        {"input": 0.56,  "output": 0.56},
+    Model.ERNIE_SPEED_PRO:    {"input": 0.08,  "output": 0.08},
+    Model.ERNIE_NOVEL:        {"input": 5.60,  "output": 5.60},
+    
+    # ═══════════════════════════════════════════════════════
+    # MOONSHOT KIMI
+    # ═══════════════════════════════════════════════════════
+    Model.KIMI_K1_5:          {"input": 0.50,  "output": 1.50},
+    Model.KIMI_K2:            {"input": 0.50,  "output": 1.50},
+    Model.KIMI_K2_5:          {"input": 0.50,  "output": 1.50},
+    
+    # ═══════════════════════════════════════════════════════
+    # TENCENT HUNYUAN
+    # ═══════════════════════════════════════════════════════
+    Model.HUNYUAN_LITE:       {"input": 0.30,  "output": 1.00},
+    Model.HUNYUAN_STANDARD:   {"input": 1.00,  "output": 3.00},
+    Model.HUNYUAN_PRO:        {"input": 2.00,  "output": 6.00},
+    
+    # ═══════════════════════════════════════════════════════
+    # BAICHUAN
+    # ═══════════════════════════════════════════════════════
+    Model.BAICHUAN_3:         {"input": 1.00,  "output": 3.00},
+    Model.BAICHUAN_4:         {"input": 2.00,  "output": 6.00},
 }
 
 
@@ -137,65 +409,104 @@ COST_TABLE: dict[Model, dict[str, float]] = {
 # ─────────────────────────────────────────────
 
 ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    # OPTIMIZED 2025-02: Based on latest pricing and benchmarks
-    # 
-    # CODE_GEN: DeepSeek #1 (best cost/quality), GPT-4o as premium fallback
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # UPDATED 2026-03-04: Full integration of 70+ models from 15 providers
+    # ═══════════════════════════════════════════════════════════════════════════════
+    
+    # CODE_GEN: Cheapest capable first, then quality
     TaskType.CODE_GEN:     [
-        Model.DEEPSEEK_CODER,      # $0.27/$1.10 — best cost/performance for code
-        Model.GPT_4O,               # $2.50/$10 — premium quality fallback
-        Model.GPT_4O_MINI,          # $0.15/$0.60 — budget option
-        Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
-        Model.KIMI_K2_5,            # $0.14/$0.56 — cheapest but slow
-    ],
-    
-    # CODE_REVIEW: Similar to CODE_GEN but without expensive fallbacks
-    TaskType.CODE_REVIEW:  [
-        Model.DEEPSEEK_CODER,      # Best for code understanding
-        Model.GPT_4O,               # Premium quality
-        Model.GPT_4O_MINI,          # Fast & cheap
-        Model.GEMINI_FLASH,         # 1M context for large reviews
-    ],
-    
-    # REASONING: DeepSeek-R1 competes with o1 at 1/10th cost
-    TaskType.REASONING:    [
-        Model.DEEPSEEK_REASONER,    # $0.55/$2.19 — o1-class reasoning
-        Model.GPT_4O,               # $2.50/$10 — premium
-        Model.O4_MINI,              # $1.50/$6.00 — OpenAI reasoning
-        Model.GEMINI_PRO,           # $1.25/$10 — 1M context
-        Model.MINIMAX_TEXT_01,      # $0.50/$1.50 — alternative
-    ],
-    
-    # WRITING: GPT-4o leads, GLM-4-Flash as FREE fallback
-    TaskType.WRITING:      [
-        Model.GPT_4O,               # Best writing quality
-        Model.GEMINI_PRO,           # 1M context for long docs
-        Model.DEEPSEEK_CODER,       # Good & cheap
-        Model.GLM_4_FLASH,          # FREE — ultimate budget option
-    ],
-    
-    # DATA_EXTRACT: Gemini Flash-Lite cheapest, GLM-4-Flash FREE
-    TaskType.DATA_EXTRACT: [
-        Model.GEMINI_FLASH_LITE,    # $0.075/$0.30 — cheapest option
+        # Tier 1: Ultra-cheap capable models
+        Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest capable
+        Model.MISTRAL_SMALL_3_1,    # $0.03/$0.11 — best value overall
+        Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheapest mainstream
+        Model.ERNIE_SPEED_PRO,      # $0.08/$0.08 — cheapest from China
+        Model.GPT_5_NANO,           # $0.05/$0.40 — OpenAI entry level
+        
+        # Tier 2: Best value
+        Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — fast, good quality
+        Model.QWEN_3_235B,          # $0.136/$0.544 — best Chinese value
         Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
+        Model.GROK_4_1_FAST,        # $0.20/$0.50 — 2M context
+        Model.SEED_2_0_MINI,        # $0.05/$0.25 — ByteDance cheap
+        
+        # Tier 3: Quality
+        # DEEPSEEK_CHAT removed - too slow (180s+), use as fallback only
         Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
-        Model.GLM_4_FLASH,          # FREE — budget fallback
-        Model.DEEPSEEK_CODER,       # Accurate when needed
+        Model.CODESTRAL,            # $0.30/$0.90 — code specialist
+        Model.DEVSTRAL,             # $0.10/$0.30 — agentic coding
+        
+        # Tier 4: Premium
+        Model.GPT_4O,               # $2.50/$10 — premium quality
+        Model.CLAUDE_SONNET_4_6,    # $3/$15 — best coding performance
+        Model.QWEN_MAX,             # $2/$6 — Chinese premium
+        Model.GLM_4_7,              # $3/$15 — Zhipu coding specialist
     ],
     
-    # SUMMARIZE: Same optimization as DATA_EXTRACT
+    # CODE_REVIEW: Fast and accurate
+    TaskType.CODE_REVIEW:  [
+        Model.MISTRAL_SMALL_3_1,    # $0.03/$0.11 — excellent value
+        Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — fast reviews
+        Model.QWEN_3_235B,          # $0.136/$0.544 — accurate
+        Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
+        # DEEPSEEK_CHAT removed - too slow, use as fallback only
+        Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context for large reviews
+        Model.CLAUDE_SONNET_4_6,    # $3/$15 — premium review
+        Model.QWEN_MAX,             # $2/$6 — Chinese premium
+    ],
+    
+    # REASONING: Reasoning models prioritized
+    TaskType.REASONING:    [
+        # DEEPSEEK models moved to fallback - too slow (180s+)
+        Model.O3_MINI,              # $1.10/$4.40 — OpenAI reasoning
+        Model.O4_MINI,              # $1.50/$6.00 — OpenAI reasoning
+        Model.QWEN_3_235B,          # $0.136/$0.544 — good reasoning
+        Model.GROK_4_1_FAST,        # $0.20/$0.50 — 2M context reasoning
+        Model.CLAUDE_OPUS_4_6,      # $5/$25 — most capable
+        Model.O3,                   # $2/$8 — OpenAI mid-tier
+        Model.GEMINI_PRO,           # $1.25/$10 — 2M context
+        Model.GLM_5,                # $7/$17 — massive 744B model
+    ],
+    
+    # WRITING: Quality and creativity
+    TaskType.WRITING:      [
+        Model.GPT_5,                # $1.25/$10 — best writing
+        Model.GPT_4O,               # $2.50/$10 — excellent
+        Model.CLAUDE_SONNET_4_6,    # $3/$15 — excellent prose
+        Model.QWEN_LONG,            # $0.10/$0.40 — 10M context for long docs
+        Model.GEMINI_PRO,           # $1.25/$10 — 2M context
+        Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — bulk content
+        Model.ERNIE_NOVEL,          # $5.60/$5.60 — creative specialist
+        Model.HUNYUAN_PRO,          # $2/$6 — Tencent creative
+    ],
+    
+    # DATA_EXTRACT: Cheapest first
+    TaskType.DATA_EXTRACT: [
+        Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest
+        Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheapest mainstream
+        Model.ERNIE_SPEED_PRO,      # $0.08/$0.08 — very cheap
+        Model.GPT_5_NANO,           # $0.05/$0.40 — OpenAI cheap
+        Model.QWEN_LONG,            # $0.10/$0.40 — 10M context for large data
+        Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
+        Model.QWEN_3_235B,          # $0.136/$0.544 — accurate
+    ],
+    
+    # SUMMARIZE: Cheap with good context
     TaskType.SUMMARIZE:    [
-        Model.GEMINI_FLASH_LITE,    # Cheapest
-        Model.GEMINI_FLASH,         # 1M context
-        Model.GPT_4O_MINI,          # Reliable
-        Model.GLM_4_FLASH,          # FREE
+        Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest
+        Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheap + good
+        Model.QWEN_LONG,            # $0.10/$0.40 — 10M context
+        Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
+        Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
     ],
     
-    # EVALUATE: GPT-4o most reliable for evaluation tasks
+    # EVALUATE: Reliable evaluation
     TaskType.EVALUATE:     [
         Model.GPT_4O,               # Most reliable evaluator
-        Model.DEEPSEEK_CODER,       # Good & cheap
-        Model.O4_MINI,              # Reasoning capabilities
-        Model.MINIMAX_TEXT_01,      # Alternative
+        Model.QWEN_3_235B,          # $0.136/$0.544 — accurate & cheap
+        Model.CLAUDE_HAIKU_4_5,     # $1/$5 — cheap Claude
+        Model.CLAUDE_SONNET_4_6,    # $3/$15 — excellent evaluation
+        Model.O4_MINI,              # $1.50/$6.00 — reasoning
+        # DEEPSEEK removed from primary - too slow (180s+)
     ],
 }
 
@@ -205,31 +516,30 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
 # ─────────────────────────────────────────────
 
 FALLBACK_CHAIN: dict[Model, Model] = {
-    # OPTIMIZED 2025-02: Cross-provider fallbacks for resilience
+    # OPTIMIZED 2026-03-04: Gemini 3.1 Flash-Lite added, all fallbacks cross-provider
     # Each fallback goes to a different provider to maximize availability
     
     # OpenAI fallbacks → DeepSeek (cost-effective, same quality tier)
-    Model.GPT_4O:              Model.DEEPSEEK_CODER,     # Premium → DeepSeek
+    Model.GPT_4O:              Model.DEEPSEEK_CHAT,      # Premium → DeepSeek
     Model.GPT_4O_MINI:         Model.GEMINI_FLASH,       # Budget → Gemini
     Model.O4_MINI:             Model.DEEPSEEK_REASONER,  # Reasoning → DeepSeek-R1
     
     # Gemini fallbacks → OpenAI or DeepSeek
     Model.GEMINI_PRO:          Model.GPT_4O,             # Pro → GPT-4o
     Model.GEMINI_FLASH:        Model.GPT_4O_MINI,        # Flash → GPT-4o-mini
-    Model.GEMINI_FLASH_LITE:   Model.GLM_4_FLASH,        # Lite → FREE GLM-4-Flash
+    Model.GEMINI_FLASH_LITE:   Model.GPT_4O_MINI,        # Lite → GPT-4o-mini
+    Model.GEMINI_3_1_FLASH_LITE: Model.DEEPSEEK_CHAT,    # NEW: 3.1 Flash-Lite → DeepSeek
     
-    # Kimi fallback → DeepSeek (both Chinese providers, but DeepSeek better)
-    Model.KIMI_K2_5:           Model.DEEPSEEK_CODER,     # Kimi → DeepSeek
+    # Claude fallbacks → OpenAI (both high-quality Western providers)
+    Model.CLAUDE_3_5_SONNET:   Model.GPT_4O,             # Claude Sonnet → GPT-4o
+    Model.CLAUDE_3_OPUS:       Model.GPT_4O,             # Claude Opus → GPT-4o
+    Model.CLAUDE_3_HAIKU:      Model.GPT_4O_MINI,        # Claude Haiku → GPT-4o-mini
     
     # MiniMax fallback → OpenAI
     Model.MINIMAX_TEXT_01:     Model.GPT_4O,             # Minimax → GPT-4o
     
-    # GLM fallbacks → OpenAI or Gemini
-    Model.GLM_4_PLUS:          Model.GEMINI_PRO,         # GLM+ → Gemini Pro
-    Model.GLM_4_FLASH:         Model.GEMINI_FLASH_LITE,  # FREE GLM → Cheapest Gemini
-    
     # DeepSeek fallbacks → OpenAI (premium escalation)
-    Model.DEEPSEEK_CODER:      Model.GPT_4O,             # DeepSeek → GPT-4o
+    Model.DEEPSEEK_CHAT:       Model.GPT_4O,             # DeepSeek → GPT-4o
     Model.DEEPSEEK_REASONER:   Model.O4_MINI,            # R1 → o4-mini (both reasoning)
 }
 
@@ -262,6 +572,51 @@ MAX_OUTPUT_TOKENS: dict[TaskType, int] = {
     TaskType.DATA_EXTRACT: 2048,
     TaskType.SUMMARIZE:    1024,
     TaskType.EVALUATE:     2048,  # raised: evaluation tasks need more room
+}
+
+# Model-specific max tokens limits (override MAX_OUTPUT_TOKENS)
+MODEL_MAX_TOKENS: dict[Model, int] = {
+    # Anthropic Claude models
+    Model.CLAUDE_3_HAIKU:     4096,
+    Model.CLAUDE_3_5_SONNET:  8192,
+    Model.CLAUDE_3_OPUS:      4096,
+    Model.CLAUDE_HAIKU_4_5:   4096,
+    Model.CLAUDE_SONNET_4_5:  8192,
+    Model.CLAUDE_SONNET_4_6:  8192,
+    Model.CLAUDE_OPUS_4_5:    4096,
+    Model.CLAUDE_OPUS_4_6:    4096,
+    
+    # Google Gemini models (high limits)
+    # GEMINI_2_0_FLASH removed - deprecated by Google
+    # GEMINI_2_0_FLASH_LITE removed - deprecated by Google
+    Model.GEMINI_2_5_FLASH_LITE:  8192,
+    Model.GEMINI_FLASH:           8192,
+    Model.GEMINI_FLASH_LITE:      8192,
+    Model.GEMINI_3_1_FLASH_LITE:  8192,
+    
+    # Mistral models
+    Model.MISTRAL_NEMO:       8192,
+    Model.MISTRAL_SMALL_3_1:  8192,
+    Model.MINISTRAL_3B:       4096,
+    Model.MINISTRAL_8B:       4096,
+    
+    # Cohere models
+    Model.COMMAND_R7B:        4096,
+    
+    # Chinese models
+    Model.QWEN_3_235B:        8192,
+    Model.QWEN_3_CODER_30B:   8192,
+    Model.QWEN_3_32B:         8192,
+    Model.QWEN_LONG:          8192,  # Actually supports 10M context but output limited
+    Model.GLM_4:              4096,
+    Model.GLM_4_6:            4096,
+    Model.GLM_4_7:            4096,
+    Model.GLM_4_FLASH:        8192,
+    Model.GLM_4_AIR:          4096,
+    Model.GLM_5:              8192,
+    Model.KIMI_K1_5:          8192,
+    Model.KIMI_K2:            8192,
+    Model.KIMI_K2_5:          8192,
 }
 
 

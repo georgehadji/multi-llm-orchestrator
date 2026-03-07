@@ -140,7 +140,7 @@ git push -u origin release/v5.1
 
 ## 🔗 GitHub Repository
 
-**URL:** https://github.com/gchatz22/multi-llm-orchestrator
+**URL:** https://github.com/georgehadji/multi-llm-orchestrator
 
 **After push:**
 1. Visit the repository URL
@@ -189,7 +189,7 @@ git push origin main
 git remote -v
 
 # Use SSH instead of HTTPS
-git remote set-url origin git@github.com:gchatz22/multi-llm-orchestrator.git
+git remote set-url origin git@github.com:georgehadji/multi-llm-orchestrator.git
 ```
 
 ---

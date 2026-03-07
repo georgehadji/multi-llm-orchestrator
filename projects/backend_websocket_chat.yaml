@@ -2,7 +2,7 @@
 # Backend Project 2: Real-time WebSocket Chat Server
 # Author: Georgios-Chrysovalantis Chatzivantsidis
 # Τρέξε με:
-#   python -m orchestrator --file projects/backend_websocket_chat.yaml
+#   
 # ──────────────────────────────────────────────────────
 
 project: |

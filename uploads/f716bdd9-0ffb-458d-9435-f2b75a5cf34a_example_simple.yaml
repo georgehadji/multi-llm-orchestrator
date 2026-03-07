@@ -1,0 +1,16 @@
+# ──────────────────────────────────────────────────────
+# Απλό project — μόνο τα απαραίτητα πεδία
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/example_simple.yaml
+# ──────────────────────────────────────────────────────
+
+project: "Write a Python utility class for parsing and validating email addresses"
+
+criteria: |
+  - Validates format (RFC 5322 basics)
+  - Extracts username and domain parts
+  - Has unit tests covering valid and invalid inputs
+  - Includes type hints and docstrings
+
+budget_usd: 2.0

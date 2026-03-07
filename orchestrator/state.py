@@ -59,6 +59,7 @@ def _budget_from_dict(d: dict) -> Budget:
 
 
 def _task_to_dict(t: Task) -> dict:
+    """Serialize Task to dict - includes all App Builder fields (BUG-001 FIX)."""
     return {
         "id": t.id,
         "type": t.type.value,
@@ -70,10 +71,15 @@ def _task_to_dict(t: Task) -> dict:
         "max_output_tokens": t.max_output_tokens,
         "status": t.status.value,
         "hard_validators": t.hard_validators,
+        # BUG-001 FIX: Added missing App Builder fields
+        "target_path": t.target_path,
+        "module_name": t.module_name,
+        "tech_context": t.tech_context,
     }
 
 
 def _task_from_dict(d: dict) -> Task:
+    """Deserialize dict to Task - restores App Builder fields (BUG-001 FIX)."""
     t = Task(
         id=d["id"],
         type=TaskType(d["type"]),
@@ -81,11 +87,16 @@ def _task_from_dict(d: dict) -> Task:
         context=d.get("context", ""),
         dependencies=d.get("dependencies", []),
         hard_validators=d.get("hard_validators", []),
+        # BUG-001 FIX: Restore App Builder fields with defaults for backward compat
+        target_path=d.get("target_path", ""),
+        module_name=d.get("module_name", ""),
+        tech_context=d.get("tech_context", ""),
     )
-    t.acceptance_threshold = d["acceptance_threshold"]
-    t.max_iterations = d["max_iterations"]
-    t.max_output_tokens = d["max_output_tokens"]
-    t.status = TaskStatus(d["status"])
+    # Use .get() with defaults for backward compatibility
+    t.acceptance_threshold = d.get("acceptance_threshold", 0.85)
+    t.max_iterations = d.get("max_iterations", 3)
+    t.max_output_tokens = d.get("max_output_tokens", 4096)
+    t.status = TaskStatus(d.get("status", "pending"))
     return t
 
 
@@ -129,12 +140,21 @@ def _result_to_dict(r: TaskResult) -> dict:
 
 def _result_from_dict(d: dict) -> TaskResult:
     reviewer = d.get("reviewer_model")
+    
+    # Handle unknown models (e.g., removed models like kimi-k2.5)
+    def _safe_model(model_value: str) -> Model:
+        try:
+            return Model(model_value)
+        except ValueError:
+            # Return GPT_4O_MINI as fallback for unknown models
+            return Model.GPT_4O_MINI
+    
     return TaskResult(
         task_id=d["task_id"],
         output=d["output"],
         score=d["score"],
-        model_used=Model(d["model_used"]),
-        reviewer_model=Model(reviewer) if reviewer else None,
+        model_used=_safe_model(d["model_used"]),
+        reviewer_model=_safe_model(reviewer) if reviewer else None,
         tokens_used=d.get("tokens_used", {"input": 0, "output": 0}),
         iterations=d.get("iterations", 0),
         cost_usd=d.get("cost_usd", 0.0),
@@ -189,33 +209,58 @@ class StateManager:
         self._lock: Optional[asyncio.Lock] = None  # lazy — created inside event loop
 
     async def _get_conn(self) -> aiosqlite.Connection:
+        """
+        Get or create persistent connection with proper error handling.
+        
+        BUG-DBCONN-001 FIX: Connection initialization is protected with
+        try/except to ensure proper cleanup on error.
+        """
         if self._lock is None:
             self._lock = asyncio.Lock()
         if self._conn is None:
             async with self._lock:
                 if self._conn is None:
-                    self._conn = await aiosqlite.connect(self._db_path)
-                    await self._conn.execute("PRAGMA journal_mode=WAL")
-                    await self._conn.executescript("""
-                        CREATE TABLE IF NOT EXISTS projects (
-                            project_id TEXT PRIMARY KEY,
-                            state      TEXT NOT NULL,
-                            status     TEXT NOT NULL,
-                            created_at REAL NOT NULL,
-                            updated_at REAL NOT NULL
-                        );
-                        CREATE TABLE IF NOT EXISTS checkpoints (
-                            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                            project_id TEXT NOT NULL,
-                            task_id    TEXT NOT NULL,
-                            state      TEXT NOT NULL,
-                            created_at REAL NOT NULL,
-                            FOREIGN KEY (project_id) REFERENCES projects(project_id)
-                        );
-                    """)
-                    await self._conn.commit()
-                    # Run migration to add resume detection columns (idempotent)
-                    migrate_add_resume_fields(self._db_path)
+                    try:
+                        self._conn = await aiosqlite.connect(self._db_path)
+                        await self._conn.execute("PRAGMA journal_mode=WAL")
+                        await self._conn.executescript("""
+                            CREATE TABLE IF NOT EXISTS projects (
+                                project_id TEXT PRIMARY KEY,
+                                state      TEXT NOT NULL,
+                                status     TEXT NOT NULL,
+                                created_at REAL NOT NULL,
+                                updated_at REAL NOT NULL
+                            );
+                            CREATE TABLE IF NOT EXISTS checkpoints (
+                                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                                project_id TEXT NOT NULL,
+                                task_id    TEXT NOT NULL,
+                                state      TEXT NOT NULL,
+                                created_at REAL NOT NULL,
+                                FOREIGN KEY (project_id) REFERENCES projects(project_id)
+                            );
+                        """)
+                        await self._conn.commit()
+                        # Run migration to add resume detection columns (idempotent)
+                        migrate_add_resume_fields(self._db_path)
+                    except aiosqlite.Error as e:
+                        logger.error(f"Failed to initialize state connection: {e}")
+                        if self._conn is not None:
+                            try:
+                                await self._conn.close()
+                            except Exception:
+                                pass
+                            self._conn = None
+                        raise
+                    except Exception as e:
+                        logger.error(f"Unexpected error during state init: {e}")
+                        if self._conn is not None:
+                            try:
+                                await self._conn.close()
+                            except Exception:
+                                pass
+                            self._conn = None
+                        raise
         return self._conn
 
     async def save_project(self, project_id: str, state: ProjectState):

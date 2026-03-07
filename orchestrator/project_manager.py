@@ -30,7 +30,7 @@ import json
 import hashlib
 import time
 
-from .logging import get_logger
+from .log_config import get_logger
 from .models import Task, TaskStatus, Budget
 from .performance import cached
 

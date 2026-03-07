@@ -1,0 +1,17 @@
+# Simple test project
+project: |
+  Write a Python function that calculates the factorial of a number.
+  The function should handle edge cases like negative numbers and zero.
+
+criteria: |
+  - Function works correctly for positive integers
+  - Returns 1 for input 0
+  - Raises ValueError for negative numbers
+  - Has proper docstring
+
+budget_usd: 0.5
+time_seconds: 120
+concurrency: 1
+
+project_id: "test-simple-factorial"
+output_dir: "./outputs/test_simple"

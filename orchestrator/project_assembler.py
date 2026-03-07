@@ -948,9 +948,60 @@ filename = "src/{self.project_name}/__init__.py"
 """
         
         toml_file = self.output_dir / "pyproject.toml"
+        
+        # Fix any newline issues in TOML strings before writing
+        # This prevents "Illegal character '\n'" errors during pip install
+        toml_content = self._sanitize_toml_content(toml_content)
+        
         toml_file.write_text(toml_content, encoding="utf-8")
         logger.info("Generated comprehensive pyproject.toml with all tool configurations")
         return ["pyproject.toml"]
+    
+    def _sanitize_toml_content(self, content: str) -> str:
+        """
+        Sanitize TOML content to prevent parsing errors.
+        
+        Fixes:
+        - Multi-line strings in values (convert to single line)
+        - Unescaped special characters
+        - Nested quotes in array items
+        - Unescaped backslashes in regex patterns
+        """
+        import re
+        
+        lines = content.split('\n')
+        sanitized = []
+        
+        for line in lines:
+            # Check for unclosed strings in value assignments
+            if '=' in line and '"' in line:
+                # Check if string is unclosed (odd number of unescaped quotes)
+                quote_count = line.count('"') - line.count('\\"')
+                if quote_count % 2 == 1:
+                    # This line has an unclosed string - truncate at the newline
+                    # Find the last quote and truncate there
+                    last_quote = line.rfind('"', 0, line.rfind('"'))
+                    if last_quote > 0:
+                        line = line[:last_quote + 1]
+            
+            # Fix nested quotes in array items (common in pytest markers)
+            if '[' in line or ']' in line or (sanitized and sanitized[-1].strip().endswith('[')):
+                # We're in an array - fix nested quotes
+                line = re.sub(r"'-m \"([^\"]+)\"'", r"'-m \1'", line)
+            
+            # Fix unescaped backslashes in strings (regex patterns)
+            # Pattern: single backslash followed by word char or special char
+            # Replace \b, \., \(, \) with \\b, \\., \\(, \\)
+            if '"' in line:
+                # Only in quoted strings
+                line = re.sub(r'(?<!\\)\\([bBnNrt().*?^${}[\]|])', r'\\\\\1', line)
+            
+            # Replace literal \n in strings with space (TOML doesn't allow \n in basic strings)
+            line = re.sub(r'"([^"]*)\\n([^"]*)"', r'"\1 \2"', line)
+            
+            sanitized.append(line)
+        
+        return '\n'.join(sanitized)
     
     def _extract_dependencies(self) -> list[str]:
         """Extract external package dependencies from module imports."""

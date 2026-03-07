@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import asyncio
 import hashlib
 
-from .logging import get_logger
+from .log_config import get_logger
 from .performance import cached
 
 logger = get_logger(__name__)

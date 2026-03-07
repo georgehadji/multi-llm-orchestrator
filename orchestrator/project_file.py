@@ -30,7 +30,7 @@ Schema reference (all fields except `project` and `criteria` are optional):
       - name: no_openai
         blocked_providers: [openai]
       - name: no_specific_model
-        blocked_models: [kimi-k2.5]
+        blocked_models: [claude-3-opus-20240229]
       - name: fast_sla
         max_latency_ms: 8000
       - name: pii_safe

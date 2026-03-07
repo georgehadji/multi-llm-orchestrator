@@ -173,13 +173,34 @@ class TelemetryStore:
     # ── Internal ──────────────────────────────────────────────────────────────
 
     async def _ensure_schema(self) -> None:
-        """Create tables and indexes on first use."""
+        """
+        Create tables and indexes on first use.
+        
+        BUG-DBCONN-001 FIX: Proper error handling ensures _initialised is only
+        set after successful schema creation. Connection is properly closed
+        even on error.
+        """
         if self._initialised:
             return
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.executescript(_SCHEMA)
-            await db.commit()
-        self._initialised = True
+        
+        try:
+            async with aiosqlite.connect(self._db_path) as db:
+                try:
+                    await db.executescript(_SCHEMA)
+                    await db.commit()
+                    self._initialised = True  # Only set after successful commit
+                except aiosqlite.Error as e:
+                    logger.error(f"Failed to initialize telemetry schema: {e}")
+                    self._initialised = False  # Ensure we retry on next call
+                    raise
+        except aiosqlite.Error as e:
+            logger.error(f"Failed to connect for schema init: {e}")
+            self._initialised = False  # Ensure we retry on next call
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error during schema init: {e}")
+            self._initialised = False  # Ensure we retry on next call
+            raise
 
     # ── Write API (fire-and-forget safe) ──────────────────────────────────────
 

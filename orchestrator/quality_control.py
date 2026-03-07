@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Callable
 import re
 
-from .logging import get_logger
+from .log_config import get_logger
 from .performance import cached
 from .monitoring import monitor_endpoint, metrics
 

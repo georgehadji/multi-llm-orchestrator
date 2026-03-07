@@ -1,7 +1,9 @@
 # Εφαρμοσμένες Αλλαγές Routing & Μοντέλων
 
+> ⚠️ **UPDATE 2026-03-03:** Τα GLM μοντέλα (Zhipu) έχουν αφαιρεθεί από το σύστημα.
+
 **Ημερομηνία:** 2025-02-26  
-**Status:** ✅ Ολοκληρώθηκε
+**Status:** ✅ Ολοκληρώθηκε (ιστορικό)
 
 ---
 
@@ -18,7 +20,7 @@ class Model(str, Enum):
     GEMINI_FLASH_LITE = "gemini-2.5-flash-lite"
     
     # ➕ ΝΕΟ: GLM-4-Flash — FREE tier
-    GLM_4_FLASH = "glm-4-flash"
+    GLM_4_FLASH = "glm-4-flash-250414"
 ```
 
 **Σύνολο μοντέλων:** 9 → 12
@@ -200,7 +202,7 @@ from orchestrator import Model, COST_TABLE, ROUTING_TABLE
 
 # Έλεγχος νέων μοντέλων
 print(Model.GEMINI_FLASH_LITE)  # gemini-2.5-flash-lite
-print(Model.GLM_4_FLASH)        # glm-4-flash
+print(Model.GLM_4_FLASH)        # glm-4-flash-250414
 print(Model.O4_MINI)            # o4-mini
 
 # Έλεγχος τιμολόγησης

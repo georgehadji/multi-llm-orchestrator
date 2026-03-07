@@ -246,20 +246,42 @@ def _render_content_for_ext(task_type: TaskType, raw_output: str, ext: str) -> s
 # ── Verification helper ───────────────────────────────────────────────────────
 
 def _run_verify(cmd: str, cwd: Path) -> tuple[str, int]:
-    """Run *cmd* in *cwd*, return (combined_output, returncode)."""
+    """
+    Run *cmd* in *cwd*, return (combined_output, returncode).
+    
+    SECURITY FIX: Uses shlex.split() to parse command safely instead of shell=True.
+    This prevents command injection attacks.
+    """
+    import shlex
+    from .secure_execution import SecureSubprocess, CommandInjectionError
+    
     logger.info("Running verification: %s", cmd)
+    
+    # Parse command safely - prevents shell injection
     try:
-        proc = subprocess.run(
-            cmd,
-            shell=True,
+        cmd_parts = shlex.split(cmd)
+    except ValueError as e:
+        logger.error(f"Invalid command syntax: {e}")
+        return f"Invalid command syntax: {e}", 1
+    
+    if not cmd_parts:
+        logger.error("Empty verify command")
+        return "Empty verify command", 1
+    
+    try:
+        # Use SecureSubprocess which never uses shell=True
+        result = SecureSubprocess.run(
+            cmd_parts,
             cwd=cwd,
             capture_output=True,
-            text=True,
             timeout=300,
         )
-        combined = (proc.stdout or "") + (proc.stderr or "")
-        logger.info("Verification exit code: %d", proc.returncode)
-        return combined, proc.returncode
+        combined = (result.stdout or "") + (result.stderr or "")
+        logger.info("Verification exit code: %d", result.returncode)
+        return combined, result.returncode
+    except CommandInjectionError as e:
+        logger.error(f"Security violation in verify command: {e}")
+        return f"Security error: {e}", 1
     except subprocess.TimeoutExpired:
         logger.warning("Verification command timed out: %s", cmd)
         return "TIMEOUT", 1

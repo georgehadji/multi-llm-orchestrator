@@ -1,0 +1,303 @@
+# ──────────────────────────────────────────────────────
+# AI Project: Autonomous Knowledge Worker Agent
+# (Devin / Anthropic-style orchestration)
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+#
+# Run with:
+#   python -m orchestrator --file projects/autonomous_knowledge_worker.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build an autonomous AI knowledge worker capable of
+  performing complex multi-step tasks such as research,
+  coding, data analysis, and document generation.
+
+  The system must operate through a structured
+  planning–execution–verification loop with persistent
+  memory and tool usage.
+
+  The architecture follows patterns similar to
+  modern autonomous agents such as Devin and
+  Anthropic-style tool-use systems.
+
+  HIGH LEVEL PIPELINE
+
+  User Goal
+      ↓
+  Planning Agent
+      ↓
+  Task Graph
+      ↓
+  Execution Agents
+      ↓
+  Tool Invocation
+      ↓
+  Result Evaluation
+      ↓
+  Iterative Improvement
+      ↓
+  Final Deliverable
+
+
+  ------------------------------------------------------
+
+  1. GOAL INTERPRETATION
+
+     The system receives a high-level user objective.
+
+     Examples:
+
+     - "Research the EV battery market and produce a report."
+     - "Build a small Python API for stock data."
+     - "Analyze a dataset and generate insights."
+
+     A planner agent must:
+
+     - understand the objective
+     - break it into subtasks
+     - create a task dependency graph
+     - assign appropriate agents/tools
+
+
+  2. PLANNING AGENT
+
+     Responsibilities:
+
+     - interpret goal
+     - decompose tasks
+     - estimate required tools
+     - generate execution plan
+
+     Output format:
+
+     structured task graph
+
+     Example:
+
+     Task 1: gather sources
+     Task 2: extract data
+     Task 3: analyze findings
+     Task 4: generate report
+
+
+  3. EXECUTION AGENTS
+
+     Specialized agents execute tasks.
+
+     Example agents:
+
+     Research Agent
+     - performs web search
+     - retrieves sources
+     - extracts relevant information
+
+     Coding Agent
+     - writes code
+     - runs code in sandbox
+     - fixes errors
+
+     Data Analysis Agent
+     - loads datasets
+     - performs analysis
+     - generates charts
+
+     Writing Agent
+     - synthesizes results
+     - produces reports
+     - formats structured output
+
+
+  4. TOOL ECOSYSTEM
+
+     Tools must be callable through structured
+     JSON interfaces.
+
+     Required tools:
+
+     Web Search Tool
+     - query external sources
+
+     Python Execution Tool
+     - run Python code in sandbox
+     - return outputs
+
+     File System Tool
+     - read/write project files
+
+     Data Analysis Tool
+     - perform statistical analysis
+
+     Optional tools:
+
+     - API connectors
+     - SQL query tool
+     - browser automation
+
+
+  5. ORCHESTRATION ENGINE
+
+     Implement a controller responsible for:
+
+     - task scheduling
+     - agent routing
+     - tool invocation
+     - state persistence
+     - error handling
+
+     Execution model:
+
+     Plan
+       ↓
+     Execute step
+       ↓
+     Evaluate result
+       ↓
+     Adjust plan if needed
+
+
+     Framework options:
+
+     - LangGraph
+     - AutoGen
+     - CrewAI
+     - custom orchestrator
+
+
+  6. MEMORY SYSTEM
+
+     The agent must maintain memory across tasks.
+
+     Short-term memory:
+
+     - current task state
+     - intermediate outputs
+
+     Long-term memory:
+
+     - previous projects
+     - knowledge base
+     - reusable results
+
+     Storage:
+
+     - vector store
+     - structured database
+
+
+  7. SELF-CORRECTION LOOP
+
+     The system must evaluate outputs before
+     proceeding.
+
+     Evaluation checks:
+
+     - logical correctness
+     - code execution success
+     - answer completeness
+     - alignment with user goal
+
+     If errors detected:
+
+     - revise plan
+     - retry execution
+     - request additional information
+
+
+  8. OUTPUT GENERATION
+
+     Deliverables may include:
+
+     - research reports
+     - Python projects
+     - data analysis notebooks
+     - dashboards
+     - structured documentation
+
+     Output must include:
+
+     - explanation of steps taken
+     - sources used
+     - final artifacts
+
+
+  9. OBSERVABILITY
+
+     The system must log:
+
+     - task plans
+     - agent decisions
+     - tool calls
+     - execution results
+     - errors and retries
+
+     Logs should be structured JSON.
+
+
+  10. USER INTERFACE
+
+     Provide an interface for interaction.
+
+     Option A:
+     Streamlit interface
+
+     Option B:
+     FastAPI backend with web UI
+
+     UI must show:
+
+     - user goal
+     - task plan
+     - agent actions
+     - intermediate outputs
+     - final results
+
+
+  Libraries:
+
+  - langchain
+  - langgraph
+  - crewai
+  - autogen
+  - sentence-transformers
+  - chromadb / qdrant-client
+  - fastapi
+  - streamlit
+  - pandas
+  - numpy
+  - matplotlib
+  - tiktoken
+  - pydantic
+  - uvicorn
+
+
+criteria: |
+  - System successfully decomposes user goals into
+    multi-step task plans
+  - At least 3 specialized agents execute tasks
+  - Tools invoked successfully through structured API
+  - Python execution tool runs code without crashing
+  - Self-correction loop fixes at least one detected error
+  - Logs capture full orchestration trace
+  - Final deliverable matches user objective
+  - UI shows execution plan and agent actions
+
+
+budget_usd: 5.0
+time_seconds: 7200
+concurrency: 3
+
+project_id: "autonomous-knowledge-worker-v1"
+
+output_dir: "./outputs/autonomous_knowledge_worker"
+
+
+quality_targets:
+  code_generation:   0.92
+  code_review:       0.90
+  complex_reasoning: 0.94
+  evaluation:        0.92
+
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

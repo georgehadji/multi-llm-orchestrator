@@ -31,7 +31,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 from typing_extensions import ParamSpec
 
-from .logging import get_logger
+from .log_config import get_logger
 
 logger = get_logger(__name__)
 
