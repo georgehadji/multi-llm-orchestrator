@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Callable
 from enum import Enum
 import asyncio
 
-from .logging import get_logger
+from .log_config import get_logger
 from .performance import cached, LRUCache
 
 logger = get_logger(__name__)

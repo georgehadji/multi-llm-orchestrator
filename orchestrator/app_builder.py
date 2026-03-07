@@ -42,6 +42,7 @@ class AppBuildResult:
     local_verify: Optional[VerifyReport] = None
     docker_verify: Optional[VerifyReport] = None
     errors: list[str] = field(default_factory=list)
+    state: Optional["ProjectState"] = None  # Raw orchestrator state for task file output
 
 
 class AppBuilder:
@@ -141,6 +142,9 @@ class AppBuilder:
                 result.success = result.success and result.docker_verify.success
             if result.errors:
                 result.success = False
+
+            # Store state for task file output
+            result.state = project_state
 
             logger.info(
                 "AppBuilder: done -- success=%s files_written=%d",

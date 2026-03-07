@@ -317,6 +317,59 @@ def validate_length_bounds(output: str, min_chars: int = 10,
     return ValidationResult(True, f"Length OK ({length} chars)", "length")
 
 
+# HARDEN: Tool call validation — prevent hallucinated tool invocations
+# These patterns indicate potentially dangerous LLM-generated commands
+_SUSPICIOUS_PATTERNS = [
+    # Shell execution
+    (r'\b(os\.system|subprocess\.call|subprocess\.run|subprocess\.Popen)\s*\(',
+     "potential shell execution"),
+    # Code evaluation
+    (r'\b(eval|exec)\s*\(',
+     "code evaluation"),
+    # File system operations outside temp
+    (r'\bopen\s*\(\s*["\']/(etc|usr|bin|sbin|root|home)',
+     "system file access"),
+    # Network calls
+    (r'\b(urllib\.request|requests\.(get|post)|socket\.)',
+     "network call"),
+    # Import of dangerous modules
+    (r'^\s*import\s+(os|subprocess|sys|socket|urllib)',
+     "suspicious import"),
+]
+
+
+def validate_tool_safety(output: str) -> ValidationResult:
+    """
+    HARDEN: Validate that output doesn't contain hallucinated tool calls
+    or potentially dangerous code patterns.
+    
+    This prevents:
+    - Shell command injection
+    - Code evaluation attacks  
+    - Unauthorized file system access
+    - Unexpected network calls
+    
+    Note: This is a safety check, not a functionality check.
+    Legitimate uses of these patterns should use the proper validators.
+    """
+    import re
+    
+    found_issues = []
+    for pattern, description in _SUSPICIOUS_PATTERNS:
+        if re.search(pattern, output, re.MULTILINE | re.IGNORECASE):
+            found_issues.append(description)
+    
+    if found_issues:
+        return ValidationResult(
+            False,
+            f"Potentially unsafe patterns detected: {', '.join(found_issues)}. "
+            f"If these are intentional, use appropriate sandboxed validators.",
+            "tool_safety"
+        )
+    
+    return ValidationResult(True, "No unsafe patterns detected", "tool_safety")
+
+
 # ─────────────────────────────────────────────
 # Validator registry
 # ─────────────────────────────────────────────
@@ -328,6 +381,7 @@ VALIDATORS = {
     "ruff": validate_ruff,
     "latex": validate_latex,
     "length": validate_length_bounds,
+    "tool_safety": validate_tool_safety,  # HARDEN: Prevent hallucinated tool calls
 }
 
 

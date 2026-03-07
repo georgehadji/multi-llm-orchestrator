@@ -30,7 +30,9 @@ from .policy import ModelProfile
 logger = logging.getLogger("orchestrator.telemetry")
 
 # ── EMA configuration ──────────────────────────────────────────────────────────
-_EMA_ALPHA: float = 0.1        # learning rate for latency, quality, and cost EMAs
+# OPTIMIZATION: Increased alpha from 0.1 to 0.2 for faster regression detection
+# This makes the system respond to quality changes in ~5 calls instead of ~10
+_EMA_ALPHA: float = 0.2        # learning rate for latency, quality, and cost EMAs
 
 # ── Success rate rolling window ────────────────────────────────────────────────
 _SUCCESS_WINDOW: int = 10      # number of recent calls to track
@@ -154,6 +156,15 @@ class TelemetryCollector:
             return
         profile.trust_factor *= _TRUST_DEGRADE
         profile.violation_count += 1
+
+    def record_validator_failure(self, model: Model) -> None:
+        """Record a validator failure for the given model."""
+        # TODO: Implement proper tracking
+        # For now, just degrade trust factor slightly
+        profile = self._profiles.get(model)
+        if profile is None:
+            return
+        profile.trust_factor *= _TRUST_DEGRADE
 
     # ─────────────────────────────────────────────────────────────────────────
     # Internal helpers

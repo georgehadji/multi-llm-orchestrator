@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import socket
 
-from .logging import get_logger
+from .log_config import get_logger
 from .models import Model
 
 logger = get_logger(__name__)
@@ -124,10 +124,9 @@ class SystemDiagnostic:
         required_vars = [
             "OPENAI_API_KEY",
             "GOOGLE_API_KEY",
-            "KIMI_API_KEY",
+            "ANTHROPIC_API_KEY",
             "DEEPSEEK_API_KEY",
             "MINIMAX_API_KEY",
-            "ZHIPUAI_API_KEY",
         ]
         
         found_keys = []
@@ -173,7 +172,7 @@ class SystemDiagnostic:
         
         test_models = [
             (Model.GPT_4O_MINI, "OpenAI"),
-            (Model.DEEPSEEK_CODER, "DeepSeek"),
+            (Model.DEEPSEEK_CHAT, "DeepSeek"),
             (Model.GEMINI_FLASH, "Google"),
         ]
         

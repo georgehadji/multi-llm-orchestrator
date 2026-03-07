@@ -571,7 +571,7 @@ If issues persist:
 2. **Run diagnostics:** `python -m orchestrator --diagnose`
 3. **Enable debug mode:** Set `ORCHESTRATOR_LOG_LEVEL=DEBUG`
 4. **Test environment:** `python -m orchestrator --test-env`
-5. **Open issue:** https://github.com/gchatz22/multi-llm-orchestrator/issues
+5. **Open issue:** https://github.com/georgehadji/multi-llm-orchestrator/issues
 
 ---
 

@@ -1,0 +1,91 @@
+# ──────────────────────────────────────────────────────
+# Data Analysis 4: Super League / Euroleague / NBA Analysis
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/analysis_sports_superleague_nba.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a multi-sport analytics platform covering Super League Greece,
+  Euroleague Basketball, and NBA with advanced performance metrics.
+
+  The project must:
+  1. DATA LOADING & SOURCES
+     FOOTBALL (Super League + European context):
+     - FBref scraper for Super League 2022–2025 seasons:
+       player stats (goals, xG, xA, progressive passes, pressures)
+       team stats (xG for/against, possession, PPDA)
+     - Understat API/scraper for xG data: https://understat.com/league/ERES
+     - Use: requests + BeautifulSoup or soccerdata library
+
+     BASKETBALL (Euroleague + NBA):
+     - Euroleague stats: https://www.euroleaguebasketball.net/euroleague/stats/
+       or basketball-reference for EuroLeague players
+     - NBA: basketball-reference scraper or nba_api library
+       (player advanced stats: PER, TS%, BPM, VORP, Win Shares)
+
+  2. FOOTBALL ANALYSIS
+     - xG vs actual goals: who overperforms/underperforms? (scatter: goals vs xG)
+     - xA vs actual assists: best chance creators
+     - Top 20 Super League players by xG+xA per 90 minutes
+     - Team efficiency: xG difference vs actual goal difference
+     - Progressive actions leaders (progressive passes + carries + runs)
+     - Pressing intensity: PPDA per team (low PPDA = high press)
+     - Player similarity clustering (KMeans on performance features)
+
+  3. BASKETBALL ANALYSIS
+     - NBA: PER ranking, BPM leaders, VORP leaders (current season)
+     - NBA: True Shooting % vs usage rate scatter (efficiency vs volume)
+     - Euroleague: PIR (Performance Index Rating) trend per player over seasons
+     - Player archetypes: cluster NBA players by role (PCA + KMeans)
+     - Head-to-head: top Euroleague players vs NBA counterparts on shared metrics
+     - Team lineup analysis: which 5-player combinations have best +/- in NBA
+
+  4. CROSS-SPORT INSIGHTS
+     - Overperformers report: players with biggest positive gap (actual - expected)
+     - Underperformers report: players with biggest negative gap
+     - Salary efficiency (if salary data available): performance per $M
+
+  5. VISUALISATIONS
+     - Shot maps for top Super League strikers (using mplsoccer)
+     - NBA shot chart heatmap (using py_ball or nba_api shot data)
+     - Radar charts comparing top players per position
+     - Interactive scatter plots with player name tooltips (Plotly)
+
+  6. DASHBOARD
+     - Plotly Dash app with:
+       * Sport selector: Football | Basketball
+       * League selector: Super League | Euroleague | NBA
+       * Season selector
+       * Player comparison tool: select 2 players → radar chart side by side
+       * Leaderboard table with sortable columns
+
+  Use: pandas, numpy, plotly, dash, mplsoccer, scikit-learn, requests,
+       beautifulsoup4, nba_api (or sportsreference), seaborn
+
+criteria: |
+  - Football data loads for at least 2 Super League seasons with xG metrics
+  - Basketball data loads for current NBA season with advanced stats (PER, BPM, VORP)
+  - xG overperformer/underperformer chart clearly identifies outliers
+  - Player clustering produces at least 4 distinct archetypes with interpretation
+  - Shot map renders for at least one Super League striker
+  - Dashboard runs with: python dashboard.py (localhost:8050)
+  - Player comparison radar chart works for any two selected players
+  - README with data sources, scraping instructions, and key findings
+  - All code passes ruff linting
+
+budget_usd: 4.0
+time_seconds: 4800
+concurrency: 3
+project_id: "analysis-sports-v1"
+output_dir: "./outputs/analysis_sports"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.92
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

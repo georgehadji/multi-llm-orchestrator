@@ -50,7 +50,7 @@ _FALLBACK_ARCH = _ARCH_DEFAULTS["script"]
 
 
 def _select_model(description: str) -> Model:
-    return Model.DEEPSEEK_REASONER if len(description.split()) > 50 else Model.DEEPSEEK_CODER
+    return Model.DEEPSEEK_REASONER if len(description.split()) > 50 else Model.DEEPSEEK_CHAT
 
 
 def _parse_response(raw: str) -> ArchitectureDecision:

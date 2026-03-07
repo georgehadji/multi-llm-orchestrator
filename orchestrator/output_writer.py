@@ -421,7 +421,7 @@ def _write_summary_json(
                     "model_used": a.model_used,
                     "output_snippet": a.output_snippet,
                     "failure_reason": a.failure_reason,
-                    "validators_failed": a.validifiers_failed,
+                    "validators_failed": a.validators_failed,
                 }
                 for a in result.attempt_history
             ],
@@ -480,6 +480,181 @@ def _write_app_readme(
     logger.debug("Wrote app/README.md (%d files listed)", len(written))
 
 
+def _detect_project_type(file_map: dict[str, str], out: Path) -> tuple[str, str]:
+    """Detect project type from generated files and return (type_label, install_instructions).
+    
+    Returns:
+        Tuple of (project_type_label, windows_install_instructions)
+    """
+    # Check for package.json (Node.js project)
+    has_package_json = (out / "app" / "package.json").exists() or (out / "package.json").exists()
+    has_html = any(".html" in f.lower() for f in file_map.values())
+    has_js = any(".js" in f.lower() or ".ts" in f.lower() for f in file_map.values())
+    has_css = any(".css" in f.lower() for f in file_map.values())
+    has_py = any(".py" in f.lower() for f in file_map.values())
+    
+    # Detect specific frameworks
+    is_nextjs = has_package_json and has_js and (out / "app" / "next.config.js").exists()
+    is_react = has_package_json and has_js and (out / "app" / "vite.config").exists()
+    
+    if is_nextjs:
+        return (
+            "Full-Stack (Next.js + React)",
+            """## 🚀 Quick Start (Windows)
+
+### Prerequisites
+- [Node.js 18+](https://nodejs.org/) (LTS recommended)
+
+### 1. Install Dependencies
+```powershell
+cd app
+npm install
+```
+
+### 2. Start Development Server
+```powershell
+npm run dev
+```
+
+### 3. Open in Browser
+Navigate to: http://localhost:3000
+
+---
+
+## 📦 Build for Production
+```powershell
+npm run build
+```
+
+**Note:** This is a Node.js/Next.js project, not Python."""
+        )
+    elif is_react:
+        return (
+            "Frontend (React + Vite)",
+            """## 🚀 Quick Start (Windows)
+
+### Prerequisites
+- [Node.js 18+](https://nodejs.org/) (LTS recommended)
+
+### 1. Install Dependencies
+```powershell
+cd app
+npm install
+```
+
+### 2. Start Development Server
+```powershell
+npm run dev
+```
+
+### 3. Open in Browser
+Navigate to: http://localhost:5173
+
+---
+
+## 📦 Build for Production
+```powershell
+npm run build
+```
+
+**Note:** This is a Node.js/React project, not Python."""
+        )
+    elif has_package_json and has_js:
+        return (
+            "Frontend (JavaScript/Node.js)",
+            """## 🚀 Quick Start (Windows)
+
+### Prerequisites
+- [Node.js 18+](https://nodejs.org/) (LTS recommended)
+
+### 1. Install Dependencies
+```powershell
+cd app
+npm install
+```
+
+### 2. Start Development Server
+```powershell
+npm start
+# OR
+npm run dev
+```
+
+---
+
+**Note:** This is a Node.js project, not Python."""
+        )
+    elif has_html and has_js and has_css and not has_package_json:
+        return (
+            "Frontend (HTML/CSS/JavaScript)",
+            """## 🚀 Quick Start (Windows)
+
+### Option 1: Direct Open
+Double-click `index.html` in the app folder to open in browser.
+
+### Option 2: Local Server (Recommended)
+```powershell
+cd app
+
+# Using Python
+python -m http.server 8000
+
+# Using Node.js
+npx serve .
+```
+
+Then open: http://localhost:8000
+
+---
+
+**Note:** This is a vanilla HTML/CSS/JS project, not Python."""
+        )
+    elif has_py:
+        return (
+            "Backend (Python)",
+            r"""## 🚀 Quick Start (Windows)
+
+### Prerequisites
+- [Python 3.11+](https://python.org/downloads/)
+
+### 1. Create Virtual Environment
+```powershell
+cd app
+python -m venv venv
+venv\Scripts\activate
+```
+
+### 2. Install Dependencies
+```powershell
+pip install -e .
+```
+
+### 3. Run the Application
+```powershell
+python main.py
+```
+
+---
+
+**This IS a Python project.**"""
+        )
+    else:
+        return (
+            "Mixed/Unknown",
+            """## 🚀 Quick Start (Windows)
+
+### Check the app/ folder for specific installation instructions based on project type:
+
+- **If you see `package.json`**: Run `npm install` then `npm start`
+- **If you see `requirements.txt` or `pyproject.toml`**: Run `pip install -e .`
+- **If you see `index.html`**: Open it directly in browser
+
+---
+
+**Note:** Check app/README.md for detailed instructions."""
+        )
+
+
 def _write_readme(
     state: ProjectState,
     out: Path,
@@ -490,15 +665,21 @@ def _write_readme(
     """Write a human-readable README.md summarizing the project run."""
     b = state.budget
     budget_pct = (b.spent_usd / b.max_usd * 100) if b.max_usd > 0 else 0.0
+    
+    # Detect project type and get install instructions
+    project_type, install_instructions = _detect_project_type(file_map, out)
 
     lines = [
         f"# Project: {state.project_description[:80]}",
         "",
+        f"**Project Type**: {project_type}  ",
         f"**Project ID**: `{project_id}`  ",
         f"**Status**: `{state.status.value}`  ",
         f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  ",
         f"**Budget used**: ${b.spent_usd:.4f} / ${b.max_usd} ({budget_pct:.1f}%)  ",
         f"**Time elapsed**: {b.elapsed_seconds:.1f}s  ",
+        "",
+        install_instructions,
         "",
         "## Success Criteria",
         "",
@@ -542,99 +723,35 @@ def _write_readme(
         "- `summary.json` — Full machine-readable results (includes raw outputs)",
         "- `README.md` — This file",
         "",
-        "## Integrated Project Structure",
+        "## Project Structure",
         "",
-        "This is a **production-ready Python project** with modern tooling and best practices:",
-        "",
-        "### Directory Structure",
+        "### Output Directory",
         "",
         "```",
         f"{project_id or 'project'}/",
-        "├── src/                          # Source code",
-        f"│   └── {project_id or 'package'}/",
-        "│       ├── domain/               # Business logic (pure, no deps)",
-        "│       ├── application/          # Use cases and orchestration",
-        "│       ├── infrastructure/       # External services, I/O",
-        "│       ├── config.py             # Pydantic Settings",
-        "│       ├── exceptions.py         # Exception hierarchy",
-        "│       └── logging.py            # Structured logging",
-        "├── tests/                        # Test suite",
-        "│   ├── unit/                     # Unit tests",
-        "│   ├── integration/              # Integration tests",
-        "│   └── fixtures/                 # Test data",
-        "├── docs/                         # Documentation",
-        "│   └── adr/                      # Architecture Decision Records",
-        "├── scripts/                      # Utility scripts",
-        "├── main.py                       # CLI entry point",
-        "├── pyproject.toml                # Python packaging & tools",
-        "├── Makefile                      # Common tasks",
-        "├── Dockerfile                    # Multi-stage container build",
-        "├── .github/workflows/ci.yml      # CI/CD pipeline",
-        "├── .pre-commit-config.yaml       # Git hooks",
-        "├── .env.example                  # Configuration template",
-        "└── README.md                     # This file",
+        "├── task_*.py/md/json       # Individual task outputs",
+        "├── app/                     # Extracted application files",
+        "│   ├── src/                 # Source code",
+        "│   ├── tests/               # Test files",
+        "│   └── README.md            # App-specific instructions",
+        "├── summary.json             # Machine-readable results",
+        "└── README.md                # This file",
         "```",
         "",
-        "### Quick Start",
+        "### Next Steps",
         "",
-        "```bash",
-        "# 1. Install dependencies",
-        "pip install -e '.[dev]'",
+        "1. **Check the `app/` folder** for the generated application",
+        "2. **Read `app/README.md`** for detailed setup instructions",
+        "3. **Run the application** using the Quick Start guide above",
         "",
-        "# 2. Copy and configure environment",
-        "cp .env.example .env",
-        "# Edit .env with your settings",
+        "### Generated Files",
         "",
-        "# 3. Run the pipeline",
-        "make run              # or: python main.py",
+        "Each task output includes:",
+        "- Source code (`.py`, `.js`, `.html`, etc.)",
+        "- Documentation (`.md`)",
+        "- Task metadata (score, model used, cost)",
         "",
-        "# 4. Run tests",
-        "make test             # or: pytest",
-        "",
-        "# 5. Check code quality",
-        "make ci               # Run all CI checks",
-        "```",
-        "",
-        "### CLI Commands",
-        "",
-        "```bash",
-        "python main.py              # Run all pipeline steps",
-        "python main.py --list       # Show available steps",
-        "python main.py --step 1     # Run specific step",
-        "python main.py --dry-run    # Preview without executing",
-        "python main.py --health     # Health check",
-        "```",
-        "",
-        "### Development Commands",
-        "",
-        "```bash",
-        "make install-dev      # Install with dev dependencies",
-        "make test             # Run tests with coverage",
-        "make lint             # Run linters (ruff)",
-        "make format           # Format code (black)",
-        "make type-check       # Type check (mypy)",
-        "make security-check   # Security scan (bandit)",
-        "make clean            # Clean build artifacts",
-        "make docker-build     # Build Docker image",
-        "```",
-        "",
-        "### Code Quality Standards",
-        "",
-        "- **Type hints**: All functions have type annotations",
-        "- **MyPy**: Strict mode type checking",
-        "- **Ruff**: Fast Python linting",
-        "- **Black**: Code formatting (line length: 100)",
-        "- **Pre-commit**: Automated checks on git commit",
-        "- **Coverage**: Minimum 80% test coverage",
-        "",
-        "### CI/CD Pipeline",
-        "",
-        "The GitHub Actions workflow runs:",
-        "1. Lint and type check",
-        "2. Security scan (bandit)",
-        "3. Test suite (Python 3.10, 3.11, 3.12)",
-        "4. Docker build (on main branch)",
-        "5. PyPI publish (on release)",
+        "**Note:** See `app/README.md` for complete project setup instructions specific to this application type.",
         "",
     ]
 

@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, TypeVar, Union
 from typing_extensions import ParamSpec
 
-from .logging import get_logger
+from .log_config import get_logger
 
 logger = get_logger(__name__)
 

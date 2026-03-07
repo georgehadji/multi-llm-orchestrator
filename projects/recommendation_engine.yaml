@@ -1,0 +1,274 @@
+# ──────────────────────────────────────────────────────
+# AI Project: End-to-End Recommendation Engine
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+#
+# Run with:
+#   python -m orchestrator --file projects/recommendation_engine.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a production-style End-to-End Recommendation System
+  capable of generating personalized recommendations
+  for users based on historical interaction data.
+
+  The system must include a full machine learning pipeline:
+  data ingestion, feature engineering, candidate generation,
+  ranking models, evaluation and API serving.
+
+  Dataset options:
+
+  - MovieLens dataset
+  - E-commerce interaction dataset
+
+  1. DATA PIPELINE
+
+     Build a scalable data pipeline that processes user-item
+     interaction data.
+
+     Input data:
+
+     - user interactions (ratings / clicks / purchases)
+     - item metadata
+     - user metadata
+
+     Pipeline steps:
+
+     - Load raw dataset
+     - Clean missing or invalid records
+     - Remove users/items with very few interactions
+     - Convert timestamps
+     - Generate interaction table
+
+     Output format:
+
+     user_id
+     item_id
+     interaction
+     timestamp
+
+     Create train/validation/test split using time-based split.
+
+  2. FEATURE ENGINEERING
+
+     Create features for three main entities:
+
+     User features:
+     - number of interactions
+     - average rating
+     - preferred genres
+     - recency features
+
+     Item features:
+     - popularity score
+     - average rating
+     - category / genre encoding
+     - release year
+
+     Interaction features:
+     - time since last interaction
+     - interaction frequency
+     - sequence position
+
+     Store features in a structured feature store.
+
+  3. CANDIDATE GENERATION MODELS
+
+     Implement models that generate candidate items
+     for recommendation.
+
+     Supported models:
+
+     Matrix Factorization
+
+       - user embedding
+       - item embedding
+       - dot-product scoring
+
+     Neural Collaborative Filtering (NCF)
+
+       Architecture:
+
+       user embedding
+       item embedding
+       concatenation
+       multilayer perceptron
+       score output
+
+     Transformer-based recommender
+
+       Sequence modeling of user behavior using
+       transformer encoder architecture.
+
+       Possible implementations:
+
+       - SASRec
+       - BERT4Rec
+
+       Input:
+
+       user interaction sequence.
+
+  4. RANKING LAYER
+
+     Candidate models generate top-N items.
+
+     Ranking layer scores and sorts candidates.
+
+     Ranking features include:
+
+     - user embedding
+     - item embedding
+     - similarity score
+     - item popularity
+     - interaction recency
+
+     Ranking models:
+
+     - Gradient Boosting
+     - XGBoost
+     - Deep neural ranking model
+
+     Output:
+
+     top-K ranked recommendations.
+
+  5. EVALUATION PIPELINE
+
+     Implement offline evaluation metrics.
+
+     Required metrics:
+
+     - Precision@K
+     - Recall@K
+     - NDCG@K
+     - Mean Average Precision
+
+     Evaluation steps:
+
+     - run evaluation on validation set
+     - compare candidate models
+     - select best performing model
+     - generate evaluation report
+
+  6. TRAINING PIPELINE
+
+     Implement a full training workflow.
+
+     Steps:
+
+     - load processed dataset
+     - generate features
+     - train candidate generation model
+     - train ranking model
+     - evaluate models
+     - save trained models
+
+     Models should be saved as serialized artifacts.
+
+  7. ONLINE INFERENCE API
+
+     Provide an API endpoint for recommendation serving.
+
+     Recommended implementation:
+
+     FastAPI service.
+
+     Endpoint example:
+
+       GET /recommend/{user_id}
+
+     Pipeline:
+
+     user request
+        ↓
+     candidate generation
+        ↓
+     ranking model
+        ↓
+     top-K recommendations returned.
+
+  8. FEATURE STORE
+
+     Store frequently accessed features such as:
+
+     - user embeddings
+     - item embeddings
+     - item metadata
+
+     Possible technologies:
+
+     - Redis
+     - Feast
+     - simple embedding store
+
+  9. MONITORING AND LOGGING
+
+     Track recommendation performance metrics:
+
+     - click-through rate (CTR)
+     - engagement rate
+     - recommendation diversity
+
+     Monitor model drift and retraining triggers.
+
+  10. PRODUCTION PIPELINE
+
+     Implement automated retraining pipeline.
+
+     Suggested workflow:
+
+     daily job
+
+     - ingest new interactions
+     - update features
+     - retrain model
+     - evaluate performance
+     - deploy updated model
+
+     Use orchestration tools such as:
+
+     - Airflow
+     - Prefect
+
+  11. ADVANCED FEATURES (OPTIONAL)
+
+     - approximate nearest neighbor search (FAISS)
+     - two-tower retrieval architecture
+     - reinforcement learning recommenders
+     - contextual bandits
+     - real-time recommendations
+
+
+criteria: |
+  - Dataset contains at least 1 million interactions
+  - Feature pipeline successfully generates user and item features
+  - Matrix factorization model trains successfully
+  - Neural collaborative filtering model implemented
+  - Transformer recommender implemented
+  - Ranking model produces top-10 recommendations
+  - Evaluation metrics computed on validation set
+  - Precision@10 ≥ 0.30 on MovieLens dataset
+  - System exposes API endpoint for recommendation queries
+  - Repository includes architecture documentation
+  - Project structure clearly separates data, models and pipeline
+
+
+budget_usd: 6.0
+time_seconds: 7200
+concurrency: 3
+
+project_id: "end-to-end-recommendation-engine-v1"
+
+output_dir: "./outputs/recommendation_engine"
+
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.88
+  complex_reasoning: 0.92
+  evaluation:        0.90
+
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

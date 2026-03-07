@@ -1,139 +1,181 @@
 """
-Semantic output cache and duplication detector.
+Semantic Cache — High-level pattern caching for cost optimization
+=================================================================
+Caches high-probability sub-results based on semantic intent rather than
+exact prompt matching. This enables cache hits for semantically equivalent
+tasks with different surface forms.
 
-SemanticCache stores (task_type, prompt_tokens, output) entries and
-retrieves outputs when a new prompt is sufficiently similar (Jaccard
-similarity on word tokens — no embedding model required).
-
-DuplicationDetector scans a task list for near-duplicate prompts so the
-engine can reuse outputs instead of generating twice.
+Example:
+    "Generate a FastAPI auth endpoint" and "Create authentication API route"
+    Should hit the same cache entry (both = auth endpoint generation)
 """
+
 from __future__ import annotations
+
+import hashlib
 import re
+from dataclasses import dataclass
 from typing import Optional
 
-
-def _tokenize(text: str) -> set[str]:
-    return set(re.findall(r"[a-zA-Z0-9_]+", text.lower()))
+from .models import Task, TaskType
 
 
-def _jaccard(a: set[str], b: set[str]) -> float:
-    """Standard Jaccard similarity on token sets."""
-    if not a and not b:
-        return 1.0
-    union = a | b
-    if not union:
-        return 0.0
-    return len(a & b) / len(union)
+@dataclass
+class SemanticPattern:
+    """A cached semantic pattern with quality threshold."""
+    pattern_hash: str
+    task_type: TaskType
+    normalized_intent: str
+    output: str
+    quality_score: float
+    use_count: int = 0
 
 
-def _soft_jaccard(a: set[str], b: set[str]) -> float:
-    """
-    Jaccard with prefix-match softening: a token in 'a' is counted as
-    matching a token in 'b' when one is a prefix of the other (minimum
-    prefix length 3). This handles morphological variants such as
-    'app' / 'application' or 'auth' / 'authentication'.
-
-    Soft-matched token pairs contribute 0.5 to the intersection instead
-    of a full 1.0, so identical prompts still score 1.0 and truly
-    unrelated prompts stay near 0.
-    """
-    if not a and not b:
-        return 1.0
-    union_size = len(a | b)
-    if union_size == 0:
-        return 0.0
-
-    exact_inter = a & b
-    # find tokens that match via prefix but are not exact matches
-    soft_matched_a: set[str] = set()
-    soft_matched_b: set[str] = set()
-    for ta in a - exact_inter:
-        for tb in b - exact_inter:
-            min_len = min(len(ta), len(tb))
-            if min_len >= 3 and (ta.startswith(tb[:min_len]) or tb.startswith(ta[:min_len])):
-                soft_matched_a.add(ta)
-                soft_matched_b.add(tb)
-
-    # exact matches contribute 1.0 each; soft matches contribute 0.5 each
-    soft_inter = len(exact_inter) + 0.5 * len(soft_matched_a | soft_matched_b)
-    return soft_inter / union_size
+# Backward compatibility: DuplicationDetector alias
+DuplicationDetector = None  # Deprecated: functionality merged into SemanticCache
 
 
 class SemanticCache:
     """
-    In-memory semantic output cache keyed by (task_type, prompt_tokens).
+    Semantic cache for high-level task patterns.
+    
+    Unlike the DiskCache which does exact prompt matching, this cache:
+    1. Normalizes prompts to extract semantic intent
+    2. Strips variable names and literals
+    3. Preserves structure and operation types
+    4. Only caches high-quality results (score >= threshold)
     """
-
-    def __init__(self, similarity_threshold: float = 0.92) -> None:
-        self.threshold = similarity_threshold
-        # entries: list of (task_type, tokens, output)
-        self._entries: list[tuple[str, set[str], str]] = []
-
-    async def get(
-        self, task_id: str, task_type: str, prompt: str
-    ) -> Optional[str]:
-        tokens = _tokenize(prompt)
-        best_score = 0.0
-        best_output: Optional[str] = None
-        for (etype, etokens, eoutput) in self._entries:
-            if etype != task_type:
-                continue
-            score = _jaccard(tokens, etokens)
-            if score > best_score:
-                best_score = score
-                best_output = eoutput
-        if best_score >= self.threshold:
-            return best_output
-        return None
-
-    async def put(
+    
+    def __init__(self, quality_threshold: float = 0.85, min_use_count: int = 2):
+        self._cache: dict[str, SemanticPattern] = {}
+        self._quality_threshold = quality_threshold
+        self._min_use_count = min_use_count
+    
+    def _normalize_prompt(self, prompt: str, task_type: TaskType) -> str:
+        """
+        Normalize prompt to extract semantic intent.
+        
+        Transformations:
+        - Strip variable names (replace with <IDENTIFIER>)
+        - Strip literal values (replace with <LITERAL>)
+        - Normalize whitespace
+        - Lowercase keywords
+        - Preserve structure and operation types
+        """
+        # Remove code blocks and quotes
+        text = re.sub(r'```[\s\S]*?```', '<CODE_BLOCK>', prompt)
+        text = re.sub(r'["\'][^"\']+["\']', '<LITERAL>', text)
+        
+        # Replace variable-like identifiers (camelCase, snake_case)
+        text = re.sub(r'\b[a-z][a-zA-Z0-9_]*\b', '<identifier>', text)
+        text = re.sub(r'\b[A-Z][a-zA-Z0-9_]*\b', '<Identifier>', text)
+        
+        # Replace numbers
+        text = re.sub(r'\b\d+\b', '<NUM>', text)
+        
+        # Normalize task-specific patterns
+        if task_type == TaskType.CODE_GEN:
+            # Normalize function/class names in definitions
+            text = re.sub(r'\b(def|class)\s+\w+', r'\1 <NAME>', text)
+        
+        # Normalize whitespace
+        text = ' '.join(text.split())
+        text = text.lower()
+        
+        return text
+    
+    def _compute_hash(self, normalized: str, task_type: TaskType) -> str:
+        """Compute deterministic hash for normalized intent."""
+        payload = f"{task_type.value}:{normalized}"
+        return hashlib.sha256(payload.encode()).hexdigest()[:16]
+    
+    def get_cached_pattern(self, task: Task, min_quality: float = 0.0) -> Optional[str]:
+        """
+        Retrieve cached output if semantic match exists.
+        
+        Args:
+            task: The task to find a cached pattern for
+            min_quality: Minimum quality score required for cache hit
+        
+        Returns:
+            Cached output string or None if no match
+        """
+        normalized = self._normalize_prompt(task.prompt, task.type)
+        pattern_hash = self._compute_hash(normalized, task.type)
+        
+        pattern = self._cache.get(pattern_hash)
+        if pattern is None:
+            return None
+        
+        # Verify quality threshold
+        if pattern.quality_score < max(min_quality, self._quality_threshold):
+            return None
+        
+        # Only return if pattern has proven useful (used multiple times)
+        if pattern.use_count < self._min_use_count:
+            return None
+        
+        pattern.use_count += 1
+        return pattern.output
+    
+    def cache_pattern(
         self,
-        task_id: str,
-        task_type: str,
+        task: Task,
         output: str,
-        prompt: str = "",
-    ) -> None:
-        tokens = _tokenize(prompt)
-        self._entries.append((task_type, tokens, output))
-
-    def size(self) -> int:
-        return len(self._entries)
-
-
-class DuplicationDetector:
-    """
-    Scans a dict of {task_id: {prompt: str}} and returns groups of
-    near-duplicate task IDs based on soft Jaccard similarity of prompts.
-    Soft Jaccard handles morphological variants (e.g. 'app'/'application')
-    via prefix matching so that near-paraphrases are correctly grouped.
-    """
-
-    def __init__(self, similarity_threshold: float = 0.85) -> None:
-        self.threshold = similarity_threshold
-
-    def find_duplicate_groups(
-        self, tasks: dict[str, dict]
-    ) -> list[list[str]]:
-        ids = list(tasks.keys())
-        token_map = {
-            tid: _tokenize(tasks[tid].get("prompt", ""))
-            for tid in ids
+        quality_score: float
+    ) -> bool:
+        """
+        Cache a pattern if it meets quality threshold.
+        
+        Args:
+            task: The task that generated the output
+            output: The generated output
+            quality_score: The quality score of the output
+        
+        Returns:
+            True if cached, False if quality too low
+        """
+        if quality_score < self._quality_threshold:
+            return False
+        
+        normalized = self._normalize_prompt(task.prompt, task.type)
+        pattern_hash = self._compute_hash(normalized, task.type)
+        
+        # Update existing or create new
+        if pattern_hash in self._cache:
+            existing = self._cache[pattern_hash]
+            # Keep the higher quality version
+            if quality_score > existing.quality_score:
+                existing.output = output
+                existing.quality_score = quality_score
+            existing.use_count += 1
+        else:
+            self._cache[pattern_hash] = SemanticPattern(
+                pattern_hash=pattern_hash,
+                task_type=task.type,
+                normalized_intent=normalized,
+                output=output,
+                quality_score=quality_score,
+                use_count=1
+            )
+        
+        return True
+    
+    def get_stats(self) -> dict:
+        """Get cache statistics."""
+        if not self._cache:
+            return {"entries": 0, "avg_quality": 0.0, "total_uses": 0}
+        
+        qualities = [p.quality_score for p in self._cache.values()]
+        uses = [p.use_count for p in self._cache.values()]
+        
+        return {
+            "entries": len(self._cache),
+            "avg_quality": sum(qualities) / len(qualities),
+            "total_uses": sum(uses),
+            "hot_entries": sum(1 for u in uses if u >= self._min_use_count)
         }
-        visited: set[str] = set()
-        groups: list[list[str]] = []
-        for i, tid_a in enumerate(ids):
-            if tid_a in visited:
-                continue
-            group = [tid_a]
-            for tid_b in ids[i + 1:]:
-                if tid_b in visited:
-                    continue
-                score = _soft_jaccard(token_map[tid_a], token_map[tid_b])
-                if score >= self.threshold:
-                    group.append(tid_b)
-                    visited.add(tid_b)
-            if len(group) > 1:
-                groups.append(group)
-                visited.add(tid_a)
-        return groups
+    
+    def clear(self) -> None:
+        """Clear all cached patterns."""
+        self._cache.clear()

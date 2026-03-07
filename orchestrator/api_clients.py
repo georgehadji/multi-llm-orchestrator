@@ -1,5 +1,5 @@
 """
-API Clients — Unified interface for OpenAI, Google, Kimi, DeepSeek, Minimax, Zhipu
+API Clients — Unified interface for OpenAI, Google, Anthropic, DeepSeek, Minimax
 =================================================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis
 Each provider has its own SDK idiom. This module normalizes them
@@ -13,10 +13,10 @@ FIX #9: Rate-limit detection for all providers (not just OpenAI 429).
 Providers:
 - OpenAI (GPT-4o, GPT-4o-mini)
 - Google (Gemini Pro, Gemini Flash)
-- Kimi K2.5 (Moonshot.cn) - OpenAI-compatible
+- Anthropic (Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku)
 - DeepSeek (Coder, Reasoner, Coder-V2) - OpenAI-compatible
 - Minimax - OpenAI-compatible
-- Zhipu AI (GLM-4) - OpenAI-compatible
+
 """
 
 from __future__ import annotations
@@ -128,23 +128,22 @@ class UnifiedClient:
         except ImportError:
             logger.warning("google-genai package not installed")
 
-        # Kimi K2.5 (moonshot.cn) — OpenAI-compatible API
+        # Anthropic Claude (claude.ai) — Native API
         try:
-            kimi_key = os.environ.get("KIMI_API_KEY") or os.environ.get("MOONSHOT_API_KEY")
-            if kimi_key:
-                from openai import AsyncOpenAI
-                self._clients["kimi"] = AsyncOpenAI(
-                    api_key=kimi_key,
-                    base_url="https://api.moonshot.cn/v1",
+            anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+            if anthropic_key:
+                from anthropic import AsyncAnthropic
+                self._clients["anthropic"] = AsyncAnthropic(
+                    api_key=anthropic_key,
                     timeout=timeout,
                     max_retries=0,  # We handle retries ourselves
                 )
-                logger.info("Kimi K2.5 client initialized")
+                logger.info("Anthropic client initialized")
         except ImportError:
-            logger.warning("openai package not installed (needed for Kimi K2.5)")
+            logger.warning("anthropic package not installed (needed for Claude models)")
 
         # DeepSeek (platform.deepseek.com) — OpenAI-compatible API
-        # Supports deepseek-coder, deepseek-reasoner (R1), and deepseek-coder-v2.
+        # Supports deepseek-chat, deepseek-reasoner (R1).
         try:
             deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
             if deepseek_key:
@@ -168,26 +167,153 @@ class UnifiedClient:
                     api_key=minimax_key,
                     base_url="https://api.minimaxi.chat/v1",
                     timeout=timeout,
-                    max_retries=0,  # We handle retries ourselves
+                    max_retries=0,
                 )
                 logger.info("Minimax client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for Minimax)")
-
-        # Zhipu AI (open.bigmodel.cn) — OpenAI-compatible API
+        
+        # ═══════════════════════════════════════════════════════
+        # NEW PROVIDERS (Added March 2026)
+        # ═══════════════════════════════════════════════════════
+        
+        # Mistral AI (api.mistral.ai) — OpenAI-compatible API
+        try:
+            mistral_key = os.environ.get("MISTRAL_API_KEY")
+            if mistral_key:
+                from openai import AsyncOpenAI
+                self._clients["mistral"] = AsyncOpenAI(
+                    api_key=mistral_key,
+                    base_url="https://api.mistral.ai/v1",
+                    timeout=timeout,
+                    max_retries=0,
+                )
+                logger.info("Mistral AI client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for Mistral)")
+        
+        # xAI Grok (api.x.ai) — OpenAI-compatible API
+        try:
+            xai_key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
+            if xai_key:
+                from openai import AsyncOpenAI
+                self._clients["xai"] = AsyncOpenAI(
+                    api_key=xai_key,
+                    base_url="https://api.x.ai/v1",
+                    timeout=timeout,
+                    max_retries=0,
+                )
+                logger.info("xAI client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for xAI)")
+        
+        # Cohere (api.cohere.ai) — Native API
+        try:
+            cohere_key = os.environ.get("COHERE_API_KEY")
+            if cohere_key:
+                # Cohere has its own SDK but also supports OpenAI-compatible
+                # For now, we use the native client
+                import cohere
+                self._clients["cohere"] = cohere.AsyncClient(api_key=cohere_key)
+                logger.info("Cohere client initialized")
+        except ImportError:
+            logger.warning("cohere package not installed (needed for Cohere)")
+        
+        # Alibaba Qwen (dashscope-intl.aliyuncs.com) — OpenAI-compatible API
+        try:
+            dashscope_key = os.environ.get("DASHSCOPE_API_KEY")
+            if dashscope_key:
+                from openai import AsyncOpenAI
+                self._clients["alibaba"] = AsyncOpenAI(
+                    api_key=dashscope_key,
+                    base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+                    timeout=timeout,
+                    max_retries=0,
+                )
+                logger.info("Alibaba Qwen client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for Alibaba)")
+        
+        # ByteDance Seed (ark.cn-beijing.volces.com) — OpenAI-compatible API
+        try:
+            volcengine_key = os.environ.get("ARK_API_KEY") or os.environ.get("VOLCENGINE_API_KEY")
+            if volcengine_key:
+                from openai import AsyncOpenAI
+                self._clients["bytedance"] = AsyncOpenAI(
+                    api_key=volcengine_key,
+                    base_url="https://ark.cn-beijing.volces.com/api/v3",
+                    timeout=timeout,
+                    max_retries=0,
+                )
+                logger.info("ByteDance Seed client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for ByteDance)")
+        
+        # Zhipu GLM (api.z.ai) — OpenAI-compatible API
         try:
             zhipu_key = os.environ.get("ZHIPUAI_API_KEY") or os.environ.get("ZHIPU_API_KEY")
             if zhipu_key:
                 from openai import AsyncOpenAI
                 self._clients["zhipu"] = AsyncOpenAI(
                     api_key=zhipu_key,
-                    base_url="https://open.bigmodel.cn/api/paas/v4",
+                    base_url="https://api.z.ai/api/coding/paas/v4",
                     timeout=timeout,
-                    max_retries=0,  # We handle retries ourselves
+                    max_retries=0,
                 )
-                logger.info("Zhipu AI client initialized")
+                logger.info("Zhipu GLM client initialized")
         except ImportError:
-            logger.warning("openai package not installed (needed for Zhipu AI)")
+            logger.warning("openai package not installed (needed for Zhipu)")
+        
+        # Baidu Ernie — Requires special handling (not standard OpenAI)
+        # Use via third-party APIs or Novita AI
+        try:
+            # Support both QIANFAN_ACCESS_KEY/SECRET_KEY and legacy BAIDU_API_KEY
+            baidu_access = os.environ.get("QIANFAN_ACCESS_KEY") or os.environ.get("QIANFAN_AK")
+            baidu_secret = os.environ.get("QIANFAN_SECRET_KEY") or os.environ.get("QIANFAN_SK")
+            baidu_key = os.environ.get("BAIDU_API_KEY")
+            if (baidu_access and baidu_secret) or baidu_key:
+                # Baidu uses its own API format
+                # For now, mark as available but requires custom implementation
+                self._clients["baidu"] = "baidu"  # Placeholder
+                logger.info("Baidu Ernie configured (requires custom handler)")
+        except Exception:
+            pass
+        
+        # Moonshot Kimi (api.moonshot.cn) — OpenAI-compatible API
+        try:
+            moonshot_key = os.environ.get("MOONSHOT_API_KEY")
+            if moonshot_key:
+                from openai import AsyncOpenAI
+                self._clients["moonshot"] = AsyncOpenAI(
+                    api_key=moonshot_key,
+                    base_url="https://api.moonshot.cn/v1",
+                    timeout=timeout,
+                    max_retries=0,
+                )
+                logger.info("Moonshot Kimi client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for Moonshot)")
+        
+        # Tencent Hunyuan — Requires special handling
+        try:
+            # Support TENCENTCLOUD_SECRET_ID/KEY or HUNYUAN_API_KEY
+            tencent_secret_id = os.environ.get("TENCENTCLOUD_SECRET_ID")
+            tencent_secret_key = os.environ.get("TENCENTCLOUD_SECRET_KEY")
+            tencent_key = os.environ.get("HUNYUAN_API_KEY") or os.environ.get("TENCENT_API_KEY")
+            if (tencent_secret_id and tencent_secret_key) or tencent_key:
+                self._clients["tencent"] = "tencent"  # Placeholder
+                logger.info("Tencent Hunyuan configured (requires custom handler)")
+        except Exception:
+            pass
+        
+        # Baichuan — Requires special handling
+        try:
+            baichuan_key = os.environ.get("BAICHUAN_API_KEY")
+            if baichuan_key:
+                self._clients["baichuan"] = "baichuan"  # Placeholder
+                logger.info("Baichuan configured (requires custom handler)")
+        except Exception:
+            pass
 
     def is_available(self, model: Model) -> bool:
         provider = get_provider(model)
@@ -286,16 +412,28 @@ class UnifiedClient:
             return await self._call_openai(model, prompt, system, max_tokens, temperature)
         elif provider == "google":
             return await self._call_google(model, prompt, system, max_tokens, temperature)
-        elif provider == "kimi":
-            return await self._call_kimi(model, prompt, system, max_tokens, temperature)
+        elif provider == "anthropic":
+            return await self._call_anthropic(model, prompt, system, max_tokens, temperature)
         elif provider == "deepseek":
             return await self._call_deepseek(model, prompt, system, max_tokens, temperature)
         elif provider == "minimax":
             return await self._call_minimax(model, prompt, system, max_tokens, temperature)
-        elif provider == "zhipu":
-            return await self._call_zhipu(model, prompt, system, max_tokens, temperature)
+        # ═══════════════════════════════════════════════════════
+        # NEW PROVIDERS (March 2026)
+        # ═══════════════════════════════════════════════════════
+        elif provider in ("mistral", "xai", "alibaba", "bytedance", "zhipu", "moonshot"):
+            # All these providers use OpenAI-compatible APIs
+            return await self._call_openai_compatible(provider, model, prompt, system, max_tokens, temperature)
+        elif provider == "cohere":
+            return await self._call_cohere(model, prompt, system, max_tokens, temperature)
+        elif provider == "baidu":
+            raise NotImplementedError("Baidu Ernie requires custom implementation. Use via Novita AI or similar proxy.")
+        elif provider == "tencent":
+            raise NotImplementedError("Tencent Hunyuan requires custom implementation.")
+        elif provider == "baichuan":
+            raise NotImplementedError("Baichuan requires custom implementation.")
         else:
-            raise ValueError(f"Unknown provider for {model.value}")
+            raise ValueError(f"Unknown provider for {model.value}: {provider}")
 
     async def _call_openai(self, model: Model, prompt: str,
                             system: str, max_tokens: int,
@@ -362,49 +500,38 @@ class UnifiedClient:
             model=model,
         )
 
-    async def _call_kimi(self, model: Model, prompt: str,
-                          system: str, max_tokens: int,
-                          temperature: float) -> APIResponse:
+    async def _call_anthropic(self, model: Model, prompt: str,
+                               system: str, max_tokens: int,
+                               temperature: float) -> APIResponse:
         """
-        Kimi K2.5 via moonshot.cn OpenAI-compatible endpoint.
-        Uses the same AsyncOpenAI client pointed at base_url=https://api.moonshot.cn/v1.
-
+        Anthropic Claude via native Anthropic API.
+        
         Notes:
-        - kimi-k2.5 only accepts temperature=1 (hardcoded, ignores caller value).
-        - kimi-k2.5 uses internal reasoning tokens that count against max_tokens
-          but don't appear in content. Callers should use max_tokens >= 8192 for
-          complex tasks to avoid truncated or empty responses.
-        - If finish_reason == 'length' and content is empty, raise an error so the
-          engine retries with a fallback model rather than caching an empty response.
+        - Claude models use 'system' parameter (not messages[0] role)
+        - max_tokens is required for Anthropic API
+        - Input/output token counts available in usage
         """
-        client = self._clients["kimi"]
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
-
-        response = await client.chat.completions.create(
+        client = self._clients["anthropic"]
+        
+        message = await client.messages.create(
             model=model.value,
-            messages=messages,
             max_tokens=max_tokens,
-            temperature=1,  # kimi-k2.5 only accepts temperature=1
+            temperature=temperature,
+            system=system if system else None,
+            messages=[{"role": "user", "content": prompt}],
         )
-        choice = response.choices[0]
-        usage = response.usage
-        text = choice.message.content or ""
-
-        # Raise if response was cut off due to token limit with no content produced
-        if not text.strip() and choice.finish_reason == "length":
-            raise RuntimeError(
-                f"kimi-k2.5 returned empty content with finish_reason='length'. "
-                f"max_tokens={max_tokens} was too low for the internal reasoning budget. "
-                f"completion_tokens={usage.completion_tokens if usage else '?'}"
-            )
+        
+        text = ""
+        if message.content and len(message.content) > 0:
+            text = message.content[0].text if hasattr(message.content[0], 'text') else str(message.content[0])
+        
+        input_tokens = message.usage.input_tokens if message.usage else 0
+        output_tokens = message.usage.output_tokens if message.usage else 0
 
         return APIResponse(
             text=text,
-            input_tokens=usage.prompt_tokens if usage else 0,
-            output_tokens=usage.completion_tokens if usage else 0,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             model=model,
         )
 
@@ -437,35 +564,6 @@ class UnifiedClient:
             model=model,
         )
 
-    async def _call_zhipu(self, model: Model, prompt: str,
-                          system: str, max_tokens: int,
-                          temperature: float) -> APIResponse:
-        """
-        Zhipu AI (GLM-4-Plus) via open.bigmodel.cn OpenAI-compatible endpoint.
-        Supports GLM-4-Plus and other models.
-        """
-        client = self._clients["zhipu"]
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
-
-        response = await client.chat.completions.create(
-            model=model.value,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-        choice = response.choices[0]
-        usage = response.usage
-
-        return APIResponse(
-            text=choice.message.content or "",
-            input_tokens=usage.prompt_tokens if usage else 0,
-            output_tokens=usage.completion_tokens if usage else 0,
-            model=model,
-        )
-
     async def _call_deepseek(self, model: Model, prompt: str,
                               system: str, max_tokens: int,
                               temperature: float) -> APIResponse:
@@ -473,13 +571,13 @@ class UnifiedClient:
         DeepSeek via platform.deepseek.com OpenAI-compatible endpoint.
 
         Supports models:
-        - deepseek-coder     : fast, cheap ($0.27/$1.10 per 1M), strong on code
-        - deepseek-reasoner  : o1-class reasoning, slower, slightly more expensive
+        - deepseek-chat      : fast, cheap ($0.28/$0.42 per 1M), strong on code
+        - deepseek-reasoner  : o1-class reasoning, slower, outputs reasoning_content
 
         Notes:
-        - deepseek-reasoner uses chain-of-thought internally; reasoning_content tokens
-          are billed but not returned in content by default.
-        - Both models support standard temperature values (unlike Kimi K2.5).
+        - deepseek-reasoner outputs reasoning_content (CoT) + content. Temperature
+          and top_p are IGNORED for reasoner (has no effect). Only deepseek-chat
+          supports temperature control.
         - DeepSeek-R1 does not support system prompts for reasoning tasks; if the model
           is reasoner and a system prompt is provided, it is prepended to the user message.
         """
@@ -495,12 +593,16 @@ class UnifiedClient:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
 
-        response = await client.chat.completions.create(
-            model=model.value,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+        # Build API call params - deepseek-reasoner ignores temperature/top_p
+        api_params = {
+            "model": model.value,
+            "messages": messages,
+            "max_tokens": max_tokens,
+        }
+        if model.value != "deepseek-reasoner":
+            api_params["temperature"] = temperature
+        
+        response = await client.chat.completions.create(**api_params)
         choice = response.choices[0]
         usage = response.usage
         text = choice.message.content or ""
@@ -519,5 +621,66 @@ class UnifiedClient:
             text=text,
             input_tokens=usage.prompt_tokens if usage else 0,
             output_tokens=usage.completion_tokens if usage else 0,
+            model=model,
+        )
+
+
+    async def _call_openai_compatible(self, provider: str, model: Model, prompt: str,
+                                       system: str, max_tokens: int,
+                                       temperature: float) -> APIResponse:
+        """
+        Generic handler for OpenAI-compatible APIs.
+        Used by: Mistral, xAI, Alibaba, ByteDance, Zhipu, Moonshot
+        """
+        client = self._clients[provider]
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.completions.create(
+            model=model.value,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        choice = response.choices[0]
+        usage = response.usage
+        text = choice.message.content or ""
+
+        return APIResponse(
+            text=text,
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            model=model,
+        )
+
+    async def _call_cohere(self, model: Model, prompt: str,
+                           system: str, max_tokens: int,
+                           temperature: float) -> APIResponse:
+        """
+        Cohere native API handler.
+        """
+        client = self._clients["cohere"]
+        
+        # Cohere uses a different API format
+        response = await client.chat(
+            model=model.value,
+            message=prompt,
+            preamble=system if system else None,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        
+        text = response.text or ""
+        
+        # Cohere usage format differs from OpenAI
+        input_tokens = response.meta.tokens.input_tokens if response.meta and response.meta.tokens else 0
+        output_tokens = response.meta.tokens.output_tokens if response.meta and response.meta.tokens else 0
+
+        return APIResponse(
+            text=text,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             model=model,
         )

@@ -1,0 +1,47 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project 4: SvelteKit Developer Portfolio
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_svelte_portfolio.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a developer portfolio website using SvelteKit and TypeScript.
+
+  The portfolio must include:
+  1. Hero section: animated typing effect for role titles, social links, CTA button
+  2. About section: bio, tech stack grid with skill level indicators
+  3. Projects section: filterable card grid (filter by tech tag), project modal with
+     screenshots, description, tech stack, GitHub/live links
+  4. Experience timeline: company, role, dates, bullet point achievements
+  5. Contact form with client-side validation and mock submission (no backend needed)
+  6. Smooth scroll navigation with active section highlighting in header
+  7. Page transition animations using Svelte transitions
+  8. Fully static site (SvelteKit static adapter) — deployable to GitHub Pages
+  9. CSS custom properties for theming, no external CSS framework
+
+criteria: |
+  - Typing animation cycles through role titles smoothly
+  - Project filter correctly shows/hides cards by tag
+  - Contact form validates email format and required fields
+  - Smooth scroll works for all navigation links
+  - Active nav link updates as user scrolls through sections
+  - npm run build generates static files in /build directory
+  - Lighthouse accessibility score ≥95
+  - No TypeScript errors on build
+
+budget_usd: 3.0
+time_seconds: 3600
+concurrency: 3
+project_id: "frontend-svelte-portfolio-v1"
+output_dir: "./outputs/frontend_svelte_portfolio"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.88
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

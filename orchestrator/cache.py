@@ -49,39 +49,49 @@ class DiskCache:
     async def _get_conn(self) -> aiosqlite.Connection:
         """
         Return persistent connection, initializing schema once.
-        
+
         OPTIMIZATION: Connection TTL prevents stale connections.
         If connection is older than _CONN_TTL, it's recreated.
+        
+        FIX: TTL check moved inside lock to prevent race condition.
         """
         if self._lock is None:
             self._lock = asyncio.Lock()
-            
-        # Check if connection needs refresh (TTL expired)
-        if self._conn is not None and self._conn_created_at is not None:
-            if time.time() - self._conn_created_at > self._CONN_TTL:
-                logger.debug("Cache connection TTL expired, refreshing")
-                await self.close()
-        
+
         if self._conn is None:
             async with self._lock:
                 # Double-check after acquiring lock
                 if self._conn is None:
-                    self._conn = await aiosqlite.connect(self._db_path)
-                    self._conn_created_at = time.time()
-                    await self._conn.execute("PRAGMA journal_mode=WAL")
-                    await self._conn.execute("""
-                        CREATE TABLE IF NOT EXISTS cache (
-                            hash          TEXT PRIMARY KEY,
-                            model         TEXT NOT NULL,
-                            response      TEXT NOT NULL,
-                            tokens_input  INTEGER DEFAULT 0,
-                            tokens_output INTEGER DEFAULT 0,
-                            created_at    REAL NOT NULL
-                        )
-                    """)
-                    await self._conn.commit()
-                    self._schema_ready = True
-                    logger.debug("Cache connection established, schema ready")
+                    # Check if connection needs refresh (TTL expired)
+                    # Move TTL check inside lock to prevent race condition
+                    if (self._conn_created_at is not None and 
+                        time.time() - self._conn_created_at > self._CONN_TTL):
+                        logger.debug("Cache connection TTL expired, refreshing")
+                        # Close old connection if it exists
+                        if self._conn is not None:
+                            try:
+                                await self._conn.close()
+                            except Exception:
+                                pass
+                    
+                    # Create new connection if needed
+                    if self._conn is None:
+                        self._conn = await aiosqlite.connect(self._db_path)
+                        self._conn_created_at = time.time()
+                        await self._conn.execute("PRAGMA journal_mode=WAL")
+                        await self._conn.execute("""
+                            CREATE TABLE IF NOT EXISTS cache (
+                                hash          TEXT PRIMARY KEY,
+                                model         TEXT NOT NULL,
+                                response      TEXT NOT NULL,
+                                tokens_input  INTEGER DEFAULT 0,
+                                tokens_output INTEGER DEFAULT 0,
+                                created_at    REAL NOT NULL
+                            )
+                        """)
+                        await self._conn.commit()
+                        self._schema_ready = True
+                        logger.debug("Cache connection established, schema ready")
         return self._conn
 
     async def get(self, model: str, prompt: str, max_tokens: int,

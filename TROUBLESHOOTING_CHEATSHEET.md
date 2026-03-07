@@ -342,7 +342,7 @@ python -c "from orchestrator import __version__; print(__version__)"
 
 # Open issue
 github issue create \
-  --repo gchatz22/multi-llm-orchestrator \
+  --repo georgehadji/multi-llm-orchestrator \
   --title "Bug: ..." \
   --body "Description..."
 ```

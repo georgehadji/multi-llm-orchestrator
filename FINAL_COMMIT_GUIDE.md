@@ -203,7 +203,7 @@ git push origin main
 
 ## 🔗 Repository
 
-**GitHub:** https://github.com/gchatz22/multi-llm-orchestrator
+**GitHub:** https://github.com/georgehadji/multi-llm-orchestrator
 
 ---
 

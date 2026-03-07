@@ -1,0 +1,135 @@
+{
+  "catalog_version": "1.0",
+  "last_updated": "2026-03-04",
+  "providers": [
+    {
+      "name": "OpenAI",
+      "region": "USA",
+      "api_base": "https://api.openai.com/v1",
+      "models": [
+        {"name": "GPT-5.2 Pro", "input_per_1m": 21.00, "output_per_1m": 168.00, "context": "200K", "priority": "premium"},
+        {"name": "GPT-5.2", "input_per_1m": 1.75, "output_per_1m": 14.00, "context": "200K", "priority": "high"},
+        {"name": "GPT-5", "input_per_1m": 1.25, "output_per_1m": 10.00, "context": "128K", "priority": "high"},
+        {"name": "GPT-5 Mini", "input_per_1m": 0.25, "output_per_1m": 2.00, "context": "200K", "priority": "medium"},
+        {"name": "GPT-5 Nano", "input_per_1m": 0.05, "output_per_1m": 0.40, "context": "128K", "priority": "high"},
+        {"name": "GPT-4o", "input_per_1m": 2.50, "output_per_1m": 10.00, "context": "128K", "priority": "high"},
+        {"name": "GPT-4o Mini", "input_per_1m": 0.15, "output_per_1m": 0.60, "context": "128K", "priority": "high"}
+      ]
+    },
+    {
+      "name": "Anthropic",
+      "region": "USA",
+      "api_base": "https://api.anthropic.com/v1",
+      "models": [
+        {"name": "Claude Opus 4.6", "input_per_1m": 5.00, "output_per_1m": 25.00, "context": "200K", "priority": "premium"},
+        {"name": "Claude Sonnet 4.6", "input_per_1m": 3.00, "output_per_1m": 15.00, "context": "200K", "priority": "high"},
+        {"name": "Claude Haiku 4.5", "input_per_1m": 1.00, "output_per_1m": 5.00, "context": "200K", "priority": "medium"}
+      ]
+    },
+    {
+      "name": "Google",
+      "region": "USA",
+      "api_base": "https://generativelanguage.googleapis.com",
+      "models": [
+        {"name": "Gemini 2.5 Pro", "input_per_1m": 1.25, "output_per_1m": 10.00, "context": "2M", "priority": "high"},
+        {"name": "Gemini 3.1 Flash-Lite", "input_per_1m": 0.25, "output_per_1m": 1.50, "context": "1M", "priority": "high"},
+        {"name": "Gemini 2.0 Flash-Lite", "input_per_1m": 0.075, "output_per_1m": 0.30, "context": "1M", "priority": "high"},
+        {"name": "Gemini 2.5 Flash", "input_per_1m": 0.30, "output_per_1m": 2.50, "context": "1M", "priority": "medium"}
+      ]
+    },
+    {
+      "name": "DeepSeek",
+      "region": "China",
+      "api_base": "https://api.deepseek.com/v1",
+      "models": [
+        {"name": "DeepSeek-V3.2", "input_per_1m": 0.28, "output_per_1m": 0.42, "context": "128K", "priority": "high"},
+        {"name": "DeepSeek-R1", "input_per_1m": 0.55, "output_per_1m": 2.19, "context": "128K", "priority": "high"}
+      ]
+    },
+    {
+      "name": "Mistral AI",
+      "region": "Europe",
+      "api_base": "https://api.mistral.ai/v1",
+      "models": [
+        {"name": "Mistral Nemo", "input_per_1m": 0.02, "output_per_1m": 0.04, "context": "128K", "priority": "high"},
+        {"name": "Mistral Small 3.1", "input_per_1m": 0.03, "output_per_1m": 0.11, "context": "128K", "priority": "high"},
+        {"name": "Mistral Large 3", "input_per_1m": 0.50, "output_per_1m": 1.50, "context": "128K", "priority": "medium"},
+        {"name": "Codestral", "input_per_1m": 0.30, "output_per_1m": 0.90, "context": "128K", "priority": "medium"}
+      ]
+    },
+    {
+      "name": "xAI",
+      "region": "USA",
+      "api_base": "https://api.x.ai/v1",
+      "models": [
+        {"name": "Grok 4.1 Fast", "input_per_1m": 0.20, "output_per_1m": 0.50, "context": "2M", "priority": "high"},
+        {"name": "Grok 3 Mini", "input_per_1m": 0.10, "output_per_1m": 0.30, "context": "128K", "priority": "medium"},
+        {"name": "Grok 4", "input_per_1m": 3.00, "output_per_1m": 15.00, "context": "256K", "priority": "medium"}
+      ]
+    },
+    {
+      "name": "Alibaba",
+      "region": "China",
+      "api_base": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "models": [
+        {"name": "Qwen3-235B-A22B", "input_per_1m": 0.136, "output_per_1m": 0.544, "context": "128K", "priority": "high"},
+        {"name": "Qwen-Long", "input_per_1m": 0.10, "output_per_1m": 0.40, "context": "10M", "priority": "medium"},
+        {"name": "Qwen-Plus", "input_per_1m": 0.50, "output_per_1m": 1.50, "context": "128K", "priority": "medium"}
+      ]
+    },
+    {
+      "name": "ByteDance",
+      "region": "China",
+      "api_base": "https://ark.cn-beijing.volces.com/api/v3",
+      "models": [
+        {"name": "Seed 2.0 Pro", "input_per_1m": 0.47, "output_per_1m": 2.37, "context": "128K", "priority": "high"},
+        {"name": "Seed 2.0 Lite", "input_per_1m": 0.20, "output_per_1m": 1.00, "context": "128K", "priority": "medium"},
+        {"name": "Seed 2.0 Mini", "input_per_1m": 0.05, "output_per_1m": 0.25, "context": "128K", "priority": "high"}
+      ]
+    },
+    {
+      "name": "Zhipu AI",
+      "region": "China",
+      "api_base": "https://api.z.ai/api/coding/paas/v4",
+      "models": [
+        {"name": "GLM-4.7", "input_per_1m": 3.00, "output_per_1m": 15.00, "context": "128K", "priority": "medium"},
+        {"name": "GLM-4.6", "input_per_1m": 2.37, "output_per_1m": 11.06, "context": "128K", "priority": "low"}
+      ]
+    },
+    {
+      "name": "Baidu",
+      "region": "China",
+      "api_base": "https://cloud.baidu.com",
+      "models": [
+        {"name": "Ernie 4.5-21B-A3B", "input_per_1m": 0.056, "output_per_1m": 0.224, "context": "128K", "priority": "medium"},
+        {"name": "Ernie Speed Pro-128K", "input_per_1m": 0.08, "output_per_1m": 0.08, "context": "128K", "priority": "medium"}
+      ]
+    },
+    {
+      "name": "Moonshot AI",
+      "region": "China",
+      "api_base": "https://api.moonshot.cn/v1",
+      "models": [
+        {"name": "Kimi K2.5", "input_per_1m": 0.50, "output_per_1m": 1.50, "context": "128K", "priority": "medium"}
+      ]
+    }
+  ],
+  "routing_recommendations": {
+    "ultra_cheap": ["Mistral Nemo", "Gemini 2.0 Flash-Lite", "Baidu Ernie Speed Pro"],
+    "best_value": ["Mistral Small 3.1", "Alibaba Qwen3-235B", "DeepSeek V3.2", "Gemini 3.1 Flash-Lite"],
+    "mid_range": ["GPT-4o Mini", "Gemini 2.5 Pro", "ByteDance Seed 2.0 Pro"],
+    "premium": ["GPT-4o", "Claude Sonnet 4.6", "GPT-5", "Claude Opus 4.6"]
+  },
+  "environment_variables": {
+    "OPENAI_API_KEY": "sk-...",
+    "ANTHROPIC_API_KEY": "sk-ant-...",
+    "GOOGLE_API_KEY": "...",
+    "DEEPSEEK_API_KEY": "sk-...",
+    "MISTRAL_API_KEY": "...",
+    "XAI_API_KEY": "xai-...",
+    "DASHSCOPE_API_KEY": "sk-...",
+    "VOLCENGINE_API_KEY": "...",
+    "ZHIPU_API_KEY": "...",
+    "MOONSHOT_API_KEY": "..."
+  }
+}

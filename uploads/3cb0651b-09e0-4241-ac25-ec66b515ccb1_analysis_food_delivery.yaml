@@ -1,0 +1,99 @@
+# ──────────────────────────────────────────────────────
+# Data Analysis 6: Food Delivery Analysis (Zomato/Wolt/efood)
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/analysis_food_delivery.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a comprehensive food delivery market analysis using open datasets
+  and/or scraped data from Zomato, Wolt, and efood.
+
+  The project must:
+  1. DATA LOADING & SOURCES
+     Primary datasets (use whichever are available):
+     - Zomato dataset (Kaggle: shrutimehta/zomato-restaurants-data or
+       similar — restaurant name, cuisine, rating, votes, cost, city, location)
+     - Swiggy / Zomato India open dataset (Kaggle: multiple versions available)
+       as proxy for delivery platform behaviour analysis
+     - Wolt Greece: scrape restaurant listings from wolt.com/el/grc/athens
+       (name, cuisine type, rating, delivery time, minimum order, delivery fee)
+     - efood.gr: scrape restaurant listings from e-food.gr
+       (name, cuisine, rating, delivery time, fee)
+     - Synthetic/augmented data: generate realistic order data (timestamp, items,
+       distance, delivery time, rating) using numpy random seed for reproducibility
+       if real order-level data is not available
+
+  2. CUISINE ANALYSIS
+     - Most popular cuisine types by number of restaurants (bar chart)
+     - Top cuisines by average rating (horizontal bar chart)
+     - Cuisine diversity index per city/neighbourhood
+     - Emerging cuisines: year-over-year growth in listings (if temporal data available)
+     - Price tier distribution per cuisine (budget / mid / premium)
+
+  3. RATING & REVIEW ANALYSIS
+     - Rating distribution per platform (histogram)
+     - Votes/reviews vs rating correlation (does more reviews = higher rating?)
+     - Sentiment analysis on user reviews using TextBlob / VADER
+     - Keywords in positive vs negative reviews (word cloud)
+
+  4. DELIVERY METRICS ANALYSIS
+     - Delivery fee vs distance scatter plot
+     - Delivery time distribution per area (box plot per neighbourhood)
+     - Minimum order amount vs restaurant rating correlation
+     - Peak hours analysis (if order timestamp data available):
+       * Orders by hour of day (bar chart)
+       * Orders by day of week
+       * Lunch vs dinner split per cuisine type
+
+  5. GEOGRAPHIC ANALYSIS (Athens focus)
+     - Restaurant density heatmap per neighbourhood (folium)
+     - Average delivery fee per area (choropleth)
+     - Cuisine type clusters per neighbourhood (what food is popular where?)
+     - Underserved areas: neighbourhoods with high population but low restaurant density
+
+  6. PREDICTIVE MODELLING
+     - Predict restaurant rating from: cuisine type, price tier, location, delivery fee
+       (Random Forest classifier → 3-class: low/medium/high rating)
+     - Feature importance: what drives high ratings most?
+     - Predict delivery time from: distance, hour of day, day of week, restaurant type
+
+  7. DASHBOARD
+     - Plotly Dash app with:
+       * City selector (Athens / Thessaloniki)
+       * Platform selector (Wolt / efood / Zomato)
+       * Cuisine filter checkboxes
+       * Map tab: restaurant density + delivery fee heatmap
+       * Analytics tab: cuisine popularity, ratings, delivery metrics
+       * Predict tab: input restaurant features → predict rating tier
+
+  Use: pandas, numpy, plotly, dash, folium, scikit-learn, textblob,
+       wordcloud, requests, beautifulsoup4, seaborn, matplotlib
+
+criteria: |
+  - At least 200 restaurant records loaded (scraped or from Kaggle dataset)
+  - Cuisine popularity ranking produced with clear visualisation
+  - Sentiment analysis of reviews produces positive/negative/neutral classification
+  - Delivery fee vs distance scatter plot shows clear trend
+  - Restaurant density heatmap renders on folium map for Athens
+  - Rating prediction model achieves accuracy ≥ 0.65
+  - Dashboard runs with: python dashboard.py (localhost:8050)
+  - README with data sources, scraping notes (if applicable), and key findings
+     e.g. "Most popular cuisine in Athens: X", "Peak delivery hour: Y"
+  - All code passes ruff linting
+
+budget_usd: 3.5
+time_seconds: 4800
+concurrency: 3
+project_id: "analysis-food-delivery-v1"
+output_dir: "./outputs/analysis_food_delivery"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

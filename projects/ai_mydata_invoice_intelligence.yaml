@@ -1,0 +1,180 @@
+# ──────────────────────────────────────────────────────
+# AI myDATA & Invoice Intelligence Assistant
+# Target: Λογιστικά γραφεία, μικρομεσαίες επιχειρήσεις Ελλάδας
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/ai_mydata_invoice_intelligence.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build an AI-powered Invoice Intelligence Assistant for Greek accounting offices 
+  and SMEs, focused on automating myDATA-compliant invoice processing.
+
+  ## Problem Statement
+  Manual invoice management and myDATA reconciliation creates overhead, 
+  classification errors, and delays for Greek accounting offices.
+
+  ## Core Functionality
+
+  ### 1. PDF Upload & OCR Processing
+  - Drag-and-drop PDF invoice upload interface
+  - OCR engine integration (Tesseract/pytesseract + pdf2image)
+  - Multi-page PDF support with progress tracking
+  - Image preprocessing for better OCR accuracy (deskew, denoise)
+
+  ### 2. Structured Data Extraction
+  - Extract key fields: issuer VAT (ΑΦΜ), date, total amount, tax amount, 
+    line items description, quantities, unit prices
+  - Confidence scoring per extracted field
+  - Support for both Greek and English invoice formats
+  - Fallback manual correction interface for low-confidence fields
+
+  ### 3. Automatic Expense Categorization (ΕΛΠ-based)
+  - Classify expenses into ΕΛΠ (Ελληνικά Λογιστικά Πρότυπα) categories:
+    * 60.00 - Purchases of raw materials and merchandise
+    * 61.00 - Expenses for third-party services
+    * 62.00 - Rent, utilities, communication expenses
+    * 63.00 - Personnel expenses
+    * 64.00 - Depreciation and provisions
+    * 65.00 - Other operating expenses
+  - LLM-powered classification with explanation
+  - Trainable classification model based on user corrections
+
+  ### 4. Consistency Validation & ΑΦΜ Logic
+  - Greek VAT (ΑΦΜ) format validation (9-digit check)
+  - Cross-check: invoice total = sum(line items) + tax
+  - Duplicate invoice detection (same issuer ΑΦΜ, number, date)
+  - Expense category consistency checks per vendor
+
+  ### 5. myDATA Export Module
+  - Generate JSON export compatible with myDATA REST API structure
+  - Classification mapping to myDATA expense categories
+  - Support for different invoice types (Sales, Purchases, Expenses)
+  - Batch export functionality for accounting period closing
+
+  ### 6. Error Flagging Dashboard
+  - Real-time dashboard showing invoices requiring attention
+  - Visual indicators: high/medium/low confidence
+  - Error categorization: VAT errors, math errors, missing fields, duplicates
+  - One-click navigation to correction interface
+
+  ### 7. Analytics & Reporting (Portfolio Feature)
+  - Error rate reduction metric display (baseline vs current)
+  - Time saved estimation (based on manual processing benchmark)
+  - Monthly expense breakdown by ΕΛΠ category
+  - Top vendors by volume and value
+
+  ## Optional EU Extension Features
+  - VAT rate anomaly detection for intra-EU transactions
+  - Reverse charge detection flag for B2B EU invoices
+  - Multi-currency support with automatic conversion rates
+
+  ## Architecture
+
+  ### Frontend (Next.js 14)
+  - App Router with server components
+  - TypeScript throughout
+  - Tailwind CSS + shadcn/ui components
+  - React Query for server state management
+  - React Dropzone for file uploads
+  - Recharts for analytics visualizations
+  - Responsive design (mobile-first)
+
+  ### Backend (FastAPI)
+  - RESTful API with Pydantic v2 models
+  - Async/await throughout
+  - JWT authentication with OAuth2
+  - SQLAlchemy 2.0 ORM with async support
+
+  ### Database (PostgreSQL)
+  - Users table (id, email, company_name, vat_number, created_at)
+  - Invoices table (id, user_id, file_path, ocr_text, status, created_at)
+  - ExtractedFields table (id, invoice_id, field_name, value, confidence, corrected_value)
+  - ExpenseCategories table (id, code, name_el, name_en, description)
+  - ValidationErrors table (id, invoice_id, error_type, severity, message, resolved)
+  - Vendors table (id, vat_number, name, default_category_id)
+
+  ### LLM Layer Integration
+  - OpenAI GPT-4o for classification and validation explanation
+  - Structured output with function calling for reliable parsing
+  - Cost-optimized routing (GPT-4o-mini for simple tasks)
+  - Fallback to local classification if API unavailable
+
+  ### OCR Pipeline
+  - pdf2image for PDF to image conversion
+  - pytesseract for OCR
+  - OpenCV for image preprocessing
+  - Configurable DPI and language settings
+
+  ## Demo Dataset (Portfolio Deliverable)
+  - 50 sample invoices (30 Greek, 20 EU intra-community)
+  - Mixed types: sales receipts, purchase invoices, utility bills
+  - Variety of vendors and expense categories
+  - Pre-configured with expected extraction results for accuracy testing
+
+  ## Case Study Metrics
+  - Baseline: Manual categorization time per invoice
+  - Target: 65% reduction in manual processing time
+  - Error rate improvement tracking
+
+  ## Differentiation
+  This is NOT another OCR tool. It is an Accounting Decision Support Layer 
+  specifically designed for Greek accounting requirements and myDATA compliance.
+
+criteria: |
+  ## Functional Requirements
+  - Users can upload PDF invoices and view OCR extraction progress
+  - All key invoice fields extracted with confidence scores ≥85% for clear scans
+  - Automatic ΕΛΠ expense categorization with ≥90% accuracy on demo dataset
+  - Greek VAT (ΑΦΜ) format validation catches 100% of invalid formats
+  - Math validation (total = items + tax) flags discrepancies
+  - Duplicate detection works within same user scope
+  - myDATA JSON export generates valid structure matching AADE specs
+  - Dashboard displays invoices with color-coded confidence levels
+
+  ## Technical Requirements
+  - Frontend builds successfully with `npm run build` (no TypeScript errors)
+  - Backend starts with `uvicorn main:app --reload` without errors
+  - All API endpoints documented with OpenAPI/Swagger at /docs
+  - Database migrations work with Alembic
+  - Unit tests cover OCR pipeline, validation logic, and API endpoints (≥70% coverage)
+  - Authentication required for all invoice endpoints
+  - File uploads limited to PDF, max 10MB per file
+
+  ## Performance Requirements
+  - OCR processing completes within 10 seconds for single-page PDF
+  - Dashboard loads initial data within 2 seconds
+  - API response time <500ms for list operations
+
+  ## Quality Requirements
+  - No hardcoded credentials or API keys in source
+  - Proper error handling with user-friendly messages
+  - SQL injection prevention via parameterized queries
+  - XSS prevention in frontend
+  - Responsive layout works at 375px (mobile) and 1440px (desktop)
+
+  ## Portfolio Deliverables
+  - Demo dataset with 50 invoices (GR + EU) in `/demo_data/invoices/`
+  - Dashboard showing error rate reduction metric (mock baseline data acceptable)
+  - README with case study: "Reduced manual categorization time by 65%"
+  - API documentation and setup instructions
+
+budget_usd: 8.0
+time_seconds: 7200
+concurrency: 4
+project_id: "ai-mydata-invoice-intelligence-v1"
+output_dir: "./outputs/ai_mydata_invoice_intelligence"
+
+quality_targets:
+  code_generation: 0.90
+  code_review: 0.88
+  complex_reasoning: 0.92
+  evaluation: 0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false
+  - name: eu_only
+    allowed_regions: [eu]
+
+verbose: false

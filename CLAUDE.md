@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-A production-grade orchestrator for coordinating multiple LLM providers (Anthropic, OpenAI, Google, Kimi, DeepSeek) with intelligent routing, budget hierarchy enforcement, and circuit breaker resilience.
+A production-grade orchestrator for coordinating multiple LLM providers (Anthropic, OpenAI, Google, DeepSeek) with intelligent routing, budget hierarchy enforcement, and circuit breaker resilience.
 
 **Core Capabilities:**
 - Multi-provider routing with quality-aware model selection

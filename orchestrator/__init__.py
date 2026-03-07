@@ -1,22 +1,25 @@
 """
-Multi-LLM Orchestrator
-======================
+Multi-LLM Orchestrator v6.0 — Optimized Paradigm
+================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis
-Local multi-model orchestration for autonomous project completion.
-Supports: OpenAI GPT, Google Gemini, DeepSeek, Kimi K2.5, MiniMax, Zhipu.
 
-Usage:
+MAJOR CHANGES v6.0:
+- Dashboard consolidation: 7 dashboards → 1 core + plugins
+- Event unification: 4 event systems → 1 unified bus  
+- Plugin extraction: Core-only + optional plugins
+
+Quick Start:
     from orchestrator import Orchestrator, Budget
-
-    budget = Budget(max_usd=8.0, max_time_seconds=5400)
-    orch = Orchestrator(budget=budget)
-    state = asyncio.run(orch.run_project(
-        project_description="...",
-        success_criteria="...",
-    ))
+    
+    # New unified dashboard
+    from orchestrator import run_dashboard
+    run_dashboard(view="mission-control")
+    
+    # New unified events
+    from orchestrator import get_event_bus, ProjectStartedEvent
 """
 
-__version__ = "1.2.0"
+__version__ = "6.0.0"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Core Models & Types
@@ -24,7 +27,7 @@ __version__ = "1.2.0"
 from .models import (
     AttemptRecord, Budget, Model, Task, TaskResult, TaskType, TaskStatus,
     ProjectState, ProjectStatus, build_default_profiles,
-    COST_TABLE, ROUTING_TABLE, FALLBACK_CHAIN,  # Export for inspection
+    COST_TABLE, ROUTING_TABLE, FALLBACK_CHAIN,
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -34,6 +37,76 @@ from .engine import Orchestrator
 from .api_clients import UnifiedClient, APIResponse
 from .cache import DiskCache
 from .state import StateManager
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEW: Unified Dashboard Core (v6.0) — Replaces 7 dashboard implementations
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from .dashboard_core import (
+        DashboardCore,
+        get_dashboard_core,
+        DashboardView,
+        ViewContext,
+        ViewRegistry,
+        run_dashboard,
+        MissionControlView,
+    )
+    HAS_UNIFIED_DASHBOARD = True
+except ImportError as _e:
+    HAS_UNIFIED_DASHBOARD = False
+    DashboardCore = None
+    get_dashboard_core = None
+    DashboardView = None
+    ViewContext = None
+    ViewRegistry = None
+    run_dashboard = None
+    MissionControlView = None
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEW: Unified Events System (v6.0) — Replaces streaming/events/hooks/capability_logger
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from .unified_events import (
+        UnifiedEventBus,
+        get_event_bus,
+        DomainEvent,
+        EventType,
+        ProjectStartedEvent,
+        ProjectCompletedEvent,
+        TaskStartedEvent,
+        TaskCompletedEvent,
+        TaskFailedEvent,
+        TaskProgressEvent,
+        CapabilityUsedEvent,
+        CapabilityCompletedEvent,
+        BudgetWarningEvent,
+        ModelSelectedEvent,
+        FallbackTriggeredEvent,
+        log_capability_use,
+        set_current_project,
+        get_current_project,
+    )
+    HAS_UNIFIED_EVENTS = True
+except ImportError as _e:
+    HAS_UNIFIED_EVENTS = False
+    UnifiedEventBus = None
+    get_event_bus = None
+    DomainEvent = None
+    EventType = None
+    ProjectStartedEvent = None
+    ProjectCompletedEvent = None
+    TaskStartedEvent = None
+    TaskCompletedEvent = None
+    TaskFailedEvent = None
+    TaskProgressEvent = None
+    CapabilityUsedEvent = None
+    CapabilityCompletedEvent = None
+    BudgetWarningEvent = None
+    ModelSelectedEvent = None
+    FallbackTriggeredEvent = None
+    log_capability_use = None
+    set_current_project = None
+    get_current_project = None
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Policy & Planning
@@ -56,7 +129,7 @@ from .resume_detector import ResumeDetector
 # ═══════════════════════════════════════════════════════════════════════════════
 from .telemetry import TelemetryCollector
 from .audit import AuditLog, AuditRecord
-from .hooks import HookRegistry, EventType
+from .hooks import HookRegistry, EventType as HookEventType
 from .metrics import MetricsExporter, ConsoleExporter, JSONExporter, PrometheusExporter
 from .tracing import TracingConfig, configure_tracing, get_tracer
 
@@ -75,391 +148,230 @@ from .aggregator import ProfileAggregator, RunRecord
 from .remediation import RemediationEngine, RemediationStrategy, RemediationPlan
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# NEW: Multi-Level Cache Optimizer (v6.1) — Advanced caching with L1/L2/L3
+# ═══════════════════════════════════════════════════════════════════════════════
+try:
+    from .cache_optimizer import (
+        CacheOptimizer,
+        CacheConfig,
+        L1MemoryCache,
+        L2DiskCache,
+        L3SemanticCache,
+        SmartCacheKeyGenerator,
+        CacheWarmer,
+        get_cache_optimizer,
+        reset_cache_optimizer,
+    )
+    HAS_CACHE_OPTIMIZER = True
+except ImportError as _e:
+    HAS_CACHE_OPTIMIZER = False
+    CacheOptimizer = None
+    CacheConfig = None
+    L1MemoryCache = None
+    L2DiskCache = None
+    L3SemanticCache = None
+    SmartCacheKeyGenerator = None
+    CacheWarmer = None
+    get_cache_optimizer = None
+    reset_cache_optimizer = None
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Output & Progress
 # ═══════════════════════════════════════════════════════════════════════════════
 from .output_writer import write_output_dir
 from .progress_writer import ProgressWriter, ProgressEntry
-from .streaming import (
-    ProjectEventBus,
-    ProjectStarted,
-    TaskStarted,
-    TaskProgressUpdate,
-    TaskCompleted,
-    TaskFailed,
-    BudgetWarning,
-    ProjectCompleted,
-    StreamEvent,
-)
-from .progress import ProgressRenderer
-from .visualization import DagRenderer
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Project Enhancement & Analysis
-# ═══════════════════════════════════════════════════════════════════════════════
-from .enhancer import Enhancement, ProjectEnhancer
-from .codebase_analyzer import CodebaseAnalyzer, CodebaseMap
-from .codebase_profile import CodebaseProfile
-from .codebase_reader import CodebaseReader, CodebaseContext
-from .codebase_understanding import CodebaseUnderstanding
-from .improvement_suggester import ImprovementSuggester, Improvement
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# App Building & Assembly
-# ═══════════════════════════════════════════════════════════════════════════════
-from .app_builder import AppBuildResult, AppBuilder
-from .app_detector import AppDetector, AppProfile
-from .architecture_advisor import ArchitectureDecision, ArchitectureAdvisor
-from .project_assembler import ProjectAssembler, DependencyAnalyzer, ModuleInfo
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Execution Planning & Dry Run
-# ═══════════════════════════════════════════════════════════════════════════════
-from .dry_run import ExecutionPlan, TaskPlan, DryRunRenderer
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Production-Ready: Exception Hierarchy & Logging
-# ═══════════════════════════════════════════════════════════════════════════════
-from .exceptions import (
-    ApplicationError,
-    ConfigurationError,
-    MissingAPIKeyError,
-    OrchestratorError,
-    BudgetExceededError,
-    TimeoutError,
-    ModelError,
-    ModelUnavailableError,
-    RateLimitError,
-    TokenLimitError,
-    AuthenticationError,
-    TaskError,
-    TaskValidationError,
-    TaskTimeoutError,
-    TaskRetryExhaustedError,
-    PolicyError,
-    PolicyViolationError,
-    CacheError,
-    StateError,
-)
-from .logging import (
-    get_logger,
-    set_correlation_id,
-    get_correlation_id,
-    configure_logging,
-    LogContext,
-    JSONFormatter,
-    TextFormatter,
-)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Control Plane & Governance (v2)
-# ═══════════════════════════════════════════════════════════════════════════════
-from .specs import (
-    SLAs, InputSpec, Constraints,
-    JobSpecV2,
-    RoutingHint, ValidationRule, EscalationRule,
-    PolicySpecV2,
-)
-from .reference_monitor import Decision, MonitorResult, ReferenceMonitor
-from .control_plane import ControlPlane, RoutingPlan, SpecValidationError, PolicyViolation
-from .orchestration_agent import AgentDraft, OrchestrationAgent
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Policy DSL
-# ═══════════════════════════════════════════════════════════════════════════════
-from .policy_dsl import load_policy_file, load_policy_dict, PolicyAnalyzer, AnalysisReport
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Agents & Channels
-# ═══════════════════════════════════════════════════════════════════════════════
-from .agents import AgentPool, TaskChannel
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Project File & Assembly
-# ═══════════════════════════════════════════════════════════════════════════════
-from .project_file import load_project_file
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Telemetry Store
-# ═══════════════════════════════════════════════════════════════════════════════
-from .telemetry_store import TelemetryStore
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Dashboard & Mission Control
+# NEW: Backward Compatibility Layer (v6.0)
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
-    from .dashboard import run_dashboard, DashboardServer
-except ImportError:
-    run_dashboard = None
-    DashboardServer = None
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Performance Optimization (v5.0)
-# ═══════════════════════════════════════════════════════════════════════════════
-try:
-    from .performance import (
-        LRUCache, RedisCache, CacheManager,
-        ConnectionPool, MetricsCollector, QueryOptimizer,
-        cached, cache_invalidate, get_cache,
-        PerformanceMonitor,
+    from .compat import (
+        run_live_dashboard,
+        run_mission_control,
+        run_ant_design_dashboard,
+        ProjectEventBus,
+        StreamEvent,
+        ProjectStarted,
+        TaskStarted,
+        TaskCompleted,
+        ProjectCompleted,
+        print_migration_guide,
     )
+    HAS_COMPAT_LAYER = True
 except ImportError:
-    LRUCache = None
-    RedisCache = None
-    CacheManager = None
-    ConnectionPool = None
-    MetricsCollector = None
-    QueryOptimizer = None
-    cached = None
-    cache_invalidate = None
-    get_cache = None
-    PerformanceMonitor = None
+    HAS_COMPAT_LAYER = False
+    run_live_dashboard = None
+    run_mission_control = None
+    run_ant_design_dashboard = None
+    ProjectEventBus = None
+    StreamEvent = None
+    ProjectStarted = None
+    TaskStarted = None
+    TaskCompleted = None
+    ProjectCompleted = None
+    print_migration_guide = None
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LEGACY: Old Dashboards (DEPRECATED — will be removed in v7.0)
+# ═══════════════════════════════════════════════════════════════════════════════
+# These are kept for backward compatibility but will show deprecation warnings
 
 try:
-    from .monitoring import (
-        MetricsRegistry, KPIReporter, KPIDefinition, KPITier, KPIThreshold,
-        HealthChecker, health_checker, metrics, STANDARD_KPIS,
-        monitor_endpoint, monitor_async_task,
-    )
+    from .dashboard import run_dashboard as _legacy_run_dashboard
 except ImportError:
-    MetricsRegistry = None
-    KPIReporter = None
-    KPIDefinition = None
-    KPITier = None
-    KPIThreshold = None
-    HealthChecker = None
-    STANDARD_KPIS = None
-    monitor_endpoint = None
-    monitor_async_task = None
+    _legacy_run_dashboard = None
 
-# Optimized dashboard (v5.0)
 try:
-    from .dashboard_optimized import (
-        OptimizedDashboardServer,
-        PerformanceConfig,
-        DebouncedUpdater,
-        run_dashboard as run_optimized_dashboard,
-    )
+    from .dashboard_optimized import run_dashboard as _legacy_run_optimized
 except ImportError:
-    OptimizedDashboardServer = None
-    PerformanceConfig = None
-    DebouncedUpdater = None
-    run_optimized_dashboard = None
+    _legacy_run_optimized = None
 
-# Real-time dashboard with live data (v5.1)
 try:
-    from .dashboard_real import (
-        DashboardServerRealtime,
-        RealtimeDataProvider,
-        run_dashboard_realtime,
-    )
+    from .dashboard_real import run_dashboard_realtime
 except ImportError:
-    DashboardServerRealtime = None
-    RealtimeDataProvider = None
     run_dashboard_realtime = None
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Management Systems (v5.1)
-# ═══════════════════════════════════════════════════════════════════════════════
 try:
-    from .knowledge_base import (
-        KnowledgeBase, KnowledgeArtifact, KnowledgeType, Pattern,
-        get_knowledge_base,
-    )
+    from .dashboard_enhanced import run_enhanced_dashboard
 except ImportError:
-    KnowledgeBase = None
-    KnowledgeArtifact = None
-    KnowledgeType = None
-    Pattern = None
-    get_knowledge_base = None
+    run_enhanced_dashboard = None
 
 try:
-    from .project_manager import (
-        ProjectManager, TaskSchedule, Resource, Milestone, Risk,
-        CriticalPathAnalyzer, ResourceScheduler,
-        TaskPriority, ResourceType,
-        get_project_manager,
-    )
+    from .dashboard_antd import run_ant_design_dashboard as _legacy_run_antd
 except ImportError:
-    ProjectManager = None
-    TaskSchedule = None
-    Resource = None
-    Milestone = None
-    Risk = None
-    CriticalPathAnalyzer = None
-    ResourceScheduler = None
-    TaskPriority = None
-    ResourceType = None
-    get_project_manager = None
+    _legacy_run_antd = None
 
 try:
-    from .product_manager import (
-        ProductManager, Feature, Release, UserFeedback,
-        RICEScore, FeatureStatus, FeaturePriority,
-        FeatureFlagManager, SentimentAnalyzer,
-        get_product_manager,
-    )
+    from .dashboard_mission_control import run_mission_control as _legacy_run_mc
 except ImportError:
-    ProductManager = None
-    Feature = None
-    Release = None
-    UserFeedback = None
-    RICEScore = None
-    FeatureStatus = None
-    FeaturePriority = None
-    FeatureFlagManager = None
-    SentimentAnalyzer = None
-    get_product_manager = None
+    _legacy_run_mc = None
 
 try:
-    from .quality_control import (
-        QualityController, QualityReport, TestResult, QualityIssue,
-        CodeMetrics, StaticAnalyzer, TestRunner,
-        TestLevel, QualitySeverity,
-        get_quality_controller,
-    )
+    from .unified_dashboard import run_unified_dashboard
 except ImportError:
-    QualityController = None
-    QualityReport = None
-    TestResult = None
-    QualityIssue = None
-    CodeMetrics = None
-    StaticAnalyzer = None
-    TestRunner = None
-    TestLevel = None
-    QualitySeverity = None
-    get_quality_controller = None
+    run_unified_dashboard = None
+
+try:
+    from .dashboard_live import run_live_dashboard as _legacy_run_live
+except ImportError:
+    _legacy_run_live = None
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Diagnostics & Debugging (v5.1)
+# LEGACY: Streaming & Events (DEPRECATED — use unified_events)
 # ═══════════════════════════════════════════════════════════════════════════════
 try:
-    from .diagnostics import (
-        SystemDiagnostic, ProjectDiagnostic,
-        DiagnosticReport, Issue,
-        HealthStatus, Severity,
-        print_diagnostic_report,
+    from .streaming import (
+        ProjectEventBus as _legacy_event_bus,
+        ProjectStarted as _legacy_project_started,
+        TaskStarted as _legacy_task_started,
+        TaskCompleted as _legacy_task_completed,
+        ProjectCompleted as _legacy_project_completed,
+        StreamEvent as _legacy_stream_event,
     )
 except ImportError:
-    SystemDiagnostic = None
-    ProjectDiagnostic = None
-    DiagnosticReport = None
-    Issue = None
-    HealthStatus = None
-    Severity = None
-    print_diagnostic_report = None
+    _legacy_event_bus = None
+    _legacy_project_started = None
+    _legacy_task_started = None
+    _legacy_task_completed = None
+    _legacy_project_completed = None
+    _legacy_stream_event = None
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Project Analysis (v5.1)
+# Exports
 # ═══════════════════════════════════════════════════════════════════════════════
-try:
-    from .project_analyzer import (
-        ProjectAnalyzer, analyze_project,
-        ProjectAnalysisReport, ImprovementSuggestion,
-        SuggestionPriority, SuggestionCategory,
-        CodeIssue, ArchitectureInsight,
-    )
-except ImportError:
-    ProjectAnalyzer = None
-    analyze_project = None
-    ProjectAnalysisReport = None
-    ImprovementSuggestion = None
-    SuggestionPriority = None
-    SuggestionCategory = None
-    CodeIssue = None
-    ArchitectureInsight = None
-
 
 __all__ = [
     # Core
     "Orchestrator", "AttemptRecord", "Budget", "Model", "Task", "TaskResult",
-    # Dashboard (optional - requires fastapi/uvicorn)
-    "run_dashboard", "DashboardServer",
-    # Performance Optimization (v5.0)
-    "LRUCache", "RedisCache", "CacheManager", "ConnectionPool",
-    "MetricsCollector", "QueryOptimizer", "cached", "cache_invalidate", "get_cache",
-    "PerformanceMonitor",
-    # Monitoring & KPIs (v5.0)
-    "MetricsRegistry", "KPIReporter", "KPIDefinition", "KPITier", "KPIThreshold",
-    "HealthChecker", "health_checker", "metrics", "STANDARD_KPIS",
-    "monitor_endpoint", "monitor_async_task",
-    # Optimized Dashboard (v5.0)
-    "OptimizedDashboardServer", "PerformanceConfig", "DebouncedUpdater",
-    "run_optimized_dashboard",
-    # Real-time Dashboard (v5.1)
-    "DashboardServerRealtime", "RealtimeDataProvider", "run_dashboard_realtime",
-    # Knowledge Management (v5.1)
-    "KnowledgeBase", "KnowledgeArtifact", "KnowledgeType", "Pattern",
-    "get_knowledge_base",
-    # Project Management (v5.1)
-    "ProjectManager", "TaskSchedule", "Resource", "Milestone", "Risk",
-    "CriticalPathAnalyzer", "ResourceScheduler",
-    "TaskPriority", "ResourceType",
-    "get_project_manager",
-    # Product Management (v5.1)
-    "ProductManager", "Feature", "Release", "UserFeedback",
-    "RICEScore", "FeatureStatus", "FeaturePriority",
-    "FeatureFlagManager", "SentimentAnalyzer",
-    "get_product_manager",
-    # Quality Control (v5.1)
-    "QualityController", "QualityReport", "TestResult", "QualityIssue",
-    "CodeMetrics", "StaticAnalyzer", "TestRunner",
-    "TestLevel", "QualitySeverity",
-    "get_quality_controller",
-    # Diagnostics & Debugging (v5.1)
-    "SystemDiagnostic", "ProjectDiagnostic",
-    "DiagnosticReport", "Issue",
-    "HealthStatus", "Severity",
-    "print_diagnostic_report",
-    # Project Analysis (v5.1)
-    "ProjectAnalyzer", "analyze_project",
-    "ProjectAnalysisReport", "ImprovementSuggestion",
-    "SuggestionPriority", "SuggestionCategory",
-    "CodeIssue", "ArchitectureInsight",
     "TaskType", "TaskStatus", "ProjectState", "ProjectStatus",
-    "UnifiedClient", "APIResponse",
-    "DiskCache", "StateManager", "ResumeDetector",
-    # Routing & Cost Tables (exported for inspection/config)
+    
+    # NEW: Unified Dashboard (v6.0)
+    "DashboardCore",
+    "get_dashboard_core", 
+    "DashboardView",
+    "ViewContext",
+    "ViewRegistry",
+    "run_dashboard",
+    "MissionControlView",
+    "HAS_UNIFIED_DASHBOARD",
+    
+    # NEW: Unified Events (v6.0)
+    "UnifiedEventBus",
+    "get_event_bus",
+    "DomainEvent",
+    "EventType",
+    "ProjectStartedEvent",
+    "ProjectCompletedEvent",
+    "TaskStartedEvent",
+    "TaskCompletedEvent",
+    "TaskFailedEvent",
+    "TaskProgressEvent",
+    "CapabilityUsedEvent",
+    "CapabilityCompletedEvent",
+    "BudgetWarningEvent",
+    "ModelSelectedEvent",
+    "FallbackTriggeredEvent",
+    "log_capability_use",
+    "set_current_project",
+    "get_current_project",
+    "HAS_UNIFIED_EVENTS",
+    
+    # Backward Compatibility
+    "run_live_dashboard",
+    "run_mission_control", 
+    "run_ant_design_dashboard",
+    "ProjectEventBus",
+    "StreamEvent",
+    "ProjectStarted",
+    "TaskStarted",
+    "TaskCompleted",
+    "ProjectCompleted",
+    "print_migration_guide",
+    "HAS_COMPAT_LAYER",
+    
+    # Legacy (deprecated)
+    "run_dashboard_realtime",
+    "run_enhanced_dashboard",
+    "run_unified_dashboard",
+    
+    # Routing & Cost
     "COST_TABLE", "ROUTING_TABLE", "FALLBACK_CHAIN",
+    
     # App Building
     "AppBuilder", "AppBuildResult", "AppDetector", "AppProfile",
     "ArchitectureDecision", "ArchitectureAdvisor",
+    
     # Validation
     "run_validators", "async_run_validators", "VALIDATORS", "ValidationResult",
+    
     # Policy
     "ModelProfile", "Policy", "PolicySet", "JobSpec",
     "PolicyEngine", "PolicyViolationError",
     "ConstraintPlanner", "EnforcementMode", "RateLimit", "PolicyHierarchy",
-    "load_policy_file", "load_policy_dict", "PolicyAnalyzer", "AnalysisReport",
+    
     # Optimization
     "OptimizationBackend", "GreedyBackend", "WeightedSumBackend", "ParetoBackend",
+    
     # Audit & Telemetry
     "AuditLog", "AuditRecord",
     "TelemetryCollector", "TelemetryStore",
-    "HookRegistry", "EventType",
+    "HookRegistry", "HookEventType",
     "MetricsExporter", "ConsoleExporter", "JSONExporter", "PrometheusExporter",
     "TracingConfig", "configure_tracing", "get_tracer",
+    
     # Cost Management
     "BudgetHierarchy", "CostPredictor", "CostForecaster", "ForecastReport", "RiskLevel",
+    
     # Advanced Features
     "AdaptiveRouter", "ModelState",
     "SemanticCache", "DuplicationDetector",
     "ProfileAggregator", "RunRecord",
     "RemediationEngine", "RemediationStrategy", "RemediationPlan",
+    
     # Output & Progress
     "write_output_dir",
     "ProgressWriter", "ProgressEntry",
-    "ProjectEventBus", "ProjectStarted", "TaskStarted", "TaskProgressUpdate",
-    "TaskCompleted", "TaskFailed", "BudgetWarning", "ProjectCompleted", "StreamEvent",
-    "ProgressRenderer", "DagRenderer",
-    # Project Enhancement
-    "Enhancement", "ProjectEnhancer",
-    "CodebaseAnalyzer", "CodebaseMap", "CodebaseProfile",
-    "CodebaseReader", "CodebaseContext", "CodebaseUnderstanding",
-    "ImprovementSuggester", "Improvement",
-    # Project Assembly
-    "ProjectAssembler", "DependencyAnalyzer", "ModuleInfo",
-    # Execution Planning
-    "ExecutionPlan", "TaskPlan", "DryRunRenderer",
+    
     # Exceptions
     "ApplicationError",
     "ConfigurationError", "MissingAPIKeyError",
@@ -468,19 +380,308 @@ __all__ = [
     "TaskError", "TaskValidationError", "TaskTimeoutError", "TaskRetryExhaustedError",
     "PolicyError", "PolicyViolationError",
     "CacheError", "StateError",
+    
     # Logging
     "get_logger", "set_correlation_id", "get_correlation_id", "configure_logging",
     "LogContext", "JSONFormatter", "TextFormatter",
-    # Control Plane v2
+    
+    # Control Plane
     "SLAs", "InputSpec", "Constraints", "JobSpecV2",
     "RoutingHint", "ValidationRule", "EscalationRule", "PolicySpecV2",
     "Decision", "MonitorResult", "ReferenceMonitor",
     "ControlPlane", "RoutingPlan", "SpecValidationError", "PolicyViolation",
     "AgentDraft", "OrchestrationAgent",
+    
     # Agents
     "AgentPool", "TaskChannel",
+    
     # Project File
     "load_project_file",
+    
     # Utility
     "build_default_profiles",
 ]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Import remaining optional modules
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Output Organization & Test Automation
+try:
+    from .output_organizer import (
+        OutputOrganizer,
+        organize_project_output,
+        OrganizationReport,
+        TestResult as OrgTestResult,
+        suppress_cache_messages,
+        CacheMessageSuppressor,
+    )
+    __all__.extend([
+        "OutputOrganizer", "organize_project_output", "OrganizationReport",
+        "OrgTestResult", "suppress_cache_messages", "CacheMessageSuppressor",
+    ])
+except ImportError:
+    pass
+
+# Knowledge Management
+try:
+    from .knowledge_base import (
+        KnowledgeBase, KnowledgeArtifact, KnowledgeType, Pattern,
+        get_knowledge_base,
+    )
+    __all__.extend([
+        "KnowledgeBase", "KnowledgeArtifact", "KnowledgeType", "Pattern",
+        "get_knowledge_base",
+    ])
+except ImportError:
+    pass
+
+# Project Management
+try:
+    from .project_manager import (
+        ProjectManager, TaskSchedule, Resource, Milestone, Risk,
+        CriticalPathAnalyzer, ResourceScheduler,
+        TaskPriority, ResourceType,
+        get_project_manager,
+    )
+    __all__.extend([
+        "ProjectManager", "TaskSchedule", "Resource", "Milestone", "Risk",
+        "CriticalPathAnalyzer", "ResourceScheduler",
+        "TaskPriority", "ResourceType", "get_project_manager",
+    ])
+except ImportError:
+    pass
+
+# Product Management
+try:
+    from .product_manager import (
+        ProductManager, Feature, Release, UserFeedback,
+        RICEScore, FeatureStatus, FeaturePriority,
+        FeatureFlagManager, SentimentAnalyzer,
+        get_product_manager,
+    )
+    __all__.extend([
+        "ProductManager", "Feature", "Release", "UserFeedback",
+        "RICEScore", "FeatureStatus", "FeaturePriority",
+        "FeatureFlagManager", "SentimentAnalyzer", "get_product_manager",
+    ])
+except ImportError:
+    pass
+
+# Quality Control
+try:
+    from .quality_control import (
+        QualityController, QualityReport, TestResult, QualityIssue,
+        CodeMetrics, StaticAnalyzer, TestRunner,
+        TestLevel, QualitySeverity,
+        get_quality_controller,
+    )
+    __all__.extend([
+        "QualityController", "QualityReport", "TestResult", "QualityIssue",
+        "CodeMetrics", "StaticAnalyzer", "TestRunner",
+        "TestLevel", "QualitySeverity", "get_quality_controller",
+    ])
+except ImportError:
+    pass
+
+# Architecture Rules
+try:
+    from .architecture_rules import (
+        ArchitectureRulesEngine, RulesGenerator,
+        create_architecture_rules,
+        ProjectRules, ArchitectureDecision,
+        TechnologyStack, CodingStandard,
+        ArchitecturalStyle, ProgrammingParadigm,
+        APIStyle, DatabaseType,
+    )
+    __all__.extend([
+        "ArchitectureRulesEngine", "RulesGenerator",
+        "create_architecture_rules",
+        "ProjectRules", "ArchitectureDecision",
+        "TechnologyStack", "CodingStandard",
+        "ArchitecturalStyle", "ProgrammingParadigm",
+        "APIStyle", "DatabaseType",
+    ])
+except ImportError:
+    pass
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NASH STABILITY FEATURES (v6.1) — Strategic Competitive Moat
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Model Performance Knowledge Graph
+try:
+    from .knowledge_graph import (
+        PerformanceKnowledgeGraph,
+        get_knowledge_graph,
+        NodeType,
+        EdgeType,
+        Node,
+        Edge,
+        PathResult,
+        SimilarityMatch,
+    )
+    __all__.extend([
+        "PerformanceKnowledgeGraph", "get_knowledge_graph",
+        "NodeType", "EdgeType", "Node", "Edge",
+        "PathResult", "SimilarityMatch",
+    ])
+except ImportError:
+    pass
+
+# Adaptive Prompt Template System
+try:
+    from .adaptive_templates import (
+        AdaptiveTemplateSystem,
+        get_adaptive_template_system,
+        TemplateVariant,
+        TemplateStyle,
+        TemplatePerformance,
+        ContextProfile,
+        PYTHON_TEMPLATES,
+        WEB_TEMPLATES,
+    )
+    __all__.extend([
+        "AdaptiveTemplateSystem", "get_adaptive_template_system",
+        "TemplateVariant", "TemplateStyle", "TemplatePerformance",
+        "ContextProfile", "PYTHON_TEMPLATES", "WEB_TEMPLATES",
+    ])
+except ImportError:
+    pass
+
+# Predictive Cost-Quality Frontier API
+try:
+    from .pareto_frontier import (
+        CostQualityFrontier,
+        get_cost_quality_frontier,
+        Objective,
+        OptimizationDirection,
+        ModelPrediction,
+        ParetoPoint,
+        FrontierRecommendation,
+    )
+    __all__.extend([
+        "CostQualityFrontier", "get_cost_quality_frontier",
+        "Objective", "OptimizationDirection",
+        "ModelPrediction", "ParetoPoint", "FrontierRecommendation",
+    ])
+except ImportError:
+    pass
+
+# Cross-Organization Federated Learning
+try:
+    from .federated_learning import (
+        FederatedLearningOrchestrator,
+        get_federated_orchestrator,
+        DifferentialPrivacyEngine,
+        PrivacyBudget,
+        ModelInsight,
+        GlobalBaseline,
+        LocalModel,
+        PrivacyMechanism,
+    )
+    __all__.extend([
+        "FederatedLearningOrchestrator", "get_federated_orchestrator",
+        "DifferentialPrivacyEngine", "PrivacyBudget",
+        "ModelInsight", "GlobalBaseline", "LocalModel",
+        "PrivacyMechanism",
+    ])
+except ImportError:
+    pass
+
+# Nash-Stable Orchestrator (Integration of all features)
+try:
+    from .nash_stable_orchestrator import (
+        NashStableOrchestrator,
+        get_nash_stable_orchestrator,
+        NashStabilityMetrics,
+    )
+    __all__.extend([
+        "NashStableOrchestrator", "get_nash_stable_orchestrator",
+        "NashStabilityMetrics",
+    ])
+except ImportError:
+    pass
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NASH STABILITY INFRASTRUCTURE (v6.1.1) — Events, Backup, Auto-Tuning
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Event System
+try:
+    from .nash_events import (
+        NashEventBus,
+        get_event_bus,
+        on_event,
+        EventType,
+        NashEvent,
+        KnowledgeGraphUpdatedEvent,
+        TemplateSelectedEvent,
+        TemplateResultReportedEvent,
+        FrontierComputedEvent,
+        DriftDetectedEvent,
+        InsightContributedEvent,
+        StabilityScoreUpdatedEvent,
+        AutoTuningTriggeredEvent,
+        BackupCreatedEvent,
+        NashEventHandlers,
+    )
+    __all__.extend([
+        "NashEventBus", "get_event_bus", "on_event",
+        "EventType", "NashEvent",
+        "KnowledgeGraphUpdatedEvent", "TemplateSelectedEvent",
+        "TemplateResultReportedEvent", "FrontierComputedEvent",
+        "DriftDetectedEvent", "InsightContributedEvent",
+        "StabilityScoreUpdatedEvent", "AutoTuningTriggeredEvent",
+        "BackupCreatedEvent", "NashEventHandlers",
+    ])
+except ImportError:
+    pass
+
+# Backup System
+try:
+    from .nash_backup import (
+        NashBackupManager,
+        get_backup_manager,
+        BackupManifest,
+        BackupComponent,
+        RestoreResult,
+        BackupFormat,
+    )
+    __all__.extend([
+        "NashBackupManager", "get_backup_manager",
+        "BackupManifest", "BackupComponent",
+        "RestoreResult", "BackupFormat",
+    ])
+except ImportError:
+    pass
+
+# Auto-Tuning System
+try:
+    from .nash_auto_tuning import (
+        AutoTuner,
+        get_auto_tuner,
+        ParameterConfig,
+        TuningResult,
+        OptimizationDirection,
+        TuningStrategy,
+        MultiArmedBandit,
+    )
+    __all__.extend([
+        "AutoTuner", "get_auto_tuner",
+        "ParameterConfig", "TuningResult",
+        "OptimizationDirection", "TuningStrategy",
+        "MultiArmedBandit",
+    ])
+except ImportError:
+    pass
+
+# Print optimization info on import
+import logging
+logger = logging.getLogger("orchestrator")
+if HAS_UNIFIED_DASHBOARD and HAS_UNIFIED_EVENTS:
+    logger.debug(
+        "Orchestrator v6.0 optimizations loaded: "
+        f"unified_dashboard={HAS_UNIFIED_DASHBOARD}, "
+        f"unified_events={HAS_UNIFIED_EVENTS}"
+    )
