@@ -286,6 +286,9 @@ class Orchestrator:
         )
         # A2A Manager - agent-to-agent communication
         self._a2a_manager: A2AManager = A2AManager()
+        # Rate Limiter - sliding-window TPM/RPM enforcement per tenant+model
+        from .rate_limiter import RateLimiter
+        self._rate_limiter: RateLimiter = RateLimiter()
 
     # ─────────────────────────────────────────
     # Async Context Manager
@@ -754,6 +757,24 @@ class Orchestrator:
             use_query_expansion=use_query_expansion,
         )
         return [r.to_dict() for r in results]
+
+    def configure_rate_limits(
+        self,
+        tenant: str,
+        model: str,
+        tpm: int,
+        rpm: int,
+    ) -> None:
+        """
+        Set TPM/RPM rate limits for a specific tenant and model.
+
+        Args:
+            tenant: Tenant identifier (e.g. team name, org ID).
+            model: Model identifier string (e.g. "deepseek-chat").
+            tpm: Maximum tokens per minute for this tenant+model.
+            rpm: Maximum requests per minute for this tenant+model.
+        """
+        self._rate_limiter.set_limits(tenant, model, tpm, rpm)
 
     async def register_agent(
         self,

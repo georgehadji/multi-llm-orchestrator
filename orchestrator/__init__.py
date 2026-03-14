@@ -133,6 +133,7 @@ from .codebase_profile import CodebaseProfile
 from .improvement_suggester import Improvement, ImprovementSuggester
 from .query_expander import QueryExpander
 from .hybrid_search_pipeline import HybridSearchPipeline
+from .rate_limiter import RateLimiter, RateLimitExceeded
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Observability & Telemetry
@@ -413,6 +414,9 @@ __all__ = [
 
     # Hybrid Search Pipeline
     "QueryExpander", "HybridSearchPipeline",
+
+    # Rate Limiting
+    "RateLimiter", "RateLimitExceeded",
     
     # Policy
     "ModelProfile", "Policy", "PolicySet", "JobSpec",
