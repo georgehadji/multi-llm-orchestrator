@@ -92,6 +92,7 @@ from .bm25_search import BM25Search, get_bm25_search
 from .reranker import LLMReranker, get_reranker
 from .a2a_protocol import A2AManager, AgentCard, get_a2a_manager
 from .rate_limiter import RateLimiter, RateLimitExceeded
+from .session_lifecycle import SessionLifecycleManager
 
 logger = logging.getLogger("orchestrator")
 
@@ -289,6 +290,10 @@ class Orchestrator:
         self._a2a_manager: A2AManager = A2AManager()
         # Rate Limiter - sliding-window TPM/RPM enforcement per tenant+model
         self._rate_limiter: RateLimiter = RateLimiter()
+        # Session Lifecycle Manager - HOT/WARM/COLD tier migration
+        self._lifecycle_manager = SessionLifecycleManager(
+            memory_tier_manager=self._memory_manager,
+        )
 
     # ─────────────────────────────────────────
     # Async Context Manager
@@ -775,6 +780,21 @@ class Orchestrator:
             rpm: Maximum requests per minute for this tenant+model.
         """
         self._rate_limiter.set_limits(tenant, model, tpm, rpm)
+
+    def configure_session_lifecycle(
+        self,
+        migration_interval_hours: int = 1,
+        llm_model: str = "deepseek-chat",
+    ) -> None:
+        """
+        Configure automatic session lifecycle migration.
+
+        Args:
+            migration_interval_hours: How often to run HOT/WARM/COLD migration.
+            llm_model: Model used for HOT→WARM entry summarization.
+        """
+        self._lifecycle_manager._interval = migration_interval_hours * 3600
+        self._lifecycle_manager._model = llm_model
 
     async def register_agent(
         self,
