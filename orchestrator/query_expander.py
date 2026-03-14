@@ -76,9 +76,6 @@ class QueryExpander:
         )
         content = response.choices[0].message.content.strip()
         # Strip markdown code fences if present
-        if content.startswith("```"):
-            parts = content.split("```")
-            content = parts[1] if len(parts) > 1 else content
-            if content.startswith("json"):
-                content = content[4:]
+        if "```" in content:
+            content = content.replace("```json", "").replace("```", "").strip()
         return json.loads(content.strip())
