@@ -68,6 +68,7 @@ class Model(str, Enum):
     CLAUDE_3_HAIKU = "claude-3-haiku-20240307"
     CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
     CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
+    CLAUDE_SONNET = CLAUDE_SONNET_4_6
     CLAUDE_OPUS_4_5 = "claude-opus-4-5"
     CLAUDE_OPUS_4_6 = "claude-opus-4-6"
     CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
@@ -692,6 +693,8 @@ class TaskResult:
     deterministic_check_passed: bool = True
     degraded_fallback_count: int = 0
     attempt_history: list["AttemptRecord"] = field(default_factory=list)
+    preflight_result: Optional["PreflightResult"] = None
+    preflight_passed: bool = True
 
 
 @dataclass
