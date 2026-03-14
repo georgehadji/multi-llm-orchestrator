@@ -337,6 +337,12 @@ class Orchestrator:
         """
         logger.debug("Orchestrator exiting context manager, cleaning up resources...")
 
+        # Stop session lifecycle scheduler (no-op if never started)
+        try:
+            await self._lifecycle_manager.stop()
+        except Exception as e:
+            logger.warning(f"Failed to stop lifecycle manager: {e}")
+
         # BUG-MEMORY-002 FIX: Clean up completed background tasks first
         await self._cleanup_background_tasks()
 
@@ -789,10 +795,20 @@ class Orchestrator:
         """
         Configure automatic session lifecycle migration.
 
+        Must be called before starting the scheduler via
+        ``await self._lifecycle_manager.start()``.  Raises ``RuntimeError``
+        if the scheduler is already running.
+
         Args:
             migration_interval_hours: How often to run HOT/WARM/COLD migration.
             llm_model: Model used for HOT→WARM entry summarization.
         """
+        task = self._lifecycle_manager._task
+        if task is not None and not task.done():
+            raise RuntimeError(
+                "configure_session_lifecycle() must be called before starting the scheduler. "
+                "Call stop() first, then reconfigure."
+            )
         self._lifecycle_manager._interval = migration_interval_hours * 3600
         self._lifecycle_manager._model = llm_model
 
