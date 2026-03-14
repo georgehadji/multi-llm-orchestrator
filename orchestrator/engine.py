@@ -91,6 +91,7 @@ from .memory_tier import MemoryTierManager, get_memory_manager
 from .bm25_search import BM25Search, get_bm25_search
 from .reranker import LLMReranker, get_reranker
 from .a2a_protocol import A2AManager, AgentCard, get_a2a_manager
+from .rate_limiter import RateLimiter, RateLimitExceeded
 
 logger = logging.getLogger("orchestrator")
 
@@ -287,7 +288,6 @@ class Orchestrator:
         # A2A Manager - agent-to-agent communication
         self._a2a_manager: A2AManager = A2AManager()
         # Rate Limiter - sliding-window TPM/RPM enforcement per tenant+model
-        from .rate_limiter import RateLimiter
         self._rate_limiter: RateLimiter = RateLimiter()
 
     # ─────────────────────────────────────────

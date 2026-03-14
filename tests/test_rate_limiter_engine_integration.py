@@ -5,6 +5,12 @@ from orchestrator.rate_limiter import RateLimiter, RateLimitExceeded
 from orchestrator.engine import Orchestrator
 
 
+def test_rate_limiter_is_imported_at_module_level():
+    """RateLimiter must be importable from engine module (not deferred)."""
+    import orchestrator.engine as eng_module
+    assert hasattr(eng_module, "RateLimiter"), "RateLimiter must be imported at module level in engine.py"
+
+
 def test_engine_has_rate_limiter():
     orch = Orchestrator.__new__(Orchestrator)
     orch._rate_limiter = RateLimiter()
