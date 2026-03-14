@@ -58,6 +58,15 @@ except ImportError as _e:
     HAS_TEST_VALIDATOR = False
     TestValidator = None
     validate_and_generate_test = None
+
+# Code validation for clean code generation (no LLM commentary)
+try:
+    from .code_validator import validate_code, extract_code_from_llm_response
+    HAS_CODE_VALIDATOR = True
+except ImportError as _e:
+    HAS_CODE_VALIDATOR = False
+    validate_code = None
+    extract_code_from_llm_response = None
 from .planner import ConstraintPlanner
 from .telemetry import TelemetryCollector
 from .audit import AuditLog
@@ -2415,6 +2424,128 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 degraded_fallback_count=degraded_count,
                 attempt_history=attempt_history,
             )
+
+    async def _run_preflight_check(
+        self,
+        task: "Task",
+        output: str,
+        score: float,
+        primary: "Model",
+    ) -> "tuple[str, float, PreflightResult]":
+        """
+        Post-loop preflight delivery gate.
+
+        Checks best_output before finalizing TaskResult:
+        - PASS  : return unchanged
+        - WARN  : log + score * 0.85, fire PREFLIGHT_CHECK hook
+        - ENRICH: 1 extra LLM revision with enrich reason as critique
+        - BLOCK : 1 extra LLM revision with block reason as critique
+                     -> recovered: return revised output
+                     -> still BLOCK: return original output, score=0.0
+
+        Fail-open: any validator exception is caught and treated as PASS.
+        """
+        from .preflight import PreflightAction, PreflightMode, PreflightResult
+
+        try:
+            pf_result = self._preflight_validator.validate(
+                response=output,
+                context={
+                    "task_type": task.type.value,
+                    "user_request": task.prompt[:200],
+                    "model": primary.value,
+                    "score": score,
+                },
+                mode=PreflightMode.AUTO,
+            )
+        except Exception as exc:
+            logger.warning("preflight validator raised: %s — treating as PASS", exc)
+            return output, score, PreflightResult(action=PreflightAction.PASS, passed=True)
+
+        if pf_result.action == PreflightAction.PASS:
+            return output, score, pf_result
+
+        if pf_result.action == PreflightAction.WARN:
+            penalized = round(score * 0.85, 4)
+            logger.warning(
+                "[preflight] WARN task=%s score %.3f->%.3f: %s",
+                task.id, score, penalized, "; ".join(pf_result.warnings),
+            )
+            self._hook_registry.fire(
+                EventType.PREFLIGHT_CHECK,
+                task_id=task.id,
+                action="warn",
+                reason="; ".join(pf_result.warnings),
+                score_before=score,
+                score_after=penalized,
+            )
+            return output, penalized, pf_result
+
+        # ENRICH or BLOCK — attempt one extra revision
+        critique_text = pf_result.reason or pf_result.enrichment or "Improve the response quality."
+        logger.info(
+            "[preflight] %s task=%s — attempting 1 revision: %s",
+            pf_result.action.value.upper(), task.id, critique_text[:100],
+        )
+        try:
+            revised_prompt = (
+                f"{task.prompt}\n\n"
+                f"[Revision required] {critique_text}\n"
+                f"Please revise your previous response to address the above."
+            )
+            gen_response = await self.client.call(
+                primary,
+                revised_prompt,
+                system=f"You are an expert executing a {task.type.value} task. Produce high-quality, complete output.",
+                max_tokens=task.max_output_tokens,
+                temperature=0.3,
+                timeout=120,
+            )
+            revised_output = gen_response.text
+        except Exception as exc:
+            logger.warning("[preflight] revision LLM call failed (%s) — using original", exc)
+            self._hook_registry.fire(
+                EventType.PREFLIGHT_CHECK,
+                task_id=task.id,
+                action=pf_result.action.value + "_revision_failed",
+                reason=str(exc),
+                score_before=score,
+                score_after=score,
+            )
+            return output, score, pf_result
+
+        # Re-validate the revised output
+        try:
+            retry_result = self._preflight_validator.validate(
+                response=revised_output,
+                context={"task_type": task.type.value, "user_request": task.prompt[:200]},
+                mode=PreflightMode.AUTO,
+            )
+        except Exception:
+            retry_result = pf_result  # treat same as original if validator fails
+
+        if retry_result.action == PreflightAction.BLOCK:
+            logger.warning("[preflight] BLOCK task=%s — revision still blocked, score->0", task.id)
+            self._hook_registry.fire(
+                EventType.PREFLIGHT_CHECK,
+                task_id=task.id,
+                action="block_degraded",
+                reason=retry_result.reason or "Still blocked after revision",
+                score_before=score,
+                score_after=0.0,
+            )
+            return output, 0.0, retry_result
+
+        logger.info("[preflight] %s recovered task=%s", pf_result.action.value.upper(), task.id)
+        self._hook_registry.fire(
+            EventType.PREFLIGHT_CHECK,
+            task_id=task.id,
+            action=pf_result.action.value + "_recovered",
+            reason=critique_text[:100],
+            score_before=score,
+            score_after=score,
+        )
+        return revised_output, score, retry_result
 
     async def _evaluate(self, task: Task, output: str) -> float:
         """LLM-based scoring with self-consistency (2 runs, Δ ≤ 0.05)."""
