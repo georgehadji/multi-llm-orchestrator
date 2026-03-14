@@ -207,12 +207,110 @@ pytest tests/test_cli_analyze.py -v
 
 ---
 
+## v5.1 Intelligence & Multi-tenant Features
+
+Four features implemented via TDD + subagent-driven development, derived from analysis of production-grade OSS projects (LiteLLM, QMD, Mnemo Cortex).
+
+### Feature #1: Content Preflight Gate
+
+**Status**: Complete — `orchestrator/preflight.py` extended
+
+Content-level validation gate that inspects every LLM response before delivery. Actions:
+- **PASS**: Response is clean, deliver as-is
+- **WARN**: Flag inconsistency or missing context, log but deliver
+- **BLOCK**: Factual error or policy violation — reject and request retry
+
+Distinct from the budget preflight (`can_afford_job()`): this is a *quality* gate, not a *cost* gate.
+
+**Files**: `orchestrator/preflight.py`, `tests/test_preflight_integration.py`
+
+---
+
+### Feature #2: Hybrid Search Pipeline (RRF + Query Expansion)
+
+**Status**: Complete
+
+Unified search pipeline combining BM25 keyword search + vector similarity via Reciprocal Rank Fusion (RRF), with optional LLM-based query expansion.
+
+**Architecture:**
+- `QueryExpander` — Calls DeepSeek-Chat to generate N alternative phrasings of the query. Fail-open: returns `[original_query]` on error.
+- `HybridSearchPipeline` — Runs BM25 (`BM25Search`) + vector (`KnowledgeBase.find_similar()`) in parallel, merges via RRF (`score = Σ(1/(k+rank))`, k=60), optionally re-ranks with `LLMReranker`.
+- `Orchestrator.hybrid_search()` — Delegates to pipeline; accepts `use_query_expansion` and `use_reranking` flags.
+
+**Files:**
+- `orchestrator/query_expander.py`
+- `orchestrator/hybrid_search_pipeline.py`
+- Modified: `orchestrator/engine.py` (`hybrid_search()`, `__init__`)
+- Tests: `tests/test_query_expander.py` (3), `tests/test_hybrid_search_pipeline.py` (5), `tests/test_hybrid_pipeline_engine_integration.py` (2)
+
+**Usage:**
+```python
+results = await orch.hybrid_search(
+    query="fibonacci recursion",
+    project_id="proj1",
+    use_query_expansion=True,  # expands to 3 variants
+    use_reranking=True,        # LLM reranks final list
+)
+```
+
+---
+
+### Feature #3: TPM/RPM Rate Limiting per Tenant
+
+**Status**: Complete
+
+In-memory sliding-window rate limiter per `(tenant, model)` pair. Prevents burst abuse even when total budget is not exhausted.
+
+**Algorithm:** 60-second deque of `(timestamp, tokens)` tuples. `check()` raises `RateLimitExceeded` (with `limit_type` and `retry_after`) if the projected window would exceed TPM or RPM. `record()` appends after a successful call.
+
+**Files:**
+- `orchestrator/rate_limiter.py` — `RateLimiter`, `RateLimitExceeded`
+- Modified: `orchestrator/engine.py` (`_rate_limiter`, `configure_rate_limits()`)
+- Tests: `tests/test_rate_limiter.py` (7), `tests/test_rate_limiter_engine_integration.py` (4)
+
+**Usage:**
+```python
+orch.configure_rate_limits("acme", "deepseek-chat", tpm=50_000, rpm=100)
+# Engine now enforces limits on every primary generation call for this tenant
+```
+
+---
+
+### Feature #4: Hot/Warm/Cold Session Lifecycle
+
+**Status**: Complete
+
+Automatic session lifecycle management with LLM-based summarization on HOT→WARM transitions.
+
+**Architecture:**
+- `SessionLifecycleManager` wraps `MemoryTierManager`
+- Before `migrate_tiers()` runs, calls `_summarize_due_entries()`: for each HOT entry with `age_days >= hot_ttl_days`, calls DeepSeek-Chat to write a 2-3 sentence summary into `entry.summary`. Fail-open: LLM errors let the entry migrate without a summary.
+- `start()` / `stop()` manage an asyncio background scheduler (configurable interval, default 1h). `stop()` is called automatically in `Orchestrator.__aexit__`.
+- `configure_session_lifecycle()` raises `RuntimeError` if called while scheduler is running.
+
+**Files:**
+- `orchestrator/session_lifecycle.py` — `SessionLifecycleManager`
+- Modified: `orchestrator/engine.py` (`_lifecycle_manager`, `configure_session_lifecycle()`, `__aexit__`)
+- Tests: `tests/test_session_lifecycle.py` (6), `tests/test_session_lifecycle_engine_integration.py` (4)
+
+**Usage:**
+```python
+orch.configure_session_lifecycle(migration_interval_hours=2, llm_model="deepseek-chat")
+await orch._lifecycle_manager.start()  # Begin automatic migrations
+```
+
+---
+
 ## Testing
 
-**Test Coverage**: 660 tests passing (baseline: 616)
-- Surgical bug fixes: 4 tests (merged to master)
-- Resilience fixes: 9 new tests (all passing)
-- Codebase Enhancer feature: 16 new tests (all passing)
+**Test Coverage**: ~700 tests passing (baseline: 616)
+- Surgical bug fixes: 4 tests
+- Resilience fixes: 9 tests
+- Codebase Enhancer feature: 16 tests
+- Content Preflight Gate: ~14 tests
+- Hybrid Search Pipeline: 10 tests (query_expander + pipeline + engine integration)
+- Rate Limiter: 11 tests (unit + engine integration)
+- Session Lifecycle: 10 tests (unit + engine integration)
 - Pre-existing stress test failures: 4 (unchanged, documented)
 
 **Key Test Files**:
@@ -220,15 +318,17 @@ pytest tests/test_cli_analyze.py -v
 - `tests/test_critique_resilience_fix.py` — 3-strike circuit breaker behavior
 - `tests/test_budget_hierarchy_integration.py` — BudgetHierarchy charging
 - `tests/test_codebase_analyzer.py` — Static file scanning, language/project detection
-- `tests/test_codebase_understanding.py` — LLM semantic analysis integration
-- `tests/test_improvement_suggester.py` — Improvement suggestion generation
-- `tests/test_codebase_enhancer_e2e.py` — Full pipeline integration
+- `tests/test_preflight_integration.py` — Content preflight gate (PASS/WARN/BLOCK)
+- `tests/test_query_expander.py` — LLM-based query expansion
+- `tests/test_hybrid_search_pipeline.py` — RRF fusion pipeline
+- `tests/test_rate_limiter.py` — Sliding-window TPM/RPM limits
+- `tests/test_session_lifecycle.py` — HOT/WARM migration with LLM compression
 
 **Running Tests**:
 ```bash
-pytest tests/ -v                    # All tests
-pytest tests/test_*_fix.py -v       # Resilience-specific
-pytest --tb=short -q               # Summary
+python -m pytest tests/ -v -m "not slow"          # All tests (skip slow)
+python -m pytest tests/test_rate_limiter.py -v --no-cov  # Single module
+python -m pytest --tb=short -q                     # Summary
 ```
 
 ---
@@ -267,24 +367,32 @@ All features follow TDD discipline:
 
 ## Next High-Value Additions
 
-### 1. Persistent Cross-Run Learning (🔑 Nash Stability Feature)
+### 1. Command-Specific Token Compression (🟡 Medium priority)
+**What**: 50+ domain-specific output filters (git log, pytest, eslint, docker ps) for 60-90% token reduction
+**Why**: token_optimizer.py is generic; domain-specific strategies give targeted savings for agentic workflows
+**ROI**: Low complexity, high cost reduction for CI/agent scenarios
+
+### 2. A2A External Agent Client (🟡 Medium priority)
+**What**: Client-side A2A invocation of external agents (LangGraph, Vertex AI, Azure AI Foundry)
+**Why**: a2a_protocol.py is server-side only; client-side unlocks ecosystem integration
+**ROI**: Expands orchestrator's scope dramatically — tasks can be delegated to specialized external agents
+
+### 3. Persona Modes (🟡 Medium priority)
+**What**: Per-request behavioral modes (Strict for production, Creative for ideation)
+**Why**: Policy system exists but not persona-based; mode switching without config changes
+**ROI**: Improves UX, low complexity
+
+### 4. Persistent Cross-Run Learning (🔑 Nash Stability Feature)
 **Why**: Without persistent learning, users can switch to competitors cost-free
 **What**: ModelProfile quality scores aggregated across ALL runs (not session-local)
 - Task-type specific routing learned from historical success rates
-- Org/team-level learning hierarchies
 - Auto-generated routing recommendations ("Save $1,200/month by routing reasoning to DeepSeek-R1")
-- Creates lock-in through accumulated intelligence (switching cost = lost learning)
 **ROI**: 3-month payback; competitive moat after 6 months of usage
 
-### 2. Observability Dashboard
-**What**: Real-time cost tracking, quality heatmaps, policy audit trail
-**Why**: Fast to build, immediate stickiness, becomes part of customer's FinOps workflow
-**ROI**: 2-week build; high adoption
-
-### 3. Adaptive Fine-tuning Recommendations
-**What**: Detect patterns models fail on, recommend fine-tuning with ROI analysis
-**Why**: Creates feedback loop (recommend → user fine-tunes through platform → switching cost)
-**ROI**: 4-week build; slower payback but high long-term value
+### 5. Multi-tenant API Gateway (🟢 Low priority)
+**What**: JWT/API-key auth layer, exposing orchestrator as hosted service
+**Why**: Currently library/CLI only; gateway unlocks SaaS deployment model
+**ROI**: High long-term value, high engineering cost
 
 ---
 
@@ -314,4 +422,4 @@ For questions about architecture, strategy, or development approach, refer to:
 
 ---
 
-**Last Updated**: 2026-02-26 (v1.1 Codebase Enhancer POC - Phases 1-2)
+**Last Updated**: 2026-03-15 (v5.1 — Hybrid Search, Rate Limiting, Session Lifecycle, Preflight Gate)

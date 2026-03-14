@@ -66,7 +66,37 @@
       "Bash(git merge --no-ff claude/wonderful-bardeen)",
       "Skill(commit-commands:commit)",
       "Skill(commit-commands:commit:*)",
-      "Bash(git worktree add .claude/worktrees/codebase-enhancer-poc -b feature/codebase-enhancer-poc)"
+      "Bash(git worktree add .claude/worktrees/codebase-enhancer-poc -b feature/codebase-enhancer-poc)",
+      "Bash(find 'E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\\\\Useful Github Projects' -type f \\\\\\(-name README* -o -name *.md -o -name *.json -o -name *.py -o -name *.js -o -name *.ts \\\\\\) -not -path */node_modules/* -not -path */.git/*)",
+      "Bash(grep -l \"class.*Dashboard\\\\|def.*dashboard\" E:DocumentsVibe-CodingAi Orchestratororchestrator/*.py)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(timeout 60 bash -c 'cd \"\"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\"\" && python -m pytest tests/test_preflight_integration.py::test_preflight_block_retries_and_recovers -v --tb=long --no-cov 2>&1')",
+      "Bash(timeout 90 bash -c 'cd \"\"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\"\" && python -m pytest tests/test_preflight_integration.py -v --no-cov 2>&1')",
+      "Bash(xargs grep:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_edit_ruff.py\"",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_bash_pytest.py\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
