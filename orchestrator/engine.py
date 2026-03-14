@@ -276,8 +276,8 @@ class Orchestrator:
         # Hybrid Search Pipeline - BM25 + vector RRF fusion + query expansion
         from .hybrid_search_pipeline import HybridSearchPipeline
         from .query_expander import QueryExpander
-        from .knowledge_base import KnowledgeBase
-        self._knowledge_base = KnowledgeBase()
+        from .knowledge_base import get_knowledge_base
+        self._knowledge_base = get_knowledge_base()
         self._hybrid_pipeline = HybridSearchPipeline(
             bm25_search=self._bm25_search,
             knowledge_base=self._knowledge_base,
