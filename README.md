@@ -4,7 +4,7 @@ Multi-provider LLM orchestrator with intelligent routing, cost optimization, and
 
 Decomposes project specs → Routes tasks to optimal providers → Executes generate→critique→revise cycles → Evaluates quality.
 
-**Key Features:** 6 LLM providers • Cost-optimized routing (-35%) • Budget hierarchy • Resume capability • Deterministic validation • Policy enforcement • Real-time telemetry • Mission-Critical Command Center
+**Key Features:** 6 LLM providers • Cost-optimized routing (-35%) • Budget hierarchy • Resume capability • Deterministic validation • Policy enforcement • Real-time telemetry • Mission-Critical Command Center • Hybrid Search (RRF + Query Expansion) • TPM/RPM Rate Limiting • Session Lifecycle Management
 
 ---
 
@@ -258,6 +258,42 @@ print(orch._tier_escalation_count)
 ```
 
 See [OPTIMIZATION_IMPLEMENTATION_SUMMARY.md](OPTIMIZATION_IMPLEMENTATION_SUMMARY.md) for details.
+
+---
+
+### 🆕 v5.1 Intelligence & Multi-tenant Features
+
+New capabilities for production multi-tenant deployment and smarter retrieval:
+
+| Feature | Module | Description |
+|---------|--------|-------------|
+| **Hybrid Search (RRF)** | `hybrid_search_pipeline.py` | BM25 + vector search merged via Reciprocal Rank Fusion (k=60) |
+| **Query Expansion** | `query_expander.py` | LLM generates N alternative phrasings → better recall |
+| **TPM/RPM Rate Limiting** | `rate_limiter.py` | Sliding-window per-tenant rate limits (no Redis required) |
+| **Session Lifecycle** | `session_lifecycle.py` | HOT→WARM→COLD with auto LLM summarization on transition |
+| **Content Preflight Gate** | `preflight.py` | PASS/WARN/BLOCK quality gate before response delivery |
+
+**Hybrid Search usage:**
+```python
+results = await orch.hybrid_search(
+    query="fibonacci recursion",
+    project_id="proj1",
+    use_query_expansion=True,  # expand to 3 LLM-generated variants
+    use_reranking=True,        # re-rank with LLM relevance scoring
+)
+```
+
+**Rate limiting per tenant:**
+```python
+orch.configure_rate_limits("acme-corp", "deepseek-chat", tpm=50_000, rpm=100)
+# All calls for this tenant+model are now budget- AND rate-guarded
+```
+
+**Session lifecycle:**
+```python
+orch.configure_session_lifecycle(migration_interval_hours=2)
+await orch._lifecycle_manager.start()  # Begin automatic HOT→WARM→COLD migrations
+```
 
 ---
 
