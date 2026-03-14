@@ -124,12 +124,22 @@ from .planner import ConstraintPlanner
 from .validators import run_validators, async_run_validators, VALIDATORS, ValidationResult
 from .resume_detector import ResumeDetector
 
+# ═════════════════════════════════════════════════════════════════════════════==
+# Codebase Enhancer
+# ═════════════════════════════════════════════════════════════════════════════==
+from .codebase_analyzer import CodebaseAnalyzer, CodebaseMap
+from .codebase_understanding import CodebaseUnderstanding
+from .codebase_profile import CodebaseProfile
+from .improvement_suggester import Improvement, ImprovementSuggester
+from .query_expander import QueryExpander
+from .hybrid_search_pipeline import HybridSearchPipeline
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Observability & Telemetry
 # ═══════════════════════════════════════════════════════════════════════════════
 from .telemetry import TelemetryCollector
 from .audit import AuditLog, AuditRecord
-from .hooks import HookRegistry, EventType as HookEventType
+from .hooks import DashboardHookRegistry, HookRegistry, EventType as HookEventType
 from .metrics import MetricsExporter, ConsoleExporter, JSONExporter, PrometheusExporter
 from .tracing import TracingConfig, configure_tracing, get_tracer
 
@@ -180,6 +190,7 @@ except ImportError as _e:
 # ═══════════════════════════════════════════════════════════════════════════════
 from .output_writer import write_output_dir
 from .progress_writer import ProgressWriter, ProgressEntry
+from .dry_run import ExecutionPlan, TaskPlan, DryRunRenderer
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEW: Backward Compatibility Layer (v6.0)
@@ -232,19 +243,47 @@ except ImportError:
     run_dashboard_realtime = None
 
 try:
-    from .dashboard_enhanced import run_enhanced_dashboard
+    from .dashboard_enhanced import (
+        EnhancedDashboardServer,
+        EnhancedDataProvider,
+        DashboardIntegration,
+        ArchitectureInfo,
+        ProjectInfo,
+        ActiveTaskInfo,
+        ModelStatusInfo,
+        run_enhanced_dashboard as _legacy_run_enhanced,
+    )
 except ImportError:
-    run_enhanced_dashboard = None
+    EnhancedDashboardServer = None
+    EnhancedDataProvider = None
+    DashboardIntegration = None
+    ArchitectureInfo = None
+    ProjectInfo = None
+    ActiveTaskInfo = None
+    ModelStatusInfo = None
+    _legacy_run_enhanced = None
+
+run_enhanced_dashboard = _legacy_run_enhanced
 
 try:
-    from .dashboard_antd import run_ant_design_dashboard as _legacy_run_antd
+    from .dashboard_antd import (
+        AntDesignDashboardServer,
+        run_ant_design_dashboard as _legacy_run_antd,
+    )
 except ImportError:
+    AntDesignDashboardServer = None
     _legacy_run_antd = None
 
 try:
-    from .dashboard_mission_control import run_mission_control as _legacy_run_mc
+    from .dashboard_mission_control import (
+        MissionControlServer,
+        run_mission_control as _legacy_run_mc,
+    )
 except ImportError:
+    MissionControlServer = None
     _legacy_run_mc = None
+
+run_mission_control = _legacy_run_mc
 
 try:
     from .unified_dashboard import run_unified_dashboard
@@ -252,8 +291,19 @@ except ImportError:
     run_unified_dashboard = None
 
 try:
-    from .dashboard_live import run_live_dashboard as _legacy_run_live
+    from .project_runner import ProjectRunner
 except ImportError:
+    ProjectRunner = None
+
+try:
+    from .dashboard_live import (
+        LiveDashboardServer,
+        DashboardLiveIntegration,
+        run_live_dashboard as _legacy_run_live,
+    )
+except ImportError:
+    LiveDashboardServer = None
+    DashboardLiveIntegration = None
     _legacy_run_live = None
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -293,6 +343,7 @@ __all__ = [
     "ViewRegistry",
     "run_dashboard",
     "MissionControlView",
+    "MissionControlServer",
     "HAS_UNIFIED_DASHBOARD",
     
     # NEW: Unified Events (v6.0)
@@ -318,9 +369,10 @@ __all__ = [
     
     # Backward Compatibility
     "run_live_dashboard",
-    "run_mission_control", 
+    "run_mission_control",
     "run_ant_design_dashboard",
     "ProjectEventBus",
+    "ProjectRunner",
     "StreamEvent",
     "ProjectStarted",
     "TaskStarted",
@@ -330,6 +382,16 @@ __all__ = [
     "HAS_COMPAT_LAYER",
     
     # Legacy (deprecated)
+    "AntDesignDashboardServer",
+    "EnhancedDashboardServer",
+    "EnhancedDataProvider",
+    "DashboardIntegration",
+    "ArchitectureInfo",
+    "ProjectInfo",
+    "ActiveTaskInfo",
+    "ModelStatusInfo",
+    "LiveDashboardServer",
+    "DashboardLiveIntegration",
     "run_dashboard_realtime",
     "run_enhanced_dashboard",
     "run_unified_dashboard",
@@ -344,6 +406,14 @@ __all__ = [
     # Validation
     "run_validators", "async_run_validators", "VALIDATORS", "ValidationResult",
     
+    # Codebase Enhancer
+    "CodebaseAnalyzer", "CodebaseMap",
+    "CodebaseUnderstanding", "CodebaseProfile",
+    "Improvement", "ImprovementSuggester",
+
+    # Hybrid Search Pipeline
+    "QueryExpander", "HybridSearchPipeline",
+    
     # Policy
     "ModelProfile", "Policy", "PolicySet", "JobSpec",
     "PolicyEngine", "PolicyViolationError",
@@ -355,7 +425,7 @@ __all__ = [
     # Audit & Telemetry
     "AuditLog", "AuditRecord",
     "TelemetryCollector", "TelemetryStore",
-    "HookRegistry", "HookEventType",
+    "HookRegistry", "HookEventType", "DashboardHookRegistry",
     "MetricsExporter", "ConsoleExporter", "JSONExporter", "PrometheusExporter",
     "TracingConfig", "configure_tracing", "get_tracer",
     
@@ -371,6 +441,7 @@ __all__ = [
     # Output & Progress
     "write_output_dir",
     "ProgressWriter", "ProgressEntry",
+    "ExecutionPlan", "TaskPlan", "DryRunRenderer",
     
     # Exceptions
     "ApplicationError",
@@ -422,6 +493,18 @@ try:
     ])
 except ImportError:
     pass
+
+# InDesign Plugin Rules
+try:
+    from .indesign_plugin_rules import (
+        InDesignPluginRules,
+        InDesignRulesConfig,
+        generate_indesign_plugin_rules,
+    )
+except ImportError:
+    InDesignPluginRules = None
+    InDesignRulesConfig = None
+    generate_indesign_plugin_rules = None
 
 # Knowledge Management
 try:
@@ -500,7 +583,10 @@ try:
         "ProjectRules", "ArchitectureDecision",
         "TechnologyStack", "CodingStandard",
         "ArchitecturalStyle", "ProgrammingParadigm",
-        "APIStyle", "DatabaseType",
+    "APIStyle", "DatabaseType",
+    "InDesignPluginRules",
+    "InDesignRulesConfig",
+    "generate_indesign_plugin_rules",
     ])
 except ImportError:
     pass

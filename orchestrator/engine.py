@@ -273,6 +273,15 @@ class Orchestrator:
         self._bm25_search: BM25Search = get_bm25_search(str(self._memory_manager.storage_path / "search.db"))
         # LLM Re-ranker - quality-based result re-ranking
         self._reranker: LLMReranker = get_reranker()
+        # Hybrid Search Pipeline - BM25 + vector RRF fusion + query expansion
+        from .hybrid_search_pipeline import HybridSearchPipeline
+        from .query_expander import QueryExpander
+        self._hybrid_pipeline = HybridSearchPipeline(
+            bm25_search=self._bm25_search,
+            knowledge_base=getattr(self, "_knowledge_base", None),
+            reranker=self._reranker,
+            query_expander=QueryExpander(),
+        )
         # A2A Manager - agent-to-agent communication
         self._a2a_manager: A2AManager = A2AManager()
 
@@ -724,37 +733,23 @@ class Orchestrator:
     async def hybrid_search(
         self,
         query: str,
-        project_id: str,
+        project_id: Optional[str] = None,
         limit: int = 10,
         use_reranking: bool = True,
     ) -> list:
         """
-        Perform hybrid search with BM25 + optional re-ranking.
-        
-        Args:
-            query: Search query
-            project_id: Project to search
-            limit: Maximum results
-            use_reranking: Apply LLM re-ranking
-            
-        Returns:
-            Search results ordered by relevance
+        Perform hybrid search: BM25 + vector (RRF fusion) + optional reranking.
+
+        Uses HybridSearchPipeline with LLM-based query expansion (DeepSeek-Chat).
+        Falls back gracefully if any component is unavailable.
         """
-        # BM25 search
-        bm25_results = await self._bm25_search.bm25_search(
-            query=query,
+        results = await self._hybrid_pipeline.search(
+            query,
             project_id=project_id,
-            limit=limit * 2 if use_reranking else limit,
+            top_k=limit,
+            use_reranking=use_reranking,
         )
-        
-        results = [r.to_dict() for r in bm25_results]
-        
-        # Apply re-ranking
-        if use_reranking and results:
-            reranked = await self._reranker.rerank(query, results, top_k=limit)
-            return [r.to_dict() for r in reranked]
-        
-        return results[:limit]
+        return [r.to_dict() for r in results]
 
     async def register_agent(
         self,
