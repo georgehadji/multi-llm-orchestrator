@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from enum import Enum
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger("orchestrator.hooks")
 
@@ -38,6 +38,7 @@ class EventType(str, Enum):
       BUDGET_WARNING          — phase: str, spent: float, cap: float, ratio: float
       MODEL_SELECTED          — task_id: str, model: str, backend: str
       TASK_RETRY_WITH_HISTORY — task_id: str, attempt_num: int, record: AttemptRecord
+      PREFLIGHT_CHECK         — task_id: str, action: str, reason: str, score_before: float, score_after: float
     """
     TASK_STARTED            = "task_started"
     TASK_COMPLETED          = "task_completed"
@@ -45,6 +46,7 @@ class EventType(str, Enum):
     BUDGET_WARNING          = "budget_warning"
     MODEL_SELECTED          = "model_selected"
     TASK_RETRY_WITH_HISTORY = "task_retry_with_history"
+    PREFLIGHT_CHECK         = "preflight_check"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -109,3 +111,28 @@ class HookRegistry:
     def __len__(self) -> int:
         """Total number of registered callbacks across all events."""
         return sum(len(v) for v in self._hooks.values())
+
+
+class DashboardHookRegistry(HookRegistry):
+    """
+    Hook registry tailored for Mission Control to tie hooks to the dashboard server.
+    """
+
+    def __init__(self, server: Any) -> None:
+        super().__init__()
+        self.server = server
+
+    def add(self, event: str | EventType, callback: Callable | None = None):
+        """
+        Support decorator-based registration, e.g.:
+            @hooks.add(EventType.TASK_STARTED)
+            def hook(...):
+        """
+        if callback is None:
+            def decorator(fn: Callable) -> Callable:
+                super().add(event, fn)
+                return fn
+            return decorator
+
+        super().add(event, callback)
+        return callback
