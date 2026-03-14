@@ -14,7 +14,6 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 from typing import Dict, Optional
 
 from .log_config import get_logger
@@ -102,10 +101,8 @@ class SessionLifecycleManager:
         Sets entry.summary in-place before migrate_tiers() moves it.
         Failures are logged and silently skipped (fail-open).
         """
-        now = datetime.utcnow()
         for entry in list(self._mem._hot_index.values()):
-            age_days = (now - entry.created_at).days
-            if age_days < self._mem.hot_ttl_days:
+            if entry.age_days < self._mem.hot_ttl_days:
                 continue  # Not yet due for migration
             if entry.summary:
                 continue  # Already has a summary
