@@ -736,6 +736,7 @@ class Orchestrator:
         project_id: Optional[str] = None,
         limit: int = 10,
         use_reranking: bool = True,
+        use_query_expansion: bool = True,
     ) -> list:
         """
         Perform hybrid search: BM25 + vector (RRF fusion) + optional reranking.
@@ -748,6 +749,7 @@ class Orchestrator:
             project_id=project_id,
             top_k=limit,
             use_reranking=use_reranking,
+            use_query_expansion=use_query_expansion,
         )
         return [r.to_dict() for r in results]
 

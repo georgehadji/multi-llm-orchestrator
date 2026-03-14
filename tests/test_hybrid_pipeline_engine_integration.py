@@ -34,6 +34,6 @@ async def test_engine_hybrid_search_delegates_to_pipeline():
     result = await orch.hybrid_search("python", project_id="proj1", limit=5)
 
     mock_pipeline.search.assert_called_once_with(
-        "python", project_id="proj1", top_k=5, use_reranking=True
+        "python", project_id="proj1", top_k=5, use_reranking=True, use_query_expansion=True
     )
     assert result == [r.to_dict() for r in expected]
