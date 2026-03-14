@@ -134,6 +134,7 @@ from .improvement_suggester import Improvement, ImprovementSuggester
 from .query_expander import QueryExpander
 from .hybrid_search_pipeline import HybridSearchPipeline
 from .rate_limiter import RateLimiter, RateLimitExceeded
+from .session_lifecycle import SessionLifecycleManager
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Observability & Telemetry
@@ -417,6 +418,9 @@ __all__ = [
 
     # Rate Limiting
     "RateLimiter", "RateLimitExceeded",
+
+    # Session Lifecycle
+    "SessionLifecycleManager",
     
     # Policy
     "ModelProfile", "Policy", "PolicySet", "JobSpec",
