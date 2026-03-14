@@ -2504,15 +2504,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             revised_output = gen_response.text
         except Exception as exc:
             logger.warning("[preflight] revision LLM call failed (%s) — using original", exc)
+            failed_score = 0.0 if pf_result.action == PreflightAction.BLOCK else score
             self._hook_registry.fire(
                 EventType.PREFLIGHT_CHECK,
                 task_id=task.id,
                 action=pf_result.action.value + "_revision_failed",
                 reason=str(exc),
                 score_before=score,
-                score_after=score,
+                score_after=failed_score,
             )
-            return output, score, pf_result
+            return output, failed_score, pf_result
 
         # Re-validate the revised output
         try:
