@@ -125,6 +125,7 @@ async def test_preflight_block_retries_and_recovers():
     orch.client.call.assert_called_once()
     assert final_output == good_output   # revised output delivered
     assert final_score == score          # score preserved on recovery
+    assert pf_result.action != PreflightAction.BLOCK  # recovered: no longer blocked
 
 
 @pytest.mark.asyncio
@@ -147,6 +148,7 @@ async def test_preflight_block_still_blocked_after_retry():
 
     assert final_score == 0.0           # degraded
     assert final_output == bad_output   # original preserved (not revision)
+    assert pf_result.action == PreflightAction.BLOCK
 
 
 @pytest.mark.asyncio
