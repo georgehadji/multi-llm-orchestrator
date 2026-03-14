@@ -2273,6 +2273,25 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             if best_score == 0.0 and not det_passed:
                 status = TaskStatus.FAILED
 
+            # ── PREFLIGHT GATE ──
+            # Post-loop quality gate: validates best_output before delivery.
+            # WARN -> score penalty; ENRICH/BLOCK -> 1 revision attempt.
+            _preflight_result = None
+            try:
+                best_output, best_score, _preflight_result = await self._run_preflight_check(
+                    task=task,
+                    output=best_output,
+                    score=best_score,
+                    primary=primary,
+                )
+                # Re-derive status after preflight may have changed best_score
+                if best_score == 0.0 and status != TaskStatus.FAILED:
+                    status = TaskStatus.DEGRADED
+                elif best_score >= task.acceptance_threshold and status == TaskStatus.DEGRADED:
+                    status = TaskStatus.COMPLETED  # revision recovered the task
+            except Exception as _pf_exc:
+                logger.warning("preflight gate raised: %s — skipping gate", _pf_exc)
+
             # Feed final eval score back to telemetry so ConstraintPlanner re-ranks
             if best_score > 0.0:
                 self._telemetry.record_call(
@@ -2423,6 +2442,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 deterministic_check_passed=det_passed,
                 degraded_fallback_count=degraded_count,
                 attempt_history=attempt_history,
+                preflight_result=_preflight_result,
+                preflight_passed=(_preflight_result is None or _preflight_result.passed),
             )
 
     async def _run_preflight_check(
