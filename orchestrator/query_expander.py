@@ -7,8 +7,6 @@ query, improving recall in BM25 and vector search.
 from __future__ import annotations
 
 import json
-import logging
-from typing import List
 
 from .log_config import get_logger
 
@@ -37,7 +35,7 @@ class QueryExpander:
         self.model = model
         self.max_variants = max_variants
 
-    async def expand(self, query: str) -> List[str]:
+    async def expand(self, query: str) -> list[str]:
         """
         Return [original_query] + up to max_variants LLM-generated alternatives.
 
@@ -59,22 +57,21 @@ class QueryExpander:
                 result.append(v)
         return result
 
-    async def _call_llm(self, query: str) -> List[str]:
+    async def _call_llm(self, query: str) -> list[str]:
         """Call DeepSeek-Chat and parse JSON array of variants."""
         from .api_clients import UnifiedClient
+        from .models import Model
 
         client = UnifiedClient()
         prompt = _EXPAND_PROMPT.format(n=self.max_variants, query=query)
-        response = await client.chat_completion(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a search query expansion assistant. Respond ONLY with a valid JSON array of strings."},
-                {"role": "user", "content": prompt},
-            ],
+        response = await client.call(
+            Model(self.model),
+            prompt,
+            system="You are a search query expansion assistant. Respond ONLY with a valid JSON array of strings.",
             temperature=0.4,
             max_tokens=150,
         )
-        content = response.choices[0].message.content.strip()
+        content = response.text.strip()
         # Strip markdown code fences if present
         if "```" in content:
             content = content.replace("```json", "").replace("```", "").strip()

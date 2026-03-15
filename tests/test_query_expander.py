@@ -33,3 +33,22 @@ async def test_expand_deduplicates_and_preserves_original():
         result = await expander.expand("python code")
     assert result.count("python code") == 1  # deduplicated
     assert "python snippets" in result
+
+
+@pytest.mark.asyncio
+async def test_call_llm_uses_client_call_not_chat_completion():
+    """_call_llm must use UnifiedClient.call(), not the non-existent chat_completion()."""
+    from unittest.mock import patch as _patch
+
+    expander = QueryExpander(model="deepseek-chat")
+    mock_response = MagicMock()
+    mock_response.text = '["variant one", "variant two"]'
+
+    with _patch("orchestrator.api_clients.UnifiedClient") as MockClient:
+        instance = MockClient.return_value
+        instance.call = AsyncMock(return_value=mock_response)
+        result = await expander._call_llm("test query")
+
+    instance.call.assert_called_once()
+    assert "variant one" in result
+    assert "variant two" in result

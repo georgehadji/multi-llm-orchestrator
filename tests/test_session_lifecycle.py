@@ -106,6 +106,25 @@ async def test_entries_not_yet_due_are_not_summarized(tmp_path):
     assert len(call_log) == 0
 
 
+async def test_summarize_content_uses_client_call_not_chat_completion(tmp_path):
+    """_summarize_content must call UnifiedClient.call(), not chat_completion()."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    mem = _make_manager(tmp_path)
+    slm = SessionLifecycleManager(memory_tier_manager=mem, llm_model="deepseek-chat")
+
+    mock_response = MagicMock()
+    mock_response.text = "A concise summary."
+
+    with patch("orchestrator.api_clients.UnifiedClient") as MockClient:
+        instance = MockClient.return_value
+        instance.call = AsyncMock(return_value=mock_response)
+        result = await slm._summarize_content("Some long content here.")
+
+    instance.call.assert_called_once()
+    assert result == "A concise summary."
+
+
 async def test_start_and_stop_creates_and_cancels_task(tmp_path):
     """start() creates a background task; stop() cancels it cleanly."""
     mem = _make_manager(tmp_path)

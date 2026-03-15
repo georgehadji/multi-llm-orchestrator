@@ -1994,12 +1994,18 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     gen_temperature = 0.0 if task.type == TaskType.CODE_GEN else 0.3
                     
                     logger.info(f"  {task.id}: calling {primary.value} for generation (timeout={gen_timeout}s)")
+                    _rl_tenant = getattr(task, "tenant", "default")
+                    self._rate_limiter.check(_rl_tenant, primary.value, effective_max_tokens)
                     gen_response = await self.client.call(
                         primary, full_prompt,
                         system=system_prompt,
                         max_tokens=effective_max_tokens,
                         temperature=gen_temperature,
                         timeout=gen_timeout,
+                    )
+                    self._rate_limiter.record(
+                        _rl_tenant, primary.value,
+                        gen_response.input_tokens + gen_response.output_tokens,
                     )
                     logger.info(f"  {task.id}: generation complete, tokens={gen_response.input_tokens}/{gen_response.output_tokens}")
                     output = _clean_code_output(gen_response.text, task.type)
@@ -2041,12 +2047,17 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             # Use temperature 0.0 for code generation (deterministic output)
                             fb_temperature = 0.0 if task.type == TaskType.CODE_GEN else 0.3
                             
+                            self._rate_limiter.check(_rl_tenant, fb.value, effective_max_tokens)
                             gen_response = await self.client.call(
                                 fb, full_prompt,
                                 system=fb_system,
                                 max_tokens=effective_max_tokens,
                                 temperature=fb_temperature,
                                 timeout=gen_timeout,
+                            )
+                            self._rate_limiter.record(
+                                _rl_tenant, fb.value,
+                                gen_response.input_tokens + gen_response.output_tokens,
                             )
                             output = _clean_code_output(gen_response.text, task.type)
                             self.budget.charge(gen_response.cost_usd, "generation")
@@ -2334,12 +2345,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # WARN -> score penalty; ENRICH/BLOCK -> 1 revision attempt.
             _preflight_result = None
             try:
+                _budget_before_preflight = self.budget.spent_usd
                 best_output, best_score, _preflight_result = await self._run_preflight_check(
                     task=task,
                     output=best_output,
                     score=best_score,
                     primary=primary,
                 )
+                total_cost += self.budget.spent_usd - _budget_before_preflight
                 # Re-derive status after preflight may have changed best_score
                 if best_score == 0.0 and status != TaskStatus.FAILED:
                     status = TaskStatus.DEGRADED
@@ -2578,6 +2591,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 temperature=0.3,
                 timeout=120,
             )
+            self.budget.charge(gen_response.cost_usd, "generation")
             revised_output = gen_response.text
         except Exception as exc:
             logger.warning("[preflight] revision LLM call failed (%s) — using original", exc)
