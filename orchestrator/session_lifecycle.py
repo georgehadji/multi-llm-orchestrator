@@ -14,10 +14,12 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-from typing import Dict, Optional
+from typing import TYPE_CHECKING
 
 from .log_config import get_logger
-from .memory_tier import MemoryTierManager
+
+if TYPE_CHECKING:
+    from .memory_tier import MemoryTierManager
 
 logger = get_logger(__name__)
 
@@ -45,7 +47,7 @@ class SessionLifecycleManager:
         self._mem = memory_tier_manager
         self._interval = migration_interval_seconds
         self._model = llm_model
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -69,7 +71,7 @@ class SessionLifecycleManager:
                 pass
         logger.info("SessionLifecycleManager stopped")
 
-    async def run_migration(self) -> Dict[str, int]:
+    async def run_migration(self) -> dict[str, int]:
         """
         Run one lifecycle migration cycle.
 
@@ -126,13 +128,14 @@ class SessionLifecycleManager:
         Raises on failure — caller handles fail-open logic.
         """
         from .api_clients import UnifiedClient
+        from .models import Model
 
         client = UnifiedClient()
         prompt = _SUMMARY_PROMPT.format(content=content[:3000])  # cap input tokens
-        response = await client.chat_completion(
-            model=self._model,
-            messages=[{"role": "user", "content": prompt}],
+        response = await client.call(
+            Model(self._model),
+            prompt,
             temperature=0.3,
             max_tokens=200,
         )
-        return response.choices[0].message.content.strip()
+        return response.text.strip()

@@ -43,11 +43,13 @@ def test_task_result_accepts_preflight_result():
 def _make_orchestrator():
     """Minimal Orchestrator stub for unit testing preflight."""
     from orchestrator.engine import Orchestrator
+    from orchestrator.models import Budget
     from orchestrator.preflight import PreflightValidator
     from orchestrator.hooks import HookRegistry
     orch = Orchestrator.__new__(Orchestrator)
     orch._preflight_validator = PreflightValidator()
     orch._hook_registry = HookRegistry()
+    orch.budget = Budget(max_usd=10.0)
     return orch
 
 
@@ -149,6 +151,31 @@ async def test_preflight_block_still_blocked_after_retry():
     assert final_score == 0.0           # degraded
     assert final_output == bad_output   # original preserved (not revision)
     assert pf_result.action == PreflightAction.BLOCK
+
+
+@pytest.mark.asyncio
+async def test_preflight_block_revision_is_charged_to_budget():
+    """Revision LLM call on BLOCK must charge self.budget and be reflected in spent_usd."""
+    from orchestrator.models import Budget
+
+    orch = _make_orchestrator()
+    orch.budget = Budget(max_usd=10.0)
+
+    bad_output = 'headers = {"Authorization": "Bearer eyJhbGc.eyJzdWI.sig"}'
+    good_output = "headers = {}"
+    score = 0.8
+
+    mock_response = MagicMock()
+    mock_response.text = good_output
+    mock_response.cost_usd = 0.05  # revision costs 5 cents
+    orch.client = MagicMock()
+    orch.client.call = AsyncMock(return_value=mock_response)
+
+    await orch._run_preflight_check(
+        task=_make_task(), output=bad_output, score=score, primary=Model.DEEPSEEK_CHAT
+    )
+
+    assert orch.budget.spent_usd == pytest.approx(0.05, abs=1e-6)
 
 
 @pytest.mark.asyncio
