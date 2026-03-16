@@ -800,6 +800,193 @@ try:
 except ImportError:
     pass
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEW: Additional Feature Modules (Implemented in v6.x)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Brain and Cognitive Layer
+try:
+    from .brain import Brain, ReasoningStep, CognitiveState
+    __all__.extend(["Brain", "ReasoningStep", "CognitiveState"])
+except ImportError:
+    pass
+
+# Evaluation Module
+try:
+    from .evaluation import Evaluator, EvaluationResult
+    __all__.extend(["Evaluator", "EvaluationResult"])
+except ImportError:
+    pass
+
+# Escalation Module
+try:
+    from .escalation import EscalationHandler, EscalationRule, EscalationResult
+    __all__.extend(["EscalationHandler", "EscalationRule", "EscalationResult"])
+except ImportError:
+    pass
+
+# Checkpoints Module
+try:
+    from .checkpoints import CheckpointManager, Checkpoint
+    __all__.extend(["CheckpointManager", "Checkpoint"])
+except ImportError:
+    pass
+
+# Prompt Enhancer Module
+try:
+    from .prompt_enhancer import PromptEnhancer
+    __all__.extend(["PromptEnhancer"])
+except ImportError:
+    pass
+
+# Cost Analytics Module
+try:
+    from .cost_analytics import CostAnalytics, CostBreakdown, CostForecast
+    __all__.extend(["CostAnalytics", "CostBreakdown", "CostForecast"])
+except ImportError:
+    pass
+
+# Competitive Intelligence Module
+try:
+    from .competitive import CompetitiveIntelligence, CompetitiveRecommendation, MarketDataPoint
+    __all__.extend(["CompetitiveIntelligence", "CompetitiveRecommendation", "MarketDataPoint"])
+except ImportError:
+    pass
+
+# Plan-Then-Build Module
+try:
+    from .plan_then_build import PlanThenBuilder, PlanStep, ExecutionPlan
+    __all__.extend(["PlanThenBuilder", "PlanStep", "ExecutionPlan"])
+except ImportError:
+    pass
+
+# Memory Bank Module
+try:
+    from .memory_bank import MemoryBank, MemoryEntry
+    __all__.extend(["MemoryBank", "MemoryEntry"])
+except ImportError:
+    pass
+
+# Context Condensing Module
+try:
+    from .context_condensing import ContextCondenser
+    __all__.extend(["ContextCondenser"])
+except ImportError:
+    pass
+
+# Hierarchy Module
+try:
+    from .hierarchy import HierarchyManager, Node, NodeType
+    __all__.extend(["HierarchyManager", "Node", "NodeType"])
+except ImportError:
+    pass
+
+# Triggers Module
+try:
+    from .triggers import TriggerManager, Trigger, TriggerConditionOperator
+    __all__.extend(["TriggerManager", "Trigger", "TriggerConditionOperator"])
+except ImportError:
+    pass
+
+# Workspace Module
+try:
+    from .workspace import WorkspaceManager, Workspace
+    __all__.extend(["WorkspaceManager", "Workspace"])
+except ImportError:
+    pass
+
+# Gateway Module
+try:
+    from .gateway import APIGateway, APIRequest, APIResponse, RateLimitInfo
+    __all__.extend(["APIGateway", "APIRequest", "APIResponse", "RateLimitInfo"])
+except ImportError:
+    pass
+
+# Connectors Module
+try:
+    from .connectors import ConnectorManager, BaseConnector, DatabaseConnector, HTTPConnector, FileConnector
+    __all__.extend(["ConnectorManager", "BaseConnector", "DatabaseConnector", "HTTPConnector", "FileConnector"])
+except ImportError:
+    pass
+
+# Sandbox Module
+try:
+    from .sandbox import Sandbox, ExecutionResult
+    __all__.extend(["Sandbox", "ExecutionResult"])
+except ImportError:
+    pass
+
+# Context Sources Module
+try:
+    from .context_sources import ContextSourceManager, ContextChunk, BaseContextSource
+    __all__.extend(["ContextSourceManager", "ContextChunk", "BaseContextSource"])
+except ImportError:
+    pass
+
+# Skills Module
+try:
+    from .skills import SkillManager, SkillDefinition, get_global_skill_manager
+    __all__.extend(["SkillManager", "SkillDefinition", "get_global_skill_manager"])
+except ImportError:
+    pass
+
+# Drift Module
+try:
+    from .drift import DriftDetector, DriftDetectionResult, ModelDriftMonitor, get_global_drift_detector
+    __all__.extend(["DriftDetector", "DriftDetectionResult", "ModelDriftMonitor", "get_global_drift_detector"])
+except ImportError:
+    pass
+
+# Browser Testing Module
+try:
+    from .browser_testing import BrowserTester, TestStep, TestResult as BrowserTestResult, get_global_browser_tester
+    __all__.extend(["BrowserTester", "TestStep", "BrowserTestResult", "get_global_browser_tester"])
+except ImportError:
+    pass
+
+# Token Optimizer Module
+try:
+    from .token_optimizer import TokenOptimizer, get_global_token_optimizer
+    __all__.extend(["TokenOptimizer", "get_global_token_optimizer"])
+except ImportError:
+    pass
+
+# A2A Protocol Module
+try:
+    from .a2a_protocol import (
+        A2AClient, A2ACoordinator, A2AMessage, A2ATask, A2AResponse, get_global_a2a_coordinator,
+        A2AManager, A2AQueueManager, TaskSendRequest, TaskResult, AgentCard, MessagePart,
+        TaskStatus, AgentState,
+    )
+    __all__.extend([
+        "A2AClient", "A2ACoordinator", "A2AMessage", "A2ATask", "A2AResponse", "get_global_a2a_coordinator",
+        "A2AManager", "A2AQueueManager", "TaskSendRequest", "TaskResult", "AgentCard", "MessagePart",
+        "TaskStatus", "AgentState",
+    ])
+except ImportError:
+    pass
+
+# Persona Modes Module
+try:
+    from .persona_modes import PersonaModeManager, Persona, PersonaConfig, get_global_persona_manager
+    __all__.extend(["PersonaModeManager", "Persona", "PersonaConfig", "get_global_persona_manager"])
+except ImportError:
+    pass
+
+# Learning Aggregator Module
+try:
+    from .learning_aggregator import LearningAggregator, TaskPerformanceRecord, ModelPerformanceStats, RoutingRecommendation
+    __all__.extend(["LearningAggregator", "TaskPerformanceRecord", "ModelPerformanceStats", "RoutingRecommendation"])
+except ImportError:
+    pass
+
+# Multi-Tenant Gateway Module
+try:
+    from .multi_tenant_gateway import MultiTenantGateway, Tenant, QuotaUsage, get_global_gateway
+    __all__.extend(["MultiTenantGateway", "Tenant", "QuotaUsage", "get_global_gateway"])
+except ImportError:
+    pass
+
 # Print optimization info on import
 import logging
 logger = logging.getLogger("orchestrator")
