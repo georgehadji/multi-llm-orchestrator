@@ -249,14 +249,22 @@ class BudgetHierarchy:
         if job_id:
             self._job_spent[job_id] = self._job_spent.get(job_id, 0.0) + amount
 
-    def release_reservation(self, job_id: str) -> None:
+    def release_reservation(self, job_id: str, team: str = "") -> None:
         """
         Free a reservation without charging (e.g. on job abort or error).
 
         Idempotent: calling for an unknown job_id is a no-op.
+
+        ``team`` must match the value passed to can_afford_job() so that the
+        team-level reservation counter is also released (mirrors charge_job).
         """
         reserved = self._reservations.pop(job_id, 0.0)
         self._reserved_usd = max(0.0, self._reserved_usd - reserved)
+        # Release team-level reservation to mirror the cleanup done in charge_job().
+        if team and reserved:
+            self._team_reserved[team] = max(
+                0.0, self._team_reserved.get(team, 0.0) - reserved
+            )
 
     def remaining(self, level: str = "org", key: str = "") -> float:
         """
@@ -274,7 +282,10 @@ class BudgetHierarchy:
         elif level == "team":
             max_v = self._team_max.get(key, self._org_max)
             spent = self._team_spent.get(key, 0.0)
-            return max(0.0, max_v - spent)
+            # BUG-004 FIX: also deduct pending reservations so callers see the
+            # same accurate picture as the org-level remaining() calculation.
+            reserved = self._team_reserved.get(key, 0.0)
+            return max(0.0, max_v - spent - reserved)
         elif level == "job":
             max_v = self._job_max.get(key, self._org_max)
             spent = self._job_spent.get(key, 0.0)

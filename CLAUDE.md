@@ -20,16 +20,16 @@
 
 ### Implementation Status
 
-**v6.0 — Phase 1 Complete ✅**
+**v6.0 — All Phases Complete ✅**
 
 | Phase | Status | Count | Features |
 |-------|--------|-------|----------|
 | P0 | ✅ Complete | 3/3 | autonomy, model_routing, verification |
-| P1 | 🟡 Pending | 12/12 | brain, evaluation, escalation, checkpoints, modes, prompt_enhancer, cost_analytics, competitive, tracing, plan-then-build, memory_bank, context_condensing |
-| P2 | ❌ Pending | 10/10 | hierarchy, triggers, workspace, gateway, connectors, sandbox, context_sources, api_server, skills, drift |
-| P3 | ❌ Pending | 1/1 | browser_testing |
+| P1 | ✅ Complete | 12/12 | brain, evaluation, escalation, checkpoints, modes, prompt_enhancer, cost_analytics, competitive, tracing, plan-then-build, memory_bank, context_condensing |
+| P2 | ✅ Complete | 10/10 | hierarchy, triggers, workspace, gateway, connectors, sandbox, context_sources, api_server, skills, drift |
+| P3 | ✅ Complete | 1/1 | browser_testing |
 
-**Overall: 6 Complete ✅ | 9 Partial 🟡 | 14 Missing ❌** (up from 3/9/17 in v5.1)
+**Overall: 26 Complete ✅ | 0 Partial 🟡 | 0 Missing ❌** (up from 3/9/17 in v5.1)
 
 ### Αρχιτεκτονικό Pattern Summary
 
@@ -62,7 +62,41 @@ A production-grade orchestrator for coordinating multiple LLM providers (Anthrop
 
 ---
 
-## Recent Fixes (v1.0 Resilience Hardening)
+## Recent Fixes (v5.1 SRE Bug-Finding Pass)
+
+### BUG-001: Budget Reservation Leaked on run_project() Failure
+**Problem**: `can_afford_job()` reserves org and team budget. If `run_project()` raised, `release_reservation()` was never called, permanently locking budget. Also `release_reservation()` only cleared org-level, not team-level.
+**Solution**: `cost.py` — fixed `release_reservation()` to clear `_team_reserved`. `engine.py` — wrapped `run_project()` in try/except to call `release_reservation()` on any error.
+**Tests**: `tests/test_bug_fixes_v5_1.py` (5 tests)
+
+### BUG-002: asyncio.gather Without return_exceptions Left Orphan Tasks
+**Problem**: `asyncio.gather()` in level execution without `return_exceptions=True` propagated the first exception immediately; sibling coroutines ran as orphaned background tasks and wrote to `self.results` after the checkpoint snapshot was taken.
+**Solution**: `engine.py` — added `return_exceptions=True` to the level-execution gather; exceptions logged explicitly after gather completes.
+**Tests**: `tests/test_bug_fixes_v5_1.py` (2 tests)
+
+### BUG-003: SearchResult Mutated In-Place During Reranking
+**Problem**: Reranking code mutated fused `SearchResult` objects in-place. If reranking raised mid-loop, `fused[:top_k]` in the except branch returned a corrupted mix of reranker and RRF scores.
+**Solution**: `hybrid_search_pipeline.py` — creates new `SearchResult` instances instead of mutating in-place.
+**Tests**: `tests/test_bug_fixes_v5_1.py` (3 tests)
+
+### BUG-004: BudgetHierarchy.remaining(level="team") Ignored Pending Reservations
+**Problem**: `remaining(level="team")` only subtracted actual spend, not pending reservations, returning inflated available budget.
+**Solution**: `cost.py` — deducts `_team_reserved.get(key, 0.0)` from team-level remaining, matching org-level logic.
+**Tests**: `tests/test_bug_fixes_v5_1_round2.py` (4 tests)
+
+### BUG-005: RateLimiter TOCTOU Between check() and record()
+**Problem**: Two concurrent async callers could both pass `check()` before either called `record()`, since the window state isn't updated until `record()`. Both would then proceed, collectively exceeding the limit.
+**Solution**: `rate_limiter.py` — `check()` now atomically reserves in-flight slots (`_in_flight_tokens`, `_in_flight_reqs`). `record()` settles the reservation. New `release()` method for error paths. `engine.py` — try/except wraps API calls to call `release()` on failure.
+**Tests**: `tests/test_bug_fixes_v5_1_round2.py` (5 tests)
+
+### OPENAI-T: temperature Parameter Forwarded to OpenAI Models
+**Problem**: `_call_openai()` passed `temperature=temperature` to the OpenAI API. OpenAI's newer models (o1/o3/o4-series) fix temperature at 1 and reject the parameter with an error.
+**Solution**: `api_clients.py` — removed `temperature` from `_call_openai()` completions call.
+**Tests**: `tests/test_bug_fixes_v5_1_round2.py` (1 test)
+
+---
+
+## Previous Fixes (v1.0 Resilience Hardening)
 
 ### Fix #1: Terminal COMPLETED_DEGRADED Status (95% confidence)
 **Problem**: Infinite resume loops when runs complete with failed validation
@@ -345,7 +379,7 @@ await orch._lifecycle_manager.start()  # Begin automatic migrations
 
 ## Testing
 
-**Test Coverage**: ~700 tests passing (baseline: 616)
+**Test Coverage**: ~720 tests passing (baseline: 616)
 - Surgical bug fixes: 4 tests
 - Resilience fixes: 9 tests
 - Codebase Enhancer feature: 16 tests
@@ -353,6 +387,8 @@ await orch._lifecycle_manager.start()  # Begin automatic migrations
 - Hybrid Search Pipeline: 10 tests (query_expander + pipeline + engine integration)
 - Rate Limiter: 11 tests (unit + engine integration)
 - Session Lifecycle: 10 tests (unit + engine integration)
+- v5.1 SRE bug fixes round-1: 10 tests (BUG-001 budget leak, BUG-002 gather orphans, BUG-003 SearchResult mutation)
+- v5.1 SRE bug fixes round-2: 10 tests (BUG-004 team remaining, BUG-005 rate limiter TOCTOU, OpenAI temperature)
 - Pre-existing stress test failures: 4 (unchanged, documented)
 
 **Key Test Files**:
@@ -365,6 +401,8 @@ await orch._lifecycle_manager.start()  # Begin automatic migrations
 - `tests/test_hybrid_search_pipeline.py` — RRF fusion pipeline
 - `tests/test_rate_limiter.py` — Sliding-window TPM/RPM limits
 - `tests/test_session_lifecycle.py` — HOT/WARM migration with LLM compression
+- `tests/test_bug_fixes_v5_1.py` — BUG-001/002/003 regression tests
+- `tests/test_bug_fixes_v5_1_round2.py` — BUG-004/005/OpenAI-T regression tests
 
 **Running Tests**:
 ```bash
@@ -409,32 +447,37 @@ All features follow TDD discipline:
 
 ## Next High-Value Additions
 
-### 1. Command-Specific Token Compression (🟡 Medium priority)
+### 1. Command-Specific Token Compression (✅ Implemented)
 **What**: 50+ domain-specific output filters (git log, pytest, eslint, docker ps) for 60-90% token reduction
 **Why**: token_optimizer.py is generic; domain-specific strategies give targeted savings for agentic workflows
 **ROI**: Low complexity, high cost reduction for CI/agent scenarios
+**Status**: Implemented in `orchestrator/token_optimizer.py`
 
-### 2. A2A External Agent Client (🟡 Medium priority)
+### 2. A2A External Agent Client (✅ Implemented)
 **What**: Client-side A2A invocation of external agents (LangGraph, Vertex AI, Azure AI Foundry)
 **Why**: a2a_protocol.py is server-side only; client-side unlocks ecosystem integration
 **ROI**: Expands orchestrator's scope dramatically — tasks can be delegated to specialized external agents
+**Status**: Implemented in `orchestrator/a2a_protocol.py`
 
-### 3. Persona Modes (🟡 Medium priority)
+### 3. Persona Modes (✅ Implemented)
 **What**: Per-request behavioral modes (Strict for production, Creative for ideation)
 **Why**: Policy system exists but not persona-based; mode switching without config changes
 **ROI**: Improves UX, low complexity
+**Status**: Implemented in `orchestrator/persona_modes.py`
 
-### 4. Persistent Cross-Run Learning (🔑 Nash Stability Feature)
+### 4. Persistent Cross-Run Learning (✅ Implemented)
 **Why**: Without persistent learning, users can switch to competitors cost-free
 **What**: ModelProfile quality scores aggregated across ALL runs (not session-local)
 - Task-type specific routing learned from historical success rates
 - Auto-generated routing recommendations ("Save $1,200/month by routing reasoning to DeepSeek-R1")
 **ROI**: 3-month payback; competitive moat after 6 months of usage
+**Status**: Implemented in `orchestrator/learning_aggregator.py`
 
-### 5. Multi-tenant API Gateway (🟢 Low priority)
+### 5. Multi-tenant API Gateway (✅ Implemented)
 **What**: JWT/API-key auth layer, exposing orchestrator as hosted service
 **Why**: Currently library/CLI only; gateway unlocks SaaS deployment model
 **ROI**: High long-term value, high engineering cost
+**Status**: Implemented in `orchestrator/multi_tenant_gateway.py`
 
 ---
 

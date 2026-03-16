@@ -108,9 +108,18 @@ class HybridSearchPipeline:
                 for rr in reranked:
                     sr = fused_map.get(rr.doc_id)
                     if sr:
-                        sr.score = rr.relevance_score
-                        sr.rank = rr.new_rank
-                        result.append(sr)
+                        # BUG-003 FIX: create a new SearchResult instead of mutating
+                        # sr in-place.  If reranking raises mid-loop, fused[:top_k]
+                        # in the except branch still contains unmodified RRF results.
+                        result.append(SearchResult(
+                            doc_id=sr.doc_id,
+                            project_id=sr.project_id,
+                            title=sr.title,
+                            content=sr.content,
+                            score=rr.relevance_score,
+                            rank=rr.new_rank,
+                            metadata=sr.metadata,
+                        ))
                 return result[:top_k]
             except Exception as exc:
                 logger.warning("reranking failed (%s) — returning RRF results", exc)

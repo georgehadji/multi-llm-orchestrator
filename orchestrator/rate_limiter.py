@@ -40,6 +40,11 @@ class RateLimiter:
     def __init__(self) -> None:
         self._windows: Dict[Tuple[str, str], deque] = defaultdict(deque)
         self._limits: Dict[Tuple[str, str], Dict[str, int]] = {}
+        # BUG-005 FIX: track in-flight (checked but not yet recorded) slots so
+        # that concurrent asyncio callers between check() and record() cannot
+        # both pass the same limit check.
+        self._in_flight_tokens: Dict[Tuple[str, str], int] = defaultdict(int)
+        self._in_flight_reqs: Dict[Tuple[str, str], int] = defaultdict(int)
 
     def set_limits(self, tenant: str, model: str, tpm: int, rpm: int) -> None:
         """Set TPM and RPM limits for a (tenant, model) pair."""
@@ -50,31 +55,56 @@ class RateLimiter:
 
     def check(self, tenant: str, model: str, tokens: int) -> None:
         """
-        Check whether a request of `tokens` tokens is within limits.
-        Raises RateLimitExceeded if the request would exceed TPM or RPM.
+        Check whether a request of `tokens` tokens is within limits and
+        atomically reserve the slot.  Raises RateLimitExceeded if the request
+        would exceed TPM or RPM (including already-reserved in-flight slots).
         No-ops if no limits have been set for this (tenant, model) pair.
+
+        Always pair with a matching record() or release() call.
         """
         limits = self._limits.get((tenant, model))
         if limits is None:
             return
 
-        window = self._windows[(tenant, model)]
+        key = (tenant, model)
+        window = self._windows[key]
         self._evict(window)
 
-        if len(window) >= limits["rpm"]:
+        # Include in-flight reservations so concurrent callers don't both pass
+        pending_reqs = self._in_flight_reqs[key]
+        pending_tokens = self._in_flight_tokens[key]
+
+        if len(window) + pending_reqs >= limits["rpm"]:
             retry_after = self._retry_after(window)
             raise RateLimitExceeded("rpm", retry_after, tenant, model)
 
         tokens_used = sum(t for _, t in window)
-        if tokens_used + tokens > limits["tpm"]:
+        if tokens_used + pending_tokens + tokens > limits["tpm"]:
             retry_after = self._retry_after(window)
             raise RateLimitExceeded("tpm", retry_after, tenant, model)
 
+        # Atomically reserve the slot before yielding the event loop
+        self._in_flight_reqs[key] += 1
+        self._in_flight_tokens[key] += tokens
+
     def record(self, tenant: str, model: str, tokens: int) -> None:
-        """Record a completed request."""
-        window = self._windows[(tenant, model)]
+        """Settle a reserved slot: remove from in-flight and add to the window."""
+        key = (tenant, model)
+        self._in_flight_reqs[key] = max(0, self._in_flight_reqs[key] - 1)
+        self._in_flight_tokens[key] = max(0, self._in_flight_tokens[key] - tokens)
+        window = self._windows[key]
         self._evict(window)
         window.append((time.monotonic(), tokens))
+
+    def release(self, tenant: str, model: str, tokens: int) -> None:
+        """
+        Release a reservation made by check() without recording it (e.g. on
+        API call failure).  Prevents in-flight slots leaking when the caller's
+        await raises before record() is called.
+        """
+        key = (tenant, model)
+        self._in_flight_reqs[key] = max(0, self._in_flight_reqs[key] - 1)
+        self._in_flight_tokens[key] = max(0, self._in_flight_tokens[key] - tokens)
 
     def get_usage(self, tenant: str, model: str) -> Dict[str, int]:
         """Return current sliding-window usage for (tenant, model)."""

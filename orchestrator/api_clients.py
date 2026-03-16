@@ -444,11 +444,12 @@ class UnifiedClient:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
+        # OpenAI models (including o1/o3/o4 series) fix temperature at 1 and
+        # reject any explicit temperature parameter — omit it entirely.
         response = await client.chat.completions.create(
             model=model.value,
             messages=messages,
             max_tokens=max_tokens,
-            temperature=temperature,
         )
         choice = response.choices[0]
         usage = response.usage
