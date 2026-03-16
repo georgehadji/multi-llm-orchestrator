@@ -91,9 +91,9 @@ Set alerts: `ORCHESTRATOR_ALERT_BUDGET_PCT=80` triggers webhook at 80% spend.
 
 ---
 
-## The 4 Modules
+## The 7 Modules
 
-The orchestrator is organized into 4 capability modules that map to SaaS plans:
+The orchestrator is organized into 7 capability modules that map to SaaS plans:
 
 ### Module 1: Execution Core
 > *Multi-provider routing, cost optimization, semantic caching, remediation, dashboards*
@@ -433,7 +433,289 @@ Checkpointed state after each task:
 
 ---
 
-## Module 5: Production Operations & Monitoring
+### Module 5: Cognitive & Reasoning Layer
+> *Brain, Evaluation, Escalation, Checkpoints, Prompt Enhancement*
+
+**AI Brain & Cognitive Layer**
+
+> *Advanced reasoning and cognitive capabilities for complex decision-making.*
+
+```python
+from orchestrator.brain import Brain, CognitiveState
+
+brain = Brain(model="deepseek-chat")
+cognitive_state = await brain.reason(
+    context="The project requires complex authentication with OAuth2 and JWT tokens",
+    goal="Determine the best approach for implementation"
+)
+
+print(f"Reasoning steps: {len(cognitive_state.reasoning_history)}")
+print(f"Confidence: {cognitive_state.confidence_score:.2f}")
+```
+
+**LLM-Based Evaluation**
+
+> *Comprehensive evaluation scoring to assess the quality of generated content.*
+
+```python
+from orchestrator.evaluation import Evaluator, EvaluationResult
+
+evaluator = Evaluator()
+result: EvaluationResult = await evaluator.evaluate(
+    content="def authenticate_user(username, password): ...",
+    criteria=["security", "efficiency", "readability"],
+    reference="industry best practices for authentication"
+)
+
+print(f"Overall score: {result.score:.2f}")
+print(f"Feedback: {result.feedback}")
+```
+
+**Automatic Escalation**
+
+> *Automatic escalation to higher-capability models when quality thresholds are not met.*
+
+```python
+from orchestrator.escalation import EscalationHandler
+
+handler = EscalationHandler()
+result = await handler.process_with_escalation(
+    content="Implement a complex algorithm",
+    criteria="accuracy and efficiency",
+    initial_model="deepseek-chat",
+    max_escalations=2
+)
+```
+
+**Intermediate Checkpoints**
+
+> *State checkpoints for long-running processes to enable recovery and resumption.*
+
+```python
+from orchestrator.checkpoints import CheckpointManager
+
+manager = CheckpointManager(checkpoint_dir="./checkpoints")
+await manager.save_checkpoint(state_data, "task_123")
+
+# Later, restore state
+checkpoint = await manager.load_checkpoint("task_123")
+restored_state = checkpoint.data if checkpoint else default_state
+```
+
+**Prompt Enhancement**
+
+> *Optimization and enhancement of prompts to improve model performance.*
+
+```python
+from orchestrator.prompt_enhancer import PromptEnhancer
+
+enhancer = PromptEnhancer()
+enhanced_prompt = await enhancer.enhance(
+    prompt="Write a function to sort an array",
+    context="The function should be efficient and handle edge cases"
+)
+```
+
+### Module 6: Management & Control Systems
+> *Hierarchical management, triggers, workspace isolation, API gateway, connectors*
+
+**Multi-Level Hierarchy**
+
+> *Organizational and team hierarchy with budget allocation and access controls.*
+
+```python
+from orchestrator.hierarchy import HierarchyManager
+
+hierarchy = HierarchyManager()
+org = hierarchy.create_org("Acme Corp", budget=10000.0)
+team = hierarchy.create_team("Engineering", org_id=org.id, budget=5000.0)
+project = hierarchy.create_project("New API", team_id=team.id, budget=2000.0)
+```
+
+**Event-Driven Triggers**
+
+> *Automated triggers based on conditions for workflow automation.*
+
+```python
+from orchestrator.triggers import TriggerManager
+
+trigger_manager = TriggerManager()
+trigger = trigger_manager.create_trigger(
+    name="High Error Rate",
+    condition="error_rate > 0.05",
+    action="alert_team",
+    context={"team": "engineering"}
+)
+```
+
+**Workspace Isolation**
+
+> *Isolated workspaces with separate configurations and data.*
+
+```python
+from orchestrator.workspace import WorkspaceManager
+
+ws_manager = WorkspaceManager(base_dir="./workspaces")
+workspace = ws_manager.create_workspace("project_alpha", owner="user123")
+ws_manager.activate_workspace(workspace.id)
+```
+
+**API Gateway**
+
+> *Centralized API gateway for routing, authentication, and transformation.*
+
+```python
+from orchestrator.gateway import APIGateway
+
+gateway = APIGateway()
+await gateway.route_request(
+    request_data={
+        "method": "POST",
+        "url": "/execute",
+        "headers": {"Authorization": "Bearer ..."},
+        "body": "{...}"
+    },
+    target_service="orchestrator_service"
+)
+```
+
+**External Connectors**
+
+> *Connectors for various external systems like databases, APIs, and file systems.*
+
+```python
+from orchestrator.connectors import ConnectorManager
+
+connector_manager = ConnectorManager()
+db_connector = connector_manager.register_db_connector(
+    name="main_db",
+    config={"host": "localhost", "port": 5432, "database": "mydb"}
+)
+result = await db_connector.query("SELECT * FROM users")
+```
+
+### Module 7: Advanced Capabilities
+> *Sandbox execution, context sources, skills, drift detection, browser testing*
+
+**Secure Code Execution Sandbox**
+
+> *Isolated environment for executing untrusted code safely.*
+
+```python
+from orchestrator.sandbox import Sandbox
+
+sandbox = Sandbox()
+result = await sandbox.execute_code("python", "print('Hello, world!')")
+print(f"Success: {result.success}, Output: {result.output}")
+```
+
+**Multiple Context Sources**
+
+> *Integration with various context sources like documents, databases, and APIs.*
+
+```python
+from orchestrator.context_sources import ContextSourceManager
+
+source_manager = ContextSourceManager()
+doc_source = source_manager.add_document_source("docs", "./documents/")
+context = await source_manager.get_context(query="What is AI?", sources=["docs"])
+```
+
+**Skills System**
+
+> *Modular skills that can be executed by the orchestrator for specific tasks.*
+
+```python
+from orchestrator.skills import SkillManager
+
+skill_manager = SkillManager()
+result = await skill_manager.execute_skill("calculate_sum", numbers=[1, 2, 3, 4])
+```
+
+**Drift Detection**
+
+> *Monitoring and detection of concept/model drift in the orchestrator.*
+
+```python
+from orchestrator.drift import DriftDetector
+
+detector = DriftDetector(window_size=100, threshold=0.05)
+is_drifting = detector.add_sample(new_data_point)
+```
+
+**Browser Testing**
+
+> *Automated browser-based testing capabilities.*
+
+```python
+from orchestrator.browser_testing import BrowserTester
+
+tester = BrowserTester(browser_type="chromium")
+result = await tester.test_page("https://example.com", [
+    {"action": "click", "selector": "#button"},
+    {"action": "fill", "selector": "#input", "value": "test"}
+])
+```
+
+**Command-Specific Token Compression**
+
+> *Domain-specific token compression for various command outputs.*
+
+```python
+from orchestrator.token_optimizer import TokenOptimizer
+
+optimizer = TokenOptimizer()
+compressed = optimizer.compress_command_output("git log", git_log_output)
+```
+
+**A2A External Agent Client**
+
+> *Client for invoking external agents using the A2A protocol.*
+
+```python
+from orchestrator.a2a_protocol import A2AClient
+
+client = A2AClient(agent_endpoint="https://external-agent.example.com")
+result = await client.invoke_agent(task="summarize", data={"text": "..."})
+```
+
+**Persona Modes**
+
+> *Behavioral modes like Strict for production or Creative for ideation.*
+
+```python
+from orchestrator.persona_modes import PersonaModeManager
+
+persona_manager = PersonaModeManager()
+persona_manager.set_persona("strict")
+```
+
+**Persistent Cross-Run Learning**
+
+> *Aggregation of model performance across all runs for continuous improvement.*
+
+```python
+from orchestrator.learning_aggregator import LearningAggregator
+
+aggregator = LearningAggregator()
+await aggregator.record_task_result(task_type="code_gen", model="gpt-4", score=0.85)
+recommendations = await aggregator.get_routing_recommendations(task_type="code_gen")
+```
+
+**Multi-Tenant API Gateway**
+
+> *JWT/API-key authentication for SaaS deployment.*
+
+```python
+from orchestrator.multi_tenant_gateway import MultiTenantGateway
+
+gateway = MultiTenantGateway(jwt_secret="secret_key")
+await gateway.start_server()
+```
+
+---
+
+### Module 5: Production Operations & Monitoring
 > *Mission-Critical Command Center, Cost Optimizations, Real-time Alerting*
 
 **Mission-Critical Command Center (v6.0)**
@@ -550,10 +832,10 @@ class RustValidator(ValidatorPlugin):
             description="Validate Rust code with cargo check",
             plugin_type=PluginType.VALIDATOR,
         )
-    
+
     def can_validate(self, file_path: str, language: str) -> bool:
         return language == "rust" or file_path.endswith(".rs")
-    
+
     def validate(self, code: str, context: dict) -> ValidationResult:
         # Implementation: run cargo check
         return ValidationResult(passed=True, score=0.95)
@@ -586,10 +868,10 @@ class MyValidator(ValidatorPlugin):
             description="Custom validation logic",
             plugin_type=PluginType.VALIDATOR,
         )
-    
+
     def can_validate(self, file_path: str, language: str) -> bool:
         return file_path.endswith(".myext")
-    
+
     def validate(self, code: str, context: dict) -> ValidationResult:
         # Your validation logic
         return ValidationResult(passed=True, score=0.95)
@@ -847,7 +1129,7 @@ async for event in pipeline.execute_streaming(desc, criteria, budget):
 
 **Design Principles:**
 - **Minimax Regret** — Optimize for worst case, not average case
-- **Defense in Depth** — Even if one layer fails, others protect  
+- **Defense in Depth** — Even if one layer fails, others protect
 - **Fail Safe** — Failure defaults to safe state (deny, failover, degrade)
 - **Graceful Degradation** — Under stress, reduce quality but maintain function
 
@@ -857,6 +1139,7 @@ async for event in pipeline.execute_streaming(desc, criteria, budget):
 
 | Version | Date | Key Features |
 |---------|------|--------------|
+| **v6.0.1** | 2026-03-17 | SRE hardening: BUG-001–005 fixed (budget reservations, asyncio gather, RRF mutation, rate-limiter TOCTOU, OpenAI temperature); A2AQueueManager; CancelledError guard |
 | **v6.0** | 2026-03-02 | Black Swan Resilience: Event Store Corruption Protection, Plugin Sandbox Hardening, Streaming Backpressure |
 | **v5.3** | 2026-03-02 | Plugin System, Production Feedback Loop, Outcome-Weighted Routing, Model Leaderboard |
 | **v5.2** | 2026-03-01 | Author Attribution, Smart Validator Filtering, Temperature Optimization |
@@ -898,7 +1181,7 @@ await github_integration.create_check_run(
     status="in_progress",
     details_url="https://dashboard.local/run/42"
 )
-# Updates to "completed" with conclusion="success|failure" 
+# Updates to "completed" with conclusion="success|failure"
 ```
 
 **PR Comments with Inline Feedback**

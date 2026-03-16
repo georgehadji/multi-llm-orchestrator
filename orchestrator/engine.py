@@ -516,11 +516,16 @@ class Orchestrator:
             # But double-check in case callback failed
             self._background_tasks.discard(task)
             
-            # Log if task had exception and callback didn't catch it
-            if task.exception() is not None:
-                logger.warning(
-                    f"Cleaned up background task with unhandled exception: {task.exception()}"
-                )
+            # Log if task had exception and callback didn't catch it.
+            # task.exception() raises CancelledError for cancelled tasks — guard it.
+            try:
+                exc = task.exception()
+                if exc is not None:
+                    logger.warning(
+                        "Cleaned up background task with unhandled exception: %s", exc
+                    )
+            except asyncio.CancelledError:
+                pass  # Cancelled tasks have no exception to log
         
         if completed:
             logger.debug(f"Cleaned up {len(completed)} completed background tasks")
@@ -1134,24 +1139,30 @@ class Orchestrator:
             self._max_parallel_tasks = spec.max_parallel_tasks
         # Warm-start: blend historical profiles before execution
         await self._apply_warm_start()
+        # Extract once; both the pre-flight check and charge path need them.
+        job_id = getattr(spec, "job_id", "") or ""
+        team   = getattr(spec, "team",   "") or ""
         # BudgetHierarchy pre-flight check (Improvement 6)
         if self._budget_hierarchy is not None:
-            job_id = getattr(spec, "job_id", "") or ""
-            team   = getattr(spec, "team",   "") or ""
             if not self._budget_hierarchy.can_afford_job(job_id, team, spec.budget.max_usd):
                 raise ValueError(
                     f"BudgetHierarchy rejects job '{job_id}': "
                     "org/team/job limits would be exceeded"
                 )
-        state = await self.run_project(
-            project_description=spec.project_description,
-            success_criteria=spec.success_criteria,
-        )
+        try:
+            state = await self.run_project(
+                project_description=spec.project_description,
+                success_criteria=spec.success_criteria,
+            )
+        except Exception:
+            # BUG-001 FIX: release the reservation made by can_afford_job() so the
+            # org/team budget is not permanently locked when run_project() fails.
+            if self._budget_hierarchy is not None:
+                self._budget_hierarchy.release_reservation(job_id, team)
+            raise
         # Charge actual spend to BudgetHierarchy so cross-run caps are enforced.
         if self._budget_hierarchy is not None:
             actual_spend = self.budget.max_usd - self.budget.remaining_usd
-            job_id = getattr(spec, "job_id", "") or ""
-            team   = getattr(spec, "team",   "") or ""
             self._budget_hierarchy.charge_job(job_id, team, actual_spend)
         # Persist telemetry snapshots for all models used this run (fire-and-forget)
         job_id = getattr(spec, "job_id", "") or self._project_id
@@ -1705,12 +1716,17 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 logger.info("Executing level %d: %s", level_idx, runnable)
 
             logger.debug(f"About to run tasks: {runnable}")
-            try:
-                await asyncio.gather(*(_run_one(tid) for tid in runnable))
-                logger.debug(f"Completed level {level_idx}")
-            except Exception as e:
-                logger.error(f"Level {level_idx} failed: {e}")
-                # Continue with next level anyway
+            # BUG-002 FIX: return_exceptions=True ensures every coroutine in this
+            # level runs to completion before we take the checkpoint snapshot.
+            # Without it, a single failure propagates immediately and leaves sibling
+            # coroutines as orphans that later mutate self.results after the snapshot.
+            level_results = await asyncio.gather(
+                *(_run_one(tid) for tid in runnable),
+                return_exceptions=True,
+            )
+            for exc in level_results:
+                if isinstance(exc, BaseException):
+                    logger.error("Level %d: task raised %s", level_idx, exc)
 
             # Checkpoint after each level completes
             state = self._make_state(project_desc, success_criteria, tasks,
@@ -1996,13 +2012,18 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     logger.info(f"  {task.id}: calling {primary.value} for generation (timeout={gen_timeout}s)")
                     _rl_tenant = getattr(task, "tenant", "default")
                     self._rate_limiter.check(_rl_tenant, primary.value, effective_max_tokens)
-                    gen_response = await self.client.call(
-                        primary, full_prompt,
-                        system=system_prompt,
-                        max_tokens=effective_max_tokens,
-                        temperature=gen_temperature,
-                        timeout=gen_timeout,
-                    )
+                    try:
+                        gen_response = await self.client.call(
+                            primary, full_prompt,
+                            system=system_prompt,
+                            max_tokens=effective_max_tokens,
+                            temperature=gen_temperature,
+                            timeout=gen_timeout,
+                        )
+                    except Exception:
+                        # BUG-005 FIX: release the in-flight reservation on error
+                        self._rate_limiter.release(_rl_tenant, primary.value, effective_max_tokens)
+                        raise
                     self._rate_limiter.record(
                         _rl_tenant, primary.value,
                         gen_response.input_tokens + gen_response.output_tokens,
@@ -2048,13 +2069,18 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             fb_temperature = 0.0 if task.type == TaskType.CODE_GEN else 0.3
                             
                             self._rate_limiter.check(_rl_tenant, fb.value, effective_max_tokens)
-                            gen_response = await self.client.call(
-                                fb, full_prompt,
-                                system=fb_system,
-                                max_tokens=effective_max_tokens,
-                                temperature=fb_temperature,
-                                timeout=gen_timeout,
-                            )
+                            try:
+                                gen_response = await self.client.call(
+                                    fb, full_prompt,
+                                    system=fb_system,
+                                    max_tokens=effective_max_tokens,
+                                    temperature=fb_temperature,
+                                    timeout=gen_timeout,
+                                )
+                            except Exception:
+                                # BUG-005 FIX: release the in-flight reservation on error
+                                self._rate_limiter.release(_rl_tenant, fb.value, effective_max_tokens)
+                                raise
                             self._rate_limiter.record(
                                 _rl_tenant, fb.value,
                                 gen_response.input_tokens + gen_response.output_tokens,

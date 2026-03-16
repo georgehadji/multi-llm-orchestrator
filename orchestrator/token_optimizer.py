@@ -1,578 +1,487 @@
 """
-Token Optimizer — CLI Output Filtering & Compression
-======================================================
+TokenOptimizer — Command-specific token compression
+=================================================
+Module for applying domain-specific token compression strategies for various command outputs
+like git logs, pytest results, ESLint output, etc.
 
-Implements RTK (Rust Token Killer) functionality:
-- Filters and compresses command outputs before they reach LLM context
-- Achieves 60-90% token savings on common operations
-
-Supported Commands:
-- ls, tree, find → Directory listings
-- cat, head, tail → File contents
-- grep, rg → Search results
-- git status, diff, log, add, commit, push → Git operations
-- npm test, pip test, pytest, cargo test → Test outputs
-- docker ps, docker images → Docker operations
-- ruff, flake8, eslint → Linting
+Pattern: Strategy
+Async: No — pure text processing
+Layer: L2 Verification
 
 Usage:
     from orchestrator.token_optimizer import TokenOptimizer
-    
     optimizer = TokenOptimizer()
-    
-    # Optimize command output
-    optimized = optimizer.optimize("ls -la", output)
-    optimized = optimizer.optimize("pytest", output)
-    optimized = optimizer.optimize("git diff", output)
-    
-    # Get token savings stats
-    stats = optimizer.get_stats()
+    compressed = optimizer.compress_command_output("git log", git_log_output)
 """
-
 from __future__ import annotations
 
 import logging
 import re
-import subprocess
-from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from .log_config import get_logger
-
-logger = get_logger(__name__)
-
-
-class CommandCategory(Enum):
-    """Categories of commands for optimization strategies."""
-    DIRECTORY_LISTING = "directory_listing"
-    FILE_CONTENT = "file_content"
-    SEARCH = "search"
-    GIT = "git"
-    TEST = "test"
-    DOCKER = "docker"
-    LINT = "lint"
-    BUILD = "build"
-    UNKNOWN = "unknown"
-
-
-@dataclass
-class OptimizationResult:
-    """Result of optimizing command output."""
-    original: str
-    optimized: str
-    original_tokens: int
-    optimized_tokens: int
-    savings_percent: float
-    command: str
-    category: CommandCategory
-    
-    @property
-    def was_optimized(self) -> bool:
-        return self.optimized_tokens < self.original_tokens
-
-
-@dataclass
-class TokenStats:
-    """Token usage statistics."""
-    total_original: int = 0
-    total_optimized: int = 0
-    commands_optimized: int = 0
-    commands_processed: int = 0
-    
-    @property
-    def total_savings(self) -> int:
-        return self.total_original - self.total_optimized
-    
-    @property
-    def savings_percent(self) -> float:
-        if self.total_original == 0:
-            return 0.0
-        return (self.total_savings / self.total_original) * 100
+logger = logging.getLogger("orchestrator.token_optimizer")
 
 
 class TokenOptimizer:
-    """
-    Optimizes CLI command outputs to reduce token consumption.
-    
-    Implements multiple optimization strategies:
-    1. Truncation - Keep first N lines
-    2. Summary - Replace long outputs with summaries
-    3. Deduplication - Remove repeated patterns
-    4. Noise removal - Remove irrelevant lines
-    5. Key extraction - Keep only important information
-    """
+    """Applies domain-specific token compression strategies for various command outputs."""
 
-    # Token estimation: ~4 characters per token on average
-    CHARS_PER_TOKEN = 4
-    
-    # Line limits by category
-    LINE_LIMITS = {
-        CommandCategory.DIRECTORY_LISTING: 50,
-        CommandCategory.FILE_CONTENT: 100,
-        CommandCategory.SEARCH: 30,
-        CommandCategory.GIT: 40,
-        CommandCategory.TEST: 50,
-        CommandCategory.DOCKER: 20,
-        CommandCategory.LINT: 30,
-        CommandCategory.BUILD: 30,
-    }
-
-    def __init__(
-        self,
-        max_lines: Optional[int] = None,
-        enable_summary: bool = True,
-        enable_dedup: bool = True,
-    ):
-        self.max_lines = max_lines
-        self.enable_summary = enable_summary
-        self.enable_dedup = enable_dedup
-        self._stats = TokenStats()
-        
-        # Command patterns for categorization
-        self._command_patterns: Dict[CommandCategory, List[str]] = {
-            CommandCategory.DIRECTORY_LISTING: [
-                r'^ls\b', r'^dir\b', r'^tree\b', r'^find\b',
-            ],
-            CommandCategory.FILE_CONTENT: [
-                r'^cat\b', r'^head\b', r'^tail\b', r'^less\b', r'^more\b',
-                r'^type\b', r'^wc\b',
-            ],
-            CommandCategory.SEARCH: [
-                r'^grep\b', r'^rg\b', r'^ag\b', r'^ack\b',
-                r'^find\b.*-name', r'^find\b.*-type',
-            ],
-            CommandCategory.GIT: [
-                r'^git\s+status', r'^git\s+diff', r'^git\s+log',
-                r'^git\s+add', r'^git\s+commit', r'^git\s+push',
-                r'^git\s+pull', r'^git\s+branch', r'^git\s+show',
-                r'^git\s+stash', r'^git\s+remote',
-            ],
-            CommandCategory.TEST: [
-                r'^pytest\b', r'^npm\s+test', r'^npm\s+run\s+test',
-                r'^cargo\s+test', r'^go\s+test', r'^python\s+-m\s+pytest',
-                r'^pip\s+test', r'^make\s+test', r'^yarn\s+test',
-            ],
-            CommandCategory.DOCKER: [
-                r'^docker\s+ps', r'^docker\s+images', r'^docker\s+logs',
-                r'^docker\s+inspect', r'^docker\s+compose\s+ps',
-            ],
-            CommandCategory.LINT: [
-                r'^ruff\b', r'^flake8\b', r'^eslint\b', r'^pylint\b',
-                r'^mypy\b', r'^tslint\b', r'^prettier\b', r'^black\b',
-                r'^golangci-lint\b', r'^hadolint\b',
-            ],
-            CommandCategory.BUILD: [
-                r'^npm\s+build', r'^npm\s+run\s+build', r'^cargo\s+build',
-                r'^go\s+build', r'^make\b', r'^cmake\b', r'^gradle\b',
-                r'^webpack\b', r'^vite\b', r'^rollup\b',
-            ],
+    def __init__(self):
+        """Initialize the token optimizer with command-specific strategies."""
+        self.strategies = {
+            "git_log": self._compress_git_log,
+            "pytest": self._compress_pytest_output,
+            "eslint": self._compress_eslint_output,
+            "docker_ps": self._compress_docker_ps,
+            "npm_ls": self._compress_npm_ls,
+            "ps_aux": self._compress_ps_aux,
+            "df_h": self._compress_df_h,
+            "free_m": self._compress_free_m,
+            "top": self._compress_top,
+            "netstat": self._compress_netstat,
         }
-
-    def categorize_command(self, command: str) -> CommandCategory:
-        """Categorize a command for optimization strategy selection."""
-        for category, patterns in self._command_patterns.items():
-            for pattern in patterns:
-                if re.search(pattern, command, re.IGNORECASE):
-                    return category
-        return CommandCategory.UNKNOWN
-
-    def _count_tokens(self, text: str) -> int:
-        """Estimate token count from text."""
-        return max(1, len(text) // self.CHARS_PER_TOKEN)
-
-    def _truncate_lines(self, text: str, max_lines: int) -> str:
-        """Truncate output to max lines."""
-        lines = text.split('\n')
-        if len(lines) <= max_lines:
-            return text
-        return '\n'.join(lines[:max_lines]) + f'\n... (+{len(lines) - max_lines} more lines)'
-
-    def _optimize_directory_listing(self, output: str) -> str:
-        """Optimize ls, tree, find outputs."""
-        lines = output.split('\n')
-        optimized_lines = []
-        
-        for line in lines:
-            # Skip empty lines
-            if not line.strip():
-                continue
-            
-            # Skip permission strings in ls -la
-            if re.match(r'^total\s+\d+', line):
-                continue
-            
-            # Skip common non-essential lines
-            if re.match(r'^d[rwx-]{9}', line):
-                # Keep directory entries but simplify
-                parts = line.split()
-                if len(parts) >= 9:
-                    optimized_lines.append(f"d {parts[-1]}")
-                continue
-            
-            # Keep file entries
-            if re.match(r'^[d-][rwx-]{9}', line):
-                parts = line.split()
-                if len(parts) >= 9:
-                    optimized_lines.append(f"{parts[0][:1]} {parts[-1]}")
-                continue
-            
-            # Keep other meaningful lines
-            if line.strip():
-                optimized_lines.append(line)
-        
-        # Limit lines
-        limit = self.LINE_LIMITS.get(CommandCategory.DIRECTORY_LISTING, 50)
-        if len(optimized_lines) > limit:
-            optimized_lines = optimized_lines[:limit] + [f"... (+{len(optimized_lines) - limit} more)"]
-        
-        return '\n'.join(optimized_lines)
-
-    def _optimize_file_content(self, output: str) -> str:
-        """Optimize cat, head, tail outputs."""
-        # For large files, keep only first portion
-        lines = output.split('\n')
-        
-        # Check if it's a binary file
-        if '\x00' in output[:100]:
-            return "[Binary file - content not shown]"
-        
-        # Keep first N lines
-        limit = self.LINE_LIMITS.get(CommandCategory.FILE_CONTENT, 100)
-        if len(lines) > limit:
-            return '\n'.join(lines[:limit]) + f'\n... (+{len(lines) - limit} lines)'
-        
-        return output
-
-    def _optimize_search_output(self, output: str) -> str:
-        """Optimize grep, rg, ag outputs."""
-        lines = output.split('\n')
-        optimized_lines = []
-        
-        for line in lines:
-            # Skip empty lines
-            if not line.strip():
-                continue
-            
-            # Simplify file:line:content format
-            # Keep just file:line:content
-            optimized_lines.append(line)
-        
-        # Limit lines
-        limit = self.LINE_LIMITS.get(CommandCategory.SEARCH, 30)
-        if len(optimized_lines) > limit:
-            optimized_lines = optimized_lines[:limit] + [f"... (+{len(optimized_lines) - limit} matches)"]
-        
-        return '\n'.join(optimized_lines)
-
-    def _optimize_git_output(self, output: str, command: str) -> str:
-        """Optimize git command outputs."""
-        # git status --short is already optimized
-        if 'git status' in command and '--short' in command:
-            return output
-        
-        # git status
-        if 'git status' in command:
-            lines = output.split('\n')
-            optimized = []
-            for line in lines:
-                if line.startswith('On branch'):
-                    optimized.append(line)
-                elif line.startswith('Changes'):
-                    optimized.append(line)
-                elif line.startswith('Untracked'):
-                    optimized.append(line)
-                elif line.startswith(('modified:', 'new file:', 'deleted:')):
-                    optimized.append(line.strip())
-            limit = self.LINE_LIMITS.get(CommandCategory.GIT, 40)
-            if len(optimized) > limit:
-                optimized = optimized[:limit]
-            return '\n'.join(optimized) if optimized else "No changes"
-        
-        # git diff
-        if 'git diff' in command:
-            lines = output.split('\n')
-            # Keep only diff headers and first few changes
-            optimized = []
-            for i, line in enumerate(lines):
-                if line.startswith(('diff --git', 'index', '---', '+++', '@@')):
-                    optimized.append(line)
-                elif line.startswith('+') and len(optimized) < 20:
-                    optimized.append(line[:100])  # Truncate long lines
-                elif line.startswith('-') and len(optimized) < 20:
-                    optimized.append(line[:100])
-            limit = self.LINE_LIMITS.get(CommandCategory.GIT, 40)
-            if len(optimized) > limit:
-                optimized = optimized[:limit] + ["... (diff truncated)"]
-            return '\n'.join(optimized) if optimized else "No changes"
-        
-        # git log
-        if 'git log' in command:
-            lines = output.split('\n')
-            optimized = []
-            for line in lines:
-                if line.startswith('commit '):
-                    optimized.append(line[:16])
-                elif line.startswith('Author:') or line.startswith('Date:'):
-                    optimized.append(line[:50])
-                elif line.strip() and not line.startswith('    '):
-                    optimized.append(line[:80])
-            limit = self.LINE_LIMITS.get(CommandCategory.GIT, 40)
-            if len(optimized) > limit:
-                optimized = optimized[:limit] + ["... (log truncated)"]
-            return '\n'.join(optimized)
-        
-        # Default git optimization
-        return self._truncate_lines(output, self.LINE_LIMITS.get(CommandCategory.GIT, 40))
-
-    def _optimize_test_output(self, output: str) -> str:
-        """Optimize test command outputs."""
-        lines = output.split('\n')
-        optimized = []
-        
-        # Extract key information
-        passed = 0
-        failed = 0
-        errors = 0
-        skipped = 0
-        
-        for line in lines:
-            # pytest summary
-            if 'passed' in line.lower() or 'failed' in line.lower() or 'error' in line.lower():
-                # Extract numbers
-                nums = re.findall(r'\d+', line)
-                if nums:
-                    if 'passed' in line.lower():
-                        passed = int(nums[0])
-                    if 'failed' in line.lower():
-                        failed = int(nums[0])
-                    if 'error' in line.lower():
-                        errors = int(nums[0])
-                    if 'skipped' in line.lower():
-                        skipped = int(nums[0])
-                optimized.append(line.strip())
-            elif line.startswith('=') or line.startswith('-'):
-                continue  # Skip separators
-            elif 'PASSED' in line or 'FAILED' in line or 'ERROR' in line:
-                optimized.append(line.strip()[:100])
-        
-        # If no summary found, create one
-        if not optimized and lines:
-            # Just truncate
-            limit = self.LINE_LIMITS.get(CommandCategory.TEST, 50)
-            return self._truncate_lines(output, limit)
-        
-        # Add summary
-        if passed or failed or errors:
-            summary = f"Tests: {passed} passed, {failed} failed, {errors} errors, {skipped} skipped"
-            if optimized and summary not in optimized[-1]:
-                optimized.append(summary)
-        
-        limit = self.LINE_LIMITS.get(CommandCategory.TEST, 50)
-        if len(optimized) > limit:
-            optimized = optimized[:limit] + ["... (output truncated)"]
-        
-        return '\n'.join(optimized)
-
-    def _optimize_docker_output(self, output: str) -> str:
-        """Optimize docker command outputs."""
-        lines = output.split('\n')
-        optimized = []
-        
-        # Keep header
-        if lines:
-            optimized.append(lines[0])
-        
-        # Keep container info (first few columns)
-        for line in lines[1:]:
-            if not line.strip():
-                continue
-            parts = line.split()
-            if parts:
-                # Keep first 4-5 fields
-                optimized.append(' '.join(parts[:5]))
-        
-        limit = self.LINE_LIMITS.get(CommandCategory.DOCKER, 20)
-        if len(optimized) > limit:
-            optimized = optimized[:limit] + ["... (+ more containers)"]
-        
-        return '\n'.join(optimized)
-
-    def _optimize_lint_output(self, output: str) -> str:
-        """Optimize linting command outputs."""
-        lines = output.split('\n')
-        optimized = []
-        
-        for line in lines:
-            # Skip empty lines
-            if not line.strip():
-                continue
-            
-            # Skip summary lines with counts
-            if re.match(r'^\d+\s+(error|warning)', line, re.IGNORECASE):
-                optimized.append(line.strip())
-                continue
-            
-            # Keep error/warning lines
-            if any(x in line.lower() for x in ['error', 'warning', 'warn']):
-                optimized.append(line.strip()[:120])
-        
-        limit = self.LINE_LIMITS.get(CommandCategory.LINT, 30)
-        if len(optimized) > limit:
-            optimized = optimized[:limit] + [f"... (+{len(optimized) - limit} more issues)"]
-        
-        return '\n'.join(optimized) if optimized else "No issues found"
-
-    def _deduplicate(self, text: str) -> str:
-        """Remove duplicate lines."""
-        lines = text.split('\n')
-        seen = set()
-        unique = []
-        
-        for line in lines:
-            # Create a normalized version for comparison
-            normalized = line.strip()
-            if normalized and normalized not in seen:
-                seen.add(normalized)
-                unique.append(line)
-            elif not normalized:
-                unique.append(line)  # Keep empty lines
-        
-        return '\n'.join(unique)
-
-    def _create_summary(self, output: str, category: CommandCategory) -> str:
-        """Create a summary of the output."""
-        lines = output.split('\n')
-        non_empty = [l for l in lines if l.strip()]
-        
-        summary = f"[{category.value}] {len(non_empty)} lines"
-        
-        # Add category-specific info
-        if category == CommandCategory.TEST:
-            # Try to extract test counts
-            for line in lines:
-                if 'passed' in line.lower():
-                    summary += f" - {line.strip()}"
-                    break
-        elif category == CommandCategory.GIT:
-            for line in lines:
-                if 'changed' in line.lower():
-                    summary += f" - {line.strip()}"
-                    break
-        
-        return summary
-
-    def optimize(self, command: str, output: str) -> str:
+    
+    def compress_command_output(self, command: str, output: str, 
+                              target_ratio: float = 0.5) -> str:
         """
-        Optimize command output for token efficiency.
+        Compress command output using the appropriate strategy.
         
         Args:
-            command: The command that was executed
-            output: The raw output from the command
+            command: The command that generated the output
+            output: The output to compress
+            target_ratio: Target compression ratio (0.1 = 10% of original)
             
         Returns:
-            Optimized output string
+            str: Compressed output
         """
-        # Update stats
-        original_tokens = self._count_tokens(output)
-        self._stats.total_original += original_tokens
-        self._stats.commands_processed += 1
+        # Normalize command name
+        command_normalized = self._normalize_command(command)
         
-        # Handle empty output
-        if not output or not output.strip():
-            self._stats.total_optimized += 1
+        # Apply the appropriate strategy if available
+        if command_normalized in self.strategies:
+            strategy = self.strategies[command_normalized]
+            try:
+                compressed = strategy(output, target_ratio)
+                logger.debug(f"Applied {command_normalized} compression strategy")
+                return compressed
+            except Exception as e:
+                logger.warning(f"Compression strategy for {command_normalized} failed: {e}")
+                # Fall back to generic compression
+        
+        # If no specific strategy or it failed, use generic compression
+        return self._generic_compress(output, target_ratio)
+    
+    def _normalize_command(self, command: str) -> str:
+        """Normalize command name to a standard form."""
+        # Extract base command name, ignoring arguments
+        base_cmd = command.split()[0].split('/')[-1].lower()
+        
+        # Map variations to standard names
+        cmd_mapping = {
+            "git": "git_log",  # Default to git_log for git commands
+            "pytest": "pytest",
+            "py.test": "pytest",
+            "python -m pytest": "pytest",
+            "eslint": "eslint",
+            "docker": "docker_ps",  # Default to docker_ps for docker commands
+            "npm": "npm_ls",  # Default to npm_ls for npm commands
+            "ps": "ps_aux",
+            "df": "df_h",
+            "free": "free_m",
+            "top": "top",
+            "netstat": "netstat"
+        }
+        
+        # Special handling for specific subcommands
+        if command.startswith("git log"):
+            return "git_log"
+        elif command.startswith("docker ps"):
+            return "docker_ps"
+        elif command.startswith("npm ls") or command.startswith("npm list"):
+            return "npm_ls"
+        elif command.startswith("df -h"):
+            return "df_h"
+        elif command.startswith("free -m"):
+            return "free_m"
+        
+        return cmd_mapping.get(base_cmd, "generic")
+    
+    def _compress_git_log(self, output: str, target_ratio: float) -> str:
+        """Compress git log output."""
+        lines = output.split('\n')
+        
+        # Extract commit hashes and messages
+        commits = []
+        current_commit = {}
+        
+        for line in lines:
+            if line.startswith('commit '):
+                if current_commit:
+                    commits.append(current_commit)
+                current_commit = {'hash': line.split()[1][:8], 'details': []}
+            elif line.startswith('Author:') or line.startswith('Date:'):
+                current_commit[line.split(':')[0].lower()] = line[len(line.split(':')[0])+2:]
+            else:
+                # Add other lines as details
+                if 'details' not in current_commit:
+                    current_commit['details'] = []
+                current_commit['details'].append(line)
+        
+        # Add the last commit
+        if current_commit:
+            commits.append(current_commit)
+        
+        # Calculate target number of commits to keep
+        target_commits = max(1, int(len(commits) * target_ratio))
+        
+        # Keep the most recent commits
+        selected_commits = commits[:target_commits]
+        
+        # Reconstruct output with selected commits
+        result_lines = []
+        for commit in selected_commits:
+            result_lines.append(f"commit {commit['hash']}")
+            if 'author' in commit:
+                result_lines.append(f"Author: {commit['author']}")
+            if 'date' in commit:
+                result_lines.append(f"Date: {commit['date']}")
+            result_lines.extend(commit.get('details', []))
+            result_lines.append("")  # Empty line between commits
+        
+        return '\n'.join(result_lines)
+    
+    def _compress_pytest_output(self, output: str, target_ratio: float) -> str:
+        """Compress pytest output."""
+        # Extract key information: passed, failed, skipped counts
+        summary_match = re.search(r'(\d+) passed, (\d+) failed, (\d+) error, (\d+) skipped', output)
+        if not summary_match:
+            summary_match = re.search(r'(\d+) passed, (\d+) failed', output)
+        
+        if summary_match:
+            # Start with the summary
+            summary = f"PYTEST SUMMARY: {summary_match.group(0)}\n\n"
+        else:
+            summary = "PYTEST OUTPUT (summary not found)\n\n"
+        
+        # Extract failure details if any
+        failure_sections = []
+        lines = output.split('\n')
+        in_failure = False
+        current_failure = []
+        
+        for line in lines:
+            if 'FAILED' in line or line.strip().startswith('_ test'):
+                in_failure = True
+                if current_failure:
+                    failure_sections.append('\n'.join(current_failure))
+                    if len(failure_sections) >= 5:  # Limit to top 5 failures
+                        break
+                current_failure = [line]
+            elif in_failure:
+                if line.strip() == '' and len(current_failure) > 5:  # End of failure block
+                    # Check if we're moving to a new test or end of output
+                    next_nonempty = next((l for l in lines[lines.index(line)+1:] if l.strip()), '')
+                    if next_nonempty.strip().startswith('===') or 'passed' in next_nonempty.lower():
+                        failure_sections.append('\n'.join(current_failure))
+                        current_failure = []
+                        in_failure = False
+                    else:
+                        current_failure.append(line)
+                else:
+                    current_failure.append(line)
+        
+        # Add the last failure if exists
+        if current_failure and len(failure_sections) < 5:
+            failure_sections.append('\n'.join(current_failure))
+        
+        # Combine summary and limited failures
+        result = summary
+        if failure_sections:
+            result += "TOP FAILURES:\n\n"
+            result += "\n\n".join(failure_sections)
+        
+        # Add final summary if not included in our extracted text
+        if '=====' in output:
+            # Extract the final summary section
+            parts = output.split('=====') 
+            if len(parts) > 1:
+                final_summary = parts[-1]
+                result += f"\n\n{final_summary}"
+        
+        return result
+    
+    def _compress_eslint_output(self, output: str, target_ratio: float) -> str:
+        """Compress ESLint output."""
+        lines = output.split('\n')
+        
+        # Extract summary information
+        summary_lines = []
+        detail_lines = []
+        
+        for line in lines:
+            if re.match(r'^\s*\d+ problems? \(\d+ errors?, \d+ warnings?\)', line):
+                summary_lines.append(line)
+            elif re.match(r'^.*:\d+:\d+\s+', line):  # Lines with file:line:col
+                detail_lines.append(line)
+            elif '[Error]' in line or '[Warning]' in line:
+                detail_lines.append(line)
+        
+        # Calculate how many details to keep based on target ratio
+        target_details = max(1, int(len(detail_lines) * target_ratio))
+        
+        # Combine summary with limited details
+        result_lines = summary_lines
+        result_lines.extend(detail_lines[:target_details])
+        
+        return '\n'.join(result_lines)
+    
+    def _compress_docker_ps(self, output: str, target_ratio: float) -> str:
+        """Compress docker ps output."""
+        lines = output.split('\n')
+        
+        if not lines:
             return output
         
-        # Categorize command
-        category = self.categorize_command(command)
+        # Keep header
+        header = lines[0]
+        containers = lines[1:]  # Skip header
         
-        # Apply category-specific optimization
-        if category == CommandCategory.DIRECTORY_LISTING:
-            optimized = self._optimize_directory_listing(output)
-        elif category == CommandCategory.FILE_CONTENT:
-            optimized = self._optimize_file_content(output)
-        elif category == CommandCategory.SEARCH:
-            optimized = self._optimize_search_output(output)
-        elif category == CommandCategory.GIT:
-            optimized = self._optimize_git_output(output, command)
-        elif category == CommandCategory.TEST:
-            optimized = self._optimize_test_output(output)
-        elif category == CommandCategory.DOCKER:
-            optimized = self._optimize_docker_output(output)
-        elif category == CommandCategory.LINT:
-            optimized = self._optimize_lint_output(output)
-        else:
-            # Default: just truncate
-            limit = self.max_lines or 50
-            optimized = self._truncate_lines(output, limit)
+        # Calculate how many containers to keep
+        target_containers = max(1, int(len(containers) * target_ratio))
         
-        # Apply deduplication if enabled
-        if self.enable_dedup:
-            optimized = self._deduplicate(optimized)
+        # Keep header and top containers
+        result_lines = [header]
+        result_lines.extend(containers[:target_containers])
         
-        # Calculate savings
-        optimized_tokens = self._count_tokens(optimized)
-        savings = original_tokens - optimized_tokens
+        return '\n'.join(result_lines)
+    
+    def _compress_npm_ls(self, output: str, target_ratio: float) -> str:
+        """Compress npm ls output."""
+        lines = output.split('\n')
         
-        # Update stats
-        self._stats.total_optimized += optimized_tokens
-        if savings > 0:
-            self._stats.commands_optimized += 1
+        # Count depth levels to identify packages
+        packages = []
+        for line in lines:
+            # Count leading spaces or tree characters to determine depth
+            depth = 0
+            for char in line:
+                if char in [' ', '|', '+', '-']:
+                    depth += 1
+                else:
+                    break
+            packages.append((depth, line))
         
-        # Log significant savings
-        if savings > 100:
-            logger.debug(f"Token optimization: {command[:30]}... saved {savings} tokens ({savings/original_tokens*100:.1f}%)")
+        # Calculate how many packages to keep
+        target_packages = max(1, int(len(packages) * target_ratio))
         
-        return optimized
-
-    def optimize_result(self, command: str, output: str) -> OptimizationResult:
-        """Optimize and return detailed result."""
-        original = output
-        optimized = self.optimize(command, output)
+        # Keep top-level packages and some nested ones
+        result_lines = []
+        current_depth = -1
+        kept_count = 0
         
-        original_tokens = self._count_tokens(original)
-        optimized_tokens = self._count_tokens(optimized)
+        for depth, line in packages:
+            if kept_count >= target_packages:
+                break
+                
+            # If we're going deeper, we might skip some
+            if depth > current_depth:
+                result_lines.append(line)
+                kept_count += 1
+                current_depth = depth
+            # If we're at the same or shallower level, include it
+            elif depth <= current_depth:
+                result_lines.append(line)
+                kept_count += 1
+                current_depth = depth
         
-        savings = 0
-        if original_tokens > 0:
-            savings = ((original_tokens - optimized_tokens) / original_tokens) * 100
+        return '\n'.join(result_lines)
+    
+    def _compress_ps_aux(self, output: str, target_ratio: float) -> str:
+        """Compress ps aux output."""
+        lines = output.split('\n')
         
-        return OptimizationResult(
-            original=original,
-            optimized=optimized,
-            original_tokens=original_tokens,
-            optimized_tokens=optimized_tokens,
-            savings_percent=savings,
-            command=command,
-            category=self.categorize_command(command),
-        )
+        if not lines:
+            return output
+        
+        # Keep header
+        header = lines[0]
+        processes = lines[1:]  # Skip header
+        
+        # Calculate how many processes to keep
+        target_processes = max(1, int(len(processes) * target_ratio))
+        
+        # Keep header and top processes (maybe sort by CPU or memory usage)
+        # For now, just take the first N
+        result_lines = [header]
+        result_lines.extend(processes[:target_processes])
+        
+        return '\n'.join(result_lines)
+    
+    def _compress_df_h(self, output: str, target_ratio: float) -> str:
+        """Compress df -h output."""
+        lines = output.split('\n')
+        
+        if not lines:
+            return output
+        
+        # Keep header
+        header = lines[0]
+        filesystems = lines[1:]  # Skip header
+        
+        # Calculate how many filesystems to keep
+        target_filesystems = max(1, int(len(filesystems) * target_ratio))
+        
+        # Keep header and top filesystems (perhaps filter out tmpfs, etc.)
+        result_lines = [header]
+        
+        # Optionally filter out less important filesystems
+        important_fs = []
+        for fs in filesystems:
+            if fs.strip() and not any(skip in fs for skip in ['tmpfs', 'devtmpfs', 'overlay']):
+                important_fs.append(fs)
+        
+        result_lines.extend(important_fs[:target_filesystems])
+        
+        return '\n'.join(result_lines)
+    
+    def _compress_free_m(self, output: str, target_ratio: float) -> str:
+        """Compress free -m output."""
+        # Free output is usually just a few lines, so just return as is if small
+        # Otherwise, return just the main memory info
+        lines = output.split('\n')
+        
+        # If already small, return as is
+        if len(lines) <= 5:
+            return output
+        
+        # Otherwise, return just the main memory line
+        for line in lines:
+            if line.startswith('Mem:') or line.startswith('Swap:'):
+                return f"MEMORY USAGE:\n{line}"
+        
+        # If no Mem: or Swap: line found, return first few lines
+        return '\n'.join(lines[:3])
+    
+    def _compress_top(self, output: str, target_ratio: float) -> str:
+        """Compress top output."""
+        lines = output.split('\n')
+        
+        # Keep header lines (first few lines with system info)
+        header_lines = []
+        process_lines = []
+        
+        in_processes = False
+        for line in lines:
+            if not in_processes and ('PID' in line and 'USER' in line):
+                in_processes = True
+                process_lines.append(line)
+            elif in_processes:
+                process_lines.append(line)
+            else:
+                header_lines.append(line)
+        
+        # Calculate how many processes to keep
+        target_processes = max(1, int(len(process_lines) * target_ratio))
+        
+        # Combine headers with top processes
+        result_lines = header_lines
+        result_lines.extend(process_lines[:target_processes])
+        
+        return '\n'.join(result_lines)
+    
+    def _compress_netstat(self, output: str, target_ratio: float) -> str:
+        """Compress netstat output."""
+        lines = output.split('\n')
+        
+        if not lines:
+            return output
+        
+        # Keep header
+        header = lines[0]
+        connections = lines[1:]  # Skip header
+        
+        # Calculate how many connections to keep
+        target_connections = max(1, int(len(connections) * target_ratio))
+        
+        # Keep header and top connections
+        result_lines = [header]
+        result_lines.extend(connections[:target_connections])
+        
+        return '\n'.join(result_lines)
+    
+    def _generic_compress(self, output: str, target_ratio: float) -> str:
+        """Generic compression when no specific strategy applies."""
+        # Simple approach: keep the first and last portions, drop the middle
+        lines = output.split('\n')
+        total_lines = len(lines)
+        
+        if total_lines <= 10:  # Already small
+            return output
+        
+        # Calculate how many lines to keep
+        target_lines = max(10, int(total_lines * target_ratio))  # Keep at least 10 lines
+        
+        if target_lines >= total_lines:  # No compression needed
+            return output
+        
+        # Keep header portion and tail portion
+        header_lines = max(5, target_lines // 2)
+        tail_lines = target_lines - header_lines
+        
+        result_lines = lines[:header_lines]
+        if tail_lines > 0 and len(lines) > header_lines:
+            result_lines.extend(lines[-tail_lines:])
+        
+        return '\n'.join(result_lines)
+    
+    def get_compression_ratio(self, original: str, compressed: str) -> float:
+        """
+        Calculate the compression ratio.
+        
+        Args:
+            original: Original text
+            compressed: Compressed text
+            
+        Returns:
+            float: Compression ratio (compressed/original)
+        """
+        if len(original) == 0:
+            return 0.0
+        return len(compressed) / len(original)
+    
+    def add_strategy(self, command_type: str, strategy_func):
+        """
+        Add a custom compression strategy for a command type.
+        
+        Args:
+            command_type: Type of command (e.g., "custom_tool")
+            strategy_func: Function that takes (output, target_ratio) and returns compressed output
+        """
+        self.strategies[command_type] = strategy_func
+        logger.info(f"Added custom compression strategy for {command_type}")
+    
+    def list_strategies(self) -> List[str]:
+        """
+        List all available compression strategies.
+        
+        Returns:
+            List of strategy names
+        """
+        return list(self.strategies.keys())
 
-    def get_stats(self) -> TokenStats:
-        """Get token usage statistics."""
-        return self._stats
 
-    def reset_stats(self) -> None:
-        """Reset token statistics."""
-        self._stats = TokenStats()
-
-    def estimate_tokens(self, text: str) -> int:
-        """Estimate token count for text."""
-        return self._count_tokens(text)
+# Global instance for convenience
+_global_token_optimizer = TokenOptimizer()
 
 
-# Global optimizer instance
-_default_optimizer: Optional[TokenOptimizer] = None
+def get_global_token_optimizer() -> TokenOptimizer:
+    """
+    Get the global token optimizer instance.
+
+    Returns:
+        TokenOptimizer instance
+    """
+    return _global_token_optimizer
 
 
-def get_optimizer() -> TokenOptimizer:
-    """Get the default optimizer instance."""
-    global _default_optimizer
-    if _default_optimizer is None:
-        _default_optimizer = TokenOptimizer()
-    return _default_optimizer
-
-
-def optimize_command_output(command: str, output: str) -> str:
-    """Convenience function to optimize command output."""
-    return get_optimizer().optimize(command, output)
+# Alias used by engine.py import
+get_optimizer = get_global_token_optimizer

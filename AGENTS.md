@@ -237,6 +237,34 @@ orchestrator/
 ├── diagnostics.py          # Diagnostic tools
 ├── quick_self_test.py      # Quick self-test on startup
 ├── dry_run.py              # Dry-run mode
+├── brain.py                # AI reasoning and cognitive layer
+├── evaluation.py           # LLM-based evaluation scoring
+├── escalation.py           # Automatic escalation to higher-capability models
+├── checkpoints.py          # Intermediate state checkpoints
+├── modes.py                # Per-request behavioral modes
+├── prompt_enhancer.py      # Prompt enhancement and optimization
+├── cost_analytics.py       # Cost analytics and forecasting
+├── competitive.py          # Competitive routing intelligence
+├── tracing.py              # OpenTelemetry tracing integration
+├── plan_then_build.py      # Plan-first, then execute pattern
+├── memory_bank.py          # Persistent cross-run memory
+├── context_condensing.py   # Context compression for long runs
+├── hierarchy.py            # Multi-level org/team hierarchy
+├── triggers.py             # Event-driven triggers
+├── workspace.py            # Workspace isolation
+├── gateway.py              # API gateway functionality
+├── connectors.py           # External system connectors
+├── sandbox.py              # Secure code execution sandbox
+├── context_sources.py      # Multiple context sources
+├── api_server.py           # REST API server
+├── skills.py               # Claude skills system
+├── drift.py                # Drift detection
+├── browser_testing.py      # Browser-based testing
+├── token_optimizer.py      # Command-specific token compression
+├── a2a_protocol.py         # A2A external agent client
+├── persona_modes.py        # Persona-based behavioral modes
+├── learning_aggregator.py  # Persistent cross-run learning
+├── multi_tenant_gateway.py # Multi-tenant API gateway
 └── ... (additional utilities)
 ```
 
@@ -701,6 +729,27 @@ async def handle_project_start(event: ProjectStartedEvent):
 # Emit events
 event_bus.emit(ProjectStartedEvent(project_id="abc123"))
 ```
+
+---
+
+## SRE Bug-Fix Pass (v5.1 → v6.0 Hardening)
+
+Six bugs discovered and fixed via systematic SRE audit:
+
+| Bug | File | Root Cause | Fix |
+|-----|------|------------|-----|
+| BUG-001 | `cost.py` | `can_afford_job()` read stale remaining budget (didn't subtract reservations) | Deduct `_team_reserved` in `remaining(level="team")` |
+| BUG-002 | `engine.py` | `asyncio.gather(return_exceptions=True)` → exceptions stored as results, never re-raised | Check `isinstance(r, Exception)` before indexing results |
+| BUG-003 | `hybrid_search_pipeline.py` | RRF scoring mutated `SearchResult` objects in-place, corrupting shared state | Create new `SearchResult` copies instead of mutating |
+| BUG-004 | `cost.py` | Same as BUG-001 — `_team_reserved` missing from `remaining()` calculation | One-line fix: subtract `reserved` alongside `spent` |
+| BUG-005 | `rate_limiter.py` | TOCTOU race: two concurrent asyncio coroutines both passed limit check before either called `record()` | Atomic in-flight reservation in `check()`; `release()` on error |
+| OpenAI-temp | `api_clients.py` | `temperature` parameter passed to OpenAI models — newer o1/o3/o4 series reject it (fixed at 1) | Remove `temperature` from `_call_openai()` entirely |
+
+**Additional fixes:**
+- `a2a_protocol.py`: Full `A2AQueueManager` implementation with bounded queues, timeout-to-FAILED mapping, and orphan cleanup
+- `engine.py`: `_cleanup_background_tasks()` guarded against `CancelledError` from `task.exception()` on cancelled tasks
+
+**Test coverage:** `tests/test_bug_fixes_v5_1.py` (10), `tests/test_bug_fixes_v5_1_round2.py` (10), `tests/test_reliability_regression.py` (22)
 
 ---
 
