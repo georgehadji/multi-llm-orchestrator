@@ -1,8 +1,50 @@
 # Multi-LLM Orchestrator — CLAUDE.md
 
 **Project**: Multi-LLM Orchestrator with cross-provider routing, budget control, and resilience
-**Status**: Active development (v1.0 baseline stable, resilience hardening complete)
+**Status**: Active development (v5.1 complete → v6.0 target)
 **Repository**: https://github.com/georgehadji/multi-llm-orchestrator
+
+---
+
+## Architecture & Development Philosophy
+
+> **Master reference:** [`docs/ARCHITECTURE_ROADMAP.md`](docs/ARCHITECTURE_ROADMAP.md)
+> Διάβασε αυτό το αρχείο **πριν από οποιαδήποτε αρχιτεκτονική απόφαση ή implementation**.
+> Περιέχει: hexagonal architecture overview, paradigm ανά component, design patterns, full roadmap με TDD specs για κάθε feature, και architecture rules.
+
+### 3 Κανόνες που δεν παραβιάζονται ποτέ
+
+1. **`engine.py` = Mediator** — νέα business logic πηγαίνει σε νέο service module, όχι στο engine. Το engine μόνο wire-άρει services.
+2. **`models.py` = Pure data** — κανένα I/O, κανένο asyncio, κανένο behavior. Μόνο dataclasses και enums.
+3. **TDD χωρίς εξαιρέσεις** — πρώτα failing test (RED), μετά implementation (GREEN), μετά commit.
+
+### Implementation Status
+
+**v6.0 — Phase 1 Complete ✅**
+
+| Phase | Status | Count | Features |
+|-------|--------|-------|----------|
+| P0 | ✅ Complete | 3/3 | autonomy, model_routing, verification |
+| P1 | 🟡 Pending | 12/12 | brain, evaluation, escalation, checkpoints, modes, prompt_enhancer, cost_analytics, competitive, tracing, plan-then-build, memory_bank, context_condensing |
+| P2 | ❌ Pending | 10/10 | hierarchy, triggers, workspace, gateway, connectors, sandbox, context_sources, api_server, skills, drift |
+| P3 | ❌ Pending | 1/1 | browser_testing |
+
+**Overall: 6 Complete ✅ | 9 Partial 🟡 | 14 Missing ❌** (up from 3/9/17 in v5.1)
+
+### Αρχιτεκτονικό Pattern Summary
+
+| Scope | Pattern | Αρχείο |
+|-------|---------|--------|
+| Overall | Hexagonal Architecture | — |
+| Orchestration | Mediator | `engine.py` |
+| LLM Routing | Strategy | `model_routing.py`, `planner.py` |
+| Optional Features | Decorator | `verification.py`, `prompt_enhancer.py` |
+| Validation | Chain of Responsibility | `validators.py`, `preflight.py` |
+| Persistence | Repository + Memento | `state.py`, `checkpoints.py` |
+| Cross-cutting | Observer / EventBus | `events.py`, `hooks.py` |
+| LLM Providers | Adapter + Protocol | `gateway.py` |
+| Budget Hierarchy | Composite | `cost.py` |
+| Resilience | State Machine | `resilience.py`, `rate_limiter.py` |
 
 ---
 

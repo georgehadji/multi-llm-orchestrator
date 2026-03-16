@@ -136,6 +136,24 @@ from .hybrid_search_pipeline import HybridSearchPipeline
 from .rate_limiter import RateLimiter, RateLimitExceeded
 from .session_lifecycle import SessionLifecycleManager
 
+try:
+    from .model_routing import ModelTier, TIER_ROUTING, PHASE_TO_TIER, select_model, get_tier_for_phase
+    HAS_MODEL_ROUTING = True
+except ImportError:
+    HAS_MODEL_ROUTING = False
+
+try:
+    from .autonomy import AutonomyLevel, AutonomyConfig, AUTONOMY_PRESETS, get_autonomy_config, requires_approval
+    HAS_AUTONOMY = True
+except ImportError:
+    HAS_AUTONOMY = False
+
+try:
+    from .verification import VerificationLevel, VerificationResult, REPLVerifier, self_healing_loop
+    HAS_VERIFICATION = True
+except ImportError:
+    HAS_VERIFICATION = False
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Observability & Telemetry
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -421,6 +439,18 @@ __all__ = [
 
     # Session Lifecycle
     "SessionLifecycleManager",
+
+    # Model Routing Tiers
+    "ModelTier", "TIER_ROUTING", "PHASE_TO_TIER", "select_model", "get_tier_for_phase",
+    "HAS_MODEL_ROUTING",
+
+    # Autonomy
+    "AutonomyLevel", "AutonomyConfig", "AUTONOMY_PRESETS", "get_autonomy_config", "requires_approval",
+    "HAS_AUTONOMY",
+
+    # Verification
+    "VerificationLevel", "VerificationResult", "REPLVerifier", "self_healing_loop",
+    "HAS_VERIFICATION",
     
     # Policy
     "ModelProfile", "Policy", "PolicySet", "JobSpec",
