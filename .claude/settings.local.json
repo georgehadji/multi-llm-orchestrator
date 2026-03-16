@@ -72,10 +72,50 @@
       "Bash(echo \"EXIT:$?\")",
       "Bash(timeout 60 bash -c 'cd \"\"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\"\" && python -m pytest tests/test_preflight_integration.py::test_preflight_block_retries_and_recovers -v --tb=long --no-cov 2>&1')",
       "Bash(timeout 90 bash -c 'cd \"\"E:\\\\Documents\\\\Vibe-Coding\\\\Ai Orchestrator\"\" && python -m pytest tests/test_preflight_integration.py -v --no-cov 2>&1')",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(gh repo:*)",
+      "Bash(cd /e/Documents/Vibe-Coding/\"Ai Orchestrator\"/orchestrator)",
+      "Bash(cd /e/Documents/Vibe-Coding/\"Ai Orchestrator\"/tests)",
+      "Bash(gateway)",
+      "Bash(checkpoints)",
+      "Bash(memory.py)",
+      "Bash(connectors)",
+      "Bash(context_sources)",
+      "Bash(sandbox)",
+      "Bash(api_server)",
+      "Bash(verification)",
+      "Bash(context.py)",
+      "Bash(skills)",
+      "Bash(browser_testing)",
+      "Bash(modes)",
+      "Bash(model_routing)",
+      "Bash(autonomy)",
+      "Bash(competitive)",
+      "Bash(hierarchy)",
+      "Bash(brain)",
+      "Bash(prompt_enhancer)",
+      "Bash(triggers)",
+      "Bash(workspace)",
+      "Bash(drift)",
+      "Bash(prompt_registry)",
+      "Bash(evaluation)",
+      "Bash(escalation)",
+      "Bash(cost_analytics \")"
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_edit_core.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
