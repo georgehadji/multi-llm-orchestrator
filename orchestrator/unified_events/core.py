@@ -611,6 +611,10 @@ class UnifiedEventBus:
                 if event is None:  # Sentinel
                     break
                 await self._handle_event(event)
+            except asyncio.CancelledError:
+                # Properly handle cancellation
+                logger.debug("Event processing loop was cancelled")
+                break
             except Exception as e:
                 logger.exception("Error processing event")
     

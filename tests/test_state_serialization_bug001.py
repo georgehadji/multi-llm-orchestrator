@@ -92,7 +92,7 @@ class TestBUG001TaskFieldSerialization:
             "dependencies": [],
             "hard_validators": [],
             "target_path": "app/dashboard/Metrics.tsx",
-            "module_name=""  # Empty string - should be preserved
+            "module_name": "",  # Empty string - should be preserved
             "tech_context": "Next.js 14 with App Router",
         }
         

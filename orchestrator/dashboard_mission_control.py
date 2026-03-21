@@ -1856,6 +1856,7 @@ File: {project.file_name}
                     <i class="fas fa-sync mr-1"></i>Reconnect
                 </button>
             </div>
+            <p id="models-panel" class="section-title text-xs mb-2">Models</p>
             <div id="api-status-list" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                 <p class="col-span-full text-center" style="color: #6B7A95;">Checking API connections...</p>
             </div>
@@ -1897,7 +1898,7 @@ File: {project.file_name}
                             <input type="text" id="new-name" class="input-field" placeholder="My Project" value="My Project">
                         </div>
                         <div>
-                            <label class="field-label block mb-2">Project Type</label>
+                            <label id="project-type" class="field-label block mb-2">Project Type</label>
                             <select id="new-type" class="input-field">
                                 <option value="custom" selected>Custom (Generic)</option>
                                 <option value="python">Python Project</option>
@@ -2155,6 +2156,11 @@ File: {project.file_name}
                             <button onclick="removeProject(selectedProjectId)" id="btn-remove-project" class="btn-danger w-full hidden" style="background: #64748b;">
                                 <i class="fas fa-trash mr-2"></i>Remove Project
                             </button>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h4 class="section-title mb-2" id="architecture-panel-title">Architecture</h4>
+                            <p style="color: #A0B0CC; font-size: 12px; margin-bottom: 0;">Structural view: <span id="architecture-summary">Awaiting project data...</span></p>
                         </div>
                         
                         <!-- Mini Console -->

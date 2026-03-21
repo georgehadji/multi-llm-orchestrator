@@ -41,6 +41,7 @@ from .output_organizer import (
     suppress_cache_messages,
     CacheMessageSuppressor,
 )
+from .run_tests import run_project_tests
 from .progress import ProgressRenderer
 try:
     from .unified_events import ProjectCompletedEvent as _ProjectCompleted
@@ -649,8 +650,8 @@ async def _async_file_project(args):
         # Organize output: move tasks to tasks/, generate/run tests
         print("\n📁 Organizing project output...")
         org_report = await organize_project_output(
-            path, 
-            auto_generate_tests=True, 
+            path,
+            auto_generate_tests=True,
             run_tests=True,
             fix_tests=getattr(args, 'fix_tests', True),
             max_fix_iterations=getattr(args, 'max_fix_iterations', 3),
@@ -660,6 +661,19 @@ async def _async_file_project(args):
         if org_report.tests_run:
             passed = sum(1 for r in org_report.tests_run if r.passed)
             print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
+        
+        # EXTRA: Run final test execution with detailed reporting
+        print("\n🧪 Running final test validation...")
+        tests_passed = await run_project_tests(
+            output_dir=path,
+            fix_tests=True,
+            max_iterations=3,
+            min_pass_rate=0.8
+        )
+        if tests_passed:
+            print("\n✅ All tests passed!")
+        else:
+            print("\n⚠️ Some tests failed - check output for details")
     else:
         print("\n⚠️ No state available - skipping output writing")
 

@@ -100,9 +100,22 @@
       "Bash(prompt_registry)",
       "Bash(evaluation)",
       "Bash(escalation)",
-      "Bash(cost_analytics \")"
+      "Bash(cost_analytics \")",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//e/Documents/Vibe-Coding/Ai Orchestrator/orchestrator/**)",
+      "Bash(python -c \":*)",
+      "Bash(for name:*)",
+      "Bash(do)",
+      "Bash(grep -q \"^class $name\\\\|^$name =\" orchestrator/a2a_protocol.py)",
+      "Bash(echo \"✓ $name found\")",
+      "Bash(echo \"✗ $name MISSING\")",
+      "Bash(done)"
     ]
   },
+  "enabledMcpjsonServers": [
+    "code-review-graph"
+  ],
   "hooks": {
     "PreToolUse": [
       {
@@ -138,5 +151,6 @@
         ]
       }
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true
 }

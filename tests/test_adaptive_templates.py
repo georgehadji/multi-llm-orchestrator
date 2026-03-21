@@ -7,6 +7,29 @@ import asyncio
 from pathlib import Path
 import tempfile
 import shutil
+import os
+import stat
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _handle_remove_readonly(func, path, exc_info):
+    """Handle permission errors when removing temp dirs."""
+    exc_type, exc_value, _ = exc_info
+    if not issubclass(exc_type, PermissionError):
+        raise exc_value
+
+    # Attempt to make the path writable before retrying
+    try:
+        os.chmod(path, stat.S_IWRITE)
+    except Exception:
+        logger.debug("Failed to chmod %s before cleanup", path)
+
+    try:
+        func(path)
+    except Exception as inner_exc:
+        logger.warning("Cleanup still failed for %s: %s", path, inner_exc)
 
 from orchestrator.adaptive_templates import (
     AdaptiveTemplateSystem,
@@ -20,14 +43,14 @@ from orchestrator.models import Model, TaskType
 
 class TestAdaptiveTemplateSystem:
     """Test suite for adaptive template system."""
-    
+
     @pytest.fixture
     def temp_dir(self):
         """Create temporary directory."""
         temp = tempfile.mkdtemp()
         yield Path(temp)
-        shutil.rmtree(temp)
-    
+        shutil.rmtree(temp, onerror=_handle_remove_readonly)
+
     @pytest.fixture
     def ats(self, temp_dir):
         """Create adaptive template system."""

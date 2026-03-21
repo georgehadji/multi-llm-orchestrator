@@ -53,6 +53,15 @@ from typing import Optional
 
 from .models import ProjectState, TaskType
 
+# Code validation for clean code generation
+try:
+    from .code_validator import validate_code, extract_code_from_llm_response
+    HAS_CODE_VALIDATOR = True
+except ImportError:
+    HAS_CODE_VALIDATOR = False
+    validate_code = None
+    extract_code_from_llm_response = None
+
 logger = logging.getLogger("orchestrator.output_writer")
 
 
@@ -197,6 +206,26 @@ def write_output_dir(
         dest = out / filename
 
         content = _render_content(task.type, result.output, ext)
+        
+        # NEW: Code validation before saving (prevent LLM commentary)
+        if task.type == TaskType.CODE_GEN and HAS_CODE_VALIDATOR:
+            validation_result = validate_code(content, filename)
+            if not validation_result.is_valid:
+                logger.warning(
+                    f"⚠️ Code validation failed for {filename}: {validation_result.error_message}"
+                )
+                # Try to extract clean code
+                extracted = extract_code_from_llm_response(content, ext)
+                if extracted and extracted != content:
+                    re_validation = validate_code(extracted, filename)
+                    if re_validation.is_valid:
+                        content = extracted
+                        logger.info(f"✅ Code cleaned and validated for {filename}")
+                    else:
+                        logger.error(f"❌ Code still invalid after cleaning: {re_validation.error_message}")
+                else:
+                    logger.error(f"❌ Could not clean code for {filename}")
+        
         dest.write_text(content, encoding="utf-8")
         file_map[task_id] = filename
         logger.info(f"Wrote {filename} ({len(content)} chars, score={result.score:.3f})")

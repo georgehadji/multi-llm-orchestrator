@@ -18,7 +18,7 @@ try:
         ModelStatusInfo,
         run_enhanced_dashboard,
     )
-    print("✅ All Enhanced Dashboard imports successful")
+    print("[OK] All Enhanced Dashboard imports successful")
     
 except Exception as e:
-    print(f"❌ Error: {e}")
+    print(f"[ERROR] Error: {e}")

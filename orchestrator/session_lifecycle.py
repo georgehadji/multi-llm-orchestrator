@@ -48,6 +48,8 @@ class SessionLifecycleManager:
         self._interval = migration_interval_seconds
         self._model = llm_model
         self._task: asyncio.Task | None = None
+        # Create a single client instance to reuse for all summarizations
+        self._client = None
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -69,6 +71,8 @@ class SessionLifecycleManager:
                 await self._task
             except asyncio.CancelledError:
                 pass
+        
+            
         logger.info("SessionLifecycleManager stopped")
 
     async def run_migration(self) -> dict[str, int]:
@@ -130,9 +134,12 @@ class SessionLifecycleManager:
         from .api_clients import UnifiedClient
         from .models import Model
 
-        client = UnifiedClient()
+        # Create client once if not already created
+        if self._client is None:
+            self._client = UnifiedClient()
+        
         prompt = _SUMMARY_PROMPT.format(content=content[:3000])  # cap input tokens
-        response = await client.call(
+        response = await self._client.call(
             Model(self._model),
             prompt,
             temperature=0.3,

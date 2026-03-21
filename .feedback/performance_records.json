@@ -1,0 +1,16 @@
+{
+  "gpt-4o:code_generation": {
+    "model": "gpt-4o",
+    "task_type": "code_generation",
+    "total_deployments": 11,
+    "success_count": 11,
+    "partial_count": 0,
+    "failure_count": 0,
+    "rollback_count": 0,
+    "avg_success_score": 0.843094701955,
+    "total_runtime_errors": 0,
+    "latency_p95_ema": 0.0,
+    "error_rate_ema": 0.0,
+    "last_updated": "2026-03-16 23:19:51.993233"
+  }
+}

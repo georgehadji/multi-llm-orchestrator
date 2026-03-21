@@ -208,5 +208,5 @@ class TestCIEnvironment:
             assert cb.strict_mode
 
 
-if __name__ == "__main__:
+if __name__ == "__main__":
     pytest.main([__file__, "-v"])

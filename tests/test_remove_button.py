@@ -1,7 +1,7 @@
 """Test script to verify remove functionality."""
 
 # Test that the new endpoints exist in the code
-with open('orchestrator/dashboard_mission_control.py', 'r') as f:
+with open('orchestrator/dashboard_mission_control.py', 'r', encoding='utf-8') as f:
     content = f.read()
 
 # Check for remove endpoint

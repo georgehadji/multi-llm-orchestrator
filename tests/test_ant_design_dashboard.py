@@ -12,17 +12,17 @@ print("=" * 70)
 try:
     # Import test
     from orchestrator import AntDesignDashboardServer, run_ant_design_dashboard
-    print("✅ AntDesignDashboardServer imported successfully")
-    
+    print("[OK] AntDesignDashboardServer imported successfully")
+
     # Check class exists
-    print(f"✅ Server class: {AntDesignDashboardServer}")
-    print(f"✅ Run function: {run_ant_design_dashboard}")
-    
+    print(f"[OK] Server class: {AntDesignDashboardServer}")
+    print(f"[OK] Run function: {run_ant_design_dashboard}")
+
     print("\n" + "=" * 70)
-    print("✅ Ant Design Dashboard Ready!")
+    print("Ant Design Dashboard Ready!")
     print("=" * 70)
     
 except Exception as e:
-    print(f"❌ Error: {e}")
+    print(f"[ERROR] Error: {e}")
     import traceback
     traceback.print_exc()

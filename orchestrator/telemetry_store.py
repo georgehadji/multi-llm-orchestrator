@@ -22,10 +22,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple, Dict, Any, List
 
 import aiosqlite
 
@@ -203,6 +204,157 @@ class TelemetryStore:
             raise
 
     # ── Write API (fire-and-forget safe) ──────────────────────────────────────
+
+    def _validate_snapshot_data(self, data: Dict[str, Any]) -> Optional[str]:
+        """
+        FIX-005a: Validate snapshot data before insertion.
+        
+        Checks for NaN, Inf, None, and type errors in numeric fields.
+        
+        Returns:
+            None if valid, error message string if invalid
+        """
+        # Check for None values in required fields
+        required_fields = ['project_id', 'model', 'task_type', 'quality_score', 
+                          'call_count', 'recorded_at']
+        for field in required_fields:
+            if data.get(field) is None:
+                return f"Required field '{field}' is None"
+        
+        # Check float fields for NaN/Inf
+        float_fields = ['quality_score', 'trust_factor', 'avg_latency_ms', 
+                       'latency_p95_ms', 'success_rate', 'avg_cost_usd']
+        for field in float_fields:
+            value = data.get(field)
+            if value is not None and isinstance(value, (int, float)):
+                if math.isnan(value):
+                    return f"Field '{field}' is NaN (not allowed)"
+                if math.isinf(value):
+                    return f"Field '{field}' is Inf (not allowed)"
+        
+        # Check integer fields for negative values
+        int_fields = ['call_count', 'failure_count', 'validator_fail_count']
+        for field in int_fields:
+            value = data.get(field)
+            if value is not None and isinstance(value, int):
+                if value < 0:
+                    return f"Field '{field}' is negative ({value})"
+        
+        # Type validation
+        if not isinstance(data.get('project_id'), str):
+            return f"Field 'project_id' must be string, got {type(data.get('project_id'))}"
+        if not isinstance(data.get('model'), str):
+            return f"Field 'model' must be string, got {type(data.get('model'))}"
+        if not isinstance(data.get('task_type'), str):
+            return f"Field 'task_type' must be string, got {type(data.get('task_type'))}"
+        
+        return None  # Valid
+
+    async def record_snapshots_batch(
+        self,
+        project_id: str,
+        snapshots: list[tuple[Model, ModelProfile]],
+    ) -> Dict[str, Any]:
+        """
+        P2-2 OPTIMIZATION: Batch persist multiple ModelProfile snapshots at once.
+        FIX-005a: Added pre-validation + per-record error handling with fallback.
+
+        This is more efficient than calling record_snapshot() multiple times
+        because it uses executemany() for bulk inserts in a single transaction.
+
+        Args:
+            project_id: The project ID to associate with all snapshots
+            snapshots: List of (Model, ModelProfile) tuples to persist
+
+        Returns:
+            Dict with keys: success (count), failed (count), errors (list)
+        """
+        await self._ensure_schema()
+
+        if not snapshots:
+            return {"success": 0, "failed": 0, "errors": []}
+
+        # Prepare batch data with validation
+        batch_data = []
+        errors = []
+        
+        for model, profile in snapshots:
+            if profile.call_count < 1:
+                continue  # Skip profiles with no usage
+            
+            record = {
+                "project_id": project_id,
+                "model": model.value,
+                "task_type": TaskType.CODE_GEN.value,
+                "quality_score": profile.quality_score,
+                "trust_factor": profile.trust_factor,
+                "avg_latency_ms": profile.avg_latency_ms,
+                "latency_p95_ms": profile.latency_p95_ms,
+                "success_rate": profile.success_rate,
+                "avg_cost_usd": profile.avg_cost_usd,
+                "call_count": profile.call_count,
+                "failure_count": profile.failure_count,
+                "validator_fail_count": profile.validator_fail_count,
+                "recorded_at": time.time(),
+            }
+            
+            # FIX-005a: Validate each record
+            error = self._validate_snapshot_data(record)
+            if error:
+                errors.append({"model": model.value, "error": error})
+                logger.warning(f"Telemetry validation failed for {model.value}: {error}")
+            else:
+                batch_data.append(tuple(record.values()))
+
+        if not batch_data:
+            # All records failed validation or were filtered
+            if errors:
+                logger.warning(f"All {len(errors)} records failed validation")
+            return {"success": 0, "failed": len(errors), "errors": errors}
+
+        # FIX-005a: Try batch insert with fallback to individual inserts
+        success_count = 0
+        try:
+            # Direct bulk insert using executemany (more efficient than buffering)
+            async with aiosqlite.connect(self._db_path) as db:
+                await db.executemany(
+                    """
+                    INSERT INTO model_snapshots
+                        (project_id, model, task_type, quality_score, trust_factor,
+                         avg_latency_ms, latency_p95_ms, success_rate, avg_cost_usd,
+                         call_count, failure_count, validator_fail_count, recorded_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    batch_data,
+                )
+                await db.commit()
+            success_count = len(batch_data)
+            logger.debug(f"P2-2: Batch recorded {success_count} snapshots for project {project_id}")
+            
+        except Exception as e:
+            # FIX-005a: Batch failed, fallback to individual inserts
+            logger.warning(f"Batch insert failed ({e}), falling back to individual inserts")
+            
+            for record_tuple in batch_data:
+                try:
+                    async with aiosqlite.connect(self._db_path) as db:
+                        await db.execute(
+                            """
+                            INSERT INTO model_snapshots
+                                (project_id, model, task_type, quality_score, trust_factor,
+                                 avg_latency_ms, latency_p95_ms, success_rate, avg_cost_usd,
+                                 call_count, failure_count, validator_fail_count, recorded_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            record_tuple,
+                        )
+                        await db.commit()
+                    success_count += 1
+                except Exception as inner_e:
+                    errors.append({"model": "unknown", "error": str(inner_e)})
+                    logger.error(f"Individual insert failed: {inner_e}")
+
+        return {"success": success_count, "failed": len(errors), "errors": errors}
 
     async def record_snapshot(
         self,
