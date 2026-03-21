@@ -347,15 +347,34 @@ class StateManager:
         ``updated_at`` is a Unix timestamp float from the DB.
         """
         db = await self._get_conn()
-        async with db.execute(
-            """SELECT project_id, project_description, keywords_json, status, updated_at
-               FROM projects
-               WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
-               AND keywords_json IS NOT NULL
-               ORDER BY updated_at DESC
-               LIMIT 50""",
-        ) as cursor:
-            rows = await cursor.fetchall()
+        
+        # Build a query that matches projects with any of the provided keywords
+        # We'll do a text-based search in the keywords_json column
+        if keywords:
+            keyword_conditions = " OR ".join(["keywords_json LIKE ?"] * len(keywords))
+            query_params = [f'%"{kw}"%' for kw in keywords]
+            
+            query = f"""SELECT project_id, project_description, keywords_json, status, updated_at
+                       FROM projects
+                       WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
+                       AND keywords_json IS NOT NULL
+                       AND ({keyword_conditions})
+                       ORDER BY updated_at DESC
+                       LIMIT 50"""
+            
+            async with db.execute(query, query_params) as cursor:
+                rows = await cursor.fetchall()
+        else:
+            # If no keywords provided, return all resumable projects
+            async with db.execute(
+                """SELECT project_id, project_description, keywords_json, status, updated_at
+                   FROM projects
+                   WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
+                   AND keywords_json IS NOT NULL
+                   ORDER BY updated_at DESC
+                   LIMIT 50""",
+            ) as cursor:
+                rows = await cursor.fetchall()
 
         result = []
         for row in rows:

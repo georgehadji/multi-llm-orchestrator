@@ -7,8 +7,8 @@ print("Testing direct import from dashboard_mission_control...")
 
 try:
     from orchestrator.dashboard_mission_control import run_mission_control
-    print(f"✅ SUCCESS: {run_mission_control}")
+    print(f"[OK] SUCCESS: {run_mission_control}")
 except Exception as e:
-    print(f"❌ FAILED: {type(e).__name__}: {e}")
+    print(f"[ERROR] FAILED: {type(e).__name__}: {e}")
     import traceback
     traceback.print_exc()

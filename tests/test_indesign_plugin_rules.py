@@ -13,6 +13,6 @@ try:
         InDesignRulesConfig,
         generate_indesign_plugin_rules,
     )
-    print("✅ All InDesign imports successful")
+    print("[OK] All InDesign imports successful")
 except Exception as e:
-    print(f"❌ Error: {e}")
+    print(f"[ERROR] Error: {e}")

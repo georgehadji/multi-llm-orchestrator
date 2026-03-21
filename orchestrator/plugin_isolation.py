@@ -29,7 +29,6 @@ import json
 import logging
 import multiprocessing
 import os
-import resource
 import signal
 import sys
 import tempfile
@@ -45,6 +44,11 @@ from .log_config import get_logger
 from .plugins import Plugin, ValidationResult, RoutingSuggestion
 
 logger = get_logger(__name__)
+
+try:
+    import resource
+except ModuleNotFoundError:  # Windows compatibility
+    resource = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -127,12 +131,19 @@ class IsolatedResult:
         )
 
 
+class PluginExecutionError(Exception):
+    """Raised when a plugin execution attempt fails due to isolation policies."""
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Process-Level Isolation
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _set_resource_limits(config: IsolationConfig) -> None:
     """Set resource limits in child process."""
+    if resource is None:
+        logger.debug("Resource module unavailable; skipping strict resource limits.")
+        return
     # Memory limit
     memory_bytes = config.memory_limit_mb * 1024 * 1024
     resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))

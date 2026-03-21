@@ -22,7 +22,10 @@ import asyncio
 import functools
 import json
 import platform
-import resource
+try:
+    import resource
+except ModuleNotFoundError:
+    resource = None
 import time
 from collections import deque
 from dataclasses import dataclass, asdict, field

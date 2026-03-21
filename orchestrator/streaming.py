@@ -32,13 +32,24 @@ import logging
 
 from .events import (
     EventBus, get_event_bus,
-    TaskStartedEvent, TaskCompletedEvent, TaskFailedEvent,
+    TaskStartedEvent, TaskCompletedEvent, TaskFailedEvent, TaskProgressEvent,
     ModelSelectedEvent, ProjectStartedEvent, ProjectCompletedEvent,
-    DomainEvent
+    DomainEvent, BudgetWarningEvent,
 )
 from .models import Task, TaskResult, TaskType, ProjectState, Model, Budget
+from .caching import InMemoryCache, DiskCache, MultiLayerCache
 
 logger = logging.getLogger("orchestrator.streaming")
+
+
+# Re-export common event classes for legacy consumers.
+ProjectStarted = ProjectStartedEvent
+ProjectCompleted = ProjectCompletedEvent
+TaskStarted = TaskStartedEvent
+TaskCompleted = TaskCompletedEvent
+TaskFailed = TaskFailedEvent
+TaskProgressUpdate = TaskProgressEvent
+BudgetWarning = BudgetWarningEvent
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -130,6 +141,9 @@ class PipelineStage(ABC):
     ) -> None:
         """Execute the stage and emit events."""
         pass
+
+
+StreamingStage = PipelineStage
 
 
 @dataclass

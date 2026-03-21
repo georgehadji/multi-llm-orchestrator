@@ -7,6 +7,7 @@ All data structures, enums, routing tables, cost tables, budget logic.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import time
 from dataclasses import dataclass, field
@@ -709,6 +710,12 @@ class AttemptRecord:
 
 @dataclass
 class Budget:
+    """
+    Budget tracking with atomic reserve pattern for concurrent execution.
+    
+    FIX-001a: Added reserve/commit/release pattern to prevent race conditions
+    when multiple concurrent tasks check budget simultaneously.
+    """
     max_usd: float = 8.0
     max_time_seconds: float = 5400.0  # 90 min
     spent_usd: float = 0.0
@@ -720,10 +727,21 @@ class Budget:
         "evaluation": 0.0,
         "reserve": 0.0,
     })
+    # FIX-001a: Track reserved but not-yet-charged budget
+    _reserved_usd: float = field(default=0.0, repr=False)
+    # FIX-001a: Async lock for atomic operations (lazy initialized)
+    _lock: Optional[asyncio.Lock] = field(default=None, repr=False)
+
+    def _get_lock(self) -> asyncio.Lock:
+        """Get or create asyncio.Lock lazily (must be called from async context)."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     @property
     def remaining_usd(self) -> float:
-        return max(0.0, self.max_usd - self.spent_usd)
+        """Get remaining budget excluding reserved amounts."""
+        return max(0.0, self.max_usd - self.spent_usd - self._reserved_usd)
 
     @property
     def elapsed_seconds(self) -> float:
@@ -734,6 +752,7 @@ class Budget:
         return max(0.0, self.max_time_seconds - self.elapsed_seconds)
 
     def can_afford(self, estimated_cost: float) -> bool:
+        """Check if budget can afford estimated cost (non-atomic, for non-concurrent use)."""
         return self.remaining_usd >= estimated_cost
 
     def time_remaining(self) -> bool:
@@ -746,15 +765,55 @@ class Budget:
         return max(0.0, self.phase_budget(phase) - self.phase_spent.get(phase, 0.0))
 
     def charge(self, amount: float, phase: str = "generation"):
+        """Charge actual spend to budget."""
         self.spent_usd += amount
         if phase in self.phase_spent:
             self.phase_spent[phase] += amount
+
+    async def reserve(self, amount: float) -> bool:
+        """
+        FIX-001a: Atomically reserve budget amount.
+        
+        Returns True if reservation succeeded, False if insufficient budget.
+        Must be called from async context.
+        """
+        if amount < 0:
+            raise ValueError("Reservation amount must be non-negative")
+        
+        async with self._get_lock():
+            available = self.max_usd - self.spent_usd - self._reserved_usd
+            if available >= amount:
+                self._reserved_usd += amount
+                return True
+            return False
+
+    async def commit_reservation(self, amount: float, phase: str = "generation"):
+        """
+        FIX-001a: Convert reservation to actual charge.
+        
+        Should be called after successful task execution.
+        If amount differs from reserved, adjusts accordingly.
+        """
+        async with self._get_lock():
+            if amount > 0:
+                self._reserved_usd = max(0.0, self._reserved_usd - amount)
+                self.charge(amount, phase)
+
+    async def release_reservation(self, amount: float):
+        """
+        FIX-001a: Release unused reservation.
+        
+        Should be called when task fails or is skipped.
+        """
+        async with self._get_lock():
+            self._reserved_usd = max(0.0, self._reserved_usd - amount)
 
     def to_dict(self) -> dict:
         return {
             "max_usd": self.max_usd,
             "spent_usd": round(self.spent_usd, 4),
             "remaining_usd": round(self.remaining_usd, 4),
+            "reserved_usd": round(self._reserved_usd, 4),
             "elapsed_seconds": round(self.elapsed_seconds, 1),
             "remaining_seconds": round(self.remaining_seconds, 1),
             "phase_spent": {k: round(v, 4) for k, v in self.phase_spent.items()},

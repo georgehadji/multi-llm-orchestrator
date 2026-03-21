@@ -49,6 +49,11 @@ from .plugin_isolation import (
 )
 from .log_config import get_logger
 
+try:
+    import resource
+except ModuleNotFoundError:
+    resource = None
+
 logger = get_logger(__name__)
 
 
@@ -423,7 +428,9 @@ class SecureIsolatedRuntime:
     
     def _set_resource_limits(self, config: SecureIsolationConfig) -> None:
         """Set process resource limits."""
-        import resource
+        if resource is None:
+            logger.debug("Resource limits skipped; resource module unavailable.")
+            return
         
         # Memory limit
         if config.memory_limit_mb > 0:

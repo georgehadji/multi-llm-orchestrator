@@ -13,6 +13,6 @@ try:
         DashboardLiveIntegration,
         run_live_dashboard,
     )
-    print("✅ All Live Dashboard imports successful")
+    print("[OK] All Live Dashboard imports successful")
 except Exception as e:
-    print(f"❌ Error: {e}")
+    print(f"[ERROR] Error: {e}")

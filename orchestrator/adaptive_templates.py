@@ -78,7 +78,8 @@ class TemplateVariant:
             return self.template.format(**kwargs)
         except KeyError as e:
             logger.warning(f"Missing template variable: {e}")
-            return self.template
+            safe_kwargs = defaultdict(str, kwargs)
+            return self.template.format_map(safe_kwargs)
     
     def get_hash(self) -> str:
         """Get hash of template for versioning."""
@@ -203,8 +204,10 @@ class ContextProfile:
                  ["low", "medium", "high"].index(other.complexity)) == 1:
             score += weights["complexity"] * 0.5
         
-        if self.domain and other.domain:
-            score += weights["domain"] if self.domain == other.domain else 0
+        domain_self = self.domain or "any"
+        domain_other = other.domain or "any"
+        if domain_self == domain_other:
+            score += weights["domain"]
         
         if self.code_size == other.code_size:
             score += weights["code_size"]
@@ -232,6 +235,7 @@ class AdaptiveTemplateSystem:
     def __init__(self, storage_path: Optional[Path] = None):
         self.storage_path = storage_path or Path(".adaptive_templates")
         self.storage_path.mkdir(exist_ok=True)
+        self._persistence_disabled = False
         
         # Template registry: (task_type, variant_name) -> TemplateVariant
         self._templates: Dict[Tuple[TaskType, str], TemplateVariant] = {}
@@ -282,15 +286,33 @@ class AdaptiveTemplateSystem:
     
     def _save_data(self) -> None:
         """Save performance data to disk."""
+        if self._persistence_disabled:
+            return
         try:
             data = {}
             for key, perf in self._performance.items():
-                data[":".join([k.value for k in key])] = perf.to_dict()
+                serialized_key = ":".join(
+                    k.value if hasattr(k, "value") else str(k)
+                    for k in key
+                )
+                data[serialized_key] = perf.to_dict()
             
             perf_file = self.storage_path / "performance.json"
             perf_file.write_text(json.dumps(data, indent=2, default=str))
+        except PermissionError as e:
+            logger.error(f"Failed to save performance data: {e}")
+            self._disable_persistence(e)
         except Exception as e:
             logger.error(f"Failed to save performance data: {e}")
+
+    def _disable_persistence(self, error: Exception) -> None:
+        if self._persistence_disabled:
+            return
+        self._persistence_disabled = True
+        logger.warning(
+            "Disabling disk persistence for AdaptiveTemplateSystem "
+            f"({self.storage_path}): {error}"
+        )
     
     def _init_default_templates(self) -> None:
         """Initialize default template variants."""

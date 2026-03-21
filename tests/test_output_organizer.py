@@ -15,6 +15,6 @@ try:
         suppress_cache_messages,
         CacheMessageSuppressor,
     )
-    print("✅ All Output Organizer imports successful")
+    print("[OK] All Output Organizer imports successful")
 except Exception as e:
-    print(f"❌ Error: {e}")
+    print(f"[ERROR] Error: {e}")
