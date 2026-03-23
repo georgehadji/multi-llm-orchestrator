@@ -2,9 +2,21 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
+from typing import Optional
 from .models import Model
 
 logger = logging.getLogger("orchestrator.architecture_advisor")
+
+
+# Nexus Search integration (lazy import to avoid circular dependencies)
+def _get_nexus_search():
+    """Lazy import of Nexus Search to avoid circular dependencies."""
+    try:
+        from orchestrator.nexus_search import search as nexus_search
+        from orchestrator.nexus_search import SearchSource
+        return nexus_search, SearchSource
+    except ImportError:
+        return None, None
 
 
 @dataclass
@@ -144,19 +156,24 @@ _TIMEOUT_S = 30
 class ArchitectureAdvisor:
     """
     Analyzes a project spec and decides optimal software architecture.
-
-    Replaces AppDetector. One LLM call returns app type + 4 architecture
-    dimensions. Prints a summary block to terminal (inform mode, no prompt).
+    
+    Nexus Search Integration:
+    - Searches latest architecture patterns and best practices
+    - Provides real-time data for architecture decisions
 
     Usage:
-        advisor = ArchitectureAdvisor()
+        advisor = ArchitectureAdvisor(nexus_enabled=True)
         decision = await advisor.analyze(description, criteria)
         # Always returns ArchitectureDecision, never raises
     """
 
-    def __init__(self, client=None):
-        """client: UnifiedClient instance (created lazily if None)."""
+    def __init__(self, client=None, nexus_enabled: bool = True):
+        """
+        client: UnifiedClient instance (created lazily if None).
+        nexus_enabled: Enable Nexus Search for architecture research (default: True)
+        """
         self._client = client
+        self.nexus_enabled = nexus_enabled
 
     def _get_client(self):
         if self._client is None:
@@ -164,28 +181,103 @@ class ArchitectureAdvisor:
             self._client = UnifiedClient()
         return self._client
 
+    async def _get_architecture_context(self, description: str) -> str:
+        """Get architecture context using Nexus Search.
+        
+        Parameters
+        ----------
+        description : str
+            Project description
+            
+        Returns
+        -------
+        str
+            Architecture context from search results, or empty string
+        """
+        if not self.nexus_enabled:
+            return ""
+        
+        nexus_search, SearchSource = _get_nexus_search()
+        if nexus_search is None:
+            logger.debug("Nexus Search not available")
+            return ""
+        
+        try:
+            # Extract key architecture-related terms
+            query = f"{description[:100]} architecture patterns best practices 2026"
+            
+            # Search for architecture patterns
+            results = await nexus_search(
+                query=query,
+                sources=[SearchSource.TECH, SearchSource.ACADEMIC],
+                num_results=5,
+            )
+            
+            # Build context from top results
+            context_parts = []
+            for result in results.top[:3]:
+                if result.content:
+                    context_parts.append(f"- {result.content}")
+            
+            if context_parts:
+                logger.info(f"Nexus Search found {len(context_parts)} architecture results")
+                return "\n".join(context_parts)
+        except Exception as e:
+            logger.debug(f"Nexus Search failed for architecture: {e}")
+        
+        return ""
+
     async def analyze(
         self,
         description: str,
         criteria: str,
         app_type_override: Optional[str] = None,
+        use_web_context: bool = True,
     ) -> ArchitectureDecision:
         """Decide architecture for this project.
 
         If app_type_override is provided (from YAML), skip LLM.
         Returns fallback defaults on any error, never raises.
+        
+        Parameters
+        ----------
+        description : str
+            Project description
+        criteria : str
+            Success criteria
+        app_type_override : Optional[str]
+            Override app type from YAML
+        use_web_context : bool
+            Use Nexus Search for architecture context (default: True)
         """
         if app_type_override:
             return self.detect_from_yaml(app_type_override)
+
+        # Get architecture context from Nexus Search
+        arch_context = ""
+        if use_web_context and self.nexus_enabled:
+            arch_context = await self._get_architecture_context(description)
 
         model = _select_model(description)
         model_label = "DeepSeek Reasoner" if model == Model.DEEPSEEK_REASONER else "DeepSeek Coder"
 
         try:
-            prompt = _USER_PROMPT_TEMPLATE.format(
-                description=description,
-                criteria=criteria,
-            )
+            # Build prompt with optional architecture context
+            if arch_context:
+                prompt = _USER_PROMPT_TEMPLATE.format(
+                    description=description,
+                    criteria=criteria,
+                )
+                prompt = (
+                    f"Latest Architecture Best Practices:\n{arch_context}\n\n"
+                    f"Consider these patterns when making architecture decisions.\n\n{prompt}"
+                )
+            else:
+                prompt = _USER_PROMPT_TEMPLATE.format(
+                    description=description,
+                    criteria=criteria,
+                )
+                
             response = await self._get_client().call(
                 model=model,
                 prompt=prompt,
