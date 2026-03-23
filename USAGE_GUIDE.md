@@ -1,6 +1,8 @@
 # Multi-LLM Orchestrator — Usage Guide
 
-**Version:** 2026.03 v6.1 | **Updated:** 2026-03-04 | **CLI & Python API Reference**
+**Version:** 2026.03 v6.2 | **Updated:** 2026-03-23 | **CLI & Python API Reference**
+
+**New in v6.2:** ARA Pipeline (12 Advanced Reasoning Methods) • **Nexus Search Integration** • Intelligent Method Selection • Cost-Aware Routing
 
 **New in v6.1:** Production Optimizations (-35% cost) • Command Center Dashboard • Tool Safety Validation
 
@@ -1459,6 +1461,636 @@ async def manual_analysis():
 
 asyncio.run(analyze_after_completion())
 ```
+
+---
+
+## 🧠 ARA Pipeline — Advanced Reasoning Methods
+
+**New in v6.2:** 12 sophisticated reasoning methods from cognitive science and decision research.
+
+### Overview
+
+The ARA Pipeline (Advanced Reasoning & Analysis) provides 12 distinct reasoning strategies optimized for specific problem types:
+
+| Method | Cost | Best For |
+|--------|------|----------|
+| **Multi-Perspective** | 4.0× | General problem analysis |
+| **Iterative** | 2.0× | Optimization, design refinement |
+| **Debate** | 2.5× | Strategic decisions, architecture |
+| **Research** | 1.5× | Evidence-based, current events |
+| **Jury** | 5.0× | High-stakes, critical code |
+| **Scientific** | 2.0× | Technical decisions, algorithms |
+| **Socratic** | 1.5× | Clarifying ambiguous requirements |
+| **Pre-Mortem** ⭐ | 1.8× | Risk assessment, project planning |
+| **Bayesian** | 2.2× | Decisions under uncertainty |
+| **Dialectical** | 2.0× | Philosophical conflicts, policy |
+| **Analogical** ⭐ | 1.9× | Innovation, cross-domain transfer |
+| **Delphi** | 3.5× | Predictions, expert consensus |
+
+⭐ **Recommended for most projects**
+
+### Quick Start
+
+```python
+import asyncio
+from orchestrator import Orchestrator, Budget
+from orchestrator.ara_integration import create_ara_integration
+
+async def use_ara_pipelines():
+    orch = Orchestrator(budget=Budget(max_usd=20.0))
+    
+    # Create ARA integration with auto-select
+    ara = create_ara_integration(
+        client=orch.client,
+        cache=orch.cache,
+        telemetry=orch._telemetry,
+        enabled=True,
+        auto_select=True,  # Auto-select method per task
+    )
+    
+    # Execute task with ARA pipeline
+    from orchestrator.models import Task, TaskType
+    
+    task = Task(
+        id="arch_001",
+        type=TaskType.REASONING,
+        prompt="Design authentication system for high-security financial app",
+        max_output_tokens=4000,
+    )
+    
+    result = await ara.execute_task_with_pipeline(task)
+    
+    print(f"Method used: {result.metadata['ara_method']}")
+    print(f"Score: {result.score}")
+    print(f"Output: {result.output[:200]}...")
+
+asyncio.run(use_ara_pipelines())
+```
+
+### Method Selection
+
+#### Automatic Selection (Recommended)
+
+```python
+from orchestrator.method_selector import select_method_for_task
+
+# Auto-select based on task characteristics
+selection = select_method_for_task(
+    task=task,
+    complexity="high",      # low, medium, high, critical
+    risk="high",            # low, medium, high, critical
+    use_llm=True,           # Use LLM for optimization
+    client=orch.client,
+)
+
+print(f"Recommended: {selection.method.value}")
+print(f"Confidence: {selection.confidence}")
+print(f"Rationale: {selection.rationale}")
+print(f"Cost multiplier: {selection.estimated_cost_multiplier}×")
+```
+
+#### Manual Method Selection
+
+```python
+from orchestrator.ara_pipelines import ReasoningMethod, PipelineFactory
+
+# Use Pre-Mortem for risk assessment
+pipeline = PipelineFactory.create(
+    method=ReasoningMethod.PRE_MORTEM,
+    client=orch.client,
+)
+
+result = await pipeline.execute(task)
+print(f"Failure narrative: {result.metadata.get('failure_narrative', '')[:300]}")
+print(f"Safeguards: {result.metadata.get('safeguards', [])}")
+```
+
+### Configuration
+
+#### Environment Variables
+
+```bash
+# Enable ARA pipelines
+export ORCHESTRATOR_ARA_ENABLED=true
+
+# Auto-select method per task
+export ORCHESTRATOR_ARA_AUTO_SELECT=true
+
+# Default method (if auto-select disabled)
+export ORCHESTRATOR_ARA_DEFAULT_METHOD=multi_perspective
+
+# Enable LLM optimization
+export ORCHESTRATOR_ARA_LLM_OPTIMIZATION=true
+
+# Cost constraints
+export ORCHESTRATOR_ARA_MAX_COST_MULTIPLIER=3.0
+export ORCHESTRATOR_ARA_MAX_TIME_MULTIPLIER=1.5
+
+# Method overrides for specific tasks
+export ORCHESTRATOR_ARA_METHOD_OVERRIDES='{"auth_task": "jury", "risk_task": "pre_mortem"}'
+```
+
+#### Python Configuration
+
+```python
+from orchestrator.ara_integration import create_ara_integration
+
+ara = create_ara_integration(
+    client=orch.client,
+    enabled=True,
+    auto_select=True,
+)
+
+# Configure constraints and overrides
+ara.configure(
+    enabled=True,
+    max_cost_multiplier=3.0,
+    max_time_multiplier=1.5,
+    method_overrides={
+        "authentication": "jury",      # Highest quality for auth
+        "payment_processing": "jury",  # Critical code
+        "deployment_plan": "pre_mortem",  # Risk assessment
+        "architecture_decision": "debate",  # Explore trade-offs
+    },
+)
+```
+
+### Method Selection Guide
+
+| Task Type | Complexity | Risk | Recommended Method |
+|-----------|------------|------|-------------------|
+| Code Generation | Low/Medium | Low | Multi-Perspective, Iterative |
+| Code Generation | High | Medium | Iterative |
+| Code Generation | Critical | High | Jury, Pre-Mortem |
+| Code Review | High | High | Jury, Pre-Mortem |
+| Architecture | Medium | Medium | Debate, Dialectical |
+| Risk Assessment | Any | High | Pre-Mortem ⭐ |
+| Innovation | Medium | Low | Analogical ⭐ |
+| Uncertainty | High | Medium | Bayesian |
+| Predictions | High | High | Delphi |
+| Requirements | Low | Low | Socratic |
+
+### Examples
+
+#### Example 1: High-Stakes Code Review with Jury
+
+```python
+from orchestrator.ara_pipelines import ReasoningMethod
+
+task = Task(
+    id="review_auth",
+    type=TaskType.CODE_REVIEW,
+    prompt="Review authentication module for security vulnerabilities",
+    max_output_tokens=4000,
+)
+
+pipeline = PipelineFactory.create(
+    method=ReasoningMethod.JURY,
+    client=orch.client,
+)
+
+result = await pipeline.execute(task)
+print(f"Security issues: {result.output[:500]}")
+```
+
+#### Example 2: Architecture Decision with Debate
+
+```python
+task = Task(
+    id="arch_decision",
+    type=TaskType.REASONING,
+    prompt="Should we use microservices or monolith for our startup?",
+    max_output_tokens=4000,
+)
+
+pipeline = PipelineFactory.create(
+    method=ReasoningMethod.DEBATE,
+    client=orch.client,
+)
+
+result = await pipeline.execute(task)
+print(f"Decision rationale: {result.output}")
+```
+
+#### Example 3: Risk Assessment with Pre-Mortem
+
+```python
+task = Task(
+    id="deployment_risk",
+    type=TaskType.REASONING,
+    prompt="Deploy new payment system to production",
+    max_output_tokens=4000,
+)
+
+pipeline = PipelineFactory.create(
+    method=ReasoningMethod.PRE_MORTEM,
+    client=orch.client,
+)
+
+result = await pipeline.execute(task)
+
+# Access pre-mortem insights
+print(f"Failure narrative: {result.metadata.get('failure_narrative', '')[:300]}")
+print(f"Root cause: {result.metadata.get('root_cause', '')[:200]}")
+print(f"Early signals: {result.metadata.get('early_signals', [])}")
+print(f"Safeguards: {result.metadata.get('safeguards', [])}")
+```
+
+#### Example 4: Innovation with Analogical Transfer
+
+```python
+task = Task(
+    id="ui_innovation",
+    type=TaskType.WRITING,
+    prompt="Design innovative UI for music creation app",
+    max_output_tokens=4000,
+)
+
+pipeline = PipelineFactory.create(
+    method=ReasoningMethod.ANALOGICAL,
+    client=orch.client,
+)
+
+result = await pipeline.execute(task)
+
+print(f"Source domains: {result.metadata.get('source_domains', [])}")
+print(f"Best analogy: {result.metadata.get('best_source', '')}")
+print(f"Solution: {result.output}")
+```
+
+#### Example 5: Full Project with Mixed Methods
+
+```python
+from orchestrator import Orchestrator, Budget
+from orchestrator.ara_integration import create_ara_integration
+
+orch = Orchestrator(budget=Budget(max_usd=50.0))
+ara = create_ara_integration(client=orch.client, auto_select=True)
+
+# Configure method overrides for critical tasks
+ara.configure(
+    method_overrides={
+        "auth": "jury",
+        "payment": "jury",
+        "deployment": "pre_mortem",
+        "architecture": "debate",
+    },
+    max_cost_multiplier=4.0,
+)
+
+# Run project with ARA pipelines
+state = await orch.run_project(
+    project_description="Build e-commerce platform with payment processing",
+    success_criteria="All tests pass, PCI compliant",
+    analyze_on_complete=True,
+)
+
+# Check ARA statistics
+stats = ara.get_stats()
+print(f"Tasks executed: {stats['tasks_executed']}")
+print(f"Method distribution: {ara.get_method_distribution()}")
+print(f"Avg cost multiplier: {stats['avg_cost_multiplier']:.2f}×")
+```
+
+### Monitoring Statistics
+
+```python
+# Get execution statistics
+stats = ara.get_stats()
+print(f"Tasks executed: {stats['tasks_executed']}")
+print(f"Methods used: {stats['methods_used']}")
+print(f"Average cost multiplier: {stats['avg_cost_multiplier']:.2f}×")
+print(f"Average time multiplier: {stats['avg_time_multiplier']:.2f}×")
+
+# Get method distribution as percentages
+distribution = ara.get_method_distribution()
+for method, percentage in distribution.items():
+    print(f"{method}: {percentage:.1f}%")
+```
+
+### Cost Planning
+
+```python
+from orchestrator.method_selector import METHOD_COST_MULTIPLIERS, ReasoningMethod
+
+# Estimate cost for project with multiple methods
+methods_needed = {
+    ReasoningMethod.MULTI_PERSPECTIVE: 8,  # 8 general tasks
+    ReasoningMethod.JURY: 2,               # 2 critical tasks
+    ReasoningMethod.PRE_MORTEM: 1,         # 1 risk assessment
+    ReasoningMethod.DEBATE: 1,             # 1 architecture decision
+}
+
+baseline_cost = 0.10  # Per task baseline
+total_cost = sum(
+    METHOD_COST_MULTIPLIERS[method] * count * baseline_cost
+    for method, count in methods_needed.items()
+)
+
+print(f"Estimated total cost: ${total_cost:.2f}")
+# Output: Estimated total cost: $0.98
+```
+
+### Troubleshooting
+
+**Issue: Method always returns Multi-Perspective**
+
+```python
+# Enable auto-select and LLM optimization
+ara.configure(
+    auto_select=True,
+    use_llm_for_selection=True,
+)
+```
+
+**Issue: High costs**
+
+```python
+# Set cost constraints
+ara.configure(
+    max_cost_multiplier=2.0,  # Limit to 2× baseline
+)
+
+# Or use cheaper default method
+ara.configure(
+    default_method=ReasoningMethod.ITERATIVE,  # 2.0× vs 4.0×
+)
+```
+
+**Issue: Pipeline execution fails**
+
+ARA pipelines automatically fallback to standard execution on errors. Check logs:
+
+```python
+import logging
+logging.getLogger("orchestrator").setLevel(logging.DEBUG)
+```
+
+### Additional Resources
+
+- **[ARA_PIPELINE_GUIDE.md](./ARA_PIPELINE_GUIDE.md)** — Complete guide with all 12 methods
+- **[orchestrator/ara_pipelines.py](./orchestrator/ara_pipelines.py)** — Pipeline implementations
+- **[orchestrator/method_selector.py](./orchestrator/method_selector.py)** — Method selection logic
+- **[orchestrator/ara_integration.py](./orchestrator/ara_integration.py)** — Integration layer
+
+---
+
+## 🔮 Nexus Search — Web Search Integration
+
+**New in v6.2:** Private, self-hosted web search for AI Orchestrator.
+
+Nexus Search provides intelligent web search capabilities powered by self-hosted search infrastructure. All searches are private, tracked-free, and integrated directly into the AI Orchestrator.
+
+### Features
+
+- 🔍 **Multi-Source Search** — Web, academic, tech, news, and code
+- 🧠 **Query Classification** — Automatic optimal source selection
+- 📚 **Deep Research** — Multi-step research with synthesis
+- 🔒 **Privacy-First** — No tracking, no profiling
+- 💰 **Zero Cost** — Self-hosted, no API fees
+- ⚡ **Fast** — Local deployment, minimal latency
+
+### Quick Start
+
+#### 1. Start Nexus Search
+
+```bash
+# Using Docker Compose
+docker-compose -f nexus-search.docker-compose.yml up -d
+
+# Check status
+docker ps | grep nexus-search
+```
+
+#### 2. Configure AI Orchestrator
+
+```bash
+# Add to .env
+export NEXUS_SEARCH_ENABLED=true
+export NEXUS_API_URL=http://localhost:8080
+```
+
+#### 3. Use in Code
+
+```python
+from orchestrator.nexus_search import search, research
+
+# Simple search
+results = await search("Python async best practices")
+for result in results.top:
+    print(f"{result.title}: {result.url}")
+
+# Deep research
+report = await research("Microservices architecture patterns 2026")
+print(f"Found {report.source_count} sources")
+print(f"Summary: {report.summary[:200]}...")
+```
+
+### CLI Commands
+
+```bash
+# Search the web
+python -m orchestrator nexus search "Python async best practices"
+python -m orchestrator nexus search "Microservices patterns" --sources tech,academic
+python -m orchestrator nexus search "CVE 2026" --json
+
+# Deep research
+python -m orchestrator nexus research "AI architecture patterns 2026"
+python -m orchestrator nexus research "Serverless best practices" --depth 5
+
+# Check status
+python -m orchestrator nexus status
+python -m orchestrator nexus status --json
+
+# Classify query
+python -m orchestrator nexus classify "How to build FastAPI service"
+python -m orchestrator nexus classify "Python async" --json
+```
+
+### Available Sources
+
+| Source | Description | Examples |
+|--------|-------------|----------|
+| **Web** | General web search | Google, Bing, DuckDuckGo |
+| **Academic** | Scholarly articles | Google Scholar, arXiv, PubMed |
+| **Tech** | Technology content | HackerNews, tech blogs |
+| **News** | News articles | Google News, Bing News |
+| **Code** | Code repositories | GitHub, Stack Overflow |
+
+### Integration Points
+
+#### 1. Project Enhancer
+
+Automatically searches latest best practices when enhancing projects.
+
+```python
+from orchestrator.enhancer import ProjectEnhancer
+
+enhancer = ProjectEnhancer(nexus_enabled=True)
+enhancements = await enhancer.analyze(
+    description="Build FastAPI service",
+    criteria="All endpoints tested",
+    use_web_context=True,  # Uses Nexus Search
+)
+```
+
+#### 2. Architecture Advisor
+
+Searches latest architecture patterns.
+
+```python
+from orchestrator.architecture_advisor import ArchitectureAdvisor
+
+advisor = ArchitectureAdvisor(nexus_enabled=True)
+decision = await advisor.analyze(
+    description="Real-time analytics dashboard",
+    criteria="Low latency, 10k users",
+    use_web_context=True,  # Uses Nexus Search
+)
+```
+
+#### 3. ARA Research Pipeline
+
+Uses Nexus for real web research (instead of LLM simulation).
+
+```python
+from orchestrator.ara_pipelines import PipelineFactory, ReasoningMethod
+
+pipeline = PipelineFactory.create(
+    method=ReasoningMethod.RESEARCH,
+    nexus_enabled=True,  # Uses real web search
+)
+result = await pipeline.execute(task)
+print(f"Sources found: {result.metadata.get('nexus_search', False)}")
+```
+
+#### 4. Project Analyzer
+
+Checks for security vulnerabilities (CVEs) in dependencies.
+
+```python
+from orchestrator.project_analyzer import ProjectAnalyzer
+
+analyzer = ProjectAnalyzer(nexus_enabled=True)
+report = await analyzer.analyze_project(
+    project_path=Path("./my_project"),
+    project_id="proj_123",
+)
+# Includes CVE vulnerability suggestions
+```
+
+### Configuration
+
+#### Environment Variables
+
+```bash
+# Enable/disable Nexus Search
+export NEXUS_SEARCH_ENABLED=true
+
+# Nexus API URL
+export NEXUS_API_URL=http://localhost:8080
+
+# Request timeout (seconds)
+export NEXUS_TIMEOUT=30
+
+# Maximum results per query
+export NEXUS_MAX_RESULTS=20
+
+# Rate limit (queries per minute)
+export NEXUS_RATE_LIMIT=60
+
+# Enable caching
+export NEXUS_CACHE_ENABLED=true
+
+# Cache TTL (seconds)
+export NEXUS_CACHE_TTL=3600
+```
+
+#### Python Configuration
+
+```python
+from orchestrator.nexus_search import configure
+
+configure(
+    enabled=True,
+    api_url="http://localhost:8080",
+    max_results=10,
+    cache_enabled=True,
+)
+```
+
+### API Reference
+
+#### Simple Search
+
+```python
+from orchestrator.nexus_search import search, SearchSource, OptimizationMode
+
+results = await search(
+    query="Python async",
+    sources=[SearchSource.WEB, SearchSource.TECH],
+    optimization=OptimizationMode.BALANCED,
+    num_results=10,
+)
+```
+
+#### Deep Research
+
+```python
+from orchestrator.nexus_search import research
+
+report = await research(
+    query="Microservices patterns",
+    depth=3,  # Number of iterations
+)
+
+print(f"Findings: {len(report.findings)}")
+print(f"Sources: {report.source_count}")
+print(f"Summary: {report.summary}")
+```
+
+#### Query Classification
+
+```python
+from orchestrator.nexus_search import classify, QueryType
+
+query_type = await classify("Python async best practices")
+# Returns: QueryType.RESEARCH
+```
+
+### Troubleshooting
+
+#### Nexus Search Not Available
+
+```bash
+# Check if container is running
+docker ps | grep nexus-search
+
+# Check logs
+docker logs nexus-search
+
+# Test health endpoint
+curl http://localhost:8080/healthz
+```
+
+#### Slow Searches
+
+```bash
+# Increase timeout
+export NEXUS_TIMEOUT=60
+
+# Reduce results
+export NEXUS_MAX_RESULTS=10
+```
+
+### Additional Resources
+
+| Resource | Purpose |
+|----------|---------|
+| [NEXUS_SEARCH_README.md](./NEXUS_SEARCH_README.md) | Complete Nexus Search documentation |
+| [nexus-search.docker-compose.yml](./nexus-search.docker-compose.yml) | Docker setup |
+| [nexus_config/settings.yml](./nexus_config/settings.yml) | Search configuration |
+| [orchestrator/nexus_search/](./orchestrator/nexus_search/) | Source code |
 
 ---
 

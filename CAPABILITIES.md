@@ -1,8 +1,10 @@
 # Multi-LLM Orchestrator — Opinionated Guide for Developers
 
-**Version:** 2026.03 v6.0 | **Updated:** 2026-03-02 | **Reading time:** 12 min
+**Version:** 2026.03 v6.2 | **Updated:** 2026-03-23 | **Reading time:** 15 min
 
 > **What is this?** An opinionated AI code generation platform that decomposes project specs into atomic tasks, routes each to the optimal LLM provider, and executes generate→critique→revise cycles until quality thresholds are met. Think of it as CI/CD for AI-generated code with built-in cost controls.
+
+**New in v6.2:** 🧠 ARA Pipeline — 12 Advanced Reasoning Methods from cognitive science (Pre-Mortem, Bayesian, Debate, Jury, Analogical, Delphi, and more)
 
 ---
 
@@ -56,6 +58,11 @@ python -m orchestrator \
 | **Nash Stability** | Competitive equilibrium where accumulated knowledge creates switching costs. |
 | **Fallback Chain** | Cross-provider backup models when primary fails (DeepSeek → GPT-4o → Gemini). |
 | **Architecture Decision** | LLM-generated structural pattern (hexagonal, microservices) that constrains all generated code. |
+| **ARA Pipeline** | Advanced Reasoning & Analysis — 12 cognitive strategies (Pre-Mortem, Bayesian, Debate, etc.) for complex decisions. |
+| **Method Selection** | Intelligent routing that selects optimal reasoning method based on task complexity, risk, and budget. |
+| **Pre-Mortem** | Risk assessment method that imagines project failure and works backward to identify prevention strategies. |
+| **Analogical Transfer** | Innovation method that maps solutions from unrelated domains to the target problem. |
+| **Jury Method** | High-stakes decision method with 4 generators, 3 critics, and meta-evaluation for maximum quality. |
 
 ---
 
@@ -434,7 +441,145 @@ Checkpointed state after each task:
 ---
 
 ### Module 5: Cognitive & Reasoning Layer
-> *Brain, Evaluation, Escalation, Checkpoints, Prompt Enhancement*
+> *Brain, Evaluation, Escalation, Checkpoints, Prompt Enhancement, ARA Pipelines*
+
+**🧠 ARA Pipeline — Advanced Reasoning Methods (v6.2)**
+
+> *12 sophisticated reasoning strategies from cognitive science and decision research, automatically selected based on task characteristics.*
+
+```python
+from orchestrator import Orchestrator, Budget
+from orchestrator.ara_integration import create_ara_integration
+
+orch = Orchestrator(budget=Budget(max_usd=20.0))
+
+# Create ARA integration with auto-select
+ara = create_ara_integration(
+    client=orch.client,
+    enabled=True,
+    auto_select=True,  # Auto-select method per task
+)
+
+# Execute task with intelligent method selection
+from orchestrator.models import Task, TaskType
+
+task = Task(
+    id="arch_001",
+    type=TaskType.REASONING,
+    prompt="Design authentication system for high-security financial app",
+)
+
+result = await ara.execute_task_with_pipeline(task)
+print(f"Method: {result.metadata['ara_method']}")  # e.g., "pre_mortem"
+```
+
+**12 Reasoning Methods:**
+
+| Method | Cost | Quality Gain | Best For |
+|--------|------|--------------|----------|
+| **Multi-Perspective** | 4.0× | +25% | General problem analysis |
+| **Iterative** | 2.0× | +35% | Optimization, design |
+| **Debate** | 2.5× | +40% | Architecture, trade-offs |
+| **Research** | 1.5× | +30% | Evidence-based decisions |
+| **Jury** | 5.0× | +50% | Critical code, high-stakes |
+| **Scientific** | 2.0× | +45% | Technical decisions |
+| **Socratic** | 1.5× | +25% | Clarifying requirements |
+| **Pre-Mortem** ⭐ | 1.8× | +45% | Risk assessment |
+| **Bayesian** | 2.2× | +50% | Uncertainty quantification |
+| **Dialectical** | 2.0× | +55% | Philosophical synthesis |
+| **Analogical** ⭐ | 1.9× | +55% | Cross-domain innovation |
+| **Delphi** | 3.5× | +60% | Expert consensus |
+
+⭐ **Recommended for most projects**
+
+**Method Selection (Automatic):**
+
+```python
+from orchestrator.method_selector import select_method_for_task
+
+# Auto-select based on task characteristics
+selection = select_method_for_task(
+    task=task,
+    complexity="high",      # low, medium, high, critical
+    risk="high",            # low, medium, high, critical
+    use_llm=True,           # LLM optimization
+    client=orch.client,
+)
+
+print(f"Recommended: {selection.method.value}")
+print(f"Rationale: {selection.rationale}")
+print(f"Confidence: {selection.confidence:.0%}")
+```
+
+**Example: Pre-Mortem Risk Assessment**
+
+```python
+from orchestrator.ara_pipelines import ReasoningMethod, PipelineFactory
+
+task = Task(
+    id="deployment",
+    type=TaskType.REASONING,
+    prompt="Deploy payment system to production",
+)
+
+# Use Pre-Mortem to identify failure modes
+pipeline = PipelineFactory.create(
+    method=ReasoningMethod.PRE_MORTEM,
+    client=orch.client,
+)
+
+result = await pipeline.execute(task)
+
+# Access insights
+print(f"Failure narrative: {result.metadata['failure_narrative'][:300]}")
+print(f"Root cause: {result.metadata['root_cause']}")
+print(f"Early signals: {result.metadata['early_signals']}")
+print(f"Safeguards: {result.metadata['safeguards']}")
+```
+
+**Example: Analogical Innovation**
+
+```python
+task = Task(
+    id="ui_design",
+    type=TaskType.WRITING,
+    prompt="Design innovative UI for music creation app",
+)
+
+pipeline = PipelineFactory.create(
+    method=ReasoningMethod.ANALOGICAL,
+    client=orch.client,
+)
+
+result = await pipeline.execute(task)
+
+print(f"Source domains: {result.metadata['source_domains']}")
+# Output: ["Video game level editors", "Cooking recipe apps", "Photo editing tools"]
+print(f"Solution: {result.output}")
+```
+
+**Configuration:**
+
+```bash
+# Environment variables
+export ORCHESTRATOR_ARA_ENABLED=true
+export ORCHESTRATOR_ARA_AUTO_SELECT=true
+export ORCHESTRATOR_ARA_MAX_COST_MULTIPLIER=3.0
+export ORCHESTRATOR_ARA_METHOD_OVERRIDES='{"auth": "jury", "risk": "pre_mortem"}'
+```
+
+**Statistics & Monitoring:**
+
+```python
+stats = ara.get_stats()
+print(f"Tasks: {stats['tasks_executed']}")
+print(f"Method distribution: {ara.get_method_distribution()}")
+print(f"Avg cost multiplier: {stats['avg_cost_multiplier']:.2f}×")
+```
+
+---
+
+**AI Brain & Cognitive Layer** (Legacy)
 
 **AI Brain & Cognitive Layer**
 
@@ -1139,6 +1284,7 @@ async for event in pipeline.execute_streaming(desc, criteria, budget):
 
 | Version | Date | Key Features |
 |---------|------|--------------|
+| **v6.2** | 2026-03-23 | 🧠 ARA Pipeline: 12 Advanced Reasoning Methods (Pre-Mortem, Bayesian, Debate, Jury, Analogical, Delphi, etc.), Intelligent Method Selection, Cost-Aware Routing |
 | **v6.0.1** | 2026-03-17 | SRE hardening: BUG-001–005 fixed (budget reservations, asyncio gather, RRF mutation, rate-limiter TOCTOU, OpenAI temperature); A2AQueueManager; CancelledError guard |
 | **v6.0** | 2026-03-02 | Black Swan Resilience: Event Store Corruption Protection, Plugin Sandbox Hardening, Streaming Backpressure |
 | **v5.3** | 2026-03-02 | Plugin System, Production Feedback Loop, Outcome-Weighted Routing, Model Leaderboard |

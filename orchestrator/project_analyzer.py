@@ -40,6 +40,17 @@ from .quality_control import QualityController, TestLevel
 logger = get_logger(__name__)
 
 
+# Nexus Search integration for security checks
+def _get_nexus_search():
+    """Lazy import of Nexus Search for security vulnerability checks."""
+    try:
+        from orchestrator.nexus_search import search as nexus_search
+        from orchestrator.nexus_search import SearchSource
+        return nexus_search, SearchSource
+    except ImportError:
+        return None, None
+
+
 class SuggestionPriority(Enum):
     """Priority levels for suggestions."""
     CRITICAL = "critical"  # Must fix - security, crashes
@@ -494,11 +505,84 @@ class ProjectAnalyzer:
             print(f"[{suggestion.priority.value}] {suggestion.title}")
     """
     
-    def __init__(self):
+    def __init__(self, nexus_enabled: bool = True):
         self.metrics_analyzer = CodeMetricsAnalyzer()
         self.architecture_analyzer = ArchitectureAnalyzer()
         self.suggester = ImprovementSuggester()
         self.quality_controller = QualityController()
+        self.nexus_enabled = nexus_enabled
+    
+    async def _check_security_vulnerabilities(
+        self,
+        project_path: Path,
+    ) -> List[ImprovementSuggestion]:
+        """
+        Check for security vulnerabilities using Nexus Search.
+        
+        Args:
+            project_path: Path to the project directory
+            
+        Returns:
+            List of security-related suggestions
+        """
+        if not self.nexus_enabled:
+            return []
+        
+        nexus_search, SearchSource = _get_nexus_search()
+        if nexus_search is None:
+            logger.debug("Nexus Search not available for security checks")
+            return []
+        
+        suggestions = []
+        
+        try:
+            # Look for requirements.txt or package.json
+            deps_file = project_path / "requirements.txt"
+            if deps_file.exists():
+                # Read dependencies
+                deps = []
+                with open(deps_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            # Extract package name
+                            pkg = line.split('==')[0].split('>=')[0].split('<=')[0]
+                            if pkg:
+                                deps.append(pkg)
+                
+                # Check top 5 dependencies for vulnerabilities
+                for dep in deps[:5]:
+                    try:
+                        results = await nexus_search(
+                            query=f"{dep} CVE vulnerability security 2026",
+                            sources=[SearchSource.WEB, SearchSource.NEWS],
+                            num_results=3,
+                        )
+                        
+                        # Check if any vulnerabilities found
+                        for result in results.top[:2]:
+                            if any(kw in result.title.lower() or kw in result.content.lower() 
+                                   for kw in ['cve', 'vulnerability', 'security', 'exploit']):
+                                suggestions.append(ImprovementSuggestion(
+                                    id=f"security_{dep}",
+                                    title=f"Check {dep} for vulnerabilities",
+                                    description=f"Potential security issues found in {dep}. Review the dependency for known CVEs.",
+                                    category=SuggestionCategory.SECURITY,
+                                    priority=SuggestionPriority.HIGH,
+                                    affected_files=[str(deps_file)],
+                                    estimated_effort="2h",
+                                    expected_impact="Improved security posture",
+                                    code_example=f"# Consider updating {dep} to latest secure version\n# pip install {dep} --upgrade",
+                                    rationale=f"Search results indicate potential vulnerabilities in {dep}",
+                                ))
+                                break  # One suggestion per dependency
+                    except Exception as e:
+                        logger.debug(f"Security check for {dep} failed: {e}")
+                        
+        except Exception as e:
+            logger.warning(f"Security vulnerability check failed: {e}")
+        
+        return suggestions
     
     async def analyze_project(
         self,
@@ -557,7 +641,10 @@ class ProjectAnalyzer:
                 test_coverage = quality_report.average_coverage
             except Exception as e:
                 logger.warning(f"Quality gate failed: {e}")
-        
+
+        # Security vulnerability check (Nexus Search)
+        security_suggestions = await self._check_security_vulnerabilities(project_path)
+
         # Generate suggestions
         suggestions = self.suggester.generate_suggestions(
             metrics={"total_lines": total_lines, "avg_complexity": avg_complexity},
@@ -565,6 +652,9 @@ class ProjectAnalyzer:
             architecture=architecture,
             project_path=project_path
         )
+        
+        # Add security suggestions
+        suggestions.extend(security_suggestions)
         
         # Calculate overall quality score
         quality_score = self._calculate_quality_score(

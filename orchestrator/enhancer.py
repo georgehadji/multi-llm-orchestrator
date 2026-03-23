@@ -5,6 +5,10 @@ Enhancement Module for Project Enhancer Feature
 Provides the Enhancement dataclass and pure utility functions for handling
 LLM-generated enhancement suggestions to improve project descriptions and
 success criteria before core decomposition runs.
+
+Nexus Search Integration:
+- Automatically searches latest best practices when enhancing projects
+- Provides real-time context for enhancement suggestions
 """
 
 from __future__ import annotations
@@ -12,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 from orchestrator.models import Model
 from orchestrator.api_clients import UnifiedClient
@@ -19,13 +24,24 @@ from orchestrator.api_clients import UnifiedClient
 logger = logging.getLogger("orchestrator.enhancer")
 
 
+# Nexus Search integration (lazy import to avoid circular dependencies)
+def _get_nexus_search():
+    """Lazy import of Nexus Search to avoid circular dependencies."""
+    try:
+        from orchestrator.nexus_search import search as nexus_search
+        from orchestrator.nexus_search import SearchSource
+        return nexus_search, SearchSource
+    except ImportError:
+        return None, None
+
+
 @dataclass(frozen=True)
 class Enhancement:
     """A single enhancement suggestion for a project description or criteria.
-    
+
     An Enhancement represents a specific suggestion to improve a project's
     description or success criteria. The enhancement is immutable (frozen).
-    
+
     Attributes
     ----------
     type : str
@@ -48,16 +64,16 @@ class Enhancement:
 
 def _select_enhance_model(description: str) -> Model:
     """Select the LLM model for enhancement suggestions based on description length.
-    
+
     Uses DEEPSEEK_REASONER (o1-class) for longer descriptions (>50 words)
     that may require deeper reasoning, and DEEPSEEK_CHAT for shorter
     descriptions that are simpler to enhance.
-    
+
     Parameters
     ----------
     description : str
         The project description
-    
+
     Returns
     -------
     Model
@@ -71,10 +87,10 @@ def _select_enhance_model(description: str) -> Model:
 
 def _parse_enhancements(llm_output: str) -> list[Enhancement]:
     """Parse LLM JSON response into Enhancement objects.
-    
+
     Gracefully handles all errors (invalid JSON, missing fields, type validation)
     by returning an empty list. Never raises exceptions.
-    
+
     Expected JSON format:
     [
         {
@@ -86,12 +102,12 @@ def _parse_enhancements(llm_output: str) -> list[Enhancement]:
         },
         ...
     ]
-    
+
     Parameters
     ----------
     llm_output : str
         JSON string from LLM containing enhancement suggestions
-    
+
     Returns
     -------
     list[Enhancement]
@@ -101,15 +117,15 @@ def _parse_enhancements(llm_output: str) -> list[Enhancement]:
         data = json.loads(llm_output)
         if not isinstance(data, list):
             return []
-        
+
         enhancements = []
         valid_types = {"completeness", "criteria", "risk"}
-        
+
         for item in data:
             try:
                 if not isinstance(item, dict):
                     return []
-                
+
                 # Check for required fields
                 required_fields = {
                     "type", "title", "description",
@@ -117,11 +133,11 @@ def _parse_enhancements(llm_output: str) -> list[Enhancement]:
                 }
                 if not required_fields.issubset(item.keys()):
                     return []
-                
+
                 # Validate type value
                 if item["type"] not in valid_types:
                     return []
-                
+
                 # Create Enhancement object
                 enhancement = Enhancement(
                     type=item["type"],
@@ -133,7 +149,7 @@ def _parse_enhancements(llm_output: str) -> list[Enhancement]:
                 enhancements.append(enhancement)
             except (KeyError, TypeError, ValueError):
                 return []
-        
+
         return enhancements
     except (json.JSONDecodeError, TypeError, ValueError):
         return []
@@ -180,29 +196,98 @@ class ProjectEnhancer:
     Generates enhancement suggestions to improve project descriptions and success
     criteria before core decomposition runs. Uses an LLM to analyze the project
     and suggest concrete improvements.
+    
+    Nexus Search Integration:
+    - Searches latest best practices for context
+    - Provides real-time data for enhancement suggestions
 
     Attributes
     ----------
     client : UnifiedClient
         Async LLM client for making enhancement generation requests
+    nexus_enabled : bool
+        Enable Nexus Search for web context
     """
 
-    def __init__(self, client: UnifiedClient | None = None):
+    def __init__(
+        self,
+        client: UnifiedClient | None = None,
+        nexus_enabled: bool = True,
+    ):
         """Initialize ProjectEnhancer with optional UnifiedClient.
 
         Parameters
         ----------
         client : UnifiedClient | None
             Optional pre-configured UnifiedClient. If None, creates a new instance.
+        nexus_enabled : bool
+            Enable Nexus Search integration (default: True)
         """
         self.client = client or UnifiedClient()
+        self.nexus_enabled = nexus_enabled
 
-    async def analyze(self, description: str, criteria: str) -> list[Enhancement]:
+    async def _get_web_context(self, description: str) -> str:
+        """Get web context using Nexus Search.
+        
+        Parameters
+        ----------
+        description : str
+            Project description
+            
+        Returns
+        -------
+        str
+            Web context from search results, or empty string if unavailable
+        """
+        if not self.nexus_enabled:
+            return ""
+        
+        nexus_search, SearchSource = _get_nexus_search()
+        if nexus_search is None:
+            logger.debug("Nexus Search not available")
+            return ""
+        
+        try:
+            # Extract key topics from description
+            words = description.split()[:10]  # First 10 words
+            query = f"{' '.join(words)} best practices 2026"
+            
+            # Search for best practices
+            results = await nexus_search(
+                query=query,
+                sources=[SearchSource.TECH, SearchSource.WEB],
+                num_results=5,
+            )
+            
+            # Build context from top results
+            context_parts = []
+            for result in results.top[:3]:
+                if result.content:
+                    context_parts.append(f"- {result.content}")
+            
+            if context_parts:
+                logger.info(f"Nexus Search found {len(context_parts)} relevant results for enhancement")
+                return "\n".join(context_parts)
+        except Exception as e:
+            logger.debug(f"Nexus Search failed for enhancement: {e}")
+        
+        return ""
+
+    async def analyze(
+        self,
+        description: str,
+        criteria: str,
+        use_web_context: bool = True,
+    ) -> list[Enhancement]:
         """Generate enhancement suggestions for a project description and criteria.
 
         Combines the description and criteria to select an appropriate model,
-        then prompts the LLM to suggest 3-7 concrete enhancements. The LLM
+        then prompts the LLM to suggest 3-7 concrete improvements. The LLM
         response is parsed into Enhancement objects.
+        
+        Nexus Search Integration:
+        - Searches latest best practices for context
+        - Includes real-time data in enhancement suggestions
 
         Parameters
         ----------
@@ -210,6 +295,8 @@ class ProjectEnhancer:
             The project description to enhance
         criteria : str
             The success criteria to enhance
+        use_web_context : bool
+            Use Nexus Search for web context (default: True)
 
         Returns
         -------
@@ -224,15 +311,31 @@ class ProjectEnhancer:
         - Graceful error handling: returns [] on any exception
         """
         try:
+            # Get web context from Nexus Search
+            web_context = ""
+            if use_web_context and self.nexus_enabled:
+                web_context = await self._get_web_context(description)
+            
             # Select model based on combined length
             combined = f"{description} {criteria}"
             model = _select_enhance_model(combined)
 
-            # Create LLM prompt
-            prompt = (
+            # Create LLM prompt with optional web context
+            prompt_parts = [
                 "You are a project specification expert. Analyze the following project description "
-                "and success criteria, then suggest 3-7 concrete improvements to make them more complete, realistic, and measurable.\n\n"
-                f"Project Description: {description}\n"
+                "and success criteria, then suggest 3-7 concrete improvements to make them more complete, realistic, and measurable.",
+            ]
+            
+            # Add web context if available
+            if web_context:
+                prompt_parts.append(
+                    "\n\nLatest Best Practices (from web search):\n"
+                    f"{web_context}\n"
+                    "\nIncorporate these best practices into your enhancement suggestions."
+                )
+            
+            prompt_parts.append(
+                f"\n\nProject Description: {description}\n"
                 f"Success Criteria: {criteria}\n\n"
                 "For each enhancement, provide the following information:\n"
                 "1. type: \"completeness\" | \"criteria\" | \"risk\"\n"
@@ -255,6 +358,8 @@ class ProjectEnhancer:
                 "]\n\n"
                 "Important: Return ONLY the JSON array, with no additional text or markdown formatting."
             )
+            
+            prompt = "".join(prompt_parts)
 
             # Call LLM via UnifiedClient
             llm_response = await self.client.call(
