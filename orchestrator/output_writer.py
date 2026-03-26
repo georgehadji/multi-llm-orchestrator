@@ -424,7 +424,8 @@ def _write_summary_json(
         if result.score > 0:
             scores.append(result.score)
 
-        s = result.status.value
+        # Handle both enum and string status values
+        s = result.status.value if hasattr(result.status, 'value') else str(result.status)
         if s == "completed":
             completed += 1
         elif s == "failed":
@@ -438,8 +439,8 @@ def _write_summary_json(
             "prompt": task.prompt if task else "",
             "status": s,
             "score": round(result.score, 4),
-            "model_used": result.model_used.value,
-            "reviewer_model": result.reviewer_model.value if result.reviewer_model else None,
+            "model_used": result.model_used.value if hasattr(result.model_used, 'value') else str(result.model_used),
+            "reviewer_model": result.reviewer_model.value if result.reviewer_model and hasattr(result.reviewer_model, 'value') else (str(result.reviewer_model) if result.reviewer_model else None),
             "iterations": result.iterations,
             "cost_usd": round(result.cost_usd, 6),
             "deterministic_check_passed": result.deterministic_check_passed,
@@ -462,7 +463,7 @@ def _write_summary_json(
         "project_id": project_id,
         "project_description": state.project_description,
         "success_criteria": state.success_criteria,
-        "status": state.status.value,
+        "status": state.status.value if hasattr(state.status, 'value') else str(state.status),
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "budget": state.budget.to_dict(),
         "tasks": tasks_list,
@@ -703,7 +704,7 @@ def _write_readme(
         "",
         f"**Project Type**: {project_type}  ",
         f"**Project ID**: `{project_id}`  ",
-        f"**Status**: `{state.status.value}`  ",
+        f"**Status**: `{state.status.value if hasattr(state.status, 'value') else str(state.status)}`  ",
         f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  ",
         f"**Budget used**: ${b.spent_usd:.4f} / ${b.max_usd} ({budget_pct:.1f}%)  ",
         f"**Time elapsed**: {b.elapsed_seconds:.1f}s  ",
@@ -729,14 +730,16 @@ def _write_readme(
         filename = file_map.get(task_id, task_id)
         task_type = task.type.value if task else "unknown"
         # Shorten model name for table readability
-        model_parts = result.model_used.value.split("-")
+        model_value = result.model_used.value if hasattr(result.model_used, 'value') else str(result.model_used)
+        model_parts = model_value.split("-")
         model_display = "-".join(model_parts[:2])
+        status_value = result.status.value if hasattr(result.status, 'value') else str(result.status)
         status_icon = {"completed": "✅", "failed": "❌", "degraded": "⚠️"}.get(
-            result.status.value, "~"
+            status_value, "~"
         )
         lines.append(
             f"| `{filename}` | {task_type} | {result.score:.3f} "
-            f"| {model_display} | {status_icon} {result.status.value} |"
+            f"| {model_display} | {status_icon} {status_value} |"
         )
 
     lines += [

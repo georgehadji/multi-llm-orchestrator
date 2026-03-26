@@ -202,6 +202,9 @@ class StateManager:
     Persistent connection with one-time schema init.
     """
 
+    # Connection timeout in seconds (prevents infinite hangs)
+    _CONN_TIMEOUT: float = 10.0
+
     def __init__(self, db_path: Path = DEFAULT_STATE_PATH):
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = str(db_path)
@@ -211,9 +214,11 @@ class StateManager:
     async def _get_conn(self) -> aiosqlite.Connection:
         """
         Get or create persistent connection with proper error handling.
-        
+
         BUG-DBCONN-001 FIX: Connection initialization is protected with
         try/except to ensure proper cleanup on error.
+        
+        FIX STATE-001: Added timeout to prevent infinite hangs on DB init.
         """
         if self._lock is None:
             self._lock = asyncio.Lock()
@@ -221,8 +226,18 @@ class StateManager:
             async with self._lock:
                 if self._conn is None:
                     try:
-                        self._conn = await aiosqlite.connect(self._db_path)
+                        # FIX STATE-001: Timeout prevents infinite hang
+                        self._conn = await asyncio.wait_for(
+                            aiosqlite.connect(self._db_path),
+                            timeout=self._CONN_TIMEOUT
+                        )
+                        # WAL mode for better concurrency
                         await self._conn.execute("PRAGMA journal_mode=WAL")
+                        # CRITICAL FIX: synchronous=FULL for durability on power failure
+                        # This ensures data is written to disk before commit returns
+                        await self._conn.execute("PRAGMA synchronous=FULL")
+                        # Additional durability settings
+                        await self._conn.execute("PRAGMA wal_autocheckpoint=0")  # Manual checkpoint control
                         await self._conn.executescript("""
                             CREATE TABLE IF NOT EXISTS projects (
                                 project_id TEXT PRIMARY KEY,
@@ -243,23 +258,27 @@ class StateManager:
                         await self._conn.commit()
                         # Run migration to add resume detection columns (idempotent)
                         migrate_add_resume_fields(self._db_path)
+                    except asyncio.TimeoutError:
+                        logger.error("State DB connection timed out after %ds", self._CONN_TIMEOUT)
+                        self._conn = None
+                        raise
                     except aiosqlite.Error as e:
-                        logger.error(f"Failed to initialize state connection: {e}")
+                        logger.error("Failed to initialize state connection: %s", e)
                         if self._conn is not None:
                             try:
                                 await self._conn.close()
                             except Exception:
                                 pass
-                            self._conn = None
+                        self._conn = None
                         raise
                     except Exception as e:
-                        logger.error(f"Unexpected error during state init: {e}")
+                        logger.error("Unexpected error during state init: %s", e)
                         if self._conn is not None:
                             try:
                                 await self._conn.close()
                             except Exception:
                                 pass
-                            self._conn = None
+                        self._conn = None
                         raise
         return self._conn
 
@@ -281,6 +300,8 @@ class StateManager:
              state.project_description, keywords_json)
         )
         await db.commit()
+        # CRITICAL FIX: Checkpoint WAL after project save for durability
+        await self._checkpoint_wal()
 
     async def save_checkpoint(self, project_id: str, task_id: str,
                               state: ProjectState):
@@ -292,7 +313,18 @@ class StateManager:
             (project_id, task_id, blob, time.time())
         )
         await db.commit()
+        # CRITICAL FIX: Checkpoint WAL to main database after critical writes
+        # This ensures data survives power failure
+        await self._checkpoint_wal()
         logger.info(f"Checkpoint saved: project={project_id}, task={task_id}")
+
+    async def _checkpoint_wal(self):
+        """Checkpoint WAL to main database file for durability."""
+        try:
+            db = await self._get_conn()
+            await db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception as e:
+            logger.warning(f"WAL checkpoint failed: {e}")
 
     async def load_project(self, project_id: str) -> Optional[ProjectState]:
         db = await self._get_conn()

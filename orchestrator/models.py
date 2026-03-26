@@ -111,6 +111,9 @@ class Model(str, Enum):
     GROK_3_MINI = "grok-3-mini"
     GROK_4 = "grok-4"
     GROK_4_1_FAST = "grok-4.1-fast"
+    GROK_4_20 = "grok-4.20"  # Latest model - industry-leading speed
+    GROK_4_20_REASONING = "grok-4.20-reasoning"  # Reasoning variant
+    GROK_4_LATEST = "grok-4-latest"  # Alias to latest grok-4
     
     # ═══════════════════════════════════════════════════════
     # COHERE MODELS
@@ -333,6 +336,8 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GROK_3_MINI:        {"input": 0.10,  "output": 0.30},
     Model.GROK_4:             {"input": 3.00,  "output": 15.00},
     Model.GROK_4_1_FAST:      {"input": 0.20,  "output": 0.50},
+    Model.GROK_4_20:          {"input": 0.25,  "output": 0.75},  # Latest model
+    Model.GROK_4_20_REASONING:{"input": 0.25,  "output": 0.75},  # Reasoning variant
     
     # ═══════════════════════════════════════════════════════
     # COHERE
@@ -423,8 +428,9 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
         Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheapest mainstream
         Model.ERNIE_SPEED_PRO,      # $0.08/$0.08 — cheapest from China
         Model.GPT_5_NANO,           # $0.05/$0.40 — OpenAI entry level
-        
+
         # Tier 2: Best value
+        Model.GROK_4_20,            # $0.25/$0.75 — NEW: fastest, 2M context
         Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — fast, good quality
         Model.QWEN_3_235B,          # $0.136/$0.544 — best Chinese value
         Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
@@ -459,10 +465,11 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # REASONING: Reasoning models prioritized
     TaskType.REASONING:    [
         # DEEPSEEK models moved to fallback - too slow (180s+)
+        Model.GROK_4_20_REASONING,  # NEW: Latest reasoning model
         Model.O3_MINI,              # $1.10/$4.40 — OpenAI reasoning
         Model.O4_MINI,              # $1.50/$6.00 — OpenAI reasoning
-        Model.QWEN_3_235B,          # $0.136/$0.544 — good reasoning
         Model.GROK_4_1_FAST,        # $0.20/$0.50 — 2M context reasoning
+        Model.QWEN_3_235B,          # $0.136/$0.544 — good reasoning
         Model.CLAUDE_OPUS_4_6,      # $5/$25 — most capable
         Model.O3,                   # $2/$8 — OpenAI mid-tier
         Model.GEMINI_PRO,           # $1.25/$10 — 2M context
@@ -485,17 +492,21 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     TaskType.DATA_EXTRACT: [
         Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest
         Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheapest mainstream
+        Model.GROK_4_20,            # NEW: 2M context for large documents
+        Model.GROK_4_1_FAST,        # 2M context
         Model.ERNIE_SPEED_PRO,      # $0.08/$0.08 — very cheap
         Model.GPT_5_NANO,           # $0.05/$0.40 — OpenAI cheap
         Model.QWEN_LONG,            # $0.10/$0.40 — 10M context for large data
         Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
         Model.QWEN_3_235B,          # $0.136/$0.544 — accurate
     ],
-    
+
     # SUMMARIZE: Cheap with good context
     TaskType.SUMMARIZE:    [
         Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest
         Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheap + good
+        Model.GROK_4_20,            # NEW: 2M context, fast
+        Model.GROK_4_1_FAST,        # 2M context for long documents
         Model.QWEN_LONG,            # $0.10/$0.40 — 10M context
         Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
         Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
@@ -503,6 +514,7 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     
     # EVALUATE: Reliable evaluation
     TaskType.EVALUATE:     [
+        Model.GROK_4_20,            # NEW: Fast, accurate evaluation
         Model.GPT_4O,               # Most reliable evaluator
         Model.QWEN_3_235B,          # $0.136/$0.544 — accurate & cheap
         Model.CLAUDE_HAIKU_4_5,     # $1/$5 — cheap Claude
@@ -536,10 +548,18 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     Model.CLAUDE_3_5_SONNET:   Model.GPT_4O,             # Claude Sonnet → GPT-4o
     Model.CLAUDE_3_OPUS:       Model.GPT_4O,             # Claude Opus → GPT-4o
     Model.CLAUDE_3_HAIKU:      Model.GPT_4O_MINI,        # Claude Haiku → GPT-4o-mini
-    
+
     # MiniMax fallback → OpenAI
     Model.MINIMAX_TEXT_01:     Model.GPT_4O,             # Minimax → GPT-4o
-    
+
+    # Grok fallbacks (xAI → cross-provider)
+    Model.GROK_4_20:           Model.GEMINI_FLASH,       # grok-4.20 → Gemini Flash
+    Model.GROK_4_20_REASONING: Model.O4_MINI,            # grok-4.20-reasoning → o4-mini
+    Model.GROK_4_1_FAST:       Model.GEMINI_FLASH,       # grok-4.1-fast → Gemini Flash
+    Model.GROK_4:              Model.GPT_4O,             # grok-4 → GPT-4o
+    Model.GROK_3:              Model.GPT_4O,             # grok-3 → GPT-4o
+    Model.GROK_3_MINI:         Model.GPT_4O_MINI,        # grok-3-mini → GPT-4o-mini
+
     # DeepSeek fallbacks → OpenAI (premium escalation)
     Model.DEEPSEEK_CHAT:       Model.GPT_4O,             # DeepSeek → GPT-4o
     Model.DEEPSEEK_REASONER:   Model.O4_MINI,            # R1 → o4-mini (both reasoning)
@@ -764,11 +784,17 @@ class Budget:
     def phase_remaining(self, phase: str) -> float:
         return max(0.0, self.phase_budget(phase) - self.phase_spent.get(phase, 0.0))
 
-    def charge(self, amount: float, phase: str = "generation"):
-        """Charge actual spend to budget."""
-        self.spent_usd += amount
-        if phase in self.phase_spent:
-            self.phase_spent[phase] += amount
+    async def charge(self, amount: float, phase: str = "generation"):
+        """
+        Charge actual spend to budget (thread-safe).
+        
+        FIX-BUG-001: Made async with lock to prevent race conditions when
+        multiple concurrent tasks charge simultaneously via asyncio.gather().
+        """
+        async with self._get_lock():
+            self.spent_usd += amount
+            if phase in self.phase_spent:
+                self.phase_spent[phase] += amount
 
     async def reserve(self, amount: float) -> bool:
         """
@@ -787,17 +813,25 @@ class Budget:
                 return True
             return False
 
-    async def commit_reservation(self, amount: float, phase: str = "generation"):
+    async def commit_reservation(self, actual_amount: float, phase: str = "generation"):
         """
         FIX-001a: Convert reservation to actual charge.
-        
+
         Should be called after successful task execution.
-        If amount differs from reserved, adjusts accordingly.
+        If actual amount differs from reserved, adjusts accordingly.
+        
+        FIX-BUG-001: Calls charge() separately to avoid nested lock acquisition.
+        
+        Args:
+            actual_amount: The actual cost incurred (may differ from reserved amount)
         """
         async with self._get_lock():
-            if amount > 0:
-                self._reserved_usd = max(0.0, self._reserved_usd - amount)
-                self.charge(amount, phase)
+            if actual_amount > 0:
+                # Release whatever was reserved (actual charge happens below)
+                reserved = self._reserved_usd
+                self._reserved_usd = 0.0
+        # Charge the actual amount (not the reserved amount)
+        await self.charge(actual_amount, phase)
 
     async def release_reservation(self, amount: float):
         """
@@ -910,3 +944,22 @@ def build_default_profiles() -> "dict[Model, ModelProfile]":
             capable_task_types=capability_map.get(model, {}),
         )
     return profiles
+
+
+# ─────────────────────────────────────────────
+# App Store Assets
+# ─────────────────────────────────────────────
+
+@dataclass
+class ProjectSpec:
+    """
+    Project specification for App Store asset generation.
+    
+    Attributes:
+        name: Project/app name
+        description: App description
+        criteria: Success criteria
+    """
+    name: str
+    description: str = ""
+    criteria: str = ""

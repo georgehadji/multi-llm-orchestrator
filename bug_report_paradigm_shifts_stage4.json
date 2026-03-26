@@ -1,0 +1,158 @@
+{
+  "protocol_version": "2.0",
+  "stage": "4",
+  "timestamp": "2026-03-26T02:35:00Z",
+  "patches": [
+    {
+      "bug_id": "BUG-PS-002",
+      "candidates": [
+        {
+          "id": "FIX-PS-002a",
+          "description": "Plugin sandboxing via subprocess with restricted capabilities",
+          "scores": {
+            "correctness": 0.95,
+            "safety": 0.9,
+            "compatibility": 0.7,
+            "maintainability": 0.8,
+            "performance": 0.6
+          },
+          "weighted_total": 0.82,
+          "approach": "isolation"
+        },
+        {
+          "id": "FIX-PS-002b",
+          "description": "Plugin allowlist + import restrictions + code signing",
+          "scores": {
+            "correctness": 0.85,
+            "safety": 0.8,
+            "compatibility": 0.9,
+            "maintainability": 0.85,
+            "performance": 0.9
+          },
+          "weighted_total": 0.85,
+          "approach": "restriction"
+        },
+        {
+          "id": "FIX-PS-002c",
+          "description": "Docker-based plugin execution (same as code sandbox)",
+          "scores": {
+            "correctness": 0.98,
+            "safety": 0.95,
+            "compatibility": 0.6,
+            "maintainability": 0.7,
+            "performance": 0.5
+          },
+          "weighted_total": 0.78,
+          "approach": "isolation"
+        }
+      ],
+      "selected": "FIX-PS-002b",
+      "rationale": "FIX-PS-002b (allowlist + restrictions + signing) provides best balance of security and usability. Full sandboxing (2a/2c) is ideal but breaks existing plugins. Start with restrictions, migrate to sandboxing in v2.",
+      "patch_diff": "```python\n# orchestrator/plugins.py - load() method\n\n# BEFORE (vulnerable):\nmodule = importlib.import_module(module_path)\nplugin_class = getattr(module, class_name)\nplugin = plugin_class(manifest)\n\n# AFTER (secured):\n# FIX-PS-002b: Plugin security hardening\n\n# 1. Verify plugin signature\nif not self._verify_plugin_signature(manifest):\n    raise SecurityError(f\"Plugin {manifest.name} signature verification failed\")\n\n# 2. Check against allowlist\nif manifest.entry_point not in self._allowed_entry_points:\n    raise SecurityError(f\"Plugin entry point not in allowlist: {manifest.entry_point}\")\n\n# 3. Restricted import in plugin module\nimport sys\noriginal_import = __builtins__.__import__\n\ndef restricted_import(name, *args, **kwargs):\n    # Block dangerous modules\n    dangerous_modules = ['os', 'subprocess', 'sys', 'ctypes', 'pickle']\n    if any(d in name for d in dangerous_modules):\n        raise ImportError(f\"Plugin not allowed to import {name}\")\n    return original_import(name, *args, **kwargs)\n\n__builtins__.__import__ = restricted_import\n\ntry:\n    module = importlib.import_module(module_path)\n    plugin_class = getattr(module, class_name)\n    plugin = plugin_class(manifest)\nfinally:\n    # Restore original import\n    __builtins__.__import__ = original_import\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Plugin load failures",
+          "Import errors in plugins",
+          "Signature verification failures"
+        ],
+        "rollback_triggers": [
+          ">50% of plugins fail to load",
+          "Critical plugins blocked"
+        ]
+      }
+    },
+    {
+      "bug_id": "BUG-PS-001",
+      "candidates": [
+        {
+          "id": "FIX-PS-001a",
+          "description": "Constant-time API key comparison using hmac.compare_digest",
+          "scores": {
+            "correctness": 0.95,
+            "safety": 0.9,
+            "compatibility": 0.95,
+            "maintainability": 0.9,
+            "performance": 0.9
+          },
+          "weighted_total": 0.92,
+          "approach": "cryptographic"
+        }
+      ],
+      "selected": "FIX-PS-001a",
+      "rationale": "FIX-PS-001a is the standard solution for secret comparison. hmac.compare_digest is designed to prevent timing attacks. Minimal code change, maximum security improvement.",
+      "patch_diff": "```python\n# orchestrator/tenancy.py - get_tenant_by_api_key()\n\n# BEFORE (vulnerable):\ndef get_tenant_by_api_key(self, api_key: str) -> Optional[Tenant]:\n    tenant_id = self.api_keys.get(api_key)\n    if tenant_id:\n        return self.tenants.get(tenant_id)\n    return None\n\n# AFTER (secured):\nimport hmac\n\ndef get_tenant_by_api_key(self, api_key: str) -> Optional[Tenant]:\n    # FIX-PS-001a: Constant-time comparison to prevent timing attacks\n    \n    # First, get all keys for constant-time iteration\n    found_tenant = None\n    for stored_key, tenant_id in self.api_keys.items():\n        # Constant-time comparison - always executes regardless of match\n        is_match = hmac.compare_digest(stored_key.encode(), api_key.encode())\n        if is_match:\n            found_tenant = self.tenants.get(tenant_id)\n            # Don't break - continue iterating to maintain constant time\n    \n    # Log failed attempt for security monitoring\n    if found_tenant is None:\n        logger.warning(f\"Failed API key authentication attempt\")\n    \n    return found_tenant\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Authentication latency",
+          "Failed auth attempts",
+          "Tenant complaints"
+        ],
+        "rollback_triggers": [
+          "Auth latency increases >100ms",
+          "Legitimate tenants locked out"
+        ]
+      }
+    },
+    {
+      "bug_id": "BUG-PS-004",
+      "candidates": [
+        {
+          "id": "FIX-PS-004a",
+          "description": "Require human review for ALL auto-deploys",
+          "scores": {
+            "correctness": 1.0,
+            "safety": 1.0,
+            "compatibility": 0.5,
+            "maintainability": 0.9,
+            "performance": 1.0
+          },
+          "weighted_total": 0.88,
+          "approach": "restrictive"
+        },
+        {
+          "id": "FIX-PS-004b",
+          "description": "Code signing + hash verification + canary deploy",
+          "scores": {
+            "correctness": 0.9,
+            "safety": 0.9,
+            "compatibility": 0.8,
+            "maintainability": 0.7,
+            "performance": 0.8
+          },
+          "weighted_total": 0.84,
+          "approach": "defensive"
+        },
+        {
+          "id": "FIX-PS-004c",
+          "description": "Lower confidence threshold + rollback testing",
+          "scores": {
+            "correctness": 0.8,
+            "safety": 0.75,
+            "compatibility": 0.9,
+            "maintainability": 0.85,
+            "performance": 0.9
+          },
+          "weighted_total": 0.82,
+          "approach": "incremental"
+        }
+      ],
+      "selected": "FIX-PS-004a",
+      "rationale": "FIX-PS-004a (require human review) is safest for initial release. Auto-deploy is too risky without mature verification. Can add code signing (4b) in v2.",
+      "patch_diff": "```python\n# orchestrator/deployment_feedback.py - _determine_escalation()\n\n# BEFORE (vulnerable):\ndef _determine_escalation(self, diagnosis: Diagnosis) -> EscalationLevel:\n    if diagnosis.confidence >= 0.9 and diagnosis.severity in [\"low\", \"medium\"]:\n        return EscalationLevel.AUTO\n    elif diagnosis.confidence >= self.config.escalation_threshold:\n        return EscalationLevel.REVIEW\n    else:\n        return EscalationLevel.HUMAN_REQUIRED\n\n# AFTER (secured):\ndef _determine_escalation(self, diagnosis: Diagnosis) -> EscalationLevel:\n    # FIX-PS-004a: Require human review for ALL auto-deploys\n    # Auto-deploy disabled until code signing + verification implemented\n    \n    # CRITICAL: Never auto-deploy without human review\n    # Rationale: LLM confidence scores are not reliable security guarantees\n    # Attacker can craft issues that trigger high-confidence malicious fixes\n    \n    if diagnosis.severity in [\"critical\", \"high\"]:\n        # Critical/high severity always requires human review\n        return EscalationLevel.HUMAN_REQUIRED\n    elif diagnosis.confidence >= 0.95:\n        # Very high confidence -> queue for review (not auto)\n        return EscalationLevel.REVIEW\n    else:\n        # All other cases require human intervention\n        return EscalationLevel.HUMAN_REQUIRED\n\n# Additional: Add code signing verification before deploy\nasync def _deploy_fix(self, fix: AutoFix, project_id: str, deployment_url: str) -> bool:\n    # FIX-PS-004a: Verify fix integrity before deploy\n    if not self._verify_fix_signature(fix):\n        logger.error(f\"Fix signature verification failed for {project_id}\")\n        return False\n    \n    # Deploy with rollback capability\n    # ...\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Review queue size",
+          "Time-to-resolution",
+          "Human reviewer workload"
+        ],
+        "rollback_triggers": [
+          "Review queue >100 items",
+          "MTTR increases >1 hour"
+        ]
+      }
+    }
+  ]
+}

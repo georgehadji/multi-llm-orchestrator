@@ -1,0 +1,152 @@
+{
+  "protocol_version": "2.0",
+  "stage": "1",
+  "timestamp": "2026-03-26T02:05:00Z",
+  "repository_map": {
+    "core_modules": [
+      {
+        "name": "orchestrator/engine.py",
+        "lines": "~4,200",
+        "responsibility": "Main orchestration control loop",
+        "entry_points": ["run_project()", "_execute_task()"],
+        "criticality": "CRITICAL"
+      },
+      {
+        "name": "orchestrator/tenancy.py",
+        "lines": "~550",
+        "responsibility": "Multi-tenant auth + quota enforcement",
+        "entry_points": ["TenantManager.create_tenant()", "check_quota()"],
+        "criticality": "CRITICAL"
+      },
+      {
+        "name": "orchestrator/deployment_feedback.py",
+        "lines": "~500",
+        "responsibility": "Autonomous monitoring + auto-fix",
+        "entry_points": ["DeploymentFeedbackLoop.monitor_and_fix()"],
+        "criticality": "CRITICAL"
+      },
+      {
+        "name": "orchestrator/plugins.py",
+        "lines": "~450",
+        "responsibility": "Third-party plugin execution",
+        "entry_points": ["PluginManager.load()", "run_hook()"],
+        "criticality": "CRITICAL"
+      },
+      {
+        "name": "orchestrator/test_first_generator.py",
+        "lines": "~450",
+        "responsibility": "TDD test generation + execution",
+        "entry_points": ["TestFirstGenerator.generate_with_tests()"],
+        "criticality": "HIGH"
+      },
+      {
+        "name": "orchestrator/cross_project_learning.py",
+        "lines": "~500",
+        "responsibility": "Cross-project pattern extraction",
+        "entry_points": ["CrossProjectLearning.extract_insights()"],
+        "criticality": "HIGH"
+      }
+    ],
+    "critical_paths": [
+      {
+        "path": "TenantManager.create_tenant() → API key generation",
+        "description": "Tenant authentication setup",
+        "risk": "CRITICAL"
+      },
+      {
+        "path": "TenantManager.check_quota() → run_project()",
+        "description": "Quota enforcement before execution",
+        "risk": "CRITICAL"
+      },
+      {
+        "path": "DeploymentFeedbackLoop._deploy_fix() → production",
+        "description": "Auto-deploy to production",
+        "risk": "CRITICAL"
+      },
+      {
+        "path": "PluginManager.load() → plugin.execute()",
+        "description": "Third-party code loading",
+        "risk": "CRITICAL"
+      },
+      {
+        "path": "TestFirstGenerator._run_tests_and_collect_results() → sandbox.execute()",
+        "description": "Test execution in sandbox",
+        "risk": "HIGH"
+      },
+      {
+        "path": "DesignToCodePipeline._analyze_with_vision() → vision API",
+        "description": "Image processing with vision models",
+        "risk": "MEDIUM"
+      }
+    ],
+    "stateful_components": [
+      "TenantManager.tenants (Dict[str, Tenant])",
+      "TenantManager.api_keys (Dict[str, str])",
+      "PluginManager.plugins (Dict[str, Plugin])",
+      "PluginManager.hooks (Dict[PluginHook, List[Callable]])",
+      "CrossProjectLearning.insights (List[Insight])",
+      "DeploymentFeedbackLoop.health_checks_run (counter)",
+      "BenchmarkRunner.results_dir (file system)"
+    ],
+    "external_dependencies": [
+      {"name": "pydantic", "version": ">=2.0", "usage": "Data validation"},
+      {"name": "httpx", "version": ">=0.24", "usage": "HTTP client (health checks)"},
+      {"name": "openai", "version": ">=1.30", "usage": "LLM API"},
+      {"name": "anthropic", "version": ">=0.42", "usage": "Claude API"},
+      {"name": "google-genai", "version": ">=1.0", "usage": "Gemini API"},
+      {"name": "docker", "version": "optional", "usage": "Sandbox execution"}
+    ],
+    "test_infrastructure": {
+      "framework": "pytest",
+      "coverage_estimate": "~15% (35 tests for 3,896 lines new code)",
+      "ci_pipeline": "GitHub Actions (workflows in .github/)",
+      "test_files": [
+        "tests/test_paradigm_shifts.py (17 tests)",
+        "tests/test_phase2_enhancements.py (18 tests)",
+        "tests/test_optimizations_tier1.py (30 tests)",
+        "tests/test_optimizations_tier2.py (32 tests)"
+      ]
+    },
+    "coding_conventions": {
+      "language": "Python 3.10+",
+      "type_system": "typing module (strict)",
+      "linter": "ruff",
+      "style": "PEP 8",
+      "async": "asyncio/await",
+      "logging": "get_logger() from orchestrator.log_config"
+    },
+    "dependency_graph": {
+      "tenancy.py": {
+        "callers": ["engine.py (via integration)", "api_server.py"],
+        "dependencies": ["secrets", "hashlib", "uuid", "json"],
+        "shared_state": ["tenants dict", "api_keys dict"]
+      },
+      "deployment_feedback.py": {
+        "callers": ["engine.py (via integration)"],
+        "dependencies": ["httpx", "asyncio", "orchestrator.api_clients"],
+        "shared_state": ["health_checks_run", "fixes_applied"]
+      },
+      "plugins.py": {
+        "callers": ["engine.py (via hooks)"],
+        "dependencies": ["importlib", "json", "pathlib"],
+        "shared_state": ["plugins dict", "hooks dict"]
+      },
+      "test_first_generator.py": {
+        "callers": ["engine.py (_execute_task)"],
+        "dependencies": ["orchestrator.api_clients", "orchestrator.code_executor"],
+        "shared_state": []
+      },
+      "cross_project_learning.py": {
+        "callers": ["engine.py (post-project)"],
+        "dependencies": ["json", "pathlib", "re"],
+        "shared_state": ["insights list", "patterns file"]
+      }
+    },
+    "concurrency_boundaries": [
+      "Async operations: All LLM calls (asyncio)",
+      "Shared state: TenantManager (dict access - potential race)",
+      "Plugin execution: Sequential (no parallel plugin loading)",
+      "Health monitoring: asyncio.create_task() for background loop"
+    ]
+  }
+}

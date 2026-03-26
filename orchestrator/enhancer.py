@@ -2,13 +2,12 @@
 Enhancement Module for Project Enhancer Feature
 ================================================
 
-Provides the Enhancement dataclass and pure utility functions for handling
-LLM-generated enhancement suggestions to improve project descriptions and
-success criteria before core decomposition runs.
+Provides the Enhancement dataclass and pure utility functions for improving
+project descriptions and success criteria before core decomposition runs.
 
-Nexus Search Integration:
-- Automatically searches latest best practices when enhancing projects
-- Provides real-time context for enhancement suggestions
+Integrations:
+- Nexus Search: Web search for best practices
+- X Search (xAI): Real-time X/Twitter trends and discussions
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ from orchestrator.api_clients import UnifiedClient
 logger = logging.getLogger("orchestrator.enhancer")
 
 
-# Nexus Search integration (lazy import to avoid circular dependencies)
+# Nexus Search integration (lazy import)
 def _get_nexus_search():
     """Lazy import of Nexus Search to avoid circular dependencies."""
     try:
@@ -33,6 +32,16 @@ def _get_nexus_search():
         return nexus_search, SearchSource
     except ImportError:
         return None, None
+
+
+# X Search integration (lazy import)
+def _get_x_search():
+    """Lazy import of X Search to avoid circular dependencies."""
+    try:
+        from orchestrator.xai_search import XSearchClient
+        return XSearchClient
+    except ImportError:
+        return None
 
 
 @dataclass(frozen=True)
@@ -196,10 +205,11 @@ class ProjectEnhancer:
     Generates enhancement suggestions to improve project descriptions and success
     criteria before core decomposition runs. Uses an LLM to analyze the project
     and suggest concrete improvements.
-    
-    Nexus Search Integration:
-    - Searches latest best practices for context
-    - Provides real-time data for enhancement suggestions
+
+    Integrations:
+    - Nexus Search: Web search for best practices
+    - X Search (xAI): Real-time X/Twitter trends and discussions
+    - Both can be used together for comprehensive context
 
     Attributes
     ----------
@@ -207,12 +217,15 @@ class ProjectEnhancer:
         Async LLM client for making enhancement generation requests
     nexus_enabled : bool
         Enable Nexus Search for web context
+    x_search_enabled : bool
+        Enable X Search for X/Twitter trends
     """
 
     def __init__(
         self,
         client: UnifiedClient | None = None,
         nexus_enabled: bool = True,
+        x_search_enabled: bool = False,
     ):
         """Initialize ProjectEnhancer with optional UnifiedClient.
 
@@ -222,55 +235,134 @@ class ProjectEnhancer:
             Optional pre-configured UnifiedClient. If None, creates a new instance.
         nexus_enabled : bool
             Enable Nexus Search integration (default: True)
+        x_search_enabled : bool
+            Enable X Search integration (default: False)
         """
         self.client = client or UnifiedClient()
         self.nexus_enabled = nexus_enabled
+        self.x_search_enabled = x_search_enabled
 
     async def _get_web_context(self, description: str) -> str:
-        """Get web context using Nexus Search.
-        
+        """Get web context using Nexus Search and/or X Search.
+
+        Combines results from:
+        - Nexus Search: Web and technical sources
+        - X Search: Real-time X/Twitter discussions and trends
+
         Parameters
         ----------
         description : str
             Project description
-            
+
         Returns
         -------
         str
-            Web context from search results, or empty string if unavailable
+            Combined web context from all enabled sources, or empty string
         """
-        if not self.nexus_enabled:
-            return ""
-        
+        context_parts = []
+
+        # Nexus Search context
+        if self.nexus_enabled:
+            nexus_context = await self._get_nexus_context(description)
+            if nexus_context:
+                context_parts.append(f"Web Research:\n{nexus_context}")
+
+        # X Search context
+        if self.x_search_enabled:
+            x_context = await self._get_x_search_context(description)
+            if x_context:
+                context_parts.append(f"X/Twitter Trends:\n{x_context}")
+
+        if context_parts:
+            logger.info(f"Enhancement: Collected context from {len(context_parts)} sources")
+            return "\n\n".join(context_parts)
+
+        return ""
+
+    async def _get_nexus_context(self, description: str) -> str:
+        """Get context from Nexus Search."""
         nexus_search, SearchSource = _get_nexus_search()
         if nexus_search is None:
             logger.debug("Nexus Search not available")
             return ""
-        
+
         try:
             # Extract key topics from description
             words = description.split()[:10]  # First 10 words
             query = f"{' '.join(words)} best practices 2026"
-            
+
             # Search for best practices
             results = await nexus_search(
                 query=query,
                 sources=[SearchSource.TECH, SearchSource.WEB],
                 num_results=5,
             )
-            
+
             # Build context from top results
             context_parts = []
             for result in results.top[:3]:
                 if result.content:
                     context_parts.append(f"- {result.content}")
-            
+
             if context_parts:
-                logger.info(f"Nexus Search found {len(context_parts)} relevant results for enhancement")
+                logger.info(f"Nexus Search found {len(context_parts)} relevant results")
                 return "\n".join(context_parts)
         except Exception as e:
-            logger.debug(f"Nexus Search failed for enhancement: {e}")
-        
+            logger.debug(f"Nexus Search failed: {e}")
+
+        return ""
+
+    async def _get_x_search_context(self, description: str) -> str:
+        """Get context from X Search (xAI).
+
+        Searches X/Twitter for:
+        - Latest trends related to the project
+        - Real-time discussions
+        - Industry expert opinions
+
+        Parameters
+        ----------
+        description : str
+            Project description
+
+        Returns
+        -------
+        str
+            X Search context summary, or empty string if unavailable
+        """
+        XSearchClient = _get_x_search()
+        if XSearchClient is None:
+            logger.debug("X Search not available")
+            return ""
+
+        try:
+            async with XSearchClient() as x_client:
+                # Extract key topics
+                words = description.split()[:8]
+                query = f"{' '.join(words)} trends"
+
+                # Search X posts
+                results = await x_client.search_posts(
+                    query=query,
+                    count=5,
+                    sort="latest",
+                )
+
+                if results.posts:
+                    # Build summary from top posts
+                    summaries = []
+                    for post in results.posts[:3]:
+                        verified_badge = "✓" if post.verified else ""
+                        summaries.append(
+                            f"- @{post.author_handle}{verified_badge}: {post.text[:150]}..."
+                        )
+
+                    logger.info(f"X Search found {len(results.posts)} posts for enhancement")
+                    return "\n".join(summaries)
+
+        except Exception as e:
+            logger.debug(f"X Search failed: {e}")
+
         return ""
 
     async def analyze(

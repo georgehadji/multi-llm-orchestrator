@@ -149,27 +149,44 @@ class Tracer:
     def end_span(self, span: Span, status: str = "OK"):
         """
         End a span that was started with start_span.
-        
+
         Args:
             span: The span to end
             status: Status to set on the span
         """
         if not self.enabled:
             return
-        
+
         span.end_time = span._get_timestamp()
         span.set_status(status)
-        
+
         # Remove from active spans if it's the current one
         if self.active_spans and self.active_spans[-1] == span:
             self.active_spans.pop()
-        
+
         # Add to buffer for export
         self.span_buffer.append(span)
-        
+
         # Export if buffer is full
         if len(self.span_buffer) >= 10:
             self._export_spans()
+
+    @contextmanager
+    def start_as_current_span(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> Generator[Span, None, None]:
+        """
+        Start a span and make it the current active span (OpenTelemetry-style API).
+        
+        This is an alias for trace() to maintain compatibility with OpenTelemetry patterns.
+
+        Args:
+            name: Name of the span
+            attributes: Attributes to attach to the span
+
+        Yields:
+            Span: The created span
+        """
+        with self.trace(name, attributes) as span:
+            yield span
     
     def add_tracing_attributes(self, **kwargs):
         """

@@ -13,22 +13,22 @@ print("="*60)
 print("\n1. Direct module import...")
 try:
     from orchestrator import dashboard_mission_control as dmc
-    print(f"[OK] Module: {dmc}")
-    print(f"[OK] Has run_mission_control: {hasattr(dmc, 'run_mission_control')}")
+    print(f"✅ Module: {dmc}")
+    print(f"✅ Has run_mission_control: {hasattr(dmc, 'run_mission_control')}")
     if hasattr(dmc, 'run_mission_control'):
         print(f"   Value: {dmc.run_mission_control}")
 except Exception as e:
-    print(f"[ERROR] Error: {e}")
+    print(f"❌ Error: {e}")
     import traceback
     traceback.print_exc()
 
 print("\n2. Import via orchestrator package...")
 try:
     from orchestrator import run_mission_control, MissionControlServer
-    print(f"[OK] run_mission_control: {run_mission_control}")
-    print(f"[OK] MissionControlServer: {MissionControlServer}")
+    print(f"✅ run_mission_control: {run_mission_control}")
+    print(f"✅ MissionControlServer: {MissionControlServer}")
 except Exception as e:
-    print(f"[ERROR] Error: {e}")
+    print(f"❌ Error: {e}")
     import traceback
     traceback.print_exc()
 

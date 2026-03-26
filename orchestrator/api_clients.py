@@ -68,6 +68,7 @@ class UnifiedClient:
     - Retry with exponential backoff (all providers)
     - Timeout enforcement (connect + read timeouts)
     - Concurrency limiting
+    - Regional endpoint support (xAI Grok)
     """
 
     # Default timeouts (seconds)
@@ -75,13 +76,33 @@ class UnifiedClient:
     DEFAULT_READ_TIMEOUT: float = 60.0      # Time to read response
     DEFAULT_TOTAL_TIMEOUT: float = 90.0     # Total request timeout
 
+    # xAI Regions
+    XAI_REGIONS = {
+        None: "https://api.x.ai/v1",  # Global (auto-route)
+        "us-east-1": "https://us-east-1.api.x.ai/v1",
+        "eu-west-1": "https://eu-west-1.api.x.ai/v1",
+    }
+
     def __init__(self, cache: Optional[DiskCache] = None,
                  max_concurrency: int = 3,
                  connect_timeout: Optional[float] = None,
-                 read_timeout: Optional[float] = None):
+                 read_timeout: Optional[float] = None,
+                 xai_region: Optional[str] = None):
+        """
+        Initialize UnifiedClient.
+        
+        Args:
+            cache: Disk cache for responses
+            max_concurrency: Maximum concurrent requests
+            connect_timeout: Connection timeout in seconds
+            read_timeout: Read timeout in seconds
+            xai_region: xAI Grok region (None=global, "us-east-1", "eu-west-1")
+        """
         self.cache = cache or DiskCache()
         self.semaphore = asyncio.Semaphore(max_concurrency)
         self._clients: dict[str, object] = {}
+        self.xai_region = xai_region or os.environ.get("XAI_REGION")
+        
         # Timeout configuration
         self._connect_timeout = connect_timeout or self.DEFAULT_CONNECT_TIMEOUT
         self._read_timeout = read_timeout or self.DEFAULT_READ_TIMEOUT
@@ -192,18 +213,21 @@ class UnifiedClient:
         except ImportError:
             logger.warning("openai package not installed (needed for Mistral)")
         
-        # xAI Grok (api.x.ai) — OpenAI-compatible API
+        # xAI Grok (api.x.ai) — OpenAI-compatible API with regional support
         try:
             xai_key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
             if xai_key:
                 from openai import AsyncOpenAI
+                # Get regional endpoint (or global if not specified)
+                xai_base_url = self.XAI_REGIONS.get(self.xai_region, self.XAI_REGIONS[None])
                 self._clients["xai"] = AsyncOpenAI(
                     api_key=xai_key,
-                    base_url="https://api.x.ai/v1",
+                    base_url=xai_base_url,
                     timeout=timeout,
                     max_retries=0,
                 )
-                logger.info("xAI client initialized")
+                region_info = f" ({self.xai_region})" if self.xai_region else " (global)"
+                logger.info(f"xAI client initialized{region_info} → {xai_base_url}")
         except ImportError:
             logger.warning("openai package not installed (needed for xAI)")
         
@@ -276,9 +300,10 @@ class UnifiedClient:
                 # For now, mark as available but requires custom implementation
                 self._clients["baidu"] = "baidu"  # Placeholder
                 logger.info("Baidu Ernie configured (requires custom handler)")
-        except Exception:
-            pass
-        
+        except Exception as e:
+            # FIX API-001: Log init errors instead of silently swallowing
+            logger.warning("Failed to initialize Baidu Ernie: %s: %s", type(e).__name__, e)
+
         # Moonshot Kimi (api.moonshot.cn) — OpenAI-compatible API
         try:
             moonshot_key = os.environ.get("MOONSHOT_API_KEY")
@@ -293,7 +318,7 @@ class UnifiedClient:
                 logger.info("Moonshot Kimi client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for Moonshot)")
-        
+
         # Tencent Hunyuan — Requires special handling
         try:
             # Support TENCENTCLOUD_SECRET_ID/KEY or HUNYUAN_API_KEY
@@ -303,17 +328,19 @@ class UnifiedClient:
             if (tencent_secret_id and tencent_secret_key) or tencent_key:
                 self._clients["tencent"] = "tencent"  # Placeholder
                 logger.info("Tencent Hunyuan configured (requires custom handler)")
-        except Exception:
-            pass
-        
+        except Exception as e:
+            # FIX API-001: Log init errors instead of silently swallowing
+            logger.warning("Failed to initialize Tencent Hunyuan: %s: %s", type(e).__name__, e)
+
         # Baichuan — Requires special handling
         try:
             baichuan_key = os.environ.get("BAICHUAN_API_KEY")
             if baichuan_key:
                 self._clients["baichuan"] = "baichuan"  # Placeholder
                 logger.info("Baichuan configured (requires custom handler)")
-        except Exception:
-            pass
+        except Exception as e:
+            # FIX API-001: Log init errors instead of silently swallowing
+            logger.warning("Failed to initialize Baichuan: %s: %s", type(e).__name__, e)
 
     def is_available(self, model: Model) -> bool:
         provider = get_provider(model)
@@ -408,6 +435,10 @@ class UnifiedClient:
                         temperature: float) -> APIResponse:
         provider = get_provider(model)
 
+        # Check for reasoning models first (grok-4.20-reasoning, grok-4, etc.)
+        if self._is_reasoning_model(model):
+            return await self._call_reasoning_model(model, prompt, system, max_tokens, temperature)
+
         if provider == "openai":
             return await self._call_openai(model, prompt, system, max_tokens, temperature)
         elif provider == "google":
@@ -434,6 +465,122 @@ class UnifiedClient:
             raise NotImplementedError("Baichuan requires custom implementation.")
         else:
             raise ValueError(f"Unknown provider for {model.value}: {provider}")
+    
+    def _is_reasoning_model(self, model: Model) -> bool:
+        """Check if model is a reasoning model requiring special handling."""
+        reasoning_models = {
+            "grok-4.20-reasoning",
+            "grok-4-reasoning",
+            "grok-4",
+            "grok-3",
+            "grok-3-mini",
+            "o1", "o1-preview",
+            "o3", "o3-mini",
+            "o4-mini",
+            "deepseek-reasoner",
+            "deepseek-r1",
+        }
+        return model.value in reasoning_models
+    
+    async def _call_reasoning_model(self, model: Model, prompt: str,
+                                    system: str, max_tokens: int,
+                                    temperature: float) -> APIResponse:
+        """
+        Call reasoning model with special handling.
+        
+        Reasoning models:
+        - Require longer timeouts (3600s recommended)
+        - grok-3-mini supports reasoning_effort parameter (low/high)
+        - grok-4/grok-4.20 require encrypted content via Responses API
+        - Do not support presence_penalty, frequency_penalty, stop
+        """
+        from openai import AsyncOpenAI
+        
+        client = self._clients.get("xai") or self._clients.get("openai")
+        if not client:
+            raise RuntimeError("xAI or OpenAI client not initialized")
+        
+        # Extended timeout for reasoning
+        reasoning_timeout = 3600  # 1 hour for complex reasoning
+        
+        try:
+            # grok-3-mini supports reasoning_effort parameter
+            if model.value == "grok-3-mini":
+                messages = []
+                if system:
+                    messages.append({"role": "system", "content": system})
+                messages.append({"role": "user", "content": prompt})
+                
+                response = await client.chat.completions.create(
+                    model=model.value,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    reasoning_effort="high",  # or "low"
+                    timeout=reasoning_timeout,
+                )
+                
+                choice = response.choices[0]
+                usage = response.usage
+                
+                # Extract reasoning content if available
+                reasoning_content = getattr(choice.message, "reasoning_content", None)
+                
+                return APIResponse(
+                    text=choice.message.content or "",
+                    input_tokens=usage.prompt_tokens if usage else 0,
+                    output_tokens=usage.completion_tokens if usage else 0,
+                    model=model,
+                )
+            
+            # grok-4, grok-4.20 use Responses API with encrypted content
+            elif model.value in ["grok-4", "grok-4.20", "grok-4.20-reasoning"]:
+                # Use Responses API for grok-4 variants
+                messages = []
+                if system:
+                    messages.append({"role": "developer", "content": system})  # grok uses "developer" role
+                messages.append({"role": "user", "content": prompt})
+                
+                response = await client.responses.create(
+                    model=model.value,
+                    input=messages,
+                    include=["reasoning.encrypted_content"],  # Get encrypted reasoning
+                    timeout=reasoning_timeout,
+                )
+                
+                return APIResponse(
+                    text=response.output_text or "",
+                    input_tokens=response.usage.input_tokens if response.usage else 0,
+                    output_tokens=response.usage.output_tokens if response.usage else 0,
+                    model=model,
+                )
+            
+            # Other reasoning models (o1, o3, o4, deepseek-reasoner)
+            else:
+                messages = []
+                if system:
+                    messages.append({"role": "system", "content": system})
+                messages.append({"role": "user", "content": prompt})
+                
+                response = await client.chat.completions.create(
+                    model=model.value,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    timeout=reasoning_timeout,
+                )
+                
+                choice = response.choices[0]
+                usage = response.usage
+                
+                return APIResponse(
+                    text=choice.message.content or "",
+                    input_tokens=usage.prompt_tokens if usage else 0,
+                    output_tokens=usage.completion_tokens if usage else 0,
+                    model=model,
+                )
+        
+        except Exception as e:
+            logger.warning(f"Reasoning model call failed: {e}")
+            raise
 
     async def _call_openai(self, model: Model, prompt: str,
                             system: str, max_tokens: int,
