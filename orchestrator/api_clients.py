@@ -23,11 +23,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
-from typing import Optional
 
-from .models import Model, get_provider, estimate_cost
 from .cache import DiskCache
+from .models import Model, estimate_cost, get_provider
 from .tracing import traced_llm_call
 
 logger = logging.getLogger("orchestrator.api")
@@ -83,14 +83,14 @@ class UnifiedClient:
         "eu-west-1": "https://eu-west-1.api.x.ai/v1",
     }
 
-    def __init__(self, cache: Optional[DiskCache] = None,
+    def __init__(self, cache: DiskCache | None = None,
                  max_concurrency: int = 3,
-                 connect_timeout: Optional[float] = None,
-                 read_timeout: Optional[float] = None,
-                 xai_region: Optional[str] = None):
+                 connect_timeout: float | None = None,
+                 read_timeout: float | None = None,
+                 xai_region: str | None = None):
         """
         Initialize UnifiedClient.
-        
+
         Args:
             cache: Disk cache for responses
             max_concurrency: Maximum concurrent requests
@@ -102,7 +102,7 @@ class UnifiedClient:
         self.semaphore = asyncio.Semaphore(max_concurrency)
         self._clients: dict[str, object] = {}
         self.xai_region = xai_region or os.environ.get("XAI_REGION")
-        
+
         # Timeout configuration
         self._connect_timeout = connect_timeout or self.DEFAULT_CONNECT_TIMEOUT
         self._read_timeout = read_timeout or self.DEFAULT_READ_TIMEOUT
@@ -193,11 +193,11 @@ class UnifiedClient:
                 logger.info("Minimax client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for Minimax)")
-        
+
         # ═══════════════════════════════════════════════════════
         # NEW PROVIDERS (Added March 2026)
         # ═══════════════════════════════════════════════════════
-        
+
         # Mistral AI (api.mistral.ai) — OpenAI-compatible API
         try:
             mistral_key = os.environ.get("MISTRAL_API_KEY")
@@ -212,7 +212,7 @@ class UnifiedClient:
                 logger.info("Mistral AI client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for Mistral)")
-        
+
         # xAI Grok (api.x.ai) — OpenAI-compatible API with regional support
         try:
             xai_key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
@@ -230,7 +230,7 @@ class UnifiedClient:
                 logger.info(f"xAI client initialized{region_info} → {xai_base_url}")
         except ImportError:
             logger.warning("openai package not installed (needed for xAI)")
-        
+
         # Cohere (api.cohere.ai) — Native API
         try:
             cohere_key = os.environ.get("COHERE_API_KEY")
@@ -242,7 +242,7 @@ class UnifiedClient:
                 logger.info("Cohere client initialized")
         except ImportError:
             logger.warning("cohere package not installed (needed for Cohere)")
-        
+
         # Alibaba Qwen (dashscope-intl.aliyuncs.com) — OpenAI-compatible API
         try:
             dashscope_key = os.environ.get("DASHSCOPE_API_KEY")
@@ -257,7 +257,7 @@ class UnifiedClient:
                 logger.info("Alibaba Qwen client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for Alibaba)")
-        
+
         # ByteDance Seed (ark.cn-beijing.volces.com) — OpenAI-compatible API
         try:
             volcengine_key = os.environ.get("ARK_API_KEY") or os.environ.get("VOLCENGINE_API_KEY")
@@ -272,7 +272,7 @@ class UnifiedClient:
                 logger.info("ByteDance Seed client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for ByteDance)")
-        
+
         # Zhipu GLM (api.z.ai) — OpenAI-compatible API
         try:
             zhipu_key = os.environ.get("ZHIPUAI_API_KEY") or os.environ.get("ZHIPU_API_KEY")
@@ -287,7 +287,7 @@ class UnifiedClient:
                 logger.info("Zhipu GLM client initialized")
         except ImportError:
             logger.warning("openai package not installed (needed for Zhipu)")
-        
+
         # Baidu Ernie — Requires special handling (not standard OpenAI)
         # Use via third-party APIs or Novita AI
         try:
@@ -341,6 +341,39 @@ class UnifiedClient:
         except Exception as e:
             # FIX API-001: Log init errors instead of silently swallowing
             logger.warning("Failed to initialize Baichuan: %s: %s", type(e).__name__, e)
+
+        # OpenRouter (openrouter.ai) — OpenAI-compatible proxy for 200+ models
+        # Provides access to LLaMA, Phi, Gemma, Hermes and other open-source models.
+        # Model IDs use vendor/model-name format (e.g. "meta-llama/llama-4-maverick").
+        # Optional headers improve ranking on openrouter.ai/activity:
+        #   HTTP-Referer: identifies your app
+        #   X-Title: shown in the dashboard
+        try:
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+            if openrouter_key:
+                from openai import AsyncOpenAI
+                import httpx
+                or_timeout = httpx.Timeout(
+                    connect=self._connect_timeout,
+                    read=self._read_timeout,
+                    write=self._connect_timeout,
+                    pool=self._connect_timeout,
+                ) if hasattr(httpx, "Timeout") else self._read_timeout
+                self._clients["openrouter"] = AsyncOpenAI(
+                    api_key=openrouter_key,
+                    base_url="https://openrouter.ai/api/v1",
+                    timeout=or_timeout,
+                    max_retries=0,
+                    default_headers={
+                        "HTTP-Referer": "https://github.com/georgehadji/multi-llm-orchestrator",
+                        "X-Title": "Multi-LLM Orchestrator",
+                    },
+                )
+                logger.info("OpenRouter client initialized")
+        except ImportError:
+            logger.warning("openai package not installed (needed for OpenRouter)")
+        except Exception as e:
+            logger.warning("Failed to initialize OpenRouter: %s: %s", type(e).__name__, e)
 
     def is_available(self, model: Model) -> bool:
         provider = get_provider(model)
@@ -455,6 +488,8 @@ class UnifiedClient:
         elif provider in ("mistral", "xai", "alibaba", "bytedance", "zhipu", "moonshot"):
             # All these providers use OpenAI-compatible APIs
             return await self._call_openai_compatible(provider, model, prompt, system, max_tokens, temperature)
+        elif provider == "openrouter":
+            return await self._call_openrouter(model, prompt, system, max_tokens, temperature)
         elif provider == "cohere":
             return await self._call_cohere(model, prompt, system, max_tokens, temperature)
         elif provider == "baidu":
@@ -465,7 +500,7 @@ class UnifiedClient:
             raise NotImplementedError("Baichuan requires custom implementation.")
         else:
             raise ValueError(f"Unknown provider for {model.value}: {provider}")
-    
+
     def _is_reasoning_model(self, model: Model) -> bool:
         """Check if model is a reasoning model requiring special handling."""
         reasoning_models = {
@@ -481,28 +516,27 @@ class UnifiedClient:
             "deepseek-r1",
         }
         return model.value in reasoning_models
-    
+
     async def _call_reasoning_model(self, model: Model, prompt: str,
                                     system: str, max_tokens: int,
                                     temperature: float) -> APIResponse:
         """
         Call reasoning model with special handling.
-        
+
         Reasoning models:
         - Require longer timeouts (3600s recommended)
         - grok-3-mini supports reasoning_effort parameter (low/high)
         - grok-4/grok-4.20 require encrypted content via Responses API
         - Do not support presence_penalty, frequency_penalty, stop
         """
-        from openai import AsyncOpenAI
-        
+
         client = self._clients.get("xai") or self._clients.get("openai")
         if not client:
             raise RuntimeError("xAI or OpenAI client not initialized")
-        
+
         # Extended timeout for reasoning
         reasoning_timeout = 3600  # 1 hour for complex reasoning
-        
+
         try:
             # grok-3-mini supports reasoning_effort parameter
             if model.value == "grok-3-mini":
@@ -510,7 +544,7 @@ class UnifiedClient:
                 if system:
                     messages.append({"role": "system", "content": system})
                 messages.append({"role": "user", "content": prompt})
-                
+
                 response = await client.chat.completions.create(
                     model=model.value,
                     messages=messages,
@@ -518,20 +552,20 @@ class UnifiedClient:
                     reasoning_effort="high",  # or "low"
                     timeout=reasoning_timeout,
                 )
-                
+
                 choice = response.choices[0]
                 usage = response.usage
-                
+
                 # Extract reasoning content if available
-                reasoning_content = getattr(choice.message, "reasoning_content", None)
-                
+                getattr(choice.message, "reasoning_content", None)
+
                 return APIResponse(
                     text=choice.message.content or "",
                     input_tokens=usage.prompt_tokens if usage else 0,
                     output_tokens=usage.completion_tokens if usage else 0,
                     model=model,
                 )
-            
+
             # grok-4, grok-4.20 use Responses API with encrypted content
             elif model.value in ["grok-4", "grok-4.20", "grok-4.20-reasoning"]:
                 # Use Responses API for grok-4 variants
@@ -539,45 +573,45 @@ class UnifiedClient:
                 if system:
                     messages.append({"role": "developer", "content": system})  # grok uses "developer" role
                 messages.append({"role": "user", "content": prompt})
-                
+
                 response = await client.responses.create(
                     model=model.value,
                     input=messages,
                     include=["reasoning.encrypted_content"],  # Get encrypted reasoning
                     timeout=reasoning_timeout,
                 )
-                
+
                 return APIResponse(
                     text=response.output_text or "",
                     input_tokens=response.usage.input_tokens if response.usage else 0,
                     output_tokens=response.usage.output_tokens if response.usage else 0,
                     model=model,
                 )
-            
+
             # Other reasoning models (o1, o3, o4, deepseek-reasoner)
             else:
                 messages = []
                 if system:
                     messages.append({"role": "system", "content": system})
                 messages.append({"role": "user", "content": prompt})
-                
+
                 response = await client.chat.completions.create(
                     model=model.value,
                     messages=messages,
                     max_tokens=max_tokens,
                     timeout=reasoning_timeout,
                 )
-                
+
                 choice = response.choices[0]
                 usage = response.usage
-                
+
                 return APIResponse(
                     text=choice.message.content or "",
                     input_tokens=usage.prompt_tokens if usage else 0,
                     output_tokens=usage.completion_tokens if usage else 0,
                     model=model,
                 )
-        
+
         except Exception as e:
             logger.warning(f"Reasoning model call failed: {e}")
             raise
@@ -653,14 +687,14 @@ class UnifiedClient:
                                temperature: float) -> APIResponse:
         """
         Anthropic Claude via native Anthropic API.
-        
+
         Notes:
         - Claude models use 'system' parameter (not messages[0] role)
         - max_tokens is required for Anthropic API
         - Input/output token counts available in usage
         """
         client = self._clients["anthropic"]
-        
+
         message = await client.messages.create(
             model=model.value,
             max_tokens=max_tokens,
@@ -668,11 +702,11 @@ class UnifiedClient:
             system=system if system else None,
             messages=[{"role": "user", "content": prompt}],
         )
-        
+
         text = ""
         if message.content and len(message.content) > 0:
             text = message.content[0].text if hasattr(message.content[0], 'text') else str(message.content[0])
-        
+
         input_tokens = message.usage.input_tokens if message.usage else 0
         output_tokens = message.usage.output_tokens if message.usage else 0
 
@@ -749,7 +783,7 @@ class UnifiedClient:
         }
         if model.value != "deepseek-reasoner":
             api_params["temperature"] = temperature
-        
+
         response = await client.chat.completions.create(**api_params)
         choice = response.choices[0]
         usage = response.usage
@@ -803,6 +837,46 @@ class UnifiedClient:
             model=model,
         )
 
+    async def _call_openrouter(self, model: Model, prompt: str,
+                               system: str, max_tokens: int,
+                               temperature: float) -> APIResponse:
+        """
+        OpenRouter handler — OpenAI-compatible proxy for 200+ models.
+
+        Supports Meta LLaMA, Microsoft Phi, Google Gemma, Nous Hermes and more.
+        Model IDs use vendor/model-name format (e.g. "meta-llama/llama-4-maverick").
+        Authentication and routing headers are set at client-init time.
+
+        Special model: "openrouter/auto" lets OpenRouter select the best available
+        model for the prompt (useful for ECONOMY tier or cost-optimised presets).
+        """
+        client = self._clients.get("openrouter")
+        if not client:
+            raise RuntimeError(
+                "OpenRouter client not initialized. Set OPENROUTER_API_KEY."
+            )
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        response = await client.chat.completions.create(
+            model=model.value,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        choice = response.choices[0]
+        usage = response.usage
+        text = choice.message.content or ""
+
+        return APIResponse(
+            text=text,
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            model=model,
+        )
+
     async def _call_cohere(self, model: Model, prompt: str,
                            system: str, max_tokens: int,
                            temperature: float) -> APIResponse:
@@ -810,7 +884,7 @@ class UnifiedClient:
         Cohere native API handler.
         """
         client = self._clients["cohere"]
-        
+
         # Cohere uses a different API format
         response = await client.chat(
             model=model.value,
@@ -819,9 +893,9 @@ class UnifiedClient:
             max_tokens=max_tokens,
             temperature=temperature,
         )
-        
+
         text = response.text or ""
-        
+
         # Cohere usage format differs from OpenAI
         input_tokens = response.meta.tokens.input_tokens if response.meta and response.meta.tokens else 0
         output_tokens = response.meta.tokens.output_tokens if response.meta and response.meta.tokens else 0

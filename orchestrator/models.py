@@ -12,8 +12,6 @@ import hashlib
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
-
 
 # ─────────────────────────────────────────────
 # Enums
@@ -48,7 +46,7 @@ class Model(str, Enum):
     O3_MINI = "o3-mini"
     O3_PRO = "o3-pro"
     O4_MINI = "o4-mini"
-    
+
     # ═══════════════════════════════════════════════════════
     # GOOGLE GEMINI MODELS
     # ═══════════════════════════════════════════════════════
@@ -60,7 +58,7 @@ class Model(str, Enum):
     GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite"
     GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
     GEMINI_1_5_PRO = "gemini-1.5-pro"
-    
+
     # ═══════════════════════════════════════════════════════
     # ANTHROPIC CLAUDE MODELS
     # ═══════════════════════════════════════════════════════
@@ -73,7 +71,7 @@ class Model(str, Enum):
     CLAUDE_OPUS_4_5 = "claude-opus-4-5"
     CLAUDE_OPUS_4_6 = "claude-opus-4-6"
     CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
-    
+
     # ═══════════════════════════════════════════════════════
     # DEEPSEEK MODELS
     # ═══════════════════════════════════════════════════════
@@ -82,14 +80,14 @@ class Model(str, Enum):
     DEEPSEEK_V3 = "deepseek-v3"
     DEEPSEEK_V3_2 = "deepseek-v3.2"
     DEEPSEEK_R1 = "deepseek-r1"
-    
+
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS
     # ═══════════════════════════════════════════════════════
     MINIMAX_TEXT_01 = "MiniMax-Text-01"
     MINIMAX_M2 = "minimax-m2"
     MINIMAX_M2_5 = "minimax-m2.5"
-    
+
     # ═══════════════════════════════════════════════════════
     # MISTRAL AI MODELS
     # ═══════════════════════════════════════════════════════
@@ -103,7 +101,7 @@ class Model(str, Enum):
     MAGISTRAL_MEDIUM = "magistral-medium"
     MINISTRAL_3B = "ministral-3b"
     MINISTRAL_8B = "ministral-8b"
-    
+
     # ═══════════════════════════════════════════════════════
     # XAI GROK MODELS
     # ═══════════════════════════════════════════════════════
@@ -114,7 +112,7 @@ class Model(str, Enum):
     GROK_4_20 = "grok-4.20"  # Latest model - industry-leading speed
     GROK_4_20_REASONING = "grok-4.20-reasoning"  # Reasoning variant
     GROK_4_LATEST = "grok-4-latest"  # Alias to latest grok-4
-    
+
     # ═══════════════════════════════════════════════════════
     # COHERE MODELS
     # ═══════════════════════════════════════════════════════
@@ -122,7 +120,7 @@ class Model(str, Enum):
     COMMAND_R_PLUS = "command-r-plus"
     COMMAND_R7B = "command-r7b"
     COMMAND_A = "command-a"
-    
+
     # ═══════════════════════════════════════════════════════
     # ALIBABA QWEN MODELS
     # ═══════════════════════════════════════════════════════
@@ -135,7 +133,7 @@ class Model(str, Enum):
     QWEN_3_32B = "qwen3-32b"
     QWEN_VL = "qwen-vl"
     QWEN_MATH = "qwen-math"
-    
+
     # ═══════════════════════════════════════════════════════
     # BYTEDANCE SEED MODELS
     # ═══════════════════════════════════════════════════════
@@ -143,7 +141,7 @@ class Model(str, Enum):
     SEED_2_0_LITE = "seed-2.0-lite"
     SEED_2_0_MINI = "seed-2.0-mini"
     SEED_2_0_CODE = "seed-2.0-code"
-    
+
     # ═══════════════════════════════════════════════════════
     # ZHIPU GLM MODELS
     # ═══════════════════════════════════════════════════════
@@ -153,7 +151,7 @@ class Model(str, Enum):
     GLM_4_FLASH = "glm-4-flash"
     GLM_4_AIR = "glm-4-air"
     GLM_5 = "glm-5"
-    
+
     # ═══════════════════════════════════════════════════════
     # BAIDU ERNIE MODELS
     # ═══════════════════════════════════════════════════════
@@ -164,26 +162,48 @@ class Model(str, Enum):
     ERNIE_SPEED = "ernie-speed"
     ERNIE_SPEED_PRO = "ernie-speed-pro"
     ERNIE_NOVEL = "ernie-novel"
-    
+
     # ═══════════════════════════════════════════════════════
     # MOONSHOT KIMI MODELS
     # ═══════════════════════════════════════════════════════
     KIMI_K1_5 = "kimi-k1.5"
     KIMI_K2 = "kimi-k2"
     KIMI_K2_5 = "kimi-k2.5"
-    
+
     # ═══════════════════════════════════════════════════════
     # TENCENT HUNYUAN MODELS
     # ═══════════════════════════════════════════════════════
     HUNYUAN_LITE = "hunyuan-lite"
     HUNYUAN_STANDARD = "hunyuan-standard"
     HUNYUAN_PRO = "hunyuan-pro"
-    
+
     # ═══════════════════════════════════════════════════════
     # BAICHUAN MODELS
     # ═══════════════════════════════════════════════════════
     BAICHUAN_3 = "baichuan-3"
     BAICHUAN_4 = "baichuan-4"
+
+    # ═══════════════════════════════════════════════════════
+    # OPENROUTER — Open-Source & Cross-Provider Models
+    # Accessible via: https://openrouter.ai/api/v1
+    # Env var: OPENROUTER_API_KEY
+    # Model IDs use vendor/model-name format.
+    # ═══════════════════════════════════════════════════════
+    # Meta LLaMA 4 (April 2025 — frontier open-source)
+    LLAMA_4_MAVERICK = "meta-llama/llama-4-maverick"      # 400B MoE, 128K ctx
+    LLAMA_4_SCOUT = "meta-llama/llama-4-scout"            # 109B MoE, fast + cheap
+    # Meta LLaMA 3.x (battle-tested, widely deployed)
+    LLAMA_3_3_70B = "meta-llama/llama-3.3-70b-instruct"  # 70B, best value open
+    LLAMA_3_1_405B = "meta-llama/llama-3.1-405b-instruct" # 405B, near-frontier
+    # Microsoft Phi-4 (small but capable reasoning)
+    PHI_4 = "microsoft/phi-4"                             # 14B, great for ECONOMY
+    PHI_4_REASONING = "microsoft/phi-4-reasoning-plus"    # 14B + CoT reasoning
+    # Google Gemma 3
+    GEMMA_3_27B = "google/gemma-3-27b-it"                 # 27B, open-weights
+    # Nous Research Hermes 3
+    HERMES_3_70B = "nousresearch/hermes-3-llama-3.1-70b"  # Fine-tuned for tool use
+    # OpenRouter Auto-Router (OpenRouter picks best available model)
+    OPENROUTER_AUTO = "openrouter/auto"                    # Dynamic routing
 
 
 class ProjectStatus(str, Enum):
@@ -209,11 +229,12 @@ class TaskStatus(str, Enum):
 
 from functools import lru_cache
 
+
 @lru_cache(maxsize=256)
 def get_provider(model: Model) -> str:
     """
     Get provider name for a model.
-    
+
     Uses LRU cache for O(1) repeated lookups.
     Cache size 256 covers all current + future models.
     """
@@ -248,6 +269,9 @@ def get_provider(model: Model) -> str:
         return "tencent"
     elif val.startswith("baichuan"):
         return "baichuan"
+    elif "/" in val:
+        # OpenRouter models use vendor/model-name format (e.g. "meta-llama/llama-4-maverick")
+        return "openrouter"
     return "unknown"
 
 
@@ -274,7 +298,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.O3_MINI:            {"input": 1.10,  "output": 4.40},
     Model.O3_PRO:             {"input": 20.00, "output": 80.00},
     Model.O4_MINI:            {"input": 1.50,  "output": 6.00},
-    
+
     # ═══════════════════════════════════════════════════════
     # GOOGLE GEMINI
     # ═══════════════════════════════════════════════════════
@@ -286,7 +310,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # GEMINI_2_0_FLASH_LITE removed - deprecated by Google
     Model.GEMINI_2_5_FLASH_LITE:  {"input": 0.10,  "output": 0.40},
     Model.GEMINI_1_5_PRO:         {"input": 3.50,  "output": 10.50},
-    
+
     # ═══════════════════════════════════════════════════════
     # ANTHROPIC CLAUDE
     # ═══════════════════════════════════════════════════════
@@ -298,7 +322,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.CLAUDE_OPUS_4_5:    {"input": 5.00,  "output": 25.00},
     Model.CLAUDE_OPUS_4_6:    {"input": 5.00,  "output": 25.00},
     Model.CLAUDE_HAIKU_4_5:   {"input": 1.00,  "output": 5.00},
-    
+
     # ═══════════════════════════════════════════════════════
     # DEEPSEEK
     # ═══════════════════════════════════════════════════════
@@ -307,14 +331,14 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.DEEPSEEK_V3:        {"input": 0.27,  "output": 1.10},
     Model.DEEPSEEK_V3_2:      {"input": 0.28,  "output": 0.40},
     Model.DEEPSEEK_R1:        {"input": 0.55,  "output": 2.19},
-    
+
     # ═══════════════════════════════════════════════════════
     # MINIMAX
     # ═══════════════════════════════════════════════════════
     Model.MINIMAX_TEXT_01:    {"input": 0.50,  "output": 1.50},
     Model.MINIMAX_M2:         {"input": 0.50,  "output": 1.50},
     Model.MINIMAX_M2_5:       {"input": 0.50,  "output": 1.50},
-    
+
     # ═══════════════════════════════════════════════════════
     # MISTRAL AI
     # ═══════════════════════════════════════════════════════
@@ -328,7 +352,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.MAGISTRAL_MEDIUM:   {"input": 2.00,  "output": 5.00},
     Model.MINISTRAL_3B:       {"input": 0.04,  "output": 0.04},
     Model.MINISTRAL_8B:       {"input": 0.10,  "output": 0.10},
-    
+
     # ═══════════════════════════════════════════════════════
     # XAI GROK
     # ═══════════════════════════════════════════════════════
@@ -338,7 +362,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GROK_4_1_FAST:      {"input": 0.20,  "output": 0.50},
     Model.GROK_4_20:          {"input": 0.25,  "output": 0.75},  # Latest model
     Model.GROK_4_20_REASONING:{"input": 0.25,  "output": 0.75},  # Reasoning variant
-    
+
     # ═══════════════════════════════════════════════════════
     # COHERE
     # ═══════════════════════════════════════════════════════
@@ -346,7 +370,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.COMMAND_R_PLUS:     {"input": 2.50,  "output": 10.00},
     Model.COMMAND_R7B:        {"input": 0.15,  "output": 0.0375},
     Model.COMMAND_A:          {"input": 2.50,  "output": 10.00},
-    
+
     # ═══════════════════════════════════════════════════════
     # ALIBABA QWEN
     # ═══════════════════════════════════════════════════════
@@ -359,7 +383,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.QWEN_3_32B:         {"input": 0.20,  "output": 0.80},
     Model.QWEN_VL:            {"input": 0.50,  "output": 1.50},
     Model.QWEN_MATH:          {"input": 0.50,  "output": 1.50},
-    
+
     # ═══════════════════════════════════════════════════════
     # BYTEDANCE SEED
     # ═══════════════════════════════════════════════════════
@@ -367,7 +391,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.SEED_2_0_LITE:      {"input": 0.20,  "output": 1.00},
     Model.SEED_2_0_MINI:      {"input": 0.05,  "output": 0.25},
     Model.SEED_2_0_CODE:      {"input": 0.30,  "output": 1.20},
-    
+
     # ═══════════════════════════════════════════════════════
     # ZHIPU GLM
     # ═══════════════════════════════════════════════════════
@@ -377,7 +401,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GLM_4_FLASH:        {"input": 0.50,  "output": 1.00},
     Model.GLM_4_AIR:          {"input": 1.00,  "output": 2.00},
     Model.GLM_5:              {"input": 7.00,  "output": 17.00},
-    
+
     # ═══════════════════════════════════════════════════════
     # BAIDU ERNIE
     # ═══════════════════════════════════════════════════════
@@ -388,26 +412,40 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.ERNIE_SPEED:        {"input": 0.56,  "output": 0.56},
     Model.ERNIE_SPEED_PRO:    {"input": 0.08,  "output": 0.08},
     Model.ERNIE_NOVEL:        {"input": 5.60,  "output": 5.60},
-    
+
     # ═══════════════════════════════════════════════════════
     # MOONSHOT KIMI
     # ═══════════════════════════════════════════════════════
     Model.KIMI_K1_5:          {"input": 0.50,  "output": 1.50},
     Model.KIMI_K2:            {"input": 0.50,  "output": 1.50},
     Model.KIMI_K2_5:          {"input": 0.50,  "output": 1.50},
-    
+
     # ═══════════════════════════════════════════════════════
     # TENCENT HUNYUAN
     # ═══════════════════════════════════════════════════════
     Model.HUNYUAN_LITE:       {"input": 0.30,  "output": 1.00},
     Model.HUNYUAN_STANDARD:   {"input": 1.00,  "output": 3.00},
     Model.HUNYUAN_PRO:        {"input": 2.00,  "output": 6.00},
-    
+
     # ═══════════════════════════════════════════════════════
     # BAICHUAN
     # ═══════════════════════════════════════════════════════
     Model.BAICHUAN_3:         {"input": 1.00,  "output": 3.00},
     Model.BAICHUAN_4:         {"input": 2.00,  "output": 6.00},
+
+    # ═══════════════════════════════════════════════════════
+    # OPENROUTER (prices as of 2026-03, per 1M tokens)
+    # Source: openrouter.ai/models — includes OR margin
+    # ═══════════════════════════════════════════════════════
+    Model.LLAMA_4_MAVERICK:   {"input": 0.17,  "output": 0.17},  # Meta
+    Model.LLAMA_4_SCOUT:      {"input": 0.11,  "output": 0.34},  # Meta
+    Model.LLAMA_3_3_70B:      {"input": 0.12,  "output": 0.30},  # Meta
+    Model.LLAMA_3_1_405B:     {"input": 2.00,  "output": 2.00},  # Meta frontier
+    Model.PHI_4:              {"input": 0.07,  "output": 0.14},  # Microsoft
+    Model.PHI_4_REASONING:    {"input": 0.07,  "output": 0.35},  # Microsoft CoT
+    Model.GEMMA_3_27B:        {"input": 0.08,  "output": 0.20},  # Google open-weights
+    Model.HERMES_3_70B:       {"input": 0.40,  "output": 0.40},  # Nous Research
+    Model.OPENROUTER_AUTO:    {"input": 0.00,  "output": 0.00},  # Dynamic (OR estimates)
 }
 
 
@@ -419,41 +457,53 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # ═══════════════════════════════════════════════════════════════════════════════
     # UPDATED 2026-03-04: Full integration of 70+ models from 15 providers
     # ═══════════════════════════════════════════════════════════════════════════════
-    
+
     # CODE_GEN: Cheapest capable first, then quality
     TaskType.CODE_GEN:     [
         # Tier 1: Ultra-cheap capable models
         Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest capable
         Model.MISTRAL_SMALL_3_1,    # $0.03/$0.11 — best value overall
+        Model.PHI_4,                # $0.07/$0.14 — OR: Microsoft 14B, fast + cheap
         Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheapest mainstream
+        Model.GEMMA_3_27B,          # $0.08/$0.20 — OR: Google open-weights
         Model.ERNIE_SPEED_PRO,      # $0.08/$0.08 — cheapest from China
         Model.GPT_5_NANO,           # $0.05/$0.40 — OpenAI entry level
 
         # Tier 2: Best value
-        Model.GROK_4_20,            # $0.25/$0.75 — NEW: fastest, 2M context
+        Model.LLAMA_4_SCOUT,        # $0.11/$0.34 — OR: Meta 109B MoE, excellent ratio
+        Model.LLAMA_3_3_70B,        # $0.12/$0.30 — OR: Meta 70B, battle-tested
+        Model.GROK_4_20,            # $0.25/$0.75 — fastest, 2M context
+        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: Meta 400B MoE, near-frontier
         Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — fast, good quality
         Model.QWEN_3_235B,          # $0.136/$0.544 — best Chinese value
         Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
         Model.GROK_4_1_FAST,        # $0.20/$0.50 — 2M context
         Model.SEED_2_0_MINI,        # $0.05/$0.25 — ByteDance cheap
-        
+
         # Tier 3: Quality
         # DEEPSEEK_CHAT removed - too slow (180s+), use as fallback only
         Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
         Model.CODESTRAL,            # $0.30/$0.90 — code specialist
         Model.DEVSTRAL,             # $0.10/$0.30 — agentic coding
-        
+        Model.HERMES_3_70B,         # $0.40/$0.40 — OR: Nous fine-tuned for tool use
+
         # Tier 4: Premium
         Model.GPT_4O,               # $2.50/$10 — premium quality
         Model.CLAUDE_SONNET_4_6,    # $3/$15 — best coding performance
+        Model.LLAMA_3_1_405B,       # $2.00/$2.00 — OR: 405B near-frontier open
         Model.QWEN_MAX,             # $2/$6 — Chinese premium
         Model.GLM_4_7,              # $3/$15 — Zhipu coding specialist
     ],
-    
+
     # CODE_REVIEW: Fast and accurate
     TaskType.CODE_REVIEW:  [
         Model.MISTRAL_SMALL_3_1,    # $0.03/$0.11 — excellent value
+        Model.PHI_4_REASONING,      # $0.07/$0.35 — OR: CoT reasoning, great for review
+        Model.GEMMA_3_27B,          # $0.08/$0.20 — OR: open-weights
+        Model.LLAMA_4_SCOUT,        # $0.11/$0.34 — OR: fast + capable
+        Model.LLAMA_3_3_70B,        # $0.12/$0.30 — OR: accurate reviewer
         Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — fast reviews
+        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: high quality
         Model.QWEN_3_235B,          # $0.136/$0.544 — accurate
         Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
         # DEEPSEEK_CHAT removed - too slow, use as fallback only
@@ -461,41 +511,49 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
         Model.CLAUDE_SONNET_4_6,    # $3/$15 — premium review
         Model.QWEN_MAX,             # $2/$6 — Chinese premium
     ],
-    
+
     # REASONING: Reasoning models prioritized
     TaskType.REASONING:    [
         # DEEPSEEK models moved to fallback - too slow (180s+)
-        Model.GROK_4_20_REASONING,  # NEW: Latest reasoning model
+        Model.GROK_4_20_REASONING,  # Latest reasoning model
+        Model.PHI_4_REASONING,      # $0.07/$0.35 — OR: CoT, best $/reasoning
         Model.O3_MINI,              # $1.10/$4.40 — OpenAI reasoning
         Model.O4_MINI,              # $1.50/$6.00 — OpenAI reasoning
         Model.GROK_4_1_FAST,        # $0.20/$0.50 — 2M context reasoning
+        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: 400B strong reasoning
         Model.QWEN_3_235B,          # $0.136/$0.544 — good reasoning
+        Model.LLAMA_3_1_405B,       # $2.00/$2.00 — OR: frontier open-source
         Model.CLAUDE_OPUS_4_6,      # $5/$25 — most capable
         Model.O3,                   # $2/$8 — OpenAI mid-tier
         Model.GEMINI_PRO,           # $1.25/$10 — 2M context
         Model.GLM_5,                # $7/$17 — massive 744B model
     ],
-    
+
     # WRITING: Quality and creativity
     TaskType.WRITING:      [
         Model.GPT_5,                # $1.25/$10 — best writing
         Model.GPT_4O,               # $2.50/$10 — excellent
         Model.CLAUDE_SONNET_4_6,    # $3/$15 — excellent prose
+        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: very capable for writing
+        Model.HERMES_3_70B,         # $0.40/$0.40 — OR: fine-tuned, natural language
         Model.QWEN_LONG,            # $0.10/$0.40 — 10M context for long docs
         Model.GEMINI_PRO,           # $1.25/$10 — 2M context
         Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — bulk content
         Model.ERNIE_NOVEL,          # $5.60/$5.60 — creative specialist
         Model.HUNYUAN_PRO,          # $2/$6 — Tencent creative
     ],
-    
+
     # DATA_EXTRACT: Cheapest first
     TaskType.DATA_EXTRACT: [
         Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest
+        Model.PHI_4,                # $0.07/$0.14 — OR: tiny but accurate extractor
+        Model.GEMMA_3_27B,          # $0.08/$0.20 — OR: open-weights, cheap
         Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheapest mainstream
-        Model.GROK_4_20,            # NEW: 2M context for large documents
+        Model.GROK_4_20,            # 2M context for large documents
         Model.GROK_4_1_FAST,        # 2M context
         Model.ERNIE_SPEED_PRO,      # $0.08/$0.08 — very cheap
         Model.GPT_5_NANO,           # $0.05/$0.40 — OpenAI cheap
+        Model.LLAMA_4_SCOUT,        # $0.11/$0.34 — OR: efficient extractor
         Model.QWEN_LONG,            # $0.10/$0.40 — 10M context for large data
         Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
         Model.QWEN_3_235B,          # $0.136/$0.544 — accurate
@@ -504,18 +562,23 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # SUMMARIZE: Cheap with good context
     TaskType.SUMMARIZE:    [
         Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest
+        Model.PHI_4,                # $0.07/$0.14 — OR: tiny, fast summarizer
+        Model.GEMMA_3_27B,          # $0.08/$0.20 — OR: good summary quality
         Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheap + good
-        Model.GROK_4_20,            # NEW: 2M context, fast
+        Model.GROK_4_20,            # 2M context, fast
+        Model.LLAMA_4_SCOUT,        # $0.11/$0.34 — OR: long-context capable
         Model.GROK_4_1_FAST,        # 2M context for long documents
         Model.QWEN_LONG,            # $0.10/$0.40 — 10M context
         Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
         Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
     ],
-    
+
     # EVALUATE: Reliable evaluation
     TaskType.EVALUATE:     [
-        Model.GROK_4_20,            # NEW: Fast, accurate evaluation
+        Model.GROK_4_20,            # Fast, accurate evaluation
         Model.GPT_4O,               # Most reliable evaluator
+        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: strong evaluator
+        Model.HERMES_3_70B,         # $0.40/$0.40 — OR: Nous fine-tuned, calibrated
         Model.QWEN_3_235B,          # $0.136/$0.544 — accurate & cheap
         Model.CLAUDE_HAIKU_4_5,     # $1/$5 — cheap Claude
         Model.CLAUDE_SONNET_4_6,    # $3/$15 — excellent evaluation
@@ -532,18 +595,18 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
 FALLBACK_CHAIN: dict[Model, Model] = {
     # OPTIMIZED 2026-03-04: Gemini 3.1 Flash-Lite added, all fallbacks cross-provider
     # Each fallback goes to a different provider to maximize availability
-    
+
     # OpenAI fallbacks → DeepSeek (cost-effective, same quality tier)
     Model.GPT_4O:              Model.DEEPSEEK_CHAT,      # Premium → DeepSeek
     Model.GPT_4O_MINI:         Model.GEMINI_FLASH,       # Budget → Gemini
     Model.O4_MINI:             Model.DEEPSEEK_REASONER,  # Reasoning → DeepSeek-R1
-    
+
     # Gemini fallbacks → OpenAI or DeepSeek
     Model.GEMINI_PRO:          Model.GPT_4O,             # Pro → GPT-4o
     Model.GEMINI_FLASH:        Model.GPT_4O_MINI,        # Flash → GPT-4o-mini
     Model.GEMINI_FLASH_LITE:   Model.GPT_4O_MINI,        # Lite → GPT-4o-mini
     Model.GEMINI_3_1_FLASH_LITE: Model.DEEPSEEK_CHAT,    # NEW: 3.1 Flash-Lite → DeepSeek
-    
+
     # Claude fallbacks → OpenAI (both high-quality Western providers)
     Model.CLAUDE_3_5_SONNET:   Model.GPT_4O,             # Claude Sonnet → GPT-4o
     Model.CLAUDE_3_OPUS:       Model.GPT_4O,             # Claude Opus → GPT-4o
@@ -563,6 +626,17 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     # DeepSeek fallbacks → OpenAI (premium escalation)
     Model.DEEPSEEK_CHAT:       Model.GPT_4O,             # DeepSeek → GPT-4o
     Model.DEEPSEEK_REASONER:   Model.O4_MINI,            # R1 → o4-mini (both reasoning)
+
+    # OpenRouter fallbacks (open-source → proprietary escalation)
+    Model.LLAMA_4_MAVERICK:    Model.GPT_4O,             # Maverick 400B → GPT-4o
+    Model.LLAMA_4_SCOUT:       Model.GPT_4O_MINI,        # Scout → GPT-4o-mini
+    Model.LLAMA_3_3_70B:       Model.GPT_4O_MINI,        # Llama 70B → GPT-4o-mini
+    Model.LLAMA_3_1_405B:      Model.GPT_4O,             # 405B → GPT-4o
+    Model.PHI_4:               Model.MISTRAL_SMALL_3_1,  # Phi-4 → Mistral Small
+    Model.PHI_4_REASONING:     Model.O3_MINI,            # Phi-4 CoT → o3-mini
+    Model.GEMMA_3_27B:         Model.MISTRAL_SMALL_3_1,  # Gemma 27B → Mistral Small
+    Model.HERMES_3_70B:        Model.LLAMA_3_3_70B,      # Hermes → LLaMA 3.3 (same family)
+    Model.OPENROUTER_AUTO:     Model.GPT_4O_MINI,        # Auto → GPT-4o-mini safe fallback
 }
 
 
@@ -607,7 +681,7 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.CLAUDE_SONNET_4_6:  8192,
     Model.CLAUDE_OPUS_4_5:    4096,
     Model.CLAUDE_OPUS_4_6:    4096,
-    
+
     # Google Gemini models (high limits)
     # GEMINI_2_0_FLASH removed - deprecated by Google
     # GEMINI_2_0_FLASH_LITE removed - deprecated by Google
@@ -615,16 +689,16 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.GEMINI_FLASH:           8192,
     Model.GEMINI_FLASH_LITE:      8192,
     Model.GEMINI_3_1_FLASH_LITE:  8192,
-    
+
     # Mistral models
     Model.MISTRAL_NEMO:       8192,
     Model.MISTRAL_SMALL_3_1:  8192,
     Model.MINISTRAL_3B:       4096,
     Model.MINISTRAL_8B:       4096,
-    
+
     # Cohere models
     Model.COMMAND_R7B:        4096,
-    
+
     # Chinese models
     Model.QWEN_3_235B:        8192,
     Model.QWEN_3_CODER_30B:   8192,
@@ -703,7 +777,7 @@ class TaskResult:
     output: str
     score: float
     model_used: Model
-    reviewer_model: Optional[Model] = None
+    reviewer_model: Model | None = None
     tokens_used: dict[str, int] = field(
         default_factory=lambda: {"input": 0, "output": 0}
     )
@@ -713,8 +787,8 @@ class TaskResult:
     critique: str = ""
     deterministic_check_passed: bool = True
     degraded_fallback_count: int = 0
-    attempt_history: list["AttemptRecord"] = field(default_factory=list)
-    preflight_result: Optional["PreflightResult"] = None
+    attempt_history: list[AttemptRecord] = field(default_factory=list)
+    preflight_result: PreflightResult | None = None
     preflight_passed: bool = True
 
 
@@ -732,7 +806,7 @@ class AttemptRecord:
 class Budget:
     """
     Budget tracking with atomic reserve pattern for concurrent execution.
-    
+
     FIX-001a: Added reserve/commit/release pattern to prevent race conditions
     when multiple concurrent tasks check budget simultaneously.
     """
@@ -750,7 +824,7 @@ class Budget:
     # FIX-001a: Track reserved but not-yet-charged budget
     _reserved_usd: float = field(default=0.0, repr=False)
     # FIX-001a: Async lock for atomic operations (lazy initialized)
-    _lock: Optional[asyncio.Lock] = field(default=None, repr=False)
+    _lock: asyncio.Lock | None = field(default=None, repr=False)
 
     def _get_lock(self) -> asyncio.Lock:
         """Get or create asyncio.Lock lazily (must be called from async context)."""
@@ -787,7 +861,7 @@ class Budget:
     async def charge(self, amount: float, phase: str = "generation"):
         """
         Charge actual spend to budget (thread-safe).
-        
+
         FIX-BUG-001: Made async with lock to prevent race conditions when
         multiple concurrent tasks charge simultaneously via asyncio.gather().
         """
@@ -799,13 +873,13 @@ class Budget:
     async def reserve(self, amount: float) -> bool:
         """
         FIX-001a: Atomically reserve budget amount.
-        
+
         Returns True if reservation succeeded, False if insufficient budget.
         Must be called from async context.
         """
         if amount < 0:
             raise ValueError("Reservation amount must be non-negative")
-        
+
         async with self._get_lock():
             available = self.max_usd - self.spent_usd - self._reserved_usd
             if available >= amount:
@@ -819,16 +893,15 @@ class Budget:
 
         Should be called after successful task execution.
         If actual amount differs from reserved, adjusts accordingly.
-        
+
         FIX-BUG-001: Calls charge() separately to avoid nested lock acquisition.
-        
+
         Args:
             actual_amount: The actual cost incurred (may differ from reserved amount)
         """
         async with self._get_lock():
             if actual_amount > 0:
                 # Release whatever was reserved (actual charge happens below)
-                reserved = self._reserved_usd
                 self._reserved_usd = 0.0
         # Charge the actual amount (not the reserved amount)
         await self.charge(actual_amount, phase)
@@ -836,7 +909,7 @@ class Budget:
     async def release_reservation(self, amount: float):
         """
         FIX-001a: Release unused reservation.
-        
+
         Should be called when task fails or is skipped.
         """
         async with self._get_lock():
@@ -911,7 +984,7 @@ def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
 
 
-def build_default_profiles() -> "dict[Model, ModelProfile]":
+def build_default_profiles() -> dict[Model, ModelProfile]:
     """
     Build a ModelProfile for every Model enum value using the static
     COST_TABLE and ROUTING_TABLE as the source of truth.
@@ -954,7 +1027,7 @@ def build_default_profiles() -> "dict[Model, ModelProfile]":
 class ProjectSpec:
     """
     Project specification for App Store asset generation.
-    
+
     Attributes:
         name: Project/app name
         description: App description
