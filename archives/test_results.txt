@@ -1,0 +1,6 @@
+=== STDOUT ===
+
+=== STDERR ===
+C:\Users\tesse\AppData\Local\Programs\Python\Python312\python.exe: can't open file 'E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\quick_test.py': [Errno 2] No such file or directory
+
+=== Return Code: 2 ===

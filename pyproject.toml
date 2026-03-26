@@ -199,6 +199,10 @@ markers = [
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
     "requires_api: marks tests that require API keys",
+    "load: marks tests as load tests",
+    "stress: marks tests as stress tests",
+    "benchmark: marks tests as benchmark tests",
+    "e2e: marks tests as end-to-end tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

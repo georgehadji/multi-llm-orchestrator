@@ -1,0 +1,30 @@
+# requirements-dev.txt
+# ═══════════════════════════════════════════════════════
+# Development dependencies with pinned versions
+# ═══════════════════════════════════════════════════════
+
+-r requirements.txt
+
+# Testing
+pytest==8.3.4
+pytest-cov==6.0.0
+pytest-asyncio==0.25.0
+pytest-xdist==3.6.1
+
+# Linting
+ruff==0.9.1
+black==24.10.0
+mypy==1.14.0
+
+# Security scanning
+bandit==1.8.0
+safety==3.2.9
+pip-audit==2.7.3
+
+# Git security
+gitleaks==8.21.2
+trufflehog==3.83.0
+
+# Type stubs
+types-requests==2.32.0.20241016
+types-aiofiles==24.1.0.20240626

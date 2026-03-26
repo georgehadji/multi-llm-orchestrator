@@ -1,0 +1,130 @@
+{
+  "protocol_version": "2.0",
+  "stage": "1",
+  "timestamp": "2026-03-25T22:50:00Z",
+  "repository_map": {
+    "core_modules": [
+      {
+        "name": "multi_platform_generator.py",
+        "lines": 1871,
+        "responsibility": "Generate code for 9 platforms from single specification",
+        "entry_points": ["generate()", "generate_project_structure()"],
+        "criticality": "high"
+      },
+      {
+        "name": "app_store_validator.py",
+        "lines": 1002,
+        "responsibility": "Validate apps against App Store guidelines (30 checks)",
+        "entry_points": ["validate()", "validate_project()"],
+        "criticality": "high"
+      },
+      {
+        "name": "native_features.py",
+        "lines": 846,
+        "responsibility": "Generate native iOS feature templates (10 features)",
+        "entry_points": ["generate()", "generate_code()"],
+        "criticality": "medium"
+      },
+      {
+        "name": "pre_submission_testing.py",
+        "lines": 842,
+        "responsibility": "Simulate Apple review process (10 automated checks)",
+        "entry_points": ["run_full_review()"],
+        "criticality": "high"
+      },
+      {
+        "name": "app_store_assets.py",
+        "lines": 599,
+        "responsibility": "Generate App Store submission assets",
+        "entry_points": ["generate()", "_generate_*() methods"],
+        "criticality": "medium"
+      },
+      {
+        "name": "ios_hig_prompts.py",
+        "lines": 473,
+        "responsibility": "HIG-aware prompts for iOS code generation",
+        "entry_points": ["get_ios_prompt()"],
+        "criticality": "medium"
+      }
+    ],
+    "critical_paths": [
+      {
+        "path": "generate() → validate() → run_full_review()",
+        "description": "Complete iOS app generation and validation workflow",
+        "risk": "high"
+      },
+      {
+        "path": "pre_submission_testing._*() checks",
+        "description": "10 automated review checks that determine approval probability",
+        "risk": "high"
+      },
+      {
+        "path": "app_store_assets.generate() → privacy labels",
+        "description": "Privacy label generation affects App Store compliance",
+        "risk": "medium"
+      }
+    ],
+    "stateful_components": [],
+    "external_dependencies": [
+      {"name": "logging", "version": "stdlib", "usage": "All modules"},
+      {"name": "pathlib", "version": "stdlib", "usage": "File operations"},
+      {"name": "re", "version": "stdlib", "usage": "Pattern matching"},
+      {"name": "dataclasses", "version": "stdlib", "usage": "Data structures"},
+      {"name": "typing", "version": "stdlib", "usage": "Type hints"}
+    ],
+    "concurrency_boundaries": [],
+    "test_infrastructure": {
+      "framework": "pytest",
+      "coverage_estimate": "93%+ (iOS Suite)",
+      "ci_pipeline": "pytest tests/test_*.py -v",
+      "test_files": [
+        "test_multi_platform_generator.py (28 tests)",
+        "test_app_store_validator.py (16 tests)",
+        "test_ios_hig_prompts.py (22 tests)",
+        "test_app_store_assets.py (21 tests)",
+        "test_native_features.py (24 tests)",
+        "test_pre_submission_testing.py (24 tests)"
+      ]
+    },
+    "coding_conventions": {
+      "language": "Python 3.10+",
+      "type_system": "typing module (strict)",
+      "linter": "ruff",
+      "style": "PEP 8",
+      "async": "asyncio/await",
+      "logging": "get_logger() from orchestrator.log_config"
+    },
+    "dependency_graph": {
+      "multi_platform_generator": {
+        "callers": ["CLI", "API", "workflow examples"],
+        "dependencies": ["models", "log_config"],
+        "shared_state": []
+      },
+      "app_store_validator": {
+        "callers": ["CLI", "workflow examples", "validation pipelines"],
+        "dependencies": ["log_config"],
+        "shared_state": []
+      },
+      "native_features": {
+        "callers": ["workflow examples", "multi_platform_generator"],
+        "dependencies": ["log_config"],
+        "shared_state": []
+      },
+      "pre_submission_testing": {
+        "callers": ["workflow examples", "CI/CD pipelines"],
+        "dependencies": ["log_config"],
+        "shared_state": []
+      },
+      "app_store_assets": {
+        "callers": ["workflow examples", "app_store_validator"],
+        "dependencies": ["models", "log_config"],
+        "shared_state": []
+      },
+      "ios_hig_prompts": {
+        "callers": ["multi_platform_generator", "workflow examples"],
+        "dependencies": [],
+        "shared_state": []
+      }
+    }
+  }
+}

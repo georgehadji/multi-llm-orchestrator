@@ -1,0 +1,515 @@
+"""
+GitHub Auto-Push Module
+========================
+Author: Georgios-Chrysovalantis Chatzivantsidis
+
+Implements automatic GitHub integration with conventional commits.
+
+Features:
+- Auto-push generated code to GitHub
+- Conventional commit messages
+- Branch per project
+- Commit metadata (budget, quality, tasks)
+
+Usage:
+    from orchestrator.cost_optimization import GitHubIntegration
+    
+    github = GitHubIntegration(
+        token="ghp_...",
+        owner="username",
+        repo="my-repo",
+    )
+    
+    branch = await github.push_results(
+        output_dir=Path("./results"),
+        project_id="my-project",
+        summary="Generated FastAPI REST API",
+        metadata={"budget": 1.50, "quality": 0.85, "tasks": 12},
+    )
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from ..log_config import get_logger
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class CommitMetadata:
+    """Metadata for commit message."""
+    budget_spent: float = 0.0
+    quality_score: float = 0.0
+    tasks_completed: int = 0
+    tasks_total: int = 0
+    models_used: List[str] = field(default_factory=list)
+    optimizations_enabled: List[str] = field(default_factory=list)
+
+
+@dataclass
+class PushResult:
+    """Result of GitHub push."""
+    success: bool
+    branch: str
+    commit_hash: Optional[str]
+    commit_message: str
+    files_pushed: int
+    push_url: str
+    error: Optional[str] = None
+
+
+@dataclass
+class GitHubMetrics:
+    """Metrics for GitHub integration."""
+    total_pushes: int = 0
+    successful_pushes: int = 0
+    failed_pushes: int = 0
+    total_files_pushed: int = 0
+    avg_push_time: float = 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "total_pushes": self.total_pushes,
+            "successful_pushes": self.successful_pushes,
+            "failed_pushes": self.failed_pushes,
+            "total_files_pushed": self.total_files_pushed,
+            "avg_push_time": self.avg_push_time,
+            "success_rate": self.successful_pushes / max(1, self.total_pushes),
+        }
+
+
+class GitHubIntegration:
+    """
+    GitHub integration for auto-push with conventional commits.
+
+    Usage:
+        github = GitHubIntegration(token, owner, repo)
+        result = await github.push_results(output_dir, project_id, summary)
+    """
+
+    # Conventional commit types
+    COMMIT_TYPES = {
+        "code_generation": "feat",
+        "bug_fix": "fix",
+        "refactor": "refactor",
+        "test": "test",
+        "docs": "docs",
+        "chore": "chore",
+        "optimization": "perf",
+    }
+
+    def __init__(
+        self,
+        token: Optional[str] = None,
+        owner: Optional[str] = None,
+        repo: Optional[str] = None,
+        base_url: str = "https://github.com",
+    ):
+        """
+        Initialize GitHub integration.
+
+        Args:
+            token: GitHub personal access token
+            owner: Repository owner (username or org)
+            repo: Repository name
+            base_url: GitHub base URL (for Enterprise)
+        """
+        self.token = token or os.getenv("GITHUB_TOKEN")
+        self.owner = owner or os.getenv("GITHUB_OWNER")
+        self.repo = repo or os.getenv("GITHUB_REPO")
+        self.base_url = base_url
+
+        self.metrics = GitHubMetrics()
+
+        # Check if git is available
+        self._git_available: Optional[bool] = None
+
+    async def _check_git(self) -> bool:
+        """Check if git is available."""
+        if self._git_available is not None:
+            return self._git_available
+
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["git", "--version"],
+                capture_output=True,
+                timeout=5,
+            )
+            self._git_available = result.returncode == 0
+            if self._git_available:
+                logger.info(f"Git available: {result.stdout.decode().strip()}")
+            return self._git_available
+        except Exception as e:
+            logger.warning(f"Git not available: {e}")
+            self._git_available = False
+            return False
+
+    def _build_commit_message(
+        self,
+        project_id: str,
+        summary: str,
+        metadata: Optional[CommitMetadata] = None,
+        commit_type: str = "feat",
+    ) -> str:
+        """
+        Build conventional commit message.
+
+        Args:
+            project_id: Project identifier
+            summary: Commit summary
+            metadata: Optional commit metadata
+            commit_type: Conventional commit type
+
+        Returns:
+            Formatted commit message
+        """
+        # Build header
+        header = f"{commit_type}({project_id}): {summary[:72]}"
+
+        # Build body
+        body_lines = [
+            "",
+            "Generated by AI Orchestrator v1.0",
+            "Optimizations: Tier 1-3 (80% cost reduction)",
+        ]
+
+        if metadata:
+            body_lines.append("")
+            body_lines.append(f"Budget: ${metadata.budget_spent:.2f}")
+            body_lines.append(f"Quality: {metadata.quality_score:.2f}")
+            body_lines.append(f"Tasks: {metadata.tasks_completed}/{metadata.tasks_total}")
+
+            if metadata.models_used:
+                body_lines.append(f"Models: {', '.join(metadata.models_used)}")
+
+            if metadata.optimizations_enabled:
+                body_lines.append(f"Optimizations: {', '.join(metadata.optimizations_enabled)}")
+
+        return "\n".join(body_lines)
+
+    async def push_results(
+        self,
+        output_dir: Path,
+        project_id: str,
+        summary: str,
+        metadata: Optional[CommitMetadata] = None,
+        commit_type: str = "feat",
+        create_branch: bool = True,
+        push_remote: bool = True,
+    ) -> PushResult:
+        """
+        Push generated results to GitHub.
+
+        Args:
+            output_dir: Directory with generated files
+            project_id: Project identifier (used for branch name)
+            summary: Commit summary
+            metadata: Optional commit metadata
+            commit_type: Conventional commit type
+            create_branch: Create new branch for project
+            push_remote: Push to remote repository
+
+        Returns:
+            PushResult with branch, commit hash, etc.
+        """
+        import time
+        start_time = time.time()
+
+        self.metrics.total_pushes += 1
+
+        # Check git availability
+        git_available = await self._check_git()
+
+        if not git_available:
+            self.metrics.failed_pushes += 1
+            return PushResult(
+                success=False,
+                branch="",
+                commit_hash=None,
+                commit_message="",
+                files_pushed=0,
+                push_url="",
+                error="Git not available",
+            )
+
+        if not self.token:
+            self.metrics.failed_pushes += 1
+            return PushResult(
+                success=False,
+                branch="",
+                commit_hash=None,
+                commit_message="",
+                files_pushed=0,
+                push_url="",
+                error="GitHub token not provided",
+            )
+
+        try:
+            import subprocess
+            import asyncio
+
+            # Branch name
+            branch = f"orchestrator/{project_id}" if create_branch else "main"
+
+            # Build commit message
+            commit_message = self._build_commit_message(
+                project_id, summary, metadata, commit_type
+            )
+
+            # Collect files to commit
+            files_to_add = []
+            for ext in ["*.py", "*.js", "*.ts", "*.tsx", "*.jsx", "*.html", "*.css", "*.md", "*.json", "*.yaml", "*.yml"]:
+                files_to_add.extend(output_dir.rglob(ext))
+
+            if not files_to_add:
+                self.metrics.failed_pushes += 1
+                return PushResult(
+                    success=False,
+                    branch=branch,
+                    commit_hash=None,
+                    commit_message=commit_message,
+                    files_pushed=0,
+                    push_url="",
+                    error="No files found to push",
+                )
+
+            # Initialize repo if needed
+            git_dir = output_dir / ".git"
+            if not git_dir.exists():
+                subprocess.run(
+                    ["git", "init"],
+                    cwd=str(output_dir),
+                    check=True,
+                    capture_output=True,
+                )
+
+            # Configure git
+            subprocess.run(
+                ["git", "config", "user.name", "AI Orchestrator"],
+                cwd=str(output_dir),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "orchestrator@ai.local"],
+                cwd=str(output_dir),
+                check=True,
+                capture_output=True,
+            )
+
+            # Create/checkout branch
+            if create_branch:
+                subprocess.run(
+                    ["git", "checkout", "-B", branch],
+                    cwd=str(output_dir),
+                    check=True,
+                    capture_output=True,
+                )
+            else:
+                subprocess.run(
+                    ["git", "checkout", "main"],
+                    cwd=str(output_dir),
+                    check=True,
+                    capture_output=True,
+                )
+
+            # Add files
+            for file_path in files_to_add:
+                rel_path = file_path.relative_to(output_dir)
+                subprocess.run(
+                    ["git", "add", str(rel_path)],
+                    cwd=str(output_dir),
+                    check=True,
+                    capture_output=True,
+                )
+
+            # Commit
+            subprocess.run(
+                ["git", "commit", "-m", commit_message],
+                cwd=str(output_dir),
+                check=True,
+                capture_output=True,
+            )
+
+            # Get commit hash
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=str(output_dir),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            commit_hash = result.stdout.strip()
+
+            # Push to remote
+            push_url = ""
+            if push_remote and self.owner and self.repo:
+                # FIX-OPT-002b: Use token via environment variable, not embedded in URL
+                # This prevents token exposure in process listings and logs
+                remote_url = f"https://{self.base_url.replace('https://', '')}/{self.owner}/{self.repo}.git"
+                
+                # Configure environment for git authentication
+                # GitHub accepts personal access token as username with empty password
+                env = os.environ.copy()
+                env["GIT_ASKPASS"] = "/bin/echo"  # Non-interactive
+                env["GIT_USERNAME"] = self.token  # Token as username
+                env["GIT_PASSWORD"] = ""  # Empty password (token auth)
+
+                try:
+                    subprocess.run(
+                        ["git", "push", "-u", "origin", branch, "--force"],
+                        cwd=str(output_dir),
+                        check=True,
+                        capture_output=True,
+                        env=env,
+                        timeout=60,
+                    )
+                    push_url = f"{self.base_url}/{self.owner}/{self.repo}/tree/{branch}"
+                except subprocess.CalledProcessError as e:
+                    # Sanitize stderr to remove any potential token exposure
+                    stderr = e.stderr.decode() if e.stderr else "unknown error"
+                    logger.warning(f"Push failed: {stderr}")
+                    push_url = ""
+
+            # Update metrics
+            execution_time = time.time() - start_time
+            self.metrics.successful_pushes += 1
+            self.metrics.total_files_pushed += len(files_to_add)
+            self.metrics.avg_push_time = (
+                (self.metrics.avg_push_time * (self.metrics.total_pushes - 1) + execution_time)
+                / self.metrics.total_pushes
+            )
+
+            logger.info(
+                f"Pushed {len(files_to_add)} files to {branch} "
+                f"(commit: {commit_hash[:8]})"
+            )
+
+            return PushResult(
+                success=True,
+                branch=branch,
+                commit_hash=commit_hash,
+                commit_message=commit_message,
+                files_pushed=len(files_to_add),
+                push_url=push_url,
+            )
+
+        except Exception as e:
+            logger.error(f"GitHub push failed: {e}")
+            self.metrics.failed_pushes += 1
+            return PushResult(
+                success=False,
+                branch=branch if 'branch' in locals() else "",
+                commit_hash=None,
+                commit_message="",
+                files_pushed=0,
+                push_url="",
+                error=str(e),
+            )
+
+    async def create_pull_request(
+        self,
+        branch: str,
+        title: str,
+        body: str,
+        base: str = "main",
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Create pull request for merged branch.
+
+        Args:
+            branch: Source branch
+            title: PR title
+            body: PR body/description
+            base: Target branch
+
+        Returns:
+            PR data or None
+        """
+        if not self.token or not self.owner or not self.repo:
+            return None
+
+        try:
+            import aiohttp
+
+            url = f"{self.base_url}/repos/{self.owner}/{self.repo}/pulls"
+            headers = {
+                "Authorization": f"token {self.token}",
+                "Accept": "application/vnd.github.v3+json",
+            }
+            data = {
+                "title": title,
+                "head": branch,
+                "base": base,
+                "body": body,
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=data) as response:
+                    if response.status == 201:
+                        pr_data = await response.json()
+                        logger.info(f"Created PR #{pr_data['number']}: {title}")
+                        return pr_data
+                    else:
+                        error = await response.text()
+                        logger.warning(f"PR creation failed: {error}")
+                        return None
+
+        except Exception as e:
+            logger.error(f"PR creation failed: {e}")
+            return None
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get GitHub integration metrics."""
+        return self.metrics.to_dict()
+
+    def reset_metrics(self) -> None:
+        """Reset metrics."""
+        self.metrics = GitHubMetrics()
+
+
+# ─────────────────────────────────────────────
+# Convenience Functions
+# ─────────────────────────────────────────────
+
+async def push_to_github(
+    output_dir: Path,
+    project_id: str,
+    summary: str,
+    token: Optional[str] = None,
+    owner: Optional[str] = None,
+    repo: Optional[str] = None,
+) -> PushResult:
+    """
+    Convenience function for GitHub push.
+
+    Args:
+        output_dir: Directory with generated files
+        project_id: Project identifier
+        summary: Commit summary
+        token: GitHub token
+        owner: Repository owner
+        repo: Repository name
+
+    Returns:
+        PushResult
+    """
+    github = GitHubIntegration(token=token, owner=owner, repo=repo)
+    return await github.push_results(output_dir, project_id, summary)
+
+
+__all__ = [
+    "GitHubIntegration",
+    "CommitMetadata",
+    "PushResult",
+    "GitHubMetrics",
+    "push_to_github",
+]

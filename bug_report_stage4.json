@@ -1,0 +1,148 @@
+{
+  "protocol_version": "2.0",
+  "stage": "4",
+  "timestamp": "2026-03-25T23:10:00Z",
+  "patches": [
+    {
+      "bug_id": "BUG-001",
+      "candidates": [
+        {
+          "id": "FIX-001a",
+          "description": "Add plistlib-based XML parsing with proper exception handling",
+          "scores": {
+            "correctness": 0.95,
+            "safety": 0.90,
+            "compatibility": 0.95,
+            "maintainability": 0.90,
+            "performance": 0.95
+          },
+          "weighted_total": 0.93,
+          "approach": "minimal"
+        },
+        {
+          "id": "FIX-001b",
+          "description": "Add comprehensive XML validation with schema checking and detailed error reporting",
+          "scores": {
+            "correctness": 0.98,
+            "safety": 0.95,
+            "compatibility": 0.90,
+            "maintainability": 0.85,
+            "performance": 0.90
+          },
+          "weighted_total": 0.91,
+          "approach": "defensive"
+        }
+      ],
+      "selected": "FIX-001a",
+      "rationale": "FIX-001a provides the optimal balance: uses Python's built-in plistlib for proper XML parsing, adds exception handling, maintains backward compatibility, and is minimal enough to avoid introducing new bugs. FIX-001b is over-engineered for this use case.",
+      "patch_diff": "```python\n# File: orchestrator/pre_submission_testing.py\n# Lines: 467-485\n\nimport plistlib  # Add to imports at top of file\n\nasync def _privacy_audit(self, app_path: Path) -> CheckResult:\n    try:\n        info_plist_files = list(app_path.rglob(\"Info.plist\"))\n        \n        if not info_plist_files:\n            return CheckResult(\n                check_type=CheckType.PRIVACY_COMPLIANCE,\n                passed=False,\n                message=\"Info.plist not found\",\n                severity=\"critical\",\n                guideline=\"5.1.1\",\n            )\n        \n        # FIX-001a: Parse Info.plist as proper XML instead of raw text\n        try:\n            with open(info_plist_files[0], 'rb') as f:\n                plist_data = plistlib.load(f)\n        except (plistlib.InvalidFileException, Exception) as e:\n            return CheckResult(\n                check_type=CheckType.PRIVACY_COMPLIANCE,\n                passed=False,\n                message=f\"Info.plist is malformed: {str(e)}\",\n                severity=\"critical\",\n                guideline=\"5.1.1\",\n            )\n        \n        # Check for required privacy keys in parsed plist\n        missing_keys = []\n        \n        for key, feature in self.REQUIRED_PRIVACY_KEYS.items():\n            # Check if feature is used in code\n            feature_used = False\n            for swift_file in app_path.rglob(\"*.swift\"):\n                try:\n                    content = swift_file.read_text(encoding='utf-8').lower()\n                    if feature in content:\n                        feature_used = True\n                        break\n                except (UnicodeDecodeError, Exception):\n                    continue  # Skip files that can't be read\n            \n            # If feature is used, check for privacy key in parsed plist\n            if feature_used and key not in plist_data:\n                missing_keys.append(key)\n        \n        if missing_keys:\n            return CheckResult(\n                check_type=CheckType.PRIVACY_COMPLIANCE,\n                passed=False,\n                message=f\"Missing privacy keys: {len(missing_keys)}\",\n                details=\", \".join(missing_keys),\n                severity=\"critical\",\n                guideline=\"5.1.1\",\n            )\n        \n        return CheckResult(\n            check_type=CheckType.PRIVACY_COMPLIANCE,\n            passed=True,\n            message=\"Privacy compliance verified\",\n            details=\"All required privacy keys present\",\n        )\n        \n    except Exception as e:\n        return CheckResult(\n            check_type=CheckType.PRIVACY_COMPLIANCE,\n            passed=False,\n            message=f\"Privacy audit failed: {str(e)}\",\n            severity=\"critical\",\n            guideline=\"5.1.1\",\n        )\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Monitor pre-submission test pass rate",
+          "Check for new privacy compliance failures",
+          "Track Info.plist parsing errors in logs"
+        ],
+        "rollback_triggers": [
+          "Valid Info.plist files incorrectly flagged as malformed",
+          "Performance regression in privacy audit (>2x slower)",
+          "New exceptions not caught by exception handling"
+        ]
+      }
+    },
+    {
+      "bug_id": "BUG-002",
+      "candidates": [
+        {
+          "id": "FIX-002a",
+          "description": "Add UTF-8 encoding parameter and per-file exception handling to all Swift scanning methods",
+          "scores": {
+            "correctness": 0.95,
+            "safety": 0.95,
+            "compatibility": 1.0,
+            "maintainability": 0.90,
+            "performance": 0.95
+          },
+          "weighted_total": 0.95,
+          "approach": "minimal"
+        },
+        {
+          "id": "FIX-002b",
+          "description": "Create helper method for safe file reading with encoding detection",
+          "scores": {
+            "correctness": 0.95,
+            "safety": 0.95,
+            "compatibility": 1.0,
+            "maintainability": 0.95,
+            "performance": 0.90
+          },
+          "weighted_total": 0.94,
+          "approach": "refactor"
+        }
+      ],
+      "selected": "FIX-002a",
+      "rationale": "FIX-002a is the most direct fix: adds encoding='utf-8' to all read_text() calls and wraps each file read in try-except to identify problematic files. FIX-002b adds unnecessary abstraction for a simple fix.",
+      "patch_diff": "```python\n# File: orchestrator/pre_submission_testing.py\n# Apply to lines: 365, 414, 529, 571, 613, 655\n\n# Pattern to apply to ALL Swift file reading in these methods:\n# _crash_test(), _completeness_check(), _hig_compliance_check(), \n# _offline_test(), _ipv6_test(), _code_execution_scan()\n\n# BEFORE (line 365 in _crash_test):\n#   content = view_file.read_text()\n\n# AFTER (FIX-002a):\nbad_files = []\nfor view_file in view_files[:10]:\n    try:\n        content = view_file.read_text(encoding='utf-8')\n    except (UnicodeDecodeError, Exception) as e:\n        bad_files.append(f\"{view_file.name}: {str(e)}\")\n        continue  # Skip this file, continue with others\n    \n    # ... rest of processing logic\n\n# At the end of method, report bad files:\nif bad_files:\n    crashes_found.extend([f\"Unreadable file: {bf}\" for bf in bad_files])\n\n# Apply same pattern to all 6 methods:\n# - Line 414 in _completeness_check()\n# - Line 529 in _hig_compliance_check()\n# - Line 571 in _offline_test()\n# - Line 613 in _ipv6_test()\n# - Line 655 in _code_execution_scan()\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Monitor pre-submission test completion rate",
+          "Check for UnicodeDecodeError in logs",
+          "Track number of files skipped due to encoding issues"
+        ],
+        "rollback_triggers": [
+          "Valid UTF-8 Swift files incorrectly skipped",
+          "Significant performance degradation (>20% slower)",
+          "New exceptions not caught by exception handling"
+        ]
+      }
+    },
+    {
+      "bug_id": "BUG-003",
+      "candidates": [
+        {
+          "id": "FIX-003a",
+          "description": "Add input validation with MIN_NAME_LENGTH check and whitespace stripping",
+          "scores": {
+            "correctness": 0.95,
+            "safety": 0.90,
+            "compatibility": 0.95,
+            "maintainability": 0.90,
+            "performance": 1.0
+          },
+          "weighted_total": 0.92,
+          "approach": "minimal"
+        },
+        {
+          "id": "FIX-003b",
+          "description": "Add comprehensive ProjectSpec validation with fallback name generation",
+          "scores": {
+            "correctness": 0.98,
+            "safety": 0.95,
+            "compatibility": 0.90,
+            "maintainability": 0.85,
+            "performance": 0.95
+          },
+          "weighted_total": 0.91,
+          "approach": "defensive"
+        }
+      ],
+      "selected": "FIX-003a",
+      "rationale": "FIX-003a adds minimal validation: strips whitespace, checks minimum length, provides fallback. This is sufficient for the use case. FIX-003b adds complexity that's not needed.",
+      "patch_diff": "```python\n# File: orchestrator/app_store_assets.py\n# Lines: 140-170\n\n# Add constant at class level:\nMIN_NAME_LENGTH = 2  # App Store requires at least 2 characters\n\n# Modify _generate_app_name method:\nasync def _generate_app_name(self, project: ProjectSpec) -> str:\n    # FIX-003a: Validate project name before generating app name\n    raw_name = getattr(project, 'name', '').strip()\n    \n    # Handle empty or whitespace-only names\n    if not raw_name or len(raw_name) < self.MIN_NAME_LENGTH:\n        # Generate fallback name from description or use generic\n        if hasattr(project, 'description') and project.description:\n            # Extract first few meaningful words from description\n            words = project.description.split()[:3]\n            raw_name = ' '.join(words) if words else 'MyApp'\n        else:\n            raw_name = 'MyApp'\n    \n    # Truncate if too long\n    if len(raw_name) > self.MAX_NAME_LENGTH:\n        raw_name = raw_name[:self.MAX_NAME_LENGTH].rsplit(' ', 1)[0]\n    \n    name = raw_name\n    logger.debug(f\"Generated app name: {name}\")\n    return name\n\n# Apply same validation to _generate_subtitle:\nasync def _generate_subtitle(self, project: ProjectSpec) -> str:\n    # Similar validation for subtitle\n    raw_subtitle = getattr(project, 'description', '').strip()\n    \n    if not raw_subtitle or len(raw_subtitle) < 5:\n        raw_subtitle = f\"Professional {self._extract_category(project)} app\"\n    \n    # Truncate if needed\n    if len(raw_subtitle) > self.MAX_SUBTITLE_LENGTH:\n        raw_subtitle = raw_subtitle[:self.MAX_SUBTITLE_LENGTH].rsplit(' ', 1)[0]\n    \n    logger.debug(f\"Generated subtitle: {raw_subtitle}\")\n    return raw_subtitle\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Monitor app name generation success rate",
+          "Check for fallback name usage in logs",
+          "Track App Store metadata validation errors"
+        ],
+        "rollback_triggers": [
+          "Valid project names incorrectly replaced with fallback",
+          "Generated names violate App Store guidelines",
+          "User complaints about unexpected name changes"
+        ]
+      }
+    }
+  ]
+}
