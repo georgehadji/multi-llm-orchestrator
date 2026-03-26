@@ -26,9 +26,32 @@ class ModelTier(Enum):
 
 
 TIER_ROUTING: dict[ModelTier, list[str]] = {
-    ModelTier.PREMIUM: ["gpt-4o", "claude-3-5-sonnet-20241022", "gemini-1.5-pro"],
-    ModelTier.STANDARD: ["gpt-4o-mini", "claude-3-haiku-20240307", "deepseek-chat"],
-    ModelTier.ECONOMY: ["deepseek-chat", "gemini-1.5-flash"],
+    # PREMIUM: frontier models — highest quality, higher cost
+    ModelTier.PREMIUM: [
+        "gpt-4o",
+        "claude-3-5-sonnet-20241022",
+        "gemini-1.5-pro",
+        "meta-llama/llama-3.1-405b-instruct",   # OR: 405B open-source near-frontier
+    ],
+    # STANDARD: strong models at moderate cost
+    ModelTier.STANDARD: [
+        "gpt-4o-mini",
+        "claude-3-haiku-20240307",
+        "deepseek-chat",
+        "meta-llama/llama-4-maverick",           # OR: 400B MoE, $0.17 flat
+        "meta-llama/llama-3.3-70b-instruct",     # OR: 70B battle-tested
+        "nousresearch/hermes-3-llama-3.1-70b",  # OR: tool-use fine-tune
+    ],
+    # ECONOMY: cheapest capable models — fast and low-cost
+    ModelTier.ECONOMY: [
+        "deepseek-chat",
+        "gemini-1.5-flash",
+        "meta-llama/llama-4-scout",              # OR: 109B MoE, $0.11/$0.34
+        "meta-llama/llama-3.3-70b-instruct",     # OR: reliable 70B
+        "microsoft/phi-4",                       # OR: 14B, excellent $/quality
+        "google/gemma-3-27b-it",                 # OR: Google open-weights 27B
+        "openrouter/auto",                       # OR: dynamic routing (cheapest fit)
+    ],
 }
 
 PHASE_TO_TIER: dict[str, ModelTier] = {
