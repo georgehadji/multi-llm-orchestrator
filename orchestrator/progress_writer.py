@@ -34,6 +34,13 @@ logger = logging.getLogger("orchestrator.progress_writer")
 # Reuse output_writer helpers so naming stays consistent
 from .output_writer import _ext_for, _render_content, _write_summary_json
 
+# HIGH PRIORITY FIX: Use async file I/O to prevent event loop blocking
+from .async_file_io import (
+    async_write_text,
+    async_append_text,
+    async_write_text_locked,
+)
+
 
 @dataclass
 class ProgressEntry:
@@ -80,15 +87,19 @@ class ProgressWriter:
             return  # skip empty/failed tasks with no content
 
         # Write the task output file (no lock needed — unique filename per task)
-        filename = self._write_task_file(task_id, result, task)
+        filename = await self._write_task_file(task_id, result, task)
 
         # Build the progress entry
+        # Handle both enum and string status values
+        status_value = result.status.value if hasattr(result.status, 'value') else str(result.status)
+        model_value = result.model_used.value if hasattr(result.model_used, 'value') else str(result.model_used)
+        
         entry = ProgressEntry(
             task_id=task_id,
-            status=result.status.value,
+            status=status_value,
             score=round(result.score, 4),
             cost_usd=round(result.cost_usd, 6),
-            model_used=result.model_used.value,
+            model_used=model_value,
             timestamp_iso=datetime.now().isoformat(timespec="seconds"),
             output_file=filename,
         )
@@ -99,16 +110,54 @@ class ProgressWriter:
             await self._append_progress_line(entry)
             await self._update_summary()
 
-    def _write_task_file(
+    async def _write_task_file(
         self, task_id: str, result: "TaskResult", task: "Task"
     ) -> str:
         """Write task output file. Returns the filename (relative to output_dir)."""
         from .models import TaskType
+
+        # CRITICAL FIX: Validate code with AST before writing
+        if task.type == TaskType.CODE_GEN and result.output:
+            try:
+                from .code_validator import validate_code, SecurityConfig
+                config = SecurityConfig(
+                    allow_eval=False,
+                    allow_exec=False,
+                    allow_os_system=False,
+                    allow_subprocess=False,
+                    allow_network=False,
+                )
+                validation_result = validate_code(result.output, config)
+
+                if not validation_result.is_valid:
+                    # Code failed validation - sanitize or reject
+                    logger.error(
+                        f"Task {task_id}: Code validation failed: {validation_result.errors}"
+                    )
+                    # Add validation warning to output
+                    warning_header = (
+                        f"# SECURITY WARNING: Code failed validation\n"
+                        f"# Issues: {', '.join(validation_result.errors)}\n"
+                        f"# Warnings: {', '.join(validation_result.warnings)}\n\n"
+                    )
+                    result.output = warning_header + result.output
+
+                if validation_result.dangerous_patterns_found:
+                    logger.warning(
+                        f"Task {task_id}: Dangerous patterns detected: "
+                        f"{validation_result.dangerous_patterns_found}"
+                    )
+
+            except Exception as e:
+                logger.warning(f"Task {task_id}: AST validation failed: {e}")
+                # Continue with write but log the issue
+
         ext = _ext_for(task.type, result.output)
         filename = f"{task_id}_{task.type.value}{ext}"
         dest = self._out / filename
         content = _render_content(task.type, result.output, ext)
-        dest.write_text(content, encoding="utf-8")
+        # HIGH PRIORITY FIX: Use async file I/O to prevent event loop blocking
+        await async_write_text(dest, content, encoding="utf-8")
         logger.debug(
             "ProgressWriter: wrote %s (%d chars, score=%.3f)",
             filename, len(content), result.score,
@@ -139,10 +188,10 @@ class ProgressWriter:
             "timestamp_iso": entry.timestamp_iso,
             "output_file": entry.output_file,
         }, ensure_ascii=False) + "\n"
+        # HIGH PRIORITY FIX: Use async file I/O to prevent event loop blocking
         # Appending a single short JSON line is effectively atomic on all major
         # OS file systems for writes < 4KB (POSIX O_APPEND guarantee).
-        with open(progress_path, "a", encoding="utf-8") as f:
-            f.write(line)
+        await async_append_text(progress_path, line)
 
     async def _update_summary(self) -> None:
         """Rewrite summary.json with the current partial results (called under self._lock)."""

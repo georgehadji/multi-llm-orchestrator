@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import random
 import hashlib
+import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
 from enum import Enum
@@ -847,3 +848,169 @@ def reset_adaptive_template_system() -> None:
     """Reset global adaptive template system (for testing)."""
     global _ats
     _ats = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Self-Improving Templates Integration (Hyperagents-inspired)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class TemplateEvolutionRecord:
+    """Record of template evolution for meta-optimization."""
+    task_type: str
+    model: str
+    variant_name: str
+    score: float
+    success: bool
+    cost_usd: float
+    timestamp: float = field(default_factory=time.time)
+    
+    def to_dict(self) -> dict:
+        return {
+            "task_type": self.task_type,
+            "model": self.model,
+            "variant_name": self.variant_name,
+            "score": self.score,
+            "success": self.success,
+            "cost_usd": self.cost_usd,
+            "timestamp": self.timestamp,
+        }
+
+
+class SelfImprovingTemplates:
+    """
+    Self-improving template system inspired by Hyperagents.
+    
+    Integrates with MetaOptimizer to evolve templates based on performance.
+    """
+    
+    def __init__(self, template_system: Optional[AdaptiveTemplateSystem] = None):
+        self.template_system = template_system or get_adaptive_template_system()
+        self._evolution_records: List[TemplateEvolutionRecord] = []
+        self._variant_performance: Dict[str, List[float]] = defaultdict(list)
+    
+    def record_execution(self, task_type: TaskType, model: Model, 
+                        variant_name: str, score: float, success: bool, 
+                        cost_usd: float):
+        """Record template execution for later analysis."""
+        record = TemplateEvolutionRecord(
+            task_type=task_type.value,
+            model=model.value,
+            variant_name=variant_name,
+            score=score,
+            success=success,
+            cost_usd=cost_usd,
+        )
+        self._evolution_records.append(record)
+        self._variant_performance[variant_name].append(score)
+    
+    def get_variant_stats(self, variant_name: str) -> Dict[str, float]:
+        """Get statistics for a template variant."""
+        scores = self._variant_performance.get(variant_name, [])
+        if not scores:
+            return {"avg_score": 0, "std": 0, "count": 0}
+        
+        return {
+            "avg_score": statistics.mean(scores),
+            "std": statistics.stdev(scores) if len(scores) > 1 else 0,
+            "count": len(scores),
+            "min": min(scores),
+            "max": max(scores),
+        }
+    
+    def propose_improvements(self, min_samples: int = 10) -> List[Dict[str, Any]]:
+        """
+        Propose template improvements based on performance data.
+        
+        Returns list of improvement proposals.
+        """
+        proposals = []
+        
+        # Group by task type
+        by_task_type: Dict[str, List[TemplateEvolutionRecord]] = defaultdict(list)
+        for record in self._evolution_records:
+            by_task_type[record.task_type].append(record)
+        
+        for task_type, records in by_task_type.items():
+            if len(records) < min_samples:
+                continue
+            
+            # Find best performing variant
+            variant_scores: Dict[str, List[float]] = defaultdict(list)
+            for record in records:
+                variant_scores[record.variant_name].append(record.score)
+            
+            best_variant = max(variant_scores.keys(), 
+                              key=lambda v: sum(variant_scores[v]) / len(variant_scores[v]))
+            best_score = sum(variant_scores[best_variant]) / len(variant_scores[best_variant])
+            
+            # Find worst performing variant
+            worst_variant = min(variant_scores.keys(),
+                               key=lambda v: sum(variant_scores[v]) / len(variant_scores[v]))
+            worst_score = sum(variant_scores[worst_variant]) / len(variant_scores[worst_variant])
+            
+            # Propose retiring underperforming variant
+            if best_score - worst_score > 0.15:  # 15% difference
+                proposals.append({
+                    "type": "retire_variant",
+                    "task_type": task_type,
+                    "variant_to_retire": worst_variant,
+                    "reason": f"Underperforming ({worst_score:.2f} vs {best_score:.2f})",
+                })
+            
+            # Propose making best variant the default
+            if best_score > 0.85:
+                proposals.append({
+                    "type": "set_default",
+                    "task_type": task_type,
+                    "default_variant": best_variant,
+                    "reason": f"High performer ({best_score:.2f} avg score)",
+                })
+        
+        return proposals
+    
+    def apply_improvement(self, proposal: Dict[str, Any]) -> bool:
+        """Apply an improvement proposal."""
+        proposal_type = proposal.get("type")
+        
+        if proposal_type == "retire_variant":
+            # Mark variant as retired (would need template system support)
+            logger.info(f"Would retire variant: {proposal['variant_to_retire']} for {proposal['task_type']}")
+            return True
+        
+        elif proposal_type == "set_default":
+            # Set default variant for task type
+            logger.info(f"Would set default variant: {proposal['default_variant']} for {proposal['task_type']}")
+            return True
+        
+        return False
+    
+    def get_evolution_report(self) -> Dict[str, Any]:
+        """Generate template evolution report."""
+        return {
+            "total_executions": len(self._evolution_records),
+            "variants_tracked": len(self._variant_performance),
+            "variant_stats": {
+                variant: self.get_variant_stats(variant)
+                for variant in list(self._variant_performance.keys())[:10]
+            },
+            "improvement_proposals": self.propose_improvements(),
+        }
+
+
+# Global self-improving templates instance
+_sit: Optional[SelfImprovingTemplates] = None
+
+
+def get_self_improving_templates() -> SelfImprovingTemplates:
+    """Get global self-improving templates instance."""
+    global _sit
+    if _sit is None:
+        _sit = SelfImprovingTemplates()
+    return _sit
+
+
+def reset_self_improving_templates() -> None:
+    """Reset global self-improving templates instance (for testing)."""
+    global _sit
+    _sit = None

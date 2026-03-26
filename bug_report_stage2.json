@@ -1,0 +1,88 @@
+{
+  "protocol_version": "2.0",
+  "stage": "2",
+  "timestamp": "2026-03-25T23:00:00Z",
+  "failure_scenarios": [
+    {
+      "id": "BUG-001",
+      "category": "data_integrity",
+      "trigger_condition": "Info.plist file exists but is empty or has XML parsing errors",
+      "affected_module": "pre_submission_testing.py",
+      "function": "_privacy_audit()",
+      "severity": "high",
+      "exploitability": "conditional",
+      "blast_radius": "module",
+      "classification": "CONFIRMED",
+      "priority_score": 7.5,
+      "evidence": "Line 476: info_plist = info_plist_files[0].read_text() — No validation that file is readable XML. Line 480-485: Checks for keys in string content, not parsed XML. If Info.plist is empty or malformed, will silently pass privacy check.",
+      "description": "Privacy audit does not validate Info.plist XML structure. Empty or malformed plist files will pass the privacy compliance check, leading to false positives and potential App Store rejection."
+    },
+    {
+      "id": "BUG-002",
+      "category": "edge_case",
+      "trigger_condition": "Swift file contains non-UTF8 characters or is binary",
+      "affected_module": "pre_submission_testing.py",
+      "function": "_crash_test(), _completeness_check(), _hig_compliance_check(), _offline_test(), _ipv6_test(), _code_execution_scan()",
+      "severity": "medium",
+      "exploitability": "trivial",
+      "blast_radius": "function",
+      "classification": "CONFIRMED",
+      "priority_score": 6.0,
+      "evidence": "Lines 365, 414, 529, 571, 613, 655: content = swift_file.read_text() — No encoding specified, no exception handling for decode errors. Will raise UnicodeDecodeError on non-UTF8 files.",
+      "description": "All Swift file scanning methods use read_text() without encoding parameter or exception handling. Files with non-UTF8 encoding will crash the entire pre-submission review instead of gracefully skipping."
+    },
+    {
+      "id": "BUG-003",
+      "category": "logic_error",
+      "trigger_condition": "Project name has special characters or is empty",
+      "affected_module": "app_store_assets.py",
+      "function": "_generate_app_name(), _generate_subtitle()",
+      "severity": "medium",
+      "exploitability": "conditional",
+      "blast_radius": "function",
+      "classification": "CONFIRMED",
+      "priority_score": 5.5,
+      "evidence": "Lines 155-170: No validation of project.name before truncation. If project.name is empty or contains only whitespace, will generate invalid app name. MAX_NAME_LENGTH=30 constraint enforced but no MIN_NAME_LENGTH check.",
+      "description": "App name generation does not validate minimum length or handle empty/whitespace-only project names. This can generate invalid App Store metadata that will be rejected during submission."
+    },
+    {
+      "id": "BUG-004",
+      "category": "false_positive",
+      "trigger_condition": "Swift code contains legitimate IPv4 addresses in comments or test data",
+      "affected_module": "pre_submission_testing.py",
+      "function": "_ipv6_test()",
+      "severity": "low",
+      "exploitability": "conditional",
+      "blast_radius": "function",
+      "classification": "LIKELY",
+      "priority_score": 3.5,
+      "evidence": "Line 625: Regex r'\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b' matches ANY IPv4 pattern including comments, test data, documentation. No distinction between actual network code and examples.",
+      "description": "IPv6 compatibility check flags any IPv4 address pattern, including those in comments, test fixtures, or documentation. This produces false positives that waste developer time investigating non-issues."
+    },
+    {
+      "id": "BUG-005",
+      "category": "incomplete_implementation",
+      "trigger_condition": "Code generator called for feature file combination not in template",
+      "affected_module": "native_features.py",
+      "function": "generate_code(), _get_code_generator()",
+      "severity": "low",
+      "exploitability": "conditional",
+      "blast_radius": "function",
+      "classification": "CONFIRMED",
+      "priority_score": 3.0,
+      "evidence": "Line 430: generators dict only has 5 features (push_notifications, offline_support, biometric_auth, app_shortcuts, widgets). Line 420: Returns None if feature not in generators. But TEMPLATES has 10 features. 5 features have templates but no code generators.",
+      "description": "Code generation is incomplete. Only 5 of 10 native features have actual Swift code generators. The other 5 (deep_linking, in_app_purchases, share_sheet, camera_photos, location_services) return None, misleading users who expect working code."
+    }
+  ],
+  "summary": {
+    "total_findings": 5,
+    "confirmed": 4,
+    "likely": 1,
+    "uncertain": 0,
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 2,
+    "selected_for_remediation": ["BUG-001", "BUG-002", "BUG-003"]
+  }
+}

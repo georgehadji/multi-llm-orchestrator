@@ -4,6 +4,10 @@ Nexus Search — Core Search Orchestrator
 Author: Georgios-Chrysovalantis Chatzivantsidis
 
 Main entry point for Nexus Search operations.
+
+Optimizations:
+- Result deduplication (URL, title, semantic)
+- Query caching (TTL-based)
 """
 
 from __future__ import annotations
@@ -22,6 +26,16 @@ from .providers.nexus import NexusProvider
 from .agents.classifier import QueryClassifier, QueryType, get_classifier
 from .agents.researcher import ResearchAgent, get_research_agent
 from .config import get_config
+
+# Import optimizations
+try:
+    from .optimization.deduplication import deduplicate_results
+    from .optimization.query_cache import get_query_cache
+    OPTIMIZATIONS_ENABLED = True
+except ImportError:
+    OPTIMIZATIONS_ENABLED = False
+    deduplicate_results = None
+    get_query_cache = None
 
 logger = logging.getLogger("orchestrator.nexus_search")
 
@@ -85,40 +99,64 @@ class NexusSearchOrchestrator:
         num_results: int = 10,
     ) -> SearchResults:
         """
-        Perform a search query.
-        
+        Perform a search query with optimizations.
+
+        Optimizations:
+        - Query caching (TTL-based)
+        - Result deduplication (URL, title, semantic)
+
         Args:
             query: Search query
             sources: Sources to search (auto-detected if None)
             optimization: Optimization mode
             num_results: Maximum results
-            
+
         Returns:
-            SearchResults
+            SearchResults (deduplicated)
         """
         # Initialize if needed
         if not self._initialized:
             await self.initialize()
-        
+
         # Auto-classify to get optimal sources
         if self.classifier and sources is None:
             query_type = await self.classifier.classify(query)
             sources = self.classifier.get_recommended_sources(query_type)
             logger.debug(f"Classified query as {query_type.value}, using sources: {[s.value for s in sources]}")
-        
+
         # Adjust num_results based on optimization mode
         if optimization == OptimizationMode.SPEED:
             num_results = min(num_results, 5)
         elif optimization == OptimizationMode.QUALITY:
             num_results = min(num_results, 20)
-        
+
+        # Try cache first (if optimizations enabled)
+        if OPTIMIZATIONS_ENABLED and get_query_cache:
+            cache = get_query_cache()
+            cached_results = await cache.get(query, sources or [SearchSource.WEB])
+            if cached_results is not None:
+                logger.info(f"Cache hit for query: {query[:50]}...")
+                return cached_results
+
         # Perform search
         results = await self.provider.search(
             query=query,
             sources=sources,
             num_results=num_results,
         )
-        
+
+        # Deduplicate results (if optimizations enabled)
+        if OPTIMIZATIONS_ENABLED and deduplicate_results:
+            original_count = len(results.results)
+            results.results = deduplicate_results(results.results)
+            results.total_results = len(results.results)
+            logger.info(f"Deduplication: {original_count} → {results.total_results} results")
+
+        # Cache results (if optimizations enabled)
+        if OPTIMIZATIONS_ENABLED and get_query_cache:
+            cache = get_query_cache()
+            await cache.set(query, sources or [SearchSource.WEB], results)
+
         return results
     
     async def research(

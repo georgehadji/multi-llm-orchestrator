@@ -1,0 +1,219 @@
+{
+  "protocol_version": "2.0",
+  "stage": "3-4",
+  "timestamp": "2026-03-26T00:10:00Z",
+  "root_cause_analyses": [
+    {
+      "bug_id": "BUG-OPT-001",
+      "file": "orchestrator/cost_optimization/docker_sandbox.py",
+      "function": "execute(), _execute_subprocess()",
+      "lines": "175-200",
+      "proximate_cause": "Subprocess fallback at line 175 executes without security isolation",
+      "root_cause": "Architectural flaw: Fallback mechanism prioritizes availability over security. When Docker unavailable, code executes directly on host with full permissions, defeating sandbox purpose. No secure fallback exists - only insecure subprocess or fail-closed.",
+      "contributing_factors": [
+        "No fail-closed option (security > availability tradeoff not made explicit)",
+        "Subprocess created without any security limits (no seccomp, no capabilities drop)",
+        "No warning to user that security is degraded",
+        "No configuration option to disable fallback"
+      ],
+      "execution_path": [
+        "User calls sandbox.execute(code_files, command)",
+        "_check_docker() returns False (Docker unavailable)",
+        "_execute_subprocess() called at line 175",
+        "subprocess.run() executes code directly on host",
+        "Malicious code has full host access"
+      ],
+      "blast_radius": {
+        "direct_callers": ["Any code using DockerSandbox"],
+        "transitive_callers": ["orchestrator engine", "task execution pipeline"],
+        "shared_state_readers": [],
+        "test_coverage": "partial"
+      },
+      "impact": "CRITICAL SECURITY VULNERABILITY: Malicious generated code can execute arbitrary commands on host system, access files, exfiltrate data, or damage system."
+    },
+    {
+      "bug_id": "BUG-OPT-002",
+      "file": "orchestrator/cost_optimization/github_push.py",
+      "function": "push_results()",
+      "lines": "360-375",
+      "proximate_cause": "Token embedded in remote_url string at line 365",
+      "root_cause": "Security anti-pattern: Embedding credentials in URL strings exposes tokens in logs, error messages, and process listings. Should use credential helper or environment variable injection.",
+      "contributing_factors": [
+        "Token passed as URL component instead of credential helper",
+        "No token redaction in logging",
+        "stderr captured but not sanitized before logging",
+        "No secure credential storage mechanism"
+      ],
+      "execution_path": [
+        "User calls github.push_results(output_dir, ...)",
+        "remote_url constructed with embedded token (line 365)",
+        "subprocess.run executes git push with token in URL",
+        "Token may appear in process listings (ps aux)",
+        "Token may appear in logs if command fails"
+      ],
+      "blast_radius": {
+        "direct_callers": ["Any code using GitHubIntegration"],
+        "transitive_callers": ["orchestrator engine", "CI/CD pipelines"],
+        "shared_state_readers": [],
+        "test_coverage": "partial"
+      },
+      "impact": "HIGH SECURITY RISK: GitHub token exposure could allow unauthorized repository access, code injection, or credential theft."
+    },
+    {
+      "bug_id": "BUG-OPT-003",
+      "file": "orchestrator/cost_optimization/docker_sandbox.py",
+      "function": "execute(), cleanup()",
+      "lines": "140-172",
+      "proximate_cause": "Temporary directories created but cleanup may fail silently",
+      "root_cause": "Resource management flaw: tempfile.mkdtemp() creates directories that persist until explicitly removed. shutil.rmtree() in finally block may fail (file locks, permissions) without retry or error reporting. No periodic cleanup mechanism.",
+      "contributing_factors": [
+        "No maximum workspace count limit",
+        "No periodic cleanup timer",
+        "shutil.rmtree errors swallowed in except block",
+        "_workspaces dict grows unbounded"
+      ],
+      "execution_path": [
+        "User calls sandbox.execute()",
+        "tempfile.mkdtemp() creates workspace directory",
+        "Code executes (may succeed or fail)",
+        "Finally block calls shutil.rmtree()",
+        "If rmtree fails, directory persists",
+        "Repeated executions accumulate directories"
+      ],
+      "blast_radius": {
+        "direct_callers": ["Any code using DockerSandbox"],
+        "transitive_callers": ["orchestrator engine", "batch processing"],
+        "shared_state_readers": [],
+        "test_coverage": "partial"
+      },
+      "impact": "MEDIUM RESOURCE ISSUE: Disk space exhaustion over time, especially in high-volume usage scenarios."
+    }
+  ],
+  "patches": [
+    {
+      "bug_id": "BUG-OPT-001",
+      "candidates": [
+        {
+          "id": "FIX-OPT-001a",
+          "description": "Fail-closed: Raise exception when Docker unavailable instead of insecure fallback",
+          "scores": {
+            "correctness": 1.0,
+            "safety": 1.0,
+            "compatibility": 0.7,
+            "maintainability": 0.9,
+            "performance": 1.0
+          },
+          "weighted_total": 0.92,
+          "approach": "secure"
+        },
+        {
+          "id": "FIX-OPT-001b",
+          "description": "Secure subprocess: Add seccomp, capabilities drop, and resource limits to subprocess fallback",
+          "scores": {
+            "correctness": 0.8,
+            "safety": 0.7,
+            "compatibility": 0.9,
+            "maintainability": 0.6,
+            "performance": 0.9
+          },
+          "weighted_total": 0.76,
+          "approach": "defensive"
+        }
+      ],
+      "selected": "FIX-OPT-001a",
+      "rationale": "FIX-OPT-001a (fail-closed) is the only secure option. Secure subprocess sandboxing on Linux requires complex setup (seccomp-bpf, namespaces, capabilities) that is error-prone and platform-specific. Better to fail explicitly and let user install Docker than provide false security.",
+      "patch_diff": "```python\n# File: orchestrator/cost_optimization/docker_sandbox.py\n# Lines: 170-200\n\nasync def execute(self, code_files, command, timeout=None, **kwargs):\n    # Check Docker availability\n    docker_available = await self._check_docker()\n\n    if docker_available:\n        # ... existing Docker execution code ...\n    else:\n        # FIX-OPT-001a: Fail-closed - no insecure fallback\n        logger.error(\n            \"Docker not available. For security, code execution requires Docker. \"\n            \"Install Docker: https://docs.docker.com/get-docker/\"\n        )\n        self.metrics.failed_executions += 1\n        return ExecutionResult(\n            return_code=-1,\n            output=\"\",\n            error=\"Docker not available. Code execution requires Docker for security isolation. Please install Docker.\",\n        )\n\n# Remove _execute_subprocess() method entirely - it's a security risk\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Monitor for Docker unavailable errors",
+          "Track failed execution rate",
+          "Check user complaints about Docker requirement"
+        ],
+        "rollback_triggers": [
+          " >50% of executions fail due to Docker unavailable",
+          "Production environment cannot install Docker"
+        ]
+      }
+    },
+    {
+      "bug_id": "BUG-OPT-002",
+      "candidates": [
+        {
+          "id": "FIX-OPT-002a",
+          "description": "Use git credential helper instead of embedding token in URL",
+          "scores": {
+            "correctness": 0.95,
+            "safety": 0.95,
+            "compatibility": 0.85,
+            "maintainability": 0.8,
+            "performance": 1.0
+          },
+          "weighted_total": 0.90,
+          "approach": "secure"
+        },
+        {
+          "id": "FIX-OPT-002b",
+          "description": "Pass token via environment variable and use credential helper",
+          "scores": {
+            "correctness": 0.9,
+            "safety": 0.9,
+            "compatibility": 0.9,
+            "maintainability": 0.85,
+            "performance": 1.0
+          },
+          "weighted_total": 0.89,
+          "approach": "secure"
+        }
+      ],
+      "selected": "FIX-OPT-002b",
+      "rationale": "FIX-OPT-002b passes token via environment variable (GIT_ASKPASS or credential helper) instead of embedding in URL. This prevents token exposure in process listings and logs.",
+      "patch_diff": "```python\n# File: orchestrator/cost_optimization/github_push.py\n# Lines: 360-380\n\n# OLD (insecure):\n# remote_url = f\"https://{self.token}@{self.base_url.replace('https://', '')}/{self.owner}/{self.repo}.git\"\n# subprocess.run([\"git\", \"push\", \"-u\", \"origin\", branch, \"--force\"], ...)\n\n# NEW (secure):\nimport subprocess\n\n# Configure credential helper to use token from environment\nenv = os.environ.copy()\nenv[\"GIT_ASKPASS\"] = \"echo\"  # Use simple echo for non-interactive\nenv[\"GIT_USERNAME\"] = self.token  # Token as username (GitHub accepts token as username)\n\n# Use https URL without embedded token\nremote_url = f\"https://{self.base_url.replace('https://', '')}/{self.owner}/{self.repo}.git\"\n\ntry:\n    subprocess.run(\n        [\"git\", \"push\", \"-u\", \"origin\", branch, \"--force\"],\n        cwd=str(output_dir),\n        check=True,\n        capture_output=True,\n        env=env,\n        timeout=60,\n    )\n    push_url = f\"{self.base_url}/{self.owner}/{self.repo}/tree/{branch}\"\nexcept subprocess.CalledProcessError as e:\n    # Sanitize stderr to remove any potential token exposure\n    stderr = e.stderr.decode() if e.stderr else \"unknown error\"\n    logger.warning(f\"Push failed: {stderr}\")\n    push_url = \"\"\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Monitor push success rate",
+          "Check for authentication failures",
+          "Verify no token exposure in logs"
+        ],
+        "rollback_triggers": [
+          "Push failures increase significantly",
+          "Credential helper not available on target systems"
+        ]
+      }
+    },
+    {
+      "bug_id": "BUG-OPT-003",
+      "candidates": [
+        {
+          "id": "FIX-OPT-003a",
+          "description": "Add retry logic and error reporting for workspace cleanup",
+          "scores": {
+            "correctness": 0.9,
+            "safety": 0.85,
+            "compatibility": 1.0,
+            "maintainability": 0.9,
+            "performance": 0.95
+          },
+          "weighted_total": 0.92,
+          "approach": "defensive"
+        }
+      ],
+      "selected": "FIX-OPT-003a",
+      "rationale": "Add retry logic with exponential backoff for shutil.rmtree, log cleanup failures, and add maximum workspace limit to prevent unbounded growth.",
+      "patch_diff": "```python\n# File: orchestrator/cost_optimization/docker_sandbox.py\n# Add after line 172 (cleanup section)\n\n# FIX-OPT-003a: Robust cleanup with retry and error reporting\nimport shutil\nimport time\n\ndef _cleanup_workspace(self, workspace: Path, max_retries: int = 3):\n    \"\"\"Cleanup workspace with retry logic.\"\"\"\n    for attempt in range(max_retries):\n        try:\n            shutil.rmtree(workspace, ignore_errors=False)\n            if str(workspace) in self._workspaces:\n                del self._workspaces[str(workspace)]\n            logger.debug(f\"Cleaned up workspace: {workspace}\")\n            return\n        except (OSError, PermissionError) as e:\n            if attempt < max_retries - 1:\n                # Exponential backoff\n                wait_time = 0.1 * (2 ** attempt)\n                logger.warning(f\"Cleanup attempt {attempt + 1} failed, retrying in {wait_time}s: {e}\")\n                time.sleep(wait_time)\n            else:\n                logger.error(f\"Failed to cleanup workspace after {max_retries} attempts: {workspace} - {e}\")\n                # Add to orphaned workspaces for manual cleanup\n                self._workspaces[str(workspace)] = workspace\n\n# Call this in finally block instead of direct shutil.rmtree\n```\n\n# Add maximum workspace limit (after line 95 in __init__):\nMAX_WORKSPACES = 100  # Prevent unbounded growth\n\n# Add check before creating new workspace (before line 145):\nif len(self._workspaces) >= self.MAX_WORKSPACES:\n    logger.warning(f\"Maximum workspace limit ({self.MAX_WORKSPACES}) reached, cleaning up oldest\")\n    # Cleanup oldest workspace\n    oldest = min(self._workspaces.items(), key=lambda x: x[1].stat().st_ctime)\n    self._cleanup_workspace(oldest[1])\n```",
+      "rollback_plan": {
+        "revert_method": "git revert",
+        "monitoring": [
+          "Monitor cleanup failure rate",
+          "Track workspace count",
+          "Check disk usage over time"
+        ],
+        "rollback_triggers": [
+          "Cleanup retries cause significant latency",
+          "Legitimate workspaces incorrectly cleaned"
+        ]
+      }
+    }
+  ]
+}
