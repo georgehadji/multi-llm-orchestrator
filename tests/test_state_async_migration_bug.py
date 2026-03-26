@@ -107,3 +107,51 @@ async def test_migration_completes_successfully_via_executor():
         "Migration did not add 'keywords_json' column — executor path "
         "may not have run the migration (BUG-NEW-003)"
     )
+
+
+@pytest.mark.asyncio
+async def test_concurrent_callers_see_fully_migrated_connection():
+    """
+    Regression test for the race condition flagged in code review:
+
+    Before the fix, _get_conn() assigned self._conn BEFORE run_in_executor
+    returned.  A concurrent caller whose outer `if self._conn is None` check
+    ran after that assignment would bypass the lock and return the connection
+    while migrate_add_resume_fields was still running — producing a missing-
+    column error on the first concurrent save_project / load_project call.
+
+    After the fix, self._conn is only assigned after the executor call, so
+    every concurrent caller still sees None, blocks on the lock, and inherits
+    the fully-migrated connection once the initialiser releases the lock.
+
+    Strategy: launch N concurrent _get_conn() calls against a fresh DB.
+    Each returned connection must be able to query the migration column
+    (project_description) without a sqlite3.OperationalError.
+    """
+    import aiosqlite
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+        db_path = Path(tmpdir) / "state.db"
+        manager = StateManager(db_path=db_path)
+
+        # 8 concurrent callers — one will do the init, the rest must wait
+        conns = await asyncio.gather(*[manager._get_conn() for _ in range(8)])
+
+        # Every returned connection must be the same object (single shared conn)
+        assert all(c is conns[0] for c in conns), (
+            "Concurrent _get_conn() calls returned different connection objects"
+        )
+
+        # The shared connection must be able to query the migrated column
+        # without OperationalError (would fail if migration hadn't run yet)
+        try:
+            await conns[0].execute("SELECT project_description FROM projects LIMIT 0")
+        except Exception as exc:
+            pytest.fail(
+                f"Migration column missing on connection returned to concurrent caller: {exc}"
+            )
+
+        # Cleanup
+        if manager._conn is not None:
+            await manager._conn.close()
+            manager._conn = None

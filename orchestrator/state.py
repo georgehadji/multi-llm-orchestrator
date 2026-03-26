@@ -225,20 +225,27 @@ class StateManager:
         if self._conn is None:
             async with self._lock:
                 if self._conn is None:
+                    # Use a local `conn` during the entire init sequence.
+                    # self._conn is intentionally kept None until *after* the
+                    # migration completes so that a concurrent caller whose outer
+                    # `if self._conn is None` check races ahead sees None, enters
+                    # the lock, and blocks — instead of receiving a half-ready
+                    # connection that is missing the migration columns.
+                    conn = None
                     try:
                         # FIX STATE-001: Timeout prevents infinite hang
-                        self._conn = await asyncio.wait_for(
+                        conn = await asyncio.wait_for(
                             aiosqlite.connect(self._db_path),
                             timeout=self._CONN_TIMEOUT
                         )
                         # WAL mode for better concurrency
-                        await self._conn.execute("PRAGMA journal_mode=WAL")
+                        await conn.execute("PRAGMA journal_mode=WAL")
                         # CRITICAL FIX: synchronous=FULL for durability on power failure
                         # This ensures data is written to disk before commit returns
-                        await self._conn.execute("PRAGMA synchronous=FULL")
+                        await conn.execute("PRAGMA synchronous=FULL")
                         # Additional durability settings
-                        await self._conn.execute("PRAGMA wal_autocheckpoint=0")  # Manual checkpoint control
-                        await self._conn.executescript("""
+                        await conn.execute("PRAGMA wal_autocheckpoint=0")  # Manual checkpoint control
+                        await conn.executescript("""
                             CREATE TABLE IF NOT EXISTS projects (
                                 project_id TEXT PRIMARY KEY,
                                 state      TEXT NOT NULL,
@@ -255,34 +262,40 @@ class StateManager:
                                 FOREIGN KEY (project_id) REFERENCES projects(project_id)
                             );
                         """)
-                        await self._conn.commit()
+                        await conn.commit()
                         # BUG-NEW-003 FIX: migrate_add_resume_fields uses synchronous
                         # sqlite3.connect(), which would block the event loop if called
                         # directly inside this async context.  Offload it to the default
                         # thread-pool executor so the loop stays responsive.
+                        # NOTE: self._conn stays None here so no concurrent caller can
+                        # bypass the lock and use the DB before migration finishes.
                         loop = asyncio.get_event_loop()
                         await loop.run_in_executor(None, migrate_add_resume_fields, self._db_path)
+                        # Migration complete — only now expose the connection.
+                        self._conn = conn
                     except asyncio.TimeoutError:
                         logger.error("State DB connection timed out after %ds", self._CONN_TIMEOUT)
-                        self._conn = None
+                        if conn is not None:
+                            try:
+                                await conn.close()
+                            except Exception:
+                                pass
                         raise
                     except aiosqlite.Error as e:
                         logger.error("Failed to initialize state connection: %s", e)
-                        if self._conn is not None:
+                        if conn is not None:
                             try:
-                                await self._conn.close()
+                                await conn.close()
                             except Exception:
                                 pass
-                        self._conn = None
                         raise
                     except Exception as e:
                         logger.error("Unexpected error during state init: %s", e)
-                        if self._conn is not None:
+                        if conn is not None:
                             try:
-                                await self._conn.close()
+                                await conn.close()
                             except Exception:
                                 pass
-                        self._conn = None
                         raise
         return self._conn
 
