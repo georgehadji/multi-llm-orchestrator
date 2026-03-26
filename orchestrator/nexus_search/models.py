@@ -81,7 +81,7 @@ class SearchResult:
 class SearchResults:
     """
     Collection of search results.
-    
+
     Attributes:
         query: Original search query
         results: List of search results
@@ -89,6 +89,7 @@ class SearchResults:
         search_time: Time taken for search (ms)
         sources: Sources that were searched
         suggestions: Related search suggestions
+        metadata: Additional metadata
     """
     query: str
     results: List[SearchResult] = field(default_factory=list)
@@ -96,6 +97,7 @@ class SearchResults:
     search_time: float = 0.0
     sources: List[SearchSource] = field(default_factory=list)
     suggestions: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
     def __len__(self) -> int:
         return len(self.results)

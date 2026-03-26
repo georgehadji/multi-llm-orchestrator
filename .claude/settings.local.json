@@ -110,9 +110,17 @@
       "Bash(grep -q \"^class $name\\\\|^$name =\" orchestrator/a2a_protocol.py)",
       "Bash(echo \"✓ $name found\")",
       "Bash(echo \"✗ $name MISSING\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(HOOKS_DIR=\"/e/Documents/Vibe-Coding/Ai Orchestrator/.claude/worktrees/charming-thompson/.claude/hooks\")",
+      "Bash(mkdir -p \"$HOOKS_DIR\")",
+      "Bash(\"$HOOKS_DIR/post_bash_pytest.py\")",
+      "Bash(\"$HOOKS_DIR/pre_edit_core.py\")",
+      "Bash(\"$HOOKS_DIR/post_edit_ruff.py\")"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "code-review-graph"
   ],
@@ -151,6 +159,5 @@
         ]
       }
     ]
-  },
-  "enableAllProjectMcpServers": true
+  }
 }

@@ -37,7 +37,9 @@ class DiskCache:
     
     # Connection TTL in seconds (1 hour default)
     _CONN_TTL: float = 3600.0
-    
+    # Connection timeout in seconds (prevents infinite hangs)
+    _CONN_TIMEOUT: float = 10.0
+
     def __init__(self, db_path: Path = DEFAULT_CACHE_PATH):
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = str(db_path)
@@ -52,8 +54,9 @@ class DiskCache:
 
         OPTIMIZATION: Connection TTL prevents stale connections.
         If connection is older than _CONN_TTL, it's recreated.
-        
-        FIX: TTL check moved inside lock to prevent race condition.
+
+        FIX CACHE-001: Added timeout and proper error handling to prevent
+        connection leaks and infinite hangs on DB initialization failure.
         """
         if self._lock is None:
             self._lock = asyncio.Lock()
@@ -63,8 +66,7 @@ class DiskCache:
                 # Double-check after acquiring lock
                 if self._conn is None:
                     # Check if connection needs refresh (TTL expired)
-                    # Move TTL check inside lock to prevent race condition
-                    if (self._conn_created_at is not None and 
+                    if (self._conn_created_at is not None and
                         time.time() - self._conn_created_at > self._CONN_TTL):
                         logger.debug("Cache connection TTL expired, refreshing")
                         # Close old connection if it exists
@@ -73,25 +75,44 @@ class DiskCache:
                                 await self._conn.close()
                             except Exception:
                                 pass
-                    
+                        self._conn = None
+                        self._conn_created_at = None
+
                     # Create new connection if needed
                     if self._conn is None:
-                        self._conn = await aiosqlite.connect(self._db_path)
-                        self._conn_created_at = time.time()
-                        await self._conn.execute("PRAGMA journal_mode=WAL")
-                        await self._conn.execute("""
-                            CREATE TABLE IF NOT EXISTS cache (
-                                hash          TEXT PRIMARY KEY,
-                                model         TEXT NOT NULL,
-                                response      TEXT NOT NULL,
-                                tokens_input  INTEGER DEFAULT 0,
-                                tokens_output INTEGER DEFAULT 0,
-                                created_at    REAL NOT NULL
+                        try:
+                            # FIX CACHE-001: Timeout prevents infinite hang
+                            self._conn = await asyncio.wait_for(
+                                aiosqlite.connect(self._db_path),
+                                timeout=self._CONN_TIMEOUT
                             )
-                        """)
-                        await self._conn.commit()
-                        self._schema_ready = True
-                        logger.debug("Cache connection established, schema ready")
+                            self._conn_created_at = time.time()
+                            await self._conn.execute("PRAGMA journal_mode=WAL")
+                            await self._conn.execute("""
+                                CREATE TABLE IF NOT EXISTS cache (
+                                    hash          TEXT PRIMARY KEY,
+                                    model         TEXT NOT NULL,
+                                    response      TEXT NOT NULL,
+                                    tokens_input  INTEGER DEFAULT 0,
+                                    tokens_output INTEGER DEFAULT 0,
+                                    created_at    REAL NOT NULL
+                                )
+                            """)
+                            await self._conn.commit()
+                            self._schema_ready = True
+                            logger.debug("Cache connection established, schema ready")
+                        except asyncio.TimeoutError:
+                            logger.error("Cache connection timed out after %ds", self._CONN_TIMEOUT)
+                            self._conn = None
+                            self._conn_created_at = None
+                            raise
+                        except Exception as e:
+                            logger.error("Cache connection failed: %s", e)
+                            # FIX CACHE-001: Reset ALL state on error
+                            self._conn = None
+                            self._conn_created_at = None
+                            self._schema_ready = False
+                            raise
         return self._conn
 
     async def get(self, model: str, prompt: str, max_tokens: int,

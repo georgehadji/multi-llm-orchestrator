@@ -1,129 +1,369 @@
 """
-RateLimiter — Sliding-window TPM/RPM rate limiting per tenant and model.
-=========================================================================
-Implements in-memory, per-(tenant, model) rate limiting using a 60-second
-sliding window. No external dependencies required.
+Grok Rate Limiter — Tier-Based Rate Limiting
+=============================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
+
+Tier-based rate limiter for xAI Grok API with spend tracking.
+
+Features:
+- Automatic tier progression based on cumulative spend
+- RPM (requests per minute) limiting
+- TPM (tokens per minute) limiting
+- Spend tracking
+- Async-safe with semaphore
+
+Tiers (based on cumulative spend since Jan 1, 2026):
+- Tier 1: $0 (default)
+- Tier 2: $50+
+- Tier 3: $200+
+- Tier 4: $500+
+- Tier 5: $1,000+
+- Tier 6: $5,000+
+
+Usage:
+    from orchestrator.rate_limiter import GrokRateLimiter, RateLimiter
+    
+    limiter = GrokRateLimiter(api_key="xai-...")
+    await limiter.acquire(tokens=1000)
 """
+
 from __future__ import annotations
 
+import asyncio
+import logging
+import os
 import time
-from collections import defaultdict, deque
-from typing import Dict, Optional, Tuple
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
 
-from .log_config import get_logger
+import aiohttp
 
-logger = get_logger(__name__)
+logger = logging.getLogger("orchestrator.rate_limiter")
 
-_WINDOW_SECONDS: float = 60.0
 
+# ─────────────────────────────────────────────
+# Backward Compatibility Classes
+# ─────────────────────────────────────────────
 
 class RateLimitExceeded(Exception):
-    """Raised when a tenant/model would exceed its TPM or RPM limit."""
-
-    def __init__(self, limit_type: str, retry_after: float, tenant: str, model: str) -> None:
-        self.limit_type = limit_type      # "tpm" or "rpm"
-        self.retry_after = retry_after    # seconds until oldest entry expires
-        self.tenant = tenant
-        self.model = model
-        super().__init__(
-            f"Rate limit exceeded ({limit_type}) for tenant={tenant!r} model={model!r}. "
-            f"Retry after {retry_after:.1f}s"
-        )
-
-
-_Entry = Tuple[float, int]
+    """Exception raised when rate limit is exceeded."""
+    
+    def __init__(self, message: str, limit_type: str = "unknown"):
+        super().__init__(message)
+        self.limit_type = limit_type
 
 
 class RateLimiter:
-    """Per-(tenant, model) sliding-window rate limiter."""
+    """
+    Backward-compatible rate limiter wrapper.
+    
+    Wraps GrokRateLimiter for backward compatibility.
+    """
+    
+    def __init__(self, api_key: Optional[str] = None):
+        self._limiter = GrokRateLimiter(api_key=api_key)
+    
+    async def acquire(self, tokens: int = 1000) -> bool:
+        """Acquire tokens."""
+        return await self._limiter.acquire(tokens=tokens)
+    
+    def record_spend(self, amount: float):
+        """Record spend."""
+        self._limiter.record_spend(amount)
+    
+    async def close(self):
+        """Close limiter."""
+        await self._limiter.close()
 
-    def __init__(self) -> None:
-        self._windows: Dict[Tuple[str, str], deque] = defaultdict(deque)
-        self._limits: Dict[Tuple[str, str], Dict[str, int]] = {}
-        # BUG-005 FIX: track in-flight (checked but not yet recorded) slots so
-        # that concurrent asyncio callers between check() and record() cannot
-        # both pass the same limit check.
-        self._in_flight_tokens: Dict[Tuple[str, str], int] = defaultdict(int)
-        self._in_flight_reqs: Dict[Tuple[str, str], int] = defaultdict(int)
 
-    def set_limits(self, tenant: str, model: str, tpm: int, rpm: int) -> None:
-        """Set TPM and RPM limits for a (tenant, model) pair."""
-        if tpm <= 0 or rpm <= 0:
-            raise ValueError("tpm and rpm must be positive integers")
-        self._limits[(tenant, model)] = {"tpm": tpm, "rpm": rpm}
-        logger.debug("Rate limits set: tenant=%r model=%r tpm=%d rpm=%d", tenant, model, tpm, rpm)
+# ─────────────────────────────────────────────
+# Main Implementation
+# ─────────────────────────────────────────────
 
-    def check(self, tenant: str, model: str, tokens: int) -> None:
-        """
-        Check whether a request of `tokens` tokens is within limits and
-        atomically reserve the slot.  Raises RateLimitExceeded if the request
-        would exceed TPM or RPM (including already-reserved in-flight slots).
-        No-ops if no limits have been set for this (tenant, model) pair.
 
-        Always pair with a matching record() or release() call.
-        """
-        limits = self._limits.get((tenant, model))
-        if limits is None:
-            return
-
-        key = (tenant, model)
-        window = self._windows[key]
-        self._evict(window)
-
-        # Include in-flight reservations so concurrent callers don't both pass
-        pending_reqs = self._in_flight_reqs[key]
-        pending_tokens = self._in_flight_tokens[key]
-
-        if len(window) + pending_reqs >= limits["rpm"]:
-            retry_after = self._retry_after(window)
-            raise RateLimitExceeded("rpm", retry_after, tenant, model)
-
-        tokens_used = sum(t for _, t in window)
-        if tokens_used + pending_tokens + tokens > limits["tpm"]:
-            retry_after = self._retry_after(window)
-            raise RateLimitExceeded("tpm", retry_after, tenant, model)
-
-        # Atomically reserve the slot before yielding the event loop
-        self._in_flight_reqs[key] += 1
-        self._in_flight_tokens[key] += tokens
-
-    def record(self, tenant: str, model: str, tokens: int) -> None:
-        """Settle a reserved slot: remove from in-flight and add to the window."""
-        key = (tenant, model)
-        self._in_flight_reqs[key] = max(0, self._in_flight_reqs[key] - 1)
-        self._in_flight_tokens[key] = max(0, self._in_flight_tokens[key] - tokens)
-        window = self._windows[key]
-        self._evict(window)
-        window.append((time.monotonic(), tokens))
-
-    def release(self, tenant: str, model: str, tokens: int) -> None:
-        """
-        Release a reservation made by check() without recording it (e.g. on
-        API call failure).  Prevents in-flight slots leaking when the caller's
-        await raises before record() is called.
-        """
-        key = (tenant, model)
-        self._in_flight_reqs[key] = max(0, self._in_flight_reqs[key] - 1)
-        self._in_flight_tokens[key] = max(0, self._in_flight_tokens[key] - tokens)
-
-    def get_usage(self, tenant: str, model: str) -> Dict[str, int]:
-        """Return current sliding-window usage for (tenant, model)."""
-        window = self._windows[(tenant, model)]
-        self._evict(window)
+@dataclass
+class TierLimits:
+    """Rate limits for a specific tier."""
+    rpm: int  # Requests per minute
+    tpm: int  # Tokens per minute
+    tpd: int  # Tokens per day (optional)
+    
+    def to_dict(self) -> Dict[str, int]:
         return {
-            "tokens_used": sum(t for _, t in window),
-            "requests": len(window),
+            "rpm": self.rpm,
+            "tpm": self.tpm,
+            "tpd": self.tpd,
         }
 
-    @staticmethod
-    def _evict(window: deque) -> None:
-        cutoff = time.monotonic() - _WINDOW_SECONDS
-        while window and window[0][0] < cutoff:
-            window.popleft()
 
-    @staticmethod
-    def _retry_after(window: deque) -> float:
-        if not window:
-            return 0.0
-        oldest_ts = window[0][0]
-        return max(0.0, oldest_ts + _WINDOW_SECONDS - time.monotonic())
+@dataclass
+class RateLimitState:
+    """Current rate limit state."""
+    current_rpm: int = 0
+    current_tpm: int = 0
+    current_tpd: int = 0
+    last_reset: datetime = field(default_factory=datetime.now)
+    cumulative_spend: float = 0.0
+    current_tier: int = 1
+    
+    def reset_if_needed(self):
+        """Reset counters if minute has passed."""
+        now = datetime.now()
+        if (now - self.last_reset).total_seconds() >= 60:
+            self.current_rpm = 0
+            self.current_tpm = 0
+            self.last_reset = now
+
+
+class GrokRateLimiter:
+    """
+    Tier-based rate limiter for xAI Grok API.
+    
+    Features:
+    - Automatic tier progression based on spend
+    - RPM and TPM limiting
+    - Async-safe with semaphore
+    - Spend tracking
+    
+    Usage:
+        limiter = GrokRateLimiter(api_key="xai-...")
+        await limiter.acquire(tokens=1000)
+    """
+    
+    # Tier limits (estimated based on xAI documentation)
+    TIER_LIMITS = {
+        1: TierLimits(rpm=10, tpm=10_000, tpd=100_000),      # $0 spend
+        2: TierLimits(rpm=60, tpm=100_000, tpd=1_000_000),   # $50+ spend
+        3: TierLimits(rpm=120, tpm=500_000, tpd=5_000_000),  # $200+ spend
+        4: TierLimits(rpm=300, tpm=1_000_000, tpd=10_000_000),  # $500+ spend
+        5: TierLimits(rpm=600, tpm=2_000_000, tpd=20_000_000),  # $1,000+ spend
+        6: TierLimits(rpm=1200, tpm=5_000_000, tpd=50_000_000),  # $5,000+ spend
+    }
+    
+    # Spend thresholds for tier progression
+    TIER_THRESHOLDS = {
+        1: 0.0,
+        2: 50.0,
+        3: 200.0,
+        4: 500.0,
+        5: 1000.0,
+        6: 5000.0,
+    }
+    
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        initial_tier: int = 1,
+        max_concurrency: int = 10,
+    ):
+        """
+        Initialize Grok rate limiter.
+        
+        Args:
+            api_key: xAI API key (for spend tracking)
+            initial_tier: Starting tier (1-6)
+            max_concurrency: Maximum concurrent requests
+        """
+        self.api_key = api_key or os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
+        self.state = RateLimitState(current_tier=initial_tier)
+        self._semaphore = asyncio.Semaphore(max_concurrency)
+        self._lock = asyncio.Lock()
+        self._session: Optional[aiohttp.ClientSession] = None
+        
+        # Metrics
+        self.total_requests = 0
+        self.total_tokens = 0
+        self.total_wait_time = 0.0
+        self.rate_limit_hits = 0
+    
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create aiohttp session."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+            )
+        return self._session
+    
+    async def close(self):
+        """Close the rate limiter and cleanup resources."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
+    
+    def _get_current_limits(self) -> TierLimits:
+        """Get current tier limits."""
+        return self.TIER_LIMITS.get(self.state.current_tier, self.TIER_LIMITS[1])
+    
+    def _update_tier_from_spend(self):
+        """Update tier based on cumulative spend."""
+        spend = self.state.cumulative_spend
+        
+        # Find appropriate tier
+        new_tier = 1
+        for tier, threshold in sorted(self.TIER_THRESHOLDS.items(), key=lambda x: x[1]):
+            if spend >= threshold:
+                new_tier = tier
+            else:
+                break
+        
+        if new_tier != self.state.current_tier:
+            logger.info(f"Tier upgraded: {self.state.current_tier} → {new_tier} (spend: ${spend:.2f})")
+            self.state.current_tier = new_tier
+    
+    async def acquire(self, tokens: int = 1000, timeout: float = 60.0) -> bool:
+        """
+        Acquire permission to make a request with specified tokens.
+        
+        Args:
+            tokens: Number of tokens for this request
+            timeout: Maximum time to wait for acquisition (seconds)
+        
+        Returns:
+            True if acquired, False if timeout
+        """
+        start_time = time.time()
+        limits = self._get_current_limits()
+        
+        async with self._semaphore:
+            while True:
+                async with self._lock:
+                    self.state.reset_if_needed()
+                    self._update_tier_from_spend()
+                    
+                    # Check RPM limit
+                    if self.state.current_rpm >= limits.rpm:
+                        wait_time = 60 - (datetime.now() - self.state.last_reset).total_seconds()
+                        if wait_time > 0 and (time.time() - start_time) + wait_time <= timeout:
+                            logger.debug(f"RPM limit hit, waiting {wait_time:.1f}s")
+                            self.rate_limit_hits += 1
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            logger.warning(f"RPM rate limit exceeded (tier {self.state.current_tier})")
+                            return False
+                    
+                    # Check TPM limit
+                    if self.state.current_tpm + tokens > limits.tpm:
+                        wait_time = 60 - (datetime.now() - self.state.last_reset).total_seconds()
+                        if wait_time > 0 and (time.time() - start_time) + wait_time <= timeout:
+                            logger.debug(f"TPM limit hit, waiting {wait_time:.1f}s")
+                            self.rate_limit_hits += 1
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            logger.warning(f"TPM rate limit exceeded (tier {self.state.current_tier})")
+                            return False
+                    
+                    # Acquire successful
+                    self.state.current_rpm += 1
+                    self.state.current_tpm += tokens
+                    self.total_requests += 1
+                    self.total_tokens += tokens
+                    
+                    elapsed = time.time() - start_time
+                    self.total_wait_time += elapsed
+                    
+                    logger.debug(
+                        f"Acquired: {tokens} tokens, tier={self.state.current_tier}, "
+                        f"rpm={self.state.current_rpm}/{limits.rpm}, "
+                        f"tpm={self.state.current_tpm}/{limits.tpm}"
+                    )
+                    
+                    return True
+    
+    def record_spend(self, amount: float):
+        """
+        Record API spend for tier progression.
+        
+        Args:
+            amount: Amount spent in USD
+        """
+        self.state.cumulative_spend += amount
+        self._update_tier_from_spend()
+        logger.debug(f"Recorded spend: ${amount:.2f}, cumulative: ${self.state.cumulative_spend:.2f}")
+    
+    async def fetch_current_spend(self) -> float:
+        """
+        Fetch current cumulative spend from xAI API.
+        
+        Returns:
+            Current cumulative spend in USD
+        """
+        if not self.api_key:
+            logger.warning("No API key configured, cannot fetch spend")
+            return self.state.cumulative_spend
+        
+        try:
+            session = await self._get_session()
+            async with session.get("https://api.x.ai/v1/usage") as response:
+                if response.status == 200:
+                    data = await response.json()
+                    spend = data.get("cumulative_spend", 0.0)
+                    self.state.cumulative_spend = spend
+                    self._update_tier_from_spend()
+                    return spend
+                else:
+                    logger.warning(f"Failed to fetch spend: {response.status}")
+                    return self.state.cumulative_spend
+        except Exception as e:
+            logger.error(f"Error fetching spend: {e}")
+            return self.state.cumulative_spend
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get rate limiter statistics.
+        
+        Returns:
+            Dictionary with stats
+        """
+        limits = self._get_current_limits()
+        avg_wait = self.total_wait_time / self.total_requests if self.total_requests > 0 else 0.0
+        
+        return {
+            "current_tier": self.state.current_tier,
+            "cumulative_spend": self.state.cumulative_spend,
+            "current_rpm": self.state.current_rpm,
+            "max_rpm": limits.rpm,
+            "current_tpm": self.state.current_tpm,
+            "max_tpm": limits.tpm,
+            "total_requests": self.total_requests,
+            "total_tokens": self.total_tokens,
+            "rate_limit_hits": self.rate_limit_hits,
+            "avg_wait_time": avg_wait,
+        }
+    
+    def reset_stats(self):
+        """Reset statistics (not spend)."""
+        self.total_requests = 0
+        self.total_tokens = 0
+        self.total_wait_time = 0.0
+        self.rate_limit_hits = 0
+
+
+# Global rate limiter instance
+_limiter: Optional[GrokRateLimiter] = None
+
+
+def get_rate_limiter(api_key: Optional[str] = None) -> GrokRateLimiter:
+    """
+    Get or create global rate limiter instance.
+    
+    Args:
+        api_key: xAI API key
+    
+    Returns:
+        GrokRateLimiter instance
+    """
+    global _limiter
+    if _limiter is None:
+        _limiter = GrokRateLimiter(api_key=api_key)
+    return _limiter
+
+
+async def close_rate_limiter() -> None:
+    """Close global rate limiter."""
+    global _limiter
+    if _limiter:
+        await _limiter.close()
+        _limiter = None

@@ -782,12 +782,15 @@ class ResearchPipeline(BasePipeline):
     Best for: Empirical questions, current events
     """
 
-    def __init__(self, *args, nexus_enabled: bool = True, **kwargs):
-        """Initialize Research pipeline with optional Nexus Search integration."""
+    def __init__(self, *args, nexus_enabled: bool = True, x_search_enabled: bool = False, **kwargs):
+        """Initialize Research pipeline with optional Nexus Search and X Search integration."""
         super().__init__(*args, **kwargs)
         self.nexus_enabled = nexus_enabled
+        self.x_search_enabled = x_search_enabled
         self._nexus_search = None
         self._SearchSource = None
+        self._x_search = None
+        self._XSearchClient = None
     
     def _get_nexus(self):
         """Lazy import of Nexus Search."""
@@ -799,6 +802,18 @@ class ResearchPipeline(BasePipeline):
             except ImportError:
                 self.nexus_enabled = False
         return self._nexus_search, self._SearchSource
+    
+    def _get_x_search(self):
+        """Lazy import of X Search."""
+        if self._x_search is None:
+            try:
+                from orchestrator.xai_search import XSearchClient
+                self._XSearchClient = XSearchClient
+                return XSearchClient
+            except ImportError:
+                logger.warning("X Search not installed")
+                return None
+        return self._XSearchClient
     
     def get_method(self) -> ReasoningMethod:
         return ReasoningMethod.RESEARCH
@@ -822,48 +837,70 @@ class ResearchPipeline(BasePipeline):
         return self._build_result(state)
     
     async def _phase_research(self, state: PipelineState):
-        """Deep iterative web research using Nexus Search."""
+        """Deep iterative web research using Nexus Search and X Search."""
         nexus_search, SearchSource = self._get_nexus()
-        
-        if nexus_search is None or not self.nexus_enabled:
-            # Fallback to LLM-based research if Nexus unavailable
+        XSearchClient = self._get_x_search()
+
+        # Combine Nexus Search (web) with X Search (real-time social)
+        max_iterations = 3
+        current_knowledge = []
+        x_search_results = []
+
+        # Nexus Search for web/academic content
+        if nexus_search is not None and self.nexus_enabled:
+            for i in range(1, max_iterations + 1):
+                logger.info(f"Nexus Research iteration {i}/{max_iterations}")
+
+                try:
+                    results = await nexus_search(
+                        query=state.task.prompt,
+                        sources=[SearchSource.WEB, SearchSource.ACADEMIC, SearchSource.NEWS],
+                        num_results=10,
+                    )
+
+                    for result in results.top[:5]:
+                        knowledge_item = f"Source: {result.title}\nURL: {result.url}\nContent: {result.content}"
+                        current_knowledge.append(knowledge_item)
+
+                    logger.info(f"Nexus Search found {len(results)} results")
+                    break
+
+                except Exception as e:
+                    logger.warning(f"Nexus Search iteration {i} failed: {e}")
+                    if i == max_iterations:
+                        await self._phase_research_llm_fallback(state)
+                        return
+        else:
             logger.info("Nexus Search not available, using LLM-based research")
             await self._phase_research_llm_fallback(state)
             return
-        
-        # Use Nexus Search for real web research
-        max_iterations = 3
-        current_knowledge = []
-        
-        for i in range(1, max_iterations + 1):
-            logger.info(f"Research iteration {i}/{max_iterations}")
-            
+
+        # X Search for real-time social media insights
+        if XSearchClient is not None and self.x_search_enabled:
+            logger.info("Searching X/Twitter for real-time insights")
             try:
-                # Perform search with Nexus
-                results = await nexus_search(
-                    query=state.task.prompt,
-                    sources=[SearchSource.WEB, SearchSource.ACADEMIC, SearchSource.NEWS],
-                    num_results=10,
-                )
-                
-                # Process results
-                for result in results.top[:5]:
-                    knowledge_item = f"Source: {result.title}\nURL: {result.url}\nContent: {result.content}"
-                    current_knowledge.append(knowledge_item)
-                
-                logger.info(f"Nexus Search found {len(results)} results")
-                break  # Got results, no need for more iterations
-                
+                async with XSearchClient() as x_client:
+                    x_results = await x_client.search_posts(
+                        query=state.task.prompt,
+                        count=5,
+                        sort="latest",
+                    )
+                    
+                    for post in x_results.posts[:3]:
+                        verified_badge = "✓" if post.verified else " "
+                        x_knowledge = f"X Post [{verified_badge}] @{post.author_handle}: {post.text[:200]}"
+                        x_search_results.append(x_knowledge)
+                    
+                    logger.info(f"X Search found {len(x_results.posts)} posts")
             except Exception as e:
-                logger.warning(f"Nexus Search iteration {i} failed: {e}")
-                if i == max_iterations:
-                    # Last iteration failed, use fallback
-                    await self._phase_research_llm_fallback(state)
-                    return
-        
-        state.web_discovery_results = current_knowledge
+                logger.warning(f"X Search failed: {e}")
+
+        # Combine both sources
+        state.web_discovery_results = current_knowledge + x_search_results
         state.metadata["research_iterations"] = len(current_knowledge)
         state.metadata["nexus_search"] = True
+        state.metadata["x_search"] = len(x_search_results) > 0
+        state.metadata["x_search_posts"] = len(x_search_results)
     
     async def _phase_research_llm_fallback(self, state: PipelineState):
         """Fallback to LLM-based research if Nexus unavailable."""

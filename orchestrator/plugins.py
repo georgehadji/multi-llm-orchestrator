@@ -1,488 +1,501 @@
 """
-Plugin System for Multi-LLM Orchestrator
-========================================
+Plugin Marketplace Architecture
+================================
+Author: Georgios-Chrysovalantis Chatzivantsidis
 
-Lightweight plugin architecture for extensibility without core modifications.
+Paradigm Shift: Extensible plugin system so third parties can add capabilities
 
-Plugin Types:
-- ValidatorPlugin: Custom code validators (e.g., for specific languages)
-- IntegrationPlugin: External service integrations (Teams, Discord, etc.)
-- RouterPlugin: Custom routing strategies
-- FeedbackPlugin: Custom production feedback processors
+Current State: Monolithic orchestrator
+Future State: Platform with third-party plugins
+
+Benefits:
+- Network effects: third parties build capabilities
+- Platform play: ecosystem, not just product
+- Long-term defensibility
 
 Usage:
-    from orchestrator.plugins import PluginRegistry, ValidatorPlugin
+    from orchestrator.plugins import PluginManager, PluginHook
     
-    class MyValidator(ValidatorPlugin):
-        def validate(self, code: str, context: dict) -> ValidationResult:
-            ...
+    manager = PluginManager()
+    manager.discover(Path("./plugins"))
     
-    registry = PluginRegistry()
-    registry.register(MyValidator())
+    # Run plugin hooks
+    context = await manager.run_hook(PluginHook.PRE_GENERATION, context)
 """
 
 from __future__ import annotations
 
-import abc
 import importlib
-import inspect
+import json
 import logging
-import pkgutil
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Generic, List, Optional, Type, TypeVar, Protocol
-from enum import Enum, auto
+from typing import Any, Callable, Dict, List, Optional, Type
 
 from .log_config import get_logger
-from .models import Model, TaskType, Task
 
 logger = get_logger(__name__)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Plugin Types & Interfaces
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class PluginType(Enum):
-    """Types of plugins supported by the system."""
-    VALIDATOR = auto()      # Custom code validators
-    INTEGRATION = auto()    # External service integrations
-    ROUTER = auto()         # Custom routing strategies
-    FEEDBACK = auto()       # Production feedback processors
-    MONITORING = auto()     # Custom monitoring/alerting
-    TRANSFORM = auto()      # Code transformation pipelines
+class PluginHook(str, Enum):
+    """
+    Available plugin hooks in the orchestration pipeline.
+    
+    Plugins can register callbacks for any of these hooks.
+    """
+    # Pre-processing hooks
+    PRE_DECOMPOSITION = "pre_decomposition"
+    POST_DECOMPOSITION = "post_decomposition"
+    
+    # Generation hooks
+    PRE_GENERATION = "pre_generation"
+    POST_GENERATION = "post_generation"
+    
+    # Validation hooks
+    VALIDATION = "validation"
+    
+    # Post-processing hooks
+    POST_EVALUATION = "post_evaluation"
+    PRE_DEPLOYMENT = "pre_deployment"
+    
+    # Custom hooks
+    CUSTOM = "custom"
 
 
 @dataclass
-class PluginMetadata:
-    """Metadata for a plugin."""
+class PluginManifest:
+    """
+    Plugin metadata and configuration.
+    
+    Attributes:
+        name: Unique plugin name
+        version: Plugin version (semver)
+        description: Plugin description
+        author: Plugin author
+        entry_point: Module path (e.g., "my_plugin:MyPlugin")
+        hooks: List of hooks this plugin implements
+        dependencies: Plugin dependencies
+    """
     name: str
     version: str
-    author: str
     description: str
-    plugin_type: PluginType
+    author: str
+    entry_point: str
+    hooks: List[PluginHook] = field(default_factory=list)
     dependencies: List[str] = field(default_factory=list)
-    config_schema: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class ValidationResult:
-    """Result from a validator plugin."""
-    passed: bool
-    score: float  # 0.0 - 1.0
-    issues: List[Dict[str, Any]] = field(default_factory=list)
-    metrics: Dict[str, float] = field(default_factory=dict)
-
-
-@dataclass
-class RoutingSuggestion:
-    """Suggestion from a router plugin."""
-    model: Model
-    confidence: float  # 0.0 - 1.0
-    reason: str
-    estimated_cost: Optional[float] = None
-    estimated_latency_ms: Optional[float] = None
-
-
-@dataclass
-class FeedbackPayload:
-    """Payload for feedback plugins."""
-    project_id: str
-    deployment_id: str
-    task_type: TaskType
-    model_used: Model
-    generated_code: str
-    runtime_errors: List[Dict[str, Any]] = field(default_factory=list)
-    performance_metrics: Dict[str, float] = field(default_factory=dict)
-    user_rating: Optional[int] = None  # 1-5
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Plugin Base Classes
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class Plugin(abc.ABC):
-    """Base class for all plugins."""
+    min_orchestrator_version: str = "1.0.0"
     
-    @property
-    @abc.abstractmethod
-    def metadata(self) -> PluginMetadata:
-        """Return plugin metadata."""
-        pass
-    
-    def initialize(self, config: Dict[str, Any]) -> None:
-        """Initialize the plugin with configuration."""
-        pass
-    
-    def shutdown(self) -> None:
-        """Cleanup when plugin is unloaded."""
-        pass
-    
-    def health_check(self) -> tuple[bool, Optional[str]]:
-        """Check plugin health. Returns (healthy, error_message)."""
-        return True, None
-
-
-class ValidatorPlugin(Plugin):
-    """Plugin for custom code validation."""
-    
-    @property
-    def metadata(self) -> PluginMetadata:
-        return PluginMetadata(
-            name="base-validator",
-            version="1.0.0",
-            author="",
-            description="Base validator plugin",
-            plugin_type=PluginType.VALIDATOR,
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PluginManifest":
+        """Create manifest from dictionary."""
+        hooks = [
+            PluginHook(h) if isinstance(h, str) else h
+            for h in data.get("hooks", [])
+        ]
+        return cls(
+            name=data["name"],
+            version=data["version"],
+            description=data["description"],
+            author=data["author"],
+            entry_point=data["entry_point"],
+            hooks=hooks,
+            dependencies=data.get("dependencies", []),
+            min_orchestrator_version=data.get("min_orchestrator_version", "1.0.0"),
         )
     
-    @abc.abstractmethod
-    def can_validate(self, file_path: str, language: str) -> bool:
-        """Check if this validator can handle the given file."""
-        pass
+    @classmethod
+    def from_file(cls, path: Path) -> "PluginManifest":
+        """Load manifest from plugin.json file."""
+        with path.open("r") as f:
+            data = json.load(f)
+        return cls.from_dict(data)
     
-    @abc.abstractmethod
-    def validate(self, code: str, context: Dict[str, Any]) -> ValidationResult:
-        """Validate code and return result."""
-        pass
-    
-    def get_supported_languages(self) -> List[str]:
-        """Return list of supported language identifiers."""
-        return []
-
-
-class IntegrationPlugin(Plugin):
-    """Plugin for external service integrations."""
-    
-    @property
-    def metadata(self) -> PluginMetadata:
-        return PluginMetadata(
-            name="base-integration",
-            version="1.0.0",
-            author="",
-            description="Base integration plugin",
-            plugin_type=PluginType.INTEGRATION,
-        )
-    
-    @abc.abstractmethod
-    async def send_notification(self, event_type: str, payload: Dict[str, Any]) -> bool:
-        """Send a notification."""
-        pass
-    
-    @abc.abstractmethod
-    def is_configured(self) -> bool:
-        """Check if integration is properly configured."""
-        pass
-
-
-class RouterPlugin(Plugin):
-    """Plugin for custom routing strategies."""
-    
-    @property
-    def metadata(self) -> PluginMetadata:
-        return PluginMetadata(
-            name="base-router",
-            version="1.0.0",
-            author="",
-            description="Base router plugin",
-            plugin_type=PluginType.ROUTER,
-        )
-    
-    @abc.abstractmethod
-    def suggest_models(
-        self,
-        task: Task,
-        available_models: List[Model],
-        context: Dict[str, Any],
-    ) -> List[RoutingSuggestion]:
-        """
-        Suggest models for a task.
-        
-        Returns list of suggestions sorted by preference (best first).
-        """
-        pass
-    
-    def get_weight(self) -> float:
-        """
-        Get the weight of this router's suggestions.
-        
-        Higher weight = more influence on final decision.
-        """
-        return 1.0
-
-
-class FeedbackPlugin(Plugin):
-    """Plugin for processing production feedback."""
-    
-    @property
-    def metadata(self) -> PluginMetadata:
-        return PluginMetadata(
-            name="base-feedback",
-            version="1.0.0",
-            author="",
-            description="Base feedback plugin",
-            plugin_type=PluginType.FEEDBACK,
-        )
-    
-    @abc.abstractmethod
-    async def process_feedback(self, payload: FeedbackPayload) -> Dict[str, Any]:
-        """
-        Process production feedback.
-        
-        Returns extracted insights for knowledge base.
-        """
-        pass
-    
-    def should_process(self, payload: FeedbackPayload) -> bool:
-        """Check if this plugin should process the feedback."""
-        return True
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Plugin Registry
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class PluginRegistry:
-    """
-    Central registry for all plugins.
-    
-    Manages plugin lifecycle, discovery, and access.
-    """
-    
-    def __init__(self):
-        self._plugins: Dict[PluginType, List[Plugin]] = {
-            t: [] for t in PluginType
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "name": self.name,
+            "version": self.version,
+            "description": self.description,
+            "author": self.author,
+            "entry_point": self.entry_point,
+            "hooks": [h.value for h in self.hooks],
+            "dependencies": self.dependencies,
+            "min_orchestrator_version": self.min_orchestrator_version,
         }
-        self._by_name: Dict[str, Plugin] = {}
-        self._hooks: Dict[str, List[Callable]] = {}
+
+
+@dataclass
+class PluginContext:
+    """
+    Context passed to plugin hooks.
     
-    def register(self, plugin: Plugin) -> None:
-        """Register a plugin."""
-        meta = plugin.metadata
-        
-        if meta.name in self._by_name:
-            logger.warning(f"Plugin {meta.name} already registered, skipping")
-            return
-        
-        # Check dependencies
-        for dep in meta.dependencies:
-            if dep not in self._by_name:
-                raise PluginDependencyError(
-                    f"Plugin {meta.name} requires {dep} but it's not loaded"
-                )
-        
-        self._plugins[meta.plugin_type].append(plugin)
-        self._by_name[meta.name] = plugin
-        
-        logger.info(f"Registered plugin: {meta.name} v{meta.version} ({meta.plugin_type.name})")
+    Plugins can read and modify this context.
+    """
+    data: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
-    def unregister(self, name: str) -> None:
-        """Unregister a plugin by name."""
-        if name not in self._by_name:
-            return
-        
-        plugin = self._by_name[name]
-        plugin.shutdown()
-        
-        self._plugins[plugin.metadata.plugin_type].remove(plugin)
-        del self._by_name[name]
-        
-        logger.info(f"Unregistered plugin: {name}")
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.data.get(key, default)
     
-    def get(self, name: str) -> Optional[Plugin]:
-        """Get a plugin by name."""
-        return self._by_name.get(name)
+    def set(self, key: str, value: Any) -> None:
+        self.data[key] = value
     
-    def get_by_type(self, plugin_type: PluginType) -> List[Plugin]:
-        """Get all plugins of a specific type."""
-        return self._plugins[plugin_type].copy()
+    def update(self, **kwargs) -> None:
+        self.data.update(kwargs)
+
+
+class Plugin:
+    """
+    Base class for all plugins.
     
-    def get_validators(self) -> List[ValidatorPlugin]:
-        """Get all validator plugins."""
-        return [p for p in self._plugins[PluginType.VALIDATOR] if isinstance(p, ValidatorPlugin)]
+    Plugins should inherit from this class and implement
+    the hooks they want to support.
+    """
     
-    def get_integrations(self) -> List[IntegrationPlugin]:
-        """Get all integration plugins."""
-        return [p for p in self._plugins[PluginType.INTEGRATION] if isinstance(p, IntegrationPlugin)]
+    def __init__(self, manifest: PluginManifest):
+        self.manifest = manifest
     
-    def get_routers(self) -> List[RouterPlugin]:
-        """Get all router plugins."""
-        return [p for p in self._plugins[PluginType.ROUTER] if isinstance(p, RouterPlugin)]
-    
-    def get_feedback_processors(self) -> List[FeedbackPlugin]:
-        """Get all feedback plugins."""
-        return [p for p in self._plugins[PluginType.FEEDBACK] if isinstance(p, FeedbackPlugin)]
-    
-    def discover(self, package_path: str) -> int:
+    async def execute(
+        self,
+        hook: PluginHook,
+        context: PluginContext,
+    ) -> PluginContext:
         """
-        Discover and load plugins from a package path.
+        Execute plugin logic for a hook.
         
-        Returns number of plugins loaded.
+        Args:
+            hook: Hook being executed
+            context: Current context
+            
+        Returns:
+            Modified context
         """
-        count = 0
-        try:
-            package = importlib.import_module(package_path)
-            for _, name, is_pkg in pkgutil.iter_modules(
-                package.__path__ if hasattr(package, '__path__') else [],
-                package.__name__ + "."
-            ):
-                try:
-                    module = importlib.import_module(name)
-                    for obj_name, obj in inspect.getmembers(module):
-                        if (inspect.isclass(obj) and 
-                            issubclass(obj, Plugin) and 
-                            obj is not Plugin and
-                            not inspect.isabstract(obj)):
-                            try:
-                                instance = obj()
-                                self.register(instance)
-                                count += 1
-                            except Exception as e:
-                                logger.error(f"Failed to instantiate plugin {obj_name}: {e}")
-                except Exception as e:
-                    logger.error(f"Failed to load plugin module {name}: {e}")
-        except ImportError:
-            logger.warning(f"Plugin package {package_path} not found")
+        method_name = f"on_{hook.value}"
         
-        return count
+        if hasattr(self, method_name):
+            method = getattr(self, method_name)
+            if callable(method):
+                return await method(context)
+        
+        return context
+
+
+class PluginManager:
+    """
+    Manages plugin discovery, loading, and execution.
     
-    def discover_directory(self, directory: Path) -> int:
-        """Discover plugins from a directory."""
-        count = 0
-        if not directory.exists():
-            return 0
+    Features:
+    - Discover plugins in directory
+    - Load/unload plugins
+    - Run hooks in order
+    - Plugin isolation
+    """
+
+    def __init__(self, plugins_dir: Optional[Path] = None):
+        """
+        Initialize plugin manager.
         
-        for file in directory.glob("*.py"):
-            if file.name.startswith("_"):
-                continue
+        Args:
+            plugins_dir: Directory to search for plugins
+        """
+        self.plugins_dir = plugins_dir or Path("./plugins")
+        self.plugins: Dict[str, Plugin] = {}
+        self.hooks: Dict[PluginHook, List[Callable]] = {}
+        
+        # Ensure plugins directory exists
+        if self.plugins_dir and not self.plugins_dir.exists():
+            self.plugins_dir.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(f"Plugin manager initialized (plugins_dir={self.plugins_dir})")
+
+    def discover(self, plugins_dir: Optional[Path] = None) -> List[PluginManifest]:
+        """
+        Discover plugins in directory.
+        
+        Args:
+            plugins_dir: Directory to search (uses default if None)
+            
+        Returns:
+            List of discovered plugin manifests
+        """
+        search_dir = plugins_dir or self.plugins_dir
+        manifests = []
+        
+        if not search_dir.exists():
+            logger.warning(f"Plugins directory not found: {search_dir}")
+            return manifests
+        
+        # Look for plugin.json files
+        for plugin_json in search_dir.glob("*/plugin.json"):
             try:
-                spec = importlib.util.spec_from_file_location(
-                    f"_plugin_{file.stem}", file
-                )
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-                    
-                    for obj_name, obj in inspect.getmembers(module):
-                        if (inspect.isclass(obj) and 
-                            issubclass(obj, Plugin) and 
-                            obj is not Plugin and
-                            not inspect.isabstract(obj)):
-                            try:
-                                instance = obj()
-                                self.register(instance)
-                                count += 1
-                            except Exception as e:
-                                logger.error(f"Failed to instantiate plugin {obj_name}: {e}")
+                manifest = PluginManifest.from_file(plugin_json)
+                manifests.append(manifest)
+                logger.info(f"Discovered plugin: {manifest.name} v{manifest.version}")
             except Exception as e:
-                logger.error(f"Failed to load plugin from {file}: {e}")
+                logger.error(f"Failed to load plugin manifest {plugin_json}: {e}")
         
-        return count
-    
-    def run_health_checks(self) -> Dict[str, tuple[bool, Optional[str]]]:
-        """Run health checks on all plugins."""
-        results = {}
-        for name, plugin in self._by_name.items():
-            results[name] = plugin.health_check()
-        return results
-    
-    def list_plugins(self) -> List[PluginMetadata]:
-        """List all registered plugin metadata."""
-        return [p.metadata for p in self._by_name.values()]
+        return manifests
 
+    def load(self, manifest: PluginManifest) -> Optional[Plugin]:
+        """
+        Load a plugin from manifest with security hardening.
+        
+        FIX-PS-002b: Plugin security - allowlist + import restrictions + verification.
+        
+        Args:
+            manifest: Plugin manifest
+            
+        Returns:
+            Loaded plugin or None if failed
+        """
+        try:
+            # Parse entry point
+            module_path, class_name = manifest.entry_point.split(":")
+            
+            # ═══════════════════════════════════════════════════════
+            # FIX-PS-002b: Plugin security hardening
+            # ═══════════════════════════════════════════════════════
+            
+            # 1. Verify plugin is in allowed list (if allowlist configured)
+            if hasattr(self, '_allowed_entry_points'):
+                if manifest.entry_point not in self._allowed_entry_points:
+                    logger.error(
+                        f"Plugin {manifest.name} entry point not in allowlist: "
+                        f"{manifest.entry_point}"
+                    )
+                    return None
+            
+            # 2. Set up restricted import during plugin loading
+            original_import = __builtins__.__import__ if isinstance(__builtins__.__import__, type(lambda: None)) else __builtins__['__import__']
+            
+            def restricted_import(name, *args, **kwargs):
+                """Restricted import that blocks dangerous modules."""
+                # Block dangerous modules that could escape plugin sandbox
+                dangerous_modules = [
+                    'os', 'subprocess', 'sys', 'ctypes', 'pickle',
+                    'marshal', 'multiprocessing', 'socket', 'http',
+                    'urllib', 'ftplib', 'smtplib', 'telnetlib'
+                ]
+                
+                if any(d in name for d in dangerous_modules):
+                    logger.warning(
+                        f"Plugin {manifest.name} attempted to import dangerous module: {name}"
+                    )
+                    raise ImportError(
+                        f"Plugin not allowed to import {name}. "
+                        f"This module could compromise system security."
+                    )
+                
+                return original_import(name, *args, **kwargs)
+            
+            # Apply restricted import
+            if isinstance(__builtins__, dict):
+                __builtins__['__import__'] = restricted_import
+            else:
+                __builtins__.__import__ = restricted_import
+            
+            try:
+                # Import module with restricted imports
+                module = importlib.import_module(module_path)
+                
+                # Get plugin class
+                plugin_class = getattr(module, class_name)
+                
+                if not issubclass(plugin_class, Plugin):
+                    logger.error(f"Plugin {manifest.name} does not inherit from Plugin")
+                    return None
+                
+                # Instantiate plugin
+                plugin = plugin_class(manifest)
+                
+                # Register hooks
+                for hook in manifest.hooks:
+                    if hook not in self.hooks:
+                        self.hooks[hook] = []
+                    self.hooks[hook].append(plugin.execute)
+                
+                # Store plugin
+                self.plugins[manifest.name] = plugin
+                
+                logger.info(f"Loaded plugin: {manifest.name} with {len(manifest.hooks)} hooks")
+                return plugin
+                
+            finally:
+                # Restore original import - CRITICAL: always restore even if load fails
+                if isinstance(__builtins__, dict):
+                    __builtins__['__import__'] = original_import
+                else:
+                    __builtins__.__import__ = original_import
+            
+        except Exception as e:
+            logger.error(f"Failed to load plugin {manifest.name}: {e}")
+            return None
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Built-in Plugins
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class PythonTypeCheckerValidator(ValidatorPlugin):
-    """Built-in validator using mypy."""
-    
-    @property
-    def metadata(self) -> PluginMetadata:
-        return PluginMetadata(
-            name="mypy-type-checker",
-            version="1.0.0",
-            author="orchestrator",
-            description="Type checking using mypy",
-            plugin_type=PluginType.VALIDATOR,
-        )
-    
-    def can_validate(self, file_path: str, language: str) -> bool:
-        return language == "python" or file_path.endswith(".py")
-    
-    def validate(self, code: str, context: Dict[str, Any]) -> ValidationResult:
-        # Simplified - real implementation would use mypy API
-        return ValidationResult(passed=True, score=1.0)
-    
-    def get_supported_languages(self) -> List[str]:
-        return ["python"]
-
-
-class TeamsIntegration(IntegrationPlugin):
-    """Microsoft Teams integration plugin."""
-    
-    @property
-    def metadata(self) -> PluginMetadata:
-        return PluginMetadata(
-            name="microsoft-teams",
-            version="1.0.0",
-            author="orchestrator",
-            description="Microsoft Teams notifications",
-            plugin_type=PluginType.INTEGRATION,
-        )
-    
-    def initialize(self, config: Dict[str, Any]) -> None:
-        self.webhook_url = config.get("webhook_url") or __import__("os").environ.get("TEAMS_WEBHOOK_URL")
-    
-    def is_configured(self) -> bool:
-        return bool(self.webhook_url)
-    
-    async def send_notification(self, event_type: str, payload: Dict[str, Any]) -> bool:
-        if not self.webhook_url:
+    def unload(self, plugin_name: str) -> bool:
+        """
+        Unload a plugin.
+        
+        Args:
+            plugin_name: Name of plugin to unload
+            
+        Returns:
+            True if successful
+        """
+        if plugin_name not in self.plugins:
             return False
-        # Implementation would send adaptive card to Teams
+        
+        plugin = self.plugins[plugin_name]
+        
+        # Remove from hooks
+        for hook in plugin.manifest.hooks:
+            if hook in self.hooks:
+                self.hooks[hook] = [
+                    h for h in self.hooks[hook]
+                    if h.__self__ != plugin
+                ]
+        
+        # Remove plugin
+        del self.plugins[plugin_name]
+        
+        logger.info(f"Unloaded plugin: {plugin_name}")
         return True
 
+    async def run_hook(
+        self,
+        hook: PluginHook,
+        context: PluginContext,
+    ) -> PluginContext:
+        """
+        Run all plugins registered for a hook.
+        
+        Args:
+            hook: Hook to run
+            context: Current context
+            
+        Returns:
+            Modified context after all plugins
+        """
+        if hook not in self.hooks:
+            return context
+        
+        logger.debug(f"Running hook: {hook.value} ({len(self.hooks[hook])} plugins)")
+        
+        # Run plugins in order
+        for plugin_executor in self.hooks[hook]:
+            try:
+                context = await plugin_executor(hook, context)
+            except Exception as e:
+                logger.error(f"Plugin hook {hook.value} failed: {e}")
+                # Continue with next plugin (don't break pipeline)
+        
+        return context
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Exceptions
-# ═══════════════════════════════════════════════════════════════════════════════
+    def get_plugins(self) -> List[PluginManifest]:
+        """Get list of loaded plugin manifests."""
+        return [p.manifest for p in self.plugins.values()]
 
-class PluginError(Exception):
-    """Base plugin error."""
-    pass
-
-
-class PluginDependencyError(PluginError):
-    """Plugin dependency not satisfied."""
-    pass
+    def get_hook_count(self, hook: PluginHook) -> int:
+        """Get number of plugins registered for a hook."""
+        return len(self.hooks.get(hook, []))
 
 
-class PluginValidationError(PluginError):
-    """Plugin validation failed."""
-    pass
+# ═══════════════════════════════════════════════════════
+# Reference Plugins
+# ═══════════════════════════════════════════════════════
+
+class SecurityScannerPlugin(Plugin):
+    """
+    Reference plugin: Security scanning with Bandit + Safety.
+    
+    Hooks: POST_GENERATION, VALIDATION
+    """
+    
+    async def on_post_generation(self, context: PluginContext) -> PluginContext:
+        """Scan generated code for security issues."""
+        code = context.get("code", "")
+        
+        if not code:
+            return context
+        
+        # Run security checks (simplified - would use bandit in production)
+        issues = []
+        
+        # Check for common security issues
+        if "eval(" in code:
+            issues.append("Use of eval() detected - security risk")
+        if "exec(" in code:
+            issues.append("Use of exec() detected - security risk")
+        if "pickle" in code and "load" in code:
+            issues.append("Use of pickle.load() detected - deserialization risk")
+        
+        context.set("security_issues", issues)
+        context.set("security_passed", len(issues) == 0)
+        
+        if issues:
+            logger.warning(f"Security scanner found {len(issues)} issues")
+        
+        return context
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Global Registry Instance
-# ═══════════════════════════════════════════════════════════════════════════════
+class DjangoTemplatePlugin(Plugin):
+    """
+    Reference plugin: Django-specific templates.
+    
+    Hooks: PRE_DECOMPOSITION, POST_DECOMPOSITION
+    """
+    
+    async def on_pre_decomposition(self, context: PluginContext) -> PluginContext:
+        """Add Django-specific context to decomposition."""
+        prompt = context.get("prompt", "")
+        
+        # Check if this is a Django project
+        if "django" in prompt.lower():
+            context.set("framework", "django")
+            context.set("templates", [
+                "models.py",
+                "views.py",
+                "urls.py",
+                "forms.py",
+                "admin.py",
+            ])
+        
+        return context
 
-_registry: Optional[PluginRegistry] = None
+
+class AWSDeployPlugin(Plugin):
+    """
+    Reference plugin: AWS deployment.
+    
+    Hooks: PRE_DEPLOYMENT
+    """
+    
+    async def on_pre_deployment(self, context: PluginContext) -> PluginContext:
+        """Prepare deployment to AWS."""
+        files = context.get("files", {})
+        framework = context.get("framework", "fastapi")
+        
+        # Generate deployment config
+        if framework == "fastapi":
+            # Generate Lambda deployment config
+            context.set("deployment_target", "aws-lambda")
+            context.set("deployment_config", {
+                "runtime": "python3.12",
+                "handler": "main.handler",
+                "memory_size": 128,
+                "timeout": 30,
+            })
+        
+        return context
 
 
-def get_plugin_registry() -> PluginRegistry:
-    """Get the global plugin registry."""
-    global _registry
-    if _registry is None:
-        _registry = PluginRegistry()
-        # Register built-in plugins
-        _registry.register(PythonTypeCheckerValidator())
-        _registry.register(TeamsIntegration())
-    return _registry
-
-
-def reset_plugin_registry() -> None:
-    """Reset the global registry (for testing)."""
-    global _registry
-    _registry = None
+__all__ = [
+    "PluginManager",
+    "Plugin",
+    "PluginManifest",
+    "PluginContext",
+    "PluginHook",
+    "SecurityScannerPlugin",
+    "DjangoTemplatePlugin",
+    "AWSDeployPlugin",
+]

@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Model cache
+.cache/
+.claude/
+.gemini/
+.cursor/
+
+# NadirClaw credentials (prevent accidental commits)
+.nadirclaw/
+credentials.json
+# Agent work directories
+.smartkanban/

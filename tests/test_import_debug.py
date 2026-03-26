@@ -7,9 +7,9 @@ print("Testing direct import from dashboard_mission_control...")
 
 try:
     from orchestrator.dashboard_mission_control import MissionControlServer
-    print(f"[OK] Direct import successful: {MissionControlServer}")
+    print(f"✅ Direct import successful: {MissionControlServer}")
 except Exception as e:
-    print(f"[ERROR] Direct import failed: {e}")
+    print(f"❌ Direct import failed: {e}")
     import traceback
     traceback.print_exc()
 
@@ -17,8 +17,8 @@ print("\n" + "="*60)
 
 try:
     from orchestrator import MissionControlServer
-    print(f"[OK] Import via __init__ successful: {MissionControlServer}")
+    print(f"✅ Import via __init__ successful: {MissionControlServer}")
 except Exception as e:
-    print(f"[ERROR] Import via __init__ failed: {e}")
+    print(f"❌ Import via __init__ failed: {e}")
     import traceback
     traceback.print_exc()

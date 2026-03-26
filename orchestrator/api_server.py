@@ -7,19 +7,28 @@ Pattern: Facade
 Async: Yes — for I/O-bound operations
 Layer: L4 Supervisor
 
+SECURITY FIXES:
+- Configurable CORS allowlist (not wildcard)
+- Rate limiting on all endpoints
+- Secure API key authentication
+- Request size limits
+
 Usage:
     from orchestrator.api_server import APIServer
-    server = APIServer(port=8000)
+    server = APIServer(port=8000, cors_origins=["https://trusted-domain.com"])
     await server.start()
 """
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import json
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Set
 
 import aiohttp
 from aiohttp import web
@@ -27,33 +36,134 @@ from aiohttp import web
 logger = logging.getLogger("orchestrator.api_server")
 
 
+# ─────────────────────────────────────────────
+# Rate Limiter (Token Bucket)
+# ─────────────────────────────────────────────
+
+class TokenBucketRateLimiter:
+    """
+    Token bucket rate limiter for API endpoints.
+    
+    SECURITY: Prevents DoS and brute force attacks.
+    """
+    
+    def __init__(
+        self,
+        rate: int = 100,  # requests per window
+        window_seconds: int = 60,
+    ):
+        self.rate = rate
+        self.window_seconds = window_seconds
+        self._buckets: Dict[str, Dict[str, Any]] = defaultdict(
+            lambda: {"tokens": rate, "last_update": time.time()}
+        )
+        self._lock = asyncio.Lock()
+    
+    async def is_allowed(self, client_id: str) -> bool:
+        """
+        Check if request is allowed.
+        
+        Args:
+            client_id: Client identifier (IP, API key, etc.)
+        
+        Returns:
+            True if allowed
+        """
+        async with self._lock:
+            bucket = self._buckets[client_id]
+            now = time.time()
+            
+            # Refill tokens
+            elapsed = now - bucket["last_update"]
+            tokens_to_add = (elapsed / self.window_seconds) * self.rate
+            bucket["tokens"] = min(self.rate, bucket["tokens"] + tokens_to_add)
+            bucket["last_update"] = now
+            
+            # Check if allowed
+            if bucket["tokens"] >= 1:
+                bucket["tokens"] -= 1
+                return True
+            else:
+                return False
+    
+    def get_retry_after(self, client_id: str) -> float:
+        """Get seconds until next request is allowed."""
+        bucket = self._buckets.get(client_id)
+        if not bucket:
+            return 0.0
+        
+        if bucket["tokens"] >= 1:
+            return 0.0
+        
+        tokens_needed = 1 - bucket["tokens"]
+        return (tokens_needed / self.rate) * self.window_seconds
+
+
+# ─────────────────────────────────────────────
+# API Server
+# ─────────────────────────────────────────────
+
 class APIServer:
     """REST API server for the orchestrator."""
 
-    def __init__(self, port: int = 8000, host: str = "localhost", 
-                 cors_enabled: bool = True, auth_required: bool = True):
-        """Initialize the API server."""
+    def __init__(
+        self,
+        port: int = 8000,
+        host: str = "localhost",
+        cors_origins: Optional[List[str]] = None,
+        auth_required: bool = True,
+        rate_limit: int = 100,
+        rate_window: int = 60,
+        max_request_size: int = 10 * 1024 * 1024,  # 10MB
+    ):
+        """
+        Initialize the API server.
+        
+        SECURITY:
+        - cors_origins: Configurable allowlist (not wildcard)
+        - rate_limit: Rate limiting to prevent DoS
+        - max_request_size: Limit request size
+        """
         self.port = port
         self.host = host
-        self.cors_enabled = cors_enabled
+        self.cors_origins = cors_origins or []  # Empty = same origin only
         self.auth_required = auth_required
+        self.max_request_size = max_request_size
+        
         self.app = web.Application()
         self.runner: Optional[web.AppRunner] = None
         self.site: Optional[web.TCPSite] = None
-        self.api_keys: Dict[str, Dict[str, Any]] = {}  # hashed_key -> {user_id, permissions}
+        
+        # API keys: hashed_key -> {user_id, permissions, created_at}
+        self.api_keys: Dict[str, Dict[str, Any]] = {}
+        
+        # Rate limiter
+        self.rate_limiter = TokenBucketRateLimiter(
+            rate=rate_limit,
+            window_seconds=rate_window,
+        )
+        
+        # Request stats
         self.request_stats: Dict[str, Any] = {
             "total_requests": 0,
             "successful_requests": 0,
             "failed_requests": 0,
+            "rate_limited_requests": 0,
             "start_time": datetime.now()
         }
-        
+
         # Register routes
         self._setup_routes()
-        
-        # Enable CORS if required
-        if self.cors_enabled:
+
+        # Enable CORS with allowlist (SECURITY FIX)
+        if self.cors_origins:
             self._enable_cors()
+
+        # Add rate limiting middleware
+        self.app.middlewares.append(self._rate_limit_middleware)
+        
+        # Add request size limit
+        self.app.middlewares.append(self._request_size_middleware)
     
     def _setup_routes(self):
         """Setup API routes."""
@@ -64,19 +174,84 @@ class APIServer:
         self.app.router.add_get("/models", self.list_models)
         self.app.router.add_post("/register_key", self.register_api_key)
         self.app.router.add_get("/stats", self.get_stats)
-    
+
     def _enable_cors(self):
-        """Enable CORS for all routes."""
+        """
+        Enable CORS with configurable allowlist.
+        
+        SECURITY FIX: No longer uses wildcard '*' which allows any origin.
+        Now uses configurable allowlist for trusted domains only.
+        """
         async def cors_middleware(app, handler):
             async def middleware_handler(request):
                 response = await handler(request)
-                response.headers['Access-Control-Allow-Origin'] = '*'
+                
+                # Check origin against allowlist
+                origin = request.headers.get('Origin', '')
+                
+                if origin in self.cors_origins:
+                    response.headers['Access-Control-Allow-Origin'] = origin
+                elif '*' in self.cors_origins:
+                    # Only allow wildcard if explicitly configured
+                    response.headers['Access-Control-Allow-Origin'] = '*'
+                
                 response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
                 response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+                response.headers['Access-Control-Max-Age'] = '86400'  # 24 hours
+                
                 return response
             return middleware_handler
-        
+
         self.app.middlewares.append(cors_middleware)
+    
+    async def _rate_limit_middleware(self, app, handler):
+        """
+        Rate limiting middleware.
+        
+        SECURITY: Prevents DoS and brute force attacks.
+        """
+        async def middleware_handler(request):
+            # Get client identifier (IP address or API key)
+            client_id = request.headers.get('X-API-Key', request.remote or 'unknown')
+            
+            # Check rate limit
+            if not await self.rate_limiter.is_allowed(client_id):
+                self.request_stats["rate_limited_requests"] += 1
+                retry_after = self.rate_limiter.get_retry_after(client_id)
+                
+                return web.json_response(
+                    {
+                        "error": "Rate limit exceeded",
+                        "retry_after": retry_after,
+                    },
+                    status=429,
+                    headers={'Retry-After': str(int(retry_after))}
+                )
+            
+            return await handler(request)
+        
+        return middleware_handler
+    
+    async def _request_size_middleware(self, app, handler):
+        """
+        Request size limit middleware.
+        
+        SECURITY: Prevents large payload DoS attacks.
+        """
+        async def middleware_handler(request):
+            content_length = request.content_length
+            
+            if content_length and content_length > self.max_request_size:
+                return web.json_response(
+                    {
+                        "error": f"Request too large. Max size: {self.max_request_size} bytes",
+                    },
+                    status=413
+                )
+            
+            return await handler(request)
+        
+        return middleware_handler
     
     async def health_check(self, request: web.Request) -> web.Response:
         """Health check endpoint."""

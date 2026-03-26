@@ -1,0 +1,96 @@
+{
+  "protocol_version": "2.0",
+  "stage": "3",
+  "timestamp": "2026-03-25T23:05:00Z",
+  "root_cause_analyses": [
+    {
+      "bug_id": "BUG-001",
+      "file": "orchestrator/pre_submission_testing.py",
+      "function": "_privacy_audit()",
+      "lines": "470-510",
+      "proximate_cause": "Info.plist content read as raw string without XML validation (line 476)",
+      "root_cause": "Privacy compliance check uses string matching instead of proper XML parsing. The check 'key not in info_plist' (line 485) operates on raw text, not parsed XML structure. This means empty files, malformed XML, or files with keys in comments all pass validation incorrectly.",
+      "contributing_factors": [
+        "No XML parser imported (should use plistlib or xml.etree.ElementTree)",
+        "No exception handling for file read errors",
+        "No validation that Info.plist is actually a valid plist file",
+        "String-based key detection is fragile (keys could be in comments, values, or partial matches)"
+      ],
+      "execution_path": [
+        "run_full_review() calls _privacy_audit(app_path)",
+        "_privacy_audit() finds Info.plist files (line 467)",
+        "Reads first Info.plist as text (line 476)",
+        "Checks if privacy keys exist in text (line 485)",
+        "Returns passed=True even if file is empty/malformed"
+      ],
+      "blast_radius": {
+        "direct_callers": ["run_full_review()"],
+        "transitive_callers": ["PreSubmissionTester users", "CI/CD pipelines"],
+        "shared_state_readers": [],
+        "test_coverage": "covered"
+      },
+      "impact": "False positive privacy compliance. Apps with missing or malformed Info.plist privacy keys will pass pre-submission testing, leading to certain App Store rejection under Guideline 5.1.1."
+    },
+    {
+      "bug_id": "BUG-002",
+      "file": "orchestrator/pre_submission_testing.py",
+      "function": "_crash_test(), _completeness_check(), _hig_compliance_check(), _offline_test(), _ipv6_test(), _code_execution_scan()",
+      "lines": "360-680",
+      "proximate_cause": "swift_file.read_text() without encoding parameter or exception handling",
+      "root_cause": "All 6 Swift scanning methods assume all .swift files are valid UTF-8 text. Python's read_text() uses default encoding (platform-dependent, usually UTF-8) but will raise UnicodeDecodeError on files with different encoding, binary content, or corruption. The outer try-except (line 360, 408, etc.) catches Exception but the error message 'failed: <error>' doesn't help users identify which file caused the problem.",
+      "contributing_factors": [
+        "No encoding='utf-8' parameter specified",
+        "No per-file exception handling to identify problematic files",
+        "No graceful degradation (skip bad files and continue)",
+        "Error messages don't include file paths",
+        "No validation that file is actually text before reading"
+      ],
+      "execution_path": [
+        "run_full_review() calls _crash_test(app_path)",
+        "_crash_test() finds all *View*.swift files (line 353)",
+        "Iterates files and calls read_text() (line 365)",
+        "UnicodeDecodeError raised on non-UTF8 file",
+        "Exception caught at line 386, returns generic 'failed' message",
+        "User cannot identify which file caused failure"
+      ],
+      "blast_radius": {
+        "direct_callers": ["run_full_review()"],
+        "transitive_callers": ["PreSubmissionTester users", "CI/CD pipelines"],
+        "shared_state_readers": [],
+        "test_coverage": "partial"
+      },
+      "impact": "Pre-submission review crashes on projects with non-standard Swift files. Users get unhelpful error messages and cannot identify or fix the problematic file. Entire review fails instead of skipping bad files."
+    },
+    {
+      "bug_id": "BUG-003",
+      "file": "orchestrator/app_store_assets.py",
+      "function": "_generate_app_name(), _generate_subtitle()",
+      "lines": "140-195",
+      "proximate_cause": "No validation of project.name before generating app name (line 155)",
+      "root_cause": "App name generation assumes project.name is always valid, non-empty, and meaningful. The _generate_app_name() method truncates to MAX_NAME_LENGTH (30 chars) but never checks for minimum length, empty strings, or whitespace-only names. This violates App Store requirement that app names must be 1-30 characters and cannot be empty or generic.",
+      "contributing_factors": [
+        "No MIN_NAME_LENGTH constant defined",
+        "No validation in _generate_app_name() input",
+        "No stripping of whitespace from project.name",
+        "No fallback for empty/invalid names",
+        "Test fixtures likely all have valid names, masking the bug"
+      ],
+      "execution_path": [
+        "generate(project) called with ProjectSpec",
+        "_generate_app_name(project) called (line 129)",
+        "Accesses project.name without validation (line 155)",
+        "If name is empty/whitespace, returns empty/whitespace",
+        "Truncates to 30 chars (line 163)",
+        "Returns invalid app name to AppStoreAssets",
+        "App Store submission rejected for invalid name"
+      ],
+      "blast_radius": {
+        "direct_callers": ["generate()"],
+        "transitive_callers": ["AppStoreAssetGenerator users", "workflow examples"],
+        "shared_state_readers": [],
+        "test_coverage": "uncovered"
+      },
+      "impact": "App Store metadata generation produces invalid app names for projects with empty or malformed names. Submission will be rejected under App Store Review Guideline 2.3.7 (accurate metadata required)."
+    }
+  ]
+}

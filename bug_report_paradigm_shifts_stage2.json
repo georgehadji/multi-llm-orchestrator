@@ -1,0 +1,108 @@
+{
+  "protocol_version": "2.0",
+  "stage": "2",
+  "timestamp": "2026-03-26T02:15:00Z",
+  "failure_scenarios": [
+    {
+      "id": "BUG-PS-001",
+      "category": "security",
+      "trigger_condition": "Tenant API key authentication bypass via dict timing attack",
+      "affected_module": "orchestrator/tenancy.py",
+      "function": "get_tenant_by_api_key()",
+      "severity": "critical",
+      "exploitability": "conditional",
+      "blast_radius": "system-wide",
+      "classification": "LIKELY",
+      "priority_score": 8.5,
+      "evidence": "Line 340-345: api_keys dict lookup is O(1) but timing varies based on key presence. Attacker can measure response time to enumerate valid API keys. No constant-time comparison implemented."
+    },
+    {
+      "id": "BUG-PS-002",
+      "category": "security",
+      "trigger_condition": "Plugin sandbox escape via importlib",
+      "affected_module": "orchestrator/plugins.py",
+      "function": "load()",
+      "severity": "critical",
+      "exploitability": "conditional",
+      "blast_radius": "system-wide",
+      "classification": "CONFIRMED",
+      "priority_score": 9.0,
+      "evidence": "Line 175-185: Plugin loading uses importlib.import_module() with no sandboxing. Malicious plugin can import os, subprocess, etc. and execute arbitrary code on host. No seccomp, no capability restrictions, no network isolation."
+    },
+    {
+      "id": "BUG-PS-003",
+      "category": "security",
+      "trigger_condition": "Tenant quota bypass via race condition",
+      "affected_module": "orchestrator/tenancy.py",
+      "function": "check_quota() + record_usage()",
+      "severity": "high",
+      "exploitability": "conditional",
+      "blast_radius": "module",
+      "classification": "CONFIRMED",
+      "priority_score": 7.5,
+      "evidence": "Lines 295-330: check_quota() and record_usage() are separate async calls without atomic transaction. Concurrent requests can pass quota check simultaneously before either records usage. Classic TOCTOU (time-of-check-time-of-use) vulnerability."
+    },
+    {
+      "id": "BUG-PS-004",
+      "category": "security",
+      "trigger_condition": "Auto-deploy without human review for critical fixes",
+      "affected_module": "orchestrator/deployment_feedback.py",
+      "function": "_determine_escalation()",
+      "severity": "high",
+      "exploitability": "trivial",
+      "blast_radius": "system-wide",
+      "classification": "CONFIRMED",
+      "priority_score": 8.0,
+      "evidence": "Lines 245-260: Auto-fix allowed for confidence >= 0.9 AND severity low/medium. Attacker could craft issues with high confidence score that trigger auto-deploy of malicious code. No code signing, no hash verification, no rollback testing before deploy."
+    },
+    {
+      "id": "BUG-PS-005",
+      "category": "data_integrity",
+      "trigger_condition": "Cross-project data leakage via shared insights",
+      "affected_module": "orchestrator/cross_project_learning.py",
+      "function": "extract_insights()",
+      "severity": "high",
+      "exploitability": "theoretical",
+      "blast_radius": "system-wide",
+      "classification": "UNCERTAIN",
+      "priority_score": 6.5,
+      "evidence": "Lines 95-150: Insights extracted from ALL projects without tenant isolation. In multi-tenant SaaS, Tenant A's patterns could leak to Tenant B. No tenant_id filtering in _load_all_traces()."
+    },
+    {
+      "id": "BUG-PS-006",
+      "category": "resources",
+      "trigger_condition": "Memory exhaustion via unbounded plugin hook list",
+      "affected_module": "orchestrator/plugins.py",
+      "function": "run_hook()",
+      "severity": "medium",
+      "exploitability": "conditional",
+      "blast_radius": "module",
+      "classification": "LIKELY",
+      "priority_score": 5.5,
+      "evidence": "Lines 215-230: hooks dict stores List[Callable] with no maximum. Malicious plugin could register thousands of hooks for same event, causing memory exhaustion and slow execution. No rate limiting on plugin registration."
+    },
+    {
+      "id": "BUG-PS-007",
+      "category": "error_handling",
+      "trigger_condition": "Silent failure in plugin hook execution",
+      "affected_module": "orchestrator/plugins.py",
+      "function": "run_hook()",
+      "severity": "medium",
+      "exploitability": "trivial",
+      "blast_radius": "function",
+      "classification": "CONFIRMED",
+      "priority_score": 5.0,
+      "evidence": "Lines 220-225: Exception in plugin hook caught and logged, but execution continues silently. Security-critical hooks (VALIDATION) could fail without alerting anyone. No escalation on hook failure."
+    }
+  ],
+  "summary": {
+    "total_findings": 7,
+    "confirmed": 4,
+    "likely": 2,
+    "uncertain": 1,
+    "critical": 2,
+    "high": 3,
+    "medium": 2,
+    "selected_for_remediation": ["BUG-PS-002", "BUG-PS-001", "BUG-PS-004"]
+  }
+}
