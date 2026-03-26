@@ -256,8 +256,12 @@ class StateManager:
                             );
                         """)
                         await self._conn.commit()
-                        # Run migration to add resume detection columns (idempotent)
-                        migrate_add_resume_fields(self._db_path)
+                        # BUG-NEW-003 FIX: migrate_add_resume_fields uses synchronous
+                        # sqlite3.connect(), which would block the event loop if called
+                        # directly inside this async context.  Offload it to the default
+                        # thread-pool executor so the loop stays responsive.
+                        loop = asyncio.get_event_loop()
+                        await loop.run_in_executor(None, migrate_add_resume_fields, self._db_path)
                     except asyncio.TimeoutError:
                         logger.error("State DB connection timed out after %ds", self._CONN_TIMEOUT)
                         self._conn = None
