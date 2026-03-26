@@ -371,19 +371,38 @@ class DeploymentFeedbackLoop:
         """
         Determine escalation level based on diagnosis.
         
+        FIX-PS-004a: Require human review for ALL auto-deploys.
+        
+        Rationale: LLM confidence scores are not reliable security guarantees.
+        Attacker can craft issues that trigger high-confidence malicious fixes.
+        Auto-deploy disabled until code signing + verification implemented.
+        
         Args:
             diagnosis: Diagnosis result
             
         Returns:
             EscalationLevel
         """
-        if diagnosis.confidence >= 0.9 and diagnosis.severity in ["low", "medium"]:
-            return EscalationLevel.AUTO
+        # ═══════════════════════════════════════════════════════
+        # FIX-PS-004a: Disable auto-deploy for security
+        # ═══════════════════════════════════════════════════════
         
-        elif diagnosis.confidence >= self.config.escalation_threshold:
+        # CRITICAL: Never auto-deploy without human review
+        # Auto-deploy is too risky without mature verification
+        
+        if diagnosis.severity in ["critical", "high"]:
+            # Critical/high severity always requires human review
+            logger.info(f"Escalation: {diagnosis.severity} severity -> HUMAN_REQUIRED")
+            return EscalationLevel.HUMAN_REQUIRED
+        
+        elif diagnosis.confidence >= 0.95:
+            # Very high confidence -> queue for review (not auto)
+            logger.info(f"Escalation: {diagnosis.confidence:.2f} confidence -> REVIEW")
             return EscalationLevel.REVIEW
         
         else:
+            # All other cases require human intervention
+            logger.info(f"Escalation: default -> HUMAN_REQUIRED")
             return EscalationLevel.HUMAN_REQUIRED
 
     async def _generate_fix(

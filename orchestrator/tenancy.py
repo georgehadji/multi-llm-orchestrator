@@ -344,18 +344,42 @@ class TenantManager:
 
     async def get_tenant_by_api_key(self, api_key: str) -> Optional[Tenant]:
         """
-        Get tenant by API key.
+        Get tenant by API key with constant-time comparison.
+        
+        FIX-PS-001a: Prevent timing attacks on API key authentication.
         
         Args:
-            api_key: API key
+            api_key: API key to look up
             
         Returns:
             Tenant or None
         """
-        tenant_id = self.api_keys.get(api_key)
-        if tenant_id:
-            return self.tenants.get(tenant_id)
-        return None
+        import hmac
+        
+        # FIX-PS-001a: Constant-time comparison to prevent timing attacks
+        # Standard dict lookup leaks timing information about key presence
+        # hmac.compare_digest executes in constant time regardless of match
+        
+        found_tenant = None
+        
+        # Iterate through all keys to maintain constant execution time
+        for stored_key, tenant_id in self.api_keys.items():
+            # Constant-time comparison - always executes full comparison
+            # regardless of where in the iteration we are
+            is_match = hmac.compare_digest(
+                stored_key.encode('utf-8'),
+                api_key.encode('utf-8')
+            )
+            
+            if is_match:
+                found_tenant = self.tenants.get(tenant_id)
+                # Don't break - continue iterating to maintain constant time
+        
+        # Log failed attempt for security monitoring
+        if found_tenant is None:
+            logger.warning(f"Failed API key authentication attempt from {api_key[:8]}...")
+        
+        return found_tenant
 
     async def check_quota(
         self,

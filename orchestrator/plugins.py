@@ -239,7 +239,9 @@ class PluginManager:
 
     def load(self, manifest: PluginManifest) -> Optional[Plugin]:
         """
-        Load a plugin from manifest.
+        Load a plugin from manifest with security hardening.
+        
+        FIX-PS-002b: Plugin security - allowlist + import restrictions + verification.
         
         Args:
             manifest: Plugin manifest
@@ -251,30 +253,80 @@ class PluginManager:
             # Parse entry point
             module_path, class_name = manifest.entry_point.split(":")
             
-            # Import module
-            module = importlib.import_module(module_path)
+            # ═══════════════════════════════════════════════════════
+            # FIX-PS-002b: Plugin security hardening
+            # ═══════════════════════════════════════════════════════
             
-            # Get plugin class
-            plugin_class = getattr(module, class_name)
+            # 1. Verify plugin is in allowed list (if allowlist configured)
+            if hasattr(self, '_allowed_entry_points'):
+                if manifest.entry_point not in self._allowed_entry_points:
+                    logger.error(
+                        f"Plugin {manifest.name} entry point not in allowlist: "
+                        f"{manifest.entry_point}"
+                    )
+                    return None
             
-            if not issubclass(plugin_class, Plugin):
-                logger.error(f"Plugin {manifest.name} does not inherit from Plugin")
-                return None
+            # 2. Set up restricted import during plugin loading
+            original_import = __builtins__.__import__ if isinstance(__builtins__.__import__, type(lambda: None)) else __builtins__['__import__']
             
-            # Instantiate plugin
-            plugin = plugin_class(manifest)
+            def restricted_import(name, *args, **kwargs):
+                """Restricted import that blocks dangerous modules."""
+                # Block dangerous modules that could escape plugin sandbox
+                dangerous_modules = [
+                    'os', 'subprocess', 'sys', 'ctypes', 'pickle',
+                    'marshal', 'multiprocessing', 'socket', 'http',
+                    'urllib', 'ftplib', 'smtplib', 'telnetlib'
+                ]
+                
+                if any(d in name for d in dangerous_modules):
+                    logger.warning(
+                        f"Plugin {manifest.name} attempted to import dangerous module: {name}"
+                    )
+                    raise ImportError(
+                        f"Plugin not allowed to import {name}. "
+                        f"This module could compromise system security."
+                    )
+                
+                return original_import(name, *args, **kwargs)
             
-            # Register hooks
-            for hook in manifest.hooks:
-                if hook not in self.hooks:
-                    self.hooks[hook] = []
-                self.hooks[hook].append(plugin.execute)
+            # Apply restricted import
+            if isinstance(__builtins__, dict):
+                __builtins__['__import__'] = restricted_import
+            else:
+                __builtins__.__import__ = restricted_import
             
-            # Store plugin
-            self.plugins[manifest.name] = plugin
-            
-            logger.info(f"Loaded plugin: {manifest.name} with {len(manifest.hooks)} hooks")
-            return plugin
+            try:
+                # Import module with restricted imports
+                module = importlib.import_module(module_path)
+                
+                # Get plugin class
+                plugin_class = getattr(module, class_name)
+                
+                if not issubclass(plugin_class, Plugin):
+                    logger.error(f"Plugin {manifest.name} does not inherit from Plugin")
+                    return None
+                
+                # Instantiate plugin
+                plugin = plugin_class(manifest)
+                
+                # Register hooks
+                for hook in manifest.hooks:
+                    if hook not in self.hooks:
+                        self.hooks[hook] = []
+                    self.hooks[hook].append(plugin.execute)
+                
+                # Store plugin
+                self.plugins[manifest.name] = plugin
+                
+                logger.info(f"Loaded plugin: {manifest.name} with {len(manifest.hooks)} hooks")
+                return plugin
+                
+            finally:
+                # Restore original import - CRITICAL: always restore even if load fails
+                if isinstance(__builtins__, dict):
+                    __builtins__['__import__'] = original_import
+                else:
+                    __builtins__.__import__ = original_import
             
         except Exception as e:
             logger.error(f"Failed to load plugin {manifest.name}: {e}")
