@@ -214,63 +214,72 @@ class GrokRateLimiter:
     async def acquire(self, tokens: int = 1000, timeout: float = 60.0) -> bool:
         """
         Acquire permission to make a request with specified tokens.
-        
+
         Args:
             tokens: Number of tokens for this request
             timeout: Maximum time to wait for acquisition (seconds)
-        
+
         Returns:
             True if acquired, False if timeout
         """
         start_time = time.time()
-        limits = self._get_current_limits()
-        
+
         async with self._semaphore:
             while True:
+                # BUG-NEW-001 FIX: never sleep while holding the lock — compute
+                # the sleep duration inside the lock, then await outside so other
+                # coroutines are not starved for the full window duration.
+                # BUG-NEW-002 FIX: refresh `limits` every iteration so that a
+                # tier upgrade triggered by `_update_tier_from_spend()` is
+                # reflected in the very next RPM/TPM comparison.
+                sleep_secs: float = 0.0
                 async with self._lock:
                     self.state.reset_if_needed()
                     self._update_tier_from_spend()
-                    
+                    limits = self._get_current_limits()  # refreshed every iteration
+
                     # Check RPM limit
                     if self.state.current_rpm >= limits.rpm:
-                        wait_time = 60 - (datetime.now() - self.state.last_reset).total_seconds()
+                        wait_time = max(0.0, 60.0 - (datetime.now() - self.state.last_reset).total_seconds())
                         if wait_time > 0 and (time.time() - start_time) + wait_time <= timeout:
                             logger.debug(f"RPM limit hit, waiting {wait_time:.1f}s")
                             self.rate_limit_hits += 1
-                            await asyncio.sleep(wait_time)
-                            continue
+                            sleep_secs = wait_time
                         else:
                             logger.warning(f"RPM rate limit exceeded (tier {self.state.current_tier})")
                             return False
-                    
+
                     # Check TPM limit
-                    if self.state.current_tpm + tokens > limits.tpm:
-                        wait_time = 60 - (datetime.now() - self.state.last_reset).total_seconds()
+                    elif self.state.current_tpm + tokens > limits.tpm:
+                        wait_time = max(0.0, 60.0 - (datetime.now() - self.state.last_reset).total_seconds())
                         if wait_time > 0 and (time.time() - start_time) + wait_time <= timeout:
                             logger.debug(f"TPM limit hit, waiting {wait_time:.1f}s")
                             self.rate_limit_hits += 1
-                            await asyncio.sleep(wait_time)
-                            continue
+                            sleep_secs = wait_time
                         else:
                             logger.warning(f"TPM rate limit exceeded (tier {self.state.current_tier})")
                             return False
-                    
-                    # Acquire successful
-                    self.state.current_rpm += 1
-                    self.state.current_tpm += tokens
-                    self.total_requests += 1
-                    self.total_tokens += tokens
-                    
-                    elapsed = time.time() - start_time
-                    self.total_wait_time += elapsed
-                    
-                    logger.debug(
-                        f"Acquired: {tokens} tokens, tier={self.state.current_tier}, "
-                        f"rpm={self.state.current_rpm}/{limits.rpm}, "
-                        f"tpm={self.state.current_tpm}/{limits.tpm}"
-                    )
-                    
-                    return True
+
+                    else:
+                        # Acquire successful
+                        self.state.current_rpm += 1
+                        self.state.current_tpm += tokens
+                        self.total_requests += 1
+                        self.total_tokens += tokens
+
+                        elapsed = time.time() - start_time
+                        self.total_wait_time += elapsed
+
+                        logger.debug(
+                            f"Acquired: {tokens} tokens, tier={self.state.current_tier}, "
+                            f"rpm={self.state.current_rpm}/{limits.rpm}, "
+                            f"tpm={self.state.current_tpm}/{limits.tpm}"
+                        )
+                        return True
+
+                # Lock released — sleep outside so other coroutines can progress
+                if sleep_secs > 0:
+                    await asyncio.sleep(sleep_secs)
     
     def record_spend(self, amount: float):
         """
