@@ -6,13 +6,13 @@ Lightweight DI container for managing dependencies and their lifecycle.
 
 Usage:
     from orchestrator.container import Container, singleton, transient
-    
+
     container = Container()
-    
+
     # Register services
     container.register_singleton(Cache, DiskCache)
     container.register_transient(Validator, MyValidator)
-    
+
     # Resolve
     cache = container.resolve(Cache)
     validator = container.resolve(Validator)
@@ -21,14 +21,14 @@ Usage:
 from __future__ import annotations
 
 import inspect
-import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Generic, get_type_hints
-from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, TypeVar, get_type_hints
 
 from .log_config import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = get_logger(__name__)
 
@@ -45,13 +45,13 @@ class Lifecycle(Enum):
 @dataclass
 class Registration:
     """Registration of a service in the container."""
-    interface: Type
-    implementation: Optional[Type] = None
-    factory: Optional[Callable[..., Any]] = None
-    instance: Optional[Any] = None
+    interface: type
+    implementation: type | None = None
+    factory: Callable[..., Any] | None = None
+    instance: Any | None = None
     lifecycle: Lifecycle = Lifecycle.TRANSIENT
-    kwargs: Dict[str, Any] = field(default_factory=dict)
-    
+    kwargs: dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self):
         if self.implementation is None and self.factory is None and self.instance is None:
             self.implementation = self.interface
@@ -59,34 +59,34 @@ class Registration:
 
 class Scope:
     """A scope for managing scoped dependencies."""
-    
+
     def __init__(self, container: Container, name: str = "default"):
         self.container = container
         self.name = name
-        self._instances: Dict[Type, Any] = {}
-        self._disposables: List[Any] = []
-    
-    def resolve(self, interface: Type[T]) -> T:
+        self._instances: dict[type, Any] = {}
+        self._disposables: list[Any] = []
+
+    def resolve(self, interface: type[T]) -> T:
         """Resolve a dependency within this scope."""
         registration = self.container._registrations.get(interface)
-        
+
         if registration is None:
             raise KeyError(f"No registration found for {interface}")
-        
+
         if registration.lifecycle == Lifecycle.SCOPED:
             if interface in self._instances:
                 return self._instances[interface]
-            
+
             instance = self.container._create_instance(registration, self)
             self._instances[interface] = instance
-            
+
             if hasattr(instance, 'close') or hasattr(instance, '__aexit__'):
                 self._disposables.append(instance)
-            
+
             return instance
-        
+
         return self.container.resolve(interface)
-    
+
     async def close(self) -> None:
         """Close the scope and dispose all scoped instances."""
         for instance in self._disposables:
@@ -102,23 +102,23 @@ class Scope:
                         instance.close()
             except Exception as e:
                 logger.error(f"Error disposing instance: {e}")
-        
+
         self._instances.clear()
         self._disposables.clear()
 
 
 class Container:
     """Lightweight dependency injection container."""
-    
+
     def __init__(self):
-        self._registrations: Dict[Type, Registration] = {}
-        self._singletons: Dict[Type, Any] = {}
-        self._scopes: List[Scope] = []
-    
+        self._registrations: dict[type, Registration] = {}
+        self._singletons: dict[type, Any] = {}
+        self._scopes: list[Scope] = []
+
     def register(
         self,
-        interface: Type[T],
-        implementation: Optional[Type] = None,
+        interface: type[T],
+        implementation: type | None = None,
         lifecycle: Lifecycle = Lifecycle.TRANSIENT,
         **kwargs
     ) -> Registration:
@@ -132,37 +132,37 @@ class Container:
         self._registrations[interface] = registration
         logger.debug(f"Registered {interface.__name__} with {lifecycle.name}")
         return registration
-    
+
     def register_singleton(
         self,
-        interface: Type[T],
-        implementation: Optional[Type] = None,
+        interface: type[T],
+        implementation: type | None = None,
         **kwargs
     ) -> Registration:
         """Register as singleton."""
         return self.register(interface, implementation, Lifecycle.SINGLETON, **kwargs)
-    
+
     def register_scoped(
         self,
-        interface: Type[T],
-        implementation: Optional[Type] = None,
+        interface: type[T],
+        implementation: type | None = None,
         **kwargs
     ) -> Registration:
         """Register as scoped."""
         return self.register(interface, implementation, Lifecycle.SCOPED, **kwargs)
-    
+
     def register_transient(
         self,
-        interface: Type[T],
-        implementation: Optional[Type] = None,
+        interface: type[T],
+        implementation: type | None = None,
         **kwargs
     ) -> Registration:
         """Register as transient."""
         return self.register(interface, implementation, Lifecycle.TRANSIENT, **kwargs)
-    
+
     def register_factory(
         self,
-        interface: Type[T],
+        interface: type[T],
         factory: Callable[..., T],
         lifecycle: Lifecycle = Lifecycle.TRANSIENT,
     ) -> Registration:
@@ -174,10 +174,10 @@ class Container:
         )
         self._registrations[interface] = registration
         return registration
-    
+
     def register_instance(
         self,
-        interface: Type[T],
+        interface: type[T],
         instance: T,
     ) -> Registration:
         """Register a pre-created instance as singleton."""
@@ -189,66 +189,65 @@ class Container:
         self._registrations[interface] = registration
         self._singletons[interface] = instance
         return registration
-    
-    def resolve(self, interface: Type[T], scope: Optional[Scope] = None) -> T:
+
+    def resolve(self, interface: type[T], scope: Scope | None = None) -> T:
         """Resolve a dependency."""
         if scope:
             try:
                 return scope.resolve(interface)
             except KeyError:
                 pass
-        
+
         registration = self._registrations.get(interface)
         if registration is None:
             raise KeyError(f"No registration found for {interface}")
-        
-        if registration.lifecycle == Lifecycle.SINGLETON:
-            if interface in self._singletons:
-                return self._singletons[interface]
-        
+
+        if registration.lifecycle == Lifecycle.SINGLETON and interface in self._singletons:
+            return self._singletons[interface]
+
         instance = self._create_instance(registration, scope)
-        
+
         if registration.lifecycle == Lifecycle.SINGLETON:
             self._singletons[interface] = instance
-        
+
         return instance
-    
-    def try_resolve(self, interface: Type[T], scope: Optional[Scope] = None) -> Optional[T]:
+
+    def try_resolve(self, interface: type[T], scope: Scope | None = None) -> T | None:
         """Try to resolve, return None if not registered."""
         try:
             return self.resolve(interface, scope)
         except KeyError:
             return None
-    
-    def resolve_all(self, interface: Type[T]) -> List[T]:
+
+    def resolve_all(self, interface: type[T]) -> list[T]:
         """Resolve all implementations."""
         instance = self.try_resolve(interface)
         return [instance] if instance else []
-    
+
     def _create_instance(
         self,
         registration: Registration,
-        scope: Optional[Scope] = None,
+        scope: Scope | None = None,
     ) -> Any:
         """Create an instance based on registration."""
         if registration.instance is not None:
             return registration.instance
-        
+
         if registration.factory is not None:
             return self._invoke_with_injection(
                 registration.factory,
                 scope,
                 registration.kwargs,
             )
-        
+
         impl = registration.implementation or registration.interface
         return self._create_class_instance(impl, scope, registration.kwargs)
-    
+
     def _create_class_instance(
         self,
-        cls: Type,
-        scope: Optional[Scope],
-        additional_kwargs: Dict[str, Any],
+        cls: type,
+        scope: Scope | None,
+        additional_kwargs: dict[str, Any],
     ) -> Any:
         """Create class instance with constructor injection."""
         try:
@@ -256,15 +255,15 @@ class Container:
             type_hints = get_type_hints(cls.__init__)
         except (ValueError, TypeError):
             return cls(**additional_kwargs)
-        
+
         kwargs = dict(additional_kwargs)
-        
+
         for name, param in sig.parameters.items():
             if name == 'self':
                 continue
             if name in kwargs:
                 continue
-            
+
             param_type = type_hints.get(name)
             if param_type and param_type in self._registrations:
                 try:
@@ -276,25 +275,25 @@ class Container:
                 pass
             elif param.default is inspect.Parameter.empty:
                 raise KeyError(f"Cannot resolve parameter {name} for {cls}")
-        
+
         return cls(**kwargs)
-    
+
     def _invoke_with_injection(
         self,
         func: Callable,
-        scope: Optional[Scope],
-        additional_kwargs: Dict[str, Any],
+        scope: Scope | None,
+        additional_kwargs: dict[str, Any],
     ) -> Any:
         """Invoke a function with parameter injection."""
         sig = inspect.signature(func)
         type_hints = get_type_hints(func)
-        
+
         kwargs = dict(additional_kwargs)
-        
+
         for name, param in sig.parameters.items():
             if name in kwargs:
                 continue
-            
+
             param_type = type_hints.get(name)
             if param_type and param_type in self._registrations:
                 try:
@@ -306,32 +305,32 @@ class Container:
                 pass
             elif param.default is inspect.Parameter.empty:
                 raise KeyError(f"Cannot resolve parameter {name} for {func}")
-        
+
         return func(**kwargs)
-    
+
     def create_scope(self, name: str = "scoped") -> Scope:
         """Create a new scope."""
         scope = Scope(self, name)
         self._scopes.append(scope)
         return scope
-    
-    def is_registered(self, interface: Type) -> bool:
+
+    def is_registered(self, interface: type) -> bool:
         """Check if interface is registered."""
         return interface in self._registrations
-    
-    def unregister(self, interface: Type) -> None:
+
+    def unregister(self, interface: type) -> None:
         """Unregister a service."""
         if interface in self._registrations:
             del self._registrations[interface]
         if interface in self._singletons:
             del self._singletons[interface]
-    
+
     def clear(self) -> None:
         """Clear all registrations."""
         self._registrations.clear()
         self._singletons.clear()
         self._scopes.clear()
-    
+
     def build_provider(self) -> ServiceProvider:
         """Create immutable service provider."""
         return ServiceProvider(self)
@@ -339,27 +338,27 @@ class Container:
 
 class ServiceProvider:
     """Immutable, thread-safe service provider."""
-    
+
     def __init__(self, container: Container):
         self._container = container
-    
-    def get_service(self, interface: Type[T]) -> T:
+
+    def get_service(self, interface: type[T]) -> T:
         """Get a service."""
         return self._container.resolve(interface)
-    
-    def get_required_service(self, interface: Type[T]) -> T:
+
+    def get_required_service(self, interface: type[T]) -> T:
         """Get a service or raise."""
         if not self._container.is_registered(interface):
             raise KeyError(f"Service {interface} not registered")
         return self._container.resolve(interface)
-    
-    def get_services(self, interface: Type[T]) -> List[T]:
+
+    def get_services(self, interface: type[T]) -> list[T]:
         """Get all services of type."""
         return self._container.resolve_all(interface)
 
 
 # Global Container
-_default_container: Optional[Container] = None
+_default_container: Container | None = None
 
 
 def get_container() -> Container:

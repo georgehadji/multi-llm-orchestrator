@@ -9,16 +9,16 @@ Based on QMD search architecture.
 
 Usage:
     from orchestrator.bm25_search import BM25Search
-    
+
     search = BM25Search(":memory:")
-    
+
     # Add documents
     await search.add_document("doc1", "project1", "Python code example", {"type": "code"})
     await search.add_document("doc2", "project1", "JavaScript tutorial", {"type": "docs"})
-    
+
     # BM25 search
     results = await search.bm25_search("python", project_id="project1")
-    
+
     # Hybrid search (BM25 + Vector)
     results = await search.hybrid_search("python code", project_id="project1")
 """
@@ -27,12 +27,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
-import math
 import sqlite3
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .log_config import get_logger
 
@@ -46,7 +43,7 @@ class SearchDocument:
     project_id: str
     content: str
     title: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     score: float = 0.0
 
 
@@ -59,9 +56,9 @@ class SearchResult:
     title: str
     score: float
     rank: int
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "doc_id": self.doc_id,
             "project_id": self.project_id,
@@ -76,7 +73,7 @@ class SearchResult:
 class BM25Search:
     """
     BM25 full-text search using SQLite FTS5.
-    
+
     Implements:
     - BM25 keyword search (SQLite FTS5)
     - Hybrid search (BM25 + Vector)
@@ -92,7 +89,7 @@ class BM25Search:
     def _init_tables(self) -> None:
         """Initialize database tables."""
         cursor = self.conn.cursor()
-        
+
         # Create FTS5 virtual table for full-text search
         cursor.execute("""
             CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
@@ -104,7 +101,7 @@ class BM25Search:
                 tokenize='porter'
             )
         """)
-        
+
         # Create regular table for additional metadata
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS documents (
@@ -117,12 +114,12 @@ class BM25Search:
                 access_count INTEGER DEFAULT 0
             )
         """)
-        
+
         # Create index for project-based queries
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_project ON documents(project_id)
         """)
-        
+
         self.conn.commit()
         logger.debug("Initialized BM25 search tables")
 
@@ -131,65 +128,65 @@ class BM25Search:
         doc_id: str,
         project_id: str,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         title: str = "",
     ) -> None:
         """Add a document to the search index."""
         cursor = self.conn.cursor()
-        
+
         metadata_json = json.dumps(metadata or {})
-        
+
         # Insert into regular table
         cursor.execute("""
-            INSERT OR REPLACE INTO documents 
+            INSERT OR REPLACE INTO documents
             (doc_id, project_id, title, content, metadata)
             VALUES (?, ?, ?, ?, ?)
         """, (doc_id, project_id, title, content, metadata_json))
-        
+
         # Insert into FTS5 table
         cursor.execute("""
-            INSERT OR REPLACE INTO documents_fts 
+            INSERT OR REPLACE INTO documents_fts
             (doc_id, project_id, title, content, metadata)
             VALUES (?, ?, ?, ?, ?)
         """, (doc_id, project_id, title, content, metadata_json))
-        
+
         self.conn.commit()
         logger.debug(f"Added document {doc_id} to search index")
 
     async def remove_document(self, doc_id: str) -> bool:
         """Remove a document from the search index."""
         cursor = self.conn.cursor()
-        
+
         cursor.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
         cursor.execute("DELETE FROM documents_fts WHERE doc_id = ?", (doc_id,))
-        
+
         self.conn.commit()
-        
+
         return cursor.rowcount > 0
 
     async def bm25_search(
         self,
         query: str,
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
         limit: int = 10,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """
         Perform BM25 full-text search.
-        
+
         Args:
             query: Search query (keywords)
             project_id: Optional project filter
             limit: Maximum results
-            
+
         Returns:
             List of SearchResult ordered by BM25 score
         """
         cursor = self.conn.cursor()
-        
+
         # Build query
         if project_id:
             cursor.execute("""
-                SELECT 
+                SELECT
                     d.doc_id,
                     d.project_id,
                     d.title,
@@ -205,7 +202,7 @@ class BM25Search:
             """, (query, project_id, limit))
         else:
             cursor.execute("""
-                SELECT 
+                SELECT
                     d.doc_id,
                     d.project_id,
                     d.title,
@@ -218,13 +215,13 @@ class BM25Search:
                 ORDER BY score DESC
                 LIMIT ?
             """, (query, limit))
-        
+
         results = []
         for i, row in enumerate(cursor.fetchall()):
             metadata = json.loads(row["metadata"]) if row["metadata"] else {}
             # Convert BM25 score (negative) to positive
             score = abs(row["score"]) if row["score"] else 0.0
-            
+
             results.append(SearchResult(
                 doc_id=row["doc_id"],
                 project_id=row["project_id"],
@@ -234,21 +231,21 @@ class BM25Search:
                 rank=i + 1,
                 metadata=metadata,
             ))
-        
+
         logger.debug(f"BM25 search for '{query}' returned {len(results)} results")
-        
+
         return results
 
     async def vector_search(
         self,
         query: str,
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
         limit: int = 10,
-        embedding: Optional[List[float]] = None,
-    ) -> List[SearchResult]:
+        embedding: list[float] | None = None,
+    ) -> list[SearchResult]:
         """
         Perform vector similarity search.
-        
+
         Note: For production, use actual vector embeddings with
         a vector database or SQLite vec extension.
         This is a simplified implementation using cosine similarity
@@ -261,31 +258,31 @@ class BM25Search:
 
     def _rrf_fusion(
         self,
-        bm25_results: List[SearchResult],
-        vector_results: List[SearchResult],
+        bm25_results: list[SearchResult],
+        vector_results: list[SearchResult],
         k: int = 60,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """
         Reciprocal Rank Fusion (RRF) for combining search results.
-        
+
         Formula: score = Σ(1 / (k + rank))
-        
+
         Args:
             bm25_results: Results from BM25 search
             vector_results: Results from vector search
             k: RRF constant (default 60)
-            
+
         Returns:
             Combined and re-ranked results
         """
         # Track cumulative scores
-        scores: Dict[str, Tuple[float, SearchResult]] = {}
-        
+        scores: dict[str, tuple[float, SearchResult]] = {}
+
         # Add BM25 scores
         for result in bm25_results:
             rrf_score = 1.0 / (k + result.rank)
             scores[result.doc_id] = (rrf_score, result)
-        
+
         # Add vector scores
         for result in vector_results:
             rrf_score = 1.0 / (k + result.rank)
@@ -295,7 +292,7 @@ class BM25Search:
                 scores[result.doc_id] = (prev_score + rrf_score, prev_result)
             else:
                 scores[result.doc_id] = (rrf_score, result)
-        
+
         # Sort by combined score
         combined = [
             SearchResult(
@@ -309,39 +306,39 @@ class BM25Search:
             )
             for doc_id, (rrf_score, result) in scores.items()
         ]
-        
+
         # Sort and assign ranks
         combined.sort(key=lambda x: x.score, reverse=True)
         for i, result in enumerate(combined):
             result.rank = i + 1
-        
+
         return combined
 
     async def hybrid_search(
         self,
         query: str,
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
         limit: int = 10,
         use_rrf: bool = True,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """
         Hybrid search combining BM25 and vector search.
-        
+
         Args:
             query: Search query
             project_id: Optional project filter
             limit: Maximum results
             use_rrf: Use RRF fusion (default True)
-            
+
         Returns:
             Combined search results
         """
         # Run both searches in parallel
         bm25_task = asyncio.create_task(self.bm25_search(query, project_id, limit * 2))
         vector_task = asyncio.create_task(self.vector_search(query, project_id, limit * 2))
-        
+
         bm25_results, vector_results = await asyncio.gather(bm25_task, vector_task)
-        
+
         if use_rrf and vector_results:
             # Combine with RRF
             combined = self._rrf_fusion(bm25_results, vector_results)
@@ -353,23 +350,23 @@ class BM25Search:
     async def search_with_highlights(
         self,
         query: str,
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
         limit: int = 10,
         snippet_size: int = 150,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Search with highlighted snippets.
-        
+
         Uses FTS5 snippet function to show matching context.
         """
         cursor = self.conn.cursor()
-        
+
         # Use FTS5 snippet function
         query_terms = query.replace('"', '').split()
-        
+
         if project_id:
             cursor.execute("""
-                SELECT 
+                SELECT
                     d.doc_id,
                     d.project_id,
                     d.title,
@@ -384,7 +381,7 @@ class BM25Search:
             """, (query, project_id, limit))
         else:
             cursor.execute("""
-                SELECT 
+                SELECT
                     d.doc_id,
                     d.project_id,
                     d.title,
@@ -396,7 +393,7 @@ class BM25Search:
                 ORDER BY score DESC
                 LIMIT ?
             """, (query, limit))
-        
+
         results = []
         for row in cursor.fetchall():
             score = abs(row["score"]) if row["score"] else 0.0
@@ -408,19 +405,19 @@ class BM25Search:
                 "score": score,
                 "highlights": query_terms,
             })
-        
+
         return results
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get search index statistics."""
         cursor = self.conn.cursor()
-        
+
         cursor.execute("SELECT COUNT(*) FROM documents")
         total_docs = cursor.fetchone()[0]
-        
+
         cursor.execute("SELECT COUNT(DISTINCT project_id) FROM documents")
         total_projects = cursor.fetchone()[0]
-        
+
         return {
             "total_documents": total_docs,
             "total_projects": total_projects,
@@ -433,7 +430,7 @@ class BM25Search:
 
 
 # Global instance
-_default_bm25: Optional[BM25Search] = None
+_default_bm25: BM25Search | None = None
 
 
 def get_bm25_search(db_path: str = ":memory:") -> BM25Search:

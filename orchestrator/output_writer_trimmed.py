@@ -39,7 +39,6 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .models import ProjectState, TaskType
 
@@ -480,7 +479,7 @@ def _write_readme(
     """Write a human-readable README.md summarizing the project run."""
     b = state.budget
     budget_pct = (b.spent_usd / b.max_usd * 100) if b.max_usd > 0 else 0.0
-    
+
     # Import the detect function from output_writer
     from orchestrator.output_writer import _detect_project_type
     project_type, install_instructions = _detect_project_type(file_map, out)
@@ -552,25 +551,25 @@ def _write_readme(
         "",
         "```bash",
         "# Install using modern Python packaging",
-        f"pip install -e .",
+        "pip install -e .",
         "",
         "# Or with development dependencies",
-        f"pip install -e '.[dev]'",
+        "pip install -e '.[dev]'",
         "",
         "# Run using Make",
-        f"make run",
+        "make run",
         "",
         "# Or directly",
-        f"python main.py",
+        "python main.py",
         "",
         "# List all pipeline steps",
-        f"python main.py --list",
+        "python main.py --list",
         "",
         "# Run specific step only",
-        f"python main.py --step 2",
+        "python main.py --step 2",
         "",
         "# Preview execution plan",
-        f"python main.py --dry-run",
+        "python main.py --dry-run",
         "```",
         "",
     ]

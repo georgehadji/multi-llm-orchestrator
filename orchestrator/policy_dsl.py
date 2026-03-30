@@ -34,13 +34,11 @@ from __future__ import annotations
 
 import json
 import logging
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from .models import Model
-from .policy import EnforcementMode, Policy, PolicyHierarchy, PolicySet, RateLimit
+from .policy import EnforcementMode, Policy, PolicyHierarchy, RateLimit
 
 logger = logging.getLogger("orchestrator.policy_dsl")
 
@@ -147,7 +145,7 @@ class PolicyAnalyzer:
 # Internal parsing helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _parse_rate_limit(d: dict) -> Optional[RateLimit]:
+def _parse_rate_limit(d: dict) -> RateLimit | None:
     """Parse a rate_limit sub-dict into a RateLimit dataclass."""
     if not d:
         return None
@@ -171,7 +169,7 @@ def _parse_policy(d: dict) -> Policy:
 
     # enforcement_mode
     em_raw = d.get("enforcement_mode")
-    enforcement_mode: Optional[EnforcementMode] = None
+    enforcement_mode: EnforcementMode | None = None
     if em_raw is not None:
         try:
             enforcement_mode = EnforcementMode(str(em_raw).lower())
@@ -183,7 +181,7 @@ def _parse_policy(d: dict) -> Policy:
 
     # blocked_models: list of model value strings → list of Model enums
     blocked_models_raw = d.get("blocked_models")
-    blocked_models: Optional[list[Model]] = None
+    blocked_models: list[Model] | None = None
     if blocked_models_raw is not None:
         parsed_models: list[Model] = []
         for ms in blocked_models_raw:

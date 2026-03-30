@@ -29,7 +29,7 @@ class QueryExpander:
 
     def __init__(
         self,
-        model: str = "deepseek-chat",
+        model: str = "deepseek/deepseek-chat",
         max_variants: int = 3,
     ) -> None:
         self.model = model

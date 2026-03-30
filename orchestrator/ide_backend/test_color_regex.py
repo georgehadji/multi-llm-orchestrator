@@ -3,9 +3,10 @@ Manual test for color modification regex - no pytest required
 """
 import re
 
+
 def test_color_changes():
     """Test all color change scenarios"""
-    
+
     test_cases = [
         {
             "name": "Gold to Purple",
@@ -68,14 +69,14 @@ def test_color_changes():
             "expected": None  # Should not match
         }
     ]
-    
+
     accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
     passed = 0
     failed = 0
-    
+
     for tc in test_cases:
         match = re.search(accent_pattern, tc["css"])
-        
+
         if tc["expected"] is None:
             # Should not match
             if match is None:
@@ -97,11 +98,11 @@ def test_color_changes():
                 else:
                     print(f"❌ FAIL: {tc['name']} - expected '{tc['expected']}', got '{result}'")
                     failed += 1
-    
+
     print(f"\n{'='*50}")
     print(f"Results: {passed} passed, {failed} failed")
     print(f"{'='*50}")
-    
+
     return failed == 0
 
 if __name__ == "__main__":

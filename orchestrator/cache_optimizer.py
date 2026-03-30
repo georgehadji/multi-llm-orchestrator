@@ -12,7 +12,7 @@ Advanced caching system with:
 
 Usage:
     from orchestrator.cache_optimizer import CacheOptimizer
-    
+
     optimizer = CacheOptimizer()
     result = await optimizer.get_with_cache(model, prompt, task_type)
 """
@@ -21,20 +21,18 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import logging
 import re
 import time
 import zlib
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple, Callable
-from collections import OrderedDict
-from functools import lru_cache
+from typing import Any
 
 import aiosqlite
 
-from .models import Task, TaskType, Model
+from .models import Model, Task, TaskType
 from .semantic_cache import SemanticCache
 
 logger = logging.getLogger("orchestrator.cache_optimizer")
@@ -50,21 +48,21 @@ class CacheConfig:
     # L1 Memory Cache
     l1_max_size: int = 100  # Max entries in memory
     l1_ttl_seconds: int = 3600  # 1 hour
-    
+
     # L2 Disk Cache
     l2_db_path: Path = field(default_factory=lambda: Path.home() / ".orchestrator_cache" / "cache_l2.db")
     l2_ttl_hours: int = 24
     l2_max_size_mb: int = 1000
     l2_compression_threshold: int = 1000  # Compress responses > 1KB
-    
+
     # L3 Semantic Cache
     l3_quality_threshold: float = 0.85
     l3_min_use_count: int = 2
-    
+
     # Cache Warming
     warm_cache_on_startup: bool = True
-    warm_patterns_file: Optional[Path] = None
-    
+    warm_patterns_file: Path | None = None
+
     # Statistics
     track_stats: bool = True
 
@@ -80,7 +78,7 @@ class MemoryCacheEntry:
     created_at: float
     ttl_seconds: int
     access_count: int = 0
-    
+
     def is_expired(self) -> bool:
         return time.time() - self.created_at > self.ttl_seconds
 
@@ -90,7 +88,7 @@ class L1MemoryCache:
     L1 Cache: In-memory LRU cache with TTL.
     Fastest but limited size.
     """
-    
+
     def __init__(self, max_size: int = 100, default_ttl: int = 3600):
         self._cache: OrderedDict[str, MemoryCacheEntry] = OrderedDict()
         self._max_size = max_size
@@ -98,33 +96,33 @@ class L1MemoryCache:
         self._lock = asyncio.Lock()
         self._hits = 0
         self._misses = 0
-    
-    async def get(self, key: str) -> Optional[Any]:
+
+    async def get(self, key: str) -> Any | None:
         """Get value from memory cache."""
         async with self._lock:
             entry = self._cache.get(key)
             if entry is None:
                 self._misses += 1
                 return None
-            
+
             if entry.is_expired():
                 del self._cache[key]
                 self._misses += 1
                 return None
-            
+
             # Update access stats and move to end (LRU)
             entry.access_count += 1
             self._cache.move_to_end(key)
             self._hits += 1
             return entry.value
-    
-    async def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+
+    async def put(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Put value in memory cache."""
         async with self._lock:
             # Evict oldest if at capacity
             if len(self._cache) >= self._max_size and key not in self._cache:
                 self._cache.popitem(last=False)
-            
+
             entry = MemoryCacheEntry(
                 value=value,
                 created_at=time.time(),
@@ -132,13 +130,13 @@ class L1MemoryCache:
             )
             self._cache[key] = entry
             self._cache.move_to_end(key)
-    
+
     async def clear(self) -> None:
         """Clear memory cache."""
         async with self._lock:
             self._cache.clear()
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         total = self._hits + self._misses
         return {
@@ -160,18 +158,18 @@ class L2DiskCache:
     L2 Cache: SQLite-based disk cache with TTL and compression.
     Persistent across restarts.
     """
-    
+
     def __init__(self, config: CacheConfig):
         self._config = config
         self._db_path = config.l2_db_path
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn: Optional[aiosqlite.Connection] = None
+        self._conn: aiosqlite.Connection | None = None
         self._lock = asyncio.Lock()
         self._hits = 0
         self._misses = 0
         self._tokens_saved = 0
         self._cost_saved = 0.0
-    
+
     async def _get_conn(self) -> aiosqlite.Connection:
         """Get database connection."""
         if self._conn is None:
@@ -194,46 +192,46 @@ class L2DiskCache:
             """)
             await self._conn.commit()
         return self._conn
-    
+
     def _compress(self, data: str) -> bytes:
         """Compress string data."""
         return zlib.compress(data.encode('utf-8'), level=6)
-    
+
     def _decompress(self, data: bytes) -> str:
         """Decompress bytes to string."""
         return zlib.decompress(data).decode('utf-8')
-    
-    def _generate_key(self, model: str, prompt: str, max_tokens: int, 
+
+    def _generate_key(self, model: str, prompt: str, max_tokens: int,
                       system: str = "", temperature: float = 0.3) -> str:
         """Generate deterministic cache key."""
         payload = f"{model}:{prompt}:{max_tokens}:{system}:{temperature}"
         return hashlib.sha256(payload.encode()).hexdigest()
-    
+
     async def get(self, model: str, prompt: str, max_tokens: int,
-                  system: str = "", temperature: float = 0.3) -> Optional[Dict[str, Any]]:
+                  system: str = "", temperature: float = 0.3) -> dict[str, Any] | None:
         """Get from disk cache with TTL check."""
         key = self._generate_key(model, prompt, max_tokens, system, temperature)
-        
+
         async with self._lock:
             conn = await self._get_conn()
-            
+
             # Check for expired entries and delete them
             await conn.execute(
                 "DELETE FROM cache WHERE (strftime('%s', 'now') - created_at) > ttl_hours * 3600"
             )
-            
+
             async with conn.execute(
                 "SELECT value, tokens_input, tokens_output, cost, compressed FROM cache WHERE key = ?",
                 (key,)
             ) as cursor:
                 row = await cursor.fetchone()
-            
+
             if row is None:
                 self._misses += 1
                 return None
-            
+
             value, tokens_in, tokens_out, cost, compressed = row
-            
+
             # Decompress if needed
             if compressed:
                 try:
@@ -243,11 +241,11 @@ class L2DiskCache:
                     return None
             else:
                 value = value.decode('utf-8') if isinstance(value, bytes) else value
-            
+
             self._hits += 1
             self._tokens_saved += tokens_in + tokens_out
             self._cost_saved += cost
-            
+
             return {
                 "response": value,
                 "tokens_input": tokens_in,
@@ -255,15 +253,15 @@ class L2DiskCache:
                 "cost": cost,
                 "cached": True,
             }
-    
+
     async def put(self, model: str, prompt: str, max_tokens: int,
                   response: str, tokens_input: int = 0, tokens_output: int = 0,
                   cost: float = 0.0, system: str = "", temperature: float = 0.3,
-                  ttl_hours: Optional[int] = None) -> None:
+                  ttl_hours: int | None = None) -> None:
         """Store in disk cache with optional compression."""
         key = self._generate_key(model, prompt, max_tokens, system, temperature)
         ttl = ttl_hours or self._config.l2_ttl_hours
-        
+
         # Compress if response is large
         compressed = 0
         if len(response) > self._config.l2_compression_threshold:
@@ -272,24 +270,24 @@ class L2DiskCache:
                 compressed = 1
             except Exception as e:
                 logger.warning(f"Compression failed: {e}")
-        
+
         async with self._lock:
             conn = await self._get_conn()
             await conn.execute(
-                """INSERT OR REPLACE INTO cache 
+                """INSERT OR REPLACE INTO cache
                    (key, value, tokens_input, tokens_output, cost, created_at, ttl_hours, compressed)
                    VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), ?, ?)""",
                 (key, response, tokens_input, tokens_output, cost, ttl, compressed)
             )
             await conn.commit()
-    
+
     async def clear(self) -> None:
         """Clear disk cache."""
         async with self._lock:
             conn = await self._get_conn()
             await conn.execute("DELETE FROM cache")
             await conn.commit()
-    
+
     async def cleanup_expired(self) -> int:
         """Remove expired entries. Returns count deleted."""
         async with self._lock:
@@ -299,20 +297,20 @@ class L2DiskCache:
             )
             await conn.commit()
             return cursor.rowcount
-    
-    async def get_stats(self) -> Dict[str, Any]:
+
+    async def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         async with self._lock:
             conn = await self._get_conn()
-            
+
             async with conn.execute("SELECT COUNT(*), SUM(tokens_input + tokens_output), SUM(cost) FROM cache") as cursor:
                 row = await cursor.fetchone()
                 total_entries = row[0] or 0
-                total_tokens = row[1] or 0
-                total_cost = row[2] or 0.0
-            
+                row[1] or 0
+                row[2] or 0.0
+
             total_requests = self._hits + self._misses
-            
+
             return {
                 "level": "L2 (Disk)",
                 "entries": total_entries,
@@ -333,7 +331,7 @@ class SmartCacheKeyGenerator:
     """
     Generates cache keys that maximize hits by normalizing variable content.
     """
-    
+
     # Patterns to normalize
     PATTERNS = [
         (r'\b\d{4}-\d{2}-\d{2}\b', '<DATE>'),           # Dates
@@ -347,29 +345,29 @@ class SmartCacheKeyGenerator:
         (r'"[^"]*"', '"<STRING>"'),                    # String literals
         (r"'[^']*'", "'<STRING>'"),                    # String literals
     ]
-    
+
     @classmethod
     def normalize(cls, text: str) -> str:
         """Normalize text for better cache hits."""
         # Convert to lowercase
         text = text.lower()
-        
+
         # Apply normalization patterns
         for pattern, replacement in cls.PATTERNS:
             text = re.sub(pattern, replacement, text)
-        
+
         # Normalize whitespace
         text = ' '.join(text.split())
-        
+
         return text
-    
+
     @classmethod
     def generate_key(cls, model: str, prompt: str, max_tokens: int,
                      system: str = "", temperature: float = 0.3) -> str:
         """Generate smart cache key."""
         normalized_prompt = cls.normalize(prompt)
         normalized_system = cls.normalize(system)
-        
+
         payload = f"{model}:{normalized_prompt}:{max_tokens}:{normalized_system}:{temperature}"
         return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -383,10 +381,10 @@ class WarmPattern:
     """Pattern for cache warming."""
     task_type: TaskType
     prompt_template: str
-    variables: Dict[str, List[str]] = field(default_factory=dict)
+    variables: dict[str, list[str]] = field(default_factory=dict)
 
 
-DEFAULT_WARM_PATTERNS: List[WarmPattern] = [
+DEFAULT_WARM_PATTERNS: list[WarmPattern] = [
     WarmPattern(
         TaskType.CODE_GEN,
         "Generate a Python function to {operation} with type hints and docstring",
@@ -418,37 +416,37 @@ DEFAULT_WARM_PATTERNS: List[WarmPattern] = [
 
 class CacheWarmer:
     """Warms cache with common patterns at startup."""
-    
-    def __init__(self, client, patterns: Optional[List[WarmPattern]] = None):
+
+    def __init__(self, client, patterns: list[WarmPattern] | None = None):
         self._client = client
         self._patterns = patterns or DEFAULT_WARM_PATTERNS
-    
-    async def warm(self, models: List[Model] = None) -> Dict[str, Any]:
+
+    async def warm(self, models: list[Model] = None) -> dict[str, Any]:
         """
         Warm cache with common patterns.
-        
+
         Returns:
             Statistics about warming process
         """
         models = models or [Model.GPT_4O_MINI, Model.GEMINI_FLASH]
         stats = {"patterns_generated": 0, "cache_entries": 0, "cost": 0.0}
-        
+
         logger.info("Starting cache warming...")
-        
+
         for pattern in self._patterns:
             # Generate all combinations of variables
             combinations = self._generate_combinations(pattern.variables)
-            
+
             for combo in combinations:
                 prompt = pattern.prompt_template.format(**combo)
-                
+
                 for model in models:
                     try:
                         # Check if already cached
                         cached = await self._client.cache.get(
                             model.value, prompt, max_tokens=1000
                         )
-                        
+
                         if cached is None:
                             # Generate and cache
                             response = await self._client.call_model(
@@ -457,7 +455,7 @@ class CacheWarmer:
                                 max_tokens=1000,
                                 temperature=0.3,
                             )
-                            
+
                             await self._client.cache.put(
                                 model=model.value,
                                 prompt=prompt,
@@ -467,30 +465,30 @@ class CacheWarmer:
                                 tokens_output=response.output_tokens,
                                 cost=response.cost_usd,
                             )
-                            
+
                             stats["patterns_generated"] += 1
                             stats["cache_entries"] += 1
                             stats["cost"] += response.cost_usd
-                            
+
                     except Exception as e:
                         logger.warning(f"Failed to warm cache for {model.value}: {e}")
-        
+
         logger.info(f"Cache warming complete: {stats['cache_entries']} entries, ${stats['cost']:.4f}")
         return stats
-    
-    def _generate_combinations(self, variables: Dict[str, List[str]]) -> List[Dict[str, str]]:
+
+    def _generate_combinations(self, variables: dict[str, list[str]]) -> list[dict[str, str]]:
         """Generate all combinations of variable values."""
         if not variables:
             return [{}]
-        
+
         keys = list(variables.keys())
         values = list(variables.values())
-        
+
         import itertools
         combinations = []
         for combo in itertools.product(*values):
-            combinations.append(dict(zip(keys, combo)))
-        
+            combinations.append(dict(zip(keys, combo, strict=False)))
+
         return combinations
 
 
@@ -501,38 +499,38 @@ class CacheWarmer:
 class CacheOptimizer:
     """
     Multi-level cache optimizer combining L1, L2, and L3 caches.
-    
+
     Usage:
         optimizer = CacheOptimizer()
-        
+
         # Get with automatic cache lookup
         result = await optimizer.get(model, prompt, task_type)
-        
+
         # Put with automatic cache storage
         await optimizer.put(model, prompt, response, task_type)
-        
+
         # Get statistics
         stats = optimizer.get_stats()
     """
-    
-    def __init__(self, config: Optional[CacheConfig] = None):
+
+    def __init__(self, config: CacheConfig | None = None):
         self._config = config or CacheConfig()
-        
+
         # L1: Memory cache
         self._l1 = L1MemoryCache(
             max_size=self._config.l1_max_size,
             default_ttl=self._config.l1_ttl_seconds
         )
-        
+
         # L2: Disk cache
         self._l2 = L2DiskCache(self._config)
-        
+
         # L3: Semantic cache
         self._l3 = SemanticCache(
             quality_threshold=self._config.l3_quality_threshold,
             min_use_count=self._config.l3_min_use_count
         )
-        
+
         # Statistics
         self._total_hits_l1 = 0
         self._total_hits_l2 = 0
@@ -540,32 +538,32 @@ class CacheOptimizer:
         self._total_misses = 0
         self._tokens_saved = 0
         self._cost_saved = 0.0
-    
+
     def _generate_key(self, model: str, prompt: str, max_tokens: int,
                       system: str = "", temperature: float = 0.3) -> str:
         """Generate smart cache key."""
         return SmartCacheKeyGenerator.generate_key(
             model, prompt, max_tokens, system, temperature
         )
-    
+
     async def get(self, model: str, prompt: str, max_tokens: int,
                   system: str = "", temperature: float = 0.3,
-                  task_type: Optional[TaskType] = None) -> Optional[Dict[str, Any]]:
+                  task_type: TaskType | None = None) -> dict[str, Any] | None:
         """
         Get from cache with multi-level lookup.
-        
+
         Order: L1 → L2 → L3
         """
         # Generate smart key
         key = self._generate_key(model, prompt, max_tokens, system, temperature)
-        
+
         # L1: Memory cache
         result = await self._l1.get(key)
         if result is not None:
             self._total_hits_l1 += 1
             logger.debug(f"L1 cache hit: {key[:16]}...")
             return result
-        
+
         # L2: Disk cache
         result = await self._l2.get(model, prompt, max_tokens, system, temperature)
         if result is not None:
@@ -574,7 +572,7 @@ class CacheOptimizer:
             await self._l1.put(key, result)
             logger.debug(f"L2 cache hit: {key[:16]}...")
             return result
-        
+
         # L3: Semantic cache (if task type provided)
         if task_type:
             # Create dummy task for semantic cache lookup
@@ -598,20 +596,20 @@ class CacheOptimizer:
                 await self._l1.put(key, result)
                 logger.debug(f"L3 cache hit: {key[:16]}...")
                 return result
-        
+
         self._total_misses += 1
         return None
-    
+
     async def put(self, model: str, prompt: str, max_tokens: int,
                   response: str, tokens_input: int, tokens_output: int,
                   cost: float, system: str = "", temperature: float = 0.3,
-                  task_type: Optional[TaskType] = None,
-                  quality_score: Optional[float] = None) -> None:
+                  task_type: TaskType | None = None,
+                  quality_score: float | None = None) -> None:
         """
         Store in cache at all levels.
         """
         key = self._generate_key(model, prompt, max_tokens, system, temperature)
-        
+
         result = {
             "response": response,
             "tokens_input": tokens_input,
@@ -619,17 +617,17 @@ class CacheOptimizer:
             "cost": cost,
             "cached": True,
         }
-        
+
         # L1: Memory cache
         await self._l1.put(key, result)
-        
+
         # L2: Disk cache
         await self._l2.put(
             model, prompt, max_tokens, response,
             tokens_input, tokens_output, cost,
             system, temperature
         )
-        
+
         # L3: Semantic cache (if quality score provided)
         if task_type and quality_score:
             dummy_task = Task(
@@ -638,31 +636,31 @@ class CacheOptimizer:
                 prompt=prompt,
             )
             self._l3.cache_pattern(dummy_task, response, quality_score)
-        
+
         logger.debug(f"Cached at all levels: {key[:16]}...")
-    
-    async def warm(self, client, models: Optional[List[Model]] = None) -> Dict[str, Any]:
+
+    async def warm(self, client, models: list[Model] | None = None) -> dict[str, Any]:
         """Warm cache with common patterns."""
         warmer = CacheWarmer(client)
         return await warmer.warm(models)
-    
-    async def cleanup(self) -> Dict[str, int]:
+
+    async def cleanup(self) -> dict[str, int]:
         """Cleanup expired entries."""
         l1_expired = 0
         # L1 cleanup happens automatically on access
-        
+
         # L2 cleanup
         l2_deleted = await self._l2.cleanup_expired()
-        
+
         return {
             "l1_expired": l1_expired,
             "l2_deleted": l2_deleted,
         }
-    
-    async def clear(self, level: Optional[str] = None) -> None:
+
+    async def clear(self, level: str | None = None) -> None:
         """
         Clear cache levels.
-        
+
         Args:
             level: 'l1', 'l2', 'l3', or None for all
         """
@@ -672,14 +670,14 @@ class CacheOptimizer:
             await self._l2.clear()
         if level is None or level == 'l3':
             self._l3._cache.clear()
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get comprehensive cache statistics."""
         total_hits = self._total_hits_l1 + self._total_hits_l2 + self._total_hits_l3
         total_requests = total_hits + self._total_misses
-        
+
         l1_stats = self._l1.get_stats()
-        
+
         return {
             "total_requests": total_requests,
             "total_hits": total_hits,
@@ -692,11 +690,11 @@ class CacheOptimizer:
             "tokens_saved": self._tokens_saved,
             "cost_saved": self._cost_saved,
         }
-    
+
     def print_stats(self) -> None:
         """Print cache statistics in readable format."""
         stats = self.get_stats()
-        
+
         print("""
 ╔══════════════════════════════════════════════════════════════╗
 ║                    CACHE STATISTICS                          ║
@@ -732,7 +730,7 @@ class CacheOptimizer:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Global cache optimizer instance
-_cache_optimizer: Optional[CacheOptimizer] = None
+_cache_optimizer: CacheOptimizer | None = None
 
 
 def get_cache_optimizer() -> CacheOptimizer:

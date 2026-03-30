@@ -16,14 +16,14 @@ Usage:
     from orchestrator.task_verifier import TaskVerifier, VerificationResult
 
     verifier = TaskVerifier()
-    
+
     # During task planning, register expected outcomes
     verifier.register_expected_outcome(
         task_id="task_001",
         expected_files=["src/main.py", "src/utils.py"],
         expected_state={"status": "completed", "tests_passed": True}
     )
-    
+
     # After task completion, verify actual state
     result = await verifier.verify_completion(task_id="task_001")
     if not result.is_verified:
@@ -32,15 +32,12 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
-import logging
-import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from .log_config import get_logger
 
@@ -69,12 +66,12 @@ class DiscrepancyType(Enum):
 class ExpectedOutcome:
     """Expected outcome for a task - registered during planning."""
     task_id: str
-    expected_files: List[str] = field(default_factory=list)
-    expected_directories: List[str] = field(default_factory=list)
-    expected_state: Dict[str, Any] = field(default_factory=dict)
-    expected_outputs: List[str] = field(default_factory=list)
-    required_patterns: List[str] = field(default_factory=list)  # Regex patterns that must match
-    forbidden_patterns: List[str] = field(default_factory=list)  # Regex patterns that must NOT match
+    expected_files: list[str] = field(default_factory=list)
+    expected_directories: list[str] = field(default_factory=list)
+    expected_state: dict[str, Any] = field(default_factory=dict)
+    expected_outputs: list[str] = field(default_factory=list)
+    required_patterns: list[str] = field(default_factory=list)  # Regex patterns that must match
+    forbidden_patterns: list[str] = field(default_factory=list)  # Regex patterns that must NOT match
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 
@@ -84,9 +81,9 @@ class Discrepancy:
     type: DiscrepancyType
     severity: VerificationSeverity
     description: str
-    expected: Optional[Any] = None
-    actual: Optional[Any] = None
-    location: Optional[str] = None
+    expected: Any | None = None
+    actual: Any | None = None
+    location: str | None = None
 
 
 @dataclass
@@ -94,35 +91,35 @@ class VerificationResult:
     """Result of task completion verification."""
     task_id: str
     is_verified: bool
-    discrepancies: List[Discrepancy] = field(default_factory=list)
+    discrepancies: list[Discrepancy] = field(default_factory=list)
     verified_at: datetime = field(default_factory=datetime.utcnow)
     verification_duration_ms: float = 0.0
-    
+
     @property
     def has_critical_issues(self) -> bool:
         return any(d.severity == VerificationSeverity.CRITICAL for d in self.discrepancies)
-    
+
     @property
     def has_errors(self) -> bool:
-        return any(d.severity in (VerificationSeverity.ERROR, VerificationSeverity.CRITICAL) 
+        return any(d.severity in (VerificationSeverity.ERROR, VerificationSeverity.CRITICAL)
                    for d in self.discrepancies)
-    
+
     @property
     def summary(self) -> str:
         if self.is_verified:
             return f"✓ Task {self.task_id} verified successfully"
-        
+
         critical = sum(1 for d in self.discrepancies if d.severity == VerificationSeverity.CRITICAL)
         errors = sum(1 for d in self.discrepancies if d.severity == VerificationSeverity.ERROR)
         warnings = sum(1 for d in self.discrepancies if d.severity == VerificationSeverity.WARNING)
-        
+
         return f"✗ Task {self.task_id}: {critical} critical, {errors} errors, {warnings} warnings"
 
 
 class TaskVerifier:
     """
     Verifies task completion against expected outcomes.
-    
+
     Implements defense against task completion misrepresentation by:
     1. Registering expected outcomes during task planning
     2. Verifying actual file system state after completion
@@ -130,25 +127,25 @@ class TaskVerifier:
     4. Detecting state mismatches
     """
 
-    def __init__(self, base_path: Optional[Path] = None):
+    def __init__(self, base_path: Path | None = None):
         self.base_path = base_path or Path.cwd()
-        self._expected_outcomes: Dict[str, ExpectedOutcome] = {}
-        self._file_hashes: Dict[str, Dict[str, str]] = {}  # task_id -> {path: hash}
-        self._verification_cache: Dict[str, VerificationResult] = {}
+        self._expected_outcomes: dict[str, ExpectedOutcome] = {}
+        self._file_hashes: dict[str, dict[str, str]] = {}  # task_id -> {path: hash}
+        self._verification_cache: dict[str, VerificationResult] = {}
 
     def register_expected_outcome(
         self,
         task_id: str,
-        expected_files: Optional[List[str]] = None,
-        expected_directories: Optional[List[str]] = None,
-        expected_state: Optional[Dict[str, Any]] = None,
-        expected_outputs: Optional[List[str]] = None,
-        required_patterns: Optional[List[str]] = None,
-        forbidden_patterns: Optional[List[str]] = None,
+        expected_files: list[str] | None = None,
+        expected_directories: list[str] | None = None,
+        expected_state: dict[str, Any] | None = None,
+        expected_outputs: list[str] | None = None,
+        required_patterns: list[str] | None = None,
+        forbidden_patterns: list[str] | None = None,
     ) -> None:
         """
         Register expected outcome for a task during planning phase.
-        
+
         This should be called BEFORE task execution to establish what
         success looks like.
         """
@@ -161,32 +158,32 @@ class TaskVerifier:
             required_patterns=required_patterns or [],
             forbidden_patterns=forbidden_patterns or [],
         )
-        
+
         # Store initial file hashes for comparison
         self._expected_outcomes[task_id] = outcome
         self._file_hashes[task_id] = {}
-        
+
         for file_path in outcome.expected_files:
             full_path = self.base_path / file_path
             if full_path.exists():
                 self._file_hashes[task_id][file_path] = self._compute_file_hash(full_path)
-        
+
         logger.info(f"Registered expected outcome for task {task_id}: "
                    f"{len(outcome.expected_files)} files, {len(outcome.expected_directories)} dirs")
 
     async def verify_completion(
         self,
         task_id: str,
-        base_path: Optional[Path] = None,
+        base_path: Path | None = None,
     ) -> VerificationResult:
         """
         Verify task completion against registered expected outcomes.
-        
+
         Returns a VerificationResult with detailed discrepancy information.
         """
         start_time = datetime.utcnow()
         base = base_path or self.base_path
-        
+
         outcome = self._expected_outcomes.get(task_id)
         if outcome is None:
             return VerificationResult(
@@ -200,9 +197,9 @@ class TaskVerifier:
                     )
                 ],
             )
-        
-        discrepancies: List[Discrepancy] = []
-        
+
+        discrepancies: list[Discrepancy] = []
+
         # 1. Verify expected files exist
         for file_path in outcome.expected_files:
             full_path = base / file_path
@@ -210,7 +207,7 @@ class TaskVerifier:
                 discrepancies.append(Discrepancy(
                     type=DiscrepancyType.FILE_MISSING,
                     severity=VerificationSeverity.CRITICAL,
-                    description=f"Expected file not found",
+                    description="Expected file not found",
                     expected=file_path,
                     actual=None,
                     location=str(full_path),
@@ -223,12 +220,12 @@ class TaskVerifier:
                     discrepancies.append(Discrepancy(
                         type=DiscrepancyType.FILE_MODIFIED,
                         severity=VerificationSeverity.WARNING,
-                        description=f"File was modified during task execution",
+                        description="File was modified during task execution",
                         expected=original_hash[:16],
                         actual=current_hash[:16],
                         location=str(full_path),
                     ))
-        
+
         # 2. Verify expected directories exist
         for dir_path in outcome.expected_directories:
             full_path = base / dir_path
@@ -236,7 +233,7 @@ class TaskVerifier:
                 discrepancies.append(Discrepancy(
                     type=DiscrepancyType.FILE_MISSING,
                     severity=VerificationSeverity.ERROR,
-                    description=f"Expected directory not found",
+                    description="Expected directory not found",
                     expected=dir_path,
                     actual=None,
                     location=str(full_path),
@@ -245,12 +242,12 @@ class TaskVerifier:
                 discrepancies.append(Discrepancy(
                     type=DiscrepancyType.FILE_MISSING,
                     severity=VerificationSeverity.ERROR,
-                    description=f"Expected directory but found file",
+                    description="Expected directory but found file",
                     expected=dir_path,
                     actual="file",
                     location=str(full_path),
                 ))
-        
+
         # 3. Verify expected outputs
         for output_path in outcome.expected_outputs:
             full_path = base / output_path
@@ -258,12 +255,12 @@ class TaskVerifier:
                 discrepancies.append(Discrepancy(
                     type=DiscrepancyType.OUTPUT_MISSING,
                     severity=VerificationSeverity.ERROR,
-                    description=f"Expected output not found",
+                    description="Expected output not found",
                     expected=output_path,
                     actual=None,
                     location=str(full_path),
                 ))
-        
+
         # 4. Verify required patterns in output files
         if outcome.required_patterns:
             import re
@@ -277,14 +274,14 @@ class TaskVerifier:
                                 discrepancies.append(Discrepancy(
                                     type=DiscrepancyType.STATE_MISMATCH,
                                     severity=VerificationSeverity.ERROR,
-                                    description=f"Required pattern not found in file",
+                                    description="Required pattern not found in file",
                                     expected=pattern,
                                     actual=None,
                                     location=str(full_path),
                                 ))
                     except Exception as e:
                         logger.warning(f"Could not read {full_path} for pattern verification: {e}")
-        
+
         # 5. Verify forbidden patterns (security: no dangerous code)
         if outcome.forbidden_patterns:
             import re
@@ -298,31 +295,31 @@ class TaskVerifier:
                                 discrepancies.append(Discrepancy(
                                     type=DiscrepancyType.STATE_MISMATCH,
                                     severity=VerificationSeverity.CRITICAL,
-                                    description=f"Forbidden pattern found in file (security issue)",
+                                    description="Forbidden pattern found in file (security issue)",
                                     expected=f"no match for {pattern}",
                                     actual="pattern found",
                                     location=str(full_path),
                                 ))
                     except Exception as e:
                         logger.warning(f"Could not read {full_path} for forbidden pattern check: {e}")
-        
+
         # Determine overall verification status
-        is_verified = len([d for d in discrepancies 
+        is_verified = len([d for d in discrepancies
                           if d.severity in (VerificationSeverity.ERROR, VerificationSeverity.CRITICAL)]) == 0
-        
+
         # Calculate duration
         duration = (datetime.utcnow() - start_time).total_seconds() * 1000
-        
+
         result = VerificationResult(
             task_id=task_id,
             is_verified=is_verified,
             discrepancies=discrepancies,
             verification_duration_ms=duration,
         )
-        
+
         # Cache result
         self._verification_cache[task_id] = result
-        
+
         # Log result
         if not is_verified:
             logger.warning(f"Task verification failed for {task_id}: {result.summary}")
@@ -330,7 +327,7 @@ class TaskVerifier:
                 logger.warning(f"  - [{d.severity.value}] {d.type.value}: {d.description}")
         else:
             logger.info(f"Task verified successfully: {task_id}")
-        
+
         return result
 
     def _compute_file_hash(self, file_path: Path) -> str:
@@ -345,17 +342,17 @@ class TaskVerifier:
             logger.warning(f"Could not compute hash for {file_path}: {e}")
             return ""
 
-    def get_verification_summary(self) -> Dict[str, Any]:
+    def get_verification_summary(self) -> dict[str, Any]:
         """Get summary of all verifications."""
         total = len(self._verification_cache)
         verified = sum(1 for r in self._verification_cache.values() if r.is_verified)
         failed = total - verified
-        
+
         critical_issues = sum(
-            1 for r in self._verification_cache.values() 
+            1 for r in self._verification_cache.values()
             if r.has_critical_issues
         )
-        
+
         return {
             "total_tasks": total,
             "verified": verified,
@@ -364,7 +361,7 @@ class TaskVerifier:
             "verification_rate": verified / total if total > 0 else 0.0,
         }
 
-    def clear_cache(self, task_id: Optional[str] = None) -> None:
+    def clear_cache(self, task_id: str | None = None) -> None:
         """Clear verification cache."""
         if task_id:
             self._verification_cache.pop(task_id, None)

@@ -22,8 +22,10 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from orchestrator.app_detector import AppProfile
+if TYPE_CHECKING:
+    from orchestrator.app_detector import AppProfile
 
 logger = logging.getLogger(__name__)
 
@@ -123,10 +125,7 @@ class AppVerifier:
                 report.local_install_ok = True
 
         # ── Step 2: Run tests ──────────────────────────────────────────────────
-        if is_js:
-            test_cmd = "npm test -- --passWithNoTests"
-        else:
-            test_cmd = profile.test_command or "pytest"
+        test_cmd = "npm test -- --passWithNoTests" if is_js else profile.test_command or "pytest"
         test_parts = test_cmd.split()
         result = subprocess.run(
             test_parts,

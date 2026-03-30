@@ -1,0 +1,33 @@
+.hero {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.card {
+  padding: 2rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  text-align: center;
+}
+
+button {
+  padding: 0.75rem 1.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #5568d3;
+}

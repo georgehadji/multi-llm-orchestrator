@@ -31,9 +31,9 @@ def main():
         action="store_true",
         help="Don't automatically open browser"
     )
-    
+
     args = parser.parse_args()
-    
+
     try:
         from orchestrator.dashboard import run_dashboard
         run_dashboard(

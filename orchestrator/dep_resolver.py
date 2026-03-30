@@ -195,12 +195,7 @@ class DependencyResolver:
         if module_name in _STDLIB:
             return False
         # Skip common internal package names
-        if module_name in {
-            "src", "tests", "orchestrator", "config", "utils",
-            "models", "app",
-        }:
-            return False
-        return True
+        return module_name not in {"src", "tests", "orchestrator", "config", "utils", "models", "app"}
 
     def _update_pyproject(self, pyproject_path: Path, specifiers: list[str]) -> bool:
         """

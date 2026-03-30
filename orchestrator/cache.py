@@ -16,7 +16,6 @@ import asyncio
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 import aiosqlite
 
@@ -30,11 +29,11 @@ DEFAULT_CACHE_PATH = Path.home() / ".orchestrator_cache" / "cache.db"
 class DiskCache:
     """
     SQLite-backed cache with connection pooling and TTL.
-    
+
     OPTIMIZATION: Connection TTL prevents stale connections in long-running
     processes. Default TTL is 1 hour.
     """
-    
+
     # Connection TTL in seconds (1 hour default)
     _CONN_TTL: float = 3600.0
     # Connection timeout in seconds (prevents infinite hangs)
@@ -43,10 +42,10 @@ class DiskCache:
     def __init__(self, db_path: Path = DEFAULT_CACHE_PATH):
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db_path = str(db_path)
-        self._conn: Optional[aiosqlite.Connection] = None
+        self._conn: aiosqlite.Connection | None = None
         self._schema_ready = False
-        self._lock: Optional[asyncio.Lock] = None  # lazy — created inside event loop
-        self._conn_created_at: Optional[float] = None  # OPTIMIZATION: Connection TTL tracking
+        self._lock: asyncio.Lock | None = None  # lazy — created inside event loop
+        self._conn_created_at: float | None = None  # OPTIMIZATION: Connection TTL tracking
 
     async def _get_conn(self) -> aiosqlite.Connection:
         """
@@ -116,7 +115,7 @@ class DiskCache:
         return self._conn
 
     async def get(self, model: str, prompt: str, max_tokens: int,
-                  system: str = "", temperature: float = 0.3) -> Optional[dict]:
+                  system: str = "", temperature: float = 0.3) -> dict | None:
         h = prompt_hash(model, prompt, max_tokens, system, temperature)
         db = await self._get_conn()
         async with db.execute(

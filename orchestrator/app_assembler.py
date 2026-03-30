@@ -100,7 +100,7 @@ class AppAssembler:
         """
         for rel_path_str in list(report.files_written):
             py_file = output_dir / rel_path_str
-            if not py_file.suffix == ".py":
+            if py_file.suffix != ".py":
                 continue
 
             # Walk up the directory tree from the file's parent to output_dir

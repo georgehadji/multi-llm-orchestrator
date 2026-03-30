@@ -1,11 +1,11 @@
 """
 Standalone IDE Server Test - No orchestrator package dependency
 """
-import sys
 import logging
+import sys
 import uuid
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -21,11 +21,11 @@ base_path = Path(__file__).parent
 sys.path.insert(0, str(base_path))
 
 # Import required modules directly
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+import uvicorn
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import uvicorn
 
 logger.info("FastAPI imported")
 
@@ -111,17 +111,17 @@ def send_message(request: ChatRequest):
             session_id = session["session"]["id"]
         else:
             session_id = list(sessions.keys())[0]
-    
+
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     # Add user message
     sessions[session_id]["messages"].append({
         "role": "user",
         "content": request.message,
         "ts": datetime.now().strftime("%H:%M"),
     })
-    
+
     return {"session": sessions[session_id]}
 
 @app.get("/api/models")
@@ -159,20 +159,20 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 "status": "idle"
             }
         })
-        
+
         while True:
             data = await websocket.receive_json()
             event = data.get("event")
             payload = data.get("data", {})
             logger.info(f"Received event: {event}")
-            
+
             if event == "ping":
                 await websocket.send_json({"event": "pong", "data": {"ts": "now"}})
-            
+
             elif event == "chat_message":
                 message = payload.get("message", "")
                 logger.info(f"Chat message: {message[:50]}...")
-                
+
                 # Add user message to session
                 if session_id in sessions:
                     sessions[session_id]["messages"].append({
@@ -180,7 +180,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         "content": message,
                         "ts": "now"
                     })
-                
+
                 # Send thinking response
                 await websocket.send_json({
                     "event": "messages_update",
@@ -197,11 +197,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         }]
                     }
                 })
-                
+
                 # Simulate processing delay
                 import asyncio
                 await asyncio.sleep(1.5)
-                
+
                 # Send completed response
                 response_text = f"""I've received your request: "{message[:100]}"
 
@@ -212,7 +212,7 @@ Here's what I'll do:
 4. **Test** the implementation
 
 Starting now..."""
-                
+
                 await websocket.send_json({
                     "event": "messages_update",
                     "data": {
@@ -230,7 +230,7 @@ Starting now..."""
                         }]
                     }
                 })
-                
+
                 # Update session
                 if session_id in sessions:
                     sessions[session_id]["messages"].append({
@@ -238,7 +238,7 @@ Starting now..."""
                         "content": response_text,
                         "thinking": False
                     })
-            
+
             elif event == "session_update":
                 logger.info(f"Session update: {payload}")
                 # Acknowledge update
@@ -246,7 +246,7 @@ Starting now..."""
                     "event": "session_state",
                     "data": {"settings": payload}
                 })
-            
+
             elif event == "terminal_command":
                 command = payload.get("command", "")
                 logger.info(f"Terminal command: {command}")
@@ -260,10 +260,10 @@ Starting now..."""
                         ]
                     }
                 })
-            
+
             else:
                 logger.warning(f"Unknown event: {event}")
-                
+
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected: {session_id}")
         sessions.pop(session_id, None)
@@ -273,7 +273,7 @@ frontend_dist = base_path.parent.parent / "ide_frontend" / "dist"
 if frontend_dist.exists():
     logger.info(f"Serving frontend from {frontend_dist}")
     app.mount("/ide", StaticFiles(directory=str(frontend_dist), html=True), name="ide")
-    
+
     @app.get("/")
     def root():
         from fastapi.responses import RedirectResponse

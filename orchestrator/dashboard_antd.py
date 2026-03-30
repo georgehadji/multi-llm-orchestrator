@@ -19,18 +19,12 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import json
-import time
 import webbrowser
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .log_config import get_logger
-from .models import Model, TaskType, TaskStatus, COST_TABLE, ROUTING_TABLE, get_provider
-from .state import StateManager
-from .telemetry_store import TelemetryStore
 
 logger = get_logger(__name__)
 
@@ -38,80 +32,80 @@ logger = get_logger(__name__)
 @dataclass
 class DashboardState:
     """Complete dashboard state."""
-    project: Dict[str, Any]
-    architecture: Dict[str, Any]
-    active_task: Dict[str, Any]
-    models: List[Dict[str, Any]]
-    metrics: Dict[str, Any]
+    project: dict[str, Any]
+    architecture: dict[str, Any]
+    active_task: dict[str, Any]
+    models: list[dict[str, Any]]
+    metrics: dict[str, Any]
 
 
 class AntDesignDashboardServer:
     """
     Modern dashboard using Ant Design System.
-    
+
     Clean, professional UI with:
     - Real-time updates
     - Architecture visualization
     - Model health monitoring
     - Task progress tracking
     """
-    
+
     def __init__(self, host: str = "127.0.0.1", port: int = 8080):
         self.host = host
         self.port = port
         self._setup_app()
-    
+
     def _setup_app(self):
         """Setup FastAPI app with endpoints."""
         try:
             from fastapi import FastAPI
-            from fastapi.responses import HTMLResponse, JSONResponse
             from fastapi.middleware.cors import CORSMiddleware
-            
+            from fastapi.responses import HTMLResponse, JSONResponse
+
             self.app = FastAPI(title="Mission Control - Ant Design")
-            
+
             self.app.add_middleware(
                 CORSMiddleware,
                 allow_origins=["*"],
                 allow_methods=["GET", "POST"],
                 allow_headers=["*"],
             )
-            
+
             @self.app.get("/")
             async def dashboard():
                 """Serve dashboard HTML with Ant Design."""
                 return HTMLResponse(content=self._get_html())
-            
+
             @self.app.get("/api/status")
             async def get_status():
                 """Get complete status."""
                 return JSONResponse(content=self._get_mock_data())
-            
+
             @self.app.get("/api/models")
             async def get_models():
                 """Get model status."""
                 return JSONResponse(content=self._get_mock_data()["models"])
-            
+
             @self.app.get("/api/project")
             async def get_project():
                 """Get project info."""
                 return JSONResponse(content=self._get_mock_data()["project"])
-            
+
             @self.app.get("/api/architecture")
             async def get_architecture():
                 """Get architecture decisions."""
                 return JSONResponse(content=self._get_mock_data()["architecture"])
-            
+
             @self.app.get("/api/active-task")
             async def get_active_task():
                 """Get active task."""
                 return JSONResponse(content=self._get_mock_data()["active_task"])
-            
+
         except ImportError:
             logger.error("FastAPI not installed. Run: pip install fastapi uvicorn")
             raise
-    
-    def _get_mock_data(self) -> Dict[str, Any]:
+
+    def _get_mock_data(self) -> dict[str, Any]:
         """Generate mock data for demonstration."""
         return {
             "project": {
@@ -221,7 +215,7 @@ class AntDesignDashboardServer:
                 "timestamp": datetime.now().isoformat(),
             },
         }
-    
+
     def _get_html(self) -> str:
         """Generate Ant Design HTML."""
         return '''<!DOCTYPE html>
@@ -230,24 +224,24 @@ class AntDesignDashboardServer:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mission Control | Multi-LLM Orchestrator</title>
-    
+
     <!-- Ant Design CSS -->
     <link rel="stylesheet" href="https://unpkg.com/antd@5.12.0/dist/reset.css">
     <link rel="stylesheet" href="https://unpkg.com/antd@5.12.0/dist/antd.min.css">
-    
+
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
+
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
+
     <!-- Ant Design -->
     <script src="https://unpkg.com/antd@5.12.0/dist/antd.min.js"></script>
-    
+
     <!-- Ant Design Icons -->
     <script src="https://unpkg.com/@ant-design/icons@5.2.6/dist/index.umd.min.js"></script>
-    
+
     <style>
         body {
             background: #f0f2f5;
@@ -315,24 +309,24 @@ class AntDesignDashboardServer:
 </head>
 <body>
     <div id="root"></div>
-    
+
     <script type="text/babel">
         const { useState, useEffect } = React;
-        const { 
-            Layout, Menu, Card, Row, Col, Statistic, Progress, Tag, Timeline, 
+        const {
+            Layout, Menu, Card, Row, Col, Statistic, Progress, Tag, Timeline,
             Badge, Descriptions, List, Avatar, Typography, Space, Divider,
             Alert, Skeleton, Tooltip, Button, Table
         } = antd;
-        const { 
+        const {
             DashboardOutlined, ApiOutlined, SettingOutlined, FileTextOutlined,
             CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ClusterOutlined,
             CodeOutlined, DatabaseOutlined, ToolOutlined, ExperimentOutlined,
             ReloadOutlined, ClockCircleOutlined, DollarOutlined
         } = icons;
-        
+
         const { Header, Content, Footer } = Layout;
         const { Title, Text, Paragraph } = Typography;
-        
+
         // Mock data - will be replaced with API calls
         const initialData = {
             project: {
@@ -351,18 +345,18 @@ class AntDesignDashboardServer:
             models: [],
             metrics: {},
         };
-        
+
         function formatDuration(seconds) {
             if (!seconds) return "0s";
             if (seconds < 60) return Math.round(seconds) + "s";
             if (seconds < 3600) return Math.floor(seconds / 60) + "m " + Math.round(seconds % 60) + "s";
             return Math.floor(seconds / 3600) + "h " + Math.floor((seconds % 3600) / 60) + "m";
         }
-        
+
         function formatCurrency(value) {
             return "$" + (value || 0).toFixed(2);
         }
-        
+
         // Components
         function ProjectCard({ project }) {
             const statusColors = {
@@ -371,59 +365,59 @@ class AntDesignDashboardServer:
                 completed: "success",
                 failed: "error",
             };
-            
+
             return (
-                <Card 
+                <Card
                     title={<><DashboardOutlined /> Project Overview</>}
                     extra={<Badge status={statusColors[project.status] || "default"} text={project.status.toUpperCase()} />}
                 >
                     <Title level={4}>{project.description}</Title>
                     <Text type="secondary">ID: {project.project_id}</Text>
-                    
+
                     <Divider />
-                    
+
                     <Row gutter={16}>
                         <Col span={6}>
-                            <Statistic 
-                                title="Progress" 
-                                value={project.progress_percent || 0} 
+                            <Statistic
+                                title="Progress"
+                                value={project.progress_percent || 0}
                                 suffix="%"
                                 precision={1}
                             />
                         </Col>
                         <Col span={6}>
-                            <Statistic 
-                                title="Tasks" 
+                            <Statistic
+                                title="Tasks"
                                 value={`${project.completed_tasks || 0}/${project.total_tasks || 0}`}
                             />
                         </Col>
                         <Col span={6}>
-                            <Statistic 
-                                title="Budget Used" 
+                            <Statistic
+                                title="Budget Used"
                                 value={formatCurrency(project.budget_used)}
                                 prefix={<DollarOutlined />}
                             />
                         </Col>
                         <Col span={6}>
-                            <Statistic 
-                                title="Elapsed" 
+                            <Statistic
+                                title="Elapsed"
                                 value={formatDuration(project.elapsed_seconds)}
                                 prefix={<ClockCircleOutlined />}
                             />
                         </Col>
                     </Row>
-                    
+
                     <Divider />
-                    
-                    <Progress 
-                        percent={Math.round(project.progress_percent || 0)} 
+
+                    <Progress
+                        percent={Math.round(project.progress_percent || 0)}
                         status={project.status === "failed" ? "exception" : "active"}
                         strokeColor={{ "0%": "#108ee9", "100%": "#87d068" }}
                     />
                 </Card>
             );
         }
-        
+
         function ActiveTaskCard({ task }) {
             if (!task || task.status === "idle") {
                 return (
@@ -432,15 +426,15 @@ class AntDesignDashboardServer:
                     </Card>
                 );
             }
-            
+
             const statusColors = {
                 running: "blue",
                 completed: "green",
                 failed: "red",
             };
-            
+
             return (
-                <Card 
+                <Card
                     title={<><CodeOutlined /> Active Task</>}
                     extra={<Tag color={statusColors[task.status]}>{task.status.toUpperCase()}</Tag>}
                 >
@@ -454,17 +448,17 @@ class AntDesignDashboardServer:
                             {task.iteration} / {task.max_iterations}
                         </Descriptions.Item>
                         <Descriptions.Item label="Score">
-                            <Progress 
-                                type="circle" 
-                                percent={Math.round((task.score || 0) * 100)} 
+                            <Progress
+                                type="circle"
+                                percent={Math.round((task.score || 0) * 100)}
                                 width={50}
                                 status={task.score >= 0.8 ? "success" : "normal"}
                             />
                         </Descriptions.Item>
                     </Descriptions>
-                    
+
                     <Divider />
-                    
+
                     <Title level={5}>Prompt</Title>
                     <Paragraph ellipsis={{ rows: 3, expandable: true }}>
                         {task.prompt}
@@ -472,7 +466,7 @@ class AntDesignDashboardServer:
                 </Card>
             );
         }
-        
+
         function ArchitectureCard({ arch }) {
             if (!arch || !arch.style) {
                 return (
@@ -481,7 +475,7 @@ class AntDesignDashboardServer:
                     </Card>
                 );
             }
-            
+
             return (
                 <Card title={<><ClusterOutlined /> Architecture Decisions</>}>
                     <Descriptions bordered column={2} size="small">
@@ -491,9 +485,9 @@ class AntDesignDashboardServer:
                         <Descriptions.Item label="Database">{arch.database_type}</Descriptions.Item>
                         <Descriptions.Item label="Language" span={2}>{arch.primary_language}</Descriptions.Item>
                     </Descriptions>
-                    
+
                     <Divider />
-                    
+
                     <Title level={5}>Technology Stack</Title>
                     <Space wrap>
                         {arch.frameworks?.map(f => <Tag key={f} color="blue" className="tech-badge">{f}</Tag>)}
@@ -501,9 +495,9 @@ class AntDesignDashboardServer:
                         {arch.databases?.map(d => <Tag key={d} color="purple" className="tech-badge">{d}</Tag>)}
                         {arch.tools?.map(t => <Tag key={t} color="orange" className="tech-badge">{t}</Tag>)}
                     </Space>
-                    
+
                     <Divider />
-                    
+
                     <Row gutter={16}>
                         <Col span={12}>
                             <Title level={5}>Constraints</Title>
@@ -535,7 +529,7 @@ class AntDesignDashboardServer:
                 </Card>
             );
         }
-        
+
         function ModelsCard({ models }) {
             const columns = [
                 {
@@ -544,8 +538,8 @@ class AntDesignDashboardServer:
                     key: "name",
                     render: (text, record) => (
                         <Space>
-                            <Avatar 
-                                style={{ 
+                            <Avatar
+                                style={{
                                     backgroundColor: record.available ? "#52c41a" : "#ff4d4f",
                                     fontSize: 12
                                 }}
@@ -599,13 +593,13 @@ class AntDesignDashboardServer:
                     render: (_, record) => `$${record.cost_input}/$${record.cost_output}`,
                 },
             ];
-            
+
             return (
-                <Card 
+                <Card
                     title={<><ApiOutlined /> Model Status</>}
                     extra={
-                        <Button 
-                            type="primary" 
+                        <Button
+                            type="primary"
                             icon={<ReloadOutlined />}
                             onClick={() => window.location.reload()}
                         >
@@ -613,9 +607,9 @@ class AntDesignDashboardServer:
                         </Button>
                     }
                 >
-                    <Table 
-                        dataSource={models} 
-                        columns={columns} 
+                    <Table
+                        dataSource={models}
+                        columns={columns}
                         rowKey="name"
                         pagination={false}
                         size="small"
@@ -623,7 +617,7 @@ class AntDesignDashboardServer:
                 </Card>
             );
         }
-        
+
         function MetricsCard({ metrics }) {
             return (
                 <Row gutter={16}>
@@ -667,20 +661,20 @@ class AntDesignDashboardServer:
                 </Row>
             );
         }
-        
+
         function App() {
             const [data, setData] = useState(initialData);
             const [loading, setLoading] = useState(true);
-            
+
             useEffect(() => {
                 // Initial data load
                 fetchData();
-                
+
                 // Auto-refresh every 3 seconds
                 const interval = setInterval(fetchData, 3000);
                 return () => clearInterval(interval);
             }, []);
-            
+
             async function fetchData() {
                 try {
                     const response = await fetch("/api/status");
@@ -701,7 +695,7 @@ class AntDesignDashboardServer:
                     }
                 }
             }
-            
+
             return (
                 <Layout className="layout">
                     <Header>
@@ -718,7 +712,7 @@ class AntDesignDashboardServer:
                             </Menu.Item>
                         </Menu>
                     </Header>
-                    
+
                     <Content style={{ padding: "0 50px" }}>
                         <div className="site-layout-content" style={{ marginTop: 24 }}>
                             {loading ? (
@@ -726,7 +720,7 @@ class AntDesignDashboardServer:
                             ) : (
                                 <>
                                     <MetricsCard metrics={data.metrics} />
-                                    
+
                                     <Row gutter={24} style={{ marginTop: 24 }}>
                                         <Col span={16}>
                                             <ProjectCard project={data.project} />
@@ -736,7 +730,7 @@ class AntDesignDashboardServer:
                                             <ArchitectureCard arch={data.architecture} />
                                         </Col>
                                     </Row>
-                                    
+
                                     <Row style={{ marginTop: 24 }}>
                                         <Col span={24}>
                                             <ModelsCard models={data.models} />
@@ -746,7 +740,7 @@ class AntDesignDashboardServer:
                             )}
                         </div>
                     </Content>
-                    
+
                     <Footer style={{ textAlign: "center" }}>
                         Multi-LLM Orchestrator v5.1 | Built with Ant Design
                         <br />
@@ -757,18 +751,18 @@ class AntDesignDashboardServer:
                 </Layout>
             );
         }
-        
+
         // Mount the app
         const root = ReactDOM.createRoot(document.getElementById("root"));
         root.render(<App />);
     </script>
 </body>
 </html>'''
-    
+
     async def run(self):
         """Start the dashboard server."""
         from uvicorn import Config, Server
-        
+
         config = Config(
             app=self.app,
             host=self.host,
@@ -781,9 +775,7 @@ class AntDesignDashboardServer:
 
 def run_ant_design_dashboard(host: str = "127.0.0.1", port: int = 8888, open_browser: bool = True):
     """Run the Ant Design dashboard."""
-    import asyncio
-    import webbrowser
-    
+
     url = f"http://{host}:{port}"
     print(f"""
 ╔══════════════════════════════════════════════════════════════════╗
@@ -805,10 +797,10 @@ def run_ant_design_dashboard(host: str = "127.0.0.1", port: int = 8888, open_bro
 ║                                                                  ║
 ╚══════════════════════════════════════════════════════════════════╝
     """)
-    
+
     if open_browser:
         webbrowser.open(url)
-    
+
     dashboard = AntDesignDashboardServer(host=host, port=port)
     asyncio.run(dashboard.run())
 

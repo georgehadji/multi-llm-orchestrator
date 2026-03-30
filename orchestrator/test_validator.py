@@ -16,10 +16,8 @@ Usage:
 import ast
 import subprocess
 import tempfile
-import shutil
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from pathlib import Path
 
 from .api_clients import UnifiedClient
 from .log_config import get_logger
@@ -32,7 +30,7 @@ class TestValidationResult:
     """Result of test validation."""
     passed: bool
     test_code: str
-    error_message: Optional[str] = None
+    error_message: str | None = None
     iterations: int = 0
     output: str = ""
 
@@ -40,40 +38,40 @@ class TestValidationResult:
 class TestValidator:
     """
     Validates test generation in real-time.
-    
+
     Strategy:
     1. Generate test with full code context
     2. Run test immediately
     3. If fails, fix the TEST (not code)
     4. Repeat until pass or max iterations
     """
-    
+
     def __init__(self, max_iterations: int = 3):
         self.max_iterations = max_iterations
         self.client = UnifiedClient()
-    
+
     async def validate_test_generation(
         self,
         source_file: Path,
         function_name: str,
-        project_root: Optional[Path] = None,
-        context: Optional[Dict] = None
+        project_root: Path | None = None,
+        context: dict | None = None
     ) -> TestValidationResult:
         """
         Generate and validate a test.
-        
+
         Args:
             source_file: Path to source file to test
             function_name: Function/class name to test
             project_root: Project root directory
             context: Additional context for test generation
-        
+
         Returns:
             TestValidationResult with passing test code
         """
         project_root = project_root or Path.cwd()
         context = context or {}
-        
+
         # CRITICAL: Check if source file exists
         if not source_file.exists():
             logger.warning(f"Source file not found: {source_file}")
@@ -82,7 +80,7 @@ class TestValidator:
                 test_code="",
                 error_message=f"Source file not found: {source_file}"
             )
-        
+
         # Check if source file is empty
         try:
             source_code = source_file.read_text(encoding='utf-8')
@@ -100,23 +98,23 @@ class TestValidator:
                 test_code="",
                 error_message=f"Failed to read source file: {e}"
             )
-        
+
         # Generate import path
         import_path = self._generate_import_path(source_file, project_root)
-        
+
         # Analyze function signature
         func_info = self._analyze_function(source_code, function_name)
-        
+
         # Generate fixtures
         fixtures = self._generate_fixtures(source_code)
-        
+
         # Iterative test generation and validation
         test_code = ""
         last_error = ""
-        
+
         for iteration in range(1, self.max_iterations + 1):
             logger.info(f"Test validation iteration {iteration}/{self.max_iterations}")
-            
+
             # Generate test
             test_code = await self._generate_test(
                 source_code=source_code,
@@ -127,14 +125,14 @@ class TestValidator:
                 previous_error=last_error,
                 iteration=iteration
             )
-            
+
             # Write test to temp file
             temp_test = self._write_temp_test(test_code, function_name)
-            
+
             try:
                 # Run test immediately
                 result = await self._run_test(temp_test, source_file.parent)
-                
+
                 if result.returncode == 0:
                     # Success!
                     logger.info(f"✅ Test passed on iteration {iteration}")
@@ -144,20 +142,20 @@ class TestValidator:
                         iterations=iteration,
                         output=result.stdout
                     )
-                
+
                 # Failed - capture error for next iteration
                 last_error = result.stdout + result.stderr
                 logger.warning(f"Test failed: {last_error[:200]}")
-                
+
             except Exception as e:
                 last_error = str(e)
                 logger.warning(f"Test execution error: {e}")
-            
+
             finally:
                 # Cleanup temp file
                 if temp_test.exists():
                     temp_test.unlink()
-        
+
         # Max iterations reached
         logger.warning(f"❌ Test validation failed after {self.max_iterations} iterations")
         return TestValidationResult(
@@ -166,55 +164,55 @@ class TestValidator:
             error_message=last_error,
             iterations=self.max_iterations
         )
-    
+
     def _generate_import_path(self, source_file: Path, project_root: Path) -> str:
         """Generate correct import path for source file."""
         try:
             rel_path = source_file.relative_to(project_root)
-            
+
             # Convert path to module import
             # tasks/task_001_code_generation.py → tasks.task_001_code_generation
             module_path = str(rel_path.with_suffix('')).replace('\\', '.').replace('/', '.')
-            
+
             # Remove 'test_' prefix if present
             if module_path.startswith('test_'):
                 module_path = module_path[5:]
-            
+
             return module_path
-            
+
         except ValueError:
             # File not under project root - use filename
             return source_file.stem
-    
-    def _analyze_function(self, source_code: str, function_name: str) -> Dict:
+
+    def _analyze_function(self, source_code: str, function_name: str) -> dict:
         """Analyze function signature and docstring."""
         try:
             tree = ast.parse(source_code)
-            
+
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef) and node.name == function_name:
                     # Extract signature info
                     args = []
                     annotations = {}
-                    
+
                     for arg in node.args.args:
                         arg_name = arg.arg
                         args.append(arg_name)
-                        
+
                         if arg.annotation:
                             if isinstance(arg.annotation, ast.Name):
                                 annotations[arg_name] = arg.annotation.id
                             elif isinstance(arg.annotation, ast.Subscript):
                                 annotations[arg_name] = ast.unparse(arg.annotation)
-                    
+
                     # Get return type
                     return_type = None
                     if node.returns:
                         return_type = ast.unparse(node.returns)
-                    
+
                     # Get docstring
                     docstring = ast.get_docstring(node) or ""
-                    
+
                     return {
                         'args': args,
                         'annotations': annotations,
@@ -222,10 +220,10 @@ class TestValidator:
                         'docstring': docstring,
                         'line_number': node.lineno
                     }
-            
+
         except Exception as e:
             logger.warning(f"Failed to analyze function {function_name}: {e}")
-        
+
         # Default
         return {
             'args': ['*args', '**kwargs'],
@@ -234,21 +232,21 @@ class TestValidator:
             'docstring': '',
             'line_number': 0
         }
-    
+
     def _generate_fixtures(self, source_code: str) -> str:
         """Generate pytest fixtures based on code analysis."""
         fixtures = []
-        
+
         try:
             tree = ast.parse(source_code)
-            
+
             # Look for type hints to generate appropriate fixtures
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
                     for arg in node.args.args:
                         if arg.annotation:
                             ann_str = ast.unparse(arg.annotation) if hasattr(ast, 'unparse') else str(arg.annotation)
-                            
+
                             if 'list' in ann_str.lower() or 'List' in ann_str:
                                 if 'sample_list' not in [f.split()[1] for f in fixtures]:
                                     fixtures.append("""
@@ -256,7 +254,7 @@ class TestValidator:
 def sample_list():
     return [1, 2, 3]
 """)
-                            
+
                             elif 'dict' in ann_str.lower() or 'Dict' in ann_str:
                                 if 'sample_dict' not in [f.split()[1] for f in fixtures]:
                                     fixtures.append("""
@@ -264,7 +262,7 @@ def sample_list():
 def sample_dict():
     return {"key": "value"}
 """)
-                            
+
                             elif 'str' in ann_str.lower():
                                 if 'sample_string' not in [f.split()[1] for f in fixtures]:
                                     fixtures.append("""
@@ -272,7 +270,7 @@ def sample_dict():
 def sample_string():
     return "test"
 """)
-                            
+
                             elif 'int' in ann_str.lower() or 'float' in ann_str.lower():
                                 if 'sample_number' not in [f.split()[1] for f in fixtures]:
                                     fixtures.append("""
@@ -280,24 +278,24 @@ def sample_string():
 def sample_number():
     return 42
 """)
-        
+
         except Exception as e:
             logger.warning(f"Failed to generate fixtures: {e}")
-        
+
         return '\n'.join(fixtures)
-    
+
     async def _generate_test(
         self,
         source_code: str,
         import_path: str,
         function_name: str,
-        func_info: Dict,
+        func_info: dict,
         fixtures: str,
         previous_error: str = "",
         iteration: int = 1
     ) -> str:
         """Generate test code using LLM."""
-        
+
         # Build prompt
         if iteration == 1:
             prompt = f"""You are an expert Python test developer. Generate a pytest test for this function.
@@ -369,7 +367,7 @@ Generate ONLY the test code, nothing else:
 3. Keep the test simple
 4. Generate ONLY the fixed test code:
 """
-        
+
         # Call LLM
         try:
             response = await self.client.call_model(
@@ -378,22 +376,22 @@ Generate ONLY the test code, nothing else:
                 max_tokens=2000,
                 temperature=0.2  # Low temp for consistent tests
             )
-            
+
             # Extract code block
             content = response.text
             import re
             code_match = re.search(r'```python\n(.*?)\n```', content, re.DOTALL)
-            
+
             if code_match:
                 return code_match.group(1).strip()
-            
+
             # If no code block, return as-is
             return content.strip()
-            
+
         except Exception as e:
             logger.error(f"Failed to generate test: {e}")
             return self._generate_fallback_test(import_path, function_name)
-    
+
     def _generate_fallback_test(self, import_path: str, function_name: str) -> str:
         """Generate a minimal fallback test."""
         return f"""
@@ -411,15 +409,15 @@ def test_{function_name}_placeholder():
     \"\"\"Placeholder test - implement proper tests.\"\"\"
     assert True
 """
-    
+
     def _write_temp_test(self, test_code: str, function_name: str) -> Path:
         """Write test code to temporary file."""
         temp_dir = Path(tempfile.mkdtemp(prefix='test_validator_'))
         test_file = temp_dir / f"test_{function_name}.py"
         test_file.write_text(test_code, encoding='utf-8')
         return test_file
-    
-    async def _run_test(self, test_file: Path, cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
+
+    async def _run_test(self, test_file: Path, cwd: Path | None = None) -> subprocess.CompletedProcess:
         """Run pytest on test file."""
         try:
             # Add parent directory to Python path
@@ -429,7 +427,7 @@ def test_{function_name}_placeholder():
                 env = dict(**os.environ)
                 python_path = env.get('PYTHONPATH', '')
                 env['PYTHONPATH'] = str(cwd) + (os.pathsep + python_path if python_path else '')
-            
+
             result = subprocess.run(
                 ["python", "-m", "pytest", str(test_file), "-v", "--tb=short"],
                 cwd=cwd or test_file.parent,
@@ -439,7 +437,7 @@ def test_{function_name}_placeholder():
                 env=env
             )
             return result
-            
+
         except subprocess.TimeoutExpired:
             return subprocess.CompletedProcess(
                 args=[],
@@ -460,16 +458,16 @@ def test_{function_name}_placeholder():
 async def validate_and_generate_test(
     source_file: Path,
     function_name: str,
-    project_root: Optional[Path] = None
+    project_root: Path | None = None
 ) -> TestValidationResult:
     """
     Convenience function to validate and generate a test.
-    
+
     Args:
         source_file: Source file to test
         function_name: Function to test
         project_root: Project root
-    
+
     Returns:
         TestValidationResult with passing test
     """

@@ -1,21 +1,18 @@
 """LLM-powered semantic understanding of codebases"""
 
-import asyncio
 import json
 import re
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any
 
 from orchestrator.codebase_analyzer import CodebaseAnalyzer
 from orchestrator.codebase_profile import CodebaseProfile
-from orchestrator.engine import Orchestrator, Budget
-from orchestrator.models import TaskType
 
 
 class CodebaseUnderstanding:
     """Analyze codebase semantically using LLM"""
 
-    def __init__(self, llm_provider: str = "deepseek-chat"):
+    def __init__(self, llm_provider: str = "deepseek/deepseek-chat"):
         self.analyzer = CodebaseAnalyzer()
         self.llm_provider = llm_provider
 
@@ -54,7 +51,7 @@ class CodebaseUnderstanding:
 
         return profile
 
-    def _read_key_files(self, codebase_path: str) -> Dict[str, str]:
+    def _read_key_files(self, codebase_path: str) -> dict[str, str]:
         """Read contents of key files for LLM analysis"""
         root = Path(codebase_path)
         key_files = {
@@ -79,7 +76,7 @@ class CodebaseUnderstanding:
         return contents
 
     def _build_analysis_prompt(
-        self, codebase_map, key_file_contents: Dict[str, str]
+        self, codebase_map, key_file_contents: dict[str, str]
     ) -> str:
         """Build prompt for LLM analysis"""
 
@@ -119,7 +116,7 @@ Return as JSON:
 """
         return prompt
 
-    async def _call_llm_async(self, prompt: str) -> Dict[str, Any]:
+    async def _call_llm_async(self, prompt: str) -> dict[str, Any]:
         """
         Call DeepSeek Reasoner for semantic analysis.
         Uses UnifiedClient directly for the analysis task.
@@ -163,7 +160,7 @@ Return as JSON:
             print(f"Warning: LLM analysis failed: {e}")
             return self._default_analysis()
 
-    def _default_analysis(self) -> Dict[str, Any]:
+    def _default_analysis(self) -> dict[str, Any]:
         """Fallback analysis when LLM is unavailable"""
         return {
             "purpose": "Project (analysis unavailable)",

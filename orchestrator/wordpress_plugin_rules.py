@@ -11,16 +11,18 @@ Based on:
 
 Usage:
     from orchestrator.wordpress_plugin_rules import WordPressPluginRules
-    
+
     rules = WordPressPluginRules()
     config = rules.generate_config(plugin_name="My Plugin")
     rules.save_rules_file(config, Path("./output"))
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
-from pathlib import Path
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
@@ -34,10 +36,10 @@ class WPRulesConfig:
     version: str = "1.0.0"
     author: str = ""
     license: str = "GPL-2.0+"
-    
+
     # Architecture path
     architecture_path: str = "modular_oop"  # modular_oop, lightweight, headless
-    
+
     # Features
     include_composer: bool = True
     include_tests: bool = True
@@ -45,11 +47,11 @@ class WPRulesConfig:
     include_i18n: bool = True
     include_rest: bool = False
     include_blocks: bool = False
-    
+
     # Security level
     strict_security: bool = True
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "plugin_name": self.plugin_name,
             "plugin_slug": self.plugin_slug,
@@ -64,15 +66,15 @@ class WPRulesConfig:
 class WordPressPluginRules:
     """
     WordPress Plugin Development Rules Engine.
-    
+
     Provides comprehensive rules, constraints, and best practices
     for professional WordPress plugin development.
     """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # ARCHITECTURE PATHS
     # ═══════════════════════════════════════════════════════════════════
-    
+
     ARCHITECTURE_PATHS = {
         "modular_oop": {
             "name": "Modular OOP + Composer + Tests",
@@ -163,11 +165,11 @@ class WordPressPluginRules:
             ],
         },
     }
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # CODING STANDARDS
     # ═══════════════════════════════════════════════════════════════════
-    
+
     CODING_STANDARDS = """
 ## WordPress PHP Coding Standards
 
@@ -231,11 +233,11 @@ class Plugin {
 └── build/             # Build artifacts (gitignored)
 ```
 """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # SECURITY RULES
     # ═══════════════════════════════════════════════════════════════════
-    
+
     SECURITY_RULES = """
 ## WordPress Security Rules (MANDATORY)
 
@@ -272,7 +274,7 @@ echo wp_kses_post( $html );                   // Allowed HTML
 wp_nonce_field( '{prefix}action', '{prefix}nonce' );
 
 // Form processing
-if ( ! isset( $_POST['{prefix}nonce'] ) || 
+if ( ! isset( $_POST['{prefix}nonce'] ) ||
      ! wp_verify_nonce( $_POST['{prefix}nonce'], '{prefix}action' ) ) {
     wp_die( esc_html__( 'Security check failed', '{text_domain}' ) );
 }
@@ -320,11 +322,11 @@ $wpdb->insert(
 );
 ```
 """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # BEST PRACTICES
     # ═══════════════════════════════════════════════════════════════════
-    
+
     BEST_PRACTICES = """
 ## WordPress Plugin Best Practices
 
@@ -381,14 +383,14 @@ function {prefix}admin_assets( $hook ) {
     if ( 'toplevel_page_{slug}' !== $hook ) {
         return;
     }
-    
+
     wp_enqueue_style(
         '{slug}-admin',
         {prefix}PLUGIN_URL . 'admin/css/{slug}-admin.css',
         array(),
         {prefix}VERSION
     );
-    
+
     wp_enqueue_script(
         '{slug}-admin',
         {prefix}PLUGIN_URL . 'admin/js/{slug}-admin.js',
@@ -396,7 +398,7 @@ function {prefix}admin_assets( $hook ) {
         {prefix}VERSION,
         true  // In footer
     );
-    
+
     // Localize script for AJAX
     wp_localize_script( '{slug}-admin', '{prefix}ajax', array(
         'ajax_url' => admin_url( 'admin-ajax.php' ),
@@ -424,11 +426,11 @@ esc_html_e( 'Hello World', '{text_domain}' );            // Echo + escape
 esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
 ```
 """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # CHECKLIST
     # ═══════════════════════════════════════════════════════════════════
-    
+
     CHECKLIST = """
 ## WordPress Plugin Development Checklist
 
@@ -488,20 +490,20 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
 - [ ] Run final security scan
 - [ ] Test on WordPress.org standards
 """
-    
+
     def __init__(self):
         """Initialize rules engine."""
         pass
-    
-    def get_architecture_path(self, path_key: str) -> Dict[str, Any]:
+
+    def get_architecture_path(self, path_key: str) -> dict[str, Any]:
         """Get architecture path details."""
         return self.ARCHITECTURE_PATHS.get(path_key, {})
-    
-    def get_all_architecture_paths(self) -> Dict[str, Dict[str, Any]]:
+
+    def get_all_architecture_paths(self) -> dict[str, dict[str, Any]]:
         """Get all available architecture paths."""
         return self.ARCHITECTURE_PATHS
-    
-    def recommend_architecture_path(self, 
+
+    def recommend_architecture_path(self,
                                     public_distribution: bool = False,
                                     team_size: int = 1,
                                     complexity: str = "medium",
@@ -513,28 +515,28 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
             return "modular_oop"
         elif timeline == "tight" and complexity == "simple":
             return "lightweight"
-        elif complexity == "complex" and public_distribution == False:
+        elif complexity == "complex" and not public_distribution:
             return "headless"
-        
+
         return "modular_oop"
-    
-    def generate_config(self, 
+
+    def generate_config(self,
                        plugin_name: str,
-                       architecture_path: Optional[str] = None,
+                       architecture_path: str | None = None,
                        **kwargs) -> WPRulesConfig:
         """
         Generate WordPress plugin configuration.
         """
         # Generate slug from name
         slug = plugin_name.lower().replace(' ', '-').replace('_', '-')
-        
+
         # Generate namespace
         namespace_parts = [p.capitalize() for p in slug.split('-')]
         namespace = '\\\\'.join(namespace_parts)
-        
+
         # Generate prefix
         prefix = slug.replace('-', '_') + '_'
-        
+
         # Determine architecture path
         if architecture_path is None:
             architecture_path = self.recommend_architecture_path(
@@ -542,7 +544,7 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
                 team_size=kwargs.get('team_size', 1),
                 complexity=kwargs.get('complexity', 'medium'),
             )
-        
+
         return WPRulesConfig(
             plugin_name=plugin_name,
             plugin_slug=slug,
@@ -561,24 +563,24 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
             include_blocks=kwargs.get('include_blocks', False),
             strict_security=kwargs.get('strict_security', True),
         )
-    
+
     def get_rules_file_content(self, config: WPRulesConfig) -> str:
         """Generate .ai-rules.md content for WordPress plugin."""
         path_info = self.get_architecture_path(config.architecture_path)
-        
+
         # Replace placeholders
         coding_standards = self.CODING_STANDARDS.format(
             slug=config.plugin_slug,
             prefix=config.prefix,
             text_domain=config.text_domain,
         )
-        
+
         security_rules = self.SECURITY_RULES.format(
             prefix=config.prefix,
             text_domain=config.text_domain,
             slug=config.plugin_slug,
         )
-        
+
         best_practices = self.BEST_PRACTICES.format(
             plugin_name=config.plugin_name,
             slug=config.plugin_slug,
@@ -589,7 +591,7 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
             author=config.author,
             license=config.license,
         )
-        
+
         content = f"""# WordPress Plugin Rules: {config.plugin_name}
 
 ## 🎯 Architecture Decision
@@ -619,7 +621,7 @@ ALL functions, classes, hooks, and options must use prefix: `{config.prefix}`
 
 ### 2. Security (NON-NEGOTIABLE)
 - ✅ Sanitize ALL inputs with `sanitize_*()` functions
-- ✅ Escape ALL outputs with `esc_*()` functions  
+- ✅ Escape ALL outputs with `esc_*()` functions
 - ✅ Use nonces for form processing
 - ✅ Check capabilities with `current_user_can()`
 - ✅ Use `$wpdb->prepare()` for all SQL queries
@@ -655,7 +657,7 @@ __( 'Hello', '{config.text_domain}' );
 - [Plugin Readme Standards](https://wordpress.org/plugins/readme.txt)
 """
         return content
-    
+
     def save_rules_file(self, config: WPRulesConfig, output_dir: Path) -> Path:
         """Save rules file to output directory."""
         rules_content = self.get_rules_file_content(config)
@@ -672,12 +674,12 @@ def generate_wordpress_plugin_rules(
 ) -> Path:
     """
     Generate WordPress plugin rules file.
-    
+
     Args:
         plugin_name: Name of the plugin
         output_dir: Directory to save rules file
         **kwargs: Additional configuration options
-    
+
     Returns:
         Path to generated rules file
     """
@@ -689,16 +691,16 @@ def generate_wordpress_plugin_rules(
 if __name__ == "__main__":
     # Demo
     rules = WordPressPluginRules()
-    
+
     print("=" * 70)
     print("WordPress Plugin Development Rules")
     print("=" * 70)
-    
+
     print("\n📚 Architecture Paths:")
     for key, path in rules.get_all_architecture_paths().items():
         print(f"\n  {path['name']} ({key})")
         print(f"    {path['description'][:80]}...")
-    
+
     print("\n\n🎯 Recommendation Example:")
     recommended = rules.recommend_architecture_path(
         public_distribution=True,
@@ -706,12 +708,12 @@ if __name__ == "__main__":
         complexity="complex"
     )
     print(f"  Recommended: {recommended}")
-    
+
     print("\n\n📄 Generate Rules for 'My Awesome Plugin':")
     config = rules.generate_config("My Awesome Plugin")
     print(f"  Slug: {config.plugin_slug}")
     print(f"  Namespace: {config.namespace}")
     print(f"  Prefix: {config.prefix}")
     print(f"  Architecture: {config.architecture_path}")
-    
+
     print("\n\n✅ WordPress Plugin Rules Engine Ready!")

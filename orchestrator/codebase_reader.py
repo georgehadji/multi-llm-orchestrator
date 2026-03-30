@@ -22,7 +22,6 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("orchestrator.reader")
 
@@ -155,9 +154,9 @@ class CodebaseReader:
     def __init__(
         self,
         max_tokens: int = 80_000,
-        include_exts: Optional[set[str]] = None,
-        extra_ignore_dirs: Optional[set[str]] = None,
-        extra_ignore_files: Optional[set[str]] = None,
+        include_exts: set[str] | None = None,
+        extra_ignore_dirs: set[str] | None = None,
+        extra_ignore_files: set[str] | None = None,
         max_file_tokens: int = 8_000,
     ):
         self.max_tokens = max_tokens
@@ -289,19 +288,13 @@ class CodebaseReader:
     def _should_ignore_dir(self, name: str, rel: str, gitignore: set[str]) -> bool:
         if name in self.ignore_dirs:
             return True
-        for pat in gitignore:
-            if fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(rel, pat):
-                return True
-        return False
+        return any(fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(rel, pat) for pat in gitignore)
 
     def _should_ignore_file(self, name: str, rel: str, gitignore: set[str]) -> bool:
         for pat in self.ignore_file_patterns:
             if fnmatch.fnmatch(name, pat):
                 return True
-        for pat in gitignore:
-            if fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(rel, pat):
-                return True
-        return False
+        return any(fnmatch.fnmatch(name, pat) or fnmatch.fnmatch(rel, pat) for pat in gitignore)
 
     def _load_gitignore(self, root: Path) -> set[str]:
         """Parse .gitignore at root and return a set of glob patterns."""

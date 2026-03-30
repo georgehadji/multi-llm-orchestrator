@@ -15,14 +15,14 @@ Usage:
     from orchestrator.optimization import BatchClient, OptimizationPhase
 
     batch = BatchClient()
-    
+
     # Non-critical phase (auto-batch)
     result = await batch.call(
         model="claude-sonnet-4.6",
         prompt="Evaluate this code quality",
         phase=OptimizationPhase.EVALUATION,
     )
-    
+
     # Critical phase (realtime)
     result = await batch.call(
         model="claude-sonnet-4.6",
@@ -35,14 +35,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
+
 from . import OptimizationPhase
 
 logger = get_logger(__name__)
@@ -65,19 +65,19 @@ class BatchRequest:
     phase: OptimizationPhase
     created_at: float = field(default_factory=time.time)
     status: BatchStatus = BatchStatus.PENDING
-    result: Optional[Any] = None
-    error: Optional[str] = None
+    result: Any | None = None
+    error: str | None = None
 
 
 @dataclass
 class BatchJob:
     """Batch job containing multiple requests."""
     id: str
-    requests: List[BatchRequest]
+    requests: list[BatchRequest]
     created_at: float = field(default_factory=time.time)
     status: BatchStatus = BatchStatus.PENDING
-    results_file: Optional[Path] = None
-    completed_at: Optional[float] = None
+    results_file: Path | None = None
+    completed_at: float | None = None
 
 
 @dataclass
@@ -121,7 +121,7 @@ class BatchClient:
     POLL_INTERVAL_SECONDS = 10  # Poll for results every N seconds
     MAX_BATCH_SIZE = 1000  # Maximum requests per batch
 
-    def __init__(self, client=None, base_url: Optional[str] = None):
+    def __init__(self, client=None, base_url: str | None = None):
         """
         Initialize batch client.
 
@@ -132,10 +132,10 @@ class BatchClient:
         self.client = client
         self.base_url = base_url
         self.metrics = BatchMetrics()
-        self._pending_jobs: Dict[str, BatchJob] = {}
-        self._request_queue: List[BatchRequest] = []
+        self._pending_jobs: dict[str, BatchJob] = {}
+        self._request_queue: list[BatchRequest] = []
         self._lock = asyncio.Lock()
-        self._batch_task: Optional[asyncio.Task] = None
+        self._batch_task: asyncio.Task | None = None
 
     def _should_use_batch(self, phase: OptimizationPhase) -> bool:
         """
@@ -424,7 +424,7 @@ class BatchClient:
 
         return (tokens / 1000) * cost_per_1k
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get batch processing metrics.
 

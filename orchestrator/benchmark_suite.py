@@ -15,10 +15,10 @@ This enables data-driven sales claims:
 
 Usage:
     from orchestrator.benchmark_suite import BenchmarkRunner, BENCHMARK_SUITE
-    
+
     runner = BenchmarkRunner(orchestrator)
     report = await runner.run_full_benchmark()
-    
+
     print(f"Avg quality: {report.avg_quality:.2f}")
     print(f"Avg cost: ${report.avg_cost:.2f}")
     print(f"Success rate: {report.success_rate:.0%}")
@@ -27,15 +27,13 @@ Usage:
 from __future__ import annotations
 
 import json
-import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .log_config import get_logger
-from .models import Budget
 
 logger = get_logger(__name__)
 
@@ -44,7 +42,7 @@ logger = get_logger(__name__)
 class BenchmarkProject:
     """
     Definition of a benchmark project.
-    
+
     Attributes:
         name: Unique identifier
         description: Project description/prompt
@@ -55,12 +53,12 @@ class BenchmarkProject:
     """
     name: str
     description: str
-    criteria: List[str]
+    criteria: list[str]
     budget: float
-    expected_files: List[str]
-    quality_checks: List[str] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    expected_files: list[str]
+    quality_checks: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -81,10 +79,10 @@ class BenchmarkResult:
     time_seconds: float
     tests_passed: int
     files_generated: int
-    errors: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    errors: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "project": self.project,
             "success": self.success,
@@ -101,15 +99,15 @@ class BenchmarkResult:
 @dataclass
 class BenchmarkReport:
     """Aggregated benchmark report."""
-    results: List[BenchmarkResult]
+    results: list[BenchmarkResult]
     avg_quality: float
     avg_cost: float
     success_rate: float
     total_time: float
     timestamp: str = ""
     orchestrator_version: str = ""
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "results": [r.to_dict() for r in self.results],
             "avg_quality": self.avg_quality,
@@ -119,7 +117,7 @@ class BenchmarkReport:
             "timestamp": self.timestamp,
             "orchestrator_version": self.orchestrator_version,
         }
-    
+
     def to_markdown(self) -> str:
         """Generate markdown report for documentation."""
         lines = [
@@ -129,8 +127,8 @@ class BenchmarkReport:
             "",
             "## Summary",
             "",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| **Avg Quality** | {self.avg_quality:.2f} |",
             f"| **Avg Cost** | ${self.avg_cost:.2f} |",
             f"| **Success Rate** | {self.success_rate:.0%} |",
@@ -141,14 +139,14 @@ class BenchmarkReport:
             "| Project | Quality | Cost | Time | Success |",
             "|---------|---------|------|------|---------|",
         ]
-        
+
         for result in self.results:
             status = "PASS" if result.success else "FAIL"
             lines.append(
                 f"| {result.project} | {result.quality_score:.2f} | "
                 f"${result.cost_usd:.2f} | {result.time_seconds:.1f}s | {status} |"
             )
-        
+
         return "\n".join(lines)
 
 
@@ -318,60 +316,60 @@ BENCHMARK_SUITE = [
 class BenchmarkRunner:
     """
     Run benchmark suite and generate reports.
-    
+
     This provides verifiable, data-driven claims about orchestrator performance.
     """
 
     def __init__(self, orchestrator):
         """
         Initialize benchmark runner.
-        
+
         Args:
             orchestrator: Orchestrator instance to benchmark
         """
         self.orchestrator = orchestrator
         self.results_dir = Path(".orchestrator/benchmarks")
         self.results_dir.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info(f"Benchmark runner initialized with {len(BENCHMARK_SUITE)} projects")
 
     async def run_full_benchmark(self) -> BenchmarkReport:
         """
         Run full benchmark suite.
-        
+
         Returns:
             BenchmarkReport with aggregated results
         """
         logger.info("Starting full benchmark suite...")
         start_time = time.monotonic()
-        
+
         results = []
         for project in BENCHMARK_SUITE:
             logger.info(f"\n{'='*60}")
             logger.info(f"Benchmark: {project.name}")
             logger.info(f"{'='*60}")
-            
+
             result = await self.run_single_benchmark(project)
             results.append(result)
-            
+
             logger.info(
                 f"  Result: {'✅ PASS' if result.success else '❌ FAIL'} | "
                 f"Quality: {result.quality_score:.2f} | "
                 f"Cost: ${result.cost_usd:.2f} | "
                 f"Time: {result.time_seconds:.1f}s"
             )
-        
+
         total_time = time.monotonic() - start_time
-        
+
         # Generate report
         report = self._generate_report(results, total_time)
-        
+
         # Save report
         self._save_report(report)
-        
+
         # Print summary
         self._print_summary(report)
-        
+
         return report
 
     async def run_single_benchmark(
@@ -380,15 +378,15 @@ class BenchmarkRunner:
     ) -> BenchmarkResult:
         """
         Run single benchmark project.
-        
+
         Args:
             project: Benchmark project definition
-            
+
         Returns:
             BenchmarkResult with metrics
         """
         start_time = time.monotonic()
-        
+
         try:
             # Run project through orchestrator
             state = await self.orchestrator.run_project(
@@ -396,32 +394,32 @@ class BenchmarkRunner:
                 success_criteria=project.criteria,
                 budget=project.budget,
             )
-            
+
             elapsed = time.monotonic() - start_time
-            
+
             # Count generated files
             files_generated = self._count_generated_files(state)
-            
+
             # Count passed tests
             tests_passed = self._count_passed_tests(state)
-            
+
             # Calculate quality score
             quality_score = self._calculate_quality_score(state, project)
-            
+
             # Determine success
             success = (
                 state.status.value == "COMPLETED" and
                 quality_score >= 0.7 and
                 files_generated >= len(project.expected_files) * 0.5
             )
-            
+
             # Collect errors
             errors = []
             if state.status.value != "COMPLETED":
                 errors.append(f"Status: {state.status.value}")
             if quality_score < 0.7:
                 errors.append(f"Quality too low: {quality_score:.2f}")
-            
+
             return BenchmarkResult(
                 project=project.name,
                 success=success,
@@ -436,11 +434,11 @@ class BenchmarkRunner:
                     "tasks_completed": len([t for t in state.tasks.values() if t.status.value == "COMPLETED"]) if hasattr(state, 'tasks') else 0,
                 },
             )
-            
+
         except Exception as e:
             logger.error(f"Benchmark {project.name} failed: {e}")
             elapsed = time.monotonic() - start_time
-            
+
             return BenchmarkResult(
                 project=project.name,
                 success=False,
@@ -469,22 +467,22 @@ class BenchmarkRunner:
     def _calculate_quality_score(self, state, project: BenchmarkProject) -> float:
         """
         Calculate quality score for benchmark result.
-        
+
         Args:
             state: Project state
             project: Benchmark project definition
-            
+
         Returns:
             Quality score 0.0-1.0
         """
         scores = []
-        
+
         # Base score from state
         if hasattr(state, 'overall_quality_score'):
             scores.append(state.overall_quality_score)
         elif hasattr(state, 'average_score'):
             scores.append(state.average_score)
-        
+
         # Check quality checks
         for check in project.quality_checks:
             if check == "pytest_passes":
@@ -499,14 +497,14 @@ class BenchmarkRunner:
                 scores.append(0.8)  # Placeholder
             elif check == "concurrent_test":
                 scores.append(0.75)  # Placeholder
-        
+
         if scores:
             return sum(scores) / len(scores)
         return 0.5  # Default if no scores available
 
     def _generate_report(
         self,
-        results: List[BenchmarkResult],
+        results: list[BenchmarkResult],
         total_time: float,
     ) -> BenchmarkReport:
         """Generate aggregated benchmark report."""
@@ -514,11 +512,11 @@ class BenchmarkRunner:
         avg_quality = sum(r.quality_score for r in results) / len(results) if results else 0.0
         avg_cost = sum(r.cost_usd for r in results) / len(results) if results else 0.0
         success_rate = sum(1 for r in results if r.success) / len(results) if results else 0.0
-        
+
         # Get orchestrator version
         from orchestrator import __version__
         version = __version__ if '__version__' in dir() else "unknown"
-        
+
         return BenchmarkReport(
             results=results,
             avg_quality=avg_quality,
@@ -535,12 +533,12 @@ class BenchmarkRunner:
         json_path = self.results_dir / f"benchmark_{report.timestamp.replace(':', '-')}.json"
         with json_path.open("w") as f:
             json.dump(report.to_dict(), f, indent=2)
-        
+
         # Save markdown
         md_path = self.results_dir / f"benchmark_{report.timestamp.replace(':', '-')}.md"
         with md_path.open("w") as f:
             f.write(report.to_markdown())
-        
+
         logger.info(f"Benchmark report saved to {json_path}")
 
     def _print_summary(self, report: BenchmarkReport) -> None:

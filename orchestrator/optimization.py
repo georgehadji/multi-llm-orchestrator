@@ -29,10 +29,13 @@ at construction time or at runtime via set_backend().
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import TYPE_CHECKING
 
-from .models import Model, TaskType
-from .policy import ModelProfile
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .models import Model, TaskType
+    from .policy import ModelProfile
 
 # ── Shared constant ────────────────────────────────────────────────────────────
 _EPSILON: float = 1e-6   # prevents division by zero when cost rounds to 0
@@ -65,7 +68,7 @@ class OptimizationBackend(ABC):
         profiles: dict[Model, ModelProfile],
         task_type: TaskType,
         typical_cost_fn: Callable[[ModelProfile, TaskType], float],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """Return the best model from candidates, or None if empty."""
 
 
@@ -86,7 +89,7 @@ class GreedyBackend(OptimizationBackend):
         profiles: dict[Model, ModelProfile],
         task_type: TaskType,
         typical_cost_fn: Callable[[ModelProfile, TaskType], float],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         if not candidates:
             return None
 
@@ -148,7 +151,7 @@ class WeightedSumBackend(OptimizationBackend):
         profiles: dict[Model, ModelProfile],
         task_type: TaskType,
         typical_cost_fn: Callable[[ModelProfile, TaskType], float],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         if not candidates:
             return None
 
@@ -202,7 +205,7 @@ class ParetoBackend(OptimizationBackend):
         profiles: dict[Model, ModelProfile],
         task_type: TaskType,
         typical_cost_fn: Callable[[ModelProfile, TaskType], float],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         if not candidates:
             return None
 

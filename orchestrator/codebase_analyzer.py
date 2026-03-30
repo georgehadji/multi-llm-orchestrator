@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
 
 
 @dataclass
@@ -11,14 +10,14 @@ class CodebaseMap:
     root_path: str
     total_files: int
     total_lines_of_code: int
-    files_by_language: Dict[str, int] = field(default_factory=dict)
+    files_by_language: dict[str, int] = field(default_factory=dict)
     key_files: list[str] = field(default_factory=list)
-    module_structure: Dict[str, list[str]] = field(default_factory=dict)
+    module_structure: dict[str, list[str]] = field(default_factory=dict)
     dependencies: list[str] = field(default_factory=list)
     has_tests: bool = False
     has_docs: bool = False
     estimated_complexity: str = "unknown"  # low, medium, high
-    primary_language: Optional[str] = None
+    primary_language: str | None = None
     secondary_languages: list[str] = field(default_factory=list)
     has_python_tests: bool = False
     has_js_tests: bool = False
@@ -48,10 +47,10 @@ class CodebaseAnalyzer:
         if not root.exists():
             raise ValueError(f"Directory does not exist: {root_path}")
 
-        files_by_language: Dict[str, int] = {}
+        files_by_language: dict[str, int] = {}
         total_files = 0
         total_lines = 0
-        module_structure: Dict[str, list[str]] = {}
+        module_structure: dict[str, list[str]] = {}
         key_files: list[str] = []
 
         # Scan all files
@@ -119,7 +118,7 @@ class CodebaseAnalyzer:
         }
         return path.suffix.lower() in text_extensions
 
-    def _detect_primary_language(self, files_by_language: Dict[str, int]) -> tuple[Optional[str], list[str]]:
+    def _detect_primary_language(self, files_by_language: dict[str, int]) -> tuple[str | None, list[str]]:
         """Detect primary and secondary programming languages"""
         language_map = {
             ".py": "python",

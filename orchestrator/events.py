@@ -11,13 +11,13 @@ Replaces hooks.py with a robust event system supporting:
 
 Usage:
     from orchestrator.events import EventBus, TaskCompletedEvent
-    
+
     bus = EventBus.create("sqlite")  # or "memory"
-    
+
     @bus.subscribe("task.completed")
     async def on_complete(event: TaskCompletedEvent):
         print(f"Task {event.task_id} done!")
-    
+
     await bus.publish(TaskCompletedEvent(task_id="123", score=0.95))
 """
 
@@ -26,15 +26,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import sqlite3
 import uuid
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Awaitable, Union
 from collections import defaultdict
 from contextlib import asynccontextmanager
-import sqlite3
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger("orchestrator.events")
 
@@ -52,18 +55,18 @@ class DomainEvent:
     event_type: str = field(default="domain_event")
     aggregate_id: str = field(default="")
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    payload: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    payload: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self):
         if self.event_type == "domain_event":
             object.__setattr__(
-                self, 
-                'event_type', 
+                self,
+                'event_type',
                 self.__class__.__name__.replace('Event', '').lower().replace('_', '.')
             )
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "event_id": self.event_id,
             "event_type": self.event_type,
@@ -72,13 +75,13 @@ class DomainEvent:
             "payload": self.payload,
             "metadata": self.metadata,
         }
-    
+
     @classmethod
-    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], data: dict[str, Any]) -> T:
         # Handle different event types
         event_type = data.get("event_type", "")
         event_class = EVENT_REGISTRY.get(event_type, DomainEvent)
-        
+
         return event_class(
             event_id=data["event_id"],
             event_type=data["event_type"],
@@ -90,9 +93,9 @@ class DomainEvent:
 
 
 # Event registry for deserialization
-EVENT_REGISTRY: Dict[str, Type[DomainEvent]] = {}
+EVENT_REGISTRY: dict[str, type[DomainEvent]] = {}
 
-def register_event(cls: Type[T]) -> Type[T]:
+def register_event(cls: type[T]) -> type[T]:
     """Decorator to register event classes for deserialization."""
     EVENT_REGISTRY[cls.__name__.lower().replace('_', '.')] = cls
     return cls
@@ -106,7 +109,7 @@ class TaskStartedEvent(DomainEvent):
     task_type: str = ""
     model: str = ""
     project_id: str = ""
-    
+
     def __post_init__(self):
         super().__post_init__()
         object.__setattr__(self, 'payload', {
@@ -130,7 +133,7 @@ class TaskCompletedEvent(DomainEvent):
     tokens_output: int = 0
     iterations: int = 1
     status: str = "completed"  # completed, degraded, partial
-    
+
     def __post_init__(self):
         super().__post_init__()
         object.__setattr__(self, 'payload', {
@@ -155,7 +158,7 @@ class TaskProgressEvent(DomainEvent):
     score: float = 0.0
     best_score: float = 0.0
     model: str = ""
-    
+
     def __post_init__(self):
         super().__post_init__()
         object.__setattr__(self, 'payload', {
@@ -177,7 +180,7 @@ class TaskFailedEvent(DomainEvent):
     reason: str = ""  # Alias for error (compatibility)
     attempt: int = 0
     will_retry: bool = False
-    
+
     def __post_init__(self):
         super().__post_init__()
         # Use error as reason if reason not provided
@@ -201,7 +204,7 @@ class ModelSelectedEvent(DomainEvent):
     strategy: str = ""
     reason: str = ""
     confidence: float = 0.0
-    
+
     def __post_init__(self):
         super().__post_init__()
         object.__setattr__(self, 'payload', {
@@ -219,9 +222,9 @@ class ValidationFailedEvent(DomainEvent):
     """Emitted when deterministic validators fail."""
     task_id: str = ""
     model: str = ""
-    validators: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
-    
+    validators: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
     def __post_init__(self):
         super().__post_init__()
         object.__setattr__(self, 'payload', {
@@ -243,12 +246,11 @@ class BudgetWarningEvent(DomainEvent):
     cap_usd: float = 0.0  # Alias for budget
     ratio: float = 0.0
     project_id: str = ""
-    
+
     def __post_init__(self):
         super().__post_init__()
         # Use aliases if provided, otherwise fall back to main fields
         spent_val = self.spent_usd if self.spent_usd else self.spent
-        cap_val = self.cap_usd if self.cap_usd else self.budget
         object.__setattr__(self, 'payload', {
             "phase": self.phase,
             "spent": spent_val,
@@ -267,7 +269,7 @@ class ProjectStartedEvent(DomainEvent):
     budget: float = 0.0
     budget_usd: float = 0.0  # Alias for budget
     total_tasks: int = 0
-    
+
     def __post_init__(self):
         super().__post_init__()
         budget_val = self.budget_usd if self.budget_usd else self.budget
@@ -292,7 +294,7 @@ class ProjectCompletedEvent(DomainEvent):
     elapsed_seconds: float = 0.0  # Alias for duration_seconds
     tasks_completed: int = 0
     tasks_failed: int = 0
-    
+
     def __post_init__(self):
         super().__post_init__()
         cost_val = self.total_cost_usd if self.total_cost_usd else self.total_cost
@@ -316,7 +318,7 @@ class CircuitBreakerTrippedEvent(DomainEvent):
     model: str = ""
     failure_count: int = 0
     threshold: int = 0
-    
+
     def __post_init__(self):
         super().__post_init__()
         object.__setattr__(self, 'payload', {
@@ -335,7 +337,7 @@ class ProductionOutcomeRecordedEvent(DomainEvent):
     model: str = ""
     status: str = ""  # success, partial, failure
     score: float = 0.0
-    
+
     def __post_init__(self):
         super().__post_init__()
         object.__setattr__(self, 'payload', {
@@ -353,33 +355,33 @@ class ProductionOutcomeRecordedEvent(DomainEvent):
 
 class EventStore(ABC):
     """Abstract event store for persisting domain events."""
-    
+
     @abstractmethod
     async def append(self, event: DomainEvent) -> None:
         """Persist an event."""
         pass
-    
+
     @abstractmethod
     async def get_events(
         self,
-        aggregate_id: Optional[str] = None,
-        event_types: Optional[List[str]] = None,
-        since: Optional[datetime] = None,
-        limit: Optional[int] = None,
-    ) -> List[DomainEvent]:
+        aggregate_id: str | None = None,
+        event_types: list[str] | None = None,
+        since: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[DomainEvent]:
         """Retrieve events matching criteria."""
         pass
-    
+
     @abstractmethod
     async def replay(
         self,
         handler: Callable[[DomainEvent], Awaitable[None]],
-        event_types: Optional[List[str]] = None,
-        since: Optional[datetime] = None,
+        event_types: list[str] | None = None,
+        since: datetime | None = None,
     ) -> None:
         """Replay all events through a handler."""
         pass
-    
+
     @abstractmethod
     async def close(self) -> None:
         """Cleanup resources."""
@@ -388,75 +390,75 @@ class EventStore(ABC):
 
 class InMemoryEventStore(EventStore):
     """In-memory event store for development/testing."""
-    
+
     def __init__(self):
-        self._events: List[DomainEvent] = []
-    
+        self._events: list[DomainEvent] = []
+
     async def append(self, event: DomainEvent) -> None:
         self._events.append(event)
-    
+
     async def get_events(
         self,
-        aggregate_id: Optional[str] = None,
-        event_types: Optional[List[str]] = None,
-        since: Optional[datetime] = None,
-        limit: Optional[int] = None,
-    ) -> List[DomainEvent]:
+        aggregate_id: str | None = None,
+        event_types: list[str] | None = None,
+        since: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[DomainEvent]:
         events = list(self._events)
-        
+
         if aggregate_id:
             events = [e for e in events if e.aggregate_id == aggregate_id]
-        
+
         if event_types:
             events = [e for e in events if e.event_type in event_types]
-        
+
         if since:
             events = [e for e in events if e.timestamp >= since]
-        
+
         if limit:
             events = events[-limit:]
-        
+
         return events
-    
+
     async def replay(
         self,
         handler: Callable[[DomainEvent], Awaitable[None]],
-        event_types: Optional[List[str]] = None,
-        since: Optional[datetime] = None,
+        event_types: list[str] | None = None,
+        since: datetime | None = None,
     ) -> None:
         events = await self.get_events(event_types=event_types, since=since)
         for event in events:
             await handler(event)
-    
+
     async def close(self) -> None:
         self._events.clear()
 
 
 class SQLiteEventStore(EventStore):
     """SQLite-backed event store for production."""
-    
+
     def __init__(self, db_path: str = ".events/event_store.db"):
         self.db_path = Path(db_path)
         self._initialized = False
         self._lock = asyncio.Lock()
-    
+
     async def _init(self):
         if self._initialized:
             return
-        
+
         async with self._lock:
             if self._initialized:
                 return
-            
+
             # Ensure directory exists
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Use run_in_executor for sync sqlite operations
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._create_tables)
-            
+
             self._initialized = True
-    
+
     def _create_tables(self):
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute("""
@@ -470,25 +472,25 @@ class SQLiteEventStore(EventStore):
                 )
             """)
             conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_aggregate 
+                CREATE INDEX IF NOT EXISTS idx_aggregate
                 ON events(aggregate_id)
             """)
             conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_type 
+                CREATE INDEX IF NOT EXISTS idx_type
                 ON events(event_type)
             """)
             conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_timestamp 
+                CREATE INDEX IF NOT EXISTS idx_timestamp
                 ON events(timestamp)
             """)
             conn.commit()
-    
+
     async def append(self, event: DomainEvent) -> None:
         await self._init()
-        
+
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self._insert_event, event)
-    
+
     def _insert_event(self, event: DomainEvent):
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute(
@@ -506,58 +508,58 @@ class SQLiteEventStore(EventStore):
                 )
             )
             conn.commit()
-    
+
     async def get_events(
         self,
-        aggregate_id: Optional[str] = None,
-        event_types: Optional[List[str]] = None,
-        since: Optional[datetime] = None,
-        limit: Optional[int] = None,
-    ) -> List[DomainEvent]:
+        aggregate_id: str | None = None,
+        event_types: list[str] | None = None,
+        since: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[DomainEvent]:
         await self._init()
-        
+
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None, 
-            self._fetch_events, 
-            aggregate_id, 
-            event_types, 
+            None,
+            self._fetch_events,
+            aggregate_id,
+            event_types,
             since.isoformat() if since else None,
             limit
         )
-    
+
     def _fetch_events(
-        self, 
-        aggregate_id: Optional[str], 
-        event_types: Optional[List[str]],
-        since: Optional[str],
-        limit: Optional[int]
-    ) -> List[DomainEvent]:
+        self,
+        aggregate_id: str | None,
+        event_types: list[str] | None,
+        since: str | None,
+        limit: int | None
+    ) -> list[DomainEvent]:
         with sqlite3.connect(str(self.db_path)) as conn:
             query = "SELECT event_id, event_type, aggregate_id, timestamp, payload, metadata FROM events WHERE 1=1"
             params = []
-            
+
             if aggregate_id:
                 query += " AND aggregate_id = ?"
                 params.append(aggregate_id)
-            
+
             if event_types:
                 placeholders = ','.join('?' * len(event_types))
                 query += f" AND event_type IN ({placeholders})"
                 params.extend(event_types)
-            
+
             if since:
                 query += " AND timestamp >= ?"
                 params.append(since)
-            
+
             query += " ORDER BY timestamp ASC"
-            
+
             if limit:
                 query += f" LIMIT {limit}"
-            
+
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
-            
+
             events = []
             for row in rows:
                 event_data = {
@@ -569,19 +571,19 @@ class SQLiteEventStore(EventStore):
                     "metadata": json.loads(row[5]) if row[5] else {},
                 }
                 events.append(DomainEvent.from_dict(event_data))
-            
+
             return events
-    
+
     async def replay(
         self,
         handler: Callable[[DomainEvent], Awaitable[None]],
-        event_types: Optional[List[str]] = None,
-        since: Optional[datetime] = None,
+        event_types: list[str] | None = None,
+        since: datetime | None = None,
     ) -> None:
         events = await self.get_events(event_types=event_types, since=since)
         for event in events:
             await handler(event)
-    
+
     async def close(self) -> None:
         pass  # SQLite connections are per-operation
 
@@ -593,24 +595,24 @@ class SQLiteEventStore(EventStore):
 class EventBus:
     """
     Central event bus for publishing and subscribing to domain events.
-    
+
     Features:
     - Persistent event store
     - Async handlers with timeout
     - Error isolation
     - Event replay
     """
-    
+
     def __init__(self, store: EventStore, handler_timeout: float = 30.0):
         self.store = store
         self.handler_timeout = handler_timeout
-        self._handlers: Dict[str, List[Callable[[DomainEvent], Awaitable[None]]]] = defaultdict(list)
+        self._handlers: dict[str, list[Callable[[DomainEvent], Awaitable[None]]]] = defaultdict(list)
         self._metrics = {
             "published": 0,
             "handled": 0,
             "errors": 0,
         }
-    
+
     @classmethod
     def create(cls, backend: str = "memory", **kwargs) -> EventBus:
         """Factory method to create event bus with different backends."""
@@ -620,7 +622,7 @@ class EventBus:
             return cls(SQLiteEventStore(kwargs.get("db_path", ".events/event_store.db")), **kwargs)
         else:
             raise ValueError(f"Unknown backend: {backend}")
-    
+
     def subscribe(
         self,
         event_type: str,
@@ -628,21 +630,21 @@ class EventBus:
     ) -> Callable[[], None]:
         """
         Subscribe to events of a specific type.
-        
+
         Returns an unsubscribe function.
         """
         self._handlers[event_type].append(handler)
-        
+
         def unsubscribe():
             if handler in self._handlers[event_type]:
                 self._handlers[event_type].remove(handler)
-        
+
         return unsubscribe
-    
+
     async def publish(self, event: DomainEvent) -> None:
         """
         Publish an event to all subscribers.
-        
+
         Flow:
         1. Persist event to store
         2. Dispatch to all handlers concurrently
@@ -655,22 +657,22 @@ class EventBus:
         except Exception as e:
             logger.error(f"Failed to persist event {event.event_id}: {e}")
             raise  # Can't proceed without persistence
-        
+
         # 2. Dispatch
         handlers = self._handlers.get(event.event_type, [])
-        
+
         if not handlers:
             logger.debug(f"No handlers for event type: {event.event_type}")
             return
-        
+
         # Run handlers concurrently with error isolation
         results = await asyncio.gather(*[
             self._run_handler(handler, event)
             for handler in handlers
         ], return_exceptions=True)
-        
+
         # 3. Log results
-        for handler, result in zip(handlers, results):
+        for handler, result in zip(handlers, results, strict=False):
             if isinstance(result, Exception):
                 self._metrics["errors"] += 1
                 logger.error(
@@ -679,7 +681,7 @@ class EventBus:
                 )
             else:
                 self._metrics["handled"] += 1
-    
+
     async def _run_handler(
         self,
         handler: Callable[[DomainEvent], Awaitable[None]],
@@ -693,28 +695,28 @@ class EventBus:
             )
         except asyncio.TimeoutError:
             raise TimeoutError(f"Handler {handler.__name__} timed out after {self.handler_timeout}s")
-    
+
     async def replay(
         self,
-        event_types: Optional[List[str]] = None,
-        since: Optional[datetime] = None,
-        handler_filter: Optional[Callable[[str], bool]] = None,
-    ) -> Dict[str, int]:
+        event_types: list[str] | None = None,
+        since: datetime | None = None,
+        handler_filter: Callable[[str], bool] | None = None,
+    ) -> dict[str, int]:
         """
         Replay events from the store.
-        
+
         Returns statistics about replayed events.
         """
         events = await self.store.get_events(event_types=event_types, since=since)
-        
+
         stats = {"replayed": 0, "errors": 0}
-        
+
         for event in events:
             handlers = self._handlers.get(event.event_type, [])
-            
+
             if handler_filter:
                 handlers = [h for h in handlers if handler_filter(h.__name__)]
-            
+
             for handler in handlers:
                 try:
                     await handler(event)
@@ -722,13 +724,13 @@ class EventBus:
                 except Exception as e:
                     stats["errors"] += 1
                     logger.error(f"Replay handler {handler.__name__} failed: {e}")
-        
+
         return stats
-    
-    def get_metrics(self) -> Dict[str, int]:
+
+    def get_metrics(self) -> dict[str, int]:
         """Get event bus metrics."""
         return dict(self._metrics)
-    
+
     async def close(self) -> None:
         """Cleanup resources."""
         await self.store.close()
@@ -738,7 +740,7 @@ class EventBus:
 # Global Event Bus Instance
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_event_bus: Optional[EventBus] = None
+_event_bus: EventBus | None = None
 
 
 def get_event_bus(backend: str = "sqlite", **kwargs) -> EventBus:

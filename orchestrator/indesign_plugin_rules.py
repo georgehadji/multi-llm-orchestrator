@@ -9,15 +9,17 @@ Technology Choices:
 
 Usage:
     from orchestrator.indesign_plugin_rules import InDesignPluginRules
-    
+
     rules = InDesignPluginRules()
     config = rules.generate_config("My Plugin", technology="uxp")
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
-from pathlib import Path
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
@@ -27,34 +29,34 @@ class InDesignRulesConfig:
     plugin_id: str
     version: str = "1.0.0"
     author: str = ""
-    
+
     # Technology choice
     technology: str = "uxp"  # uxp, cpp, extendscript
-    
+
     # UXP specific
     uxp_type: str = "panel"  # panel, modal, headless
     use_typescript: bool = True
     use_react: bool = True
-    
+
     # C++ specific
     cpp_standard: str = "c++17"
     use_raii: bool = True
     use_sanitizers: bool = True
-    
+
     # Distribution
     distribution_target: str = "marketplace"  # marketplace, enterprise, internal
-    
+
     # Features
     include_telemetry: bool = True
     telemetry_opt_in: bool = True
     include_migration: bool = True
     include_ci: bool = True
-    
+
     # Compliance
     gdpr_compliant: bool = True
     secure_credentials: bool = True
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "plugin_name": self.plugin_name,
             "plugin_id": self.plugin_id,
@@ -66,15 +68,15 @@ class InDesignRulesConfig:
 class InDesignPluginRules:
     """
     Adobe InDesign Plugin Development Rules Engine.
-    
+
     Provides comprehensive rules for professional InDesign plugin development
     using UXP (recommended) or C++ SDK.
     """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # TECHNOLOGY PATHS
     # ═══════════════════════════════════════════════════════════════════
-    
+
     TECHNOLOGY_PATHS = {
         "uxp": {
             "name": "UXP (Universal Extensibility Platform)",
@@ -186,11 +188,11 @@ class InDesignPluginRules:
             "note": "⚠️  ExtendScript is deprecated. Use UXP for new projects.",
         },
     }
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # UXP BEST PRACTICES
     # ═══════════════════════════════════════════════════════════════════
-    
+
     UXP_BEST_PRACTICES = """
 ## UXP (JavaScript/TypeScript) Best Practices
 
@@ -205,7 +207,7 @@ import { useController } from '../controllers/DocumentController';
 
 export const Panel: React.FC = () => {
     const { documents, loadDocument } = useController();
-    
+
     return (
         <div>
             {documents.map(doc => (
@@ -270,13 +272,13 @@ function processLargeDocument() {
 async function processLargeDocumentBatched(): Promise<void> {
     const batchSize = 100;
     const totalPages = 10000;
-    
+
     for (let i = 0; i < totalPages; i += batchSize) {
         await processBatch(i, Math.min(i + batchSize, totalPages));
-        
+
         // Yield to UI
         await new Promise(resolve => setTimeout(resolve, 0));
-        
+
         // Update progress
         updateProgress((i / totalPages) * 100);
     }
@@ -329,7 +331,7 @@ try {
         // Unknown error
         console.error('Unexpected error:', error);
         showErrorDialog('An unexpected error occurred.');
-        
+
         // Report telemetry (if user opted in)
         if (telemetry.isEnabled()) {
             telemetry.reportError(error);
@@ -343,11 +345,11 @@ try {
 // ✅ Clean up references
 class DocumentProcessor {
     private activeDocuments: Map<string, Document> = new Map();
-    
+
     async process(docId: string): Promise<void> {
         const doc = await this.loadDocument(docId);
         this.activeDocuments.set(docId, doc);
-        
+
         try {
             await this.performOperations(doc);
         } finally {
@@ -362,11 +364,11 @@ class DocumentProcessor {
 const cache = new WeakMap<Document, ProcessedData>();
 ```
 """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # C++ SDK BEST PRACTICES
     # ═══════════════════════════════════════════════════════════════════
-    
+
     CPP_BEST_PRACTICES = """
 ## C++ SDK Best Practices
 
@@ -376,20 +378,20 @@ const cache = new WeakMap<Document, ProcessedData>();
 class DocumentRAII {
 private:
     IDocument* doc;
-    
+
 public:
     explicit DocumentRAII(IDocument* d) : doc(d) {
         if (doc) doc->AddRef();
     }
-    
+
     ~DocumentRAII() {
         if (doc) doc->Release();
     }
-    
+
     // Disable copy
     DocumentRAII(const DocumentRAII&) = delete;
     DocumentRAII& operator=(const DocumentRAII&) = delete;
-    
+
     // Enable move
     DocumentRAII(DocumentRAII&& other) noexcept : doc(other.doc) {
         other.doc = nullptr;
@@ -412,13 +414,13 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     # Address Sanitizer
     target_compile_options(plugin PRIVATE -fsanitize=address)
     target_link_options(plugin PRIVATE -fsanitize=address)
-    
+
     # Memory Sanitizer (Linux only)
     if(LINUX)
         target_compile_options(plugin PRIVATE -fsanitize=memory)
         target_link_options(plugin PRIVATE -fsanitize=memory)
     endif()
-    
+
     # Undefined Behavior Sanitizer
     target_compile_options(plugin PRIVATE -fsanitize=undefined)
     target_link_options(plugin PRIVATE -fsanitize=undefined)
@@ -458,21 +460,21 @@ ErrorCode result = document->ProcessData();
 if (result != kSuccess) {
     // Log error
     LOG_ERROR("Document processing failed: {}", ErrorUtils::GetErrorString(result));
-    
+
     // Show user-friendly message
     ShowAlert("Processing failed. Please try again or contact support.");
-    
+
     // Cleanup
     RollbackChanges();
     return kFailure;
 }
 ```
 """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # SECURITY RULES
     # ═══════════════════════════════════════════════════════════════════
-    
+
     SECURITY_RULES = """
 ## Security Rules (CRITICAL)
 
@@ -515,7 +517,7 @@ async function showPrivacyDialog(): Promise<PrivacySettings> {
         `,
         buttons: ['Accept', 'Decline'],
     });
-    
+
     return {
         telemetryEnabled: settings.result === 'Accept',
         dataCollection: settings.result === 'Accept',
@@ -529,7 +531,7 @@ async function reportTelemetry(data: TelemetryData): Promise<void> {
     if (!settings.telemetryEnabled) {
         return; // Respect user choice
     }
-    
+
     // Anonymize data
     const anonymized = anonymizeData(data);
     await sendToTelemetryServer(anonymized);
@@ -577,7 +579,7 @@ function validateFilePath(filePath: string): boolean {
     if (filePath.includes('..')) {
         return false;
     }
-    
+
     // Whitelist allowed extensions
     const allowedExtensions = ['.indd', '.idml', '.pdf', '.png'];
     const ext = path.extname(filePath).toLowerCase();
@@ -590,7 +592,7 @@ async function validateDocument(doc: Document): Promise<boolean> {
     if (doc.pages.length > 10000) {
         throw new Error('Document too large');
     }
-    
+
     // Scan for malicious links
     const links = await doc.getLinks();
     for (const link of links) {
@@ -598,16 +600,16 @@ async function validateDocument(doc: Document): Promise<boolean> {
             throw new Error('Malicious link detected');
         }
     }
-    
+
     return true;
 }
 ```
 """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # TESTING & STRESS CASES
     # ═══════════════════════════════════════════════════════════════════
-    
+
     TESTING_RULES = """
 ## Testing & Stress Cases
 
@@ -625,32 +627,32 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
         indesign: ['2022', '2023', '2024']
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-    
+
     - name: Install dependencies
       run: npm ci
-    
+
     - name: Lint
       run: npm run lint
-    
+
     - name: Type Check
       run: npm run type-check
-    
+
     - name: Build
       run: npm run build
-    
+
     - name: Smoke Test
       run: npm run test:smoke
       env:
         INDESIGN_VERSION: ${{ matrix.indesign }}
-    
+
     - name: Package
       run: npm run package
 ```
@@ -662,17 +664,17 @@ TEST_F(DocumentTest, MemoryStressTest) {
     // Open 100 large documents
     for (int i = 0; i < 100; i++) {
         auto doc = OpenDocument("large_file_" + std::to_string(i) + ".indd");
-        
+
         // Process
         ProcessDocument(doc);
-        
+
         // Check memory hasn't leaked
         auto memoryUsage = GetMemoryUsage();
         EXPECT_LT(memoryUsage, 1024 * 1024 * 1024); // < 1GB
-        
+
         // Close and verify cleanup
         CloseDocument(doc);
-        
+
         // Force garbage collection
         CollectGarbage();
     }
@@ -698,10 +700,10 @@ describe('Stress Tests', () => {
     for (const doc of stressTestDocuments) {
         test(`should handle ${doc.name}`, async () => {
             const startTime = Date.now();
-            
+
             await expect(processDocument(doc.name))
                 .resolves.not.toThrow();
-            
+
             const duration = Date.now() - startTime;
             console.log(`${doc.name} processed in ${duration}ms`);
         }, 60000); // 60s timeout for large docs
@@ -714,15 +716,15 @@ describe('Stress Tests', () => {
 // Performance profiling
 class PerformanceProfiler {
     private markers: Map<string, number> = new Map();
-    
+
     start(marker: string): void {
         this.markers.set(marker, performance.now());
     }
-    
+
     end(marker: string): number {
         const start = this.markers.get(marker);
         if (!start) return 0;
-        
+
         const duration = performance.now() - start;
         console.log(`${marker}: ${duration.toFixed(2)}ms`);
         return duration;
@@ -741,11 +743,11 @@ await processDocument(doc);
 profiler.end('processing');
 ```
 """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # DISTRIBUTION & MIGRATION
     # ═══════════════════════════════════════════════════════════════════
-    
+
     DISTRIBUTION_RULES = """
 ## Distribution & Migration
 
@@ -780,7 +782,7 @@ const migrations: Migration[] = [
 async function migrateSettings(currentVersion: string, targetVersion: string): Promise<void> {
     const settings = await loadSettings();
     let migratedData = settings;
-    
+
     for (const migration of migrations) {
         if (compareVersions(currentVersion, migration.version) < 0 &&
             compareVersions(targetVersion, migration.version) >= 0) {
@@ -793,7 +795,7 @@ async function migrateSettings(currentVersion: string, targetVersion: string): P
             }
         }
     }
-    
+
     await saveSettings(migratedData);
 }
 ```
@@ -843,19 +845,19 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
     --file plugin.zip
 ```
 """
-    
+
     def __init__(self):
         """Initialize rules engine."""
         pass
-    
-    def get_technology_path(self, tech_key: str) -> Dict[str, Any]:
+
+    def get_technology_path(self, tech_key: str) -> dict[str, Any]:
         """Get technology path details."""
         return self.TECHNOLOGY_PATHS.get(tech_key, {})
-    
-    def get_all_technologies(self) -> Dict[str, Dict[str, Any]]:
+
+    def get_all_technologies(self) -> dict[str, dict[str, Any]]:
         """Get all available technologies."""
         return self.TECHNOLOGY_PATHS
-    
+
     def recommend_technology(self,
                             requires_native_access: bool = False,
                             requires_high_performance: bool = False,
@@ -864,7 +866,7 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
                             team_expertise: str = "javascript") -> str:
         """
         Recommend technology based on requirements.
-        
+
         Args:
             requires_native_access: Needs deep InDesign access
             requires_high_performance: Performance-critical
@@ -875,22 +877,22 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
         # Check for C++ requirements
         if requires_native_access or requires_high_performance or requires_custom_hooks:
             return "cpp"
-        
+
         # Check InDesign version
         version_year = int(target_indesign_version)
         if version_year < 2021:
             return "extendscript"  # Legacy support
-        
+
         # Default to UXP for modern development
         return "uxp"
-    
+
     def generate_config(self,
                        plugin_name: str,
-                       technology: Optional[str] = None,
+                       technology: str | None = None,
                        **kwargs) -> InDesignRulesConfig:
         """
         Generate InDesign plugin configuration.
-        
+
         Args:
             plugin_name: Human-readable plugin name
             technology: uxp, cpp, or extendscript
@@ -898,7 +900,7 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
         """
         # Generate plugin ID
         plugin_id = plugin_name.lower().replace(' ', '-').replace('_', '-')
-        
+
         # Determine technology
         if technology is None:
             technology = self.recommend_technology(
@@ -907,7 +909,7 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
                 requires_custom_hooks=kwargs.get('requires_custom_hooks', False),
                 target_indesign_version=kwargs.get('target_indesign_version', '2024'),
             )
-        
+
         return InDesignRulesConfig(
             plugin_name=plugin_name,
             plugin_id=plugin_id,
@@ -928,11 +930,11 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
             gdpr_compliant=kwargs.get('gdpr_compliant', True),
             secure_credentials=kwargs.get('secure_credentials', True),
         )
-    
+
     def get_rules_file_content(self, config: InDesignRulesConfig) -> str:
         """Generate .ai-rules.md content for InDesign plugin."""
         tech_info = self.get_technology_path(config.technology)
-        
+
         # Select appropriate best practices
         if config.technology == "uxp":
             best_practices = self.UXP_BEST_PRACTICES
@@ -940,7 +942,7 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
             best_practices = self.CPP_BEST_PRACTICES
         else:
             best_practices = "## ExtendScript (Legacy)\n\n⚠️  ExtendScript is deprecated. Migrate to UXP.\n"
-        
+
         content = f"""# InDesign Plugin Rules: {config.plugin_name}
 
 ## 🎯 Technology Decision
@@ -1057,7 +1059,7 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
 - [Creative Cloud Marketplace](https://exchange.adobe.com/)
 """
         return content
-    
+
     def save_rules_file(self, config: InDesignRulesConfig, output_dir: Path) -> Path:
         """Save rules file to output directory."""
         rules_content = self.get_rules_file_content(config)
@@ -1074,12 +1076,12 @@ def generate_indesign_plugin_rules(
 ) -> Path:
     """
     Generate InDesign plugin rules file.
-    
+
     Args:
         plugin_name: Name of the plugin
         output_dir: Directory to save rules file
         **kwargs: Additional configuration options
-    
+
     Returns:
         Path to generated rules file
     """
@@ -1091,32 +1093,32 @@ def generate_indesign_plugin_rules(
 if __name__ == "__main__":
     # Demo
     rules = InDesignPluginRules()
-    
+
     print("=" * 70)
     print("Adobe InDesign Plugin Development Rules")
     print("=" * 70)
-    
+
     print("\n📚 Technology Paths:")
     for key, path in rules.get_all_technologies().items():
         print(f"\n  {path['name']} ({key})")
         print(f"    {path['description'][:80]}...")
-    
+
     print("\n\n🎯 Recommendation Examples:")
-    
+
     # UXP recommendation
     rec = rules.recommend_technology(
         requires_native_access=False,
         target_indesign_version="2024",
     )
     print(f"  Standard plugin → {rec.upper()}")
-    
+
     # C++ recommendation
     rec = rules.recommend_technology(
         requires_native_access=True,
         requires_high_performance=True,
     )
     print(f"  High-performance → {rec.upper()}")
-    
+
     print("\n\n📄 Generate Rules for 'Document Processor':")
     config = rules.generate_config("Document Processor", technology="uxp")
     print(f"  Plugin: {config.plugin_name}")
@@ -1124,5 +1126,5 @@ if __name__ == "__main__":
     print(f"  Technology: {config.technology.upper()}")
     print(f"  TypeScript: {config.use_typescript}")
     print(f"  React: {config.use_react}")
-    
+
     print("\n\n✅ InDesign Plugin Rules Engine Ready!")

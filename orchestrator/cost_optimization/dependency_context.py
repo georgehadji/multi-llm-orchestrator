@@ -13,9 +13,9 @@ Features:
 
 Usage:
     from orchestrator.cost_optimization import DependencyContextInjector
-    
+
     injector = DependencyContextInjector()
-    
+
     # Inject dependency context
     enhanced_prompt = await injector.inject_context(
         task=task,
@@ -26,11 +26,10 @@ Usage:
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -41,8 +40,8 @@ class DependencyContext:
     task_id: str
     task_type: str
     output: str
-    file_path: Optional[str] = None
-    symbols: List[str] = field(default_factory=list)
+    file_path: str | None = None
+    symbols: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -55,7 +54,7 @@ class ContextMetrics:
     symbols_exported: int = 0
     repair_cycles_reduced: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_injections": self.total_injections,
@@ -105,14 +104,14 @@ class DependencyContextInjector:
     def __init__(self):
         """Initialize dependency context injector."""
         self.metrics = ContextMetrics()
-        self._symbol_cache: Dict[str, List[str]] = {}
+        self._symbol_cache: dict[str, list[str]] = {}
 
     async def inject_context(
         self,
         task_prompt: str,
         task_type: str,
-        completed_tasks: Dict[str, Any],
-        dependencies: Optional[List[str]] = None,
+        completed_tasks: dict[str, Any],
+        dependencies: list[str] | None = None,
         max_context_chars: int = DEFAULT_MAX_CONTEXT_CHARS,
         language: str = "python",
     ) -> str:
@@ -141,7 +140,7 @@ class DependencyContextInjector:
             return task_prompt
 
         # Build context from dependencies
-        context_parts: List[str] = []
+        context_parts: list[str] = []
         total_chars = 0
         contexts_added = 0
 
@@ -215,7 +214,7 @@ class DependencyContextInjector:
         dep_id: str,
         task_type: str,
         output: str,
-        symbols: List[str],
+        symbols: list[str],
         max_chars: int,
     ) -> str:
         """
@@ -252,7 +251,7 @@ class DependencyContextInjector:
         self,
         original_prompt: str,
         task_type: str,
-        context_parts: List[str],
+        context_parts: list[str],
         total_chars: int,
     ) -> str:
         """
@@ -292,7 +291,7 @@ class DependencyContextInjector:
 
         return f"{instruction}{context}\n\n## Your Task:\n{original_prompt}"
 
-    def _extract_symbols(self, code: str, language: str) -> List[str]:
+    def _extract_symbols(self, code: str, language: str) -> list[str]:
         """
         Extract symbols (functions, classes) from code.
 
@@ -331,7 +330,7 @@ class DependencyContextInjector:
 
         return symbols
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get context injection metrics."""
         return self.metrics.to_dict()
 
@@ -348,8 +347,8 @@ class DependencyContextInjector:
 async def inject_dependency_context(
     task_prompt: str,
     task_type: str,
-    completed_tasks: Dict[str, Any],
-    dependencies: List[str],
+    completed_tasks: dict[str, Any],
+    dependencies: list[str],
 ) -> str:
     """
     Convenience function for dependency context injection.

@@ -15,18 +15,18 @@ Usage:
 """
 from __future__ import annotations
 
-import dataclasses
 import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from .audit import AuditLog
-from .models import ProjectState
-from .policy_engine import PolicyViolationError
-from .reference_monitor import Decision, MonitorResult, ReferenceMonitor
-from .specs import JobSpecV2, PolicySpecV2, RoutingHint
+from .reference_monitor import Decision, ReferenceMonitor
+from .specs import JobSpecV2, PolicySpecV2
+
+if TYPE_CHECKING:
+    from .models import ProjectState, Task
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class ControlPlane:
 
     def __init__(
         self,
-        audit_log: Optional[AuditLog] = None,
+        audit_log: AuditLog | None = None,
     ) -> None:
         self._monitor = ReferenceMonitor()
         self._audit = audit_log or AuditLog()
@@ -217,7 +217,6 @@ class ControlPlane:
     ) -> ProjectState:
         """Delegate to Orchestrator, wiring in per-task monitor checks."""
         from .engine import Orchestrator
-        from .models import Task
 
         orchestrator = Orchestrator(budget=job.budget)
         monitor = self._monitor
@@ -231,7 +230,7 @@ class ControlPlane:
                 logger.error(
                     "ReferenceMonitor DENIED task %s: %s", task.id, result.reason
                 )
-                from .models import TaskResult, TaskStatus, Model
+                from .models import Model, TaskResult, TaskStatus
                 return TaskResult(
                     task_id=task.id, output="", score=0.0,
                     model_used=Model.GPT_4O_MINI,

@@ -3,12 +3,15 @@ API Routes - REST endpoints for IDE
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Any, Dict, List, Optional
 
-from ..log_config import get_logger
-from ..session_manager import get_session_manager, ChatMessage, FileNode, TaskProgress
+from orchestrator.ide_backend.log_config import get_logger
+from orchestrator.ide_backend.session_manager import (
+    ChatMessage,
+    FileNode,
+    get_session_manager,
+)
 
 logger = get_logger(__name__)
 
@@ -27,19 +30,19 @@ class CreateSessionRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
 
 
 class FileUpdateRequest(BaseModel):
     content: str
-    language: Optional[str] = None
+    language: str | None = None
 
 
 class TaskUpdateRequest(BaseModel):
-    status: Optional[str] = None
-    score: Optional[float] = None
-    cost: Optional[float] = None
-    repairs: Optional[int] = None
+    status: str | None = None
+    score: float | None = None
+    cost: float | None = None
+    repairs: int | None = None
 
 
 # Session endpoints
@@ -91,7 +94,7 @@ async def delete_session(session_id: str):
 async def send_message(request: ChatRequest):
     """Send a chat message to the session."""
     session_manager = get_session_manager()
-    
+
     session_id = request.session_id
     if not session_id:
         # Get or create default session
@@ -101,7 +104,7 @@ async def send_message(request: ChatRequest):
         else:
             session = await session_manager.create_session()
             session_id = session.id
-    
+
     # Add user message
     from datetime import datetime
     user_message = ChatMessage(
@@ -110,7 +113,7 @@ async def send_message(request: ChatRequest):
         timestamp=datetime.now().strftime("%H:%M"),
     )
     await session_manager.add_message(session_id, user_message)
-    
+
     # TODO: Send to orchestrator and get response
     # For now, add a placeholder assistant message
     assistant_message = ChatMessage(
@@ -120,7 +123,7 @@ async def send_message(request: ChatRequest):
         steps=[{"label": "Processing request...", "done": False}],
     )
     await session_manager.add_message(session_id, assistant_message)
-    
+
     session = await session_manager.get_session(session_id)
     return {"session": session.to_dict(), "message_id": len(session.messages) - 1}
 
@@ -143,9 +146,9 @@ async def get_file_content(session_id: str, file_path: str):
     session = await session_manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     # Find file in tree
-    def find_file(nodes: List[FileNode], parts: List[str], depth: int = 0) -> Optional[FileNode]:
+    def find_file(nodes: list[FileNode], parts: list[str], depth: int = 0) -> FileNode | None:
         for node in nodes:
             if node.name == parts[depth]:
                 if depth == len(parts) - 1:
@@ -153,13 +156,13 @@ async def get_file_content(session_id: str, file_path: str):
                 if node.type == "folder":
                     return find_file(node.children, parts, depth + 1)
         return None
-    
+
     path_parts = file_path.split("/")
     file_node = find_file(session.files, path_parts)
-    
+
     if not file_node:
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     return {"content": file_node.content or "", "language": file_node.language}
 
 
@@ -170,11 +173,11 @@ async def update_file(session_id: str, file_path: str, request: FileUpdateReques
     session = await session_manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     success = await session_manager.update_file(session_id, file_path, request.content)
     if not success:
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     return {"success": True}
 
 
@@ -193,13 +196,13 @@ async def get_tasks(session_id: str):
 async def update_task(session_id: str, task_id: str, request: TaskUpdateRequest):
     """Update task progress."""
     session_manager = get_session_manager()
-    
+
     updates = {k: v for k, v in request.dict().items() if v is not None}
     success = await session_manager.update_task(session_id, task_id, **updates)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     return {"success": True}
 
 
@@ -207,8 +210,7 @@ async def update_task(session_id: str, task_id: str, request: TaskUpdateRequest)
 @router.get("/models")
 async def get_models():
     """Get available models."""
-    from ..models import MODELS
-    
+
     return {
         "models": [
             {"id": "auto", "name": "Auto (Tiered)", "desc": "Smart routing", "icon": "⚡"},

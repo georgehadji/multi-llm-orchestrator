@@ -19,10 +19,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional
+from typing import TYPE_CHECKING
 
-from .models import Task
-from .specs import JobSpecV2, PolicySpecV2, EscalationRule
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .models import Task
+    from .specs import EscalationRule, JobSpecV2, PolicySpecV2
 
 
 class Decision(str, Enum):
@@ -35,7 +38,7 @@ class Decision(str, Enum):
 class MonitorResult:
     decision: Decision
     reason: str = ""
-    rule: Optional[EscalationRule] = None
+    rule: EscalationRule | None = None
 
 
 # ─────────────────────────────────────────────
@@ -250,7 +253,8 @@ class ReferenceMonitor:
         is executed.  Does not require a specific Task.
         """
         # For now, check with a sentinel task to run the hard rules
-        from .models import Task as _Task, TaskType
+        from .models import Task as _Task
+        from .models import TaskType
         sentinel = _Task(id="__global__", type=TaskType.EVALUATE, prompt="")
         return self.check(sentinel, job, policy)
 

@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
@@ -43,8 +42,8 @@ class ModelPricing:
     output_price_per_1m: float  # USD per 1M output tokens
     currency: str = "USD"
     source: str = "unknown"  # "live_api", "cache", "fallback"
-    fetched_at: Optional[datetime] = None
-    
+    fetched_at: datetime | None = None
+
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Estimate cost for a given token count."""
         input_cost = (input_tokens / 1_000_000) * self.input_price_per_1m
@@ -59,22 +58,22 @@ class PricingHealth:
     cache_age_hours: float
     stale_models: list[str]
     fallback_active: bool
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
 
 class PricingCache:
     """
     Multi-tier pricing cache with automatic fallback.
-    
+
     Resolution order:
     1. Live dashboard API (freshest)
     2. Local disk cache (up to 24h old)
     3. Compiled fallback prices (guaranteed available)
-    
+
     This ensures minimax regret: even in worst case (no network),
     users have reasonable pricing estimates.
     """
-    
+
     # Fallback prices - updated quarterly via release
     FALLBACK_PRICES: dict[str, ModelPricing] = {
         # Economy tier
@@ -85,8 +84,8 @@ class PricingCache:
             output_price_per_1m=0.30,
             source="fallback",
         ),
-        "deepseek-chat": ModelPricing(
-            model_id="deepseek-chat",
+        "deepseek/deepseek-chat": ModelPricing(
+            model_id="deepseek/deepseek-chat",
             tier=PricingTier.ECONOMY,
             input_price_per_1m=0.28,
             output_price_per_1m=0.42,
@@ -137,28 +136,28 @@ class PricingCache:
             source="fallback",
         ),
     }
-    
+
     CACHE_TTL_HOURS = 24
     CACHE_FILE = Path.home() / ".orchestrator" / "pricing_cache.json"
-    
+
     def __init__(
         self,
-        dashboard_url: Optional[str] = None,
-        cache_file: Optional[Path] = None,
+        dashboard_url: str | None = None,
+        cache_file: Path | None = None,
     ):
         self.dashboard_url = dashboard_url or "http://localhost:8888"
         self.cache_file = cache_file or self.CACHE_FILE
         self._memory_cache: dict[str, ModelPricing] = {}
-        self._last_fetch_error: Optional[str] = None
-        
+        self._last_fetch_error: str | None = None
+
         # Ensure cache directory exists
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     def _load_disk_cache(self) -> dict[str, ModelPricing]:
         """Load pricing from local disk cache."""
         if not self.cache_file.exists():
             return {}
-        
+
         try:
             data = json.loads(self.cache_file.read_text())
             prices = {}
@@ -171,7 +170,7 @@ class PricingCache:
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             logger.warning(f"Failed to load pricing cache: {e}")
             return {}
-    
+
     def _save_disk_cache(self, prices: dict[str, ModelPricing]) -> None:
         """Save pricing to local disk cache."""
         try:
@@ -181,12 +180,12 @@ class PricingCache:
                 if d["fetched_at"]:
                     d["fetched_at"] = d["fetched_at"].isoformat()
                 data[model_id] = d
-            
+
             self.cache_file.write_text(json.dumps(data, indent=2))
         except Exception as e:
             logger.warning(f"Failed to save pricing cache: {e}")
-    
-    async def _fetch_live_prices(self) -> Optional[dict[str, ModelPricing]]:
+
+    async def _fetch_live_prices(self) -> dict[str, ModelPricing] | None:
         """Fetch live prices from dashboard API."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -195,7 +194,7 @@ class PricingCache:
                 )
                 response.raise_for_status()
                 data = response.json()
-                
+
                 prices = {}
                 for item in data.get("models", []):
                     pricing = ModelPricing(
@@ -208,37 +207,37 @@ class PricingCache:
                         fetched_at=datetime.utcnow(),
                     )
                     prices[pricing.model_id] = pricing
-                
+
                 self._last_fetch_error = None
                 return prices
-                
+
         except Exception as e:
             self._last_fetch_error = str(e)
             logger.warning(f"Failed to fetch live pricing: {e}")
             return None
-    
+
     async def get_pricing(self, model_id: str) -> ModelPricing:
         """
         Get pricing for a model with automatic fallback.
-        
+
         Resolution order:
         1. Memory cache (fastest)
         2. Live API (freshest)
         3. Disk cache (stale but recent)
         4. Compiled fallback (guaranteed)
-        
+
         Returns:
             ModelPricing with source indicator
         """
         model_id = model_id.lower().replace("_", "-")
-        
+
         # 1. Check memory cache
         if model_id in self._memory_cache:
             cached = self._memory_cache[model_id]
             age = datetime.utcnow() - (cached.fetched_at or datetime.min)
             if age < timedelta(hours=self.CACHE_TTL_HOURS):
                 return cached
-        
+
         # 2. Try live API
         live_prices = await self._fetch_live_prices()
         if live_prices:
@@ -246,7 +245,7 @@ class PricingCache:
             self._save_disk_cache(live_prices)
             if model_id in live_prices:
                 return live_prices[model_id]
-        
+
         # 3. Try disk cache
         disk_cache = self._load_disk_cache()
         if model_id in disk_cache:
@@ -254,7 +253,7 @@ class PricingCache:
             if age < timedelta(hours=self.CACHE_TTL_HOURS * 7):  # 1 week grace period
                 self._memory_cache[model_id] = disk_cache[model_id]
                 return disk_cache[model_id]
-        
+
         # 4. Fallback to compiled prices (guaranteed)
         if model_id in self.FALLBACK_PRICES:
             logger.warning(
@@ -262,7 +261,7 @@ class PricingCache:
                 f"Live prices unavailable. Last error: {self._last_fetch_error}"
             )
             return self.FALLBACK_PRICES[model_id]
-        
+
         # 5. Unknown model - estimate as premium
         logger.error(f"Unknown model {model_id}, using premium tier estimate")
         return ModelPricing(
@@ -273,17 +272,17 @@ class PricingCache:
             source="estimate",
             fetched_at=datetime.utcnow(),
         )
-    
+
     def get_health(self) -> PricingHealth:
         """Get health status of pricing system."""
         disk_cache = self._load_disk_cache()
-        
+
         stale_models = []
         for model_id, pricing in disk_cache.items():
             age = datetime.utcnow() - (pricing.fetched_at or datetime.min)
             if age > timedelta(hours=self.CACHE_TTL_HOURS):
                 stale_models.append(model_id)
-        
+
         oldest_cache_age = 0.0
         if disk_cache:
             ages = [
@@ -291,7 +290,7 @@ class PricingCache:
                 for p in disk_cache.values()
             ]
             oldest_cache_age = max(ages)
-        
+
         return PricingHealth(
             is_live=self._last_fetch_error is None,
             cache_age_hours=oldest_cache_age,
@@ -299,7 +298,7 @@ class PricingCache:
             fallback_active=len(disk_cache) == 0 and self._last_fetch_error is not None,
             last_error=self._last_fetch_error,
         )
-    
+
     async def refresh_cache(self) -> bool:
         """Manually trigger cache refresh. Returns True if successful."""
         live_prices = await self._fetch_live_prices()
@@ -311,7 +310,7 @@ class PricingCache:
 
 
 # Global instance for convenience
-_pricing_cache: Optional[PricingCache] = None
+_pricing_cache: PricingCache | None = None
 
 
 def get_pricing_cache() -> PricingCache:
@@ -322,11 +321,11 @@ def get_pricing_cache() -> PricingCache:
     return _pricing_cache
 
 
-async def estimate_task_cost(model_id: str, estimated_input_tokens: int, 
+async def estimate_task_cost(model_id: str, estimated_input_tokens: int,
                              estimated_output_tokens: int) -> tuple[float, str]:
     """
     Estimate cost for a task with source indication.
-    
+
     Returns:
         (cost_usd, price_source)
     """

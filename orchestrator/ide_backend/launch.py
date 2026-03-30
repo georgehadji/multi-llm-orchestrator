@@ -9,7 +9,6 @@ Usage:
     python -m orchestrator.ide_backend.launch --no-frontend
 """
 import argparse
-import os
 import sys
 from pathlib import Path
 

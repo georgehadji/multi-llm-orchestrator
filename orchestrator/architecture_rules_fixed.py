@@ -13,7 +13,7 @@ NEW_LINES = '''        "rationale": "Explanation of the optimized architecture"
 If can_optimize is false, set changes to empty array and optimized_architecture to null.'''
 
 # Read the file
-with open('orchestrator/architecture_rules.py', 'r', encoding='utf-8') as f:
+with open('orchestrator/architecture_rules.py', encoding='utf-8') as f:
     content = f.read()
 
 # Replace

@@ -8,16 +8,16 @@ Implements Mnemo Cortex preflight validation:
 
 Usage:
     from orchestrator.preflight import PreflightValidator, PreflightResult, PreflightMode
-    
+
     validator = PreflightValidator()
-    
+
     # Check a response before sending
     result = validator.validate(
         response="Here's the code you requested...",
         context={"task": "code_generation", "user_request": "Write a function"},
         mode=PreflightMode.ENRICH
     )
-    
+
     if result.action == PreflightAction.BLOCK:
         print(f"Blocked: {result.reason}")
     elif result.action == PreflightAction.ENRICH:
@@ -26,11 +26,10 @@ Usage:
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from .log_config import get_logger
 
@@ -72,7 +71,7 @@ class CheckResult:
     passed: bool
     severity: int  # 0-10
     message: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -80,20 +79,20 @@ class PreflightResult:
     """Result of preflight validation."""
     action: PreflightAction
     passed: bool
-    checks: List[CheckResult] = field(default_factory=list)
-    reason: Optional[str] = None
-    enrichment: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    checks: list[CheckResult] = field(default_factory=list)
+    reason: str | None = None
+    enrichment: str | None = None
+    warnings: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     @property
     def has_blocking_issues(self) -> bool:
         return any(c.severity >= 8 and not c.passed for c in self.checks)
-    
+
     @property
     def has_warnings(self) -> bool:
         return any(c.severity >= 5 and c.severity < 8 and not c.passed for c in self.checks)
-    
+
     @property
     def summary(self) -> str:
         if self.action == PreflightAction.BLOCK:
@@ -109,7 +108,7 @@ class PreflightResult:
 class PreflightValidator:
     """
     Validates responses before sending to user.
-    
+
     Implements four modes from Mnemo Cortex:
     - PASS: Allow all responses
     - ENRICH: Add missing context
@@ -125,7 +124,7 @@ class PreflightValidator:
         (r'subprocess\s*\.\s*call\s*\(\s*\[.*shell\s*=\s*True', "Shell=True in subprocess"),
         (r'os\.system\s*\(', "os.system() call detected"),
     ]
-    
+
     # Patterns that indicate incomplete responses
     INCOMPLETE_PATTERNS = [
         (r'\[TODO\]', "TODO placeholder found"),
@@ -133,7 +132,7 @@ class PreflightValidator:
         (r'\{\{.*\}\}', "Template placeholder found"),
         (r'<[^>]*>', "HTML/XML tags detected (possible incomplete)"),
     ]
-    
+
     # Privacy-sensitive patterns
     PRIVACY_PATTERNS = [
         (r'api[_-]?key["\']?\s*[:=]\s*["\'][^"\']{10,}', "API key detected"),
@@ -155,15 +154,15 @@ class PreflightValidator:
         self.strict_privacy = strict_privacy
         self.enable_completeness = enable_completeness
         self.enable_tone = enable_tone
-        
+
         # Custom rules
-        self._custom_checks: List[callable] = []
+        self._custom_checks: list[callable] = []
 
     def add_custom_check(self, check_fn: callable) -> None:
         """Add a custom validation function."""
         self._custom_checks.append(check_fn)
 
-    def _check_safety(self, response: str, context: Dict[str, Any]) -> CheckResult:
+    def _check_safety(self, response: str, context: dict[str, Any]) -> CheckResult:
         """Check for dangerous patterns."""
         for pattern, message in self.DANGEROUS_PATTERNS:
             if re.search(pattern, response, re.IGNORECASE):
@@ -174,7 +173,7 @@ class PreflightValidator:
                     message=message,
                     details={"pattern": pattern},
                 )
-        
+
         return CheckResult(
             check_type=CheckType.SAFETY,
             passed=True,
@@ -182,7 +181,7 @@ class PreflightValidator:
             message="No safety issues detected",
         )
 
-    def _check_privacy(self, response: str, context: Dict[str, Any]) -> CheckResult:
+    def _check_privacy(self, response: str, context: dict[str, Any]) -> CheckResult:
         """Check for privacy-sensitive data."""
         for pattern, message in self.PRIVACY_PATTERNS:
             if re.search(pattern, response, re.IGNORECASE):
@@ -193,7 +192,7 @@ class PreflightValidator:
                     message=message,
                     details={"pattern": pattern},
                 )
-        
+
         return CheckResult(
             check_type=CheckType.PRIVACY,
             passed=True,
@@ -201,7 +200,7 @@ class PreflightValidator:
             message="No privacy issues detected",
         )
 
-    def _check_completeness(self, response: str, context: Dict[str, Any]) -> CheckResult:
+    def _check_completeness(self, response: str, context: dict[str, Any]) -> CheckResult:
         """Check for incomplete responses."""
         # Check for placeholders
         for pattern, message in self.INCOMPLETE_PATTERNS:
@@ -213,7 +212,7 @@ class PreflightValidator:
                     message=message,
                     details={"pattern": pattern},
                 )
-        
+
         # Check minimum length
         if len(response.strip()) < 20:
             return CheckResult(
@@ -223,7 +222,7 @@ class PreflightValidator:
                 message="Response too short",
                 details={"length": len(response)},
             )
-        
+
         # Check if response seems cut off
         if not response.rstrip().endswith(('.', '!', '?', ')', ']', '}', '"', "'")):
             # Might be truncated
@@ -235,7 +234,7 @@ class PreflightValidator:
                     message="Response may be truncated",
                     details={"ends_with": response[-5:]},
                 )
-        
+
         return CheckResult(
             check_type=CheckType.COMPLETENESS,
             passed=True,
@@ -243,14 +242,14 @@ class PreflightValidator:
             message="Response appears complete",
         )
 
-    def _check_accuracy(self, response: str, context: Dict[str, Any]) -> CheckResult:
+    def _check_accuracy(self, response: str, context: dict[str, Any]) -> CheckResult:
         """Check for factual accuracy issues."""
         # Check for contradictory statements
         contradictions = [
             (r'\bhowever\b.*\btherefore\b', "Contradictory logic"),
             (r'\bbut\b.*\bbut\b', "Conflicting statements"),
         ]
-        
+
         for pattern, message in contradictions:
             if re.search(pattern, response, re.IGNORECASE):
                 return CheckResult(
@@ -260,14 +259,14 @@ class PreflightValidator:
                     message=message,
                     details={"pattern": pattern},
                 )
-        
+
         # Check if response addresses the request
         user_request = context.get("user_request", "")
         if user_request:
             # Simple keyword check - response should contain some request keywords
             request_words = set(re.findall(r'\b\w{4,}\b', user_request.lower()))
             response_words = set(re.findall(r'\b\w{4,}\b', response.lower()))
-            
+
             # Check overlap
             overlap = request_words & response_words
             if len(overlap) < min(2, len(request_words) * 0.3):
@@ -278,7 +277,7 @@ class PreflightValidator:
                     message="Response may not address the request",
                     details={"overlap": list(overlap)[:5]},
                 )
-        
+
         return CheckResult(
             check_type=CheckType.ACCURACY,
             passed=True,
@@ -286,10 +285,10 @@ class PreflightValidator:
             message="No accuracy issues detected",
         )
 
-    def _check_format(self, response: str, context: Dict[str, Any]) -> CheckResult:
+    def _check_format(self, response: str, context: dict[str, Any]) -> CheckResult:
         """Check response format."""
         task_type = context.get("task_type", "")
-        
+
         # Code generation should have code blocks
         if task_type == "code_gen" or task_type == "code_generation":
             if '```' not in response and 'def ' not in response and 'class ' not in response:
@@ -300,7 +299,7 @@ class PreflightValidator:
                     message="Code generation task but no code found",
                     details={"task_type": task_type},
                 )
-        
+
         return CheckResult(
             check_type=CheckType.FORMAT,
             passed=True,
@@ -310,32 +309,31 @@ class PreflightValidator:
 
     def _determine_action(
         self,
-        checks: List[CheckResult],
+        checks: list[CheckResult],
         mode: PreflightMode,
-    ) -> tuple[PreflightAction, Optional[str], Optional[str]]:
+    ) -> tuple[PreflightAction, str | None, str | None]:
         """Determine action based on check results and mode."""
         blocking = [c for c in checks if c.severity >= 8 and not c.passed]
         warnings = [c for c in checks if 5 <= c.severity < 8 and not c.passed]
         enrichments = [c for c in checks if c.severity >= 3 and c.severity < 8 and not c.passed]
-        
+
         if mode == PreflightMode.PASS:
             return PreflightAction.PASS, None, None
-        
-        if blocking:
-            if mode in (PreflightMode.BLOCK, PreflightMode.AUTO):
-                return (
-                    PreflightAction.BLOCK,
-                    f"Blocking issues: {', '.join(c.message for c in blocking)}",
-                    None,
-                )
-        
+
+        if blocking and mode in (PreflightMode.BLOCK, PreflightMode.AUTO):
+            return (
+                PreflightAction.BLOCK,
+                f"Blocking issues: {', '.join(c.message for c in blocking)}",
+                None,
+            )
+
         if warnings and mode in (PreflightMode.WARN, PreflightMode.BLOCK):
             return (
                 PreflightAction.WARN,
                 f"Warnings: {', '.join(c.message for c in warnings)}",
                 None,
             )
-        
+
         if enrichments and mode in (PreflightMode.ENRICH, PreflightMode.AUTO):
             enrichment_text = ". ".join(c.message for c in enrichments)
             return (
@@ -343,48 +341,48 @@ class PreflightValidator:
                 None,
                 f"Consider adding: {enrichment_text}",
             )
-        
+
         return PreflightAction.PASS, None, None
 
     def validate(
         self,
         response: str,
-        context: Optional[Dict[str, Any]] = None,
-        mode: Optional[PreflightMode] = None,
+        context: dict[str, Any] | None = None,
+        mode: PreflightMode | None = None,
     ) -> PreflightResult:
         """
         Validate a response before sending.
-        
+
         Args:
             response: The response to validate
             context: Additional context (task_type, user_request, etc.)
             mode: Override default validation mode
-            
+
         Returns:
             PreflightResult with action and details
         """
         context = context or {}
         mode = mode or self.mode
-        
-        checks: List[CheckResult] = []
-        
+
+        checks: list[CheckResult] = []
+
         # Run safety check
         checks.append(self._check_safety(response, context))
-        
+
         # Run privacy check
         if self.strict_privacy:
             checks.append(self._check_privacy(response, context))
-        
+
         # Run completeness check
         if self.enable_completeness:
             checks.append(self._check_completeness(response, context))
-        
+
         # Run accuracy check
         checks.append(self._check_accuracy(response, context))
-        
+
         # Run format check
         checks.append(self._check_format(response, context))
-        
+
         # Run custom checks
         for custom_check in self._custom_checks:
             try:
@@ -393,16 +391,16 @@ class PreflightValidator:
                     checks.append(result)
             except Exception as e:
                 logger.warning(f"Custom check failed: {e}")
-        
+
         # Determine action
         action, reason, enrichment = self._determine_action(checks, mode)
-        
+
         # Collect warnings
         warnings = [
             c.message for c in checks
             if c.severity >= 5 and c.severity < 8 and not c.passed
         ]
-        
+
         return PreflightResult(
             action=action,
             passed=action == PreflightAction.PASS,
@@ -419,30 +417,30 @@ class PreflightValidator:
     def validate_and_modify(
         self,
         response: str,
-        context: Optional[Dict[str, Any]] = None,
-        mode: Optional[PreflightMode] = None,
+        context: dict[str, Any] | None = None,
+        mode: PreflightMode | None = None,
     ) -> tuple[str, PreflightResult]:
         """
         Validate and potentially modify a response.
-        
+
         Returns the (potentially modified) response and validation result.
         """
         result = self.validate(response, context, mode)
-        
+
         modified_response = response
-        
+
         if result.action == PreflightAction.BLOCK:
             # Replace with safe message
             modified_response = "[Response blocked for safety reasons]"
         elif result.action == PreflightAction.ENRICH and result.enrichment:
             # Append enrichment note
             modified_response = response + f"\n\n[Note: {result.enrichment}]"
-        
+
         return modified_response, result
 
 
 # Global validator instance
-_default_validator: Optional[PreflightValidator] = None
+_default_validator: PreflightValidator | None = None
 
 
 def get_validator() -> PreflightValidator:
@@ -455,7 +453,7 @@ def get_validator() -> PreflightValidator:
 
 def preflight_check(
     response: str,
-    context: Optional[Dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
     mode: PreflightMode = PreflightMode.AUTO,
 ) -> PreflightResult:
     """Convenience function for preflight validation."""

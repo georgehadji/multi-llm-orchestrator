@@ -9,9 +9,11 @@ Data models for Nexus Search integration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class SearchSource(str, Enum):
@@ -43,7 +45,7 @@ class OptimizationMode(str, Enum):
 class SearchResult:
     """
     Individual search result.
-    
+
     Attributes:
         title: Result title
         url: Source URL
@@ -60,10 +62,10 @@ class SearchResult:
     source: SearchSource = SearchSource.WEB
     engine: str = ""
     score: float = 0.0
-    published_date: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    published_date: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "title": self.title,
@@ -92,28 +94,28 @@ class SearchResults:
         metadata: Additional metadata
     """
     query: str
-    results: List[SearchResult] = field(default_factory=list)
+    results: list[SearchResult] = field(default_factory=list)
     total_results: int = 0
     search_time: float = 0.0
-    sources: List[SearchSource] = field(default_factory=list)
-    suggestions: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    sources: list[SearchSource] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     def __len__(self) -> int:
         return len(self.results)
-    
+
     def __iter__(self):
         return iter(self.results)
-    
+
     def __getitem__(self, index: int) -> SearchResult:
         return self.results[index]
-    
+
     @property
-    def top(self) -> List[SearchResult]:
+    def top(self) -> list[SearchResult]:
         """Get top 5 results."""
         return self.results[:5]
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "query": self.query,
@@ -129,7 +131,7 @@ class SearchResults:
 class Finding:
     """
     A research finding with supporting evidence.
-    
+
     Attributes:
         content: The finding content
         sources: Supporting search results
@@ -137,11 +139,11 @@ class Finding:
         category: Finding category
     """
     content: str
-    sources: List[SearchResult] = field(default_factory=list)
+    sources: list[SearchResult] = field(default_factory=list)
     confidence: float = 1.0
     category: str = ""
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "content": self.content,
@@ -155,7 +157,7 @@ class Finding:
 class ResearchReport:
     """
     Comprehensive research report.
-    
+
     Attributes:
         query: Original research query
         findings: List of research findings
@@ -165,18 +167,18 @@ class ResearchReport:
         total_time: Total research time (seconds)
     """
     query: str
-    findings: List[Finding] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
     summary: str = ""
-    sources: List[SearchResult] = field(default_factory=list)
+    sources: list[SearchResult] = field(default_factory=list)
     search_iterations: int = 0
     total_time: float = 0.0
-    
+
     @property
     def source_count(self) -> int:
         """Total number of unique sources."""
         return len(self.sources)
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "query": self.query,
@@ -192,7 +194,7 @@ class ResearchReport:
 class SearchQuery:
     """
     Structured search query.
-    
+
     Attributes:
         query: Search query string
         sources: Sources to search
@@ -202,13 +204,13 @@ class SearchQuery:
         optimization: Optimization mode
     """
     query: str
-    sources: List[SearchSource] = field(default_factory=lambda: [SearchSource.WEB])
+    sources: list[SearchSource] = field(default_factory=lambda: [SearchSource.WEB])
     language: str = "en"
     num_results: int = 10
-    time_range: Optional[str] = None  # "day", "week", "month", "year"
+    time_range: str | None = None  # "day", "week", "month", "year"
     optimization: OptimizationMode = OptimizationMode.BALANCED
-    
-    def to_params(self) -> Dict[str, Any]:
+
+    def to_params(self) -> dict[str, Any]:
         """Convert to API parameters."""
         params = {
             "q": self.query,
@@ -217,10 +219,10 @@ class SearchQuery:
             "limit": self.num_results,
             "format": "json",
         }
-        
+
         if self.time_range:
             params["time_range"] = self.time_range
-            
+
         return params
 
 
@@ -228,7 +230,7 @@ class SearchQuery:
 class NexusConfig:
     """
     Nexus Search configuration.
-    
+
     Attributes:
         enabled: Enable/disable Nexus Search
         api_url: Nexus API URL
@@ -245,12 +247,12 @@ class NexusConfig:
     rate_limit: int = 60  # queries per minute
     cache_enabled: bool = True
     cache_ttl: int = 3600  # 1 hour
-    
+
     @classmethod
-    def from_env(cls) -> "NexusConfig":
+    def from_env(cls) -> NexusConfig:
         """Create config from environment variables."""
         import os
-        
+
         return cls(
             enabled=os.getenv("NEXUS_SEARCH_ENABLED", "true").lower() == "true",
             api_url=os.getenv("NEXUS_API_URL", "http://nexus-search:8080"),

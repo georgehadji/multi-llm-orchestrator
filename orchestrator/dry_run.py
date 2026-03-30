@@ -23,11 +23,6 @@ Programmatic usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .models import Task
-
 
 # ─── Token estimates for cost prediction ─────────────────────────────────────
 # Average prompt + output tokens per task type (rough heuristic)
@@ -87,7 +82,7 @@ class DryRunRenderer:
     """Renders an ExecutionPlan as human-readable text."""
 
     @staticmethod
-    def render(plan: "ExecutionPlan") -> str:
+    def render(plan: ExecutionPlan) -> str:
         lines: list[str] = []
         lines.append("=" * 64)
         lines.append("DRY-RUN: Execution Plan")

@@ -12,7 +12,7 @@ Usage:
         OutputTarget,
         ProjectOutputConfig,
     )
-    
+
     generator = MultiPlatformGenerator()
     result = await generator.generate(
         project_description="Build a todo app",
@@ -26,11 +26,10 @@ Usage:
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .log_config import get_logger
 
@@ -61,40 +60,40 @@ class DeploymentTarget(str, Enum):
 @dataclass
 class ProjectOutputConfig:
     """Configuration for project output generation."""
-    targets: List[OutputTarget] = field(default_factory=list)
+    targets: list[OutputTarget] = field(default_factory=list)
     ios_deployment: bool = False
     android_deployment: bool = False
     web_deployment: bool = False
-    
+
     # App Store compliance
     include_privacy_policy: bool = True
     include_app_store_assets: bool = True  # Screenshots, descriptions
     hig_compliance: bool = True            # Apple Human Interface Guidelines
-    
+
     # Code quality
     include_tests: bool = True
     include_documentation: bool = True
     include_ci_cd: bool = True
-    
+
     # Database
     include_database: bool = True
     database_type: str = "sqlite"  # sqlite, postgresql, mongodb
-    
+
     # Authentication
     include_auth: bool = True
     auth_type: str = "jwt"  # jwt, oauth2, session
-    
+
     # Styling
     styling: str = "tailwind"  # tailwind, bootstrap, material-ui, none
-    
+
     # TypeScript
     use_typescript: bool = True
-    
+
     # Additional options
-    extra_packages: List[str] = field(default_factory=list)
-    custom_config: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    extra_packages: list[str] = field(default_factory=list)
+    custom_config: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "targets": [t.value for t in self.targets],
             "ios_deployment": self.ios_deployment,
@@ -130,16 +129,16 @@ class GeneratedFile:
 class PlatformOutput:
     """Output for a specific platform."""
     target: OutputTarget
-    files: List[GeneratedFile] = field(default_factory=list)
-    dependencies: List[str] = field(default_factory=list)
-    dev_dependencies: List[str] = field(default_factory=list)
-    scripts: Dict[str, str] = field(default_factory=dict)
+    files: list[GeneratedFile] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    dev_dependencies: list[str] = field(default_factory=list)
+    scripts: dict[str, str] = field(default_factory=dict)
     readme: str = ""
-    
+
     def add_file(self, path: str, content: str, description: str = "") -> None:
         self.files.append(GeneratedFile(path=path, content=content, description=description))
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "target": self.target.value,
             "file_count": len(self.files),
@@ -155,20 +154,20 @@ class MultiPlatformResult:
     """Result of multi-platform generation."""
     project_name: str
     project_description: str
-    outputs: Dict[OutputTarget, PlatformOutput] = field(default_factory=dict)
-    shared_files: List[GeneratedFile] = field(default_factory=list)
-    config: Optional[ProjectOutputConfig] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    outputs: dict[OutputTarget, PlatformOutput] = field(default_factory=dict)
+    shared_files: list[GeneratedFile] = field(default_factory=list)
+    config: ProjectOutputConfig | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     @property
     def total_files(self) -> int:
         total = len(self.shared_files)
         for output in self.outputs.values():
             total += len(output.files)
         return total
-    
+
     def summary(self) -> str:
-        platforms = ", ".join([t.value for t in self.outputs.keys()])
+        platforms = ", ".join([t.value for t in self.outputs])
         return (
             f"Project: {self.project_name}\n"
             f"Platforms: {platforms}\n"
@@ -180,7 +179,7 @@ class MultiPlatformResult:
 class MultiPlatformGenerator:
     """
     Generate multi-platform output from project specifications.
-    
+
     Usage:
         generator = MultiPlatformGenerator()
         result = await generator.generate(
@@ -190,11 +189,11 @@ class MultiPlatformGenerator:
             ),
         )
     """
-    
-    def __init__(self, output_dir: Optional[Path] = None):
+
+    def __init__(self, output_dir: Path | None = None):
         """
         Initialize generator.
-        
+
         Args:
             output_dir: Base output directory
         """
@@ -210,21 +209,21 @@ class MultiPlatformGenerator:
             OutputTarget.FULL_STACK: self._generate_full_stack,
             OutputTarget.PWA: self._generate_pwa,
         }
-    
+
     async def generate(
         self,
         project_description: str,
-        config: Optional[ProjectOutputConfig] = None,
-        project_name: Optional[str] = None,
+        config: ProjectOutputConfig | None = None,
+        project_name: str | None = None,
     ) -> MultiPlatformResult:
         """
         Generate multi-platform output.
-        
+
         Args:
             project_description: Project description
             config: Output configuration
             project_name: Optional project name
-            
+
         Returns:
             MultiPlatformResult with all generated files
         """
@@ -232,34 +231,34 @@ class MultiPlatformGenerator:
             config = ProjectOutputConfig(
                 targets=[OutputTarget.PYTHON_LIBRARY],
             )
-        
+
         if project_name is None:
             project_name = self._infer_project_name(project_description)
-        
+
         result = MultiPlatformResult(
             project_name=project_name,
             project_description=project_description,
             config=config,
         )
-        
+
         # Generate output for each target
         for target in config.targets:
             generator = self._generators.get(target)
             if generator:
                 output = await generator(project_description, project_name, config)
                 result.outputs[target] = output
-        
+
         # Generate shared files
         result.shared_files = await self._generate_shared_files(project_name, config)
-        
+
         # Add metadata
         result.metadata = {
             "generated_at": str(Path.cwd()),
             "config": config.to_dict(),
         }
-        
+
         return result
-    
+
     def _infer_project_name(self, description: str) -> str:
         """Infer project name from description."""
         # Simple heuristic: first few words
@@ -268,15 +267,15 @@ class MultiPlatformGenerator:
         # Remove non-alphanumeric
         name = "".join(c if c.isalnum() else "_" for c in name)
         return name[:50]  # Limit length
-    
+
     async def _generate_shared_files(
         self,
         project_name: str,
         config: ProjectOutputConfig,
-    ) -> List[GeneratedFile]:
+    ) -> list[GeneratedFile]:
         """Generate shared files (README, LICENSE, etc.)."""
         files = []
-        
+
         # README.md
         readme_content = self._generate_readme(project_name, config)
         files.append(GeneratedFile(
@@ -284,7 +283,7 @@ class MultiPlatformGenerator:
             content=readme_content,
             description="Project README",
         ))
-        
+
         # LICENSE
         license_content = self._generate_license()
         files.append(GeneratedFile(
@@ -292,7 +291,7 @@ class MultiPlatformGenerator:
             content=license_content,
             description="MIT License",
         ))
-        
+
         # Privacy Policy (if requested)
         if config.include_privacy_policy:
             privacy_content = self._generate_privacy_policy(project_name)
@@ -301,7 +300,7 @@ class MultiPlatformGenerator:
                 content=privacy_content,
                 description="Privacy Policy",
             ))
-        
+
         # .gitignore
         gitignore_content = self._generate_gitignore(config)
         files.append(GeneratedFile(
@@ -309,7 +308,7 @@ class MultiPlatformGenerator:
             content=gitignore_content,
             description="Git ignore file",
         ))
-        
+
         # CI/CD (if requested)
         if config.include_ci_cd:
             ci_content = self._generate_github_actions(config)
@@ -318,13 +317,13 @@ class MultiPlatformGenerator:
                 content=ci_content,
                 description="GitHub Actions CI/CD",
             ))
-        
+
         return files
-    
+
     def _generate_readme(self, project_name: str, config: ProjectOutputConfig) -> str:
         """Generate README.md content."""
         targets_str = ", ".join([t.value for t in config.targets])
-        
+
         return f"""# {project_name}
 
 Auto-generated project created by AI Orchestrator.
@@ -372,7 +371,7 @@ See individual platform folders for structure details.
 
 MIT License - see LICENSE file for details.
 """
-    
+
     def _generate_license(self) -> str:
         """Generate MIT License content."""
         return """MIT License
@@ -397,7 +396,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-    
+
     def _generate_privacy_policy(self, project_name: str) -> str:
         """Generate privacy policy template."""
         return f"""# Privacy Policy for {project_name}
@@ -450,7 +449,7 @@ For privacy-related questions, please contact: privacy@example.com
 
 We may update this policy. Continued use constitutes acceptance.
 """
-    
+
     def _generate_gitignore(self, config: ProjectOutputConfig) -> str:
         """Generate .gitignore content."""
         gitignore = """# Dependencies
@@ -503,12 +502,12 @@ coverage/
 *.aab
 """
         return gitignore
-    
+
     def _generate_github_actions(self, config: ProjectOutputConfig) -> str:
         """Generate GitHub Actions CI/CD workflow."""
         has_node = any(t in [OutputTarget.REACT_WEB_APP, OutputTarget.REACT_NATIVE_MOBILE, OutputTarget.PWA] for t in config.targets)
         has_python = any(t in [OutputTarget.PYTHON_LIBRARY, OutputTarget.FASTAPI_BACKEND, OutputTarget.FLASK_BACKEND] for t in config.targets)
-        
+
         steps = []
         if has_node:
             steps.append("""
@@ -517,17 +516,17 @@ coverage/
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run tests
         run: npm test
-      
+
       - name: Build
         run: npm run build
 """)
-        
+
         if has_python:
             steps.append("""
       - name: Setup Python
@@ -535,17 +534,17 @@ coverage/
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-      
+
       - name: Run tests
         run: pytest
-      
+
       - name: Run linting
         run: ruff check .
 """)
-        
+
         return f"""name: CI/CD
 
 on:
@@ -557,18 +556,18 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 {''.join(steps)}
       - name: Upload coverage
         uses: codecov/codecov-action@v3
 """
-    
+
     # ─────────────────────────────────────────────
     # Platform-Specific Generators
     # ─────────────────────────────────────────────
-    
+
     async def _generate_python(
         self,
         description: str,
@@ -577,18 +576,18 @@ jobs:
     ) -> PlatformOutput:
         """Generate Python library/package."""
         output = PlatformOutput(target=OutputTarget.PYTHON_LIBRARY)
-        
+
         # pyproject.toml
         output.add_file("pyproject.toml", self._generate_pyproject(project_name, config))
-        
+
         # Main module
         output.add_file(f"{project_name}/__init__.py", f'"""{project_name} package."""\n\n__version__ = "0.1.0"\n')
         output.add_file(f"{project_name}/main.py", self._generate_python_main(description, project_name))
-        
+
         # Tests
         if config.include_tests:
             output.add_file(f"tests/test_{project_name}.py", self._generate_python_tests(project_name))
-        
+
         # Dependencies
         output.dependencies = ["pydantic>=2.0", "httpx>=0.24"]
         output.dev_dependencies = ["pytest>=8.0", "ruff>=0.1", "mypy>=1.5"]
@@ -597,9 +596,9 @@ jobs:
             "lint": "ruff check .",
             "type-check": "mypy .",
         }
-        
+
         return output
-    
+
     def _generate_pyproject(self, project_name: str, config: ProjectOutputConfig) -> str:
         """Generate pyproject.toml."""
         return f"""[build-system]
@@ -625,7 +624,7 @@ target-version = "py310"
 python_version = "3.10"
 strict = true
 """
-    
+
     def _generate_python_main(self, description: str, project_name: str) -> str:
         """Generate main Python module."""
         return f'''"""
@@ -651,7 +650,7 @@ def main():
 if __name__ == "__main__":
     main()
 '''
-    
+
     def _generate_python_tests(self, project_name: str) -> str:
         """Generate Python tests."""
         return f'''"""Tests for {project_name}."""
@@ -672,7 +671,7 @@ def test_main():
     result = main()
     assert isinstance(result, Config)
 '''
-    
+
     async def _generate_react(
         self,
         description: str,
@@ -681,37 +680,37 @@ def test_main():
     ) -> PlatformOutput:
         """Generate React/Next.js web app."""
         output = PlatformOutput(target=OutputTarget.REACT_WEB_APP)
-        
+
         ts = config.use_typescript
         ext = "tsx" if ts else "jsx"
-        
+
         # package.json
         output.add_file("package.json", self._generate_package_json(project_name, config, web=True))
-        
+
         # Next.js config
         output.add_file("next.config.js", self._generate_next_config())
-        
+
         # TypeScript config
         if ts:
             output.add_file("tsconfig.json", self._generate_tsconfig())
-        
+
         # Main app
         output.add_file(f"app/page.{ext}", self._generate_react_homepage(description, ts))
         output.add_file(f"app/layout.{ext}", self._generate_react_layout(project_name, ts))
-        
+
         # Components
         output.add_file(f"components/Header.{ext}", self._generate_header_component(ts))
-        
+
         # Styles
         if config.styling == "tailwind":
             output.add_file("tailwind.config.js", self._generate_tailwind_config())
             output.add_file("app/globals.css", self._generate_tailwind_globals())
-        
+
         # Tests
         if config.include_tests:
-            output.add_file("__tests__/page.test.tsx" if ts else "__tests__/page.test.jsx", 
+            output.add_file("__tests__/page.test.tsx" if ts else "__tests__/page.test.jsx",
                           self._generate_react_tests(ts))
-        
+
         # Dependencies
         output.dependencies = ["next@14", "react@18", "react-dom@18"]
         if config.styling == "tailwind":
@@ -724,11 +723,11 @@ def test_main():
             "lint": "next lint",
             "test": "jest",
         }
-        
+
         output.readme = self._generate_react_readme(project_name, description)
-        
+
         return output
-    
+
     def _generate_package_json(self, project_name: str, config: ProjectOutputConfig, web: bool = True) -> str:
         """Generate package.json."""
         return json.dumps({
@@ -753,7 +752,7 @@ def test_main():
                 "typescript": "5.0.0",
             },
         }, indent=2)
-    
+
     def _generate_next_config(self) -> str:
         """Generate next.config.js."""
         return """/** @type {import('next').NextConfig} */
@@ -764,7 +763,7 @@ const nextConfig = {
 
 module.exports = nextConfig
 """
-    
+
     def _generate_tsconfig(self) -> str:
         """Generate tsconfig.json."""
         return json.dumps({
@@ -787,7 +786,7 @@ module.exports = nextConfig
             "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
             "exclude": ["node_modules"],
         }, indent=2)
-    
+
     def _generate_react_homepage(self, description: str, ts: bool) -> str:
         """Generate React homepage."""
         return f'''import React from 'react';
@@ -801,7 +800,7 @@ export default function Home() {{
   );
 }}
 '''
-    
+
     def _generate_react_layout(self, project_name: str, ts: bool) -> str:
         """Generate React layout."""
         return f'''import React from 'react';
@@ -827,7 +826,7 @@ export default function RootLayout({{
   );
 }}
 '''
-    
+
     def _generate_header_component(self, ts: bool) -> str:
         """Generate Header component."""
         return '''import React from 'react';
@@ -846,7 +845,7 @@ export default function Header() {
   );
 }
 '''
-    
+
     def _generate_tailwind_config(self) -> str:
         """Generate tailwind.config.js."""
         return """/** @type {import('tailwindcss').Config} */
@@ -862,7 +861,7 @@ module.exports = {
   plugins: [],
 }
 """
-    
+
     def _generate_tailwind_globals(self) -> str:
         """Generate Tailwind globals.css."""
         return """@tailwind base;
@@ -879,7 +878,7 @@ body {
   background: rgb(var(--background-rgb));
 }
 """
-    
+
     def _generate_react_tests(self, ts: bool) -> str:
         """Generate React tests."""
         return '''import { render, screen } from '@testing-library/react';
@@ -892,10 +891,10 @@ describe('Home', () => {
   });
 });
 '''
-    
+
     def _generate_react_readme(self, project_name: str, description: str) -> str:
         """Generate React-specific README section."""
-        return f"""
+        return """
 ## React App
 
 This is a Next.js 14 application with React 18.
@@ -919,7 +918,7 @@ npm run start  # Start production server
 └── __tests__/        # Tests
 ```
 """
-    
+
     async def _generate_react_native(
         self,
         description: str,
@@ -928,26 +927,26 @@ npm run start  # Start production server
     ) -> PlatformOutput:
         """Generate React Native mobile app."""
         output = PlatformOutput(target=OutputTarget.REACT_NATIVE_MOBILE)
-        
+
         ts = config.use_typescript
         ext = "tsx" if ts else "jsx"
-        
+
         # package.json
         output.add_file("package.json", self._generate_package_json(project_name, config, web=False))
-        
+
         # App entry
         output.add_file(f"App.{ext}", self._generate_react_native_app(description, project_name, ts))
-        
+
         # TypeScript config
         if ts:
             output.add_file("tsconfig.json", self._generate_tsconfig())
-        
+
         # Metro config
         output.add_file("metro.config.js", self._generate_metro_config())
-        
+
         # App.json
         output.add_file("app.json", self._generate_app_json(project_name))
-        
+
         # Dependencies
         output.dependencies = ["react-native@0.73", "react@18"]
         output.dev_dependencies = ["@types/react", "@types/react-native", "typescript"]
@@ -958,9 +957,9 @@ npm run start  # Start production server
             "test": "jest",
             "lint": "eslint .",
         }
-        
+
         return output
-    
+
     def _generate_metro_config(self) -> str:
         """Generate metro.config.js."""
         return """const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
@@ -969,14 +968,14 @@ const config = {};
 
 module.exports = mergeConfig(getDefaultConfig(__dirname), config);
 """
-    
+
     def _generate_app_json(self, project_name: str) -> str:
         """Generate app.json."""
         return json.dumps({
             "name": project_name,
             "displayName": project_name.title(),
         }, indent=2)
-    
+
     def _generate_react_native_app(self, description: str, project_name: str, ts: bool) -> str:
         """Generate React Native App.tsx."""
         return f'''import React, {{useState}} from 'react';
@@ -1043,7 +1042,7 @@ const styles = StyleSheet.create({{
 
 export default App;
 '''
-    
+
     async def _generate_swiftui(
         self,
         description: str,
@@ -1052,39 +1051,39 @@ export default App;
     ) -> PlatformOutput:
         """Generate SwiftUI iOS app."""
         output = PlatformOutput(target=OutputTarget.SWIFTUI_IOS)
-        
+
         # Project name formatted for iOS
         ios_name = project_name.title().replace("_", "")
-        
+
         # App entry
         output.add_file(f"{ios_name}App.swift", self._generate_swiftui_app(ios_name))
-        
+
         # ContentView
         output.add_file(f"{ios_name}/ContentView.swift", self._generate_swiftui_contentview(description, ios_name))
-        
+
         # Info.plist
         output.add_file(f"{ios_name}/Info.plist", self._generate_ios_infoplist(ios_name, config))
-        
+
         # Assets
-        output.add_file(f"{ios_name}/Assets.xcassets/AccentColor.colorset/Contents.json", 
+        output.add_file(f"{ios_name}/Assets.xcassets/AccentColor.colorset/Contents.json",
                        self._generate_colorset())
-        
+
         # Privacy policy
         if config.include_privacy_policy:
             output.add_file(f"{ios_name}/PrivacyPolicy.md", self._generate_privacy_policy(ios_name))
-        
+
         # Dependencies
         output.dependencies = []
         output.dev_dependencies = []
         output.scripts = {
-            "build": "xcodebuild -scheme {}".format(ios_name),
-            "run": "open {}.xcodeproj".format(ios_name),
+            "build": f"xcodebuild -scheme {ios_name}",
+            "run": f"open {ios_name}.xcodeproj",
         }
-        
+
         output.readme = self._generate_swiftui_readme(ios_name, description)
-        
+
         return output
-    
+
     def _generate_swiftui_app(self, ios_name: str) -> str:
         """Generate SwiftUI App entry."""
         return f'''import SwiftUI
@@ -1098,27 +1097,27 @@ struct {ios_name}App: App {{
     }}
 }}
 '''
-    
+
     def _generate_swiftui_contentview(self, description: str, ios_name: str) -> str:
         """Generate SwiftUI ContentView."""
         return f'''import SwiftUI
 
 struct ContentView: View {{
     @State private var count = 0
-    
+
     var body: some View {{
         NavigationView {{
             VStack(spacing: 20) {{
                 Text("{ios_name}")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-                
+
                 Text("{description}")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding()
-                
+
                 Button(action: {{
                     count += 1
                 }}) {{
@@ -1131,7 +1130,7 @@ struct ContentView: View {{
                         .background(Color.blue)
                         .cornerRadius(10)
                 }}
-                
+
                 Spacer()
             }}
             .padding()
@@ -1144,7 +1143,7 @@ struct ContentView: View {{
     ContentView()
 }}
 '''
-    
+
     def _generate_ios_infoplist(self, ios_name: str, config: ProjectOutputConfig) -> str:
         """Generate Info.plist."""
         privacy_keys = ""
@@ -1153,7 +1152,7 @@ struct ContentView: View {{
     <key>NSPrivacyPolicyURL</key>
     <string>https://example.com/privacy</string>
 """
-        
+
         return f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -1204,14 +1203,14 @@ struct ContentView: View {{
 </dict>
 </plist>
 '''
-    
+
     def _generate_colorset(self) -> str:
         """Generate colorset JSON."""
         return json.dumps({
             "colors": [{"idiom": "universal"}],
             "info": {"author": "xcode", "version": 1},
         }, indent=2)
-    
+
     def _generate_swiftui_readme(self, ios_name: str, description: str) -> str:
         """Generate SwiftUI README."""
         return f"""
@@ -1241,7 +1240,7 @@ xcodebuild -scheme {ios_name}
 3. Configure signing in Xcode
 4. Archive and upload to App Store Connect
 """
-    
+
     async def _generate_kotlin(
         self,
         description: str,
@@ -1250,19 +1249,19 @@ xcodebuild -scheme {ios_name}
     ) -> PlatformOutput:
         """Generate Kotlin Android app."""
         output = PlatformOutput(target=OutputTarget.KOTLIN_ANDROID)
-        
+
         android_name = project_name.lower().replace("_", "")
-        
+
         # build.gradle.kts (app)
         output.add_file("app/build.gradle.kts", self._generate_android_build_gradle(android_name))
-        
+
         # MainActivity.kt
-        output.add_file(f"app/src/main/java/com/example/{android_name}/MainActivity.kt", 
+        output.add_file(f"app/src/main/java/com/example/{android_name}/MainActivity.kt",
                        self._generate_main_activity(description, android_name))
-        
+
         # AndroidManifest.xml
         output.add_file("app/src/main/AndroidManifest.xml", self._generate_android_manifest(android_name, config))
-        
+
         # Dependencies
         output.dependencies = ["com.android.application", "org.jetbrains.kotlin.android"]
         output.dev_dependencies = []
@@ -1271,9 +1270,9 @@ xcodebuild -scheme {ios_name}
             "run": "./gradlew installDebug",
             "test": "./gradlew test",
         }
-        
+
         return output
-    
+
     def _generate_android_build_gradle(self, android_name: str) -> str:
         """Generate build.gradle.kts."""
         return f'''plugins {{
@@ -1315,7 +1314,7 @@ dependencies {{
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 }}
 '''
-    
+
     def _generate_main_activity(self, description: str, android_name: str) -> str:
         """Generate MainActivity.kt."""
         return f'''package com.example.{android_name}
@@ -1349,7 +1348,7 @@ class MainActivity : ComponentActivity() {{
 @Composable
 fun MainContent() {{
     var count by remember {{ mutableStateOf(0) }}
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1361,23 +1360,23 @@ fun MainContent() {{
             text = "{android_name.title()}",
             style = MaterialTheme.typography.headlineLarge
         )
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         Text(
             text = "{description}",
             style = MaterialTheme.typography.bodyMedium
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Button(onClick = {{ count++ }}) {{
             Text("Count: $count")
         }}
     }}
 }}
 '''
-    
+
     def _generate_android_manifest(self, android_name: str, config: ProjectOutputConfig) -> str:
         """Generate AndroidManifest.xml."""
         return f'''<?xml version="1.0" encoding="utf-8"?>
@@ -1390,7 +1389,7 @@ fun MainContent() {{
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.{android_name.title()}">
-        
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -1399,12 +1398,12 @@ fun MainContent() {{
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
+
     </application>
 
 </manifest>
 '''
-    
+
     async def _generate_fastapi(
         self,
         description: str,
@@ -1413,20 +1412,20 @@ fun MainContent() {{
     ) -> PlatformOutput:
         """Generate FastAPI backend."""
         output = PlatformOutput(target=OutputTarget.FASTAPI_BACKEND)
-        
+
         # requirements.txt
         output.add_file("requirements.txt", self._generate_fastapi_requirements())
-        
+
         # main.py
         output.add_file("main.py", self._generate_fastapi_main(description, project_name, config))
-        
+
         # models.py
         output.add_file("models.py", self._generate_fastapi_models())
-        
+
         # Tests
         if config.include_tests:
             output.add_file("tests/test_main.py", self._generate_fastapi_tests())
-        
+
         # Dependencies
         output.dependencies = ["fastapi>=0.109", "uvicorn>=0.27", "pydantic>=2.0"]
         if config.include_database:
@@ -1439,11 +1438,11 @@ fun MainContent() {{
             "prod": "uvicorn main:app --host 0.0.0.0 --port 8000",
             "test": "pytest",
         }
-        
+
         output.readme = self._generate_fastapi_readme(project_name, description)
-        
+
         return output
-    
+
     def _generate_fastapi_requirements(self) -> str:
         """Generate requirements.txt."""
         return """fastapi>=0.109.0
@@ -1451,7 +1450,7 @@ uvicorn[standard]>=0.27.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 """
-    
+
     def _generate_fastapi_main(self, description: str, project_name: str, config: ProjectOutputConfig) -> str:
         """Generate FastAPI main.py."""
         auth_import = ""
@@ -1465,7 +1464,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     # TODO: Implement actual authentication
     return {"access_token": "fake_token", "token_type": "bearer"}
 """
-        
+
         db_import = ""
         db_setup = ""
         if config.include_database:
@@ -1478,7 +1477,7 @@ DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 """
-        
+
         return f'''"""
 {project_name} - {description}
 """
@@ -1531,7 +1530,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
 '''
-    
+
     def _generate_fastapi_models(self) -> str:
         """Generate models.py."""
         return """from pydantic import BaseModel
@@ -1549,7 +1548,7 @@ class Item(BaseModel):
     description: Optional[str] = None
     price: float
 """
-    
+
     def _generate_fastapi_tests(self) -> str:
         """Generate FastAPI tests."""
         return '''import pytest
@@ -1581,7 +1580,7 @@ def test_create_item():
     assert response.status_code == 200
     assert response.json()["name"] == "Test Item"
 '''
-    
+
     def _generate_fastapi_readme(self, project_name: str, description: str) -> str:
         """Generate FastAPI README."""
         return f"""
@@ -1618,7 +1617,7 @@ uvicorn main:app --reload
 - `GET /items/{{item_id}}` - Get item
 - `POST /items` - Create item
 """
-    
+
     async def _generate_flask(
         self,
         description: str,
@@ -1627,10 +1626,10 @@ uvicorn main:app --reload
     ) -> PlatformOutput:
         """Generate Flask backend."""
         output = PlatformOutput(target=OutputTarget.FLASK_BACKEND)
-        
+
         # requirements.txt
         output.add_file("requirements.txt", "flask>=3.0\npython-dotenv>=1.0\n")
-        
+
         # app.py
         output.add_file("app.py", f'''"""
 {project_name} - {description}
@@ -1651,16 +1650,16 @@ def health():
 if __name__ == "__main__":
     app.run(debug=True)
 ''')
-        
+
         output.dependencies = ["flask>=3.0", "python-dotenv>=1.0"]
         output.dev_dependencies = ["pytest>=8.0"]
         output.scripts = {
             "dev": "python app.py",
             "test": "pytest",
         }
-        
+
         return output
-    
+
     async def _generate_full_stack(
         self,
         description: str,
@@ -1669,34 +1668,34 @@ if __name__ == "__main__":
     ) -> PlatformOutput:
         """Generate full-stack application."""
         output = PlatformOutput(target=OutputTarget.FULL_STACK)
-        
+
         # Generate backend
         backend = await self._generate_fastapi(description, f"{project_name}_backend", config)
         for f in backend.files:
             output.add_file(f"backend/{f.path}", f.content, f.description)
         output.dependencies.extend([f"backend: {d}" for d in backend.dependencies])
-        
+
         # Generate frontend
         frontend = await self._generate_react(description, f"{project_name}_frontend", config)
         for f in frontend.files:
             output.add_file(f"frontend/{f.path}", f.content, f.description)
         output.dependencies.extend([f"frontend: {d}" for d in frontend.dependencies])
-        
+
         # Docker Compose
         output.add_file("docker-compose.yml", self._generate_docker_compose(project_name))
-        
+
         output.scripts = {
             "dev": "docker-compose up",
             "build": "docker-compose build",
         }
-        
+
         output.readme = self._generate_fullstack_readme(project_name, description)
-        
+
         return output
-    
+
     def _generate_docker_compose(self, project_name: str) -> str:
         """Generate docker-compose.yml."""
-        return f'''version: '3.8'
+        return '''version: '3.8'
 
 services:
   backend:
@@ -1717,10 +1716,10 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://backend:8000
 '''
-    
+
     def _generate_fullstack_readme(self, project_name: str, description: str) -> str:
         """Generate full-stack README."""
-        return f"""
+        return """
 ## Full-Stack Application
 
 Complete application with React frontend and FastAPI backend.
@@ -1750,7 +1749,7 @@ docker-compose up
 docker-compose -f docker-compose.prod.yml up
 ```
 """
-    
+
     async def _generate_pwa(
         self,
         description: str,
@@ -1759,25 +1758,25 @@ docker-compose -f docker-compose.prod.yml up
     ) -> PlatformOutput:
         """Generate Progressive Web App."""
         output = PlatformOutput(target=OutputTarget.PWA)
-        
+
         # Similar to React but with PWA additions
         react_output = await self._generate_react(description, project_name, config)
         output.files = react_output.files
         output.dependencies = react_output.dependencies
-        
+
         # Add manifest.json
         output.add_file("public/manifest.json", self._generate_pwa_manifest(project_name))
-        
+
         # Add service worker
         output.add_file("public/sw.js", self._generate_service_worker())
-        
+
         # Add PWA configuration
         output.add_file("next.config.js", self._generate_pwa_next_config())
-        
+
         output.readme = self._generate_pwa_readme(project_name, description)
-        
+
         return output
-    
+
     def _generate_pwa_manifest(self, project_name: str) -> str:
         """Generate manifest.json for PWA."""
         return json.dumps({
@@ -1793,7 +1792,7 @@ docker-compose -f docker-compose.prod.yml up
                 {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
             ],
         }, indent=2)
-    
+
     def _generate_service_worker(self) -> str:
         """Generate service worker."""
         return """const CACHE_NAME = 'app-cache-v1';
@@ -1813,7 +1812,7 @@ self.addEventListener('fetch', event => {
   );
 });
 """
-    
+
     def _generate_pwa_next_config(self) -> str:
         """Generate Next.js config with PWA support."""
         return """/** @type {import('next').NextConfig} */
@@ -1826,10 +1825,10 @@ module.exports = withPWA({
   reactStrictMode: true,
 });
 """
-    
+
     def _generate_pwa_readme(self, project_name: str, description: str) -> str:
         """Generate PWA README."""
-        return f"""
+        return """
 ## Progressive Web App
 
 Installable web application with offline support.
@@ -1852,12 +1851,12 @@ Installable web application with offline support.
 
 async def generate_multi_platform(
     project_description: str,
-    config: Optional[ProjectOutputConfig] = None,
-    project_name: Optional[str] = None,
+    config: ProjectOutputConfig | None = None,
+    project_name: str | None = None,
 ) -> MultiPlatformResult:
     """
     Convenience function to generate multi-platform output.
-    
+
     Usage:
         result = await generate_multi_platform(
             "Build a todo app",

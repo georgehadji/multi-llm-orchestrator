@@ -25,7 +25,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from .models import ProjectState, TaskType
 
@@ -44,7 +43,7 @@ class ModuleInfo:
 
 class DependencyAnalyzer:
     """Analyze Python code to extract imports and defined symbols."""
-    
+
     @staticmethod
     def extract_imports(source: str) -> list[str]:
         """Extract top-level import statements from Python source."""
@@ -54,7 +53,7 @@ class DependencyAnalyzer:
         except SyntaxError:
             # Fallback: regex-based extraction for malformed code
             return DependencyAnalyzer._extract_imports_regex(source)
-        
+
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -65,25 +64,25 @@ class DependencyAnalyzer:
                 # Also capture specific imports from module
                 for alias in node.names:
                     imports.append(f"{module}.{alias.name}")
-        
+
         return sorted(set(imports))
-    
+
     @staticmethod
     def _extract_imports_regex(source: str) -> list[str]:
         """Fallback regex-based import extraction."""
         imports = []
         import_pattern = r'^import\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)'
         from_pattern = r'^from\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s+import'
-        
+
         for line in source.split('\n'):
             line = line.strip()
             if match := re.match(import_pattern, line):
                 imports.extend(name.strip() for name in match.group(1).split(','))
             elif match := re.match(from_pattern, line):
                 imports.append(match.group(1))
-        
+
         return sorted(set(imports))
-    
+
     @staticmethod
     def extract_exports(source: str) -> list[str]:
         """Extract defined classes and functions from Python source."""
@@ -92,7 +91,7 @@ class DependencyAnalyzer:
             tree = ast.parse(source)
         except SyntaxError:
             return DependencyAnalyzer._extract_exports_regex(source)
-        
+
         for node in ast.iter_child_nodes(tree):
             if isinstance(node, ast.ClassDef):
                 exports.append(f"class:{node.name}")
@@ -100,9 +99,9 @@ class DependencyAnalyzer:
                 exports.append(f"func:{node.name}")
             elif isinstance(node, ast.AsyncFunctionDef):
                 exports.append(f"async_func:{node.name}")
-        
+
         return exports
-    
+
     @staticmethod
     def _extract_exports_regex(source: str) -> list[str]:
         """Fallback regex-based export extraction."""
@@ -117,35 +116,35 @@ class DependencyAnalyzer:
 class ProjectAssembler:
     """
     Assemble a production-ready Python project from fragmented task outputs.
-    
+
     Analyzes CODE_GEN task outputs, detects dependencies between modules,
     and generates a complete project structure following modern best practices.
     """
-    
+
     def __init__(self, output_dir: Path, state: ProjectState):
         self.output_dir = Path(output_dir)
         self.state = state
         self.analyzer = DependencyAnalyzer()
         self.modules: list[ModuleInfo] = []
         self.project_name = self._sanitize_project_name()
-    
+
     def assemble(self) -> list[str]:
         """
         Main entry point. Analyzes tasks and generates project files.
-        
+
         Returns:
             List of created file paths (relative to output_dir)
         """
         # Extract modules from CODE_GEN tasks
         self.modules = self._extract_modules()
-        
+
         if not self.modules:
             logger.info("No CODE_GEN modules found, skipping project assembly")
             return []
-        
+
         # Analyze dependencies
         self._analyze_dependencies()
-        
+
         # Generate project structure
         created_files = []
         created_files.extend(self._generate_directory_structure())
@@ -162,29 +161,29 @@ class ProjectAssembler:
         created_files.extend(self._generate_precommit_config())
         created_files.extend(self._generate_exception_hierarchy())
         created_files.extend(self._generate_logging_config())
-        
+
         return created_files
-    
+
     def _extract_modules(self) -> list[ModuleInfo]:
         """Extract Python modules from CODE_GEN task outputs."""
         modules = []
         order = self.state.execution_order or list(self.state.results.keys())
-        
+
         for task_id in order:
             result = self.state.results.get(task_id)
             task = self.state.tasks.get(task_id)
-            
+
             if not result or not task:
                 continue
             if task.type != TaskType.CODE_GEN:
                 continue
             if not result.output:
                 continue
-            
+
             code = self._extract_code(result.output)
             if not code or len(code.strip()) < 50:
                 continue
-            
+
             module_name = self._sanitize_module_name(task_id)
             module = ModuleInfo(
                 name=module_name,
@@ -192,9 +191,9 @@ class ProjectAssembler:
                 task_id=task_id
             )
             modules.append(module)
-        
+
         return modules
-    
+
     def _extract_code(self, output: str) -> str:
         """Extract Python code from task output."""
         if match := re.search(r'```python\n(.*?)```', output, re.DOTALL):
@@ -202,21 +201,21 @@ class ProjectAssembler:
         if match := re.search(r'```\n(.*?)```', output, re.DOTALL):
             return match.group(1)
         return output
-    
+
     def _sanitize_module_name(self, task_id: str) -> str:
         """Convert task_id to valid Python module name."""
         name = re.sub(r'^task_', '', task_id)
         name = re.sub(r'^_0+', '_', name)
         name = re.sub(r'^_', '', name)
         name = re.sub(r'[^a-zA-Z0-9_]', '_', name)
-        
+
         if name and name[0].isdigit():
             name = 'task_' + name
         if not name or not name[0].isalpha():
             name = 'module_' + name
-        
+
         return name.lower()
-    
+
     def _sanitize_project_name(self) -> str:
         """Generate a valid Python package name from project description."""
         desc = self.state.project_description[:30]
@@ -226,7 +225,7 @@ class ProjectAssembler:
         if not name or name[0].isdigit():
             name = 'generated_project'
         return name
-    
+
     def _analyze_dependencies(self) -> None:
         """Analyze imports and exports for all modules."""
         for module in self.modules:
@@ -236,7 +235,7 @@ class ProjectAssembler:
                 "Module %s: %d imports, %d exports",
                 module.name, len(module.imports), len(module.exports)
             )
-    
+
     def _generate_directory_structure(self) -> list[str]:
         """Create clean directory structure following best practices."""
         dirs = [
@@ -250,18 +249,18 @@ class ProjectAssembler:
             self.output_dir / "scripts",
             self.output_dir / ".github" / "workflows",
         ]
-        
+
         for d in dirs:
             d.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info("Created directory structure with domain/application/infrastructure layers")
         return []
-    
+
     def _generate_module_files(self) -> list[str]:
         """Write extracted modules to src/{project_name}/ directory."""
         created = []
         base_dir = self.output_dir / "src" / self.project_name
-        
+
         # Create __init__.py files
         for init_path in [
             self.output_dir / "src" / "__init__.py",
@@ -272,31 +271,31 @@ class ProjectAssembler:
         ]:
             init_path.write_text('"""Auto-generated module."""\n', encoding="utf-8")
             created.append(str(init_path.relative_to(self.output_dir)))
-        
+
         # Distribute modules across layers based on content analysis
         for module in self.modules:
             # Simple heuristic: place in application layer by default
             target_dir = base_dir / "application"
-            
+
             # Check if it looks like infrastructure (DB, HTTP, external services)
             if any(x in ' '.join(module.imports) for x in ['requests', 'http', 'boto', 'sql', 'redis']):
                 target_dir = base_dir / "infrastructure"
             # Check if it looks like domain (pure business logic)
             elif not any(x in ' '.join(module.imports) for x in ['os', 'sys', 'requests', 'http']) and module.exports:
                 target_dir = base_dir / "domain"
-            
+
             file_path = target_dir / f"{module.name}.py"
             file_path.write_text(module.content, encoding="utf-8")
             created.append(str(file_path.relative_to(self.output_dir)))
-        
+
         logger.info("Generated %d module files across layers", len(self.modules))
         return created
-    
+
     def _generate_config_layer(self) -> list[str]:
         """Generate configuration layer with Pydantic Settings."""
         created = []
         base_dir = self.output_dir / "src" / self.project_name
-        
+
         # __init__.py with version
         init_content = f'''"""
 {self.project_name.replace('_', ' ').title()}
@@ -314,7 +313,7 @@ __all__ = ["Settings", "get_settings", "__version__"]
         init_file = base_dir / "__init__.py"
         init_file.write_text(init_content, encoding="utf-8")
         created.append(f"src/{self.project_name}/__init__.py")
-        
+
         # config.py with Pydantic Settings
         config_content = f'''"""
 Configuration Layer
@@ -357,46 +356,46 @@ LOGS_DIR.mkdir(exist_ok=True)
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables.
-    
+
     Usage:
         settings = get_settings()
         debug = settings.debug
     """
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
-    
+
     # Application
     app_name: str = "{self.project_name}"
     app_version: str = "0.1.0"
     debug: bool = Field(default=False, description="Enable debug mode")
     environment: str = Field(default="development", description="Environment: development, staging, production")
-    
+
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
     log_format: str = Field(default="json", description="Log format: json, text")
-    
+
     # Performance
     max_workers: int = Field(default=4, description="Maximum worker threads")
     timeout_seconds: int = Field(default=30, description="Default timeout for operations")
-    
+
     # Feature flags
     enable_metrics: bool = Field(default=True, description="Enable metrics collection")
     enable_tracing: bool = Field(default=False, description="Enable distributed tracing")
-    
+
     # Security (NEVER hardcode secrets, always use env vars)
     secret_key: Optional[str] = Field(default=None, description="Secret key for encryption")
     api_key: Optional[str] = Field(default=None, description="API key for external services")
-    
+
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""
         return self.environment.lower() == "production"
-    
+
     @property
     def is_development(self) -> bool:
         """Check if running in development environment."""
@@ -407,7 +406,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """
     Get cached settings instance.
-    
+
     Uses lru_cache to avoid reloading settings on every call.
     """
     if not HAS_PYDANTIC:
@@ -420,16 +419,16 @@ def configure_logging(settings: Optional[Settings] = None) -> None:
     """Configure structured logging for the application."""
     if settings is None:
         settings = get_settings()
-    
+
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
-    
+
     if settings.log_format == "json":
         # JSON format for production
         format_string = '{{"timestamp": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s"}}'
     else:
         # Human-readable format for development
         format_string = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-    
+
     logging.basicConfig(
         level=level,
         format=format_string,
@@ -438,19 +437,19 @@ def configure_logging(settings: Optional[Settings] = None) -> None:
             logging.FileHandler(LOGS_DIR / "app.log"),
         ]
     )
-    
+
     # Reduce noise from third-party libraries
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
 '''
-        
+
         config_file = base_dir / "config.py"
         config_file.write_text(config_content, encoding="utf-8")
         created.append(f"src/{self.project_name}/config.py")
-        
+
         logger.info("Generated configuration layer with Pydantic Settings")
         return created
-    
+
     def _generate_main_file(self) -> list[str]:
         """Generate main.py CLI entry point with proper error handling."""
         main_content = f'''#!/usr/bin/env python3
@@ -498,10 +497,10 @@ def get_available_steps() -> list[tuple[int, str, str, str]]:
     """Return list of (step_num, task_id, module_name, layer) tuples."""
     steps = []
     base_dir = Path(__file__).parent / "src" / "{self.project_name}"
-    
+
     layer_order = ["domain", "application", "infrastructure"]
     step_num = 0
-    
+
     for layer in layer_order:
         layer_dir = base_dir / layer
         if not layer_dir.exists():
@@ -513,21 +512,21 @@ def get_available_steps() -> list[tuple[int, str, str, str]]:
             module_name = py_file.stem
             task_id = f"task_{{step_num:03d}}"
             steps.append((step_num, task_id, module_name, layer))
-    
+
     return steps
 
 
 def health_check() -> dict[str, any]:
     """Perform health check and return status."""
     import datetime
-    
+
     status = {{
         "status": "healthy",
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "version": "0.1.0",
         "checks": {{}}
     }}
-    
+
     # Check configuration
     try:
         settings = get_settings()
@@ -535,7 +534,7 @@ def health_check() -> dict[str, any]:
     except Exception as e:
         status["checks"]["configuration"] = f"fail: {{e}}"
         status["status"] = "unhealthy"
-    
+
     # Check disk space
     try:
         import shutil
@@ -547,7 +546,7 @@ def health_check() -> dict[str, any]:
             status["status"] = "degraded"
     except Exception as e:
         status["checks"]["disk_space"] = f"error: {{e}}"
-    
+
     return status
 
 
@@ -555,28 +554,28 @@ def run_step(step_num: int, dry_run: bool = False, correlation_id: Optional[str]
     """Run a specific pipeline step with proper error handling."""
     cid = correlation_id or get_correlation_id()
     steps = get_available_steps()
-    
+
     if step_num < 1 or step_num > len(steps):
         logger.error(f"[{{cid}}] Step {{step_num}} not found (1-{{len(steps)}} available)")
         return False
-    
+
     _, task_id, module_name, layer = steps[step_num - 1]
     module_path = f"{self.project_name}.{{layer}}.{{module_name}}"
-    
+
     if dry_run:
         logger.info(f"[{{cid}}] [DRY-RUN] Would execute step {{step_num}}: {{module_name}} ({{layer}})")
         return True
-    
+
     logger.info(f"[{{cid}}] Starting step {{step_num}}: {{module_name}} ({{layer}})")
     start_time = time.time()
-    
+
     try:
         module = importlib.import_module(module_path)
         logger.debug(f"[{{cid}}] Module {{module_name}} loaded successfully")
-        
+
         executed = False
         result = None
-        
+
         # Try to find and execute main functions
         if hasattr(module, 'main'):
             func = module.main
@@ -594,14 +593,14 @@ def run_step(step_num: int, dry_run: bool = False, correlation_id: Optional[str]
                 result = func()
             logger.info(f"[{{cid}}] run() completed in {{time.time() - start_time:.2f}}s, result: {{result}}")
             executed = True
-        
+
         if not executed:
             logger.warning(f"[{{cid}}] No main() or run() found in {{module_name}}")
             available = [x for x in dir(module) if not x.startswith('_')]
             logger.debug(f"[{{cid}}] Available: {{available}}")
-        
+
         return True
-        
+
     except ApplicationError as e:
         logger.error(f"[{{cid}}] Application error in {{module_name}}: {{e}}")
         return False
@@ -614,19 +613,19 @@ def run_all(dry_run: bool = False) -> bool:
     """Run all pipeline steps with observability."""
     cid = get_correlation_id()
     settings = get_settings()
-    
+
     logger.info(f"[{{cid}}] Starting pipeline: {{settings.app_name}}")
     logger.info(f"[{{cid}}] Environment: {{settings.environment}}")
-    
+
     steps = get_available_steps()
     logger.info(f"[{{cid}}] Found {{len(steps)}} steps to execute")
-    
+
     if dry_run:
         logger.info(f"[{{cid}}] DRY-RUN MODE: Preview only")
-    
+
     success_count = 0
     failed_steps = []
-    
+
     for step_num, task_id, module_name, layer in steps:
         if run_step(step_num, dry_run=dry_run, correlation_id=cid):
             success_count += 1
@@ -635,14 +634,14 @@ def run_all(dry_run: bool = False) -> bool:
             if not dry_run:
                 logger.error(f"[{{cid}}] Pipeline stopped at step {{step_num}}")
                 break
-    
+
     # Summary
     total = len(steps)
     logger.info(f"[{{cid}}] Pipeline complete: {{success_count}}/{{total}} steps succeeded")
-    
+
     if failed_steps:
         logger.warning(f"[{{cid}}] Failed steps: {{failed_steps}}")
-    
+
     return success_count == total
 
 
@@ -650,14 +649,14 @@ def list_steps() -> None:
     """Display all available pipeline steps."""
     steps = get_available_steps()
     settings = get_settings()
-    
+
     print(f"\\n{{'='*60}}")
     print(f"Available Steps: {{settings.app_name}}")
     print(f"{{'='*60}}\\n")
-    
+
     for step_num, task_id, module_name, layer in steps:
         print(f"  {{step_num}}. {{module_name:20s}} ({{layer:15s}}) - {{task_id}}")
-    
+
     print(f"\\nTotal: {{len(steps)}} step(s)")
     print(f"Run with: python main.py [--step N] [--dry-run]")
 
@@ -666,14 +665,14 @@ def main() -> int:
     """Main entry point with proper CLI handling."""
     settings = get_settings()
     configure_logging(settings)
-    
+
     parser = argparse.ArgumentParser(
         description=settings.app_name,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python main.py              # Run all steps
-  python main.py --list       # Show available steps  
+  python main.py --list       # Show available steps
   python main.py --step 1     # Run only step 1
   python main.py --dry-run    # Preview without executing
   python main.py --health     # Health check
@@ -705,27 +704,27 @@ Examples:
         action="version",
         version=f"%(prog)s {{settings.app_version}}"
     )
-    
+
     args = parser.parse_args()
-    
+
     try:
         if args.health:
             import json
             status = health_check()
             print(json.dumps(status, indent=2))
             return 0 if status["status"] == "healthy" else 1
-        
+
         if args.list:
             list_steps()
             return 0
-        
+
         if args.step:
             success = run_step(args.step, dry_run=args.dry_run)
         else:
             success = run_all(dry_run=args.dry_run)
-        
+
         return 0 if success else 1
-        
+
     except ConfigurationError as e:
         logger.error(f"Configuration error: {{e}}")
         return 2
@@ -740,16 +739,16 @@ Examples:
 if __name__ == "__main__":
     sys.exit(main())
 '''
-        
+
         main_file = self.output_dir / "main.py"
         main_file.write_text(main_content, encoding="utf-8")
         logger.info("Generated main.py with proper error handling and observability")
         return ["main.py"]
-    
+
     def _generate_pyproject_toml(self) -> list[str]:
         """Generate comprehensive pyproject.toml with all tools configured."""
         dependencies = self._extract_dependencies()
-        
+
         toml_content = f"""[build-system]
 requires = ["hatchling>=1.18.0"]
 build-backend = "hatchling.build"
@@ -946,21 +945,21 @@ tag = true
 [[tool.bumpversion.files]]
 filename = "src/{self.project_name}/__init__.py"
 """
-        
+
         toml_file = self.output_dir / "pyproject.toml"
-        
+
         # Fix any newline issues in TOML strings before writing
         # This prevents "Illegal character '\n'" errors during pip install
         toml_content = self._sanitize_toml_content(toml_content)
-        
+
         toml_file.write_text(toml_content, encoding="utf-8")
         logger.info("Generated comprehensive pyproject.toml with all tool configurations")
         return ["pyproject.toml"]
-    
+
     def _sanitize_toml_content(self, content: str) -> str:
         """
         Sanitize TOML content to prevent parsing errors.
-        
+
         Fixes:
         - Multi-line strings in values (convert to single line)
         - Unescaped special characters
@@ -968,10 +967,10 @@ filename = "src/{self.project_name}/__init__.py"
         - Unescaped backslashes in regex patterns
         """
         import re
-        
+
         lines = content.split('\n')
         sanitized = []
-        
+
         for line in lines:
             # Check for unclosed strings in value assignments
             if '=' in line and '"' in line:
@@ -983,26 +982,26 @@ filename = "src/{self.project_name}/__init__.py"
                     last_quote = line.rfind('"', 0, line.rfind('"'))
                     if last_quote > 0:
                         line = line[:last_quote + 1]
-            
+
             # Fix nested quotes in array items (common in pytest markers)
             if '[' in line or ']' in line or (sanitized and sanitized[-1].strip().endswith('[')):
                 # We're in an array - fix nested quotes
                 line = re.sub(r"'-m \"([^\"]+)\"'", r"'-m \1'", line)
-            
+
             # Fix unescaped backslashes in strings (regex patterns)
             # Pattern: single backslash followed by word char or special char
             # Replace \b, \., \(, \) with \\b, \\., \\(, \\)
             if '"' in line:
                 # Only in quoted strings
                 line = re.sub(r'(?<!\\)\\([bBnNrt().*?^${}[\]|])', r'\\\\\1', line)
-            
+
             # Replace literal \n in strings with space (TOML doesn't allow \n in basic strings)
             line = re.sub(r'"([^"]*)\\n([^"]*)"', r'"\1 \2"', line)
-            
+
             sanitized.append(line)
-        
+
         return '\n'.join(sanitized)
-    
+
     def _extract_dependencies(self) -> list[str]:
         """Extract external package dependencies from module imports."""
         stdlib_modules = {
@@ -1016,14 +1015,14 @@ filename = "src/{self.project_name}/__init__.py"
             'typing', 'unittest', 'urllib', 'uuid', 'warnings', 'xml', 'zipfile',
             'builtins', '__future__', 'typing_extensions', 'zoneinfo', 'graphlib',
         }
-        
+
         external = set()
         for module in self.modules:
             for imp in module.imports:
                 pkg = imp.split('.')[0]
                 if pkg not in stdlib_modules and not pkg.startswith('_'):
                     external.add(pkg)
-        
+
         # Map common package names to PyPI names
         pypi_mapping = {
             'PIL': 'pillow>=10.0.0',
@@ -1036,19 +1035,19 @@ filename = "src/{self.project_name}/__init__.py"
             'numpy': 'numpy>=1.24.0',
             'pandas': 'pandas>=2.0.0',
         }
-        
+
         result = []
         for pkg in sorted(external):
             pypi_name = pypi_mapping.get(pkg, f"{pkg}>=1.0.0")
             result.append(pypi_name)
-        
+
         # Always include pydantic-settings for config layer
         if 'pydantic' not in external:
             result.append('pydantic-settings>=2.0.0')
             result.append('pydantic>=2.0.0')
-        
+
         return sorted(result)
-    
+
     def _generate_makefile(self) -> list[str]:
         """Generate comprehensive Makefile with all development tasks."""
         makefile_content = f'''# Auto-generated by Project Assembler
@@ -1147,12 +1146,12 @@ docker-test:
 ci: format-check lint type-check test security-check
 	@echo "All CI checks passed!"
 '''
-        
+
         makefile_file = self.output_dir / "Makefile"
         makefile_file.write_text(makefile_content, encoding="utf-8")
         logger.info("Generated comprehensive Makefile")
         return ["Makefile"]
-    
+
     def _generate_dockerfile(self) -> list[str]:
         """Generate multi-stage Dockerfile with best practices."""
         dockerfile_content = f'''# Multi-stage Dockerfile for production deployment
@@ -1254,10 +1253,10 @@ USER appuser
 # Run tests by default
 CMD ["pytest", "-v"]
 '''
-        
+
         dockerfile = self.output_dir / "Dockerfile"
         dockerfile.write_text(dockerfile_content, encoding="utf-8")
-        
+
         # Generate .dockerignore
         dockerignore_content = '''# Git
 .git
@@ -1322,13 +1321,13 @@ docker-compose*
 .gitlab-ci.yml
 .travis.yml
 '''
-        
+
         dockerignore = self.output_dir / ".dockerignore"
         dockerignore.write_text(dockerignore_content, encoding="utf-8")
-        
+
         logger.info("Generated Dockerfile (multi-stage) and .dockerignore")
         return ["Dockerfile", ".dockerignore"]
-    
+
     def _generate_github_actions(self) -> list[str]:
         """Generate GitHub Actions CI/CD workflow."""
         workflow_content = f'''# CI/CD Pipeline
@@ -1352,22 +1351,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          
+
       - name: Install dependencies
         run: |
           pip install -e ".[dev]"
-          
+
       - name: Run linter
         run: ruff check src/ tests/
-        
+
       - name: Check formatting
         run: black --check src/ tests/
-        
+
       - name: Type check
         run: mypy src/
 
@@ -1378,19 +1377,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          
+
       - name: Install dependencies
         run: |
           pip install -e ".[security]"
-          
+
       - name: Run Bandit security scan
         run: bandit -r src/ -f json -o bandit-report.json || true
-        
+
       - name: Upload security report
         uses: actions/upload-artifact@v4
         with:
@@ -1406,23 +1405,23 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
       fail-fast: false
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          
+
       - name: Install dependencies
         run: |
           pip install -e ".[dev]"
-          
+
       - name: Run tests with coverage
         run: |
           pytest --cov=src/{self.project_name} --cov-report=xml --cov-report=term
-          
+
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v3
@@ -1437,20 +1436,20 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
+
       - name: Login to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -1469,21 +1468,21 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          
+
       - name: Install build dependencies
         run: pip install build twine
-        
+
       - name: Build package
         run: python -m build
-        
+
       - name: Publish to PyPI
         if: github.event_name == 'release'
         env:
@@ -1491,15 +1490,15 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload dist/*
 '''
-        
+
         workflow_dir = self.output_dir / ".github" / "workflows"
         workflow_dir.mkdir(parents=True, exist_ok=True)
         workflow_file = workflow_dir / "ci.yml"
         workflow_file.write_text(workflow_content, encoding="utf-8")
-        
+
         logger.info("Generated GitHub Actions CI/CD workflow")
         return [".github/workflows/ci.yml"]
-    
+
     def _generate_env_example(self) -> list[str]:
         """Generate .env.example with all configuration options."""
         env_content = f'''# Environment Configuration
@@ -1567,22 +1566,22 @@ ENABLE_TRACING=false
 # Database URL (if applicable)
 # DATABASE_URL=postgresql://user:pass@localhost/dbname
 
-# Redis URL (if applicable)  
+# Redis URL (if applicable)
 # REDIS_URL=redis://localhost:6379/0
 '''
-        
+
         env_file = self.output_dir / ".env.example"
         env_file.write_text(env_content, encoding="utf-8")
-        
+
         logger.info("Generated .env.example")
         return [".env.example"]
-    
+
     def _generate_test_structure(self) -> list[str]:
         """Generate test structure with fixtures and conftest."""
         created = []
-        
+
         # conftest.py
-        conftest_content = f'''"""
+        conftest_content = '''"""
 Pytest Configuration and Fixtures
 ==================================
 Shared fixtures for all tests.
@@ -1625,11 +1624,11 @@ def clean_environment():
     yield
     # Cleanup code here
 '''
-        
+
         conftest_file = self.output_dir / "tests" / "conftest.py"
         conftest_file.write_text(conftest_content, encoding="utf-8")
         created.append("tests/conftest.py")
-        
+
         # Unit test example
         unit_test_content = f'''"""
 Unit Tests
@@ -1646,23 +1645,23 @@ pytestmark = pytest.mark.unit
 
 class TestExample:
     """Example unit test class."""
-    
+
     def test_example_passes(self):
         """A simple test that always passes."""
         assert True
-    
+
     def test_import_project(self):
         """Test that project module can be imported."""
         import {self.project_name}
         assert {self.project_name}.__version__ is not None
 '''
-        
+
         unit_test_file = self.output_dir / "tests" / "unit" / "test_example.py"
         unit_test_file.write_text(unit_test_content, encoding="utf-8")
         created.append("tests/unit/test_example.py")
-        
+
         # Integration test example
-        integration_test_content = f'''"""
+        integration_test_content = '''"""
 Integration Tests
 =================
 Tests for component interactions.
@@ -1678,17 +1677,17 @@ pytestmark = pytest.mark.integration
 @pytest.mark.slow
 class TestIntegration:
     """Example integration test class."""
-    
+
     def test_full_pipeline(self):
         """Test the full pipeline end-to-end."""
         # TODO: Implement integration test
         pass
 '''
-        
+
         integration_test_file = self.output_dir / "tests" / "integration" / "test_integration.py"
         integration_test_file.write_text(integration_test_content, encoding="utf-8")
         created.append("tests/integration/test_integration.py")
-        
+
         # __init__.py files
         for init_path in [
             self.output_dir / "tests" / "__init__.py",
@@ -1698,14 +1697,14 @@ class TestIntegration:
         ]:
             init_path.write_text('"""Test module."""\n', encoding="utf-8")
             created.append(str(init_path.relative_to(self.output_dir)))
-        
+
         logger.info("Generated test structure with pytest fixtures")
         return created
-    
+
     def _generate_docs_structure(self) -> list[str]:
         """Generate documentation structure."""
         created = []
-        
+
         # Architecture Decision Record (ADR) template
         adr_content = '''# ADR 001: Project Structure
 
@@ -1727,17 +1726,17 @@ We adopt a layered architecture with domain/application/infrastructure separatio
 - Testability improves
 - Dependencies are explicit
 '''
-        
+
         adr_file = self.output_dir / "docs" / "adr" / "001-project-structure.md"
         adr_file.write_text(adr_content, encoding="utf-8")
         created.append("docs/adr/001-project-structure.md")
-        
+
         logger.info("Generated documentation structure")
         return created
-    
+
     def _generate_precommit_config(self) -> list[str]:
         """Generate pre-commit configuration."""
-        precommit_content = f'''# Pre-commit hooks configuration
+        precommit_content = '''# Pre-commit hooks configuration
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
 
@@ -1785,16 +1784,16 @@ repos:
         args: ["-c", "pyproject.toml"]
         additional_dependencies: ["bandit[toml]"]
 '''
-        
+
         precommit_file = self.output_dir / ".pre-commit-config.yaml"
         precommit_file.write_text(precommit_content, encoding="utf-8")
-        
+
         logger.info("Generated .pre-commit-config.yaml")
         return [".pre-commit-config.yaml"]
-    
+
     def _generate_exception_hierarchy(self) -> list[str]:
         """Generate exception hierarchy for proper error handling."""
-        exceptions_content = f'''"""
+        exceptions_content = '''"""
 Exception Hierarchy
 ===================
 Explicit exception hierarchy for proper error handling.
@@ -1814,17 +1813,17 @@ from __future__ import annotations
 
 class ApplicationError(Exception):
     """Base exception for all application errors."""
-    
+
     def __init__(self, message: str, *, code: str | None = None, details: dict | None = None):
         super().__init__(message)
         self.message = message
         self.code = code or "UNKNOWN_ERROR"
-        self.details = details or {{}}
-    
+        self.details = details or {}
+
     def __str__(self) -> str:
         if self.details:
-            return f"{{self.code}}: {{self.message}} ({{self.details}})"
-        return f"{{self.code}}: {{self.message}}"
+            return f"{self.code}: {self.message} ({self.details})"
+        return f"{self.code}: {self.message}"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1838,16 +1837,16 @@ class DomainError(ApplicationError):
 
 class ValidationError(DomainError):
     """Input validation failed."""
-    
+
     def __init__(self, message: str, *, field: str | None = None):
-        super().__init__(message, code="VALIDATION_ERROR", details={{"field": field}})
+        super().__init__(message, code="VALIDATION_ERROR", details={"field": field})
 
 
 class BusinessRuleError(DomainError):
     """Business rule was violated."""
-    
+
     def __init__(self, message: str, *, rule: str | None = None):
-        super().__init__(message, code="BUSINESS_RULE_VIOLATION", details={{"rule": rule}})
+        super().__init__(message, code="BUSINESS_RULE_VIOLATION", details={"rule": rule})
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1861,16 +1860,16 @@ class ApplicationLayerError(ApplicationError):
 
 class ConfigurationError(ApplicationLayerError):
     """Configuration is invalid or missing."""
-    
+
     def __init__(self, message: str, *, config_key: str | None = None):
-        super().__init__(message, code="CONFIGURATION_ERROR", details={{"key": config_key}})
+        super().__init__(message, code="CONFIGURATION_ERROR", details={"key": config_key})
 
 
 class TimeoutError(ApplicationLayerError):
     """Operation timed out."""
-    
+
     def __init__(self, message: str, *, timeout_seconds: float | None = None):
-        super().__init__(message, code="TIMEOUT", details={{"timeout": timeout_seconds}})
+        super().__init__(message, code="TIMEOUT", details={"timeout": timeout_seconds})
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1879,7 +1878,7 @@ class TimeoutError(ApplicationLayerError):
 
 class InfrastructureError(ApplicationError):
     """Errors from external services or infrastructure.
-    
+
     These errors are typically retriable.
     """
     pass
@@ -1887,7 +1886,7 @@ class InfrastructureError(ApplicationError):
 
 class ExternalServiceError(InfrastructureError):
     """External service returned an error."""
-    
+
     def __init__(
         self,
         message: str,
@@ -1899,36 +1898,36 @@ class ExternalServiceError(InfrastructureError):
         super().__init__(
             message,
             code="EXTERNAL_SERVICE_ERROR",
-            details={{
+            details={
                 "service": service,
                 "status_code": status_code,
                 "retriable": retriable
-            }}
+            }
         )
         self.retriable = retriable
 
 
 class DatabaseError(InfrastructureError):
     """Database operation failed."""
-    
+
     def __init__(self, message: str, *, operation: str | None = None):
-        super().__init__(message, code="DATABASE_ERROR", details={{"operation": operation}})
+        super().__init__(message, code="DATABASE_ERROR", details={"operation": operation})
 
 
 class NetworkError(InfrastructureError):
     """Network operation failed."""
-    
+
     def __init__(self, message: str, *, url: str | None = None):
-        super().__init__(message, code="NETWORK_ERROR", details={{"url": url}})
+        super().__init__(message, code="NETWORK_ERROR", details={"url": url})
 '''
-        
+
         base_dir = self.output_dir / "src" / self.project_name
         exceptions_file = base_dir / "exceptions.py"
         exceptions_file.write_text(exceptions_content, encoding="utf-8")
-        
+
         logger.info("Generated exception hierarchy")
         return [f"src/{self.project_name}/exceptions.py"]
-    
+
     def _generate_logging_config(self) -> list[str]:
         """Generate structured logging utilities."""
         logging_content = f'''"""
@@ -1938,7 +1937,7 @@ Structured logging with correlation IDs and context.
 
 Usage:
     from {self.project_name}.logging import get_logger
-    
+
     logger = get_logger(__name__)
     logger.info("Processing started", extra={{"item_id": 123}})
 """
@@ -1957,7 +1956,7 @@ correlation_id: ContextVar[str] = ContextVar('correlation_id', default='')
 
 class JSONFormatter(logging.Formatter):
     """JSON formatter for structured logging."""
-    
+
     def format(self, record: logging.LogRecord) -> str:
         log_obj = {{
             "timestamp": datetime.utcnow().isoformat(),
@@ -1966,21 +1965,21 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
             "correlation_id": correlation_id.get() or getattr(record, 'correlation_id', ''),
         }}
-        
+
         # Add exception info if present
         if record.exc_info:
             log_obj["exception"] = self.formatException(record.exc_info)
-        
+
         # Add extra fields
         for key, value in getattr(record, 'extra', {{}}).items():
             log_obj[key] = value
-        
+
         return json.dumps(log_obj, default=str)
 
 
 class ContextFilter(logging.Filter):
     """Add correlation ID to log records."""
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         record.correlation_id = correlation_id.get()
         return True
@@ -2004,28 +2003,28 @@ def get_correlation_id() -> str:
 def configure_structured_logging(level: str = "INFO", format: str = "json") -> None:
     """Configure structured logging for the application."""
     handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
-    
+
     if format == "json":
         formatter = JSONFormatter()
     else:
         formatter = logging.Formatter(
             "%(asctime)s | %(levelname)-8s | %(correlation_id)s | %(name)s | %(message)s"
         )
-    
+
     for handler in handlers:
         handler.setFormatter(formatter)
         handler.addFilter(ContextFilter())
-    
+
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         handlers=handlers,
         force=True,
     )
 '''
-        
+
         base_dir = self.output_dir / "src" / self.project_name
         logging_file = base_dir / "logging.py"
         logging_file.write_text(logging_content, encoding="utf-8")
-        
+
         logger.info("Generated structured logging utilities")
         return [f"src/{self.project_name}/logging.py"]

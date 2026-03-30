@@ -15,32 +15,32 @@ Key Features:
 
 Usage:
     from orchestrator.nexus_search import search, research
-    
+
     # Simple search
     results = await search("Python async best practices")
-    
+
     # Deep research
     report = await research("Microservices architecture patterns 2026")
 """
 
+from .config import NexusConfig, get_config
 from .core import NexusSearchOrchestrator, get_nexus_orchestrator
 from .models import (
+    Finding,
+    OptimizationMode,
+    QueryType,
+    ResearchReport,
+    SearchQuery,
     SearchResult,
     SearchResults,
     SearchSource,
-    SearchQuery,
-    ResearchReport,
-    Finding,
-    QueryType,
-    OptimizationMode,
 )
-from .config import NexusConfig, get_config
 
 __all__ = [
     # Main interface
     "NexusSearchOrchestrator",
     "get_nexus_orchestrator",
-    
+
     # Models
     "SearchResult",
     "SearchResults",
@@ -50,7 +50,7 @@ __all__ = [
     "Finding",
     "QueryType",
     "OptimizationMode",
-    
+
     # Configuration
     "NexusConfig",
     "get_config",

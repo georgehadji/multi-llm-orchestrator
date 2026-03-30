@@ -36,13 +36,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Optional
-
-from .models import Model, ProjectState, TaskResult
-from .policy import ModelProfile, JobSpec
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .engine import Orchestrator
+    from .models import Model, ProjectState, TaskResult
+    from .policy import JobSpec, ModelProfile
 
 logger = logging.getLogger("orchestrator.agents")
 
@@ -119,20 +118,20 @@ class AgentPool:
     """
 
     def __init__(self) -> None:
-        self._agents: dict[str, "Orchestrator"] = {}
+        self._agents: dict[str, Orchestrator] = {}
 
-    def add_agent(self, name: str, orchestrator: "Orchestrator") -> None:
+    def add_agent(self, name: str, orchestrator: Orchestrator) -> None:
         """Register a named Orchestrator instance."""
         self._agents[name] = orchestrator
         logger.debug("AgentPool: registered agent %r", name)
 
-    def agents(self) -> dict[str, "Orchestrator"]:
+    def agents(self) -> dict[str, Orchestrator]:
         """Return a read-only copy of the registered agents dict."""
         return dict(self._agents)
 
     async def run_parallel(
         self,
-        assignments: dict[str, "JobSpec"],
+        assignments: dict[str, JobSpec],
     ) -> dict[str, ProjectState]:
         """
         Run each assignment on its named agent concurrently.
@@ -152,7 +151,7 @@ class AgentPool:
         results_raw = await asyncio.gather(*coros, return_exceptions=True)
 
         results: dict[str, ProjectState] = {}
-        for name, outcome in zip(names, results_raw):
+        for name, outcome in zip(names, results_raw, strict=False):
             if isinstance(outcome, Exception):
                 logger.error(
                     "AgentPool: agent %r raised during run_job: %s",
@@ -164,8 +163,8 @@ class AgentPool:
 
     def best_result(
         self,
-        results: dict[str, "ProjectState"],
-    ) -> Optional["ProjectState"]:
+        results: dict[str, ProjectState],
+    ) -> ProjectState | None:
         """
         Return the ProjectState with the highest mean TaskResult.score.
 
@@ -174,7 +173,7 @@ class AgentPool:
         if not results:
             return None
 
-        best_state: Optional[ProjectState] = None
+        best_state: ProjectState | None = None
         best_score: float = -1.0
 
         for state in results.values():
@@ -220,7 +219,7 @@ class AgentPool:
             all_models |= set(pd.keys())
 
         merged: dict[Model, ModelProfile] = {}
-        base_profiles = build_default_profiles()
+        build_default_profiles()
 
         for model in all_models:
             contributing = [pd[model] for pd in all_profile_dicts if model in pd]

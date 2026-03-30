@@ -22,10 +22,11 @@ from __future__ import annotations
 
 import collections
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from .models import Model
-from .policy import ModelProfile
+if TYPE_CHECKING:
+    from .models import Model
+    from .policy import ModelProfile
 
 logger = logging.getLogger("orchestrator.telemetry")
 
@@ -85,11 +86,11 @@ class TelemetryCollector:
         latency_ms: float,
         cost_usd: float,
         success: bool,
-        quality_score: Optional[float] = None,
+        quality_score: float | None = None,
     ) -> None:
         """
         Update ModelProfile after a single API call.
-        
+
         OPTIMIZATION: p95 calculation uses numpy.percentile if available (O(n)),
         otherwise uses statistics.quantiles with partial sort.
         """
@@ -115,7 +116,7 @@ class TelemetryCollector:
                 model, collections.deque(maxlen=_LATENCY_BUFFER_SIZE)
             )
             buf.append(latency_ms)
-            
+
             # OPTIMIZED p95 calculation
             profile.latency_p95_ms = self._calculate_p95(list(buf))
 
@@ -173,20 +174,20 @@ class TelemetryCollector:
     def _calculate_p95(self, values: list[float]) -> float:
         """
         Calculate 95th percentile efficiently.
-        
+
         Uses numpy if available for vectorized operation,
         otherwise uses statistics.quantiles for partial sort.
         """
         if not values:
             return 0.0
-        
+
         if len(values) == 1:
             return values[0]
-        
+
         # Use numpy for O(n) performance
         if _HAS_NUMPY:
             return float(np.percentile(values, 95, interpolation='linear'))
-        
+
         # Fallback to statistics.quantiles (uses partial sort, O(n) average)
         try:
             import statistics
@@ -201,10 +202,10 @@ class TelemetryCollector:
         profile = self._profiles.get(model)
         if profile is None:
             return {}
-        
+
         buf = self._latency_buffers.get(model, collections.deque())
         win = self._success_windows.get(model, collections.deque())
-        
+
         return {
             "model": model.value,
             "call_count": profile.call_count,

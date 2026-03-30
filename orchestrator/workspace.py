@@ -15,21 +15,19 @@ Usage:
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 logger = logging.getLogger("orchestrator.workspace")
 
 
 class Workspace:
     """Represents a single workspace."""
-    
+
     def __init__(self, id: str, name: str, owner: str, description: str = "",
                  created_at: datetime = None, metadata: dict = None):
         self.id = id
@@ -38,15 +36,15 @@ class Workspace:
         self.description = description
         self.created_at = created_at or datetime.now()
         self.metadata = metadata or {}
-        self.members: List[str] = []
-        self.settings: Dict[str, any] = {}
+        self.members: list[str] = []
+        self.settings: dict[str, any] = {}
         self.stats = {
             "tasks_completed": 0,
             "tokens_used": 0,
             "storage_used": 0
         }
-    
-    def to_dict(self) -> Dict[str, any]:
+
+    def to_dict(self) -> dict[str, any]:
         """Convert workspace to dictionary for serialization."""
         return {
             "id": self.id,
@@ -59,9 +57,9 @@ class Workspace:
             "settings": self.settings,
             "stats": self.stats
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, any]) -> Workspace:
+    def from_dict(cls, data: dict[str, any]) -> Workspace:
         """Create workspace from dictionary."""
         workspace = cls(
             id=data["id"],
@@ -84,14 +82,14 @@ class WorkspaceManager:
         """Initialize the workspace manager."""
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.workspaces: Dict[str, Workspace] = {}
-        self.active_workspace_id: Optional[str] = None
-        self.workspace_dirs: Dict[str, Path] = {}
-        
+
+        self.workspaces: dict[str, Workspace] = {}
+        self.active_workspace_id: str | None = None
+        self.workspace_dirs: dict[str, Path] = {}
+
         # Load existing workspaces
         self._load_workspaces()
-    
+
     def _load_workspaces(self):
         """Load existing workspaces from the base directory."""
         for workspace_dir in self.base_dir.iterdir():
@@ -99,46 +97,46 @@ class WorkspaceManager:
                 config_file = workspace_dir / "config.json"
                 if config_file.exists():
                     try:
-                        with open(config_file, 'r', encoding='utf-8') as f:
+                        with open(config_file, encoding='utf-8') as f:
                             data = json.load(f)
-                        
+
                         workspace = Workspace.from_dict(data)
                         self.workspaces[workspace.id] = workspace
                         self.workspace_dirs[workspace.id] = workspace_dir
-                        
+
                         logger.info(f"Loaded workspace: {workspace.name} (ID: {workspace.id})")
                     except Exception as e:
                         logger.error(f"Failed to load workspace from {config_file}: {e}")
-    
-    def create_workspace(self, name: str, owner: str, description: str = "", 
+
+    def create_workspace(self, name: str, owner: str, description: str = "",
                         metadata: dict = None) -> Workspace:
         """
         Create a new workspace.
-        
+
         Args:
             name: Name of the workspace
             owner: Owner of the workspace
             description: Description of the workspace
             metadata: Additional metadata
-            
+
         Returns:
             Workspace: The created workspace
         """
         # Generate unique ID based on name and owner
         id_source = f"{name}_{owner}_{datetime.now().isoformat()}"
         workspace_id = hashlib.sha256(id_source.encode()).hexdigest()[:12]
-        
+
         # Create workspace directory
         workspace_dir = self.base_dir / workspace_id
         workspace_dir.mkdir(exist_ok=True)
-        
+
         # Create subdirectories for different types of data
         (workspace_dir / "data").mkdir(exist_ok=True)
         (workspace_dir / "models").mkdir(exist_ok=True)
         (workspace_dir / "cache").mkdir(exist_ok=True)
         (workspace_dir / "logs").mkdir(exist_ok=True)
         (workspace_dir / "temp").mkdir(exist_ok=True)
-        
+
         # Create workspace object
         workspace = Workspace(
             id=workspace_id,
@@ -147,47 +145,47 @@ class WorkspaceManager:
             description=description,
             metadata=metadata or {}
         )
-        
+
         # Add owner as the first member
         workspace.members.append(owner)
-        
+
         # Save workspace configuration
         config_file = workspace_dir / "config.json"
         with open(config_file, 'w', encoding='utf-8') as f:
             json.dump(workspace.to_dict(), f, indent=2, default=str)
-        
+
         # Store in memory
         self.workspaces[workspace_id] = workspace
         self.workspace_dirs[workspace_id] = workspace_dir
-        
+
         logger.info(f"Created workspace: {name} (ID: {workspace_id})")
         return workspace
-    
-    def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
+
+    def get_workspace(self, workspace_id: str) -> Workspace | None:
         """Get a workspace by its ID."""
         return self.workspaces.get(workspace_id)
-    
-    def list_workspaces(self, owner: Optional[str] = None) -> List[Workspace]:
+
+    def list_workspaces(self, owner: str | None = None) -> list[Workspace]:
         """
         List all workspaces, optionally filtered by owner.
-        
+
         Args:
             owner: Optional owner to filter by
-            
+
         Returns:
             List of workspaces
         """
         if owner:
             return [ws for ws in self.workspaces.values() if ws.owner == owner]
         return list(self.workspaces.values())
-    
+
     def activate_workspace(self, workspace_id: str) -> bool:
         """
         Activate a workspace, making it the current one for operations.
-        
+
         Args:
             workspace_id: ID of the workspace to activate
-            
+
         Returns:
             bool: True if activation successful, False otherwise
         """
@@ -198,26 +196,26 @@ class WorkspaceManager:
         else:
             logger.error(f"Workspace {workspace_id} does not exist")
             return False
-    
+
     def deactivate_workspace(self):
         """Deactivate the current workspace."""
         self.active_workspace_id = None
         logger.info("Deactivated workspace")
-    
-    def get_active_workspace(self) -> Optional[Workspace]:
+
+    def get_active_workspace(self) -> Workspace | None:
         """Get the currently active workspace."""
         if self.active_workspace_id:
             return self.workspaces.get(self.active_workspace_id)
         return None
-    
+
     def add_member(self, workspace_id: str, user_id: str) -> bool:
         """
         Add a member to a workspace.
-        
+
         Args:
             workspace_id: ID of the workspace
             user_id: ID of the user to add
-            
+
         Returns:
             bool: True if addition successful, False otherwise
         """
@@ -225,28 +223,28 @@ class WorkspaceManager:
         if not workspace:
             logger.error(f"Workspace {workspace_id} does not exist")
             return False
-        
+
         if user_id not in workspace.members:
             workspace.members.append(user_id)
-            
+
             # Update config file
             config_file = self.workspace_dirs[workspace_id] / "config.json"
             with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(workspace.to_dict(), f, indent=2, default=str)
-            
+
             logger.info(f"Added member {user_id} to workspace {workspace_id}")
             return True
-        
+
         return False
-    
+
     def remove_member(self, workspace_id: str, user_id: str) -> bool:
         """
         Remove a member from a workspace.
-        
+
         Args:
             workspace_id: ID of the workspace
             user_id: ID of the user to remove
-            
+
         Returns:
             bool: True if removal successful, False otherwise
         """
@@ -254,28 +252,28 @@ class WorkspaceManager:
         if not workspace:
             logger.error(f"Workspace {workspace_id} does not exist")
             return False
-        
+
         if user_id in workspace.members and user_id != workspace.owner:
             workspace.members.remove(user_id)
-            
+
             # Update config file
             config_file = self.workspace_dirs[workspace_id] / "config.json"
             with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(workspace.to_dict(), f, indent=2, default=str)
-            
+
             logger.info(f"Removed member {user_id} from workspace {workspace_id}")
             return True
-        
+
         return False
-    
-    def update_settings(self, workspace_id: str, settings: Dict[str, any]) -> bool:
+
+    def update_settings(self, workspace_id: str, settings: dict[str, any]) -> bool:
         """
         Update settings for a workspace.
-        
+
         Args:
             workspace_id: ID of the workspace
             settings: New settings to apply
-            
+
         Returns:
             bool: True if update successful, False otherwise
         """
@@ -283,44 +281,44 @@ class WorkspaceManager:
         if not workspace:
             logger.error(f"Workspace {workspace_id} does not exist")
             return False
-        
+
         workspace.settings.update(settings)
-        
+
         # Update config file
         config_file = self.workspace_dirs[workspace_id] / "config.json"
         with open(config_file, 'w', encoding='utf-8') as f:
             json.dump(workspace.to_dict(), f, indent=2, default=str)
-        
+
         logger.info(f"Updated settings for workspace {workspace_id}")
         return True
-    
-    def get_workspace_path(self, workspace_id: str, subfolder: str = "") -> Optional[Path]:
+
+    def get_workspace_path(self, workspace_id: str, subfolder: str = "") -> Path | None:
         """
         Get the path for a workspace, optionally with a subfolder.
-        
+
         Args:
             workspace_id: ID of the workspace
             subfolder: Optional subfolder within the workspace
-            
+
         Returns:
             Path to the workspace or subfolder, or None if workspace doesn't exist
         """
         if workspace_id not in self.workspace_dirs:
             return None
-        
+
         workspace_dir = self.workspace_dirs[workspace_id]
         if subfolder:
             return workspace_dir / subfolder
         return workspace_dir
-    
+
     def update_workspace_stats(self, workspace_id: str, **stats) -> bool:
         """
         Update statistics for a workspace.
-        
+
         Args:
             workspace_id: ID of the workspace
             **stats: Statistics to update
-            
+
         Returns:
             bool: True if update successful, False otherwise
         """
@@ -328,45 +326,44 @@ class WorkspaceManager:
         if not workspace:
             logger.error(f"Workspace {workspace_id} does not exist")
             return False
-        
+
         for stat, value in stats.items():
             if stat in workspace.stats:
                 if isinstance(workspace.stats[stat], (int, float)):
                     workspace.stats[stat] += value
                 else:
                     workspace.stats[stat] = value
-        
+
         # Update config file
         config_file = self.workspace_dirs[workspace_id] / "config.json"
         with open(config_file, 'w', encoding='utf-8') as f:
             json.dump(workspace.to_dict(), f, indent=2, default=str)
-        
+
         logger.info(f"Updated stats for workspace {workspace_id}: {stats}")
         return True
-    
-    async def cleanup_workspace(self, workspace_id: str, 
+
+    async def cleanup_workspace(self, workspace_id: str,
                                preserve_recent_days: int = 30) -> bool:
         """
         Clean up a workspace by removing old temporary files and logs.
-        
+
         Args:
             workspace_id: ID of the workspace to clean up
             preserve_recent_days: Number of days to preserve recent files
-            
+
         Returns:
             bool: True if cleanup successful, False otherwise
         """
         import time
-        from datetime import timedelta
-        
+
         workspace_dir = self.workspace_dirs.get(workspace_id)
         if not workspace_dir:
             logger.error(f"Workspace {workspace_id} does not exist")
             return False
-        
+
         try:
             cutoff_time = time.time() - (preserve_recent_days * 24 * 60 * 60)
-            
+
             # Clean up temp directory
             temp_dir = workspace_dir / "temp"
             if temp_dir.exists():
@@ -378,7 +375,7 @@ class WorkspaceManager:
                         elif file_path.is_dir():
                             shutil.rmtree(file_path)
                             logger.info(f"Deleted old temp directory: {file_path}")
-            
+
             # Clean up logs directory
             logs_dir = workspace_dir / "logs"
             if logs_dir.exists():
@@ -387,32 +384,32 @@ class WorkspaceManager:
                         if file_path.is_file():
                             file_path.unlink()
                             logger.info(f"Deleted old log file: {file_path}")
-            
+
             logger.info(f"Cleaned up workspace {workspace_id}")
             return True
         except Exception as e:
             logger.error(f"Failed to clean up workspace {workspace_id}: {e}")
             return False
-    
+
     def delete_workspace(self, workspace_id: str, delete_files: bool = True) -> bool:
         """
         Delete a workspace and optionally its files.
-        
+
         Args:
             workspace_id: ID of the workspace to delete
             delete_files: Whether to delete the workspace files from disk
-            
+
         Returns:
             bool: True if deletion successful, False otherwise
         """
         if workspace_id not in self.workspaces:
             logger.error(f"Workspace {workspace_id} does not exist")
             return False
-        
+
         # Remove from memory
         workspace = self.workspaces.pop(workspace_id)
         workspace_dir = self.workspace_dirs.pop(workspace_id)
-        
+
         # Delete files if requested
         if delete_files and workspace_dir.exists():
             try:
@@ -423,39 +420,39 @@ class WorkspaceManager:
                 # Still return True as the workspace is removed from memory
         elif not delete_files:
             logger.info(f"Kept workspace files at: {workspace_dir}")
-        
+
         # Update active workspace if this was the active one
         if self.active_workspace_id == workspace_id:
             self.active_workspace_id = None
-        
+
         logger.info(f"Deleted workspace: {workspace.name} (ID: {workspace_id})")
         return True
-    
-    def get_workspace_usage(self, workspace_id: str) -> Dict[str, any]:
+
+    def get_workspace_usage(self, workspace_id: str) -> dict[str, any]:
         """
         Get usage statistics for a workspace.
-        
+
         Args:
             workspace_id: ID of the workspace
-            
+
         Returns:
             Dict with usage statistics
         """
         workspace = self.workspaces.get(workspace_id)
         if not workspace:
             return {}
-        
+
         workspace_dir = self.workspace_dirs.get(workspace_id)
         if not workspace_dir:
             return {}
-        
+
         # Calculate disk usage
         total_size = 0
-        for dirpath, dirnames, filenames in walk(workspace_dir):
+        for dirpath, _dirnames, filenames in walk(workspace_dir):
             for filename in filenames:
                 filepath = Path(dirpath) / filename
                 total_size += filepath.stat().st_size
-        
+
         return {
             "workspace_id": workspace_id,
             "name": workspace.name,
@@ -473,5 +470,4 @@ import os
 # Helper function to walk directories (since os.walk isn't async)
 def walk(path):
     """Helper to walk directories synchronously."""
-    for root, dirs, files in os.walk(path):
-        yield root, dirs, files
+    yield from os.walk(path)

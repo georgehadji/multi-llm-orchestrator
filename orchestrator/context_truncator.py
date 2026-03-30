@@ -14,9 +14,9 @@ Strategies:
 
 USAGE:
     from orchestrator.context_truncator import SmartContextTruncator
-    
+
     truncator = SmartContextTruncator()
-    
+
     # Truncate dependency context
     truncated = truncator.truncate(
         dependencies=task_results,
@@ -28,10 +28,10 @@ USAGE:
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Dict, List, Any, Tuple
-from collections import defaultdict
+from typing import Any
 
 logger = logging.getLogger("orchestrator.context_truncator")
 
@@ -61,18 +61,18 @@ class TruncationResult:
     items_kept: int
     items_removed: int
     strategy_used: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     @property
     def token_reduction(self) -> int:
         return self.original_tokens - self.truncated_tokens
-    
+
     @property
     def token_reduction_percent(self) -> float:
         if self.original_tokens == 0:
             return 0.0
         return (self.token_reduction / self.original_tokens) * 100
-    
+
     def to_dict(self) -> dict:
         return {
             "original_tokens": self.original_tokens,
@@ -96,8 +96,8 @@ class DependencyItem:
     model_used: str
     cost_usd: float
     timestamp: float
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     @property
     def tokens(self) -> int:
         """Estimate token count."""
@@ -111,11 +111,11 @@ class DependencyItem:
 class SmartContextTruncator:
     """
     Intelligently truncate dependency context.
-    
+
     Uses multiple strategies to select which dependencies to include
     while maximizing information retention.
     """
-    
+
     def __init__(
         self,
         default_max_tokens: int = 4000,
@@ -125,36 +125,36 @@ class SmartContextTruncator:
         self.default_max_tokens = default_max_tokens
         self.min_items_to_keep = min_items_to_keep
         self.token_estimate_factor = token_estimate_factor
-        
+
         # Statistics
         self._total_truncations = 0
         self._total_tokens_saved = 0
-        self._stats_history: List[TruncationResult] = []
-    
+        self._stats_history: list[TruncationResult] = []
+
     def truncate(
         self,
-        dependencies: List[Any],
-        max_tokens: Optional[int] = None,
+        dependencies: list[Any],
+        max_tokens: int | None = None,
         strategy: str = "hybrid",
-        current_task_type: Optional[str] = None,
-    ) -> Tuple[str, TruncationResult]:
+        current_task_type: str | None = None,
+    ) -> tuple[str, TruncationResult]:
         """
         Truncate dependency context.
-        
+
         Args:
             dependencies: List of task results/dependencies
             max_tokens: Maximum tokens for context
             strategy: Truncation strategy to use
             current_task_type: Current task type (for relevance filtering)
-        
+
         Returns:
             (truncated_context, result_stats)
         """
         max_tokens = max_tokens or self.default_max_tokens
-        
+
         # Convert to DependencyItem objects
         items = self._convert_dependencies(dependencies)
-        
+
         if not items:
             return "", TruncationResult(
                 original_tokens=0,
@@ -163,10 +163,10 @@ class SmartContextTruncator:
                 items_removed=0,
                 strategy_used=strategy,
             )
-        
+
         # Calculate original tokens
         original_tokens = sum(item.tokens for item in items)
-        
+
         # Check if truncation needed
         if original_tokens * self.token_estimate_factor <= max_tokens:
             # No truncation needed
@@ -179,10 +179,10 @@ class SmartContextTruncator:
                 strategy_used="none",
                 metadata={"reason": "under_token_limit"},
             )
-        
+
         # Apply truncation strategy
         strategy_enum = TruncationStrategy(strategy.lower())
-        
+
         if strategy_enum == TruncationStrategy.IMPORTANCE_WEIGHTED:
             selected = self._strategy_importance_weighted(items, max_tokens)
         elif strategy_enum == TruncationStrategy.DIVERSITY:
@@ -195,7 +195,7 @@ class SmartContextTruncator:
             selected = self._strategy_hybrid(items, max_tokens, current_task_type)
         else:
             selected = items[:1]  # Fallback
-        
+
         # Ensure minimum items kept
         while len(selected) < self.min_items_to_keep and len(selected) < len(items):
             # Add back highest-score items not yet selected
@@ -204,11 +204,11 @@ class SmartContextTruncator:
                 if item.task_id not in selected_ids:
                     selected.append(item)
                     break
-        
+
         # Build context
         context = self._build_context(selected)
         truncated_tokens = sum(item.tokens for item in selected)
-        
+
         # Record statistics
         result = TruncationResult(
             original_tokens=original_tokens,
@@ -221,23 +221,23 @@ class SmartContextTruncator:
                 "selected_items": len(selected),
             },
         )
-        
+
         self._total_truncations += 1
         self._total_tokens_saved += result.token_reduction
         self._stats_history.append(result)
-        
+
         logger.debug(
             f"Context truncated: {original_tokens} → {truncated_tokens} tokens "
             f"({result.token_reduction_percent:.1f}% reduction, "
             f"{len(items)} → {len(selected)} items)"
         )
-        
+
         return context, result
-    
-    def _convert_dependencies(self, dependencies: List[Any]) -> List[DependencyItem]:
+
+    def _convert_dependencies(self, dependencies: list[Any]) -> list[DependencyItem]:
         """Convert dependencies to DependencyItem objects."""
         items = []
-        
+
         for dep in dependencies:
             try:
                 # Handle different dependency formats
@@ -265,130 +265,130 @@ class SmartContextTruncator:
                         cost_usd=getattr(dep, 'cost_usd', 0.0),
                         timestamp=getattr(dep, 'timestamp', time.time()),
                     )
-                
+
                 items.append(item)
             except Exception as e:
                 logger.warning(f"Failed to convert dependency: {e}")
                 continue
-        
+
         return items
-    
-    def _build_context(self, items: List[DependencyItem]) -> str:
+
+    def _build_context(self, items: list[DependencyItem]) -> str:
         """Build context string from selected items."""
         if not items:
             return ""
-        
+
         sections = []
-        
+
         for item in items:
             section = f"--- {item.task_id} ({item.task_type}, score={item.score:.2f}) ---\n"
             section += item.output
             sections.append(section)
-        
+
         return "\n\n".join(sections)
-    
+
     def _strategy_importance_weighted(
         self,
-        items: List[DependencyItem],
+        items: list[DependencyItem],
         max_tokens: int,
-    ) -> List[DependencyItem]:
+    ) -> list[DependencyItem]:
         """
         Select items by importance (score).
-        
+
         Keeps highest-score items until token limit reached.
         """
         # Sort by score descending
         sorted_items = sorted(items, key=lambda x: x.score, reverse=True)
-        
+
         selected = []
         current_tokens = 0
-        
+
         for item in sorted_items:
             item_tokens = int(item.tokens * self.token_estimate_factor)
             if current_tokens + item_tokens <= max_tokens:
                 selected.append(item)
                 current_tokens += item_tokens
-        
+
         return selected
-    
+
     def _strategy_diversity(
         self,
-        items: List[DependencyItem],
+        items: list[DependencyItem],
         max_tokens: int,
-    ) -> List[DependencyItem]:
+    ) -> list[DependencyItem]:
         """
         Select diverse items across task types.
-        
+
         Ensures representation from different task types.
         """
         # Group by task type
-        by_type: Dict[str, List[DependencyItem]] = defaultdict(list)
+        by_type: dict[str, list[DependencyItem]] = defaultdict(list)
         for item in items:
             by_type[item.task_type].append(item)
-        
+
         selected = []
         current_tokens = 0
-        
+
         # Round-robin selection across types
         type_queues = {
             task_type: sorted(type_items, key=lambda x: x.score, reverse=True)
             for task_type, type_items in by_type.items()
         }
-        
+
         while type_queues and current_tokens < max_tokens:
             # Take one from each type
             for task_type in list(type_queues.keys()):
                 if not type_queues[task_type]:
                     del type_queues[task_type]
                     continue
-                
+
                 item = type_queues[task_type].pop(0)
                 item_tokens = int(item.tokens * self.token_estimate_factor)
-                
+
                 if current_tokens + item_tokens <= max_tokens:
                     selected.append(item)
                     current_tokens += item_tokens
-        
+
         return selected
-    
+
     def _strategy_recency(
         self,
-        items: List[DependencyItem],
+        items: list[DependencyItem],
         max_tokens: int,
-    ) -> List[DependencyItem]:
+    ) -> list[DependencyItem]:
         """
         Select recent items.
-        
+
         Prefers more recent dependencies.
         """
         # Sort by timestamp descending
         sorted_items = sorted(items, key=lambda x: x.timestamp, reverse=True)
-        
+
         selected = []
         current_tokens = 0
-        
+
         for item in sorted_items:
             item_tokens = int(item.tokens * self.token_estimate_factor)
             if current_tokens + item_tokens <= max_tokens:
                 selected.append(item)
                 current_tokens += item_tokens
-        
+
         return selected
-    
+
     def _strategy_relevance(
         self,
-        items: List[DependencyItem],
+        items: list[DependencyItem],
         max_tokens: int,
-        current_task_type: Optional[str],
-    ) -> List[DependencyItem]:
+        current_task_type: str | None,
+    ) -> list[DependencyItem]:
         """
         Select relevant items for current task type.
-        
+
         Prioritizes dependencies relevant to current task.
         """
         if not current_task_type:
             return self._strategy_importance_weighted(items, max_tokens)
-        
+
         # Define relevance mappings
         relevance_map = {
             "code_generation": ["code_generation", "code_review"],
@@ -396,42 +396,42 @@ class SmartContextTruncator:
             "evaluation": ["code_generation", "code_review", "evaluation"],
             "reasoning": ["reasoning", "evaluation"],
         }
-        
+
         relevant_types = relevance_map.get(
             current_task_type,
             [current_task_type],
         )
-        
+
         # Score items by relevance
         def relevance_score(item: DependencyItem) -> float:
             base_score = item.score
             if item.task_type in relevant_types:
                 base_score *= 1.5  # Boost relevant items
             return base_score
-        
+
         # Sort by relevance
         sorted_items = sorted(items, key=relevance_score, reverse=True)
-        
+
         selected = []
         current_tokens = 0
-        
+
         for item in sorted_items:
             item_tokens = int(item.tokens * self.token_estimate_factor)
             if current_tokens + item_tokens <= max_tokens:
                 selected.append(item)
                 current_tokens += item_tokens
-        
+
         return selected
-    
+
     def _strategy_hybrid(
         self,
-        items: List[DependencyItem],
+        items: list[DependencyItem],
         max_tokens: int,
-        current_task_type: Optional[str],
-    ) -> List[DependencyItem]:
+        current_task_type: str | None,
+    ) -> list[DependencyItem]:
         """
         Hybrid strategy combining multiple approaches.
-        
+
         1. Always include highest-score item
         2. Ensure diversity across task types
         3. Bias toward recent items
@@ -439,23 +439,23 @@ class SmartContextTruncator:
         """
         if not items:
             return []
-        
+
         selected = []
         current_tokens = 0
-        
+
         # Step 1: Always include highest-score item
         best_item = max(items, key=lambda x: x.score)
         best_tokens = int(best_item.tokens * self.token_estimate_factor)
         if best_tokens <= max_tokens:
             selected.append(best_item)
             current_tokens += best_tokens
-        
+
         # Step 2: Group remaining by type
         remaining = [item for item in items if item.task_id != best_item.task_id]
-        by_type: Dict[str, List[DependencyItem]] = defaultdict(list)
+        by_type: dict[str, list[DependencyItem]] = defaultdict(list)
         for item in remaining:
             by_type[item.task_type].append(item)
-        
+
         # Step 3: Round-robin with recency and relevance bias
         type_queues = {}
         for task_type, type_items in by_type.items():
@@ -471,24 +471,24 @@ class SmartContextTruncator:
                 reverse=True,
             )
             type_queues[task_type] = sorted_items
-        
+
         # Round-robin selection
         while type_queues and current_tokens < max_tokens * 0.9:  # Leave 10% buffer
             for task_type in list(type_queues.keys()):
                 if not type_queues[task_type]:
                     del type_queues[task_type]
                     continue
-                
+
                 item = type_queues[task_type].pop(0)
                 item_tokens = int(item.tokens * self.token_estimate_factor)
-                
+
                 if current_tokens + item_tokens <= max_tokens:
                     selected.append(item)
                     current_tokens += item_tokens
-        
+
         return selected
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get truncation statistics."""
         avg_reduction = 0.0
         if self._stats_history:
@@ -496,7 +496,7 @@ class SmartContextTruncator:
                 sum(s.token_reduction_percent for s in self._stats_history) /
                 len(self._stats_history)
             )
-        
+
         return {
             "total_truncations": self._total_truncations,
             "total_tokens_saved": self._total_tokens_saved,
@@ -510,7 +510,7 @@ class SmartContextTruncator:
 # Convenience Functions
 # ─────────────────────────────────────────────
 
-_default_truncator: Optional[SmartContextTruncator] = None
+_default_truncator: SmartContextTruncator | None = None
 
 
 def get_context_truncator() -> SmartContextTruncator:
@@ -528,20 +528,20 @@ def reset_context_truncator() -> None:
 
 
 def truncate_context(
-    dependencies: List[Any],
+    dependencies: list[Any],
     max_tokens: int = 4000,
     strategy: str = "hybrid",
-    current_task_type: Optional[str] = None,
-) -> Tuple[str, TruncationResult]:
+    current_task_type: str | None = None,
+) -> tuple[str, TruncationResult]:
     """
     Truncate dependency context using default truncator.
-    
+
     Args:
         dependencies: List of dependencies
         max_tokens: Maximum tokens
         strategy: Truncation strategy
         current_task_type: Current task type
-    
+
     Returns:
         (truncated_context, result_stats)
     """

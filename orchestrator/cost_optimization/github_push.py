@@ -13,13 +13,13 @@ Features:
 
 Usage:
     from orchestrator.cost_optimization import GitHubIntegration
-    
+
     github = GitHubIntegration(
         token="ghp_...",
         owner="username",
         repo="my-repo",
     )
-    
+
     branch = await github.push_results(
         output_dir=Path("./results"),
         project_id="my-project",
@@ -30,14 +30,14 @@ Usage:
 
 from __future__ import annotations
 
-import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = get_logger(__name__)
 
@@ -49,8 +49,8 @@ class CommitMetadata:
     quality_score: float = 0.0
     tasks_completed: int = 0
     tasks_total: int = 0
-    models_used: List[str] = field(default_factory=list)
-    optimizations_enabled: List[str] = field(default_factory=list)
+    models_used: list[str] = field(default_factory=list)
+    optimizations_enabled: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -58,11 +58,11 @@ class PushResult:
     """Result of GitHub push."""
     success: bool
     branch: str
-    commit_hash: Optional[str]
+    commit_hash: str | None
     commit_message: str
     files_pushed: int
     push_url: str
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
@@ -74,7 +74,7 @@ class GitHubMetrics:
     total_files_pushed: int = 0
     avg_push_time: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_pushes": self.total_pushes,
             "successful_pushes": self.successful_pushes,
@@ -107,9 +107,9 @@ class GitHubIntegration:
 
     def __init__(
         self,
-        token: Optional[str] = None,
-        owner: Optional[str] = None,
-        repo: Optional[str] = None,
+        token: str | None = None,
+        owner: str | None = None,
+        repo: str | None = None,
         base_url: str = "https://github.com",
     ):
         """
@@ -129,7 +129,7 @@ class GitHubIntegration:
         self.metrics = GitHubMetrics()
 
         # Check if git is available
-        self._git_available: Optional[bool] = None
+        self._git_available: bool | None = None
 
     async def _check_git(self) -> bool:
         """Check if git is available."""
@@ -156,7 +156,7 @@ class GitHubIntegration:
         self,
         project_id: str,
         summary: str,
-        metadata: Optional[CommitMetadata] = None,
+        metadata: CommitMetadata | None = None,
         commit_type: str = "feat",
     ) -> str:
         """
@@ -172,7 +172,7 @@ class GitHubIntegration:
             Formatted commit message
         """
         # Build header
-        header = f"{commit_type}({project_id}): {summary[:72]}"
+        f"{commit_type}({project_id}): {summary[:72]}"
 
         # Build body
         body_lines = [
@@ -200,7 +200,7 @@ class GitHubIntegration:
         output_dir: Path,
         project_id: str,
         summary: str,
-        metadata: Optional[CommitMetadata] = None,
+        metadata: CommitMetadata | None = None,
         commit_type: str = "feat",
         create_branch: bool = True,
         push_remote: bool = True,
@@ -254,7 +254,6 @@ class GitHubIntegration:
 
         try:
             import subprocess
-            import asyncio
 
             # Branch name
             branch = f"orchestrator/{project_id}" if create_branch else "main"
@@ -355,7 +354,7 @@ class GitHubIntegration:
                 # FIX-OPT-002b: Use token via environment variable, not embedded in URL
                 # This prevents token exposure in process listings and logs
                 remote_url = f"https://{self.base_url.replace('https://', '')}/{self.owner}/{self.repo}.git"
-                
+
                 # Configure environment for git authentication
                 # GitHub accepts personal access token as username with empty password
                 env = os.environ.copy()
@@ -421,7 +420,7 @@ class GitHubIntegration:
         title: str,
         body: str,
         base: str = "main",
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Create pull request for merged branch.
 
@@ -467,7 +466,7 @@ class GitHubIntegration:
             logger.error(f"PR creation failed: {e}")
             return None
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get GitHub integration metrics."""
         return self.metrics.to_dict()
 
@@ -484,9 +483,9 @@ async def push_to_github(
     output_dir: Path,
     project_id: str,
     summary: str,
-    token: Optional[str] = None,
-    owner: Optional[str] = None,
-    repo: Optional[str] = None,
+    token: str | None = None,
+    owner: str | None = None,
+    repo: str | None = None,
 ) -> PushResult:
     """
     Convenience function for GitHub push.

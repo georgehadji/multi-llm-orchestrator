@@ -9,8 +9,7 @@ Consolidates features from dashboard_mission_control.py and dashboard_live.py
 
 from __future__ import annotations
 
-from typing import Any, Optional, Dict
-from datetime import datetime
+from typing import Any
 
 from .dashboard_core_core import DashboardView, ViewContext
 
@@ -19,12 +18,12 @@ class MissionControlView(DashboardView):
     """
     Mission Control dashboard view with gamification and real-time updates.
     """
-    
+
     name = "mission-control"
     display_name = "🎮 Mission Control"
     version = "6.0.0"
-    
-    def get_assets(self) -> Dict[str, list]:
+
+    def get_assets(self) -> dict[str, list]:
         return {
             "css": [
                 "https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css",
@@ -35,7 +34,7 @@ class MissionControlView(DashboardView):
                 "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js",
             ],
         }
-    
+
     async def render(self, context: ViewContext) -> str:
         """Render Mission Control dashboard."""
         return f"""
@@ -54,7 +53,7 @@ class MissionControlView(DashboardView):
 </body>
 </html>
 """
-    
+
     def _render_head(self) -> str:
         """Render head section with styles."""
         return """
@@ -72,11 +71,11 @@ class MissionControlView(DashboardView):
         .xp-bar { background: linear-gradient(90deg, #3b82f6, #8b5cf6); }
     </style>
         """
-    
+
     def _render_header(self, context: ViewContext) -> str:
         """Render header with gamification elements."""
         budget_pct = (context.budget.get("spent", 0) / context.budget.get("max", 1)) * 100 if context.budget.get("max") else 0
-        
+
         return f"""
     <header class="glass fixed top-0 w-full z-50 border-b border-gray-700">
         <div class="container mx-auto px-6 py-3 flex items-center justify-between">
@@ -87,7 +86,7 @@ class MissionControlView(DashboardView):
                     <p class="text-sm text-gray-400">Project: {context.project_id or 'No active project'}</p>
                 </div>
             </div>
-            
+
             <!-- XP & Level -->
             <div class="flex items-center space-x-6">
                 <div class="text-center">
@@ -104,7 +103,7 @@ class MissionControlView(DashboardView):
                     </div>
                 </div>
             </div>
-            
+
             <!-- Budget -->
             <div class="flex items-center space-x-4">
                 <div class="text-right">
@@ -116,7 +115,7 @@ class MissionControlView(DashboardView):
                 <div class="w-16 h-16 relative">
                     <svg class="w-full h-full transform -rotate-90">
                         <circle cx="32" cy="32" r="28" stroke="#374151" stroke-width="4" fill="none"/>
-                        <circle cx="32" cy="32" r="28" stroke="{'#ef4444' if budget_pct > 80 else '#10b981'}" 
+                        <circle cx="32" cy="32" r="28" stroke="{'#ef4444' if budget_pct > 80 else '#10b981'}"
                                 stroke-width="4" fill="none" stroke-dasharray="{175.9 * budget_pct / 100} 175.9"/>
                     </svg>
                     <span class="absolute inset-0 flex items-center justify-center text-sm font-bold">
@@ -127,7 +126,7 @@ class MissionControlView(DashboardView):
         </div>
     </header>
         """
-    
+
     def _render_main(self, context: ViewContext) -> str:
         """Render main content area."""
         return f"""
@@ -139,7 +138,7 @@ class MissionControlView(DashboardView):
             {self._render_metric_card("Score", f"{context.metrics.get('quality_score', 0):.0%}", "fa-star", "yellow")}
             {self._render_metric_card("Uptime", "∞", "fa-clock", "green")}
         </div>
-        
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Active Tasks -->
             <div class="lg:col-span-2 space-y-4">
@@ -151,7 +150,7 @@ class MissionControlView(DashboardView):
                     {self._render_tasks(context)}
                 </div>
             </div>
-            
+
             <!-- Sidebar -->
             <div class="space-y-6">
                 <!-- Model Status -->
@@ -164,7 +163,7 @@ class MissionControlView(DashboardView):
                         {self._render_models(context)}
                     </div>
                 </div>
-                
+
                 <!-- Achievements -->
                 <div class="glass rounded-xl p-4">
                     <h3 class="font-bold mb-3 flex items-center">
@@ -175,7 +174,7 @@ class MissionControlView(DashboardView):
                         {self._render_achievements()}
                     </div>
                 </div>
-                
+
                 <!-- Events Log -->
                 <div class="glass rounded-xl p-4">
                     <h3 class="font-bold mb-3 flex items-center">
@@ -189,11 +188,11 @@ class MissionControlView(DashboardView):
             </div>
         </div>
     </main>
-    
+
     <!-- Toast Container -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
         """
-    
+
     def _render_metric_card(self, label: str, value: Any, icon: str, color: str) -> str:
         """Render a metric card."""
         colors = {
@@ -215,12 +214,12 @@ class MissionControlView(DashboardView):
             </div>
         </div>
         """
-    
+
     def _render_tasks(self, context: ViewContext) -> str:
         """Render task list."""
         if not context.active_tasks:
             return '<p class="text-gray-500 text-center py-8">No active tasks</p>'
-        
+
         tasks_html = ""
         for task in context.active_tasks:
             status_colors = {
@@ -231,7 +230,7 @@ class MissionControlView(DashboardView):
             }
             status = task.get("status", "pending")
             color = status_colors.get(status, "text-gray-400")
-            
+
             tasks_html += f"""
             <div class="task-card glass rounded-lg p-4 flex items-center justify-between">
                 <div class="flex items-center space-x-3">
@@ -254,18 +253,18 @@ class MissionControlView(DashboardView):
             </div>
             """
         return tasks_html
-    
+
     def _render_models(self, context: ViewContext) -> str:
         """Render model status."""
         if not context.model_status:
             return '<p class="text-gray-500 text-sm">No model data</p>'
-        
+
         models_html = ""
         for name, status in context.model_status.items():
             is_healthy = status.get("healthy", False)
             color = "text-green-400" if is_healthy else "text-red-400"
             icon = "fa-check-circle" if is_healthy else "fa-times-circle"
-            
+
             models_html += f"""
             <div class="flex items-center justify-between text-sm">
                 <span class="text-gray-300">{name}</span>
@@ -273,7 +272,7 @@ class MissionControlView(DashboardView):
             </div>
             """
         return models_html
-    
+
     def _render_achievements(self) -> str:
         """Render achievement badges."""
         achievements = [
@@ -282,7 +281,7 @@ class MissionControlView(DashboardView):
             ("Perfectionist", "fa-gem", "text-gray-600"),
             ("Budget Master", "fa-coins", "text-gray-600"),
         ]
-        
+
         html = ""
         for name, icon, color in achievements:
             html += f"""
@@ -293,12 +292,12 @@ class MissionControlView(DashboardView):
             </div>
             """
         return html
-    
+
     def _render_events(self, context: ViewContext) -> str:
         """Render event log."""
         if not context.events:
             return '<p class="text-gray-500">Waiting for events...</p>'
-        
+
         html = ""
         for event in context.events[-20:]:  # Last 20 events
             timestamp = event.get("timestamp", "")
@@ -310,7 +309,7 @@ class MissionControlView(DashboardView):
             </div>
             """
         return html
-    
+
     def _render_scripts(self) -> str:
         """Render JavaScript for interactivity."""
         return """
@@ -319,21 +318,21 @@ class MissionControlView(DashboardView):
     <script>
         // WebSocket Connection
         const ws = new WebSocket(`ws://${window.location.host}/ws`);
-        
+
         ws.onopen = () => {
             console.log('Connected to Mission Control');
             ws.send('subscribe');
         };
-        
+
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             handleEvent(data);
         };
-        
+
         ws.onclose = () => {
             console.log('Disconnected from Mission Control');
         };
-        
+
         // Event Handlers
         function handleEvent(data) {
             switch(data.type) {
@@ -357,7 +356,7 @@ class MissionControlView(DashboardView):
                     break;
             }
         }
-        
+
         // Toast Notifications
         function showToast(title, message, type = 'info') {
             const container = document.getElementById('toast-container');
@@ -367,37 +366,37 @@ class MissionControlView(DashboardView):
                 warning: 'border-yellow-500 bg-yellow-900',
                 error: 'border-red-500 bg-red-900',
             };
-            
+
             const toast = document.createElement('div');
             toast.className = `p-4 rounded-lg border-l-4 ${colors[type]} text-white shadow-lg transform transition-all`;
             toast.innerHTML = `
                 <div class="font-bold">${title}</div>
                 ${message ? `<div class="text-sm">${message}</div>` : ''}
             `;
-            
+
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 5000);
         }
-        
+
         // XP System
         let xp = 0;
         let level = 1;
-        
+
         function addXP(amount) {
             xp += amount;
             const needed = level * 100;
-            
+
             if (xp >= needed) {
                 xp -= needed;
                 level++;
                 showToast('🆙 Level Up!', `You are now level ${level}`, 'success');
                 document.getElementById('level').textContent = level;
             }
-            
+
             document.getElementById('xp-text').textContent = `${xp}/${needed}`;
             document.getElementById('xp-bar').style.width = `${(xp / needed) * 100}%`;
         }
-        
+
         // Achievements
         function unlockAchievement(name) {
             const achievements = document.querySelectorAll('.achievement');
@@ -409,7 +408,7 @@ class MissionControlView(DashboardView):
                 }
             });
         }
-        
+
         // Confetti Celebration
         function triggerConfetti() {
             confetti({
@@ -421,8 +420,8 @@ class MissionControlView(DashboardView):
         }
     </script>
         """
-    
-    def handle_event(self, event: Any) -> Optional[Dict[str, Any]]:
+
+    def handle_event(self, event: Any) -> dict[str, Any] | None:
         """Transform events for Mission Control view."""
         # Add gamification data to events
         if hasattr(event, 'event_type'):
@@ -431,7 +430,7 @@ class MissionControlView(DashboardView):
                 "xp_reward": self._get_xp_reward(event.event_type.value),
             }
         return None
-    
+
     def _get_xp_reward(self, event_type: str) -> int:
         """Calculate XP reward for event type."""
         rewards = {

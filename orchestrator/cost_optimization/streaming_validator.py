@@ -17,7 +17,7 @@ Usage:
     from orchestrator.cost_optimization import StreamingValidator
 
     validator = StreamingValidator(client=api_client)
-    
+
     result = await validator.stream_and_validate(
         model="claude-sonnet-4.6",
         prompt="Generate Python code...",
@@ -28,13 +28,15 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import logging
 import re
 import time
-from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 logger = get_logger(__name__)
 
@@ -56,7 +58,7 @@ class StreamingMetrics:
             return 0.0
         return self.early_aborts / self.total_streams
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "total_streams": self.total_streams,
@@ -73,11 +75,11 @@ class StreamingMetrics:
 class StreamingResult:
     """Result of streaming validation."""
     response: str
-    chunks: List[str]
+    chunks: list[str]
     total_tokens: int
     cost: float
     early_aborted: bool
-    abort_reason: Optional[str]
+    abort_reason: str | None
     retry_count: int
     latency_seconds: float
 
@@ -99,18 +101,18 @@ class StreamingValidator:
         r"i am unable",
         r"as an ai",
         r"as a language model",
-        
+
         # Off-topic
         r"this is not related",
         r"without more context",
         r"i need more information",
-        
+
         # Errors in code
         r"# error:",
         r"# todo:",
         r"# fixme:",
         r"raise NotImplementedError",
-        
+
         # Incomplete code
         r"pass  # TODO",
         r"pass  # FIXME",
@@ -122,12 +124,12 @@ class StreamingValidator:
         "claude-sonnet-4.6",
         "claude-opus-4.6",
         "gpt-4o",
-        "deepseek-chat",
+        "deepseek/deepseek-chat",
     ]
 
     # Cost per 1M tokens
     MODEL_COSTS = {
-        "deepseek-chat": {"input": 1.0, "output": 4.0},
+        "deepseek/deepseek-chat": {"input": 1.0, "output": 4.0},
         "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
         "claude-opus-4.6": {"input": 15.0, "output": 75.0},
         "gpt-4o": {"input": 5.0, "output": 15.0},
@@ -173,10 +175,10 @@ class StreamingValidator:
         start_time = time.time()
         self.metrics.total_streams += 1
 
-        chunks: List[str] = []
+        chunks: list[str] = []
         total_tokens = 0
         early_aborted = False
-        abort_reason: Optional[str] = None
+        abort_reason: str | None = None
         retry_count = 0
         current_model = model
 
@@ -327,7 +329,7 @@ class StreamingValidator:
         self,
         text: str,
         task_type: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Detect early failure in partial text.
 
@@ -360,9 +362,8 @@ class StreamingValidator:
 
         elif task_type == "decomposition":
             # Check for JSON/list structure
-            if len(text) > 200:
-                if "[" not in text and "{" not in text:
-                    return "No structured output detected"
+            if len(text) > 200 and "[" not in text and "{" not in text:
+                return "No structured output detected"
 
         return None
 
@@ -387,7 +388,7 @@ class StreamingValidator:
         output_cost = (tokens / 1_000_000) * costs["output"]
         return output_cost
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get streaming metrics."""
         return self.metrics.to_dict()
 
