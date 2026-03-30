@@ -1855,7 +1855,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     result = await self._execute_task(task)
 
                     # FIX-001a: Commit reservation with actual cost
-                    await self.budget.commit_reservation(result.cost_usd, "generation")
+                    await self.budget.commit_reservation(reserved_amount, result.cost_usd, "generation")
                     reservation_made = False  # Successfully committed, don't release
 
                     # BUG-RACE-002 FIX: Protect results dict with lock
