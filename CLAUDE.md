@@ -8,14 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Core Capabilities:**
 - Multi-provider routing with quality-aware model selection
-- Cross-run budget hierarchy with pre‑flight checks
-- Resume capability with auto‑detection (prevents infinite loops)
-- Policy‑driven enforcement (compliance, latency, cost constraints)
-- Deterministic validation + LLM‑based evaluation scoring
+- Cross-run budget hierarchy with pre-flight checks
+- Resume capability with auto-detection (prevents infinite loops)
+- Policy-driven enforcement (compliance, latency, cost constraints)
+- Deterministic validation + LLM-based evaluation scoring
 - Telemetry collection and circuit breaker health tracking
 
 **Repository:** https://github.com/georgehadji/multi-llm-orchestrator
-**Status:** Active development (v6.0 complete)
 
 ---
 
@@ -38,10 +37,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Optional Features | **Decorator** | `verification.py`, `prompt_enhancer.py` |
 | Validation | **Chain of Responsibility** | `validators.py`, `preflight.py` |
 | Persistence | **Repository + Memento** | `state.py`, `checkpoints.py` |
-| Cross‑cutting | **Observer / EventBus** | `events.py`, `hooks.py` |
-| LLM Providers | **Adapter + Protocol** | `gateway.py` |
+| Cross-cutting | **Observer / EventBus** | `events.py`, `hooks.py` |
+| LLM Provider Abstraction | **Adapter** | `api_clients.py` (`UnifiedClient`) |
+| HTTP API Gateway | **Facade** | `gateway.py` |
 | Budget Hierarchy | **Composite** | `cost.py` |
 | Resilience | **State Machine** | `resilience.py`, `rate_limiter.py` |
+
+> **Important naming distinction:** `api_clients.py::UnifiedClient` is the LLM provider adapter (normalizes OpenAI/Google/Anthropic/DeepSeek SDKs into a single `call_model()` interface). `gateway.py` is the HTTP API gateway for routing external requests — these are separate concerns.
 
 ### Three Unbreakable Rules
 1. **`engine.py` = Mediator** — New business logic goes into a new service module, **not** into `engine.py`. The engine only wires services together.
@@ -50,13 +52,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Core Execution Pipeline
+
+The primary control loop in `engine.py` follows this pipeline for each task:
+
+```
+decompose project → [for each task]:
+  generate → critique → revise → evaluate
+  ↑_____________________________________|  (iterate up to max_iterations)
+```
+
+Key data flows:
+- **`models.py`** defines `ROUTING_TABLE` (task type → preferred model) and `FALLBACK_CHAIN` (fallback order on failure).
+- **`api_clients.py::UnifiedClient`** wraps all provider SDKs; returns normalized `APIResponse` with `text`, `input_tokens`, `output_tokens`, `cost_usd`.
+- **`state.py::StateManager`** persists `ProjectState` to `~/.orchestrator_cache/state.db` (async SQLite via `aiosqlite`) after each task — enables crash recovery.
+- **`planner.py::ConstraintPlanner`** selects models based on policy constraints before each task.
+
+### Dual-Budget System
+There are two independent budget mechanisms that can be used together:
+
+| Component | Location | Scope | Purpose |
+|-----------|----------|-------|---------|
+| `Budget` dataclass | `models.py` | Per-run | Tracks spend/time within a single `run_project()` call |
+| `BudgetHierarchy` | `cost.py` | Cross-run | Org → Team → Job caps that persist across multiple runs |
+
+A `BudgetHierarchy` instance is passed into `Orchestrator` alongside the per-run `Budget`. Do not confuse them — they serve different purposes and both can be active simultaneously.
+
+---
+
 ## Development Workflow
 
-### Test‑Driven Development (TDD)
-1. Write a failing test (RED phase) – verify it fails with the expected error.
+### Test-Driven Development (TDD)
+1. Write a failing test (RED phase) — verify it fails with the expected error.
 2. Implement minimal code to pass (GREEN phase).
 3. Run full test suite to verify no regressions.
 4. Commit with a detailed message.
+
+### Tests Directory Note
+The `tests/` directory contains 200+ files, many being one-off verification/migration scripts (e.g., `verify_fix.py`, `move_tests.py`). Actual test modules follow the `test_*.py` pattern. Use `pytest tests/ -m unit` or `pytest tests/ -m integration` to target meaningful tests rather than running the full directory.
 
 ### Git Worktrees for Isolation
 This project uses git worktrees for isolated feature branches:
@@ -78,10 +111,10 @@ git worktree remove .claude/worktrees/feature-name
 ```
 Note: `.claude/worktrees/` is in `.gitignore` for safety.
 
-### Plan Mode for Non‑trivial Tasks
-- Enter plan mode (via Claude Code) for any task with 3+ steps or architectural decisions.
+### Plan Mode for Non-trivial Tasks
+- Enter plan mode for any task with 3+ steps or architectural decisions.
 - Write detailed specs upfront; verify plan with the user before implementation.
-- If something goes sideways, **STOP and re‑plan immediately** – don’t keep pushing.
+- If something goes sideways, **STOP and re-plan immediately** — don't keep pushing.
 
 ---
 
@@ -91,15 +124,15 @@ Note: `.claude/worktrees/` is in `.gitignore` for safety.
 ```bash
 make install-dev          # Install with development dependencies
 make install-all          # Install all optional dependencies (dev, security, tracing, docs)
-pre‑commit install        # Set up pre‑commit hooks
+pre-commit install        # Set up pre-commit hooks
 ```
 
 ### Testing
 ```bash
 make test                 # Run all tests with coverage
-make test‑unit            # Unit tests only
-make test‑integration     # Integration tests only
-make test‑fast            # Run tests in parallel (faster)
+make test-unit            # Unit tests only
+make test-integration     # Integration tests only
+make test-fast            # Run tests in parallel (faster)
 pytest tests/ -v -m "not slow"           # All tests (skip slow markers)
 pytest tests/test_rate_limiter.py -v     # Single test module
 pytest tests/test_rate_limiter.py::test_check_within_limit  # Single test function
@@ -109,33 +142,20 @@ pytest --tb=short -q                     # Summary output
 ### Code Quality
 ```bash
 make lint                 # Run ruff linter
-make lint‑fix             # Run ruff with auto‑fix
+make lint-fix             # Run ruff with auto-fix
 make format               # Format code with black
-make format‑check         # Check formatting without changes
-make type‑check           # Run mypy type checker
-make security‑check       # Run bandit + safety security scans
-make precommit            # Install and run pre‑commit hooks
-```
-
-### Maintenance
-```bash
-make clean                # Remove build artifacts, caches
-make clean‑all            # Remove all generated files (including outputs/, results/, logs/)
-make ci                   # Run all CI checks locally (format‑check, lint, type‑check, test‑ci, security‑check)
-```
-
-### Docker
-```bash
-make docker‑build         # Build Docker image
-make docker‑run           # Run Docker container (requires .env file)
-make docker‑test          # Run tests in Docker
+make format-check         # Check formatting without changes
+make type-check           # Run mypy type checker
+make security-check       # Run bandit + safety security scans
+make precommit            # Install and run pre-commit hooks
+make ci                   # Run all CI checks locally
 ```
 
 ### CLI Usage
 ```bash
 python -m orchestrator --project "Build a FastAPI REST API" --criteria "All endpoints tested" --budget 2.0
 python -m orchestrator --resume <project_id>
-python -m orchestrator --analyze‑codebase /path/to/project
+python -m orchestrator --analyze-codebase /path/to/project
 ```
 
 ### Dashboard (Web UI)
@@ -153,12 +173,11 @@ python start_dashboard.py
 
 ## Testing Strategy
 
-- **Test markers:** `unit`, `integration`, `slow`, `requires_api`
-- **Coverage:** Configured in `pyproject.toml`; target 0% (temporarily relaxed)
+- **Test markers:** `unit`, `integration`, `slow`, `requires_api`, `e2e`, `load`, `stress`, `benchmark`
+- **Coverage:** Configured in `pyproject.toml`; `fail_under = 0` (temporarily relaxed)
 - **Pytest configuration:** See `[tool.pytest.ini_options]` in `pyproject.toml`
-- **Stress tests:** 4 pre‑existing failures in `tests/stress_test.py` (S2, S6, S7) – documented, not blocking
+- **Stress tests:** Pre-existing failures in `tests/stress_test.py` (S2, S6, S7) — documented, not blocking
 
-**Run a subset of tests:**
 ```bash
 pytest -m unit            # Only unit tests
 pytest -m "not slow"      # Skip slow tests
@@ -167,68 +186,16 @@ pytest -m integration     # Only integration tests
 
 ---
 
-## Implementation Status (v6.0)
+## Known Limitations
 
-**All Phases Complete ✅**
-
-| Phase | Status | Count | Features |
-|-------|--------|-------|----------|
-| P0 | ✅ Complete | 3/3 | autonomy, model_routing, verification |
-| P1 | ✅ Complete | 12/12 | brain, evaluation, escalation, checkpoints, modes, prompt_enhancer, cost_analytics, competitive, tracing, plan‑then‑build, memory_bank, context_condensing |
-| P2 | ✅ Complete | 10/10 | hierarchy, triggers, workspace, gateway, connectors, sandbox, context_sources, api_server, skills, drift |
-| P3 | ✅ Complete | 1/1 | browser_testing |
-
-**Overall: 26 Complete ✅ | 0 Partial 🟡 | 0 Missing ❌**
+- **Resume detection:** Uses file modification time heuristic; could be more robust.
+- **Policy system:** Enforcement mode selection (HARD/SOFT/MONITOR) not yet fully integrated.
+- **Stress tests:** Pre-existing failures in `tests/stress_test.py` (S2, S6, S7) — documented, not blocking.
 
 ---
 
-## Recent Critical Fixes
+## Key References
 
-### v5.1 SRE Bug‑Finding Pass
-- **BUG‑001:** Budget reservation leaked on `run_project()` failure – fixed in `cost.py` and `engine.py`
-- **BUG‑002:** `asyncio.gather` without `return_exceptions=True` left orphan tasks – fixed in `engine.py`
-- **BUG‑003:** `SearchResult` mutated in‑place during reranking – fixed in `hybrid_search_pipeline.py`
-- **BUG‑004:** `BudgetHierarchy.remaining(level="team")` ignored pending reservations – fixed in `cost.py`
-- **BUG‑005:** RateLimiter TOCTOU between `check()` and `record()` – fixed in `rate_limiter.py`
-- **OPENAI‑T:** `temperature` parameter forwarded to OpenAI newer models – removed from `api_clients.py`
-
-### v1.0 Resilience Hardening
-- **Fix #1:** Terminal `COMPLETED_DEGRADED` status added to prevent infinite resume loops
-- **Fix #2:** Critique resilience with graduated circuit breaker (3‑strike threshold)
-- **Fix #3:** `BudgetHierarchy.charge_job()` integration verified for cross‑run budget enforcement
-
----
-
-## Known Limitations & TODOs
-
-- **Stress tests:** 4 pre‑existing failures in `tests/stress_test.py` (S2, S6, S7) – documented, not blocking
-- **Resume detection:** Uses file modification time heuristic; could be more robust
-- **Policy system:** Enforcement mode selection (HARD/SOFT/MONITOR) not yet fully integrated
-
----
-
-## Code Quality Standards
-
-- **Testing:** TDD required; all features must have a failing test first
-- **Commits:** Atomic, descriptive messages with context
-- **Documentation:** Docstrings on all public methods
-- **Code Review:** Via GitHub PR; resilience fixes approved before merge
-
----
-
-## Contact & References
-
-- **Repository:** https://github.com/georgehadji/multi-llm-orchestrator
 - **Architecture Roadmap:** [`docs/ARCHITECTURE_ROADMAP.md`](docs/ARCHITECTURE_ROADMAP.md)
 - **Usage Guide:** [`USAGE_GUIDE.md`](USAGE_GUIDE.md)
-- **Capabilities Deep‑dive:** [`CAPABILITIES.md`](CAPABILITIES.md)
 - **Debugging Guide:** [`docs/debugging/DEBUGGING_GUIDE.md`](docs/debugging/DEBUGGING_GUIDE.md)
-
-For questions about architecture, strategy, or development approach, refer to:
-- PR #5: Resilience black‑swan fixes (detailed rationale)
-- Issue discussions: Architecture and design rationale documented there
-- Commit messages: Detailed technical context in each commit
-
----
-
-**Last Updated:** 2026‑03‑21 (v6.0 – all phases complete)
