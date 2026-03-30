@@ -45,7 +45,7 @@ TIER_ROUTING: dict[ModelTier, list[str]] = {
     # ECONOMY: cheapest capable models — fast and low-cost
     ModelTier.ECONOMY: [
         "deepseek-chat",
-        "gemini-1.5-flash",
+        "gemini-2.5-flash",
         "meta-llama/llama-4-scout",              # OR: 109B MoE, $0.11/$0.34
         "meta-llama/llama-3.3-70b-instruct",     # OR: reliable 70B
         "microsoft/phi-4",                       # OR: 14B, excellent $/quality
