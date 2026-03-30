@@ -530,9 +530,17 @@ class UnifiedClient:
         - Do not support presence_penalty, frequency_penalty, stop
         """
 
-        client = self._clients.get("xai") or self._clients.get("openai")
-        if not client:
-            raise RuntimeError("xAI or OpenAI client not initialized")
+        # BUG-FIX: Select client by provider — DeepSeek reasoning models must use
+        # the DeepSeek client (different base URL), not the xAI or OpenAI client.
+        provider = get_provider(model)
+        if provider == "deepseek":
+            client = self._clients.get("deepseek")
+            if not client:
+                raise RuntimeError("DeepSeek client not initialized. Set DEEPSEEK_API_KEY.")
+        else:
+            client = self._clients.get("xai") or self._clients.get("openai")
+            if not client:
+                raise RuntimeError("xAI or OpenAI client not initialized")
 
         # Extended timeout for reasoning
         reasoning_timeout = 3600  # 1 hour for complex reasoning

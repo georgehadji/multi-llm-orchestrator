@@ -249,7 +249,7 @@ def get_provider(model: Model) -> str:
         return "minimax"
     elif val.startswith("deepseek"):
         return "deepseek"
-    elif val.startswith("mistral") or val.startswith("codestral") or val.startswith("devstral") or val.startswith("magistral"):
+    elif val.startswith("mistral") or val.startswith("ministral") or val.startswith("codestral") or val.startswith("devstral") or val.startswith("magistral"):
         return "mistral"
     elif val.startswith("grok"):
         return "xai"
@@ -304,7 +304,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # ═══════════════════════════════════════════════════════
     Model.GEMINI_PRO:             {"input": 1.25,  "output": 10.00},
     Model.GEMINI_FLASH:           {"input": 0.15,  "output": 0.60},
-    Model.GEMINI_FLASH_LITE:      {"input": 0.075, "output": 0.30},
+    Model.GEMINI_FLASH_LITE:      {"input": 0.10,  "output": 0.40},  # alias of GEMINI_2_5_FLASH_LITE
     Model.GEMINI_3_1_FLASH_LITE:  {"input": 0.25,  "output": 1.50},
     # GEMINI_2_0_FLASH removed - deprecated by Google
     # GEMINI_2_0_FLASH_LITE removed - deprecated by Google
@@ -887,22 +887,24 @@ class Budget:
                 return True
             return False
 
-    async def commit_reservation(self, actual_amount: float, phase: str = "generation"):
+    async def commit_reservation(self, reserved_amount: float, actual_amount: float, phase: str = "generation"):
         """
         FIX-001a: Convert reservation to actual charge.
 
         Should be called after successful task execution.
-        If actual amount differs from reserved, adjusts accordingly.
-
-        FIX-BUG-001: Calls charge() separately to avoid nested lock acquisition.
 
         Args:
-            actual_amount: The actual cost incurred (may differ from reserved amount)
+            reserved_amount: The amount originally reserved (to release from _reserved_usd)
+            actual_amount: The actual cost incurred (may differ from reserved_amount)
+            phase: Budget phase to charge
+
+        BUG-FIX: Previously set _reserved_usd = 0.0 unconditionally, zeroing all
+        concurrent reservations. Now releases only this task's reserved_amount.
+        Also fixes a leak where actual_amount == 0 (cached) left the reservation
+        permanently held.
         """
         async with self._get_lock():
-            if actual_amount > 0:
-                # Release whatever was reserved (actual charge happens below)
-                self._reserved_usd = 0.0
+            self._reserved_usd = max(0.0, self._reserved_usd - reserved_amount)
         # Charge the actual amount (not the reserved amount)
         await self.charge(actual_amount, phase)
 
