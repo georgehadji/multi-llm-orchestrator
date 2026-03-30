@@ -18,33 +18,31 @@ Usage:
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 logger = logging.getLogger("orchestrator.connectors")
 
 
 class BaseConnector(ABC):
     """Base class for all connectors."""
-    
-    def __init__(self, name: str, config: Dict[str, Any]):
+
+    def __init__(self, name: str, config: dict[str, Any]):
         self.name = name
         self.config = config
         self.connected = False
-    
+
     @abstractmethod
     async def connect(self):
         """Establish connection to the external system."""
         pass
-    
+
     @abstractmethod
     async def disconnect(self):
         """Close connection to the external system."""
         pass
-    
+
     @abstractmethod
     async def test_connection(self) -> bool:
         """Test if the connection is working."""
@@ -53,12 +51,12 @@ class BaseConnector(ABC):
 
 class DatabaseConnector(BaseConnector):
     """Connector for database systems."""
-    
-    def __init__(self, name: str, config: Dict[str, Any]):
+
+    def __init__(self, name: str, config: dict[str, Any]):
         super().__init__(name, config)
         self.connection = None
         self.driver = config.get("driver", "postgresql")  # Default to PostgreSQL
-    
+
     async def connect(self):
         """Establish connection to the database."""
         try:
@@ -87,7 +85,7 @@ class DatabaseConnector(BaseConnector):
                 )
             else:
                 raise ValueError(f"Unsupported database driver: {self.driver}")
-            
+
             self.connected = True
             logger.info(f"Connected to database: {self.name}")
         except ImportError as e:
@@ -96,7 +94,7 @@ class DatabaseConnector(BaseConnector):
         except Exception as e:
             logger.error(f"Failed to connect to database {self.name}: {e}")
             raise
-    
+
     async def disconnect(self):
         """Close connection to the database."""
         if self.connection:
@@ -106,15 +104,15 @@ class DatabaseConnector(BaseConnector):
                 self.connection.close()
                 if hasattr(self.connection, 'wait_closed'):
                     await self.connection.wait_closed()
-            
+
             self.connected = False
             logger.info(f"Disconnected from database: {self.name}")
-    
+
     async def test_connection(self) -> bool:
         """Test if the database connection is working."""
         if not self.connected:
             return False
-        
+
         try:
             if self.driver == "sqlite":
                 cursor = await self.connection.execute("SELECT 1")
@@ -124,60 +122,60 @@ class DatabaseConnector(BaseConnector):
             return True
         except Exception:
             return False
-    
-    async def query(self, sql: str, params: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
+
+    async def query(self, sql: str, params: list[Any] | None = None) -> list[dict[str, Any]]:
         """
         Execute a SELECT query.
-        
+
         Args:
             sql: SQL query to execute
             params: Query parameters
-            
+
         Returns:
             List of rows as dictionaries
         """
         if not self.connected:
             raise RuntimeError("Database not connected")
-        
+
         try:
             if self.driver == "sqlite":
                 if params:
                     cursor = await self.connection.execute(sql, params)
                 else:
                     cursor = await self.connection.execute(sql)
-                
+
                 columns = [description[0] for description in cursor.description]
                 rows = await cursor.fetchall()
-                
-                return [dict(zip(columns, row)) for row in rows]
+
+                return [dict(zip(columns, row, strict=False)) for row in rows]
             else:
                 rows = await self.connection.fetch(sql, *(params or ()))
                 return [dict(row) for row in rows]
         except Exception as e:
             logger.error(f"Query failed: {e}")
             raise
-    
-    async def execute(self, sql: str, params: Optional[List[Any]] = None) -> int:
+
+    async def execute(self, sql: str, params: list[Any] | None = None) -> int:
         """
         Execute an INSERT, UPDATE, or DELETE query.
-        
+
         Args:
             sql: SQL query to execute
             params: Query parameters
-            
+
         Returns:
             Number of affected rows
         """
         if not self.connected:
             raise RuntimeError("Database not connected")
-        
+
         try:
             if self.driver == "sqlite":
                 if params:
                     cursor = await self.connection.execute(sql, params)
                 else:
                     cursor = await self.connection.execute(sql)
-                
+
                 await self.connection.commit()
                 return cursor.rowcount
             else:
@@ -193,14 +191,14 @@ class DatabaseConnector(BaseConnector):
 
 class HTTPConnector(BaseConnector):
     """Connector for HTTP APIs."""
-    
-    def __init__(self, name: str, config: Dict[str, Any]):
+
+    def __init__(self, name: str, config: dict[str, Any]):
         super().__init__(name, config)
         self.session = None
         self.base_url = config.get("base_url", "")
         self.timeout = config.get("timeout", 30)
         self.headers = config.get("headers", {})
-    
+
     async def connect(self):
         """Initialize the HTTP session."""
         import aiohttp
@@ -208,19 +206,19 @@ class HTTPConnector(BaseConnector):
         self.session = aiohttp.ClientSession(timeout=timeout, headers=self.headers)
         self.connected = True
         logger.info(f"HTTP connector initialized: {self.name}")
-    
+
     async def disconnect(self):
         """Close the HTTP session."""
         if self.session:
             await self.session.close()
         self.connected = False
         logger.info(f"HTTP connector closed: {self.name}")
-    
+
     async def test_connection(self) -> bool:
         """Test if the HTTP connection is working by making a simple request."""
         if not self.connected:
             return False
-        
+
         try:
             # Make a simple GET request to the base URL or a health endpoint
             url = f"{self.base_url}/health" if self.base_url else "https://httpbin.org/get"
@@ -228,26 +226,26 @@ class HTTPConnector(BaseConnector):
                 return response.status == 200
         except Exception:
             return False
-    
-    async def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, 
-                  headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+
+    async def get(self, endpoint: str, params: dict[str, Any] | None = None,
+                  headers: dict[str, str] | None = None) -> dict[str, Any]:
         """
         Make a GET request.
-        
+
         Args:
             endpoint: API endpoint to call
             params: Query parameters
             headers: Additional headers
-            
+
         Returns:
             Response JSON as dictionary
         """
         if not self.connected:
             raise RuntimeError("HTTP connector not connected")
-        
+
         url = f"{self.base_url}{endpoint}" if self.base_url else endpoint
         all_headers = {**self.headers, **(headers or {})}
-        
+
         try:
             async with self.session.get(url, params=params, headers=all_headers) as response:
                 response.raise_for_status()
@@ -255,28 +253,28 @@ class HTTPConnector(BaseConnector):
         except Exception as e:
             logger.error(f"GET request failed: {e}")
             raise
-    
-    async def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None,
-                   json_data: Optional[Dict[str, Any]] = None,
-                   headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+
+    async def post(self, endpoint: str, data: dict[str, Any] | None = None,
+                   json_data: dict[str, Any] | None = None,
+                   headers: dict[str, str] | None = None) -> dict[str, Any]:
         """
         Make a POST request.
-        
+
         Args:
             endpoint: API endpoint to call
             data: Form data
             json_data: JSON payload
             headers: Additional headers
-            
+
         Returns:
             Response JSON as dictionary
         """
         if not self.connected:
             raise RuntimeError("HTTP connector not connected")
-        
+
         url = f"{self.base_url}{endpoint}" if self.base_url else endpoint
         all_headers = {**self.headers, **(headers or {})}
-        
+
         try:
             async with self.session.post(url, data=data, json=json_data, headers=all_headers) as response:
                 response.raise_for_status()
@@ -284,28 +282,28 @@ class HTTPConnector(BaseConnector):
         except Exception as e:
             logger.error(f"POST request failed: {e}")
             raise
-    
-    async def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None,
-                  json_data: Optional[Dict[str, Any]] = None,
-                  headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+
+    async def put(self, endpoint: str, data: dict[str, Any] | None = None,
+                  json_data: dict[str, Any] | None = None,
+                  headers: dict[str, str] | None = None) -> dict[str, Any]:
         """
         Make a PUT request.
-        
+
         Args:
             endpoint: API endpoint to call
             data: Form data
             json_data: JSON payload
             headers: Additional headers
-            
+
         Returns:
             Response JSON as dictionary
         """
         if not self.connected:
             raise RuntimeError("HTTP connector not connected")
-        
+
         url = f"{self.base_url}{endpoint}" if self.base_url else endpoint
         all_headers = {**self.headers, **(headers or {})}
-        
+
         try:
             async with self.session.put(url, data=data, json=json_data, headers=all_headers) as response:
                 response.raise_for_status()
@@ -313,24 +311,24 @@ class HTTPConnector(BaseConnector):
         except Exception as e:
             logger.error(f"PUT request failed: {e}")
             raise
-    
-    async def delete(self, endpoint: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+
+    async def delete(self, endpoint: str, headers: dict[str, str] | None = None) -> dict[str, Any]:
         """
         Make a DELETE request.
-        
+
         Args:
             endpoint: API endpoint to call
             headers: Additional headers
-            
+
         Returns:
             Response JSON as dictionary
         """
         if not self.connected:
             raise RuntimeError("HTTP connector not connected")
-        
+
         url = f"{self.base_url}{endpoint}" if self.base_url else endpoint
         all_headers = {**self.headers, **(headers or {})}
-        
+
         try:
             async with self.session.delete(url, headers=all_headers) as response:
                 response.raise_for_status()
@@ -342,13 +340,13 @@ class HTTPConnector(BaseConnector):
 
 class FileConnector(BaseConnector):
     """Connector for file systems and cloud storage."""
-    
-    def __init__(self, name: str, config: Dict[str, Any]):
+
+    def __init__(self, name: str, config: dict[str, Any]):
         super().__init__(name, config)
         self.storage_type = config.get("type", "local")  # local, s3, gcs, azure
         self.root_path = config.get("root_path", "./files")
         self.connected = True  # Local file system is always accessible
-    
+
     async def connect(self):
         """Connect to the file storage (for remote storage types)."""
         if self.storage_type != "local":
@@ -382,7 +380,7 @@ class FileConnector(BaseConnector):
                     logger.error("azure-storage-blob not installed for Azure support")
                     raise
         logger.info(f"File connector initialized: {self.name}")
-    
+
     async def disconnect(self):
         """Disconnect from the file storage."""
         if self.storage_type == "s3" and hasattr(self, 's3_client'):
@@ -390,7 +388,7 @@ class FileConnector(BaseConnector):
         elif self.storage_type == "azure" and hasattr(self, 'azure_client'):
             await self.azure_client.close()
         logger.info(f"File connector closed: {self.name}")
-    
+
     async def test_connection(self) -> bool:
         """Test if the file storage connection is working."""
         try:
@@ -410,14 +408,14 @@ class FileConnector(BaseConnector):
                 return True  # If no containers exist, that's still valid
         except Exception:
             return False
-    
+
     async def read_file(self, file_path: str) -> bytes:
         """
         Read a file from storage.
-        
+
         Args:
             file_path: Path to the file
-            
+
         Returns:
             File contents as bytes
         """
@@ -434,20 +432,20 @@ class FileConnector(BaseConnector):
             return await self.gcs_client.download_object(bucket=bucket, object_name=file_path)
         elif self.storage_type == "azure":
             blob_client = self.azure_client.get_blob_client(
-                container=self.config.get("container", ""), 
+                container=self.config.get("container", ""),
                 blob=file_path
             )
             download_stream = await blob_client.download_blob()
             return await download_stream.readall()
-    
+
     async def write_file(self, file_path: str, content: bytes) -> bool:
         """
         Write content to a file in storage.
-        
+
         Args:
             file_path: Path to the file
             content: Content to write
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -460,34 +458,34 @@ class FileConnector(BaseConnector):
             return True
         elif self.storage_type == "s3":
             await self.s3_client.put_object(
-                Bucket=self.config.get("bucket"), 
-                Key=file_path, 
+                Bucket=self.config.get("bucket"),
+                Key=file_path,
                 Body=content
             )
             return True
         elif self.storage_type == "gcs":
             bucket = self.config.get("bucket", "")
             await self.gcs_client.upload_object(
-                bucket=bucket, 
-                object_name=file_path, 
+                bucket=bucket,
+                object_name=file_path,
                 file_data=content
             )
             return True
         elif self.storage_type == "azure":
             blob_client = self.azure_client.get_blob_client(
-                container=self.config.get("container", ""), 
+                container=self.config.get("container", ""),
                 blob=file_path
             )
             await blob_client.upload_blob(content, overwrite=True)
             return True
-    
-    async def list_files(self, prefix: str = "") -> List[str]:
+
+    async def list_files(self, prefix: str = "") -> list[str]:
         """
         List files in storage with an optional prefix.
-        
+
         Args:
             prefix: Optional prefix to filter files
-            
+
         Returns:
             List of file paths
         """
@@ -502,7 +500,7 @@ class FileConnector(BaseConnector):
             return files
         elif self.storage_type == "s3":
             response = await self.s3_client.list_objects_v2(
-                Bucket=self.config.get("bucket"), 
+                Bucket=self.config.get("bucket"),
                 Prefix=prefix
             )
             return [obj['Key'] for obj in response.get('Contents', [])]
@@ -525,16 +523,16 @@ class ConnectorManager:
 
     def __init__(self):
         """Initialize the connector manager."""
-        self.connectors: Dict[str, BaseConnector] = {}
-    
-    def register_db_connector(self, name: str, config: Dict[str, Any]) -> DatabaseConnector:
+        self.connectors: dict[str, BaseConnector] = {}
+
+    def register_db_connector(self, name: str, config: dict[str, Any]) -> DatabaseConnector:
         """
         Register a database connector.
-        
+
         Args:
             name: Name of the connector
             config: Configuration for the database connection
-            
+
         Returns:
             DatabaseConnector instance
         """
@@ -542,15 +540,15 @@ class ConnectorManager:
         self.connectors[name] = connector
         logger.info(f"Registered database connector: {name}")
         return connector
-    
-    def register_http_connector(self, name: str, config: Dict[str, Any]) -> HTTPConnector:
+
+    def register_http_connector(self, name: str, config: dict[str, Any]) -> HTTPConnector:
         """
         Register an HTTP connector.
-        
+
         Args:
             name: Name of the connector
             config: Configuration for the HTTP connection
-            
+
         Returns:
             HTTPConnector instance
         """
@@ -558,15 +556,15 @@ class ConnectorManager:
         self.connectors[name] = connector
         logger.info(f"Registered HTTP connector: {name}")
         return connector
-    
-    def register_file_connector(self, name: str, config: Dict[str, Any]) -> FileConnector:
+
+    def register_file_connector(self, name: str, config: dict[str, Any]) -> FileConnector:
         """
         Register a file connector.
-        
+
         Args:
             name: Name of the connector
             config: Configuration for the file connection
-            
+
         Returns:
             FileConnector instance
         """
@@ -574,19 +572,19 @@ class ConnectorManager:
         self.connectors[name] = connector
         logger.info(f"Registered file connector: {name}")
         return connector
-    
-    async def get_connector(self, name: str) -> Optional[BaseConnector]:
+
+    async def get_connector(self, name: str) -> BaseConnector | None:
         """
         Get a connector by name.
-        
+
         Args:
             name: Name of the connector
-            
+
         Returns:
             Connector instance or None if not found
         """
         return self.connectors.get(name)
-    
+
     async def connect_all(self):
         """Connect to all registered connectors."""
         for name, connector in self.connectors.items():
@@ -594,7 +592,7 @@ class ConnectorManager:
                 await connector.connect()
             except Exception as e:
                 logger.error(f"Failed to connect to {name}: {e}")
-    
+
     async def disconnect_all(self):
         """Disconnect from all registered connectors."""
         for name, connector in self.connectors.items():
@@ -602,11 +600,11 @@ class ConnectorManager:
                 await connector.disconnect()
             except Exception as e:
                 logger.error(f"Failed to disconnect from {name}: {e}")
-    
-    async def test_all_connections(self) -> Dict[str, bool]:
+
+    async def test_all_connections(self) -> dict[str, bool]:
         """
         Test connections for all registered connectors.
-        
+
         Returns:
             Dict mapping connector names to connection status
         """
@@ -618,11 +616,11 @@ class ConnectorManager:
                 logger.error(f"Failed to test connection for {name}: {e}")
                 results[name] = False
         return results
-    
-    def get_connector_stats(self) -> Dict[str, Any]:
+
+    def get_connector_stats(self) -> dict[str, Any]:
         """
         Get statistics about registered connectors.
-        
+
         Returns:
             Dict with connector statistics
         """
@@ -631,11 +629,11 @@ class ConnectorManager:
             "connector_types": {},
             "connected_count": 0
         }
-        
+
         for connector in self.connectors.values():
             conn_type = type(connector).__name__
             stats["connector_types"][conn_type] = stats["connector_types"].get(conn_type, 0) + 1
             if connector.connected:
                 stats["connected_count"] += 1
-        
+
         return stats

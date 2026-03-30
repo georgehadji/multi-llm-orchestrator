@@ -160,7 +160,7 @@ next-env.d.ts
 """,
     "README.md": """# 🚀 Next.js Full-Stack Application
 
-**Project Type:** Full-Stack (React + Node.js)  
+**Project Type:** Full-Stack (React + Node.js)
 **Platform:** Windows, macOS, Linux
 
 ---

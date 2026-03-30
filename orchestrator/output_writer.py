@@ -49,13 +49,12 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .models import ProjectState, TaskType
 
 # Code validation for clean code generation
 try:
-    from .code_validator import validate_code, extract_code_from_llm_response
+    from .code_validator import extract_code_from_llm_response, validate_code
     HAS_CODE_VALIDATOR = True
 except ImportError:
     HAS_CODE_VALIDATOR = False
@@ -206,26 +205,28 @@ def write_output_dir(
         dest = out / filename
 
         content = _render_content(task.type, result.output, ext)
-        
+
         # NEW: Code validation before saving (prevent LLM commentary)
         if task.type == TaskType.CODE_GEN and HAS_CODE_VALIDATOR:
-            validation_result = validate_code(content, filename)
+            validation_result = validate_code(content, filename=filename)
             if not validation_result.is_valid:
+                error_msg = "; ".join(validation_result.errors) if validation_result.errors else "Unknown error"
                 logger.warning(
-                    f"⚠️ Code validation failed for {filename}: {validation_result.error_message}"
+                    f"⚠️ Code validation failed for {filename}: {error_msg}"
                 )
                 # Try to extract clean code
                 extracted = extract_code_from_llm_response(content, ext)
                 if extracted and extracted != content:
-                    re_validation = validate_code(extracted, filename)
+                    re_validation = validate_code(extracted, filename=filename)
                     if re_validation.is_valid:
                         content = extracted
                         logger.info(f"✅ Code cleaned and validated for {filename}")
                     else:
-                        logger.error(f"❌ Code still invalid after cleaning: {re_validation.error_message}")
+                        re_error_msg = "; ".join(re_validation.errors) if re_validation.errors else "Unknown error"
+                        logger.error(f"❌ Code still invalid after cleaning: {re_error_msg}")
                 else:
                     logger.error(f"❌ Could not clean code for {filename}")
-        
+
         dest.write_text(content, encoding="utf-8")
         file_map[task_id] = filename
         logger.info(f"Wrote {filename} ({len(content)} chars, score={result.score:.3f})")
@@ -512,7 +513,7 @@ def _write_app_readme(
 
 def _detect_project_type(file_map: dict[str, str], out: Path) -> tuple[str, str]:
     """Detect project type from generated files and return (type_label, install_instructions).
-    
+
     Returns:
         Tuple of (project_type_label, windows_install_instructions)
     """
@@ -522,11 +523,11 @@ def _detect_project_type(file_map: dict[str, str], out: Path) -> tuple[str, str]
     has_js = any(".js" in f.lower() or ".ts" in f.lower() for f in file_map.values())
     has_css = any(".css" in f.lower() for f in file_map.values())
     has_py = any(".py" in f.lower() for f in file_map.values())
-    
+
     # Detect specific frameworks
     is_nextjs = has_package_json and has_js and (out / "app" / "next.config.js").exists()
     is_react = has_package_json and has_js and (out / "app" / "vite.config").exists()
-    
+
     if is_nextjs:
         return (
             "Full-Stack (Next.js + React)",
@@ -695,7 +696,7 @@ def _write_readme(
     """Write a human-readable README.md summarizing the project run."""
     b = state.budget
     budget_pct = (b.spent_usd / b.max_usd * 100) if b.max_usd > 0 else 0.0
-    
+
     # Detect project type and get install instructions
     project_type, install_instructions = _detect_project_type(file_map, out)
 

@@ -5,10 +5,10 @@ Single dashboard core with pluggable views.
 """
 from .core import (
     DashboardCore,
-    get_dashboard_core,
     DashboardView,
     ViewContext,
     ViewRegistry,
+    get_dashboard_core,
     run_dashboard,
 )
 from .mission_control import MissionControlView

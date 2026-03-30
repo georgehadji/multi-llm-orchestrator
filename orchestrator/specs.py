@@ -10,10 +10,8 @@ These are used by ControlPlane.submit() and OrchestrationAgent.draft().
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from .policy import Budget, PolicySet
-
 
 # ─────────────────────────────────────────────
 # SLA + Input description
@@ -23,8 +21,8 @@ from .policy import Budget, PolicySet
 class SLAs:
     """Service-level agreements for a job run."""
 
-    max_latency_ms: Optional[int] = None
-    max_cost_usd: Optional[float] = None
+    max_latency_ms: int | None = None
+    max_cost_usd: float | None = None
     min_quality_tier: float = 0.85
     reliability_target: float = 0.95
 

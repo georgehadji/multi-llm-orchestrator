@@ -33,17 +33,15 @@ Usage (CLI):
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
-from .codebase_reader import CodebaseReader, CodebaseContext
-from .models import Budget, Model, TaskType
 from .api_clients import UnifiedClient
 from .cache import DiskCache
+from .codebase_reader import CodebaseContext, CodebaseReader
+from .models import Model, TaskType
 
 logger = logging.getLogger("orchestrator.analyzer")
 
@@ -232,9 +230,9 @@ class CodebaseAnalyzer:
     async def analyze(
         self,
         path: str | Path,
-        focus: Optional[list[str]] = None,
+        focus: list[str] | None = None,
         budget_usd: float = 3.0,
-        include_exts: Optional[set[str]] = None,
+        include_exts: set[str] | None = None,
         max_tokens_per_section: int = 4096,
     ) -> AnalysisReport:
         """
@@ -372,7 +370,7 @@ class CodebaseAnalyzer:
                 return model
         raise RuntimeError("No LLM providers available. Check your API keys.")
 
-    def _resolve_focus(self, focus: Optional[list[str]]) -> list[str]:
+    def _resolve_focus(self, focus: list[str] | None) -> list[str]:
         """Normalize and validate focus area names."""
         if not focus:
             return list(ALL_FOCUS_AREAS)

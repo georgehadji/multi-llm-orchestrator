@@ -3,7 +3,7 @@ DAG visualization for orchestrator task dependency graphs.
 Pure-Python implementation — no external dependencies required.
 """
 from __future__ import annotations
-from typing import Optional
+
 from .models import Task, TaskResult, TaskType
 
 
@@ -25,7 +25,7 @@ class DagRenderer:
     def __init__(
         self,
         tasks: dict[str, Task],
-        results: Optional[dict[str, TaskResult]] = None,
+        results: dict[str, TaskResult] | None = None,
         truncation_limit: int = 40_000,
     ) -> None:
         self.tasks = tasks
@@ -52,8 +52,8 @@ class DagRenderer:
         if not self.tasks:
             return []
         order = self._topological_order()
-        dist: dict[str, int] = {tid: 0 for tid in self.tasks}
-        pred: dict[str, Optional[str]] = {tid: None for tid in self.tasks}
+        dist: dict[str, int] = dict.fromkeys(self.tasks, 0)
+        pred: dict[str, str | None] = dict.fromkeys(self.tasks)
 
         for tid in order:
             task = self.tasks[tid]
@@ -64,7 +64,7 @@ class DagRenderer:
 
         end = max(dist, key=lambda t: dist[t])
         path: list[str] = []
-        cur: Optional[str] = end
+        cur: str | None = end
         while cur is not None:
             path.append(cur)
             cur = pred[cur]

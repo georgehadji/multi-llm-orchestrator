@@ -29,180 +29,115 @@ class TaskType(str, Enum):
 
 class Model(str, Enum):
     # ═══════════════════════════════════════════════════════
-    # OPENAI MODELS
+    # OPENROUTER MODELS - All models via OpenRouter
+    # Format: vendor/model-name (see https://openrouter.ai/models)
+    # Updated v3.0 with Xiaomi, Moonshot, StepFun, GLM models
     # ═══════════════════════════════════════════════════════
-    GPT_4O = "gpt-4o"
-    GPT_4O_MINI = "gpt-4o-mini"
-    GPT_5 = "gpt-5"
-    GPT_5_MINI = "gpt-5-mini"
-    GPT_5_NANO = "gpt-5-nano"
-    GPT_5_2 = "gpt-5.2"
-    GPT_5_2_PRO = "gpt-5.2-pro"
-    GPT_4_1 = "gpt-4.1"
-    GPT_4_1_MINI = "gpt-4.1-mini"
-    GPT_4_1_NANO = "gpt-4.1-nano"
-    O1 = "o1"
-    O3 = "o3"
-    O3_MINI = "o3-mini"
-    O3_PRO = "o3-pro"
-    O4_MINI = "o4-mini"
 
-    # ═══════════════════════════════════════════════════════
-    # GOOGLE GEMINI MODELS
-    # ═══════════════════════════════════════════════════════
-    GEMINI_PRO = "gemini-2.5-pro"
-    GEMINI_FLASH = "gemini-2.5-flash"
-    GEMINI_FLASH_LITE = "gemini-2.5-flash-lite"
-    GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite-preview"
-    GEMINI_2_0_FLASH = "gemini-2.0-flash"
-    GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite"
-    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
-    GEMINI_1_5_PRO = "gemini-1.5-pro"
+    # OpenAI Models
+    GPT_4O = "openai/gpt-4o"
+    GPT_4O_MINI = "openai/gpt-4o-mini"
+    GPT_5 = "openai/gpt-5"
+    GPT_5_MINI = "openai/gpt-5-mini"
+    GPT_5_NANO = "openai/gpt-5-nano"
+    GPT_5_4 = "openai/gpt-5.4"
+    GPT_5_4_MINI = "openai/gpt-5.4-mini"
+    GPT_5_4_CODEX = "openai/gpt-5.4-codex"
+    O1 = "openai/o1"
+    O3_MINI = "openai/o3-mini"
+    O4_MINI = "openai/o4-mini"
 
-    # ═══════════════════════════════════════════════════════
-    # ANTHROPIC CLAUDE MODELS
-    # ═══════════════════════════════════════════════════════
-    CLAUDE_3_5_SONNET = "claude-3-5-sonnet-20241022"
-    CLAUDE_3_OPUS = "claude-3-opus-20240229"
-    CLAUDE_3_HAIKU = "claude-3-haiku-20240307"
-    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
-    CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
+    # Google Gemini Models
+    GEMINI_PRO = "google/gemini-2.5-pro"
+    GEMINI_FLASH = "google/gemini-2.5-flash"
+    GEMINI_FLASH_LITE = "google/gemini-2.5-flash-lite"
+
+    # Anthropic Claude Models
+    CLAUDE_3_5_SONNET = "anthropic/claude-3.5-sonnet"
+    CLAUDE_3_OPUS = "anthropic/claude-3-opus"
+    CLAUDE_3_HAIKU = "anthropic/claude-3-haiku"
+    CLAUDE_SONNET_4_5 = "anthropic/claude-sonnet-4-5"
+    CLAUDE_SONNET_4_6 = "anthropic/claude-sonnet-4-6"
     CLAUDE_SONNET = CLAUDE_SONNET_4_6
-    CLAUDE_OPUS_4_5 = "claude-opus-4-5"
-    CLAUDE_OPUS_4_6 = "claude-opus-4-6"
-    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    CLAUDE_OPUS_4_5 = "anthropic/claude-opus-4-5"
+    CLAUDE_OPUS_4_6 = "anthropic/claude-opus-4-6"
+    CLAUDE_HAIKU_4_5 = "anthropic/claude-haiku-4-5"
+
+    # DeepSeek Models
+    DEEPSEEK_CHAT = "deepseek/deepseek-chat"
+    DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
+    DEEPSEEK_R1 = DEEPSEEK_REASONER
+    DEEPSEEK_V3 = "deepseek/deepseek-v3"
+    DEEPSEEK_V3_2 = "deepseek/deepseek-v3.2"
+
+    # Meta LLaMA Models (OpenRouter)
+    LLAMA_4_MAVERICK = "meta-llama/llama-4-maverick"      # 400B MoE
+    LLAMA_4_SCOUT = "meta-llama/llama-4-scout"            # 109B MoE
+    LLAMA_3_3_70B = "meta-llama/llama-3.3-70b-instruct"   # 70B
+    LLAMA_3_1_405B = "meta-llama/llama-3.1-405b-instruct" # 405B
+
+    # Microsoft Phi Models (OpenRouter)
+    PHI_4 = "microsoft/phi-4"                             # 14B
+    PHI_4_REASONING = "openai/o3-mini"                    # Use o3-mini for reasoning
+
+    # Google Gemma Models (OpenRouter)
+    GEMMA_3_27B = "google/gemma-3-27b-it"                 # 27B
+
+    # Nous Research Hermes (OpenRouter)
+    HERMES_3_70B = "nousresearch/hermes-3-llama-3.1-70b"  # 70B fine-tuned
 
     # ═══════════════════════════════════════════════════════
-    # DEEPSEEK MODELS
+    # XIAOMI MODELS (NEW v3.0) - GAME CHANGERS!
     # ═══════════════════════════════════════════════════════
-    DEEPSEEK_CHAT = "deepseek-chat"
-    DEEPSEEK_REASONER = "deepseek-reasoner"
-    DEEPSEEK_V3 = "deepseek-v3"
-    DEEPSEEK_V3_2 = "deepseek-v3.2"
-    DEEPSEEK_R1 = "deepseek-r1"
+    XIAOMI_MIMO_V2_FLASH = "xiaomi/mimo-v2-flash"         # $0.09/$0.29, #1 SWE-bench open ⭐
+    XIAOMI_MIMO_V2_PRO = "xiaomi/mimo-v2-pro"             # $1.00/$3.00, 1T+ params, 1M+ ctx
+    XIAOMI_MIMO_V2_OMNI = "xiaomi/mimo-v2-omni"           # $0.40/$2.00, omni-modal
 
     # ═══════════════════════════════════════════════════════
-    # MINIMAX MODELS
+    # MOONSHOT KIMI MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    MINIMAX_TEXT_01 = "MiniMax-Text-01"
-    MINIMAX_M2 = "minimax-m2"
-    MINIMAX_M2_5 = "minimax-m2.5"
+    MOONSHOT_KIMI_K2_5 = "moonshotai/kimi-k2.5"           # $0.42/$2.20, visual coding SOTA
+    MOONSHOT_KIMI_K2 = "moonshotai/kimi-k2"               # $0.50/$1.50
 
     # ═══════════════════════════════════════════════════════
-    # MISTRAL AI MODELS
+    # STEPFUN MODELS (NEW v3.0) - BEST VALUE!
     # ═══════════════════════════════════════════════════════
-    MISTRAL_NEMO = "mistral-nemo"
-    MISTRAL_SMALL_3_1 = "mistral-small-3.1"
-    MISTRAL_MEDIUM_3 = "mistral-medium-3"
-    MISTRAL_LARGE_3 = "mistral-large-3"
-    CODESTRAL = "codestral"
-    DEVSTRAL = "devstral"
-    MAGISTRAL_SMALL = "magistral-small"
-    MAGISTRAL_MEDIUM = "magistral-medium"
-    MINISTRAL_3B = "ministral-3b"
-    MINISTRAL_8B = "ministral-8b"
+    STEPFUN_STEP_3_5_FLASH = "stepfun/step-3.5-flash"     # $0.10/$0.30, 196B MoE ⭐
+    STEPFUN_STEP_3_5 = "stepfun/step-3.5"                 # $0.15/$0.45
 
     # ═══════════════════════════════════════════════════════
-    # XAI GROK MODELS
+    # Z.AI GLM MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    GROK_3 = "grok-3"
-    GROK_3_MINI = "grok-3-mini"
-    GROK_4 = "grok-4"
-    GROK_4_1_FAST = "grok-4.1-fast"
-    GROK_4_20 = "grok-4.20"  # Latest model - industry-leading speed
-    GROK_4_20_REASONING = "grok-4.20-reasoning"  # Reasoning variant
-    GROK_4_LATEST = "grok-4-latest"  # Alias to latest grok-4
+    ZHIPU_GLM_4_7_FLASH = "z-ai/glm-4.7-flash"            # $0.06/$0.40, ultra-cheap ⭐
+    ZHIPU_GLM_4_7 = "z-ai/glm-4.7"                        # $0.39/$1.75, enhanced programming
+    ZHIPU_GLM_5 = "z-ai/glm-5"                            # $0.72/$2.30, complex systems
+    ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"                # $1.20/$4.00, 202K, agents
 
     # ═══════════════════════════════════════════════════════
-    # COHERE MODELS
+    # XAI GROK MODELS (NEW v3.0) - LOWEST HALLUCINATION
     # ═══════════════════════════════════════════════════════
-    COMMAND_R = "command-r"
-    COMMAND_R_PLUS = "command-r-plus"
-    COMMAND_R7B = "command-r7b"
-    COMMAND_A = "command-a"
+    XAI_GROK_4_20_BETA = "x-ai/grok-4.20-beta"            # $2.00/$6.00, lowest hallucination ⭐
+    XAI_GROK_4_20_MULTI_AGENT = "x-ai/grok-4.20-multi-agent"  # $2.00/$6.00, 4-16 agents
+    XAI_GROK_4_1_FAST = "x-ai/grok-4.1-fast"              # $0.20/$0.50, fast
 
     # ═══════════════════════════════════════════════════════
-    # ALIBABA QWEN MODELS
+    # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # ═══════════════════════════════════════════════════════
-    QWEN_PLUS = "qwen-plus"
-    QWEN_TURBO = "qwen-turbo"
-    QWEN_MAX = "qwen-max"
-    QWEN_LONG = "qwen-long"
-    QWEN_3_235B = "qwen3-235b-a22b"
-    QWEN_3_CODER_30B = "qwen3-coder-30b"
-    QWEN_3_32B = "qwen3-32b"
-    QWEN_VL = "qwen-vl"
-    QWEN_MATH = "qwen-math"
+    QWEN_3_CODER_NEXT = "qwen/qwen-3-coder-next"          # $0.12/$0.75, 80B MoE coding ⭐
+    QWEN_3_5_397B_A17B = "qwen/qwen-3.5-397b-a17b"        # $0.39/$2.34, 397B MoE ⭐
+    QWEN_3_MAX_THINKING = "qwen/qwen-3-max-thinking"      # $0.78/$3.90, flagship reasoning
 
     # ═══════════════════════════════════════════════════════
-    # BYTEDANCE SEED MODELS
+    # MINIMAX MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    SEED_2_0_PRO = "seed-2.0-pro"
-    SEED_2_0_LITE = "seed-2.0-lite"
-    SEED_2_0_MINI = "seed-2.0-mini"
-    SEED_2_0_CODE = "seed-2.0-code"
+    MINIMAX_M2_7 = "minimax/minimax-m2.7"                 # $0.30/$1.20, 56.2% SWE-Pro
 
     # ═══════════════════════════════════════════════════════
-    # ZHIPU GLM MODELS
+    # NVIDIA MODELS (NEW v3.0) - EFFICIENT MOE
     # ═══════════════════════════════════════════════════════
-    GLM_4 = "glm-4"
-    GLM_4_6 = "glm-4.6"
-    GLM_4_7 = "glm-4.7"
-    GLM_4_FLASH = "glm-4-flash"
-    GLM_4_AIR = "glm-4-air"
-    GLM_5 = "glm-5"
+    NVIDIA_NEMOTRON_3_SUPER = "nvidia/nemotron-3-super"   # $0.10/$0.50, 120B MoE
 
-    # ═══════════════════════════════════════════════════════
-    # BAIDU ERNIE MODELS
-    # ═══════════════════════════════════════════════════════
-    ERNIE_4_0_8K = "ernie-4.0-8k"
-    ERNIE_4_0_TURBO = "ernie-4.0-turbo"
-    ERNIE_4_5_21B = "ernie-4.5-21b"
-    ERNIE_4_5_300B = "ernie-4.5-300b"
-    ERNIE_SPEED = "ernie-speed"
-    ERNIE_SPEED_PRO = "ernie-speed-pro"
-    ERNIE_NOVEL = "ernie-novel"
-
-    # ═══════════════════════════════════════════════════════
-    # MOONSHOT KIMI MODELS
-    # ═══════════════════════════════════════════════════════
-    KIMI_K1_5 = "kimi-k1.5"
-    KIMI_K2 = "kimi-k2"
-    KIMI_K2_5 = "kimi-k2.5"
-
-    # ═══════════════════════════════════════════════════════
-    # TENCENT HUNYUAN MODELS
-    # ═══════════════════════════════════════════════════════
-    HUNYUAN_LITE = "hunyuan-lite"
-    HUNYUAN_STANDARD = "hunyuan-standard"
-    HUNYUAN_PRO = "hunyuan-pro"
-
-    # ═══════════════════════════════════════════════════════
-    # BAICHUAN MODELS
-    # ═══════════════════════════════════════════════════════
-    BAICHUAN_3 = "baichuan-3"
-    BAICHUAN_4 = "baichuan-4"
-
-    # ═══════════════════════════════════════════════════════
-    # OPENROUTER — Open-Source & Cross-Provider Models
-    # Accessible via: https://openrouter.ai/api/v1
-    # Env var: OPENROUTER_API_KEY
-    # Model IDs use vendor/model-name format.
-    # ═══════════════════════════════════════════════════════
-    # Meta LLaMA 4 (April 2025 — frontier open-source)
-    LLAMA_4_MAVERICK = "meta-llama/llama-4-maverick"      # 400B MoE, 128K ctx
-    LLAMA_4_SCOUT = "meta-llama/llama-4-scout"            # 109B MoE, fast + cheap
-    # Meta LLaMA 3.x (battle-tested, widely deployed)
-    LLAMA_3_3_70B = "meta-llama/llama-3.3-70b-instruct"  # 70B, best value open
-    LLAMA_3_1_405B = "meta-llama/llama-3.1-405b-instruct" # 405B, near-frontier
-    # Microsoft Phi-4 (small but capable reasoning)
-    PHI_4 = "microsoft/phi-4"                             # 14B, great for ECONOMY
-    PHI_4_REASONING = "microsoft/phi-4-reasoning-plus"    # 14B + CoT reasoning
-    # Google Gemma 3
-    GEMMA_3_27B = "google/gemma-3-27b-it"                 # 27B, open-weights
-    # Nous Research Hermes 3
-    HERMES_3_70B = "nousresearch/hermes-3-llama-3.1-70b"  # Fine-tuned for tool use
-    # OpenRouter Auto-Router (OpenRouter picks best available model)
+    # OpenRouter Auto-Router
     OPENROUTER_AUTO = "openrouter/auto"                    # Dynamic routing
 
 
@@ -234,45 +169,10 @@ from functools import lru_cache
 def get_provider(model: Model) -> str:
     """
     Get provider name for a model.
-
-    Uses LRU cache for O(1) repeated lookups.
-    Cache size 256 covers all current + future models.
+    
+    All models now use OpenRouter exclusively.
     """
-    val = model.value.lower()
-    if val.startswith("gpt") or val.startswith("o1") or val.startswith("o3") or val.startswith("o4"):
-        return "openai"
-    elif val.startswith("gemini"):
-        return "google"
-    elif val.startswith("claude"):
-        return "anthropic"
-    elif val.startswith("minimax"):
-        return "minimax"
-    elif val.startswith("deepseek"):
-        return "deepseek"
-    elif val.startswith("mistral") or val.startswith("codestral") or val.startswith("devstral") or val.startswith("magistral"):
-        return "mistral"
-    elif val.startswith("grok"):
-        return "xai"
-    elif val.startswith("command"):
-        return "cohere"
-    elif val.startswith("qwen"):
-        return "alibaba"
-    elif val.startswith("seed"):
-        return "bytedance"
-    elif val.startswith("glm"):
-        return "zhipu"
-    elif val.startswith("ernie"):
-        return "baidu"
-    elif val.startswith("kimi"):
-        return "moonshot"
-    elif val.startswith("hunyuan"):
-        return "tencent"
-    elif val.startswith("baichuan"):
-        return "baichuan"
-    elif "/" in val:
-        # OpenRouter models use vendor/model-name format (e.g. "meta-llama/llama-4-maverick")
-        return "openrouter"
-    return "unknown"
+    return "openrouter"
 
 
 # ─────────────────────────────────────────────
@@ -280,40 +180,22 @@ def get_provider(model: Model) -> str:
 # ─────────────────────────────────────────────
 
 COST_TABLE: dict[Model, dict[str, float]] = {
-    # ═══════════════════════════════════════════════════════
-    # OPENAI
-    # ═══════════════════════════════════════════════════════
+    # OpenAI Models (via OpenRouter)
     Model.GPT_4O:             {"input": 2.50,  "output": 10.00},
     Model.GPT_4O_MINI:        {"input": 0.15,  "output": 0.60},
     Model.GPT_5:              {"input": 1.25,  "output": 10.00},
     Model.GPT_5_MINI:         {"input": 0.25,  "output": 2.00},
     Model.GPT_5_NANO:         {"input": 0.05,  "output": 0.40},
-    Model.GPT_5_2:            {"input": 1.75,  "output": 14.00},
-    Model.GPT_5_2_PRO:        {"input": 21.00, "output": 168.00},
-    Model.GPT_4_1:            {"input": 2.00,  "output": 8.00},
-    Model.GPT_4_1_MINI:       {"input": 0.40,  "output": 1.60},
-    Model.GPT_4_1_NANO:       {"input": 0.10,  "output": 0.40},
     Model.O1:                 {"input": 15.00, "output": 60.00},
-    Model.O3:                 {"input": 2.00,  "output": 8.00},
     Model.O3_MINI:            {"input": 1.10,  "output": 4.40},
-    Model.O3_PRO:             {"input": 20.00, "output": 80.00},
     Model.O4_MINI:            {"input": 1.50,  "output": 6.00},
 
-    # ═══════════════════════════════════════════════════════
-    # GOOGLE GEMINI
-    # ═══════════════════════════════════════════════════════
+    # Google Gemini Models (via OpenRouter)
     Model.GEMINI_PRO:             {"input": 1.25,  "output": 10.00},
     Model.GEMINI_FLASH:           {"input": 0.15,  "output": 0.60},
     Model.GEMINI_FLASH_LITE:      {"input": 0.075, "output": 0.30},
-    Model.GEMINI_3_1_FLASH_LITE:  {"input": 0.25,  "output": 1.50},
-    # GEMINI_2_0_FLASH removed - deprecated by Google
-    # GEMINI_2_0_FLASH_LITE removed - deprecated by Google
-    Model.GEMINI_2_5_FLASH_LITE:  {"input": 0.10,  "output": 0.40},
-    Model.GEMINI_1_5_PRO:         {"input": 3.50,  "output": 10.50},
 
-    # ═══════════════════════════════════════════════════════
-    # ANTHROPIC CLAUDE
-    # ═══════════════════════════════════════════════════════
+    # Anthropic Claude Models (via OpenRouter)
     Model.CLAUDE_3_5_SONNET:  {"input": 3.00,  "output": 15.00},
     Model.CLAUDE_3_OPUS:      {"input": 15.00, "output": 75.00},
     Model.CLAUDE_3_HAIKU:     {"input": 0.25,  "output": 1.25},
@@ -323,267 +205,186 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.CLAUDE_OPUS_4_6:    {"input": 5.00,  "output": 25.00},
     Model.CLAUDE_HAIKU_4_5:   {"input": 1.00,  "output": 5.00},
 
-    # ═══════════════════════════════════════════════════════
-    # DEEPSEEK
-    # ═══════════════════════════════════════════════════════
+    # DeepSeek Models (via OpenRouter)
     Model.DEEPSEEK_CHAT:      {"input": 0.28,  "output": 0.42},
     Model.DEEPSEEK_REASONER:  {"input": 0.28,  "output": 0.42},
     Model.DEEPSEEK_V3:        {"input": 0.27,  "output": 1.10},
-    Model.DEEPSEEK_V3_2:      {"input": 0.28,  "output": 0.40},
     Model.DEEPSEEK_R1:        {"input": 0.55,  "output": 2.19},
 
-    # ═══════════════════════════════════════════════════════
-    # MINIMAX
-    # ═══════════════════════════════════════════════════════
-    Model.MINIMAX_TEXT_01:    {"input": 0.50,  "output": 1.50},
-    Model.MINIMAX_M2:         {"input": 0.50,  "output": 1.50},
-    Model.MINIMAX_M2_5:       {"input": 0.50,  "output": 1.50},
+    # Meta LLaMA Models (OpenRouter)
+    Model.LLAMA_4_MAVERICK:   {"input": 0.17,  "output": 0.17},  # 400B MoE
+    Model.LLAMA_4_SCOUT:      {"input": 0.11,  "output": 0.34},  # 109B MoE
+    Model.LLAMA_3_3_70B:      {"input": 0.12,  "output": 0.30},  # 70B
+    Model.LLAMA_3_1_405B:     {"input": 2.00,  "output": 2.00},  # 405B
+
+    # Microsoft Phi Models (OpenRouter)
+    Model.PHI_4:              {"input": 0.07,  "output": 0.14},  # 14B
+    Model.PHI_4_REASONING:    {"input": 0.07,  "output": 0.35},  # 14B + CoT
+
+    # Google Gemma Models (OpenRouter)
+    Model.GEMMA_3_27B:        {"input": 0.08,  "output": 0.20},  # 27B
+
+    # Nous Research Hermes (OpenRouter)
+    Model.HERMES_3_70B:       {"input": 0.40,  "output": 0.40},  # 70B fine-tuned
 
     # ═══════════════════════════════════════════════════════
-    # MISTRAL AI
+    # XIAOMI MODELS (NEW v3.0) - GAME CHANGERS!
     # ═══════════════════════════════════════════════════════
-    Model.MISTRAL_NEMO:       {"input": 0.02,  "output": 0.04},
-    Model.MISTRAL_SMALL_3_1:  {"input": 0.03,  "output": 0.11},
-    Model.MISTRAL_MEDIUM_3:   {"input": 0.40,  "output": 2.00},
-    Model.MISTRAL_LARGE_3:    {"input": 0.50,  "output": 1.50},
-    Model.CODESTRAL:          {"input": 0.30,  "output": 0.90},
-    Model.DEVSTRAL:           {"input": 0.10,  "output": 0.30},
-    Model.MAGISTRAL_SMALL:    {"input": 0.50,  "output": 1.50},
-    Model.MAGISTRAL_MEDIUM:   {"input": 2.00,  "output": 5.00},
-    Model.MINISTRAL_3B:       {"input": 0.04,  "output": 0.04},
-    Model.MINISTRAL_8B:       {"input": 0.10,  "output": 0.10},
+    Model.XIAOMI_MIMO_V2_FLASH:     {"input": 0.09,  "output": 0.29},  # #1 SWE-bench open ⭐
+    Model.XIAOMI_MIMO_V2_PRO:       {"input": 1.00,  "output": 3.00},  # 1T+ params
+    Model.XIAOMI_MIMO_V2_OMNI:      {"input": 0.40,  "output": 2.00},  # omni-modal
 
     # ═══════════════════════════════════════════════════════
-    # XAI GROK
+    # MOONSHOT KIMI MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    Model.GROK_3:             {"input": 2.00,  "output": 10.00},
-    Model.GROK_3_MINI:        {"input": 0.10,  "output": 0.30},
-    Model.GROK_4:             {"input": 3.00,  "output": 15.00},
-    Model.GROK_4_1_FAST:      {"input": 0.20,  "output": 0.50},
-    Model.GROK_4_20:          {"input": 0.25,  "output": 0.75},  # Latest model
-    Model.GROK_4_20_REASONING:{"input": 0.25,  "output": 0.75},  # Reasoning variant
+    Model.MOONSHOT_KIMI_K2_5:       {"input": 0.42,  "output": 2.20},  # visual coding SOTA
+    Model.MOONSHOT_KIMI_K2:         {"input": 0.50,  "output": 1.50},
 
     # ═══════════════════════════════════════════════════════
-    # COHERE
+    # STEPFUN MODELS (NEW v3.0) - BEST VALUE!
     # ═══════════════════════════════════════════════════════
-    Model.COMMAND_R:          {"input": 0.15,  "output": 0.60},
-    Model.COMMAND_R_PLUS:     {"input": 2.50,  "output": 10.00},
-    Model.COMMAND_R7B:        {"input": 0.15,  "output": 0.0375},
-    Model.COMMAND_A:          {"input": 2.50,  "output": 10.00},
+    Model.STEPFUN_STEP_3_5_FLASH:   {"input": 0.10,  "output": 0.30},  # 196B MoE ⭐
+    Model.STEPFUN_STEP_3_5:         {"input": 0.15,  "output": 0.45},
 
     # ═══════════════════════════════════════════════════════
-    # ALIBABA QWEN
+    # Z.AI GLM MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    Model.QWEN_PLUS:          {"input": 0.50,  "output": 1.50},
-    Model.QWEN_TURBO:         {"input": 0.20,  "output": 0.60},
-    Model.QWEN_MAX:           {"input": 2.00,  "output": 6.00},
-    Model.QWEN_LONG:          {"input": 0.10,  "output": 0.40},
-    Model.QWEN_3_235B:        {"input": 0.136, "output": 0.544},
-    Model.QWEN_3_CODER_30B:   {"input": 0.15,  "output": 0.60},
-    Model.QWEN_3_32B:         {"input": 0.20,  "output": 0.80},
-    Model.QWEN_VL:            {"input": 0.50,  "output": 1.50},
-    Model.QWEN_MATH:          {"input": 0.50,  "output": 1.50},
+    Model.ZHIPU_GLM_4_7_FLASH:      {"input": 0.06,  "output": 0.40},  # ultra-cheap ⭐
+    Model.ZHIPU_GLM_4_7:            {"input": 0.39,  "output": 1.75},  # enhanced programming
+    Model.ZHIPU_GLM_5:              {"input": 0.72,  "output": 2.30},  # complex systems
+    Model.ZHIPU_GLM_5_TURBO:        {"input": 1.20,  "output": 4.00},  # 202K, agents
 
     # ═══════════════════════════════════════════════════════
-    # BYTEDANCE SEED
+    # XAI GROK MODELS (NEW v3.0) - LOWEST HALLUCINATION
     # ═══════════════════════════════════════════════════════
-    Model.SEED_2_0_PRO:       {"input": 0.47,  "output": 2.37},
-    Model.SEED_2_0_LITE:      {"input": 0.20,  "output": 1.00},
-    Model.SEED_2_0_MINI:      {"input": 0.05,  "output": 0.25},
-    Model.SEED_2_0_CODE:      {"input": 0.30,  "output": 1.20},
+    Model.XAI_GROK_4_20_BETA:       {"input": 2.00,  "output": 6.00},  # lowest hallucination ⭐
+    Model.XAI_GROK_4_20_MULTI_AGENT:{"input": 2.00,  "output": 6.00},  # 4-16 agents
+    Model.XAI_GROK_4_1_FAST:        {"input": 0.20,  "output": 0.50},  # fast
 
     # ═══════════════════════════════════════════════════════
-    # ZHIPU GLM
+    # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # ═══════════════════════════════════════════════════════
-    Model.GLM_4:              {"input": 4.00,  "output": 8.00},
-    Model.GLM_4_6:            {"input": 2.37,  "output": 11.06},
-    Model.GLM_4_7:            {"input": 3.00,  "output": 15.00},
-    Model.GLM_4_FLASH:        {"input": 0.50,  "output": 1.00},
-    Model.GLM_4_AIR:          {"input": 1.00,  "output": 2.00},
-    Model.GLM_5:              {"input": 7.00,  "output": 17.00},
+    Model.QWEN_3_CODER_NEXT:        {"input": 0.12,  "output": 0.75},  # 80B MoE coding ⭐
+    Model.QWEN_3_5_397B_A17B:       {"input": 0.39,  "output": 2.34},  # 397B MoE ⭐
+    Model.QWEN_3_MAX_THINKING:      {"input": 0.78,  "output": 3.90},  # flagship reasoning
 
     # ═══════════════════════════════════════════════════════
-    # BAIDU ERNIE
+    # MINIMAX MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    Model.ERNIE_4_0_8K:       {"input": 4.20,  "output": 8.40},
-    Model.ERNIE_4_0_TURBO:    {"input": 4.20,  "output": 8.40},
-    Model.ERNIE_4_5_21B:      {"input": 0.056, "output": 0.224},
-    Model.ERNIE_4_5_300B:     {"input": 0.224, "output": 0.88},
-    Model.ERNIE_SPEED:        {"input": 0.56,  "output": 0.56},
-    Model.ERNIE_SPEED_PRO:    {"input": 0.08,  "output": 0.08},
-    Model.ERNIE_NOVEL:        {"input": 5.60,  "output": 5.60},
+    Model.MINIMAX_M2_7:             {"input": 0.30,  "output": 1.20},  # 56.2% SWE-Pro
 
     # ═══════════════════════════════════════════════════════
-    # MOONSHOT KIMI
+    # NVIDIA MODELS (NEW v3.0) - EFFICIENT MOE
     # ═══════════════════════════════════════════════════════
-    Model.KIMI_K1_5:          {"input": 0.50,  "output": 1.50},
-    Model.KIMI_K2:            {"input": 0.50,  "output": 1.50},
-    Model.KIMI_K2_5:          {"input": 0.50,  "output": 1.50},
+    Model.NVIDIA_NEMOTRON_3_SUPER:  {"input": 0.10,  "output": 0.50},  # 120B MoE
 
-    # ═══════════════════════════════════════════════════════
-    # TENCENT HUNYUAN
-    # ═══════════════════════════════════════════════════════
-    Model.HUNYUAN_LITE:       {"input": 0.30,  "output": 1.00},
-    Model.HUNYUAN_STANDARD:   {"input": 1.00,  "output": 3.00},
-    Model.HUNYUAN_PRO:        {"input": 2.00,  "output": 6.00},
+    # GPT-5.4 Models (NEW v3.0)
+    Model.GPT_5_4:                  {"input": 2.50,  "output": 15.00},
+    Model.GPT_5_4_MINI:             {"input": 0.75,  "output": 4.50},
+    Model.GPT_5_4_CODEX:            {"input": 1.75,  "output": 14.00},  # SWE-Bench SOTA
 
-    # ═══════════════════════════════════════════════════════
-    # BAICHUAN
-    # ═══════════════════════════════════════════════════════
-    Model.BAICHUAN_3:         {"input": 1.00,  "output": 3.00},
-    Model.BAICHUAN_4:         {"input": 2.00,  "output": 6.00},
-
-    # ═══════════════════════════════════════════════════════
-    # OPENROUTER (prices as of 2026-03, per 1M tokens)
-    # Source: openrouter.ai/models — includes OR margin
-    # ═══════════════════════════════════════════════════════
-    Model.LLAMA_4_MAVERICK:   {"input": 0.17,  "output": 0.17},  # Meta
-    Model.LLAMA_4_SCOUT:      {"input": 0.11,  "output": 0.34},  # Meta
-    Model.LLAMA_3_3_70B:      {"input": 0.12,  "output": 0.30},  # Meta
-    Model.LLAMA_3_1_405B:     {"input": 2.00,  "output": 2.00},  # Meta frontier
-    Model.PHI_4:              {"input": 0.07,  "output": 0.14},  # Microsoft
-    Model.PHI_4_REASONING:    {"input": 0.07,  "output": 0.35},  # Microsoft CoT
-    Model.GEMMA_3_27B:        {"input": 0.08,  "output": 0.20},  # Google open-weights
-    Model.HERMES_3_70B:       {"input": 0.40,  "output": 0.40},  # Nous Research
-    Model.OPENROUTER_AUTO:    {"input": 0.00,  "output": 0.00},  # Dynamic (OR estimates)
+    # OpenRouter Auto
+    Model.OPENROUTER_AUTO:          {"input": 0.00,  "output": 0.00},  # Dynamic
 }
 
 
 # ─────────────────────────────────────────────
 # Routing table (priority-ordered per task type)
-# ─────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# OPENROUTER ONLY - All models accessible via OpenRouter
+# Updated v3.0 with Xiaomi, Moonshot, DeepSeek, GLM models
+# ═══════════════════════════════════════════════════════════════════════════════
 
 ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    # ═══════════════════════════════════════════════════════════════════════════════
-    # UPDATED 2026-03-04: Full integration of 70+ models from 15 providers
-    # ═══════════════════════════════════════════════════════════════════════════════
-
     # CODE_GEN: Cheapest capable first, then quality
+    # Best: Xiaomi MiMo-V2-Flash (#1 open-source SWE-bench at $0.09/1M!)
     TaskType.CODE_GEN:     [
-        # Tier 1: Ultra-cheap capable models
-        Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest capable
-        Model.MISTRAL_SMALL_3_1,    # $0.03/$0.11 — best value overall
-        Model.PHI_4,                # $0.07/$0.14 — OR: Microsoft 14B, fast + cheap
-        Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheapest mainstream
-        Model.GEMMA_3_27B,          # $0.08/$0.20 — OR: Google open-weights
-        Model.ERNIE_SPEED_PRO,      # $0.08/$0.08 — cheapest from China
-        Model.GPT_5_NANO,           # $0.05/$0.40 — OpenAI entry level
-
-        # Tier 2: Best value
-        Model.LLAMA_4_SCOUT,        # $0.11/$0.34 — OR: Meta 109B MoE, excellent ratio
-        Model.LLAMA_3_3_70B,        # $0.12/$0.30 — OR: Meta 70B, battle-tested
-        Model.GROK_4_20,            # $0.25/$0.75 — fastest, 2M context
-        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: Meta 400B MoE, near-frontier
-        Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — fast, good quality
-        Model.QWEN_3_235B,          # $0.136/$0.544 — best Chinese value
-        Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
-        Model.GROK_4_1_FAST,        # $0.20/$0.50 — 2M context
-        Model.SEED_2_0_MINI,        # $0.05/$0.25 — ByteDance cheap
-
-        # Tier 3: Quality
-        # DEEPSEEK_CHAT removed - too slow (180s+), use as fallback only
-        Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
-        Model.CODESTRAL,            # $0.30/$0.90 — code specialist
-        Model.DEVSTRAL,             # $0.10/$0.30 — agentic coding
-        Model.HERMES_3_70B,         # $0.40/$0.40 — OR: Nous fine-tuned for tool use
-
-        # Tier 4: Premium
-        Model.GPT_4O,               # $2.50/$10 — premium quality
-        Model.CLAUDE_SONNET_4_6,    # $3/$15 — best coding performance
-        Model.LLAMA_3_1_405B,       # $2.00/$2.00 — OR: 405B near-frontier open
-        Model.QWEN_MAX,             # $2/$6 — Chinese premium
-        Model.GLM_4_7,              # $3/$15 — Zhipu coding specialist
+        Model.XIAOMI_MIMO_V2_FLASH,     # $0.09/$0.29, 309B MoE, #1 SWE-bench open ⭐ BEST
+        Model.QWEN_3_CODER_NEXT,        # $0.12/$0.75, 80B MoE coding agents
+        Model.DEEPSEEK_V3_2,            # $0.27/$1.10, 1.24T tokens, battle-tested
+        Model.MOONSHOT_KIMI_K2_5,       # $0.42/$2.20, visual coding SOTA
+        Model.ZHIPU_GLM_4_7,            # $0.39/$1.75, enhanced programming
+        Model.MINIMAX_M2_7,             # $0.30/$1.20, 56.2% SWE-Pro
+        Model.PHI_4,                    # $0.07/$0.14, Microsoft 14B
+        Model.GEMMA_3_27B,              # $0.08/$0.20, Google open-weights
+        Model.LLAMA_3_3_70B,            # $0.12/$0.30, Meta 70B
+        Model.LLAMA_4_SCOUT,            # $0.11/$0.34, Meta 109B MoE
+        Model.LLAMA_4_MAVERICK,         # $0.17/$0.17, Meta 400B MoE
+        Model.HERMES_3_70B,             # $0.40/$0.40, Nous fine-tuned
+        Model.LLAMA_3_1_405B,           # $2.00/$2.00, Meta 405B
+        Model.CLAUDE_SONNET_4_6,        # $3/$15, best coding
+        Model.GPT_5_4_CODEX,            # $1.75/$14, SWE-Bench Pro SOTA
     ],
 
     # CODE_REVIEW: Fast and accurate
+    # Best: Grok 4.20 (lowest hallucination) + DeepSeek R1 (reasoning)
     TaskType.CODE_REVIEW:  [
-        Model.MISTRAL_SMALL_3_1,    # $0.03/$0.11 — excellent value
-        Model.PHI_4_REASONING,      # $0.07/$0.35 — OR: CoT reasoning, great for review
-        Model.GEMMA_3_27B,          # $0.08/$0.20 — OR: open-weights
-        Model.LLAMA_4_SCOUT,        # $0.11/$0.34 — OR: fast + capable
-        Model.LLAMA_3_3_70B,        # $0.12/$0.30 — OR: accurate reviewer
-        Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — fast reviews
-        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: high quality
-        Model.QWEN_3_235B,          # $0.136/$0.544 — accurate
-        Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
-        # DEEPSEEK_CHAT removed - too slow, use as fallback only
-        Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context for large reviews
-        Model.CLAUDE_SONNET_4_6,    # $3/$15 — premium review
-        Model.QWEN_MAX,             # $2/$6 — Chinese premium
+        Model.XAI_GROK_4_20_BETA,       # $2.00/$6.00, lowest hallucination ⭐ BEST
+        Model.DEEPSEEK_R1,              # $0.55/$2.19, reasoning specialist
+        Model.MOONSHOT_KIMI_K2_5,       # $0.42/$2.20, visual coding SOTA
+        Model.PHI_4_REASONING,          # $0.07/$0.35, Microsoft CoT
+        Model.GEMMA_3_27B,              # $0.08/$0.20, Google
+        Model.LLAMA_3_3_70B,            # $0.12/$0.30, Meta 70B
+        Model.LLAMA_4_SCOUT,            # $0.11/$0.34, Meta fast
+        Model.LLAMA_4_MAVERICK,         # $0.17/$0.17, Meta 400B
+        Model.HERMES_3_70B,             # $0.40/$0.40, Nous
+        Model.CLAUDE_SONNET_4_6,        # $3/$15, premium
     ],
 
     # REASONING: Reasoning models prioritized
+    # Best: StepFun Step 3.5 Flash (196B MoE at $0.10/1M!)
     TaskType.REASONING:    [
-        # DEEPSEEK models moved to fallback - too slow (180s+)
-        Model.GROK_4_20_REASONING,  # Latest reasoning model
-        Model.PHI_4_REASONING,      # $0.07/$0.35 — OR: CoT, best $/reasoning
-        Model.O3_MINI,              # $1.10/$4.40 — OpenAI reasoning
-        Model.O4_MINI,              # $1.50/$6.00 — OpenAI reasoning
-        Model.GROK_4_1_FAST,        # $0.20/$0.50 — 2M context reasoning
-        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: 400B strong reasoning
-        Model.QWEN_3_235B,          # $0.136/$0.544 — good reasoning
-        Model.LLAMA_3_1_405B,       # $2.00/$2.00 — OR: frontier open-source
-        Model.CLAUDE_OPUS_4_6,      # $5/$25 — most capable
-        Model.O3,                   # $2/$8 — OpenAI mid-tier
-        Model.GEMINI_PRO,           # $1.25/$10 — 2M context
-        Model.GLM_5,                # $7/$17 — massive 744B model
+        Model.STEPFUN_STEP_3_5_FLASH,   # $0.10/$0.30, 196B MoE ⭐ BEST VALUE
+        Model.DEEPSEEK_R1,              # $0.55/$2.19, reasoning specialist
+        Model.MOONSHOT_KIMI_K2_5,       # $0.42/$2.20, native multimodal
+        Model.ZHIPU_GLM_4_7_FLASH,      # $0.06/$0.40, ultra-cheap 202K
+        Model.LLAMA_4_MAVERICK,         # $0.17/$0.17, Meta 400B
+        Model.LLAMA_3_1_405B,           # $2.00/$2.00, Meta frontier
+        Model.O3_MINI,                  # $1.10/$4.40, OpenAI
+        Model.O4_MINI,                  # $1.50/$6.00, OpenAI
+        Model.CLAUDE_OPUS_4_6,          # $5/$25, most capable
     ],
 
     # WRITING: Quality and creativity
     TaskType.WRITING:      [
-        Model.GPT_5,                # $1.25/$10 — best writing
-        Model.GPT_4O,               # $2.50/$10 — excellent
-        Model.CLAUDE_SONNET_4_6,    # $3/$15 — excellent prose
-        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: very capable for writing
-        Model.HERMES_3_70B,         # $0.40/$0.40 — OR: fine-tuned, natural language
-        Model.QWEN_LONG,            # $0.10/$0.40 — 10M context for long docs
-        Model.GEMINI_PRO,           # $1.25/$10 — 2M context
-        Model.GEMINI_3_1_FLASH_LITE,# $0.25/$1.50 — bulk content
-        Model.ERNIE_NOVEL,          # $5.60/$5.60 — creative specialist
-        Model.HUNYUAN_PRO,          # $2/$6 — Tencent creative
+        Model.LLAMA_4_MAVERICK,         # $0.17/$0.17, Meta 400B
+        Model.HERMES_3_70B,             # $0.40/$0.40, Nous
+        Model.LLAMA_3_1_405B,           # $2.00/$2.00, Meta frontier
+        Model.GPT_5_4,                  # $2.50/$10, excellent
+        Model.CLAUDE_SONNET_4_6,        # $3/$15, excellent prose
     ],
 
     # DATA_EXTRACT: Cheapest first
     TaskType.DATA_EXTRACT: [
-        Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest
-        Model.PHI_4,                # $0.07/$0.14 — OR: tiny but accurate extractor
-        Model.GEMMA_3_27B,          # $0.08/$0.20 — OR: open-weights, cheap
-        Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheapest mainstream
-        Model.GROK_4_20,            # 2M context for large documents
-        Model.GROK_4_1_FAST,        # 2M context
-        Model.ERNIE_SPEED_PRO,      # $0.08/$0.08 — very cheap
-        Model.GPT_5_NANO,           # $0.05/$0.40 — OpenAI cheap
-        Model.LLAMA_4_SCOUT,        # $0.11/$0.34 — OR: efficient extractor
-        Model.QWEN_LONG,            # $0.10/$0.40 — 10M context for large data
-        Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
-        Model.QWEN_3_235B,          # $0.136/$0.544 — accurate
+        Model.ZHIPU_GLM_4_7_FLASH,      # $0.06/$0.40, ultra-cheap ⭐ BEST
+        Model.PHI_4,                    # $0.07/$0.14, Microsoft
+        Model.GEMMA_3_27B,              # $0.08/$0.20, Google
+        Model.LLAMA_3_3_70B,            # $0.12/$0.30, Meta 70B
+        Model.LLAMA_4_SCOUT,            # $0.11/$0.34, Meta
+        Model.LLAMA_4_MAVERICK,         # $0.17/$0.17, Meta 400B
+        Model.GPT_5_4_MINI,             # $0.15/$0.60, reliable
     ],
 
     # SUMMARIZE: Cheap with good context
     TaskType.SUMMARIZE:    [
-        Model.MISTRAL_NEMO,         # $0.02/$0.04 — cheapest
-        Model.PHI_4,                # $0.07/$0.14 — OR: tiny, fast summarizer
-        Model.GEMMA_3_27B,          # $0.08/$0.20 — OR: good summary quality
-        Model.GEMINI_2_5_FLASH_LITE,# $0.075/$0.30 — cheap + good
-        Model.GROK_4_20,            # 2M context, fast
-        Model.LLAMA_4_SCOUT,        # $0.11/$0.34 — OR: long-context capable
-        Model.GROK_4_1_FAST,        # 2M context for long documents
-        Model.QWEN_LONG,            # $0.10/$0.40 — 10M context
-        Model.GEMINI_FLASH,         # $0.15/$0.60 — 1M context
-        Model.GPT_4O_MINI,          # $0.15/$0.60 — reliable
+        Model.ZHIPU_GLM_4_7_FLASH,      # $0.06/$0.40, ultra-cheap ⭐ BEST
+        Model.PHI_4,                    # $0.07/$0.14, fast
+        Model.GEMMA_3_27B,              # $0.08/$0.20, concise
+        Model.LLAMA_3_3_70B,            # $0.12/$0.30, accurate
+        Model.LLAMA_4_SCOUT,            # $0.11/$0.34, fast
     ],
 
     # EVALUATE: Reliable evaluation
+    # Best: Grok 4.20 (lowest hallucination)
     TaskType.EVALUATE:     [
-        Model.GROK_4_20,            # Fast, accurate evaluation
-        Model.GPT_4O,               # Most reliable evaluator
-        Model.LLAMA_4_MAVERICK,     # $0.17/$0.17 — OR: strong evaluator
-        Model.HERMES_3_70B,         # $0.40/$0.40 — OR: Nous fine-tuned, calibrated
-        Model.QWEN_3_235B,          # $0.136/$0.544 — accurate & cheap
-        Model.CLAUDE_HAIKU_4_5,     # $1/$5 — cheap Claude
-        Model.CLAUDE_SONNET_4_6,    # $3/$15 — excellent evaluation
-        Model.O4_MINI,              # $1.50/$6.00 — reasoning
-        # DEEPSEEK removed from primary - too slow (180s+)
+        Model.XAI_GROK_4_20_BETA,       # $2.00/$6.00, lowest hallucination ⭐ BEST
+        Model.DEEPSEEK_R1,              # $0.55/$2.19, fair scoring
+        Model.MOONSHOT_KIMI_K2_5,       # $0.42/$2.20, technical eval
+        Model.LLAMA_4_MAVERICK,         # $0.17/$0.17, Meta 400B
+        Model.HERMES_3_70B,             # $0.40/$0.40, Nous
+        Model.LLAMA_3_1_405B,           # $2.00/$2.00, Meta
+        Model.CLAUDE_SONNET_4_6,        # $3/$15, excellent
+        Model.GPT_5_4,                  # $2.50/$10, reliable
     ],
 }
 
@@ -593,50 +394,54 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
 # ─────────────────────────────────────────────
 
 FALLBACK_CHAIN: dict[Model, Model] = {
-    # OPTIMIZED 2026-03-04: Gemini 3.1 Flash-Lite added, all fallbacks cross-provider
-    # Each fallback goes to a different provider to maximize availability
+    # OpenRouter fallbacks (cheaper/faster → more capable)
+    
+    # OpenAI models fallbacks
+    Model.GPT_4O:              Model.CLAUDE_SONNET_4_6,    # GPT-4o → Claude Sonnet
+    Model.GPT_4O_MINI:         Model.LLAMA_3_3_70B,        # GPT-4o-mini → LLaMA 70B
+    Model.O1:                  Model.CLAUDE_OPUS_4_6,      # o1 → Claude Opus
+    Model.O3_MINI:             Model.PHI_4_REASONING,      # o3-mini → Phi-4 Reasoning
+    Model.O4_MINI:             Model.CLAUDE_OPUS_4_6,      # o4-mini → Claude Opus
 
-    # OpenAI fallbacks → DeepSeek (cost-effective, same quality tier)
-    Model.GPT_4O:              Model.DEEPSEEK_CHAT,      # Premium → DeepSeek
-    Model.GPT_4O_MINI:         Model.GEMINI_FLASH,       # Budget → Gemini
-    Model.O4_MINI:             Model.DEEPSEEK_REASONER,  # Reasoning → DeepSeek-R1
+    # Gemini fallbacks
+    Model.GEMINI_PRO:          Model.GPT_4O,               # Gemini Pro → GPT-4o
+    Model.GEMINI_FLASH:        Model.LLAMA_4_SCOUT,        # Gemini Flash → LLaMA Scout
+    Model.GEMINI_FLASH_LITE:   Model.PHI_4,                # Gemini Flash Lite → Phi-4
 
-    # Gemini fallbacks → OpenAI or DeepSeek
-    Model.GEMINI_PRO:          Model.GPT_4O,             # Pro → GPT-4o
-    Model.GEMINI_FLASH:        Model.GPT_4O_MINI,        # Flash → GPT-4o-mini
-    Model.GEMINI_FLASH_LITE:   Model.GPT_4O_MINI,        # Lite → GPT-4o-mini
-    Model.GEMINI_3_1_FLASH_LITE: Model.DEEPSEEK_CHAT,    # NEW: 3.1 Flash-Lite → DeepSeek
+    # Claude fallbacks
+    Model.CLAUDE_3_5_SONNET:   Model.GPT_4O,               # Claude Sonnet → GPT-4o
+    Model.CLAUDE_3_OPUS:       Model.CLAUDE_OPUS_4_6,      # Claude Opus → Claude Opus 4-6
+    Model.CLAUDE_3_HAIKU:      Model.LLAMA_3_3_70B,        # Claude Haiku → LLaMA 70B
+    Model.CLAUDE_SONNET_4_5:   Model.CLAUDE_SONNET_4_6,    # Sonnet 4-5 → Sonnet 4-6
+    Model.CLAUDE_SONNET_4_6:   Model.GPT_4O,               # Sonnet 4-6 → GPT-4o
+    Model.CLAUDE_OPUS_4_5:     Model.CLAUDE_OPUS_4_6,      # Opus 4-5 → Opus 4-6
+    Model.CLAUDE_OPUS_4_6:     Model.GPT_4O,               # Opus 4-6 → GPT-4o
+    Model.CLAUDE_HAIKU_4_5:    Model.LLAMA_3_3_70B,        # Haiku 4-5 → LLaMA 70B
 
-    # Claude fallbacks → OpenAI (both high-quality Western providers)
-    Model.CLAUDE_3_5_SONNET:   Model.GPT_4O,             # Claude Sonnet → GPT-4o
-    Model.CLAUDE_3_OPUS:       Model.GPT_4O,             # Claude Opus → GPT-4o
-    Model.CLAUDE_3_HAIKU:      Model.GPT_4O_MINI,        # Claude Haiku → GPT-4o-mini
+    # DeepSeek fallbacks
+    Model.DEEPSEEK_CHAT:       Model.LLAMA_3_3_70B,        # DeepSeek Chat → LLaMA 70B
+    Model.DEEPSEEK_REASONER:   Model.PHI_4_REASONING,      # DeepSeek Reasoner → Phi-4 Reasoning
+    Model.DEEPSEEK_V3:         Model.LLAMA_4_SCOUT,        # DeepSeek V3 → LLaMA Scout
+    Model.DEEPSEEK_R1:         Model.O3_MINI,              # DeepSeek R1 → o3-mini
 
-    # MiniMax fallback → OpenAI
-    Model.MINIMAX_TEXT_01:     Model.GPT_4O,             # Minimax → GPT-4o
+    # Meta LLaMA fallbacks
+    Model.LLAMA_4_MAVERICK:    Model.LLAMA_3_1_405B,       # Maverick → LLaMA 405B
+    Model.LLAMA_4_SCOUT:       Model.LLAMA_3_3_70B,        # Scout → LLaMA 70B
+    Model.LLAMA_3_3_70B:       Model.HERMES_3_70B,         # LLaMA 70B → Hermes 70B
+    Model.LLAMA_3_1_405B:      Model.CLAUDE_SONNET_4_6,    # LLaMA 405B → Claude Sonnet
 
-    # Grok fallbacks (xAI → cross-provider)
-    Model.GROK_4_20:           Model.GEMINI_FLASH,       # grok-4.20 → Gemini Flash
-    Model.GROK_4_20_REASONING: Model.O4_MINI,            # grok-4.20-reasoning → o4-mini
-    Model.GROK_4_1_FAST:       Model.GEMINI_FLASH,       # grok-4.1-fast → Gemini Flash
-    Model.GROK_4:              Model.GPT_4O,             # grok-4 → GPT-4o
-    Model.GROK_3:              Model.GPT_4O,             # grok-3 → GPT-4o
-    Model.GROK_3_MINI:         Model.GPT_4O_MINI,        # grok-3-mini → GPT-4o-mini
+    # Microsoft Phi fallbacks
+    Model.PHI_4:               Model.GEMMA_3_27B,          # Phi-4 → Gemma 27B
+    Model.PHI_4_REASONING:     Model.O3_MINI,              # Phi-4 Reasoning → o3-mini
 
-    # DeepSeek fallbacks → OpenAI (premium escalation)
-    Model.DEEPSEEK_CHAT:       Model.GPT_4O,             # DeepSeek → GPT-4o
-    Model.DEEPSEEK_REASONER:   Model.O4_MINI,            # R1 → o4-mini (both reasoning)
+    # Google Gemma fallbacks
+    Model.GEMMA_3_27B:         Model.LLAMA_3_3_70B,        # Gemma 27B → LLaMA 70B
 
-    # OpenRouter fallbacks (open-source → proprietary escalation)
-    Model.LLAMA_4_MAVERICK:    Model.GPT_4O,             # Maverick 400B → GPT-4o
-    Model.LLAMA_4_SCOUT:       Model.GPT_4O_MINI,        # Scout → GPT-4o-mini
-    Model.LLAMA_3_3_70B:       Model.GPT_4O_MINI,        # Llama 70B → GPT-4o-mini
-    Model.LLAMA_3_1_405B:      Model.GPT_4O,             # 405B → GPT-4o
-    Model.PHI_4:               Model.MISTRAL_SMALL_3_1,  # Phi-4 → Mistral Small
-    Model.PHI_4_REASONING:     Model.O3_MINI,            # Phi-4 CoT → o3-mini
-    Model.GEMMA_3_27B:         Model.MISTRAL_SMALL_3_1,  # Gemma 27B → Mistral Small
-    Model.HERMES_3_70B:        Model.LLAMA_3_3_70B,      # Hermes → LLaMA 3.3 (same family)
-    Model.OPENROUTER_AUTO:     Model.GPT_4O_MINI,        # Auto → GPT-4o-mini safe fallback
+    # Nous Hermes fallbacks
+    Model.HERMES_3_70B:        Model.LLAMA_3_3_70B,        # Hermes → LLaMA 70B
+
+    # OpenRouter Auto fallback
+    Model.OPENROUTER_AUTO:     Model.LLAMA_3_3_70B,        # Auto → LLaMA 70B safe fallback
 }
 
 
@@ -683,36 +488,41 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.CLAUDE_OPUS_4_6:    4096,
 
     # Google Gemini models (high limits)
-    # GEMINI_2_0_FLASH removed - deprecated by Google
-    # GEMINI_2_0_FLASH_LITE removed - deprecated by Google
-    Model.GEMINI_2_5_FLASH_LITE:  8192,
+    Model.GEMINI_PRO:             8192,
     Model.GEMINI_FLASH:           8192,
     Model.GEMINI_FLASH_LITE:      8192,
-    Model.GEMINI_3_1_FLASH_LITE:  8192,
 
-    # Mistral models
-    Model.MISTRAL_NEMO:       8192,
-    Model.MISTRAL_SMALL_3_1:  8192,
-    Model.MINISTRAL_3B:       4096,
-    Model.MINISTRAL_8B:       4096,
+    # DeepSeek models
+    Model.DEEPSEEK_CHAT:      8192,
+    Model.DEEPSEEK_REASONER:  8192,
+    Model.DEEPSEEK_V3:        8192,
+    Model.DEEPSEEK_R1:        8192,
 
-    # Cohere models
-    Model.COMMAND_R7B:        4096,
+    # Meta LLaMA models
+    Model.LLAMA_4_MAVERICK:   8192,
+    Model.LLAMA_4_SCOUT:      8192,
+    Model.LLAMA_3_3_70B:      8192,
+    Model.LLAMA_3_1_405B:     8192,
 
-    # Chinese models
-    Model.QWEN_3_235B:        8192,
-    Model.QWEN_3_CODER_30B:   8192,
-    Model.QWEN_3_32B:         8192,
-    Model.QWEN_LONG:          8192,  # Actually supports 10M context but output limited
-    Model.GLM_4:              4096,
-    Model.GLM_4_6:            4096,
-    Model.GLM_4_7:            4096,
-    Model.GLM_4_FLASH:        8192,
-    Model.GLM_4_AIR:          4096,
-    Model.GLM_5:              8192,
-    Model.KIMI_K1_5:          8192,
-    Model.KIMI_K2:            8192,
-    Model.KIMI_K2_5:          8192,
+    # Microsoft Phi models
+    Model.PHI_4:              4096,
+    Model.PHI_4_REASONING:    4096,
+
+    # Google Gemma models
+    Model.GEMMA_3_27B:        8192,
+
+    # Nous Hermes models
+    Model.HERMES_3_70B:       8192,
+
+    # OpenAI models
+    Model.GPT_4O:             8192,
+    Model.GPT_4O_MINI:        4096,
+    Model.GPT_5:              8192,
+    Model.GPT_5_MINI:         4096,
+    Model.GPT_5_NANO:         4096,
+    Model.O1:                 4096,
+    Model.O3_MINI:            4096,
+    Model.O4_MINI:            4096,
 }
 
 
@@ -790,6 +600,11 @@ class TaskResult:
     attempt_history: list[AttemptRecord] = field(default_factory=list)
     preflight_result: PreflightResult | None = None
     preflight_passed: bool = True
+
+    @property
+    def success(self) -> bool:
+        """Backward compatibility: success = completed status and score > 0."""
+        return self.status == TaskStatus.COMPLETED and self.score > 0.5
 
 
 @dataclass

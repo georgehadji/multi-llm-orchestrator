@@ -11,25 +11,24 @@ Environment Variables:
 
 Usage:
     from orchestrator.slack_integration import SlackNotifier, RunSummaryFormatter
-    
+
     notifier = SlackNotifier()
     await notifier.notify_budget_alert(payload)
 """
 
 from __future__ import annotations
 
-import os
-import json
-import hmac
 import hashlib
+import hmac
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from enum import Enum
-from typing import Optional, Callable, Any
 from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
 
 import httpx
 
@@ -88,7 +87,7 @@ class QualityGateFailurePayload:
     failed_checks: list[FailedCheck]
     dashboard_url: str
     rerun_url: str  # Callback URL to retrigger run
-    report_url: Optional[str] = None
+    report_url: str | None = None
     severity: AlertSeverity = AlertSeverity.ERROR
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
@@ -112,8 +111,8 @@ class IssueItem:
     category: str  # SECURITY, TEST, PERFORMANCE, etc.
     description: str
     severity: str = "medium"
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
+    file_path: str | None = None
+    line_number: int | None = None
 
 
 @dataclass
@@ -121,7 +120,7 @@ class CostBreakdown:
     """Cost breakdown by model."""
     model_name: str
     cost_usd: float
-    tokens_used: Optional[int] = None
+    tokens_used: int | None = None
 
 
 @dataclass
@@ -135,7 +134,7 @@ class RunSummaryPayload:
     quality_score: float
     quality_gate_passed: bool
     top_issues: list[IssueItem]
-    duration_seconds: Optional[float] = None
+    duration_seconds: float | None = None
     dashboard_url: str = ""
     logs_url: str = ""
     artifacts_url: str = ""
@@ -162,7 +161,7 @@ class SlashCommandResponse:
     """Response to a slash command."""
     text: str
     response_type: str = "ephemeral"  # "ephemeral" or "in_channel"
-    blocks: Optional[list[dict]] = None
+    blocks: list[dict] | None = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -172,53 +171,53 @@ class SlashCommandResponse:
 class SlackClient:
     """
     Low-level client for sending messages to Slack via webhooks.
-    
+
     Usage:
         client = SlackClient(webhook_url="https://hooks.slack.com/...")
         await client.send_message({"text": "Hello", "blocks": [...]})
     """
-    
+
     def __init__(
         self,
-        webhook_url: Optional[str] = None,
+        webhook_url: str | None = None,
         timeout_seconds: float = 30.0,
     ):
         self.webhook_url = webhook_url or os.environ.get("ORCHESTRATOR_SLACK_WEBHOOK_URL")
         self.timeout = timeout_seconds
-        self._client: Optional[httpx.AsyncClient] = None
-    
+        self._client: httpx.AsyncClient | None = None
+
     @property
     def is_configured(self) -> bool:
         """Check if the client has a valid webhook URL."""
         return bool(self.webhook_url)
-    
+
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self.timeout)
         return self._client
-    
+
     async def send_message(
         self,
         payload: dict,
-        webhook_url: Optional[str] = None,
+        webhook_url: str | None = None,
     ) -> bool:
         """
         Send a message payload to Slack.
-        
+
         Args:
             payload: The JSON payload to send (follows Slack Block Kit format)
             webhook_url: Optional override webhook URL
-            
+
         Returns:
             True if message was sent successfully
         """
         url = webhook_url or self.webhook_url
-        
+
         if not url:
             logger.warning("Slack webhook URL not configured, skipping message")
             return False
-        
+
         try:
             client = await self._get_client()
             response = await client.post(
@@ -226,34 +225,34 @@ class SlackClient:
                 json=payload,
                 headers={"Content-Type": "application/json"},
             )
-            
+
             if response.status_code == 200 and response.text == "ok":
                 logger.debug("Slack message sent successfully")
                 return True
             else:
                 logger.error(f"Slack API error: {response.status_code} - {response.text}")
                 return False
-                
+
         except httpx.TimeoutException:
             logger.error("Timeout sending Slack message")
             return False
         except Exception as e:
             logger.error(f"Error sending Slack message: {e}")
             return False
-    
-    async def send_text(self, text: str, webhook_url: Optional[str] = None) -> bool:
+
+    async def send_text(self, text: str, webhook_url: str | None = None) -> bool:
         """Send a simple text message."""
         return await self.send_message({"text": text}, webhook_url)
-    
+
     async def close(self):
         """Close the HTTP client."""
         if self._client:
             await self._client.aclose()
             self._client = None
-    
+
     async def __aenter__(self):
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
 
@@ -265,16 +264,16 @@ class SlackClient:
 class SlackNotifier:
     """
     High-level notifier for orchestrator alerts.
-    
+
     Handles formatting and sending of:
     - Budget threshold alerts
     - Quality gate failures
     - Model circuit breaker trips
     """
-    
-    def __init__(self, client: Optional[SlackClient] = None):
+
+    def __init__(self, client: SlackClient | None = None):
         self.client = client or SlackClient()
-    
+
     def _severity_to_emoji(self, severity: AlertSeverity) -> str:
         """Get emoji for severity level."""
         return {
@@ -283,12 +282,12 @@ class SlackNotifier:
             AlertSeverity.ERROR: "❌",
             AlertSeverity.CRITICAL: "🚨",
         }.get(severity, "📢")
-    
+
     async def notify_budget_alert(self, payload: BudgetAlertPayload) -> bool:
         """Send a budget threshold alert to Slack."""
         emoji = self._severity_to_emoji(payload.severity)
         percentage = int(payload.threshold_crossed * 100)
-        
+
         message = {
             "text": f"{emoji} Orchestrator Budget Alert: {payload.project_id}",
             "blocks": [
@@ -365,23 +364,23 @@ class SlackNotifier:
                 },
             ],
         }
-        
+
         success = await self.client.send_message(message)
         if success:
             logger.info(f"Budget alert sent for project {payload.project_id}")
         return success
-    
+
     async def notify_quality_gate_failure(self, payload: QualityGateFailurePayload) -> bool:
         """Send a quality gate failure alert to Slack."""
         emoji = self._severity_to_emoji(payload.severity)
-        
+
         checks_text = ""
         for check in payload.failed_checks[:5]:
             checks_text += f"• *{check.name}*: Expected `{check.expected}`, got `{check.actual}`\n"
-        
+
         if len(payload.failed_checks) > 5:
             checks_text += f"_... and {len(payload.failed_checks) - 5} more_"
-        
+
         message = {
             "text": f"{emoji} Quality Gate Failed: {payload.project_id}",
             "blocks": [
@@ -417,7 +416,7 @@ class SlackNotifier:
                 },
             ],
         }
-        
+
         if payload.report_url:
             message["blocks"].append({
                 "type": "section",
@@ -426,7 +425,7 @@ class SlackNotifier:
                     "text": f"<🔗 {payload.report_url}|View Full Report>",
                 },
             })
-        
+
         message["blocks"].extend([
             {"type": "divider"},
             {
@@ -456,20 +455,20 @@ class SlackNotifier:
                 ],
             },
         ])
-        
+
         success = await self.client.send_message(message)
         if success:
             logger.info(f"Quality gate failure alert sent for project {payload.project_id}")
         return success
-    
+
     async def notify_model_circuit_breaker(self, payload: CircuitBreakerPayload) -> bool:
         """Send a model circuit breaker alert to Slack."""
         emoji = self._severity_to_emoji(payload.severity)
-        
+
         error_msg = payload.last_error_message
         if len(error_msg) > 200:
             error_msg = error_msg[:197] + "..."
-        
+
         message = {
             "text": f"{emoji} Model Circuit Breaker: {payload.model_name}",
             "blocks": [
@@ -523,7 +522,7 @@ class SlackNotifier:
                 },
             ],
         }
-        
+
         success = await self.client.send_message(message)
         if success:
             logger.info(f"Circuit breaker alert sent for model {payload.model_name}")
@@ -536,13 +535,13 @@ class SlackNotifier:
 
 class RunSummaryFormatter:
     """Formats end-of-run summaries for Slack."""
-    
+
     @staticmethod
     def format_cost_breakdown(costs: list[CostBreakdown]) -> str:
         """Format cost breakdown as a readable string."""
         if not costs:
             return "N/A"
-        
+
         lines = []
         for cost in costs:
             if cost.tokens_used:
@@ -550,35 +549,35 @@ class RunSummaryFormatter:
             else:
                 lines.append(f"• {cost.model_name}: ${cost.cost_usd:.3f}")
         return "\n".join(lines)
-    
+
     @staticmethod
     def format_issues(issues: list[IssueItem]) -> str:
         """Format top issues for display."""
         if not issues:
             return "✅ No issues found"
-        
+
         lines = []
         for issue in issues[:3]:
             emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(issue.severity, "⚪")
             lines.append(f"{emoji} *[{issue.category}]* {issue.description}")
-        
+
         if len(issues) > 3:
             lines.append(f"_... and {len(issues) - 3} more issues_")
-        
+
         return "\n".join(lines)
-    
+
     @classmethod
     def build_slack_message(cls, payload: RunSummaryPayload) -> dict:
         """Build a complete Slack message from a run summary payload."""
         status_emoji = "✅" if payload.status == "PASSED" else "❌"
         quality_emoji = "🟢" if payload.quality_score >= 0.8 else "🟡" if payload.quality_score >= 0.6 else "🔴"
-        
+
         duration_str = ""
         if payload.duration_seconds:
             minutes = int(payload.duration_seconds // 60)
             seconds = int(payload.duration_seconds % 60)
             duration_str = f" ({minutes}m {seconds}s)"
-        
+
         blocks = [
             {
                 "type": "header",
@@ -610,7 +609,7 @@ class RunSummaryFormatter:
                 ],
             },
         ]
-        
+
         # Add cost breakdown
         if payload.cost_breakdown:
             blocks.append({
@@ -620,7 +619,7 @@ class RunSummaryFormatter:
                     "text": f"*Cost Breakdown:*\n{cls.format_cost_breakdown(payload.cost_breakdown)}",
                 },
             })
-        
+
         # Add issues
         blocks.append({
             "type": "section",
@@ -629,10 +628,10 @@ class RunSummaryFormatter:
                 "text": f"*Top Issues:*\n{cls.format_issues(payload.top_issues)}",
             },
         })
-        
+
         # Add action buttons
         actions = {"type": "actions", "elements": []}
-        
+
         if payload.dashboard_url:
             actions["elements"].append({
                 "type": "button",
@@ -640,7 +639,7 @@ class RunSummaryFormatter:
                 "url": payload.dashboard_url,
                 "action_id": "open_dashboard",
             })
-        
+
         if payload.artifacts_url:
             actions["elements"].append({
                 "type": "button",
@@ -648,7 +647,7 @@ class RunSummaryFormatter:
                 "url": payload.artifacts_url,
                 "action_id": "download_artifacts",
             })
-        
+
         if payload.audit_log_url:
             actions["elements"].append({
                 "type": "button",
@@ -656,10 +655,10 @@ class RunSummaryFormatter:
                 "url": payload.audit_log_url,
                 "action_id": "view_audit_log",
             })
-        
+
         if actions["elements"]:
             blocks.extend([{"type": "divider"}, actions])
-        
+
         return {
             "text": f"Orchestrator Run Summary: {payload.project_id} - {payload.status}",
             "blocks": blocks,
@@ -668,11 +667,11 @@ class RunSummaryFormatter:
 
 async def send_run_summary_to_slack(
     payload: RunSummaryPayload,
-    client: Optional[SlackClient] = None,
+    client: SlackClient | None = None,
 ) -> bool:
     """
     Send a run summary to Slack.
-    
+
     Convenience function that formats and sends a run summary.
     """
     client = client or SlackClient()
@@ -687,11 +686,11 @@ async def send_run_summary_to_slack(
 class RateLimiter:
     """
     Simple in-memory rate limiter for Slack commands.
-    
+
     Tracks requests per workspace/channel and enimits limits.
     Can be replaced with Redis for distributed deployments.
     """
-    
+
     def __init__(
         self,
         max_requests: int = 10,
@@ -701,39 +700,39 @@ class RateLimiter:
         self.window_seconds = window_seconds
         # key -> list of timestamps
         self._requests: dict[str, list[float]] = defaultdict(list)
-    
+
     def _clean_old_requests(self, timestamps: list[float]) -> list[float]:
         """Remove requests outside the time window."""
         now = time.time()
         cutoff = now - self.window_seconds
         return [ts for ts in timestamps if ts > cutoff]
-    
+
     def is_allowed(self, key: str) -> tuple[bool, int]:
         """
         Check if a request is allowed.
-        
+
         Returns:
             (allowed, remaining_requests)
         """
         timestamps = self._requests.get(key, [])
         timestamps = self._clean_old_requests(timestamps)
-        
+
         if len(timestamps) >= self.max_requests:
             return False, 0
-        
+
         return True, self.max_requests - len(timestamps) - 1
-    
+
     def record_request(self, key: str):
         """Record a request for the given key."""
         now = time.time()
         self._requests[key].append(now)
-    
+
     def get_retry_after(self, key: str) -> int:
         """Get seconds until the next request is allowed."""
         timestamps = self._requests.get(key, [])
         if not timestamps:
             return 0
-        
+
         oldest = min(timestamps)
         retry_after = int(oldest + self.window_seconds - time.time())
         return max(0, retry_after)
@@ -751,11 +750,11 @@ class PresetTemplate:
 
 class TemplateRegistry:
     """Registry of available templates for slash commands."""
-    
+
     def __init__(self):
         self._templates: dict[str, PresetTemplate] = {}
         self._register_defaults()
-    
+
     def _register_defaults(self):
         """Register default templates."""
         self.register(PresetTemplate(
@@ -770,7 +769,7 @@ class TemplateRegistry:
             default_budget=8.0,
             allowed_overrides=["budget", "description"],
         ))
-        
+
         self.register(PresetTemplate(
             name="internal-dashboard",
             description="Next.js dashboard with basic auth (relaxed settings)",
@@ -783,7 +782,7 @@ class TemplateRegistry:
             default_budget=3.0,
             allowed_overrides=["budget", "description", "models"],
         ))
-        
+
         self.register(PresetTemplate(
             name="python-cli",
             description="Python CLI tool with standard quality gates",
@@ -796,37 +795,37 @@ class TemplateRegistry:
             default_budget=2.0,
             allowed_overrides=["budget", "description"],
         ))
-    
+
     def register(self, template: PresetTemplate):
         """Register a new template."""
         self._templates[template.name] = template
-    
-    def get(self, name: str) -> Optional[PresetTemplate]:
+
+    def get(self, name: str) -> PresetTemplate | None:
         """Get a template by name."""
         return self._templates.get(name)
-    
+
     def list_templates(self) -> list[PresetTemplate]:
         """List all available templates."""
         return list(self._templates.values())
-    
+
     def parse_overrides(self, text: str, template: PresetTemplate) -> dict[str, Any]:
         """
         Parse override arguments from command text.
-        
+
         Format: key=value key2=value2
         """
         overrides = {}
         parts = text.split()
-        
+
         for part in parts:
             if "=" in part:
                 key, value = part.split("=", 1)
                 key = key.strip()
                 value = value.strip()
-                
+
                 if key not in template.allowed_overrides:
                     continue
-                
+
                 # Try to convert to appropriate type
                 if value.lower() in ("true", "false"):
                     overrides[key] = value.lower() == "true"
@@ -834,17 +833,17 @@ class TemplateRegistry:
                     overrides[key] = float(value) if "." in value else int(value)
                 else:
                     overrides[key] = value
-        
+
         return overrides
 
 
 class TemplateRunner(ABC):
     """
     Abstract interface for running templates.
-    
+
     Implement this to integrate with your orchestrator's project creation.
     """
-    
+
     @abstractmethod
     async def run_template(
         self,
@@ -854,17 +853,17 @@ class TemplateRunner(ABC):
     ) -> str:
         """
         Run a template and return the run ID.
-        
+
         Args:
             template_name: Name of the template to run
             user_id: ID of the user triggering the run
             overrides: Override parameters from the command
-            
+
         Returns:
             The run ID of the created project
         """
         pass
-    
+
     @abstractmethod
     def get_dashboard_url(self, run_id: str) -> str:
         """Get the dashboard URL for a run."""
@@ -874,18 +873,18 @@ class TemplateRunner(ABC):
 class SlashCommandHandler:
     """
     Handles Slack slash commands for the orchestrator.
-    
+
     Supports:
     - /orchestrator run <template> [overrides...]
     - /orchestrator list
     - /orchestrator help
     """
-    
+
     def __init__(
         self,
-        template_runner: Optional[TemplateRunner] = None,
-        signing_secret: Optional[str] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        template_runner: TemplateRunner | None = None,
+        signing_secret: str | None = None,
+        rate_limiter: RateLimiter | None = None,
     ):
         self.templates = TemplateRegistry()
         self.runner = template_runner
@@ -894,7 +893,7 @@ class SlashCommandHandler:
         )
         self.rate_limiter = rate_limiter or RateLimiter(max_requests=10, window_seconds=60)
         self.host = os.environ.get("ORCHESTRATOR_HOST", "localhost:8888")
-    
+
     def verify_signature(
         self,
         timestamp: str,
@@ -903,36 +902,36 @@ class SlashCommandHandler:
     ) -> bool:
         """
         Verify Slack request signature.
-        
+
         Args:
             timestamp: X-Slack-Request-Timestamp header
             signature: X-Slack-Signature header
             body: Raw request body
-            
+
         Returns:
             True if signature is valid
         """
         if not self.signing_secret:
             logger.warning("Slack signing secret not configured, skipping verification")
             return True
-        
+
         # Check timestamp to prevent replay attacks
         now = time.time()
         if abs(now - int(timestamp)) > 300:  # 5 minutes
             return False
-        
+
         # Build signature base string
         sig_basestring = f"v0:{timestamp}:{body}"
-        
+
         # Calculate signature
         my_signature = "v0=" + hmac.new(
             self.signing_secret.encode(),
             sig_basestring.encode(),
             hashlib.sha256,
         ).hexdigest()
-        
+
         return hmac.compare_digest(my_signature, signature)
-    
+
     def parse_request(self, form_data: dict[str, str]) -> SlashCommandRequest:
         """Parse form data into a SlashCommandRequest."""
         return SlashCommandRequest(
@@ -946,36 +945,36 @@ class SlashCommandHandler:
             response_url=form_data.get("response_url", ""),
             trigger_id=form_data.get("trigger_id", ""),
         )
-    
+
     def _get_rate_limit_key(self, request: SlashCommandRequest) -> str:
         """Get rate limit key for a request."""
         return f"{request.team_id}:{request.channel_id}"
-    
+
     async def handle(self, request: SlashCommandRequest) -> SlashCommandResponse:
         """
         Handle a slash command request.
-        
+
         Returns:
             Response to send back to Slack
         """
         # Check rate limit
         rate_key = self._get_rate_limit_key(request)
         allowed, remaining = self.rate_limiter.is_allowed(rate_key)
-        
+
         if not allowed:
             retry_after = self.rate_limiter.get_retry_after(rate_key)
             return SlashCommandResponse(
                 text=f"⏱️ Rate limit exceeded. Please try again in {retry_after} seconds.",
                 response_type="ephemeral",
             )
-        
+
         self.rate_limiter.record_request(rate_key)
-        
+
         # Parse command
         parts = request.text.strip().split(maxsplit=1)
         subcommand = parts[0].lower() if parts else "help"
         args = parts[1] if len(parts) > 1 else ""
-        
+
         if subcommand == "run":
             return await self._handle_run(args, request)
         elif subcommand == "list":
@@ -987,7 +986,7 @@ class SlashCommandHandler:
                 text=f"❓ Unknown command: `{subcommand}`. Try `/orchestrator help`",
                 response_type="ephemeral",
             )
-    
+
     async def _handle_run(self, args: str, request: SlashCommandRequest) -> SlashCommandResponse:
         """Handle the 'run' subcommand."""
         if not self.runner:
@@ -995,17 +994,17 @@ class SlashCommandHandler:
                 text="❌ Template runner not configured.",
                 response_type="ephemeral",
             )
-        
+
         parts = args.split(maxsplit=1)
         template_name = parts[0] if parts else ""
         override_text = parts[1] if len(parts) > 1 else ""
-        
+
         if not template_name:
             return SlashCommandResponse(
                 text="❌ Please specify a template. Usage: `/orchestrator run <template>`",
                 response_type="ephemeral",
             )
-        
+
         template = self.templates.get(template_name)
         if not template:
             available = ", ".join(t.name for t in self.templates.list_templates())
@@ -1013,10 +1012,10 @@ class SlashCommandHandler:
                 text=f"❌ Unknown template: `{template_name}`.\nAvailable: {available}",
                 response_type="ephemeral",
             )
-        
+
         # Parse overrides
         overrides = self.templates.parse_overrides(override_text, template)
-        
+
         try:
             # Start the run
             run_id = await self.runner.run_template(
@@ -1024,12 +1023,12 @@ class SlashCommandHandler:
                 user_id=request.user_id,
                 overrides=overrides,
             )
-            
+
             dashboard_url = self.runner.get_dashboard_url(run_id)
             budget = overrides.get("budget", template.default_budget)
-            
+
             return SlashCommandResponse(
-                text=f"",
+                text="",
                 response_type="in_channel",
                 blocks=[
                     {
@@ -1056,18 +1055,18 @@ class SlashCommandHandler:
                     },
                 ],
             )
-            
+
         except Exception as e:
             logger.error(f"Failed to start template run: {e}")
             return SlashCommandResponse(
                 text=f"❌ Failed to start run: {str(e)}",
                 response_type="ephemeral",
             )
-    
+
     def _handle_list(self) -> SlashCommandResponse:
         """Handle the 'list' subcommand."""
         templates = self.templates.list_templates()
-        
+
         blocks = [
             {
                 "type": "header",
@@ -1078,7 +1077,7 @@ class SlashCommandHandler:
                 },
             },
         ]
-        
+
         for template in templates:
             blocks.append({
                 "type": "section",
@@ -1087,13 +1086,13 @@ class SlashCommandHandler:
                     "text": f"*`{template.name}`*\n{template.description}\nDefault budget: ${template.default_budget}",
                 },
             })
-        
+
         return SlashCommandResponse(
             text="Available templates",
             response_type="ephemeral",
             blocks=blocks,
         )
-    
+
     def _handle_help(self) -> SlashCommandResponse:
         """Handle the 'help' subcommand."""
         return SlashCommandResponse(
@@ -1134,46 +1133,46 @@ class SlashCommandHandler:
 class SlackEndpointHandler:
     """
     HTTP endpoint handler for Slack slash commands.
-    
+
     Works with FastAPI, Starlette, or any ASGI framework.
-    
+
     FastAPI Example:
         from fastapi import FastAPI, Request, Response
         from orchestrator.slack_integration import SlackEndpointHandler
-        
+
         app = FastAPI()
         handler = SlackEndpointHandler()
-        
+
         @app.post("/slack/slash/orchestrator")
         async def slack_slash(request: Request):
             return await handler.handle_request(request)
-    
+
     Starlette Example:
         from starlette.applications import Starlette
         from starlette.requests import Request
         from starlette.responses import JSONResponse
-        
+
         async def slack_endpoint(request: Request):
             return await handler.handle_request(request)
-        
+
         routes = [
             Route("/slack/slash/orchestrator", slack_endpoint, methods=["POST"]),
         ]
     """
-    
+
     def __init__(
         self,
-        command_handler: Optional[SlashCommandHandler] = None,
-        template_runner: Optional[TemplateRunner] = None,
+        command_handler: SlashCommandHandler | None = None,
+        template_runner: TemplateRunner | None = None,
     ):
         self.command_handler = command_handler or SlashCommandHandler(
             template_runner=template_runner
         )
-    
+
     async def handle_request(self, request: Any) -> Any:
         """
         Handle an incoming HTTP request.
-        
+
         Works with FastAPI/Starlette Request objects.
         Returns a response compatible with the framework.
         """
@@ -1181,39 +1180,37 @@ class SlackEndpointHandler:
         try:
             from fastapi import Request as FastAPIRequest
             from fastapi.responses import JSONResponse as FastAPIJSONResponse
-            RequestType = FastAPIRequest
             ResponseType = FastAPIJSONResponse
         except ImportError:
             try:
                 from starlette.requests import Request as StarletteRequest
                 from starlette.responses import JSONResponse as StarletteJSONResponse
-                RequestType = StarletteRequest
                 ResponseType = StarletteJSONResponse
             except ImportError:
                 raise ImportError(
                     "Neither FastAPI nor Starlette is installed. "
                     "Install one to use the Slack endpoint handler."
                 )
-        
+
         # Verify signature
         timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
         signature = request.headers.get("X-Slack-Signature", "")
         body = await request.body()
         body_text = body.decode("utf-8")
-        
+
         if not self.command_handler.verify_signature(timestamp, signature, body_text):
             return ResponseType(
                 content={"error": "Invalid signature"},
                 status_code=401,
             )
-        
+
         # Parse form data
         form_data = await request.form()
         slash_request = self.command_handler.parse_request(dict(form_data))
-        
+
         # Handle command
         response = await self.command_handler.handle(slash_request)
-        
+
         return ResponseType(
             content={
                 "text": response.text,
@@ -1230,31 +1227,31 @@ class SlackEndpointHandler:
 class SlackIntegrationHooks:
     """
     Integration hooks for the orchestrator lifecycle.
-    
+
     Connects orchestrator events to Slack notifications.
-    
+
     Usage:
         hooks = SlackIntegrationHooks()
-        
+
         # In your orchestrator:
         await hooks.on_budget_threshold_crossed(project, run, 0.8)
         await hooks.on_quality_gate_evaluated(project, run, passed=False)
         await hooks.on_model_circuit_breaker_tripped(model_state)
         await hooks.on_run_completed(project, run, metrics)
     """
-    
+
     def __init__(
         self,
-        notifier: Optional[SlackNotifier] = None,
-        host: Optional[str] = None,
+        notifier: SlackNotifier | None = None,
+        host: str | None = None,
     ):
         self.notifier = notifier or SlackNotifier()
         self.host = host or os.environ.get("ORCHESTRATOR_HOST", "localhost:8888")
-    
+
     def _get_dashboard_url(self, project_id: str, run_id: str) -> str:
         """Generate dashboard URL."""
         return f"https://{self.host}/runs/{run_id}"
-    
+
     async def on_budget_threshold_crossed(
         self,
         project_id: str,
@@ -1264,28 +1261,28 @@ class SlackIntegrationHooks:
     ) -> bool:
         """
         Called when budget crosses a threshold (0.5, 0.8, 1.0).
-        
+
         Args:
             project_id: Project identifier
             run_id: Run identifier
             threshold: Threshold crossed (e.g., 0.8 for 80%)
             budget_stats: Current budget statistics
-            
+
         Returns:
             True if notification was sent
         """
         if not self.notifier.client.is_configured:
             return False
-        
+
         dashboard_url = self._get_dashboard_url(project_id, run_id)
         escalate_url = f"https://{self.host}/api/projects/{project_id}/escalate?percent=10"
-        
+
         severity = AlertSeverity.WARNING
         if threshold >= 1.0:
             severity = AlertSeverity.CRITICAL
         elif threshold >= 0.8:
             severity = AlertSeverity.ERROR
-        
+
         payload = BudgetAlertPayload(
             project_id=project_id,
             run_id=run_id,
@@ -1295,9 +1292,9 @@ class SlackIntegrationHooks:
             escalate_url=escalate_url,
             severity=severity,
         )
-        
+
         return await self.notifier.notify_budget_alert(payload)
-    
+
     async def on_quality_gate_evaluated(
         self,
         project_id: str,
@@ -1308,15 +1305,15 @@ class SlackIntegrationHooks:
     ) -> bool:
         """
         Called when quality gate is evaluated.
-        
+
         Only sends notification if the gate failed.
         """
         if passed or not self.notifier.client.is_configured:
             return False
-        
+
         dashboard_url = self._get_dashboard_url(project_id, run_id)
         rerun_url = f"https://{self.host}/api/runs/{run_id}/rerun"
-        
+
         payload = QualityGateFailurePayload(
             project_id=project_id,
             run_id=run_id,
@@ -1325,9 +1322,9 @@ class SlackIntegrationHooks:
             dashboard_url=dashboard_url,
             rerun_url=rerun_url,
         )
-        
+
         return await self.notifier.notify_quality_gate_failure(payload)
-    
+
     async def on_model_circuit_breaker_tripped(
         self,
         model_name: str,
@@ -1339,9 +1336,9 @@ class SlackIntegrationHooks:
         """Called when a model circuit breaker trips."""
         if not self.notifier.client.is_configured:
             return False
-        
+
         dashboard_url = f"https://{self.host}/models/{model_name}"
-        
+
         payload = CircuitBreakerPayload(
             model_name=model_name,
             error_count=error_count,
@@ -1350,9 +1347,9 @@ class SlackIntegrationHooks:
             failure_threshold=failure_threshold,
             dashboard_url=dashboard_url,
         )
-        
+
         return await self.notifier.notify_model_circuit_breaker(payload)
-    
+
     async def on_run_completed(
         self,
         project_id: str,
@@ -1363,12 +1360,12 @@ class SlackIntegrationHooks:
         quality_score: float,
         quality_gate_passed: bool,
         top_issues: list[IssueItem],
-        duration_seconds: Optional[float] = None,
+        duration_seconds: float | None = None,
     ) -> bool:
         """Called when a run completes (success or failure)."""
         if not self.notifier.client.is_configured:
             return False
-        
+
         payload = RunSummaryPayload(
             project_id=project_id,
             run_id=run_id,
@@ -1384,7 +1381,7 @@ class SlackIntegrationHooks:
             artifacts_url=f"https://{self.host}/runs/{run_id}/artifacts",
             audit_log_url=f"https://{self.host}/runs/{run_id}/audit",
         )
-        
+
         return await send_run_summary_to_slack(payload, self.notifier.client)
 
 
@@ -1422,7 +1419,7 @@ class MyTemplateRunner(TemplateRunner):
         # Return the run_id
         run_id = await create_project_from_template(template_name, overrides)
         return run_id
-    
+
     def get_dashboard_url(self, run_id):
         return f"https://dashboard.example.com/runs/{run_id}"
 
@@ -1461,7 +1458,7 @@ from orchestrator.slack_integration import (
 
 async def main():
     notifier = SlackNotifier()
-    
+
     payload = BudgetAlertPayload(
         project_id="proj-123",
         run_id="run-456",
@@ -1476,7 +1473,7 @@ async def main():
         escalate_url="https://dash.example.com/api/proj-123/escalate",
         severity=AlertSeverity.WARNING,
     )
-    
+
     success = await notifier.notify_budget_alert(payload)
     print(f"Notification sent: {success}")
 

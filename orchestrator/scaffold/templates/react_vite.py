@@ -156,7 +156,7 @@ dist-ssr
 """,
     "README.md": """# ⚛️ React + Vite Frontend Application
 
-**Project Type:** Frontend (React + TypeScript + Tailwind)  
+**Project Type:** Frontend (React + TypeScript + Tailwind)
 **Platform:** Windows, macOS, Linux
 
 ---

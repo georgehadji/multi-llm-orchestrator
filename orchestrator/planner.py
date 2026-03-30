@@ -31,16 +31,17 @@ from __future__ import annotations
 import collections
 import logging
 import time
-from typing import Optional
+
+# TYPE_CHECKING import to avoid circular dependency (cost.py does not import planner.py)
+from typing import TYPE_CHECKING
 
 from .models import Model, TaskType, get_provider
 from .optimization import GreedyBackend, OptimizationBackend
 from .policy import ModelProfile, Policy, RateLimit
-from .policy_engine import PolicyEngine
-# TYPE_CHECKING import to avoid circular dependency (cost.py does not import planner.py)
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .cost import CostPredictor
+    from .policy_engine import PolicyEngine
 
 logger = logging.getLogger("orchestrator.planner")
 
@@ -171,14 +172,14 @@ class ConstraintPlanner:
         profiles: dict[Model, ModelProfile],
         policy_engine: PolicyEngine,
         api_health: dict[Model, bool],
-        backend: Optional[OptimizationBackend] = None,
-        cost_predictor: Optional["CostPredictor"] = None,
+        backend: OptimizationBackend | None = None,
+        cost_predictor: CostPredictor | None = None,
     ):
         self._profiles = profiles
         self._policy_engine = policy_engine
         self._api_health = api_health
         self._backend: OptimizationBackend = backend or GreedyBackend()
-        self._cost_predictor: Optional["CostPredictor"] = cost_predictor
+        self._cost_predictor: CostPredictor | None = cost_predictor
         self.rate_limit_tracker = RateLimitTracker()   # shared; record() called externally
 
     def set_backend(self, backend: OptimizationBackend) -> None:
@@ -202,7 +203,7 @@ class ConstraintPlanner:
         policies: list[Policy],
         budget_remaining: float,
         task_id: str = "",
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """
         Multi-objective model selection for a task.
 
@@ -246,7 +247,7 @@ class ConstraintPlanner:
         task_type: TaskType,
         policies: list[Policy],
         budget_remaining: float,
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """
         Select a cross-provider reviewer for the output of `generator`.
 
@@ -310,7 +311,7 @@ class ConstraintPlanner:
         task_type: TaskType,
         policies: list[Policy],
         budget_remaining: float,
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """
         Called when a model errors or its output fails deterministic validation.
         Excludes failed_model from the candidate set and re-runs selection.

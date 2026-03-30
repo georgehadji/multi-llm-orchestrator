@@ -13,7 +13,7 @@ Features:
 
 Usage:
     from orchestrator.cost_optimization import DockerSandbox
-    
+
     sandbox = DockerSandbox()
     result = await sandbox.execute(
         code_files={"main.py": "print('hello')"},
@@ -24,14 +24,12 @@ Usage:
 
 from __future__ import annotations
 
-import logging
 import tempfile
-import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -58,7 +56,7 @@ class SandboxMetrics:
     security_violations: int = 0
     avg_execution_time: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_executions": self.total_executions,
             "successful_executions": self.successful_executions,
@@ -92,10 +90,10 @@ class DockerSandbox:
 
     def __init__(
         self,
-        image: Optional[str] = None,
-        memory_limit: Optional[str] = None,
-        cpu_quota: Optional[int] = None,
-        timeout: Optional[int] = None,
+        image: str | None = None,
+        memory_limit: str | None = None,
+        cpu_quota: int | None = None,
+        timeout: int | None = None,
     ):
         """
         Initialize Docker sandbox.
@@ -114,10 +112,10 @@ class DockerSandbox:
         self.network_disabled = self.DEFAULT_NETWORK_DISABLED
 
         self.metrics = SandboxMetrics()
-        self._workspaces: Dict[str, Path] = {}
+        self._workspaces: dict[str, Path] = {}
 
         # Check if Docker is available
-        self._docker_available: Optional[bool] = None
+        self._docker_available: bool | None = None
 
     async def _check_docker(self) -> bool:
         """Check if Docker is available."""
@@ -138,11 +136,11 @@ class DockerSandbox:
 
     async def execute(
         self,
-        code_files: Dict[str, str],
+        code_files: dict[str, str],
         command: str,
-        timeout: Optional[int] = None,
+        timeout: int | None = None,
         working_dir: str = "/app",
-        environment: Optional[Dict[str, str]] = None,
+        environment: dict[str, str] | None = None,
         **kwargs,
     ) -> ExecutionResult:
         """
@@ -280,14 +278,14 @@ class DockerSandbox:
     def _cleanup_workspace(self, workspace: Path, max_retries: int = 3) -> None:
         """
         FIX-OPT-003a: Cleanup workspace with retry logic.
-        
+
         Args:
             workspace: Workspace path to cleanup
             max_retries: Maximum retry attempts
         """
         import shutil
         import time
-        
+
         for attempt in range(max_retries):
             try:
                 shutil.rmtree(workspace, ignore_errors=False)
@@ -323,7 +321,7 @@ class DockerSandbox:
 # ─────────────────────────────────────────────
 
 async def execute_in_sandbox(
-    code_files: Dict[str, str],
+    code_files: dict[str, str],
     command: str,
     timeout: int = 30,
 ) -> ExecutionResult:

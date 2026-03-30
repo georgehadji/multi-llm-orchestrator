@@ -8,28 +8,28 @@ This validation layer ensures generated apps meet store requirements before deli
 
 Usage:
     from orchestrator.app_store_validator import AppStoreValidator, AppStorePlatform
-    
+
     validator = AppStoreValidator()
     result = await validator.validate(
         project_path=Path("./my-app"),
         platform=AppStorePlatform.IOS,
     )
-    
+
     if not result.passed:
         print(f"Violations: {result.violations}")
 """
 
 from __future__ import annotations
 
-import ast
-import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any
 
 from .log_config import get_logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = get_logger(__name__)
 
@@ -63,8 +63,8 @@ class ComplianceCheck:
     description: str
     severity: str  # "critical", "warning", "info"
     auto_fixable: bool = False
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "category": self.category.value,
@@ -79,22 +79,22 @@ class ComplianceCheck:
 class AppStoreComplianceResult:
     """Result of app store compliance validation."""
     platform: AppStorePlatform
-    violations: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    info: List[str] = field(default_factory=list)
+    violations: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    info: list[str] = field(default_factory=list)
     score: float = 0.0  # 0.0 - 1.0
     checks_performed: int = 0
     checks_passed: int = 0
     checks_failed: int = 0
-    auto_fixes_applied: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    auto_fixes_applied: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     @property
     def passed(self) -> bool:
         """Passed if no critical violations."""
         return len(self.violations) == 0
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "passed": self.passed,
             "platform": self.platform.value,
@@ -108,7 +108,7 @@ class AppStoreComplianceResult:
             "auto_fixes_applied": self.auto_fixes_applied,
             "metadata": self.metadata,
         }
-    
+
     @property
     def summary(self) -> str:
         """Human-readable summary."""
@@ -124,12 +124,12 @@ class AppStoreComplianceResult:
 class AppStoreValidator:
     """
     Validate generated apps against app store guidelines.
-    
+
     Supports:
     - Apple App Store (iOS, macOS)
     - Google Play Store (Android)
     - Web Apps (PWA)
-    
+
     Usage:
         validator = AppStoreValidator()
         result = await validator.validate(
@@ -137,9 +137,9 @@ class AppStoreValidator:
             platform=AppStorePlatform.IOS,
         )
     """
-    
+
     # Apple App Store Guidelines
-    IOS_CHECKS: Dict[str, List[ComplianceCheck]] = {
+    IOS_CHECKS: dict[str, list[ComplianceCheck]] = {
         GuidelineCategory.COMPLETENESS.value: [
             ComplianceCheck(
                 id="IOS-2.1-01",
@@ -286,9 +286,9 @@ class AppStoreValidator:
             ),
         ],
     }
-    
+
     # Google Play Store Guidelines
-    ANDROID_CHECKS: Dict[str, List[ComplianceCheck]] = {
+    ANDROID_CHECKS: dict[str, list[ComplianceCheck]] = {
         GuidelineCategory.COMPLETENESS.value: [
             ComplianceCheck(
                 id="AND-2.1-01",
@@ -340,9 +340,9 @@ class AppStoreValidator:
             ),
         ],
     }
-    
+
     # Web App / PWA Guidelines
-    WEB_CHECKS: Dict[str, List[ComplianceCheck]] = {
+    WEB_CHECKS: dict[str, list[ComplianceCheck]] = {
         GuidelineCategory.COMPLETENESS.value: [
             ComplianceCheck(
                 id="WEB-01",
@@ -385,11 +385,11 @@ class AppStoreValidator:
             ),
         ],
     }
-    
+
     def __init__(self, auto_fix: bool = False):
         """
         Initialize validator.
-        
+
         Args:
             auto_fix: Automatically fix fixable issues
         """
@@ -399,7 +399,7 @@ class AppStoreValidator:
             AppStorePlatform.ANDROID: self.ANDROID_CHECKS,
             AppStorePlatform.WEB: self.WEB_CHECKS,
         }
-    
+
     async def validate(
         self,
         project_path: Path,
@@ -407,11 +407,11 @@ class AppStoreValidator:
     ) -> AppStoreComplianceResult:
         """
         Validate project against app store guidelines.
-        
+
         Args:
             project_path: Path to project directory
             platform: Target platform
-            
+
         Returns:
             AppStoreComplianceResult with violations and score
         """
@@ -421,19 +421,19 @@ class AppStoreValidator:
                 violations=[f"Project path does not exist: {project_path}"],
                 score=0.0,
             )
-        
+
         checks = self._checks_by_platform.get(platform, self.IOS_CHECKS)
         result = AppStoreComplianceResult(platform=platform)
-        
+
         # Read project files
         source_files = self._collect_source_files(project_path, platform)
         content_map = self._read_files(source_files)
-        
+
         # Run all checks
-        for category_name, category_checks in checks.items():
+        for _category_name, category_checks in checks.items():
             for check in category_checks:
                 result.checks_performed += 1
-                
+
                 # Run check
                 passed, details = await self._run_check(
                     check=check,
@@ -441,7 +441,7 @@ class AppStoreValidator:
                     project_path=project_path,
                     platform=platform,
                 )
-                
+
                 if passed:
                     result.checks_passed += 1
                     result.info.append(f"✓ {check.description}")
@@ -450,35 +450,35 @@ class AppStoreValidator:
                     violation_msg = f"{check.guideline}: {check.description}"
                     if details:
                         violation_msg += f" ({details})"
-                    
+
                     if check.severity == "critical":
                         result.violations.append(violation_msg)
                     elif check.severity == "warning":
                         result.warnings.append(violation_msg)
                     else:
                         result.info.append(f"ℹ️ {violation_msg}")
-        
+
         # Calculate score
         if result.checks_performed > 0:
             result.score = result.checks_passed / result.checks_performed
-        
+
         # Add metadata
         result.metadata = {
             "platform": platform.value,
             "source_files": len(source_files),
             "total_lines": sum(len(c.split('\n')) for c in content_map.values()),
         }
-        
+
         return result
-    
+
     def _collect_source_files(
         self,
         project_path: Path,
         platform: AppStorePlatform,
-    ) -> List[Path]:
+    ) -> list[Path]:
         """Collect relevant source files for platform."""
         files = []
-        
+
         if platform == AppStorePlatform.IOS:
             patterns = ["**/*.swift", "**/*.m", "**/*.mm", "**/*.h", "**/*.storyboard", "**/*.xib"]
         elif platform == AppStorePlatform.ANDROID:
@@ -487,13 +487,13 @@ class AppStoreValidator:
             patterns = ["**/*.html", "**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.css", "manifest.json"]
         else:
             patterns = ["**/*"]
-        
+
         for pattern in patterns:
             files.extend(project_path.glob(pattern))
-        
+
         return files
-    
-    def _read_files(self, files: List[Path]) -> Dict[str, str]:
+
+    def _read_files(self, files: list[Path]) -> dict[str, str]:
         """Read file contents into map."""
         content_map = {}
         for file_path in files:
@@ -502,35 +502,35 @@ class AppStoreValidator:
             except Exception as e:
                 logger.warning(f"Could not read {file_path}: {e}")
         return content_map
-    
+
     async def _run_check(
         self,
         check: ComplianceCheck,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
         """
         Run a single compliance check.
-        
+
         Returns:
             (passed, details)
         """
         check_method = getattr(self, f"_check_{check.id.replace('-', '_').lower()}", None)
-        
+
         if check_method:
             return await check_method(content_map, project_path, platform)
-        
+
         # Default: check passes if no specific implementation
         return True, ""
-    
+
     # ─────────────────────────────────────────────
     # iOS Check Implementations
     # ─────────────────────────────────────────────
-    
+
     async def _check_ios_2_1_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -543,17 +543,17 @@ class AppStoreValidator:
             r"xxx.*xxx",
             r"\{\{.*\}\}",  # Template placeholders
         ]
-        
+
         for file_path, content in content_map.items():
             for pattern in placeholder_patterns:
                 if re.search(pattern, content, re.IGNORECASE):
                     return False, f"Found in {file_path}"
-        
+
         return True, ""
-    
+
     async def _check_ios_2_1_02(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -564,21 +564,21 @@ class AppStoreValidator:
             r"work\s+in\s+progress",
             r"WIP",
         ]
-        
+
         for file_path, content in content_map.items():
             # Skip test files
             if "test" in file_path.lower():
                 continue
-            
+
             for pattern in beta_patterns:
                 if re.search(pattern, content, re.IGNORECASE):
                     return False, f"Found in {file_path}"
-        
+
         return True, ""
-    
+
     async def _check_ios_2_5_2_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -590,17 +590,17 @@ class AppStoreValidator:
             r"performSelector",  # Objective-C
             r"NSClassFromString",  # Objective-C dynamic
         ]
-        
+
         for file_path, content in content_map.items():
             for pattern in dangerous_patterns:
                 if re.search(pattern, content):
                     return False, f"Found in {file_path}"
-        
+
         return True, ""
-    
+
     async def _check_ios_4_2_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -613,18 +613,18 @@ class AppStoreValidator:
             r"UITabBarController",  # UIKit tab bar
             r"NavigationBar",
         ]
-        
+
         all_content = "\n".join(content_map.values())
-        
+
         for pattern in navigation_patterns:
             if re.search(pattern, all_content):
                 return True, ""
-        
+
         return False, "No native navigation detected"
-    
+
     async def _check_ios_4_2_02(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -644,24 +644,24 @@ class AppStoreValidator:
             (r"TouchID", "Touch ID"),
             (r"LAContext", "Biometric Auth"),
         ]
-        
+
         all_content = "\n".join(content_map.values())
         features_found = []
-        
+
         for pattern, feature_name in ios_features:
             if re.search(pattern, all_content, re.IGNORECASE):
                 features_found.append(feature_name)
-        
+
         if len(features_found) >= 2:
             return True, f"Features: {', '.join(features_found)}"
         elif len(features_found) == 1:
             return False, f"Only 1 native feature: {features_found[0]}"
         else:
             return False, "No native iOS features detected"
-    
+
     async def _check_ios_5_1_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -672,25 +672,25 @@ class AppStoreValidator:
             r"privacy_url",
             r"terms.*privacy",
         ]
-        
+
         # Check Info.plist for iOS
         info_plist_path = project_path / "Info.plist"
         if info_plist_path.exists():
             content = info_plist_path.read_text()
             if re.search(r"NSPrivacyPolicyURL", content, re.IGNORECASE):
                 return True, ""
-        
+
         # Check source files
         all_content = "\n".join(content_map.values())
         for pattern in privacy_patterns:
             if re.search(pattern, all_content, re.IGNORECASE):
                 return True, ""
-        
+
         return False, "No privacy policy URL found"
-    
+
     async def _check_ios_5_1_02(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -702,18 +702,18 @@ class AppStoreValidator:
             r"privacy.*consent",
             r"data.*sharing.*confirm",
         ]
-        
+
         all_content = "\n".join(content_map.values())
-        
+
         for pattern in consent_patterns:
             if re.search(pattern, all_content, re.IGNORECASE):
                 return True, ""
-        
+
         return False, "No consent mechanism for data sharing"
-    
+
     async def _check_ios_5_1_03(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -726,13 +726,13 @@ class AppStoreValidator:
             r"username",
             r"password",
         ]
-        
+
         all_content = "\n".join(content_map.values())
         has_login = any(re.search(p, all_content, re.IGNORECASE) for p in login_patterns)
-        
+
         if not has_login:
             return True, ""  # No login = no deletion needed
-        
+
         # Check for delete/deactivate
         delete_patterns = [
             r"delete.*account",
@@ -740,16 +740,16 @@ class AppStoreValidator:
             r"close.*account",
             r"remove.*account",
         ]
-        
+
         for pattern in delete_patterns:
             if re.search(pattern, all_content, re.IGNORECASE):
                 return True, ""
-        
+
         return False, "No account deletion capability found"
-    
+
     async def _check_ios_hig_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -766,7 +766,7 @@ class AppStoreValidator:
             r"Slider\(",
             r"Picker\(",
         ]
-        
+
         uikit_controls = [
             r"UIButton",
             r"UILabel",
@@ -778,21 +778,21 @@ class AppStoreValidator:
             r"UISlider",
             r"UIPickerView",
         ]
-        
+
         all_content = "\n".join(content_map.values())
-        
+
         # Check for SwiftUI or UIKit controls
         swiftui_count = sum(1 for p in swiftui_controls if re.search(p, all_content))
         uikit_count = sum(1 for p in uikit_controls if re.search(p, all_content))
-        
+
         if swiftui_count >= 3 or uikit_count >= 3:
             return True, ""
-        
+
         return False, "Limited use of iOS-standard controls"
-    
+
     async def _check_ios_hig_03(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -806,18 +806,18 @@ class AppStoreValidator:
             r"Color\.primary",  # SwiftUI system colors
             r"Color\.\.background",
         ]
-        
+
         all_content = "\n".join(content_map.values())
-        
+
         for pattern in dark_mode_patterns:
             if re.search(pattern, all_content, re.IGNORECASE):
                 return True, ""
-        
+
         return False, "No Dark Mode support detected"
-    
+
     async def _check_ios_ai_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -829,27 +829,27 @@ class AppStoreValidator:
             r"machine\s+learning",
             r"automated\s+suggestion",
         ]
-        
+
         all_content = "\n".join(content_map.values())
-        
+
         # Check if app uses AI
         ai_usage = any(re.search(p, all_content, re.IGNORECASE) for p in [
             r"openai", r"anthropic", r"gemini", r"llm", r"chatgpt",
         ])
-        
+
         if not ai_usage:
             return True, ""  # No AI = no labeling needed
-        
+
         # Check for transparency
         for pattern in ai_patterns:
             if re.search(pattern, all_content, re.IGNORECASE):
                 return True, ""
-        
+
         return False, "AI-generated content not labeled"
-    
+
     async def _check_ios_ai_02(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -861,40 +861,40 @@ class AppStoreValidator:
             r"automated\s+response",
             r"bot",
         ]
-        
+
         all_content = "\n".join(content_map.values())
-        
+
         # Check if app uses AI
         ai_usage = any(re.search(p, all_content, re.IGNORECASE) for p in [
             r"openai", r"anthropic", r"gemini", r"llm", r"chatgpt",
         ])
-        
+
         if not ai_usage:
             return True, ""
-        
+
         # Check for transparency
         for pattern in transparency_patterns:
             if re.search(pattern, all_content, re.IGNORECASE):
                 return True, ""
-        
+
         return False, "AI interaction not clearly disclosed"
-    
+
     # ─────────────────────────────────────────────
     # Android Check Implementations
     # ─────────────────────────────────────────────
-    
+
     async def _check_and_2_1_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
         """Check for placeholder text (Android)."""
         return await self._check_ios_2_1_01(content_map, project_path, platform)
-    
+
     async def _check_and_5_1_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -905,42 +905,42 @@ class AppStoreValidator:
             content = manifest_path.read_text()
             if re.search(r"privacy.*policy", content, re.IGNORECASE):
                 return True, ""
-        
+
         return await self._check_ios_5_1_01(content_map, project_path, platform)
-    
+
     # ─────────────────────────────────────────────
     # Web/PWA Check Implementations
     # ─────────────────────────────────────────────
-    
+
     async def _check_web_pwa_01(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
         """Check for valid manifest.json."""
         manifest_path = project_path / "manifest.json"
-        
+
         if not manifest_path.exists():
             return False, "manifest.json not found"
-        
+
         try:
             import json
             manifest = json.loads(manifest_path.read_text())
-            
+
             required_fields = ["name", "short_name", "start_url", "display", "icons"]
             missing = [f for f in required_fields if f not in manifest]
-            
+
             if missing:
                 return False, f"Missing fields: {', '.join(missing)}"
-            
+
             return True, ""
         except json.JSONDecodeError as e:
             return False, f"Invalid JSON: {e}"
-    
+
     async def _check_web_pwa_02(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -950,18 +950,18 @@ class AppStoreValidator:
             r"serviceWorker\.register",
             r"self\.addEventListener.*install",
         ]
-        
+
         all_content = "\n".join(content_map.values())
-        
+
         for pattern in sw_patterns:
             if re.search(pattern, all_content):
                 return True, ""
-        
+
         return False, "No service worker registration found"
-    
+
     async def _check_web_pwa_03(
         self,
-        content_map: Dict[str, str],
+        content_map: dict[str, str],
         project_path: Path,
         platform: AppStorePlatform,
     ) -> tuple[bool, str]:
@@ -972,13 +972,13 @@ class AppStoreValidator:
             r"workbox",
             r"precache",
         ]
-        
+
         all_content = "\n".join(content_map.values())
-        
+
         for pattern in offline_patterns:
             if re.search(pattern, all_content, re.IGNORECASE):
                 return True, ""
-        
+
         return False, "No offline capability detected"
 
 
@@ -989,7 +989,7 @@ async def validate_app_store_compliance(
 ) -> AppStoreComplianceResult:
     """
     Convenience function to validate app store compliance.
-    
+
     Usage:
         result = await validate_app_store_compliance(
             Path("./my-app"),

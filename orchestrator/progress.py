@@ -5,29 +5,54 @@ Prints compact task-by-task progress to stderr, leaving stdout clean for
 piped output. Use quiet=True in tests or when --quiet CLI flag is set.
 """
 from __future__ import annotations
+
 import sys
 from typing import Any
 
 try:
     from .unified_events import (
-        ProjectStartedEvent as ProjectStarted,
-        TaskStartedEvent as TaskStarted,
-        TaskProgressEvent as TaskProgressUpdate,
-        TaskCompletedEvent as TaskCompleted,
-        TaskFailedEvent as TaskFailed,
         BudgetWarningEvent as BudgetWarning,
+    )
+    from .unified_events import (
         ProjectCompletedEvent as ProjectCompleted,
+    )
+    from .unified_events import (
+        ProjectStartedEvent as ProjectStarted,
+    )
+    from .unified_events import (
+        TaskCompletedEvent as TaskCompleted,
+    )
+    from .unified_events import (
+        TaskFailedEvent as TaskFailed,
+    )
+    from .unified_events import (
+        TaskProgressEvent as TaskProgressUpdate,
+    )
+    from .unified_events import (
+        TaskStartedEvent as TaskStarted,
     )
 except ImportError:
     # Fallback to standard events
     from .events import (
-        ProjectStartedEvent as ProjectStarted,
-        TaskStartedEvent as TaskStarted,
-        TaskProgressEvent as TaskProgressUpdate,
-        TaskCompletedEvent as TaskCompleted,
-        TaskFailedEvent as TaskFailed,
         BudgetWarningEvent as BudgetWarning,
+    )
+    from .events import (
         ProjectCompletedEvent as ProjectCompleted,
+    )
+    from .events import (
+        ProjectStartedEvent as ProjectStarted,
+    )
+    from .events import (
+        TaskCompletedEvent as TaskCompleted,
+    )
+    from .events import (
+        TaskFailedEvent as TaskFailed,
+    )
+    from .events import (
+        TaskProgressEvent as TaskProgressUpdate,
+    )
+    from .events import (
+        TaskStartedEvent as TaskStarted,
     )
 from .models import TaskStatus
 

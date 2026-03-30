@@ -57,7 +57,7 @@ dist/
 """,
     "README.md": """# 🌐 Vanilla HTML/CSS/JS Frontend
 
-**Project Type:** Frontend (HTML5 + CSS3 + JavaScript)  
+**Project Type:** Frontend (HTML5 + CSS3 + JavaScript)
 **Platform:** Windows, macOS, Linux
 
 ---

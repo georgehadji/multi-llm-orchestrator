@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Fix script to add folder browser
 
-with open('orchestrator/dashboard_mission_control.py', 'r', encoding='utf-8') as f:
+with open('orchestrator/dashboard_mission_control.py', encoding='utf-8') as f:
     lines = f.readlines()
 
 # Find and replace lines 1094-1098 (indices 1093-1097)

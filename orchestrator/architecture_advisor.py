@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
+
 from .models import Model
 
 logger = logging.getLogger("orchestrator.architecture_advisor")
@@ -12,8 +13,8 @@ logger = logging.getLogger("orchestrator.architecture_advisor")
 def _get_nexus_search():
     """Lazy import of Nexus Search to avoid circular dependencies."""
     try:
-        from orchestrator.nexus_search import search as nexus_search
         from orchestrator.nexus_search import SearchSource
+        from orchestrator.nexus_search import search as nexus_search
         return nexus_search, SearchSource
     except ImportError:
         return None, None
@@ -62,7 +63,44 @@ _FALLBACK_ARCH = _ARCH_DEFAULTS["script"]
 
 
 def _select_model(description: str) -> Model:
-    return Model.DEEPSEEK_REASONER if len(description.split()) > 50 else Model.DEEPSEEK_CHAT
+    """
+    Select optimal model for architecture decisions.
+    Updated v3.0 with best models for architectural reasoning.
+    
+    Architecture decisions require:
+    - Strong reasoning capabilities
+    - Understanding of design patterns and trade-offs
+    - Knowledge of scalability, maintainability, cost considerations
+    
+    Best models (in priority order):
+    1. Qwen3.5-397B-A17B - 397B MoE, excellent reasoning, best value
+    2. Xiaomi MiMo-V2-Pro - 1T+ params, 1M+ context for complex systems
+    3. Grok 4.20 Beta - Lowest hallucination for critical decisions
+    4. Claude Sonnet 4.6 - Premium quality for high-stakes architecture
+    """
+    word_count = len(description.split())
+    
+    # Simple projects: use cost-effective reasoning models
+    if word_count <= 50:
+        # Try budget-friendly options first (in priority order)
+        priority_models = [
+            Model.STEPFUN_STEP_3_5_FLASH,   # $0.10/$0.30, 196B MoE ⭐ BEST VALUE
+            Model.ZHIPU_GLM_4_7_FLASH,      # $0.06/$0.40, ultra-cheap
+            Model.XIAOMI_MIMO_V2_FLASH,     # $0.09/$0.29, #1 SWE-bench
+        ]
+    else:
+        # Complex projects: use powerful reasoning models
+        priority_models = [
+            Model.QWEN_3_5_397B_A17B,       # $0.39/$2.34, 397B MoE ⭐ BEST OVERALL
+            Model.XIAOMI_MIMO_V2_PRO,       # $1.00/$3.00, 1T+ params, 1M+ ctx
+            Model.XAI_GROK_4_20_BETA,       # $2.00/$6.00, lowest hallucination
+            Model.CLAUDE_SONNET_4_6,        # $3.00/$15.00, premium quality
+        ]
+    
+    # Return first available model from priority list
+    # Note: We can't check api_health here (no orchestrator instance)
+    # so we just return the best model and let the client handle fallbacks
+    return priority_models[0]
 
 
 def _parse_response(raw: str) -> ArchitectureDecision:
@@ -74,10 +112,7 @@ def _parse_response(raw: str) -> ArchitectureDecision:
         if text.startswith("```"):
             lines = text.splitlines()
             # Drop opening fence line (e.g. "```json") and closing fence line
-            if lines and lines[-1].strip() == "```":
-                lines = lines[1:-1]
-            else:
-                lines = lines[1:]
+            lines = lines[1:-1] if lines and lines[-1].strip() == "```" else lines[1:]
             text = "\n".join(lines).strip()
         if not text:
             raise ValueError("empty response")
@@ -112,10 +147,9 @@ def _parse_response(raw: str) -> ArchitectureDecision:
             run_command=fallback_defaults["run_command"],
             requires_docker=fallback_defaults["requires_docker"],
             detected_from="advisor",
-            **{k: v for k, v in fallback_arch.items()},
+            **dict(fallback_arch.items()),
         )
 
-from typing import Optional
 
 _SYSTEM_PROMPT = (
     "You are a senior software architect.\n"
@@ -156,7 +190,7 @@ _TIMEOUT_S = 30
 class ArchitectureAdvisor:
     """
     Analyzes a project spec and decides optimal software architecture.
-    
+
     Nexus Search Integration:
     - Searches latest architecture patterns and best practices
     - Provides real-time data for architecture decisions
@@ -183,12 +217,12 @@ class ArchitectureAdvisor:
 
     async def _get_architecture_context(self, description: str) -> str:
         """Get architecture context using Nexus Search.
-        
+
         Parameters
         ----------
         description : str
             Project description
-            
+
         Returns
         -------
         str
@@ -196,49 +230,49 @@ class ArchitectureAdvisor:
         """
         if not self.nexus_enabled:
             return ""
-        
+
         nexus_search, SearchSource = _get_nexus_search()
         if nexus_search is None:
             logger.debug("Nexus Search not available")
             return ""
-        
+
         try:
             # Extract key architecture-related terms
             query = f"{description[:100]} architecture patterns best practices 2026"
-            
+
             # Search for architecture patterns
             results = await nexus_search(
                 query=query,
                 sources=[SearchSource.TECH, SearchSource.ACADEMIC],
                 num_results=5,
             )
-            
+
             # Build context from top results
             context_parts = []
             for result in results.top[:3]:
                 if result.content:
                     context_parts.append(f"- {result.content}")
-            
+
             if context_parts:
                 logger.info(f"Nexus Search found {len(context_parts)} architecture results")
                 return "\n".join(context_parts)
         except Exception as e:
             logger.debug(f"Nexus Search failed for architecture: {e}")
-        
+
         return ""
 
     async def analyze(
         self,
         description: str,
         criteria: str,
-        app_type_override: Optional[str] = None,
+        app_type_override: str | None = None,
         use_web_context: bool = True,
     ) -> ArchitectureDecision:
         """Decide architecture for this project.
 
         If app_type_override is provided (from YAML), skip LLM.
         Returns fallback defaults on any error, never raises.
-        
+
         Parameters
         ----------
         description : str
@@ -259,7 +293,8 @@ class ArchitectureAdvisor:
             arch_context = await self._get_architecture_context(description)
 
         model = _select_model(description)
-        model_label = "DeepSeek Reasoner" if model == Model.DEEPSEEK_REASONER else "DeepSeek Coder"
+        # Updated v3.0: Show actual model name instead of hardcoded labels
+        model_label = model.value.split('/')[-1].replace('-', ' ').title()
 
         try:
             # Build prompt with optional architecture context
@@ -277,7 +312,7 @@ class ArchitectureAdvisor:
                     description=description,
                     criteria=criteria,
                 )
-                
+
             response = await self._get_client().call(
                 model=model,
                 prompt=prompt,

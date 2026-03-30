@@ -16,13 +16,13 @@ Features:
 
 USAGE:
     from orchestrator.component_library import ComponentLibrary, ComponentType
-    
+
     library = ComponentLibrary()
-    
+
     # Get pre-built component
     component = library.get(ComponentType.FORM, variant="login")
     code = component.render()
-    
+
     # Assemble complete UI
     ui = library.assemble(
         components=[login_form, dashboard, navbar],
@@ -33,10 +33,9 @@ USAGE:
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Dict, List, Any, Protocol
+from typing import Any, Protocol
 
 logger = logging.getLogger("orchestrator.component_library")
 
@@ -75,7 +74,7 @@ class Framework(str, Enum):
 class Component:
     """
     Reusable UI component.
-    
+
     Attributes:
         name: Component name
         type: Component type
@@ -88,12 +87,12 @@ class Component:
     name: str
     type: ComponentType
     variant: str = "default"
-    props: Dict[str, Any] = field(default_factory=dict)
-    children: List[str] = field(default_factory=list)
-    styles: Dict[str, str] = field(default_factory=dict)
+    props: dict[str, Any] = field(default_factory=dict)
+    children: list[str] = field(default_factory=list)
+    styles: dict[str, str] = field(default_factory=dict)
     framework: Framework = Framework.REACT
     tokens_saved: int = 0  # Tokens saved vs generating from scratch
-    
+
     def render(self) -> str:
         """Render component to code."""
         renderer = ComponentRenderer.get(self.framework, self.type)
@@ -101,7 +100,7 @@ class Component:
             logger.warning(f"No renderer for {self.framework}:{self.type}")
             return f"<!-- Unsupported: {self.framework}:{self.type} -->"
         return renderer.render(self)
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -114,9 +113,9 @@ class Component:
             "framework": self.framework.value,
             "tokens_saved": self.tokens_saved,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: dict) -> "Component":
+    def from_dict(cls, data: dict) -> Component:
         """Create from dictionary."""
         return cls(
             name=data["name"],
@@ -136,10 +135,10 @@ class ComponentTemplate:
     type: ComponentType
     name: str
     description: str
-    variants: Dict[str, Component] = field(default_factory=dict)
+    variants: dict[str, Component] = field(default_factory=dict)
     default_variant: str = "default"
     tokens_saved: int = 300  # Average tokens saved per use
-    
+
     def get_variant(self, variant: str = "default") -> Component:
         """Get component variant."""
         if variant not in self.variants:
@@ -159,7 +158,7 @@ class ComponentRenderer(Protocol):
 
 class ReactRenderer:
     """React component renderer."""
-    
+
     @staticmethod
     def render(component: Component) -> str:
         """Render component as React code."""
@@ -177,39 +176,39 @@ class ReactRenderer:
             return ReactRenderer._render_navigation(component)
         else:
             return ReactRenderer._render_generic(component)
-    
+
     @staticmethod
     def _render_form(component: Component) -> str:
         """Render form component."""
         props = component.props
         fields = props.get("fields", [])
-        
+
         field_elements = []
         for f in fields:
             field_elements.append(f"""
       <div className="form-field">
         <label htmlFor="{f.get('name', '')}">{f.get('label', '')}</label>
-        <input 
-          type="{f.get('type', 'text')}" 
-          id="{f.get('name', '')}" 
+        <input
+          type="{f.get('type', 'text')}"
+          id="{f.get('name', '')}"
           name="{f.get('name', '')}"
           required={f.get('required', False)}
         />
       </div>""")
-        
+
         fields_html = "\n".join(field_elements)
-        
+
         return f"""import React, {{ useState }} from 'react';
 
 export default function {component.name}() {{
   const [formData, setFormData] = useState({{}});
-  
+
   const handleSubmit = async (e) => {{
     e.preventDefault();
     // Handle form submission
     console.log('Form submitted:', formData);
   }};
-  
+
   return (
     <form onSubmit={{handleSubmit}} className="{component.variant}-form">
       {fields_html}
@@ -217,22 +216,22 @@ export default function {component.name}() {{
     </form>
   );
 }}"""
-    
+
     @staticmethod
     def _render_button(component: Component) -> str:
         """Render button component."""
         props = component.props
         variant = component.variant
-        
+
         style_map = {
             "primary": "bg-blue-500 hover:bg-blue-600 text-white",
             "secondary": "bg-gray-500 hover:bg-gray-600 text-white",
             "danger": "bg-red-500 hover:bg-red-600 text-white",
             "success": "bg-green-500 hover:bg-green-600 text-white",
         }
-        
+
         classes = style_map.get(variant, style_map["primary"])
-        
+
         return f"""import React from 'react';
 
 export default function {component.name}({{ onClick, disabled = false, children }}) {{
@@ -246,17 +245,17 @@ export default function {component.name}({{ onClick, disabled = false, children 
     </button>
   );
 }}"""
-    
+
     @staticmethod
     def _render_input(component: Component) -> str:
         """Render input component."""
         props = component.props
-        
+
         return f"""import React from 'react';
 
-export default function {component.name}({{ 
-  value, 
-  onChange, 
+export default function {component.name}({{
+  value,
+  onChange,
   placeholder = '{props.get("placeholder", "")}',
   type = '{props.get("type", "text")}',
   required = {str(props.get("required", False)).lower()},
@@ -272,12 +271,11 @@ export default function {component.name}({{
     />
   );
 }}"""
-    
+
     @staticmethod
     def _render_card(component: Component) -> str:
         """Render card component."""
-        props = component.props
-        
+
         return f"""import React from 'react';
 
 export default function {component.name}({{ title, children, imageUrl }}) {{
@@ -293,15 +291,15 @@ export default function {component.name}({{ title, children, imageUrl }}) {{
     </div>
   );
 }}"""
-    
+
     @staticmethod
     def _render_table(component: Component) -> str:
         """Render table component."""
         props = component.props
         columns = props.get("columns", [])
-        
+
         headers = "".join(f"<th>{col.get('header', '')}</th>" for col in columns)
-        
+
         return f"""import React from 'react';
 
 export default function {component.name}({{ data, columns }}) {{
@@ -326,23 +324,23 @@ export default function {component.name}({{ data, columns }}) {{
     </div>
   );
 }}"""
-    
+
     @staticmethod
     def _render_navigation(component: Component) -> str:
         """Render navigation component."""
         props = component.props
         items = props.get("items", [])
-        
-        nav_items = "".join(
-            f'<a href="{{item.href}}" className="nav-link">{{item.label}}</a>'
+
+        "".join(
+            '<a href="{item.href}" className="nav-link">{item.label}</a>'
             for item in items
         )
-        
+
         return f"""import React from 'react';
 
 export default function {component.name}() {{
   const items = {items!r};
-  
+
   return (
     <nav className="bg-gray-800 text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
@@ -358,7 +356,7 @@ export default function {component.name}() {{
     </nav>
   );
 }}"""
-    
+
     @staticmethod
     def _render_generic(component: Component) -> str:
         """Render generic component."""
@@ -375,7 +373,7 @@ export default function {component.name}(props) {{
 
 class VueRenderer:
     """Vue component renderer."""
-    
+
     @staticmethod
     def render(component: Component) -> str:
         """Render component as Vue code."""
@@ -383,12 +381,12 @@ class VueRenderer:
             return VueRenderer._render_form(component)
         # Add more Vue renderers as needed
         return f"<!-- Vue {component.type.value} component -->"
-    
+
     @staticmethod
     def _render_form(component: Component) -> str:
         """Render form as Vue component."""
         props = component.props
-        
+
         return f"""<template>
   <form @submit.prevent="handleSubmit" class="{component.variant}-form">
     <slot></slot>
@@ -421,23 +419,23 @@ export default {{
 
 class SvelteRenderer:
     """Svelte component renderer."""
-    
+
     @staticmethod
     def render(component: Component) -> str:
         """Render component as Svelte code."""
         if component.type == ComponentType.FORM:
             return SvelteRenderer._render_form(component)
         return f"<!-- Svelte {component.type.value} component -->"
-    
+
     @staticmethod
     def _render_form(component: Component) -> str:
         """Render form as Svelte component."""
         return f"""<script>
   import {{ createEventDispatcher }} from 'svelte';
-  
+
   const dispatch = createEventDispatcher();
   let formData = {{}};
-  
+
   function handleSubmit() {{
     dispatch('submit', formData);
   }}
@@ -455,7 +453,7 @@ class SvelteRenderer:
 
 
 # Renderer registry
-RENDERERS: Dict[Framework, Dict[ComponentType, ComponentRenderer]] = {
+RENDERERS: dict[Framework, dict[ComponentType, ComponentRenderer]] = {
     Framework.REACT: {
         ComponentType.FORM: ReactRenderer,
         ComponentType.BUTTON: ReactRenderer,
@@ -475,9 +473,9 @@ RENDERERS: Dict[Framework, Dict[ComponentType, ComponentRenderer]] = {
 
 class ComponentRenderer:
     """Component renderer factory."""
-    
+
     @staticmethod
-    def get(framework: Framework, component_type: ComponentType) -> Optional[ComponentRenderer]:
+    def get(framework: Framework, component_type: ComponentType) -> ComponentRenderer | None:
         """Get renderer for framework and component type."""
         framework_renderers = RENDERERS.get(framework, {})
         return framework_renderers.get(component_type)
@@ -490,20 +488,20 @@ class ComponentRenderer:
 class ComponentLibrary:
     """
     Registry and factory for reusable components.
-    
+
     Provides pre-built component templates that can be customized
     and assembled into complete UIs.
     """
-    
+
     def __init__(self, framework: Framework = Framework.REACT):
         self.framework = framework
-        self._templates: Dict[str, ComponentTemplate] = {}
+        self._templates: dict[str, ComponentTemplate] = {}
         self._load_builtin_templates()
-        
+
         # Statistics
         self._total_uses = 0
         self._total_tokens_saved = 0
-    
+
     def _load_builtin_templates(self):
         """Load built-in component templates."""
         # Forms
@@ -544,7 +542,7 @@ class ComponentLibrary:
             },
             tokens_saved=350,
         )
-        
+
         self._templates["form:register"] = ComponentTemplate(
             type=ComponentType.FORM,
             name="RegisterForm",
@@ -569,7 +567,7 @@ class ComponentLibrary:
             },
             tokens_saved=450,
         )
-        
+
         self._templates["form:contact"] = ComponentTemplate(
             type=ComponentType.FORM,
             name="ContactForm",
@@ -593,7 +591,7 @@ class ComponentLibrary:
             },
             tokens_saved=400,
         )
-        
+
         # Buttons
         self._templates["button:primary"] = ComponentTemplate(
             type=ComponentType.BUTTON,
@@ -611,7 +609,7 @@ class ComponentLibrary:
             },
             tokens_saved=150,
         )
-        
+
         # Cards
         self._templates["card:product"] = ComponentTemplate(
             type=ComponentType.CARD,
@@ -629,7 +627,7 @@ class ComponentLibrary:
             },
             tokens_saved=300,
         )
-        
+
         # Navigation
         self._templates["navigation:navbar"] = ComponentTemplate(
             type=ComponentType.NAVIGATION,
@@ -654,7 +652,7 @@ class ComponentLibrary:
             },
             tokens_saved=350,
         )
-        
+
         # Tables
         self._templates["table:datatable"] = ComponentTemplate(
             type=ComponentType.TABLE,
@@ -678,22 +676,22 @@ class ComponentLibrary:
             },
             tokens_saved=400,
         )
-        
+
         logger.info(f"Loaded {len(self._templates)} component templates")
-    
+
     def get(self, type: ComponentType, variant: str = "default") -> Component:
         """
         Get component from library.
-        
+
         Args:
             type: Component type
             variant: Component variant
-        
+
         Returns:
             Component instance
         """
         key = f"{type.value}:{variant}"
-        
+
         if key in self._templates:
             template = self._templates[key]
             component = template.get_variant(variant)
@@ -701,7 +699,7 @@ class ComponentLibrary:
             self._total_tokens_saved += component.tokens_saved
             logger.debug(f"Retrieved component {key} (saved {component.tokens_saved} tokens)")
             return component
-        
+
         # Try to find by type only
         type_key = f"{type.value}:default"
         if type_key in self._templates:
@@ -711,11 +709,11 @@ class ComponentLibrary:
             self._total_tokens_saved += component.tokens_saved
             logger.debug(f"Retrieved component {type_key} (saved {component.tokens_saved} tokens)")
             return component
-        
+
         # Generate new component
         logger.warning(f"Component {key} not found, generating new one")
         return self._generate_component(type, variant)
-    
+
     def _generate_component(self, type: ComponentType, variant: str) -> Component:
         """Generate new component."""
         component = Component(
@@ -726,11 +724,11 @@ class ComponentLibrary:
             tokens_saved=0,  # No savings for generated components
         )
         return component
-    
-    def register(self, component: Component, name: Optional[str] = None) -> None:
+
+    def register(self, component: Component, name: str | None = None) -> None:
         """
         Register custom component.
-        
+
         Args:
             component: Component to register
             name: Optional name override
@@ -738,7 +736,7 @@ class ComponentLibrary:
         key = f"{component.type.value}:{component.variant}"
         if name:
             key = f"{name}:{component.variant}"
-        
+
         self._templates[key] = ComponentTemplate(
             type=component.type,
             name=component.name,
@@ -746,49 +744,47 @@ class ComponentLibrary:
             variants={component.variant: component},
             tokens_saved=component.tokens_saved,
         )
-        
+
         logger.info(f"Registered custom component {key}")
-    
-    def assemble(self, components: List[Component], layout: str = "vertical") -> str:
+
+    def assemble(self, components: list[Component], layout: str = "vertical") -> str:
         """
         Assemble components into complete UI.
-        
+
         Args:
             components: Components to assemble
             layout: Layout type (vertical, horizontal, grid)
-        
+
         Returns:
             Assembled UI code
         """
         if not components:
             return ""
-        
+
         if self.framework == Framework.REACT:
             return self._assemble_react(components, layout)
-        
+
         # Default assembly
         rendered = [c.render() for c in components]
         return "\n\n".join(rendered)
-    
-    def _assemble_react(self, components: List[Component], layout: str) -> str:
+
+    def _assemble_react(self, components: list[Component], layout: str) -> str:
         """Assemble components as React app."""
         imports = set()
         component_names = []
-        
+
         for component in components:
             imports.add(f"import {component.name} from './{component.name}';")
             component_names.append(component.name)
-        
+
         # Generate layout
-        if layout == "vertical":
-            layout_code = "\n      ".join(f"<{name} />" for name in component_names)
-        elif layout == "horizontal":
+        if layout == "vertical" or layout == "horizontal":
             layout_code = "\n      ".join(f"<{name} />" for name in component_names)
         else:
             layout_code = "\n      ".join(f"<{name} />" for name in component_names)
-        
+
         imports_str = "\n".join(sorted(imports))
-        
+
         return f"""{imports_str}
 
 export default function App() {{
@@ -798,8 +794,8 @@ export default function App() {{
     </div>
   );
 }}"""
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get library statistics."""
         return {
             "total_templates": len(self._templates),
@@ -813,7 +809,7 @@ export default function App() {{
 # Convenience Functions
 # ─────────────────────────────────────────────
 
-_default_library: Optional[ComponentLibrary] = None
+_default_library: ComponentLibrary | None = None
 
 
 def get_component_library(framework: Framework = Framework.REACT) -> ComponentLibrary:
@@ -836,7 +832,7 @@ def get_component(type: ComponentType, variant: str = "default") -> Component:
     return library.get(type, variant)
 
 
-def assemble_ui(components: List[Component], layout: str = "vertical") -> str:
+def assemble_ui(components: list[Component], layout: str = "vertical") -> str:
     """Assemble UI from components."""
     library = get_component_library()
     return library.assemble(components, layout)

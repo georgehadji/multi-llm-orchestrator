@@ -24,8 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from .specs import (
     Constraints,
@@ -183,7 +182,6 @@ class OrchestrationAgent:
         Sends a summary of the completed run to the LLM and returns
         suggestions for tightening constraints or adding validators.
         """
-        import dataclasses as _dc
 
         summary = {
             "status": state.status.value,

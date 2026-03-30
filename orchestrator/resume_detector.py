@@ -12,10 +12,8 @@ Features:
 """
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 # Optional import of StateManager for type hints
 try:
@@ -145,10 +143,7 @@ def _calculate_match_score(
     else:
         intersection = current_keywords & prev_keywords
         union = current_keywords | prev_keywords
-        if len(union) == 0:
-            jaccard = 1.0
-        else:
-            jaccard = len(intersection) / len(union)
+        jaccard = 1.0 if len(union) == 0 else len(intersection) / len(union)
 
     # Calculate recency score (30-day window)
     now = time.time()
@@ -156,10 +151,7 @@ def _calculate_match_score(
     age_days = age_seconds / (24 * 3600)
 
     # Linear decay over 30 days
-    if age_days <= 30:
-        recency = 1.0 - (age_days / 30.0)
-    else:
-        recency = 0.0
+    recency = 1.0 - age_days / 30.0 if age_days <= 30 else 0.0
 
     # Combined score: 0.6 * similarity + 0.4 * recency
     match_score = 0.6 * jaccard + 0.4 * recency
@@ -257,7 +249,7 @@ class ResumeDetector:
         recency_decay_days: Window for recency scoring (default: 30)
     """
 
-    def __init__(self, state_manager: Optional[StateManager] = None):
+    def __init__(self, state_manager: StateManager | None = None):
         """Initialize the ResumeDetector.
 
         Args:
@@ -271,7 +263,7 @@ class ResumeDetector:
         self,
         project_description: str,
         success_criteria: str,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Find a resumable project matching the given description.
 
         Searches for incomplete projects with similar keywords and returns

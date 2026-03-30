@@ -36,7 +36,7 @@ import json
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .telemetry_store import TelemetryStore
@@ -181,8 +181,8 @@ class PrometheusExporter(MetricsExporter):
         orch.set_metrics_exporter(PrometheusExporter(output_file="/var/lib/node_exporter/orchestrator.prom"))
     """
 
-    def __init__(self, output_file: Optional[str | Path] = None) -> None:
-        self._output_file: Optional[Path] = Path(output_file) if output_file else None
+    def __init__(self, output_file: str | Path | None = None) -> None:
+        self._output_file: Path | None = Path(output_file) if output_file else None
 
     def export(self, metrics: dict) -> None:
         lines: list[str] = []
@@ -210,7 +210,7 @@ class PrometheusExporter(MetricsExporter):
 _SEP = "─" * 72
 
 
-async def render_dashboard(store: "TelemetryStore", days: int = 30) -> str:
+async def render_dashboard(store: TelemetryStore, days: int = 30) -> str:
     """
     Render the full CLI dashboard as a string.
 
@@ -254,7 +254,6 @@ async def render_dashboard(store: "TelemetryStore", days: int = 30) -> str:
     conf_symbol = {"HOT": "●", "WARM": "○", "COLD": "·"}
     for r in rankings:
         sym = conf_symbol.get(r.confidence, " ")
-        trend_str = ""
         calls_str = f"{r.call_count} calls"
         cost_str  = f"${r.avg_cost_usd:.4f}/call"
         quality_str = f"q:{r.quality_score:.3f}"

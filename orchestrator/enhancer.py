@@ -15,10 +15,9 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
-from orchestrator.models import Model
 from orchestrator.api_clients import UnifiedClient
+from orchestrator.models import Model
 
 logger = logging.getLogger("orchestrator.enhancer")
 
@@ -27,8 +26,8 @@ logger = logging.getLogger("orchestrator.enhancer")
 def _get_nexus_search():
     """Lazy import of Nexus Search to avoid circular dependencies."""
     try:
-        from orchestrator.nexus_search import search as nexus_search
         from orchestrator.nexus_search import SearchSource
+        from orchestrator.nexus_search import search as nexus_search
         return nexus_search, SearchSource
     except ImportError:
         return None, None
@@ -376,7 +375,7 @@ class ProjectEnhancer:
         Combines the description and criteria to select an appropriate model,
         then prompts the LLM to suggest 3-7 concrete improvements. The LLM
         response is parsed into Enhancement objects.
-        
+
         Nexus Search Integration:
         - Searches latest best practices for context
         - Includes real-time data in enhancement suggestions
@@ -407,7 +406,7 @@ class ProjectEnhancer:
             web_context = ""
             if use_web_context and self.nexus_enabled:
                 web_context = await self._get_web_context(description)
-            
+
             # Select model based on combined length
             combined = f"{description} {criteria}"
             model = _select_enhance_model(combined)
@@ -417,7 +416,7 @@ class ProjectEnhancer:
                 "You are a project specification expert. Analyze the following project description "
                 "and success criteria, then suggest 3-7 concrete improvements to make them more complete, realistic, and measurable.",
             ]
-            
+
             # Add web context if available
             if web_context:
                 prompt_parts.append(
@@ -425,7 +424,7 @@ class ProjectEnhancer:
                     f"{web_context}\n"
                     "\nIncorporate these best practices into your enhancement suggestions."
                 )
-            
+
             prompt_parts.append(
                 f"\n\nProject Description: {description}\n"
                 f"Success Criteria: {criteria}\n\n"
@@ -450,7 +449,7 @@ class ProjectEnhancer:
                 "]\n\n"
                 "Important: Return ONLY the JSON array, with no additional text or markdown formatting."
             )
-            
+
             prompt = "".join(prompt_parts)
 
             # Call LLM via UnifiedClient

@@ -35,12 +35,14 @@ Usage:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from .models import COST_TABLE, Budget, Model, Task, TaskType, estimate_cost
-from .policy import ModelProfile
+from .models import Budget, Model, Task, TaskType, estimate_cost
+
+if TYPE_CHECKING:
+    from .policy import ModelProfile
 
 logger = logging.getLogger("orchestrator.cost")
 
@@ -143,8 +145,8 @@ class BudgetHierarchy:
     def __init__(
         self,
         org_max_usd:   float,
-        team_budgets:  Optional[dict[str, float]] = None,
-        job_budgets:   Optional[dict[str, float]] = None,
+        team_budgets:  dict[str, float] | None = None,
+        job_budgets:   dict[str, float] | None = None,
     ) -> None:
         self._org_max   = org_max_usd
         self._team_max  = dict(team_budgets) if team_budgets else {}
@@ -323,8 +325,8 @@ class CostPredictor:
 
     Usage:
         predictor = CostPredictor()
-        predictor.record(Model.KIMI_K2_5, TaskType.CODE_GEN, 0.000032)
-        est = predictor.predict(Model.KIMI_K2_5, TaskType.CODE_GEN)
+        predictor.record(Model.PHI_4, TaskType.CODE_GEN, 0.000032)
+        est = predictor.predict(Model.PHI_4, TaskType.CODE_GEN)
         cheapest = predictor.cheapest_model(TaskType.CODE_GEN, candidates)
     """
 
@@ -378,7 +380,7 @@ class CostPredictor:
         self,
         task_type:  TaskType,
         candidates: list[Model],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """Return the candidate model with the lowest predicted cost for task_type."""
         if not candidates:
             return None
@@ -399,10 +401,10 @@ class CostForecaster:
 
     @staticmethod
     def forecast(
-        tasks:     list["Task"],
+        tasks:     list[Task],
         profiles:  dict[Model, ModelProfile],
-        predictor: "CostPredictor",
-        budget:    Optional[Budget] = None,
+        predictor: CostPredictor,
+        budget:    Budget | None = None,
     ) -> ForecastReport:
         """
         Estimate total cost and time for the given task list.

@@ -18,23 +18,23 @@ Usage:
 """
 
 from .deduplication import ResultDeduplicator, deduplicate_results
+from .parallel_search import ParallelSearchExecutor, search_parallel
 from .query_cache import QueryCache, get_query_cache
 from .reranker import SemanticReranker, rerank_results
-from .parallel_search import ParallelSearchExecutor, search_parallel
 
 __all__ = [
     # Deduplication
     "ResultDeduplicator",
     "deduplicate_results",
-    
+
     # Query Cache
     "QueryCache",
     "get_query_cache",
-    
+
     # Semantic Reranking
     "SemanticReranker",
     "rerank_results",
-    
+
     # Parallel Search
     "ParallelSearchExecutor",
     "search_parallel",

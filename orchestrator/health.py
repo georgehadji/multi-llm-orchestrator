@@ -12,19 +12,19 @@ Features:
 
 Usage:
     from orchestrator.health import HealthMonitor, health_check
-    
+
     monitor = HealthMonitor()
-    
+
     @monitor.liveness_check
     def check_basic():
         return HealthStatus.HEALTHY
-    
+
     @monitor.readiness_check
     async def check_db():
         if await db.ping():
             return HealthStatus.HEALTHY
         return HealthStatus.UNHEALTHY
-    
+
     # In Kubernetes probe endpoint
     @app.get("/health")
     async def health():
@@ -34,15 +34,15 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import time
-from abc import ABC, abstractmethod
+from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Awaitable, Union
-from collections import defaultdict
-import inspect
+from typing import Any
 
 logger = logging.getLogger("orchestrator.health")
 
@@ -80,10 +80,10 @@ class CheckResult:
     response_time_ms: float
     timestamp: datetime
     message: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    metadata: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "status": self.status.value,
@@ -100,12 +100,12 @@ class CheckResult:
 class HealthReport:
     """Complete health report."""
     overall_status: HealthStatus
-    checks: List[CheckResult]
+    checks: list[CheckResult]
     timestamp: datetime
     version: str = "1.0.0"
     uptime_seconds: float = 0.0
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "status": self.overall_status.value,
             "timestamp": self.timestamp.isoformat(),
@@ -119,7 +119,7 @@ class HealthReport:
 # Health Check Function Types
 # ═══════════════════════════════════════════════════════════════════════════════
 
-HealthCheckFunc = Callable[[], Union[HealthStatus, Awaitable[HealthStatus]]]
+HealthCheckFunc = Callable[[], HealthStatus | Awaitable[HealthStatus]]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -129,10 +129,10 @@ HealthCheckFunc = Callable[[], Union[HealthStatus, Awaitable[HealthStatus]]]
 class HealthMonitor:
     """
     Central health monitoring system.
-    
+
     Supports multiple check types with different criticality levels.
     """
-    
+
     def __init__(
         self,
         default_timeout: float = 5.0,
@@ -140,35 +140,35 @@ class HealthMonitor:
     ):
         self.default_timeout = default_timeout
         self.check_interval = check_interval
-        self._checks: Dict[CheckType, Dict[str, HealthCheckFunc]] = defaultdict(dict)
-        self._cache: Dict[str, CheckResult] = {}
-        self._cache_timestamp: Optional[datetime] = None
+        self._checks: dict[CheckType, dict[str, HealthCheckFunc]] = defaultdict(dict)
+        self._cache: dict[str, CheckResult] = {}
+        self._cache_timestamp: datetime | None = None
         self._start_time = time.time()
         self._running = False
-        self._check_task: Optional[asyncio.Task] = None
-    
+        self._check_task: asyncio.Task | None = None
+
     # Registration methods
-    
+
     def liveness_check(self, func: HealthCheckFunc) -> HealthCheckFunc:
         """Decorator to register a liveness check."""
         self._checks[CheckType.LIVENESS][func.__name__] = func
         return func
-    
+
     def readiness_check(self, func: HealthCheckFunc) -> HealthCheckFunc:
         """Decorator to register a readiness check."""
         self._checks[CheckType.READINESS][func.__name__] = func
         return func
-    
+
     def startup_check(self, func: HealthCheckFunc) -> HealthCheckFunc:
         """Decorator to register a startup check."""
         self._checks[CheckType.STARTUP][func.__name__] = func
         return func
-    
+
     def deep_check(self, func: HealthCheckFunc) -> HealthCheckFunc:
         """Decorator to register a deep health check."""
         self._checks[CheckType.DEEP][func.__name__] = func
         return func
-    
+
     def add_check(
         self,
         name: str,
@@ -177,20 +177,20 @@ class HealthMonitor:
     ) -> None:
         """Programmatically add a health check."""
         self._checks[check_type][name] = func
-    
+
     # Check execution
-    
+
     async def run_check(
         self,
         name: str,
         func: HealthCheckFunc,
         check_type: CheckType,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> CheckResult:
         """Run a single health check with timeout."""
         timeout = timeout or self.default_timeout
         start_time = time.time()
-        
+
         try:
             # Check if function is async
             if inspect.iscoroutinefunction(func):
@@ -202,18 +202,18 @@ class HealthMonitor:
                     loop.run_in_executor(None, func),
                     timeout=timeout
                 )
-            
+
             elapsed = (time.time() - start_time) * 1000
-            
+
             return CheckResult(
                 name=name,
                 status=status,
                 check_type=check_type,
                 response_time_ms=elapsed,
                 timestamp=datetime.utcnow(),
-                message=f"Check passed" if status == HealthStatus.HEALTHY else "Check failed",
+                message="Check passed" if status == HealthStatus.HEALTHY else "Check failed",
             )
-            
+
         except asyncio.TimeoutError:
             elapsed = (time.time() - start_time) * 1000
             return CheckResult(
@@ -236,24 +236,24 @@ class HealthMonitor:
                 message=f"Check failed: {str(e)}",
                 error=str(e),
             )
-    
-    async def run_checks(self, check_type: Optional[CheckType] = None) -> List[CheckResult]:
+
+    async def run_checks(self, check_type: CheckType | None = None) -> list[CheckResult]:
         """Run all checks of a specific type, or all checks."""
         results = []
-        
+
         types_to_run = [check_type] if check_type else list(CheckType)
-        
+
         for ct in types_to_run:
             for name, func in self._checks[ct].items():
                 result = await self.run_check(name, func, ct)
                 results.append(result)
-        
+
         return results
-    
+
     async def check_all(self, use_cache: bool = True) -> HealthReport:
         """
         Run all health checks and return comprehensive report.
-        
+
         Args:
             use_cache: If True and cache is fresh, return cached result
         """
@@ -263,22 +263,22 @@ class HealthMonitor:
             if age < self.check_interval:
                 checks = list(self._cache.values())
                 return self._build_report(checks)
-        
+
         # Run all checks
         checks = await self.run_checks()
-        
+
         # Update cache
         for check in checks:
             self._cache[check.name] = check
         self._cache_timestamp = datetime.utcnow()
-        
+
         return self._build_report(checks)
-    
-    def _build_report(self, checks: List[CheckResult]) -> HealthReport:
+
+    def _build_report(self, checks: list[CheckResult]) -> HealthReport:
         """Build health report from check results."""
         # Determine overall status
         statuses = [c.status for c in checks]
-        
+
         if HealthStatus.UNHEALTHY in statuses:
             overall = HealthStatus.UNHEALTHY
         elif HealthStatus.DEGRADED in statuses:
@@ -287,50 +287,50 @@ class HealthMonitor:
             overall = HealthStatus.HEALTHY
         else:
             overall = HealthStatus.UNKNOWN
-        
+
         uptime = time.time() - self._start_time
-        
+
         return HealthReport(
             overall_status=overall,
             checks=checks,
             timestamp=datetime.utcnow(),
             uptime_seconds=uptime,
         )
-    
+
     # Convenience check methods
-    
+
     async def is_alive(self) -> bool:
         """Quick liveness check."""
         if not self._checks[CheckType.LIVENESS]:
             return True  # No liveness checks = assume alive
-        
+
         results = await self.run_checks(CheckType.LIVENESS)
         return all(r.status == HealthStatus.HEALTHY for r in results)
-    
+
     async def is_ready(self) -> bool:
         """Quick readiness check."""
         if not self._checks[CheckType.READINESS]:
             return True
-        
+
         results = await self.run_checks(CheckType.READINESS)
         return all(r.status in (HealthStatus.HEALTHY, HealthStatus.DEGRADED) for r in results)
-    
+
     async def is_started(self) -> bool:
         """Check if startup is complete."""
         if not self._checks[CheckType.STARTUP]:
             return True
-        
+
         results = await self.run_checks(CheckType.STARTUP)
         return all(r.status == HealthStatus.HEALTHY for r in results)
-    
+
     # Background monitoring
-    
+
     async def start_monitoring(self) -> None:
         """Start background health check loop."""
         self._running = True
         self._check_task = asyncio.create_task(self._monitoring_loop())
         logger.info("Health monitoring started")
-    
+
     async def stop_monitoring(self) -> None:
         """Stop background health check loop."""
         self._running = False
@@ -341,7 +341,7 @@ class HealthMonitor:
             except asyncio.CancelledError:
                 pass
         logger.info("Health monitoring stopped")
-    
+
     async def _monitoring_loop(self) -> None:
         """Background loop for periodic health checks."""
         while self._running:
@@ -349,7 +349,7 @@ class HealthMonitor:
                 await self.check_all(use_cache=False)
             except Exception as e:
                 logger.error(f"Health check loop error: {e}")
-            
+
             await asyncio.sleep(self.check_interval)
 
 
@@ -360,20 +360,20 @@ class HealthMonitor:
 def create_default_health_monitor() -> HealthMonitor:
     """Create a health monitor with default checks."""
     monitor = HealthMonitor()
-    
+
     # Liveness check - always returns healthy if process is running
     @monitor.liveness_check
     def basic_liveness() -> HealthStatus:
         """Basic liveness check - process is running."""
         return HealthStatus.HEALTHY
-    
+
     # Readiness check - can we accept work?
     @monitor.readiness_check
     async def basic_readiness() -> HealthStatus:
         """Check if system is ready to accept work."""
         # This would check if core components are initialized
         return HealthStatus.HEALTHY
-    
+
     return monitor
 
 
@@ -383,45 +383,45 @@ def create_default_health_monitor() -> HealthMonitor:
 
 class KubernetesProbes:
     """Helper class for Kubernetes probe endpoints."""
-    
-    def __init__(self, monitor: Optional[HealthMonitor] = None):
+
+    def __init__(self, monitor: HealthMonitor | None = None):
         self.monitor = monitor or create_default_health_monitor()
-    
-    async def liveness_probe(self) -> Dict[str, Any]:
+
+    async def liveness_probe(self) -> dict[str, Any]:
         """Kubernetes liveness probe endpoint."""
         is_alive = await self.monitor.is_alive()
         return {
             "status": "alive" if is_alive else "dead",
             "timestamp": datetime.utcnow().isoformat(),
         }
-    
-    async def readiness_probe(self) -> Dict[str, Any]:
+
+    async def readiness_probe(self) -> dict[str, Any]:
         """Kubernetes readiness probe endpoint."""
         is_ready = await self.monitor.is_ready()
         return {
             "status": "ready" if is_ready else "not_ready",
             "timestamp": datetime.utcnow().isoformat(),
         }
-    
-    async def startup_probe(self) -> Dict[str, Any]:
+
+    async def startup_probe(self) -> dict[str, Any]:
         """Kubernetes startup probe endpoint."""
         is_started = await self.monitor.is_started()
         return {
             "status": "started" if is_started else "starting",
             "timestamp": datetime.utcnow().isoformat(),
         }
-    
-    async def health_check(self) -> tuple[Dict[str, Any], int]:
+
+    async def health_check(self) -> tuple[dict[str, Any], int]:
         """Full health check for /health endpoint."""
         report = await self.monitor.check_all()
-        
+
         # HTTP status code based on health
         status_code = 200
         if report.overall_status == HealthStatus.UNHEALTHY:
             status_code = 503
         elif report.overall_status == HealthStatus.DEGRADED:
             status_code = 200  # Or 429 if you want to indicate load shedding
-        
+
         return report.to_dict(), status_code
 
 
@@ -432,26 +432,26 @@ class KubernetesProbes:
 async def example():
     """Example of health monitor usage."""
     monitor = HealthMonitor()
-    
+
     # Define checks
     @monitor.liveness_check
     def check_process():
         return HealthStatus.HEALTHY
-    
+
     @monitor.readiness_check
     async def check_db():
         # Simulate DB check
         await asyncio.sleep(0.1)
         return HealthStatus.HEALTHY
-    
+
     @monitor.readiness_check
     async def check_cache():
         # Simulate cache check
         return HealthStatus.DEGRADED  # Cache is slow but working
-    
+
     # Run checks
     report = await monitor.check_all()
-    
+
     print(f"Overall status: {report.overall_status.value}")
     for check in report.checks:
         print(f"  {check.name}: {check.status.value} ({check.response_time_ms:.2f}ms)")

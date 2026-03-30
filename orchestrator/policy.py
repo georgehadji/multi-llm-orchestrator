@@ -20,10 +20,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from .models import Model, TaskType, Budget
-
+if TYPE_CHECKING:
+    from .models import Budget, Model, TaskType
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EnforcementMode — controls how violations are handled
@@ -50,9 +50,9 @@ class EnforcementMode(str, Enum):
 @dataclass
 class RateLimit:
     """Per-scope rate cap attached to a Policy. Actual enforcement is external."""
-    calls_per_minute:  Optional[int]   = None
-    cost_usd_per_hour: Optional[float] = None
-    tokens_per_day:    Optional[int]   = None
+    calls_per_minute:  int | None   = None
+    cost_usd_per_hour: float | None = None
+    tokens_per_day:    int | None   = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -141,26 +141,26 @@ class Policy:
     name: str
 
     # ── Provider constraints ──────────────────────────────────────────────────
-    allowed_providers: Optional[list[str]] = None    # whitelist; None = all allowed
-    blocked_providers: Optional[list[str]] = None    # blacklist; None = none blocked
+    allowed_providers: list[str] | None = None    # whitelist; None = all allowed
+    blocked_providers: list[str] | None = None    # blacklist; None = none blocked
 
     # ── Region constraints ────────────────────────────────────────────────────
-    allowed_regions: Optional[list[str]] = None      # e.g. ["eu", "global"]
+    allowed_regions: list[str] | None = None      # e.g. ["eu", "global"]
 
     # ── Model-level blocks ────────────────────────────────────────────────────
-    blocked_models: Optional[list[Model]] = None
+    blocked_models: list[Model] | None = None
 
     # ── Compliance requirements ───────────────────────────────────────────────
     allow_training_on_output: bool = True            # False requires "no_train" tag
     pii_allowed: bool = True                         # False requires "pii_allowed" tag
 
     # ── Performance constraints ───────────────────────────────────────────────
-    max_cost_per_task_usd: Optional[float] = None    # hard per-task cap
-    max_latency_ms: Optional[float] = None           # reject if avg_latency > this
+    max_cost_per_task_usd: float | None = None    # hard per-task cap
+    max_latency_ms: float | None = None           # reject if avg_latency > this
 
     # ── Enforcement mode ──────────────────────────────────────────────────────
-    enforcement_mode: Optional["EnforcementMode"] = None   # None → HARD (default)
-    rate_limit: Optional["RateLimit"] = None
+    enforcement_mode: EnforcementMode | None = None   # None → HARD (default)
+    rate_limit: RateLimit | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -252,10 +252,10 @@ class PolicyHierarchy:
 
     def __init__(
         self,
-        org:  Optional[list["Policy"]]            = None,
-        team: Optional[dict[str, list["Policy"]]] = None,
-        job:  Optional[dict[str, list["Policy"]]] = None,
-        node: Optional[dict[str, list["Policy"]]] = None,
+        org:  list[Policy] | None            = None,
+        team: dict[str, list[Policy]] | None = None,
+        job:  dict[str, list[Policy]] | None = None,
+        node: dict[str, list[Policy]] | None = None,
     ):
         self._org  = org  or []
         self._team = team or {}
@@ -267,7 +267,7 @@ class PolicyHierarchy:
         team:    str = "",
         job_id:  str = "",
         task_id: str = "",
-    ) -> list["Policy"]:
+    ) -> list[Policy]:
         """Return merged policy list: org + team[team] + job[job_id] + node[task_id]."""
         return (
             list(self._org)
@@ -281,6 +281,6 @@ class PolicyHierarchy:
         team:    str = "",
         job_id:  str = "",
         task_id: str = "",
-    ) -> "PolicySet":
+    ) -> PolicySet:
         """Convert to a flat PolicySet compatible with the existing engine API."""
         return PolicySet(global_policies=self.policies_for(team, job_id, task_id))

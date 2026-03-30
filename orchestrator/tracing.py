@@ -16,21 +16,23 @@ Usage:
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Generator, Optional
+from typing import TYPE_CHECKING, Any
 
-from .models import Model
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from .models import Model
 
 logger = logging.getLogger("orchestrator.tracing")
 
 
 class Span:
     """Represents a single tracing span."""
-    
-    def __init__(self, name: str, attributes: Optional[Dict[str, Any]] = None):
+
+    def __init__(self, name: str, attributes: dict[str, Any] | None = None):
         self.name = name
         self.attributes = attributes or {}
         self.start_time = None
@@ -38,23 +40,23 @@ class Span:
         self.parent_span = None
         self.status = "UNSET"  # UNSET, OK, ERROR
         self.events = []
-    
+
     def set_attribute(self, key: str, value: Any):
         """Set an attribute on the span."""
         self.attributes[key] = value
-    
-    def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None):
+
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None):
         """Add an event to the span."""
         self.events.append({
             "name": name,
             "attributes": attributes or {},
             "timestamp": self._get_timestamp()
         })
-    
+
     def set_status(self, status: str):
         """Set the status of the span."""
         self.status = status
-    
+
     def _get_timestamp(self) -> float:
         """Get the current timestamp."""
         import time
@@ -71,16 +73,16 @@ class Tracer:
         self.active_spans: list[Span] = []
         self.span_buffer: list[Span] = []  # Completed spans waiting to be exported
         self.exporter = None  # Will be set when exporter is configured
-    
+
     @contextmanager
-    def trace(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> Generator[Span, None, None]:
+    def trace(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[Span, None, None]:
         """
         Create and manage a tracing span.
-        
+
         Args:
             name: Name of the span
             attributes: Attributes to attach to the span
-            
+
         Yields:
             Span: The created span
         """
@@ -89,18 +91,18 @@ class Tracer:
             dummy_span = Span(name, attributes)
             yield dummy_span
             return
-        
+
         # Create a new span
         span = Span(name, attributes)
         span.start_time = span._get_timestamp()
-        
+
         # Set parent span if there's an active one
         if self.active_spans:
             span.parent_span = self.active_spans[-1]
-        
+
         # Add to active spans
         self.active_spans.append(span)
-        
+
         try:
             yield span
             span.set_status("OK")
@@ -111,41 +113,41 @@ class Tracer:
         finally:
             # End the span
             span.end_time = span._get_timestamp()
-            
+
             # Remove from active spans
             self.active_spans.pop()
-            
+
             # Add to buffer for export
             self.span_buffer.append(span)
-            
+
             # Export if buffer is full (simple batching)
             if len(self.span_buffer) >= 10:
                 self._export_spans()
-    
-    def start_span(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> Span:
+
+    def start_span(self, name: str, attributes: dict[str, Any] | None = None) -> Span:
         """
         Start a new span without using a context manager.
-        
+
         Args:
             name: Name of the span
             attributes: Attributes to attach to the span
-            
+
         Returns:
             Span: The started span
         """
         if not self.enabled:
             return Span(name, attributes)
-        
+
         span = Span(name, attributes)
         span.start_time = span._get_timestamp()
-        
+
         # Set parent span if there's an active one
         if self.active_spans:
             span.parent_span = self.active_spans[-1]
-        
+
         self.active_spans.append(span)
         return span
-    
+
     def end_span(self, span: Span, status: str = "OK"):
         """
         End a span that was started with start_span.
@@ -172,10 +174,10 @@ class Tracer:
             self._export_spans()
 
     @contextmanager
-    def start_as_current_span(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> Generator[Span, None, None]:
+    def start_as_current_span(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[Span, None, None]:
         """
         Start a span and make it the current active span (OpenTelemetry-style API).
-        
+
         This is an alias for trace() to maintain compatibility with OpenTelemetry patterns.
 
         Args:
@@ -187,83 +189,83 @@ class Tracer:
         """
         with self.trace(name, attributes) as span:
             yield span
-    
+
     def add_tracing_attributes(self, **kwargs):
         """
         Add attributes to the currently active span.
-        
+
         Args:
             **kwargs: Attributes to add
         """
         if not self.enabled or not self.active_spans:
             return
-        
+
         current_span = self.active_spans[-1]
         for key, value in kwargs.items():
             current_span.set_attribute(key, value)
-    
-    def record_exception(self, exception: Exception, attributes: Optional[Dict[str, Any]] = None):
+
+    def record_exception(self, exception: Exception, attributes: dict[str, Any] | None = None):
         """
         Record an exception in the currently active span.
-        
+
         Args:
             exception: The exception to record
             attributes: Additional attributes
         """
         if not self.enabled or not self.active_spans:
             return
-        
+
         current_span = self.active_spans[-1]
         attrs = attributes or {}
         attrs["exception.message"] = str(exception)
         attrs["exception.type"] = type(exception).__name__
-        
+
         current_span.add_event("exception", attrs)
         current_span.set_status("ERROR")
-    
+
     def configure_exporter(self, exporter):
         """
         Configure the span exporter.
-        
+
         Args:
             exporter: An exporter object with an export(spans) method
         """
         self.exporter = exporter
         logger.info("Tracing exporter configured")
-    
+
     def _export_spans(self):
         """Export buffered spans using the configured exporter."""
         if not self.exporter or not self.span_buffer:
             return
-        
+
         try:
             # Export spans
             self.exporter.export(self.span_buffer.copy())
-            
+
             # Clear the buffer
             self.span_buffer.clear()
-            
+
             logger.debug(f"Exported {len(self.span_buffer)} spans")
         except Exception as e:
             logger.error(f"Failed to export spans: {e}")
-    
+
     async def flush(self):
         """Flush any remaining spans in the buffer."""
         if self.span_buffer:
             self._export_spans()
-    
+
     def get_active_span_count(self) -> int:
         """Get the number of currently active spans."""
         return len(self.active_spans)
-    
+
     def get_buffered_span_count(self) -> int:
         """Get the number of spans in the buffer waiting for export."""
         return len(self.span_buffer)
-    
+
     def trace_model_call(self, model: Model, prompt_tokens: int, response_tokens: int):
         """
         Convenience method to trace a model call.
-        
+
         Args:
             model: The model that was called
             prompt_tokens: Number of input tokens
@@ -271,7 +273,7 @@ class Tracer:
         """
         if not self.enabled:
             return
-        
+
         if self.active_spans:
             current_span = self.active_spans[-1]
             current_span.set_attribute("llm.model", model.value)
@@ -281,16 +283,16 @@ class Tracer:
 
 
 # Global tracer instance for convenience
-_global_tracer: Optional[Tracer] = None
+_global_tracer: Tracer | None = None
 
 
 def get_tracer(service_name: str = "orchestrator") -> Tracer:
     """
     Get the global tracer instance.
-    
+
     Args:
         service_name: Name of the service for the tracer
-        
+
     Returns:
         Tracer: The global tracer instance
     """
@@ -303,7 +305,7 @@ def get_tracer(service_name: str = "orchestrator") -> Tracer:
 def set_global_tracer(tracer: Tracer):
     """
     Set the global tracer instance.
-    
+
     Args:
         tracer: The tracer instance to set as global
     """
@@ -311,10 +313,10 @@ def set_global_tracer(tracer: Tracer):
     _global_tracer = tracer
 
 
-def trace_function(tracer: Optional[Tracer] = None, span_name: Optional[str] = None):
+def trace_function(tracer: Tracer | None = None, span_name: str | None = None):
     """
     Decorator to trace a function.
-    
+
     Args:
         tracer: Tracer instance to use (defaults to global tracer)
         span_name: Name for the span (defaults to function name)
@@ -323,30 +325,30 @@ def trace_function(tracer: Optional[Tracer] = None, span_name: Optional[str] = N
         async def async_wrapper(*args, **kwargs):
             t = tracer or get_tracer()
             name = span_name or func.__name__
-            
+
             with t.trace(name, {"function.args.count": len(args), "function.kwargs.count": len(kwargs)}):
                 return await func(*args, **kwargs)
-        
+
         def sync_wrapper(*args, **kwargs):
             t = tracer or get_tracer()
             name = span_name or func.__name__
-            
+
             with t.trace(name, {"function.args.count": len(args), "function.kwargs.count": len(kwargs)}):
                 return func(*args, **kwargs)
-        
+
         # Return the appropriate wrapper based on whether the function is async
         import inspect
         if inspect.iscoroutinefunction(func):
             return async_wrapper
         else:
             return sync_wrapper
-    
+
     return decorator
 
 
 class ConsoleExporter:
     """Simple console exporter for debugging purposes."""
-    
+
     def export(self, spans: list[Span]):
         """Export spans to console."""
         for span in spans:
@@ -358,18 +360,18 @@ class ConsoleExporter:
 
 class InMemoryExporter:
     """In-memory exporter for testing purposes."""
-    
+
     def __init__(self):
         self.spans = []
-    
+
     def export(self, spans: list[Span]):
         """Export spans to memory."""
         self.spans.extend(spans)
-    
+
     def get_spans(self) -> list[Span]:
         """Get all exported spans."""
         return self.spans
-    
+
     def clear(self):
         """Clear all exported spans."""
         self.spans.clear()

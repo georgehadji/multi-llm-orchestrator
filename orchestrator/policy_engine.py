@@ -15,12 +15,13 @@ Policy-as-code novelty:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from .models import Model
 from .policy import EnforcementMode, ModelProfile, Policy
 from .tracing import traced_policy_check
 
+if TYPE_CHECKING:
+    from .models import Model
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Exceptions
@@ -117,7 +118,7 @@ class PolicyEngine:
       7. pii_allowed            → requires "pii_allowed" compliance tag
     """
 
-    def __init__(self, audit_log: Optional[object] = None):
+    def __init__(self, audit_log: object | None = None):
         """
         Parameters
         ----------

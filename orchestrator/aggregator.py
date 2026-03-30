@@ -5,10 +5,13 @@ Records (model, task_type, score, cost, latency) from completed runs
 and computes aggregated statistics to guide future model routing.
 """
 from __future__ import annotations
+
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional
-from .models import Model, TaskType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import Model, TaskType
 
 
 @dataclass
@@ -44,7 +47,7 @@ class ProfileAggregator:
             "avg_latency": sum(r.latency_ms for r in records) / n,
         }
 
-    def best_model(self, task_type: TaskType) -> Optional[Model]:
+    def best_model(self, task_type: TaskType) -> Model | None:
         """Model with the highest average score for this task type."""
         candidates = {model for (model, tt) in self._records if tt == task_type}
         if not candidates:
@@ -66,7 +69,7 @@ class ProfileAggregator:
     def summary_table(self) -> dict[TaskType, list[dict]]:
         """Dict of task_type -> list of model stats, sorted by avg_score desc."""
         by_type: dict[TaskType, list[dict]] = defaultdict(list)
-        for (model, task_type), records in self._records.items():
+        for (model, task_type), _records in self._records.items():
             s = self.stats_for(model, task_type)
             by_type[task_type].append({"model": model, **s})
         for task_type in by_type:

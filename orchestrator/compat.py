@@ -21,10 +21,16 @@ except ImportError:
 # Event aliases
 try:
     from .events import (
-        ProjectStartedEvent as ProjectStarted,
-        TaskStartedEvent as TaskStarted,
-        TaskCompletedEvent as TaskCompleted,
         ProjectCompletedEvent as ProjectCompleted,
+    )
+    from .events import (
+        ProjectStartedEvent as ProjectStarted,
+    )
+    from .events import (
+        TaskCompletedEvent as TaskCompleted,
+    )
+    from .events import (
+        TaskStartedEvent as TaskStarted,
     )
 except ImportError:
     ProjectStarted = None
@@ -54,19 +60,19 @@ def print_migration_guide():
     print("""
     Migration Guide: v5.x → v6.0
     ============================
-    
+
     1. Event System
        Old: from orchestrator.streaming import ProjectEventBus
        New: from orchestrator import get_event_bus
-    
+
     2. Dashboard
        Old: from orchestrator import run_live_dashboard
        New: from orchestrator import run_dashboard
-    
+
     3. Events
        Old: from orchestrator.streaming import ProjectStarted
        New: from orchestrator.events import ProjectStartedEvent
-    
+
     See: MIGRATION_GUIDE_v6.md for details.
     """)
 

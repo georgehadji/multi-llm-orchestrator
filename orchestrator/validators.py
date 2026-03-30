@@ -21,7 +21,6 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("orchestrator.validators")
 
@@ -35,7 +34,7 @@ class ValidationResult:
         self.validator_name = validator_name
 
 
-def validate_json_schema(output: str, schema: Optional[dict] = None) -> ValidationResult:
+def validate_json_schema(output: str, schema: dict | None = None) -> ValidationResult:
     """Validate that output is valid JSON, optionally against a schema."""
     try:
         parsed = json.loads(output)
@@ -101,7 +100,27 @@ def validate_python_syntax(output: str) -> ValidationResult:
             except SyntaxError as e:
                 return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
         except SyntaxError as e:
-            return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
+            # Provide detailed error context for common issues
+            error_msg = f"Syntax error: {e.msg} (line {e.lineno})"
+            
+            # Add helpful context
+            lines = code.split('\n')
+            if e.lineno and 0 < e.lineno <= len(lines):
+                error_line = lines[e.lineno - 1]
+                error_context = f"\n\nProblematic line {e.lineno}:\n  {error_line}"
+                
+                # Specific guidance for common errors
+                if "unterminated" in str(e.msg) or "string literal" in str(e.msg):
+                    error_context += (
+                        "\n\n💡 TIP: Check for unclosed triple-quoted strings (\"\"\").\n"
+                        "   Every opening \"\"\" must have a matching closing \"\"\"."
+                    )
+                elif "EOF" in str(e.msg):
+                    error_context += (
+                        "\n\n💡 TIP: Unexpected end of file - check for unclosed parentheses, brackets, or strings."
+                    )
+            
+            return ValidationResult(False, error_msg + error_context, "python_syntax")
 
 
 def validate_pytest(output: str, test_code: str = "",
@@ -342,23 +361,23 @@ def validate_tool_safety(output: str) -> ValidationResult:
     """
     HARDEN: Validate that output doesn't contain hallucinated tool calls
     or potentially dangerous code patterns.
-    
+
     This prevents:
     - Shell command injection
-    - Code evaluation attacks  
+    - Code evaluation attacks
     - Unauthorized file system access
     - Unexpected network calls
-    
+
     Note: This is a safety check, not a functionality check.
     Legitimate uses of these patterns should use the proper validators.
     """
     import re
-    
+
     found_issues = []
     for pattern, description in _SUSPICIOUS_PATTERNS:
         if re.search(pattern, output, re.MULTILINE | re.IGNORECASE):
             found_issues.append(description)
-    
+
     if found_issues:
         return ValidationResult(
             False,
@@ -366,7 +385,7 @@ def validate_tool_safety(output: str) -> ValidationResult:
             f"If these are intentional, use appropriate sandboxed validators.",
             "tool_safety"
         )
-    
+
     return ValidationResult(True, "No unsafe patterns detected", "tool_safety")
 
 

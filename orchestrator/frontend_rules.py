@@ -8,15 +8,17 @@ Architecture: Feature-based, scalable, strict typing
 
 Usage:
     from orchestrator.frontend_rules import FrontendRules
-    
+
     rules = FrontendRules()
     config = rules.generate_config("My SaaS", template="saas")
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
-from pathlib import Path
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
@@ -24,48 +26,48 @@ class FrontendConfig:
     """Front-end project configuration."""
     project_name: str
     project_slug: str
-    
+
     # Template choice
     template: str = "saas"  # saas, dashboard, ai_first, minimal, microfrontend
-    
+
     # Core stack
     framework: str = "react"  # react, vue, svelte
     language: str = "typescript"
     bundler: str = "vite"  # vite, nextjs, webpack
-    
+
     # State management
     server_state: str = "tanstack_query"  # tanstack_query, swr, rtk_query
     client_state: str = "zustand"  # zustand, redux_toolkit, jotai
-    
+
     # UI
     styling: str = "tailwind"  # tailwind, antd, material, chakra
     component_library: bool = True
-    
+
     # Forms
     form_library: str = "react_hook_form"  # react_hook_form, formik
     validation: str = "zod"  # zod, yup, joi
-    
+
     # Testing
     test_framework: str = "vitest"  # vitest, jest
     e2e_framework: str = "playwright"  # playwright, cypress
     coverage_threshold: float = 80.0
-    
+
     # Quality
     strict_typescript: bool = True
     eslint_strict: bool = True
     prettier: bool = True
-    
+
     # CI/CD
     ci_provider: str = "github_actions"  # github_actions, gitlab_ci
     docker: bool = True
-    
+
     # Features
     ssr: bool = False
     pwa: bool = False
     i18n: bool = False
     analytics: bool = False
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "project_name": self.project_name,
             "project_slug": self.project_slug,
@@ -77,15 +79,15 @@ class FrontendConfig:
 class FrontendRules:
     """
     Front-end Web Development Rules Engine.
-    
+
     Provides production-ready templates and best practices
     for modern React + TypeScript applications.
     """
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # TEMPLATES
     # ═══════════════════════════════════════════════════════════════════
-    
+
     TEMPLATES = {
         "saas": {
             "name": "SaaS Application",
@@ -234,11 +236,11 @@ class FrontendRules:
             ],
         },
     }
-    
+
     # ═══════════════════════════════════════════════════════════════════
     # CORE RULES
     # ═══════════════════════════════════════════════════════════════════
-    
+
     ARCHITECTURE_RULES = """
 ## Feature-Based Architecture
 
@@ -310,10 +312,10 @@ import { apiClient } from '@/shared/lib/api';
 export const authApi = {
   login: (credentials: LoginCredentials) =>
     apiClient.post('/auth/login', credentials),
-  
+
   logout: () =>
     apiClient.post('/auth/logout'),
-  
+
   getMe: () =>
     apiClient.get('/auth/me'),
 };
@@ -358,7 +360,7 @@ import { useAuth } from '../../../auth/hooks'; // WRONG!
 import { LoginForm } from './LoginForm'; // OK
 ```
 """
-    
+
     TYPESCRIPT_RULES = """
 ## TypeScript Strict Mode (REQUIRED)
 
@@ -376,12 +378,12 @@ import { LoginForm } from './LoginForm'; // OK
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    
+
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    
+
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
@@ -427,7 +429,7 @@ const response = await fetchUser(id);
 const user = UserSchema.parse(response); // Runtime check
 ```
 """
-    
+
     STATE_MANAGEMENT = """
 ## State Management Strategy
 
@@ -473,7 +475,7 @@ export const useUser = (id: string) => {
 
 export const useCreateUser = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: usersApi.create,
     onSuccess: () => {
@@ -534,26 +536,26 @@ export const LoginForm = () => {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
-  
+
   const onSubmit = (data: LoginFormData) => {
     console.log(data);
   };
-  
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <input {...register('email')} />
       {errors.email && <span>{errors.email.message}</span>}
-      
+
       <input type="password" {...register('password')} />
       {errors.password && <span>{errors.password.message}</span>}
-      
+
       <button type="submit">Login</button>
     </form>
   );
 };
 ```
 """
-    
+
     TESTING_RULES = """
 ## Testing Strategy
 
@@ -570,7 +572,7 @@ const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  
+
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       {children}
@@ -583,9 +585,9 @@ describe('useAuth', () => {
     const { result } = renderHook(() => useAuth(), {
       wrapper: createWrapper(),
     });
-    
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    
+
     expect(result.current.data).toBeDefined();
   });
 });
@@ -604,15 +606,15 @@ describe('Button', () => {
     render(<Button>Click me</Button>);
     expect(screen.getByText('Click me')).toBeInTheDocument();
   });
-  
+
   it('handles click events', () => {
     const handleClick = vi.fn();
     render(<Button onClick={handleClick}>Click</Button>);
-    
+
     fireEvent.click(screen.getByText('Click'));
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
-  
+
   it('is disabled when loading', () => {
     render(<Button isLoading>Loading</Button>);
     expect(screen.getByRole('button')).toBeDisabled();
@@ -629,22 +631,22 @@ import { test, expect } from '@playwright/test';
 test.describe('Authentication', () => {
   test('user can login', async ({ page }) => {
     await page.goto('/login');
-    
+
     await page.fill('[name="email"]', 'user@example.com');
     await page.fill('[name="password"]', 'password123');
     await page.click('button[type="submit"]');
-    
+
     await expect(page).toHaveURL('/dashboard');
     await expect(page.locator('text=Welcome')).toBeVisible();
   });
-  
+
   test('shows error on invalid credentials', async ({ page }) => {
     await page.goto('/login');
-    
+
     await page.fill('[name="email"]', 'invalid@example.com');
     await page.fill('[name="password"]', 'wrong');
     await page.click('button[type="submit"]');
-    
+
     await expect(page.locator('text=Invalid credentials')).toBeVisible();
   });
 });
@@ -675,7 +677,7 @@ export default defineConfig({
 });
 ```
 """
-    
+
     CI_CD_RULES = """
 ## CI/CD Pipeline
 
@@ -694,68 +696,68 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Type check
         run: npm run type-check
-      
+
       - name: Lint
         run: npm run lint
-      
+
       - name: Format check
         run: npm run format:check
 
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run unit tests
         run: npm run test:unit -- --coverage
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
 
   build:
     runs-on: ubuntu-latest
     needs: [quality, test]
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build
         run: npm run build
-      
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v3
         with:
@@ -765,25 +767,25 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     needs: build
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Install Playwright
         run: npx playwright install --with-deps
-      
+
       - name: Run E2E tests
         run: npm run test:e2e
-      
+
       - name: Upload test results
         uses: actions/upload-artifact@v3
         if: always()
@@ -841,7 +843,7 @@ server {
 }
 ```
 """
-    
+
     SECURITY_RULES = """
 ## Security Baseline
 
@@ -849,7 +851,7 @@ server {
 
 ```typescript
 // index.html
-<meta http-equiv="Content-Security-Policy" 
+<meta http-equiv="Content-Security-Policy"
   content="
     default-src 'self';
     script-src 'self' 'unsafe-inline';
@@ -915,7 +917,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_SECRET_KEY; // WRONG!
 ```
 """
-    
+
     PERFORMANCE_RULES = """
 ## Performance Optimization
 
@@ -985,27 +987,27 @@ export default defineConfig({
 <img src="image.jpg" loading="lazy" alt="Description" />
 
 // ✅ Proper sizing
-<img 
-  src="image-800w.jpg" 
+<img
+  src="image-800w.jpg"
   srcSet="image-400w.jpg 400w, image-800w.jpg 800w"
   sizes="(max-width: 600px) 400px, 800px"
   alt="Description"
 />
 ```
 """
-    
+
     def __init__(self):
         """Initialize rules engine."""
         pass
-    
-    def get_template(self, template_key: str) -> Dict[str, Any]:
+
+    def get_template(self, template_key: str) -> dict[str, Any]:
         """Get template details."""
         return self.TEMPLATES.get(template_key, {})
-    
-    def get_all_templates(self) -> Dict[str, Dict[str, Any]]:
+
+    def get_all_templates(self) -> dict[str, dict[str, Any]]:
         """Get all available templates."""
         return self.TEMPLATES
-    
+
     def recommend_template(self,
                           project_type: str = "saas",
                           team_size: int = 1,
@@ -1022,22 +1024,22 @@ export default defineConfig({
             "enterprise": "microfrontend",
             "large": "microfrontend",
         }
-        
+
         return recommendations.get(project_type, "saas")
-    
+
     def generate_config(self,
                        project_name: str,
-                       template: Optional[str] = None,
+                       template: str | None = None,
                        **kwargs) -> FrontendConfig:
         """Generate front-end project configuration."""
         slug = project_name.lower().replace(' ', '-').replace('_', '-')
-        
+
         if template is None:
             template = self.recommend_template(
                 project_type=kwargs.get('project_type', 'saas'),
                 team_size=kwargs.get('team_size', 1),
             )
-        
+
         return FrontendConfig(
             project_name=project_name,
             project_slug=slug,
@@ -1064,11 +1066,11 @@ export default defineConfig({
             i18n=kwargs.get('i18n', False),
             analytics=kwargs.get('analytics', False),
         )
-    
+
     def get_rules_file_content(self, config: FrontendConfig) -> str:
         """Generate .ai-rules.md content for front-end project."""
         template_info = self.get_template(config.template)
-        
+
         content = f"""# Front-End Development Rules: {config.project_name}
 
 ## 🎯 Project Configuration
@@ -1205,7 +1207,7 @@ export default defineConfig({
 - [Playwright](https://playwright.dev/)
 """
         return content
-    
+
     def save_rules_file(self, config: FrontendConfig, output_dir: Path) -> Path:
         """Save rules file to output directory."""
         rules_content = self.get_rules_file_content(config)
@@ -1229,16 +1231,16 @@ def generate_frontend_rules(
 if __name__ == "__main__":
     # Demo
     rules = FrontendRules()
-    
+
     print("=" * 70)
     print("Front-End Development Rules")
     print("=" * 70)
-    
+
     print("\n📚 Templates:")
     for key, template in rules.get_all_templates().items():
         print(f"\n  {template['name']} ({key})")
         print(f"    {template['description'][:60]}...")
-    
+
     print("\n\n🎯 Generate Rules for 'SaaS Dashboard':")
     config = rules.generate_config("SaaS Dashboard", template="dashboard")
     print(f"  Project: {config.project_name}")
@@ -1246,5 +1248,5 @@ if __name__ == "__main__":
     print(f"  Template: {config.template}")
     print(f"  Stack: {config.framework} + {config.language}")
     print(f"  State: {config.server_state} + {config.client_state}")
-    
+
     print("\n\n✅ Front-End Rules Engine Ready!")

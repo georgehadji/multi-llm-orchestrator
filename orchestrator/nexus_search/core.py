@@ -12,10 +12,12 @@ Optimizations:
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from .agents.classifier import QueryType, get_classifier
+from .agents.researcher import ResearchAgent, get_research_agent
+from .config import get_config
 from .models import (
     OptimizationMode,
     ResearchReport,
@@ -23,9 +25,6 @@ from .models import (
     SearchSource,
 )
 from .providers.nexus import NexusProvider
-from .agents.classifier import QueryClassifier, QueryType, get_classifier
-from .agents.researcher import ResearchAgent, get_research_agent
-from .config import get_config
 
 # Import optimizations
 try:
@@ -43,30 +42,30 @@ logger = logging.getLogger("orchestrator.nexus_search")
 class NexusSearchOrchestrator:
     """
     Main orchestrator for Nexus Search operations.
-    
+
     Provides unified interface for:
     - Simple search
     - Deep research
     - Query classification
-    
+
     Usage:
         nexus = NexusSearchOrchestrator()
-        
+
         # Simple search
         results = await nexus.search("Python async")
-        
+
         # Deep research
         report = await nexus.research("Microservices patterns")
     """
-    
+
     def __init__(
         self,
-        provider: Optional[NexusProvider] = None,
+        provider: NexusProvider | None = None,
         auto_classify: bool = True,
     ):
         """
         Initialize Nexus Search orchestrator.
-        
+
         Args:
             provider: Search provider (creates default if None)
             auto_classify: Automatically classify queries
@@ -74,27 +73,27 @@ class NexusSearchOrchestrator:
         self.config = get_config()
         self.provider = provider or NexusProvider()
         self.classifier = get_classifier() if auto_classify else None
-        self._research_agent: Optional[ResearchAgent] = None
+        self._research_agent: ResearchAgent | None = None
         self._initialized = False
-    
+
     async def initialize(self) -> None:
         """Initialize Nexus Search."""
         if self._initialized:
             return
-        
+
         # Check health
         healthy = await self.provider.health_check()
         if not healthy:
             logger.warning("Nexus Search is not available")
         else:
             logger.info("Nexus Search initialized successfully")
-        
+
         self._initialized = True
-    
+
     async def search(
         self,
         query: str,
-        sources: Optional[List[SearchSource]] = None,
+        sources: list[SearchSource] | None = None,
         optimization: OptimizationMode = OptimizationMode.BALANCED,
         num_results: int = 10,
     ) -> SearchResults:
@@ -158,78 +157,78 @@ class NexusSearchOrchestrator:
             await cache.set(query, sources or [SearchSource.WEB], results)
 
         return results
-    
+
     async def research(
         self,
         query: str,
         depth: int = 3,
-        sources: Optional[List[SearchSource]] = None,
+        sources: list[SearchSource] | None = None,
     ) -> ResearchReport:
         """
         Conduct deep research.
-        
+
         Args:
             query: Research query
             depth: Number of iterations (1-5)
             sources: Sources to search (auto-detected if None)
-            
+
         Returns:
             ResearchReport
         """
         # Initialize if needed
         if not self._initialized:
             await self.initialize()
-        
+
         # Get research agent
         if self._research_agent is None:
             self._research_agent = get_research_agent()
-        
+
         # Conduct research
         report = await self._research_agent.research(
             query=query,
             depth=depth,
             sources=sources,
         )
-        
+
         logger.info(
             f"Research complete: {query[:50]}... → "
             f"{len(report.findings)} findings from {report.source_count} sources"
         )
-        
+
         return report
-    
+
     async def classify(self, query: str) -> QueryType:
         """
         Classify a query.
-        
+
         Args:
             query: Search query
-            
+
         Returns:
             QueryType enum value
         """
         if not self.classifier:
             return QueryType.RESEARCH
-        
+
         return await self.classifier.classify(query)
-    
-    async def get_status(self) -> Dict[str, Any]:
+
+    async def get_status(self) -> dict[str, Any]:
         """
         Get Nexus Search status.
-        
+
         Returns:
             Status dictionary
         """
         healthy = await self.provider.health_check()
         capabilities = await self.provider.get_capabilities()
-        
+
         return {
             "enabled": self.config.enabled,
             "healthy": healthy,
             "api_url": self.config.api_url,
             "capabilities": capabilities,
         }
-    
+
     async def close(self) -> None:
         """Close Nexus Search."""
         if self._research_agent and hasattr(self._research_agent.provider, 'client'):
@@ -240,13 +239,13 @@ class NexusSearchOrchestrator:
 
 
 # Global orchestrator instance
-_orchestrator: Optional[NexusSearchOrchestrator] = None
+_orchestrator: NexusSearchOrchestrator | None = None
 
 
 def get_nexus_orchestrator() -> NexusSearchOrchestrator:
     """
     Get or create Nexus Search orchestrator instance.
-    
+
     Returns:
         NexusSearchOrchestrator instance
     """
@@ -260,19 +259,19 @@ def get_nexus_orchestrator() -> NexusSearchOrchestrator:
 
 async def search(
     query: str,
-    sources: Optional[List[SearchSource]] = None,
+    sources: list[SearchSource] | None = None,
     optimization: OptimizationMode = OptimizationMode.BALANCED,
     num_results: int = 10,
 ) -> SearchResults:
     """
     Search the web using Nexus.
-    
+
     Args:
         query: Search query
         sources: Sources to search
         optimization: Optimization mode
         num_results: Maximum results
-        
+
     Returns:
         SearchResults
     """
@@ -288,16 +287,16 @@ async def search(
 async def research(
     query: str,
     depth: int = 3,
-    sources: Optional[List[SearchSource]] = None,
+    sources: list[SearchSource] | None = None,
 ) -> ResearchReport:
     """
     Conduct deep research.
-    
+
     Args:
         query: Research query
         depth: Number of iterations
         sources: Sources to search
-        
+
     Returns:
         ResearchReport
     """
@@ -312,10 +311,10 @@ async def research(
 async def classify(query: str) -> QueryType:
     """
     Classify a search query.
-    
+
     Args:
         query: Search query
-        
+
     Returns:
         QueryType
     """

@@ -7,17 +7,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
-import uuid
 import webbrowser
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 from .log_config import get_logger
-from .models import Model, TaskType, TaskStatus, COST_TABLE, ROUTING_TABLE, get_provider
-from .api_clients import UnifiedClient
 
 logger = get_logger(__name__)
 
@@ -28,8 +22,8 @@ class GamificationState:
     xp: int = 0
     level: int = 1
     streak: int = 0
-    achievements_unlocked: List[str] = field(default_factory=list)
-    
+    achievements_unlocked: list[str] = field(default_factory=list)
+
     def to_dict(self) -> dict:
         return {
             "xp": self.xp,
@@ -48,7 +42,7 @@ class ApiConnectionStatus:
     status: str = "disconnected"
     last_error: str = ""
     response_time_ms: float = 0.0
-    models_available: List[str] = field(default_factory=list)
+    models_available: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -68,12 +62,12 @@ class UnifiedDashboardState:
     elapsed_seconds: float = 0.0
     eta_seconds: int = 0
     gamification: GamificationState = field(default_factory=GamificationState)
-    api_connections: List[ApiConnectionStatus] = field(default_factory=list)
+    api_connections: list[ApiConnectionStatus] = field(default_factory=list)
     total_api_calls: int = 0
     total_tokens: int = 0
-    current_task: Optional[Dict] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    current_task: dict | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "status": self.status,
             "version": self.version,
@@ -101,7 +95,7 @@ class UnifiedDashboardState:
             },
             "current_task": self.current_task,
         }
-    
+
     @staticmethod
     def _format_time(seconds: float) -> str:
         if seconds < 60:
@@ -114,14 +108,14 @@ class UnifiedDashboardState:
 
 class ApiConnectionManager:
     """Manages auto-connection to all configured APIs."""
-    
+
     def __init__(self, state: UnifiedDashboardState):
         self.state = state
-        
+
     async def connect_all(self):
         """Connect to all configured APIs."""
         logger.info("🔌 Starting auto-API connection...")
-        
+
         providers = [
             ("deepseek", "DEEPSEEK_API_KEY"),
             ("openai", "OPENAI_API_KEY"),
@@ -129,25 +123,25 @@ class ApiConnectionManager:
             ("anthropic", "ANTHROPIC_API_KEY"),
             ("minimax", "MINIMAX_API_KEY"),
         ]
-        
+
         import os
-        
+
         for provider, env_var in providers:
             api_key = os.getenv(env_var)
             status = ApiConnectionStatus(provider=provider)
-            
+
             if not api_key:
                 status.status = "no_key"
             else:
                 status.status = "connected"
                 status.models_available = self._get_models(provider)
-            
+
             self.state.api_connections.append(status)
-        
+
         connected = sum(1 for c in self.state.api_connections if c.status == "connected")
         logger.info(f"🔌 API Connection complete: {connected}/{len(providers)} connected")
-    
-    def _get_models(self, provider: str) -> List[str]:
+
+    def _get_models(self, provider: str) -> list[str]:
         models = {
             "deepseek": ["deepseek-chat", "deepseek-reasoner"],
             "openai": ["gpt-4o", "gpt-4o-mini"],
@@ -160,22 +154,22 @@ class ApiConnectionManager:
 
 class UnifiedDashboardServer:
     """Ultimate dashboard with vanilla JS frontend."""
-    
+
     def __init__(self, host: str = "127.0.0.1", port: int = 8888):
         self.host = host
         self.port = port
         self.state = UnifiedDashboardState()
         self.api_manager = ApiConnectionManager(self.state)
         self.app = None
-        self.active_connections: List[Any] = []
-        
+        self.active_connections: list[Any] = []
+
     async def _setup_fastapi(self):
         from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-        from fastapi.responses import HTMLResponse, JSONResponse
         from fastapi.middleware.cors import CORSMiddleware
-        
+        from fastapi.responses import HTMLResponse, JSONResponse
+
         self.app = FastAPI(title="Mission Control ULTIMATE v5.2")
-        
+
         self.app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -183,32 +177,32 @@ class UnifiedDashboardServer:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-        
+
         @self.app.get("/")
         async def get_dashboard():
             return HTMLResponse(content=self._get_html())
-        
+
         @self.app.get("/api/state")
         async def get_state():
             return JSONResponse(content=self.state.to_dict())
-        
+
         @self.app.get("/api/connections")
         async def get_connections():
             return JSONResponse(content={
                 "connections": [asdict(c) for c in self.state.api_connections],
             })
-        
+
         @self.app.post("/api/connect")
         async def reconnect_apis():
             await self.api_manager.connect_all()
             return {"status": "ok"}
-        
+
         @self.app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket):
             await websocket.accept()
             self.active_connections.append(websocket)
             await websocket.send_json({"type": "init", "data": self.state.to_dict()})
-            
+
             try:
                 while True:
                     data = await websocket.receive_text()
@@ -220,7 +214,7 @@ class UnifiedDashboardServer:
             finally:
                 if websocket in self.active_connections:
                     self.active_connections.remove(websocket)
-    
+
     async def _broadcast(self, message: dict):
         disconnected = []
         for ws in self.active_connections:
@@ -231,13 +225,13 @@ class UnifiedDashboardServer:
         for ws in disconnected:
             if ws in self.active_connections:
                 self.active_connections.remove(ws)
-    
+
     async def run(self):
         from uvicorn import Config, Server
-        
+
         await self._setup_fastapi()
         await self.api_manager.connect_all()
-        
+
         config = Config(
             app=self.app,
             host=self.host,
@@ -245,10 +239,10 @@ class UnifiedDashboardServer:
             log_level="info",
         )
         server = Server(config)
-        
+
         logger.info(f"🚀 Unified Dashboard running on http://{self.host}:{self.port}")
         await server.serve()
-    
+
     def _get_html(self) -> str:
         return '''<!DOCTYPE html>
 <html lang="en">
@@ -277,17 +271,17 @@ class UnifiedDashboardServer:
     <div class="gradient-header text-white p-6 text-center">
         <h1 class="text-3xl font-bold">🎮 Mission Control ULTIMATE v5.2</h1>
         <p class="mt-2 opacity-90">
-            <span id="ws-status">🔴 Disconnected</span> | 
+            <span id="ws-status">🔴 Disconnected</span> |
             Status: <span id="status">IDLE</span>
         </p>
     </div>
-    
+
     <!-- Loading -->
     <div id="loading" class="text-center p-8">
         <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
         <p class="mt-4 text-gray-600">Loading dashboard...</p>
     </div>
-    
+
     <!-- Content -->
     <div id="content" class="hidden">
         <!-- Gamification Bar -->
@@ -309,7 +303,7 @@ class UnifiedDashboardServer:
                 <i class="fas fa-fire"></i> Streak: <span id="streak">0</span> days
             </div>
         </div>
-        
+
         <!-- Main Content -->
         <div class="p-6 max-w-7xl mx-auto space-y-6">
             <!-- Stats Grid -->
@@ -339,7 +333,7 @@ class UnifiedDashboardServer:
                     <p class="text-sm text-gray-400 mt-1"><span id="tokens">0</span> tokens</p>
                 </div>
             </div>
-            
+
             <!-- API Connections -->
             <div class="card">
                 <div class="flex justify-between items-center mb-4">
@@ -352,7 +346,7 @@ class UnifiedDashboardServer:
                     <!-- Filled by JS -->
                 </div>
             </div>
-            
+
             <!-- Project Info -->
             <div class="card">
                 <h2 class="text-lg font-bold mb-2"><i class="fas fa-project-diagram mr-2"></i>Project</h2>
@@ -361,49 +355,49 @@ class UnifiedDashboardServer:
             </div>
         </div>
     </div>
-    
+
     <!-- Toasts -->
     <div id="toasts" class="fixed top-4 right-4 z-50 space-y-2"></div>
-    
+
     <script>
         let ws = null;
         let state = null;
-        
+
         // Connect WebSocket
         function connectWS() {
             ws = new WebSocket(`ws://${window.location.host}/ws`);
-            
+
             ws.onopen = () => {
                 console.log('🟢 WebSocket connected');
                 document.getElementById('ws-status').innerHTML = '🟢 Connected';
                 showToast('Connected', 'Real-time updates active', 'success');
             };
-            
+
             ws.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'init' || msg.type === 'state') {
                     updateUI(msg.data);
                 }
             };
-            
+
             ws.onclose = () => {
                 console.log('🔴 WebSocket disconnected');
                 document.getElementById('ws-status').innerHTML = '🔴 Disconnected';
                 setTimeout(connectWS, 3000);
             };
         }
-        
+
         // Update UI
         function updateUI(data) {
             state = data;
-            
+
             // Hide loading
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('content').classList.remove('hidden');
-            
+
             // Status
             document.getElementById('status').textContent = data.status.toUpperCase();
-            
+
             // Gamification
             if (data.gamification) {
                 document.getElementById('xp-text').textContent = data.gamification.xp + ' XP';
@@ -412,48 +406,48 @@ class UnifiedDashboardServer:
                 document.getElementById('achievements').textContent = data.gamification.achievements.length;
                 document.getElementById('streak').textContent = data.gamification.streak;
             }
-            
+
             // Project
             if (data.project) {
                 document.getElementById('spent').textContent = data.project.spent_usd;
                 document.getElementById('budget').textContent = data.project.budget_usd;
                 document.getElementById('budget-bar').style.width = data.project.budget_percent + '%';
-                document.getElementById('budget-bar').className = 
-                    'h-2 rounded-full transition-all ' + 
+                document.getElementById('budget-bar').className =
+                    'h-2 rounded-full transition-all ' +
                     (data.project.budget_percent > 90 ? 'bg-red-500' : 'bg-blue-500');
             }
-            
+
             // Progress
             if (data.progress) {
                 document.getElementById('completed').textContent = data.progress.completed_tasks;
                 document.getElementById('total').textContent = data.progress.total_tasks;
                 document.getElementById('progress-bar').style.width = data.progress.percent + '%';
             }
-            
+
             // Time
             if (data.time) {
                 document.getElementById('elapsed').textContent = data.time.elapsed;
                 document.getElementById('eta').textContent = data.time.eta;
             }
-            
+
             // Stats
             if (data.stats) {
                 document.getElementById('api-calls').textContent = data.stats.api_calls;
                 document.getElementById('tokens').textContent = data.stats.tokens.toLocaleString();
             }
-            
+
             // Project info
             if (data.project) {
                 document.getElementById('project-name').textContent = data.project.name || 'No active project';
                 document.getElementById('project-desc').textContent = data.project.description || '-';
             }
-            
+
             // API Connections
             if (data.api_connections) {
                 updateConnections(data.api_connections);
             }
         }
-        
+
         function updateConnections(connections) {
             const container = document.getElementById('connections');
             container.innerHTML = connections.map(conn => `
@@ -467,35 +461,35 @@ class UnifiedDashboardServer:
                 </div>
             `).join('');
         }
-        
+
         function getStatusClass(status) {
             if (status === 'connected') return 'connected';
             if (status === 'no_key') return 'no-key';
             return 'error';
         }
-        
+
         function getStatusDot(status) {
             if (status === 'connected') return 'bg-green-500';
             if (status === 'no_key') return 'bg-yellow-500';
             return 'bg-red-500';
         }
-        
+
         function showToast(title, message, type = 'info') {
             const toast = document.createElement('div');
             toast.className = `toast p-4 rounded-lg shadow-lg max-w-sm ${
-                type === 'success' ? 'bg-green-100 text-green-800' : 
+                type === 'success' ? 'bg-green-100 text-green-800' :
                 type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
             }`;
             toast.innerHTML = `<strong>${title}</strong><br>${message}`;
             document.getElementById('toasts').appendChild(toast);
             setTimeout(() => toast.remove(), 5000);
         }
-        
+
         function reconnect() {
             fetch('/api/connect', { method: 'POST' })
                 .then(() => showToast('Reconnecting', 'Attempting to reconnect...', 'info'));
         }
-        
+
         // Initialize
         fetch('/api/state')
             .then(r => r.json())
@@ -504,7 +498,7 @@ class UnifiedDashboardServer:
                 console.error('Failed to load state:', err);
                 document.getElementById('loading').innerHTML = '<p class="text-red-500">Failed to load dashboard</p>';
             });
-        
+
         connectWS();
     </script>
 </body>
@@ -513,10 +507,9 @@ class UnifiedDashboardServer:
 
 
 def run_unified_dashboard(host: str = "127.0.0.1", port: int = 8888, open_browser: bool = True):
-    import asyncio
-    
+
     url = f"http://{host}:{port}"
-    
+
     print(f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  🚀 MISSION CONTROL ULTIMATE v5.2                               ║
@@ -531,10 +524,10 @@ def run_unified_dashboard(host: str = "127.0.0.1", port: int = 8888, open_browse
 ║     • 🔌 Auto-API Connection on Startup                         ║
 ╚══════════════════════════════════════════════════════════════════╝
 """)
-    
+
     if open_browser:
         webbrowser.open(url)
-    
+
     dashboard = UnifiedDashboardServer(host=host, port=port)
     asyncio.run(dashboard.run())
 

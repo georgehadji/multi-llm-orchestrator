@@ -8,9 +8,9 @@ until completion is not acceptable.
 
 Usage:
     from orchestrator.streaming import StreamingPipeline, ProjectEvent
-    
+
     pipeline = StreamingPipeline()
-    
+
     async for event in pipeline.execute_streaming(project_spec):
         await websocket.send_json({
             "type": event.type,
@@ -21,23 +21,30 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, AsyncIterator, Dict, List, Optional, Set, Callable, Awaitable
-from collections import deque
-import logging
+from typing import TYPE_CHECKING, Any
 
 from .events import (
-    EventBus, get_event_bus,
-    TaskStartedEvent, TaskCompletedEvent, TaskFailedEvent, TaskProgressEvent,
-    ModelSelectedEvent, ProjectStartedEvent, ProjectCompletedEvent,
-    DomainEvent, BudgetWarningEvent,
+    BudgetWarningEvent,
+    DomainEvent,
+    EventBus,
+    ProjectCompletedEvent,
+    ProjectStartedEvent,
+    TaskCompletedEvent,
+    TaskFailedEvent,
+    TaskProgressEvent,
+    TaskStartedEvent,
+    get_event_bus,
 )
-from .models import Task, TaskResult, TaskType, ProjectState, Model, Budget
-from .caching import InMemoryCache, DiskCache, MultiLayerCache
+from .models import Budget, Task, TaskResult
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable
 
 logger = logging.getLogger("orchestrator.streaming")
 
@@ -80,9 +87,9 @@ class PipelineEvent:
     type: PipelineEventType
     project_id: str
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    data: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    data: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.type.name,
             "project_id": self.project_id,
@@ -96,18 +103,18 @@ class StreamingTask:
     """Task wrapper for streaming execution."""
     task: Task
     status: str = "pending"  # pending, running, completed, failed
-    result: Optional[TaskResult] = None
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
+    result: TaskResult | None = None
+    start_time: float | None = None
+    end_time: float | None = None
     retry_count: int = 0
-    
+
     @property
     def duration_ms(self) -> float:
         if self.start_time is None:
             return 0.0
         end = self.end_time or time.time()
         return (end - self.start_time) * 1000
-    
+
     @property
     def is_complete(self) -> bool:
         return self.status in ("completed", "failed")
@@ -119,20 +126,20 @@ class StreamingTask:
 
 class PipelineStage(ABC):
     """Abstract base class for pipeline stages."""
-    
+
     def __init__(self, name: str):
         self.name = name
-        self._progress_callback: Optional[Callable[[float, str], Awaitable[None]]] = None
-    
+        self._progress_callback: Callable[[float, str], Awaitable[None]] | None = None
+
     def on_progress(self, callback: Callable[[float, str], Awaitable[None]]) -> None:
         """Set progress callback."""
         self._progress_callback = callback
-    
+
     async def _report_progress(self, percent: float, message: str = "") -> None:
         """Report progress if callback is set."""
         if self._progress_callback:
             await self._progress_callback(percent, message)
-    
+
     @abstractmethod
     async def execute(
         self,
@@ -152,38 +159,38 @@ class StreamingContext:
     project_id: str
     description: str
     budget: Budget
-    tasks: Dict[str, StreamingTask] = field(default_factory=dict)
-    completed_tasks: Set[str] = field(default_factory=set)
-    failed_tasks: Set[str] = field(default_factory=set)
+    tasks: dict[str, StreamingTask] = field(default_factory=dict)
+    completed_tasks: set[str] = field(default_factory=set)
+    failed_tasks: set[str] = field(default_factory=set)
     current_stage: str = ""
     stage_progress: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def get_ready_tasks(self) -> List[StreamingTask]:
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def get_ready_tasks(self) -> list[StreamingTask]:
         """Get tasks whose dependencies are all complete."""
         ready = []
-        for task_id, st in self.tasks.items():
+        for _task_id, st in self.tasks.items():
             if st.status != "pending":
                 continue
-            
+
             # Check all dependencies are complete
             deps_complete = all(
                 dep_id in self.completed_tasks
                 for dep_id in st.task.dependencies
             )
-            
+
             if deps_complete:
                 ready.append(st)
-        
+
         return ready
 
 
 class DecomposeStage(PipelineStage):
     """Stage for project decomposition into tasks."""
-    
+
     def __init__(self):
         super().__init__("decompose")
-    
+
     async def execute(
         self,
         context: StreamingContext,
@@ -194,14 +201,14 @@ class DecomposeStage(PipelineStage):
             project_id=context.project_id,
             data={"stage": self.name, "message": "Decomposing project into tasks"},
         ))
-        
+
         await self._report_progress(0.0, "Analyzing project description...")
-        
+
         # Simulate decomposition (would call actual decomposer)
         await asyncio.sleep(0.5)  # Placeholder
-        
+
         await self._report_progress(100.0, f"Created {len(context.tasks)} tasks")
-        
+
         await event_queue.put(PipelineEvent(
             type=PipelineEventType.STAGE_COMPLETE,
             project_id=context.project_id,
@@ -211,11 +218,11 @@ class DecomposeStage(PipelineStage):
 
 class ExecuteStage(PipelineStage):
     """Stage for parallel task execution with dependency resolution."""
-    
+
     def __init__(self, max_parallel: int = 3):
         super().__init__("execute")
         self.max_parallel = max_parallel
-    
+
     async def execute(
         self,
         context: StreamingContext,
@@ -226,44 +233,44 @@ class ExecuteStage(PipelineStage):
             project_id=context.project_id,
             data={"stage": self.name, "max_parallel": self.max_parallel},
         ))
-        
+
         semaphore = asyncio.Semaphore(self.max_parallel)
-        running_tasks: Set[asyncio.Task] = set()
-        
+        running_tasks: set[asyncio.Task] = set()
+
         while True:
             # Start ready tasks up to max_parallel
             ready = context.get_ready_tasks()
-            
+
             for st in ready[:self.max_parallel - len(running_tasks)]:
                 task_coro = self._execute_single_task(st, context, event_queue, semaphore)
                 running_tasks.add(asyncio.create_task(task_coro))
                 st.status = "running"
                 st.start_time = time.time()
-            
+
             if not running_tasks and not ready:
                 # No more tasks to run
                 break
-            
+
             # Wait for at least one task to complete
             done, running_tasks = await asyncio.wait(
                 running_tasks,
                 return_when=asyncio.FIRST_COMPLETED,
             )
-            
+
             # Process completed tasks
             for task in done:
                 try:
                     await task
                 except Exception as e:
                     logger.error(f"Task execution failed: {e}")
-            
+
             # Report progress
             total = len(context.tasks)
             completed = len(context.completed_tasks)
             progress = (completed / total * 100) if total > 0 else 100
-            
+
             await self._report_progress(progress, f"{completed}/{total} tasks complete")
-            
+
             await event_queue.put(PipelineEvent(
                 type=PipelineEventType.STAGE_PROGRESS,
                 project_id=context.project_id,
@@ -275,7 +282,7 @@ class ExecuteStage(PipelineStage):
                     "failed": len(context.failed_tasks),
                 },
             ))
-        
+
         await event_queue.put(PipelineEvent(
             type=PipelineEventType.STAGE_COMPLETE,
             project_id=context.project_id,
@@ -285,7 +292,7 @@ class ExecuteStage(PipelineStage):
                 "failed": len(context.failed_tasks),
             },
         ))
-    
+
     async def _execute_single_task(
         self,
         st: StreamingTask,
@@ -305,17 +312,17 @@ class ExecuteStage(PipelineStage):
                     "attempt": st.retry_count + 1,
                 },
             ))
-            
+
             try:
                 # Simulate task execution (would call actual executor)
                 # This is where the real orchestrator integration happens
                 await asyncio.sleep(0.1)  # Placeholder
-                
+
                 # Mark as complete
                 st.status = "completed"
                 st.end_time = time.time()
                 context.completed_tasks.add(st.task.id)
-                
+
                 # Emit task complete
                 await event_queue.put(PipelineEvent(
                     type=PipelineEventType.TASK_COMPLETE,
@@ -326,12 +333,12 @@ class ExecuteStage(PipelineStage):
                         "status": "success",
                     },
                 ))
-                
+
             except Exception as e:
                 st.status = "failed"
                 st.end_time = time.time()
                 context.failed_tasks.add(st.task.id)
-                
+
                 await event_queue.put(PipelineEvent(
                     type=PipelineEventType.TASK_FAILED,
                     project_id=context.project_id,
@@ -345,10 +352,10 @@ class ExecuteStage(PipelineStage):
 
 class ValidateStage(PipelineStage):
     """Stage for validation of outputs."""
-    
+
     def __init__(self):
         super().__init__("validate")
-    
+
     async def execute(
         self,
         context: StreamingContext,
@@ -359,10 +366,10 @@ class ValidateStage(PipelineStage):
             project_id=context.project_id,
             data={"stage": self.name},
         ))
-        
+
         # Validation logic here
         await asyncio.sleep(0.2)  # Placeholder
-        
+
         await event_queue.put(PipelineEvent(
             type=PipelineEventType.STAGE_COMPLETE,
             project_id=context.project_id,
@@ -377,34 +384,34 @@ class ValidateStage(PipelineStage):
 class StreamingPipeline:
     """
     Real-time streaming pipeline for project execution.
-    
+
     Emits events as they happen, allowing clients to track progress
     without blocking until completion.
     """
-    
+
     def __init__(
         self,
         max_parallel: int = 3,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
     ):
         self.max_parallel = max_parallel
         self.event_bus = event_bus or get_event_bus()
-        self.stages: List[PipelineStage] = [
+        self.stages: list[PipelineStage] = [
             DecomposeStage(),
             ExecuteStage(max_parallel=max_parallel),
             ValidateStage(),
         ]
-    
+
     async def execute_streaming(
         self,
         project_description: str,
         success_criteria: str,
         budget: float = 5.0,
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
     ) -> AsyncIterator[PipelineEvent]:
         """
         Execute a project with real-time streaming.
-        
+
         Yields PipelineEvent objects as execution progresses.
         """
         # Generate project ID
@@ -413,22 +420,22 @@ class StreamingPipeline:
             project_id = hashlib.sha256(
                 f"{project_description}:{time.time()}".encode()
             ).hexdigest()[:12]
-        
+
         # Create context
         context = StreamingContext(
             project_id=project_id,
             description=project_description,
             budget=Budget(max_usd=budget),
         )
-        
+
         # Event queue for internal communication
         event_queue: asyncio.Queue[PipelineEvent] = asyncio.Queue()
-        
+
         # Start pipeline execution in background
         pipeline_task = asyncio.create_task(
             self._run_pipeline(context, event_queue)
         )
-        
+
         # Yield events as they arrive
         try:
             while True:
@@ -439,10 +446,10 @@ class StreamingPipeline:
                         timeout=0.1
                     )
                     yield event
-                    
+
                     # Also emit to global event bus
                     await self._emit_to_bus(event)
-                    
+
                 except asyncio.TimeoutError:
                     # Check if pipeline is done
                     if pipeline_task.done():
@@ -458,7 +465,7 @@ class StreamingPipeline:
                     await pipeline_task
                 except asyncio.CancelledError:
                     pass
-    
+
     async def _run_pipeline(
         self,
         context: StreamingContext,
@@ -475,7 +482,7 @@ class StreamingPipeline:
                     "budget": context.budget.max_usd,
                 },
             ))
-            
+
             # Run each stage
             for stage in self.stages:
                 stage.on_progress(
@@ -484,7 +491,7 @@ class StreamingPipeline:
                     )
                 )
                 await stage.execute(context, event_queue)
-            
+
             # Emit project complete
             await event_queue.put(PipelineEvent(
                 type=PipelineEventType.PROJECT_COMPLETE,
@@ -496,7 +503,7 @@ class StreamingPipeline:
                     "total_cost": context.budget.spent_usd,
                 },
             ))
-            
+
         except Exception as e:
             logger.exception("Pipeline execution failed")
             await event_queue.put(PipelineEvent(
@@ -504,7 +511,7 @@ class StreamingPipeline:
                 project_id=context.project_id,
                 data={"error": str(e), "type": type(e).__name__},
             ))
-    
+
     async def _on_stage_progress(
         self,
         stage_name: str,
@@ -516,7 +523,7 @@ class StreamingPipeline:
         """Handle stage progress updates."""
         context.current_stage = stage_name
         context.stage_progress = percent
-    
+
     async def _emit_to_bus(self, event: PipelineEvent) -> None:
         """Convert pipeline event to domain event and emit to bus."""
         try:
@@ -525,8 +532,8 @@ class StreamingPipeline:
                 await self.event_bus.publish(domain_event)
         except Exception as e:
             logger.error(f"Failed to emit to event bus: {e}")
-    
-    def _to_domain_event(self, event: PipelineEvent) -> Optional[DomainEvent]:
+
+    def _to_domain_event(self, event: PipelineEvent) -> DomainEvent | None:
         """Convert pipeline event to domain event."""
         if event.type == PipelineEventType.PROJECT_START:
             return ProjectStartedEvent(
@@ -569,10 +576,10 @@ class StreamingPipeline:
 
 class WebSocketStreamingHandler:
     """Helper for streaming pipeline events over WebSocket."""
-    
+
     def __init__(self, pipeline: StreamingPipeline):
         self.pipeline = pipeline
-    
+
     async def handle(
         self,
         websocket,
@@ -582,7 +589,7 @@ class WebSocketStreamingHandler:
     ) -> None:
         """
         Handle WebSocket connection with streaming execution.
-        
+
         Usage (FastAPI):
             @app.websocket("/ws/execute")
             async def ws_endpoint(websocket: WebSocket):
@@ -597,7 +604,7 @@ class WebSocketStreamingHandler:
                 budget,
             ):
                 await websocket.send_json(event.to_dict())
-                
+
                 # Allow client to cancel
                 try:
                     message = await asyncio.wait_for(
@@ -612,7 +619,7 @@ class WebSocketStreamingHandler:
                         break
                 except asyncio.TimeoutError:
                     pass  # No message, continue
-                    
+
         except Exception as e:
             await websocket.send_json({
                 "type": "ERROR",
@@ -631,14 +638,14 @@ class ProjectEventBus:
     Legacy event bus for streaming project execution.
     Wraps the standard EventBus for backward compatibility.
     """
-    
+
     def __init__(self):
         self._event_bus = get_event_bus()
         self._queue: asyncio.Queue = asyncio.Queue()
-        self._subscribers: List[asyncio.Queue] = []
+        self._subscribers: list[asyncio.Queue] = []
         self._running = False
-        self._task: Optional[asyncio.Task] = None
-    
+        self._task: asyncio.Task | None = None
+
     async def subscribe(self) -> AsyncIterator[Any]:
         """Subscribe to events. Returns an async iterator."""
         while True:
@@ -646,11 +653,11 @@ class ProjectEventBus:
             if event is None:  # Sentinel to signal end
                 break
             yield event
-    
+
     async def publish(self, event: Any) -> None:
         """Publish an event."""
         await self._queue.put(event)
-    
+
     async def close(self) -> None:
         """Close the event bus. Sends sentinel to unblock subscribers."""
         self._running = False
@@ -670,9 +677,9 @@ class ProjectEventBus:
 async def example():
     """Example of streaming pipeline usage."""
     pipeline = StreamingPipeline(max_parallel=3)
-    
+
     print("Starting streaming execution...")
-    
+
     async for event in pipeline.execute_streaming(
         project_description="Build a FastAPI REST API",
         success_criteria="All endpoints tested",

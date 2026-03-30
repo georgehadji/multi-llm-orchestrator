@@ -23,12 +23,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -80,8 +79,8 @@ class PromptCacher:
         """
         self.client = client
         self.metrics = CacheMetrics()
-        self._cache_entries: Dict[str, CacheEntry] = {}
-        self._system_prompt_cache: Optional[str] = None
+        self._cache_entries: dict[str, CacheEntry] = {}
+        self._system_prompt_cache: str | None = None
         self._lock = asyncio.Lock()
 
     def _compute_cache_key(self, system_prompt: str, project_context: str) -> str:
@@ -171,7 +170,7 @@ class PromptCacher:
     async def call_with_cache(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         system_prompt: str,
         project_context: str = "",
         **kwargs,
@@ -243,7 +242,7 @@ class PromptCacher:
     async def call_anthropic_with_cache(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         system_prompt: str,
         **kwargs,
     ) -> Any:
@@ -291,7 +290,7 @@ class PromptCacher:
     async def call_openai_with_cache(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         system_prompt: str,
         **kwargs,
     ) -> Any:
@@ -334,7 +333,7 @@ class PromptCacher:
             logger.warning("OpenAI not available, using fallback")
             return await self.call_with_cache(model, messages, system_prompt, **kwargs)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get caching metrics.
 

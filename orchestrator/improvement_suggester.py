@@ -1,7 +1,6 @@
 """Generate improvement suggestions from codebase profile"""
 
 from dataclasses import dataclass
-from typing import List
 
 from orchestrator.codebase_profile import CodebaseProfile
 
@@ -23,7 +22,7 @@ class Improvement:
 class ImprovementSuggester:
     """Generate improvement suggestions based on codebase analysis"""
 
-    def suggest(self, profile: CodebaseProfile) -> List[Improvement]:
+    def suggest(self, profile: CodebaseProfile) -> list[Improvement]:
         """
         Generate prioritized improvement suggestions.
 

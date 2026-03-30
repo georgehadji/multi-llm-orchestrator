@@ -18,7 +18,10 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger("orchestrator.hooks")
 
@@ -91,7 +94,7 @@ class HookRegistry:
                     cb, key, exc,
                 )
 
-    def clear(self, event: Optional[str | EventType] = None) -> None:
+    def clear(self, event: str | EventType | None = None) -> None:
         """
         Remove callbacks.
 

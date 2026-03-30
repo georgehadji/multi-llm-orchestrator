@@ -15,7 +15,7 @@ Features:
 
 Usage:
     from orchestrator.leaderboard import ModelLeaderboard, BenchmarkSuite
-    
+
     suite = BenchmarkSuite()
     lb = ModelLeaderboard(suite)
     results = await lb.run_benchmarks()
@@ -25,20 +25,22 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import statistics
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable, Tuple
-import hashlib
+from typing import TYPE_CHECKING, Any
 
 from .log_config import get_logger
-from .models import Model, TaskType, COST_TABLE, ROUTING_TABLE
-from .api_clients import UnifiedClient
-from .policy import ModelProfile
-from .feedback_loop import FeedbackLoop, ProductionOutcome, OutcomeStatus
+from .models import COST_TABLE, ROUTING_TABLE, Model, TaskType
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .api_clients import UnifiedClient
 
 logger = get_logger(__name__)
 
@@ -62,10 +64,10 @@ class BenchmarkTask:
     task_type: TaskType
     difficulty: BenchmarkDifficulty
     prompt: str
-    expected_patterns: List[str]  # Patterns expected in good output
-    validation_code: Optional[str] = None  # Optional code to validate output
+    expected_patterns: list[str]  # Patterns expected in good output
+    validation_code: str | None = None  # Optional code to validate output
     timeout_seconds: float = 60.0
-    
+
     def __post_init__(self):
         if not self.id:
             self.id = hashlib.sha256(self.name.encode()).hexdigest()[:12]
@@ -76,39 +78,39 @@ class BenchmarkResult:
     """Result of running a benchmark task on a model."""
     task_id: str
     model: Model
-    
+
     # Timing
     latency_ms: float
     time_to_first_token_ms: float
     total_duration_ms: float
-    
+
     # Quality
     quality_score: float  # 0.0 - 1.0
     passed_validation: bool
     pattern_match_score: float
-    
+
     # Cost
     input_tokens: int
     output_tokens: int
     cost_usd: float
-    
+
     # Metadata
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    error: Optional[str] = None
+    error: str | None = None
     raw_output: str = field(default="", repr=False)
-    
+
     @property
     def tokens_per_second(self) -> float:
         """Calculate throughput."""
         if self.total_duration_ms <= 0:
             return 0.0
         return (self.input_tokens + self.output_tokens) / (self.total_duration_ms / 1000)
-    
+
     @property
     def efficiency_score(self) -> float:
         """
         Calculate efficiency score (quality per dollar).
-        
+
         Higher is better.
         """
         if self.cost_usd <= 0:
@@ -120,47 +122,47 @@ class BenchmarkResult:
 class ModelBenchmarkSummary:
     """Summary of a model's performance across all benchmarks."""
     model: Model
-    
+
     # Overall scores
     avg_quality: float = 0.0
     avg_latency_ms: float = 0.0
     avg_cost_usd: float = 0.0
     total_cost_usd: float = 0.0
-    
+
     # Success rates
     tasks_completed: int = 0
     tasks_failed: int = 0
     validation_pass_rate: float = 0.0
-    
+
     # Efficiency
     avg_efficiency_score: float = 0.0
-    
+
     # Per-task-type scores
-    by_task_type: Dict[TaskType, Dict[str, float]] = field(default_factory=dict)
-    
+    by_task_type: dict[TaskType, dict[str, float]] = field(default_factory=dict)
+
     # Metadata
     benchmark_count: int = 0
     last_updated: datetime = field(default_factory=datetime.utcnow)
-    
+
     @property
     def composite_score(self) -> float:
         """
         Calculate composite ranking score.
-        
+
         Weights: Quality 40%, Efficiency 30%, Speed 20%, Reliability 10%
         """
         quality = self.avg_quality * 0.4
-        
+
         # Efficiency: normalize to 0-1 range (assume max efficiency ~1000)
         efficiency = min(self.avg_efficiency_score / 1000, 1.0) * 0.3
-        
+
         # Speed: normalize (assume good latency < 5000ms)
         speed = max(0, 1.0 - (self.avg_latency_ms / 5000)) * 0.2
-        
+
         # Reliability
         total = self.tasks_completed + self.tasks_failed
         reliability = (self.tasks_completed / total * 0.1) if total > 0 else 0.0
-        
+
         return quality + efficiency + speed + reliability
 
 
@@ -170,19 +172,19 @@ class LeaderboardEntry:
     rank: int
     model: Model
     provider: str
-    
+
     # Scores
     composite_score: float
     quality_score: float
     efficiency_score: float
     speed_score: float
     reliability_score: float
-    
+
     # Costs
     avg_cost_per_1k_tokens: float
-    
+
     # Best for
-    recommended_for: List[TaskType] = field(default_factory=list)
+    recommended_for: list[TaskType] = field(default_factory=list)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -193,14 +195,14 @@ class BenchmarkSuite:
     """
     Standardized benchmark tasks for model evaluation.
     """
-    
+
     def __init__(self):
-        self.tasks: List[BenchmarkTask] = []
+        self.tasks: list[BenchmarkTask] = []
         self._initialize_tasks()
-    
+
     def _initialize_tasks(self) -> None:
         """Initialize the standard benchmark tasks."""
-        
+
         # CODE_GENERATION tasks
         self.tasks.extend([
             BenchmarkTask(
@@ -216,7 +218,7 @@ class BenchmarkSuite:
 
 Return only the Python code.""",
                 expected_patterns=[
-                    "@app.get", "async def", "user_id", 
+                    "@app.get", "async def", "user_id",
                     "JSONResponse", "HTTPException", "Optional[", "Union[",
                 ],
             ),
@@ -257,7 +259,7 @@ Use SQLAlchemy.""",
                 ],
             ),
         ])
-        
+
         # CODE_REVIEW tasks
         self.tasks.extend([
             BenchmarkTask(
@@ -283,7 +285,7 @@ List specific improvements with line references.""",
                 ],
             ),
         ])
-        
+
         # REASONING tasks
         self.tasks.extend([
             BenchmarkTask(
@@ -305,7 +307,7 @@ Recommend one with clear trade-offs.""",
                 ],
             ),
         ])
-        
+
         # EVALUATE tasks
         self.tasks.extend([
             BenchmarkTask(
@@ -334,12 +336,12 @@ Score each category 0-10 and provide specific fixes.""",
                 ],
             ),
         ])
-    
-    def get_tasks_by_type(self, task_type: TaskType) -> List[BenchmarkTask]:
+
+    def get_tasks_by_type(self, task_type: TaskType) -> list[BenchmarkTask]:
         """Get all tasks of a specific type."""
         return [t for t in self.tasks if t.task_type == task_type]
-    
-    def get_tasks_by_difficulty(self, difficulty: BenchmarkDifficulty) -> List[BenchmarkTask]:
+
+    def get_tasks_by_difficulty(self, difficulty: BenchmarkDifficulty) -> list[BenchmarkTask]:
         """Get all tasks of a specific difficulty."""
         return [t for t in self.tasks if t.difficulty == difficulty]
 
@@ -352,24 +354,24 @@ class ModelLeaderboard:
     """
     Automated model benchmarking and ranking system.
     """
-    
+
     def __init__(
         self,
-        suite: Optional[BenchmarkSuite] = None,
-        storage_path: Optional[Path] = None,
-        api_client_factory: Optional[Callable[[Model], UnifiedClient]] = None,
+        suite: BenchmarkSuite | None = None,
+        storage_path: Path | None = None,
+        api_client_factory: Callable[[Model], UnifiedClient] | None = None,
     ):
         self.suite = suite or BenchmarkSuite()
         self.storage_path = storage_path or Path(".leaderboard")
         self.storage_path.mkdir(exist_ok=True)
         self._api_client_factory = api_client_factory
-        
+
         # Storage for results
-        self._results: List[BenchmarkResult] = []
-        self._summaries: Dict[Model, ModelBenchmarkSummary] = {}
-        
+        self._results: list[BenchmarkResult] = []
+        self._summaries: dict[Model, ModelBenchmarkSummary] = {}
+
         self._load_results()
-    
+
     def _load_results(self) -> None:
         """Load historical results from disk."""
         results_file = self.storage_path / "results.json"
@@ -393,11 +395,11 @@ class ModelLeaderboard:
                         error=result_data.get("error"),
                     )
                     self._results.append(result)
-                
+
                 self._recompute_summaries()
             except Exception as e:
                 logger.error(f"Failed to load benchmark results: {e}")
-    
+
     def _save_results(self) -> None:
         """Save results to disk."""
         results_file = self.storage_path / "results.json"
@@ -416,7 +418,7 @@ class ModelLeaderboard:
             results_file.write_text(json.dumps(data, indent=2, default=str))
         except Exception as e:
             logger.error(f"Failed to save benchmark results: {e}")
-    
+
     def _get_client(self, model: Model) -> UnifiedClient:
         """Get API client for a model."""
         if self._api_client_factory:
@@ -424,63 +426,63 @@ class ModelLeaderboard:
         # Default client creation
         from .api_clients import create_client_for_model
         return create_client_for_model(model)
-    
+
     async def run_benchmarks(
         self,
-        models: Optional[List[Model]] = None,
-        tasks: Optional[List[BenchmarkTask]] = None,
+        models: list[Model] | None = None,
+        tasks: list[BenchmarkTask] | None = None,
         max_concurrent: int = 3,
-    ) -> List[BenchmarkResult]:
+    ) -> list[BenchmarkResult]:
         """
         Run benchmarks for specified models and tasks.
-        
+
         Args:
             models: Models to benchmark (default: all)
             tasks: Tasks to run (default: all in suite)
             max_concurrent: Max concurrent API calls
-        
+
         Returns:
             List of benchmark results
         """
         models = models or list(Model)
         tasks = tasks or self.suite.tasks
-        
+
         logger.info(f"Running {len(tasks)} benchmarks on {len(models)} models")
-        
+
         semaphore = asyncio.Semaphore(max_concurrent)
-        results: List[BenchmarkResult] = []
-        
+        results: list[BenchmarkResult] = []
+
         async def run_single(model: Model, task: BenchmarkTask) -> BenchmarkResult:
             async with semaphore:
                 return await self._run_single_benchmark(model, task)
-        
+
         # Create all tasks
         coroutines = [
             run_single(model, task)
             for model in models
             for task in tasks
         ]
-        
+
         # Run with progress tracking
         completed = 0
         total = len(coroutines)
-        
+
         for coro in asyncio.as_completed(coroutines):
             result = await coro
             results.append(result)
             completed += 1
-            
+
             if completed % 5 == 0:
                 logger.info(f"Benchmark progress: {completed}/{total}")
-        
+
         # Store and save
         self._results.extend(results)
         self._recompute_summaries()
         self._save_results()
-        
+
         logger.info(f"Completed {len(results)} benchmarks")
         return results
-    
+
     async def _run_single_benchmark(
         self,
         model: Model,
@@ -488,10 +490,10 @@ class ModelLeaderboard:
     ) -> BenchmarkResult:
         """Run a single benchmark task."""
         import time
-        
+
         client = self._get_client(model)
         start_time = time.monotonic()
-        
+
         try:
             # Make the API call
             response = await client.call(
@@ -500,19 +502,19 @@ class ModelLeaderboard:
                 max_tokens=2000,
                 temperature=0.2,
             )
-            
+
             end_time = time.monotonic()
             duration_ms = (end_time - start_time) * 1000
-            
+
             # Calculate quality
             output = response.get("content", "")
             quality, pattern_score = self._score_output(output, task)
-            
+
             # Calculate cost
             input_tokens = response.get("usage", {}).get("prompt_tokens", 0)
             output_tokens = response.get("usage", {}).get("completion_tokens", 0)
             cost = self._calculate_cost(model, input_tokens, output_tokens)
-            
+
             return BenchmarkResult(
                 task_id=task.id,
                 model=model,
@@ -527,7 +529,7 @@ class ModelLeaderboard:
                 cost_usd=cost,
                 raw_output=output,
             )
-            
+
         except Exception as e:
             logger.error(f"Benchmark failed for {model.value} on {task.id}: {e}")
             return BenchmarkResult(
@@ -544,27 +546,27 @@ class ModelLeaderboard:
                 cost_usd=0,
                 error=str(e),
             )
-    
-    def _score_output(self, output: str, task: BenchmarkTask) -> Tuple[float, float]:
+
+    def _score_output(self, output: str, task: BenchmarkTask) -> tuple[float, float]:
         """Score the output quality."""
         output_lower = output.lower()
-        
+
         # Check for expected patterns
         patterns_found = sum(
             1 for pattern in task.expected_patterns
             if pattern.lower() in output_lower
         )
         pattern_score = patterns_found / len(task.expected_patterns) if task.expected_patterns else 0.5
-        
+
         # Overall quality (simplified)
         quality = pattern_score
         if len(output) > 100:
             quality += 0.1
         if len(output) > 500:
             quality += 0.1
-        
+
         return min(1.0, quality), pattern_score
-    
+
     def _calculate_cost(
         self,
         model: Model,
@@ -576,22 +578,22 @@ class ModelLeaderboard:
         input_cost = (input_tokens / 1_000_000) * costs["input"]
         output_cost = (output_tokens / 1_000_000) * costs["output"]
         return round(input_cost + output_cost, 6)
-    
+
     def _recompute_summaries(self) -> None:
         """Recompute model summaries from results."""
         from collections import defaultdict
-        
-        by_model: Dict[Model, List[BenchmarkResult]] = defaultdict(list)
+
+        by_model: dict[Model, list[BenchmarkResult]] = defaultdict(list)
         for result in self._results:
             by_model[result.model].append(result)
-        
+
         for model, results in by_model.items():
             if not results:
                 continue
-            
+
             completed = [r for r in results if r.error is None]
             failed = [r for r in results if r.error is not None]
-            
+
             summary = ModelBenchmarkSummary(
                 model=model,
                 avg_quality=statistics.mean([r.quality_score for r in completed]) if completed else 0,
@@ -604,32 +606,32 @@ class ModelLeaderboard:
                 avg_efficiency_score=statistics.mean([r.efficiency_score for r in completed]) if completed else 0,
                 benchmark_count=len(results),
             )
-            
+
             # Compute per-task-type scores
-            by_type: Dict[TaskType, List[float]] = defaultdict(list)
+            by_type: dict[TaskType, list[float]] = defaultdict(list)
             for r in results:
                 task = next((t for t in self.suite.tasks if t.id == r.task_id), None)
                 if task:
                     by_type[task.task_type].append(r.quality_score)
-            
+
             summary.by_task_type = {
                 tt: {"avg_quality": statistics.mean(scores)}
                 for tt, scores in by_type.items()
             }
-            
+
             self._summaries[model] = summary
-    
-    def get_leaderboard(self, task_type: Optional[TaskType] = None) -> List[LeaderboardEntry]:
+
+    def get_leaderboard(self, task_type: TaskType | None = None) -> list[LeaderboardEntry]:
         """Generate leaderboard entries."""
         entries = []
-        
+
         for model, summary in self._summaries.items():
             # Skip models with insufficient data
             if summary.benchmark_count < 3:
                 continue
-            
+
             from .models import get_provider
-            
+
             entry = LeaderboardEntry(
                 rank=0,  # Will be assigned after sorting
                 model=model,
@@ -641,61 +643,60 @@ class ModelLeaderboard:
                 reliability_score=summary.validation_pass_rate,
                 avg_cost_per_1k_tokens=summary.avg_cost_usd * 1000,
             )
-            
+
             # Determine best task types for this model
             entry.recommended_for = self._get_recommended_tasks(model, summary)
-            
+
             entries.append(entry)
-        
+
         # Sort by composite score
         entries.sort(key=lambda e: e.composite_score, reverse=True)
-        
+
         # Assign ranks
         for i, entry in enumerate(entries):
             entry.rank = i + 1
-        
+
         return entries
-    
+
     def _get_recommended_tasks(
         self,
         model: Model,
         summary: ModelBenchmarkSummary,
-    ) -> List[TaskType]:
+    ) -> list[TaskType]:
         """Determine which task types this model is best for."""
         recommended = []
-        
+
         for task_type, scores in summary.by_task_type.items():
             avg_quality = scores.get("avg_quality", 0)
             if avg_quality >= 0.7:
                 recommended.append(task_type)
-        
+
         return recommended
-    
-    def get_best_model_for_task(self, task_type: TaskType) -> Optional[Model]:
+
+    def get_best_model_for_task(self, task_type: TaskType) -> Model | None:
         """Get the best model for a specific task type based on benchmarks."""
         best_model = None
         best_score = -1
-        
+
         for model, summary in self._summaries.items():
             type_scores = summary.by_task_type.get(task_type, {})
             score = type_scores.get("avg_quality", 0)
-            
+
             if score > best_score:
                 best_score = score
                 best_model = model
-        
+
         return best_model
-    
-    async def update_routing_weights(self) -> Dict[str, Any]:
+
+    async def update_routing_weights(self) -> dict[str, Any]:
         """
         Update routing weights based on benchmark results.
-        
+
         Returns the updated routing configuration.
         """
-        from .models import ROUTING_TABLE
-        
+
         updates = {}
-        
+
         for task_type, models in ROUTING_TABLE.items():
             # Reorder based on benchmark scores
             scored_models = [
@@ -703,23 +704,23 @@ class ModelLeaderboard:
                 for model in models
             ]
             scored_models.sort(key=lambda x: x[1], reverse=True)
-            
+
             updates[task_type.value] = [m[0].value for m in scored_models]
-        
+
         # Save updated routing
         routing_file = self.storage_path / "routing_weights.json"
         routing_file.write_text(json.dumps({
             "updated_at": datetime.utcnow().isoformat(),
             "routing": updates,
         }, indent=2))
-        
+
         logger.info("Updated routing weights based on benchmarks")
         return updates
-    
-    def export_to_dashboard_format(self) -> Dict[str, Any]:
+
+    def export_to_dashboard_format(self) -> dict[str, Any]:
         """Export leaderboard in dashboard-friendly format."""
         leaderboard = self.get_leaderboard()
-        
+
         return {
             "last_updated": datetime.utcnow().isoformat(),
             "total_benchmarks": len(self._results),
@@ -745,7 +746,7 @@ class ModelLeaderboard:
 # Convenience Functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_leaderboard: Optional[ModelLeaderboard] = None
+_leaderboard: ModelLeaderboard | None = None
 
 
 def get_leaderboard() -> ModelLeaderboard:

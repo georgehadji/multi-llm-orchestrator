@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class AppDetector:
     async def detect(
         self,
         description: str,
-        app_type_override: Optional[str] = None,
+        app_type_override: str | None = None,
     ) -> AppProfile:
         """
         Detect the app type from a description.
@@ -190,7 +190,7 @@ class AppDetector:
         The response must be a JSON object matching the detection schema.
         Isolated into its own method so tests can patch it cleanly.
         """
-        from .models import Model, ROUTING_TABLE, TaskType
+        from .models import Model
         client = self._get_client()
 
         # Pick cheapest available model — detection is a simple classification task
@@ -241,7 +241,7 @@ class AppDetector:
             # Remove opening fence (```json, ```, etc.) and closing fence (```)
             content_lines = [
                 line for i, line in enumerate(lines)
-                if i > 0 and not (line.strip() == "```")
+                if i > 0 and line.strip() != "```"
             ]
             text = "\n".join(content_lines).strip()
 
@@ -269,4 +269,5 @@ class AppDetector:
 # AppProfile is now a type alias for ArchitectureDecision.
 # All existing code importing AppProfile continues to work unchanged.
 from .architecture_advisor import ArchitectureDecision  # noqa: E402
+
 AppProfile = ArchitectureDecision

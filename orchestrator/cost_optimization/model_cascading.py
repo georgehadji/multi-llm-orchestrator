@@ -17,26 +17,24 @@ Usage:
     from orchestrator.cost_optimization import ModelCascader
 
     cascader = ModelCascader(client=api_client)
-    
+
     # Define cascade chain
     cascade = [
         ("deepseek-v3.2", 0.80),      # Try cheapest, accept if score ≥ 0.80
         ("claude-sonnet-4.6", 0.75),   # Mid-tier, accept if score ≥ 0.75
         ("claude-opus-4.6", 0.0),      # Premium, always accept
     ]
-    
+
     result = await cascader.cascading_generate(task, cascade)
 """
 
 from __future__ import annotations
 
-import asyncio
-import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -58,7 +56,7 @@ class CascadeMetrics:
             return 0.0
         return self.cascade_exits_early / self.total_attempts
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for telemetry."""
         return {
             "total_attempts": self.total_attempts,
@@ -80,7 +78,7 @@ class CascadeResult:
     cost: float
     attempts: int
     cascade_exit_tier: int
-    all_scores: List[float] = field(default_factory=list)
+    all_scores: list[float] = field(default_factory=list)
 
 
 class ModelCascader:
@@ -95,29 +93,29 @@ class ModelCascader:
     # Default cascade chains per task type
     DEFAULT_CASCADE_CHAINS = {
         "code_generation": [
-            ("deepseek-chat", 0.80),      # Try cheapest first
+            ("deepseek/deepseek-chat", 0.80),      # Try cheapest first
             ("claude-sonnet-4.6", 0.75),   # Mid-tier
             ("claude-opus-4.6", 0.0),      # Premium (always accept)
         ],
         "code_review": [
-            ("deepseek-chat", 0.75),
+            ("deepseek/deepseek-chat", 0.75),
             ("claude-sonnet-4.6", 0.70),
             ("claude-opus-4.6", 0.0),
         ],
         "decomposition": [
-            ("deepseek-chat", 0.85),
+            ("deepseek/deepseek-chat", 0.85),
             ("claude-sonnet-4.6", 0.80),
             ("claude-opus-4.6", 0.0),
         ],
         "evaluation": [
-            ("deepseek-chat", 0.70),
+            ("deepseek/deepseek-chat", 0.70),
             ("claude-sonnet-4.6", 0.0),
         ],
     }
 
     # Cost per 1M tokens (for savings estimation)
     MODEL_COSTS = {
-        "deepseek-chat": {"input": 1.0, "output": 4.0},
+        "deepseek/deepseek-chat": {"input": 1.0, "output": 4.0},
         "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
         "claude-opus-4.6": {"input": 15.0, "output": 75.0},
         "gpt-4o": {"input": 5.0, "output": 15.0},
@@ -136,12 +134,12 @@ class ModelCascader:
         self.evaluator_client = evaluator_client or client
         self.metrics = CascadeMetrics()
         self._cascade_chains = dict(self.DEFAULT_CASCADE_CHAINS)
-        self._score_cache: Dict[str, float] = {}
+        self._score_cache: dict[str, float] = {}
 
     def set_cascade_chain(
         self,
         task_type: str,
-        chain: List[Tuple[str, float]],
+        chain: list[tuple[str, float]],
     ) -> None:
         """
         Set custom cascade chain for task type.
@@ -153,7 +151,7 @@ class ModelCascader:
         self._cascade_chains[task_type] = chain
         logger.info(f"Cascade chain set for {task_type}: {chain}")
 
-    def get_cascade_chain(self, task_type: str) -> List[Tuple[str, float]]:
+    def get_cascade_chain(self, task_type: str) -> list[tuple[str, float]]:
         """
         Get cascade chain for task type.
 
@@ -198,7 +196,7 @@ class ModelCascader:
             f"({len(cascade_chain)} models in chain)"
         )
 
-        all_scores: List[float] = []
+        all_scores: list[float] = []
         total_cost: float = 0.0
         attempts: int = 0
 
@@ -440,7 +438,7 @@ class ModelCascader:
         self,
         model: str,
         response: str,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
     ) -> float:
         """
         Estimate API cost for generation.
@@ -494,7 +492,7 @@ class ModelCascader:
 
         return input_cost + output_cost
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get cascading metrics.
 
