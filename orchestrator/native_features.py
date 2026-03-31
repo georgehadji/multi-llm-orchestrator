@@ -20,7 +20,7 @@ Features:
 
 Usage:
     from orchestrator.native_features import NativeFeatureTemplateGenerator
-    
+
     generator = NativeFeatureTemplateGenerator()
     templates = await generator.generate("push_notifications", project_name)
 """
@@ -30,13 +30,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("orchestrator.native_features")
 
 
 class NativeFeature(str, Enum):
     """Supported native iOS features."""
+
     PUSH_NOTIFICATIONS = "push_notifications"
     OFFLINE_SUPPORT = "offline_support"
     BIOMETRIC_AUTH = "biometric_auth"
@@ -53,7 +54,7 @@ class NativeFeature(str, Enum):
 class FeatureTemplate:
     """
     Template for a native iOS feature.
-    
+
     Attributes:
         feature: Feature type
         files: List of Swift files to generate
@@ -64,16 +65,17 @@ class FeatureTemplate:
         targets: Additional targets (extensions, etc.)
         description: Feature description
     """
+
     feature: NativeFeature
-    files: List[str]
-    entitlements: List[str] = field(default_factory=list)
-    info_plist: Dict[str, str] = field(default_factory=dict)
-    capabilities: List[str] = field(default_factory=list)
-    frameworks: List[str] = field(default_factory=list)
-    targets: List[str] = field(default_factory=list)
+    files: list[str]
+    entitlements: list[str] = field(default_factory=list)
+    info_plist: dict[str, str] = field(default_factory=dict)
+    capabilities: list[str] = field(default_factory=list)
+    frameworks: list[str] = field(default_factory=list)
+    targets: list[str] = field(default_factory=list)
     description: str = ""
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "feature": self.feature.value,
@@ -90,14 +92,14 @@ class FeatureTemplate:
 class NativeFeatureTemplateGenerator:
     """
     Generate native iOS feature templates.
-    
+
     Usage:
         generator = NativeFeatureTemplateGenerator()
         template = await generator.generate("push_notifications", "MyApp")
     """
-    
+
     # Feature templates
-    TEMPLATES: Dict[NativeFeature, FeatureTemplate] = {
+    TEMPLATES: dict[NativeFeature, FeatureTemplate] = {
         NativeFeature.PUSH_NOTIFICATIONS: FeatureTemplate(
             feature=NativeFeature.PUSH_NOTIFICATIONS,
             files=[
@@ -114,7 +116,6 @@ class NativeFeatureTemplateGenerator:
             targets=["NotificationServiceExtension"],
             description="Push notifications for user engagement and retention",
         ),
-        
         NativeFeature.OFFLINE_SUPPORT: FeatureTemplate(
             feature=NativeFeature.OFFLINE_SUPPORT,
             files=[
@@ -132,7 +133,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="Offline data support with CoreData persistence and background sync",
         ),
-        
         NativeFeature.BIOMETRIC_AUTH: FeatureTemplate(
             feature=NativeFeature.BIOMETRIC_AUTH,
             files=[
@@ -148,7 +148,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="FaceID/TouchID biometric authentication for enhanced security",
         ),
-        
         NativeFeature.APP_SHORTCUTS: FeatureTemplate(
             feature=NativeFeature.APP_SHORTCUTS,
             files=[
@@ -163,7 +162,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="App Intents and shortcuts for Siri integration and quick actions",
         ),
-        
         NativeFeature.WIDGETS: FeatureTemplate(
             feature=NativeFeature.WIDGETS,
             files=[
@@ -179,7 +177,6 @@ class NativeFeatureTemplateGenerator:
             targets=["WidgetExtension"],
             description="Home screen widgets for quick access to key information",
         ),
-        
         NativeFeature.DEEP_LINKING: FeatureTemplate(
             feature=NativeFeature.DEEP_LINKING,
             files=[
@@ -201,7 +198,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="Deep linking and universal links for seamless user experience",
         ),
-        
         NativeFeature.IN_APP_PURCHASES: FeatureTemplate(
             feature=NativeFeature.IN_APP_PURCHASES,
             files=[
@@ -217,7 +213,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="In-app purchases and subscriptions for monetization",
         ),
-        
         NativeFeature.SHARE_SHEET: FeatureTemplate(
             feature=NativeFeature.SHARE_SHEET,
             files=[
@@ -232,7 +227,6 @@ class NativeFeatureTemplateGenerator:
             targets=["ShareExtension"],
             description="Share sheet extension for content sharing",
         ),
-        
         NativeFeature.CAMERA_PHOTOS: FeatureTemplate(
             feature=NativeFeature.CAMERA_PHOTOS,
             files=[
@@ -251,7 +245,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="Camera and photo library integration for media capture",
         ),
-        
         NativeFeature.LOCATION_SERVICES: FeatureTemplate(
             feature=NativeFeature.LOCATION_SERVICES,
             files=[
@@ -270,51 +263,51 @@ class NativeFeatureTemplateGenerator:
             description="Location services for maps and location-based features",
         ),
     }
-    
+
     def __init__(self):
         """Initialize template generator."""
         pass
-    
+
     async def generate(
         self,
         feature: str,
         project_name: str,
-        bundle_id: Optional[str] = None,
-    ) -> Optional[FeatureTemplate]:
+        bundle_id: str | None = None,
+    ) -> FeatureTemplate | None:
         """
         Generate template for a native feature.
-        
+
         Args:
             feature: Feature name (e.g., "push_notifications")
             project_name: Project/app name
             bundle_id: Bundle identifier
-        
+
         Returns:
             FeatureTemplate or None if feature not found
         """
         logger.info(f"Generating template for: {feature}")
-        
+
         # Find feature
         feature_enum = self._get_feature_enum(feature)
         if feature_enum is None:
             logger.warning(f"Unknown feature: {feature}")
             return None
-        
+
         template = self.TEMPLATES.get(feature_enum)
         if template is None:
             logger.warning(f"No template for: {feature}")
             return None
-        
+
         # Customize template for project
         customized = self._customize_template(template, project_name, bundle_id)
-        
+
         logger.info(f"Generated template for {feature} with {len(template.files)} files")
         return customized
-    
-    def list_features(self) -> List[Dict[str, Any]]:
+
+    def list_features(self) -> list[dict[str, Any]]:
         """
         List all available features.
-        
+
         Returns:
             List of feature info dictionaries
         """
@@ -328,37 +321,37 @@ class NativeFeatureTemplateGenerator:
             }
             for feature, template in self.TEMPLATES.items()
         ]
-    
-    def get_supported_features(self) -> List[str]:
+
+    def get_supported_features(self) -> list[str]:
         """
         Get list of supported feature names.
-        
+
         Returns:
             List of feature names
         """
         return [f.value for f in NativeFeature]
-    
-    def _get_feature_enum(self, feature: str) -> Optional[NativeFeature]:
+
+    def _get_feature_enum(self, feature: str) -> NativeFeature | None:
         """Get feature enum from string."""
         try:
             return NativeFeature(feature)
         except ValueError:
             return None
-    
+
     def _customize_template(
         self,
         template: FeatureTemplate,
         project_name: str,
-        bundle_id: Optional[str],
+        bundle_id: str | None,
     ) -> FeatureTemplate:
         """
         Customize template for specific project.
-        
+
         Args:
             template: Original template
             project_name: Project name
             bundle_id: Bundle identifier
-        
+
         Returns:
             Customized template
         """
@@ -373,55 +366,53 @@ class NativeFeatureTemplateGenerator:
             targets=template.targets.copy(),
             description=template.description,
         )
-        
+
         # Customize Info.plist entries
         for key, value in customized.info_plist.items():
             if isinstance(value, str):
                 # Replace placeholders
-                customized.info_plist[key] = value.replace(
-                    "$(PRODUCT_NAME)", project_name
-                )
-        
+                customized.info_plist[key] = value.replace("$(PRODUCT_NAME)", project_name)
+
         # Add bundle ID to entitlements if needed
         if bundle_id and "com.apple.developer.associated-domains" in customized.entitlements:
             customized.info_plist["NSAssociatedDomains"] = [
                 f"applinks:{bundle_id.replace('.', '-')}.com"
             ]
-        
+
         return customized
-    
+
     async def generate_code(
         self,
         feature: str,
         project_name: str,
         file_name: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Generate actual Swift code for a feature file.
-        
+
         Args:
             feature: Feature name
             project_name: Project name
             file_name: Specific file to generate
-        
+
         Returns:
             Swift code or None
         """
         template = await self.generate(feature, project_name)
         if template is None:
             return None
-        
+
         if file_name not in template.files:
             logger.warning(f"File {file_name} not in template")
             return None
-        
+
         # Generate code based on file type
         generator = self._get_code_generator(feature, file_name)
         if generator is None:
             return None
-        
+
         return generator(project_name)
-    
+
     def _get_code_generator(
         self,
         feature: str,
@@ -435,21 +426,21 @@ class NativeFeatureTemplateGenerator:
             "app_shortcuts": self._generate_app_shortcuts_code,
             "widgets": self._generate_widget_code,
         }
-        
+
         return generators.get(feature)
-    
+
     # ─────────────────────────────────────────────
     # Code Generators for Specific Features
     # ─────────────────────────────────────────────
-    
+
     def _generate_push_notification_code(
         self,
         project_name: str,
     ) -> str:
         """Generate push notification code."""
-        safe_name = project_name.replace(" ", "")
-        
-        return f'''//
+        project_name.replace(" ", "")
+
+        return f"""//
 //  AppDelegate+Notifications.swift
 //  {project_name}
 //
@@ -460,10 +451,10 @@ import UIKit
 import UserNotifications
 
 extension AppDelegate {{
-    
+
     func setupNotifications() {{
         UNUserNotificationCenter.current().delegate = self
-        
+
         // Request authorization
         UNUserNotificationCenter.current().requestAuthorization(
             options: [.alert, .badge, .sound]
@@ -483,7 +474,7 @@ extension AppDelegate {{
 // MARK: - UNUserNotificationCenterDelegate
 
 extension AppDelegate: UNUserNotificationCenterDelegate {{
-    
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -493,7 +484,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {{
         // Show notification even when app is in foreground
         completionHandler([.banner, .badge, .sound])
     }}
-    
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
@@ -509,7 +500,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {{
 // MARK: - Remote Notifications
 
 extension AppDelegate {{
-    
+
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
@@ -518,7 +509,7 @@ extension AppDelegate {{
         print("Device token: {{token}}")
         // Send token to your server
     }}
-    
+
     func application(
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
@@ -526,14 +517,14 @@ extension AppDelegate {{
         print("Failed to register: {{error.localizedDescription}}")
     }}
 }}
-'''
-    
+"""
+
     def _generate_biometric_auth_code(
         self,
         project_name: str,
     ) -> str:
         """Generate biometric authentication code."""
-        return f'''//
+        return f"""//
 //  BiometricAuth.swift
 //  {project_name}
 //
@@ -549,7 +540,7 @@ enum BiometricAuthError: LocalizedError {{
     case lockout
     case userCancel
     case unknown
-    
+
     var errorDescription: String? {{
         switch self {{
         case .notAvailable:
@@ -567,32 +558,32 @@ enum BiometricAuthError: LocalizedError {{
 }}
 
 class BiometricAuth {{
-    
+
     static let shared = BiometricAuth()
-    
+
     private let context = LAContext()
-    
+
     private init() {{}}
-    
+
     var isAvailable: Bool {{
         return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
     }}
-    
+
     var biometryType: LABiometryType {{
         return context.biometryType
     }}
-    
+
     func authenticate(reason: String = "Authenticate to access your account") async throws {{
         guard isAvailable else {{
             throw BiometricAuthError.notAvailable
         }}
-        
+
         do {{
             let success = try await context.evaluatePolicy(
                 .deviceOwnerAuthenticationWithBiometrics,
                 localizedReason: reason
             )
-            
+
             guard success else {{
                 throw BiometricAuthError.userCancel
             }}
@@ -600,12 +591,12 @@ class BiometricAuth {{
             throw mapError(error)
         }}
     }}
-    
+
     private func mapError(_ error: Error) -> BiometricAuthError {{
         guard let laError = error as? LAError else {{
             return .unknown
         }}
-        
+
         switch laError.code {{
         case .authenticationFailed:
             return .notEnrolled
@@ -618,14 +609,14 @@ class BiometricAuth {{
         }}
     }}
 }}
-'''
-    
+"""
+
     def _generate_offline_support_code(
         self,
         project_name: str,
     ) -> str:
         """Generate offline support code."""
-        return f'''//
+        return f"""//
 //  OfflineManager.swift
 //  {project_name}
 //
@@ -636,76 +627,76 @@ import Foundation
 import CoreData
 
 class OfflineManager {{
-    
+
     static let shared = OfflineManager()
-    
+
     private let coreDataStack: CoreDataStack
-    
+
     init(coreDataStack: CoreDataStack = .shared) {{
         self.coreDataStack = coreDataStack
     }}
-    
+
     var isOnline: Bool {{
         // Implement network reachability check
         return true
     }}
-    
+
     // MARK: - Data Sync
-    
+
     func syncData() async throws {{
         guard isOnline else {{
             print("Offline mode - data will sync when online")
             return
         }}
-        
+
         let context = coreDataStack.backgroundContext
-        
+
         try await context.perform {{
             // Fetch pending sync items
             let request = NSFetchRequest<NSManagedObject>(entityName: "SyncItem")
             request.predicate = NSPredicate(format: "isSynced == NO")
-            
+
             let items = try context.fetch(request)
-            
+
             for item in items {{
                 // Sync each item
                 try self.syncItem(item)
             }}
         }}
     }}
-    
+
     private func syncItem(_ item: NSManagedObject) throws {{
         // Implement sync logic
         item.setValue(true, forKey: "isSynced")
         try item.managedObjectContext?.save()
     }}
-    
+
     // MARK: - Cache
-    
+
     func cacheData<T: Codable>(_ data: T, forKey key: String) throws {{
         let encoder = JSONEncoder()
         let encoded = try encoder.encode(data)
-        
+
         UserDefaults.standard.set(encoded, forKey: key)
     }}
-    
+
     func cachedData<T: Codable>(forKey key: String, as type: T.Type) -> T? {{
         guard let data = UserDefaults.standard.data(forKey: key) else {{
             return nil
         }}
-        
+
         let decoder = JSONDecoder()
         return try? decoder.decode(T.self, from: data)
     }}
 }}
-'''
-    
+"""
+
     def _generate_app_shortcuts_code(
         self,
         project_name: str,
     ) -> str:
         """Generate app shortcuts code."""
-        return f'''//
+        return f"""//
 //  AppIntents.swift
 //  {project_name}
 //
@@ -718,12 +709,12 @@ struct OpenAppIntent: AppIntent {{
     static var title: LocalizedStringResource = "Open {project_name}"
     static var description = IntentDescription("Open the app to a specific screen")
     static var openAppWhenRun = true
-    
+
     @Parameter(title: "Screen")
     var screenName: String
-    
+
     init() {{}}
-    
+
     func perform() async throws -> some IntentResult {{
         // Handle opening to specific screen
         NotificationCenter.default.post(
@@ -739,26 +730,26 @@ struct QuickActionIntent: AppIntent {{
     static var title: LocalizedStringResource = "Quick Action"
     static var description = IntentDescription("Perform a quick action from home screen")
     static var openAppWhenRun = false
-    
+
     @Parameter(title: "Action")
     var action: String
-    
+
     init() {{}}
-    
+
     func perform() async throws -> some IntentResult {{
         // Perform quick action
         print("Quick action: {{action}}")
         return .result()
     }}
 }}
-'''
-    
+"""
+
     def _generate_widget_code(
         self,
         project_name: str,
     ) -> str:
         """Generate widget code."""
-        return f'''//
+        return f"""//
 //  Widget.swift
 //  {project_name}WidgetExtension
 //
@@ -772,12 +763,12 @@ struct Provider: TimelineProvider {{
     func placeholder(in context: Context) -> SimpleEntry {{
         SimpleEntry(date: Date(), data: "Placeholder")
     }}
-    
+
     func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {{
         let entry = SimpleEntry(date: Date(), data: "Snapshot")
         completion(entry)
     }}
-    
+
     func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> ()) {{
         let entry = SimpleEntry(date: Date(), data: "Timeline")
         let timeline = Timeline(entries: [entry], policy: .atEnd)
@@ -792,7 +783,7 @@ struct SimpleEntry: TimelineEntry {{
 
 struct {project_name.replace(" ", "")}WidgetEntryView: View {{
     var entry: Provider.Entry
-    
+
     var body: some View {{
         VStack {{
             Text(entry.date, style: .time)
@@ -804,7 +795,7 @@ struct {project_name.replace(" ", "")}WidgetEntryView: View {{
 @main
 struct {project_name.replace(" ", "")}Widget: Widget {{
     let kind: String = "{project_name.replace(" ", "")}Widget"
-    
+
     var body: some WidgetConfiguration {{
         StaticConfiguration(
             kind: kind,
@@ -818,26 +809,27 @@ struct {project_name.replace(" ", "")}Widget: Widget {{
         .supportedFamilies([.systemSmall, .systemMedium])
     }}
 }}
-'''
+"""
 
 
 # ─────────────────────────────────────────────
 # Convenience Function
 # ─────────────────────────────────────────────
 
+
 async def generate_native_feature_template(
     feature: str,
     project_name: str,
-    bundle_id: Optional[str] = None,
-) -> Optional[FeatureTemplate]:
+    bundle_id: str | None = None,
+) -> FeatureTemplate | None:
     """
     Convenience function to generate native feature template.
-    
+
     Args:
         feature: Feature name
         project_name: Project name
         bundle_id: Bundle identifier
-    
+
     Returns:
         FeatureTemplate or None
     """

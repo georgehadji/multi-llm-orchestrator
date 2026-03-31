@@ -17,6 +17,7 @@ Schema:
   model_snapshots   — one row per ModelProfile snapshot after each run
   routing_events    — one row per TaskResult after each task
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,20 +27,22 @@ import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any, List
+from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 
-from .models import Model, TaskType, TaskResult
-from .policy import ModelProfile
+from .models import Model, TaskResult, TaskType
+
+if TYPE_CHECKING:
+    from .policy import ModelProfile
 
 logger = logging.getLogger("orchestrator.telemetry_store")
 
 _DEFAULT_DB_PATH = Path.home() / ".orchestrator_cache" / "telemetry.db"
 
 # Warm-start thresholds (plan: learn-and-show-design.md)
-_COLD_THRESHOLD = 10   # < 10: cold, use defaults
-_HOT_THRESHOLD  = 50   # ≥ 50: hot, use 100% historical
+_COLD_THRESHOLD = 10  # < 10: cold, use defaults
+_HOT_THRESHOLD = 50  # ≥ 50: hot, use 100% historical
 
 # Prevent division-by-zero in value_score
 _EPSILON = 0.0001
@@ -49,9 +52,11 @@ _EPSILON = 0.0001
 # Return types
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class HistoricalProfile:
     """Aggregated historical data for a (model, task_type) pair."""
+
     model: Model
     task_type: TaskType
     quality_score: float
@@ -66,20 +71,22 @@ class HistoricalProfile:
 @dataclass
 class ModelRanking:
     """Per-model aggregate ranking across all task types in the window."""
+
     model: Model
-    value_score: float     # quality_score / (avg_cost_usd + ε)
+    value_score: float  # quality_score / (avg_cost_usd + ε)
     call_count: int
     avg_cost_usd: float
     quality_score: float
-    confidence: str        # "HOT" | "WARM" | "COLD"
-    trend: float = 0.0     # % change in value_score vs prior window (future)
+    confidence: str  # "HOT" | "WARM" | "COLD"
+    trend: float = 0.0  # % change in value_score vs prior window (future)
 
 
 @dataclass
 class Recommendation:
     """Advisory routing recommendation derived from historical data."""
+
     message: str
-    estimated_savings_per_month: Optional[float] = None
+    estimated_savings_per_month: float | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -135,7 +142,7 @@ CREATE TABLE IF NOT EXISTS pending_writes (
 class TelemetryStore:
     """
     Persistent cross-run telemetry store backed by SQLite.
-    
+
     OPTIMIZATION: Supports batch writes for improved throughput.
     Writes are buffered and flushed either when the buffer is full
     or when the flush interval expires.
@@ -153,18 +160,18 @@ class TelemetryStore:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
+        db_path: Path | None = None,
         batch_size: int = 10,
         flush_interval_seconds: float = 5.0,
     ) -> None:
         self._db_path = Path(db_path) if db_path is not None else _DEFAULT_DB_PATH
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialised = False
-        
+
         # Batching configuration
         self._batch_size = batch_size
         self._flush_interval = flush_interval_seconds
-        
+
         # Buffers for batching
         self._snapshot_buffer: list[dict] = []
         self._routing_buffer: list[dict] = []
@@ -176,14 +183,14 @@ class TelemetryStore:
     async def _ensure_schema(self) -> None:
         """
         Create tables and indexes on first use.
-        
+
         BUG-DBCONN-001 FIX: Proper error handling ensures _initialised is only
         set after successful schema creation. Connection is properly closed
         even on error.
         """
         if self._initialised:
             return
-        
+
         try:
             async with aiosqlite.connect(self._db_path) as db:
                 try:
@@ -205,25 +212,37 @@ class TelemetryStore:
 
     # ── Write API (fire-and-forget safe) ──────────────────────────────────────
 
-    def _validate_snapshot_data(self, data: Dict[str, Any]) -> Optional[str]:
+    def _validate_snapshot_data(self, data: dict[str, Any]) -> str | None:
         """
         FIX-005a: Validate snapshot data before insertion.
-        
+
         Checks for NaN, Inf, None, and type errors in numeric fields.
-        
+
         Returns:
             None if valid, error message string if invalid
         """
         # Check for None values in required fields
-        required_fields = ['project_id', 'model', 'task_type', 'quality_score', 
-                          'call_count', 'recorded_at']
+        required_fields = [
+            "project_id",
+            "model",
+            "task_type",
+            "quality_score",
+            "call_count",
+            "recorded_at",
+        ]
         for field in required_fields:
             if data.get(field) is None:
                 return f"Required field '{field}' is None"
-        
+
         # Check float fields for NaN/Inf
-        float_fields = ['quality_score', 'trust_factor', 'avg_latency_ms', 
-                       'latency_p95_ms', 'success_rate', 'avg_cost_usd']
+        float_fields = [
+            "quality_score",
+            "trust_factor",
+            "avg_latency_ms",
+            "latency_p95_ms",
+            "success_rate",
+            "avg_cost_usd",
+        ]
         for field in float_fields:
             value = data.get(field)
             if value is not None and isinstance(value, (int, float)):
@@ -231,30 +250,29 @@ class TelemetryStore:
                     return f"Field '{field}' is NaN (not allowed)"
                 if math.isinf(value):
                     return f"Field '{field}' is Inf (not allowed)"
-        
+
         # Check integer fields for negative values
-        int_fields = ['call_count', 'failure_count', 'validator_fail_count']
+        int_fields = ["call_count", "failure_count", "validator_fail_count"]
         for field in int_fields:
             value = data.get(field)
-            if value is not None and isinstance(value, int):
-                if value < 0:
-                    return f"Field '{field}' is negative ({value})"
-        
+            if value is not None and isinstance(value, int) and value < 0:
+                return f"Field '{field}' is negative ({value})"
+
         # Type validation
-        if not isinstance(data.get('project_id'), str):
+        if not isinstance(data.get("project_id"), str):
             return f"Field 'project_id' must be string, got {type(data.get('project_id'))}"
-        if not isinstance(data.get('model'), str):
+        if not isinstance(data.get("model"), str):
             return f"Field 'model' must be string, got {type(data.get('model'))}"
-        if not isinstance(data.get('task_type'), str):
+        if not isinstance(data.get("task_type"), str):
             return f"Field 'task_type' must be string, got {type(data.get('task_type'))}"
-        
+
         return None  # Valid
 
     async def record_snapshots_batch(
         self,
         project_id: str,
         snapshots: list[tuple[Model, ModelProfile]],
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         P2-2 OPTIMIZATION: Batch persist multiple ModelProfile snapshots at once.
         FIX-005a: Added pre-validation + per-record error handling with fallback.
@@ -277,11 +295,11 @@ class TelemetryStore:
         # Prepare batch data with validation
         batch_data = []
         errors = []
-        
+
         for model, profile in snapshots:
             if profile.call_count < 1:
                 continue  # Skip profiles with no usage
-            
+
             record = {
                 "project_id": project_id,
                 "model": model.value,
@@ -297,7 +315,7 @@ class TelemetryStore:
                 "validator_fail_count": profile.validator_fail_count,
                 "recorded_at": time.time(),
             }
-            
+
             # FIX-005a: Validate each record
             error = self._validate_snapshot_data(record)
             if error:
@@ -330,11 +348,11 @@ class TelemetryStore:
                 await db.commit()
             success_count = len(batch_data)
             logger.debug(f"P2-2: Batch recorded {success_count} snapshots for project {project_id}")
-            
+
         except Exception as e:
             # FIX-005a: Batch failed, fallback to individual inserts
             logger.warning(f"Batch insert failed ({e}), falling back to individual inserts")
-            
+
             for record_tuple in batch_data:
                 try:
                     async with aiosqlite.connect(self._db_path) as db:
@@ -368,29 +386,31 @@ class TelemetryStore:
 
         Should be called for every profile that had ≥1 call this run.
         Writes are always INSERT-only (append-only log).
-        
+
         OPTIMIZATION: Uses batching for improved throughput. Writes are buffered
         and flushed either when buffer is full or flush interval expires.
         """
         await self._ensure_schema()
-        
+
         # Add to buffer
-        self._snapshot_buffer.append({
-            "project_id": project_id,
-            "model": model.value,
-            "task_type": task_type.value,
-            "quality_score": profile.quality_score,
-            "trust_factor": profile.trust_factor,
-            "avg_latency_ms": profile.avg_latency_ms,
-            "latency_p95_ms": profile.latency_p95_ms,
-            "success_rate": profile.success_rate,
-            "avg_cost_usd": profile.avg_cost_usd,
-            "call_count": profile.call_count,
-            "failure_count": profile.failure_count,
-            "validator_fail_count": profile.validator_fail_count,
-            "recorded_at": time.time(),
-        })
-        
+        self._snapshot_buffer.append(
+            {
+                "project_id": project_id,
+                "model": model.value,
+                "task_type": task_type.value,
+                "quality_score": profile.quality_score,
+                "trust_factor": profile.trust_factor,
+                "avg_latency_ms": profile.avg_latency_ms,
+                "latency_p95_ms": profile.latency_p95_ms,
+                "success_rate": profile.success_rate,
+                "avg_cost_usd": profile.avg_cost_usd,
+                "call_count": profile.call_count,
+                "failure_count": profile.failure_count,
+                "validator_fail_count": profile.validator_fail_count,
+                "recorded_at": time.time(),
+            }
+        )
+
         # Check if we should flush
         await self._maybe_flush()
 
@@ -408,27 +428,29 @@ class TelemetryStore:
         ----------
         task_type:
             The TaskType of the task (from Task.type — not stored on TaskResult).
-        
+
         OPTIMIZATION: Uses batching for improved throughput.
         """
         await self._ensure_schema()
-        
+
         reviewer_val = result.reviewer_model.value if result.reviewer_model else None
-        
+
         # Add to buffer
-        self._routing_buffer.append({
-            "project_id": project_id,
-            "task_id": task_id,
-            "task_type": task_type.value,
-            "model_chosen": result.model_used.value,
-            "reviewer": reviewer_val,
-            "score": result.score,
-            "cost_usd": result.cost_usd,
-            "iterations": result.iterations,
-            "det_passed": 1 if result.deterministic_check_passed else 0,
-            "recorded_at": time.time(),
-        })
-        
+        self._routing_buffer.append(
+            {
+                "project_id": project_id,
+                "task_id": task_id,
+                "task_type": task_type.value,
+                "model_chosen": result.model_used.value,
+                "reviewer": reviewer_val,
+                "score": result.score,
+                "cost_usd": result.cost_usd,
+                "iterations": result.iterations,
+                "det_passed": 1 if result.deterministic_check_passed else 0,
+                "recorded_at": time.time(),
+            }
+        )
+
         # Check if we should flush
         await self._maybe_flush()
 
@@ -437,35 +459,33 @@ class TelemetryStore:
     async def _maybe_flush(self) -> None:
         """
         Flush buffers if they are full or if the flush interval has expired.
-        
+
         This is called automatically by record_snapshot and record_routing_event.
         """
         buffer_full = (
-            len(self._snapshot_buffer) >= self._batch_size or
-            len(self._routing_buffer) >= self._batch_size
+            len(self._snapshot_buffer) >= self._batch_size
+            or len(self._routing_buffer) >= self._batch_size
         )
-        interval_expired = (
-            time.time() - self._last_flush_time >= self._flush_interval
-        )
-        
+        interval_expired = time.time() - self._last_flush_time >= self._flush_interval
+
         if buffer_full or interval_expired:
             await self.flush()
 
     async def flush(self) -> None:
         """
         Explicitly flush all pending writes to the database.
-        
+
         This is called automatically when buffers are full or flush interval
         expires, but can also be called explicitly (e.g., at shutdown).
-        
+
         Uses a single transaction for all buffered writes to ensure atomicity.
         """
         async with self._flush_lock:
             if not self._snapshot_buffer and not self._routing_buffer:
                 return
-            
+
             await self._ensure_schema()
-            
+
             async with aiosqlite.connect(self._db_path) as db:
                 # Flush snapshot buffer
                 for item in self._snapshot_buffer:
@@ -493,7 +513,7 @@ class TelemetryStore:
                             item["recorded_at"],
                         ),
                     )
-                
+
                 # Flush routing buffer
                 for item in self._routing_buffer:
                     await db.execute(
@@ -516,21 +536,21 @@ class TelemetryStore:
                             item["recorded_at"],
                         ),
                     )
-                
+
                 await db.commit()
-            
+
             # Clear buffers after successful commit
             count = len(self._snapshot_buffer) + len(self._routing_buffer)
             self._snapshot_buffer.clear()
             self._routing_buffer.clear()
             self._last_flush_time = time.time()
-            
+
             logger.debug(f"Flushed {count} telemetry records to database")
 
     async def close(self) -> None:
         """
         Close the store, flushing any pending writes.
-        
+
         Should be called at shutdown to ensure no telemetry is lost.
         """
         await self.flush()
@@ -561,22 +581,24 @@ class TelemetryStore:
         the data to model_snapshots even if the process crashed in between.
         """
         await self._ensure_schema()
-        payload = json.dumps({
-            "project_id": project_id,
-            "model":      model.value,
-            "task_type":  task_type.value,
-            "profile": {
-                "quality_score":        profile.quality_score,
-                "trust_factor":         profile.trust_factor,
-                "avg_latency_ms":       profile.avg_latency_ms,
-                "latency_p95_ms":       profile.latency_p95_ms,
-                "success_rate":         profile.success_rate,
-                "avg_cost_usd":         profile.avg_cost_usd,
-                "call_count":           profile.call_count,
-                "failure_count":        profile.failure_count,
-                "validator_fail_count": profile.validator_fail_count,
-            },
-        })
+        payload = json.dumps(
+            {
+                "project_id": project_id,
+                "model": model.value,
+                "task_type": task_type.value,
+                "profile": {
+                    "quality_score": profile.quality_score,
+                    "trust_factor": profile.trust_factor,
+                    "avg_latency_ms": profile.avg_latency_ms,
+                    "latency_p95_ms": profile.latency_p95_ms,
+                    "success_rate": profile.success_rate,
+                    "avg_cost_usd": profile.avg_cost_usd,
+                    "call_count": profile.call_count,
+                    "failure_count": profile.failure_count,
+                    "validator_fail_count": profile.validator_fail_count,
+                },
+            }
+        )
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute(
                 "INSERT INTO pending_writes (payload, created_at) VALUES (?, ?)",
@@ -597,9 +619,7 @@ class TelemetryStore:
         """
         await self._ensure_schema()
         async with aiosqlite.connect(self._db_path) as db:
-            async with db.execute(
-                "SELECT id, payload FROM pending_writes ORDER BY id"
-            ) as cur:
+            async with db.execute("SELECT id, payload FROM pending_writes ORDER BY id") as cur:
                 rows = await cur.fetchall()
 
             if not rows:
@@ -608,8 +628,8 @@ class TelemetryStore:
             ids_to_delete: list[int] = []
             for row_id, payload_str in rows:
                 try:
-                    payload     = json.loads(payload_str)
-                    p           = payload["profile"]
+                    payload = json.loads(payload_str)
+                    p = payload["profile"]
                     await db.execute(
                         """
                         INSERT INTO model_snapshots
@@ -637,7 +657,8 @@ class TelemetryStore:
                 except (json.JSONDecodeError, KeyError) as exc:
                     logger.warning(
                         "drain_queue: skipping malformed pending_write id=%d: %s",
-                        row_id, exc,
+                        row_id,
+                        exc,
                     )
                 finally:
                     # Always remove processed rows — even malformed ones should
@@ -661,7 +682,7 @@ class TelemetryStore:
         model: Model,
         task_type: TaskType,
         days: int = 90,
-    ) -> Optional[HistoricalProfile]:
+    ) -> HistoricalProfile | None:
         """
         Load aggregated historical data for a (model, task_type) pair.
 
@@ -675,8 +696,9 @@ class TelemetryStore:
         await self._ensure_schema()
         cutoff = time.time() - days * 86400
 
-        async with aiosqlite.connect(self._db_path) as db:
-            async with db.execute(
+        async with (
+            aiosqlite.connect(self._db_path) as db,
+            db.execute(
                 """
                 SELECT
                     AVG(quality_score),
@@ -690,8 +712,9 @@ class TelemetryStore:
                 WHERE model = ? AND task_type = ? AND recorded_at >= ?
                 """,
                 (model.value, task_type.value, cutoff),
-            ) as cur:
-                row = await cur.fetchone()
+            ) as cur,
+        ):
+            row = await cur.fetchone()
 
         if row is None or row[0] is None:
             return None
@@ -721,8 +744,9 @@ class TelemetryStore:
         await self._ensure_schema()
         cutoff = time.time() - days * 86400
 
-        async with aiosqlite.connect(self._db_path) as db:
-            async with db.execute(
+        async with (
+            aiosqlite.connect(self._db_path) as db,
+            db.execute(
                 """
                 SELECT
                     model,
@@ -735,8 +759,9 @@ class TelemetryStore:
                 ORDER BY (AVG(quality_score) / (AVG(avg_cost_usd) + ?)) DESC
                 """,
                 (cutoff, _EPSILON),
-            ) as cur:
-                rows = await cur.fetchall()
+            ) as cur,
+        ):
+            rows = await cur.fetchall()
 
         rankings: list[ModelRanking] = []
         for row in rows:
@@ -747,14 +772,16 @@ class TelemetryStore:
                 continue
             value_score = quality / (cost + _EPSILON)
             confidence = _confidence(int(calls or 0))
-            rankings.append(ModelRanking(
-                model=model,
-                value_score=round(value_score, 4),
-                call_count=int(calls or 0),
-                avg_cost_usd=round(cost, 6),
-                quality_score=round(quality, 4),
-                confidence=confidence,
-            ))
+            rankings.append(
+                ModelRanking(
+                    model=model,
+                    value_score=round(value_score, 4),
+                    call_count=int(calls or 0),
+                    avg_cost_usd=round(cost, 6),
+                    quality_score=round(quality, 4),
+                    confidence=confidence,
+                )
+            )
 
         return rankings
 
@@ -767,8 +794,9 @@ class TelemetryStore:
         await self._ensure_schema()
         cutoff = time.time() - days * 86400
 
-        async with aiosqlite.connect(self._db_path) as db:
-            async with db.execute(
+        async with (
+            aiosqlite.connect(self._db_path) as db,
+            db.execute(
                 """
                 SELECT
                     task_type,
@@ -781,8 +809,9 @@ class TelemetryStore:
                 GROUP BY task_type, model
                 """,
                 (cutoff,),
-            ) as cur:
-                rows = await cur.fetchall()
+            ) as cur,
+        ):
+            rows = await cur.fetchall()
 
         # Group by task_type, keep the best value_score per type
         best: dict[TaskType, ModelRanking] = {}
@@ -832,8 +861,9 @@ class TelemetryStore:
             # We need per-task rankings — re-query task-type specific data
             await self._ensure_schema()
             cutoff = time.time() - days * 86400
-            async with aiosqlite.connect(self._db_path) as db:
-                async with db.execute(
+            async with (
+                aiosqlite.connect(self._db_path) as db,
+                db.execute(
                     """
                     SELECT model, AVG(quality_score) AS q, AVG(avg_cost_usd) AS c,
                            SUM(call_count) AS calls
@@ -844,8 +874,9 @@ class TelemetryStore:
                     ORDER BY AVG(avg_cost_usd) ASC
                     """,
                     (task_type.value, cutoff, _COLD_THRESHOLD),
-                ) as cur:
-                    task_rows = await cur.fetchall()
+                ) as cur,
+            ):
+                task_rows = await cur.fetchall()
 
             for row in task_rows:
                 model_val, quality, cost, calls = row
@@ -860,31 +891,37 @@ class TelemetryStore:
                     except ValueError:
                         continue
                     savings_ratio = (leader.avg_cost_usd - cost) / (leader.avg_cost_usd + _EPSILON)
-                    recs.append(Recommendation(
-                        message=(
-                            f"Route {task_type.value} tasks to {alt_model.value} instead of "
-                            f"{leader.model.value} — same quality ({quality:.2f} vs "
-                            f"{leader.quality_score:.2f}), saves ~{savings_ratio:.0%} per call."
-                        ),
-                        estimated_savings_per_month=None,
-                    ))
+                    recs.append(
+                        Recommendation(
+                            message=(
+                                f"Route {task_type.value} tasks to {alt_model.value} instead of "
+                                f"{leader.model.value} — same quality ({quality:.2f} vs "
+                                f"{leader.quality_score:.2f}), saves ~{savings_ratio:.0%} per call."
+                            ),
+                            estimated_savings_per_month=None,
+                        )
+                    )
 
         # Cross-task: flag models with declining value vs cheaper equivalent in rankings
         hot_rankings = [r for r in rankings if r.confidence == "HOT"]
-        for i, expensive in enumerate(hot_rankings):
+        for _i, expensive in enumerate(hot_rankings):
             for cheaper in hot_rankings:
                 if cheaper.model == expensive.model:
                     continue
-                if (cheaper.avg_cost_usd < expensive.avg_cost_usd * 0.5
-                        and cheaper.quality_score >= expensive.quality_score * 0.98
-                        and cheaper.value_score > expensive.value_score * 1.5):
-                    recs.append(Recommendation(
-                        message=(
-                            f"{cheaper.model.value} has equivalent quality to "
-                            f"{expensive.model.value} at {cheaper.avg_cost_usd / (expensive.avg_cost_usd + _EPSILON):.0%} "
-                            f"of the cost — consider routing more traffic to it."
-                        ),
-                    ))
+                if (
+                    cheaper.avg_cost_usd < expensive.avg_cost_usd * 0.5
+                    and cheaper.quality_score >= expensive.quality_score * 0.98
+                    and cheaper.value_score > expensive.value_score * 1.5
+                ):
+                    recs.append(
+                        Recommendation(
+                            message=(
+                                f"{cheaper.model.value} has equivalent quality to "
+                                f"{expensive.model.value} at {cheaper.avg_cost_usd / (expensive.avg_cost_usd + _EPSILON):.0%} "
+                                f"of the cost — consider routing more traffic to it."
+                            ),
+                        )
+                    )
                     break  # one rec per expensive model
 
         return recs
@@ -893,6 +930,7 @@ class TelemetryStore:
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _confidence(call_count: int) -> str:
     if call_count >= _HOT_THRESHOLD:

@@ -17,6 +17,7 @@ Test strategy:
   completely; the probe coroutine would only run *after* _get_conn() returned.
 - After the fix, the probe coroutine can interleave with the executor work.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -54,7 +55,7 @@ async def test_event_loop_not_blocked_during_migration():
 
         # Run both concurrently; _get_conn triggers first-time migration
         await asyncio.gather(
-            manager._get_conn(),   # triggers migrate_add_resume_fields
+            manager._get_conn(),  # triggers migrate_add_resume_fields
             probe(),
         )
 
@@ -138,9 +139,9 @@ async def test_concurrent_callers_see_fully_migrated_connection():
         conns = await asyncio.gather(*[manager._get_conn() for _ in range(8)])
 
         # Every returned connection must be the same object (single shared conn)
-        assert all(c is conns[0] for c in conns), (
-            "Concurrent _get_conn() calls returned different connection objects"
-        )
+        assert all(
+            c is conns[0] for c in conns
+        ), "Concurrent _get_conn() calls returned different connection objects"
 
         # The shared connection must be able to query the migrated column
         # without OperationalError (would fail if migration hadn't run yet)

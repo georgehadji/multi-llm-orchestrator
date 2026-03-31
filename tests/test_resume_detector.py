@@ -1,6 +1,7 @@
 """
 Tests for Resume Detector class and pure functions (spec compliance).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -34,13 +35,13 @@ def test_extract_keywords(detector):
         keywords = set(keywords)
 
     # Verify stop words are filtered out
-    assert 'a' not in keywords  # stop word
-    assert 'the' not in keywords  # stop word
-    assert 'with' not in keywords  # stop word
-    assert 'for' not in keywords  # stop word
+    assert "a" not in keywords  # stop word
+    assert "the" not in keywords  # stop word
+    assert "with" not in keywords  # stop word
+    assert "for" not in keywords  # stop word
 
     # Verify meaningful words are kept
-    assert 'build' in keywords or 'rest' in keywords or 'api' in keywords
+    assert "build" in keywords or "rest" in keywords or "api" in keywords
 
     # Verify it's a set
     assert isinstance(keywords, (set, list, tuple))
@@ -56,7 +57,7 @@ def test_no_match_for_unrelated_project(detector):
     # Since detector has no state_manager, it should return None
     result = detector.find_resumable_project(
         project_description="Build a React web app",
-        success_criteria="Create a functional user interface"
+        success_criteria="Create a functional user interface",
     )
 
     # With no state manager, should return None

@@ -12,17 +12,20 @@ from __future__ import annotations
 import json
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
+from .ara_pipelines import ReasoningMethod
 from .models import Task, TaskType
-from .api_clients import UnifiedClient
-from .ara_pipelines import ReasoningMethod, PipelineFactory
+
+if TYPE_CHECKING:
+    from .api_clients import UnifiedClient
 
 logger = logging.getLogger("orchestrator")
 
 
 class ComplexityLevel(str, Enum):
     """Task complexity levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -31,6 +34,7 @@ class ComplexityLevel(str, Enum):
 
 class RiskLevel(str, Enum):
     """Risk levels for tasks."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -39,13 +43,13 @@ class RiskLevel(str, Enum):
 
 class MethodSelection:
     """Result of method selection process."""
-    
+
     def __init__(
         self,
         method: ReasoningMethod,
         confidence: float,
         rationale: str,
-        alternative_methods: List[ReasoningMethod],
+        alternative_methods: list[ReasoningMethod],
         estimated_cost_multiplier: float,
         estimated_time_multiplier: float,
     ):
@@ -55,8 +59,8 @@ class MethodSelection:
         self.alternative_methods = alternative_methods
         self.estimated_cost_multiplier = estimated_cost_multiplier
         self.estimated_time_multiplier = estimated_time_multiplier
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "method": self.method.value,
             "confidence": self.confidence,
@@ -91,7 +95,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.JURY,
         ReasoningMethod.PRE_MORTEM,
     ],
-    
     # Code Review
     (TaskType.CODE_REVIEW, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -104,7 +107,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.JURY,
         ReasoningMethod.PRE_MORTEM,
     ],
-    
     # Reasoning
     (TaskType.REASONING, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -122,7 +124,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.DELPHI,
         ReasoningMethod.JURY,
     ],
-    
     # Creative Writing
     (TaskType.WRITING, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -136,7 +137,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.ANALOGICAL,
         ReasoningMethod.DIALECTICAL,
     ],
-    
     # Data Extraction
     (TaskType.DATA_EXTRACT, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -149,7 +149,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.RESEARCH,
         ReasoningMethod.BAYESIAN,
     ],
-    
     # Summarization
     (TaskType.SUMMARIZE, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -158,7 +157,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.MULTI_PERSPECTIVE,
         ReasoningMethod.SOCRATIC,
     ],
-    
     # Evaluation
     (TaskType.EVALUATE, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -175,23 +173,23 @@ METHOD_SELECTION_RULES = {
 
 # Cost multipliers per method (relative to baseline)
 METHOD_COST_MULTIPLIERS = {
-    ReasoningMethod.MULTI_PERSPECTIVE: 4.0,    # 4 parallel perspectives
-    ReasoningMethod.ITERATIVE: 2.0,            # Up to 3 rounds
-    ReasoningMethod.DEBATE: 2.5,               # 2 sides + judge
-    ReasoningMethod.RESEARCH: 1.5,             # +search API calls
-    ReasoningMethod.JURY: 5.0,                 # 4 generators + 3 critics + verifier
-    ReasoningMethod.SCIENTIFIC: 2.0,           # Hypothesize + test + evaluate
-    ReasoningMethod.SOCRATIC: 1.5,             # Multiple Q&A rounds
-    ReasoningMethod.PRE_MORTEM: 1.8,           # 4 phases
-    ReasoningMethod.BAYESIAN: 2.2,             # Priors + likelihoods + posteriors + sensitivity
-    ReasoningMethod.DIALECTICAL: 2.0,          # Thesis + antithesis + contradictions + aufhebung
-    ReasoningMethod.ANALOGICAL: 1.9,           # Abstraction + search + mapping + transfer
-    ReasoningMethod.DELPHI: 3.5,               # 4 experts × 2 rounds + aggregation
+    ReasoningMethod.MULTI_PERSPECTIVE: 4.0,  # 4 parallel perspectives
+    ReasoningMethod.ITERATIVE: 2.0,  # Up to 3 rounds
+    ReasoningMethod.DEBATE: 2.5,  # 2 sides + judge
+    ReasoningMethod.RESEARCH: 1.5,  # +search API calls
+    ReasoningMethod.JURY: 5.0,  # 4 generators + 3 critics + verifier
+    ReasoningMethod.SCIENTIFIC: 2.0,  # Hypothesize + test + evaluate
+    ReasoningMethod.SOCRATIC: 1.5,  # Multiple Q&A rounds
+    ReasoningMethod.PRE_MORTEM: 1.8,  # 4 phases
+    ReasoningMethod.BAYESIAN: 2.2,  # Priors + likelihoods + posteriors + sensitivity
+    ReasoningMethod.DIALECTICAL: 2.0,  # Thesis + antithesis + contradictions + aufhebung
+    ReasoningMethod.ANALOGICAL: 1.9,  # Abstraction + search + mapping + transfer
+    ReasoningMethod.DELPHI: 3.5,  # 4 experts × 2 rounds + aggregation
 }
 
 # Time multipliers per method (relative to baseline)
 METHOD_TIME_MULTIPLIERS = {
-    ReasoningMethod.MULTI_PERSPECTIVE: 1.4,    # Parallel execution
+    ReasoningMethod.MULTI_PERSPECTIVE: 1.4,  # Parallel execution
     ReasoningMethod.ITERATIVE: 1.3,
     ReasoningMethod.DEBATE: 1.6,
     ReasoningMethod.RESEARCH: 1.2,
@@ -208,48 +206,117 @@ METHOD_TIME_MULTIPLIERS = {
 # Keyword-based method hints
 METHOD_KEYWORDS = {
     ReasoningMethod.PRE_MORTEM: [
-        "risk", "failure", "critical", "production", "safety", "reliability",
-        "mission-critical", "high-stakes", "financial", "security",
+        "risk",
+        "failure",
+        "critical",
+        "production",
+        "safety",
+        "reliability",
+        "mission-critical",
+        "high-stakes",
+        "financial",
+        "security",
     ],
     ReasoningMethod.ANALOGICAL: [
-        "innovative", "creative", "novel", "breakthrough", "inspire",
-        "cross-domain", "analogy", "metaphor", "similar to",
+        "innovative",
+        "creative",
+        "novel",
+        "breakthrough",
+        "inspire",
+        "cross-domain",
+        "analogy",
+        "metaphor",
+        "similar to",
     ],
     ReasoningMethod.BAYESIAN: [
-        "uncertainty", "probability", "confidence", "likelihood", "risk quantification",
-        "bayesian", "prior", "posterior", "estimate",
+        "uncertainty",
+        "probability",
+        "confidence",
+        "likelihood",
+        "risk quantification",
+        "bayesian",
+        "prior",
+        "posterior",
+        "estimate",
     ],
     ReasoningMethod.DEBATE: [
-        "trade-off", "decision", "choose", "versus", "compare",
-        "architecture", "pattern", "strategy",
+        "trade-off",
+        "decision",
+        "choose",
+        "versus",
+        "compare",
+        "architecture",
+        "pattern",
+        "strategy",
     ],
     ReasoningMethod.DIALECTICAL: [
-        "conflict", "contradiction", "philosophical", "policy", "ethics",
-        "values", "principle", "ideology",
+        "conflict",
+        "contradiction",
+        "philosophical",
+        "policy",
+        "ethics",
+        "values",
+        "principle",
+        "ideology",
     ],
     ReasoningMethod.DELPHI: [
-        "prediction", "forecast", "expert", "consensus", "estimate",
-        "future", "trend", "projection",
+        "prediction",
+        "forecast",
+        "expert",
+        "consensus",
+        "estimate",
+        "future",
+        "trend",
+        "projection",
     ],
     ReasoningMethod.ITERATIVE: [
-        "optimize", "improve", "refine", "best", "optimal",
-        "performance", "efficiency", "quality",
+        "optimize",
+        "improve",
+        "refine",
+        "best",
+        "optimal",
+        "performance",
+        "efficiency",
+        "quality",
     ],
     ReasoningMethod.JURY: [
-        "critical", "high-stakes", "multiple stakeholders", "compliance",
-        "audit", "review board", "panel",
+        "critical",
+        "high-stakes",
+        "multiple stakeholders",
+        "compliance",
+        "audit",
+        "review board",
+        "panel",
     ],
     ReasoningMethod.RESEARCH: [
-        "current", "latest", "recent", "study", "evidence",
-        "empirical", "factual", "verify", "fact-check",
+        "current",
+        "latest",
+        "recent",
+        "study",
+        "evidence",
+        "empirical",
+        "factual",
+        "verify",
+        "fact-check",
     ],
     ReasoningMethod.SCIENTIFIC: [
-        "hypothesis", "experiment", "test", "validate", "scientific",
-        "algorithm", "technical", "research",
+        "hypothesis",
+        "experiment",
+        "test",
+        "validate",
+        "scientific",
+        "algorithm",
+        "technical",
+        "research",
     ],
     ReasoningMethod.SOCRATIC: [
-        "clarify", "understand", "explore", "question", "ambiguous",
-        "vague", "unclear requirements",
+        "clarify",
+        "understand",
+        "explore",
+        "question",
+        "ambiguous",
+        "vague",
+        "unclear requirements",
     ],
 }
 
@@ -257,49 +324,49 @@ METHOD_KEYWORDS = {
 class MethodSelector:
     """
     Intelligent method selector for ARA reasoning pipelines.
-    
+
     Uses a two-phase approach:
     1. Rule-based classification (fast, deterministic)
     2. LLM optimization (optional, for complex cases)
     """
-    
-    def __init__(self, client: Optional[UnifiedClient] = None):
+
+    def __init__(self, client: UnifiedClient | None = None):
         self.client = client
         self._method_keywords = METHOD_KEYWORDS
-    
+
     def select_method(
         self,
         task: Task,
         complexity: ComplexityLevel = ComplexityLevel.MEDIUM,
         risk_level: RiskLevel = RiskLevel.MEDIUM,
         use_llm_optimization: bool = True,
-        budget_constraint: Optional[float] = None,
+        budget_constraint: float | None = None,
     ) -> MethodSelection:
         """
         Select the optimal reasoning method for a task.
-        
+
         Args:
             task: The task to select method for
             complexity: Task complexity level
             risk_level: Risk level associated with the task
             use_llm_optimization: Whether to use LLM for optimization
             budget_constraint: Optional budget constraint (overrides cost considerations)
-        
+
         Returns:
             MethodSelection with recommended method and metadata
         """
         # Phase 1: Rule-based selection
         rule_based_methods = self._rule_based_selection(task.type, complexity, risk_level)
-        
+
         # Phase 2: Keyword-based refinement
         keyword_methods = self._keyword_based_selection(task.prompt)
-        
+
         # Combine rankings
         ranked_methods = self._combine_rankings(rule_based_methods, keyword_methods)
-        
+
         # Select top method
         top_method = ranked_methods[0] if ranked_methods else ReasoningMethod.MULTI_PERSPECTIVE
-        
+
         # Phase 3: LLM optimization (optional)
         if use_llm_optimization and self.client:
             optimized_method = self._llm_optimize_selection(
@@ -307,94 +374,102 @@ class MethodSelector:
             )
             if optimized_method:
                 top_method = optimized_method
-        
+
         # Apply budget constraint
         if budget_constraint:
             top_method = self._apply_budget_constraint(
                 top_method, ranked_methods, budget_constraint
             )
-        
+
         # Build selection result
         return self._build_selection(top_method, ranked_methods, task.type)
-    
+
     def _rule_based_selection(
         self,
         task_type: TaskType,
         complexity: ComplexityLevel,
         risk_level: RiskLevel,
-    ) -> List[ReasoningMethod]:
+    ) -> list[ReasoningMethod]:
         """Rule-based method selection."""
         key = (task_type, complexity, risk_level)
-        
+
         # Direct match
         if key in METHOD_SELECTION_RULES:
             return METHOD_SELECTION_RULES[key]
-        
+
         # Fallback: try with lower complexity
         if complexity != ComplexityLevel.LOW:
-            lower_key = (task_type, ComplexityLevel(max(0, list(ComplexityLevel).index(complexity) - 1)), risk_level)
+            lower_key = (
+                task_type,
+                ComplexityLevel(max(0, list(ComplexityLevel).index(complexity) - 1)),
+                risk_level,
+            )
             if lower_key in METHOD_SELECTION_RULES:
                 return METHOD_SELECTION_RULES[lower_key]
-        
+
         # Fallback: try with lower risk
         if risk_level != RiskLevel.LOW:
-            lower_key = (task_type, complexity, RiskLevel(max(0, list(RiskLevel).index(risk_level) - 1)))
+            lower_key = (
+                task_type,
+                complexity,
+                RiskLevel(max(0, list(RiskLevel).index(risk_level) - 1)),
+            )
             if lower_key in METHOD_SELECTION_RULES:
                 return METHOD_SELECTION_RULES[lower_key]
-        
+
         # Default fallback
         return [ReasoningMethod.MULTI_PERSPECTIVE, ReasoningMethod.ITERATIVE]
-    
-    def _keyword_based_selection(self, prompt: str) -> Dict[ReasoningMethod, int]:
+
+    def _keyword_based_selection(self, prompt: str) -> dict[ReasoningMethod, int]:
         """Score methods based on keyword matching."""
         prompt_lower = prompt.lower()
-        scores: Dict[ReasoningMethod, int] = {}
-        
+        scores: dict[ReasoningMethod, int] = {}
+
         for method, keywords in self._method_keywords.items():
             score = sum(1 for keyword in keywords if keyword in prompt_lower)
             if score > 0:
                 scores[method] = score
-        
+
         return scores
-    
+
     def _combine_rankings(
         self,
-        rule_based: List[ReasoningMethod],
-        keyword_scores: Dict[ReasoningMethod, int],
-    ) -> List[ReasoningMethod]:
+        rule_based: list[ReasoningMethod],
+        keyword_scores: dict[ReasoningMethod, int],
+    ) -> list[ReasoningMethod]:
         """Combine rule-based and keyword-based rankings."""
         # Assign scores
-        method_scores: Dict[ReasoningMethod, float] = {}
-        
+        method_scores: dict[ReasoningMethod, float] = {}
+
         # Rule-based scores (higher weight for top positions)
         for i, method in enumerate(rule_based):
             weight = len(rule_based) - i
             method_scores[method] = method_scores.get(method, 0) + weight * 2
-        
+
         # Keyword scores
         for method, score in keyword_scores.items():
             method_scores[method] = method_scores.get(method, 0) + score
-        
+
         # Sort by score
         ranked = sorted(method_scores.items(), key=lambda x: x[1], reverse=True)
         return [method for method, _ in ranked]
-    
+
     def _llm_optimize_selection(
         self,
         task: Task,
         current_best: ReasoningMethod,
-        top_candidates: List[ReasoningMethod],
+        top_candidates: list[ReasoningMethod],
         complexity: ComplexityLevel,
         risk_level: RiskLevel,
-    ) -> Optional[ReasoningMethod]:
+    ) -> ReasoningMethod | None:
         """Use LLM to optimize method selection."""
         if not self.client or not top_candidates:
             return None
-        
+
         models = self._get_available_models()
         if not models:
             return None
-        
+
         system_prompt = (
             "You are an expert at selecting optimal reasoning methods for AI tasks.\n"
             "Analyze the task and recommend the best method from the candidates.\n"
@@ -414,7 +489,7 @@ class MethodSelector:
             "- delphi: expert consensus with multiple rounds\n\n"
             "Return JSON: {'recommended_method': '', 'rationale': '', 'confidence': 0-1}"
         )
-        
+
         user_prompt = f"""
 Task: {task.prompt}
 Task Type: {task.type.value}
@@ -425,10 +500,10 @@ Current Best: {current_best.value}
 
 Recommend the optimal method.
 """
-        
+
         try:
             import asyncio
-            
+
             async def call_llm():
                 response, _ = await self.client.call(
                     model=models[0],
@@ -438,10 +513,10 @@ Recommend the optimal method.
                     temperature=0.2,
                 )
                 return response
-            
+
             response = asyncio.run(call_llm())
-            data = json.loads(response.text) if hasattr(response, 'text') else {}
-            
+            data = json.loads(response.text) if hasattr(response, "text") else {}
+
             recommended = data.get("recommended_method")
             if recommended:
                 try:
@@ -450,13 +525,13 @@ Recommend the optimal method.
                     pass
         except Exception as e:
             logger.warning(f"LLM optimization failed: {e}")
-        
+
         return None
-    
+
     def _apply_budget_constraint(
         self,
         selected: ReasoningMethod,
-        ranked_methods: List[ReasoningMethod],
+        ranked_methods: list[ReasoningMethod],
         budget: float,
     ) -> ReasoningMethod:
         """Select best method within budget constraint."""
@@ -464,26 +539,26 @@ Recommend the optimal method.
             cost_mult = METHOD_COST_MULTIPLIERS.get(method, 1.0)
             if cost_mult <= budget:
                 return method
-        
+
         # Fallback to cheapest option
         return ReasoningMethod.MULTI_PERSPECTIVE
-    
+
     def _build_selection(
         self,
         method: ReasoningMethod,
-        ranked_methods: List[ReasoningMethod],
+        ranked_methods: list[ReasoningMethod],
         task_type: TaskType,
     ) -> MethodSelection:
         """Build MethodSelection result."""
         cost_mult = METHOD_COST_MULTIPLIERS.get(method, 1.0)
         time_mult = METHOD_TIME_MULTIPLIERS.get(method, 1.0)
-        
+
         # Estimate confidence based on ranking position
         confidence = 0.9 if ranked_methods and ranked_methods[0] == method else 0.7
-        
+
         # Build rationale
         rationale = self._build_rationale(method, task_type)
-        
+
         return MethodSelection(
             method=method,
             confidence=confidence,
@@ -492,7 +567,7 @@ Recommend the optimal method.
             estimated_cost_multiplier=cost_mult,
             estimated_time_multiplier=time_mult,
         )
-    
+
     def _build_rationale(self, method: ReasoningMethod, task_type: TaskType) -> str:
         """Build human-readable rationale for method selection."""
         rationales = {
@@ -509,14 +584,14 @@ Recommend the optimal method.
             ReasoningMethod.ANALOGICAL: "Analogical transfer enables cross-domain innovation",
             ReasoningMethod.DELPHI: "Delphi method aggregates expert consensus for reliable predictions",
         }
-        
+
         base_rationale = rationales.get(method, "Selected based on task characteristics")
         return f"{base_rationale} for {task_type.value} task"
-    
-    def _get_available_models(self) -> List:
+
+    def _get_available_models(self) -> list:
         """Get available models for LLM optimization."""
-        from .models import Model, ROUTING_TABLE
-        
+        from .models import ROUTING_TABLE, Model
+
         # Try to get a reasoning-capable model
         routing = ROUTING_TABLE.get(TaskType.REASONING, [])
         return routing[:3] if routing else [Model.GPT_4O_MINI]
@@ -526,42 +601,43 @@ Recommend the optimal method.
 # Convenience Functions
 # ─────────────────────────────────────────────
 
+
 def select_method_for_task(
     task: Task,
     complexity: str = "medium",
     risk: str = "medium",
     use_llm: bool = True,
-    client: Optional[UnifiedClient] = None,
+    client: UnifiedClient | None = None,
 ) -> MethodSelection:
     """
     Convenience function for method selection.
-    
+
     Args:
         task: Task to select method for
         complexity: "low", "medium", "high", or "critical"
         risk: "low", "medium", "high", or "critical"
         use_llm: Whether to use LLM optimization
         client: Optional API client for LLM optimization
-    
+
     Returns:
         MethodSelection with recommended method
     """
     selector = MethodSelector(client=client)
-    
+
     complexity_map = {
         "low": ComplexityLevel.LOW,
         "medium": ComplexityLevel.MEDIUM,
         "high": ComplexityLevel.HIGH,
         "critical": ComplexityLevel.CRITICAL,
     }
-    
+
     risk_map = {
         "low": RiskLevel.LOW,
         "medium": RiskLevel.MEDIUM,
         "high": RiskLevel.HIGH,
         "critical": RiskLevel.CRITICAL,
     }
-    
+
     return selector.select_method(
         task=task,
         complexity=complexity_map.get(complexity, ComplexityLevel.MEDIUM),

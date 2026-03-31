@@ -32,17 +32,17 @@ TaskChannel
         # Later, in a downstream task handler:
         msgs = ch.peek_all()
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Optional
-
-from .models import Model, ProjectState, TaskResult
-from .policy import ModelProfile, JobSpec
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .engine import Orchestrator
+    from .models import Model, ProjectState, TaskResult
+    from .policy import JobSpec, ModelProfile
 
 logger = logging.getLogger("orchestrator.agents")
 
@@ -50,6 +50,7 @@ logger = logging.getLogger("orchestrator.agents")
 # ─────────────────────────────────────────────────────────────────────────────
 # TaskChannel
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TaskChannel:
     """
@@ -104,6 +105,7 @@ class TaskChannel:
 # AgentPool
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class AgentPool:
     """
     Meta-controller for multiple Orchestrator instances.
@@ -119,20 +121,20 @@ class AgentPool:
     """
 
     def __init__(self) -> None:
-        self._agents: dict[str, "Orchestrator"] = {}
+        self._agents: dict[str, Orchestrator] = {}
 
-    def add_agent(self, name: str, orchestrator: "Orchestrator") -> None:
+    def add_agent(self, name: str, orchestrator: Orchestrator) -> None:
         """Register a named Orchestrator instance."""
         self._agents[name] = orchestrator
         logger.debug("AgentPool: registered agent %r", name)
 
-    def agents(self) -> dict[str, "Orchestrator"]:
+    def agents(self) -> dict[str, Orchestrator]:
         """Return a read-only copy of the registered agents dict."""
         return dict(self._agents)
 
     async def run_parallel(
         self,
-        assignments: dict[str, "JobSpec"],
+        assignments: dict[str, JobSpec],
     ) -> dict[str, ProjectState]:
         """
         Run each assignment on its named agent concurrently.
@@ -147,16 +149,17 @@ class AgentPool:
         Agents that raised exceptions are omitted from the result (exception
         is logged at ERROR level).
         """
-        names   = list(assignments.keys())
-        coros   = [self._agents[name].run_job(assignments[name]) for name in names]
+        names = list(assignments.keys())
+        coros = [self._agents[name].run_job(assignments[name]) for name in names]
         results_raw = await asyncio.gather(*coros, return_exceptions=True)
 
         results: dict[str, ProjectState] = {}
-        for name, outcome in zip(names, results_raw):
+        for name, outcome in zip(names, results_raw, strict=False):
             if isinstance(outcome, Exception):
                 logger.error(
                     "AgentPool: agent %r raised during run_job: %s",
-                    name, outcome,
+                    name,
+                    outcome,
                 )
             else:
                 results[name] = outcome
@@ -164,8 +167,8 @@ class AgentPool:
 
     def best_result(
         self,
-        results: dict[str, "ProjectState"],
-    ) -> Optional["ProjectState"]:
+        results: dict[str, ProjectState],
+    ) -> ProjectState | None:
         """
         Return the ProjectState with the highest mean TaskResult.score.
 
@@ -174,7 +177,7 @@ class AgentPool:
         if not results:
             return None
 
-        best_state: Optional[ProjectState] = None
+        best_state: ProjectState | None = None
         best_score: float = -1.0
 
         for state in results.values():
@@ -207,9 +210,9 @@ class AgentPool:
 
         # Collect per-model lists of profiles
         from .models import build_default_profiles
+
         all_profile_dicts: list[dict[Model, ModelProfile]] = [
-            agent._profiles for agent in self._agents.values()
-            if hasattr(agent, "_profiles")
+            agent._profiles for agent in self._agents.values() if hasattr(agent, "_profiles")
         ]
         if not all_profile_dicts:
             return build_default_profiles()
@@ -220,7 +223,7 @@ class AgentPool:
             all_models |= set(pd.keys())
 
         merged: dict[Model, ModelProfile] = {}
-        base_profiles = build_default_profiles()
+        build_default_profiles()
 
         for model in all_models:
             contributing = [pd[model] for pd in all_profile_dicts if model in pd]
@@ -231,8 +234,8 @@ class AgentPool:
             template = contributing[0]
 
             # Sum counters
-            total_calls     = sum(p.call_count          for p in contributing)
-            total_failures  = sum(p.failure_count       for p in contributing)
+            total_calls = sum(p.call_count for p in contributing)
+            total_failures = sum(p.failure_count for p in contributing)
             total_val_fails = sum(p.validator_fail_count for p in contributing)
 
             # Weighted average for EMA fields — weight by call_count so agents
@@ -243,35 +246,31 @@ class AgentPool:
             def _wavg(attr: str) -> float:
                 if total_calls == 0:
                     return sum(getattr(p, attr) for p in contributing) / len(contributing)
-                return sum(
-                    getattr(p, attr) * p.call_count for p in contributing
-                ) / weight_sum
+                return sum(getattr(p, attr) * p.call_count for p in contributing) / weight_sum
 
             avg_latency = _wavg("avg_latency_ms")
-            lat_p95     = _wavg("latency_p95_ms")
-            quality     = _wavg("quality_score")
-            trust       = _wavg("trust_factor")
-            avg_cost    = _wavg("avg_cost_usd")
+            lat_p95 = _wavg("latency_p95_ms")
+            quality = _wavg("quality_score")
+            trust = _wavg("trust_factor")
+            avg_cost = _wavg("avg_cost_usd")
 
             # Re-derive success_rate
-            success_rate = (
-                (total_calls - total_failures) / total_calls
-                if total_calls > 0 else 1.0
-            )
+            success_rate = (total_calls - total_failures) / total_calls if total_calls > 0 else 1.0
 
             # Build merged profile
             from dataclasses import replace
+
             mp = replace(
                 template,
-                call_count          = total_calls,
-                failure_count       = total_failures,
-                validator_fail_count= total_val_fails,
-                avg_latency_ms      = avg_latency,
-                latency_p95_ms      = lat_p95,
-                quality_score       = quality,
-                trust_factor        = trust,
-                avg_cost_usd        = avg_cost,
-                success_rate        = success_rate,
+                call_count=total_calls,
+                failure_count=total_failures,
+                validator_fail_count=total_val_fails,
+                avg_latency_ms=avg_latency,
+                latency_p95_ms=lat_p95,
+                quality_score=quality,
+                trust_factor=trust,
+                avg_cost_usd=avg_cost,
+                success_rate=success_rate,
             )
             merged[model] = mp
 

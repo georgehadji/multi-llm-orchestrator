@@ -1,6 +1,8 @@
 """Test dashboard HTML generation"""
+
 import sys
-sys.path.insert(0, r'E:\Documents\Vibe-Coding\Ai Orchestrator')
+
+sys.path.insert(0, r"E:\Documents\Vibe-Coding\Ai Orchestrator")
 
 from orchestrator.dashboard_live import LiveDashboardServer
 

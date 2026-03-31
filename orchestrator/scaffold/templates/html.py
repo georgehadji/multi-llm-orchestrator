@@ -5,6 +5,7 @@ Provides a minimal frontend scaffold with:
 - CSS and JS files
 - A responsive layout
 """
+
 from __future__ import annotations
 
 FILES: dict[str, str] = {
@@ -57,7 +58,7 @@ dist/
 """,
     "README.md": """# 🌐 Vanilla HTML/CSS/JS Frontend
 
-**Project Type:** Frontend (HTML5 + CSS3 + JavaScript)  
+**Project Type:** Frontend (HTML5 + CSS3 + JavaScript)
 **Platform:** Windows, macOS, Linux
 
 ---

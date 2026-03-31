@@ -7,21 +7,24 @@ Usage:
     scaffold_dict = engine.scaffold(profile, output_dir)
     # scaffold_dict: dict[str, str] — relative path -> file content
 """
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-
-from orchestrator.app_detector import AppProfile
+from typing import TYPE_CHECKING
 
 from .templates import cli, fastapi, generic, html, library, nextjs, react_vite
+
+if TYPE_CHECKING:
+    from orchestrator.app_detector import AppProfile
 
 logger = logging.getLogger(__name__)
 
 # Map app_type -> template FILES dict
 _TEMPLATE_MAP: dict[str, dict[str, str]] = {
     "fastapi": fastapi.FILES,
-    "flask": generic.FILES,   # use generic as fallback for flask
+    "flask": generic.FILES,  # use generic as fallback for flask
     "cli": cli.FILES,
     "library": library.FILES,
     "script": generic.FILES,

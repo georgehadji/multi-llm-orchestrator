@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Quick test to verify all performance modules can be imported."""
+
 import sys
 import traceback
+
 
 def test_import(module_name, items=None):
     """Test importing a module."""
     try:
-        module = __import__(module_name, fromlist=[''])
+        module = __import__(module_name, fromlist=[""])
         print(f"✓ {module_name}")
-        
+
         if items:
             for item in items:
                 if hasattr(module, item):
@@ -21,45 +23,61 @@ def test_import(module_name, items=None):
         traceback.print_exc()
         return False
 
+
 print("Testing Performance Module Imports")
 print("=" * 50)
 
 results = []
 
 # Test performance module
-results.append(test_import("orchestrator.performance", [
-    "LRUCache",
-    "RedisCache",
-    "ConnectionPool",
-    "MetricsCollector",
-    "QueryOptimizer",
-    "cached",
-    "cache_invalidate",
-    "get_cache",
-]))
+results.append(
+    test_import(
+        "orchestrator.performance",
+        [
+            "LRUCache",
+            "RedisCache",
+            "ConnectionPool",
+            "MetricsCollector",
+            "QueryOptimizer",
+            "cached",
+            "cache_invalidate",
+            "get_cache",
+        ],
+    )
+)
 
 # Test monitoring module
-results.append(test_import("orchestrator.monitoring", [
-    "MetricsRegistry",
-    "KPIReporter",
-    "KPITier",
-    "HealthChecker",
-    "monitor_endpoint",
-    "monitor_async_task",
-    "STANDARD_KPIS",
-    "health_checker",
-    "metrics",
-]))
+results.append(
+    test_import(
+        "orchestrator.monitoring",
+        [
+            "MetricsRegistry",
+            "KPIReporter",
+            "KPITier",
+            "HealthChecker",
+            "monitor_endpoint",
+            "monitor_async_task",
+            "STANDARD_KPIS",
+            "health_checker",
+            "metrics",
+        ],
+    )
+)
 
 # Test optimized dashboard
-results.append(test_import("orchestrator.dashboard_optimized", [
-    "OptimizedDashboardServer",
-    "PerformanceConfig",
-    "CacheManager",
-    "DebouncedUpdater",
-    "PerformanceMonitor",
-    "EXTERNAL_CSS",
-]))
+results.append(
+    test_import(
+        "orchestrator.dashboard_optimized",
+        [
+            "OptimizedDashboardServer",
+            "PerformanceConfig",
+            "CacheManager",
+            "DebouncedUpdater",
+            "PerformanceMonitor",
+            "EXTERNAL_CSS",
+        ],
+    )
+)
 
 print("=" * 50)
 

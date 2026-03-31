@@ -44,32 +44,34 @@ Schema reference (all fields except `project` and `criteria` are optional):
       3: tests/test_main.py
       4: README.md
 """
+
 from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .models import Budget, Model, TaskType
-from .policy import Policy, PolicySet, JobSpec
-
+from .policy import JobSpec, Policy, PolicySet
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Public result type
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ProjectFileResult:
     """Everything extracted from a YAML project file."""
+
     spec: JobSpec
     concurrency: int
     verbose: bool
     project_id: str
-    output_dir: Optional[str] = None      # write output files here (optional)
-    assemble: bool = False                 # assemble into real project tree
-    verify_cmd: str = ""                   # shell command to run after assembly
-    task_paths: dict[str, str] = None     # {task_id/index -> target_path}
+    output_dir: str | None = None  # write output files here (optional)
+    assemble: bool = False  # assemble into real project tree
+    verify_cmd: str = ""  # shell command to run after assembly
+    task_paths: dict[str, str] = None  # {task_id/index -> target_path}
 
     def __post_init__(self):
         if self.task_paths is None:
@@ -79,6 +81,7 @@ class ProjectFileResult:
 # ─────────────────────────────────────────────────────────────────────────────
 # Loader
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def load_project_file(path: str | Path) -> ProjectFileResult:
     """
@@ -124,8 +127,8 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
     concurrency = int(raw.get("concurrency", 3))
     verbose = bool(raw.get("verbose", False))
     project_id = str(raw.get("project_id", "")).strip()
-    output_dir_raw = raw.get("output_dir", None)
-    output_dir: Optional[str] = str(output_dir_raw).strip() if output_dir_raw else None
+    output_dir_raw = raw.get("output_dir")
+    output_dir: str | None = str(output_dir_raw).strip() if output_dir_raw else None
     assemble: bool = bool(raw.get("assemble", False))
     verify_cmd: str = str(raw.get("verify_cmd", "")).strip()
 
@@ -146,14 +149,13 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
         except ValueError:
             valid = [t.value for t in TaskType]
             raise ValueError(
-                f"'{path}': unknown task type '{key}' in quality_targets. "
-                f"Valid values: {valid}"
+                f"'{path}': unknown task type '{key}' in quality_targets. " f"Valid values: {valid}"
             )
         quality_targets[task_type] = float(value)
 
     # ── Policies ──────────────────────────────────────────────────────────────
     policies: list[Policy] = []
-    for p_raw in (raw.get("policies") or []):
+    for p_raw in raw.get("policies") or []:
         policies.append(_parse_policy(p_raw, path))
     policy_set = PolicySet(global_policies=policies)
 
@@ -182,19 +184,20 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
 # Internal helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _parse_policy(raw: dict[str, Any], source_path: Path) -> Policy:
     """Convert a YAML policy dict → Policy dataclass."""
     name = str(raw.get("name", "unnamed"))
 
     # allowed_providers / blocked_providers: list[str]
-    allowed_providers: Optional[list[str]] = raw.get("allowed_providers")
-    blocked_providers: Optional[list[str]] = raw.get("blocked_providers")
+    allowed_providers: list[str] | None = raw.get("allowed_providers")
+    blocked_providers: list[str] | None = raw.get("blocked_providers")
 
     # allowed_regions: list[str]
-    allowed_regions: Optional[list[str]] = raw.get("allowed_regions")
+    allowed_regions: list[str] | None = raw.get("allowed_regions")
 
     # blocked_models: list[Model]
-    blocked_models: Optional[list[Model]] = None
+    blocked_models: list[Model] | None = None
     if raw.get("blocked_models"):
         blocked_models = []
         for m_val in raw["blocked_models"]:
@@ -209,12 +212,10 @@ def _parse_policy(raw: dict[str, Any], source_path: Path) -> Policy:
 
     allow_training: bool = bool(raw.get("allow_training_on_output", True))
     pii_allowed: bool = bool(raw.get("pii_allowed", True))
-    max_cost: Optional[float] = (
+    max_cost: float | None = (
         float(raw["max_cost_per_task_usd"]) if "max_cost_per_task_usd" in raw else None
     )
-    max_latency: Optional[float] = (
-        float(raw["max_latency_ms"]) if "max_latency_ms" in raw else None
-    )
+    max_latency: float | None = float(raw["max_latency_ms"]) if "max_latency_ms" in raw else None
 
     return Policy(
         name=name,

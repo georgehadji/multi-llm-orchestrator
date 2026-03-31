@@ -38,6 +38,7 @@ def _make_record(
 
 # ── Structural: XML tags instead of plain --- delimiter ───────────────────────
 
+
 class TestStructuredDelimiters:
 
     def test_output_does_not_use_bare_triple_dash_as_delimiter(self):
@@ -76,6 +77,7 @@ class TestStructuredDelimiters:
 
 # ── Sanitization: failure_reason injection ───────────────────────────────────
 
+
 class TestFailureReasonSanitization:
 
     def test_embedded_feedback_tag_in_failure_reason_is_stripped(self):
@@ -87,12 +89,12 @@ class TestFailureReasonSanitization:
         )
         result = orch._build_delta_prompt("Task", _make_record(failure_reason=malicious_reason))
         # The injected closing tag must not appear verbatim
-        assert result.count("<ORCHESTRATOR_FEEDBACK>") == 1, (
-            "Injected <ORCHESTRATOR_FEEDBACK> tag in failure_reason must be stripped/escaped"
-        )
-        assert result.count("</ORCHESTRATOR_FEEDBACK>") == 1, (
-            "Injected </ORCHESTRATOR_FEEDBACK> tag in failure_reason must be stripped/escaped"
-        )
+        assert (
+            result.count("<ORCHESTRATOR_FEEDBACK>") == 1
+        ), "Injected <ORCHESTRATOR_FEEDBACK> tag in failure_reason must be stripped/escaped"
+        assert (
+            result.count("</ORCHESTRATOR_FEEDBACK>") == 1
+        ), "Injected </ORCHESTRATOR_FEEDBACK> tag in failure_reason must be stripped/escaped"
 
     def test_embedded_plain_sentinel_in_failure_reason_is_stripped(self):
         """Injected 'PREVIOUS ATTEMPT FAILED:' text in failure_reason must be neutralized."""
@@ -102,12 +104,13 @@ class TestFailureReasonSanitization:
         # The raw phrase must not appear standalone in the output (it's nested in the field)
         # It CAN appear once — inside the legitimate failure field. But not as a root heading.
         occurrences = result.count("PREVIOUS ATTEMPT FAILED:")
-        assert occurrences <= 1, (
-            "Injected 'PREVIOUS ATTEMPT FAILED:' must not appear multiple times"
-        )
+        assert (
+            occurrences <= 1
+        ), "Injected 'PREVIOUS ATTEMPT FAILED:' must not appear multiple times"
 
 
 # ── Sanitization: validators_failed injection ─────────────────────────────────
+
 
 class TestValidatorNameSanitization:
 
@@ -131,6 +134,7 @@ class TestValidatorNameSanitization:
 
 
 # ── Sanitization: output_snippet injection ───────────────────────────────────
+
 
 class TestOutputSnippetSanitization:
 
@@ -158,12 +162,11 @@ class TestOutputSnippetSanitization:
         record = _make_record(output_snippet=poisoned)
         result = orch._build_delta_prompt("Task", record)
         occurrences = result.count("PREVIOUS ATTEMPT FAILED:")
-        assert occurrences <= 1, (
-            "output_snippet must not duplicate the failure sentinel string"
-        )
+        assert occurrences <= 1, "output_snippet must not duplicate the failure sentinel string"
 
 
 # ── Benign content: regression guard ─────────────────────────────────────────
+
 
 class TestBenignContentPreserved:
 

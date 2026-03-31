@@ -11,20 +11,22 @@ Also tracks EMA latency to prefer faster healthy models.
 DESIGN: All public methods are async and use asyncio.Lock for thread safety.
         This prevents event loop blocking and protects shared state from
         concurrent access in async contexts.
-        
+
 FIX-BUG-002: Replaced threading.Lock with asyncio.Lock to prevent potential
         event loop blocking and follow async best practices.
 """
+
 from __future__ import annotations
+
 import asyncio
 import time
 from enum import Enum
-from typing import Optional
+
 from .models import Model, TaskType
 
 
 class ModelState(str, Enum):
-    HEALTHY  = "healthy"
+    HEALTHY = "healthy"
     DEGRADED = "degraded"
     DISABLED = "disabled"
 
@@ -35,7 +37,7 @@ class AdaptiveRouter:
 
     All public methods are async and protected by asyncio.Lock to prevent
     race conditions when multiple concurrent tasks update model health state.
-    
+
     FIX-BUG-002: Uses asyncio.Lock instead of threading.Lock.
     """
 
@@ -44,8 +46,8 @@ class AdaptiveRouter:
         timeout_threshold: int = 3,
         cooldown_seconds: float = 300.0,
     ) -> None:
-        self._timeout_counts: dict[Model, int] = {m: 0 for m in Model}
-        self._degraded_since: dict[Model, Optional[float]] = {m: None for m in Model}
+        self._timeout_counts: dict[Model, int] = dict.fromkeys(Model, 0)
+        self._degraded_since: dict[Model, float | None] = dict.fromkeys(Model)
         self._disabled: set[Model] = set()
         self._latencies: dict[Model, float] = {}
         self._lock = asyncio.Lock()  # Async-safe lock for all shared state
@@ -55,7 +57,7 @@ class AdaptiveRouter:
     def _get_state_unsafe(self, model: Model) -> ModelState:
         """
         Get model state - caller must hold _lock.
-        
+
         Internal method for use when lock is already held.
         """
         if model in self._disabled:
@@ -77,7 +79,7 @@ class AdaptiveRouter:
     def is_available(self, model: Model) -> bool:
         """
         Check if model is available for routing (thread-safe, non-blocking).
-        
+
         Uses try-lock pattern to avoid blocking in list comprehensions.
         Returns True if model is HEALTHY, False otherwise.
         """
@@ -92,10 +94,7 @@ class AdaptiveRouter:
         since = self._degraded_since.get(model)
         if model in self._disabled:
             return False
-        if since is not None:
-            if time.monotonic() - since < self.cooldown_seconds:
-                return False
-        return True
+        return not (since is not None and time.monotonic() - since < self.cooldown_seconds)
 
     async def record_timeout(self, model: Model) -> None:
         """
@@ -134,8 +133,7 @@ class AdaptiveRouter:
         async with self._lock:
             self._disabled.add(model)
 
-    async def record_latency(self, model: Model, latency_ms: float,
-                             alpha: float = 0.1) -> None:
+    async def record_latency(self, model: Model, latency_ms: float, alpha: float = 0.1) -> None:
         """
         Record latency observation for EMA calculation (async-safe).
 
@@ -146,17 +144,15 @@ class AdaptiveRouter:
         """
         async with self._lock:
             if model in self._latencies:
-                self._latencies[model] = (
-                    alpha * latency_ms + (1 - alpha) * self._latencies[model]
-                )
+                self._latencies[model] = alpha * latency_ms + (1 - alpha) * self._latencies[model]
             else:
                 self._latencies[model] = latency_ms
 
     async def preferred_model(
         self,
         candidates: list[Model],
-        task_type: Optional[TaskType] = None,
-    ) -> Optional[Model]:
+        task_type: TaskType | None = None,
+    ) -> Model | None:
         """
         Return healthy candidate with lowest observed EMA latency (async-safe).
 

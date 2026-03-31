@@ -8,22 +8,27 @@ Run with:
     cd "E:\\Documents\\Vibe-Coding\\Ai Orchestrator"
     python -m pytest tests/test_constraint_planner.py -v
 """
+
 from __future__ import annotations
 
 import pytest
 
 from orchestrator.models import (
-    Model, TaskType, COST_TABLE, ROUTING_TABLE, build_default_profiles,
+    Model,
+    TaskType,
+    COST_TABLE,
+    ROUTING_TABLE,
+    build_default_profiles,
 )
 from orchestrator.policy import ModelProfile, Policy, PolicySet, JobSpec, Budget
 from orchestrator.policy_engine import PolicyEngine, PolicyViolationError
 from orchestrator.planner import ConstraintPlanner
 from orchestrator.telemetry import TelemetryCollector
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures / helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _make_profile(
     model: Model,
@@ -67,14 +72,15 @@ def _make_planner(profiles, all_healthy=True) -> ConstraintPlanner:
 # TC-1  EU-only policy
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestEUOnlyPolicy:
     """TC-1a/b: EU-only region constraint."""
 
     def _setup(self):
         profiles = {
-            Model.GPT_4O:       _make_profile(Model.GPT_4O,       "openai",    region="us"),
-            Model.CLAUDE_SONNET:_make_profile(Model.CLAUDE_SONNET, "anthropic", region="eu"),
-            Model.GEMINI_PRO:   _make_profile(Model.GEMINI_PRO,   "google",    region="us"),
+            Model.GPT_4O: _make_profile(Model.GPT_4O, "openai", region="us"),
+            Model.CLAUDE_SONNET: _make_profile(Model.CLAUDE_SONNET, "anthropic", region="eu"),
+            Model.GEMINI_PRO: _make_profile(Model.GEMINI_PRO, "google", region="us"),
         }
         policy = Policy(name="eu_only", allowed_regions=["eu"])
         planner = _make_planner(profiles)
@@ -90,7 +96,7 @@ class TestEUOnlyPolicy:
     def test_tc1b_eu_returns_none_when_no_eu_model(self):
         """TC-1b: When no model has allowed region, select_model returns None."""
         profiles = {
-            Model.GPT_4O:     _make_profile(Model.GPT_4O,     "openai", region="us"),
+            Model.GPT_4O: _make_profile(Model.GPT_4O, "openai", region="us"),
             Model.GEMINI_PRO: _make_profile(Model.GEMINI_PRO, "google", region="us"),
         }
         policy = Policy(name="eu_only", allowed_regions=["eu"])
@@ -103,6 +109,7 @@ class TestEUOnlyPolicy:
 # TC-2  Budget constraints
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestBudgetConstraints:
     """TC-2a/b: Budget filtering."""
 
@@ -113,13 +120,17 @@ class TestBudgetConstraints:
         # expensive model: 10.0/1M in + 50.0/1M out → cost ≈ 0.0680 (over budget)
         profiles = {
             Model.GPT_4O_MINI: _make_profile(
-                Model.GPT_4O_MINI, "openai",
-                cost_in=0.10, cost_out=0.40,
+                Model.GPT_4O_MINI,
+                "openai",
+                cost_in=0.10,
+                cost_out=0.40,
                 task_types={TaskType.CODE_GEN: 1},
             ),
             Model.MINIMAX_TEXT_01: _make_profile(
-                Model.MINIMAX_TEXT_01, "minimax",
-                cost_in=0.50, cost_out=1.50,
+                Model.MINIMAX_TEXT_01,
+                "minimax",
+                cost_in=0.50,
+                cost_out=1.50,
                 task_types={TaskType.CODE_GEN: 0},
             ),
         }
@@ -132,8 +143,10 @@ class TestBudgetConstraints:
         """TC-2b: Zero budget → no model can afford the task → returns None."""
         profiles = {
             Model.GPT_4O_MINI: _make_profile(
-                Model.GPT_4O_MINI, "openai",
-                cost_in=0.10, cost_out=0.40,
+                Model.GPT_4O_MINI,
+                "openai",
+                cost_in=0.10,
+                cost_out=0.40,
             ),
         }
         planner = _make_planner(profiles)
@@ -145,6 +158,7 @@ class TestBudgetConstraints:
 # TC-3  Scoring: quality vs trust
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestScoring:
     """TC-3a/b: Multi-objective scoring."""
 
@@ -152,15 +166,21 @@ class TestScoring:
         """TC-3a: High quality_score model wins over equal-cost lower-quality model."""
         profiles = {
             Model.GPT_4O: _make_profile(
-                Model.GPT_4O, "openai",
-                cost_in=1.0, cost_out=5.0,
-                quality=0.95, trust=1.0,
+                Model.GPT_4O,
+                "openai",
+                cost_in=1.0,
+                cost_out=5.0,
+                quality=0.95,
+                trust=1.0,
                 task_types={TaskType.CODE_GEN: 0},
             ),
             Model.GEMINI_PRO: _make_profile(
-                Model.GEMINI_PRO, "google",
-                cost_in=1.0, cost_out=5.0,
-                quality=0.70, trust=1.0,
+                Model.GEMINI_PRO,
+                "google",
+                cost_in=1.0,
+                cost_out=5.0,
+                quality=0.70,
+                trust=1.0,
                 task_types={TaskType.CODE_GEN: 1},
             ),
         }
@@ -172,15 +192,21 @@ class TestScoring:
         """TC-3b: Very low trust_factor (0.01) avoids model even with high quality."""
         profiles = {
             Model.CLAUDE_SONNET: _make_profile(
-                Model.CLAUDE_SONNET, "anthropic",
-                cost_in=1.0, cost_out=5.0,
-                quality=0.99, trust=0.01,  # super degraded
+                Model.CLAUDE_SONNET,
+                "anthropic",
+                cost_in=1.0,
+                cost_out=5.0,
+                quality=0.99,
+                trust=0.01,  # super degraded
                 task_types={TaskType.CODE_GEN: 0},
             ),
             Model.GPT_4O: _make_profile(
-                Model.GPT_4O, "openai",
-                cost_in=1.0, cost_out=5.0,
-                quality=0.80, trust=1.0,
+                Model.GPT_4O,
+                "openai",
+                cost_in=1.0,
+                cost_out=5.0,
+                quality=0.80,
+                trust=1.0,
                 task_types={TaskType.CODE_GEN: 1},
             ),
         }
@@ -195,14 +221,17 @@ class TestScoring:
 # TC-4  replan()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestReplan:
     """TC-4a/b: Fallback after failure."""
 
     def test_tc4a_replan_returns_different_model(self):
         """TC-4a: replan() returns a model different from the failed one."""
         profiles = {
-            Model.GPT_4O:       _make_profile(Model.GPT_4O,       "openai",    task_types={TaskType.CODE_GEN: 0}),
-            Model.CLAUDE_SONNET:_make_profile(Model.CLAUDE_SONNET, "anthropic", task_types={TaskType.CODE_GEN: 1}),
+            Model.GPT_4O: _make_profile(Model.GPT_4O, "openai", task_types={TaskType.CODE_GEN: 0}),
+            Model.CLAUDE_SONNET: _make_profile(
+                Model.CLAUDE_SONNET, "anthropic", task_types={TaskType.CODE_GEN: 1}
+            ),
         }
         planner = _make_planner(profiles)
         result = planner.replan(
@@ -233,6 +262,7 @@ class TestReplan:
 # TC-5  PolicyEngine
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestPolicyEngine:
     """TC-5a/b/c: PolicyViolationError, violations list, impossible policy."""
 
@@ -250,7 +280,8 @@ class TestPolicyEngine:
         """TC-5b: PolicyEngine.check() returns PolicyCheckResult with violations list."""
         engine = PolicyEngine()
         profile = _make_profile(
-            Model.GPT_4O, "openai",
+            Model.GPT_4O,
+            "openai",
             region="us",
             tags=[],  # no compliance tags
         )
@@ -270,9 +301,9 @@ class TestPolicyEngine:
     def test_tc5c_impossible_policy_returns_none(self):
         """TC-5c: When all providers are blocked, select_model() returns None."""
         profiles = {
-            Model.GPT_4O:       _make_profile(Model.GPT_4O,       "openai"),
-            Model.CLAUDE_SONNET:_make_profile(Model.CLAUDE_SONNET, "anthropic"),
-            Model.GEMINI_PRO:   _make_profile(Model.GEMINI_PRO,   "google"),
+            Model.GPT_4O: _make_profile(Model.GPT_4O, "openai"),
+            Model.CLAUDE_SONNET: _make_profile(Model.CLAUDE_SONNET, "anthropic"),
+            Model.GEMINI_PRO: _make_profile(Model.GEMINI_PRO, "google"),
         }
         policy = Policy(
             name="block_all",
@@ -287,6 +318,7 @@ class TestPolicyEngine:
 # TC-6  Trust factor dynamics
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestTrustFactor:
     """TC-6a/b: Degradation and recovery."""
 
@@ -297,7 +329,7 @@ class TestTrustFactor:
         for _ in range(10):
             telemetry.record_call(Model.GPT_4O, 1000.0, 0.01, success=False)
         trust = profiles[Model.GPT_4O].trust_factor
-        expected = 1.0 * (0.95 ** 10)
+        expected = 1.0 * (0.95**10)
         assert abs(trust - expected) < 1e-6, f"Expected {expected:.6f}, got {trust:.6f}"
 
     def test_tc6b_trust_recovers_and_never_exceeds_cap(self):
@@ -323,15 +355,22 @@ class TestTrustFactor:
 # TC-7  select_reviewer()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSelectReviewer:
     """TC-7a/b: Cross-provider preference, same-provider fallback."""
 
     def test_tc7a_prefers_cross_provider_reviewer(self):
         """TC-7a: select_reviewer() returns a model from a different provider."""
         profiles = {
-            Model.GPT_4O:       _make_profile(Model.GPT_4O,       "openai",    task_types={TaskType.CODE_REVIEW: 0}),
-            Model.CLAUDE_SONNET:_make_profile(Model.CLAUDE_SONNET, "anthropic", task_types={TaskType.CODE_REVIEW: 1}),
-            Model.GEMINI_PRO:   _make_profile(Model.GEMINI_PRO,   "google",    task_types={TaskType.CODE_REVIEW: 2}),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", task_types={TaskType.CODE_REVIEW: 0}
+            ),
+            Model.CLAUDE_SONNET: _make_profile(
+                Model.CLAUDE_SONNET, "anthropic", task_types={TaskType.CODE_REVIEW: 1}
+            ),
+            Model.GEMINI_PRO: _make_profile(
+                Model.GEMINI_PRO, "google", task_types={TaskType.CODE_REVIEW: 2}
+            ),
         }
         planner = _make_planner(profiles)
         # Generator is GPT-4o (openai); reviewer should NOT be openai
@@ -344,14 +383,19 @@ class TestSelectReviewer:
         assert reviewer is not None
         assert reviewer != Model.GPT_4O
         from orchestrator.models import get_provider
+
         assert get_provider(reviewer) != "openai"
 
     def test_tc7b_falls_back_to_same_provider(self):
         """TC-7b: select_reviewer() falls back to same-provider when cross-provider unavailable."""
         # Only two openai models available for CODE_REVIEW
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O,      "openai", task_types={TaskType.CODE_REVIEW: 0}),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai", task_types={TaskType.CODE_REVIEW: 1}),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", task_types={TaskType.CODE_REVIEW: 0}
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", task_types={TaskType.CODE_REVIEW: 1}
+            ),
         }
         planner = _make_planner(profiles)
         reviewer = planner.select_reviewer(
@@ -367,6 +411,7 @@ class TestSelectReviewer:
 # ─────────────────────────────────────────────────────────────────────────────
 # TC-8  Quality EMA
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestQualityEMA:
     """TC-8a/b: Exponential Moving Average for quality_score."""
@@ -391,6 +436,7 @@ class TestQualityEMA:
 # ─────────────────────────────────────────────────────────────────────────────
 # TC-9  build_default_profiles()
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestBuildDefaultProfiles:
     """TC-9a/b/c: Profile factory correctness."""
@@ -422,9 +468,9 @@ class TestBuildDefaultProfiles:
             if model_list:
                 first_model = model_list[0]
                 profile = profiles[first_model]
-                assert task_type in profile.capable_task_types, (
-                    f"{first_model} should be capable of {task_type}"
-                )
+                assert (
+                    task_type in profile.capable_task_types
+                ), f"{first_model} should be capable of {task_type}"
                 assert profile.capable_task_types[task_type] == 0, (
                     f"{first_model} should have rank 0 for {task_type}, "
                     f"got {profile.capable_task_types[task_type]}"
@@ -434,6 +480,7 @@ class TestBuildDefaultProfiles:
 # ─────────────────────────────────────────────────────────────────────────────
 # TC-10  PolicySet.policies_for() merging
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestPolicySetMerging:
     """Verifies that global + node-level policies are correctly merged."""
@@ -463,14 +510,17 @@ class TestPolicySetMerging:
 # TC-11  ModelProfile.estimate_cost()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestModelProfileEstimateCost:
     """Verifies cost estimation arithmetic."""
 
     def test_cost_estimation_arithmetic(self):
         """estimate_cost(1000, 1000) with 1.0/1M in + 5.0/1M out = 0.000001 + 0.000005 = 0.000006."""
         profile = _make_profile(
-            Model.GPT_4O, "openai",
-            cost_in=1.0, cost_out=5.0,
+            Model.GPT_4O,
+            "openai",
+            cost_in=1.0,
+            cost_out=5.0,
         )
         cost = profile.estimate_cost(1_000_000, 1_000_000)
         # 1.0 + 5.0 = 6.0 USD for 1M/1M tokens
@@ -479,8 +529,10 @@ class TestModelProfileEstimateCost:
     def test_cost_estimation_fractional(self):
         """estimate_cost(800, 1200) as used for CODE_GEN typical tokens."""
         profile = _make_profile(
-            Model.CLAUDE_HAIKU, "anthropic",
-            cost_in=0.80, cost_out=4.0,
+            Model.CLAUDE_HAIKU,
+            "anthropic",
+            cost_in=0.80,
+            cost_out=4.0,
         )
         cost = profile.estimate_cost(800, 1200)
         expected = (800 * 0.80 + 1200 * 4.0) / 1_000_000
@@ -491,14 +543,19 @@ class TestModelProfileEstimateCost:
 # TC-12  Unhealthy models excluded
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestApiHealthFiltering:
     """Verifies that unhealthy models are excluded from selection."""
 
     def test_unhealthy_model_excluded(self):
         """An unhealthy model should never be selected."""
         profiles = {
-            Model.GPT_4O:       _make_profile(Model.GPT_4O,       "openai",    task_types={TaskType.CODE_GEN: 0}, quality=0.99),
-            Model.CLAUDE_SONNET:_make_profile(Model.CLAUDE_SONNET, "anthropic", task_types={TaskType.CODE_GEN: 1}, quality=0.80),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", task_types={TaskType.CODE_GEN: 0}, quality=0.99
+            ),
+            Model.CLAUDE_SONNET: _make_profile(
+                Model.CLAUDE_SONNET, "anthropic", task_types={TaskType.CODE_GEN: 1}, quality=0.80
+            ),
         }
         engine = PolicyEngine()
         # GPT-4o is unhealthy
@@ -523,6 +580,7 @@ class TestApiHealthFiltering:
 # TC-13  record_policy_violation()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestRecordPolicyViolation:
     """TC-13: trust_factor degrades on policy violation."""
 
@@ -545,6 +603,7 @@ class TestRecordPolicyViolation:
 # ─────────────────────────────────────────────────────────────────────────────
 # TC-14  pii_allowed and no_train compliance tags
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestComplianceTags:
     """Verifies PII and training consent tag checks."""
@@ -588,6 +647,7 @@ class TestComplianceTags:
 # TC-15  Latency SLA
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestLatencySLA:
     """Verifies latency constraint enforcement."""
 
@@ -611,8 +671,12 @@ class TestLatencySLA:
     def test_latency_sla_affects_model_selection(self):
         """In ConstraintPlanner, high-latency models are excluded when SLA policy active."""
         profiles = {
-            Model.GPT_4O:       _make_profile(Model.GPT_4O,       "openai",    latency=5000.0, task_types={TaskType.CODE_GEN: 0}),
-            Model.CLAUDE_SONNET:_make_profile(Model.CLAUDE_SONNET, "anthropic", latency=500.0,  task_types={TaskType.CODE_GEN: 1}),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", latency=5000.0, task_types={TaskType.CODE_GEN: 0}
+            ),
+            Model.CLAUDE_SONNET: _make_profile(
+                Model.CLAUDE_SONNET, "anthropic", latency=500.0, task_types={TaskType.CODE_GEN: 1}
+            ),
         }
         policy = Policy(name="fast_sla", max_latency_ms=1000.0)
         planner = _make_planner(profiles)
@@ -623,6 +687,7 @@ class TestLatencySLA:
 # ─────────────────────────────────────────────────────────────────────────────
 # TC-16  JobSpec
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestJobSpec:
     """Verifies JobSpec dataclass construction."""

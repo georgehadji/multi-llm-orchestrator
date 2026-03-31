@@ -2,8 +2,14 @@
 import asyncio
 import json
 from orchestrator.streaming import (
-    TaskStarted, TaskProgressUpdate, TaskCompleted, TaskFailed,
-    ProjectStarted, ProjectCompleted, BudgetWarning, ProjectEventBus,
+    TaskStarted,
+    TaskProgressUpdate,
+    TaskCompleted,
+    TaskFailed,
+    ProjectStarted,
+    ProjectCompleted,
+    BudgetWarning,
+    ProjectEventBus,
 )
 from orchestrator.models import Model, TaskStatus
 
@@ -23,8 +29,14 @@ def test_task_progress_update_fields():
 
 
 def test_task_completed_fields():
-    ev = TaskCompleted(task_id="t1", score=0.95, status=TaskStatus.COMPLETED,
-                       model="deepseek-chat", cost_usd=0.002, iterations=2)
+    ev = TaskCompleted(
+        task_id="t1",
+        score=0.95,
+        status=TaskStatus.COMPLETED,
+        model="deepseek-chat",
+        cost_usd=0.002,
+        iterations=2,
+    )
     assert ev.score == 0.95
     assert ev.status == TaskStatus.COMPLETED
 
@@ -87,13 +99,17 @@ def test_budget_warning_fields():
 
 def test_project_completed_fields():
     ev = ProjectCompleted(
-        project_id="proj-1", status="SUCCESS",
-        total_cost_usd=1.23, elapsed_seconds=300.0,
-        tasks_completed=4, tasks_failed=1,
+        project_id="proj-1",
+        status="SUCCESS",
+        total_cost_usd=1.23,
+        elapsed_seconds=300.0,
+        tasks_completed=4,
+        tasks_failed=1,
     )
     assert ev.project_id == "proj-1"
     assert ev.tasks_completed == 4
     assert ev.tasks_failed == 1
+
 
 def test_double_close_is_safe():
     """Calling close() twice should not enqueue a second sentinel."""
@@ -131,6 +147,7 @@ def test_publish_after_close_is_silent_noop():
 def test_event_bus_concurrent_subscribers():
     """Two subscribers drain concurrently -- both should receive all events."""
     import asyncio
+
     bus = ProjectEventBus()
     recv_a, recv_b = [], []
 
@@ -163,15 +180,22 @@ from orchestrator.models import TaskStatus
 def _make_mock_api_response(text: str):
     from orchestrator.api_clients import APIResponse
     from orchestrator.models import Model
-    return APIResponse(text=text, input_tokens=10, output_tokens=20,
-                       model=Model.DEEPSEEK_CHAT)
+
+    return APIResponse(text=text, input_tokens=10, output_tokens=20, model=Model.DEEPSEEK_CHAT)
 
 
 def test_run_project_streaming_yields_events():
-    decomp = json.dumps([{
-        "id": "task_001", "type": "code_generation",
-        "prompt": "Write hello world", "dependencies": [], "hard_validators": [],
-    }])
+    decomp = json.dumps(
+        [
+            {
+                "id": "task_001",
+                "type": "code_generation",
+                "prompt": "Write hello world",
+                "dependencies": [],
+                "hard_validators": [],
+            }
+        ]
+    )
     gen_resp = _make_mock_api_response("def hello():\n    return 'Hello'")
     eval_resp = _make_mock_api_response('{"score": 0.9, "critique": "Good."}')
     decomp_resp = _make_mock_api_response(decomp)
@@ -179,6 +203,7 @@ def test_run_project_streaming_yields_events():
     orch = Orchestrator(budget=Budget(max_usd=1.0))
     # Mark all models healthy so routing doesn't short-circuit
     from orchestrator.models import Model as _Model
+
     for _m in _Model:
         orch.api_health[_m] = True
 

@@ -2,6 +2,7 @@
 Tests for AppVerifier — local and Docker verification (Task 6).
 ALL subprocess and Docker calls are mocked — no real processes spawned.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,10 +13,10 @@ import pytest
 from orchestrator.app_detector import AppProfile
 from orchestrator.app_verifier import AppVerifier, VerifyReport
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # VerifyReport — dataclass
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_verify_report_fields():
     report = VerifyReport(
@@ -53,9 +54,12 @@ def test_verify_report_success_property_false_if_tests_fail():
 # AppVerifier.verify_local — mocked subprocess
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_verify_local_all_pass(tmp_path):
     """verify_local() must return VerifyReport with all local flags True when subprocess succeeds."""
-    profile = AppProfile(app_type="fastapi", test_command="pytest", run_command="uvicorn src.main:app")
+    profile = AppProfile(
+        app_type="fastapi", test_command="pytest", run_command="uvicorn src.main:app"
+    )
     (tmp_path / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
 
     mock_result = MagicMock()
@@ -67,8 +71,10 @@ def test_verify_local_all_pass(tmp_path):
     mock_proc.poll.return_value = None  # still running = startup ok
 
     verifier = AppVerifier()
-    with patch("subprocess.run", return_value=mock_result) as mock_run, \
-         patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
+    with (
+        patch("subprocess.run", return_value=mock_result) as mock_run,
+        patch("subprocess.Popen", return_value=mock_proc) as mock_popen,
+    ):
         report = verifier.verify_local(tmp_path, profile)
 
     assert report.local_install_ok is True
@@ -127,8 +133,7 @@ def test_verify_local_no_run_command_skips_startup(tmp_path):
     mock_result.stderr = ""
 
     verifier = AppVerifier()
-    with patch("subprocess.run", return_value=mock_result), \
-         patch("subprocess.Popen") as mock_popen:
+    with patch("subprocess.run", return_value=mock_result), patch("subprocess.Popen") as mock_popen:
         report = verifier.verify_local(tmp_path, profile)
 
     mock_popen.assert_not_called()
@@ -137,7 +142,9 @@ def test_verify_local_no_run_command_skips_startup(tmp_path):
 
 def test_verify_local_startup_fails_when_process_exits_immediately(tmp_path):
     """If the app process exits immediately (poll() returns non-None), startup_ok must be False."""
-    profile = AppProfile(app_type="fastapi", test_command="pytest", run_command="uvicorn src.main:app")
+    profile = AppProfile(
+        app_type="fastapi", test_command="pytest", run_command="uvicorn src.main:app"
+    )
 
     mock_result = MagicMock()
     mock_result.returncode = 0
@@ -150,9 +157,11 @@ def test_verify_local_startup_fails_when_process_exits_immediately(tmp_path):
     mock_proc.returncode = 1
 
     verifier = AppVerifier()
-    with patch("subprocess.run", return_value=mock_result), \
-         patch("subprocess.Popen", return_value=mock_proc), \
-         patch("time.sleep"):  # skip the 0.5s sleep
+    with (
+        patch("subprocess.run", return_value=mock_result),
+        patch("subprocess.Popen", return_value=mock_proc),
+        patch("time.sleep"),
+    ):  # skip the 0.5s sleep
         report = verifier.verify_local(tmp_path, profile)
 
     assert report.startup_ok is False
@@ -162,6 +171,7 @@ def test_verify_local_startup_fails_when_process_exits_immediately(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # AppVerifier.verify_docker — mocked Docker
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_verify_docker_skipped_when_docker_unavailable(tmp_path):
     """If 'docker info' fails, docker checks must be skipped gracefully."""
@@ -182,7 +192,9 @@ def test_verify_docker_skipped_when_docker_unavailable(tmp_path):
 
 def test_verify_docker_build_and_run_success(tmp_path):
     """If docker is available and build+run succeed, both docker flags must be True."""
-    profile = AppProfile(app_type="fastapi", requires_docker=True, run_command="uvicorn src.main:app")
+    profile = AppProfile(
+        app_type="fastapi", requires_docker=True, run_command="uvicorn src.main:app"
+    )
 
     mock_ok = MagicMock()
     mock_ok.returncode = 0
@@ -202,6 +214,7 @@ def test_verify_docker_build_fails(tmp_path):
     profile = AppProfile(app_type="fastapi", requires_docker=True)
 
     call_count = [0]
+
     def side_effect(cmd, **kwargs):
         r = MagicMock()
         call_count[0] += 1
@@ -228,8 +241,10 @@ def test_verify_returns_verify_report_instance(tmp_path):
     mock_ok.stderr = ""
 
     verifier = AppVerifier()
-    with patch("subprocess.run", return_value=mock_ok), \
-         patch("subprocess.Popen", return_value=MagicMock(poll=MagicMock(return_value=None))):
+    with (
+        patch("subprocess.run", return_value=mock_ok),
+        patch("subprocess.Popen", return_value=MagicMock(poll=MagicMock(return_value=None))),
+    ):
         local_report = verifier.verify_local(tmp_path, profile)
         docker_report = verifier.verify_docker(tmp_path, profile)
 

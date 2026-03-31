@@ -13,19 +13,22 @@ Pipeline:
 
 Returns AppBuildResult.
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from orchestrator.app_assembler import AppAssembler, AssemblyReport
-from orchestrator.architecture_advisor import ArchitectureAdvisor, ArchitectureDecision
-from orchestrator.app_detector import AppProfile  # type alias kept for compat
 from orchestrator.app_verifier import AppVerifier, VerifyReport
+from orchestrator.architecture_advisor import ArchitectureAdvisor
 from orchestrator.dep_resolver import DependencyResolver, ResolveReport
 from orchestrator.scaffold import ScaffoldEngine
+
+if TYPE_CHECKING:
+    from orchestrator.app_detector import AppProfile
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +39,13 @@ class AppBuildResult:
 
     success: bool = False
     output_dir: str = ""
-    profile: Optional[AppProfile] = None
-    assembly: Optional[AssemblyReport] = None
-    dependencies: Optional[ResolveReport] = None
-    local_verify: Optional[VerifyReport] = None
-    docker_verify: Optional[VerifyReport] = None
+    profile: AppProfile | None = None
+    assembly: AssemblyReport | None = None
+    dependencies: ResolveReport | None = None
+    local_verify: VerifyReport | None = None
+    docker_verify: VerifyReport | None = None
     errors: list[str] = field(default_factory=list)
-    state: Optional["ProjectState"] = None  # Raw orchestrator state for task file output
+    state: ProjectState | None = None  # Raw orchestrator state for task file output
 
 
 class AppBuilder:
@@ -72,7 +75,7 @@ class AppBuilder:
         description: str,
         criteria: str,
         output_dir: Path,
-        app_type_override: Optional[str] = None,
+        app_type_override: str | None = None,
         docker: bool = False,
     ) -> AppBuildResult:
         """
@@ -109,9 +112,7 @@ class AppBuilder:
 
             # -- Step 3: Run orchestrator to generate code --
             logger.info("AppBuilder: running orchestrator...")
-            project_state = await self._run_orchestrator(
-                description, criteria, output_dir, profile
-            )
+            project_state = await self._run_orchestrator(description, criteria, output_dir, profile)
 
             # -- Step 4: Assemble --
             logger.info("AppBuilder: assembling...")

@@ -10,17 +10,20 @@ Detection logic:
 FIX: _call_llm() is now wired to UnifiedClient using the cheapest available model
      (gemini-flash or gpt-4o-mini) for a single low-cost classification call.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
 # Supported app types
-AppType = Literal["fastapi", "flask", "cli", "library", "script", "react-fastapi", "nextjs", "generic"]
+AppType = Literal[
+    "fastapi", "flask", "cli", "library", "script", "react-fastapi", "nextjs", "generic"
+]
 
 # Per-type defaults used by detect_from_yaml and as fallback after LLM parse
 _TYPE_DEFAULTS: dict[str, dict] = {
@@ -139,6 +142,7 @@ class AppDetector:
         if self._client is None:
             from .api_clients import UnifiedClient
             from .cache import DiskCache
+
             self._client = UnifiedClient(cache=DiskCache(), max_concurrency=1)
         return self._client
 
@@ -162,7 +166,7 @@ class AppDetector:
     async def detect(
         self,
         description: str,
-        app_type_override: Optional[str] = None,
+        app_type_override: str | None = None,
     ) -> AppProfile:
         """
         Detect the app type from a description.
@@ -190,7 +194,8 @@ class AppDetector:
         The response must be a JSON object matching the detection schema.
         Isolated into its own method so tests can patch it cleanly.
         """
-        from .models import Model, ROUTING_TABLE, TaskType
+        from .models import Model
+
         client = self._get_client()
 
         # Pick cheapest available model — detection is a simple classification task
@@ -222,9 +227,7 @@ class AppDetector:
             timeout=30,
             retries=1,
         )
-        logger.debug(
-            "AppDetector: used %s for detection (cost $%.6f)", model.value, resp.cost_usd
-        )
+        logger.debug("AppDetector: used %s for detection (cost $%.6f)", model.value, resp.cost_usd)
         return resp.text
 
     def _parse_llm_response(self, raw: str) -> AppProfile:
@@ -240,8 +243,7 @@ class AppDetector:
             lines = text.splitlines()
             # Remove opening fence (```json, ```, etc.) and closing fence (```)
             content_lines = [
-                line for i, line in enumerate(lines)
-                if i > 0 and not (line.strip() == "```")
+                line for i, line in enumerate(lines) if i > 0 and line.strip() != "```"
             ]
             text = "\n".join(content_lines).strip()
 
@@ -269,4 +271,5 @@ class AppDetector:
 # AppProfile is now a type alias for ArchitectureDecision.
 # All existing code importing AppProfile continues to work unchanged.
 from .architecture_advisor import ArchitectureDecision  # noqa: E402
+
 AppProfile = ArchitectureDecision

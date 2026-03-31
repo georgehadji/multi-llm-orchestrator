@@ -15,10 +15,10 @@ Usage:
     from orchestrator.optimization import TokenBudget, OptimizationPhase
 
     budget = TokenBudget()
-    
+
     # Get phase-specific limit
     max_tokens = budget.get_limit(OptimizationPhase.GENERATION)
-    
+
     # Enforce in API call
     response = await client.call(
         model="claude-sonnet-4.6",
@@ -29,11 +29,11 @@ Usage:
 
 from __future__ import annotations
 
-import logging
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
+
 from . import OptimizationPhase
 
 logger = get_logger(__name__)
@@ -42,6 +42,7 @@ logger = get_logger(__name__)
 @dataclass
 class TokenUsage:
     """Token usage tracking."""
+
     input_tokens: int = 0
     output_tokens: int = 0
     input_cost: float = 0.0
@@ -64,6 +65,7 @@ class TokenUsage:
 @dataclass
 class TokenBudgetMetrics:
     """Metrics for token budget enforcement."""
+
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     total_input_cost: float = 0.0
@@ -72,7 +74,7 @@ class TokenBudgetMetrics:
     estimated_savings: float = 0.0
     limit_enforced_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for telemetry."""
         return {
             "total_input_tokens": self.total_input_tokens,
@@ -96,12 +98,12 @@ class TokenBudget:
     # Phase-specific output token limits
     # Based on typical output requirements
     DEFAULT_LIMITS = {
-        OptimizationPhase.DECOMPOSITION: 2000,      # Task list, structured JSON
-        OptimizationPhase.GENERATION: 4000,          # Code output
-        OptimizationPhase.CRITIQUE: 800,             # Score + brief reasoning
-        OptimizationPhase.EVALUATION: 500,           # Score only
-        OptimizationPhase.PROMPT_ENHANCEMENT: 500,   # Enhanced prompt text
-        OptimizationPhase.CONDENSING: 1000,          # Summary
+        OptimizationPhase.DECOMPOSITION: 2000,  # Task list, structured JSON
+        OptimizationPhase.GENERATION: 4000,  # Code output
+        OptimizationPhase.CRITIQUE: 800,  # Score + brief reasoning
+        OptimizationPhase.EVALUATION: 500,  # Score only
+        OptimizationPhase.PROMPT_ENHANCEMENT: 500,  # Enhanced prompt text
+        OptimizationPhase.CONDENSING: 1000,  # Summary
     }
 
     # Cost per 1K tokens (USD) - approximate
@@ -126,7 +128,7 @@ class TokenBudget:
         },
     }
 
-    def __init__(self, custom_limits: Optional[Dict[OptimizationPhase, int]] = None):
+    def __init__(self, custom_limits: dict[OptimizationPhase, int] | None = None):
         """
         Initialize token budget.
 
@@ -135,7 +137,7 @@ class TokenBudget:
         """
         self.metrics = TokenBudgetMetrics()
         self._limits = {**self.DEFAULT_LIMITS, **(custom_limits or {})}
-        self._usage: Dict[str, TokenUsage] = {}
+        self._usage: dict[str, TokenUsage] = {}
 
     def get_limit(self, phase: OptimizationPhase) -> int:
         """
@@ -216,8 +218,8 @@ class TokenBudget:
         model: str,
         prompt: str,
         phase: OptimizationPhase,
-        estimated_output: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        estimated_output: int | None = None,
+    ) -> dict[str, Any]:
         """
         Enforce token limit and return API parameters.
 
@@ -287,7 +289,7 @@ class TokenBudget:
 
         return (tokens / 1000) * cost_per_1k
 
-    def get_usage(self, model: Optional[str] = None) -> Dict[str, Any]:
+    def get_usage(self, model: str | None = None) -> dict[str, Any]:
         """
         Get token usage statistics.
 
@@ -331,7 +333,7 @@ class TokenBudget:
             },
         }
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get comprehensive token budget metrics.
 
@@ -350,6 +352,7 @@ class TokenBudget:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 def get_token_limit(phase: str) -> int:
     """

@@ -13,6 +13,7 @@ verify_docker():
   3. docker build
   4. docker run (with --rm and timeout)
 """
+
 from __future__ import annotations
 
 import json
@@ -22,8 +23,10 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from orchestrator.app_detector import AppProfile
+if TYPE_CHECKING:
+    from orchestrator.app_detector import AppProfile
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +39,7 @@ class VerifyReport:
 
     local_install_ok: bool = False
     tests_passed: bool = False
-    startup_ok: bool = True   # default True; only set False if startup actually fails
+    startup_ok: bool = True  # default True; only set False if startup actually fails
     docker_build_ok: bool = False
     docker_run_ok: bool = False
     errors: list[str] = field(default_factory=list)
@@ -123,10 +126,7 @@ class AppVerifier:
                 report.local_install_ok = True
 
         # ── Step 2: Run tests ──────────────────────────────────────────────────
-        if is_js:
-            test_cmd = "npm test -- --passWithNoTests"
-        else:
-            test_cmd = profile.test_command or "pytest"
+        test_cmd = "npm test -- --passWithNoTests" if is_js else profile.test_command or "pytest"
         test_parts = test_cmd.split()
         result = subprocess.run(
             test_parts,
@@ -215,9 +215,7 @@ class AppVerifier:
             text=True,
         )
         if docker_info.returncode != 0:
-            report.errors.append(
-                f"Docker not available: {docker_info.stderr[:100]}"
-            )
+            report.errors.append(f"Docker not available: {docker_info.stderr[:100]}")
             logger.warning("Docker not available — skipping Docker verification")
             return report
 
@@ -269,7 +267,7 @@ class AppVerifier:
             "COPY requirements.txt* ./\n"
             "RUN pip install --no-cache-dir -r requirements.txt || true\n"
             "COPY . .\n"
-            f'CMD {json.dumps(run_cmd.split())}\n'
+            f"CMD {json.dumps(run_cmd.split())}\n"
         )
         (output_dir / "Dockerfile").write_text(dockerfile_content, encoding="utf-8")
         logger.debug("Generated Dockerfile")

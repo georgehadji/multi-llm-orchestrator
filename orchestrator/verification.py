@@ -15,6 +15,7 @@ Usage:
     verifier = REPLVerifier(level=VerificationLevel.SYNTAX)
     result = verifier.verify("print('hello')")
 """
+
 from __future__ import annotations
 
 import ast
@@ -189,7 +190,9 @@ def self_healing_loop(
     last_result: VerificationResult | None = None
     for attempt in range(1, max_attempts + 1):
         result = verifier.verify(code)
-        logger.debug("self_healing_loop attempt %d/%d: passed=%s", attempt, max_attempts, result.passed)
+        logger.debug(
+            "self_healing_loop attempt %d/%d: passed=%s", attempt, max_attempts, result.passed
+        )
         if result.passed:
             return code, result
         last_result = result

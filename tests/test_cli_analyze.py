@@ -16,7 +16,7 @@ class TestCLIAnalyzeCommand:
             (root / "main.py").write_text("# python")
 
             runner = CliRunner()
-            result = runner.invoke(cli, ['--analyze-codebase', str(root)])
+            result = runner.invoke(cli, ["--analyze-codebase", str(root)])
 
             assert result.exit_code == 0
             assert "CodebaseProfile" in result.output or "Purpose" in result.output

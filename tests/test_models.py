@@ -2,6 +2,7 @@
 Unit tests for orchestrator/models.py (and orchestrator/budget.py).
 Replaces the old standalone verification script with proper pytest tests.
 """
+
 import asyncio
 import pytest
 
@@ -15,10 +16,10 @@ from orchestrator.models import (
 )
 from orchestrator.budget import Budget
 
-
 # ─────────────────────────────────────────────────────────────────
 # TestModelEnum
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestModelEnum:
     def test_no_duplicate_values(self):
@@ -26,9 +27,9 @@ class TestModelEnum:
         values = [m.value for m in Model]
         # Python Enum silently creates aliases for duplicate values;
         # list(Model) deduplicates them, so check the raw _value2member_map_ size.
-        assert len(values) == len(set(values)), (
-            "Duplicate Model enum values detected — check for accidental aliases"
-        )
+        assert len(values) == len(
+            set(values)
+        ), "Duplicate Model enum values detected — check for accidental aliases"
 
     def test_tasktype_no_duplicate_values(self):
         values = [t.value for t in TaskType]
@@ -47,6 +48,7 @@ class TestModelEnum:
 # ─────────────────────────────────────────────────────────────────
 # TestCostTable
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestCostTable:
     def test_all_models_have_cost_entry(self):
@@ -68,6 +70,7 @@ class TestCostTable:
 # TestGetProvider
 # ─────────────────────────────────────────────────────────────────
 
+
 class TestGetProvider:
     def test_returns_string_for_all_models(self):
         for m in Model:
@@ -82,6 +85,7 @@ class TestGetProvider:
 # ─────────────────────────────────────────────────────────────────
 # TestEstimateCost
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestEstimateCost:
     def test_zero_tokens_returns_zero_cost(self):
@@ -102,6 +106,7 @@ class TestEstimateCost:
 # TestRoutingTable
 # ─────────────────────────────────────────────────────────────────
 
+
 class TestRoutingTable:
     def test_all_task_types_covered(self):
         for task_type in TaskType:
@@ -111,9 +116,9 @@ class TestRoutingTable:
         valid_models = set(Model)
         for task_type, models in ROUTING_TABLE.items():
             for m in models:
-                assert m in valid_models, (
-                    f"ROUTING_TABLE[{task_type}] references unknown model {m!r}"
-                )
+                assert (
+                    m in valid_models
+                ), f"ROUTING_TABLE[{task_type}] references unknown model {m!r}"
 
     def test_each_task_type_has_at_least_one_model(self):
         for task_type, models in ROUTING_TABLE.items():
@@ -123,6 +128,7 @@ class TestRoutingTable:
 # ─────────────────────────────────────────────────────────────────
 # TestBudgetArithmetic
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestBudgetArithmetic:
     def test_initial_remaining_equals_max(self):

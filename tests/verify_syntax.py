@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Verify Python syntax without executing."""
+
 import py_compile
 import sys
 
 files_to_check = [
-    r'E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator\frontend_rules.py',
+    r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator\frontend_rules.py",
 ]
 
 all_ok = True

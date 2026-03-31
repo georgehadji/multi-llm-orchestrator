@@ -15,13 +15,13 @@ Features:
 
 USAGE:
     from orchestrator.deployment_service import DeploymentService, DeploymentTarget
-    
+
     service = DeploymentService()
-    
+
     # Deploy to Vercel
     result = await service.deploy(project, DeploymentTarget.VERCEL)
     print(f"Deployed to: {result.url}")
-    
+
     # Check status
     status = await service.get_status(result.deployment_id)
 """
@@ -35,8 +35,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Optional, Dict, List, Any
+from typing import Any
 
 logger = logging.getLogger("orchestrator.deployment_service")
 
@@ -45,8 +44,10 @@ logger = logging.getLogger("orchestrator.deployment_service")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class DeploymentTarget(str, Enum):
     """Deployment targets."""
+
     VERCEL = "vercel"
     NETLIFY = "netlify"
     DOCKER = "docker"
@@ -55,6 +56,7 @@ class DeploymentTarget(str, Enum):
 
 class DeploymentStatus(str, Enum):
     """Deployment status."""
+
     PENDING = "pending"
     BUILDING = "building"
     DEPLOYING = "deploying"
@@ -67,18 +69,20 @@ class DeploymentStatus(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class DeploymentResult:
     """Deployment result."""
+
     success: bool
     target: DeploymentTarget
-    url: Optional[str] = None
+    url: str | None = None
     build_log: str = ""
-    error: Optional[str] = None
+    error: str | None = None
     deployment_id: str = ""
     status: DeploymentStatus = DeploymentStatus.PENDING
     duration_ms: float = 0.0
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -96,28 +100,29 @@ class DeploymentResult:
 @dataclass
 class DeploymentConfig:
     """Deployment configuration."""
+
     target: DeploymentTarget
     project_path: str
     environment: str = "production"  # production, staging, development
-    env_vars: Dict[str, str] = field(default_factory=dict)
-    build_command: Optional[str] = None
-    output_directory: Optional[str] = None
-    custom_domain: Optional[str] = None
-    
+    env_vars: dict[str, str] = field(default_factory=dict)
+    build_command: str | None = None
+    output_directory: str | None = None
+    custom_domain: str | None = None
+
     # Vercel-specific
-    vercel_token: Optional[str] = None
-    vercel_org_id: Optional[str] = None
-    vercel_project_id: Optional[str] = None
-    
+    vercel_token: str | None = None
+    vercel_org_id: str | None = None
+    vercel_project_id: str | None = None
+
     # Netlify-specific
-    netlify_token: Optional[str] = None
-    netlify_site_id: Optional[str] = None
-    
+    netlify_token: str | None = None
+    netlify_site_id: str | None = None
+
     # Docker-specific
     docker_registry: str = "docker.io"
-    docker_image_name: Optional[str] = None
+    docker_image_name: str | None = None
     docker_tag: str = "latest"
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -135,25 +140,26 @@ class DeploymentConfig:
 # Deployment Providers
 # ─────────────────────────────────────────────
 
+
 class DeploymentProvider(ABC):
     """Deployment provider interface."""
-    
+
     @property
     @abstractmethod
     def target(self) -> DeploymentTarget:
         """Get deployment target."""
         pass
-    
+
     @abstractmethod
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Deploy project."""
         pass
-    
+
     @abstractmethod
     async def get_status(self, deployment_id: str) -> DeploymentStatus:
         """Get deployment status."""
         pass
-    
+
     @abstractmethod
     async def rollback(self, deployment_id: str) -> DeploymentResult:
         """Rollback deployment."""
@@ -162,16 +168,17 @@ class DeploymentProvider(ABC):
 
 class VercelProvider(DeploymentProvider):
     """Vercel deployment provider."""
-    
+
     @property
     def target(self) -> DeploymentTarget:
         return DeploymentTarget.VERCEL
-    
+
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Deploy to Vercel."""
         import time
+
         start_time = time.time()
-        
+
         try:
             # Check for Vercel CLI
             if not self._vercel_cli_installed():
@@ -180,47 +187,47 @@ class VercelProvider(DeploymentProvider):
                     target=self.target,
                     error="Vercel CLI not installed. Run: npm install -g vercel",
                 )
-            
+
             # Get token from config or environment
             token = config.vercel_token or os.environ.get("VERCEL_TOKEN")
-            
+
             if not token:
                 return DeploymentResult(
                     success=False,
                     target=self.target,
                     error="Vercel token not provided. Set VERCEL_TOKEN env var or pass vercel_token.",
                 )
-            
+
             # Run Vercel deployment
             build_log = []
-            
+
             # Login
             login_result = await self._run_command(
                 ["npx", "vercel", "login", "--token", token],
                 cwd=config.project_path,
             )
             build_log.append(login_result["output"])
-            
+
             # Deploy
             deploy_cmd = ["npx", "vercel", "--prod", "--token", token]
-            
+
             if config.vercel_org_id:
                 deploy_cmd.extend(["--org", config.vercel_org_id])
-            
+
             if config.custom_domain:
                 deploy_cmd.extend(["--name", config.custom_domain])
-            
+
             deploy_result = await self._run_command(
                 deploy_cmd,
                 cwd=config.project_path,
             )
             build_log.append(deploy_result["output"])
-            
+
             # Extract deployment URL from output
             url = self._extract_vercel_url(deploy_result["output"])
-            
+
             duration_ms = (time.time() - start_time) * 1000
-            
+
             return DeploymentResult(
                 success=True,
                 target=self.target,
@@ -230,7 +237,7 @@ class VercelProvider(DeploymentProvider):
                 status=DeploymentStatus.SUCCESS,
                 duration_ms=duration_ms,
             )
-            
+
         except Exception as e:
             logger.error(f"Vercel deployment failed: {e}")
             return DeploymentResult(
@@ -240,12 +247,12 @@ class VercelProvider(DeploymentProvider):
                 status=DeploymentStatus.FAILED,
                 duration_ms=(time.time() - start_time) * 1000,
             )
-    
+
     async def get_status(self, deployment_id: str) -> DeploymentStatus:
         """Get Vercel deployment status."""
         # Implementation would use Vercel API
         return DeploymentStatus.SUCCESS
-    
+
     async def rollback(self, deployment_id: str) -> DeploymentResult:
         """Rollback Vercel deployment."""
         # Implementation would use Vercel API
@@ -254,7 +261,7 @@ class VercelProvider(DeploymentProvider):
             target=self.target,
             error="Rollback not implemented for Vercel",
         )
-    
+
     def _vercel_cli_installed(self) -> bool:
         """Check if Vercel CLI is installed."""
         try:
@@ -266,20 +273,21 @@ class VercelProvider(DeploymentProvider):
             return True
         except Exception:
             return False
-    
-    def _extract_vercel_url(self, output: str) -> Optional[str]:
+
+    def _extract_vercel_url(self, output: str) -> str | None:
         """Extract deployment URL from Vercel output."""
         import re
-        match = re.search(r'https://[^\s]+\.vercel\.app', output)
+
+        match = re.search(r"https://[^\s]+\.vercel\.app", output)
         if match:
             return match.group(0)
         return None
-    
+
     async def _run_command(
         self,
-        cmd: List[str],
+        cmd: list[str],
         cwd: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run command and return result."""
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -287,9 +295,9 @@ class VercelProvider(DeploymentProvider):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        
+
         stdout, stderr = await process.communicate()
-        
+
         return {
             "returncode": process.returncode,
             "output": stdout.decode(),
@@ -299,16 +307,17 @@ class VercelProvider(DeploymentProvider):
 
 class NetlifyProvider(DeploymentProvider):
     """Netlify deployment provider."""
-    
+
     @property
     def target(self) -> DeploymentTarget:
         return DeploymentTarget.NETLIFY
-    
+
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Deploy to Netlify."""
         import time
+
         start_time = time.time()
-        
+
         try:
             # Check for Netlify CLI
             if not self._netlify_cli_installed():
@@ -317,49 +326,49 @@ class NetlifyProvider(DeploymentProvider):
                     target=self.target,
                     error="Netlify CLI not installed. Run: npm install -g netlify-cli",
                 )
-            
+
             # Get token from config or environment
             token = config.netlify_token or os.environ.get("NETLIFY_TOKEN")
-            
+
             if not token:
                 return DeploymentResult(
                     success=False,
                     target=self.target,
                     error="Netlify token not provided. Set NETLIFY_TOKEN env var.",
                 )
-            
+
             build_log = []
-            
+
             # Login
             login_result = await self._run_command(
                 ["npx", "netlify", "login", "--access-token", token],
                 cwd=config.project_path,
             )
             build_log.append(login_result["output"])
-            
+
             # Deploy
             deploy_cmd = ["npx", "netlify", "deploy", "--prod"]
-            
+
             if config.netlify_site_id:
                 deploy_cmd.extend(["--site", config.netlify_site_id])
-            
+
             if config.build_command:
                 deploy_cmd.extend(["--build", config.build_command])
-            
+
             if config.output_directory:
                 deploy_cmd.extend(["--dir", config.output_directory])
-            
+
             deploy_result = await self._run_command(
                 deploy_cmd,
                 cwd=config.project_path,
             )
             build_log.append(deploy_result["output"])
-            
+
             # Extract deployment URL
             url = self._extract_netlify_url(deploy_result["output"])
-            
+
             duration_ms = (time.time() - start_time) * 1000
-            
+
             return DeploymentResult(
                 success=True,
                 target=self.target,
@@ -369,7 +378,7 @@ class NetlifyProvider(DeploymentProvider):
                 status=DeploymentStatus.SUCCESS,
                 duration_ms=duration_ms,
             )
-            
+
         except Exception as e:
             logger.error(f"Netlify deployment failed: {e}")
             return DeploymentResult(
@@ -379,11 +388,11 @@ class NetlifyProvider(DeploymentProvider):
                 status=DeploymentStatus.FAILED,
                 duration_ms=(time.time() - start_time) * 1000,
             )
-    
+
     async def get_status(self, deployment_id: str) -> DeploymentStatus:
         """Get Netlify deployment status."""
         return DeploymentStatus.SUCCESS
-    
+
     async def rollback(self, deployment_id: str) -> DeploymentResult:
         """Rollback Netlify deployment."""
         return DeploymentResult(
@@ -391,7 +400,7 @@ class NetlifyProvider(DeploymentProvider):
             target=self.target,
             error="Rollback not implemented for Netlify",
         )
-    
+
     def _netlify_cli_installed(self) -> bool:
         """Check if Netlify CLI is installed."""
         try:
@@ -403,20 +412,21 @@ class NetlifyProvider(DeploymentProvider):
             return True
         except Exception:
             return False
-    
-    def _extract_netlify_url(self, output: str) -> Optional[str]:
+
+    def _extract_netlify_url(self, output: str) -> str | None:
         """Extract deployment URL from Netlify output."""
         import re
-        match = re.search(r'https://[^\s]+\.netlify\.app', output)
+
+        match = re.search(r"https://[^\s]+\.netlify\.app", output)
         if match:
             return match.group(0)
         return None
-    
+
     async def _run_command(
         self,
-        cmd: List[str],
+        cmd: list[str],
         cwd: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run command and return result."""
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -424,9 +434,9 @@ class NetlifyProvider(DeploymentProvider):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        
+
         stdout, stderr = await process.communicate()
-        
+
         return {
             "returncode": process.returncode,
             "output": stdout.decode(),
@@ -436,16 +446,17 @@ class NetlifyProvider(DeploymentProvider):
 
 class DockerProvider(DeploymentProvider):
     """Docker deployment provider."""
-    
+
     @property
     def target(self) -> DeploymentTarget:
         return DeploymentTarget.DOCKER
-    
+
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Build and push Docker image."""
         import time
+
         start_time = time.time()
-        
+
         try:
             # Check for Docker
             if not self._docker_installed():
@@ -454,20 +465,20 @@ class DockerProvider(DeploymentProvider):
                     target=self.target,
                     error="Docker not installed",
                 )
-            
+
             build_log = []
-            
+
             # Build image name
             image_name = config.docker_image_name or "app"
             full_image = f"{config.docker_registry}/{image_name}:{config.docker_tag}"
-            
+
             # Build Docker image
             build_result = await self._run_command(
                 ["docker", "build", "-t", full_image, "."],
                 cwd=config.project_path,
             )
             build_log.append(build_result["output"])
-            
+
             if build_result["returncode"] != 0:
                 return DeploymentResult(
                     success=False,
@@ -477,16 +488,16 @@ class DockerProvider(DeploymentProvider):
                     status=DeploymentStatus.FAILED,
                     duration_ms=(time.time() - start_time) * 1000,
                 )
-            
+
             # Push to registry
             push_result = await self._run_command(
                 ["docker", "push", full_image],
                 cwd=config.project_path,
             )
             build_log.append(push_result["output"])
-            
+
             duration_ms = (time.time() - start_time) * 1000
-            
+
             return DeploymentResult(
                 success=True,
                 target=self.target,
@@ -496,7 +507,7 @@ class DockerProvider(DeploymentProvider):
                 status=DeploymentStatus.SUCCESS,
                 duration_ms=duration_ms,
             )
-            
+
         except Exception as e:
             logger.error(f"Docker deployment failed: {e}")
             return DeploymentResult(
@@ -506,11 +517,11 @@ class DockerProvider(DeploymentProvider):
                 status=DeploymentStatus.FAILED,
                 duration_ms=(time.time() - start_time) * 1000,
             )
-    
+
     async def get_status(self, deployment_id: str) -> DeploymentStatus:
         """Get Docker image status."""
         return DeploymentStatus.SUCCESS
-    
+
     async def rollback(self, deployment_id: str) -> DeploymentResult:
         """Rollback Docker deployment (pull previous tag)."""
         return DeploymentResult(
@@ -518,7 +529,7 @@ class DockerProvider(DeploymentProvider):
             target=self.target,
             error="Rollback not implemented for Docker",
         )
-    
+
     def _docker_installed(self) -> bool:
         """Check if Docker is installed."""
         try:
@@ -530,12 +541,12 @@ class DockerProvider(DeploymentProvider):
             return True
         except Exception:
             return False
-    
+
     async def _run_command(
         self,
-        cmd: List[str],
+        cmd: list[str],
         cwd: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run command and return result."""
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -543,9 +554,9 @@ class DockerProvider(DeploymentProvider):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        
+
         stdout, stderr = await process.communicate()
-        
+
         return {
             "returncode": process.returncode,
             "output": stdout.decode(),
@@ -555,18 +566,19 @@ class DockerProvider(DeploymentProvider):
 
 class LocalProvider(DeploymentProvider):
     """Local deployment provider (for testing)."""
-    
+
     @property
     def target(self) -> DeploymentTarget:
         return DeploymentTarget.LOCAL
-    
+
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Simulate local deployment."""
         import time
+
         start_time = time.time()
-        
+
         await asyncio.sleep(0.1)  # Simulate deployment time
-        
+
         return DeploymentResult(
             success=True,
             target=self.target,
@@ -576,11 +588,11 @@ class LocalProvider(DeploymentProvider):
             status=DeploymentStatus.SUCCESS,
             duration_ms=(time.time() - start_time) * 1000,
         )
-    
+
     async def get_status(self, deployment_id: str) -> DeploymentStatus:
         """Get local deployment status."""
         return DeploymentStatus.SUCCESS
-    
+
     async def rollback(self, deployment_id: str) -> DeploymentResult:
         """Rollback local deployment."""
         return DeploymentResult(
@@ -596,51 +608,52 @@ class LocalProvider(DeploymentProvider):
 # Deployment Service
 # ─────────────────────────────────────────────
 
+
 class DeploymentService:
     """
     Orchestrates deployments to multiple platforms.
-    
+
     Provides unified interface for deploying to Vercel, Netlify,
     Docker, and other platforms.
     """
-    
+
     def __init__(self):
-        self._providers: Dict[DeploymentTarget, DeploymentProvider] = {}
+        self._providers: dict[DeploymentTarget, DeploymentProvider] = {}
         self._register_builtin_providers()
-        
+
         # Statistics
         self._total_deployments = 0
         self._successful_deployments = 0
         self._failed_deployments = 0
-    
+
     def _register_builtin_providers(self):
         """Register built-in deployment providers."""
         self._providers[DeploymentTarget.VERCEL] = VercelProvider()
         self._providers[DeploymentTarget.NETLIFY] = NetlifyProvider()
         self._providers[DeploymentTarget.DOCKER] = DockerProvider()
         self._providers[DeploymentTarget.LOCAL] = LocalProvider()
-        
+
         logger.info(f"Registered {len(self._providers)} deployment providers")
-    
+
     def register_provider(self, provider: DeploymentProvider) -> None:
         """Register custom deployment provider."""
         self._providers[provider.target] = provider
         logger.info(f"Registered custom provider: {provider.target.value}")
-    
+
     async def deploy(
         self,
         project_path: str,
         target: DeploymentTarget,
-        config: Optional[dict] = None,
+        config: dict | None = None,
     ) -> DeploymentResult:
         """
         Deploy project to target platform.
-        
+
         Args:
             project_path: Path to project directory
             target: Deployment target
             config: Optional deployment configuration
-        
+
         Returns:
             Deployment result
         """
@@ -651,37 +664,37 @@ class DeploymentService:
                 target=target,
                 error=f"Unknown deployment target: {target.value}",
             )
-        
+
         # Build deployment config
         deploy_config = DeploymentConfig(
             target=target,
             project_path=project_path,
             **(config or {}),
         )
-        
+
         # Execute deployment
         self._total_deployments += 1
         result = await provider.deploy(deploy_config)
-        
+
         if result.success:
             self._successful_deployments += 1
         else:
             self._failed_deployments += 1
-        
+
         logger.info(
             f"Deployment to {target.value}: "
             f"{'success' if result.success else 'failed'} - {result.url or result.error}"
         )
-        
+
         return result
-    
+
     async def get_status(self, target: DeploymentTarget, deployment_id: str) -> DeploymentStatus:
         """Get deployment status."""
         provider = self._providers.get(target)
         if not provider:
             return DeploymentStatus.FAILED
         return await provider.get_status(deployment_id)
-    
+
     async def rollback(
         self,
         target: DeploymentTarget,
@@ -696,15 +709,15 @@ class DeploymentService:
                 error=f"Unknown deployment target: {target.value}",
             )
         return await provider.rollback(deployment_id)
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get deployment statistics."""
         success_rate = (
             self._successful_deployments / self._total_deployments * 100
             if self._total_deployments > 0
             else 0.0
         )
-        
+
         return {
             "total_deployments": self._total_deployments,
             "successful_deployments": self._successful_deployments,
@@ -718,7 +731,7 @@ class DeploymentService:
 # Convenience Functions
 # ─────────────────────────────────────────────
 
-_default_service: Optional[DeploymentService] = None
+_default_service: DeploymentService | None = None
 
 
 def get_deployment_service() -> DeploymentService:
@@ -735,14 +748,14 @@ def reset_deployment_service() -> None:
     _default_service = None
 
 
-async def deploy_to_vercel(project_path: str, token: Optional[str] = None) -> DeploymentResult:
+async def deploy_to_vercel(project_path: str, token: str | None = None) -> DeploymentResult:
     """Deploy to Vercel."""
     service = get_deployment_service()
     config = {"vercel_token": token} if token else {}
     return await service.deploy(project_path, DeploymentTarget.VERCEL, config)
 
 
-async def deploy_to_netlify(project_path: str, token: Optional[str] = None) -> DeploymentResult:
+async def deploy_to_netlify(project_path: str, token: str | None = None) -> DeploymentResult:
     """Deploy to Netlify."""
     service = get_deployment_service()
     config = {"netlify_token": token} if token else {}
@@ -751,7 +764,7 @@ async def deploy_to_netlify(project_path: str, token: Optional[str] = None) -> D
 
 async def deploy_to_docker(
     project_path: str,
-    image_name: Optional[str] = None,
+    image_name: str | None = None,
     tag: str = "latest",
 ) -> DeploymentResult:
     """Deploy to Docker."""

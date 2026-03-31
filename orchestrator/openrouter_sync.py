@@ -6,6 +6,7 @@ Description: Queries the OpenRouter /models endpoint and returns structured
 data compatible with the COST_TABLE format used in models.py.
 Intended to be run monthly (via cron, CI, or manually) to keep pricing current.
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,8 +47,7 @@ class OpenRouterSync:
             import aiohttp
         except ImportError as exc:
             raise ImportError(
-                "aiohttp is required for OpenRouterSync. "
-                "Install it with: pip install aiohttp"
+                "aiohttp is required for OpenRouterSync. " "Install it with: pip install aiohttp"
             ) from exc
 
         headers = {"Authorization": f"Bearer {self._api_key}"}

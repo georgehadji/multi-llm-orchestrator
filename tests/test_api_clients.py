@@ -2,6 +2,7 @@
 Unit tests for orchestrator/api_clients.py (UnifiedClient).
 All tests use unittest.mock — no real API calls are made.
 """
+
 import asyncio
 import time
 from pathlib import Path
@@ -12,10 +13,10 @@ import pytest
 from orchestrator.api_clients import APIResponse, UnifiedClient, _is_rate_limit_error
 from orchestrator.models import Model, estimate_cost
 
-
 # ─────────────────────────────────────────────────────────────────
 # TestAPIResponse
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestAPIResponse:
     def test_cached_response_has_zero_cost(self):
@@ -40,24 +41,31 @@ class TestAPIResponse:
 # TestRateLimitDetection
 # ─────────────────────────────────────────────────────────────────
 
+
 class TestRateLimitDetection:
-    @pytest.mark.parametrize("msg", [
-        "rate_limit exceeded",
-        "Rate Limit hit",
-        "429 Too Many Requests",
-        "resource_exhausted",
-        "quota exceeded",
-        "model is overloaded",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "rate_limit exceeded",
+            "Rate Limit hit",
+            "429 Too Many Requests",
+            "resource_exhausted",
+            "quota exceeded",
+            "model is overloaded",
+        ],
+    )
     def test_detects_rate_limit_phrases(self, msg):
         assert _is_rate_limit_error(Exception(msg)) is True
 
-    @pytest.mark.parametrize("msg", [
-        "connection refused",
-        "invalid api key",
-        "model not found",
-        "internal server error",
-    ])
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "connection refused",
+            "invalid api key",
+            "model not found",
+            "internal server error",
+        ],
+    )
     def test_ignores_non_rate_limit_errors(self, msg):
         assert _is_rate_limit_error(Exception(msg)) is False
 
@@ -65,6 +73,7 @@ class TestRateLimitDetection:
 # ─────────────────────────────────────────────────────────────────
 # TestIsAvailable
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestIsAvailable:
     def test_returns_true_when_provider_client_present(self, tmp_path):
@@ -81,6 +90,7 @@ class TestIsAvailable:
 # Helpers
 # ─────────────────────────────────────────────────────────────────
 
+
 def _make_client(tmp_path: Path, provider_mock=None) -> UnifiedClient:
     """
     Build a UnifiedClient and bypass _init_clients by directly injecting
@@ -89,6 +99,7 @@ def _make_client(tmp_path: Path, provider_mock=None) -> UnifiedClient:
     call client._clients[provider] = mock directly after construction.
     """
     from orchestrator.cache import DiskCache
+
     cache = DiskCache(tmp_path / "cache.db")
 
     # Construct without going through _init_clients to keep tests isolated
@@ -122,6 +133,7 @@ def _fake_openai_response(text: str = "ok", in_tok: int = 10, out_tok: int = 5):
 # TestCacheBehavior
 # ─────────────────────────────────────────────────────────────────
 
+
 class TestCacheBehavior:
     @pytest.mark.asyncio
     async def test_cache_hit_skips_dispatch(self, tmp_path):
@@ -130,8 +142,7 @@ class TestCacheBehavior:
 
         # Pre-populate cache
         await client.cache.put(
-            Model.GPT_4O_MINI.value, "hello", 100,
-            "cached response", 10, 5, "", 0.3
+            Model.GPT_4O_MINI.value, "hello", 100, "cached response", 10, 5, "", 0.3
         )
 
         result = await client.call(Model.GPT_4O_MINI, "hello", max_tokens=100)
@@ -143,20 +154,15 @@ class TestCacheBehavior:
     @pytest.mark.asyncio
     async def test_bypass_cache_forces_fresh_call(self, tmp_path):
         or_client = AsyncMock()
-        or_client.chat.completions.create = AsyncMock(
-            return_value=_fake_openai_response("fresh")
-        )
+        or_client.chat.completions.create = AsyncMock(return_value=_fake_openai_response("fresh"))
         client = _make_client(tmp_path, or_client)
 
         # Pre-populate cache
         await client.cache.put(
-            Model.GPT_4O_MINI.value, "hello", 100,
-            "cached response", 10, 5, "", 0.3
+            Model.GPT_4O_MINI.value, "hello", 100, "cached response", 10, 5, "", 0.3
         )
 
-        result = await client.call(
-            Model.GPT_4O_MINI, "hello", max_tokens=100, bypass_cache=True
-        )
+        result = await client.call(Model.GPT_4O_MINI, "hello", max_tokens=100, bypass_cache=True)
 
         assert result.cached is False
         assert result.text == "fresh"
@@ -166,6 +172,7 @@ class TestCacheBehavior:
 # ─────────────────────────────────────────────────────────────────
 # TestSemaphoreLimitsConcurrency
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestSemaphoreLimitsConcurrency:
     @pytest.mark.asyncio
@@ -186,10 +193,7 @@ class TestSemaphoreLimitsConcurrency:
         client = _make_client(tmp_path, or_client)
         client.semaphore = asyncio.Semaphore(max_concurrency)
 
-        tasks = [
-            client.call(Model.GPT_4O_MINI, f"q{i}", bypass_cache=True)
-            for i in range(6)
-        ]
+        tasks = [client.call(Model.GPT_4O_MINI, f"q{i}", bypass_cache=True) for i in range(6)]
         await asyncio.gather(*tasks)
 
         assert peak[0] <= max_concurrency
@@ -198,6 +202,7 @@ class TestSemaphoreLimitsConcurrency:
 # ─────────────────────────────────────────────────────────────────
 # TestRetryLogic
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestRetryLogic:
     @pytest.mark.asyncio
@@ -221,9 +226,7 @@ class TestRetryLogic:
     @pytest.mark.asyncio
     async def test_raises_after_max_retries(self, tmp_path):
         or_client = AsyncMock()
-        or_client.chat.completions.create = AsyncMock(
-            side_effect=RuntimeError("always fails")
-        )
+        or_client.chat.completions.create = AsyncMock(side_effect=RuntimeError("always fails"))
         client = _make_client(tmp_path, or_client)
 
         with pytest.raises(RuntimeError, match="always fails"):
@@ -244,9 +247,7 @@ class TestRetryLogic:
         client = _make_client(tmp_path, or_client)
 
         with patch("orchestrator.api_clients.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-            result = await client.call(
-                Model.GPT_4O_MINI, "test", bypass_cache=True, retries=2
-            )
+            result = await client.call(Model.GPT_4O_MINI, "test", bypass_cache=True, retries=2)
 
         assert result.text == "ok after backoff"
         mock_sleep.assert_called_once()  # backoff sleep happened
@@ -255,6 +256,7 @@ class TestRetryLogic:
 # ─────────────────────────────────────────────────────────────────
 # TestTimeoutHandling
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestTimeoutHandling:
     @pytest.mark.asyncio
@@ -268,15 +270,13 @@ class TestTimeoutHandling:
         client = _make_client(tmp_path, or_client)
 
         with pytest.raises((TimeoutError, asyncio.TimeoutError)):
-            await client.call(
-                Model.GPT_4O_MINI, "test", bypass_cache=True,
-                timeout=1, retries=0
-            )
+            await client.call(Model.GPT_4O_MINI, "test", bypass_cache=True, timeout=1, retries=0)
 
 
 # ─────────────────────────────────────────────────────────────────
 # TestDispatchRouting
 # ─────────────────────────────────────────────────────────────────
+
 
 class TestDispatchRouting:
     @pytest.mark.asyncio

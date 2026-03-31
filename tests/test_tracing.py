@@ -1,4 +1,5 @@
 """Tests for orchestrator/tracing.py — OTEL span instrumentation."""
+
 from __future__ import annotations
 
 import pytest
@@ -21,6 +22,7 @@ from orchestrator.tracing import (
 def reset_tracing():
     """Reset global tracer state between tests."""
     import orchestrator.tracing as t
+
     t._tracer = None
     t._provider = None
     yield
@@ -57,6 +59,7 @@ def test_disabled_tracing_produces_no_exception():
 def test_enabled_tracing_records_span(span_exporter):
     exporter, provider = span_exporter
     import orchestrator.tracing as t
+
     t._provider = provider
     t._tracer = provider.get_tracer("test")
 
@@ -73,6 +76,7 @@ def test_enabled_tracing_records_span(span_exporter):
 def test_llm_call_span_attributes(span_exporter):
     exporter, provider = span_exporter
     import orchestrator.tracing as t
+
     t._provider = provider
     t._tracer = provider.get_tracer("test")
 
@@ -91,6 +95,7 @@ def test_llm_call_span_attributes(span_exporter):
 def test_policy_check_span(span_exporter):
     exporter, provider = span_exporter
     import orchestrator.tracing as t
+
     t._provider = provider
     t._tracer = provider.get_tracer("test")
 
@@ -105,6 +110,7 @@ def test_policy_check_span(span_exporter):
 def test_remediation_span(span_exporter):
     exporter, provider = span_exporter
     import orchestrator.tracing as t
+
     t._provider = provider
     t._tracer = provider.get_tracer("test")
 
@@ -119,6 +125,7 @@ def test_remediation_span(span_exporter):
 def test_nested_spans_have_parent_child_relationship(span_exporter):
     exporter, provider = span_exporter
     import orchestrator.tracing as t
+
     t._provider = provider
     t._tracer = provider.get_tracer("test")
 
@@ -163,6 +170,7 @@ def test_full_span_tree_shape(span_exporter):
     """Smoke test: traced_task nests traced_llm_call, traced_policy_check, traced_remediation."""
     exporter, provider = span_exporter
     import orchestrator.tracing as t
+
     t._provider = provider
     t._tracer = provider.get_tracer("test")
 

@@ -19,31 +19,30 @@ Tests:
 
 Usage:
     from orchestrator.pre_submission_testing import PreSubmissionTester
-    
+
     tester = PreSubmissionTester()
     result = await tester.run_full_review(app_path)
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
 import plistlib
 import re
-import subprocess
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger("orchestrator.pre_submission")
 
 
 class CheckType(str, Enum):
     """Type of pre-submission check."""
+
     BUILD_VERIFICATION = "build_verification"
     LAUNCH_TIME = "launch_time"
     CRASH_DETECTION = "crash_detection"
@@ -60,7 +59,7 @@ class CheckType(str, Enum):
 class CheckResult:
     """
     Result of a single pre-submission check.
-    
+
     Attributes:
         check_type: Type of check performed
         passed: Whether check passed
@@ -69,14 +68,15 @@ class CheckResult:
         severity: Issue severity (critical, warning, info)
         guideline: Related App Store guideline
     """
+
     check_type: CheckType
     passed: bool
     message: str
     details: str = ""
     severity: str = "info"
     guideline: str = ""
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "check_type": self.check_type.value,
@@ -92,7 +92,7 @@ class CheckResult:
 class ReviewResult:
     """
     Complete pre-submission review result.
-    
+
     Attributes:
         passed: Whether all checks passed
         checks: List of individual check results
@@ -101,14 +101,15 @@ class ReviewResult:
         warnings: List of warnings
         timestamp: When review was performed
     """
+
     passed: bool
-    checks: List[CheckResult]
+    checks: list[CheckResult]
     estimated_approval_probability: float
-    critical_issues: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    critical_issues: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.now)
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "passed": self.passed,
@@ -123,39 +124,39 @@ class ReviewResult:
 class PreSubmissionTester:
     """
     Simulate Apple's review process before submission.
-    
+
     Usage:
         tester = PreSubmissionTester()
         result = await tester.run_full_review(app_path)
     """
-    
+
     # Thresholds
     MAX_LAUNCH_TIME = 3.0  # seconds
     MIN_APPROVAL_PROBABILITY = 80.0  # percent
-    
+
     # Placeholder patterns to detect
     PLACEHOLDER_PATTERNS = [
-        r'\bTODO\b',
-        r'\bFIXME\b',
-        r'\bXXX\b',
-        r'\bHACK\b',
-        r'Lorem\s+ipsum',
-        r'placeholder',
-        r'coming\s+soon',
-        r'under\s+construction',
-        r'tbd',
-        r'tba',
+        r"\bTODO\b",
+        r"\bFIXME\b",
+        r"\bXXX\b",
+        r"\bHACK\b",
+        r"Lorem\s+ipsum",
+        r"placeholder",
+        r"coming\s+soon",
+        r"under\s+construction",
+        r"tbd",
+        r"tba",
     ]
-    
+
     # Dynamic code execution patterns
     DYNAMIC_CODE_PATTERNS = [
-        r'\beval\s*\(',
-        r'\bexec\s*\(',
-        r'\bNSClassFromString\s*\(',
-        r'\bperformSelector\s*:',
-        r'\brespondsToSelector\s*:',
+        r"\beval\s*\(",
+        r"\bexec\s*\(",
+        r"\bNSClassFromString\s*\(",
+        r"\bperformSelector\s*:",
+        r"\brespondsToSelector\s*:",
     ]
-    
+
     # Required privacy keys
     REQUIRED_PRIVACY_KEYS = {
         "NSCameraUsageDescription": "camera",
@@ -164,67 +165,61 @@ class PreSubmissionTester:
         "NSUserTrackingUsageDescription": "tracking",
         "NSFaceIDUsageDescription": "faceid",
     }
-    
+
     def __init__(self):
         """Initialize pre-submission tester."""
         pass
-    
+
     async def run_full_review(self, app_path: Path) -> ReviewResult:
         """
         Run complete pre-submission review.
-        
+
         Args:
             app_path: Path to iOS app project
-        
+
         Returns:
             ReviewResult with all checks
         """
         logger.info(f"Starting pre-submission review for: {app_path}")
-        
-        results: List[CheckResult] = []
-        
+
+        results: list[CheckResult] = []
+
         # 1. Build verification
         results.append(await self._verify_build(app_path))
-        
+
         # 2. Launch test (<3 seconds)
         results.append(await self._test_launch_time(app_path))
-        
+
         # 3. Crash detection (all screens)
         results.append(await self._crash_test(app_path))
-        
+
         # 4. Completeness check (no placeholders)
         results.append(await self._completeness_check(app_path))
-        
+
         # 5. Privacy compliance
         results.append(await self._privacy_audit(app_path))
-        
+
         # 6. HIG compliance (navigation, accessibility)
         results.append(await self._hig_compliance_check(app_path))
-        
+
         # 7. Network independence (offline test)
         results.append(await self._offline_test(app_path))
-        
+
         # 8. IPv6 compatibility (Guideline 2.5.5)
         results.append(await self._ipv6_test(app_path))
-        
+
         # 9. Dynamic code execution scan
         results.append(await self._code_execution_scan(app_path))
-        
+
         # 10. Metadata validation
         results.append(await self._metadata_validation(app_path))
-        
+
         # Calculate results
         passed = all(r.passed for r in results)
-        critical_issues = [
-            r.message for r in results
-            if not r.passed and r.severity == "critical"
-        ]
-        warnings = [
-            r.message for r in results
-            if not r.passed and r.severity == "warning"
-        ]
+        critical_issues = [r.message for r in results if not r.passed and r.severity == "critical"]
+        warnings = [r.message for r in results if not r.passed and r.severity == "warning"]
         approval_probability = self._calculate_approval_probability(results)
-        
+
         review_result = ReviewResult(
             passed=passed,
             checks=results,
@@ -232,21 +227,21 @@ class PreSubmissionTester:
             critical_issues=critical_issues,
             warnings=warnings,
         )
-        
+
         logger.info(
             f"Review complete: {'PASSED' if passed else 'FAILED'}, "
             f"Approval probability: {approval_probability:.1f}%"
         )
-        
+
         return review_result
-    
+
     async def _verify_build(self, app_path: Path) -> CheckResult:
         """
         Verify app builds successfully.
-        
+
         Args:
             app_path: Path to iOS app project
-        
+
         Returns:
             CheckResult
         """
@@ -254,7 +249,7 @@ class PreSubmissionTester:
             # Find .xcodeproj or .xcworkspace
             workspace = list(app_path.glob("*.xcworkspace"))
             project = list(app_path.glob("*.xcodeproj"))
-            
+
             if not workspace and not project:
                 return CheckResult(
                     check_type=CheckType.BUILD_VERIFICATION,
@@ -263,18 +258,18 @@ class PreSubmissionTester:
                     severity="critical",
                     guideline="2.5.1",
                 )
-            
+
             # In real implementation, would run xcodebuild
             # For now, check if project files exist
             build_config = workspace[0] if workspace else project[0]
-            
+
             return CheckResult(
                 check_type=CheckType.BUILD_VERIFICATION,
                 passed=True,
                 message=f"Build configuration found: {build_config.name}",
                 details="Project structure is valid",
             )
-            
+
         except Exception as e:
             return CheckResult(
                 check_type=CheckType.BUILD_VERIFICATION,
@@ -283,14 +278,14 @@ class PreSubmissionTester:
                 severity="critical",
                 guideline="2.5.1",
             )
-    
+
     async def _test_launch_time(self, app_path: Path) -> CheckResult:
         """
         Test app launch time (<3 seconds).
-        
+
         Args:
             app_path: Path to iOS app project
-        
+
         Returns:
             CheckResult
         """
@@ -298,7 +293,7 @@ class PreSubmissionTester:
             # In real implementation, would use XCTest to measure launch
             # For now, simulate with file structure check
             app_delegate_files = list(app_path.rglob("*AppDelegate*.swift"))
-            
+
             if not app_delegate_files:
                 return CheckResult(
                     check_type=CheckType.LAUNCH_TIME,
@@ -308,11 +303,11 @@ class PreSubmissionTester:
                     severity="critical",
                     guideline="2.5.1",
                 )
-            
+
             # Simulate launch time check
             # In production, would use: xcrun simctl launch booted <bundle_id>
             simulated_launch_time = 1.5  # seconds
-            
+
             if simulated_launch_time > self.MAX_LAUNCH_TIME:
                 return CheckResult(
                     check_type=CheckType.LAUNCH_TIME,
@@ -321,14 +316,14 @@ class PreSubmissionTester:
                     severity="critical",
                     guideline="2.5.1",
                 )
-            
+
             return CheckResult(
                 check_type=CheckType.LAUNCH_TIME,
                 passed=True,
                 message=f"Launch time {simulated_launch_time:.2f}s is acceptable",
                 details="App launches within acceptable time",
             )
-            
+
         except Exception as e:
             return CheckResult(
                 check_type=CheckType.LAUNCH_TIME,
@@ -337,7 +332,7 @@ class PreSubmissionTester:
                 severity="warning",
                 guideline="2.5.1",
             )
-    
+
     async def _crash_test(self, app_path: Path) -> CheckResult:
         """
         Test for crashes on all screens.
@@ -359,17 +354,17 @@ class PreSubmissionTester:
             for view_file in view_files[:10]:  # Check first 10 views
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = view_file.read_text(encoding='utf-8')
+                    content = view_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{view_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
 
                 # Check for force unwrapping (!)
-                if re.search(r'\b\w+!\s*\.', content):
+                if re.search(r"\b\w+!\s*\.", content):
                     crashes_found.append(f"{view_file.name}: Force unwrapping detected")
 
                 # Check for unhandled optionals
-                if re.search(r'\.try!\s*\(', content):
+                if re.search(r"\.try!\s*\(", content):
                     crashes_found.append(f"{view_file.name}: Unhandled try!")
 
             # Add unreadable files to crashes_found
@@ -400,7 +395,7 @@ class PreSubmissionTester:
                 severity="warning",
                 guideline="2.5.1",
             )
-    
+
     async def _completeness_check(self, app_path: Path) -> CheckResult:
         """
         Check for placeholder content.
@@ -421,16 +416,14 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8').lower()
+                    content = swift_file.read_text(encoding="utf-8").lower()
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
 
                 for pattern in self.PLACEHOLDER_PATTERNS:
                     if re.search(pattern, content, re.IGNORECASE):
-                        placeholders_found.append(
-                            f"{swift_file.name}: {pattern}"
-                        )
+                        placeholders_found.append(f"{swift_file.name}: {pattern}")
 
             # Add unreadable files
             placeholders_found.extend([f"Unreadable file: {uf}" for uf in unreadable_files])
@@ -460,7 +453,7 @@ class PreSubmissionTester:
                 severity="warning",
                 guideline="4.2",
             )
-    
+
     async def _privacy_audit(self, app_path: Path) -> CheckResult:
         """
         Audit privacy compliance.
@@ -486,7 +479,7 @@ class PreSubmissionTester:
 
             # FIX-001a: Parse Info.plist as proper XML instead of raw text
             try:
-                with open(info_plist_files[0], 'rb') as f:
+                with open(info_plist_files[0], "rb") as f:
                     plist_data = plistlib.load(f)
             except (plistlib.InvalidFileException, Exception) as e:
                 return CheckResult(
@@ -505,7 +498,7 @@ class PreSubmissionTester:
                 feature_used = False
                 for swift_file in app_path.rglob("*.swift"):
                     try:
-                        content = swift_file.read_text(encoding='utf-8').lower()
+                        content = swift_file.read_text(encoding="utf-8").lower()
                         if feature in content:
                             feature_used = True
                             break
@@ -541,7 +534,7 @@ class PreSubmissionTester:
                 severity="critical",
                 guideline="5.1.1",
             )
-    
+
     async def _hig_compliance_check(self, app_path: Path) -> CheckResult:
         """
         Check HIG compliance (navigation, accessibility).
@@ -566,7 +559,7 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8')
+                    content = swift_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
@@ -608,7 +601,7 @@ class PreSubmissionTester:
                 severity="warning",
                 guideline="5.1.3",
             )
-    
+
     async def _offline_test(self, app_path: Path) -> CheckResult:
         """
         Test network independence (offline functionality).
@@ -630,7 +623,7 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8')
+                    content = swift_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
@@ -666,7 +659,7 @@ class PreSubmissionTester:
                 severity="warning",
                 guideline="2.5.1",
             )
-    
+
     async def _ipv6_test(self, app_path: Path) -> CheckResult:
         """
         Test IPv6 compatibility (Guideline 2.5.5).
@@ -681,14 +674,13 @@ class PreSubmissionTester:
             # Check for IPv6-compatible networking code
             swift_files = list(app_path.rglob("*.swift"))
 
-            uses_urlSession = False
             uses_hardcoded_ipv4 = False
             unreadable_files = []
 
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8')
+                    content = swift_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
@@ -697,7 +689,7 @@ class PreSubmissionTester:
                     uses_URLSession = True
 
                 # Check for hardcoded IPv4 addresses
-                if re.search(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', content):
+                if re.search(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", content):
                     uses_hardcoded_ipv4 = True
 
             if uses_hardcoded_ipv4 and not uses_URLSession:
@@ -725,7 +717,7 @@ class PreSubmissionTester:
                 severity="critical",
                 guideline="2.5.5",
             )
-    
+
     async def _code_execution_scan(self, app_path: Path) -> CheckResult:
         """
         Scan for dynamic code execution (Guideline 2.5.2).
@@ -745,7 +737,7 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8')
+                    content = swift_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
@@ -782,21 +774,21 @@ class PreSubmissionTester:
                 severity="critical",
                 guideline="2.5.2",
             )
-    
+
     async def _metadata_validation(self, app_path: Path) -> CheckResult:
         """
         Validate app metadata.
-        
+
         Args:
             app_path: Path to iOS app project
-        
+
         Returns:
             CheckResult
         """
         try:
             # Find Info.plist
             info_plist_files = list(app_path.rglob("Info.plist"))
-            
+
             if not info_plist_files:
                 return CheckResult(
                     check_type=CheckType.METADATA_VALIDATION,
@@ -805,9 +797,9 @@ class PreSubmissionTester:
                     severity="critical",
                     guideline="2.5.1",
                 )
-            
+
             info_plist = info_plist_files[0].read_text()
-            
+
             # Check required metadata
             required_keys = [
                 "CFBundleName",
@@ -815,9 +807,9 @@ class PreSubmissionTester:
                 "CFBundleShortVersionString",
                 "UISupportedInterfaceOrientations",
             ]
-            
+
             missing = [key for key in required_keys if key not in info_plist]
-            
+
             if missing:
                 return CheckResult(
                     check_type=CheckType.METADATA_VALIDATION,
@@ -827,14 +819,14 @@ class PreSubmissionTester:
                     severity="warning",
                     guideline="2.5.1",
                 )
-            
+
             return CheckResult(
                 check_type=CheckType.METADATA_VALIDATION,
                 passed=True,
                 message="Metadata validation passed",
                 details="All required metadata present",
             )
-            
+
         except Exception as e:
             return CheckResult(
                 check_type=CheckType.METADATA_VALIDATION,
@@ -843,40 +835,40 @@ class PreSubmissionTester:
                 severity="warning",
                 guideline="2.5.1",
             )
-    
-    def _calculate_approval_probability(self, results: List[CheckResult]) -> float:
+
+    def _calculate_approval_probability(self, results: list[CheckResult]) -> float:
         """
         Calculate estimated approval probability.
-        
+
         Args:
             results: List of check results
-        
+
         Returns:
             Probability percentage (0-100)
         """
         if not results:
             return 0.0
-        
+
         # Weight critical issues more heavily
         weights = {
             "critical": 20,
             "warning": 5,
             "info": 1,
         }
-        
+
         total_weight = 0
         passed_weight = 0
-        
+
         for result in results:
             weight = weights.get(result.severity, 1)
             total_weight += weight
-            
+
             if result.passed:
                 passed_weight += weight
-        
+
         if total_weight == 0:
             return 0.0
-        
+
         probability = (passed_weight / total_weight) * 100
         return min(100.0, max(0.0, probability))
 
@@ -885,13 +877,14 @@ class PreSubmissionTester:
 # Convenience Function
 # ─────────────────────────────────────────────
 
+
 async def run_pre_submission_review(app_path: Path) -> ReviewResult:
     """
     Convenience function to run pre-submission review.
-    
+
     Args:
         app_path: Path to iOS app project
-    
+
     Returns:
         ReviewResult
     """

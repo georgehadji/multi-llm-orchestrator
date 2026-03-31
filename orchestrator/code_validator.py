@@ -14,10 +14,10 @@ Features:
 
 USAGE:
     from orchestrator.code_validator import validate_code, extract_code_from_llm_response
-    
+
     # Extract code from LLM response
     code = extract_code_from_llm_response("```python\nprint('hello')\n```")
-    
+
     # Validate code
     is_valid, errors = validate_code(code)
     if not is_valid:
@@ -30,7 +30,6 @@ import ast
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Tuple, List, Optional, Any, Set
 
 logger = logging.getLogger("orchestrator.code_validator")
 
@@ -46,25 +45,20 @@ DANGEROUS_PATTERNS = {
     "exec": r"\bexec\s*\(",
     "compile": r"\bcompile\s*\(",
     "__import__": r"\b__import__\s*\(",
-    
     # File system access
     "os_system": r"\bos\.system\s*\(",
     "os_popen": r"\bos\.popen\s*\(",
     "subprocess": r"\bsubprocess\.(call|run|Popen|check_output)\s*\(",
-    
     # Network access
     "socket": r"\bsocket\.(socket|connect)\s*\(",
     "urllib": r"\burllib\.request\.(urlopen|Request)\s*\(",
     "requests": r"\brequests\.(get|post|put|delete)\s*\(",
-    
     # Dynamic attribute access
     "setattr": r"\bsetattr\s*\(",
     "getattr_dangerous": r"\bgetattr\s*\([^,]+,\s*[^)]+\)",  # getattr with dynamic attr
-    
     # Pickle (deserialization vulnerability)
     "pickle": r"\bpickle\.(load|loads|Unpickler)\s*\(",
     "marshal": r"\bmarshal\.(load|loads)\s*\(",
-    
     # Built-in override
     "builtins_override": r"\b__builtins__\s*=",
     "globals_modify": r"\bglobals\s*\(\)\s*\[",
@@ -82,17 +76,19 @@ TEST_ONLY_PATTERNS = {
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class ValidationResult:
     """Result of code validation."""
+
     is_valid: bool
     syntax_valid: bool = True
     security_valid: bool = True
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    dangerous_patterns_found: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    dangerous_patterns_found: list[str] = field(default_factory=list)
     ast_nodes: int = 0
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -109,6 +105,7 @@ class ValidationResult:
 @dataclass
 class SecurityConfig:
     """Security validation configuration."""
+
     allow_eval: bool = False
     allow_exec: bool = False
     allow_os_system: bool = False
@@ -117,8 +114,8 @@ class SecurityConfig:
     allow_file_write: bool = True  # File reads are generally OK
     max_function_length: int = 100  # Lines
     max_complexity: int = 10  # Cyclomatic complexity
-    dangerous_patterns_override: Set[str] = field(default_factory=set)
-    
+    dangerous_patterns_override: set[str] = field(default_factory=set)
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -137,25 +134,26 @@ class SecurityConfig:
 # AST Security Analyzer
 # ─────────────────────────────────────────────
 
+
 class ASTSecurityAnalyzer(ast.NodeVisitor):
     """
     AST visitor that detects security issues.
-    
+
     Walks the AST and flags dangerous patterns.
     """
-    
+
     def __init__(self, config: SecurityConfig):
         self.config = config
-        self.errors: List[str] = []
-        self.warnings: List[str] = []
-        self.dangerous_patterns: List[str] = []
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
+        self.dangerous_patterns: list[str] = []
         self.function_lengths: dict = {}
         self.node_count = 0
-        
+
     def visit_Call(self, node: ast.Call):
         """Check function calls for dangerous patterns."""
         self.node_count += 1
-        
+
         # Check for eval/exec
         if isinstance(node.func, ast.Name):
             if node.func.id == "eval" and not self.config.allow_eval:
@@ -176,14 +174,16 @@ class ASTSecurityAnalyzer(ast.NodeVisitor):
             elif node.func.id == "getattr":
                 # Check if second argument is a string literal (safe) or variable (potentially dangerous)
                 if len(node.args) >= 2 and not isinstance(node.args[1], ast.Constant):
-                    self.warnings.append(f"Line {node.lineno}: getattr() with dynamic attribute - review")
+                    self.warnings.append(
+                        f"Line {node.lineno}: getattr() with dynamic attribute - review"
+                    )
                     self.dangerous_patterns.append("getattr_dangerous")
-        
+
         # Check for os.system, os.popen
         if isinstance(node.func, ast.Attribute):
             if isinstance(node.func.value, ast.Name):
                 full_name = f"{node.func.value.id}.{node.func.attr}"
-                
+
                 if full_name == "os.system" and not self.config.allow_os_system:
                     self.errors.append(f"Line {node.lineno}: os.system() is not allowed")
                     self.dangerous_patterns.append("os_system")
@@ -194,42 +194,48 @@ class ASTSecurityAnalyzer(ast.NodeVisitor):
                     if not self.config.allow_subprocess:
                         self.errors.append(f"Line {node.lineno}: subprocess calls are not allowed")
                         self.dangerous_patterns.append("subprocess")
-                elif full_name in ["socket.socket", "urllib.request.urlopen", "requests.get", "requests.post"]:
+                elif full_name in [
+                    "socket.socket",
+                    "urllib.request.urlopen",
+                    "requests.get",
+                    "requests.post",
+                ]:
                     if not self.config.allow_network:
-                        self.warnings.append(f"Line {node.lineno}: Network access detected - review")
+                        self.warnings.append(
+                            f"Line {node.lineno}: Network access detected - review"
+                        )
                         self.dangerous_patterns.append("network")
-        
+
         self.generic_visit(node)
-    
+
     def visit_FunctionDef(self, node: ast.FunctionDef):
         """Check function definitions."""
         self.node_count += 1
-        
+
         # Count lines in function
-        if hasattr(node, 'end_lineno') and hasattr(node, 'lineno'):
+        if hasattr(node, "end_lineno") and hasattr(node, "lineno"):
             lines = node.end_lineno - node.lineno
             if lines > self.config.max_function_length:
                 self.warnings.append(
                     f"Line {node.lineno}: Function '{node.name}' is {lines} lines "
                     f"(max: {self.config.max_function_length})"
                 )
-        
+
         self.generic_visit(node)
-    
+
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
         """Check async function definitions."""
         self.visit_FunctionDef(node)
-    
+
     def visit_Assign(self, node: ast.Assign):
         """Check assignments for dangerous patterns."""
         self.node_count += 1
-        
+
         for target in node.targets:
-            if isinstance(target, ast.Name):
-                if target.id == "__builtins__":
-                    self.errors.append(f"Line {node.lineno}: Modifying __builtins__ is not allowed")
-                    self.dangerous_patterns.append("builtins_override")
-        
+            if isinstance(target, ast.Name) and target.id == "__builtins__":
+                self.errors.append(f"Line {node.lineno}: Modifying __builtins__ is not allowed")
+                self.dangerous_patterns.append("builtins_override")
+
         self.generic_visit(node)
 
 
@@ -237,32 +243,33 @@ class ASTSecurityAnalyzer(ast.NodeVisitor):
 # Code Validator
 # ─────────────────────────────────────────────
 
+
 def validate_code(
     code: str,
-    config: Optional[SecurityConfig] = None,
+    config: SecurityConfig | None = None,
     filename: str = "<string>",
 ) -> ValidationResult:
     """
     Validate code using AST parsing and security scanning.
-    
+
     Args:
         code: Code to validate
         config: Security configuration
         filename: Filename for error messages
-    
+
     Returns:
         ValidationResult with validation details
     """
     config = config or SecurityConfig()
     result = ValidationResult(is_valid=True)
-    
+
     # Step 1: Check for empty code
     if not code or not code.strip():
         result.is_valid = False
         result.syntax_valid = False
         result.errors.append("Code is empty")
         return result
-    
+
     # Step 2: Try to parse as AST
     try:
         tree = ast.parse(code, filename=filename)
@@ -272,118 +279,125 @@ def validate_code(
         result.syntax_valid = False
         result.errors.append(f"Syntax error: {e}")
         return result
-    
+
     # Step 3: Run security analyzer
     analyzer = ASTSecurityAnalyzer(config)
     analyzer.visit(tree)
-    
+
     result.errors.extend(analyzer.errors)
     result.warnings.extend(analyzer.warnings)
     result.dangerous_patterns_found = analyzer.dangerous_patterns
     result.ast_nodes = analyzer.node_count
-    
+
     # Step 4: Check for dangerous string patterns (backup check)
     for pattern_name, pattern in DANGEROUS_PATTERNS.items():
         if pattern_name in config.dangerous_patterns_override:
             continue
-        
+
         # Skip if already detected by AST
         if pattern_name in analyzer.dangerous_patterns:
             continue
-        
+
         if re.search(pattern, code, re.MULTILINE):
             # Check config for allowed patterns
             allowed = False
-            if pattern_name == "eval" and config.allow_eval:
+            if (
+                pattern_name == "eval"
+                and config.allow_eval
+                or pattern_name == "exec"
+                and config.allow_exec
+                or pattern_name == "os_system"
+                and config.allow_os_system
+                or pattern_name == "subprocess"
+                and config.allow_subprocess
+            ):
                 allowed = True
-            elif pattern_name == "exec" and config.allow_exec:
-                allowed = True
-            elif pattern_name == "os_system" and config.allow_os_system:
-                allowed = True
-            elif pattern_name == "subprocess" and config.allow_subprocess:
-                allowed = True
-            
+
             if not allowed:
                 result.warnings.append(f"Potentially dangerous pattern detected: {pattern_name}")
                 result.dangerous_patterns_found.append(pattern_name)
-    
+
     # Step 5: Determine overall validity
     if result.errors:
         result.is_valid = False
         result.security_valid = False
-    
+
     return result
 
 
 def extract_code_from_llm_response(response: str, language: str = "python") -> str:
     """
     Extract code from LLM response.
-    
+
     Handles markdown code fences and removes commentary.
-    
+
     Args:
         response: LLM response text
         language: Expected language
-    
+
     Returns:
         Extracted code
     """
     if not response:
         return ""
-    
+
     # Pattern 1: Markdown code fences with language
     pattern_with_lang = rf"```{language}\s*\n(.*?)```"
     match = re.search(pattern_with_lang, response, re.DOTALL | re.IGNORECASE)
     if match:
         return match.group(1).strip()
-    
+
     # Pattern 2: Markdown code fences without language
     pattern_no_lang = r"```\s*\n(.*?)```"
     match = re.search(pattern_no_lang, response, re.DOTALL)
     if match:
         return match.group(1).strip()
-    
+
     # Pattern 3: No fences - return as-is but clean up
     # Remove common LLM commentary patterns
     cleaned = response
-    
+
     # Remove "Here's the code:" type lines
-    cleaned = re.sub(r'^.*?(here|this)\s+is\s+the\s+code.*?$', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
-    
+    cleaned = re.sub(
+        r"^.*?(here|this)\s+is\s+the\s+code.*?$", "", cleaned, flags=re.IGNORECASE | re.MULTILINE
+    )
+
     # Remove lines that are clearly not code
-    lines = cleaned.split('\n')
+    lines = cleaned.split("\n")
     code_lines = []
     in_code = False
-    
+
     for line in lines:
         stripped = line.strip()
-        
+
         # Skip empty lines at start
         if not stripped and not in_code:
             continue
-        
+
         # Detect start of code
-        if not in_code and (stripped.startswith(('import ', 'from ', 'def ', 'class ', '#', '@')) or 
-                           any(c in stripped for c in '=()[]{}')):
+        if not in_code and (
+            stripped.startswith(("import ", "from ", "def ", "class ", "#", "@"))
+            or any(c in stripped for c in "=()[]{}")
+        ):
             in_code = True
-        
+
         if in_code:
             code_lines.append(line)
-    
-    return '\n'.join(code_lines).strip()
+
+    return "\n".join(code_lines).strip()
 
 
 def is_code_safe(
     code: str,
-    config: Optional[SecurityConfig] = None,
-) -> Tuple[bool, List[str]]:
+    config: SecurityConfig | None = None,
+) -> tuple[bool, list[str]]:
     """
     Quick safety check for code.
-    
+
     Args:
         code: Code to check
         config: Security configuration
-    
+
     Returns:
         (is_safe, list_of_issues)
     """
@@ -394,10 +408,10 @@ def is_code_safe(
 def get_code_metrics(code: str) -> dict:
     """
     Get code metrics without security validation.
-    
+
     Args:
         code: Code to analyze
-    
+
     Returns:
         Dictionary of metrics
     """
@@ -405,7 +419,7 @@ def get_code_metrics(code: str) -> dict:
         tree = ast.parse(code)
     except SyntaxError:
         return {"error": "Invalid syntax"}
-    
+
     metrics = {
         "lines": len(code.splitlines()),
         "functions": 0,
@@ -413,7 +427,7 @@ def get_code_metrics(code: str) -> dict:
         "imports": 0,
         "ast_nodes": 0,
     }
-    
+
     for node in ast.walk(tree):
         metrics["ast_nodes"] += 1
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -422,7 +436,7 @@ def get_code_metrics(code: str) -> dict:
             metrics["classes"] += 1
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
             metrics["imports"] += 1
-    
+
     return metrics
 
 
@@ -430,7 +444,7 @@ def get_code_metrics(code: str) -> dict:
 # Convenience Functions
 # ─────────────────────────────────────────────
 
-_default_config: Optional[SecurityConfig] = None
+_default_config: SecurityConfig | None = None
 
 
 def get_default_config() -> SecurityConfig:
@@ -450,11 +464,11 @@ def set_default_config(config: SecurityConfig) -> None:
 def validate_and_extract(response: str, language: str = "python") -> ValidationResult:
     """
     Extract code from LLM response and validate it.
-    
+
     Args:
         response: LLM response
         language: Expected language
-    
+
     Returns:
         ValidationResult
     """

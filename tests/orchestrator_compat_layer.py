@@ -17,8 +17,10 @@ from typing import Any, Optional
 # Deprecation Warnings
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def deprecated(old_name: str, new_name: str, removal_version: str = "7.0"):
     """Decorator to mark functions as deprecated."""
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -29,7 +31,9 @@ def deprecated(old_name: str, new_name: str, removal_version: str = "7.0"):
                 stacklevel=2,
             )
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -37,27 +41,33 @@ def deprecated(old_name: str, new_name: str, removal_version: str = "7.0"):
 # Dashboard Compatibility
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@deprecated("dashboard_live.run_live_dashboard()", 
-            "dashboard_core.run_dashboard(view='live')")
+
+@deprecated("dashboard_live.run_live_dashboard()", "dashboard_core.run_dashboard(view='live')")
 def run_live_dashboard(*args, **kwargs):
     """Backward compat for live dashboard."""
     from .dashboard_core_core import run_dashboard
+
     return run_dashboard(view="mission-control", *args, **kwargs)
 
 
-@deprecated("dashboard_mission_control.run_mission_control()",
-            "dashboard_core.run_dashboard(view='mission-control')")
+@deprecated(
+    "dashboard_mission_control.run_mission_control()",
+    "dashboard_core.run_dashboard(view='mission-control')",
+)
 def run_mission_control(*args, **kwargs):
     """Backward compat for mission control dashboard."""
     from .dashboard_core_core import run_dashboard
+
     return run_dashboard(view="mission-control", *args, **kwargs)
 
 
-@deprecated("dashboard_antd.run_ant_design_dashboard()",
-            "dashboard_core.run_dashboard(view='ant-design')")
+@deprecated(
+    "dashboard_antd.run_ant_design_dashboard()", "dashboard_core.run_dashboard(view='ant-design')"
+)
 def run_ant_design_dashboard(*args, **kwargs):
     """Backward compat for Ant Design dashboard."""
     from .dashboard_core_core import run_dashboard
+
     return run_dashboard(view="ant-design", *args, **kwargs)
 
 
@@ -65,27 +75,30 @@ def run_ant_design_dashboard(*args, **kwargs):
 # Events Compatibility
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 # Old imports that now point to unified system
 @deprecated("streaming.ProjectEventBus", "unified_events.UnifiedEventBus")
 class ProjectEventBus:
     """Backward compat for streaming.ProjectEventBus."""
-    
+
     def __init__(self):
         self._bus = None
-    
+
     async def _get_bus(self):
         if self._bus is None:
             from .unified_events_core import UnifiedEventBus
+
             self._bus = await UnifiedEventBus.get_instance()
         return self._bus
-    
+
     async def publish(self, event):
         bus = await self._get_bus()
         await bus.publish(event)
-    
+
     def subscribe(self):
         """Return async iterator for events."""
         import asyncio
+
         bus = asyncio.get_event_loop().run_until_complete(self._get_bus())
         return bus.subscribe_iter()
 
@@ -93,31 +106,31 @@ class ProjectEventBus:
 @deprecated("hooks.HookRegistry", "unified_events.UnifiedEventBus.subscribe()")
 class HookRegistry:
     """Backward compat for hooks.HookRegistry."""
-    
+
     def __init__(self):
         self._callbacks = {}
-    
+
     def add(self, event: str, callback):
         """Add event handler."""
         import asyncio
         from .unified_events_core import EventType
-        
+
         async def subscribe():
             bus = await self._get_bus()
-            
+
             async def handler(evt):
                 if evt.event_type.name == event:
                     await callback(**evt.metadata)
-            
+
             bus.subscribe(handler)
-        
+
         asyncio.create_task(subscribe())
-    
+
     def fire(self, event: str, **kwargs):
         """Fire event."""
         import asyncio
         from .unified_events_core import EventType, DomainEvent
-        
+
         async def publish():
             bus = await self._get_bus()
             evt_type = getattr(EventType, event, EventType.INFO)
@@ -127,18 +140,19 @@ class HookRegistry:
                 metadata=kwargs,
             )
             await bus.publish(event_obj)
-        
+
         asyncio.create_task(publish())
-    
+
     async def _get_bus(self):
         from .unified_events_core import UnifiedEventBus
+
         return await UnifiedEventBus.get_instance()
 
 
 # Event type mapping
 class EventTypeCompat:
     """Backward compat for EventType enum."""
-    
+
     PROJECT_STARTED = "PROJECT_STARTED"
     PROJECT_COMPLETED = "PROJECT_COMPLETED"
     TASK_STARTED = "TASK_STARTED"
@@ -152,20 +166,20 @@ class EventTypeCompat:
 # Capability Logger Compatibility
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@deprecated("capability_logger.log_capability()", 
-            "unified_events.UnifiedEventBus.log_capability()")
+
+@deprecated("capability_logger.log_capability()", "unified_events.UnifiedEventBus.log_capability()")
 async def log_capability(capability: str, project_id: str = "", **kwargs):
     """Backward compat for capability logging."""
     from .unified_events_core import get_event_bus
+
     bus = await get_event_bus()
     await bus.log_capability(capability, project_id, kwargs)
 
 
-@deprecated("capability_logger.CapabilityLogger", 
-            "unified_events.UnifiedEventBus")
+@deprecated("capability_logger.CapabilityLogger", "unified_events.UnifiedEventBus")
 class CapabilityLogger:
     """Backward compat for CapabilityLogger."""
-    
+
     async def log(self, capability: str, project_id: str = "", **kwargs):
         await log_capability(capability, project_id, **kwargs)
 
@@ -174,15 +188,17 @@ class CapabilityLogger:
 # Stream Events Compatibility
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@deprecated("streaming events (ProjectStarted, TaskStarted, etc.)",
-            "unified_events domain events")
+
+@deprecated("streaming events (ProjectStarted, TaskStarted, etc.)", "unified_events domain events")
 class StreamEvent:
     """Base class for stream events."""
+
     pass
 
 
 class ProjectStarted(StreamEvent):
     """Backward compat."""
+
     def __init__(self, project_id: str, total_tasks: int, budget_usd: float):
         self.project_id = project_id
         self.total_tasks = total_tasks
@@ -191,6 +207,7 @@ class ProjectStarted(StreamEvent):
 
 class TaskStarted(StreamEvent):
     """Backward compat."""
+
     def __init__(self, task_id: str, task_type: str, iteration: int = 1):
         self.task_id = task_id
         self.task_type = task_type
@@ -199,6 +216,7 @@ class TaskStarted(StreamEvent):
 
 class TaskCompleted(StreamEvent):
     """Backward compat."""
+
     def __init__(self, task_id: str, score: float, cost_usd: float):
         self.task_id = task_id
         self.score = score
@@ -207,8 +225,16 @@ class TaskCompleted(StreamEvent):
 
 class ProjectCompleted(StreamEvent):
     """Backward compat."""
-    def __init__(self, project_id: str, status: str, total_cost_usd: float,
-                 elapsed_seconds: float, tasks_completed: int, tasks_failed: int):
+
+    def __init__(
+        self,
+        project_id: str,
+        status: str,
+        total_cost_usd: float,
+        elapsed_seconds: float,
+        tasks_completed: int,
+        tasks_failed: int,
+    ):
         self.project_id = project_id
         self.status = status
         self.total_cost_usd = total_cost_usd
@@ -220,6 +246,7 @@ class ProjectCompleted(StreamEvent):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Migration Helper
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def print_migration_guide():
     """Print migration guide for developers."""

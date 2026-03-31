@@ -26,31 +26,34 @@ Novelty: this is a constrained multi-objective optimisation at the level of
 The joint optimisation over cost × latency × compliance × quality × trust
 cannot be expressed in a static lookup table.
 """
+
 from __future__ import annotations
 
 import collections
 import logging
 import time
-from typing import Optional
+
+# TYPE_CHECKING import to avoid circular dependency (cost.py does not import planner.py)
+from typing import TYPE_CHECKING
 
 from .models import Model, TaskType, get_provider
 from .optimization import GreedyBackend, OptimizationBackend
 from .policy import ModelProfile, Policy, RateLimit
-from .policy_engine import PolicyEngine
-# TYPE_CHECKING import to avoid circular dependency (cost.py does not import planner.py)
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .cost import CostPredictor
+    from .policy_engine import PolicyEngine
 
 logger = logging.getLogger("orchestrator.planner")
 
 # ── Scoring constants ──────────────────────────────────────────────────────────
-_EPSILON: float = 1e-6          # prevents division by zero when cost rounds to 0
+_EPSILON: float = 1e-6  # prevents division by zero when cost rounds to 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RateLimitTracker — sliding-window enforcement for policy rate limits
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class RateLimitTracker:
     """
@@ -71,9 +74,9 @@ class RateLimitTracker:
     """
 
     _WINDOWS = {
-        "calls_per_minute":  60,
+        "calls_per_minute": 60,
         "cost_usd_per_hour": 3600,
-        "tokens_per_day":    86_400,
+        "tokens_per_day": 86_400,
     }
 
     def __init__(self) -> None:
@@ -103,56 +106,59 @@ class RateLimitTracker:
         calls_1min = sum(
             1 for ts, _, _ in events if (now - ts) <= self._WINDOWS["calls_per_minute"]
         )
-        cost_1hr = sum(
-            c for ts, c, _ in events if (now - ts) <= self._WINDOWS["cost_usd_per_hour"]
-        )
-        tokens_1day = sum(
-            t for ts, _, t in events if (now - ts) <= self._WINDOWS["tokens_per_day"]
-        )
+        cost_1hr = sum(c for ts, c, _ in events if (now - ts) <= self._WINDOWS["cost_usd_per_hour"])
+        tokens_1day = sum(t for ts, _, t in events if (now - ts) <= self._WINDOWS["tokens_per_day"])
 
         if rate_limit.calls_per_minute is not None and calls_1min >= rate_limit.calls_per_minute:
             logger.debug(
-                "RateLimitTracker: provider '%s' at calls_per_minute limit "
-                "(%d/%d)", provider, calls_1min, rate_limit.calls_per_minute,
+                "RateLimitTracker: provider '%s' at calls_per_minute limit " "(%d/%d)",
+                provider,
+                calls_1min,
+                rate_limit.calls_per_minute,
             )
             return False
 
         if rate_limit.cost_usd_per_hour is not None and cost_1hr >= rate_limit.cost_usd_per_hour:
             logger.debug(
-                "RateLimitTracker: provider '%s' at cost_usd_per_hour limit "
-                "($%.4f/$%.4f)", provider, cost_1hr, rate_limit.cost_usd_per_hour,
+                "RateLimitTracker: provider '%s' at cost_usd_per_hour limit " "($%.4f/$%.4f)",
+                provider,
+                cost_1hr,
+                rate_limit.cost_usd_per_hour,
             )
             return False
 
         if rate_limit.tokens_per_day is not None and tokens_1day >= rate_limit.tokens_per_day:
             logger.debug(
-                "RateLimitTracker: provider '%s' at tokens_per_day limit "
-                "(%d/%d)", provider, tokens_1day, rate_limit.tokens_per_day,
+                "RateLimitTracker: provider '%s' at tokens_per_day limit " "(%d/%d)",
+                provider,
+                tokens_1day,
+                rate_limit.tokens_per_day,
             )
             return False
 
         return True
 
+
 # ── Typical token volumes per task type ───────────────────────────────────────
 # Used to estimate cost *before* the call (for budget filtering and scoring).
 # Actual costs are charged via Budget.charge() after the real call completes.
 _TYPICAL_INPUT_TOKENS: dict[TaskType, int] = {
-    TaskType.CODE_GEN:     800,
-    TaskType.CODE_REVIEW:  600,
-    TaskType.REASONING:    700,
-    TaskType.WRITING:      500,
+    TaskType.CODE_GEN: 800,
+    TaskType.CODE_REVIEW: 600,
+    TaskType.REASONING: 700,
+    TaskType.WRITING: 500,
     TaskType.DATA_EXTRACT: 400,
-    TaskType.SUMMARIZE:    300,
-    TaskType.EVALUATE:     400,
+    TaskType.SUMMARIZE: 300,
+    TaskType.EVALUATE: 400,
 }
 _TYPICAL_OUTPUT_TOKENS: dict[TaskType, int] = {
-    TaskType.CODE_GEN:     1200,
-    TaskType.CODE_REVIEW:  900,
-    TaskType.REASONING:    900,
-    TaskType.WRITING:      800,
+    TaskType.CODE_GEN: 1200,
+    TaskType.CODE_REVIEW: 900,
+    TaskType.REASONING: 900,
+    TaskType.WRITING: 800,
     TaskType.DATA_EXTRACT: 600,
-    TaskType.SUMMARIZE:    300,
-    TaskType.EVALUATE:     400,
+    TaskType.SUMMARIZE: 300,
+    TaskType.EVALUATE: 400,
 }
 
 
@@ -171,15 +177,15 @@ class ConstraintPlanner:
         profiles: dict[Model, ModelProfile],
         policy_engine: PolicyEngine,
         api_health: dict[Model, bool],
-        backend: Optional[OptimizationBackend] = None,
-        cost_predictor: Optional["CostPredictor"] = None,
+        backend: OptimizationBackend | None = None,
+        cost_predictor: CostPredictor | None = None,
     ):
         self._profiles = profiles
         self._policy_engine = policy_engine
         self._api_health = api_health
         self._backend: OptimizationBackend = backend or GreedyBackend()
-        self._cost_predictor: Optional["CostPredictor"] = cost_predictor
-        self.rate_limit_tracker = RateLimitTracker()   # shared; record() called externally
+        self._cost_predictor: CostPredictor | None = cost_predictor
+        self.rate_limit_tracker = RateLimitTracker()  # shared; record() called externally
 
     def set_backend(self, backend: OptimizationBackend) -> None:
         """
@@ -202,7 +208,7 @@ class ConstraintPlanner:
         policies: list[Policy],
         budget_remaining: float,
         task_id: str = "",
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """
         Multi-objective model selection for a task.
 
@@ -225,7 +231,8 @@ class ConstraintPlanner:
         if not candidates:
             logger.warning(
                 "select_model: no candidates for task_type=%s task_id=%r",
-                task_type.value, task_id,
+                task_type.value,
+                task_id,
             )
             return None
 
@@ -235,8 +242,10 @@ class ConstraintPlanner:
         if best is not None:
             logger.info(
                 "select_model: chose %s for %s (backend=%s, task=%s)",
-                best.value, task_type.value,
-                type(self._backend).__name__, task_id,
+                best.value,
+                task_type.value,
+                type(self._backend).__name__,
+                task_id,
             )
         return best
 
@@ -246,7 +255,7 @@ class ConstraintPlanner:
         task_type: TaskType,
         policies: list[Policy],
         budget_remaining: float,
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """
         Select a cross-provider reviewer for the output of `generator`.
 
@@ -271,8 +280,7 @@ class ConstraintPlanner:
 
         # Prefer cross-provider reviewer
         cross_provider = [
-            m for m in candidates
-            if get_provider(m) != gen_provider and m != generator
+            m for m in candidates if get_provider(m) != gen_provider and m != generator
         ]
         if cross_provider:
             best = self._backend.select(
@@ -281,7 +289,8 @@ class ConstraintPlanner:
             if best is not None:
                 logger.info(
                     "select_reviewer: cross-provider %s for generator=%s",
-                    best.value, generator.value,
+                    best.value,
+                    generator.value,
                 )
                 return best
 
@@ -294,7 +303,8 @@ class ConstraintPlanner:
             if best is not None:
                 logger.warning(
                     "select_reviewer: same-provider fallback %s "
-                    "(no cross-provider candidates available)", best.value,
+                    "(no cross-provider candidates available)",
+                    best.value,
                 )
                 return best
 
@@ -310,7 +320,7 @@ class ConstraintPlanner:
         task_type: TaskType,
         policies: list[Policy],
         budget_remaining: float,
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """
         Called when a model errors or its output fails deterministic validation.
         Excludes failed_model from the candidate set and re-runs selection.
@@ -327,7 +337,8 @@ class ConstraintPlanner:
         if not remaining:
             logger.warning(
                 "replan: no alternative to %s for task_type=%s",
-                failed_model.value, task_type.value,
+                failed_model.value,
+                task_type.value,
             )
             return None
 
@@ -337,7 +348,8 @@ class ConstraintPlanner:
         if best is not None:
             logger.info(
                 "replan: selected %s as fallback for failed %s",
-                best.value, failed_model.value,
+                best.value,
+                failed_model.value,
             )
         return best
 
@@ -383,7 +395,8 @@ class ConstraintPlanner:
                     ),
                     cost_usd_per_hour=(
                         min(existing.cost_usd_per_hour, rl.cost_usd_per_hour)
-                        if existing.cost_usd_per_hour is not None and rl.cost_usd_per_hour is not None
+                        if existing.cost_usd_per_hour is not None
+                        and rl.cost_usd_per_hour is not None
                         else existing.cost_usd_per_hour or rl.cost_usd_per_hour
                     ),
                     tokens_per_day=(
@@ -407,7 +420,8 @@ class ConstraintPlanner:
             if not check.passed:
                 logger.debug(
                     "_apply_filters: %s excluded by policy — %s",
-                    model.value, check.violations,
+                    model.value,
+                    check.violations,
                 )
                 continue
 
@@ -419,9 +433,10 @@ class ConstraintPlanner:
             estimated = self._estimate_typical_cost(profile, task_type)
             if estimated > budget_remaining:
                 logger.debug(
-                    "_apply_filters: %s excluded by budget "
-                    "(est $%.4f > remaining $%.4f)",
-                    model.value, estimated, budget_remaining,
+                    "_apply_filters: %s excluded by budget " "(est $%.4f > remaining $%.4f)",
+                    model.value,
+                    estimated,
+                    budget_remaining,
                 )
                 continue
 
@@ -432,7 +447,8 @@ class ConstraintPlanner:
                 ):
                     logger.debug(
                         "_apply_filters: %s excluded by rate limit (provider=%s)",
-                        model.value, profile.provider,
+                        model.value,
+                        profile.provider,
                     )
                     continue
 
@@ -474,9 +490,6 @@ class ConstraintPlanner:
         """
         profile = self._profiles[model]
         estimated_cost = self._estimate_typical_cost(profile, task_type)
-        base_score = (
-            profile.quality_score * profile.trust_factor
-            / (estimated_cost + _EPSILON)
-        )
+        base_score = profile.quality_score * profile.trust_factor / (estimated_cost + _EPSILON)
         priority_rank = profile.capable_task_types.get(task_type, 99)
         return base_score - priority_rank * 1e-6

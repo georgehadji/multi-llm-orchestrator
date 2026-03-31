@@ -37,6 +37,7 @@ def _make_profile(quality: float = 0.85, calls: int = 5) -> ModelProfile:
 
 # ── WAL queue schema ──────────────────────────────────────────────────────────
 
+
 class TestWALSchema:
 
     @pytest.mark.asyncio
@@ -63,6 +64,7 @@ class TestWALSchema:
 
 
 # ── Enqueue / drain cycle ─────────────────────────────────────────────────────
+
 
 class TestEnqueueDrain:
 
@@ -102,7 +104,7 @@ class TestEnqueueDrain:
         profile = _make_profile()
         await store.enqueue_snapshot("proj1", Model.GPT_4O, TaskType.CODE_GEN, profile)
         await store.drain_queue()
-        await store.drain_queue()   # second call should be a no-op
+        await store.drain_queue()  # second call should be a no-op
 
         async with aiosqlite.connect(tmp_path / "telemetry.db") as db:
             cur = await db.execute("SELECT COUNT(*) FROM model_snapshots")
@@ -127,6 +129,7 @@ class TestEnqueueDrain:
 
 # ── Crash-recovery: orphaned pending writes ───────────────────────────────────
 
+
 class TestCrashRecovery:
 
     @pytest.mark.asyncio
@@ -147,7 +150,7 @@ class TestCrashRecovery:
 
         # Run 2: fresh store on the same DB
         store2 = TelemetryStore(db_path=db_path)
-        await store2.drain_queue()   # should pick up orphaned rows
+        await store2.drain_queue()  # should pick up orphaned rows
 
         async with aiosqlite.connect(db_path) as db:
             pending_cur = await db.execute("SELECT COUNT(*) FROM pending_writes")
@@ -171,8 +174,7 @@ class TestCrashRecovery:
         # Simulate prior run: wrote to queue but crashed before drain
         prior = TelemetryStore(db_path=db_path)
         await prior.enqueue_snapshot(
-            "prior_proj", Model.GPT_4O, TaskType.CODE_GEN,
-            _make_profile(quality=0.88, calls=15)
+            "prior_proj", Model.GPT_4O, TaskType.CODE_GEN, _make_profile(quality=0.88, calls=15)
         )
 
         # New run: drain then load — should see the profile
@@ -185,6 +187,7 @@ class TestCrashRecovery:
 
 
 # ── Payload integrity ─────────────────────────────────────────────────────────
+
 
 class TestPayloadIntegrity:
 
@@ -211,9 +214,7 @@ class TestPayloadIntegrity:
     async def test_pending_write_payload_is_valid_json(self, tmp_path):
         """The payload stored in pending_writes must be parseable JSON."""
         store = TelemetryStore(db_path=tmp_path / "telemetry.db")
-        await store.enqueue_snapshot(
-            "p1", Model.GPT_4O, TaskType.CODE_GEN, _make_profile()
-        )
+        await store.enqueue_snapshot("p1", Model.GPT_4O, TaskType.CODE_GEN, _make_profile())
         async with aiosqlite.connect(tmp_path / "telemetry.db") as db:
             cur = await db.execute("SELECT payload FROM pending_writes LIMIT 1")
             row = await cur.fetchone()

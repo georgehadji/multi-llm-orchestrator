@@ -11,6 +11,7 @@ Steps:
 6. Update pyproject.toml [project.dependencies] if it exists
 7. Return ResolveReport
 """
+
 from __future__ import annotations
 
 import ast
@@ -66,9 +67,7 @@ _IMPORT_TO_PYPI: dict[str, str] = {
 }
 
 # stdlib modules set — available in Python 3.10+
-_STDLIB: frozenset[str] = frozenset(
-    getattr(sys, "stdlib_module_names", frozenset())
-)
+_STDLIB: frozenset[str] = frozenset(getattr(sys, "stdlib_module_names", frozenset()))
 
 
 @dataclass
@@ -142,9 +141,7 @@ class DependencyResolver:
                 # Use the import name directly as PyPI name (best guess)
                 specifiers.append(imp)
                 unresolved.append(imp)
-                logger.debug(
-                    "No PyPI mapping for '%s'; using import name as package name", imp
-                )
+                logger.debug("No PyPI mapping for '%s'; using import name as package name", imp)
 
         report.unresolved = sorted(unresolved)
 
@@ -195,12 +192,15 @@ class DependencyResolver:
         if module_name in _STDLIB:
             return False
         # Skip common internal package names
-        if module_name in {
-            "src", "tests", "orchestrator", "config", "utils",
-            "models", "app",
-        }:
-            return False
-        return True
+        return module_name not in {
+            "src",
+            "tests",
+            "orchestrator",
+            "config",
+            "utils",
+            "models",
+            "app",
+        }
 
     def _update_pyproject(self, pyproject_path: Path, specifiers: list[str]) -> bool:
         """

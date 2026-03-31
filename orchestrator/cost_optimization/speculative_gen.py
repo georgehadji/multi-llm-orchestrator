@@ -18,10 +18,10 @@ Usage:
     from orchestrator.cost_optimization import SpeculativeGenerator
 
     gen = SpeculativeGenerator(client=api_client)
-    
+
     result = await gen.speculative_generate(
         prompt="Generate Python code...",
-        cheap_model="deepseek-chat",
+        cheap_model="deepseek/deepseek-chat",
         premium_model="claude-opus-4.6",
         threshold=0.85,
     )
@@ -30,12 +30,11 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -43,6 +42,7 @@ logger = get_logger(__name__)
 @dataclass
 class SpeculativeMetrics:
     """Metrics for speculative generation."""
+
     total_attempts: int = 0
     cheap_wins: int = 0  # Cheap model was good enough
     premium_wins: int = 0  # Required premium
@@ -58,7 +58,7 @@ class SpeculativeMetrics:
             return 0.0
         return self.cheap_wins / self.total_attempts
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for telemetry."""
         return {
             "total_attempts": self.total_attempts,
@@ -75,6 +75,7 @@ class SpeculativeMetrics:
 @dataclass
 class SpeculativeResult:
     """Result of speculative generation."""
+
     response: str
     model_used: str
     score: float
@@ -114,7 +115,7 @@ class SpeculativeGenerator:
 
     # Cost per 1M tokens
     MODEL_COSTS = {
-        "deepseek-chat": {"input": 1.0, "output": 4.0},
+        "deepseek/deepseek-chat": {"input": 1.0, "output": 4.0},
         "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
         "claude-opus-4.6": {"input": 15.0, "output": 75.0},
         "gpt-4o": {"input": 5.0, "output": 15.0},
@@ -157,7 +158,7 @@ class SpeculativeGenerator:
             f"{cheap_model} vs {premium_model} (threshold={threshold})"
         )
 
-    def get_model_pair(self, task_type: str) -> Dict[str, Any]:
+    def get_model_pair(self, task_type: str) -> dict[str, Any]:
         """
         Get model pair for task type.
 
@@ -176,9 +177,9 @@ class SpeculativeGenerator:
         self,
         prompt: str,
         task_type: str = "code_generation",
-        cheap_model: Optional[str] = None,
-        premium_model: Optional[str] = None,
-        threshold: Optional[float] = None,
+        cheap_model: str | None = None,
+        premium_model: str | None = None,
+        threshold: float | None = None,
         max_tokens: int = 4000,
         **kwargs,
     ) -> SpeculativeResult:
@@ -202,7 +203,7 @@ class SpeculativeGenerator:
 
         # Get model pair
         model_pair = self.get_model_pair(task_type)
-        cheap = cheap_model or model_pair.get("cheap", "deepseek-chat")
+        cheap = cheap_model or model_pair.get("cheap", "deepseek/deepseek-chat")
         premium = premium_model or model_pair.get("premium", "claude-opus-4.6")
         score_threshold = threshold or model_pair.get("threshold", 0.85)
 
@@ -222,16 +223,13 @@ class SpeculativeGenerator:
         cheap_result = None
         premium_result = None
         cheap_score = 0.0
-        premium_cancelled = False
 
         try:
             # Wait for cheap model first (usually faster)
             cheap_result = await cheap_task
             cheap_score = await self._quick_evaluate(prompt, cheap_result)
 
-            logger.info(
-                f"Cheap model {cheap} completed with score {cheap_score:.3f}"
-            )
+            logger.info(f"Cheap model {cheap} completed with score {cheap_score:.3f}")
 
             # Check if cheap model is good enough
             if cheap_score >= score_threshold:
@@ -242,7 +240,6 @@ class SpeculativeGenerator:
 
                 # Cancel premium task
                 premium_task.cancel()
-                premium_cancelled = True
                 self.metrics.cancellations += 1
                 self.metrics.cheap_wins += 1
 
@@ -255,9 +252,8 @@ class SpeculativeGenerator:
 
                 self.metrics.total_cost += cost
                 self.metrics.avg_cheap_score = (
-                    (self.metrics.avg_cheap_score * (self.metrics.total_attempts - 1) + cheap_score)
-                    / self.metrics.total_attempts
-                )
+                    self.metrics.avg_cheap_score * (self.metrics.total_attempts - 1) + cheap_score
+                ) / self.metrics.total_attempts
 
                 return SpeculativeResult(
                     response=cheap_result,
@@ -279,9 +275,7 @@ class SpeculativeGenerator:
                 premium_result = await premium_task
                 premium_score = await self._quick_evaluate(prompt, premium_result)
 
-                logger.info(
-                    f"Premium model {premium} completed with score {premium_score:.3f}"
-                )
+                logger.info(f"Premium model {premium} completed with score {premium_score:.3f}")
 
                 self.metrics.premium_wins += 1
 
@@ -364,9 +358,9 @@ class SpeculativeGenerator:
                 **kwargs,
             )
 
-            if hasattr(response, 'text'):
+            if hasattr(response, "text"):
                 return response.text
-            elif hasattr(response, 'content'):
+            elif hasattr(response, "content"):
                 return response.content
             else:
                 return str(response)
@@ -427,7 +421,7 @@ class SpeculativeGenerator:
         self,
         model: str,
         response: str,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
     ) -> float:
         """
         Estimate API cost.
@@ -451,7 +445,7 @@ class SpeculativeGenerator:
 
         return input_cost + output_cost
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get speculative metrics."""
         return self.metrics.to_dict()
 
@@ -463,6 +457,7 @@ class SpeculativeGenerator:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def speculative_generate(
     client,

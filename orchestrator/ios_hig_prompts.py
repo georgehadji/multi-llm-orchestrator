@@ -8,13 +8,11 @@ Ensures generated iOS code follows App Store requirements and HIG standards.
 
 Usage:
     from orchestrator.ios_hig_prompts import IOS_GENERATION_CONTEXT, get_ios_prompt
-    
+
     prompt = get_ios_prompt(project_description, include_hig=True)
 """
 
 from __future__ import annotations
-
-from typing import Optional
 
 # ─────────────────────────────────────────────
 # iOS Generation Context (App Store Requirements)
@@ -117,7 +115,7 @@ struct AppNameApp: App {
 
 struct ContentView: View {
     @State private var selectedTab = 0
-    
+
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView()
@@ -125,7 +123,7 @@ struct ContentView: View {
                     Label("Home", systemImage: "house")
                 }
                 .tag(0)
-            
+
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
@@ -180,7 +178,7 @@ Example:
 ```swift
 struct ContentView: View {
     @Environment(\\.colorScheme) var colorScheme
-    
+
     var body: some View {
         Text("Hello")
             .foregroundColor(colorScheme == .dark ? .white : .black)
@@ -205,7 +203,7 @@ Example:
 ```swift
 struct ContentView: View {
     @ScaledMetric(relativeTo: .body) var fontSize: CGFloat = 16
-    
+
     var body: some View {
         Button(action: onSave) {
             Image(systemName: "square.and.arrow.down")
@@ -249,7 +247,7 @@ Example Consent Modal:
 ```swift
 struct PhotoPermissionModal: View {
     @State private var showPermissionAlert = false
-    
+
     var body: some View {
         Button("Select Photo") {
             showPermissionAlert = true
@@ -287,6 +285,7 @@ LaunchScreen.storyboard structure:
 # Helper Functions
 # ─────────────────────────────────────────────
 
+
 def get_ios_prompt(
     project_description: str,
     include_hig: bool = True,
@@ -298,7 +297,7 @@ def get_ios_prompt(
 ) -> str:
     """
     Generate iOS-specific prompt with HIG guidelines.
-    
+
     Args:
         project_description: Project to generate
         include_hig: Include main HIG context (default: True)
@@ -307,7 +306,7 @@ def get_ios_prompt(
         include_accessibility: Include accessibility template (default: True)
         include_privacy: Include privacy template (default: True)
         include_launch_screen: Include launch screen template (default: True)
-    
+
     Returns:
         Complete iOS generation prompt
     """
@@ -319,48 +318,50 @@ def get_ios_prompt(
         "## Platform: iOS (SwiftUI)",
         "",
     ]
-    
+
     if include_hig:
         prompt_parts.append("## Apple HIG & App Store Requirements")
         prompt_parts.append(IOS_GENERATION_CONTEXT)
         prompt_parts.append("")
-    
+
     if include_navigation:
         prompt_parts.append("## Navigation Requirements")
         prompt_parts.append(HIG_NAVIGATION_TEMPLATE)
         prompt_parts.append("")
-    
+
     if include_dark_mode:
         prompt_parts.append("## Dark Mode Requirements")
         prompt_parts.append(HIG_DARK_MODE_TEMPLATE)
         prompt_parts.append("")
-    
+
     if include_accessibility:
         prompt_parts.append("## Accessibility Requirements")
         prompt_parts.append(HIG_ACCESSIBILITY_TEMPLATE)
         prompt_parts.append("")
-    
+
     if include_privacy:
         prompt_parts.append("## Privacy Requirements")
         prompt_parts.append(HIG_PRIVACY_TEMPLATE)
         prompt_parts.append("")
-    
+
     if include_launch_screen:
         prompt_parts.append("## Launch Screen Requirements")
         prompt_parts.append(HIG_LAUNCH_SCREEN_TEMPLATE)
         prompt_parts.append("")
-    
+
     prompt_parts.append("## Task")
-    prompt_parts.append("Generate a complete, production-ready iOS app that follows ALL guidelines above.")
+    prompt_parts.append(
+        "Generate a complete, production-ready iOS app that follows ALL guidelines above."
+    )
     prompt_parts.append("The app must be ready for App Store submission with no modifications.")
-    
+
     return "\n".join(prompt_parts)
 
 
 def get_hig_checklist() -> dict[str, list[str]]:
     """
     Get HIG compliance checklist.
-    
+
     Returns:
         Dictionary with checklist categories and items
     """
@@ -409,42 +410,42 @@ def get_hig_checklist() -> dict[str, list[str]]:
 def validate_hig_compliance(code: str) -> tuple[bool, list[str]]:
     """
     Validate code for HIG compliance.
-    
+
     Args:
         code: Swift code to validate
-    
+
     Returns:
         Tuple of (is_compliant, list of violations)
     """
     violations = []
-    
+
     # Check for placeholder content
     placeholders = ["lorem ipsum", "todo", "fixme", "coming soon", "placeholder"]
     code_lower = code.lower()
     for placeholder in placeholders:
         if placeholder in code_lower:
             violations.append(f"Found placeholder content: '{placeholder}'")
-    
+
     # Check for dynamic code execution
     dangerous_patterns = ["eval(", "exec(", "NSClassFromString", "performSelector"]
     for pattern in dangerous_patterns:
         if pattern in code:
             violations.append(f"Found dynamic code execution: '{pattern}'")
-    
+
     # Check for TabView (navigation requirement)
     if "TabView" not in code and "UITabBarController" not in code:
         violations.append("Missing TabView/UITabBarController for main navigation")
-    
+
     # Check for Dark Mode support
     if "@Environment(\\.colorScheme)" not in code and "userInterfaceStyle" not in code:
         violations.append("Missing Dark Mode support (@Environment(.colorScheme))")
-    
+
     # Check for accessibility
     if ".accessibilityLabel(" not in code and "accessibilityLabel" not in code:
         violations.append("Missing accessibility labels")
-    
+
     is_compliant = len(violations) == 0
-    
+
     return is_compliant, violations
 
 
@@ -452,21 +453,22 @@ def validate_hig_compliance(code: str) -> tuple[bool, list[str]]:
 # Integration with Multi-Platform Generator
 # ─────────────────────────────────────────────
 
+
 def inject_hig_context(
     project_description: str,
     target_platform: str,
 ) -> str:
     """
     Inject HIG context if target is iOS.
-    
+
     Args:
         project_description: Original project description
         target_platform: Target platform (ios, android, web, etc.)
-    
+
     Returns:
         Enhanced project description with HIG context if iOS
     """
     if target_platform.lower() in ["ios", "swiftui", "iphone", "ipad"]:
         return get_ios_prompt(project_description)
-    
+
     return project_description

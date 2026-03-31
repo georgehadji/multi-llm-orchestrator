@@ -3,6 +3,7 @@ Tests for HookRegistry, EventType, and all MetricsExporter implementations.
 Covers: callback registration, fire, error isolation, clear,
         ConsoleExporter, JSONExporter, PrometheusExporter.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,10 +20,10 @@ from orchestrator.metrics import (
     PrometheusExporter,
 )
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def registry():
@@ -60,6 +61,7 @@ SAMPLE_METRICS = {
 # ─────────────────────────────────────────────────────────────────────────────
 # HookRegistry — basic behaviour
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_add_and_fire_callback_called(registry):
     called = []
@@ -160,6 +162,7 @@ def test_all_event_types_exist():
 # ConsoleExporter
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_console_exporter_produces_output(capsys):
     exporter = ConsoleExporter()
     exporter.export(SAMPLE_METRICS)
@@ -192,6 +195,7 @@ def test_console_exporter_empty_metrics_no_crash(capsys):
 # ─────────────────────────────────────────────────────────────────────────────
 # JSONExporter
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_json_exporter_creates_valid_json(tmp_path):
     path = tmp_path / "metrics.json"
@@ -240,6 +244,7 @@ def test_json_exporter_accepts_string_path(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # PrometheusExporter
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_prometheus_exporter_writes_to_stdout(capsys):
     exporter = PrometheusExporter()

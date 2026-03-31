@@ -4,6 +4,7 @@ Test P2-2: Batch Telemetry Operations
 Tests that batch insert is used for telemetry snapshots
 to improve throughput by 10x.
 """
+
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, call
@@ -35,7 +36,7 @@ class TestBatchTelemetry:
         Verify record_snapshots_batch() method exists.
         """
         # Assert: Method should exist
-        assert hasattr(telemetry_store, 'record_snapshots_batch')
+        assert hasattr(telemetry_store, "record_snapshots_batch")
         assert callable(telemetry_store.record_snapshots_batch)
 
     @pytest.mark.asyncio
@@ -45,7 +46,7 @@ class TestBatchTelemetry:
         """
         # Act: Record empty batch
         await telemetry_store.record_snapshots_batch("test_project", [])
-        
+
         # Assert: Should not raise (no-op)
 
     @pytest.mark.asyncio
@@ -58,13 +59,10 @@ class TestBatchTelemetry:
         profile = orchestrator._profiles[model]
         profile.call_count = 5
         profile.quality_score = 0.85
-        
+
         # Act: Record batch
-        await telemetry_store.record_snapshots_batch(
-            "test_project",
-            [(model, profile)]
-        )
-        
+        await telemetry_store.record_snapshots_batch("test_project", [(model, profile)])
+
         # Assert: Should not raise
 
     @pytest.mark.asyncio
@@ -75,19 +73,18 @@ class TestBatchTelemetry:
         # Arrange: Create profiles with different call counts
         model1 = Model.GPT_4O_MINI
         model2 = Model.GPT_4O
-        
+
         profile1 = orchestrator._profiles[model1]
         profile2 = orchestrator._profiles[model2]
-        
+
         profile1.call_count = 5  # Active
         profile2.call_count = 0  # Inactive
-        
+
         # Act: Record batch
         await telemetry_store.record_snapshots_batch(
-            "test_project",
-            [(model1, profile1), (model2, profile2)]
+            "test_project", [(model1, profile1), (model2, profile2)]
         )
-        
+
         # Assert: Only active profile should be recorded
         # (We can't easily verify this without reading from DB,
         # but the method should complete without error)
@@ -104,10 +101,10 @@ class TestBatchTelemetry:
             profile.call_count = i + 1
             profile.quality_score = 0.8 + (i * 0.02)
             snapshots.append((model, profile))
-        
+
         # Act: Record batch
         await telemetry_store.record_snapshots_batch("test_project", snapshots)
-        
+
         # Assert: Should complete without error
 
     @pytest.mark.asyncio
@@ -118,20 +115,20 @@ class TestBatchTelemetry:
         # Arrange: Set up active profiles
         for i, model in enumerate(list(Model)[:5]):
             orchestrator._profiles[model].call_count = i + 1
-        
+
         # Mock the batch method
         original_batch = orchestrator._telemetry_store.record_snapshots_batch
         orchestrator._telemetry_store.record_snapshots_batch = AsyncMock()
-        
+
         # Act: Flush telemetry
         await orchestrator._flush_telemetry_snapshots("test_project")
-        
+
         # Small delay for async task
         await asyncio.sleep(0.05)
-        
+
         # Assert: Batch method should be called
         assert orchestrator._telemetry_store.record_snapshots_batch.called
-        
+
         # Restore
         orchestrator._telemetry_store.record_snapshots_batch = original_batch
 
@@ -147,17 +144,18 @@ class TestBatchTelemetry:
             profile.call_count = 5
             profile.quality_score = 0.85
             snapshots.append((model, profile))
-        
+
         # Measure batch insert
         import time
+
         start = time.time()
         await telemetry_store.record_snapshots_batch("batch_test", snapshots)
         batch_time = time.time() - start
-        
+
         # Note: We can't easily test individual inserts without modifying
         # the existing record_snapshot method behavior
         # This test is more for documentation of the optimization
-        
+
         # Assert: Batch should complete (timing is for manual verification)
         assert batch_time < 1.0  # Should be fast
 
@@ -168,12 +166,13 @@ class TestBatchTelemetry:
         """
         # This is a code inspection test - we verify the implementation
         # uses executemany by checking the method signature
-        
+
         import inspect
+
         source = inspect.getsource(telemetry_store.record_snapshots_batch)
-        
+
         # Assert: Should use executemany
-        assert 'executemany' in source
+        assert "executemany" in source
 
     @pytest.mark.asyncio
     async def test_batch_transaction_handling(self, telemetry_store):
@@ -181,10 +180,11 @@ class TestBatchTelemetry:
         Verify batch operations are wrapped in transaction.
         """
         import inspect
+
         source = inspect.getsource(telemetry_store.record_snapshots_batch)
-        
+
         # Assert: Should use transaction (commit)
-        assert 'commit' in source
+        assert "commit" in source
 
     @pytest.mark.asyncio
     async def test_integration_with_orchestrator(self, orchestrator):
@@ -195,28 +195,28 @@ class TestBatchTelemetry:
         test_model = list(Model)[:3]
         for i, model in enumerate(test_model):
             orchestrator._profiles[model].call_count = i + 1
-        
+
         # Mock to capture calls
         captured_batches = []
-        
+
         async def capture_batch(project_id, snapshots):
             captured_batches.append((project_id, snapshots))
-        
+
         original_batch = orchestrator._telemetry_store.record_snapshots_batch
         orchestrator._telemetry_store.record_snapshots_batch = capture_batch
-        
+
         # Act: Flush telemetry
         await orchestrator._flush_telemetry_snapshots("integration_test")
-        
+
         # Wait for async task
         await asyncio.sleep(0.1)
-        
+
         # Assert: Batch should be captured
         assert len(captured_batches) == 1
         project_id, snapshots = captured_batches[0]
         assert project_id == "integration_test"
         assert len(snapshots) == 3  # 3 active profiles
-        
+
         # Restore
         orchestrator._telemetry_store.record_snapshots_batch = original_batch
 
@@ -227,16 +227,15 @@ class TestBatchTelemetry:
         """
         # Arrange: Invalid data that might cause DB error
         # (This is hard to test without mocking the DB)
-        
+
         # Mock aiosqlite to raise an error
-        with patch('aiosqlite.connect') as mock_connect:
+        with patch("aiosqlite.connect") as mock_connect:
             mock_connect.side_effect = Exception("DB error")
-            
+
             # Act: Should not raise
             try:
                 await telemetry_store.record_snapshots_batch(
-                    "test",
-                    [(Model.GPT_4O_MINI, orchestrator._profiles[Model.GPT_4O_MINI])]
+                    "test", [(Model.GPT_4O_MINI, orchestrator._profiles[Model.GPT_4O_MINI])]
                 )
             except Exception as e:
                 # Expected to raise DB error

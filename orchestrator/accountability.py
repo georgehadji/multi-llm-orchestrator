@@ -3,7 +3,7 @@ Accountability Framework — Enhanced audit trail for responsibility tracking
 ============================================================================
 
 Implements accountability tracking from "Agents of Chaos" paper (arXiv:2602.20021):
-- Raises unresolved questions about accountability, delegated authority, and 
+- Raises unresolved questions about accountability, delegated authority, and
   responsibility for downstream harms
 
 This module provides:
@@ -15,9 +15,9 @@ This module provides:
 
 Usage:
     from orchestrator.accountability import AccountabilityTracker, Action, DelegationChain
-    
+
     tracker = AccountabilityTracker()
-    
+
     # Track an action with attribution
     action_id = tracker.record_action(
         actor="user:admin",
@@ -25,7 +25,7 @@ Usage:
         target="src/main.py",
         delegation_chain=["user:admin", "agent:code_writer", "tool:file_write"],
     )
-    
+
     # Track downstream impact
     tracker.track_impact(
         action_id=action_id,
@@ -38,21 +38,23 @@ Usage:
 from __future__ import annotations
 
 import json
-import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any
 
 from .log_config import get_logger
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = get_logger(__name__)
 
 
 class ActorType(Enum):
     """Types of actors that can initiate actions."""
+
     USER = "user"
     AGENT = "agent"
     TOOL = "tool"
@@ -63,6 +65,7 @@ class ActorType(Enum):
 
 class ActionType(Enum):
     """Types of actions that can be performed."""
+
     FILE_READ = "file_read"
     FILE_WRITE = "file_write"
     FILE_DELETE = "file_delete"
@@ -79,6 +82,7 @@ class ActionType(Enum):
 
 class ImpactSeverity(Enum):
     """Severity of downstream impacts."""
+
     NEGLIGIBLE = "negligible"
     LOW = "low"
     MEDIUM = "medium"
@@ -88,6 +92,7 @@ class ImpactSeverity(Enum):
 
 class ImpactType(Enum):
     """Types of downstream impacts."""
+
     RESOURCE_CONSUMPTION = "resource_consumption"
     DATA_DISCLOSURE = "data_disclosure"
     SYSTEM_MODIFICATION = "system_modification"
@@ -100,11 +105,12 @@ class ImpactType(Enum):
 @dataclass
 class Actor:
     """Represents an actor that can perform actions."""
+
     id: str
     type: ActorType
     name: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     def __str__(self) -> str:
         return f"{self.type.value}:{self.name}"
 
@@ -113,25 +119,28 @@ class Actor:
 class Action:
     """
     Represents a single action performed in the system.
-    
+
     This is the core unit of accountability - every significant
     operation should be recorded as an Action.
     """
+
     id: str
     timestamp: datetime
     actor: Actor
     action_type: ActionType
     target: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    result: Optional[Any] = None
+    parameters: dict[str, Any] = field(default_factory=dict)
+    result: Any | None = None
     success: bool = True
-    error_message: Optional[str] = None
-    delegation_chain: List[str] = field(default_factory=list)  # ["user:admin", "agent:writer", "tool:write"]
-    parent_action_id: Optional[str] = None  # For tracing causation
-    verification_id: Optional[str] = None  # Links to task verification
-    session_id: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    error_message: str | None = None
+    delegation_chain: list[str] = field(
+        default_factory=list
+    )  # ["user:admin", "agent:writer", "tool:write"]
+    parent_action_id: str | None = None  # For tracing causation
+    verification_id: str | None = None  # Links to task verification
+    session_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "timestamp": self.timestamp.isoformat(),
@@ -154,16 +163,17 @@ class Action:
 @dataclass
 class Impact:
     """Represents a downstream impact from an action."""
+
     id: str
     timestamp: datetime
     action_id: str
     impact_type: ImpactType
     severity: ImpactSeverity
     description: str
-    affected_systems: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    affected_systems: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "timestamp": self.timestamp.isoformat(),
@@ -179,44 +189,43 @@ class Impact:
 @dataclass
 class DelegationRecord:
     """Records a delegation of authority from one actor to another."""
+
     id: str
     timestamp: datetime
     delegator: str  # Actor ID
     delegatee: str  # Actor ID
-    scope: List[str] = field(default_factory=list)  # What actions are delegated
-    conditions: Dict[str, Any] = field(default_factory=dict)
-    expires_at: Optional[datetime] = None
+    scope: list[str] = field(default_factory=list)  # What actions are delegated
+    conditions: dict[str, Any] = field(default_factory=dict)
+    expires_at: datetime | None = None
     revoked: bool = False
-    
+
     def is_valid(self) -> bool:
         if self.revoked:
             return False
-        if self.expires_at and datetime.utcnow() > self.expires_at:
-            return False
-        return True
+        return not (self.expires_at and datetime.utcnow() > self.expires_at)
 
 
 class AccountabilityTracker:
     """
     Tracks accountability for all actions in the system.
-    
+
     Provides:
     - Complete action history with attribution
     - Delegation chain tracking
     - Downstream impact monitoring
     - Chain of custody for sensitive operations
-    
+
     This addresses the paper's concern about accountability for downstream harms.
     """
 
     def __init__(self):
-        self._actions: Dict[str, Action] = {}
-        self._impacts: Dict[str, List[Impact]] = {}
-        self._delegations: Dict[str, DelegationRecord] = {}
-        self._actor_sessions: Dict[str, str] = {}  # session_id -> actor_id
-        self._action_sessions: Dict[str, str] = {}  # action_id -> session_id
+        self._actions: dict[str, Action] = {}
+        self._impacts: dict[str, list[Impact]] = {}
+        self._delegations: dict[str, DelegationRecord] = {}
+        self._actor_sessions: dict[str, str] = {}  # session_id -> actor_id
+        self._action_sessions: dict[str, str] = {}  # action_id -> session_id
 
-    def start_session(self, actor_id: str, session_id: Optional[str] = None) -> str:
+    def start_session(self, actor_id: str, session_id: str | None = None) -> str:
         """Start a new session for an actor."""
         if session_id is None:
             session_id = str(uuid.uuid4())
@@ -229,7 +238,7 @@ class AccountabilityTracker:
         self._actor_sessions.pop(session_id, None)
         logger.debug(f"Ended session {session_id}")
 
-    def get_current_session(self, actor_id: str) -> Optional[str]:
+    def get_current_session(self, actor_id: str) -> str | None:
         """Get the current session ID for an actor."""
         for session_id, a_id in self._actor_sessions.items():
             if a_id == actor_id:
@@ -243,30 +252,30 @@ class AccountabilityTracker:
         actor_name: str,
         action_type: ActionType,
         target: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        result: Optional[Any] = None,
+        parameters: dict[str, Any] | None = None,
+        result: Any | None = None,
         success: bool = True,
-        error_message: Optional[str] = None,
-        delegation_chain: Optional[List[str]] = None,
-        parent_action_id: Optional[str] = None,
-        verification_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        error_message: str | None = None,
+        delegation_chain: list[str] | None = None,
+        parent_action_id: str | None = None,
+        verification_id: str | None = None,
+        session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Record a new action with full attribution.
-        
+
         Returns the action_id for tracking downstream impacts.
         """
         action_id = str(uuid.uuid4())
-        
+
         actor = Actor(
             id=actor_id,
             type=actor_type,
             name=actor_name,
             metadata=metadata or {},
         )
-        
+
         action = Action(
             id=action_id,
             timestamp=datetime.utcnow(),
@@ -282,27 +291,29 @@ class AccountabilityTracker:
             verification_id=verification_id,
             session_id=session_id,
         )
-        
+
         self._actions[action_id] = action
-        
+
         if session_id:
             self._action_sessions[action_id] = session_id
-        
-        logger.debug(f"Recorded action {action_id}: {actor_type.value}:{actor_name} -> {action_type.value} on {target}")
-        
+
+        logger.debug(
+            f"Recorded action {action_id}: {actor_type.value}:{actor_name} -> {action_type.value} on {target}"
+        )
+
         return action_id
 
     def record_delegation(
         self,
         delegator_id: str,
         delegatee_id: str,
-        scope: Optional[List[str]] = None,
-        conditions: Optional[Dict[str, Any]] = None,
-        expires_at: Optional[datetime] = None,
+        scope: list[str] | None = None,
+        conditions: dict[str, Any] | None = None,
+        expires_at: datetime | None = None,
     ) -> str:
         """Record a delegation of authority."""
         delegation_id = str(uuid.uuid4())
-        
+
         delegation = DelegationRecord(
             id=delegation_id,
             timestamp=datetime.utcnow(),
@@ -312,10 +323,10 @@ class AccountabilityTracker:
             conditions=conditions or {},
             expires_at=expires_at,
         )
-        
+
         self._delegations[delegation_id] = delegation
         logger.info(f"Recorded delegation: {delegator_id} -> {delegatee_id} (scope: {scope})")
-        
+
         return delegation_id
 
     def revoke_delegation(self, delegation_id: str) -> bool:
@@ -327,12 +338,9 @@ class AccountabilityTracker:
             return True
         return False
 
-    def get_delegation_chain(self, actor_id: str) -> List[DelegationRecord]:
+    def get_delegation_chain(self, actor_id: str) -> list[DelegationRecord]:
         """Get all delegations for an actor."""
-        return [
-            d for d in self._delegations.values()
-            if d.delegatee == actor_id and d.is_valid()
-        ]
+        return [d for d in self._delegations.values() if d.delegatee == actor_id and d.is_valid()]
 
     def track_impact(
         self,
@@ -340,12 +348,12 @@ class AccountabilityTracker:
         impact_type: ImpactType,
         severity: ImpactSeverity,
         description: str,
-        affected_systems: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        affected_systems: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Track a downstream impact from an action."""
         impact_id = str(uuid.uuid4())
-        
+
         impact = Impact(
             id=impact_id,
             timestamp=datetime.utcnow(),
@@ -356,44 +364,43 @@ class AccountabilityTracker:
             affected_systems=affected_systems or [],
             metadata=metadata or {},
         )
-        
+
         if action_id not in self._impacts:
             self._impacts[action_id] = []
         self._impacts[action_id].append(impact)
-        
-        logger.debug(f"Tracked impact {impact_id} for action {action_id}: {severity.value} {impact_type.value}")
-        
+
+        logger.debug(
+            f"Tracked impact {impact_id} for action {action_id}: {severity.value} {impact_type.value}"
+        )
+
         return impact_id
 
-    def get_action(self, action_id: str) -> Optional[Action]:
+    def get_action(self, action_id: str) -> Action | None:
         """Get an action by ID."""
         return self._actions.get(action_id)
 
-    def get_impacts_for_action(self, action_id: str) -> List[Impact]:
+    def get_impacts_for_action(self, action_id: str) -> list[Impact]:
         """Get all impacts for an action."""
         return self._impacts.get(action_id, [])
 
-    def get_cascading_impacts(self, action_id: str) -> List[Impact]:
+    def get_cascading_impacts(self, action_id: str) -> list[Impact]:
         """Get all cascading impacts (impacts from child actions)."""
         all_impacts = []
-        
+
         # Get direct impacts
         direct = self._impacts.get(action_id, [])
         all_impacts.extend(direct)
-        
+
         # Find child actions
-        child_actions = [
-            a for a in self._actions.values()
-            if a.parent_action_id == action_id
-        ]
-        
+        child_actions = [a for a in self._actions.values() if a.parent_action_id == action_id]
+
         # Recursively get impacts
         for child in child_actions:
             all_impacts.extend(self.get_cascading_impacts(child.id))
-        
+
         return all_impacts
 
-    def get_high_severity_impacts(self) -> List[Impact]:
+    def get_high_severity_impacts(self) -> list[Impact]:
         """Get all high or critical severity impacts."""
         high_severities = {ImpactSeverity.HIGH, ImpactSeverity.CRITICAL}
         return [
@@ -403,32 +410,29 @@ class AccountabilityTracker:
             if impact.severity in high_severities
         ]
 
-    def get_actions_by_actor(self, actor_id: str) -> List[Action]:
+    def get_actions_by_actor(self, actor_id: str) -> list[Action]:
         """Get all actions performed by an actor."""
-        return [
-            a for a in self._actions.values()
-            if a.actor.id == actor_id
-        ]
+        return [a for a in self._actions.values() if a.actor.id == actor_id]
 
-    def get_failed_actions(self) -> List[Action]:
+    def get_failed_actions(self) -> list[Action]:
         """Get all failed actions."""
         return [a for a in self._actions.values() if not a.success]
 
     def get_accountability_report(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+    ) -> dict[str, Any]:
         """Generate an accountability report for a time period."""
         actions = list(self._actions.values())
-        
+
         if start_time:
             actions = [a for a in actions if a.timestamp >= start_time]
         if end_time:
             actions = [a for a in actions if a.timestamp <= end_time]
-        
+
         # Group by actor
-        actor_stats: Dict[str, Dict[str, Any]] = {}
+        actor_stats: dict[str, dict[str, Any]] = {}
         for action in actions:
             actor_key = str(action.actor)
             if actor_key not in actor_stats:
@@ -438,20 +442,21 @@ class AccountabilityTracker:
                     "failed": 0,
                     "action_types": {},
                 }
-            
+
             actor_stats[actor_key]["total_actions"] += 1
             if action.success:
                 actor_stats[actor_key]["successful"] += 1
             else:
                 actor_stats[actor_key]["failed"] += 1
-            
+
             at = action.action_type.value
-            actor_stats[actor_key]["action_types"][at] = \
+            actor_stats[actor_key]["action_types"][at] = (
                 actor_stats[actor_key]["action_types"].get(at, 0) + 1
-        
+            )
+
         # Get high severity impacts
         high_impacts = self.get_high_severity_impacts()
-        
+
         return {
             "period": {
                 "start": start_time.isoformat() if start_time else None,
@@ -464,9 +469,7 @@ class AccountabilityTracker:
                 "failed_actions": len([a for a in actions if not a.success]),
             },
             "actor_statistics": actor_stats,
-            "recent_high_impacts": [
-                i.to_dict() for i in high_impacts[-10:]
-            ],
+            "recent_high_impacts": [i.to_dict() for i in high_impacts[-10:]],
         }
 
     def flush_jsonl(self, path: str | Path) -> None:
@@ -475,7 +478,7 @@ class AccountabilityTracker:
             # Write actions
             for action in self._actions.values():
                 fh.write(json.dumps({"type": "action", **action.to_dict()}) + "\n")
-            
+
             # Write impacts
             for impacts in self._impacts.values():
                 for impact in impacts:
