@@ -11,6 +11,7 @@ import hashlib
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
 # ─────────────────────────────────────────────
 # Enums
@@ -574,18 +575,13 @@ class AttemptRecord:
     validators_failed: list[str] = field(default_factory=list)
 
 
-# Budget class lives in budget.py (async logic must not be in pure-data models.py).
-# Re-exported here for backward compatibility with all existing imports.
-from .budget import Budget  # noqa: E402
-
-
 @dataclass
 class ProjectState:
     """Full serializable state for resume capability."""
 
     project_description: str
     success_criteria: str
-    budget: Budget
+    budget: object  # Budget type - avoid circular import by using object
     tasks: dict[str, Task] = field(default_factory=dict)
     results: dict[str, TaskResult] = field(default_factory=dict)
     api_health: dict[str, bool] = field(default_factory=dict)

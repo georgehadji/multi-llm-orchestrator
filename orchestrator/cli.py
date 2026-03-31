@@ -37,8 +37,8 @@ load_dotenv(override=True)
 logger = logging.getLogger("orchestrator.cli")
 
 from .assembler import assemble_project
+from .budget import Budget
 from .engine import Orchestrator
-from .models import Budget
 from .output_organizer import (
     organize_project_output,
     suppress_cache_messages,

@@ -15,7 +15,18 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 
-from .models import BUDGET_PARTITIONS
+# NOTE: Lazy import to avoid circular dependency with models.py
+# BUDGET_PARTITIONS will be imported when first needed
+_budget_partitions_cache = None
+
+
+def _get_budget_partitions():
+    """Lazy-load BUDGET_PARTITIONS to avoid circular imports."""
+    global _budget_partitions_cache
+    if _budget_partitions_cache is None:
+        from .models import BUDGET_PARTITIONS  # noqa: PLC0415
+        _budget_partitions_cache = BUDGET_PARTITIONS
+    return _budget_partitions_cache
 
 
 @dataclass
@@ -72,7 +83,8 @@ class Budget:
         return self.elapsed_seconds < self.max_time_seconds
 
     def phase_budget(self, phase: str) -> float:
-        return self.max_usd * BUDGET_PARTITIONS.get(phase, 0.0)
+        budget_partitions = _get_budget_partitions()
+        return self.max_usd * budget_partitions.get(phase, 0.0)
 
     def phase_remaining(self, phase: str) -> float:
         return max(0.0, self.phase_budget(phase) - self.phase_spent.get(phase, 0.0))

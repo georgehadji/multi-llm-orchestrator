@@ -25,6 +25,9 @@ __version__ = "6.0.0"
 # Core Models & Types
 # ═══════════════════════════════════════════════════════════════════════════════
 from .api_clients import APIResponse, UnifiedClient
+# NOTE: Budget import temporarily commented out due to circular import issue
+# Users should import Budget from orchestrator.budget instead
+# from .budget import Budget
 from .cache import DiskCache
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -36,7 +39,6 @@ from .models import (
     FALLBACK_CHAIN,
     ROUTING_TABLE,
     AttemptRecord,
-    Budget,
     Model,
     ProjectState,
     ProjectStatus,

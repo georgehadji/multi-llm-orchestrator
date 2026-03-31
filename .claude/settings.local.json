@@ -122,7 +122,15 @@
       "Bash(sed -n '42,60p' orchestrator/model_routing.py)",
       "Bash(grep -v \"^README.md$\\\\|^CLAUDE.md$\\\\|^USAGE_GUIDE.md$\\\\|^CAPABILITIES.md$\\\\|^METHODS.md$\")",
       "Bash(echo \"EXIT: $?\")",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(grep -rn \"^sys\\\\.exit\\\\|^    sys\\\\.exit\" tests/test_performance_import*.py tests/test_optimizations*.py tests/test_output_organizer*.py tests/test_project*.py tests/test_quick*.py tests/test_startup*.py)",
+      "Bash(grep -rn \"^sys\\\\.exit\\\\|^    sys\\\\.exit\" tests/test_project*.py tests/test_syntax.py tests/test_ant_design_dashboard.py tests/test_enhanced_dashboard.py tests/test_live_dashboard.py tests/test_mission_control*.py tests/test_assembler.py tests/test_assembler_import.py)",
+      "Bash(xargs -I{} basename {})",
+      "Bash(echo \"DONE:$?\")",
+      "Bash(jobs)",
+      "Bash(fg)",
+      "Bash(grep -rn 'from .models import.*Budget' orchestrator/ --include=*.py)",
+      "Bash(grep -rn 'from .models import' orchestrator/ --include=*.py)"
     ]
   },
   "enableAllProjectMcpServers": true,
