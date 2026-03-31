@@ -113,9 +113,9 @@ except ImportError as _e:
 # ═══════════════════════════════════════════════════════════════════════════════
 from .policy import (
     ModelProfile, Policy, PolicySet, JobSpec,
-    EnforcementMode, RateLimit, PolicyHierarchy,
+    EnforcementMode, RateLimit, PolicyHierarchy, VALID_QUALITY_MODES,
 )
-from .policy_engine import PolicyEngine
+from .policy_engine import PolicyEngine, PolicyViolationError
 from .planner import ConstraintPlanner
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -128,6 +128,7 @@ from .resume_detector import ResumeDetector
 # Codebase Enhancer
 # ═════════════════════════════════════════════════════════════════════════════==
 from .codebase_analyzer import CodebaseAnalyzer, CodebaseMap
+from .openrouter_sync import OpenRouterSync
 from .codebase_understanding import CodebaseUnderstanding
 from .codebase_profile import CodebaseProfile
 from .improvement_suggester import Improvement, ImprovementSuggester
@@ -427,7 +428,7 @@ __all__ = [
     "run_validators", "async_run_validators", "VALIDATORS", "ValidationResult",
     
     # Codebase Enhancer
-    "CodebaseAnalyzer", "CodebaseMap",
+    "CodebaseAnalyzer", "CodebaseMap", "OpenRouterSync",
     "CodebaseUnderstanding", "CodebaseProfile",
     "Improvement", "ImprovementSuggester",
 
