@@ -35,9 +35,10 @@ import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import aiohttp
+if TYPE_CHECKING:
+    import aiohttp
 
 logger = logging.getLogger("orchestrator.rate_limiter")
 
@@ -184,7 +185,7 @@ class GrokRateLimiter:
         self.state = RateLimitState(current_tier=initial_tier)
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._lock = asyncio.Lock()
-        self._session: aiohttp.ClientSession | None = None
+        self._session: Any = None  # aiohttp.ClientSession, lazy-loaded to avoid import hangs
 
         # Metrics
         self.total_requests = 0
@@ -192,10 +193,12 @@ class GrokRateLimiter:
         self.total_wait_time = 0.0
         self.rate_limit_hits = 0
 
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
+    async def _get_session(self) -> Any:
+        """Get or create aiohttp session (lazy-loads aiohttp to avoid import hangs)."""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
+            # Lazy-import aiohttp only when actually needed
+            import aiohttp as _aiohttp
+            self._session = _aiohttp.ClientSession(
                 headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
             )
         return self._session
