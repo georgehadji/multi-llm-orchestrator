@@ -23,9 +23,10 @@ import time as _time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import aiohttp
+if TYPE_CHECKING:
+    import aiohttp
 
 logger = logging.getLogger("orchestrator.a2a_protocol")
 
@@ -97,7 +98,7 @@ class A2AClient:
         self.agent_type = agent_type
         self.api_key = api_key
         self.timeout = timeout
-        self.session: aiohttp.ClientSession | None = None
+        self.session: Any = None  # aiohttp.ClientSession, lazy-loaded
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -114,8 +115,9 @@ class A2AClient:
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
-        timeout_config = aiohttp.ClientTimeout(total=self.timeout)
-        self.session = aiohttp.ClientSession(timeout=timeout_config, headers=headers)
+        import aiohttp as _aiohttp  # Lazy import to avoid hang at module load time
+        timeout_config = _aiohttp.ClientTimeout(total=self.timeout)
+        self.session = _aiohttp.ClientSession(timeout=timeout_config, headers=headers)
         logger.info(f"A2A client connected to {self.agent_endpoint}")
 
     async def close(self):

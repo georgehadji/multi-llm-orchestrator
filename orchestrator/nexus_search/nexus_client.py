@@ -12,9 +12,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import aiohttp
+if TYPE_CHECKING:
+    import aiohttp
 
 from .config import get_config
 from .models import (
@@ -47,14 +48,15 @@ class NexusClient:
             config: Nexus configuration (uses default if None)
         """
         self.config = config or get_config()
-        self.session: aiohttp.ClientSession | None = None
+        self.session: Any = None  # aiohttp.ClientSession, lazy-loaded
         self._request_lock = asyncio.Lock()
 
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
+    async def _get_session(self) -> Any:
+        """Get or create aiohttp session (lazy-loads aiohttp to avoid import hang)."""
         if self.session is None or self.session.closed:
-            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
-            self.session = aiohttp.ClientSession(timeout=timeout)
+            import aiohttp as _aiohttp  # Lazy import to avoid hang at module load time
+            timeout = _aiohttp.ClientTimeout(total=self.config.timeout)
+            self.session = _aiohttp.ClientSession(timeout=timeout)
         return self.session
 
     async def close(self) -> None:
@@ -136,7 +138,7 @@ class NexusClient:
 
                 return results
 
-        except aiohttp.ClientError as e:
+        except Exception as e:  # aiohttp.ClientError - lazy-loaded, catch broadly
             logger.error(f"Nexus search failed: {e}")
             return SearchResults(
                 query=query,
