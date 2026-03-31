@@ -18,6 +18,7 @@ Features:
 
 Author: Georgios-Chrysovalantis Chatzivantsidis
 """
+
 from __future__ import annotations
 
 import ast
@@ -34,6 +35,7 @@ logger = logging.getLogger("orchestrator.project_assembler")
 @dataclass
 class ModuleInfo:
     """Information about a Python module extracted from task output."""
+
     name: str
     content: str
     task_id: str
@@ -71,13 +73,13 @@ class DependencyAnalyzer:
     def _extract_imports_regex(source: str) -> list[str]:
         """Fallback regex-based import extraction."""
         imports = []
-        import_pattern = r'^import\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)'
-        from_pattern = r'^from\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s+import'
+        import_pattern = r"^import\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)"
+        from_pattern = r"^from\s+([a-zA-Z_][a-zA-Z0-9_.]*)\s+import"
 
-        for line in source.split('\n'):
+        for line in source.split("\n"):
             line = line.strip()
             if match := re.match(import_pattern, line):
-                imports.extend(name.strip() for name in match.group(1).split(','))
+                imports.extend(name.strip() for name in match.group(1).split(","))
             elif match := re.match(from_pattern, line):
                 imports.append(match.group(1))
 
@@ -106,9 +108,11 @@ class DependencyAnalyzer:
     def _extract_exports_regex(source: str) -> list[str]:
         """Fallback regex-based export extraction."""
         exports = []
-        for match in re.finditer(r'^class\s+([a-zA-Z_][a-zA-Z0-9_]*)', source, re.MULTILINE):
+        for match in re.finditer(r"^class\s+([a-zA-Z_][a-zA-Z0-9_]*)", source, re.MULTILINE):
             exports.append(f"class:{match.group(1)}")
-        for match in re.finditer(r'^(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)', source, re.MULTILINE):
+        for match in re.finditer(
+            r"^(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)", source, re.MULTILINE
+        ):
             exports.append(f"func:{match.group(1)}")
         return exports
 
@@ -185,45 +189,41 @@ class ProjectAssembler:
                 continue
 
             module_name = self._sanitize_module_name(task_id)
-            module = ModuleInfo(
-                name=module_name,
-                content=code,
-                task_id=task_id
-            )
+            module = ModuleInfo(name=module_name, content=code, task_id=task_id)
             modules.append(module)
 
         return modules
 
     def _extract_code(self, output: str) -> str:
         """Extract Python code from task output."""
-        if match := re.search(r'```python\n(.*?)```', output, re.DOTALL):
+        if match := re.search(r"```python\n(.*?)```", output, re.DOTALL):
             return match.group(1)
-        if match := re.search(r'```\n(.*?)```', output, re.DOTALL):
+        if match := re.search(r"```\n(.*?)```", output, re.DOTALL):
             return match.group(1)
         return output
 
     def _sanitize_module_name(self, task_id: str) -> str:
         """Convert task_id to valid Python module name."""
-        name = re.sub(r'^task_', '', task_id)
-        name = re.sub(r'^_0+', '_', name)
-        name = re.sub(r'^_', '', name)
-        name = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        name = re.sub(r"^task_", "", task_id)
+        name = re.sub(r"^_0+", "_", name)
+        name = re.sub(r"^_", "", name)
+        name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
 
         if name and name[0].isdigit():
-            name = 'task_' + name
+            name = "task_" + name
         if not name or not name[0].isalpha():
-            name = 'module_' + name
+            name = "module_" + name
 
         return name.lower()
 
     def _sanitize_project_name(self) -> str:
         """Generate a valid Python package name from project description."""
         desc = self.state.project_description[:30]
-        name = re.sub(r'[^a-zA-Z0-9_]', '_', desc)
-        name = re.sub(r'_+', '_', name)
-        name = name.strip('_').lower()
+        name = re.sub(r"[^a-zA-Z0-9_]", "_", desc)
+        name = re.sub(r"_+", "_", name)
+        name = name.strip("_").lower()
         if not name or name[0].isdigit():
-            name = 'generated_project'
+            name = "generated_project"
         return name
 
     def _analyze_dependencies(self) -> None:
@@ -233,7 +233,9 @@ class ProjectAssembler:
             module.exports = self.analyzer.extract_exports(module.content)
             logger.debug(
                 "Module %s: %d imports, %d exports",
-                module.name, len(module.imports), len(module.exports)
+                module.name,
+                len(module.imports),
+                len(module.exports),
             )
 
     def _generate_directory_structure(self) -> list[str]:
@@ -278,10 +280,15 @@ class ProjectAssembler:
             target_dir = base_dir / "application"
 
             # Check if it looks like infrastructure (DB, HTTP, external services)
-            if any(x in ' '.join(module.imports) for x in ['requests', 'http', 'boto', 'sql', 'redis']):
+            if any(
+                x in " ".join(module.imports) for x in ["requests", "http", "boto", "sql", "redis"]
+            ):
                 target_dir = base_dir / "infrastructure"
             # Check if it looks like domain (pure business logic)
-            elif not any(x in ' '.join(module.imports) for x in ['os', 'sys', 'requests', 'http']) and module.exports:
+            elif (
+                not any(x in " ".join(module.imports) for x in ["os", "sys", "requests", "http"])
+                and module.exports
+            ):
                 target_dir = base_dir / "domain"
 
             file_path = target_dir / f"{module.name}.py"
@@ -968,12 +975,12 @@ filename = "src/{self.project_name}/__init__.py"
         """
         import re
 
-        lines = content.split('\n')
+        lines = content.split("\n")
         sanitized = []
 
         for line in lines:
             # Check for unclosed strings in value assignments
-            if '=' in line and '"' in line:
+            if "=" in line and '"' in line:
                 # Check if string is unclosed (odd number of unescaped quotes)
                 quote_count = line.count('"') - line.count('\\"')
                 if quote_count % 2 == 1:
@@ -981,10 +988,10 @@ filename = "src/{self.project_name}/__init__.py"
                     # Find the last quote and truncate there
                     last_quote = line.rfind('"', 0, line.rfind('"'))
                     if last_quote > 0:
-                        line = line[:last_quote + 1]
+                        line = line[: last_quote + 1]
 
             # Fix nested quotes in array items (common in pytest markers)
-            if '[' in line or ']' in line or (sanitized and sanitized[-1].strip().endswith('[')):
+            if "[" in line or "]" in line or (sanitized and sanitized[-1].strip().endswith("[")):
                 # We're in an array - fix nested quotes
                 line = re.sub(r"'-m \"([^\"]+)\"'", r"'-m \1'", line)
 
@@ -993,47 +1000,99 @@ filename = "src/{self.project_name}/__init__.py"
             # Replace \b, \., \(, \) with \\b, \\., \\(, \\)
             if '"' in line:
                 # Only in quoted strings
-                line = re.sub(r'(?<!\\)\\([bBnNrt().*?^${}[\]|])', r'\\\\\1', line)
+                line = re.sub(r"(?<!\\)\\([bBnNrt().*?^${}[\]|])", r"\\\\\1", line)
 
             # Replace literal \n in strings with space (TOML doesn't allow \n in basic strings)
             line = re.sub(r'"([^"]*)\\n([^"]*)"', r'"\1 \2"', line)
 
             sanitized.append(line)
 
-        return '\n'.join(sanitized)
+        return "\n".join(sanitized)
 
     def _extract_dependencies(self) -> list[str]:
         """Extract external package dependencies from module imports."""
         stdlib_modules = {
-            'abc', 'argparse', 'ast', 'asyncio', 'base64', 'collections', 'contextlib',
-            'copy', 'csv', 'dataclasses', 'datetime', 'decimal', 'enum', 'fnmatch',
-            'functools', 'glob', 'hashlib', 'html', 'http', 'importlib', 'inspect',
-            'io', 'itertools', 'json', 'logging', 'math', 'mimetypes', 'multiprocessing',
-            'operator', 'os', 'pathlib', 'pickle', 'platform', 'pprint', 'random',
-            're', 'shutil', 'signal', 'socket', 'sqlite3', 'statistics', 'string',
-            'subprocess', 'sys', 'tempfile', 'textwrap', 'threading', 'time', 'traceback',
-            'typing', 'unittest', 'urllib', 'uuid', 'warnings', 'xml', 'zipfile',
-            'builtins', '__future__', 'typing_extensions', 'zoneinfo', 'graphlib',
+            "abc",
+            "argparse",
+            "ast",
+            "asyncio",
+            "base64",
+            "collections",
+            "contextlib",
+            "copy",
+            "csv",
+            "dataclasses",
+            "datetime",
+            "decimal",
+            "enum",
+            "fnmatch",
+            "functools",
+            "glob",
+            "hashlib",
+            "html",
+            "http",
+            "importlib",
+            "inspect",
+            "io",
+            "itertools",
+            "json",
+            "logging",
+            "math",
+            "mimetypes",
+            "multiprocessing",
+            "operator",
+            "os",
+            "pathlib",
+            "pickle",
+            "platform",
+            "pprint",
+            "random",
+            "re",
+            "shutil",
+            "signal",
+            "socket",
+            "sqlite3",
+            "statistics",
+            "string",
+            "subprocess",
+            "sys",
+            "tempfile",
+            "textwrap",
+            "threading",
+            "time",
+            "traceback",
+            "typing",
+            "unittest",
+            "urllib",
+            "uuid",
+            "warnings",
+            "xml",
+            "zipfile",
+            "builtins",
+            "__future__",
+            "typing_extensions",
+            "zoneinfo",
+            "graphlib",
         }
 
         external = set()
         for module in self.modules:
             for imp in module.imports:
-                pkg = imp.split('.')[0]
-                if pkg not in stdlib_modules and not pkg.startswith('_'):
+                pkg = imp.split(".")[0]
+                if pkg not in stdlib_modules and not pkg.startswith("_"):
                     external.add(pkg)
 
         # Map common package names to PyPI names
         pypi_mapping = {
-            'PIL': 'pillow>=10.0.0',
-            'sklearn': 'scikit-learn>=1.3.0',
-            'yaml': 'pyyaml>=6.0.1',
-            'cv2': 'opencv-python>=4.8.0',
-            'dateutil': 'python-dateutil>=2.8.2',
-            'dotenv': 'python-dotenv>=1.0.0',
-            'requests': 'requests>=2.31.0',
-            'numpy': 'numpy>=1.24.0',
-            'pandas': 'pandas>=2.0.0',
+            "PIL": "pillow>=10.0.0",
+            "sklearn": "scikit-learn>=1.3.0",
+            "yaml": "pyyaml>=6.0.1",
+            "cv2": "opencv-python>=4.8.0",
+            "dateutil": "python-dateutil>=2.8.2",
+            "dotenv": "python-dotenv>=1.0.0",
+            "requests": "requests>=2.31.0",
+            "numpy": "numpy>=1.24.0",
+            "pandas": "pandas>=2.0.0",
         }
 
         result = []
@@ -1042,15 +1101,15 @@ filename = "src/{self.project_name}/__init__.py"
             result.append(pypi_name)
 
         # Always include pydantic-settings for config layer
-        if 'pydantic' not in external:
-            result.append('pydantic-settings>=2.0.0')
-            result.append('pydantic>=2.0.0')
+        if "pydantic" not in external:
+            result.append("pydantic-settings>=2.0.0")
+            result.append("pydantic>=2.0.0")
 
         return sorted(result)
 
     def _generate_makefile(self) -> list[str]:
         """Generate comprehensive Makefile with all development tasks."""
-        makefile_content = f'''# Auto-generated by Project Assembler
+        makefile_content = f"""# Auto-generated by Project Assembler
 .PHONY: help install install-dev run test test-unit test-integration lint format type-check security-check clean docker-build docker-run
 
 # Default target
@@ -1145,7 +1204,7 @@ docker-test:
 
 ci: format-check lint type-check test security-check
 	@echo "All CI checks passed!"
-'''
+"""
 
         makefile_file = self.output_dir / "Makefile"
         makefile_file.write_text(makefile_content, encoding="utf-8")
@@ -1154,7 +1213,7 @@ ci: format-check lint type-check test security-check
 
     def _generate_dockerfile(self) -> list[str]:
         """Generate multi-stage Dockerfile with best practices."""
-        dockerfile_content = f'''# Multi-stage Dockerfile for production deployment
+        dockerfile_content = f"""# Multi-stage Dockerfile for production deployment
 # Generated by Project Assembler
 
 # ═══════════════════════════════════════════════════════════════
@@ -1252,13 +1311,13 @@ USER appuser
 
 # Run tests by default
 CMD ["pytest", "-v"]
-'''
+"""
 
         dockerfile = self.output_dir / "Dockerfile"
         dockerfile.write_text(dockerfile_content, encoding="utf-8")
 
         # Generate .dockerignore
-        dockerignore_content = '''# Git
+        dockerignore_content = """# Git
 .git
 .gitignore
 .gitattributes
@@ -1320,7 +1379,7 @@ docker-compose*
 .github/
 .gitlab-ci.yml
 .travis.yml
-'''
+"""
 
         dockerignore = self.output_dir / ".dockerignore"
         dockerignore.write_text(dockerignore_content, encoding="utf-8")
@@ -1330,7 +1389,7 @@ docker-compose*
 
     def _generate_github_actions(self) -> list[str]:
         """Generate GitHub Actions CI/CD workflow."""
-        workflow_content = f'''# CI/CD Pipeline
+        workflow_content = f"""# CI/CD Pipeline
 # Generated by Project Assembler
 
 name: CI/CD
@@ -1489,7 +1548,7 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload dist/*
-'''
+"""
 
         workflow_dir = self.output_dir / ".github" / "workflows"
         workflow_dir.mkdir(parents=True, exist_ok=True)
@@ -1501,7 +1560,7 @@ jobs:
 
     def _generate_env_example(self) -> list[str]:
         """Generate .env.example with all configuration options."""
-        env_content = f'''# Environment Configuration
+        env_content = f"""# Environment Configuration
 # Copy this file to .env and fill in your actual values
 # NEVER commit .env to version control!
 
@@ -1568,7 +1627,7 @@ ENABLE_TRACING=false
 
 # Redis URL (if applicable)
 # REDIS_URL=redis://localhost:6379/0
-'''
+"""
 
         env_file = self.output_dir / ".env.example"
         env_file.write_text(env_content, encoding="utf-8")
@@ -1706,7 +1765,7 @@ class TestIntegration:
         created = []
 
         # Architecture Decision Record (ADR) template
-        adr_content = '''# ADR 001: Project Structure
+        adr_content = """# ADR 001: Project Structure
 
 ## Status
 Accepted
@@ -1725,7 +1784,7 @@ We adopt a layered architecture with domain/application/infrastructure separatio
 - Clear separation of concerns
 - Testability improves
 - Dependencies are explicit
-'''
+"""
 
         adr_file = self.output_dir / "docs" / "adr" / "001-project-structure.md"
         adr_file.write_text(adr_content, encoding="utf-8")
@@ -1736,7 +1795,7 @@ We adopt a layered architecture with domain/application/infrastructure separatio
 
     def _generate_precommit_config(self) -> list[str]:
         """Generate pre-commit configuration."""
-        precommit_content = '''# Pre-commit hooks configuration
+        precommit_content = """# Pre-commit hooks configuration
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
 
@@ -1783,7 +1842,7 @@ repos:
       - id: bandit
         args: ["-c", "pyproject.toml"]
         additional_dependencies: ["bandit[toml]"]
-'''
+"""
 
         precommit_file = self.output_dir / ".pre-commit-config.yaml"
         precommit_file.write_text(precommit_content, encoding="utf-8")

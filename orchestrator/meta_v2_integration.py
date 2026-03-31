@@ -63,6 +63,7 @@ logger = logging.getLogger("orchestrator.meta_v2")
 # Configuration
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class MetaV2Config:
     """Configuration for Meta-Optimization V2."""
@@ -90,6 +91,7 @@ class MetaV2Config:
 
 class ProposalDecision(str, Enum):
     """Decision for a proposal."""
+
     AUTO_APPROVED = "auto_approved"
     SENT_TO_HITL = "sent_to_hitl"
     SENT_TO_AB_TEST = "sent_to_ab_test"
@@ -100,6 +102,7 @@ class ProposalDecision(str, Enum):
 @dataclass
 class ProposalOutcome:
     """Outcome of proposal evaluation."""
+
     proposal: StrategyProposal
     decision: ProposalDecision
     hitl_request_id: str | None = None
@@ -111,6 +114,7 @@ class ProposalOutcome:
 # ─────────────────────────────────────────────
 # Meta-Optimization V2
 # ─────────────────────────────────────────────
+
 
 class MetaOptimizationV2:
     """
@@ -162,9 +166,7 @@ class MetaOptimizationV2:
 
     def _get_storage_path(self) -> Path:
         """Get storage path."""
-        return self.config.storage_path or (
-            Path.home() / ".orchestrator_cache" / "meta_v2"
-        )
+        return self.config.storage_path or (Path.home() / ".orchestrator_cache" / "meta_v2")
 
     async def record_project_completion(self, trajectory: ProjectTrajectory):
         """
@@ -247,7 +249,7 @@ class MetaOptimizationV2:
             proposals = await self.optimizer.analyze_and_propose()
 
             outcomes = []
-            for proposal in proposals[:self.config.max_proposals_per_cycle]:
+            for proposal in proposals[: self.config.max_proposals_per_cycle]:
                 outcome = await self._evaluate_proposal(proposal)
                 outcomes.append(outcome)
 
@@ -268,10 +270,12 @@ class MetaOptimizationV2:
         impact_level = self._determine_impact_level(proposal)
 
         # Low impact + high confidence → Auto-approve
-        if (impact_level == ImpactLevel.LOW and
-            proposal.confidence >= 0.9 and
-            self.config.hitl_enabled and
-            self.hitl.config.auto_approve_low_risk):
+        if (
+            impact_level == ImpactLevel.LOW
+            and proposal.confidence >= 0.9
+            and self.config.hitl_enabled
+            and self.hitl.config.auto_approve_low_risk
+        ):
 
             proposal.status = ProposalStatus.APPLIED
             logger.info(f"Auto-approved low-impact proposal: {proposal.proposal_id}")
@@ -283,9 +287,11 @@ class MetaOptimizationV2:
             )
 
         # Medium/High impact → A/B Test
-        if (impact_level in [ImpactLevel.MEDIUM, ImpactLevel.HIGH] and
-            self.config.ab_testing_enabled and
-            self.ab_testing):
+        if (
+            impact_level in [ImpactLevel.MEDIUM, ImpactLevel.HIGH]
+            and self.config.ab_testing_enabled
+            and self.ab_testing
+        ):
 
             experiment = await self.ab_testing.create_experiment(
                 proposal,
@@ -306,9 +312,7 @@ class MetaOptimizationV2:
             )
 
         # Structural → HITL
-        if (impact_level == ImpactLevel.STRUCTURAL and
-            self.config.hitl_enabled and
-            self.hitl):
+        if impact_level == ImpactLevel.STRUCTURAL and self.config.hitl_enabled and self.hitl:
 
             request = await self.hitl.submit_for_approval(proposal)
 
@@ -319,10 +323,7 @@ class MetaOptimizationV2:
                     reason=request.auto_approve_reason,
                 )
 
-            logger.info(
-                f"Submitted structural proposal to HITL: "
-                f"request {request.request_id}"
-            )
+            logger.info(f"Submitted structural proposal to HITL: " f"request {request.request_id}")
 
             return ProposalOutcome(
                 proposal=proposal,
@@ -393,13 +394,11 @@ class MetaOptimizationV2:
                     if self.rollout:
                         await self.rollout.start_rollout(experiment.proposal)
                         logger.info(
-                            f"Experiment {experiment.experiment_id} adopted, "
-                            f"starting rollout"
+                            f"Experiment {experiment.experiment_id} adopted, " f"starting rollout"
                         )
                 else:
                     logger.info(
-                        f"Experiment {experiment.experiment_id} rejected: "
-                        f"{result.reasoning}"
+                        f"Experiment {experiment.experiment_id} rejected: " f"{result.reasoning}"
                     )
 
     async def _check_rollouts(self):
@@ -454,8 +453,7 @@ class MetaOptimizationV2:
             "optimization": {
                 "min_executions_required": self.config.min_executions_for_optimization,
                 "ready_for_optimization": (
-                    self.archive.total_executions >=
-                    self.config.min_executions_for_optimization
+                    self.archive.total_executions >= self.config.min_executions_for_optimization
                 ),
             },
         }

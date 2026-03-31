@@ -39,6 +39,7 @@ logger = logging.getLogger("orchestrator.async_event_store")
 # Import EventType and DomainEvent from unified_events if available
 try:
     from .unified_events.core import DomainEvent, EventType
+
     HAS_UNIFIED_EVENTS = True
 except ImportError:
     HAS_UNIFIED_EVENTS = False
@@ -149,8 +150,8 @@ class AsyncEventStore:
                     event.event_type.name,
                     event.aggregate_id,
                     event.timestamp.isoformat(),
-                    json.dumps(event.to_dict())
-                )
+                    json.dumps(event.to_dict()),
+                ),
             )
             await conn.commit()
             return cursor.lastrowid
@@ -182,8 +183,8 @@ class AsyncEventStore:
                         event.event_type.name,
                         event.aggregate_id,
                         event.timestamp.isoformat(),
-                        json.dumps(event.to_dict())
-                    )
+                        json.dumps(event.to_dict()),
+                    ),
                 )
                 ids.append(cursor.lastrowid)
 
@@ -196,7 +197,7 @@ class AsyncEventStore:
         aggregate_id: str | None = None,
         event_type: EventType | None = None,
         since: datetime | None = None,
-        limit: int = 1000
+        limit: int = 1000,
     ) -> list[DomainEvent]:
         """
         Query events with filters (async, non-blocking).
@@ -259,7 +260,7 @@ class AsyncEventStore:
         self,
         aggregate_id: str | None = None,
         event_type: EventType | None = None,
-        since: datetime | None = None
+        since: datetime | None = None,
     ) -> int:
         """
         Count events matching filters.
@@ -292,9 +293,7 @@ class AsyncEventStore:
             return row[0] if row else 0
 
     async def delete_events(
-        self,
-        aggregate_id: str | None = None,
-        before: datetime | None = None
+        self, aggregate_id: str | None = None, before: datetime | None = None
     ) -> int:
         """
         Delete events (for cleanup/retention).

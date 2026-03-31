@@ -50,6 +50,7 @@ logger = get_logger(__name__)
 
 class BatchStatus(str, Enum):
     """Batch job status."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -59,6 +60,7 @@ class BatchStatus(str, Enum):
 @dataclass
 class BatchRequest:
     """Individual batch request."""
+
     id: str
     model: str
     prompt: str
@@ -72,6 +74,7 @@ class BatchRequest:
 @dataclass
 class BatchJob:
     """Batch job containing multiple requests."""
+
     id: str
     requests: list[BatchRequest]
     created_at: float = field(default_factory=time.time)
@@ -83,6 +86,7 @@ class BatchJob:
 @dataclass
 class BatchMetrics:
     """Metrics for batch processing."""
+
     batch_requests: int = 0
     realtime_requests: int = 0
     batch_completions: int = 0
@@ -298,23 +302,23 @@ class BatchClient:
         """
         try:
             # Anthropic batch API format
-            if self.client and hasattr(self.client, 'batches'):
+            if self.client and hasattr(self.client, "batches"):
                 batch_input = []
                 for req in job.requests:
-                    batch_input.append({
-                        "custom_id": req.id,
-                        "model": req.model,
-                        "messages": [
-                            {"role": "user", "content": req.prompt}
-                        ],
-                        "max_tokens": 1000,
-                    })
+                    batch_input.append(
+                        {
+                            "custom_id": req.id,
+                            "model": req.model,
+                            "messages": [{"role": "user", "content": req.prompt}],
+                            "max_tokens": 1000,
+                        }
+                    )
 
                 # Create batch file
                 batch_file = Path(f"/tmp/batch_{job.id}.jsonl")
-                with batch_file.open('w') as f:
+                with batch_file.open("w") as f:
                     for item in batch_input:
-                        f.write(json.dumps(item) + '\n')
+                        f.write(json.dumps(item) + "\n")
 
                 # Submit to API
                 batch = await self.client.batches.create(
@@ -380,7 +384,7 @@ class BatchClient:
                 raise TimeoutError(f"Batch job {job.id} timed out")
 
             # Check job status
-            if hasattr(self.client, 'batches'):
+            if hasattr(self.client, "batches"):
                 try:
                     batch = await self.client.batches.retrieve(job.id)
                     if batch.status == "completed":
@@ -458,6 +462,7 @@ class BatchClient:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def batch_call(
     model: str,

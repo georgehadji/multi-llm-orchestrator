@@ -8,6 +8,7 @@ Pattern: Pure Dataclass + Strategy presets
 Async: No — pure computation
 Layer: L2 Verification
 """
+
 from __future__ import annotations
 
 import logging
@@ -70,7 +71,9 @@ def get_autonomy_config(preset: str) -> AutonomyConfig:
         ValueError: If the preset name is not recognized.
     """
     if preset not in AUTONOMY_PRESETS:
-        raise ValueError(f"Unknown autonomy preset: {preset!r}. Valid presets: {list(AUTONOMY_PRESETS)}")
+        raise ValueError(
+            f"Unknown autonomy preset: {preset!r}. Valid presets: {list(AUTONOMY_PRESETS)}"
+        )
     return AUTONOMY_PRESETS[preset]
 
 

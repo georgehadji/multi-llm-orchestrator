@@ -2,6 +2,7 @@
 
 Author: Georgios-Chrysovalantis Chatzivantsidis
 """
+
 from __future__ import annotations
 
 FILES: dict[str, str] = {
@@ -9,19 +10,19 @@ FILES: dict[str, str] = {
     "src/__init__.py": "",
     "tests/__init__.py": "",
     "tests/test_main.py": (
-        'from main import main\n\n\n'
-        'def test_main_runs(capsys):\n'
-        '    main()\n'
-        '    captured = capsys.readouterr()\n'
+        "from main import main\n\n\n"
+        "def test_main_runs(capsys):\n"
+        "    main()\n"
+        "    captured = capsys.readouterr()\n"
         '    assert "Hello" in captured.out\n'
     ),
     "pyproject.toml": (
-        '[project]\n'
+        "[project]\n"
         'name = "my-app"\n'
         'version = "0.1.0"\n'
         'requires-python = ">=3.11"\n'
-        'dependencies = []\n\n'
-        '[build-system]\n'
+        "dependencies = []\n\n"
+        "[build-system]\n"
         'requires = ["setuptools>=68"]\n'
         'build-backend = "setuptools.build_meta"\n'
     ),

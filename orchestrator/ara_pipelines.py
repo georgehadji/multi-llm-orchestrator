@@ -35,8 +35,10 @@ logger = logging.getLogger("orchestrator")
 # Enums & Constants
 # ─────────────────────────────────────────────
 
+
 class ReasoningMethod(str, Enum):
     """Available reasoning methods in the ARA Pipeline."""
+
     MULTI_PERSPECTIVE = "multi_perspective"
     ITERATIVE = "iterative"
     DEBATE = "debate"
@@ -53,6 +55,7 @@ class ReasoningMethod(str, Enum):
 
 class PerspectiveType(str, Enum):
     """Perspectives for Multi-Perspective method."""
+
     CONSTRUCTIVE = "constructive"
     DESTRUCTIVE = "destructive"
     SYSTEMIC = "systemic"
@@ -63,9 +66,11 @@ class PerspectiveType(str, Enum):
 # Data Classes
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class SolutionCandidate:
     """Represents a candidate solution from a reasoning step."""
+
     perspective: str
     content: str
     key_insights: list[str] = field(default_factory=list)
@@ -75,6 +80,7 @@ class SolutionCandidate:
 @dataclass
 class CritiqueScore:
     """Scores from critique/evaluation phase."""
+
     perspective: str
     total: float
     logical_consistency: float = 0.0
@@ -88,6 +94,7 @@ class CritiqueScore:
 @dataclass
 class PipelineState:
     """State object passed through pipeline phases."""
+
     task: Task
     method: ReasoningMethod
     candidates: list[SolutionCandidate] = field(default_factory=list)
@@ -110,6 +117,7 @@ class PipelineState:
 # ─────────────────────────────────────────────
 # Base Pipeline Class
 # ─────────────────────────────────────────────
+
 
 class BasePipeline(ABC):
     """
@@ -157,7 +165,7 @@ class BasePipeline(ABC):
     def _extract_json(self, text: str) -> dict[str, Any] | None:
         """Extract JSON from LLM response text."""
         # Try to find JSON object in text
-        match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
+        match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
         if match:
             try:
                 return json.loads(match.group())
@@ -173,28 +181,35 @@ class BasePipeline(ABC):
     def _get_available_models(self, task_type: TaskType) -> list[Model]:
         """Get list of available models for task type."""
         from .models import ROUTING_TABLE
+
         routing = ROUTING_TABLE.get(task_type, list(Model)[:5])
         return [m for m in routing if self.api_health.get(m, False)]
-    
+
     def _get_model_for_phase(self, phase: "PhaseType", task_type: TaskType) -> Model:
         """Get optimal model for a specific phase type."""
         from .phase_aware_models import PhaseAwareModelSelector, PhaseType
-        
+
         available = [m.value for m in self._get_available_models(task_type)]
         selector = PhaseAwareModelSelector()
         best = selector.select_model(phase=phase, available_models=available)
-        
+
         # Convert string back to Model enum
         from .models import Model
+
         try:
             return Model(best)
         except ValueError:
             # Fallback to first available
-            return self._get_available_models(task_type)[0] if self._get_available_models(task_type) else Model.GPT_4O
+            return (
+                self._get_available_models(task_type)[0]
+                if self._get_available_models(task_type)
+                else Model.GPT_4O
+            )
 
     def _select_reviewer(self, primary: Model, task_type: TaskType) -> Model | None:
         """Select a reviewer model from different provider."""
         from .models import ROUTING_TABLE
+
         primary_provider = get_provider(primary)
 
         for model in ROUTING_TABLE.get(task_type, []):
@@ -206,6 +221,7 @@ class BasePipeline(ABC):
 # ─────────────────────────────────────────────
 # 1. Multi-Perspective Pipeline
 # ─────────────────────────────────────────────
+
 
 class MultiPerspectivePipeline(BasePipeline):
     """
@@ -256,7 +272,7 @@ class MultiPerspectivePipeline(BasePipeline):
         await self._phase_critique(state)
 
         # Select top-k candidates
-        state.top_candidates = state.candidates[:self.top_k]
+        state.top_candidates = state.candidates[: self.top_k]
 
         # Synthesize final output
         await self._phase_synthesis(state)
@@ -266,10 +282,10 @@ class MultiPerspectivePipeline(BasePipeline):
     async def _phase_perspectives(self, state: PipelineState, context: str):
         """Run all 4 perspectives concurrently."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for analysis
         primary = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)
-        
+
         # Get diverse models for different perspectives (optional)
         models = self._get_available_models(state.task.type)
         if not models:
@@ -309,17 +325,14 @@ class MultiPerspectivePipeline(BasePipeline):
     async def _phase_critique(self, state: PipelineState):
         """Score all candidates on multiple criteria."""
         from .phase_aware_models import PhaseType
-        
+
         if len(state.candidates) == 0:
             return
 
         # Use phase-aware model selection for critique
         scorer = self._get_model_for_phase(PhaseType.CRITIQUE, state.task.type)
 
-        candidates_text = "\n\n".join([
-            f"[{c.perspective}]\n{c.content}"
-            for c in state.candidates
-        ])
+        candidates_text = "\n\n".join([f"[{c.perspective}]\n{c.content}" for c in state.candidates])
 
         system_prompt = (
             "You are an expert evaluator. Score each perspective on these criteria (0-10):\n"
@@ -343,19 +356,24 @@ class MultiPerspectivePipeline(BasePipeline):
         data = self._extract_json(response.text)
         if data and isinstance(data, list):
             for score_data in data:
-                state.scores.append(CritiqueScore(
-                    perspective=score_data.get("perspective", ""),
-                    total=sum([
-                        score_data.get("logical_consistency", 5),
-                        score_data.get("feasibility", 5),
-                        score_data.get("completeness", 5),
-                        score_data.get("novelty", 5),
-                    ]) / 4,
-                    logical_consistency=score_data.get("logical_consistency", 5),
-                    feasibility=score_data.get("feasibility", 5),
-                    completeness=score_data.get("completeness", 5),
-                    novelty=score_data.get("novelty", 5),
-                ))
+                state.scores.append(
+                    CritiqueScore(
+                        perspective=score_data.get("perspective", ""),
+                        total=sum(
+                            [
+                                score_data.get("logical_consistency", 5),
+                                score_data.get("feasibility", 5),
+                                score_data.get("completeness", 5),
+                                score_data.get("novelty", 5),
+                            ]
+                        )
+                        / 4,
+                        logical_consistency=score_data.get("logical_consistency", 5),
+                        feasibility=score_data.get("feasibility", 5),
+                        completeness=score_data.get("completeness", 5),
+                        novelty=score_data.get("novelty", 5),
+                    )
+                )
 
         # Sort candidates by score
         scored = {s.perspective: s.total for s in state.scores}
@@ -364,7 +382,7 @@ class MultiPerspectivePipeline(BasePipeline):
     async def _phase_synthesis(self, state: PipelineState):
         """Synthesize top candidates into final solution."""
         from .phase_aware_models import PhaseType
-        
+
         if not state.top_candidates:
             state.final_output = "No viable candidates generated."
             return
@@ -372,10 +390,7 @@ class MultiPerspectivePipeline(BasePipeline):
         # Use phase-aware model selection for synthesis
         synthesizer = self._get_model_for_phase(PhaseType.SYNTHESIS, state.task.type)
 
-        top_texts = "\n\n".join([
-            f"[{c.perspective}]\n{c.content}"
-            for c in state.top_candidates
-        ])
+        top_texts = "\n\n".join([f"[{c.perspective}]\n{c.content}" for c in state.top_candidates])
 
         system_prompt = (
             "You are a synthesis expert. Combine the insights from multiple "
@@ -407,7 +422,9 @@ class MultiPerspectivePipeline(BasePipeline):
             metadata={
                 "method": self.get_method().value,
                 "candidates": len(state.candidates),
-                "top_candidate": state.top_candidates[0].perspective if state.top_candidates else None,
+                "top_candidate": (
+                    state.top_candidates[0].perspective if state.top_candidates else None
+                ),
             },
         )
 
@@ -415,6 +432,7 @@ class MultiPerspectivePipeline(BasePipeline):
 # ─────────────────────────────────────────────
 # 2. Iterative Pipeline
 # ─────────────────────────────────────────────
+
 
 class IterativePipeline(BasePipeline):
     """
@@ -445,16 +463,16 @@ class IterativePipeline(BasePipeline):
             await self._phase_critique(state)
 
             # Store insights for next round
-            new_memories = [
-                s.steel_man for s in state.scores if s.steel_man
-            ]
+            new_memories = [s.steel_man for s in state.scores if s.steel_man]
             state.reflexion_memory.extend(new_memories)
 
             # Early convergence check
             if state.scores:
                 mean_score = sum(s.logical_consistency for s in state.scores) / len(state.scores)
                 if mean_score >= self.CONVERGENCE_THRESHOLD:
-                    logger.info(f"Convergence achieved at round {round_num} (mean={mean_score:.2f})")
+                    logger.info(
+                        f"Convergence achieved at round {round_num} (mean={mean_score:.2f})"
+                    )
                     break
 
             # Clear for next round (except last)
@@ -464,7 +482,7 @@ class IterativePipeline(BasePipeline):
                 state.top_candidates = []
 
         # Synthesize final output
-        state.top_candidates = state.candidates[:self.top_k]
+        state.top_candidates = state.candidates[: self.top_k]
         await self._phase_synthesis(state)
 
         return self._build_result(state)
@@ -472,7 +490,7 @@ class IterativePipeline(BasePipeline):
     async def _phase_generate(self, state: PipelineState, context: str, round_num: int):
         """Generate candidates with reflexion memory."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for generation
         generator = self._get_model_for_phase(PhaseType.GENERATION, state.task.type)
 
@@ -486,7 +504,9 @@ class IterativePipeline(BasePipeline):
             "previous insights and improves upon weaknesses. Focus on continuous refinement."
         )
 
-        user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}{memory_context}\n\nRound: {round_num}"
+        user_prompt = (
+            f"Task: {state.task.prompt}\n\nContext: {context}{memory_context}\n\nRound: {round_num}"
+        )
 
         response, _ = await self.client.call(
             model=generator,
@@ -497,17 +517,19 @@ class IterativePipeline(BasePipeline):
         )
 
         data = self._extract_json(response.text) or {}
-        state.candidates.append(SolutionCandidate(
-            perspective="iterative",
-            content=data.get("solution", response.text),
-            key_insights=data.get("key_insights", []),
-            metadata={"round": round_num, "model": generator.value},
-        ))
+        state.candidates.append(
+            SolutionCandidate(
+                perspective="iterative",
+                content=data.get("solution", response.text),
+                key_insights=data.get("key_insights", []),
+                metadata={"round": round_num, "model": generator.value},
+            )
+        )
 
     async def _phase_critique(self, state: PipelineState):
         """Score candidates with detailed feedback."""
         from .phase_aware_models import PhaseType
-        
+
         if len(state.candidates) == 0:
             return
 
@@ -536,21 +558,26 @@ class IterativePipeline(BasePipeline):
         )
 
         data = self._extract_json(response.text) or {}
-        state.scores.append(CritiqueScore(
-            perspective="iterative",
-            total=sum([
-                data.get("logical_consistency", 5),
-                data.get("feasibility", 5),
-                data.get("completeness", 5),
-                data.get("novelty", 5),
-            ]) / 4,
-            logical_consistency=data.get("logical_consistency", 5),
-            feasibility=data.get("feasibility", 5),
-            completeness=data.get("completeness", 5),
-            novelty=data.get("novelty", 5),
-            steel_man=data.get("steel_man", ""),
-            rationale=data.get("rationale", ""),
-        ))
+        state.scores.append(
+            CritiqueScore(
+                perspective="iterative",
+                total=sum(
+                    [
+                        data.get("logical_consistency", 5),
+                        data.get("feasibility", 5),
+                        data.get("completeness", 5),
+                        data.get("novelty", 5),
+                    ]
+                )
+                / 4,
+                logical_consistency=data.get("logical_consistency", 5),
+                feasibility=data.get("feasibility", 5),
+                completeness=data.get("completeness", 5),
+                novelty=data.get("novelty", 5),
+                steel_man=data.get("steel_man", ""),
+                rationale=data.get("rationale", ""),
+            )
+        )
 
     async def _phase_synthesis(self, state: PipelineState):
         """Use best candidate as final output."""
@@ -579,6 +606,7 @@ class IterativePipeline(BasePipeline):
 # ─────────────────────────────────────────────
 # 3. Debate Pipeline
 # ─────────────────────────────────────────────
+
 
 class DebatePipeline(BasePipeline):
     """
@@ -616,7 +644,7 @@ class DebatePipeline(BasePipeline):
     async def _phase_debate_opening(self, state: PipelineState, context: str):
         """Two parallel opening statements."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for debate
         model_pro = self._get_model_for_phase(PhaseType.DEBATE, state.task.type)
         model_con = self._get_model_for_phase(PhaseType.CRITIQUE, state.task.type)
@@ -630,23 +658,37 @@ class DebatePipeline(BasePipeline):
         prompt_b = f"Task: {state.task.prompt}\n\nContext: {context}\n\nPresent your opening argument AGAINST this approach."
 
         response_a, response_b = await asyncio.gather(
-            self.client.call(model=model_pro, system_prompt=system_a, user_prompt=prompt_a, max_tokens=state.task.max_output_tokens, temperature=0.7),
-            self.client.call(model=model_con, system_prompt=system_b, user_prompt=prompt_b, max_tokens=state.task.max_output_tokens, temperature=0.7),
+            self.client.call(
+                model=model_pro,
+                system_prompt=system_a,
+                user_prompt=prompt_a,
+                max_tokens=state.task.max_output_tokens,
+                temperature=0.7,
+            ),
+            self.client.call(
+                model=model_con,
+                system_prompt=system_b,
+                user_prompt=prompt_b,
+                max_tokens=state.task.max_output_tokens,
+                temperature=0.7,
+            ),
         )
 
-        state.debate_rounds.append({
-            "round": 1,
-            "type": "opening",
-            "statements": [
-                {"side": "A", "content": response_a[0].text, "model": model_pro.value},
-                {"side": "B", "content": response_b[0].text, "model": model_con.value},
-            ]
-        })
+        state.debate_rounds.append(
+            {
+                "round": 1,
+                "type": "opening",
+                "statements": [
+                    {"side": "A", "content": response_a[0].text, "model": model_pro.value},
+                    {"side": "B", "content": response_b[0].text, "model": model_con.value},
+                ],
+            }
+        )
 
     async def _phase_debate_rebuttal(self, state: PipelineState):
         """Each side rebuts the other's opening."""
         from .phase_aware_models import PhaseType
-        
+
         if not state.debate_rounds:
             return
 
@@ -665,31 +707,48 @@ class DebatePipeline(BasePipeline):
         prompt_b = f"Task: {state.task.prompt}\n\nOpponent's argument:\n{statement_a}\n\nRebut their points and defend your position."
 
         response_a, response_b = await asyncio.gather(
-            self.client.call(model=model_pro, system_prompt="You are a debater. Rebut your opponent's arguments point-by-point.", user_prompt=prompt_a, max_tokens=state.task.max_output_tokens, temperature=0.6),
-            self.client.call(model=model_con, system_prompt="You are a debater. Rebut your opponent's arguments point-by-point.", user_prompt=prompt_b, max_tokens=state.task.max_output_tokens, temperature=0.6),
+            self.client.call(
+                model=model_pro,
+                system_prompt="You are a debater. Rebut your opponent's arguments point-by-point.",
+                user_prompt=prompt_a,
+                max_tokens=state.task.max_output_tokens,
+                temperature=0.6,
+            ),
+            self.client.call(
+                model=model_con,
+                system_prompt="You are a debater. Rebut your opponent's arguments point-by-point.",
+                user_prompt=prompt_b,
+                max_tokens=state.task.max_output_tokens,
+                temperature=0.6,
+            ),
         )
 
-        state.debate_rounds.append({
-            "round": 2,
-            "type": "rebuttal",
-            "statements": [
-                {"side": "A", "content": response_a[0].text, "model": model_pro.value},
-                {"side": "B", "content": response_b[0].text, "model": model_con.value},
-            ]
-        })
+        state.debate_rounds.append(
+            {
+                "round": 2,
+                "type": "rebuttal",
+                "statements": [
+                    {"side": "A", "content": response_a[0].text, "model": model_pro.value},
+                    {"side": "B", "content": response_b[0].text, "model": model_con.value},
+                ],
+            }
+        )
 
     async def _phase_debate_cross_examine(self, state: PipelineState):
         """Judge asks probing questions to both sides."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for evaluation/judge
         judge_model = self._get_model_for_phase(PhaseType.EVALUATION, state.task.type)
 
         # Generate probing questions
-        all_statements = "\n\n".join([
-            f"Round {r['round']} ({r['type']}):\n" + "\n".join([s["content"][:500] for s in r["statements"]])
-            for r in state.debate_rounds
-        ])
+        all_statements = "\n\n".join(
+            [
+                f"Round {r['round']} ({r['type']}):\n"
+                + "\n".join([s["content"][:500] for s in r["statements"]])
+                for r in state.debate_rounds
+            ]
+        )
 
         system_prompt = "You are a judge in a debate. Ask 3 probing questions that reveal the strengths and weaknesses of each position."
         user_prompt = f"Task: {state.task.prompt}\n\nDebate so far:\n{all_statements}"
@@ -707,14 +766,17 @@ class DebatePipeline(BasePipeline):
     async def _phase_debate_judge(self, state: PipelineState):
         """Judge makes final decision."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for evaluation/judge
         judge_model = self._get_model_for_phase(PhaseType.EVALUATION, state.task.type)
 
-        all_statements = "\n\n".join([
-            f"Round {r['round']} ({r['type']}):\n" + "\n".join([f"[{s['side']}] {s['content']}" for s in r["statements"]])
-            for r in state.debate_rounds
-        ])
+        all_statements = "\n\n".join(
+            [
+                f"Round {r['round']} ({r['type']}):\n"
+                + "\n".join([f"[{s['side']}] {s['content']}" for s in r["statements"]])
+                for r in state.debate_rounds
+            ]
+        )
 
         system_prompt = (
             "You are an impartial judge. Evaluate both sides based on:\n"
@@ -752,8 +814,7 @@ class DebatePipeline(BasePipeline):
         winner = state.metadata.get("winner", "A")
         final_round = state.debate_rounds[-1]
         winner_statement = next(
-            (s["content"] for s in final_round["statements"] if s["side"] == winner),
-            ""
+            (s["content"] for s in final_round["statements"] if s["side"] == winner), ""
         )
 
         judge_decision = state.metadata.get("judge_decision", "")
@@ -774,7 +835,11 @@ class DebatePipeline(BasePipeline):
         )
 
         state.final_output = response.text
-        state.final_score = max(state.metadata.get("scores", {}).values()) / 10.0 if state.metadata.get("scores") else 0.5
+        state.final_score = (
+            max(state.metadata.get("scores", {}).values()) / 10.0
+            if state.metadata.get("scores")
+            else 0.5
+        )
 
     def _build_result(self, state: PipelineState) -> TaskResult:
         return TaskResult(
@@ -795,6 +860,7 @@ class DebatePipeline(BasePipeline):
 # ─────────────────────────────────────────────
 # 4. Research Pipeline
 # ─────────────────────────────────────────────
+
 
 class ResearchPipeline(BasePipeline):
     """
@@ -821,6 +887,7 @@ class ResearchPipeline(BasePipeline):
         if self._nexus_search is None and self.nexus_enabled:
             try:
                 from orchestrator.nexus_search import SearchSource, search
+
                 self._nexus_search = search
                 self._SearchSource = SearchSource
             except ImportError:
@@ -832,6 +899,7 @@ class ResearchPipeline(BasePipeline):
         if self._x_search is None:
             try:
                 from orchestrator.xai_search import XSearchClient
+
                 self._XSearchClient = XSearchClient
                 return XSearchClient
             except ImportError:
@@ -855,7 +923,7 @@ class ResearchPipeline(BasePipeline):
         await self._phase_critique(state)
 
         # Synthesize
-        state.top_candidates = state.candidates[:self.top_k]
+        state.top_candidates = state.candidates[: self.top_k]
         await self._phase_synthesis(state)
 
         return self._build_result(state)
@@ -883,7 +951,9 @@ class ResearchPipeline(BasePipeline):
                     )
 
                     for result in results.top[:5]:
-                        knowledge_item = f"Source: {result.title}\nURL: {result.url}\nContent: {result.content}"
+                        knowledge_item = (
+                            f"Source: {result.title}\nURL: {result.url}\nContent: {result.content}"
+                        )
                         current_knowledge.append(knowledge_item)
 
                     logger.info(f"Nexus Search found {len(results)} results")
@@ -912,7 +982,9 @@ class ResearchPipeline(BasePipeline):
 
                     for post in x_results.posts[:3]:
                         verified_badge = "✓" if post.verified else " "
-                        x_knowledge = f"X Post [{verified_badge}] @{post.author_handle}: {post.text[:200]}"
+                        x_knowledge = (
+                            f"X Post [{verified_badge}] @{post.author_handle}: {post.text[:200]}"
+                        )
                         x_search_results.append(x_knowledge)
 
                     logger.info(f"X Search found {len(x_results.posts)} posts")
@@ -929,7 +1001,7 @@ class ResearchPipeline(BasePipeline):
     async def _phase_research_llm_fallback(self, state: PipelineState):
         """Fallback to LLM-based research if Nexus unavailable."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for research
         researcher = self._get_model_for_phase(PhaseType.RESEARCH, state.task.type)
 
@@ -945,7 +1017,11 @@ class ResearchPipeline(BasePipeline):
                 "Return JSON: {'action': 'search' or 'done', 'queries': [] if search}"
             )
 
-            knowledge_context = "\n".join([f"- {k}" for k in current_knowledge]) if current_knowledge else "No knowledge yet"
+            knowledge_context = (
+                "\n".join([f"- {k}" for k in current_knowledge])
+                if current_knowledge
+                else "No knowledge yet"
+            )
             user_prompt = f"Task: {state.task.prompt}\n\nCurrent knowledge:\n{knowledge_context}\n\nDo you need more information? (max {max_iterations} iterations)"
 
             response, _ = await self.client.call(
@@ -982,8 +1058,12 @@ class ResearchPipeline(BasePipeline):
     async def _phase_analyze(self, state: PipelineState):
         """Analyze findings using Multi-Perspective approach."""
         from .phase_aware_models import PhaseType
-        
-        web_context = "\n\n".join(state.web_discovery_results) if state.web_discovery_results else "No web research conducted"
+
+        web_context = (
+            "\n\n".join(state.web_discovery_results)
+            if state.web_discovery_results
+            else "No web research conducted"
+        )
 
         # Use phase-aware model selection for analysis
         primary = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)
@@ -1004,12 +1084,14 @@ class ResearchPipeline(BasePipeline):
         )
 
         data = self._extract_json(response.text) or {}
-        state.candidates.append(SolutionCandidate(
-            perspective="research_based",
-            content=data.get("analysis", response.text),
-            key_insights=data.get("key_insights", []),
-            metadata={"sources": len(state.web_discovery_results)},
-        ))
+        state.candidates.append(
+            SolutionCandidate(
+                perspective="research_based",
+                content=data.get("analysis", response.text),
+                key_insights=data.get("key_insights", []),
+                metadata={"sources": len(state.web_discovery_results)},
+            )
+        )
 
     async def _phase_critique(self, state: PipelineState):
         """Fact-check the analysis."""
@@ -1017,10 +1099,14 @@ class ResearchPipeline(BasePipeline):
             return
 
         models = self._get_available_models(state.task.type)
-        critic = self._select_reviewer(models[0], state.task.type) or (models[0] if models else Model.GPT_4O_MINI)
+        critic = self._select_reviewer(models[0], state.task.type) or (
+            models[0] if models else Model.GPT_4O_MINI
+        )
 
         candidate = state.candidates[0]
-        web_context = "\n\n".join(state.web_discovery_results) if state.web_discovery_results else ""
+        web_context = (
+            "\n\n".join(state.web_discovery_results) if state.web_discovery_results else ""
+        )
 
         system_prompt = (
             "You are a fact-checker. Evaluate the analysis against the research evidence.\n"
@@ -1044,14 +1130,16 @@ class ResearchPipeline(BasePipeline):
         data = self._extract_json(response.text) or {}
         accuracy_score = data.get("accuracy_score", 5)
 
-        state.scores.append(CritiqueScore(
-            perspective="fact_check",
-            total=accuracy_score / 10.0,
-            logical_consistency=accuracy_score / 10.0,
-            feasibility=data.get("feasibility", 5) / 10.0,
-            completeness=data.get("completeness", 5) / 10.0,
-            novelty=5.0 / 10.0,
-        ))
+        state.scores.append(
+            CritiqueScore(
+                perspective="fact_check",
+                total=accuracy_score / 10.0,
+                logical_consistency=accuracy_score / 10.0,
+                feasibility=data.get("feasibility", 5) / 10.0,
+                completeness=data.get("completeness", 5) / 10.0,
+                novelty=5.0 / 10.0,
+            )
+        )
 
     async def _phase_synthesis(self, state: PipelineState):
         """Synthesize research-based solution."""
@@ -1063,10 +1151,14 @@ class ResearchPipeline(BasePipeline):
         synthesizer = models[0] if models else Model.GPT_4O_MINI
 
         candidate = state.candidates[0]
-        web_context = "\n\n".join(state.web_discovery_results) if state.web_discovery_results else ""
+        web_context = (
+            "\n\n".join(state.web_discovery_results) if state.web_discovery_results else ""
+        )
 
         system_prompt = "Create a final solution that integrates research evidence with practical recommendations."
-        user_prompt = f"Task: {state.task.prompt}\n\nAnalysis: {candidate.content}\n\nEvidence: {web_context}"
+        user_prompt = (
+            f"Task: {state.task.prompt}\n\nAnalysis: {candidate.content}\n\nEvidence: {web_context}"
+        )
 
         response, _ = await self.client.call(
             model=synthesizer,
@@ -1097,6 +1189,7 @@ class ResearchPipeline(BasePipeline):
 # ─────────────────────────────────────────────
 # 5. Jury Pipeline
 # ─────────────────────────────────────────────
+
 
 class JuryPipeline(BasePipeline):
     """
@@ -1134,14 +1227,16 @@ class JuryPipeline(BasePipeline):
     async def _phase_jury_generate(self, state: PipelineState, context: str):
         """4 parallel generators create solutions."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for generation
         generator_model = self._get_model_for_phase(PhaseType.GENERATION, state.task.type)
-        
+
         models = [generator_model] * 4
 
         async def generate(role: str, model: Model):
-            system_prompt = f"You are generator {role}. Create a comprehensive solution with unique insights."
+            system_prompt = (
+                f"You are generator {role}. Create a comprehensive solution with unique insights."
+            )
             user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}\n\nRole: {role}"
 
             response, _ = await self.client.call(
@@ -1165,28 +1260,34 @@ class JuryPipeline(BasePipeline):
 
         for result in results:
             if isinstance(result, dict):
-                state.candidates.append(SolutionCandidate(
-                    perspective=result["role"],
-                    content=result["content"],
-                    key_insights=[],
-                    metadata={"model": result["model"]},
-                ))
+                state.candidates.append(
+                    SolutionCandidate(
+                        perspective=result["role"],
+                        content=result["content"],
+                        key_insights=[],
+                        metadata={"model": result["model"]},
+                    )
+                )
 
     async def _phase_jury_critique(self, state: PipelineState):
         """3 parallel critics evaluate all generators."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for critique
         critic_model = self._get_model_for_phase(PhaseType.CRITIQUE, state.task.type)
         critic_models = [critic_model] * 3
 
-        candidate_contents = "\n\n".join([
-            f"[{c.perspective}]\n{c.content}" for c in state.candidates
-        ])
+        candidate_contents = "\n\n".join(
+            [f"[{c.perspective}]\n{c.content}" for c in state.candidates]
+        )
 
         async def critique(role: str, model: Model):
-            system_prompt = f"You are critic {role}. Evaluate all solutions rigorously on multiple criteria."
-            user_prompt = f"Task: {state.task.prompt}\n\nSolutions:\n{candidate_contents}\n\nRole: {role}"
+            system_prompt = (
+                f"You are critic {role}. Evaluate all solutions rigorously on multiple criteria."
+            )
+            user_prompt = (
+                f"Task: {state.task.prompt}\n\nSolutions:\n{candidate_contents}\n\nRole: {role}"
+            )
 
             response, _ = await self.client.call(
                 model=model,
@@ -1214,12 +1315,14 @@ class JuryPipeline(BasePipeline):
     async def _phase_jury_verify_and_meta_eval(self, state: PipelineState):
         """Verify claims and evaluate critic quality."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for evaluation
         verifier = self._get_model_for_phase(PhaseType.EVALUATION, state.task.type)
 
         # Verify claims
-        candidate_contents = "\n\n".join([f"{c.perspective}: {c.content}" for c in state.candidates])
+        candidate_contents = "\n\n".join(
+            [f"{c.perspective}: {c.content}" for c in state.candidates]
+        )
 
         system_prompt = (
             "You are a verifier. Check all factual claims in the solutions.\n"
@@ -1265,11 +1368,16 @@ class JuryPipeline(BasePipeline):
             scores = critic_data.get("scores", {})
             for perspective, score_data in scores.items():
                 if perspective in candidate_scores:
-                    total = sum([
-                        score_data.get("logical_consistency", 5),
-                        score_data.get("feasibility", 5),
-                        score_data.get("completeness", 5),
-                    ]) / 3
+                    total = (
+                        sum(
+                            [
+                                score_data.get("logical_consistency", 5),
+                                score_data.get("feasibility", 5),
+                                score_data.get("completeness", 5),
+                            ]
+                        )
+                        / 3
+                    )
                     candidate_scores[perspective].append(total)
 
         # Weight by meta-evaluation quality
@@ -1286,15 +1394,22 @@ class JuryPipeline(BasePipeline):
 
             final_score = max(0, avg_score - penalty)
 
-            state.scores.append(CritiqueScore(
-                perspective=candidate.perspective,
-                total=final_score / 10.0,
-                logical_consistency=final_score / 10.0,
-            ))
+            state.scores.append(
+                CritiqueScore(
+                    perspective=candidate.perspective,
+                    total=final_score / 10.0,
+                    logical_consistency=final_score / 10.0,
+                )
+            )
 
         # Sort by score
-        state.candidates.sort(key=lambda c: next((s.total for s in state.scores if s.perspective == c.perspective), 0), reverse=True)
-        state.top_candidates = state.candidates[:self.top_k]
+        state.candidates.sort(
+            key=lambda c: next(
+                (s.total for s in state.scores if s.perspective == c.perspective), 0
+            ),
+            reverse=True,
+        )
+        state.top_candidates = state.candidates[: self.top_k]
 
     async def _phase_synthesis(self, state: PipelineState):
         """Synthesize top candidates into final solution."""
@@ -1308,7 +1423,9 @@ class JuryPipeline(BasePipeline):
         top_texts = "\n\n".join([f"[{c.perspective}]\n{c.content}" for c in state.top_candidates])
         verifications = state.metadata.get("verifications", [])
 
-        system_prompt = "Synthesize the best elements from multiple solutions into one coherent recommendation."
+        system_prompt = (
+            "Synthesize the best elements from multiple solutions into one coherent recommendation."
+        )
         user_prompt = f"Task: {state.task.prompt}\n\nTop solutions:\n{top_texts}\n\nVerifications: {json.dumps(verifications)}"
 
         response, _ = await self.client.call(
@@ -1342,6 +1459,7 @@ class JuryPipeline(BasePipeline):
 # 6. Scientific Pipeline
 # ─────────────────────────────────────────────
 
+
 class ScientificPipeline(BasePipeline):
     """
     Hypothetico-Experimental Scientific Pipeline
@@ -1374,7 +1492,7 @@ class ScientificPipeline(BasePipeline):
     async def _phase_scientific_hypothesize(self, state: PipelineState):
         """Generate multiple hypotheses."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for analysis (hypothesis generation)
         primary = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)
 
@@ -1397,19 +1515,21 @@ class ScientificPipeline(BasePipeline):
         hypotheses = data.get("hypotheses", [])
 
         for hyp in hypotheses:
-            state.candidates.append(SolutionCandidate(
-                perspective=hyp.get("name", "unknown"),
-                content=hyp.get("description", ""),
-                key_insights=hyp.get("predictions", []),
-                metadata={"type": "hypothesis"},
-            ))
+            state.candidates.append(
+                SolutionCandidate(
+                    perspective=hyp.get("name", "unknown"),
+                    content=hyp.get("description", ""),
+                    key_insights=hyp.get("predictions", []),
+                    metadata={"type": "hypothesis"},
+                )
+            )
 
         state.metadata["hypotheses"] = hypotheses
 
     async def _phase_scientific_test(self, state: PipelineState):
         """Design tests for each hypothesis."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for research (test design)
         tester = self._get_model_for_phase(PhaseType.RESEARCH, state.task.type)
 
@@ -1432,14 +1552,12 @@ class ScientificPipeline(BasePipeline):
         tasks = [design_test(h) for h in hypotheses]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        state.metadata["test_designs"] = [
-            r for r in results if isinstance(r, dict)
-        ]
+        state.metadata["test_designs"] = [r for r in results if isinstance(r, dict)]
 
     async def _phase_scientific_evaluate(self, state: PipelineState):
         """Evaluate evidence for each hypothesis."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for evaluation
         evaluator = self._get_model_for_phase(PhaseType.EVALUATION, state.task.type)
 
@@ -1476,22 +1594,26 @@ class ScientificPipeline(BasePipeline):
 
         # Create scores
         for eval_data in evaluations:
-            state.scores.append(CritiqueScore(
-                perspective=eval_data["hypothesis"],
-                total=eval_data["evidence_strength"] / 10.0,
-                logical_consistency=eval_data["confidence"],
-            ))
+            state.scores.append(
+                CritiqueScore(
+                    perspective=eval_data["hypothesis"],
+                    total=eval_data["evidence_strength"] / 10.0,
+                    logical_consistency=eval_data["confidence"],
+                )
+            )
 
         # Sort by evidence strength
         state.candidates.sort(
-            key=lambda c: next((s.total for s in state.scores if s.perspective == c.perspective), 0),
-            reverse=True
+            key=lambda c: next(
+                (s.total for s in state.scores if s.perspective == c.perspective), 0
+            ),
+            reverse=True,
         )
 
     async def _phase_synthesis(self, state: PipelineState):
         """Synthesize conclusion from best hypothesis."""
         from .phase_aware_models import PhaseType
-        
+
         if not state.candidates:
             state.final_output = "No hypotheses generated."
             return
@@ -1501,7 +1623,9 @@ class ScientificPipeline(BasePipeline):
 
         best_candidate = state.candidates[0]
         evidence_evals = state.metadata.get("evidence_evaluations", [])
-        best_eval = next((e for e in evidence_evals if e["hypothesis"] == best_candidate.perspective), {})
+        best_eval = next(
+            (e for e in evidence_evals if e["hypothesis"] == best_candidate.perspective), {}
+        )
 
         system_prompt = "Synthesize the scientific conclusion based on the strongest hypothesis and evidence evaluation."
         user_prompt = f"Task: {state.task.prompt}\n\nBest hypothesis: {best_candidate.perspective}\nContent: {best_candidate.content}\nEvidence: {json.dumps(best_eval)}"
@@ -1536,6 +1660,7 @@ class ScientificPipeline(BasePipeline):
 # ─────────────────────────────────────────────
 # 7. Socratic Pipeline
 # ─────────────────────────────────────────────
+
 
 class SocraticPipeline(BasePipeline):
     """
@@ -1574,7 +1699,7 @@ class SocraticPipeline(BasePipeline):
     async def _phase_socratic_question(self, state: PipelineState, context: str):
         """Generate initial Socratic questions."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for analysis (Socratic questioning)
         questioner = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)
 
@@ -1604,7 +1729,7 @@ class SocraticPipeline(BasePipeline):
     async def _phase_socratic_followup(self, state: PipelineState, round_num: int):
         """Generate follow-up questions based on answers."""
         from .phase_aware_models import PhaseType
-        
+
         # Use phase-aware model selection for analysis (follow-up questioning)
         questioner = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)
 
@@ -1618,12 +1743,16 @@ class SocraticPipeline(BasePipeline):
             "Return JSON: {'questions': [], 'clarity_score': 0-10}"
         )
 
-        qa_pairs = "\n".join([
-            f"Q: {q}\nA: {a}" for q, a in zip(
-                state.metadata.get("questions", []),
-                state.metadata.get("answers", []), strict=False
-            )
-        ])
+        qa_pairs = "\n".join(
+            [
+                f"Q: {q}\nA: {a}"
+                for q, a in zip(
+                    state.metadata.get("questions", []),
+                    state.metadata.get("answers", []),
+                    strict=False,
+                )
+            ]
+        )
 
         user_prompt = f"Task: {state.task.prompt}\n\nQ&A so far:\n{qa_pairs}"
 
@@ -1651,7 +1780,9 @@ class SocraticPipeline(BasePipeline):
         if not questions:
             return
 
-        system_prompt = "Provide thoughtful, reasonable answers to these questions based on best practices."
+        system_prompt = (
+            "Provide thoughtful, reasonable answers to these questions based on best practices."
+        )
         user_prompt = f"Task: {state.task.prompt}\n\nQuestions:\n" + "\n".join(questions)
 
         response, _ = await self.client.call(
@@ -1664,23 +1795,25 @@ class SocraticPipeline(BasePipeline):
 
         # Parse answers (one per line)
         answers = response.text.strip().split("\n")
-        state.metadata["answers"] = answers[:len(questions)]
+        state.metadata["answers"] = answers[: len(questions)]
 
     async def _phase_socratic_solution(self, state: PipelineState):
         """Generate solution based on clarified understanding."""
         models = self._get_available_models(state.task.type)
         solver = models[0] if models else Model.GPT_4O_MINI
 
-        qa_pairs = "\n".join([
-            f"Q: {q}\nA: {a}" for q, a in zip(
-                state.metadata.get("questions", []),
-                state.metadata.get("answers", []), strict=False
-            )
-        ])
-
-        system_prompt = (
-            "Based on the Socratic Q&A, generate a well-reasoned solution that addresses the clarified problem."
+        qa_pairs = "\n".join(
+            [
+                f"Q: {q}\nA: {a}"
+                for q, a in zip(
+                    state.metadata.get("questions", []),
+                    state.metadata.get("answers", []),
+                    strict=False,
+                )
+            ]
         )
+
+        system_prompt = "Based on the Socratic Q&A, generate a well-reasoned solution that addresses the clarified problem."
 
         user_prompt = f"Original task: {state.task.prompt}\n\nSocratic Q&A:\n{qa_pairs}"
 
@@ -1713,6 +1846,7 @@ class SocraticPipeline(BasePipeline):
 # ─────────────────────────────────────────────
 # 8. Pre-Mortem Pipeline
 # ─────────────────────────────────────────────
+
 
 class PreMortemPipeline(BasePipeline):
     """
@@ -1889,6 +2023,7 @@ Design a solution that specifically addresses these failure modes.
 # ─────────────────────────────────────────────
 # 9. Bayesian Pipeline
 # ─────────────────────────────────────────────
+
 
 class BayesianPipeline(BasePipeline):
     """
@@ -2090,6 +2225,7 @@ Provide a decision recommendation with confidence level.
 # 10. Dialectical Pipeline
 # ─────────────────────────────────────────────
 
+
 class DialecticalPipeline(BasePipeline):
     """
     Dialectical Reasoning Pipeline
@@ -2267,6 +2403,7 @@ Achieve synthesis through transcendence.
 # 11. Analogical Pipeline
 # ─────────────────────────────────────────────
 
+
 class AnalogicalPipeline(BasePipeline):
     """
     Analogical Reasoning Pipeline
@@ -2338,7 +2475,9 @@ class AnalogicalPipeline(BasePipeline):
             "Return JSON: {'source_domains': [{'domain': '', 'relevance': 0-10, 'solution': ''}]}"
         )
 
-        user_prompt = f"Abstract structure: {abstract_structure}\n\nConstraints: {json.dumps(constraints)}"
+        user_prompt = (
+            f"Abstract structure: {abstract_structure}\n\nConstraints: {json.dumps(constraints)}"
+        )
 
         response, _ = await self.client.call(
             model=searcher,
@@ -2385,9 +2524,7 @@ Target abstract structure: {abstract_structure}
         tasks = [map_domain(sd) for sd in source_domains]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        state.analogical_state["analogy_mappings"] = [
-            r for r in results if isinstance(r, dict)
-        ]
+        state.analogical_state["analogy_mappings"] = [r for r in results if isinstance(r, dict)]
 
     async def _phase_analogical_transfer(self, state: PipelineState):
         """Transfer and adapt solution to target domain."""
@@ -2399,9 +2536,7 @@ Target abstract structure: {abstract_structure}
 
         # Use best mapping (highest quality)
         best_mapping = max(
-            mappings,
-            key=lambda m: m.get("mapping", {}).get("mapping_quality", 0),
-            default=None
+            mappings, key=lambda m: m.get("mapping", {}).get("mapping_quality", 0), default=None
         )
 
         if not best_mapping:
@@ -2450,7 +2585,11 @@ Transfer and adapt the solution.
                 "method": self.get_method().value,
                 "source_domains": len(state.analogical_state.get("source_domains", [])),
                 "mappings": len(state.analogical_state.get("analogy_mappings", [])),
-                "best_source": state.analogical_state.get("source_domains", [{}])[0].get("domain") if state.analogical_state.get("source_domains") else None,
+                "best_source": (
+                    state.analogical_state.get("source_domains", [{}])[0].get("domain")
+                    if state.analogical_state.get("source_domains")
+                    else None
+                ),
             },
         )
 
@@ -2458,6 +2597,7 @@ Transfer and adapt the solution.
 # ─────────────────────────────────────────────
 # 12. Delphi Pipeline
 # ─────────────────────────────────────────────
+
 
 class DelphiPipeline(BasePipeline):
     """
@@ -2501,7 +2641,7 @@ class DelphiPipeline(BasePipeline):
         """4 independent experts provide estimates."""
         models = self._get_available_models(TaskType.REASONING)
         if len(models) < self.NUM_EXPERTS:
-            models = (models * self.NUM_EXPERTS)[:self.NUM_EXPERTS]
+            models = (models * self.NUM_EXPERTS)[: self.NUM_EXPERTS]
 
         async def expert_estimate(expert_num: int, model: Model):
             system_prompt = (
@@ -2528,7 +2668,7 @@ class DelphiPipeline(BasePipeline):
                 "model": model.value,
             }
 
-        tasks = [expert_estimate(i+1, models[i]) for i in range(self.NUM_EXPERTS)]
+        tasks = [expert_estimate(i + 1, models[i]) for i in range(self.NUM_EXPERTS)]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         estimates = [r for r in results if isinstance(r, dict)]
@@ -2539,7 +2679,8 @@ class DelphiPipeline(BasePipeline):
         estimates = state.delphi_state.get("round_1_estimates", [])
 
         values = [
-            e.get("estimate_value") for e in estimates
+            e.get("estimate_value")
+            for e in estimates
             if isinstance(e.get("estimate_value"), (int, float))
         ]
 
@@ -2551,7 +2692,11 @@ class DelphiPipeline(BasePipeline):
         n = len(values_sorted)
 
         # Median
-        median = values_sorted[n // 2] if n % 2 == 1 else (values_sorted[n//2 - 1] + values_sorted[n//2]) / 2
+        median = (
+            values_sorted[n // 2]
+            if n % 2 == 1
+            else (values_sorted[n // 2 - 1] + values_sorted[n // 2]) / 2
+        )
 
         # Quartiles
         q1_idx = n // 4
@@ -2576,7 +2721,7 @@ class DelphiPipeline(BasePipeline):
         """Experts revise estimates with feedback."""
         models = self._get_available_models(TaskType.REASONING)
         if len(models) < self.NUM_EXPERTS:
-            models = (models * self.NUM_EXPERTS)[:self.NUM_EXPERTS]
+            models = (models * self.NUM_EXPERTS)[: self.NUM_EXPERTS]
 
         stats = state.delphi_state.get("aggregated_stats", {})
         round1_estimates = state.delphi_state.get("round_1_estimates", [])
@@ -2623,7 +2768,8 @@ Revise your estimate if the group information warrants it.
         round2_estimates = state.delphi_state.get("round_2_estimates", [])
 
         values = [
-            e.get("revised_estimate") for e in round2_estimates
+            e.get("revised_estimate")
+            for e in round2_estimates
             if isinstance(e.get("revised_estimate"), (int, float))
         ]
 
@@ -2635,7 +2781,11 @@ Revise your estimate if the group information warrants it.
         # Recompute stats
         values_sorted = sorted(values)
         n = len(values_sorted)
-        median = values_sorted[n // 2] if n % 2 == 1 else (values_sorted[n//2 - 1] + values_sorted[n//2]) / 2
+        median = (
+            values_sorted[n // 2]
+            if n % 2 == 1
+            else (values_sorted[n // 2 - 1] + values_sorted[n // 2]) / 2
+        )
 
         # Check convergence (IQR < threshold)
         q1 = values_sorted[n // 4]
@@ -2736,6 +2886,7 @@ Provide final recommendation.
 # Pipeline Factory (Complete)
 # ─────────────────────────────────────────────
 
+
 class PipelineFactory:
     """Factory for creating ARA reasoning pipelines."""
 
@@ -2797,15 +2948,12 @@ __all__ = [
     # Enums
     "ReasoningMethod",
     "PerspectiveType",
-
     # Data classes
     "SolutionCandidate",
     "CritiqueScore",
     "PipelineState",
-
     # Base classes
     "BasePipeline",
-
     # All pipelines (7 standard)
     "MultiPerspectivePipeline",
     "IterativePipeline",
@@ -2814,14 +2962,12 @@ __all__ = [
     "JuryPipeline",
     "ScientificPipeline",
     "SocraticPipeline",
-
     # All pipelines (5 specialized)
     "PreMortemPipeline",
     "BayesianPipeline",
     "DialecticalPipeline",
     "AnalogicalPipeline",
     "DelphiPipeline",
-
     # Factory
     "PipelineFactory",
 ]

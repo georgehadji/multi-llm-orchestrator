@@ -1,6 +1,7 @@
 """
 WebSocket Manager - Handles real-time connections
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,6 +22,7 @@ logger = get_logger(__name__)
 
 class WebSocketMessage(BaseModel):
     """WebSocket message structure."""
+
     event: str
     data: dict[str, Any]
     timestamp: str = None
@@ -52,7 +54,9 @@ class ConnectionManager:
                     self._connections[session_id] = set()
                 self._connections[session_id].add(websocket)
                 self._connection_sessions[websocket] = session_id
-            logger.info(f"WebSocket connected: session={session_id}, total={self.get_connection_count(session_id)}")
+            logger.info(
+                f"WebSocket connected: session={session_id}, total={self.get_connection_count(session_id)}"
+            )
             return True
         except Exception as e:
             logger.error(f"WebSocket connection failed: {e}")

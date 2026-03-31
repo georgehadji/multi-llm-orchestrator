@@ -6,6 +6,7 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 Core data models for design system definition, component selection,
 and quality validation in AI-generated websites and web apps.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -21,8 +22,10 @@ if TYPE_CHECKING:
 # Brand Tone Presets
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class BrandTone(str, Enum):
     """Brand tone presets for quick start."""
+
     PREMIUM_MINIMAL = "premium_minimal"
     BOLD_CREATIVE = "bold_creative"
     CORPORATE_CLEAN = "corporate_clean"
@@ -117,22 +120,25 @@ DESIGN_PRESETS: dict[BrandTone, dict] = {
 # Design System Data Classes
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class TypographyScale:
     """Typography scale definition."""
-    xs: str = "0.75rem"      # 12px
-    sm: str = "0.875rem"     # 14px
-    base: str = "1rem"       # 16px
-    lg: str = "1.25rem"      # 20px
-    xl: str = "1.563rem"     # 25px
-    xl2: str = "1.953rem"    # 31px
-    xl3: str = "2.441rem"    # 39px
-    xl4: str = "3.052rem"    # 49px
+
+    xs: str = "0.75rem"  # 12px
+    sm: str = "0.875rem"  # 14px
+    base: str = "1rem"  # 16px
+    lg: str = "1.25rem"  # 20px
+    xl: str = "1.563rem"  # 25px
+    xl2: str = "1.953rem"  # 31px
+    xl3: str = "2.441rem"  # 39px
+    xl4: str = "3.052rem"  # 49px
 
 
 @dataclass
 class Colors:
     """Color palette definition."""
+
     primary: str = "#1a1a2e"
     accent: str = "#e94560"
     surface: str = "#fafafa"
@@ -149,31 +155,49 @@ class Colors:
 @dataclass
 class Spacing:
     """Spacing scale definition."""
+
     unit: str = "0.25rem"  # 4px base
-    scale: list[str] = field(default_factory=lambda: [
-        "0", "0.25rem", "0.5rem", "0.75rem", "1rem", "1.5rem",
-        "2rem", "3rem", "4rem", "6rem", "8rem", "12rem", "16rem"
-    ])
+    scale: list[str] = field(
+        default_factory=lambda: [
+            "0",
+            "0.25rem",
+            "0.5rem",
+            "0.75rem",
+            "1rem",
+            "1.5rem",
+            "2rem",
+            "3rem",
+            "4rem",
+            "6rem",
+            "8rem",
+            "12rem",
+            "16rem",
+        ]
+    )
 
 
 @dataclass
 class Layout:
     """Layout configuration."""
+
     max_width: str = "1280px"
     columns: int = 12
     gutter: str = "2rem"
-    breakpoints: dict[str, str] = field(default_factory=lambda: {
-        "sm": "640px",
-        "md": "768px",
-        "lg": "1024px",
-        "xl": "1280px",
-        "2xl": "1536px",
-    })
+    breakpoints: dict[str, str] = field(
+        default_factory=lambda: {
+            "sm": "640px",
+            "md": "768px",
+            "lg": "1024px",
+            "xl": "1280px",
+            "2xl": "1536px",
+        }
+    )
 
 
 @dataclass
 class BorderRadius:
     """Border radius tokens."""
+
     sm: str = "0.375rem"
     md: str = "0.75rem"
     lg: str = "1rem"
@@ -184,6 +208,7 @@ class BorderRadius:
 @dataclass
 class Shadow:
     """Shadow tokens."""
+
     sm: str = "0 1px 2px rgba(0,0,0,0.05)"
     md: str = "0 4px 6px rgba(0,0,0,0.07)"
     lg: str = "0 10px 15px rgba(0,0,0,0.1)"
@@ -194,6 +219,7 @@ class Shadow:
 @dataclass
 class Animation:
     """Animation tokens."""
+
     duration: str = "300ms"
     duration_slow: str = "500ms"
     duration_fast: str = "150ms"
@@ -206,6 +232,7 @@ class Animation:
 @dataclass
 class Accessibility:
     """Accessibility configuration."""
+
     min_contrast_ratio: float = 4.5
     focus_ring: bool = True
     reduced_motion_support: bool = True
@@ -222,6 +249,7 @@ class DesignSystem:
     This is the core data structure that drives all UI generation.
     Every component generated MUST use values from this system.
     """
+
     # Brand identity
     brand_name: str = ""
     industry: str = ""
@@ -276,7 +304,7 @@ class DesignSystem:
     @classmethod
     def from_yaml(cls, path: Path) -> DesignSystem:
         """Load design system from YAML file."""
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         return cls._from_dict(data)
@@ -284,34 +312,34 @@ class DesignSystem:
     @classmethod
     def _from_dict(cls, data: dict) -> DesignSystem:
         """Create DesignSystem from dictionary."""
-        brand = data.get('brand', {})
-        typography_data = data.get('typography', {})
-        colors_data = data.get('colors', {})
-        spacing_data = data.get('spacing', {})
-        layout_data = data.get('layout', {})
-        components_data = data.get('components', {})
-        accessibility_data = data.get('accessibility', {})
+        brand = data.get("brand", {})
+        typography_data = data.get("typography", {})
+        colors_data = data.get("colors", {})
+        spacing_data = data.get("spacing", {})
+        layout_data = data.get("layout", {})
+        components_data = data.get("components", {})
+        accessibility_data = data.get("accessibility", {})
 
         # Parse tone
-        tone_str = brand.get('tone', 'premium_minimal')
+        tone_str = brand.get("tone", "premium_minimal")
         try:
             tone = BrandTone(tone_str)
         except ValueError:
             tone = BrandTone.PREMIUM_MINIMAL
 
         return cls(
-            brand_name=brand.get('name', ''),
-            industry=brand.get('industry', ''),
+            brand_name=brand.get("name", ""),
+            industry=brand.get("industry", ""),
             tone=tone,
-            font_heading=typography_data.get('font_heading', 'Plus Jakarta Sans'),
-            font_body=typography_data.get('font_body', 'Inter'),
-            typography=TypographyScale(**typography_data.get('scale', {})),
+            font_heading=typography_data.get("font_heading", "Plus Jakarta Sans"),
+            font_body=typography_data.get("font_body", "Inter"),
+            typography=TypographyScale(**typography_data.get("scale", {})),
             colors=Colors(**colors_data),
             spacing=Spacing(**spacing_data),
             layout=Layout(**layout_data),
-            border_radius=BorderRadius(**components_data.get('border_radius', {})),
-            shadow=Shadow(**components_data.get('shadow', {})),
-            animation=Animation(**components_data.get('animation', {})),
+            border_radius=BorderRadius(**components_data.get("border_radius", {})),
+            shadow=Shadow(**components_data.get("shadow", {})),
+            animation=Animation(**components_data.get("animation", {})),
             accessibility=Accessibility(**accessibility_data),
         )
 
@@ -322,68 +350,68 @@ class DesignSystem:
     def to_dict(self) -> dict:
         """Export design system to dictionary."""
         return {
-            'brand': {
-                'name': self.brand_name,
-                'industry': self.industry,
-                'tone': self.tone.value,
+            "brand": {
+                "name": self.brand_name,
+                "industry": self.industry,
+                "tone": self.tone.value,
             },
-            'typography': {
-                'font_heading': self.font_heading,
-                'font_body': self.font_body,
-                'scale': {
-                    'xs': self.typography.xs,
-                    'sm': self.typography.sm,
-                    'base': self.typography.base,
-                    'lg': self.typography.lg,
-                    'xl': self.typography.xl,
-                    '2xl': self.typography.xl2,
-                    '3xl': self.typography.xl3,
-                    '4xl': self.typography.xl4,
-                }
-            },
-            'colors': {
-                'primary': self.colors.primary,
-                'accent': self.colors.accent,
-                'surface': self.colors.surface,
-                'surface_alt': self.colors.surface_alt,
-                'text_primary': self.colors.text_primary,
-                'text_secondary': self.colors.text_secondary,
-                'border': self.colors.border,
-                'success': self.colors.success,
-                'error': self.colors.error,
-            },
-            'spacing': {
-                'unit': self.spacing.unit,
-                'scale': self.spacing.scale,
-            },
-            'layout': {
-                'max_width': self.layout.max_width,
-                'columns': self.layout.columns,
-                'gutter': self.layout.gutter,
-                'breakpoints': self.layout.breakpoints,
-            },
-            'components': {
-                'border_radius': {
-                    'sm': self.border_radius.sm,
-                    'md': self.border_radius.md,
-                    'lg': self.border_radius.lg,
-                    'full': self.border_radius.full,
-                },
-                'shadow': {
-                    'sm': self.shadow.sm,
-                    'md': self.shadow.md,
-                    'lg': self.shadow.lg,
-                },
-                'animation': {
-                    'duration': self.animation.duration,
-                    'easing': self.animation.easing,
+            "typography": {
+                "font_heading": self.font_heading,
+                "font_body": self.font_body,
+                "scale": {
+                    "xs": self.typography.xs,
+                    "sm": self.typography.sm,
+                    "base": self.typography.base,
+                    "lg": self.typography.lg,
+                    "xl": self.typography.xl,
+                    "2xl": self.typography.xl2,
+                    "3xl": self.typography.xl3,
+                    "4xl": self.typography.xl4,
                 },
             },
-            'accessibility': {
-                'min_contrast_ratio': self.accessibility.min_contrast_ratio,
-                'focus_ring': self.accessibility.focus_ring,
-                'reduced_motion_support': self.accessibility.reduced_motion_support,
-                'semantic_html': self.accessibility.semantic_html,
+            "colors": {
+                "primary": self.colors.primary,
+                "accent": self.colors.accent,
+                "surface": self.colors.surface,
+                "surface_alt": self.colors.surface_alt,
+                "text_primary": self.colors.text_primary,
+                "text_secondary": self.colors.text_secondary,
+                "border": self.colors.border,
+                "success": self.colors.success,
+                "error": self.colors.error,
+            },
+            "spacing": {
+                "unit": self.spacing.unit,
+                "scale": self.spacing.scale,
+            },
+            "layout": {
+                "max_width": self.layout.max_width,
+                "columns": self.layout.columns,
+                "gutter": self.layout.gutter,
+                "breakpoints": self.layout.breakpoints,
+            },
+            "components": {
+                "border_radius": {
+                    "sm": self.border_radius.sm,
+                    "md": self.border_radius.md,
+                    "lg": self.border_radius.lg,
+                    "full": self.border_radius.full,
+                },
+                "shadow": {
+                    "sm": self.shadow.sm,
+                    "md": self.shadow.md,
+                    "lg": self.shadow.lg,
+                },
+                "animation": {
+                    "duration": self.animation.duration,
+                    "easing": self.animation.easing,
+                },
+            },
+            "accessibility": {
+                "min_contrast_ratio": self.accessibility.min_contrast_ratio,
+                "focus_ring": self.accessibility.focus_ring,
+                "reduced_motion_support": self.accessibility.reduced_motion_support,
+                "semantic_html": self.accessibility.semantic_html,
             },
         }
 
@@ -451,8 +479,10 @@ RULES:
 # Component Registry Models
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class ComponentSource(str, Enum):
     """Component library sources."""
+
     TWENTYFIRST = "twentyfirst"
     SHADCN = "shadcn"
     ACETERNITY = "aceternity"
@@ -464,6 +494,7 @@ class ComponentSource(str, Enum):
 @dataclass
 class ComponentSpec:
     """Specification for a UI component."""
+
     name: str
     source: ComponentSource
     category: str  # "hero", "features", "pricing", etc.
@@ -516,9 +547,10 @@ class ComponentSpec:
     @staticmethod
     def _color_distance(color1: str, color2: str) -> float:
         """Calculate normalized distance between two hex colors (0-1)."""
+
         def hex_to_rgb(hex_color: str) -> tuple:
-            hex_color = hex_color.lstrip('#')
-            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            hex_color = hex_color.lstrip("#")
+            return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
         try:
             rgb1 = hex_to_rgb(color1)
@@ -526,7 +558,7 @@ class ComponentSpec:
 
             # Euclidean distance normalized to 0-1
             distance = sum((a - b) ** 2 for a, b in zip(rgb1, rgb2, strict=False)) ** 0.5
-            max_distance = (255 ** 2 * 3) ** 0.5
+            max_distance = (255**2 * 3) ** 0.5
             return distance / max_distance
         except (ValueError, IndexError):
             return 1.0  # Maximum distance if parsing fails
@@ -535,6 +567,7 @@ class ComponentSpec:
 @dataclass
 class ContentBrief:
     """Content brief generated from research."""
+
     headlines: dict[str, str] = field(default_factory=dict)
     ctas: dict[str, str] = field(default_factory=dict)
     faqs: list[dict[str, str]] = field(default_factory=list)
@@ -545,16 +578,17 @@ class ContentBrief:
     def get_section_content(self, section: str) -> dict:
         """Get content for a specific section."""
         return {
-            'headline': self.headlines.get(section, ''),
-            'cta': self.ctas.get(section, ''),
-            'faqs': [f for f in self.faqs if f.get('section') == section],
-            'pain_points': self.pain_points[:3] if section == 'hero' else [],
+            "headline": self.headlines.get(section, ""),
+            "cta": self.ctas.get(section, ""),
+            "faqs": [f for f in self.faqs if f.get("section") == section],
+            "pain_points": self.pain_points[:3] if section == "hero" else [],
         }
 
 
 @dataclass
 class QualityCheck:
     """Result of a single quality check."""
+
     name: str
     passed: bool
     score: float = 1.0
@@ -565,6 +599,7 @@ class QualityCheck:
 @dataclass
 class QualityReport:
     """Overall quality report for generated website."""
+
     checks: list[QualityCheck] = field(default_factory=list)
     passed: bool = True
     score: float = 0.0

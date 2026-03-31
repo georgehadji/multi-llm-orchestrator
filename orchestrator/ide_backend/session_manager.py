@@ -1,6 +1,7 @@
 """
 Session Manager - Manages IDE session state
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,6 +20,7 @@ logger = get_logger(__name__)
 
 class SessionMode(str, Enum):
     """Session operation modes."""
+
     BUILD = "build"
     PLAN = "plan"
     CHAT = "chat"
@@ -27,6 +29,7 @@ class SessionMode(str, Enum):
 
 class AutonomyLevel(str, Enum):
     """Autonomy levels for code generation."""
+
     LITE = "lite"
     STANDARD = "standard"
     AUTONOMOUS = "autonomous"
@@ -36,6 +39,7 @@ class AutonomyLevel(str, Enum):
 @dataclass
 class FileNode:
     """File tree node."""
+
     name: str
     type: str  # "file" or "folder"
     children: list[FileNode] = field(default_factory=list)
@@ -54,6 +58,7 @@ class FileNode:
 @dataclass
 class ChatMessage:
     """Chat message in session."""
+
     role: str  # "user" or "assistant"
     content: str | None
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%H:%M"))
@@ -70,6 +75,7 @@ class ChatMessage:
 @dataclass
 class TaskProgress:
     """Task progress tracking."""
+
     task_id: str
     name: str
     status: str = "pending"  # pending, running, completed, failed
@@ -83,6 +89,7 @@ class TaskProgress:
 @dataclass
 class SessionState:
     """Complete session state."""
+
     id: str
     project_name: str = "Untitled Project"
     description: str = ""

@@ -33,7 +33,7 @@ def print_search_results(results) -> None:
         print(f"{i}. {result.title}")
         print(f"   URL: {result.url}")
         if result.content:
-            content = result.content[:150].replace('\n', ' ')
+            content = result.content[:150].replace("\n", " ")
             print(f"   {content}...")
         print()
 
@@ -69,13 +69,17 @@ async def cmd_search(args) -> int:
         # Parse sources
         sources = []
         if args.sources:
-            for src in args.sources.split(','):
+            for src in args.sources.split(","):
                 src = src.strip().lower()
-                if src in ['web', 'academic', 'tech', 'news', 'code']:
+                if src in ["web", "academic", "tech", "news", "code"]:
                     sources.append(SearchSource(src))
 
         # Parse optimization
-        optimization = OptimizationMode(args.optimization.lower()) if args.optimization else OptimizationMode.BALANCED
+        optimization = (
+            OptimizationMode(args.optimization.lower())
+            if args.optimization
+            else OptimizationMode.BALANCED
+        )
 
         # Execute search
         results = await search(
@@ -145,8 +149,8 @@ async def cmd_status(args) -> int:
             print(f"Healthy:  {'✅ Yes' if status['healthy'] else '❌ No'}")
             print(f"API URL:  {status['api_url']}")
 
-            if 'capabilities' in status:
-                caps = status['capabilities']
+            if "capabilities" in status:
+                caps = status["capabilities"]
                 print("\nCapabilities:")
                 print(f"  Sources: {', '.join(caps.get('sources', []))}")
                 print(f"  Max Results: {caps.get('max_results', 'N/A')}")
@@ -155,7 +159,7 @@ async def cmd_status(args) -> int:
 
             print()
 
-        return 0 if status['healthy'] else 1
+        return 0 if status["healthy"] else 1
 
     except ImportError:
         print("❌ Nexus Search is not installed")
@@ -211,20 +215,26 @@ def create_parser() -> argparse.ArgumentParser:
     # Search command
     search_parser = subparsers.add_parser("search", help="Perform a web search")
     search_parser.add_argument("query", help="Search query")
-    search_parser.add_argument("-s", "--sources", help="Comma-separated sources (web,academic,tech,news,code)")
-    search_parser.add_argument("-o", "--optimization", default="balanced",
-                               choices=["speed", "balanced", "quality"],
-                               help="Optimization mode")
-    search_parser.add_argument("-n", "--num-results", type=int, default=10,
-                               help="Maximum number of results")
+    search_parser.add_argument(
+        "-s", "--sources", help="Comma-separated sources (web,academic,tech,news,code)"
+    )
+    search_parser.add_argument(
+        "-o",
+        "--optimization",
+        default="balanced",
+        choices=["speed", "balanced", "quality"],
+        help="Optimization mode",
+    )
+    search_parser.add_argument(
+        "-n", "--num-results", type=int, default=10, help="Maximum number of results"
+    )
     search_parser.add_argument("--json", action="store_true", help="Output as JSON")
     search_parser.set_defaults(func=cmd_search)
 
     # Research command
     research_parser = subparsers.add_parser("research", help="Conduct deep research")
     research_parser.add_argument("query", help="Research query")
-    research_parser.add_argument("-d", "--depth", type=int, default=3,
-                                 help="Research depth (1-5)")
+    research_parser.add_argument("-d", "--depth", type=int, default=3, help="Research depth (1-5)")
     research_parser.add_argument("--json", action="store_true", help="Output as JSON")
     research_parser.set_defaults(func=cmd_research)
 

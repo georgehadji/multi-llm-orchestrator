@@ -3,6 +3,7 @@ Unified Dashboard Core
 ======================
 Single dashboard core with pluggable views.
 """
+
 from .core import (
     DashboardCore,
     DashboardView,

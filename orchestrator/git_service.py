@@ -9,6 +9,7 @@ Provides CI-style integration with GitHub/GitLab:
 
 Author: Georgios-Chrysovalantis Chatzivantsidis
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -23,6 +24,7 @@ logger = logging.getLogger("orchestrator.git")
 
 class CheckRunStatus(StrEnum):
     """Check run status states."""
+
     QUEUED = "queued"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -30,6 +32,7 @@ class CheckRunStatus(StrEnum):
 
 class CheckRunConclusion(StrEnum):
     """Check run conclusion states."""
+
     SUCCESS = "success"
     FAILURE = "failure"
     NEUTRAL = "neutral"
@@ -41,6 +44,7 @@ class CheckRunConclusion(StrEnum):
 @dataclass
 class CheckRunOutput:
     """Structured output for check runs."""
+
     title: str
     summary: str
     text: str | None = None
@@ -58,6 +62,7 @@ class CheckRunOutput:
 @dataclass
 class PRComment:
     """Structured PR comment."""
+
     path: str  # File path
     line: int | None = None  # Line number (optional)
     start_line: int | None = None  # For multi-line comments
@@ -73,6 +78,7 @@ class PRComment:
 @dataclass
 class GitIntegrationConfig:
     """Configuration for Git integration."""
+
     enabled: bool = False
     provider: str = "github"  # github, gitlab
     token: str = ""
@@ -229,9 +235,10 @@ class GitHubService(GitService):
 
         url = f"{self.api_base}/repos/{self.config.repository}{endpoint}"
 
-        async with aiohttp.ClientSession() as session, session.request(
-            method, url, headers=self.headers, json=data
-        ) as response:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.request(method, url, headers=self.headers, json=data) as response,
+        ):
             if response.status >= 400:
                 text = await response.text()
                 raise RuntimeError(f"GitHub API error {response.status}: {text}")
@@ -293,16 +300,14 @@ class GitHubService(GitService):
                     "line": comment.line,
                     "body": comment.body,
                 }
-            ]
+            ],
         }
 
         if comment.start_line and comment.start_line != comment.line:
             data["comments"][0]["start_line"] = comment.start_line
             data["comments"][0]["start_side"] = "RIGHT"
 
-        result = await self._api_request(
-            "POST", f"/pulls/{pr_number}/reviews", data
-        )
+        result = await self._api_request("POST", f"/pulls/{pr_number}/reviews", data)
         comment_id = result["id"]
         logger.info(f"Posted GitHub PR comment {comment_id} on PR #{pr_number}")
         return comment_id
@@ -312,9 +317,7 @@ class GitHubService(GitService):
         pr_number: int,
     ) -> list[PRComment]:
         """Get existing PR review comments for deduplication."""
-        result = await self._api_request(
-            "GET", f"/pulls/{pr_number}/comments"
-        )
+        result = await self._api_request("GET", f"/pulls/{pr_number}/comments")
 
         comments = []
         for item in result:
@@ -362,12 +365,14 @@ class GitHubService(GitService):
             blob_data = await self._api_request(
                 "POST", "/git/blobs", {"content": content, "encoding": "utf-8"}
             )
-            tree_entries.append({
-                "path": path,
-                "mode": "100644",
-                "type": "blob",
-                "sha": blob_data["sha"],
-            })
+            tree_entries.append(
+                {
+                    "path": path,
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": blob_data["sha"],
+                }
+            )
 
         # Create tree
         tree_data = await self._api_request(
@@ -375,16 +380,24 @@ class GitHubService(GitService):
         )
 
         # Create commit
-        commit_data = await self._api_request("POST", "/git/commits", {
-            "message": message,
-            "tree": tree_data["sha"],
-            "parents": [base_sha],
-        })
+        commit_data = await self._api_request(
+            "POST",
+            "/git/commits",
+            {
+                "message": message,
+                "tree": tree_data["sha"],
+                "parents": [base_sha],
+            },
+        )
 
         # Update branch reference
-        await self._api_request("PATCH", f"/git/refs/heads/{branch}", {
-            "sha": commit_data["sha"],
-        })
+        await self._api_request(
+            "PATCH",
+            f"/git/refs/heads/{branch}",
+            {
+                "sha": commit_data["sha"],
+            },
+        )
 
         logger.info(f"Committed changes to {branch}: {commit_data['sha'][:7]}")
         return commit_data["sha"]
@@ -418,13 +431,21 @@ class GitLabService(GitService):
         self.headers = {"PRIVATE-TOKEN": config.token}
 
     async def create_check_run(
-        self, commit_sha: str, name: str, status: CheckRunStatus, output: CheckRunOutput | None = None
+        self,
+        commit_sha: str,
+        name: str,
+        status: CheckRunStatus,
+        output: CheckRunOutput | None = None,
     ) -> int:
         # GitLab uses commit status API (simpler than GitHub check runs)
         raise NotImplementedError("GitLab integration coming soon")
 
     async def update_check_run(
-        self, check_run_id: int, status: CheckRunStatus, conclusion: CheckRunConclusion | None = None, output: CheckRunOutput | None = None
+        self,
+        check_run_id: int,
+        status: CheckRunStatus,
+        conclusion: CheckRunConclusion | None = None,
+        output: CheckRunOutput | None = None,
     ) -> None:
         raise NotImplementedError("GitLab integration coming soon")
 

@@ -2,6 +2,7 @@
 Test IDE Modification Handler - Regression Tests for Color Changes and Broadcast Ordering
 Covers: BUG-001 (Race Condition), BUG-002 (String Replacement), BUG-003 (Session State Broadcast)
 """
+
 import re
 
 import pytest
@@ -21,13 +22,13 @@ class TestColorModificationRegex:
         }
         """
         new_color = "#8b5cf6"
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
         match = re.search(accent_pattern, css_content)
 
         assert match is not None
         assert match.group(0) == "--accent: #c9a55c"
 
-        result = re.sub(accent_pattern, f'--accent: {new_color}', css_content, count=1)
+        result = re.sub(accent_pattern, f"--accent: {new_color}", css_content, count=1)
         assert "--accent: #8b5cf6" in result
         assert "--accent: #c9a55c" not in result
 
@@ -39,9 +40,9 @@ class TestColorModificationRegex:
         }
         """
         new_color = "#3b82f6"  # Same color
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
 
-        result = re.sub(accent_pattern, f'--accent: {new_color}', css_content, count=1)
+        result = re.sub(accent_pattern, f"--accent: {new_color}", css_content, count=1)
         assert "--accent: #3b82f6" in result
 
     def test_color_change_multiple_spaces(self):
@@ -54,7 +55,7 @@ class TestColorModificationRegex:
             --accent:   #c9a55c;
         }
         """
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
         matches = re.findall(accent_pattern, css_content)
 
         assert len(matches) == 2
@@ -69,7 +70,7 @@ class TestColorModificationRegex:
             --secondary: #1a1a2e;
         }
         """
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
         match = re.search(accent_pattern, css_content)
 
         assert match is None
@@ -82,9 +83,9 @@ class TestColorModificationRegex:
         }
         """
         new_color = "#000"
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
 
-        result = re.sub(accent_pattern, f'--accent: {new_color}', css_content, count=1)
+        result = re.sub(accent_pattern, f"--accent: {new_color}", css_content, count=1)
         assert "--accent: #000" in result
 
     def test_color_change_uppercase_hex(self):
@@ -95,9 +96,9 @@ class TestColorModificationRegex:
         }
         """
         new_color = "#8B5CF6"
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
 
-        result = re.sub(accent_pattern, f'--accent: {new_color}', css_content, count=1)
+        result = re.sub(accent_pattern, f"--accent: {new_color}", css_content, count=1)
         assert "--accent: #8B5CF6" in result
         assert "--accent: #C9A55C" not in result
 
@@ -114,8 +115,7 @@ class TestBroadcastOrdering:
 
         # Create mock session
         session = await session_manager.create_session(
-            project_name="Test Project",
-            description="Test"
+            project_name="Test Project", description="Test"
         )
 
         # Mock broadcast method to capture call order
@@ -132,7 +132,9 @@ class TestBroadcastOrdering:
         session_manager.update_session(session.id, status="completed")
 
         # Broadcast in correct order
-        await session_manager.broadcast(session.id, "session_state", session_manager.get_session(session.id))
+        await session_manager.broadcast(
+            session.id, "session_state", session_manager.get_session(session.id)
+        )
         await session_manager.broadcast(session.id, "terminal_update", {"lines": []})
         await session_manager.broadcast(session.id, "messages_update", {"messages": []})
 
@@ -156,8 +158,9 @@ class TestBroadcastOrdering:
         session_state = session_manager.get_session(session.id)
 
         # Verify terminal lines updated
-        assert any("Updated styles.css" in line.get("content", "")
-                   for line in session_state.terminal_lines)
+        assert any(
+            "Updated styles.css" in line.get("content", "") for line in session_state.terminal_lines
+        )
 
 
 class TestEdgeCases:
@@ -172,9 +175,9 @@ class TestEdgeCases:
         """
         # Request "black" but CSS has gold
         new_color = "#000000"
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
 
-        result = re.sub(accent_pattern, f'--accent: {new_color}', css_content, count=1)
+        result = re.sub(accent_pattern, f"--accent: {new_color}", css_content, count=1)
         assert "--accent: #000000" in result
 
     def test_multiple_color_changes_sequential(self):
@@ -185,10 +188,10 @@ class TestEdgeCases:
         }
         """
         colors = ["#8b5cf6", "#3b82f6", "#10b981", "#ef4444"]
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
 
         for color in colors:
-            css_content = re.sub(accent_pattern, f'--accent: {color}', css_content, count=1)
+            css_content = re.sub(accent_pattern, f"--accent: {color}", css_content, count=1)
             assert f"--accent: {color}" in css_content
 
         # Final color should be last in list
@@ -202,7 +205,7 @@ class TestEdgeCases:
             --primary: #0a0a0f;
         }
         """
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
         match = re.search(accent_pattern, css_content)
 
         # Invalid hex should not match
@@ -238,12 +241,12 @@ class TestIntegration:
         # Simulate modification
         css_content = css_path.read_text()
         new_color = "#8b5cf6"
-        accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+        accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
 
         match = re.search(accent_pattern, css_content)
         assert match is not None
 
-        css_content = re.sub(accent_pattern, f'--accent: {new_color}', css_content, count=1)
+        css_content = re.sub(accent_pattern, f"--accent: {new_color}", css_content, count=1)
         css_path.write_text(css_content)
 
         # Verify file updated

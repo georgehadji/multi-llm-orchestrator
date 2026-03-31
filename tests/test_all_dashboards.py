@@ -2,8 +2,10 @@
 """
 Test all dashboard imports
 """
+
 import sys
-sys.path.insert(0, r'E:\Documents\Vibe-Coding\Ai Orchestrator')
+
+sys.path.insert(0, r"E:\Documents\Vibe-Coding\Ai Orchestrator")
 
 print("=" * 60)
 print("🧪 Testing All Dashboard Imports")

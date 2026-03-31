@@ -2,6 +2,7 @@
 Tests for AppAssembler and AssemblyReport (Task 4).
 No real LLM calls — uses synthetic TaskResult objects.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,10 +12,10 @@ import pytest
 from orchestrator.app_assembler import AppAssembler, AssemblyReport
 from orchestrator.models import Model, Task, TaskResult, TaskType
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _make_task(task_id: str, target_path: str = "") -> Task:
     return Task(
@@ -38,6 +39,7 @@ def _make_result(task_id: str, output: str = "# code\n") -> TaskResult:
 # AssemblyReport — dataclass
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_assembly_report_fields():
     """AssemblyReport must have files_written, files_skipped, import_issues fields."""
     report = AssemblyReport(
@@ -53,6 +55,7 @@ def test_assembly_report_fields():
 # ─────────────────────────────────────────────────────────────────────────────
 # AppAssembler.assemble — basic file writing
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_assemble_writes_task_output_to_target_path(tmp_path):
     """Each TaskResult.output must be written to task.target_path."""
@@ -126,6 +129,7 @@ def test_assemble_preserves_scaffold_files(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # ImportFixer — __init__.py generation
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_assemble_creates_init_py_for_package(tmp_path):
     """After writing src/routes/auth.py, src/__init__.py and src/routes/__init__.py must exist."""

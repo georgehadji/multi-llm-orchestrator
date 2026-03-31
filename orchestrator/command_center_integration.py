@@ -75,7 +75,7 @@ class CommandCenterIntegration:
         # Model health from adaptive router
         models = {}
         for model in Model:
-            if hasattr(self._orchestrator, '_adaptive_router'):
+            if hasattr(self._orchestrator, "_adaptive_router"):
                 state = self._orchestrator._adaptive_router.get_state(model)
                 models[model.value] = state.value
             else:
@@ -85,12 +85,27 @@ class CommandCenterIntegration:
 
         # Task queue from results
         task_queue = {
-            "pending": len([t for t in self._orchestrator.results.values()
-                          if hasattr(t, 'status') and t.status == "pending"]),
-            "active": len([t for t in self._orchestrator.results.values()
-                         if hasattr(t, 'status') and t.status == "running"]),
-            "failed": len([t for t in self._orchestrator.results.values()
-                         if hasattr(t, 'status') and t.status == "failed"]),
+            "pending": len(
+                [
+                    t
+                    for t in self._orchestrator.results.values()
+                    if hasattr(t, "status") and t.status == "pending"
+                ]
+            ),
+            "active": len(
+                [
+                    t
+                    for t in self._orchestrator.results.values()
+                    if hasattr(t, "status") and t.status == "running"
+                ]
+            ),
+            "failed": len(
+                [
+                    t
+                    for t in self._orchestrator.results.values()
+                    if hasattr(t, "status") and t.status == "failed"
+                ]
+            ),
         }
 
         # Cost burn rate (hourly)
@@ -100,23 +115,25 @@ class CommandCenterIntegration:
 
         # Quality score from telemetry
         quality_score = 0.85  # default
-        if hasattr(self._orchestrator, '_telemetry'):
+        if hasattr(self._orchestrator, "_telemetry"):
             profiles = self._orchestrator._telemetry._profiles
             if profiles:
-                qualities = [p.quality_score for p in profiles.values() if hasattr(p, 'quality_score')]
+                qualities = [
+                    p.quality_score for p in profiles.values() if hasattr(p, "quality_score")
+                ]
                 if qualities:
                     quality_score = sum(qualities) / len(qualities)
 
         # Cache hit rate from semantic cache
         cache_hit_rate = 0.0
-        if hasattr(self._orchestrator, '_semantic_cache'):
+        if hasattr(self._orchestrator, "_semantic_cache"):
             stats = self._orchestrator._semantic_cache.get_stats()
             total_uses = stats.get("total_uses", 0)
             if total_uses > 0:
                 cache_hit_rate = stats.get("hot_entries", 0) / total_uses
 
         metrics = SystemMetrics(
-            timestamp=__import__('time').time(),
+            timestamp=__import__("time").time(),
             models=models,
             task_queue=task_queue,
             cost_burn_rate=cost_burn_rate,
@@ -130,8 +147,9 @@ class CommandCenterIntegration:
     async def _check_alerts(self):
         """Check for alert conditions."""
         # Check model health changes
-        if hasattr(self._orchestrator, '_adaptive_router'):
+        if hasattr(self._orchestrator, "_adaptive_router"):
             from .adaptive_router import ModelState
+
             for model in Model:
                 state = self._orchestrator._adaptive_router.get_state(model)
                 last_state = self._last_model_health.get(model.value)

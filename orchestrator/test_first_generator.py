@@ -15,7 +15,7 @@ Usage:
 
     # Get TDD profile (budget, balanced, or premium)
     tdd_config = get_tdd_profile("balanced")
-    
+
     tdd = TestFirstGenerator(client, sandbox, model_config=tdd_config)
     result = await tdd.generate_with_tests(task, project_context)
 
@@ -44,6 +44,7 @@ logger = get_logger(__name__)
 
 class TestingFramework(Enum):
     """Supported testing frameworks."""
+
     PYTEST = "pytest"
     UNITTEST = "unittest"
     JEST = "jest"
@@ -58,6 +59,7 @@ class TestingFramework(Enum):
 # Testing Framework Detection
 # ═══════════════════════════════════════════════════════
 
+
 def detect_testing_framework(
     task_prompt: str,
     project_context: str = "",
@@ -65,15 +67,15 @@ def detect_testing_framework(
 ) -> TestingFramework:
     """
     Detect testing framework from task/project context.
-    
+
     Args:
         task_prompt: Task description
         project_context: Optional project context
         file_extension: File extension (.py, .js, .ts, etc.)
-    
+
     Returns:
         TestingFramework enum value
-    
+
     Examples:
         >>> detect_testing_framework("Build a Python API with pytest tests", "", ".py")
         <TestingFramework.PYTEST: 'pytest'>
@@ -83,7 +85,7 @@ def detect_testing_framework(
     # Check task prompt and project context for framework keywords FIRST
     # (keywords are more specific than file extensions)
     prompt_lower = (task_prompt + " " + project_context).lower()
-    
+
     # Framework-specific keywords (check these first for accuracy)
     framework_keywords = {
         TestingFramework.PYTEST: ["pytest", "py.test"],
@@ -94,12 +96,12 @@ def detect_testing_framework(
         TestingFramework.GO_TEST: ["go test", "golang test"],
         TestingFramework.CARGO_TEST: ["cargo test", "rust test"],
     }
-    
+
     # Check for explicit framework keywords first
     for framework, keywords in framework_keywords.items():
         if any(kw in prompt_lower for kw in keywords):
             return framework
-    
+
     # If no explicit keywords, check file extension
     ext_framework_map = {
         ".py": TestingFramework.PYTEST,  # Default to pytest for Python
@@ -110,10 +112,10 @@ def detect_testing_framework(
         ".go": TestingFramework.GO_TEST,
         ".rs": TestingFramework.CARGO_TEST,
     }
-    
+
     if file_extension.lower() in ext_framework_map:
         return ext_framework_map[file_extension.lower()]
-    
+
     # Default based on language detection
     lang_framework_map = {
         "python": TestingFramework.PYTEST,
@@ -126,11 +128,11 @@ def detect_testing_framework(
         "rust": TestingFramework.CARGO_TEST,
         "node": TestingFramework.JEST,
     }
-    
+
     for lang, framework in lang_framework_map.items():
         if lang in prompt_lower:
             return framework
-    
+
     # Default to pytest (most common)
     return TestingFramework.PYTEST
 
@@ -138,10 +140,10 @@ def detect_testing_framework(
 def get_framework_config(framework: TestingFramework) -> dict:
     """
     Get testing framework configuration.
-    
+
     Args:
         framework: Testing framework enum
-    
+
     Returns:
         Dictionary with framework configuration
     """
@@ -195,13 +197,14 @@ def get_framework_config(framework: TestingFramework) -> dict:
             "prompt_template": "pytest",
         },
     }
-    
+
     return configs.get(framework, configs[TestingFramework.UNKNOWN])
 
 
 @dataclass
 class TestSpec:
     """Specification for generated tests."""
+
     test_file_name: str
     test_code: str
     test_framework: str = "pytest"
@@ -212,6 +215,7 @@ class TestSpec:
 @dataclass
 class TestExecutionResult:
     """Result of running tests against implementation."""
+
     passed: bool
     tests_run: int
     tests_passed: int
@@ -224,6 +228,7 @@ class TestExecutionResult:
 @dataclass
 class TDDResult:
     """Complete result of TDD generation."""
+
     implementation_code: str
     test_spec: TestSpec
     test_result: TestExecutionResult
@@ -253,7 +258,7 @@ class TestFirstGenerator:
     This provides machine-verifiable success criteria:
     - Instead of "score: 0.85" → "17/17 tests passed"
     - Tests serve as executable specifications
-    
+
     Updated v3.0:
     - Optimal model selection per TDD phase
     - Cost tracking per phase
@@ -281,47 +286,47 @@ class TestFirstGenerator:
             language: Language-specific optimizations (python, javascript, etc.)
         """
         from .cost_optimization import get_tdd_profile
-        
+
         self.client = client
         self.sandbox = sandbox
         self.max_test_iterations = max_test_iterations
-        
+
         # Load TDD configuration
         self.model_config = model_config or get_tdd_profile(quality_tier, language)
         self.quality_tier = quality_tier
         self.language = language
-        
+
         # Cost tracking
         self._cost_tracker: dict[str, float] = {
             "test_generation": 0.0,
             "implementation": 0.0,
             "review": 0.0,
         }
-    
+
     def _get_model_for_phase(self, phase: str) -> Model:
         """
         Get optimal model for TDD phase.
-        
+
         Args:
             phase: Phase name (test_generation, implementation, test_review, refactoring)
-        
+
         Returns:
             Model instance for the phase
         """
         model_id = self.model_config.get_model(phase, self.quality_tier, self.language)
         return Model(model_id)
-    
+
     def _track_cost(self, phase: str, cost: float) -> None:
         """
         Track cost for a TDD phase.
-        
+
         Args:
             phase: Phase name
             cost: Cost in USD
         """
         if phase in self._cost_tracker:
             self._cost_tracker[phase] += cost
-    
+
     def _get_total_cost(self) -> float:
         """Get total cost across all phases."""
         return sum(self._cost_tracker.values())
@@ -356,7 +361,7 @@ class TestFirstGenerator:
             file_extension="",  # Could extract from task if available
         )
         framework_config = get_framework_config(framework)
-        
+
         logger.info(
             f"  Detected testing framework: {framework.value} "
             f"({framework_config['run_command']})"
@@ -374,7 +379,9 @@ class TestFirstGenerator:
         )
 
         if not test_spec or not test_spec.test_code:
-            logger.warning(f"  {task.id}: Test generation failed, falling back to standard generation")
+            logger.warning(
+                f"  {task.id}: Test generation failed, falling back to standard generation"
+            )
             # Fallback to standard generation without tests
             return await self._fallback_standard_generation(task, project_context, target_model)
 
@@ -503,8 +510,8 @@ class TestFirstGenerator:
                 model=model,
                 prompt=prompt,
                 system="You are an expert software tester writing comprehensive pytest tests. "
-                       "Focus on edge cases, error handling, and clear assertions. "
-                       "Output ONLY test code, no explanations.",
+                "Focus on edge cases, error handling, and clear assertions. "
+                "Output ONLY test code, no explanations.",
                 max_tokens=3000,
                 temperature=0.3,  # Slightly higher for test creativity
                 timeout=120,
@@ -579,8 +586,8 @@ class TestFirstGenerator:
                 model=model,
                 prompt=prompt,
                 system="You are an expert software engineer. "
-                       "Write clean, production-ready code that passes all tests. "
-                       "Output ONLY implementation code.",
+                "Write clean, production-ready code that passes all tests. "
+                "Output ONLY implementation code.",
                 max_tokens=4000,
                 temperature=0.0,  # Deterministic for code
                 timeout=180,
@@ -726,7 +733,7 @@ class TestFirstGenerator:
                     model=model,
                     prompt=prompt,
                     system="You are debugging code to make all tests pass. "
-                           "Fix the specific errors mentioned. Output ONLY fixed code.",
+                    "Fix the specific errors mentioned. Output ONLY fixed code.",
                     max_tokens=4000,
                     temperature=0.1,  # Low temp for focused fixes
                     timeout=180,
@@ -821,8 +828,8 @@ class TestFirstGenerator:
         import re
 
         # Look for pattern: "X passed, Y failed" or "X passed"
-        passed_match = re.search(r'(\d+) passed', output)
-        failed_match = re.search(r'(\d+) failed', output)
+        passed_match = re.search(r"(\d+) passed", output)
+        failed_match = re.search(r"(\d+) failed", output)
 
         tests_passed = int(passed_match.group(1)) if passed_match else 0
         tests_failed = int(failed_match.group(1)) if failed_match else 0
@@ -873,14 +880,19 @@ class TestFirstGenerator:
 
         # Look for FAILED tests and their error messages
         import re
-        failed_tests = re.findall(r'FAILED ([^\s]+) - (.+?)(?=\nFAILED|\nPASSED|\n=|$)', output, re.DOTALL)
+
+        failed_tests = re.findall(
+            r"FAILED ([^\s]+) - (.+?)(?=\nFAILED|\nPASSED|\n=|$)", output, re.DOTALL
+        )
 
         for test_name, error_msg in failed_tests:
             errors.append(f"{test_name}: {error_msg.strip()}")
 
         # If no structured errors, take first few error lines
         if not errors:
-            error_lines = [line for line in output.split("\n") if "Error" in line or "FAILED" in line]
+            error_lines = [
+                line for line in output.split("\n") if "Error" in line or "FAILED" in line
+            ]
             errors = error_lines[:5]  # Limit to first 5 errors
 
         return errors

@@ -25,6 +25,7 @@ logger = logging.getLogger("orchestrator.command_center")
 
 class Severity(str, Enum):
     """Semantic severity model - NEVER reuse these colors decoratively."""
+
     NORMAL = "normal"
     INFO = "info"
     WARNING = "warning"
@@ -34,6 +35,7 @@ class Severity(str, Enum):
 
 class AlertState(str, Enum):
     """Alert lifecycle states."""
+
     DETECTED = "detected"
     CONFIRMED = "confirmed"
     ASSIGNED = "assigned"
@@ -45,6 +47,7 @@ class AlertState(str, Enum):
 @dataclass
 class Alert:
     """Immutable alert record."""
+
     alert_id: str
     severity: Severity
     title: str
@@ -74,6 +77,7 @@ class Alert:
 @dataclass
 class SystemMetrics:
     """Current system state snapshot."""
+
     timestamp: float
     models: dict  # model_name -> health state
     task_queue: dict  # pending, active, failed counts
@@ -127,6 +131,7 @@ class AuditLog:
     def _compute_hash(self, alert_id: str, user_id: str, timestamp: float) -> str:
         """Simple integrity hash."""
         import hashlib
+
         payload = f"{alert_id}:{user_id}:{timestamp}"
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
@@ -270,7 +275,7 @@ class CommandCenterServer:
                     # Replace in queue
                     self._alerts = deque(
                         [new_alert if a.alert_id == alert_id else a for a in self._alerts],
-                        maxlen=self.MAX_ALERTS
+                        maxlen=self.MAX_ALERTS,
                     )
 
                     # Broadcast update immediately (don't wait for batch)
@@ -290,10 +295,12 @@ class CommandCenterServer:
         if not self._clients:
             return
 
-        message = json.dumps({
-            "type": "metrics_update",
-            "metrics": self._metrics.to_dict(),
-        })
+        message = json.dumps(
+            {
+                "type": "metrics_update",
+                "metrics": self._metrics.to_dict(),
+            }
+        )
 
         # Send to all clients
         disconnected = set()
@@ -311,10 +318,12 @@ class CommandCenterServer:
         if not self._clients:
             return
 
-        message = json.dumps({
-            "type": "alert_update",
-            "alert": alert.to_dict(),
-        })
+        message = json.dumps(
+            {
+                "type": "alert_update",
+                "alert": alert.to_dict(),
+            }
+        )
 
         disconnected = set()
         for client in self._clients:
@@ -407,7 +416,7 @@ class CommandCenterServer:
 
                 self._alerts = deque(
                     [new_alert if a.alert_id == alert_id else a for a in self._alerts],
-                    maxlen=self.MAX_ALERTS
+                    maxlen=self.MAX_ALERTS,
                 )
 
                 asyncio.create_task(self._broadcast_alert_update(new_alert))

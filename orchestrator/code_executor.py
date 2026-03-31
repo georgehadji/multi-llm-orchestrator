@@ -23,14 +23,16 @@ logger = get_logger(__name__)
 
 class ExecutionMode(Enum):
     """Code execution mode."""
+
     SANDBOX = "sandbox"  # Docker container (secure)
-    LOCAL = "local"      # Direct execution (insecure)
+    LOCAL = "local"  # Direct execution (insecure)
     DISABLED = "disabled"  # No execution allowed
 
 
 @dataclass
 class ExecutionConfig:
     """Configuration for code execution."""
+
     # Security settings
     require_sandbox: bool = True  # FIX #4: Default to secure
     sandbox_image: str = "python:3.12-slim"
@@ -54,6 +56,7 @@ class ExecutionConfig:
 @dataclass
 class ExecutionResult:
     """Result of code execution."""
+
     success: bool
     output: str
     error: str = ""
@@ -138,17 +141,11 @@ class CodeExecutor:
                         "Install Docker: https://docs.docker.com/get-docker/ "
                         "Or set REQUIRE_SANDBOX=false (not recommended)."
                     ),
-                    security_warnings=[
-                        "Sandbox unavailable - execution blocked"
-                    ],
+                    security_warnings=["Sandbox unavailable - execution blocked"],
                 )
             else:
-                security_warnings.append(
-                    "⚠️  FALLBACK: Executing without sandbox (insecure)"
-                )
-                logger.warning(
-                    "Executing code without sandbox - security risk!"
-                )
+                security_warnings.append("⚠️  FALLBACK: Executing without sandbox (insecure)")
+                logger.warning("Executing code without sandbox - security risk!")
 
         # FIX #4: Use sandbox if available and required
         if self.config.require_sandbox and self._is_sandbox_available():
@@ -157,14 +154,13 @@ class CodeExecutor:
             )
         else:
             # Fallback to local execution (insecure)
-            return await self._execute_local(
-                code, language, args, env, timeout, security_warnings
-            )
+            return await self._execute_local(code, language, args, env, timeout, security_warnings)
 
     def _is_sandbox_available(self) -> bool:
         """Check if Docker sandbox is available."""
         try:
             import docker
+
             client = docker.from_env()
             client.ping()
             return True
@@ -237,8 +233,8 @@ class CodeExecutor:
 
         # Create temporary file
         with tempfile.NamedTemporaryFile(
-            mode='w',
-            suffix='.py',
+            mode="w",
+            suffix=".py",
             delete=False,
         ) as f:
             f.write(code)
@@ -267,14 +263,12 @@ class CodeExecutor:
 
             return ExecutionResult(
                 success=proc.returncode == 0,
-                output=stdout.decode('utf-8', errors='replace'),
-                error=stderr.decode('utf-8', errors='replace'),
+                output=stdout.decode("utf-8", errors="replace"),
+                error=stderr.decode("utf-8", errors="replace"),
                 exit_code=proc.returncode or 0,
                 execution_time_ms=execution_time,
                 sandbox_used=False,
-                security_warnings=security_warnings + [
-                    "⚠️  Executed without sandbox (insecure)"
-                ],
+                security_warnings=security_warnings + ["⚠️  Executed without sandbox (insecure)"],
             )
 
         except asyncio.TimeoutError:

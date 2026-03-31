@@ -39,6 +39,7 @@ logger = get_logger(__name__)
 @dataclass
 class SearchDocument:
     """Document for search."""
+
     doc_id: str
     project_id: str
     content: str
@@ -50,6 +51,7 @@ class SearchDocument:
 @dataclass
 class SearchResult:
     """Search result with scoring."""
+
     doc_id: str
     project_id: str
     content: str
@@ -137,18 +139,24 @@ class BM25Search:
         metadata_json = json.dumps(metadata or {})
 
         # Insert into regular table
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO documents
             (doc_id, project_id, title, content, metadata)
             VALUES (?, ?, ?, ?, ?)
-        """, (doc_id, project_id, title, content, metadata_json))
+        """,
+            (doc_id, project_id, title, content, metadata_json),
+        )
 
         # Insert into FTS5 table
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO documents_fts
             (doc_id, project_id, title, content, metadata)
             VALUES (?, ?, ?, ?, ?)
-        """, (doc_id, project_id, title, content, metadata_json))
+        """,
+            (doc_id, project_id, title, content, metadata_json),
+        )
 
         self.conn.commit()
         logger.debug(f"Added document {doc_id} to search index")
@@ -185,7 +193,8 @@ class BM25Search:
 
         # Build query
         if project_id:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     d.doc_id,
                     d.project_id,
@@ -199,9 +208,12 @@ class BM25Search:
                     AND project_id = ?
                 ORDER BY score DESC
                 LIMIT ?
-            """, (query, project_id, limit))
+            """,
+                (query, project_id, limit),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     d.doc_id,
                     d.project_id,
@@ -214,7 +226,9 @@ class BM25Search:
                 WHERE documents_fts MATCH ?
                 ORDER BY score DESC
                 LIMIT ?
-            """, (query, limit))
+            """,
+                (query, limit),
+            )
 
         results = []
         for i, row in enumerate(cursor.fetchall()):
@@ -222,15 +236,17 @@ class BM25Search:
             # Convert BM25 score (negative) to positive
             score = abs(row["score"]) if row["score"] else 0.0
 
-            results.append(SearchResult(
-                doc_id=row["doc_id"],
-                project_id=row["project_id"],
-                title=row["title"] or "",
-                content=row["content"],
-                score=score,
-                rank=i + 1,
-                metadata=metadata,
-            ))
+            results.append(
+                SearchResult(
+                    doc_id=row["doc_id"],
+                    project_id=row["project_id"],
+                    title=row["title"] or "",
+                    content=row["content"],
+                    score=score,
+                    rank=i + 1,
+                    metadata=metadata,
+                )
+            )
 
         logger.debug(f"BM25 search for '{query}' returned {len(results)} results")
 
@@ -362,10 +378,11 @@ class BM25Search:
         cursor = self.conn.cursor()
 
         # Use FTS5 snippet function
-        query_terms = query.replace('"', '').split()
+        query_terms = query.replace('"', "").split()
 
         if project_id:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     d.doc_id,
                     d.project_id,
@@ -378,9 +395,12 @@ class BM25Search:
                     AND project_id = ?
                 ORDER BY score DESC
                 LIMIT ?
-            """, (query, project_id, limit))
+            """,
+                (query, project_id, limit),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     d.doc_id,
                     d.project_id,
@@ -392,19 +412,23 @@ class BM25Search:
                 WHERE documents_fts MATCH ?
                 ORDER BY score DESC
                 LIMIT ?
-            """, (query, limit))
+            """,
+                (query, limit),
+            )
 
         results = []
         for row in cursor.fetchall():
             score = abs(row["score"]) if row["score"] else 0.0
-            results.append({
-                "doc_id": row["doc_id"],
-                "project_id": row["project_id"],
-                "title": row["title"] or "",
-                "snippet": row["snippet"],
-                "score": score,
-                "highlights": query_terms,
-            })
+            results.append(
+                {
+                    "doc_id": row["doc_id"],
+                    "project_id": row["project_id"],
+                    "title": row["title"] or "",
+                    "snippet": row["snippet"],
+                    "score": score,
+                    "highlights": query_terms,
+                }
+            )
 
         return results
 

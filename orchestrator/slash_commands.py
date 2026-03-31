@@ -30,6 +30,7 @@ logger = logging.getLogger("orchestrator.slash")
 @dataclass
 class SlashCommand:
     """Definition of a slash command."""
+
     name: str
     description: str
     handler: Callable[[str, SlashCommandContext], Awaitable[str]]
@@ -43,6 +44,7 @@ class SlashCommand:
 @dataclass
 class SlashCommandContext:
     """Context passed to slash command handlers."""
+
     client: UnifiedClient
     output_dir: Path
     project_id: str
@@ -64,61 +66,77 @@ class SlashCommandRegistry:
 
     def _setup_default_commands(self):
         """Register default slash commands."""
-        self.register(SlashCommand(
-            name="analyst",
-            description="Product analysis agent - create briefs, research market/domain",
-            handler=self._cmd_analyst,
-            aliases=["analysis", "research"]
-        ))
+        self.register(
+            SlashCommand(
+                name="analyst",
+                description="Product analysis agent - create briefs, research market/domain",
+                handler=self._cmd_analyst,
+                aliases=["analysis", "research"],
+            )
+        )
 
-        self.register(SlashCommand(
-            name="architect",
-            description="Architecture planning - generate rules and technical design",
-            handler=self._cmd_architect,
-            aliases=["architecture", "design"]
-        ))
+        self.register(
+            SlashCommand(
+                name="architect",
+                description="Architecture planning - generate rules and technical design",
+                handler=self._cmd_architect,
+                aliases=["architecture", "design"],
+            )
+        )
 
-        self.register(SlashCommand(
-            name="implement",
-            description="Start implementation phase with generated tasks",
-            handler=self._cmd_implement,
-            aliases=["build", "code"]
-        ))
+        self.register(
+            SlashCommand(
+                name="implement",
+                description="Start implementation phase with generated tasks",
+                handler=self._cmd_implement,
+                aliases=["build", "code"],
+            )
+        )
 
-        self.register(SlashCommand(
-            name="decompose",
-            description="Decompose project into atomic tasks",
-            handler=self._cmd_decompose,
-            aliases=["breakdown", "tasks"]
-        ))
+        self.register(
+            SlashCommand(
+                name="decompose",
+                description="Decompose project into atomic tasks",
+                handler=self._cmd_decompose,
+                aliases=["breakdown", "tasks"],
+            )
+        )
 
-        self.register(SlashCommand(
-            name="status",
-            description="Show current project status and progress",
-            handler=self._cmd_status,
-            aliases=["info", "progress"]
-        ))
+        self.register(
+            SlashCommand(
+                name="status",
+                description="Show current project status and progress",
+                handler=self._cmd_status,
+                aliases=["info", "progress"],
+            )
+        )
 
-        self.register(SlashCommand(
-            name="help",
-            description="List all available slash commands",
-            handler=self._cmd_help,
-            aliases=["?", "commands"]
-        ))
+        self.register(
+            SlashCommand(
+                name="help",
+                description="List all available slash commands",
+                handler=self._cmd_help,
+                aliases=["?", "commands"],
+            )
+        )
 
-        self.register(SlashCommand(
-            name="review",
-            description="Cross-model code review",
-            handler=self._cmd_review,
-            aliases=["critique", "audit"]
-        ))
+        self.register(
+            SlashCommand(
+                name="review",
+                description="Cross-model code review",
+                handler=self._cmd_review,
+                aliases=["critique", "audit"],
+            )
+        )
 
-        self.register(SlashCommand(
-            name="models",
-            description="Show available models and their health status",
-            handler=self._cmd_models,
-            aliases=["providers", "llms"]
-        ))
+        self.register(
+            SlashCommand(
+                name="models",
+                description="Show available models and their health status",
+                handler=self._cmd_models,
+                aliases=["providers", "llms"],
+            )
+        )
 
     def register(self, cmd: SlashCommand):
         """Register a slash command."""
@@ -128,7 +146,7 @@ class SlashCommandRegistry:
 
     def get(self, name: str) -> SlashCommand | None:
         """Get a command by name or alias."""
-        return self._commands.get(name.lower().lstrip('/'))
+        return self._commands.get(name.lower().lstrip("/"))
 
     def list_commands(self) -> list[SlashCommand]:
         """List all unique commands (excluding aliases)."""
@@ -146,7 +164,7 @@ class SlashCommandRegistry:
         if not parts:
             return "No command provided. Type /help for available commands."
 
-        cmd_name = parts[0].lower().lstrip('/')
+        cmd_name = parts[0].lower().lstrip("/")
         args = parts[1] if len(parts) > 1 else ""
 
         cmd = self.get(cmd_name)
@@ -155,14 +173,18 @@ class SlashCommandRegistry:
 
         try:
             result = await cmd.handler(args, ctx)
-            ctx.conversation_history.append({
-                "role": "user",
-                "content": command_line,
-            })
-            ctx.conversation_history.append({
-                "role": "assistant",
-                "content": result,
-            })
+            ctx.conversation_history.append(
+                {
+                    "role": "user",
+                    "content": command_line,
+                }
+            )
+            ctx.conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": result,
+                }
+            )
             return result
         except Exception as e:
             logger.error(f"Command /{cmd.name} failed: {e}")
@@ -184,9 +206,7 @@ class SlashCommandRegistry:
 
 Provide structured output with clear sections."""
 
-        response = await ctx.client.call(
-            Model.GPT_4O, prompt, system=system, max_tokens=2000
-        )
+        response = await ctx.client.call(Model.GPT_4O, prompt, system=system, max_tokens=2000)
 
         # Save to progressive output
         brief_dir = ctx.output_dir / "001-analysis"
@@ -194,7 +214,9 @@ Provide structured output with clear sections."""
         brief_file = brief_dir / "product-brief.md"
         brief_file.write_text(response.text, encoding="utf-8")
 
-        return f"**Product Analysis Complete**\n\n{response.text[:500]}...\n\nSaved to: {brief_file}"
+        return (
+            f"**Product Analysis Complete**\n\n{response.text[:500]}...\n\nSaved to: {brief_file}"
+        )
 
     async def _cmd_architect(self, args: str, ctx: SlashCommandContext) -> str:
         """Architecture planning agent."""
@@ -208,9 +230,7 @@ Provide structured output with clear sections."""
 
 Use BMAD-style architecture documentation format."""
 
-        response = await ctx.client.call(
-            Model.GPT_4O, prompt, system=system, max_tokens=2000
-        )
+        response = await ctx.client.call(Model.GPT_4O, prompt, system=system, max_tokens=2000)
 
         # Save to progressive output
         arch_dir = ctx.output_dir / "002-architecture"
@@ -218,7 +238,9 @@ Use BMAD-style architecture documentation format."""
         arch_file = arch_dir / "architecture.md"
         arch_file.write_text(response.text, encoding="utf-8")
 
-        return f"**Architecture Design Complete**\n\n{response.text[:500]}...\n\nSaved to: {arch_file}"
+        return (
+            f"**Architecture Design Complete**\n\n{response.text[:500]}...\n\nSaved to: {arch_file}"
+        )
 
     async def _cmd_implement(self, args: str, ctx: SlashCommandContext) -> str:
         """Start implementation phase."""
@@ -245,9 +267,7 @@ For interactive mode, use the dashboard."""
 
 Return JSON array with id, type, prompt, dependencies for each task."""
 
-        response = await ctx.client.call(
-            Model.GPT_4O_MINI, prompt, system=system, max_tokens=1500
-        )
+        response = await ctx.client.call(Model.GPT_4O_MINI, prompt, system=system, max_tokens=1500)
 
         # Save to progressive output
         decomp_dir = ctx.output_dir / "003-decomposition"
@@ -262,6 +282,7 @@ Return JSON array with id, type, prompt, dependencies for each task."""
         status_file = ctx.output_dir / "status.json"
         if status_file.exists():
             import json
+
             status = json.loads(status_file.read_text())
             return f"""**Project Status: {status.get('status', 'Unknown')}**
 
@@ -296,7 +317,7 @@ Return JSON array with id, type, prompt, dependencies for each task."""
             Model.GPT_4O,
             f"Review this code for correctness, completeness, and quality:\n\n{code}",
             system="You are a code reviewer. Be thorough and specific.",
-            max_tokens=1500
+            max_tokens=1500,
         )
 
         # Secondary review with Gemini
@@ -304,7 +325,7 @@ Return JSON array with id, type, prompt, dependencies for each task."""
             Model.GEMINI_FLASH,
             f"Review this code focusing on different aspects than:\n{review1.text}\n\nCode:\n{code}",
             system="You are a code reviewer. Find issues the first reviewer missed.",
-            max_tokens=1500
+            max_tokens=1500,
         )
 
         return f"""**Cross-Model Code Review**
@@ -327,6 +348,7 @@ Combined cost: ${review1.cost_usd + review2.cost_usd:.4f}"""
         providers = {}
         for model in Model:
             from .models import get_provider
+
             provider = get_provider(model)
             if provider not in providers:
                 providers[provider] = []
@@ -336,7 +358,9 @@ Combined cost: ${review1.cost_usd + review2.cost_usd:.4f}"""
             lines.append(f"\n**{provider.upper()}**")
             for model in models[:3]:  # Show first 3 per provider
                 cost = COST_TABLE.get(model, {"input": 0, "output": 0})
-                lines.append(f"  • {model.value}: ${cost['input']:.3f}/${cost['output']:.3f} per 1M tokens")
+                lines.append(
+                    f"  • {model.value}: ${cost['input']:.3f}/${cost['output']:.3f} per 1M tokens"
+                )
             if len(models) > 3:
                 lines.append(f"  ... and {len(models) - 3} more")
 

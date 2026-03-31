@@ -40,7 +40,7 @@ def test_current_behavior_critique_exception_kills_reviewer():
     #   self.api_health[reviewer] = False
     # This immediately disables the model without using circuit breaker
 
-    assert hasattr(orch, 'api_health'), "Orchestrator must track api_health"
+    assert hasattr(orch, "api_health"), "Orchestrator must track api_health"
     assert isinstance(orch.api_health, dict), "api_health must be a dict"
 
 
@@ -56,8 +56,9 @@ def test_record_failure_uses_circuit_breaker():
     model = Model.MINIMAX_TEXT_01
 
     # _record_failure should track consecutive failures
-    assert hasattr(orch, '_consecutive_failures'), \
-        "Orchestrator must track consecutive failures per model for circuit breaker"
+    assert hasattr(
+        orch, "_consecutive_failures"
+    ), "Orchestrator must track consecutive failures per model for circuit breaker"
 
     # Reset model to healthy state (test env marks it unhealthy initially due to missing API keys)
     orch.api_health[model] = True
@@ -68,12 +69,14 @@ def test_record_failure_uses_circuit_breaker():
 
     # After ONE transient error, model should still be healthy (not at threshold yet)
     # Threshold is 3, so after 1 error it should still be True
-    assert orch.api_health.get(model, True) is True, \
-        "Single transient error should NOT disable model (3-strike threshold)"
+    assert (
+        orch.api_health.get(model, True) is True
+    ), "Single transient error should NOT disable model (3-strike threshold)"
 
     # Verify counter was incremented
-    assert orch._consecutive_failures.get(model, 0) == 1, \
-        "Consecutive failures counter should increment on transient error"
+    assert (
+        orch._consecutive_failures.get(model, 0) == 1
+    ), "Consecutive failures counter should increment on transient error"
 
 
 def test_three_consecutive_failures_trigger_circuit_breaker():
@@ -95,8 +98,9 @@ def test_three_consecutive_failures_trigger_circuit_breaker():
     orch._record_failure(model, error=Exception("temporary error"))
 
     # After 3 failures, model should be marked unhealthy (circuit breaker trips)
-    assert orch.api_health.get(model, True) is False, \
-        "3 consecutive transient errors should trigger circuit breaker (mark unhealthy)"
+    assert (
+        orch.api_health.get(model, True) is False
+    ), "3 consecutive transient errors should trigger circuit breaker (mark unhealthy)"
 
     # Verify counter reached threshold
     assert orch._consecutive_failures.get(model, 0) == 3
@@ -134,16 +138,18 @@ def test_success_resets_consecutive_failures_counter():
     orch._record_success(model, mock_response)
 
     # Counter should reset to 0
-    assert orch._consecutive_failures.get(model, 0) == 0, \
-        "Success should reset consecutive failures counter"
+    assert (
+        orch._consecutive_failures.get(model, 0) == 0
+    ), "Success should reset consecutive failures counter"
 
     # Record 2 more failures — should still be healthy
     orch._record_failure(model, error=Exception("429"))
     orch._record_failure(model, error=Exception("timeout"))
 
     # Should still be healthy because counter was reset by success
-    assert orch.api_health.get(model, True) is True, \
-        "After reset, 2 failures should not disable model"
+    assert (
+        orch.api_health.get(model, True) is True
+    ), "After reset, 2 failures should not disable model"
 
 
 def test_permanent_error_immediately_disables():
@@ -164,9 +170,11 @@ def test_permanent_error_immediately_disables():
     orch._record_failure(model, error=Exception("401 Unauthorized"))
 
     # Should be immediately marked unhealthy (not waiting for 3-strike threshold)
-    assert orch.api_health.get(model, True) is False, \
-        "Permanent 401 error should immediately disable model"
+    assert (
+        orch.api_health.get(model, True) is False
+    ), "Permanent 401 error should immediately disable model"
 
     # Counter should NOT be incremented (permanent errors bypass counter)
-    assert orch._consecutive_failures.get(model, 0) == 0, \
-        "Permanent errors should not increment consecutive failures counter"
+    assert (
+        orch._consecutive_failures.get(model, 0) == 0
+    ), "Permanent errors should not increment consecutive failures counter"

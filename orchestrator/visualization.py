@@ -2,6 +2,7 @@
 DAG visualization for orchestrator task dependency graphs.
 Pure-Python implementation — no external dependencies required.
 """
+
 from __future__ import annotations
 
 from .models import Task, TaskResult, TaskType
@@ -13,13 +14,13 @@ class DagRenderer:
     """
 
     _TYPE_COLORS: dict[TaskType, str] = {
-        TaskType.CODE_GEN:     "#89B4FA",
-        TaskType.CODE_REVIEW:  "#A6E3A1",
-        TaskType.REASONING:    "#CBA6F7",
-        TaskType.EVALUATE:     "#FAB387",
-        TaskType.WRITING:      "#F38BA8",
+        TaskType.CODE_GEN: "#89B4FA",
+        TaskType.CODE_REVIEW: "#A6E3A1",
+        TaskType.REASONING: "#CBA6F7",
+        TaskType.EVALUATE: "#FAB387",
+        TaskType.WRITING: "#F38BA8",
         TaskType.DATA_EXTRACT: "#94E2D5",
-        TaskType.SUMMARIZE:    "#F9E2AF",
+        TaskType.SUMMARIZE: "#F9E2AF",
     }
 
     def __init__(
@@ -77,10 +78,7 @@ class DagRenderer:
         levels = self._levels()
         lines: list[str] = []
         for level_idx, level_tasks in enumerate(levels):
-            row = "  ".join(
-                f"[{tid}:{self.tasks[tid].type.value[:4]}]"
-                for tid in level_tasks
-            )
+            row = "  ".join(f"[{tid}:{self.tasks[tid].type.value[:4]}]" for tid in level_tasks)
             lines.append(f"L{level_idx}: {row}")
             if level_idx < len(levels) - 1:
                 lines.append("       " + "  ".join("|" for _ in level_tasks))
@@ -133,9 +131,7 @@ class DagRenderer:
         levels: dict[str, int] = {}
         for tid in self._topological_order():
             task = self.tasks[tid]
-            dep_level = max(
-                (levels[d] for d in task.dependencies if d in levels), default=-1
-            )
+            dep_level = max((levels[d] for d in task.dependencies if d in levels), default=-1)
             levels[tid] = dep_level + 1
         if not levels:
             return []

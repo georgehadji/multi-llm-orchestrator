@@ -55,8 +55,10 @@ logger = logging.getLogger("orchestrator.transfer")
 # Enums & Constants
 # ─────────────────────────────────────────────
 
+
 class PatternType(str, Enum):
     """Types of transferable patterns."""
+
     MODEL_ROUTING = "model_routing"
     BUDGET_ALLOCATION = "budget_allocation"
     TASK_TEMPLATE = "task_template"
@@ -66,6 +68,7 @@ class PatternType(str, Enum):
 
 class TransferStatus(str, Enum):
     """Status of a transfer pattern."""
+
     ACTIVE = "active"
     APPLIED = "applied"
     REJECTED = "rejected"
@@ -82,9 +85,11 @@ MIN_SUCCESS_COUNT = 3  # Minimum successes before pattern is transferable
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class ProjectFeatures:
     """Extracted features from a project for embedding."""
+
     project_id: str
 
     # Technology stack (one-hot encoded)
@@ -135,6 +140,7 @@ class ProjectFeatures:
 @dataclass
 class ProjectEmbedding:
     """Vector representation of a project."""
+
     project_id: str
     embedding: list[float]
     features: ProjectFeatures
@@ -185,6 +191,7 @@ class ProjectEmbedding:
 @dataclass
 class TransferPattern:
     """A pattern that can transfer between projects."""
+
     pattern_id: str
     pattern_type: PatternType
     source_projects: list[str]
@@ -252,6 +259,7 @@ class TransferPattern:
 @dataclass
 class TransferValidation:
     """Result of transfer validation."""
+
     is_valid: bool
     confidence: float
     risks: list[str]
@@ -270,6 +278,7 @@ class TransferValidation:
 # Project Embedder
 # ─────────────────────────────────────────────
 
+
 class ProjectEmbedder:
     """
     Generate embeddings for projects based on characteristics.
@@ -280,10 +289,26 @@ class ProjectEmbedder:
 
     def __init__(self):
         self._tech_keywords = [
-            "python", "javascript", "typescript", "react", "vue", "angular",
-            "fastapi", "django", "flask", "express", "nextjs",
-            "postgresql", "mongodb", "redis", "mysql",
-            "docker", "kubernetes", "aws", "azure", "gcp",
+            "python",
+            "javascript",
+            "typescript",
+            "react",
+            "vue",
+            "angular",
+            "fastapi",
+            "django",
+            "flask",
+            "express",
+            "nextjs",
+            "postgresql",
+            "mongodb",
+            "redis",
+            "mysql",
+            "docker",
+            "kubernetes",
+            "aws",
+            "azure",
+            "gcp",
         ]
 
     def embed(self, trajectory: ProjectTrajectory) -> ProjectEmbedding:
@@ -330,7 +355,9 @@ class ProjectEmbedder:
             # Success metrics
             successes = sum(1 for r in trajectory.task_records if r.success)
             features.success_rate = successes / len(trajectory.task_records)
-            features.avg_score = sum(r.score for r in trajectory.task_records) / len(trajectory.task_records)
+            features.avg_score = sum(r.score for r in trajectory.task_records) / len(
+                trajectory.task_records
+            )
 
             # Complexity metrics
             features.total_cost = trajectory.total_cost
@@ -342,6 +369,7 @@ class ProjectEmbedder:
 # ─────────────────────────────────────────────
 # Similarity Engine
 # ─────────────────────────────────────────────
+
 
 class SimilarityEngine:
     """
@@ -417,6 +445,7 @@ class SimilarityEngine:
 # Pattern Miner
 # ─────────────────────────────────────────────
 
+
 class PatternMiner:
     """
     Mine transferable patterns from project history.
@@ -457,9 +486,7 @@ class PatternMiner:
         patterns = []
 
         # Group by task type
-        task_type_models: dict[str, dict[str, list[float]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
+        task_type_models: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
 
         for record in self.archive._records:
             if record.success:
@@ -540,6 +567,7 @@ class PatternMiner:
 # Transfer Validator
 # ─────────────────────────────────────────────
 
+
 class TransferValidator:
     """
     Validate if a pattern transfer is appropriate.
@@ -583,7 +611,7 @@ class TransferValidator:
         # Calculate overall confidence
         confidence = pattern.confidence
         if risks:
-            confidence *= (1.0 - 0.1 * len(risks))
+            confidence *= 1.0 - 0.1 * len(risks)
 
         is_valid = len(risks) == 0 or (len(risks) == 1 and confidence >= 0.7)
 
@@ -638,6 +666,7 @@ class TransferValidator:
 # ─────────────────────────────────────────────
 # Transfer Learning Engine
 # ─────────────────────────────────────────────
+
 
 class TransferLearningEngine:
     """
@@ -813,8 +842,7 @@ class TransferLearningEngine:
 
         if not validation.is_valid:
             logger.warning(
-                f"Pattern {pattern.pattern_id} validation failed: "
-                f"{validation.risks}"
+                f"Pattern {pattern.pattern_id} validation failed: " f"{validation.risks}"
             )
             return None
 
@@ -889,14 +917,12 @@ class TransferLearningEngine:
         """Get transfer learning statistics."""
         return {
             "indexed_projects": len(self._embeddings),
-            "active_patterns": len([
-                p for p in self._patterns.values()
-                if p.status == TransferStatus.ACTIVE
-            ]),
+            "active_patterns": len(
+                [p for p in self._patterns.values() if p.status == TransferStatus.ACTIVE]
+            ),
             "total_patterns": len(self._patterns),
             "avg_pattern_confidence": (
-                sum(p.confidence for p in self._patterns.values()) /
-                max(len(self._patterns), 1)
+                sum(p.confidence for p in self._patterns.values()) / max(len(self._patterns), 1)
             ),
         }
 

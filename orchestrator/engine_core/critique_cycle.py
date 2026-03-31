@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CritiqueState:
     """State tracked during critique cycle."""
+
     best_output: str = ""
     best_score: float = 0.0
     best_critique: str = ""
@@ -114,9 +115,7 @@ class CritiqueCycle:
         state = CritiqueState()
 
         for iteration in range(task.max_iterations):
-            logger.info(
-                f"  {task.id}: Iteration {iteration + 1}/{task.max_iterations}"
-            )
+            logger.info(f"  {task.id}: Iteration {iteration + 1}/{task.max_iterations}")
 
             # GENERATE phase
             generate_response = await self._generate(
@@ -163,16 +162,12 @@ class CritiqueCycle:
 
             # Check for improvement
             if score > state.best_score:
-                logger.info(
-                    f"  {task.id}: Score improved {state.best_score:.2f} → {score:.2f}"
-                )
+                logger.info(f"  {task.id}: Score improved {state.best_score:.2f} → {score:.2f}")
                 state.best_output = output
                 state.best_score = score
                 state.best_critique = critique
             else:
-                logger.info(
-                    f"  {task.id}: No improvement ({score:.2f} ≤ {state.best_score:.2f})"
-                )
+                logger.info(f"  {task.id}: No improvement ({score:.2f} ≤ {state.best_score:.2f})")
 
             # Check for plateau (no improvement for 2 iterations)
             if len(state.scores_history) >= 2:
@@ -224,9 +219,7 @@ class CritiqueCycle:
             API response or None on failure
         """
         # Adjust parameters for reasoning models
-        timeout, effective_max_tokens = self._get_model_params(
-            model, task_type, max_tokens
-        )
+        timeout, effective_max_tokens = self._get_model_params(model, task_type, max_tokens)
 
         try:
             response = await self.client.call_with_retry(
@@ -259,9 +252,7 @@ class CritiqueCycle:
         Returns:
             API response with critique and score
         """
-        critique_prompt = self._build_critique_prompt(
-            original_prompt, generated_output, task_type
-        )
+        critique_prompt = self._build_critique_prompt(original_prompt, generated_output, task_type)
 
         try:
             response = await self.client.call_with_retry(
@@ -295,14 +286,14 @@ class CritiqueCycle:
         if task_type == TaskType.CODE_REVIEW:
             return (
                 f"Review the following code for quality, correctness, and best practices.\n"
-                f"Provide a score from 0.0 to 1.0 in JSON format: {{\"score\": 0.85, \"reasoning\": \"...\"}}\n\n"
+                f'Provide a score from 0.0 to 1.0 in JSON format: {{"score": 0.85, "reasoning": "..."}}\n\n'
                 f"Original requirement:\n{original_prompt}\n\n"
                 f"Code to review:\n```\n{output}\n```"
             )
 
         return (
             f"Review the following output for quality and correctness.\n"
-            f"Provide a score from 0.0 to 1.0 in JSON format: {{\"score\": 0.85, \"reasoning\": \"...\"}}\n\n"
+            f'Provide a score from 0.0 to 1.0 in JSON format: {{"score": 0.85, "reasoning": "..."}}\n\n'
             f"Original prompt:\n{original_prompt}\n\n"
             f"Generated output:\n```\n{output}\n```"
         )
@@ -329,7 +320,7 @@ class CritiqueCycle:
             pass
 
         # Fallback: look for score pattern
-        score_match = re.search(r'score[:\s]+([0-9.]+)', critique_text, re.IGNORECASE)
+        score_match = re.search(r"score[:\s]+([0-9.]+)", critique_text, re.IGNORECASE)
         if score_match:
             try:
                 score = float(score_match.group(1))
@@ -358,6 +349,7 @@ class CritiqueCycle:
         Returns:
             Revised prompt with feedback
         """
+
         def _sanitize(text: str) -> str:
             """Strip XML delimiters from user-supplied data."""
             text = text.replace("<ORCHESTRATOR_FEEDBACK>", "")
@@ -398,21 +390,21 @@ class CritiqueCycle:
             Cleaned code
         """
         # Remove markdown code fences
-        text = re.sub(r'^```\w*\n?', '', text, flags=re.MULTILINE)
-        text = re.sub(r'\n?```\s*$', '', text, flags=re.MULTILINE)
+        text = re.sub(r"^```\w*\n?", "", text, flags=re.MULTILINE)
+        text = re.sub(r"\n?```\s*$", "", text, flags=re.MULTILINE)
 
         # Remove placeholder comments
         placeholder_patterns = [
-            r'//\s*[Aa]dd\s+(?:content|code|your|more|placeholder).*?\n',
-            r'//\s*[Rr]eplace\s+this.*?(?:\n|$)',
-            r'#\s*[Aa]dd\s+(?:content|code|your|more).*?(?:\n|$)',
+            r"//\s*[Aa]dd\s+(?:content|code|your|more|placeholder).*?\n",
+            r"//\s*[Rr]eplace\s+this.*?(?:\n|$)",
+            r"#\s*[Aa]dd\s+(?:content|code|your|more).*?(?:\n|$)",
         ]
 
         for pattern in placeholder_patterns:
-            text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
+            text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
 
         # Clean up multiple blank lines
-        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
 
         return text.strip()
 
@@ -438,14 +430,17 @@ class CritiqueCycle:
         provider = get_provider(model)
 
         # Reasoning models need more time and tokens
-        is_reasoning_model = (
-            model.value.startswith("anthropic/") or
-            (model.value.startswith("deepseek/") and model.value == "deepseek/deepseek-reasoner")
+        is_reasoning_model = model.value.startswith("anthropic/") or (
+            model.value.startswith("deepseek/") and model.value == "deepseek/deepseek-reasoner"
         )
 
         if is_reasoning_model:
             timeout = 240
-            effective_max_tokens = min(max_tokens * 2, 16384) if task_type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW) else max_tokens
+            effective_max_tokens = (
+                min(max_tokens * 2, 16384)
+                if task_type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW)
+                else max_tokens
+            )
         elif model.value == "deepseek/deepseek-chat":
             timeout = 180
             effective_max_tokens = max_tokens
@@ -495,7 +490,7 @@ class CritiqueCycle:
             # Look for first function definition
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
-                    if not node.name.startswith('__'):
+                    if not node.name.startswith("__"):
                         return node.name
 
             # Fallback to class name
@@ -505,11 +500,11 @@ class CritiqueCycle:
 
         except SyntaxError:
             # Fallback to regex
-            match = re.search(r'def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', code)
+            match = re.search(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", code)
             if match:
                 return match.group(1)
 
-            class_match = re.search(r'class\s+([a-zA-Z_][a-zA-Z0-9_]*)', code)
+            class_match = re.search(r"class\s+([a-zA-Z_][a-zA-Z0-9_]*)", code)
             if class_match:
                 return class_match.group(1)
 

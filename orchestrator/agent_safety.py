@@ -49,15 +49,17 @@ logger = get_logger(__name__)
 
 class SafetyLevel(Enum):
     """Safety classification for agents."""
-    TRUSTED = "trusted"           # Fully trusted, can interact freely
-    NORMAL = "normal"             # Standard safety, normal interactions
-    SUSPICIOUS = "suspicious"     # Exhibited concerning behavior
-    QUARANTINED = "quarantined"   # Isolated, no interactions allowed
-    COMPROMISED = "compromised"   # Known to be acting unsafely
+
+    TRUSTED = "trusted"  # Fully trusted, can interact freely
+    NORMAL = "normal"  # Standard safety, normal interactions
+    SUSPICIOUS = "suspicious"  # Exhibited concerning behavior
+    QUARANTINED = "quarantined"  # Isolated, no interactions allowed
+    COMPROMISED = "compromised"  # Known to be acting unsafely
 
 
 class SafetyEventType(Enum):
     """Types of safety-relevant events."""
+
     SECURITY_BYPASS_ATTEMPT = "security_bypass_attempt"
     VALIDATION_SKIP = "validation_skip"
     UNAUTHORIZED_ACCESS = "unauthorized_access"
@@ -74,6 +76,7 @@ class SafetyEventType(Enum):
 @dataclass
 class SafetyEvent:
     """A safety-relevant event from an agent."""
+
     id: str
     timestamp: datetime
     agent_id: str
@@ -87,6 +90,7 @@ class SafetyEvent:
 @dataclass
 class AgentSafetyProfile:
     """Safety profile for an individual agent."""
+
     agent_id: str
     agent_type: str
     safety_level: SafetyLevel = SafetyLevel.NORMAL
@@ -120,6 +124,7 @@ class AgentSafetyProfile:
 @dataclass
 class InteractionRequest:
     """Request for inter-agent interaction."""
+
     id: str
     timestamp: datetime
     source_agent_id: str
@@ -228,7 +233,7 @@ class AgentSafetyMonitor:
 
         # Trim old events if needed
         if len(profile.events) > self._max_events_retain:
-            profile.events = profile.events[-self._max_events_retain:]
+            profile.events = profile.events[-self._max_events_retain :]
 
         # Update violation/warning counts
         if severity >= 7:
@@ -259,7 +264,9 @@ class AgentSafetyMonitor:
             profile.safety_level = SafetyLevel.NORMAL
 
         if old_level != profile.safety_level:
-            logger.warning(f"Agent {profile.agent_id} safety level changed: {old_level.value} -> {profile.safety_level.value}")
+            logger.warning(
+                f"Agent {profile.agent_id} safety level changed: {old_level.value} -> {profile.safety_level.value}"
+            )
 
     def can_interact(
         self,
@@ -281,7 +288,10 @@ class AgentSafetyMonitor:
 
         # Check if source is blocked from target
         if target_agent_id in source.blocked_interactions:
-            return False, f"Agent {source_agent_id} is blocked from interacting with {target_agent_id}"
+            return (
+                False,
+                f"Agent {source_agent_id} is blocked from interacting with {target_agent_id}",
+            )
 
         # Check source's safety level
         if source.safety_level == SafetyLevel.QUARANTINED:
@@ -368,17 +378,11 @@ class AgentSafetyMonitor:
 
     def get_all_quarantined(self) -> list[AgentSafetyProfile]:
         """Get all quarantined agents."""
-        return [
-            p for p in self._profiles.values()
-            if p.safety_level == SafetyLevel.QUARANTINED
-        ]
+        return [p for p in self._profiles.values() if p.safety_level == SafetyLevel.QUARANTINED]
 
     def get_suspicious_agents(self) -> list[AgentSafetyProfile]:
         """Get all suspicious agents."""
-        return [
-            p for p in self._profiles.values()
-            if p.safety_level == SafetyLevel.SUSPICIOUS
-        ]
+        return [p for p in self._profiles.values() if p.safety_level == SafetyLevel.SUSPICIOUS]
 
     def detect_unsafe_patterns(
         self,
@@ -398,12 +402,14 @@ class AgentSafetyMonitor:
             for pattern in patterns:
                 matches = re.finditer(pattern, content, re.IGNORECASE)
                 for match in matches:
-                    detected.append({
-                        "pattern_type": pattern_type,
-                        "pattern": pattern,
-                        "match": match.group(),
-                        "position": match.start(),
-                    })
+                    detected.append(
+                        {
+                            "pattern_type": pattern_type,
+                            "pattern": pattern,
+                            "match": match.group(),
+                            "position": match.start(),
+                        }
+                    )
 
                     # Optionally report event
                     if agent_id:

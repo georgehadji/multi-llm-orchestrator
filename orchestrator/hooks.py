@@ -13,6 +13,7 @@ Events fired by Orchestrator (see EventType):
   BUDGET_WARNING    — when a phase budget soft-cap is exceeded
   MODEL_SELECTED    — optional: when ConstraintPlanner selects a model
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,6 +31,7 @@ logger = logging.getLogger("orchestrator.hooks")
 # EventType
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class EventType(str, Enum):
     """
     Standard lifecycle events fired by Orchestrator.
@@ -43,18 +45,20 @@ class EventType(str, Enum):
       TASK_RETRY_WITH_HISTORY — task_id: str, attempt_num: int, record: AttemptRecord
       PREFLIGHT_CHECK         — task_id: str, action: str, reason: str, score_before: float, score_after: float
     """
-    TASK_STARTED            = "task_started"
-    TASK_COMPLETED          = "task_completed"
-    VALIDATION_FAILED       = "validation_failed"
-    BUDGET_WARNING          = "budget_warning"
-    MODEL_SELECTED          = "model_selected"
+
+    TASK_STARTED = "task_started"
+    TASK_COMPLETED = "task_completed"
+    VALIDATION_FAILED = "validation_failed"
+    BUDGET_WARNING = "budget_warning"
+    MODEL_SELECTED = "model_selected"
     TASK_RETRY_WITH_HISTORY = "task_retry_with_history"
-    PREFLIGHT_CHECK         = "preflight_check"
+    PREFLIGHT_CHECK = "preflight_check"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HookRegistry
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class HookRegistry:
     """
@@ -91,7 +95,9 @@ class HookRegistry:
             except Exception as exc:  # noqa: BLE001 — intentional broad catch
                 logger.warning(
                     "Hook callback %r raised for event %r: %s",
-                    cb, key, exc,
+                    cb,
+                    key,
+                    exc,
                 )
 
     def clear(self, event: str | EventType | None = None) -> None:
@@ -132,9 +138,11 @@ class DashboardHookRegistry(HookRegistry):
             def hook(...):
         """
         if callback is None:
+
             def decorator(fn: Callable) -> Callable:
                 super().add(event, fn)
                 return fn
+
             return decorator
 
         super().add(event, callback)

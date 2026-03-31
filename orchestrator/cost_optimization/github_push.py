@@ -45,6 +45,7 @@ logger = get_logger(__name__)
 @dataclass
 class CommitMetadata:
     """Metadata for commit message."""
+
     budget_spent: float = 0.0
     quality_score: float = 0.0
     tasks_completed: int = 0
@@ -56,6 +57,7 @@ class CommitMetadata:
 @dataclass
 class PushResult:
     """Result of GitHub push."""
+
     success: bool
     branch: str
     commit_hash: str | None
@@ -68,6 +70,7 @@ class PushResult:
 @dataclass
 class GitHubMetrics:
     """Metrics for GitHub integration."""
+
     total_pushes: int = 0
     successful_pushes: int = 0
     failed_pushes: int = 0
@@ -138,6 +141,7 @@ class GitHubIntegration:
 
         try:
             import subprocess
+
             result = subprocess.run(
                 ["git", "--version"],
                 capture_output=True,
@@ -221,6 +225,7 @@ class GitHubIntegration:
             PushResult with branch, commit hash, etc.
         """
         import time
+
         start_time = time.time()
 
         self.metrics.total_pushes += 1
@@ -259,13 +264,23 @@ class GitHubIntegration:
             branch = f"orchestrator/{project_id}" if create_branch else "main"
 
             # Build commit message
-            commit_message = self._build_commit_message(
-                project_id, summary, metadata, commit_type
-            )
+            commit_message = self._build_commit_message(project_id, summary, metadata, commit_type)
 
             # Collect files to commit
             files_to_add = []
-            for ext in ["*.py", "*.js", "*.ts", "*.tsx", "*.jsx", "*.html", "*.css", "*.md", "*.json", "*.yaml", "*.yml"]:
+            for ext in [
+                "*.py",
+                "*.js",
+                "*.ts",
+                "*.tsx",
+                "*.jsx",
+                "*.html",
+                "*.css",
+                "*.md",
+                "*.json",
+                "*.yaml",
+                "*.yml",
+            ]:
                 files_to_add.extend(output_dir.rglob(ext))
 
             if not files_to_add:
@@ -353,7 +368,9 @@ class GitHubIntegration:
             if push_remote and self.owner and self.repo:
                 # FIX-OPT-002b: Use token via environment variable, not embedded in URL
                 # This prevents token exposure in process listings and logs
-                remote_url = f"https://{self.base_url.replace('https://', '')}/{self.owner}/{self.repo}.git"
+                remote_url = (
+                    f"https://{self.base_url.replace('https://', '')}/{self.owner}/{self.repo}.git"
+                )
 
                 # Configure environment for git authentication
                 # GitHub accepts personal access token as username with empty password
@@ -383,13 +400,11 @@ class GitHubIntegration:
             self.metrics.successful_pushes += 1
             self.metrics.total_files_pushed += len(files_to_add)
             self.metrics.avg_push_time = (
-                (self.metrics.avg_push_time * (self.metrics.total_pushes - 1) + execution_time)
-                / self.metrics.total_pushes
-            )
+                self.metrics.avg_push_time * (self.metrics.total_pushes - 1) + execution_time
+            ) / self.metrics.total_pushes
 
             logger.info(
-                f"Pushed {len(files_to_add)} files to {branch} "
-                f"(commit: {commit_hash[:8]})"
+                f"Pushed {len(files_to_add)} files to {branch} " f"(commit: {commit_hash[:8]})"
             )
 
             return PushResult(
@@ -406,7 +421,7 @@ class GitHubIntegration:
             self.metrics.failed_pushes += 1
             return PushResult(
                 success=False,
-                branch=branch if 'branch' in locals() else "",
+                branch=branch if "branch" in locals() else "",
                 commit_hash=None,
                 commit_message="",
                 files_pushed=0,
@@ -478,6 +493,7 @@ class GitHubIntegration:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def push_to_github(
     output_dir: Path,

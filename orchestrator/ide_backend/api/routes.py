@@ -1,6 +1,7 @@
 """
 API Routes - REST endpoints for IDE
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -107,6 +108,7 @@ async def send_message(request: ChatRequest):
 
     # Add user message
     from datetime import datetime
+
     user_message = ChatMessage(
         role="user",
         content=request.message,

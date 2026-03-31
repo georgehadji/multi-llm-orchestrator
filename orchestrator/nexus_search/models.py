@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 class SearchSource(str, Enum):
     """Available search sources."""
+
     WEB = "web"
     ACADEMIC = "academic"
     TECH = "tech"
@@ -27,18 +28,20 @@ class SearchSource(str, Enum):
 
 class QueryType(str, Enum):
     """Query classification types."""
-    FACTUAL = "factual"       # Simple facts → direct search
-    RESEARCH = "research"     # Deep research → multi-step
-    TECHNICAL = "technical"   # Code/tech → tech sources
-    ACADEMIC = "academic"     # Academic → scholar/arxiv
-    CREATIVE = "creative"     # Creative → broad search
+
+    FACTUAL = "factual"  # Simple facts → direct search
+    RESEARCH = "research"  # Deep research → multi-step
+    TECHNICAL = "technical"  # Code/tech → tech sources
+    ACADEMIC = "academic"  # Academic → scholar/arxiv
+    CREATIVE = "creative"  # Creative → broad search
 
 
 class OptimizationMode(str, Enum):
     """Search optimization modes."""
-    SPEED = "speed"         # Fastest results
-    BALANCED = "balanced"   # Balance of speed and quality
-    QUALITY = "quality"     # Best quality (may be slower)
+
+    SPEED = "speed"  # Fastest results
+    BALANCED = "balanced"  # Balance of speed and quality
+    QUALITY = "quality"  # Best quality (may be slower)
 
 
 @dataclass
@@ -56,6 +59,7 @@ class SearchResult:
         published_date: Publication date if available
         metadata: Additional metadata
     """
+
     title: str
     url: str
     content: str
@@ -93,6 +97,7 @@ class SearchResults:
         suggestions: Related search suggestions
         metadata: Additional metadata
     """
+
     query: str
     results: list[SearchResult] = field(default_factory=list)
     total_results: int = 0
@@ -138,6 +143,7 @@ class Finding:
         confidence: Confidence score (0-1)
         category: Finding category
     """
+
     content: str
     sources: list[SearchResult] = field(default_factory=list)
     confidence: float = 1.0
@@ -166,6 +172,7 @@ class ResearchReport:
         search_iterations: Number of search iterations
         total_time: Total research time (seconds)
     """
+
     query: str
     findings: list[Finding] = field(default_factory=list)
     summary: str = ""
@@ -203,6 +210,7 @@ class SearchQuery:
         time_range: Time range filter
         optimization: Optimization mode
     """
+
     query: str
     sources: list[SearchSource] = field(default_factory=lambda: [SearchSource.WEB])
     language: str = "en"
@@ -240,6 +248,7 @@ class NexusConfig:
         cache_enabled: Enable result caching
         cache_ttl: Cache TTL (seconds)
     """
+
     enabled: bool = True
     api_url: str = "http://nexus-search:8080"
     timeout: int = 30

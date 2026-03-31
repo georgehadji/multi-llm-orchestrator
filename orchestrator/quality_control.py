@@ -19,6 +19,7 @@ Usage:
     if results.passed:
         print("Quality gate passed!")
 """
+
 from __future__ import annotations
 
 import ast
@@ -41,6 +42,7 @@ logger = get_logger(__name__)
 
 class TestLevel(Enum):
     """Testing levels."""
+
     UNIT = "unit"
     INTEGRATION = "integration"
     E2E = "e2e"
@@ -50,6 +52,7 @@ class TestLevel(Enum):
 
 class QualitySeverity(Enum):
     """Quality issue severity."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -60,6 +63,7 @@ class QualitySeverity(Enum):
 @dataclass
 class TestResult:
     """Single test result."""
+
     name: str
     level: TestLevel
     passed: bool
@@ -73,6 +77,7 @@ class TestResult:
 @dataclass
 class QualityIssue:
     """Code quality issue."""
+
     rule_id: str
     description: str
     severity: QualitySeverity
@@ -94,6 +99,7 @@ class QualityIssue:
 @dataclass
 class CodeMetrics:
     """Code quality metrics."""
+
     file_path: str
     lines_of_code: int
     complexity_score: float  # Cyclomatic complexity
@@ -118,6 +124,7 @@ class CodeMetrics:
 @dataclass
 class QualityReport:
     """Complete quality report."""
+
     project_id: str
     timestamp: str
     test_results: list[TestResult] = field(default_factory=list)
@@ -142,7 +149,9 @@ class QualityReport:
     @property
     def average_coverage(self) -> float | None:
         """Calculate average test coverage."""
-        coverages = [r.coverage_percent for r in self.test_results if r.coverage_percent is not None]
+        coverages = [
+            r.coverage_percent for r in self.test_results if r.coverage_percent is not None
+        ]
         return sum(coverages) / len(coverages) if coverages else None
 
     @property
@@ -168,25 +177,27 @@ class StaticAnalyzer:
 
     async def analyze_file(self, file_path: Path) -> CodeMetrics:
         """Analyze single Python file."""
-        content = file_path.read_text(encoding='utf-8')
-        lines = content.split('\n')
+        content = file_path.read_text(encoding="utf-8")
+        lines = content.split("\n")
 
         # Parse AST
         try:
             tree = ast.parse(content)
         except SyntaxError as e:
-            self.issues.append(QualityIssue(
-                rule_id="SYNTAX_ERROR",
-                description=f"Syntax error: {e.msg}",
-                severity=QualitySeverity.CRITICAL,
-                file_path=str(file_path),
-                line_number=e.lineno or 1,
-                column=e.offset or 0,
-            ))
+            self.issues.append(
+                QualityIssue(
+                    rule_id="SYNTAX_ERROR",
+                    description=f"Syntax error: {e.msg}",
+                    severity=QualitySeverity.CRITICAL,
+                    file_path=str(file_path),
+                    line_number=e.lineno or 1,
+                    column=e.offset or 0,
+                )
+            )
             return self._empty_metrics(file_path)
 
         # Calculate metrics
-        loc = len([l for l in lines if l.strip() and not l.strip().startswith('#')])
+        loc = len([l for l in lines if l.strip() and not l.strip().startswith("#")])
         complexity = self._calculate_complexity(tree)
         doc_coverage = self._calculate_doc_coverage(tree)
         type_coverage = self._calculate_type_coverage(tree)
@@ -219,10 +230,7 @@ class StaticAnalyzer:
             elif isinstance(node, ast.FunctionDef):
                 complexity += 1
                 # Add for boolean operators
-                complexity += sum(
-                    1 for n in ast.walk(node)
-                    if isinstance(n, ast.BoolOp)
-                )
+                complexity += sum(1 for n in ast.walk(node) if isinstance(n, ast.BoolOp))
 
         return complexity
 
@@ -266,7 +274,7 @@ class StaticAnalyzer:
         volume = loc * (complexity + 1)
 
         # Maintainability Index formula (simplified)
-        mi = 171 - 5.2 * (volume ** 0.23) - 0.23 * complexity - 16.2 * (total_lines / 100)
+        mi = 171 - 5.2 * (volume**0.23) - 0.23 * complexity - 16.2 * (total_lines / 100)
 
         return max(0, min(100, mi))
 
@@ -274,15 +282,17 @@ class StaticAnalyzer:
         """Check for long lines."""
         for i, line in enumerate(lines, 1):
             if len(line) > self.MAX_LINE_LENGTH:
-                self.issues.append(QualityIssue(
-                    rule_id="LINE_TOO_LONG",
-                    description=f"Line exceeds {self.MAX_LINE_LENGTH} characters",
-                    severity=QualitySeverity.LOW,
-                    file_path=str(file_path),
-                    line_number=i,
-                    column=self.MAX_LINE_LENGTH,
-                    suggested_fix="Break line into multiple lines",
-                ))
+                self.issues.append(
+                    QualityIssue(
+                        rule_id="LINE_TOO_LONG",
+                        description=f"Line exceeds {self.MAX_LINE_LENGTH} characters",
+                        severity=QualitySeverity.LOW,
+                        file_path=str(file_path),
+                        line_number=i,
+                        column=self.MAX_LINE_LENGTH,
+                        suggested_fix="Break line into multiple lines",
+                    )
+                )
 
     def _check_complexity(self, complexity: float, file_path: Path, tree: ast.AST):
         """Check for high complexity functions."""
@@ -302,15 +312,17 @@ class StaticAnalyzer:
                         max_func_complexity = func_complexity
                         max_func_line = node.lineno
 
-            self.issues.append(QualityIssue(
-                rule_id="HIGH_COMPLEXITY",
-                description=f"Cyclomatic complexity ({complexity:.0f}) exceeds threshold ({self.COMPLEXITY_THRESHOLD})",
-                severity=QualitySeverity.HIGH if complexity > 20 else QualitySeverity.MEDIUM,
-                file_path=str(file_path),
-                line_number=max_func_line,
-                column=0,
-                suggested_fix="Refactor into smaller functions",
-            ))
+            self.issues.append(
+                QualityIssue(
+                    rule_id="HIGH_COMPLEXITY",
+                    description=f"Cyclomatic complexity ({complexity:.0f}) exceeds threshold ({self.COMPLEXITY_THRESHOLD})",
+                    severity=QualitySeverity.HIGH if complexity > 20 else QualitySeverity.MEDIUM,
+                    file_path=str(file_path),
+                    line_number=max_func_line,
+                    column=0,
+                    suggested_fix="Refactor into smaller functions",
+                )
+            )
 
     def _check_imports(self, tree: ast.AST, file_path: Path):
         """Check for import issues."""
@@ -320,16 +332,18 @@ class StaticAnalyzer:
         for node in imports:
             if isinstance(node, ast.ImportFrom):
                 for alias in node.names:
-                    if alias.name == '*':
-                        self.issues.append(QualityIssue(
-                            rule_id="WILDCARD_IMPORT",
-                            description="Wildcard import detected",
-                            severity=QualitySeverity.MEDIUM,
-                            file_path=str(file_path),
-                            line_number=getattr(node, 'lineno', 1),
-                            column=0,
-                            suggested_fix="Import specific names",
-                        ))
+                    if alias.name == "*":
+                        self.issues.append(
+                            QualityIssue(
+                                rule_id="WILDCARD_IMPORT",
+                                description="Wildcard import detected",
+                                severity=QualitySeverity.MEDIUM,
+                                file_path=str(file_path),
+                                line_number=getattr(node, "lineno", 1),
+                                column=0,
+                                suggested_fix="Import specific names",
+                            )
+                        )
 
     def _empty_metrics(self, file_path: Path) -> CodeMetrics:
         """Return empty metrics for unparseable file."""
@@ -375,7 +389,9 @@ class TestRunner:
         try:
             # Run pytest with coverage
             proc = await asyncio.create_subprocess_exec(
-                "python", "-m", "pytest",
+                "python",
+                "-m",
+                "pytest",
                 str(project_path / "tests"),
                 "--json-report",
                 "--json-report-file=-",  # Output to stdout
@@ -392,16 +408,18 @@ class TestRunner:
                 report = json.loads(stdout.decode())
 
                 for test in report.get("tests", []):
-                    results.append(TestResult(
-                        name=test.get("nodeid", "unknown"),
-                        level=TestLevel.UNIT,
-                        passed=test.get("outcome") == "passed",
-                        duration_ms=test.get("duration", 0) * 1000,
-                        message=test.get("call", {}).get("longrepr", ""),
-                    ))
+                    results.append(
+                        TestResult(
+                            name=test.get("nodeid", "unknown"),
+                            level=TestLevel.UNIT,
+                            passed=test.get("outcome") == "passed",
+                            duration_ms=test.get("duration", 0) * 1000,
+                            message=test.get("call", {}).get("longrepr", ""),
+                        )
+                    )
 
                 # Extract coverage from stderr (simple parsing)
-                coverage_match = re.search(r'TOTAL\s+\d+\s+\d+\s+(\d+)%', stderr.decode())
+                coverage_match = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", stderr.decode())
                 coverage = float(coverage_match.group(1)) if coverage_match else None
 
                 if results and coverage is not None:
@@ -410,23 +428,27 @@ class TestRunner:
             except json.JSONDecodeError:
                 # Fallback if JSON report not available
                 passed = proc.returncode == 0
-                results.append(TestResult(
-                    name="pytest_suite",
-                    level=TestLevel.UNIT,
-                    passed=passed,
-                    duration_ms=0,
-                    message=stdout.decode()[:500],
-                    stderr=stderr.decode()[:500],
-                ))
+                results.append(
+                    TestResult(
+                        name="pytest_suite",
+                        level=TestLevel.UNIT,
+                        passed=passed,
+                        duration_ms=0,
+                        message=stdout.decode()[:500],
+                        stderr=stderr.decode()[:500],
+                    )
+                )
 
         except FileNotFoundError:
-            results.append(TestResult(
-                name="pytest",
-                level=TestLevel.UNIT,
-                passed=False,
-                duration_ms=0,
-                message="pytest not found",
-            ))
+            results.append(
+                TestResult(
+                    name="pytest",
+                    level=TestLevel.UNIT,
+                    passed=False,
+                    duration_ms=0,
+                    message="pytest not found",
+                )
+            )
 
         return results
 
@@ -438,17 +460,21 @@ class TestRunner:
         perf_test_file = project_path / "tests" / "test_performance.py"
 
         if not perf_test_file.exists():
-            return [TestResult(
-                name="performance_tests",
-                level=TestLevel.PERFORMANCE,
-                passed=True,  # Pass if no tests exist
-                duration_ms=0,
-                message="No performance tests found",
-            )]
+            return [
+                TestResult(
+                    name="performance_tests",
+                    level=TestLevel.PERFORMANCE,
+                    passed=True,  # Pass if no tests exist
+                    duration_ms=0,
+                    message="No performance tests found",
+                )
+            ]
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "python", "-m", "pytest",
+                "python",
+                "-m",
+                "pytest",
                 str(perf_test_file),
                 "-v",
                 stdout=asyncio.subprocess.PIPE,
@@ -457,22 +483,26 @@ class TestRunner:
 
             stdout, stderr = await proc.communicate()
 
-            results.append(TestResult(
-                name="performance_benchmarks",
-                level=TestLevel.PERFORMANCE,
-                passed=proc.returncode == 0,
-                duration_ms=0,
-                message=stdout.decode()[:1000],
-            ))
+            results.append(
+                TestResult(
+                    name="performance_benchmarks",
+                    level=TestLevel.PERFORMANCE,
+                    passed=proc.returncode == 0,
+                    duration_ms=0,
+                    message=stdout.decode()[:1000],
+                )
+            )
 
         except Exception as e:
-            results.append(TestResult(
-                name="performance_tests",
-                level=TestLevel.PERFORMANCE,
-                passed=False,
-                duration_ms=0,
-                message=str(e),
-            ))
+            results.append(
+                TestResult(
+                    name="performance_tests",
+                    level=TestLevel.PERFORMANCE,
+                    passed=False,
+                    duration_ms=0,
+                    message=str(e),
+                )
+            )
 
         return results
 
@@ -485,15 +515,15 @@ class TestRunner:
 
         for py_file in project_path.rglob("*.py"):
             try:
-                content = py_file.read_text(encoding='utf-8')
+                content = py_file.read_text(encoding="utf-8")
 
                 # Check for hardcoded secrets (simple patterns)
                 secret_patterns = [
                     (r'password\s*=\s*["\'][^"\']+["\']', "Hardcoded password"),
                     (r'api_key\s*=\s*["\'][^"\']+["\']', "Hardcoded API key"),
                     (r'secret\s*=\s*["\'][^"\']+["\']', "Hardcoded secret"),
-                    (r'eval\s*\(', "Use of eval()"),
-                    (r'exec\s*\(', "Use of exec()"),
+                    (r"eval\s*\(", "Use of eval()"),
+                    (r"exec\s*\(", "Use of exec()"),
                 ]
 
                 for pattern, description in secret_patterns:
@@ -503,13 +533,15 @@ class TestRunner:
             except Exception:
                 pass
 
-        results.append(TestResult(
-            name="security_scan",
-            level=TestLevel.SECURITY,
-            passed=len(issues) == 0,
-            duration_ms=0,
-            message="\n".join(issues) if issues else "No security issues found",
-        ))
+        results.append(
+            TestResult(
+                name="security_scan",
+                level=TestLevel.SECURITY,
+                passed=len(issues) == 0,
+                duration_ms=0,
+                message="\n".join(issues) if issues else "No security issues found",
+            )
+        )
 
         return results
 
@@ -627,54 +659,62 @@ class QualityController:
         # Check 1: Minimum test coverage
         coverage = report.average_coverage
         if coverage is not None and coverage < 80:
-            issues.append(QualityIssue(
-                rule_id="COVERAGE_TOO_LOW",
-                description=f"Test coverage ({coverage:.1f}%) below minimum (80%)",
-                severity=QualitySeverity.HIGH,
-                file_path="",
-                line_number=0,
-                column=0,
-                suggested_fix="Add more tests to increase coverage",
-            ))
+            issues.append(
+                QualityIssue(
+                    rule_id="COVERAGE_TOO_LOW",
+                    description=f"Test coverage ({coverage:.1f}%) below minimum (80%)",
+                    severity=QualitySeverity.HIGH,
+                    file_path="",
+                    line_number=0,
+                    column=0,
+                    suggested_fix="Add more tests to increase coverage",
+                )
+            )
 
         # Check 2: No critical issues
         critical_count = len(report.get_issues_by_severity(QualitySeverity.CRITICAL))
         if critical_count > 0:
-            issues.append(QualityIssue(
-                rule_id="CRITICAL_ISSUES_FOUND",
-                description=f"Found {critical_count} critical quality issues",
-                severity=QualitySeverity.CRITICAL,
-                file_path="",
-                line_number=0,
-                column=0,
-                suggested_fix="Fix all critical issues before merging",
-            ))
+            issues.append(
+                QualityIssue(
+                    rule_id="CRITICAL_ISSUES_FOUND",
+                    description=f"Found {critical_count} critical quality issues",
+                    severity=QualitySeverity.CRITICAL,
+                    file_path="",
+                    line_number=0,
+                    column=0,
+                    suggested_fix="Fix all critical issues before merging",
+                )
+            )
 
         # Check 3: Complexity threshold
         high_complexity = [m for m in report.metrics if m.complexity_score > 15]
         if len(high_complexity) > 3:
-            issues.append(QualityIssue(
-                rule_id="TOO_MANY_COMPLEX_FUNCTIONS",
-                description=f"{len(high_complexity)} functions with high complexity",
-                severity=QualitySeverity.MEDIUM,
-                file_path="",
-                line_number=0,
-                column=0,
-                suggested_fix="Refactor complex functions",
-            ))
+            issues.append(
+                QualityIssue(
+                    rule_id="TOO_MANY_COMPLEX_FUNCTIONS",
+                    description=f"{len(high_complexity)} functions with high complexity",
+                    severity=QualitySeverity.MEDIUM,
+                    file_path="",
+                    line_number=0,
+                    column=0,
+                    suggested_fix="Refactor complex functions",
+                )
+            )
 
         # Check 4: Documentation coverage
         low_doc = [m for m in report.metrics if m.documentation_coverage < 50]
         if low_doc:
-            issues.append(QualityIssue(
-                rule_id="LOW_DOCUMENTATION",
-                description=f"{len(low_doc)} files have low documentation coverage",
-                severity=QualitySeverity.LOW,
-                file_path="",
-                line_number=0,
-                column=0,
-                suggested_fix="Add docstrings to functions and classes",
-            ))
+            issues.append(
+                QualityIssue(
+                    rule_id="LOW_DOCUMENTATION",
+                    description=f"{len(low_doc)} files have low documentation coverage",
+                    severity=QualitySeverity.LOW,
+                    file_path="",
+                    line_number=0,
+                    column=0,
+                    suggested_fix="Add docstrings to functions and classes",
+                )
+            )
 
         return issues
 
@@ -693,33 +733,39 @@ class QualityController:
         # Check coverage regression
         if current.average_coverage and baseline.average_coverage:
             if current.average_coverage < baseline.average_coverage - 5:
-                regressions.append({
-                    "type": "coverage_drop",
-                    "severity": "high",
-                    "message": f"Coverage dropped from {baseline.average_coverage:.1f}% to {current.average_coverage:.1f}%",
-                    "delta": current.average_coverage - baseline.average_coverage,
-                })
+                regressions.append(
+                    {
+                        "type": "coverage_drop",
+                        "severity": "high",
+                        "message": f"Coverage dropped from {baseline.average_coverage:.1f}% to {current.average_coverage:.1f}%",
+                        "delta": current.average_coverage - baseline.average_coverage,
+                    }
+                )
 
         # Check quality score regression
         if current.quality_score < baseline.quality_score - 10:
-            regressions.append({
-                "type": "quality_drop",
-                "severity": "high",
-                "message": f"Quality score dropped from {baseline.quality_score:.1f} to {current.quality_score:.1f}",
-                "delta": current.quality_score - baseline.quality_score,
-            })
+            regressions.append(
+                {
+                    "type": "quality_drop",
+                    "severity": "high",
+                    "message": f"Quality score dropped from {baseline.quality_score:.1f} to {current.quality_score:.1f}",
+                    "delta": current.quality_score - baseline.quality_score,
+                }
+            )
 
         # Check new critical issues
         current_critical = len(current.get_issues_by_severity(QualitySeverity.CRITICAL))
         baseline_critical = len(baseline.get_issues_by_severity(QualitySeverity.CRITICAL))
 
         if current_critical > baseline_critical:
-            regressions.append({
-                "type": "new_critical_issues",
-                "severity": "critical",
-                "message": f"New critical issues: {current_critical - baseline_critical}",
-                "count": current_critical - baseline_critical,
-            })
+            regressions.append(
+                {
+                    "type": "new_critical_issues",
+                    "severity": "critical",
+                    "message": f"New critical issues: {current_critical - baseline_critical}",
+                    "count": current_critical - baseline_critical,
+                }
+            )
 
         return regressions
 
@@ -750,7 +796,12 @@ class QualityController:
             "data_points": len(reports),
             "quality_scores": [r.get("quality_score", 0) for r in reports[-10:]],
             "coverages": [r.get("average_coverage", 0) for r in reports[-10:]],
-            "trend": "improving" if len(reports) > 1 and reports[-1].get("quality_score", 0) > reports[0].get("quality_score", 0) else "stable",
+            "trend": (
+                "improving"
+                if len(reports) > 1
+                and reports[-1].get("quality_score", 0) > reports[0].get("quality_score", 0)
+                else "stable"
+            ),
         }
 
     async def _persist_report(self, report: QualityReport):
@@ -774,11 +825,15 @@ class QualityController:
             "metrics_summary": {
                 "total_files": len(report.metrics),
                 "total_loc": sum(m.lines_of_code for m in report.metrics),
-                "avg_complexity": sum(m.complexity_score for m in report.metrics) / len(report.metrics) if report.metrics else 0,
+                "avg_complexity": (
+                    sum(m.complexity_score for m in report.metrics) / len(report.metrics)
+                    if report.metrics
+                    else 0
+                ),
             },
         }
 
-        with open(report_file, 'w') as f:
+        with open(report_file, "w") as f:
             json.dump(data, f, indent=2)
 
     def generate_badge(self, report: QualityReport) -> str:
@@ -791,8 +846,7 @@ class QualityController:
             status = "failing"
 
         return (
-            f"https://img.shields.io/badge/quality-{status}-{color}"
-            f"?logo=pytest&logoColor=white"
+            f"https://img.shields.io/badge/quality-{status}-{color}" f"?logo=pytest&logoColor=white"
         )
 
 

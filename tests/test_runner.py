@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test runner that writes results to file"""
+
 import subprocess
 import sys
 import os
@@ -7,10 +8,7 @@ import os
 # Run quick test
 print("Running quick_test.py...")
 result = subprocess.run(
-    [sys.executable, "quick_test.py"],
-    capture_output=True,
-    text=True,
-    cwd=os.getcwd()
+    [sys.executable, "quick_test.py"], capture_output=True, text=True, cwd=os.getcwd()
 )
 
 # Write results

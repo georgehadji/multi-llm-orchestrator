@@ -313,20 +313,40 @@ class ARAPipelineIntegration:
         # Simple heuristics
         complexity_indicators = {
             ComplexityLevel.CRITICAL: [
-                "mission-critical", "production", "enterprise", "scalable",
-                "high-performance", "distributed", "real-time",
+                "mission-critical",
+                "production",
+                "enterprise",
+                "scalable",
+                "high-performance",
+                "distributed",
+                "real-time",
             ],
             ComplexityLevel.HIGH: [
-                "complex", "advanced", "sophisticated", "multi-step",
-                "integrate", "orchestrate", "architecture",
+                "complex",
+                "advanced",
+                "sophisticated",
+                "multi-step",
+                "integrate",
+                "orchestrate",
+                "architecture",
             ],
             ComplexityLevel.MEDIUM: [
-                "implement", "build", "create", "develop",
-                "feature", "module", "component",
+                "implement",
+                "build",
+                "create",
+                "develop",
+                "feature",
+                "module",
+                "component",
             ],
             ComplexityLevel.LOW: [
-                "simple", "basic", "hello world", "example",
-                "utility", "helper", "snippet",
+                "simple",
+                "basic",
+                "hello world",
+                "example",
+                "utility",
+                "helper",
+                "snippet",
             ],
         }
 
@@ -346,14 +366,28 @@ class ARAPipelineIntegration:
 
         # Risk indicators
         high_risk_keywords = [
-            "security", "authentication", "payment", "financial",
-            "database", "migration", "delete", "remove",
-            "production", "live", "user data", "pii",
+            "security",
+            "authentication",
+            "payment",
+            "financial",
+            "database",
+            "migration",
+            "delete",
+            "remove",
+            "production",
+            "live",
+            "user data",
+            "pii",
         ]
 
         medium_risk_keywords = [
-            "api", "endpoint", "integration", "external",
-            "cache", "performance", "optimization",
+            "api",
+            "endpoint",
+            "integration",
+            "external",
+            "cache",
+            "performance",
+            "optimization",
         ]
 
         if any(keyword in prompt for keyword in high_risk_keywords):
@@ -377,18 +411,16 @@ class ARAPipelineIntegration:
 
         # Update method counts
         method_name = method.value
-        self.stats["methods_used"][method_name] = (
-            self.stats["methods_used"].get(method_name, 0) + 1
-        )
+        self.stats["methods_used"][method_name] = self.stats["methods_used"].get(method_name, 0) + 1
 
         # Update averages
         n = self.stats["tasks_executed"]
         self.stats["avg_cost_multiplier"] = (
-            (self.stats["avg_cost_multiplier"] * (n - 1) + cost_mult) / n
-        )
+            self.stats["avg_cost_multiplier"] * (n - 1) + cost_mult
+        ) / n
         self.stats["avg_time_multiplier"] = (
-            (self.stats["avg_time_multiplier"] * (n - 1) + time_mult) / n
-        )
+            self.stats["avg_time_multiplier"] * (n - 1) + time_mult
+        ) / n
 
     def get_stats(self) -> dict[str, Any]:
         """Get execution statistics."""
@@ -401,14 +433,14 @@ class ARAPipelineIntegration:
             return {}
 
         return {
-            method: (count / total) * 100
-            for method, count in self.stats["methods_used"].items()
+            method: (count / total) * 100 for method, count in self.stats["methods_used"].items()
         }
 
 
 # ─────────────────────────────────────────────
 # Engine Integration Helper
 # ─────────────────────────────────────────────
+
 
 def create_ara_integration(
     client: UnifiedClient | None = None,

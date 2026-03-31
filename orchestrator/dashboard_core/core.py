@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from fastapi.responses import HTMLResponse
+
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
@@ -47,9 +48,11 @@ logger = logging.getLogger("orchestrator.dashboard_core")
 # Dashboard View Interface (Plugin Base)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class ViewContext:
     """Context passed to views for rendering."""
+
     project_id: str = ""
     project_state: ProjectState | None = None
     active_tasks: list[dict[str, Any]] = field(default_factory=list)
@@ -106,6 +109,7 @@ class DashboardView(ABC):
 # View Registry
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class ViewRegistry:
     """Registry for dashboard views."""
 
@@ -151,6 +155,7 @@ class ViewRegistry:
 # Dashboard Core
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class DashboardCore:
     """
     Unified dashboard core with plugin-based views.
@@ -182,8 +187,7 @@ class DashboardCore:
         """Register a view plugin."""
         self.registry.register(view, make_default)
 
-    async def render(self, view_name: str | None = None,
-                     context: ViewContext | None = None) -> str:
+    async def render(self, view_name: str | None = None, context: ViewContext | None = None) -> str:
         """
         Render a specific view.
 
@@ -280,10 +284,12 @@ class DashboardCore:
                 if data == "ping":
                     await websocket.send_text("pong")
                 elif data == "subscribe":
-                    await websocket.send_json({
-                        "type": "connected",
-                        "views": self.registry.list_views(),
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "connected",
+                            "views": self.registry.list_views(),
+                        }
+                    )
         except WebSocketDisconnect:
             pass
         finally:
@@ -343,6 +349,7 @@ class DashboardCore:
 # Convenience Functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def get_dashboard_core() -> DashboardCore:
     """Get the global dashboard core instance."""
     return await DashboardCore.get_instance()
@@ -356,6 +363,7 @@ def run_dashboard(view: str = "", host: str = "0.0.0.0", port: int = 8888) -> No
         from orchestrator.dashboard_core_core import run_dashboard
         run_dashboard(view="mission-control")
     """
+
     async def _run():
         core = await get_dashboard_core()
         await core.run(host, port)

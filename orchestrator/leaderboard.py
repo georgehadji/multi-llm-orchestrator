@@ -49,8 +49,10 @@ logger = get_logger(__name__)
 # Benchmark Data Models
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class BenchmarkDifficulty(Enum):
     """Difficulty level of benchmark tasks."""
+
     EASY = "easy"
     MEDIUM = "medium"
     HARD = "hard"
@@ -59,6 +61,7 @@ class BenchmarkDifficulty(Enum):
 @dataclass
 class BenchmarkTask:
     """A single benchmark task."""
+
     id: str
     name: str
     task_type: TaskType
@@ -76,6 +79,7 @@ class BenchmarkTask:
 @dataclass
 class BenchmarkResult:
     """Result of running a benchmark task on a model."""
+
     task_id: str
     model: Model
 
@@ -121,6 +125,7 @@ class BenchmarkResult:
 @dataclass
 class ModelBenchmarkSummary:
     """Summary of a model's performance across all benchmarks."""
+
     model: Model
 
     # Overall scores
@@ -169,6 +174,7 @@ class ModelBenchmarkSummary:
 @dataclass
 class LeaderboardEntry:
     """A single entry in the leaderboard."""
+
     rank: int
     model: Model
     provider: str
@@ -191,6 +197,7 @@ class LeaderboardEntry:
 # Standard Benchmark Suite
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class BenchmarkSuite:
     """
     Standardized benchmark tasks for model evaluation.
@@ -204,47 +211,58 @@ class BenchmarkSuite:
         """Initialize the standard benchmark tasks."""
 
         # CODE_GENERATION tasks
-        self.tasks.extend([
-            BenchmarkTask(
-                id="codegen-001",
-                name="FastAPI Endpoint",
-                task_type=TaskType.CODE_GEN,
-                difficulty=BenchmarkDifficulty.EASY,
-                prompt="""Create a FastAPI endpoint `/users/{user_id}` that:
+        self.tasks.extend(
+            [
+                BenchmarkTask(
+                    id="codegen-001",
+                    name="FastAPI Endpoint",
+                    task_type=TaskType.CODE_GEN,
+                    difficulty=BenchmarkDifficulty.EASY,
+                    prompt="""Create a FastAPI endpoint `/users/{user_id}` that:
 1. Accepts a user_id path parameter
 2. Returns a JSON response with user details
 3. Includes proper error handling for invalid user_id
 4. Has type hints and docstrings
 
 Return only the Python code.""",
-                expected_patterns=[
-                    "@app.get", "async def", "user_id",
-                    "JSONResponse", "HTTPException", "Optional[", "Union[",
-                ],
-            ),
-            BenchmarkTask(
-                id="codegen-002",
-                name="Async Data Pipeline",
-                task_type=TaskType.CODE_GEN,
-                difficulty=BenchmarkDifficulty.MEDIUM,
-                prompt="""Create an async data processing pipeline that:
+                    expected_patterns=[
+                        "@app.get",
+                        "async def",
+                        "user_id",
+                        "JSONResponse",
+                        "HTTPException",
+                        "Optional[",
+                        "Union[",
+                    ],
+                ),
+                BenchmarkTask(
+                    id="codegen-002",
+                    name="Async Data Pipeline",
+                    task_type=TaskType.CODE_GEN,
+                    difficulty=BenchmarkDifficulty.MEDIUM,
+                    prompt="""Create an async data processing pipeline that:
 1. Fetches data from multiple URLs concurrently
 2. Processes results with error handling
 3. Implements rate limiting
 4. Returns aggregated results
 
 Use asyncio and aiohttp.""",
-                expected_patterns=[
-                    "async def", "await", "asyncio.gather",
-                    "aiohttp", "Semaphore", "try:", "except",
-                ],
-            ),
-            BenchmarkTask(
-                id="codegen-003",
-                name="Database Transaction Handler",
-                task_type=TaskType.CODE_GEN,
-                difficulty=BenchmarkDifficulty.HARD,
-                prompt="""Create a robust database transaction handler with:
+                    expected_patterns=[
+                        "async def",
+                        "await",
+                        "asyncio.gather",
+                        "aiohttp",
+                        "Semaphore",
+                        "try:",
+                        "except",
+                    ],
+                ),
+                BenchmarkTask(
+                    id="codegen-003",
+                    name="Database Transaction Handler",
+                    task_type=TaskType.CODE_GEN,
+                    difficulty=BenchmarkDifficulty.HARD,
+                    prompt="""Create a robust database transaction handler with:
 1. Connection pooling
 2. Automatic retries with exponential backoff
 3. Deadlock detection and handling
@@ -252,22 +270,28 @@ Use asyncio and aiohttp.""",
 5. Context manager interface
 
 Use SQLAlchemy.""",
-                expected_patterns=[
-                    "async def", "@contextlib.asynccontextmanager",
-                    "sessionmaker", "create_async_engine",
-                    "retry", "backoff", "isolation_level",
-                ],
-            ),
-        ])
+                    expected_patterns=[
+                        "async def",
+                        "@contextlib.asynccontextmanager",
+                        "sessionmaker",
+                        "create_async_engine",
+                        "retry",
+                        "backoff",
+                        "isolation_level",
+                    ],
+                ),
+            ]
+        )
 
         # CODE_REVIEW tasks
-        self.tasks.extend([
-            BenchmarkTask(
-                id="review-001",
-                name="Review Python Function",
-                task_type=TaskType.CODE_REVIEW,
-                difficulty=BenchmarkDifficulty.EASY,
-                prompt="""Review this Python function and identify issues:
+        self.tasks.extend(
+            [
+                BenchmarkTask(
+                    id="review-001",
+                    name="Review Python Function",
+                    task_type=TaskType.CODE_REVIEW,
+                    difficulty=BenchmarkDifficulty.EASY,
+                    prompt="""Review this Python function and identify issues:
 
 ```python
 def process_data(data):
@@ -279,21 +303,27 @@ def process_data(data):
 ```
 
 List specific improvements with line references.""",
-                expected_patterns=[
-                    "enumerate", "list comprehension", "generator",
-                    "type hints", "docstring", "inefficient",
-                ],
-            ),
-        ])
+                    expected_patterns=[
+                        "enumerate",
+                        "list comprehension",
+                        "generator",
+                        "type hints",
+                        "docstring",
+                        "inefficient",
+                    ],
+                ),
+            ]
+        )
 
         # REASONING tasks
-        self.tasks.extend([
-            BenchmarkTask(
-                id="reason-001",
-                name="Architecture Decision",
-                task_type=TaskType.REASONING,
-                difficulty=BenchmarkDifficulty.MEDIUM,
-                prompt="""Given these requirements:
+        self.tasks.extend(
+            [
+                BenchmarkTask(
+                    id="reason-001",
+                    name="Architecture Decision",
+                    task_type=TaskType.REASONING,
+                    difficulty=BenchmarkDifficulty.MEDIUM,
+                    prompt="""Given these requirements:
 - 10,000 concurrent users
 - Real-time chat with message history
 - File sharing up to 100MB
@@ -301,21 +331,28 @@ List specific improvements with line references.""",
 
 Compare WebSocket vs Server-Sent Events vs Long Polling.
 Recommend one with clear trade-offs.""",
-                expected_patterns=[
-                    "WebSocket", "Server-Sent Events", "Long Polling",
-                    "scalability", "latency", "trade-off", "recommend",
-                ],
-            ),
-        ])
+                    expected_patterns=[
+                        "WebSocket",
+                        "Server-Sent Events",
+                        "Long Polling",
+                        "scalability",
+                        "latency",
+                        "trade-off",
+                        "recommend",
+                    ],
+                ),
+            ]
+        )
 
         # EVALUATE tasks
-        self.tasks.extend([
-            BenchmarkTask(
-                id="eval-001",
-                name="Code Quality Assessment",
-                task_type=TaskType.EVALUATE,
-                difficulty=BenchmarkDifficulty.MEDIUM,
-                prompt="""Evaluate this code snippet for:
+        self.tasks.extend(
+            [
+                BenchmarkTask(
+                    id="eval-001",
+                    name="Code Quality Assessment",
+                    task_type=TaskType.EVALUATE,
+                    difficulty=BenchmarkDifficulty.MEDIUM,
+                    prompt="""Evaluate this code snippet for:
 1. Security vulnerabilities
 2. Performance issues
 3. Maintainability
@@ -330,12 +367,19 @@ def load_user_data(filename):
 ```
 
 Score each category 0-10 and provide specific fixes.""",
-                expected_patterns=[
-                    "pickle", "insecure", "deserialization", "arbitrary code",
-                    "JSON", "schema", "validation", "score",
-                ],
-            ),
-        ])
+                    expected_patterns=[
+                        "pickle",
+                        "insecure",
+                        "deserialization",
+                        "arbitrary code",
+                        "JSON",
+                        "schema",
+                        "validation",
+                        "score",
+                    ],
+                ),
+            ]
+        )
 
     def get_tasks_by_type(self, task_type: TaskType) -> list[BenchmarkTask]:
         """Get all tasks of a specific type."""
@@ -349,6 +393,7 @@ Score each category 0-10 and provide specific fixes.""",
 # ═══════════════════════════════════════════════════════════════════════════════
 # Model Leaderboard
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class ModelLeaderboard:
     """
@@ -425,6 +470,7 @@ class ModelLeaderboard:
             return self._api_client_factory(model)
         # Default client creation
         from .api_clients import create_client_for_model
+
         return create_client_for_model(model)
 
     async def run_benchmarks(
@@ -457,11 +503,7 @@ class ModelLeaderboard:
                 return await self._run_single_benchmark(model, task)
 
         # Create all tasks
-        coroutines = [
-            run_single(model, task)
-            for model in models
-            for task in tasks
-        ]
+        coroutines = [run_single(model, task) for model in models for task in tasks]
 
         # Run with progress tracking
         completed = 0
@@ -553,10 +595,11 @@ class ModelLeaderboard:
 
         # Check for expected patterns
         patterns_found = sum(
-            1 for pattern in task.expected_patterns
-            if pattern.lower() in output_lower
+            1 for pattern in task.expected_patterns if pattern.lower() in output_lower
         )
-        pattern_score = patterns_found / len(task.expected_patterns) if task.expected_patterns else 0.5
+        pattern_score = (
+            patterns_found / len(task.expected_patterns) if task.expected_patterns else 0.5
+        )
 
         # Overall quality (simplified)
         quality = pattern_score
@@ -596,14 +639,24 @@ class ModelLeaderboard:
 
             summary = ModelBenchmarkSummary(
                 model=model,
-                avg_quality=statistics.mean([r.quality_score for r in completed]) if completed else 0,
-                avg_latency_ms=statistics.mean([r.latency_ms for r in completed]) if completed else 0,
+                avg_quality=(
+                    statistics.mean([r.quality_score for r in completed]) if completed else 0
+                ),
+                avg_latency_ms=(
+                    statistics.mean([r.latency_ms for r in completed]) if completed else 0
+                ),
                 avg_cost_usd=statistics.mean([r.cost_usd for r in completed]) if completed else 0,
                 total_cost_usd=sum([r.cost_usd for r in results]),
                 tasks_completed=len(completed),
                 tasks_failed=len(failed),
-                validation_pass_rate=len([r for r in completed if r.passed_validation]) / len(completed) if completed else 0,
-                avg_efficiency_score=statistics.mean([r.efficiency_score for r in completed]) if completed else 0,
+                validation_pass_rate=(
+                    len([r for r in completed if r.passed_validation]) / len(completed)
+                    if completed
+                    else 0
+                ),
+                avg_efficiency_score=(
+                    statistics.mean([r.efficiency_score for r in completed]) if completed else 0
+                ),
                 benchmark_count=len(results),
             )
 
@@ -615,8 +668,7 @@ class ModelLeaderboard:
                     by_type[task.task_type].append(r.quality_score)
 
             summary.by_task_type = {
-                tt: {"avg_quality": statistics.mean(scores)}
-                for tt, scores in by_type.items()
+                tt: {"avg_quality": statistics.mean(scores)} for tt, scores in by_type.items()
             }
 
             self._summaries[model] = summary
@@ -709,10 +761,15 @@ class ModelLeaderboard:
 
         # Save updated routing
         routing_file = self.storage_path / "routing_weights.json"
-        routing_file.write_text(json.dumps({
-            "updated_at": datetime.utcnow().isoformat(),
-            "routing": updates,
-        }, indent=2))
+        routing_file.write_text(
+            json.dumps(
+                {
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "routing": updates,
+                },
+                indent=2,
+            )
+        )
 
         logger.info("Updated routing weights based on benchmarks")
         return updates

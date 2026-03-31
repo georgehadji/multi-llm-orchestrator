@@ -22,7 +22,7 @@ class TestCodebaseUnderstanding:
             understanding = CodebaseUnderstanding()
 
             # Mock the LLM call
-            with patch.object(understanding, '_call_llm_async') as mock_llm:
+            with patch.object(understanding, "_call_llm_async") as mock_llm:
                 mock_llm.return_value = {
                     "purpose": "FastAPI microservice",
                     "patterns": ["REST API", "async"],
@@ -30,9 +30,7 @@ class TestCodebaseUnderstanding:
                     "test_coverage": "low",
                 }
 
-                profile = await understanding.analyze(
-                    codebase_path=str(root)
-                )
+                profile = await understanding.analyze(codebase_path=str(root))
 
                 assert isinstance(profile, CodebaseProfile)
                 assert "FastAPI" in profile.purpose
@@ -51,7 +49,7 @@ class TestCodebaseUnderstanding:
 
             understanding = CodebaseUnderstanding()
 
-            with patch.object(understanding, '_call_llm_async') as mock_llm:
+            with patch.object(understanding, "_call_llm_async") as mock_llm:
                 mock_llm.return_value = {
                     "purpose": "User management service",
                     "patterns": [],
@@ -79,5 +77,5 @@ class TestCodebaseUnderstanding:
             understanding = CodebaseUnderstanding()
 
             # We can't call real LLM in tests, but verify the integration exists
-            assert hasattr(understanding, '_call_llm_async')
-            assert callable(getattr(understanding, '_call_llm_async'))
+            assert hasattr(understanding, "_call_llm_async")
+            assert callable(getattr(understanding, "_call_llm_async"))

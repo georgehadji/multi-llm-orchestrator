@@ -27,6 +27,7 @@ logger = logging.getLogger("orchestrator.async_file_io")
 # Try to import aiofiles, fall back to sync if not available
 try:
     import aiofiles
+
     HAS_AIOFILES = True
 except ImportError:
     HAS_AIOFILES = False
@@ -55,7 +56,7 @@ async def async_write_text(
         path.parent.mkdir(parents=True, exist_ok=True)
 
     if HAS_AIOFILES and aiofiles:
-        async with aiofiles.open(path, 'w', encoding=encoding) as f:
+        async with aiofiles.open(path, "w", encoding=encoding) as f:
             await f.write(content)
     else:
         # Fallback to sync I/O
@@ -81,7 +82,7 @@ async def async_read_text(
     path = Path(path) if isinstance(path, str) else path
 
     if HAS_AIOFILES and aiofiles:
-        async with aiofiles.open(path, 'r', encoding=encoding) as f:
+        async with aiofiles.open(path, "r", encoding=encoding) as f:
             return await f.read()
     else:
         # Fallback to sync I/O
@@ -108,6 +109,7 @@ async def async_write_json(
         mkdir_parents: Create parent directories if needed
     """
     import json
+
     content = json.dumps(
         data,
         indent=indent,
@@ -132,6 +134,7 @@ async def async_read_json(
         Parsed JSON as dictionary
     """
     import json
+
     content = await async_read_text(path, encoding)
     return json.loads(content)
 
@@ -151,7 +154,7 @@ async def async_write_lines(
         encoding: File encoding
         mkdir_parents: Create parent directories if needed
     """
-    content = '\n'.join(lines)
+    content = "\n".join(lines)
     await async_write_text(path, content, encoding, mkdir_parents)
 
 
@@ -176,11 +179,11 @@ async def async_append_text(
         path.parent.mkdir(parents=True, exist_ok=True)
 
     if HAS_AIOFILES and aiofiles:
-        async with aiofiles.open(path, 'a', encoding=encoding) as f:
+        async with aiofiles.open(path, "a", encoding=encoding) as f:
             await f.write(content)
     else:
         # Fallback to sync I/O
-        with open(path, 'a', encoding=encoding) as f:
+        with open(path, "a", encoding=encoding) as f:
             f.write(content)
 
 
@@ -215,6 +218,7 @@ async def async_mkdir_parents(
 
 # Convenience functions for common patterns
 
+
 async def async_write_progress_line(
     path: Path | str,
     entry: dict,
@@ -229,7 +233,8 @@ async def async_write_progress_line(
         encoding: File encoding
     """
     import json
-    line = json.dumps(entry, ensure_ascii=False) + '\n'
+
+    line = json.dumps(entry, ensure_ascii=False) + "\n"
     await async_append_text(path, line, encoding)
 
 

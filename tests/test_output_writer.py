@@ -2,6 +2,7 @@
 Tests for output_writer Code Extractor (Improvement 7).
 Covers extract_named_files() and write_extracted_files().
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,8 +11,8 @@ import pytest
 
 from orchestrator.output_writer import extract_named_files, write_extracted_files
 
-
 # ── extract_named_files ───────────────────────────────────────────────────────
+
 
 class TestExtractNamedFiles:
 
@@ -64,54 +65,30 @@ class TestExtractNamedFiles:
         assert "READMEFILE" not in result
 
     def test_dotfile_extracted(self):
-        text = (
-            "**.gitignore**\n"
-            "```\n"
-            "node_modules/\n"
-            "__pycache__/\n"
-            "```\n"
-        )
+        text = "**.gitignore**\n" "```\n" "node_modules/\n" "__pycache__/\n" "```\n"
         result = extract_named_files(text)
         assert ".gitignore" in result
 
     def test_path_traversal_rejected(self):
-        text = (
-            "**../../etc/passwd**\n"
-            "```\n"
-            "root:x:0:0:root:/root:/bin/bash\n"
-            "```\n"
-        )
+        text = "**../../etc/passwd**\n" "```\n" "root:x:0:0:root:/root:/bin/bash\n" "```\n"
         result = extract_named_files(text)
         assert len(result) == 0
 
     def test_normal_path_without_leading_slash(self):
         """Normal LLM output format: **src/main.py** (no leading slash)."""
         text = (
-            "**src/main.py**\n"
-            "```python\n"
-            "x = 1  # content long enough to pass limit\n"
-            "```\n"
+            "**src/main.py**\n" "```python\n" "x = 1  # content long enough to pass limit\n" "```\n"
         )
         result = extract_named_files(text)
         assert "src/main.py" in result
 
     def test_empty_code_block_skipped(self):
-        text = (
-            "**src/empty.py**\n"
-            "```python\n"
-            "\n"
-            "```\n"
-        )
+        text = "**src/empty.py**\n" "```python\n" "\n" "```\n"
         result = extract_named_files(text)
         assert "src/empty.py" not in result
 
     def test_too_short_content_skipped(self):
-        text = (
-            "**src/tiny.py**\n"
-            "```python\n"
-            "x = 1\n"
-            "```\n"
-        )
+        text = "**src/tiny.py**\n" "```python\n" "x = 1\n" "```\n"
         result = extract_named_files(text)
         # "x = 1" = 5 chars < 20 _MIN_CONTENT_LEN
         assert "src/tiny.py" not in result
@@ -164,6 +141,7 @@ class TestExtractNamedFiles:
 
 
 # ── write_extracted_files ─────────────────────────────────────────────────────
+
 
 class TestWriteExtractedFiles:
 

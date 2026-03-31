@@ -8,6 +8,7 @@ Usage:
     python -m orchestrator.ide_backend.launch --port 9000
     python -m orchestrator.ide_backend.launch --no-frontend
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -23,7 +24,9 @@ def main():
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind to")
     parser.add_argument("--frontend", action="store_true", default=True, help="Serve frontend")
-    parser.add_argument("--no-frontend", action="store_false", dest="frontend", help="Don't serve frontend")
+    parser.add_argument(
+        "--no-frontend", action="store_false", dest="frontend", help="Don't serve frontend"
+    )
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     args = parser.parse_args()
 
@@ -56,6 +59,7 @@ def main():
 
     # Import server module directly (avoid orchestrator package init)
     import importlib.util
+
     server_path = Path(__file__).parent / "server.py"
     spec = importlib.util.spec_from_file_location("ide_server", server_path)
     server_module = importlib.util.module_from_spec(spec)

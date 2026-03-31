@@ -33,8 +33,10 @@ logger = logging.getLogger("orchestrator.meta_monitoring")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class HealthStatus(str, Enum):
     """Health status for components."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -43,6 +45,7 @@ class HealthStatus(str, Enum):
 
 class AlertSeverity(str, Enum):
     """Alert severity levels."""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -52,9 +55,11 @@ class AlertSeverity(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class Metric:
     """A single metric with labels."""
+
     name: str
     value: float
     labels: dict[str, str] = field(default_factory=dict)
@@ -63,9 +68,7 @@ class Metric:
 
     def to_prometheus(self) -> str:
         """Convert to Prometheus exposition format."""
-        labels_str = ",".join(
-            f'{k}="{v}"' for k, v in self.labels.items()
-        )
+        labels_str = ",".join(f'{k}="{v}"' for k, v in self.labels.items())
 
         if labels_str:
             return f"{self.name}{{{labels_str}}} {self.value}"
@@ -86,6 +89,7 @@ class Metric:
 @dataclass
 class Alert:
     """An alert triggered by rule evaluation."""
+
     name: str
     severity: AlertSeverity
     message: str
@@ -107,6 +111,7 @@ class Alert:
 @dataclass
 class AlertRule:
     """Rule for triggering alerts."""
+
     name: str
     metric_name: str
     condition: str  # "gt", "lt", "eq", "gte", "lte"
@@ -144,6 +149,7 @@ class AlertRule:
 @dataclass
 class HealthCheckResult:
     """Result of a health check."""
+
     component: str
     status: HealthStatus
     message: str
@@ -163,6 +169,7 @@ class HealthCheckResult:
 # ─────────────────────────────────────────────
 # Metrics Exporter
 # ─────────────────────────────────────────────
+
 
 class MetricsExporter:
     """
@@ -225,12 +232,18 @@ class MetricsExporter:
                 archive = status["archive_stats"]
                 lines.append("# HELP meta_optimization_archive_projects Total projects in archive")
                 lines.append("# TYPE meta_optimization_archive_projects gauge")
-                lines.append(f'meta_optimization_archive_projects {archive.get("total_projects", 0)}')
+                lines.append(
+                    f'meta_optimization_archive_projects {archive.get("total_projects", 0)}'
+                )
                 lines.append("")
 
-                lines.append("# HELP meta_optimization_archive_executions Total executions recorded")
+                lines.append(
+                    "# HELP meta_optimization_archive_executions Total executions recorded"
+                )
                 lines.append("# TYPE meta_optimization_archive_executions gauge")
-                lines.append(f'meta_optimization_archive_executions {archive.get("total_executions", 0)}')
+                lines.append(
+                    f'meta_optimization_archive_executions {archive.get("total_executions", 0)}'
+                )
                 lines.append("")
 
             # A/B Testing metrics
@@ -238,12 +251,16 @@ class MetricsExporter:
                 ab = status["ab_testing"]
                 lines.append("# HELP meta_optimization_experiments_active Active A/B experiments")
                 lines.append("# TYPE meta_optimization_experiments_active gauge")
-                lines.append(f'meta_optimization_experiments_active {ab.get("active_experiments", 0)}')
+                lines.append(
+                    f'meta_optimization_experiments_active {ab.get("active_experiments", 0)}'
+                )
                 lines.append("")
 
                 lines.append("# HELP meta_optimization_experiments_total Total experiments created")
                 lines.append("# TYPE meta_optimization_experiments_total gauge")
-                lines.append(f'meta_optimization_experiments_total {ab.get("total_experiments", 0)}')
+                lines.append(
+                    f'meta_optimization_experiments_total {ab.get("total_experiments", 0)}'
+                )
                 lines.append("")
 
             # HITL metrics
@@ -256,7 +273,9 @@ class MetricsExporter:
 
                 lines.append("# HELP meta_optimization_hitl_auto_approved Auto-approved requests")
                 lines.append("# TYPE meta_optimization_hitl_auto_approved gauge")
-                lines.append(f'meta_optimization_hitl_auto_approved {hitl.get("auto_approved_count", 0)}')
+                lines.append(
+                    f'meta_optimization_hitl_auto_approved {hitl.get("auto_approved_count", 0)}'
+                )
                 lines.append("")
 
             # Rollout metrics
@@ -264,12 +283,16 @@ class MetricsExporter:
                 rollout = status["rollout"]
                 lines.append("# HELP meta_optimization_rollouts_active Active gradual rollouts")
                 lines.append("# TYPE meta_optimization_rollouts_active gauge")
-                lines.append(f'meta_optimization_rollouts_active {rollout.get("active_rollouts", 0)}')
+                lines.append(
+                    f'meta_optimization_rollouts_active {rollout.get("active_rollouts", 0)}'
+                )
                 lines.append("")
 
                 lines.append("# HELP meta_optimization_rollouts_completed Completed rollouts")
                 lines.append("# TYPE meta_optimization_rollouts_completed gauge")
-                lines.append(f'meta_optimization_rollouts_completed {rollout.get("completed_rollouts", 0)}')
+                lines.append(
+                    f'meta_optimization_rollouts_completed {rollout.get("completed_rollouts", 0)}'
+                )
                 lines.append("")
 
             # Transfer learning metrics
@@ -277,7 +300,9 @@ class MetricsExporter:
                 transfer = status["transfer"]
                 lines.append("# HELP meta_optimization_transfer_patterns Active transfer patterns")
                 lines.append("# TYPE meta_optimization_transfer_patterns gauge")
-                lines.append(f'meta_optimization_transfer_patterns {transfer.get("active_patterns", 0)}')
+                lines.append(
+                    f'meta_optimization_transfer_patterns {transfer.get("active_patterns", 0)}'
+                )
                 lines.append("")
 
             # Optimization metrics
@@ -288,7 +313,7 @@ class MetricsExporter:
 
         except Exception as e:
             logger.warning(f"Failed to collect meta_v2 metrics: {e}")
-            lines.append(f'# ERROR collecting metrics: {e}')
+            lines.append(f"# ERROR collecting metrics: {e}")
 
         return lines
 
@@ -297,8 +322,7 @@ class MetricsExporter:
         return {
             "meta_v2": self.meta_v2.get_status() if self.meta_v2 else {},
             "custom": [
-                {"name": m.name, "value": m.value, "labels": m.labels}
-                for m in self._custom_metrics
+                {"name": m.name, "value": m.value, "labels": m.labels} for m in self._custom_metrics
             ],
         }
 
@@ -306,6 +330,7 @@ class MetricsExporter:
 # ─────────────────────────────────────────────
 # Alert Rules Engine
 # ─────────────────────────────────────────────
+
 
 class AlertRulesEngine:
     """
@@ -322,41 +347,49 @@ class AlertRulesEngine:
 
     def _setup_default_rules(self):
         """Setup default alert rules for meta-optimization."""
-        self.add_rule(AlertRule(
-            name="high_hitl_pending",
-            metric_name="meta_optimization_hitl_pending",
-            condition="gt",
-            threshold=10,
-            severity=AlertSeverity.WARNING,
-            cooldown_seconds=600,
-        ))
+        self.add_rule(
+            AlertRule(
+                name="high_hitl_pending",
+                metric_name="meta_optimization_hitl_pending",
+                condition="gt",
+                threshold=10,
+                severity=AlertSeverity.WARNING,
+                cooldown_seconds=600,
+            )
+        )
 
-        self.add_rule(AlertRule(
-            name="critical_hitl_pending",
-            metric_name="meta_optimization_hitl_pending",
-            condition="gt",
-            threshold=50,
-            severity=AlertSeverity.CRITICAL,
-            cooldown_seconds=300,
-        ))
+        self.add_rule(
+            AlertRule(
+                name="critical_hitl_pending",
+                metric_name="meta_optimization_hitl_pending",
+                condition="gt",
+                threshold=50,
+                severity=AlertSeverity.CRITICAL,
+                cooldown_seconds=300,
+            )
+        )
 
-        self.add_rule(AlertRule(
-            name="high_active_experiments",
-            metric_name="meta_optimization_experiments_active",
-            condition="gt",
-            threshold=20,
-            severity=AlertSeverity.WARNING,
-            cooldown_seconds=600,
-        ))
+        self.add_rule(
+            AlertRule(
+                name="high_active_experiments",
+                metric_name="meta_optimization_experiments_active",
+                condition="gt",
+                threshold=20,
+                severity=AlertSeverity.WARNING,
+                cooldown_seconds=600,
+            )
+        )
 
-        self.add_rule(AlertRule(
-            name="rollout_failures",
-            metric_name="meta_optimization_rollouts_rolled_back",
-            condition="gt",
-            threshold=5,
-            severity=AlertSeverity.CRITICAL,
-            cooldown_seconds=300,
-        ))
+        self.add_rule(
+            AlertRule(
+                name="rollout_failures",
+                metric_name="meta_optimization_rollouts_rolled_back",
+                condition="gt",
+                threshold=5,
+                severity=AlertSeverity.CRITICAL,
+                cooldown_seconds=300,
+            )
+        )
 
     def add_rule(self, rule: AlertRule):
         """Add an alert rule."""
@@ -435,6 +468,7 @@ class AlertRulesEngine:
 # ─────────────────────────────────────────────
 # Health Checker
 # ─────────────────────────────────────────────
+
 
 class HealthChecker:
     """

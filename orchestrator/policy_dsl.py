@@ -30,6 +30,7 @@ Usage:
     if not report.is_clean():
         print("Policy errors:", report.errors)
 """
+
 from __future__ import annotations
 
 import json
@@ -47,6 +48,7 @@ logger = logging.getLogger("orchestrator.policy_dsl")
 # AnalysisReport
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class AnalysisReport:
     """
@@ -58,9 +60,10 @@ class AnalysisReport:
     warnings : potential issues (e.g. conflicting policies, overlapping allow/block)
     info     : informational observations (e.g. no cost cap, no latency SLA)
     """
-    errors:   list[str] = field(default_factory=list)
+
+    errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    info:     list[str] = field(default_factory=list)
+    info: list[str] = field(default_factory=list)
 
     def is_clean(self) -> bool:
         """Return True if there are no errors and no warnings."""
@@ -70,6 +73,7 @@ class AnalysisReport:
 # ─────────────────────────────────────────────────────────────────────────────
 # PolicyAnalyzer
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class PolicyAnalyzer:
     """
@@ -85,11 +89,11 @@ class PolicyAnalyzer:
 
     @staticmethod
     def analyze(policies: list[Policy]) -> AnalysisReport:
-        errors:   list[str] = []
+        errors: list[str] = []
         warnings: list[str] = []
-        info:     list[str] = []
+        info: list[str] = []
 
-        has_cost_cap    = False
+        has_cost_cap = False
         has_latency_sla = False
 
         # Collect per-policy allowed_providers sets for cross-policy conflict check
@@ -107,9 +111,7 @@ class PolicyAnalyzer:
 
             # 2. Impossible: empty allowed_regions blocks every model
             if p.allowed_regions is not None and len(p.allowed_regions) == 0:
-                errors.append(
-                    f"[{p.name}] allowed_regions=[] is impossible — blocks all models"
-                )
+                errors.append(f"[{p.name}] allowed_regions=[] is impossible — blocks all models")
 
             # Coverage tracking
             if p.max_cost_per_task_usd is not None:
@@ -134,9 +136,13 @@ class PolicyAnalyzer:
 
         # 4–5. Coverage info
         if not has_cost_cap:
-            info.append("No policy defines a cost cap (max_cost_per_task_usd) — tasks are cost-unconstrained")
+            info.append(
+                "No policy defines a cost cap (max_cost_per_task_usd) — tasks are cost-unconstrained"
+            )
         if not has_latency_sla:
-            info.append("No policy defines a latency SLA (max_latency_ms) — tasks are latency-unconstrained")
+            info.append(
+                "No policy defines a latency SLA (max_latency_ms) — tasks are latency-unconstrained"
+            )
 
         return AnalysisReport(errors=errors, warnings=warnings, info=info)
 
@@ -145,14 +151,15 @@ class PolicyAnalyzer:
 # Internal parsing helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _parse_rate_limit(d: dict) -> RateLimit | None:
     """Parse a rate_limit sub-dict into a RateLimit dataclass."""
     if not d:
         return None
     return RateLimit(
-        calls_per_minute  = d.get("calls_per_minute"),
-        cost_usd_per_hour = d.get("cost_usd_per_hour"),
-        tokens_per_day    = d.get("tokens_per_day"),
+        calls_per_minute=d.get("calls_per_minute"),
+        cost_usd_per_hour=d.get("cost_usd_per_hour"),
+        tokens_per_day=d.get("tokens_per_day"),
     )
 
 
@@ -176,7 +183,8 @@ def _parse_policy(d: dict) -> Policy:
         except ValueError:
             logger.warning(
                 "Unknown enforcement_mode %r in policy %r — defaulting to None (HARD)",
-                em_raw, name,
+                em_raw,
+                name,
             )
 
     # blocked_models: list of model value strings → list of Model enums
@@ -188,7 +196,9 @@ def _parse_policy(d: dict) -> Policy:
             try:
                 parsed_models.append(Model(str(ms)))
             except ValueError:
-                logger.warning("Unknown model %r in blocked_models of policy %r — skipped", ms, name)
+                logger.warning(
+                    "Unknown model %r in blocked_models of policy %r — skipped", ms, name
+                )
         blocked_models = parsed_models if parsed_models else None
 
     # rate_limit
@@ -196,17 +206,17 @@ def _parse_policy(d: dict) -> Policy:
     rate_limit = _parse_rate_limit(rl_raw) if rl_raw else None
 
     return Policy(
-        name                   = name,
-        allowed_providers      = d.get("allowed_providers"),
-        blocked_providers      = d.get("blocked_providers"),
-        allowed_regions        = d.get("allowed_regions"),
-        blocked_models         = blocked_models,
-        allow_training_on_output = d.get("allow_training_on_output", True),
-        pii_allowed            = d.get("pii_allowed", True),
-        max_cost_per_task_usd  = d.get("max_cost_per_task_usd"),
-        max_latency_ms         = d.get("max_latency_ms"),
-        enforcement_mode       = enforcement_mode,
-        rate_limit             = rate_limit,
+        name=name,
+        allowed_providers=d.get("allowed_providers"),
+        blocked_providers=d.get("blocked_providers"),
+        allowed_regions=d.get("allowed_regions"),
+        blocked_models=blocked_models,
+        allow_training_on_output=d.get("allow_training_on_output", True),
+        pii_allowed=d.get("pii_allowed", True),
+        max_cost_per_task_usd=d.get("max_cost_per_task_usd"),
+        max_latency_ms=d.get("max_latency_ms"),
+        enforcement_mode=enforcement_mode,
+        rate_limit=rate_limit,
     )
 
 
@@ -217,6 +227,7 @@ def _parse_policy_list(items: list[dict]) -> list[Policy]:
 # ─────────────────────────────────────────────────────────────────────────────
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def load_policy_dict(d: dict) -> PolicyHierarchy:
     """
@@ -229,10 +240,10 @@ def load_policy_dict(d: dict) -> PolicyHierarchy:
       node          — dict mapping task_id  → list of policy dicts
     """
     # "global" and "org" are accepted aliases for the top-level org policies
-    org_raw  = d.get("global") or d.get("org") or []
-    team_raw = d.get("team")  or {}
-    job_raw  = d.get("job")   or {}
-    node_raw = d.get("node")  or {}
+    org_raw = d.get("global") or d.get("org") or []
+    team_raw = d.get("team") or {}
+    job_raw = d.get("job") or {}
+    node_raw = d.get("node") or {}
 
     org_policies = _parse_policy_list(org_raw if isinstance(org_raw, list) else [])
 
@@ -252,10 +263,10 @@ def load_policy_dict(d: dict) -> PolicyHierarchy:
             node_policies[str(task_id)] = _parse_policy_list(node_items)
 
     return PolicyHierarchy(
-        org  = org_policies or None,
-        team = team_policies or None,
-        job  = job_policies or None,
-        node = node_policies or None,
+        org=org_policies or None,
+        team=team_policies or None,
+        job=job_policies or None,
+        node=node_policies or None,
     )
 
 
@@ -291,11 +302,12 @@ def load_policy_file(path: str | Path) -> PolicyHierarchy:
             data = yaml.safe_load(fh)
     else:
         raise ValueError(
-            f"Unsupported policy file extension '{suffix}'. "
-            "Supported: .json, .yaml, .yml"
+            f"Unsupported policy file extension '{suffix}'. " "Supported: .json, .yaml, .yml"
         )
 
     if not isinstance(data, dict):
-        raise ValueError(f"Policy file '{p.name}' must contain a YAML/JSON object at the top level.")
+        raise ValueError(
+            f"Policy file '{p.name}' must contain a YAML/JSON object at the top level."
+        )
 
     return load_policy_dict(data)

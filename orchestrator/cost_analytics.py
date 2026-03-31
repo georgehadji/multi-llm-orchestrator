@@ -13,6 +13,7 @@ Usage:
     analytics.track_usage(model="gpt-4", input_tokens=1000, output_tokens=500)
     forecast = analytics.forecast_cost(project_duration_days=30)
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,8 +66,14 @@ class CostAnalytics:
         self.usage_records: list[UsageRecord] = []
         self.baseline_costs: dict[Model, float] = {}  # Baseline cost per 1M tokens
 
-    def track_usage(self, model: Model, input_tokens: int, output_tokens: int,
-                    project_id: str | None = None, task_id: str | None = None) -> float:
+    def track_usage(
+        self,
+        model: Model,
+        input_tokens: int,
+        output_tokens: int,
+        project_id: str | None = None,
+        task_id: str | None = None,
+    ) -> float:
         """
         Track usage for a specific model and return the cost.
 
@@ -89,7 +96,9 @@ class CostAnalytics:
         else:
             input_cost_per_mil = cost_entry[0]
             output_cost_per_mil = cost_entry[1]
-            cost = (input_tokens * input_cost_per_mil + output_tokens * output_cost_per_mil) / 1_000_000
+            cost = (
+                input_tokens * input_cost_per_mil + output_tokens * output_cost_per_mil
+            ) / 1_000_000
 
         # Create usage record
         record = UsageRecord(
@@ -99,13 +108,15 @@ class CostAnalytics:
             timestamp=datetime.now(),
             cost=cost,
             project_id=project_id,
-            task_id=task_id
+            task_id=task_id,
         )
 
         # Add to records
         self.usage_records.append(record)
 
-        logger.info(f"Tracked usage: {model.value}, {input_tokens} input + {output_tokens} output tokens, ${cost:.4f}")
+        logger.info(
+            f"Tracked usage: {model.value}, {input_tokens} input + {output_tokens} output tokens, ${cost:.4f}"
+        )
 
         return cost
 
@@ -130,7 +141,7 @@ class CostAnalytics:
             model_costs[record.model] += record.cost
 
             # Daily costs
-            date_str = record.timestamp.strftime('%Y-%m-%d')
+            date_str = record.timestamp.strftime("%Y-%m-%d")
             if date_str not in daily_costs:
                 daily_costs[date_str] = 0.0
             daily_costs[date_str] += record.cost
@@ -145,7 +156,7 @@ class CostAnalytics:
             total_cost=total_cost,
             model_costs=model_costs,
             daily_costs=daily_costs,
-            project_costs=project_costs
+            project_costs=project_costs,
         )
 
     def get_model_cost_efficiency(self) -> dict[Model, float]:
@@ -188,7 +199,7 @@ class CostAnalytics:
                 predicted_cost=0.0,
                 confidence_interval=(0.0, 0.0),
                 trend="stable",
-                recommendations=["No historical data available for forecasting"]
+                recommendations=["No historical data available for forecasting"],
             )
 
         # Calculate average daily cost from history
@@ -209,8 +220,10 @@ class CostAnalytics:
         daily_costs = self._get_daily_costs()
         if len(daily_costs) > 1:
             mean_daily = sum(daily_costs.values()) / len(daily_costs)
-            variance = sum((cost - mean_daily) ** 2 for cost in daily_costs.values()) / len(daily_costs)
-            std_dev = variance ** 0.5
+            variance = sum((cost - mean_daily) ** 2 for cost in daily_costs.values()) / len(
+                daily_costs
+            )
+            std_dev = variance**0.5
 
             # Confidence interval: mean ± 1.96 * std_dev (95% confidence)
             margin = 1.96 * std_dev
@@ -230,7 +243,7 @@ class CostAnalytics:
             predicted_cost=predicted_cost,
             confidence_interval=(lower_bound, upper_bound),
             trend=trend,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def _get_daily_costs(self) -> dict[str, float]:
@@ -238,7 +251,7 @@ class CostAnalytics:
         daily_costs: dict[str, float] = {}
 
         for record in self.usage_records:
-            date_str = record.timestamp.strftime('%Y-%m-%d')
+            date_str = record.timestamp.strftime("%Y-%m-%d")
             if date_str not in daily_costs:
                 daily_costs[date_str] = 0.0
             daily_costs[date_str] += record.cost

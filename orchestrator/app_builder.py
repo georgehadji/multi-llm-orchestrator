@@ -13,6 +13,7 @@ Pipeline:
 
 Returns AppBuildResult.
 """
+
 from __future__ import annotations
 
 import logging
@@ -111,9 +112,7 @@ class AppBuilder:
 
             # -- Step 3: Run orchestrator to generate code --
             logger.info("AppBuilder: running orchestrator...")
-            project_state = await self._run_orchestrator(
-                description, criteria, output_dir, profile
-            )
+            project_state = await self._run_orchestrator(description, criteria, output_dir, profile)
 
             # -- Step 4: Assemble --
             logger.info("AppBuilder: assembling...")

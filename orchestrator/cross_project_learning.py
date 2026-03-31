@@ -48,6 +48,7 @@ class Insight:
         sample_size: Number of data points supporting this insight
         metadata: Additional metadata
     """
+
     type: str
     description: str
     action: str
@@ -70,6 +71,7 @@ class Insight:
 @dataclass
 class ModelTaskScore:
     """Aggregated score for a model on a specific task type."""
+
     model: Model
     task_type: TaskType
     avg_score: float
@@ -91,6 +93,7 @@ class ModelTaskScore:
 @dataclass
 class FailurePattern:
     """Pattern that correlates with failures."""
+
     regex: str
     failure_rate: float
     sample_size: int
@@ -108,6 +111,7 @@ class FailurePattern:
 @dataclass
 class ScalingThreshold:
     """Threshold where project size correlates with repair cycles."""
+
     threshold: int
     avg_repairs_below: float
     avg_repairs_above: float
@@ -161,9 +165,7 @@ class CrossProjectLearning:
             try:
                 with self.patterns_path.open("r") as f:
                     data = json.load(f)
-                    self.insights = [
-                        Insight(**item) for item in data.get("insights", [])
-                    ]
+                    self.insights = [Insight(**item) for item in data.get("insights", [])]
                 logger.info(f"Loaded {len(self.insights)} patterns from disk")
             except Exception as e:
                 logger.warning(f"Failed to load patterns: {e}")
@@ -172,10 +174,14 @@ class CrossProjectLearning:
         """Save learned patterns to disk."""
         try:
             with self.patterns_path.open("w") as f:
-                json.dump({
-                    "insights": [i.to_dict() for i in self.insights],
-                    "last_updated": datetime.now().isoformat(),
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "insights": [i.to_dict() for i in self.insights],
+                        "last_updated": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
             logger.info(f"Saved {len(self.insights)} patterns to disk")
         except Exception as e:
             logger.error(f"Failed to save patterns: {e}")
@@ -212,14 +218,18 @@ class CrossProjectLearning:
             if len(model_scores) >= 2:  # Need at least 2 models to compare
                 best = max(model_scores, key=lambda m: m.avg_score)
                 if best.sample_size >= 5:  # Confident after 5 samples
-                    insights.append(Insight(
-                        type="model_affinity",
-                        description=f"{best.model.value} scores {best.avg_score:.2f} avg on {task_type.value} tasks",
-                        action=f"Route {task_type.value} tasks to {best.model.value} by default",
-                        confidence=min(1.0, best.sample_size / 20),  # Max confidence at 20 samples
-                        sample_size=best.sample_size,
-                        metadata=best.to_dict(),
-                    ))
+                    insights.append(
+                        Insight(
+                            type="model_affinity",
+                            description=f"{best.model.value} scores {best.avg_score:.2f} avg on {task_type.value} tasks",
+                            action=f"Route {task_type.value} tasks to {best.model.value} by default",
+                            confidence=min(
+                                1.0, best.sample_size / 20
+                            ),  # Max confidence at 20 samples
+                            sample_size=best.sample_size,
+                            metadata=best.to_dict(),
+                        )
+                    )
                     logger.info(
                         f"  Model affinity: {best.model.value} → {task_type.value} "
                         f"(score={best.avg_score:.2f}, n={best.sample_size})"
@@ -231,14 +241,16 @@ class CrossProjectLearning:
         failure_patterns = self._extract_failure_patterns(all_traces)
         for pattern in failure_patterns:
             if pattern.sample_size >= 3:  # Confident after 3 samples
-                insights.append(Insight(
-                    type="failure_predictor",
-                    description=f"Tasks matching '{pattern.regex}' fail {pattern.failure_rate:.0%} of the time",
-                    action=f"Add extra verification or use premium model for tasks matching '{pattern.regex}'",
-                    confidence=min(1.0, pattern.sample_size / 10),
-                    sample_size=pattern.sample_size,
-                    metadata=pattern.to_dict(),
-                ))
+                insights.append(
+                    Insight(
+                        type="failure_predictor",
+                        description=f"Tasks matching '{pattern.regex}' fail {pattern.failure_rate:.0%} of the time",
+                        action=f"Add extra verification or use premium model for tasks matching '{pattern.regex}'",
+                        confidence=min(1.0, pattern.sample_size / 10),
+                        sample_size=pattern.sample_size,
+                        metadata=pattern.to_dict(),
+                    )
+                )
                 logger.info(
                     f"  Failure pattern: '{pattern.regex}' → "
                     f"{pattern.failure_rate:.0%} failure rate (n={pattern.sample_size})"
@@ -249,14 +261,16 @@ class CrossProjectLearning:
         # ═══════════════════════════════════════════════════════
         size_repair = self._correlate_size_repairs(all_traces)
         if size_repair.sample_size >= 5:
-            insights.append(Insight(
-                type="scaling_threshold",
-                description=f"Projects with >{size_repair.threshold} tasks need {size_repair.avg_repairs_above:.1f}x more repairs",
-                action=f"Auto-increase repair_attempts for projects with >{size_repair.threshold} tasks",
-                confidence=min(1.0, size_repair.sample_size / 15),
-                sample_size=size_repair.sample_size,
-                metadata=size_repair.to_dict(),
-            ))
+            insights.append(
+                Insight(
+                    type="scaling_threshold",
+                    description=f"Projects with >{size_repair.threshold} tasks need {size_repair.avg_repairs_above:.1f}x more repairs",
+                    action=f"Auto-increase repair_attempts for projects with >{size_repair.threshold} tasks",
+                    confidence=min(1.0, size_repair.sample_size / 15),
+                    sample_size=size_repair.sample_size,
+                    metadata=size_repair.to_dict(),
+                )
+            )
             logger.info(
                 f"  Scaling threshold: >{size_repair.threshold} tasks → "
                 f"{size_repair.avg_repairs_above:.1f}x more repairs (n={size_repair.sample_size})"
@@ -270,19 +284,21 @@ class CrossProjectLearning:
             if cost_data["sample_size"] >= 5:
                 ratio = cost_data["avg_actual"] / max(0.01, cost_data["avg_estimated"])
                 if ratio > 1.3 or ratio < 0.7:  # Significant deviation
-                    insights.append(Insight(
-                        type="cost_predictor",
-                        description=f"{task_type.value} tasks cost {ratio:.1f}x estimated",
-                        action=f"Adjust cost estimates for {task_type.value} tasks by {ratio:.1f}x",
-                        confidence=min(1.0, cost_data["sample_size"] / 20),
-                        sample_size=cost_data["sample_size"],
-                        metadata={
-                            "task_type": task_type.value,
-                            "avg_actual": cost_data["avg_actual"],
-                            "avg_estimated": cost_data["avg_estimated"],
-                            "ratio": ratio,
-                        },
-                    ))
+                    insights.append(
+                        Insight(
+                            type="cost_predictor",
+                            description=f"{task_type.value} tasks cost {ratio:.1f}x estimated",
+                            action=f"Adjust cost estimates for {task_type.value} tasks by {ratio:.1f}x",
+                            confidence=min(1.0, cost_data["sample_size"] / 20),
+                            sample_size=cost_data["sample_size"],
+                            metadata={
+                                "task_type": task_type.value,
+                                "avg_actual": cost_data["avg_actual"],
+                                "avg_estimated": cost_data["avg_estimated"],
+                                "ratio": ratio,
+                            },
+                        )
+                    )
                     logger.info(
                         f"  Cost pattern: {task_type.value} → "
                         f"{ratio:.1f}x estimated (n={cost_data['sample_size']})"
@@ -361,14 +377,20 @@ class CrossProjectLearning:
             if task_type not in result:
                 result[task_type] = []
 
-            result[task_type].append(ModelTaskScore(
-                model=model,
-                task_type=task_type,
-                avg_score=sum(score_list) / len(score_list),
-                sample_size=len(score_list),
-                total_cost=costs[(model, task_type)],
-                avg_tokens=sum(tokens[(model, task_type)]) // len(tokens[(model, task_type)]) if tokens[(model, task_type)] else 0,
-            ))
+            result[task_type].append(
+                ModelTaskScore(
+                    model=model,
+                    task_type=task_type,
+                    avg_score=sum(score_list) / len(score_list),
+                    sample_size=len(score_list),
+                    total_cost=costs[(model, task_type)],
+                    avg_tokens=(
+                        sum(tokens[(model, task_type)]) // len(tokens[(model, task_type)])
+                        if tokens[(model, task_type)]
+                        else 0
+                    ),
+                )
+            )
 
         return result
 
@@ -406,11 +428,23 @@ class CrossProjectLearning:
 
         # Look for keywords that correlate with failures
         keywords = [
-            "authentication", "auth", "login", "jwt", "oauth",
-            "database", "sql", "migration",
-            "async", "concurrent", "parallel",
-            "validation", "schema", "pydantic",
-            "api", "rest", "endpoint",
+            "authentication",
+            "auth",
+            "login",
+            "jwt",
+            "oauth",
+            "database",
+            "sql",
+            "migration",
+            "async",
+            "concurrent",
+            "parallel",
+            "validation",
+            "schema",
+            "pydantic",
+            "api",
+            "rest",
+            "endpoint",
         ]
 
         for keyword in keywords:
@@ -421,12 +455,14 @@ class CrossProjectLearning:
             if total >= 3:  # Minimum sample size
                 failure_rate = failed_count / total
                 if failure_rate > 0.4:  # >40% failure rate
-                    patterns.append(FailurePattern(
-                        regex=keyword,
-                        failure_rate=failure_rate,
-                        sample_size=total,
-                        description=f"Tasks containing '{keyword}' fail {failure_rate:.0%} of the time",
-                    ))
+                    patterns.append(
+                        FailurePattern(
+                            regex=keyword,
+                            failure_rate=failure_rate,
+                            sample_size=total,
+                            description=f"Tasks containing '{keyword}' fail {failure_rate:.0%} of the time",
+                        )
+                    )
 
         return patterns
 
@@ -448,10 +484,7 @@ class CrossProjectLearning:
             num_tasks = len(tasks)
 
             # Count total repair cycles (iterations > 1)
-            num_repairs = sum(
-                1 for task in tasks
-                if task.get("iterations", 1) > 1
-            )
+            num_repairs = sum(1 for task in tasks if task.get("iterations", 1) > 1)
 
             data.append((num_tasks, num_repairs))
 
@@ -546,8 +579,10 @@ class CrossProjectLearning:
             # Find existing insight of same type and description
             existing_idx = None
             for i, existing in enumerate(self.insights):
-                if (existing.type == new_insight.type and
-                    existing.description == new_insight.description):
+                if (
+                    existing.type == new_insight.type
+                    and existing.description == new_insight.description
+                ):
                     existing_idx = i
                     break
 
@@ -584,7 +619,7 @@ class CrossProjectLearning:
 
             elif insight.type == "failure_predictor" and insight.confidence > 0.7:
                 # Add to router's high-risk patterns
-                if hasattr(router, 'add_high_risk_pattern'):
+                if hasattr(router, "add_high_risk_pattern"):
                     router.add_high_risk_pattern(
                         insight.metadata.get("regex", ""),
                         insight.metadata.get("failure_rate", 0.0),

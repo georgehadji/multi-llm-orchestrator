@@ -38,23 +38,26 @@ logger = get_logger(__name__)
 
 class PreflightMode(Enum):
     """Preflight validation modes."""
-    PASS = "pass"       # Allow all responses
-    ENRICH = "enrich"   # Add missing context
-    WARN = "warn"       # Flag potential issues
-    BLOCK = "block"     # Prevent problematic responses
-    AUTO = "auto"       # Use default behavior per check
+
+    PASS = "pass"  # Allow all responses
+    ENRICH = "enrich"  # Add missing context
+    WARN = "warn"  # Flag potential issues
+    BLOCK = "block"  # Prevent problematic responses
+    AUTO = "auto"  # Use default behavior per check
 
 
 class PreflightAction(Enum):
     """Actions to take based on validation."""
-    PASS = "pass"       # Response is good, proceed
+
+    PASS = "pass"  # Response is good, proceed
     ENRICH = "enrich"  # Add context/information
-    WARN = "warn"      # Allow but flag for review
-    BLOCK = "block"    # Don't allow this response
+    WARN = "warn"  # Allow but flag for review
+    BLOCK = "block"  # Don't allow this response
 
 
 class CheckType(Enum):
     """Types of preflight checks."""
+
     SAFETY = "safety"
     ACCURACY = "accuracy"
     COMPLETENESS = "completeness"
@@ -67,6 +70,7 @@ class CheckType(Enum):
 @dataclass
 class CheckResult:
     """Result of a single check."""
+
     check_type: CheckType
     passed: bool
     severity: int  # 0-10
@@ -77,6 +81,7 @@ class CheckResult:
 @dataclass
 class PreflightResult:
     """Result of preflight validation."""
+
     action: PreflightAction
     passed: bool
     checks: list[CheckResult] = field(default_factory=list)
@@ -118,19 +123,19 @@ class PreflightValidator:
 
     # Dangerous patterns that should always be blocked
     DANGEROUS_PATTERNS = [
-        (r'eval\s*\(', "Use of eval() detected"),
-        (r'exec\s*\(', "Use of exec() detected"),
-        (r'__import__\s*\(', "Dynamic import detected"),
-        (r'subprocess\s*\.\s*call\s*\(\s*\[.*shell\s*=\s*True', "Shell=True in subprocess"),
-        (r'os\.system\s*\(', "os.system() call detected"),
+        (r"eval\s*\(", "Use of eval() detected"),
+        (r"exec\s*\(", "Use of exec() detected"),
+        (r"__import__\s*\(", "Dynamic import detected"),
+        (r"subprocess\s*\.\s*call\s*\(\s*\[.*shell\s*=\s*True", "Shell=True in subprocess"),
+        (r"os\.system\s*\(", "os.system() call detected"),
     ]
 
     # Patterns that indicate incomplete responses
     INCOMPLETE_PATTERNS = [
-        (r'\[TODO\]', "TODO placeholder found"),
-        (r'\[FIXME\]', "FIXME placeholder found"),
-        (r'\{\{.*\}\}', "Template placeholder found"),
-        (r'<[^>]*>', "HTML/XML tags detected (possible incomplete)"),
+        (r"\[TODO\]", "TODO placeholder found"),
+        (r"\[FIXME\]", "FIXME placeholder found"),
+        (r"\{\{.*\}\}", "Template placeholder found"),
+        (r"<[^>]*>", "HTML/XML tags detected (possible incomplete)"),
     ]
 
     # Privacy-sensitive patterns
@@ -138,7 +143,7 @@ class PreflightValidator:
         (r'api[_-]?key["\']?\s*[:=]\s*["\'][^"\']{10,}', "API key detected"),
         (r'secret["\']?\s*[:=]\s*["\'][^"\']{10,}', "Secret detected"),
         (r'password["\']?\s*[:=]\s*["\'][^"\']{6,}', "Password detected"),
-        (r'Bearer\s+[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+', "Bearer token detected"),
+        (r"Bearer\s+[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+", "Bearer token detected"),
     ]
 
     def __init__(
@@ -224,7 +229,7 @@ class PreflightValidator:
             )
 
         # Check if response seems cut off
-        if not response.rstrip().endswith(('.', '!', '?', ')', ']', '}', '"', "'")):
+        if not response.rstrip().endswith((".", "!", "?", ")", "]", "}", '"', "'")):
             # Might be truncated
             if len(response) > 100:
                 return CheckResult(
@@ -246,8 +251,8 @@ class PreflightValidator:
         """Check for factual accuracy issues."""
         # Check for contradictory statements
         contradictions = [
-            (r'\bhowever\b.*\btherefore\b', "Contradictory logic"),
-            (r'\bbut\b.*\bbut\b', "Conflicting statements"),
+            (r"\bhowever\b.*\btherefore\b", "Contradictory logic"),
+            (r"\bbut\b.*\bbut\b", "Conflicting statements"),
         ]
 
         for pattern, message in contradictions:
@@ -264,8 +269,8 @@ class PreflightValidator:
         user_request = context.get("user_request", "")
         if user_request:
             # Simple keyword check - response should contain some request keywords
-            request_words = set(re.findall(r'\b\w{4,}\b', user_request.lower()))
-            response_words = set(re.findall(r'\b\w{4,}\b', response.lower()))
+            request_words = set(re.findall(r"\b\w{4,}\b", user_request.lower()))
+            response_words = set(re.findall(r"\b\w{4,}\b", response.lower()))
 
             # Check overlap
             overlap = request_words & response_words
@@ -291,7 +296,7 @@ class PreflightValidator:
 
         # Code generation should have code blocks
         if task_type == "code_gen" or task_type == "code_generation":
-            if '```' not in response and 'def ' not in response and 'class ' not in response:
+            if "```" not in response and "def " not in response and "class " not in response:
                 return CheckResult(
                     check_type=CheckType.FORMAT,
                     passed=False,
@@ -397,8 +402,7 @@ class PreflightValidator:
 
         # Collect warnings
         warnings = [
-            c.message for c in checks
-            if c.severity >= 5 and c.severity < 8 and not c.passed
+            c.message for c in checks if c.severity >= 5 and c.severity < 8 and not c.passed
         ]
 
         return PreflightResult(

@@ -14,6 +14,7 @@ Usage:
     org = hierarchy.create_org("Acme Corp", budget=10000.0)
     team = hierarchy.create_team("Engineering", org_id=org.id, budget=5000.0)
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +26,7 @@ logger = logging.getLogger("orchestrator.hierarchy")
 
 class NodeType(Enum):
     """Type of node in the hierarchy."""
+
     ORGANIZATION = "organization"
     TEAM = "team"
     PROJECT = "project"
@@ -61,8 +63,7 @@ class HierarchyManager:
         self.children_map: dict[str, list[str]] = {}  # parent_id -> [child_ids]
         self.parent_map: dict[str, str] = {}  # child_id -> parent_id
 
-    def create_org(self, name: str, budget: float = 0.0,
-                   metadata: dict | None = None) -> Node:
+    def create_org(self, name: str, budget: float = 0.0, metadata: dict | None = None) -> Node:
         """
         Create a new organization.
 
@@ -80,7 +81,7 @@ class HierarchyManager:
             name=name,
             node_type=NodeType.ORGANIZATION,
             budget=budget,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self.nodes[org_id] = org_node
@@ -89,8 +90,9 @@ class HierarchyManager:
         logger.info(f"Created organization: {name} (ID: {org_id})")
         return org_node
 
-    def create_team(self, name: str, org_id: str, budget: float = 0.0,
-                    metadata: dict | None = None) -> Node:
+    def create_team(
+        self, name: str, org_id: str, budget: float = 0.0, metadata: dict | None = None
+    ) -> Node:
         """
         Create a new team under an organization.
 
@@ -121,7 +123,7 @@ class HierarchyManager:
             node_type=NodeType.TEAM,
             parent_id=org_id,
             budget=budget,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self.nodes[team_id] = team_node
@@ -135,8 +137,9 @@ class HierarchyManager:
         logger.info(f"Created team: {name} (ID: {team_id}) under org {org_id}")
         return team_node
 
-    def create_project(self, name: str, team_id: str, budget: float = 0.0,
-                      metadata: dict | None = None) -> Node:
+    def create_project(
+        self, name: str, team_id: str, budget: float = 0.0, metadata: dict | None = None
+    ) -> Node:
         """
         Create a new project under a team.
 
@@ -167,7 +170,7 @@ class HierarchyManager:
             node_type=NodeType.PROJECT,
             parent_id=team_id,
             budget=budget,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self.nodes[project_id] = project_node
@@ -181,8 +184,9 @@ class HierarchyManager:
         logger.info(f"Created project: {name} (ID: {project_id}) under team {team_id}")
         return project_node
 
-    def create_user(self, name: str, team_id: str, budget: float = 0.0,
-                   metadata: dict | None = None) -> Node:
+    def create_user(
+        self, name: str, team_id: str, budget: float = 0.0, metadata: dict | None = None
+    ) -> Node:
         """
         Create a new user under a team.
 
@@ -213,7 +217,7 @@ class HierarchyManager:
             node_type=NodeType.USER,
             parent_id=team_id,
             budget=budget,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self.nodes[user_id] = user_node
@@ -349,7 +353,7 @@ class HierarchyManager:
             "total_budget": total_budget,
             "allocated": allocated,
             "available": available,
-            "utilization_percent": utilization
+            "utilization_percent": utilization,
         }
 
     def get_subtree_budget_utilization(self, node_id: str) -> dict[str, any]:
@@ -388,7 +392,7 @@ class HierarchyManager:
             "total_budget_in_subtree": total_budget,
             "total_allocated_in_subtree": total_allocated,
             "utilization_percent": utilization,
-            "node_count": self._count_nodes_in_subtree(node_id)
+            "node_count": self._count_nodes_in_subtree(node_id),
         }
 
     def _count_nodes_in_subtree(self, node_id: str) -> int:
@@ -410,7 +414,9 @@ class HierarchyManager:
         # Check for budget overruns
         for node_id, node in self.nodes.items():
             if node.allocated_budget > node.budget > 0:
-                errors.append(f"Budget overrun in node {node_id}: allocated ${node.allocated_budget} > budget ${node.budget}")
+                errors.append(
+                    f"Budget overrun in node {node_id}: allocated ${node.allocated_budget} > budget ${node.budget}"
+                )
 
         # Check for orphaned nodes (nodes with parent_id but no corresponding parent)
         for node_id, node in self.nodes.items():
@@ -437,7 +443,9 @@ class HierarchyManager:
         Returns:
             Dict with hierarchy statistics
         """
-        org_count = sum(1 for node in self.nodes.values() if node.node_type == NodeType.ORGANIZATION)
+        org_count = sum(
+            1 for node in self.nodes.values() if node.node_type == NodeType.ORGANIZATION
+        )
         team_count = sum(1 for node in self.nodes.values() if node.node_type == NodeType.TEAM)
         project_count = sum(1 for node in self.nodes.values() if node.node_type == NodeType.PROJECT)
         user_count = sum(1 for node in self.nodes.values() if node.node_type == NodeType.USER)
@@ -454,5 +462,5 @@ class HierarchyManager:
             "user_count": user_count,
             "total_budget": total_budget,
             "total_allocated": total_allocated,
-            "average_utilization": avg_utilization
+            "average_utilization": avg_utilization,
         }

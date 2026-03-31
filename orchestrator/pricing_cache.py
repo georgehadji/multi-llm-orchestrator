@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 class PricingTier(Enum):
     """Pricing tiers for LLM providers."""
+
     FREE = "free"
     ECONOMY = "economy"
     STANDARD = "standard"
@@ -36,6 +37,7 @@ class PricingTier(Enum):
 @dataclass(frozen=True)
 class ModelPricing:
     """Immutable pricing for a specific model."""
+
     model_id: str
     tier: PricingTier
     input_price_per_1m: float  # USD per 1M input tokens
@@ -54,6 +56,7 @@ class ModelPricing:
 @dataclass
 class PricingHealth:
     """Health status of the pricing system."""
+
     is_live: bool
     cache_age_hours: float
     stale_models: list[str]
@@ -162,9 +165,11 @@ class PricingCache:
             data = json.loads(self.cache_file.read_text())
             prices = {}
             for model_id, pricing_data in data.items():
-                pricing_data["fetched_at"] = datetime.fromisoformat(
-                    pricing_data["fetched_at"]
-                ) if pricing_data.get("fetched_at") else None
+                pricing_data["fetched_at"] = (
+                    datetime.fromisoformat(pricing_data["fetched_at"])
+                    if pricing_data.get("fetched_at")
+                    else None
+                )
                 prices[model_id] = ModelPricing(**pricing_data)
             return prices
         except (json.JSONDecodeError, KeyError, TypeError) as e:
@@ -189,9 +194,7 @@ class PricingCache:
         """Fetch live prices from dashboard API."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(
-                    f"{self.dashboard_url}/api/providers/pricing"
-                )
+                response = await client.get(f"{self.dashboard_url}/api/providers/pricing")
                 response.raise_for_status()
                 data = response.json()
 
@@ -321,8 +324,9 @@ def get_pricing_cache() -> PricingCache:
     return _pricing_cache
 
 
-async def estimate_task_cost(model_id: str, estimated_input_tokens: int,
-                             estimated_output_tokens: int) -> tuple[float, str]:
+async def estimate_task_cost(
+    model_id: str, estimated_input_tokens: int, estimated_output_tokens: int
+) -> tuple[float, str]:
     """
     Estimate cost for a task with source indication.
 

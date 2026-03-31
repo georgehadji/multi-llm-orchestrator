@@ -30,64 +30,120 @@ logger = logging.getLogger("orchestrator.reader")
 # ─────────────────────────────────────────────
 
 DEFAULT_IGNORE_DIRS = {
-    ".git", ".hg", ".svn",
-    "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache",
-    "node_modules", ".next", ".nuxt", "dist", "build", "out",
-    ".venv", "venv", "env", ".env",
-    ".idea", ".vscode",
-    "coverage", ".coverage",
-    "eggs", "*.egg-info",
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "node_modules",
+    ".next",
+    ".nuxt",
+    "dist",
+    "build",
+    "out",
+    ".venv",
+    "venv",
+    "env",
+    ".env",
+    ".idea",
+    ".vscode",
+    "coverage",
+    ".coverage",
+    "eggs",
+    "*.egg-info",
 }
 
 DEFAULT_IGNORE_FILES = {
-    "*.pyc", "*.pyo", "*.pyd",
-    "*.so", "*.dll", "*.dylib",
-    "*.class", "*.jar",
-    "*.min.js", "*.min.css",
-    "*.lock",           # package-lock.json, yarn.lock, Pipfile.lock
-    "*.map",            # source maps
+    "*.pyc",
+    "*.pyo",
+    "*.pyd",
+    "*.so",
+    "*.dll",
+    "*.dylib",
+    "*.class",
+    "*.jar",
+    "*.min.js",
+    "*.min.css",
+    "*.lock",  # package-lock.json, yarn.lock, Pipfile.lock
+    "*.map",  # source maps
     "*.log",
-    "*.db", "*.sqlite", "*.sqlite3",
-    "*.png", "*.jpg", "*.jpeg", "*.gif", "*.ico", "*.svg", "*.webp",
-    "*.pdf", "*.zip", "*.tar", "*.gz", "*.7z",
-    "*.woff", "*.woff2", "*.ttf", "*.eot",
-    ".DS_Store", "Thumbs.db",
+    "*.db",
+    "*.sqlite",
+    "*.sqlite3",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.ico",
+    "*.svg",
+    "*.webp",
+    "*.pdf",
+    "*.zip",
+    "*.tar",
+    "*.gz",
+    "*.7z",
+    "*.woff",
+    "*.woff2",
+    "*.ttf",
+    "*.eot",
+    ".DS_Store",
+    "Thumbs.db",
 }
 
 # Extension → language name (for syntax context in output)
 EXT_LANG: dict[str, str] = {
-    ".py": "python", ".pyi": "python",
-    ".js": "javascript", ".mjs": "javascript", ".cjs": "javascript",
-    ".ts": "typescript", ".tsx": "typescript",
+    ".py": "python",
+    ".pyi": "python",
+    ".js": "javascript",
+    ".mjs": "javascript",
+    ".cjs": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
     ".jsx": "jsx",
     ".java": "java",
     ".go": "go",
     ".rs": "rust",
-    ".c": "c", ".h": "c",
-    ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp",
+    ".c": "c",
+    ".h": "c",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".hpp": "cpp",
     ".cs": "csharp",
     ".rb": "ruby",
     ".php": "php",
     ".swift": "swift",
     ".kt": "kotlin",
     ".scala": "scala",
-    ".sh": "bash", ".bash": "bash", ".zsh": "bash",
+    ".sh": "bash",
+    ".bash": "bash",
+    ".zsh": "bash",
     ".ps1": "powershell",
     ".sql": "sql",
-    ".html": "html", ".htm": "html",
-    ".css": "css", ".scss": "scss", ".less": "less",
+    ".html": "html",
+    ".htm": "html",
+    ".css": "css",
+    ".scss": "scss",
+    ".less": "less",
     ".json": "json",
-    ".yaml": "yaml", ".yml": "yaml",
+    ".yaml": "yaml",
+    ".yml": "yaml",
     ".toml": "toml",
     ".xml": "xml",
-    ".md": "markdown", ".rst": "rst",
+    ".md": "markdown",
+    ".rst": "rst",
     ".tex": "latex",
-    ".r": "r", ".R": "r",
+    ".r": "r",
+    ".R": "r",
     ".lua": "lua",
     ".dart": "dart",
-    ".ex": "elixir", ".exs": "elixir",
+    ".ex": "elixir",
+    ".exs": "elixir",
     ".hs": "haskell",
-    ".tf": "terraform", ".tfvars": "terraform",
+    ".tf": "terraform",
+    ".tfvars": "terraform",
     ".dockerfile": "dockerfile",
 }
 
@@ -98,12 +154,13 @@ CHARS_PER_TOKEN = 4
 @dataclass
 class FileEntry:
     """A single source file's metadata and content."""
-    path: Path          # absolute path
-    rel_path: str       # path relative to the scanned root
-    language: str       # detected language (e.g. "python")
+
+    path: Path  # absolute path
+    rel_path: str  # path relative to the scanned root
+    language: str  # detected language (e.g. "python")
     size_bytes: int
     line_count: int
-    content: str        # full text content
+    content: str  # full text content
 
 
 @dataclass
@@ -123,6 +180,7 @@ class CodebaseContext:
     estimated_tokens : Rough token count of context_text
     languages      : Set of detected programming languages
     """
+
     root: Path
     files: list[FileEntry] = field(default_factory=list)
     file_tree: str = ""
@@ -247,8 +305,7 @@ class CodebaseReader:
 
             # Prune ignored directories (modifying dirnames in-place stops os.walk descent)
             dirnames[:] = [
-                d for d in dirnames
-                if not self._should_ignore_dir(d, str(rel_dir / d), gitignore)
+                d for d in dirnames if not self._should_ignore_dir(d, str(rel_dir / d), gitignore)
             ]
             dirnames.sort()  # deterministic order
 
@@ -272,14 +329,16 @@ class CodebaseReader:
                     content = fpath.read_text(encoding="utf-8", errors="replace")
                     size = fpath.stat().st_size
                     line_count = content.count("\n") + 1
-                    entries.append(FileEntry(
-                        path=fpath,
-                        rel_path=rel_path,
-                        language=lang,
-                        size_bytes=size,
-                        line_count=line_count,
-                        content=content,
-                    ))
+                    entries.append(
+                        FileEntry(
+                            path=fpath,
+                            rel_path=rel_path,
+                            language=lang,
+                            size_bytes=size,
+                            line_count=line_count,
+                            content=content,
+                        )
+                    )
                 except (OSError, PermissionError) as e:
                     logger.debug(f"Skipping {rel_path}: {e}")
 
@@ -319,15 +378,29 @@ class CodebaseReader:
         """
         name = rel_path.split("/")[-1].lower()
         priority_names = {
-            "readme.md", "readme.rst", "readme.txt",
-            "pyproject.toml", "setup.py", "setup.cfg",
-            "package.json", "tsconfig.json",
-            "cargo.toml", "go.mod",
-            "makefile", "dockerfile",
-            "requirements.txt", "requirements-dev.txt",
-            "main.py", "app.py", "index.py", "server.py",
-            "main.ts", "index.ts", "app.ts",
-            "main.go", "main.rs",
+            "readme.md",
+            "readme.rst",
+            "readme.txt",
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "package.json",
+            "tsconfig.json",
+            "cargo.toml",
+            "go.mod",
+            "makefile",
+            "dockerfile",
+            "requirements.txt",
+            "requirements-dev.txt",
+            "main.py",
+            "app.py",
+            "index.py",
+            "server.py",
+            "main.ts",
+            "index.ts",
+            "app.ts",
+            "main.go",
+            "main.rs",
         }
         return 0 if name in priority_names else 1
 
@@ -341,7 +414,7 @@ class CodebaseReader:
             parts = fe.rel_path.split("/")
             # Add intermediate directories
             for i in range(len(parts) - 1):
-                d = "/".join(parts[:i + 1])
+                d = "/".join(parts[: i + 1])
                 if d not in dirs_seen:
                     dirs_seen.add(d)
                     items.append(("dir", d))

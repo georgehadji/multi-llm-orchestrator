@@ -51,29 +51,34 @@ logger = logging.getLogger("orchestrator.health")
 # Health Status Enum
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class HealthStatus(Enum):
     """Health status levels."""
-    HEALTHY = "healthy"       # All good
-    DEGRADED = "degraded"     # Working but with issues
-    UNHEALTHY = "unhealthy"   # Not working
-    UNKNOWN = "unknown"       # Status unknown
+
+    HEALTHY = "healthy"  # All good
+    DEGRADED = "degraded"  # Working but with issues
+    UNHEALTHY = "unhealthy"  # Not working
+    UNKNOWN = "unknown"  # Status unknown
 
 
 class CheckType(Enum):
     """Types of health checks."""
-    LIVENESS = "liveness"     # Is process alive?
-    READINESS = "readiness"   # Is ready to serve?
-    STARTUP = "startup"       # Has initialization completed?
-    DEEP = "deep"            # Full dependency check
+
+    LIVENESS = "liveness"  # Is process alive?
+    READINESS = "readiness"  # Is ready to serve?
+    STARTUP = "startup"  # Has initialization completed?
+    DEEP = "deep"  # Full dependency check
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Health Check Result
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class CheckResult:
     """Result of a single health check."""
+
     name: str
     status: HealthStatus
     check_type: CheckType
@@ -99,6 +104,7 @@ class CheckResult:
 @dataclass
 class HealthReport:
     """Complete health report."""
+
     overall_status: HealthStatus
     checks: list[CheckResult]
     timestamp: datetime
@@ -125,6 +131,7 @@ HealthCheckFunc = Callable[[], HealthStatus | Awaitable[HealthStatus]]
 # ═══════════════════════════════════════════════════════════════════════════════
 # Health Monitor
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class HealthMonitor:
     """
@@ -198,10 +205,7 @@ class HealthMonitor:
             else:
                 # Run sync function in thread pool
                 loop = asyncio.get_event_loop()
-                status = await asyncio.wait_for(
-                    loop.run_in_executor(None, func),
-                    timeout=timeout
-                )
+                status = await asyncio.wait_for(loop.run_in_executor(None, func), timeout=timeout)
 
             elapsed = (time.time() - start_time) * 1000
 
@@ -357,6 +361,7 @@ class HealthMonitor:
 # Built-in Health Checks
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def create_default_health_monitor() -> HealthMonitor:
     """Create a health monitor with default checks."""
     monitor = HealthMonitor()
@@ -380,6 +385,7 @@ def create_default_health_monitor() -> HealthMonitor:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Kubernetes Probe Helpers
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class KubernetesProbes:
     """Helper class for Kubernetes probe endpoints."""
@@ -428,6 +434,7 @@ class KubernetesProbes:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Example Usage
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def example():
     """Example of health monitor usage."""

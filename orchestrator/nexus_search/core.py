@@ -30,6 +30,7 @@ from .providers.nexus import NexusProvider
 try:
     from .optimization.deduplication import deduplicate_results
     from .optimization.query_cache import get_query_cache
+
     OPTIMIZATIONS_ENABLED = True
 except ImportError:
     OPTIMIZATIONS_ENABLED = False
@@ -121,7 +122,9 @@ class NexusSearchOrchestrator:
         if self.classifier and sources is None:
             query_type = await self.classifier.classify(query)
             sources = self.classifier.get_recommended_sources(query_type)
-            logger.debug(f"Classified query as {query_type.value}, using sources: {[s.value for s in sources]}")
+            logger.debug(
+                f"Classified query as {query_type.value}, using sources: {[s.value for s in sources]}"
+            )
 
         # Adjust num_results based on optimization mode
         if optimization == OptimizationMode.SPEED:
@@ -231,9 +234,9 @@ class NexusSearchOrchestrator:
 
     async def close(self) -> None:
         """Close Nexus Search."""
-        if self._research_agent and hasattr(self._research_agent.provider, 'client'):
+        if self._research_agent and hasattr(self._research_agent.provider, "client"):
             await self._research_agent.provider.client.close()
-        if hasattr(self.provider, 'client'):
+        if hasattr(self.provider, "client"):
             await self.provider.client.close()
         self._initialized = False
 
@@ -256,6 +259,7 @@ def get_nexus_orchestrator() -> NexusSearchOrchestrator:
 
 
 # Convenience functions for direct usage
+
 
 async def search(
     query: str,

@@ -57,16 +57,19 @@ logger = logging.getLogger("orchestrator.hitl")
 # Enums & Constants
 # ─────────────────────────────────────────────
 
+
 class ImpactLevel(str, Enum):
     """Impact level of a proposal."""
-    LOW = "low"           # Minor tweaks, reversible
-    MEDIUM = "medium"     # Moderate changes, some risk
-    HIGH = "high"         # Significant changes, notable risk
+
+    LOW = "low"  # Minor tweaks, reversible
+    MEDIUM = "medium"  # Moderate changes, some risk
+    HIGH = "high"  # Significant changes, notable risk
     STRUCTURAL = "structural"  # Core system changes, high risk
 
 
 class ApprovalStatus(str, Enum):
     """Status of an approval request."""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -76,6 +79,7 @@ class ApprovalStatus(str, Enum):
 
 class NotificationChannel(str, Enum):
     """Notification channels for approvals."""
+
     LOG = "log"
     FILE = "file"
     WEBHOOK = "webhook"
@@ -90,9 +94,11 @@ DEFAULT_APPROVAL_TIMEOUT_HOURS = 72.0
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class ApprovalConfig:
     """Configuration for HITL workflow."""
+
     auto_approve_low_risk: bool = True
     approval_timeout_hours: float = DEFAULT_APPROVAL_TIMEOUT_HOURS
     notification_channels: list[NotificationChannel] = field(
@@ -103,7 +109,7 @@ class ApprovalConfig:
     auto_approve_thresholds: dict[str, float] = field(
         default_factory=lambda: {
             "max_cost_impact": 0.05,  # 5% cost change auto-approved
-            "min_confidence": 0.9,    # 90% confidence auto-approved
+            "min_confidence": 0.9,  # 90% confidence auto-approved
         }
     )
 
@@ -111,6 +117,7 @@ class ApprovalConfig:
 @dataclass
 class ApprovalRequest:
     """A request for human approval."""
+
     request_id: str
     proposal: StrategyProposal
     impact_level: ImpactLevel
@@ -176,6 +183,7 @@ class ApprovalRequest:
 @dataclass
 class AuditEntry:
     """Immutable audit log entry."""
+
     entry_id: str
     timestamp: float
     event_type: str
@@ -197,6 +205,7 @@ class AuditEntry:
 # ─────────────────────────────────────────────
 # Notification Service
 # ─────────────────────────────────────────────
+
 
 class NotificationService:
     """
@@ -250,13 +259,18 @@ class NotificationService:
         notifications_file = self._storage_path / "pending_approvals.jsonl"
 
         with open(notifications_file, "a") as f:
-            f.write(json.dumps({
-                "request_id": request.request_id,
-                "proposal": request.proposal.description,
-                "impact": request.impact_level.value,
-                "submitted": request.submitted_at,
-                "status": request.status.value,
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "request_id": request.request_id,
+                        "proposal": request.proposal.description,
+                        "impact": request.impact_level.value,
+                        "submitted": request.submitted_at,
+                        "status": request.status.value,
+                    }
+                )
+                + "\n"
+            )
 
     async def notify_decision(
         self,
@@ -276,6 +290,7 @@ class NotificationService:
 # Audit Logger
 # ─────────────────────────────────────────────
 
+
 class AuditLogger:
     """
     Immutable audit log for approval requests.
@@ -285,14 +300,10 @@ class AuditLogger:
     """
 
     def __init__(self, storage_path: Path | None = None):
-        self._storage_path = storage_path or (
-            Path.home() / ".orchestrator_cache" / "hitl_audit"
-        )
+        self._storage_path = storage_path or (Path.home() / ".orchestrator_cache" / "hitl_audit")
         self._storage_path.mkdir(parents=True, exist_ok=True)
         self._audit_file = self._storage_path / "audit_log.jsonl"
-        self._secret = hashlib.sha256(
-            str(time.time()).encode()
-        ).hexdigest()[:16]
+        self._secret = hashlib.sha256(str(time.time()).encode()).hexdigest()[:16]
 
     def _generate_signature(self, data: dict[str, Any]) -> str:
         """Generate signature for audit entry."""
@@ -311,10 +322,12 @@ class AuditLogger:
                 "impact_level": request.impact_level.value,
                 "auto_approved": request.auto_approved,
             },
-            signature=self._generate_signature({
-                "request_id": request.request_id,
-                "timestamp": time.time(),
-            }),
+            signature=self._generate_signature(
+                {
+                    "request_id": request.request_id,
+                    "timestamp": time.time(),
+                }
+            ),
         )
 
         self._append_entry(entry)
@@ -337,11 +350,13 @@ class AuditLogger:
                 "notes": request.review_notes,
                 "duration_hours": request.pending_duration_hours,
             },
-            signature=self._generate_signature({
-                "request_id": request.request_id,
-                "decision": decision,
-                "reviewer": reviewer,
-            }),
+            signature=self._generate_signature(
+                {
+                    "request_id": request.request_id,
+                    "decision": decision,
+                    "reviewer": reviewer,
+                }
+            ),
         )
 
         self._append_entry(entry)
@@ -363,14 +378,16 @@ class AuditLogger:
                 if line.strip():
                     data = json.loads(line)
                     if data["request_id"] == request_id:
-                        trail.append(AuditEntry(
-                            entry_id=data["entry_id"],
-                            timestamp=data["timestamp"],
-                            event_type=data["event_type"],
-                            request_id=data["request_id"],
-                            details=data["details"],
-                            signature=data["signature"],
-                        ))
+                        trail.append(
+                            AuditEntry(
+                                entry_id=data["entry_id"],
+                                timestamp=data["timestamp"],
+                                event_type=data["event_type"],
+                                request_id=data["request_id"],
+                                details=data["details"],
+                                signature=data["signature"],
+                            )
+                        )
 
         return trail
 
@@ -378,6 +395,7 @@ class AuditLogger:
 # ─────────────────────────────────────────────
 # HITL Workflow Engine
 # ─────────────────────────────────────────────
+
 
 class HITLWorkflow:
     """
@@ -421,9 +439,7 @@ class HITLWorkflow:
 
     def _get_storage_path(self) -> Path:
         """Get storage path."""
-        return self.config.storage_path or (
-            Path.home() / ".orchestrator_cache" / "hitl"
-        )
+        return self.config.storage_path or (Path.home() / ".orchestrator_cache" / "hitl")
 
     def _persist_request(self, request: ApprovalRequest):
         """Persist request to disk."""
@@ -557,10 +573,7 @@ class HITLWorkflow:
             # Check for expired requests
             await self._check_expirations()
 
-            return [
-                req for req in self._requests.values()
-                if req.status == ApprovalStatus.PENDING
-            ]
+            return [req for req in self._requests.values() if req.status == ApprovalStatus.PENDING]
 
     async def get_request(self, request_id: str) -> ApprovalRequest | None:
         """Get request by ID."""
@@ -603,9 +616,7 @@ class HITLWorkflow:
             self._audit_logger.log_decision(request, "approved", reviewer_id)
 
             # Notify
-            await self._notification_service.notify_decision(
-                request, "approved", reviewer_id
-            )
+            await self._notification_service.notify_decision(request, "approved", reviewer_id)
 
             logger.info(f"Approved request {request_id} by {reviewer_id}")
             return True
@@ -647,9 +658,7 @@ class HITLWorkflow:
             self._audit_logger.log_decision(request, "rejected", reviewer_id)
 
             # Notify
-            await self._notification_service.notify_decision(
-                request, "rejected", reviewer_id
-            )
+            await self._notification_service.notify_decision(request, "rejected", reviewer_id)
 
             logger.info(f"Rejected request {request_id} by {reviewer_id}")
             return True
@@ -683,18 +692,13 @@ class HITLWorkflow:
             "total_requests": len(self._requests),
             "by_status": dict(by_status),
             "pending_count": by_status.get("pending", 0),
-            "auto_approved_count": sum(
-                1 for r in self._requests.values() if r.auto_approved
-            ),
+            "auto_approved_count": sum(1 for r in self._requests.values() if r.auto_approved),
             "avg_pending_hours": self._calculate_avg_pending_hours(),
         }
 
     def _calculate_avg_pending_hours(self) -> float:
         """Calculate average pending duration for reviewed requests."""
-        reviewed = [
-            r for r in self._requests.values()
-            if r.reviewed_at is not None
-        ]
+        reviewed = [r for r in self._requests.values() if r.reviewed_at is not None]
         if not reviewed:
             return 0.0
 

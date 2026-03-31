@@ -12,6 +12,7 @@ Usage:
     evaluator = Evaluator()
     score = await evaluator.evaluate(content="...", criteria="accuracy, relevance")
 """
+
 from __future__ import annotations
 
 import logging
@@ -40,10 +41,7 @@ class Evaluator:
         self.model = model
 
     async def evaluate(
-        self,
-        content: str,
-        criteria: str | list[str],
-        reference: str | None = None
+        self, content: str, criteria: str | list[str], reference: str | None = None
     ) -> EvaluationResult:
         """
         Evaluate content against specified criteria.
@@ -103,8 +101,7 @@ class Evaluator:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model, messages=[{"role": "user", "content": prompt}]
             )
 
             return self._parse_evaluation_response(response.content)
@@ -116,12 +113,12 @@ class Evaluator:
                 score=0.5,
                 breakdown={str(criteria): 0.5},
                 feedback="Evaluation failed due to an error",
-                reasoning="Default score assigned due to evaluation failure"
+                reasoning="Default score assigned due to evaluation failure",
             )
 
     def _parse_evaluation_response(self, response: str) -> EvaluationResult:
         """Parse the evaluation response into an EvaluationResult object."""
-        lines = response.split('\n')
+        lines = response.split("\n")
 
         score = 0.5
         breakdown = {}
@@ -133,27 +130,27 @@ class Evaluator:
         for line in lines:
             line = line.strip()
 
-            if line.startswith('SCORE:'):
+            if line.startswith("SCORE:"):
                 try:
-                    score_str = line.split('SCORE:', 1)[1].strip()
+                    score_str = line.split("SCORE:", 1)[1].strip()
                     score = float(score_str)
                 except (ValueError, IndexError):
                     pass  # Keep default score
 
-            elif line.startswith('BREAKDOWN:'):
-                current_section = 'breakdown'
+            elif line.startswith("BREAKDOWN:"):
+                current_section = "breakdown"
 
-            elif line.startswith('FEEDBACK:'):
-                current_section = 'feedback'
-                feedback = line.split('FEEDBACK:', 1)[1].strip()
+            elif line.startswith("FEEDBACK:"):
+                current_section = "feedback"
+                feedback = line.split("FEEDBACK:", 1)[1].strip()
 
-            elif line.startswith('REASONING:'):
-                current_section = 'reasoning'
-                reasoning = line.split('REASONING:', 1)[1].strip()
+            elif line.startswith("REASONING:"):
+                current_section = "reasoning"
+                reasoning = line.split("REASONING:", 1)[1].strip()
 
-            elif current_section == 'breakdown' and line.startswith('- '):
+            elif current_section == "breakdown" and line.startswith("- "):
                 try:
-                    parts = line[2:].split(':', 1)  # Remove '- ' prefix
+                    parts = line[2:].split(":", 1)  # Remove '- ' prefix
                     if len(parts) == 2:
                         criterion = parts[0].strip()
                         try:
@@ -165,11 +162,11 @@ class Evaluator:
                 except IndexError:
                     pass  # Skip malformed lines
 
-            elif current_section == 'feedback' and not line.startswith('REASONING:'):
-                feedback += ' ' + line
+            elif current_section == "feedback" and not line.startswith("REASONING:"):
+                feedback += " " + line
 
-            elif current_section == 'reasoning':
-                reasoning += ' ' + line
+            elif current_section == "reasoning":
+                reasoning += " " + line
 
         # If score is still default and we have breakdown, calculate average
         if score == 0.5 and breakdown:
@@ -179,10 +176,12 @@ class Evaluator:
             score=min(max(score, 0.0), 1.0),  # Normalize to 0.0-1.0 range
             breakdown=breakdown,
             feedback=feedback.strip(),
-            reasoning=reasoning.strip()
+            reasoning=reasoning.strip(),
         )
 
-    async def compare_content(self, content1: str, content2: str, criteria: str) -> EvaluationResult:
+    async def compare_content(
+        self, content1: str, content2: str, criteria: str
+    ) -> EvaluationResult:
         """
         Compare two pieces of content based on specified criteria.
 
@@ -217,12 +216,12 @@ class Evaluator:
         """
 
         from .api_clients import UnifiedClient
+
         client = UnifiedClient()
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model, messages=[{"role": "user", "content": prompt}]
             )
 
             return self._parse_evaluation_response(response.content)
@@ -233,7 +232,7 @@ class Evaluator:
                 score=0.5,
                 breakdown={criteria: 0.5},
                 feedback="Comparison failed due to an error",
-                reasoning="Default score assigned due to comparison failure"
+                reasoning="Default score assigned due to comparison failure",
             )
 
     async def evaluate_task_result(self, content: str, task_instruction: str) -> EvaluationResult:

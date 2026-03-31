@@ -16,6 +16,7 @@ Usage:
     dashboard = AntDesignDashboard()
     dashboard.start()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,6 +33,7 @@ logger = get_logger(__name__)
 @dataclass
 class DashboardState:
     """Complete dashboard state."""
+
     project: dict[str, Any]
     architecture: dict[str, Any]
     active_task: dict[str, Any]
@@ -218,7 +220,7 @@ class AntDesignDashboardServer:
 
     def _get_html(self) -> str:
         """Generate Ant Design HTML."""
-        return '''<!DOCTYPE html>
+        return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -757,7 +759,7 @@ class AntDesignDashboardServer:
         root.render(<App />);
     </script>
 </body>
-</html>'''
+</html>"""
 
     async def run(self):
         """Start the dashboard server."""

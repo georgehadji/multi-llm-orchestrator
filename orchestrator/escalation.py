@@ -13,6 +13,7 @@ Usage:
     handler = EscalationHandler()
     result = await handler.process_with_escalation(content="...", criteria="quality")
 """
+
 from __future__ import annotations
 
 import logging
@@ -59,17 +60,14 @@ class EscalationHandler:
         self.rules.append(rule)
 
     def add_quality_threshold_rule(
-        self,
-        threshold: float,
-        target_model: Model,
-        max_escalations: int = 3
+        self, threshold: float, target_model: Model, max_escalations: int = 3
     ):
         """Add a rule based on quality threshold."""
         rule = EscalationRule(
             condition="quality_threshold",
             threshold=threshold,
             target_model=target_model,
-            max_escalations=max_escalations
+            max_escalations=max_escalations,
         )
         self.add_rule(rule)
 
@@ -79,7 +77,7 @@ class EscalationHandler:
             condition="error_retry",
             threshold=0.0,  # Not used for error retries
             target_model=target_model,
-            max_escalations=max_escalations
+            max_escalations=max_escalations,
         )
         self.add_rule(rule)
 
@@ -88,7 +86,7 @@ class EscalationHandler:
         content: str,
         criteria: str | list[str],
         initial_model: Model,
-        max_escalations: int | None = None
+        max_escalations: int | None = None,
     ) -> EscalationResult:
         """
         Process content with potential escalation based on rules.
@@ -118,10 +116,7 @@ class EscalationHandler:
             # Trigger escalation due to error
             if escalation_count < max_escalations:
                 escalated = await self._apply_escalation_rule(
-                    "error_retry",
-                    current_content,
-                    current_model,
-                    criteria
+                    "error_retry", current_content, current_model, criteria
                 )
                 if escalated:
                     current_model = escalated.target_model
@@ -131,9 +126,11 @@ class EscalationHandler:
                     escalation_count += 1
 
         # Check if escalation is needed based on quality
-        while (escalation_count < max_escalations and
-               evaluation_result and
-               evaluation_result.score < 0.7):  # Default threshold
+        while (
+            escalation_count < max_escalations
+            and evaluation_result
+            and evaluation_result.score < 0.7
+        ):  # Default threshold
 
             # Find applicable escalation rules
             applicable_rule = self._find_applicable_rule(evaluation_result.score)
@@ -153,7 +150,7 @@ class EscalationHandler:
             final_model=current_model,
             escalation_path=escalation_path,
             evaluation_result=evaluation_result,
-            was_escalated=len(escalation_path) > 1
+            was_escalated=len(escalation_path) > 1,
         )
 
     async def _process_with_model(self, content: str, model: Model) -> str:
@@ -172,8 +169,7 @@ class EscalationHandler:
 
         try:
             response = await client.acomplete(
-                model=model,
-                messages=[{"role": "user", "content": prompt}]
+                model=model, messages=[{"role": "user", "content": prompt}]
             )
             return response.content
         except Exception as e:
@@ -188,11 +184,7 @@ class EscalationHandler:
         return None
 
     async def _apply_escalation_rule(
-        self,
-        condition: str,
-        content: str,
-        current_model: Model,
-        criteria: str | list[str]
+        self, condition: str, content: str, current_model: Model, criteria: str | list[str]
     ) -> EscalationRule | None:
         """Apply an escalation rule based on the condition."""
         for rule in self.rules:
@@ -201,9 +193,7 @@ class EscalationHandler:
         return None
 
     async def escalate_based_on_complexity(
-        self,
-        content: str,
-        complexity_threshold: float = 0.7
+        self, content: str, complexity_threshold: float = 0.7
     ) -> EscalationResult:
         """
         Automatically escalate based on content complexity.
@@ -227,27 +217,31 @@ class EscalationHandler:
 
         try:
             processed_content = await self._process_with_model(content, target_model)
-            evaluation_result = await self.evaluator.evaluate(processed_content, "relevance and accuracy")
+            evaluation_result = await self.evaluator.evaluate(
+                processed_content, "relevance and accuracy"
+            )
 
             return EscalationResult(
                 final_content=processed_content,
                 final_model=target_model,
                 escalation_path=[target_model],
                 evaluation_result=evaluation_result,
-                was_escalated=complexity_score > complexity_threshold
+                was_escalated=complexity_score > complexity_threshold,
             )
         except Exception as e:
             logger.error(f"Complexity-based escalation failed: {e}")
             # Fallback to initial model
             fallback_content = await self._process_with_model(content, Model.DEEPSEEK_CHAT)
-            evaluation_result = await self.evaluator.evaluate(fallback_content, "relevance and accuracy")
+            evaluation_result = await self.evaluator.evaluate(
+                fallback_content, "relevance and accuracy"
+            )
 
             return EscalationResult(
                 final_content=fallback_content,
                 final_model=Model.DEEPSEEK_CHAT,
                 escalation_path=[Model.DEEPSEEK_CHAT],
                 evaluation_result=evaluation_result,
-                was_escalated=False
+                was_escalated=False,
             )
 
     async def _assess_complexity(self, content: str) -> float:
@@ -258,7 +252,7 @@ class EscalationHandler:
         avg_word_length = sum(len(word) for word in words) / len(words) if words else 0
 
         # Count sentences to assess complexity
-        sentences = content.split('.')
+        sentences = content.split(".")
         avg_sentence_length = len(words) / len(sentences) if sentences else 0
 
         # Count unique words to assess vocabulary diversity
@@ -268,9 +262,9 @@ class EscalationHandler:
         # Combine metrics into a complexity score (normalized to 0.0-1.0)
         # Higher values indicate higher complexity
         complexity_score = (
-            (avg_word_length / 10) * 0.3 +  # Average word length contributes 30%
-            (min(avg_sentence_length / 20, 1.0)) * 0.4 +  # Sentence length contributes 40%
-            vocabulary_diversity * 0.3  # Vocabulary diversity contributes 30%
+            (avg_word_length / 10) * 0.3  # Average word length contributes 30%
+            + (min(avg_sentence_length / 20, 1.0)) * 0.4  # Sentence length contributes 40%
+            + vocabulary_diversity * 0.3  # Vocabulary diversity contributes 30%
         )
 
         return min(complexity_score, 1.0)  # Ensure score is between 0.0 and 1.0

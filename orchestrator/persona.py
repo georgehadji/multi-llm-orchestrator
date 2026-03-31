@@ -36,15 +36,17 @@ logger = get_logger(__name__)
 
 class PersonaMode(Enum):
     """Persona behavior modes."""
-    STRICT = "strict"     # Business/production, strict validation
-    CREATIVE = "creative" # Brainstorming, flexible output
-    BALANCED = "balanced" # Default balanced behavior
-    CUSTOM = "custom"     # User-defined persona
+
+    STRICT = "strict"  # Business/production, strict validation
+    CREATIVE = "creative"  # Brainstorming, flexible output
+    BALANCED = "balanced"  # Default balanced behavior
+    CUSTOM = "custom"  # User-defined persona
 
 
 @dataclass
 class PersonaSettings:
     """Settings for a persona mode."""
+
     # Temperature settings
     temperature: float = 0.7
     top_p: float = 0.9
@@ -291,13 +293,13 @@ class PersonaManager:
 
         # Apply settings to orchestrator
         # Note: This depends on orchestrator's API
-        if hasattr(orchestrator, 'temperature'):
+        if hasattr(orchestrator, "temperature"):
             orchestrator.temperature = settings.temperature
 
-        if hasattr(orchestrator, 'max_iterations'):
+        if hasattr(orchestrator, "max_iterations"):
             orchestrator.max_iterations = settings.max_iterations
 
-        if hasattr(orchestrator, 'context_truncation_limit'):
+        if hasattr(orchestrator, "context_truncation_limit"):
             orchestrator.context_truncation_limit = settings.context_truncation
 
         logger.info(f"Applied persona settings to orchestrator for project {project_id}")

@@ -64,6 +64,7 @@ class NexusProvider(BaseSearchProvider):
         """Get or create Nexus client."""
         if self._client is None:
             from orchestrator.nexus_search.nexus_client import get_client
+
             self._client = get_client(self.config)
         return self._client
 

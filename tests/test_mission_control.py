@@ -3,8 +3,10 @@
 Test Mission Control Dashboard
 ==============================
 """
+
 import sys
-sys.path.insert(0, r'E:\Documents\Vibe-Coding\Ai Orchestrator')
+
+sys.path.insert(0, r"E:\Documents\Vibe-Coding\Ai Orchestrator")
 
 print("=" * 60)
 print("🚀 Testing Mission Control v6.0")
@@ -18,10 +20,12 @@ try:
         MissionControlServer,
         ProjectRunner,
     )
+
     print("   ✅ All imports successful")
 except Exception as e:
     print(f"   ❌ Import failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -34,6 +38,7 @@ try:
 except Exception as e:
     print(f"   ❌ Failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -52,7 +57,7 @@ print("\n4️⃣ Testing HTML generation...")
 try:
     html = server._get_html()
     print(f"   ✅ HTML generated: {len(html):,} characters")
-    
+
     # Check key features
     checks = [
         ("Project Form", "project-type" in html),
@@ -63,11 +68,11 @@ try:
         ("Models Display", "Models" in html),
         ("WebSocket", "websocket" in html.lower()),
     ]
-    
+
     for name, present in checks:
         status = "✅" if present else "❌"
         print(f"   {status} {name}")
-        
+
 except Exception as e:
     print(f"   ❌ Failed: {e}")
 

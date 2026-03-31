@@ -6,6 +6,7 @@ Covers: TaskChannel async operations, peek_all non-destructiveness,
 
 No external async plugin required — all async tests use asyncio.run() wrappers.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,10 +26,10 @@ from orchestrator.models import (
 )
 from orchestrator.policy import JobSpec, PolicySet
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def run(coro):
     """Run a coroutine synchronously — no pytest-asyncio needed."""
@@ -74,12 +75,14 @@ def _state_with_scores(*scores: float) -> ProjectState:
 # TaskChannel — basic async operations
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_put_and_get_message():
     async def _run():
         ch = TaskChannel()
         await ch.put({"type": "schema", "value": 42})
         msg = await ch.get()
         return msg
+
     assert run(_run()) == {"type": "schema", "value": 42}
 
 
@@ -91,11 +94,13 @@ def test_qsize_reflects_queue_depth():
         assert ch.qsize() == 1
         await ch.put({"b": 2})
         assert ch.qsize() == 2
+
     run(_run())
 
 
 def test_peek_all_nondestructive():
     """Items returned by peek_all must still be in the queue afterwards."""
+
     async def _run():
         ch = TaskChannel()
         msgs = [{"i": i} for i in range(3)]
@@ -109,6 +114,7 @@ def test_peek_all_nondestructive():
         # Get them all out
         retrieved = [await ch.get() for _ in range(3)]
         assert retrieved == msgs
+
     run(_run())
 
 
@@ -119,6 +125,7 @@ def test_peek_all_preserves_order():
             await ch.put({"seq": i})
         peeked = ch.peek_all()
         assert [m["seq"] for m in peeked] == list(range(5))
+
     run(_run())
 
 
@@ -133,11 +140,13 @@ def test_channel_with_maxsize():
         await ch.put({"a": 1})
         await ch.put({"b": 2})
         assert ch.qsize() == 2
+
     run(_run())
 
 
 def test_get_blocks_until_message():
     """get() must await a put() from a concurrent coroutine."""
+
     async def _run():
         ch = TaskChannel()
 
@@ -154,6 +163,7 @@ def test_get_blocks_until_message():
 
 def test_multiple_puts_and_gets_fifo_order():
     """Messages should come out in FIFO order."""
+
     async def _run():
         ch = TaskChannel()
         for i in range(4):
@@ -167,6 +177,7 @@ def test_multiple_puts_and_gets_fifo_order():
 # ─────────────────────────────────────────────────────────────────────────────
 # AgentPool — registration
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_add_agent_and_agents_view():
     pool = AgentPool()
@@ -198,6 +209,7 @@ def test_multiple_agents_registered():
 # AgentPool — run_parallel
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_run_parallel_all_succeed():
     async def _run():
         pool = AgentPool()
@@ -222,6 +234,7 @@ def test_run_parallel_all_succeed():
 
 def test_run_parallel_one_agent_fails_others_succeed():
     """An exception from one agent must not cancel the others."""
+
     async def _run():
         pool = AgentPool()
         state_ok = _make_project_state()
@@ -254,6 +267,7 @@ def test_run_parallel_empty_assignments():
 
 def test_run_parallel_correct_spec_passed_to_each_agent():
     """Each agent's run_job must be called with the spec assigned to it."""
+
     async def _run():
         pool = AgentPool()
         spec_a = _make_spec()
@@ -278,10 +292,11 @@ def test_run_parallel_correct_spec_passed_to_each_agent():
 # AgentPool — best_result
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_best_result_picks_highest_mean_score():
     pool = AgentPool()
-    state_low = _state_with_scores(0.5, 0.6)       # mean 0.55
-    state_high = _state_with_scores(0.9, 0.95)     # mean 0.925
+    state_low = _state_with_scores(0.5, 0.6)  # mean 0.55
+    state_high = _state_with_scores(0.9, 0.95)  # mean 0.925
     results = {"low": state_low, "high": state_high}
     best = pool.best_result(results)
     assert best is state_high
@@ -300,7 +315,12 @@ def test_best_result_single_agent():
 
 def test_best_result_skips_states_with_no_scored_results():
     pool = AgentPool()
-    empty_state = ProjectState(project_description="test", success_criteria="pass", budget=Budget(max_usd=1.0), status=ProjectStatus.SUCCESS)
+    empty_state = ProjectState(
+        project_description="test",
+        success_criteria="pass",
+        budget=Budget(max_usd=1.0),
+        status=ProjectStatus.SUCCESS,
+    )
     good_state = _state_with_scores(0.75)
     best = pool.best_result({"empty": empty_state, "good": good_state})
     assert best is good_state
@@ -308,14 +328,25 @@ def test_best_result_skips_states_with_no_scored_results():
 
 def test_best_result_all_empty_returns_none():
     pool = AgentPool()
-    s1 = ProjectState(project_description="test", success_criteria="pass", budget=Budget(max_usd=1.0), status=ProjectStatus.SUCCESS)
-    s2 = ProjectState(project_description="test2", success_criteria="pass2", budget=Budget(max_usd=1.0), status=ProjectStatus.SUCCESS)
+    s1 = ProjectState(
+        project_description="test",
+        success_criteria="pass",
+        budget=Budget(max_usd=1.0),
+        status=ProjectStatus.SUCCESS,
+    )
+    s2 = ProjectState(
+        project_description="test2",
+        success_criteria="pass2",
+        budget=Budget(max_usd=1.0),
+        status=ProjectStatus.SUCCESS,
+    )
     assert pool.best_result({"a": s1, "b": s2}) is None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # AgentPool — merge_telemetry
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_merge_telemetry_empty_pool():
     pool = AgentPool()
@@ -384,9 +415,9 @@ def test_merge_telemetry_re_derives_success_rate():
     profiles_b = build_default_profiles()
 
     profiles_a[Model.KIMI_K2_5].call_count = 10
-    profiles_a[Model.KIMI_K2_5].failure_count = 2   # 80% success
+    profiles_a[Model.KIMI_K2_5].failure_count = 2  # 80% success
     profiles_b[Model.KIMI_K2_5].call_count = 10
-    profiles_b[Model.KIMI_K2_5].failure_count = 0   # 100% success
+    profiles_b[Model.KIMI_K2_5].failure_count = 0  # 100% success
 
     mock_a = MagicMock()
     mock_a._profiles = profiles_a
@@ -405,8 +436,10 @@ def test_merge_telemetry_re_derives_success_rate():
 # Orchestrator.get_channel integration (engine wiring)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_get_channel_returns_task_channel():
     from orchestrator.engine import Orchestrator
+
     orch = Orchestrator(budget=Budget(max_usd=1.0))
     ch = orch.get_channel("artifacts")
     assert isinstance(ch, TaskChannel)
@@ -414,6 +447,7 @@ def test_get_channel_returns_task_channel():
 
 def test_get_channel_lazy_creates_and_caches():
     from orchestrator.engine import Orchestrator
+
     orch = Orchestrator(budget=Budget(max_usd=1.0))
     ch1 = orch.get_channel("my_channel")
     ch2 = orch.get_channel("my_channel")
@@ -422,6 +456,7 @@ def test_get_channel_lazy_creates_and_caches():
 
 def test_get_channel_different_names_are_different():
     from orchestrator.engine import Orchestrator
+
     orch = Orchestrator(budget=Budget(max_usd=1.0))
     ch_a = orch.get_channel("channel_a")
     ch_b = orch.get_channel("channel_b")

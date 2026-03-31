@@ -14,6 +14,7 @@ Usage:
     manager.set_mode(OperationMode.STRICT)
     result = await orchestrator.run_task(task, mode=OperationMode.CREATIVE)
 """
+
 from __future__ import annotations
 
 import logging
@@ -74,7 +75,7 @@ class ModeManager:
                 stop_sequences=[],
                 model_override=None,
                 validation_level="thorough",
-                creativity_boost=0.2
+                creativity_boost=0.2,
             ),
             OperationMode.CREATIVE: ModeConfig(
                 temperature=0.9,
@@ -85,7 +86,7 @@ class ModeManager:
                 stop_sequences=[],
                 model_override=None,
                 validation_level="basic",
-                creativity_boost=1.5
+                creativity_boost=1.5,
             ),
             OperationMode.BALANCED: ModeConfig(
                 temperature=0.5,
@@ -96,7 +97,7 @@ class ModeManager:
                 stop_sequences=[],
                 model_override=None,
                 validation_level="basic",
-                creativity_boost=1.0
+                creativity_boost=1.0,
             ),
             OperationMode.FAST: ModeConfig(
                 temperature=0.3,
@@ -107,7 +108,7 @@ class ModeManager:
                 stop_sequences=[],
                 model_override=Model.DEEPSEEK_CHAT,  # Use faster model
                 validation_level="none",
-                creativity_boost=0.7
+                creativity_boost=0.7,
             ),
             OperationMode.ACCURATE: ModeConfig(
                 temperature=0.1,
@@ -118,7 +119,7 @@ class ModeManager:
                 stop_sequences=[],
                 model_override=Model.DEEPSEEK_REASONER,  # Use reasoning model
                 validation_level="thorough",
-                creativity_boost=0.3
+                creativity_boost=0.3,
             ),
             OperationMode.CHEAP: ModeConfig(
                 temperature=0.4,
@@ -129,7 +130,7 @@ class ModeManager:
                 stop_sequences=[],
                 model_override=Model.DEEPSEEK_CHAT,  # Use cheaper model
                 validation_level="none",
-                creativity_boost=0.6
+                creativity_boost=0.6,
             ),
             OperationMode.VERBOSE: ModeConfig(
                 temperature=0.6,
@@ -140,7 +141,7 @@ class ModeManager:
                 stop_sequences=[],
                 model_override=None,
                 validation_level="basic",
-                creativity_boost=1.0
+                creativity_boost=1.0,
             ),
             OperationMode.CONCISE: ModeConfig(
                 temperature=0.2,
@@ -151,8 +152,8 @@ class ModeManager:
                 stop_sequences=["\n\n"],
                 model_override=None,
                 validation_level="none",
-                creativity_boost=0.5
-            )
+                creativity_boost=0.5,
+            ),
         }
 
     def set_mode(self, mode: OperationMode):
@@ -176,7 +177,9 @@ class ModeManager:
         """Get the configuration for the current mode."""
         return self.get_config_for_mode(self.current_mode)
 
-    def apply_mode_to_params(self, params: dict[str, Any], mode: OperationMode | None = None) -> dict[str, Any]:
+    def apply_mode_to_params(
+        self, params: dict[str, Any], mode: OperationMode | None = None
+    ) -> dict[str, Any]:
         """
         Apply mode-specific parameters to a parameter dictionary.
 
@@ -194,30 +197,30 @@ class ModeManager:
         updated_params = params.copy()
 
         # Apply temperature if not already set
-        if 'temperature' not in updated_params:
-            updated_params['temperature'] = config.temperature
+        if "temperature" not in updated_params:
+            updated_params["temperature"] = config.temperature
 
         # Apply top_p if not already set
-        if 'top_p' not in updated_params:
-            updated_params['top_p'] = config.top_p
+        if "top_p" not in updated_params:
+            updated_params["top_p"] = config.top_p
 
         # Apply max_tokens if not already set and config has a value
-        if 'max_tokens' not in updated_params and config.max_tokens is not None:
-            updated_params['max_tokens'] = config.max_tokens
+        if "max_tokens" not in updated_params and config.max_tokens is not None:
+            updated_params["max_tokens"] = config.max_tokens
 
         # Apply penalties
-        if 'presence_penalty' not in updated_params:
-            updated_params['presence_penalty'] = config.presence_penalty
+        if "presence_penalty" not in updated_params:
+            updated_params["presence_penalty"] = config.presence_penalty
 
-        if 'frequency_penalty' not in updated_params:
-            updated_params['frequency_penalty'] = config.frequency_penalty
+        if "frequency_penalty" not in updated_params:
+            updated_params["frequency_penalty"] = config.frequency_penalty
 
         # Apply stop sequences
-        if 'stop' not in updated_params:
-            updated_params['stop'] = config.stop_sequences
+        if "stop" not in updated_params:
+            updated_params["stop"] = config.stop_sequences
         else:
             # Combine with existing stop sequences
-            updated_params['stop'] = list(set(updated_params['stop'] + config.stop_sequences))
+            updated_params["stop"] = list(set(updated_params["stop"] + config.stop_sequences))
 
         return updated_params
 
@@ -289,7 +292,7 @@ class ModeManager:
             "stop_sequences": config.stop_sequences,
             "model_override": config.model_override.value if config.model_override else None,
             "validation_level": config.validation_level,
-            "creativity_boost": config.creativity_boost
+            "creativity_boost": config.creativity_boost,
         }
 
 

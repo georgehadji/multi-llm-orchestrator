@@ -13,6 +13,7 @@ Usage:
     rules = InDesignPluginRules()
     config = rules.generate_config("My Plugin", technology="uxp")
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
 @dataclass
 class InDesignRulesConfig:
     """InDesign Plugin Rules Configuration."""
+
     plugin_name: str
     plugin_id: str
     version: str = "1.0.0"
@@ -858,12 +860,14 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
         """Get all available technologies."""
         return self.TECHNOLOGY_PATHS
 
-    def recommend_technology(self,
-                            requires_native_access: bool = False,
-                            requires_high_performance: bool = False,
-                            requires_custom_hooks: bool = False,
-                            target_indesign_version: str = "2024",
-                            team_expertise: str = "javascript") -> str:
+    def recommend_technology(
+        self,
+        requires_native_access: bool = False,
+        requires_high_performance: bool = False,
+        requires_custom_hooks: bool = False,
+        target_indesign_version: str = "2024",
+        team_expertise: str = "javascript",
+    ) -> str:
         """
         Recommend technology based on requirements.
 
@@ -886,10 +890,9 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
         # Default to UXP for modern development
         return "uxp"
 
-    def generate_config(self,
-                       plugin_name: str,
-                       technology: str | None = None,
-                       **kwargs) -> InDesignRulesConfig:
+    def generate_config(
+        self, plugin_name: str, technology: str | None = None, **kwargs
+    ) -> InDesignRulesConfig:
         """
         Generate InDesign plugin configuration.
 
@@ -899,36 +902,36 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
             **kwargs: Additional configuration options
         """
         # Generate plugin ID
-        plugin_id = plugin_name.lower().replace(' ', '-').replace('_', '-')
+        plugin_id = plugin_name.lower().replace(" ", "-").replace("_", "-")
 
         # Determine technology
         if technology is None:
             technology = self.recommend_technology(
-                requires_native_access=kwargs.get('requires_native_access', False),
-                requires_high_performance=kwargs.get('requires_high_performance', False),
-                requires_custom_hooks=kwargs.get('requires_custom_hooks', False),
-                target_indesign_version=kwargs.get('target_indesign_version', '2024'),
+                requires_native_access=kwargs.get("requires_native_access", False),
+                requires_high_performance=kwargs.get("requires_high_performance", False),
+                requires_custom_hooks=kwargs.get("requires_custom_hooks", False),
+                target_indesign_version=kwargs.get("target_indesign_version", "2024"),
             )
 
         return InDesignRulesConfig(
             plugin_name=plugin_name,
             plugin_id=plugin_id,
-            version=kwargs.get('version', '1.0.0'),
-            author=kwargs.get('author', ''),
+            version=kwargs.get("version", "1.0.0"),
+            author=kwargs.get("author", ""),
             technology=technology,
-            uxp_type=kwargs.get('uxp_type', 'panel'),
-            use_typescript=kwargs.get('use_typescript', True),
-            use_react=kwargs.get('use_react', True),
-            cpp_standard=kwargs.get('cpp_standard', 'c++17'),
-            use_raii=kwargs.get('use_raii', True),
-            use_sanitizers=kwargs.get('use_sanitizers', True),
-            distribution_target=kwargs.get('distribution_target', 'marketplace'),
-            include_telemetry=kwargs.get('include_telemetry', True),
-            telemetry_opt_in=kwargs.get('telemetry_opt_in', True),
-            include_migration=kwargs.get('include_migration', True),
-            include_ci=kwargs.get('include_ci', True),
-            gdpr_compliant=kwargs.get('gdpr_compliant', True),
-            secure_credentials=kwargs.get('secure_credentials', True),
+            uxp_type=kwargs.get("uxp_type", "panel"),
+            use_typescript=kwargs.get("use_typescript", True),
+            use_react=kwargs.get("use_react", True),
+            cpp_standard=kwargs.get("cpp_standard", "c++17"),
+            use_raii=kwargs.get("use_raii", True),
+            use_sanitizers=kwargs.get("use_sanitizers", True),
+            distribution_target=kwargs.get("distribution_target", "marketplace"),
+            include_telemetry=kwargs.get("include_telemetry", True),
+            telemetry_opt_in=kwargs.get("telemetry_opt_in", True),
+            include_migration=kwargs.get("include_migration", True),
+            include_ci=kwargs.get("include_ci", True),
+            gdpr_compliant=kwargs.get("gdpr_compliant", True),
+            secure_credentials=kwargs.get("secure_credentials", True),
         )
 
     def get_rules_file_content(self, config: InDesignRulesConfig) -> str:
@@ -941,7 +944,9 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
         elif config.technology == "cpp":
             best_practices = self.CPP_BEST_PRACTICES
         else:
-            best_practices = "## ExtendScript (Legacy)\n\n⚠️  ExtendScript is deprecated. Migrate to UXP.\n"
+            best_practices = (
+                "## ExtendScript (Legacy)\n\n⚠️  ExtendScript is deprecated. Migrate to UXP.\n"
+            )
 
         content = f"""# InDesign Plugin Rules: {config.plugin_name}
 
@@ -1069,11 +1074,7 @@ xcrun altool --notarize-app --primary-bundle-id "com.example.plugin" \
 
 
 # Convenience function
-def generate_indesign_plugin_rules(
-    plugin_name: str,
-    output_dir: Path,
-    **kwargs
-) -> Path:
+def generate_indesign_plugin_rules(plugin_name: str, output_dir: Path, **kwargs) -> Path:
     """
     Generate InDesign plugin rules file.
 

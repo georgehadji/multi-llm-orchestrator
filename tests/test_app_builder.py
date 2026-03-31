@@ -2,6 +2,7 @@
 Tests for AppBuilder top-level pipeline (Task 7).
 All Orchestrator calls and subprocess calls are mocked.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,10 +13,10 @@ import pytest
 from orchestrator.app_builder import AppBuildResult, AppBuilder
 from orchestrator.app_detector import AppProfile
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # AppBuildResult — dataclass
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_app_build_result_fields():
     """AppBuildResult must have required fields."""
@@ -35,17 +36,20 @@ def test_app_build_result_fields():
 # AppBuilder.build — full pipeline (mocked)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_build_returns_app_build_result(tmp_path):
     """build() must return an AppBuildResult instance."""
     import asyncio
 
     builder = AppBuilder()
     with _mock_pipeline(tmp_path):
-        result = asyncio.run(builder.build(
-            description="Build a FastAPI app",
-            criteria="Must have health endpoint",
-            output_dir=tmp_path,
-        ))
+        result = asyncio.run(
+            builder.build(
+                description="Build a FastAPI app",
+                criteria="Must have health endpoint",
+                output_dir=tmp_path,
+            )
+        )
 
     assert isinstance(result, AppBuildResult)
 
@@ -56,11 +60,13 @@ def test_build_success_when_all_steps_pass(tmp_path):
 
     builder = AppBuilder()
     with _mock_pipeline(tmp_path):
-        result = asyncio.run(builder.build(
-            description="Build a FastAPI app",
-            criteria="Must have health endpoint",
-            output_dir=tmp_path,
-        ))
+        result = asyncio.run(
+            builder.build(
+                description="Build a FastAPI app",
+                criteria="Must have health endpoint",
+                output_dir=tmp_path,
+            )
+        )
 
     assert result.success is True
     assert result.errors == []
@@ -74,31 +80,39 @@ def test_build_with_app_type_override(tmp_path):
     cli_profile = AppProfile(app_type="cli")
     analyze_mock = AsyncMock(return_value=cli_profile)
 
-    with _mock_pipeline(tmp_path) as mocks, \
-         patch("orchestrator.app_builder.ArchitectureAdvisor.analyze", analyze_mock):
-        result = asyncio.run(builder.build(
-            description="Build a CLI tool",
-            criteria="Must parse args",
-            output_dir=tmp_path,
-            app_type_override="cli",
-        ))
+    with (
+        _mock_pipeline(tmp_path) as mocks,
+        patch("orchestrator.app_builder.ArchitectureAdvisor.analyze", analyze_mock),
+    ):
+        result = asyncio.run(
+            builder.build(
+                description="Build a CLI tool",
+                criteria="Must parse args",
+                output_dir=tmp_path,
+                app_type_override="cli",
+            )
+        )
 
     analyze_mock.assert_called_once()
     call_args = analyze_mock.call_args
     assert call_args[0][2] == "cli"
     assert result.profile.app_type == "cli"
+
+
 def test_build_with_docker_flag(tmp_path):
     """build() with docker=True must call verify_docker."""
     import asyncio
 
     builder = AppBuilder()
     with _mock_pipeline(tmp_path, docker=True) as mocks:
-        result = asyncio.run(builder.build(
-            description="Build a FastAPI app",
-            criteria="Must have health endpoint",
-            output_dir=tmp_path,
-            docker=True,
-        ))
+        result = asyncio.run(
+            builder.build(
+                description="Build a FastAPI app",
+                criteria="Must have health endpoint",
+                output_dir=tmp_path,
+                docker=True,
+            )
+        )
 
     mocks["verify_docker"].assert_called_once()
 
@@ -109,11 +123,13 @@ def test_build_handles_orchestrator_failure(tmp_path):
 
     builder = AppBuilder()
     with _mock_pipeline(tmp_path, orchestrator_fails=True):
-        result = asyncio.run(builder.build(
-            description="Build something",
-            criteria="Works",
-            output_dir=tmp_path,
-        ))
+        result = asyncio.run(
+            builder.build(
+                description="Build something",
+                criteria="Works",
+                output_dir=tmp_path,
+            )
+        )
 
     assert result.success is False
     assert len(result.errors) >= 1
@@ -124,6 +140,7 @@ def test_build_handles_orchestrator_failure(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 
 from contextlib import contextmanager
+
 
 @contextmanager
 def _mock_pipeline(tmp_path: Path, docker: bool = False, orchestrator_fails: bool = False):
@@ -159,11 +176,13 @@ def _mock_pipeline(tmp_path: Path, docker: bool = False, orchestrator_fails: boo
 
     mocks["verify_docker"] = verify_docker_mock
 
-    with patch("orchestrator.app_builder.ArchitectureAdvisor.analyze", detect_mock), \
-         patch("orchestrator.app_builder.ScaffoldEngine.scaffold", scaffold_mock), \
-         patch("orchestrator.app_builder.AppAssembler.assemble", assemble_mock), \
-         patch("orchestrator.app_builder.DependencyResolver.resolve", resolve_mock), \
-         patch("orchestrator.app_builder.AppVerifier.verify_local", verify_local_mock), \
-         patch("orchestrator.app_builder.AppVerifier.verify_docker", verify_docker_mock), \
-         patch("orchestrator.app_builder.AppBuilder._run_orchestrator", orchestrator_mock):
+    with (
+        patch("orchestrator.app_builder.ArchitectureAdvisor.analyze", detect_mock),
+        patch("orchestrator.app_builder.ScaffoldEngine.scaffold", scaffold_mock),
+        patch("orchestrator.app_builder.AppAssembler.assemble", assemble_mock),
+        patch("orchestrator.app_builder.DependencyResolver.resolve", resolve_mock),
+        patch("orchestrator.app_builder.AppVerifier.verify_local", verify_local_mock),
+        patch("orchestrator.app_builder.AppVerifier.verify_docker", verify_docker_mock),
+        patch("orchestrator.app_builder.AppBuilder._run_orchestrator", orchestrator_mock),
+    ):
         yield mocks

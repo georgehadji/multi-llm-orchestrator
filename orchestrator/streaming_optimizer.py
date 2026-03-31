@@ -49,6 +49,7 @@ logger = logging.getLogger("orchestrator.streaming_optimizer")
 # Stop Conditions
 # ─────────────────────────────────────────────
 
+
 class StopCondition(ABC):
     """Base class for stop conditions."""
 
@@ -66,6 +67,7 @@ class StopCondition(ABC):
 @dataclass
 class TokenBudgetCondition(StopCondition):
     """Stop when token budget is exhausted."""
+
     max_tokens: int
     tokens_per_char: float = 0.25  # Estimate
 
@@ -80,6 +82,7 @@ class TokenBudgetCondition(StopCondition):
 @dataclass
 class CodeCompleteCondition(StopCondition):
     """Stop when code structure is complete."""
+
     language: str = "python"
     check_balance: bool = True
 
@@ -93,9 +96,9 @@ class CodeCompleteCondition(StopCondition):
     def _is_code_complete(self, code: str) -> bool:
         """Check if code has balanced brackets and proper structure."""
         # Count brackets
-        open_paren = code.count('(') - code.count(')')
-        open_bracket = code.count('[') - code.count(']')
-        open_brace = code.count('{') - code.count('}')
+        open_paren = code.count("(") - code.count(")")
+        open_bracket = code.count("[") - code.count("]")
+        open_brace = code.count("{") - code.count("}")
 
         # Check if all balanced
         if open_paren != 0 or open_bracket != 0 or open_brace != 0:
@@ -103,9 +106,9 @@ class CodeCompleteCondition(StopCondition):
 
         # Check for common completion patterns
         completion_patterns = [
-            r'\n\s*def\s+\w+\s*\([^)]*\)\s*:',  # Function definition
-            r'\n\s*class\s+\w+',  # Class definition
-            r'\n\s*return\s+.*\n',  # Return statement followed by newline
+            r"\n\s*def\s+\w+\s*\([^)]*\)\s*:",  # Function definition
+            r"\n\s*class\s+\w+",  # Class definition
+            r"\n\s*return\s+.*\n",  # Return statement followed by newline
             r'"""\s*\n\s*"""',  # Empty docstring end
             r"'''\s*\n\s*'''",  # Empty docstring end
         ]
@@ -119,15 +122,18 @@ class CodeCompleteCondition(StopCondition):
 @dataclass
 class QualityThresholdCondition(StopCondition):
     """Stop when quality threshold is detected."""
+
     min_length: int = 100
-    quality_indicators: list[str] = field(default_factory=lambda: [
-        "conclusion",
-        "summary",
-        "in conclusion",
-        "to summarize",
-        "therefore",
-        "thus",
-    ])
+    quality_indicators: list[str] = field(
+        default_factory=lambda: [
+            "conclusion",
+            "summary",
+            "in conclusion",
+            "to summarize",
+            "therefore",
+            "thus",
+        ]
+    )
 
     async def should_stop(self, content_so_far: str) -> bool:
         if len(content_so_far) < self.min_length:
@@ -146,6 +152,7 @@ class QualityThresholdCondition(StopCondition):
 @dataclass
 class RegexPatternCondition(StopCondition):
     """Stop when regex pattern is matched."""
+
     pattern: str
     flags: int = 0
 
@@ -159,6 +166,7 @@ class RegexPatternCondition(StopCondition):
 @dataclass
 class CustomCondition(StopCondition):
     """Custom stop condition using callback."""
+
     name: str
     callback: Callable[[str], bool]
 
@@ -172,6 +180,7 @@ class CustomCondition(StopCondition):
 # ─────────────────────────────────────────────
 # Streaming Optimizer
 # ─────────────────────────────────────────────
+
 
 class StreamingOptimizer:
     """
@@ -226,13 +235,9 @@ class StreamingOptimizer:
         max_tokens = max_tokens or self.default_max_tokens
 
         # Add token budget condition if not present
-        has_budget_condition = any(
-            isinstance(c, TokenBudgetCondition) for c in stop_conditions
-        )
+        has_budget_condition = any(isinstance(c, TokenBudgetCondition) for c in stop_conditions)
         if not has_budget_condition:
-            stop_conditions = list(stop_conditions) + [
-                TokenBudgetCondition(max_tokens=max_tokens)
-            ]
+            stop_conditions = list(stop_conditions) + [TokenBudgetCondition(max_tokens=max_tokens)]
 
         # Stream and monitor
         content_buffer = ""
@@ -275,12 +280,14 @@ class StreamingOptimizer:
         finally:
             # Record statistics
             self._total_streams += 1
-            self._stats_history.append({
-                "content_length": len(content_buffer),
-                "chunks_yielded": chunks_yielded,
-                "early_stop": self._early_stops > 0,
-                "conditions_checked": len(stop_conditions),
-            })
+            self._stats_history.append(
+                {
+                    "content_length": len(content_buffer),
+                    "chunks_yielded": chunks_yielded,
+                    "early_stop": self._early_stops > 0,
+                    "conditions_checked": len(stop_conditions),
+                }
+            )
 
     async def _stream_from_client(
         self,
@@ -298,7 +305,7 @@ class StreamingOptimizer:
         """
         try:
             # Try streaming API if available
-            if hasattr(client, 'stream'):
+            if hasattr(client, "stream"):
                 async for chunk in client.stream(
                     model=model,
                     prompt=prompt,
@@ -321,7 +328,7 @@ class StreamingOptimizer:
                 content = response.text
                 chunk_size = 100
                 for i in range(0, len(content), chunk_size):
-                    yield content[i:i + chunk_size]
+                    yield content[i : i + chunk_size]
 
         except Exception as e:
             logger.error(f"Client streaming failed: {e}")
@@ -357,8 +364,7 @@ class StreamingOptimizer:
             "total_streams": self._total_streams,
             "early_stops": self._early_stops,
             "early_stop_rate": (
-                self._early_stops / self._total_streams * 100
-                if self._total_streams > 0 else 0
+                self._early_stops / self._total_streams * 100 if self._total_streams > 0 else 0
             ),
             "total_tokens_saved": self._total_tokens_saved,
             "avg_tokens_saved_per_early_stop": avg_tokens_saved,

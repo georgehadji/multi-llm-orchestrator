@@ -49,8 +49,10 @@ logger = get_logger(__name__)
 # Data Models
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class OutcomeStatus(Enum):
     """Status of a production outcome."""
+
     SUCCESS = "success"
     PARTIAL = "partial"  # Some issues but functional
     FAILURE = "failure"
@@ -60,6 +62,7 @@ class OutcomeStatus(Enum):
 @dataclass
 class RuntimeError:
     """A runtime error from production."""
+
     error_type: str
     message: str
     stack_trace: str | None = None
@@ -73,6 +76,7 @@ class RuntimeError:
 @dataclass
 class PerformanceMetrics:
     """Performance metrics from production."""
+
     p50_latency_ms: float | None = None
     p95_latency_ms: float | None = None
     p99_latency_ms: float | None = None
@@ -87,6 +91,7 @@ class PerformanceMetrics:
 @dataclass
 class UserFeedback:
     """Explicit user feedback."""
+
     rating: int  # 1-5
     comment: str | None = None
     reported_issues: list[str] = field(default_factory=list)
@@ -96,6 +101,7 @@ class UserFeedback:
 @dataclass
 class CodebaseFingerprint:
     """Fingerprint of a codebase for similarity matching."""
+
     languages: list[str] = field(default_factory=list)
     framework: str | None = None
     patterns: list[str] = field(default_factory=list)
@@ -134,6 +140,7 @@ class CodebaseFingerprint:
 @dataclass
 class ProductionOutcome:
     """Complete production outcome data."""
+
     project_id: str
     deployment_id: str
     task_type: TaskType
@@ -182,6 +189,7 @@ class ProductionOutcome:
 @dataclass
 class ModelPerformanceRecord:
     """Aggregated performance record for a model on a task type."""
+
     model: Model
     task_type: TaskType
 
@@ -227,15 +235,13 @@ class ModelPerformanceRecord:
                 self.latency_p95_ema = outcome.performance_metrics.p95_latency_ms
             else:
                 self.latency_p95_ema = (
-                    (1 - alpha) * self.latency_p95_ema +
-                    alpha * outcome.performance_metrics.p95_latency_ms
-                )
+                    1 - alpha
+                ) * self.latency_p95_ema + alpha * outcome.performance_metrics.p95_latency_ms
 
         # Update error rate EMA
         self.error_rate_ema = (
-            (1 - alpha) * self.error_rate_ema +
-            alpha * outcome.performance_metrics.error_rate
-        )
+            1 - alpha
+        ) * self.error_rate_ema + alpha * outcome.performance_metrics.error_rate
 
         self.last_updated = datetime.utcnow()
 
@@ -250,6 +256,7 @@ class ModelPerformanceRecord:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Feedback Loop Core
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class FeedbackLoop:
     """
@@ -294,8 +301,7 @@ class FeedbackLoop:
                     record = ModelPerformanceRecord(
                         model=model,
                         task_type=task_type,
-                        **{k: v for k, v in record_data.items()
-                           if k not in ("model", "task_type")}
+                        **{k: v for k, v in record_data.items() if k not in ("model", "task_type")},
                     )
                     self._performance_records[(model, task_type)] = record
             except Exception as e:
@@ -378,11 +384,14 @@ class FeedbackLoop:
 
     def _hash_fingerprint(self, fingerprint: CodebaseFingerprint) -> str:
         """Create a hash of codebase fingerprint."""
-        data = json.dumps({
-            "languages": sorted(fingerprint.languages),
-            "framework": fingerprint.framework,
-            "patterns": sorted(fingerprint.patterns),
-        }, sort_keys=True)
+        data = json.dumps(
+            {
+                "languages": sorted(fingerprint.languages),
+                "framework": fingerprint.framework,
+                "patterns": sorted(fingerprint.patterns),
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
     async def _create_knowledge_artifact(self, outcome: ProductionOutcome) -> None:
@@ -400,8 +409,7 @@ class FeedbackLoop:
                 "task_type": outcome.task_type.value,
                 "status": outcome.status.value,
                 "errors": [
-                    {"type": e.error_type, "message": e.message}
-                    for e in outcome.runtime_errors
+                    {"type": e.error_type, "message": e.message} for e in outcome.runtime_errors
                 ],
             },
             tags=["production", "feedback", outcome.status.value],
@@ -532,9 +540,7 @@ class FeedbackLoop:
 
     def get_performance_summary(self) -> dict[str, Any]:
         """Get summary of all performance records."""
-        total_deployments = sum(
-            r.total_deployments for r in self._performance_records.values()
-        )
+        total_deployments = sum(r.total_deployments for r in self._performance_records.values())
 
         if not total_deployments:
             return {"status": "no_data"}
@@ -564,6 +570,7 @@ class FeedbackLoop:
 # ═══════════════════════════════════════════════════════════════════════════════
 # SDK for External Applications
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class FeedbackSDK:
     """
@@ -619,9 +626,7 @@ class FeedbackSDK:
         if not self._buffer:
             return True
 
-        success = await self._send(
-            {"errors": self._buffer}, "/feedback/errors"
-        )
+        success = await self._send({"errors": self._buffer}, "/feedback/errors")
         if success:
             self._buffer.clear()
         return success
@@ -630,6 +635,7 @@ class FeedbackSDK:
         """Send data to feedback endpoint."""
         try:
             import httpx
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.endpoint_url}{path}",

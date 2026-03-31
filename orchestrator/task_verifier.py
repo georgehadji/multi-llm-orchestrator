@@ -46,14 +46,16 @@ logger = get_logger(__name__)
 
 class VerificationSeverity(Enum):
     """Severity levels for verification discrepancies."""
-    INFO = "info"           # Minor, informational only
-    WARNING = "warning"     # Potential issue, needs review
-    ERROR = "error"         # Significant discrepancy, likely failure
-    CRITICAL = "critical"   # Complete failure to meet requirements
+
+    INFO = "info"  # Minor, informational only
+    WARNING = "warning"  # Potential issue, needs review
+    ERROR = "error"  # Significant discrepancy, likely failure
+    CRITICAL = "critical"  # Complete failure to meet requirements
 
 
 class DiscrepancyType(Enum):
     """Types of discrepancies that can occur."""
+
     FILE_MISSING = "file_missing"
     FILE_MODIFIED = "file_modified"
     FILE_CONTENT_CHANGED = "file_content_changed"
@@ -65,19 +67,23 @@ class DiscrepancyType(Enum):
 @dataclass
 class ExpectedOutcome:
     """Expected outcome for a task - registered during planning."""
+
     task_id: str
     expected_files: list[str] = field(default_factory=list)
     expected_directories: list[str] = field(default_factory=list)
     expected_state: dict[str, Any] = field(default_factory=dict)
     expected_outputs: list[str] = field(default_factory=list)
     required_patterns: list[str] = field(default_factory=list)  # Regex patterns that must match
-    forbidden_patterns: list[str] = field(default_factory=list)  # Regex patterns that must NOT match
+    forbidden_patterns: list[str] = field(
+        default_factory=list
+    )  # Regex patterns that must NOT match
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 
 @dataclass
 class Discrepancy:
     """A single discrepancy found during verification."""
+
     type: DiscrepancyType
     severity: VerificationSeverity
     description: str
@@ -89,6 +95,7 @@ class Discrepancy:
 @dataclass
 class VerificationResult:
     """Result of task completion verification."""
+
     task_id: str
     is_verified: bool
     discrepancies: list[Discrepancy] = field(default_factory=list)
@@ -101,8 +108,10 @@ class VerificationResult:
 
     @property
     def has_errors(self) -> bool:
-        return any(d.severity in (VerificationSeverity.ERROR, VerificationSeverity.CRITICAL)
-                   for d in self.discrepancies)
+        return any(
+            d.severity in (VerificationSeverity.ERROR, VerificationSeverity.CRITICAL)
+            for d in self.discrepancies
+        )
 
     @property
     def summary(self) -> str:
@@ -168,8 +177,10 @@ class TaskVerifier:
             if full_path.exists():
                 self._file_hashes[task_id][file_path] = self._compute_file_hash(full_path)
 
-        logger.info(f"Registered expected outcome for task {task_id}: "
-                   f"{len(outcome.expected_files)} files, {len(outcome.expected_directories)} dirs")
+        logger.info(
+            f"Registered expected outcome for task {task_id}: "
+            f"{len(outcome.expected_files)} files, {len(outcome.expected_directories)} dirs"
+        )
 
     async def verify_completion(
         self,
@@ -204,108 +215,134 @@ class TaskVerifier:
         for file_path in outcome.expected_files:
             full_path = base / file_path
             if not full_path.exists():
-                discrepancies.append(Discrepancy(
-                    type=DiscrepancyType.FILE_MISSING,
-                    severity=VerificationSeverity.CRITICAL,
-                    description="Expected file not found",
-                    expected=file_path,
-                    actual=None,
-                    location=str(full_path),
-                ))
+                discrepancies.append(
+                    Discrepancy(
+                        type=DiscrepancyType.FILE_MISSING,
+                        severity=VerificationSeverity.CRITICAL,
+                        description="Expected file not found",
+                        expected=file_path,
+                        actual=None,
+                        location=str(full_path),
+                    )
+                )
             elif file_path in self._file_hashes.get(task_id, {}):
                 # File existed before - check if modified
                 current_hash = self._compute_file_hash(full_path)
                 original_hash = self._file_hashes[task_id][file_path]
                 if current_hash != original_hash:
-                    discrepancies.append(Discrepancy(
-                        type=DiscrepancyType.FILE_MODIFIED,
-                        severity=VerificationSeverity.WARNING,
-                        description="File was modified during task execution",
-                        expected=original_hash[:16],
-                        actual=current_hash[:16],
-                        location=str(full_path),
-                    ))
+                    discrepancies.append(
+                        Discrepancy(
+                            type=DiscrepancyType.FILE_MODIFIED,
+                            severity=VerificationSeverity.WARNING,
+                            description="File was modified during task execution",
+                            expected=original_hash[:16],
+                            actual=current_hash[:16],
+                            location=str(full_path),
+                        )
+                    )
 
         # 2. Verify expected directories exist
         for dir_path in outcome.expected_directories:
             full_path = base / dir_path
             if not full_path.exists():
-                discrepancies.append(Discrepancy(
-                    type=DiscrepancyType.FILE_MISSING,
-                    severity=VerificationSeverity.ERROR,
-                    description="Expected directory not found",
-                    expected=dir_path,
-                    actual=None,
-                    location=str(full_path),
-                ))
+                discrepancies.append(
+                    Discrepancy(
+                        type=DiscrepancyType.FILE_MISSING,
+                        severity=VerificationSeverity.ERROR,
+                        description="Expected directory not found",
+                        expected=dir_path,
+                        actual=None,
+                        location=str(full_path),
+                    )
+                )
             elif not full_path.is_dir():
-                discrepancies.append(Discrepancy(
-                    type=DiscrepancyType.FILE_MISSING,
-                    severity=VerificationSeverity.ERROR,
-                    description="Expected directory but found file",
-                    expected=dir_path,
-                    actual="file",
-                    location=str(full_path),
-                ))
+                discrepancies.append(
+                    Discrepancy(
+                        type=DiscrepancyType.FILE_MISSING,
+                        severity=VerificationSeverity.ERROR,
+                        description="Expected directory but found file",
+                        expected=dir_path,
+                        actual="file",
+                        location=str(full_path),
+                    )
+                )
 
         # 3. Verify expected outputs
         for output_path in outcome.expected_outputs:
             full_path = base / output_path
             if not full_path.exists():
-                discrepancies.append(Discrepancy(
-                    type=DiscrepancyType.OUTPUT_MISSING,
-                    severity=VerificationSeverity.ERROR,
-                    description="Expected output not found",
-                    expected=output_path,
-                    actual=None,
-                    location=str(full_path),
-                ))
+                discrepancies.append(
+                    Discrepancy(
+                        type=DiscrepancyType.OUTPUT_MISSING,
+                        severity=VerificationSeverity.ERROR,
+                        description="Expected output not found",
+                        expected=output_path,
+                        actual=None,
+                        location=str(full_path),
+                    )
+                )
 
         # 4. Verify required patterns in output files
         if outcome.required_patterns:
             import re
+
             for file_path in outcome.expected_files:
                 full_path = base / file_path
                 if full_path.exists() and full_path.is_file():
                     try:
-                        content = full_path.read_text(encoding='utf-8', errors='ignore')
+                        content = full_path.read_text(encoding="utf-8", errors="ignore")
                         for pattern in outcome.required_patterns:
                             if not re.search(pattern, content):
-                                discrepancies.append(Discrepancy(
-                                    type=DiscrepancyType.STATE_MISMATCH,
-                                    severity=VerificationSeverity.ERROR,
-                                    description="Required pattern not found in file",
-                                    expected=pattern,
-                                    actual=None,
-                                    location=str(full_path),
-                                ))
+                                discrepancies.append(
+                                    Discrepancy(
+                                        type=DiscrepancyType.STATE_MISMATCH,
+                                        severity=VerificationSeverity.ERROR,
+                                        description="Required pattern not found in file",
+                                        expected=pattern,
+                                        actual=None,
+                                        location=str(full_path),
+                                    )
+                                )
                     except Exception as e:
                         logger.warning(f"Could not read {full_path} for pattern verification: {e}")
 
         # 5. Verify forbidden patterns (security: no dangerous code)
         if outcome.forbidden_patterns:
             import re
+
             for file_path in outcome.expected_files:
                 full_path = base / file_path
                 if full_path.exists() and full_path.is_file():
                     try:
-                        content = full_path.read_text(encoding='utf-8', errors='ignore')
+                        content = full_path.read_text(encoding="utf-8", errors="ignore")
                         for pattern in outcome.forbidden_patterns:
                             if re.search(pattern, content):
-                                discrepancies.append(Discrepancy(
-                                    type=DiscrepancyType.STATE_MISMATCH,
-                                    severity=VerificationSeverity.CRITICAL,
-                                    description="Forbidden pattern found in file (security issue)",
-                                    expected=f"no match for {pattern}",
-                                    actual="pattern found",
-                                    location=str(full_path),
-                                ))
+                                discrepancies.append(
+                                    Discrepancy(
+                                        type=DiscrepancyType.STATE_MISMATCH,
+                                        severity=VerificationSeverity.CRITICAL,
+                                        description="Forbidden pattern found in file (security issue)",
+                                        expected=f"no match for {pattern}",
+                                        actual="pattern found",
+                                        location=str(full_path),
+                                    )
+                                )
                     except Exception as e:
-                        logger.warning(f"Could not read {full_path} for forbidden pattern check: {e}")
+                        logger.warning(
+                            f"Could not read {full_path} for forbidden pattern check: {e}"
+                        )
 
         # Determine overall verification status
-        is_verified = len([d for d in discrepancies
-                          if d.severity in (VerificationSeverity.ERROR, VerificationSeverity.CRITICAL)]) == 0
+        is_verified = (
+            len(
+                [
+                    d
+                    for d in discrepancies
+                    if d.severity in (VerificationSeverity.ERROR, VerificationSeverity.CRITICAL)
+                ]
+            )
+            == 0
+        )
 
         # Calculate duration
         duration = (datetime.utcnow() - start_time).total_seconds() * 1000
@@ -334,8 +371,8 @@ class TaskVerifier:
         """Compute SHA-256 hash of file contents."""
         hasher = hashlib.sha256()
         try:
-            with open(file_path, 'rb') as f:
-                for chunk in iter(lambda: f.read(8192), b''):
+            with open(file_path, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
                     hasher.update(chunk)
             return hasher.hexdigest()
         except Exception as e:
@@ -348,10 +385,7 @@ class TaskVerifier:
         verified = sum(1 for r in self._verification_cache.values() if r.is_verified)
         failed = total - verified
 
-        critical_issues = sum(
-            1 for r in self._verification_cache.values()
-            if r.has_critical_issues
-        )
+        critical_issues = sum(1 for r in self._verification_cache.values() if r.has_critical_issues)
 
         return {
             "total_tasks": total,

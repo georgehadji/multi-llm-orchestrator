@@ -35,6 +35,7 @@ logger = get_logger(__name__)
 
 class HealthStatus(str, Enum):
     """Health check status."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -43,6 +44,7 @@ class HealthStatus(str, Enum):
 
 class EscalationLevel(str, Enum):
     """Escalation level for auto-fix decisions."""
+
     AUTO = "auto"  # Auto-fix without human review
     REVIEW = "review"  # Human review required
     HUMAN_REQUIRED = "human_required"  # Human must fix
@@ -51,6 +53,7 @@ class EscalationLevel(str, Enum):
 @dataclass
 class HealthCheck:
     """Result of health check."""
+
     status: HealthStatus
     errors: list[str] = field(default_factory=list)
     logs: list[str] = field(default_factory=list)
@@ -61,6 +64,7 @@ class HealthCheck:
 @dataclass
 class Diagnosis:
     """Diagnosis of deployment issue."""
+
     summary: str
     root_cause: str
     severity: str  # critical, high, medium, low
@@ -72,6 +76,7 @@ class Diagnosis:
 @dataclass
 class AutoFix:
     """Auto-generated fix."""
+
     description: str
     code_changes: dict[str, str] = field(default_factory=dict)
     config_changes: dict[str, Any] = field(default_factory=dict)
@@ -82,6 +87,7 @@ class AutoFix:
 @dataclass
 class MonitoringConfig:
     """Configuration for monitoring."""
+
     health_check_interval: int = 300  # 5 minutes
     max_auto_fix_attempts: int = 3
     escalation_threshold: float = 0.7  # Confidence threshold for auto-fix
@@ -334,13 +340,14 @@ class DeploymentFeedbackLoop:
 
         try:
             from .api_clients import UnifiedClient
+
             client = UnifiedClient()
 
             response = await client.call(
                 model=self.orchestrator._get_available_models(TaskType.CODE_REVIEW)[0],
                 prompt=prompt,
                 system="You are an expert DevOps engineer diagnosing deployment issues. "
-                       "Be specific about root causes and provide actionable fixes.",
+                "Be specific about root causes and provide actionable fixes.",
                 max_tokens=1000,
                 temperature=0.2,
                 timeout=60,
@@ -435,13 +442,14 @@ class DeploymentFeedbackLoop:
 
         try:
             from .api_clients import UnifiedClient
+
             client = UnifiedClient()
 
             response = await client.call(
                 model=self.orchestrator._get_available_models(TaskType.CODE_GEN)[0],
                 prompt=prompt,
                 system="You are an expert software engineer generating production fixes. "
-                       "Provide minimal, targeted changes that address the root cause.",
+                "Provide minimal, targeted changes that address the root cause.",
                 max_tokens=4000,
                 temperature=0.1,
                 timeout=120,
@@ -595,9 +603,7 @@ class DeploymentFeedbackLoop:
             "issues_detected": self.issues_detected,
             "fixes_applied": self.fixes_applied,
             "fixes_successful": self.fixes_successful,
-            "success_rate": (
-                self.fixes_successful / max(1, self.fixes_applied)
-            ),
+            "success_rate": (self.fixes_successful / max(1, self.fixes_applied)),
         }
 
 

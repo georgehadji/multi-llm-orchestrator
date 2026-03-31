@@ -48,13 +48,15 @@ logger = get_logger(__name__)
 
 class MemoryTier(Enum):
     """Memory tier based on age."""
-    HOT = "hot"     # Days 1-3: Raw JSONL, instant search
-    WARM = "warm"   # Days 4-30: Summarized + embedded
-    COLD = "cold"   # Day 30+: Compressed archive
+
+    HOT = "hot"  # Days 1-3: Raw JSONL, instant search
+    WARM = "warm"  # Days 4-30: Summarized + embedded
+    COLD = "cold"  # Day 30+: Compressed archive
 
 
 class SessionStatus(Enum):
     """Session status."""
+
     ACTIVE = "active"
     ARCHIVED = "archived"
     SUMMARIZED = "summarized"
@@ -64,6 +66,7 @@ class SessionStatus(Enum):
 @dataclass
 class InteractionRecord:
     """A single interaction in a session."""
+
     id: str
     timestamp: datetime
     task_input: str
@@ -105,6 +108,7 @@ class InteractionRecord:
 @dataclass
 class SessionRecord:
     """A complete session record."""
+
     id: str
     project_id: str
     created_at: datetime
@@ -185,7 +189,7 @@ class SessionWatcher:
         for file_path in self.storage_path.glob("*.jsonl"):
             try:
                 session_id = file_path.stem
-                with open(file_path, encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.loads(f.readline())
                     session = SessionRecord(
                         id=data["id"],
@@ -213,17 +217,22 @@ class SessionWatcher:
         file_path = self._session_file_path(session.id)
 
         # Write as JSONL: first line is session metadata, rest are interactions
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             # Session header
-            f.write(json.dumps({
-                "id": session.id,
-                "project_id": session.project_id,
-                "created_at": session.created_at.isoformat(),
-                "last_activity": session.last_activity.isoformat(),
-                "status": session.status.value,
-                "summary": session.summary,
-                "metadata": session.metadata,
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "id": session.id,
+                        "project_id": session.project_id,
+                        "created_at": session.created_at.isoformat(),
+                        "last_activity": session.last_activity.isoformat(),
+                        "status": session.status.value,
+                        "summary": session.summary,
+                        "metadata": session.metadata,
+                    }
+                )
+                + "\n"
+            )
 
             # Interactions
             for interaction in session.interactions:
@@ -436,8 +445,7 @@ class SessionWatcher:
 
         # Remove from active sessions
         self._active_sessions = {
-            pid: sid for pid, sid in self._active_sessions.items()
-            if sid != session_id
+            pid: sid for pid, sid in self._active_sessions.items() if sid != session_id
         }
 
         session.status = SessionStatus.ARCHIVED
@@ -458,10 +466,7 @@ class SessionWatcher:
         archived = sum(1 for s in sessions if s.status == SessionStatus.ARCHIVED)
 
         total_interactions = sum(len(s.interactions) for s in sessions)
-        total_tokens = sum(
-            sum(i.tokens_used or 0 for i in s.interactions)
-            for s in sessions
-        )
+        total_tokens = sum(sum(i.tokens_used or 0 for i in s.interactions) for s in sessions)
 
         return {
             "total_sessions": total,

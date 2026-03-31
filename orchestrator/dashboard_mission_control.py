@@ -6,6 +6,7 @@ LLM Orchestrator Dashboard v6.5.9 - Project Specification Support
 ✅ YAML Spec - Upload project specification file
 ✅ HTTP Polling - Reliable real-time updates
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,6 +25,7 @@ from typing import Any
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(override=True)
     print("[LLM Orchestrator] [OK] Loaded .env file")
 except ImportError:
@@ -50,6 +52,7 @@ class ProjectMode(str, Enum):
 @dataclass
 class ApiStatus:
     """API connection status with credit info."""
+
     provider: str
     status: str = "checking"  # checking, connected, error, no_key, invalid_key, no_credits
     models: list[str] = field(default_factory=list)
@@ -73,6 +76,7 @@ class ApiStatus:
 @dataclass
 class TaskInfo:
     """Task information for dashboard."""
+
     task_id: str
     task_type: str
     status: str = "pending"
@@ -95,6 +99,7 @@ class TaskInfo:
 @dataclass
 class ActiveProject:
     """Active project state."""
+
     id: str
     name: str
     mode: str
@@ -127,15 +132,21 @@ class ActiveProject:
     policies: list[dict] = field(default_factory=list)
 
     def add_log(self, level: str, message: str):
-        self.logs.append({
-            "time": time.strftime("%H:%M:%S"),
-            "level": level,
-            "message": message,
-        })
+        self.logs.append(
+            {
+                "time": time.strftime("%H:%M:%S"),
+                "level": level,
+                "message": message,
+            }
+        )
 
     def to_dict(self):
         # Calculate actual task counts from tasks list if available
-        actual_completed = len([t for t in self.tasks if t.status == "completed"]) if self.tasks else self.completed_tasks
+        actual_completed = (
+            len([t for t in self.tasks if t.status == "completed"])
+            if self.tasks
+            else self.completed_tasks
+        )
         actual_total = len(self.tasks) if self.tasks else self.total_tasks
 
         return {
@@ -164,6 +175,7 @@ class ActiveProject:
 @dataclass
 class MissionState:
     """Dashboard state."""
+
     version: str = "6.5.22"
     server_status: str = "starting"  # starting, connected, error
     active_projects: list[ActiveProject] = field(default_factory=list)
@@ -179,11 +191,14 @@ class MissionState:
     def add_system_log(self, level: str, message: str):
         """Add a system log entry."""
         import time
-        self.system_logs.append({
-            "time": time.strftime("%H:%M:%S"),
-            "level": level,
-            "message": message,
-        })
+
+        self.system_logs.append(
+            {
+                "time": time.strftime("%H:%M:%S"),
+                "level": level,
+                "message": message,
+            }
+        )
         # Keep only last 50 logs
         if len(self.system_logs) > 50:
             self.system_logs = self.system_logs[-50:]
@@ -243,10 +258,14 @@ class MissionControlServer:
 
         validated = sum(1 for a in self.state.api_status if a.validated)
         connected = sum(1 for a in self.state.api_status if a.status == "connected")
-        failed = sum(1 for a in self.state.api_status if a.status in ("error", "invalid_key", "no_credits"))
+        failed = sum(
+            1 for a in self.state.api_status if a.status in ("error", "invalid_key", "no_credits")
+        )
 
         logger.info(f"🔌 API Check Complete: {connected}/{validated} validated, {failed} failed")
-        print(f"[_check_api_connections] Complete: {connected}/{validated} validated, {failed} failed")
+        print(
+            f"[_check_api_connections] Complete: {connected}/{validated} validated, {failed} failed"
+        )
 
         print("[_check_api_connections] Broadcasting state...")
         await self._broadcast_state()
@@ -279,23 +298,37 @@ class MissionControlServer:
             status.validated = True
 
             # Classify the error
-            if any(x in error_str for x in ["invalid api key", "authentication", "unauthorized", "401"]):
+            if any(
+                x in error_str for x in ["invalid api key", "authentication", "unauthorized", "401"]
+            ):
                 status.status = "invalid_key"
                 status.error = "Invalid API key"
                 logger.warning(f"❌ {provider}: Invalid API key")
                 # Add to state for system log
-                self.state.add_system_log("error", f"{provider}: Invalid API key - check your {provider.upper()}_API_KEY")
-            elif any(x in error_str for x in ["quota", "credit", "billing", "insufficient", "exceeded", "429", "limit"]):
+                self.state.add_system_log(
+                    "error", f"{provider}: Invalid API key - check your {provider.upper()}_API_KEY"
+                )
+            elif any(
+                x in error_str
+                for x in ["quota", "credit", "billing", "insufficient", "exceeded", "429", "limit"]
+            ):
                 status.status = "no_credits"
                 status.error = "Insufficient credits or quota exceeded"
                 status.credits_info = "No credits available"
                 logger.warning(f"⚠️ {provider}: No credits")
-                self.state.add_system_log("error", f"{provider}: No credits - please check your billing/account")
-            elif any(x in error_str for x in ["timeout", "timed out", "connection", "network", "unreachable"]):
+                self.state.add_system_log(
+                    "error", f"{provider}: No credits - please check your billing/account"
+                )
+            elif any(
+                x in error_str
+                for x in ["timeout", "timed out", "connection", "network", "unreachable"]
+            ):
                 status.status = "error"
                 status.error = f"Connection timeout: {str(e)[:50]}"
                 logger.warning(f"⏱️ {provider}: Timeout - {e}")
-                self.state.add_system_log("warning", f"{provider}: Connection timeout - API may be slow/down")
+                self.state.add_system_log(
+                    "warning", f"{provider}: Connection timeout - API may be slow/down"
+                )
             else:
                 status.status = "error"
                 status.error = str(e)[:100]
@@ -311,6 +344,7 @@ class MissionControlServer:
 
         try:
             from openai import AsyncOpenAI
+
             client = AsyncOpenAI(api_key=api_key, max_retries=0)
 
             # Test with minimal completion (costs almost nothing)
@@ -320,7 +354,7 @@ class MissionControlServer:
                     messages=[{"role": "user", "content": "Hi"}],
                     max_tokens=1,
                 ),
-                timeout=10
+                timeout=10,
             )
 
             status.status = "connected"
@@ -341,10 +375,9 @@ class MissionControlServer:
 
         try:
             from openai import AsyncOpenAI
+
             client = AsyncOpenAI(
-                api_key=api_key,
-                base_url="https://api.deepseek.com/v1",
-                max_retries=0
+                api_key=api_key, base_url="https://api.deepseek.com/v1", max_retries=0
             )
 
             # Test with minimal completion
@@ -354,7 +387,7 @@ class MissionControlServer:
                     messages=[{"role": "user", "content": "Hi"}],
                     max_tokens=1,
                 ),
-                timeout=10
+                timeout=10,
             )
 
             status.status = "connected"
@@ -382,7 +415,7 @@ class MissionControlServer:
                 async with session.get(url, timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
-                        models = [m.get('name', '') for m in data.get('models', [])]
+                        models = [m.get("name", "") for m in data.get("models", [])]
 
                         status.status = "connected"
                         status.response_time_ms = (time_module.time() - start_time) * 1000
@@ -403,11 +436,12 @@ class MissionControlServer:
             # aiohttp not available, try with httpx
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=10) as client:
                     response = await client.get(url)
                     if response.status_code == 200:
                         data = response.json()
-                        models = [m.get('name', '') for m in data.get('models', [])]
+                        models = [m.get("name", "") for m in data.get("models", [])]
 
                         status.status = "connected"
                         status.response_time_ms = (time_module.time() - start_time) * 1000
@@ -430,6 +464,7 @@ class MissionControlServer:
 
         try:
             import anthropic
+
             client = anthropic.AsyncAnthropic(api_key=api_key)
 
             # Try a simple message with minimal tokens
@@ -439,7 +474,7 @@ class MissionControlServer:
                     max_tokens=1,
                     messages=[{"role": "user", "content": "Hi"}],
                 ),
-                timeout=10
+                timeout=10,
             )
 
             status.status = "connected"
@@ -460,10 +495,9 @@ class MissionControlServer:
 
         try:
             from openai import AsyncOpenAI
+
             client = AsyncOpenAI(
-                api_key=api_key,
-                base_url="https://api.minimaxi.chat/v1",
-                max_retries=0
+                api_key=api_key, base_url="https://api.minimaxi.chat/v1", max_retries=0
             )
 
             # Try a simple chat completion with minimal tokens
@@ -473,7 +507,7 @@ class MissionControlServer:
                     messages=[{"role": "user", "content": "Hi"}],
                     max_tokens=1,
                 ),
-                timeout=10
+                timeout=10,
             )
 
             status.status = "connected"
@@ -510,15 +544,16 @@ class MissionControlServer:
                 return JSONResponse(content=self.state.to_dict())
             except Exception as e:
                 logger.exception("Failed to get state")
-                return JSONResponse(
-                    {"status": "error", "message": str(e)},
-                    status_code=500
-                )
+                return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
         @self.app.get("/api/ping")
         async def ping():
             """Simple ping endpoint for testing."""
-            return {"status": "ok", "time": time.time(), "projects": len(self.state.active_projects)}
+            return {
+                "status": "ok",
+                "time": time.time(),
+                "projects": len(self.state.active_projects),
+            }
 
         @self.app.get("/api/debug")
         async def get_debug_info():
@@ -531,8 +566,13 @@ class MissionControlServer:
                 # API status
                 try:
                     debug_info["api_status"] = [
-                        {"provider": a.provider, "status": a.status, "models": a.models,
-                         "error": a.error, "response_time_ms": a.response_time_ms}
+                        {
+                            "provider": a.provider,
+                            "status": a.status,
+                            "models": a.models,
+                            "error": a.error,
+                            "response_time_ms": a.response_time_ms,
+                        }
                         for a in self.state.api_status
                     ]
                 except Exception as api_e:
@@ -555,14 +595,22 @@ class MissionControlServer:
                             "tasks_completed": int(p.completed_tasks),
                             "logs_count": len(p.logs),
                             "has_orchestrator": p.orchestrator is not None,
-                            "task_handle": {
-                                "done": p.task_handle.done() if p.task_handle else None,
-                                "cancelled": p.task_handle.cancelled() if p.task_handle else None,
-                            } if p.task_handle else None,
+                            "task_handle": (
+                                {
+                                    "done": p.task_handle.done() if p.task_handle else None,
+                                    "cancelled": (
+                                        p.task_handle.cancelled() if p.task_handle else None
+                                    ),
+                                }
+                                if p.task_handle
+                                else None
+                            ),
                         }
                         debug_info["active_projects"].append(project_debug)
                     except Exception as p_e:
-                        debug_info["active_projects"].append({"error": str(p_e), "id": str(getattr(p, 'id', 'unknown'))})
+                        debug_info["active_projects"].append(
+                            {"error": str(p_e), "id": str(getattr(p, "id", "unknown"))}
+                        )
 
                 # Serialize with default=str as fallback
                 return JSONResponse(content=json.loads(json.dumps(debug_info, default=str)))
@@ -570,12 +618,8 @@ class MissionControlServer:
             except Exception as e:
                 logger.exception("Failed to get debug info")
                 return JSONResponse(
-                    {
-                        "status": "error",
-                        "message": str(e),
-                        "traceback": traceback.format_exc()
-                    },
-                    status_code=500
+                    {"status": "error", "message": str(e), "traceback": traceback.format_exc()},
+                    status_code=500,
                 )
 
         @self.app.get("/api/models")
@@ -583,13 +627,17 @@ class MissionControlServer:
             all_models = []
             for api in self.state.api_status:
                 for model in api.models:
-                    all_models.append({
-                        "name": model,
-                        "provider": api.provider,
-                        "status": api.status,
-                        "available": api.status == "connected"
-                    })
-            return JSONResponse({"models": all_models, "apis": [a.to_dict() for a in self.state.api_status]})
+                    all_models.append(
+                        {
+                            "name": model,
+                            "provider": api.provider,
+                            "status": api.status,
+                            "available": api.status == "connected",
+                        }
+                    )
+            return JSONResponse(
+                {"models": all_models, "apis": [a.to_dict() for a in self.state.api_status]}
+            )
 
         @self.app.get("/api/debug/env")
         async def debug_env():
@@ -599,7 +647,7 @@ class MissionControlServer:
                 "DEEPSEEK_API_KEY",
                 "GOOGLE_API_KEY",
                 "ANTHROPIC_API_KEY",
-                "MINIMAX_API_KEY"
+                "MINIMAX_API_KEY",
             ]
             result = {}
             for var in env_vars:
@@ -625,7 +673,7 @@ class MissionControlServer:
             logger.exception("Unhandled API error")
             return JSONResponse(
                 status_code=500,
-                content={"status": "error", "message": f"Internal error: {str(exc)}"}
+                content={"status": "error", "message": f"Internal error: {str(exc)}"},
             )
 
         # ===== NEW PROJECT =====
@@ -667,13 +715,18 @@ class MissionControlServer:
                     concurrency=int(data.get("concurrency", 3)),
                     project_id=project_id,
                     output_dir=output_dir,
-                    quality_targets=data.get("quality_targets", {
-                        "code_generation": 0.88,
-                        "code_review": 0.75,
-                        "complex_reasoning": 0.88,
-                        "evaluation": 0.80
-                    }),
-                    policies=data.get("policies", [{"name": "no_training", "allow_training_on_output": False}]),
+                    quality_targets=data.get(
+                        "quality_targets",
+                        {
+                            "code_generation": 0.88,
+                            "code_review": 0.75,
+                            "complex_reasoning": 0.88,
+                            "evaluation": 0.80,
+                        },
+                    ),
+                    policies=data.get(
+                        "policies", [{"name": "no_training", "allow_training_on_output": False}]
+                    ),
                 )
                 project.add_log("info", f"🚀 Starting: {project.name}")
                 project.add_log("info", f"📁 Project ID: {project.project_id}")
@@ -736,7 +789,7 @@ class MissionControlServer:
         # ===== UPLOAD PROJECT =====
         @self.app.post("/api/project/upload")
         async def upload_project(
-            file = File(...),
+            file=File(...),
             instructions: str = Form(""),
             budget: float = Form(5.0),
         ):
@@ -806,7 +859,10 @@ class MissionControlServer:
 
             # Only allow removing finished projects
             if project.status == "running":
-                return {"status": "error", "message": "Cannot remove running project. Stop it first."}
+                return {
+                    "status": "error",
+                    "message": "Cannot remove running project. Stop it first.",
+                }
 
             self.state.active_projects.remove(project)
             await self._broadcast_state()
@@ -845,19 +901,20 @@ class MissionControlServer:
             project.status = "running"
             project.add_log("info", "🤖 Initializing orchestrator...")
             project.add_log("info", f"   Output dir: {project.output_dir}")
-            project.add_log("info", f"   Budget: ${project.budget}, Time: {project.time_seconds}s, Concurrency: {project.concurrency}")
+            project.add_log(
+                "info",
+                f"   Budget: ${project.budget}, Time: {project.time_seconds}s, Concurrency: {project.concurrency}",
+            )
             await self._broadcast_state()
 
             # Create output directory
             import os
+
             os.makedirs(project.output_dir, exist_ok=True)
             project.add_log("info", f"📁 Output dir: {project.output_dir}")
 
             # Create budget with project settings
-            budget = Budget(
-                max_usd=project.budget,
-                max_time_seconds=project.time_seconds
-            )
+            budget = Budget(max_usd=project.budget, max_time_seconds=project.time_seconds)
 
             # Create orchestrator with concurrency setting
             project.orchestrator = Orchestrator(
@@ -868,7 +925,10 @@ class MissionControlServer:
 
             # Log quality targets
             qt = project.quality_targets
-            project.add_log("info", f"🎯 Quality targets: code_gen={qt.get('code_generation', 0.88)}, review={qt.get('code_review', 0.75)}")
+            project.add_log(
+                "info",
+                f"🎯 Quality targets: code_gen={qt.get('code_generation', 0.88)}, review={qt.get('code_review', 0.75)}",
+            )
 
             await asyncio.sleep(0.5)
 
@@ -887,17 +947,20 @@ class MissionControlServer:
             try:
                 project.add_log("info", "🚀 Calling orchestrator.run_project()...")
                 project.add_log("info", f"   Prompt length: {len(project.prompt)} chars")
-                project.add_log("info", f"   Criteria: {project.criteria or 'Complete implementation'}")
+                project.add_log(
+                    "info", f"   Criteria: {project.criteria or 'Complete implementation'}"
+                )
 
                 # Run with timeout
                 import asyncio
+
                 try:
                     project_state = await asyncio.wait_for(
                         project.orchestrator.run_project(
                             project_description=project.prompt,
                             success_criteria=project.criteria or "Complete implementation",
                         ),
-                        timeout=timeout_seconds
+                        timeout=timeout_seconds,
                     )
                 except asyncio.TimeoutError:
                     project.add_log("error", f"⏱️ Project timed out after {timeout_seconds}s")
@@ -907,8 +970,13 @@ class MissionControlServer:
                     return
 
                 elapsed = time.time() - start_time
-                project.add_log("info", f"✅ Orchestrator returned in {elapsed:.1f}s: {project_state.status}")
-                project.add_log("info", f"   Tasks completed: {len([t for t in project.tasks if t.status == 'completed'])}")
+                project.add_log(
+                    "info", f"✅ Orchestrator returned in {elapsed:.1f}s: {project_state.status}"
+                )
+                project.add_log(
+                    "info",
+                    f"   Tasks completed: {len([t for t in project.tasks if t.status == 'completed'])}",
+                )
 
             finally:
                 heartbeat_task.cancel()
@@ -927,12 +995,22 @@ class MissionControlServer:
                 project.progress = 100
                 project.current_task = "Partial success"
                 # Calculate which tasks succeeded/failed
-                success_count = sum(1 for t in project.tasks if t.status == "completed" and t.score > 0)
+                success_count = sum(
+                    1 for t in project.tasks if t.status == "completed" and t.score > 0
+                )
                 failed_count = len(project.tasks) - success_count
-                avg_score = sum(t.score for t in project.tasks if t.score > 0) / max(success_count, 1)
-                project.add_log("warning", f"⚠️ Partial success: {success_count}/{len(project.tasks)} tasks OK (avg score: {avg_score:.2f})")
+                avg_score = sum(t.score for t in project.tasks if t.score > 0) / max(
+                    success_count, 1
+                )
+                project.add_log(
+                    "warning",
+                    f"⚠️ Partial success: {success_count}/{len(project.tasks)} tasks OK (avg score: {avg_score:.2f})",
+                )
                 if failed_count > 0:
-                    project.add_log("info", f"💡 {failed_count} task(s) failed or scored 0 - check output for details")
+                    project.add_log(
+                        "info",
+                        f"💡 {failed_count} task(s) failed or scored 0 - check output for details",
+                    )
             else:
                 project.status = "failed"
                 project.current_task = "Failed"
@@ -944,6 +1022,7 @@ class MissionControlServer:
             project.add_log("warning", "⏹️ Cancelled")
         except Exception as e:
             import traceback
+
             error_msg = str(e)
             tb = traceback.format_exc()
             project.status = "failed"
@@ -1015,7 +1094,7 @@ Instructions: {project.instructions}
                             project_description=prompt,
                             success_criteria="All improvements applied, tests pass",
                         ),
-                        timeout=timeout_seconds
+                        timeout=timeout_seconds,
                     )
                 except asyncio.TimeoutError:
                     project.add_log("error", f"⏱️ Project timed out after {timeout_seconds}s")
@@ -1025,7 +1104,9 @@ Instructions: {project.instructions}
                     return
 
                 elapsed = time.time() - start_time
-                project.add_log("info", f"✅ Orchestrator returned in {elapsed:.1f}s: {project_state.status}")
+                project.add_log(
+                    "info", f"✅ Orchestrator returned in {elapsed:.1f}s: {project_state.status}"
+                )
             finally:
                 heartbeat_task.cancel()
                 try:
@@ -1040,8 +1121,13 @@ Instructions: {project.instructions}
             elif project_state.status == ProjectStatus.PARTIAL_SUCCESS:
                 project.status = "completed"
                 project.progress = 100
-                success_count = sum(1 for t in project.tasks if t.status == "completed" and t.score > 0)
-                project.add_log("warning", f"⚠️ Partial improvements: {success_count}/{len(project.tasks)} tasks OK")
+                success_count = sum(
+                    1 for t in project.tasks if t.status == "completed" and t.score > 0
+                )
+                project.add_log(
+                    "warning",
+                    f"⚠️ Partial improvements: {success_count}/{len(project.tasks)} tasks OK",
+                )
             else:
                 project.status = "failed"
                 project.add_log("error", "❌ Failed")
@@ -1052,6 +1138,7 @@ Instructions: {project.instructions}
             project.add_log("warning", "⏹️ Cancelled")
         except Exception as e:
             import traceback
+
             error_msg = str(e)
             tb = traceback.format_exc()
             project.status = "failed"
@@ -1069,23 +1156,25 @@ Instructions: {project.instructions}
             path = Path(project.file_path)
 
             # Read the spec file
-            content = path.read_text(encoding='utf-8', errors='ignore')
+            content = path.read_text(encoding="utf-8", errors="ignore")
             project.add_log("info", f"📄 Read {len(content)} characters from {project.file_name}")
 
             # Parse YAML if possible
             spec_data = None
-            if path.suffix in ['.yaml', '.yml']:
+            if path.suffix in [".yaml", ".yml"]:
                 try:
                     import yaml
+
                     spec_data = yaml.safe_load(content)
                     project.add_log("info", "✅ Parsed YAML specification")
                 except ImportError:
                     project.add_log("warning", "⚠️ PyYAML not installed, treating as text")
                 except Exception as e:
                     project.add_log("warning", f"⚠️ Failed to parse YAML: {e}")
-            elif path.suffix == '.json':
+            elif path.suffix == ".json":
                 try:
                     import json
+
                     spec_data = json.loads(content)
                     project.add_log("info", "✅ Parsed JSON specification")
                 except Exception as e:
@@ -1094,11 +1183,11 @@ Instructions: {project.instructions}
             # Build prompt from spec
             if spec_data and isinstance(spec_data, dict):
                 # Extract fields from YAML/JSON spec
-                project_name = spec_data.get('name', spec_data.get('project_name', 'Untitled'))
-                description = spec_data.get('description', spec_data.get('prompt', ''))
-                requirements = spec_data.get('requirements', spec_data.get('specs', ''))
-                tech_stack = spec_data.get('tech_stack', spec_data.get('technologies', ''))
-                spec_data.get('success_criteria', spec_data.get('criteria', ''))
+                project_name = spec_data.get("name", spec_data.get("project_name", "Untitled"))
+                description = spec_data.get("description", spec_data.get("prompt", ""))
+                requirements = spec_data.get("requirements", spec_data.get("specs", ""))
+                tech_stack = spec_data.get("tech_stack", spec_data.get("technologies", ""))
+                spec_data.get("success_criteria", spec_data.get("criteria", ""))
 
                 prompt_parts = [f"# Project: {project_name}", ""]
 
@@ -1108,10 +1197,10 @@ Instructions: {project.instructions}
                     prompt_parts.extend(["## Requirements", str(requirements), ""])
                 if tech_stack:
                     prompt_parts.extend(["## Tech Stack", str(tech_stack), ""])
-                if spec_data.get('features'):
-                    prompt_parts.extend(["## Features", str(spec_data['features']), ""])
-                if spec_data.get('architecture'):
-                    prompt_parts.extend(["## Architecture", str(spec_data['architecture']), ""])
+                if spec_data.get("features"):
+                    prompt_parts.extend(["## Features", str(spec_data["features"]), ""])
+                if spec_data.get("architecture"):
+                    prompt_parts.extend(["## Architecture", str(spec_data["architecture"]), ""])
                 if project.instructions:
                     prompt_parts.extend(["## Additional Instructions", project.instructions, ""])
 
@@ -1137,30 +1226,33 @@ File: {project.file_name}
             # Extract budget and config from YAML spec with fallbacks to project/UI values
             if spec_data and isinstance(spec_data, dict):
                 # Budget USD: try budget_usd, budget.max_usd, or project.budget (from UI)
-                budget_usd = spec_data.get('budget_usd')
-                if budget_usd is None and isinstance(spec_data.get('budget'), dict):
-                    budget_usd = spec_data['budget'].get('max_usd')
+                budget_usd = spec_data.get("budget_usd")
+                if budget_usd is None and isinstance(spec_data.get("budget"), dict):
+                    budget_usd = spec_data["budget"].get("max_usd")
                 if budget_usd is None:
                     budget_usd = project.budget  # Fallback to UI value (default 5.0)
 
                 # Time seconds: try time_seconds, budget.max_time_seconds, or default 3600
-                time_seconds = spec_data.get('time_seconds')
-                if time_seconds is None and isinstance(spec_data.get('budget'), dict):
-                    time_seconds = spec_data['budget'].get('max_time_seconds')
+                time_seconds = spec_data.get("time_seconds")
+                if time_seconds is None and isinstance(spec_data.get("budget"), dict):
+                    time_seconds = spec_data["budget"].get("max_time_seconds")
                 if time_seconds is None:
                     time_seconds = 3600  # Default 1 hour
 
                 # Concurrency: try concurrency, max_concurrency, or default 3
-                concurrency = spec_data.get('concurrency')
+                concurrency = spec_data.get("concurrency")
                 if concurrency is None:
-                    concurrency = spec_data.get('max_concurrency', project.concurrency)
+                    concurrency = spec_data.get("max_concurrency", project.concurrency)
 
                 # Project ID: try project_id or generate one
-                yaml_project_id = spec_data.get('project_id', '')
+                yaml_project_id = spec_data.get("project_id", "")
                 if yaml_project_id:
                     project.project_id = yaml_project_id
 
-                project.add_log("info", f"⚙️ Config from spec: budget=${budget_usd}, time={time_seconds}s, concurrency={concurrency}")
+                project.add_log(
+                    "info",
+                    f"⚙️ Config from spec: budget=${budget_usd}, time={time_seconds}s, concurrency={concurrency}",
+                )
             else:
                 # Fallback to project values from UI
                 budget_usd = project.budget
@@ -1174,8 +1266,9 @@ File: {project.file_name}
             # Use success_criteria from spec if available
             final_success_criteria = "Complete implementation according to specification"
             if spec_data and isinstance(spec_data, dict):
-                final_success_criteria = spec_data.get('success_criteria',
-                    spec_data.get('criteria', final_success_criteria))
+                final_success_criteria = spec_data.get(
+                    "success_criteria", spec_data.get("criteria", final_success_criteria)
+                )
 
             # Add heartbeat task to show orchestrator is alive
             heartbeat_task = asyncio.create_task(self._heartbeat(project))
@@ -1195,7 +1288,7 @@ File: {project.file_name}
                             project_description=prompt,
                             success_criteria=final_success_criteria,
                         ),
-                        timeout=timeout_seconds
+                        timeout=timeout_seconds,
                     )
                 except asyncio.TimeoutError:
                     project.add_log("error", f"⏱️ Project timed out after {timeout_seconds}s")
@@ -1205,7 +1298,9 @@ File: {project.file_name}
                     return
 
                 elapsed = time.time() - start_time
-                project.add_log("info", f"✅ Orchestrator returned in {elapsed:.1f}s: {project_state.status}")
+                project.add_log(
+                    "info", f"✅ Orchestrator returned in {elapsed:.1f}s: {project_state.status}"
+                )
 
                 if project_state.status == ProjectStatus.SUCCESS:
                     project.status = "completed"
@@ -1214,12 +1309,21 @@ File: {project.file_name}
                 elif project_state.status == ProjectStatus.PARTIAL_SUCCESS:
                     project.status = "completed"
                     project.progress = 100
-                    success_count = sum(1 for t in project.tasks if t.status == "completed" and t.score > 0)
+                    success_count = sum(
+                        1 for t in project.tasks if t.status == "completed" and t.score > 0
+                    )
                     failed_count = len(project.tasks) - success_count
-                    avg_score = sum(t.score for t in project.tasks if t.score > 0) / max(success_count, 1)
-                    project.add_log("warning", f"⚠️ Partial success: {success_count}/{len(project.tasks)} tasks OK (avg: {avg_score:.2f})")
+                    avg_score = sum(t.score for t in project.tasks if t.score > 0) / max(
+                        success_count, 1
+                    )
+                    project.add_log(
+                        "warning",
+                        f"⚠️ Partial success: {success_count}/{len(project.tasks)} tasks OK (avg: {avg_score:.2f})",
+                    )
                     if failed_count > 0:
-                        project.add_log("info", f"💡 {failed_count} task(s) failed - check output for details")
+                        project.add_log(
+                            "info", f"💡 {failed_count} task(s) failed - check output for details"
+                        )
                 else:
                     project.status = "failed"
                     project.add_log("error", f"❌ Failed: {project_state.status}")
@@ -1236,6 +1340,7 @@ File: {project.file_name}
             project.add_log("warning", "⏹️ Cancelled")
         except Exception as e:
             import traceback
+
             error_msg = str(e)
             tb = traceback.format_exc()
             project.status = "failed"
@@ -1256,17 +1361,22 @@ File: {project.file_name}
             orchestrator = project.orchestrator
 
             # Check if add_hook method exists
-            if not hasattr(orchestrator, 'add_hook'):
+            if not hasattr(orchestrator, "add_hook"):
                 logger.warning(f"Orchestrator missing add_hook method. Type: {type(orchestrator)}")
                 project.add_log("warning", "⚠️ Real-time updates not available")
                 return
 
             def on_task_started(task_id: str, task: Task, **kwargs):
                 try:
-                    task_type = str(task.task_type) if hasattr(task, 'task_type') else "task"
+                    task_type = str(task.task_type) if hasattr(task, "task_type") else "task"
                     project.current_task = f"Running {task_type}..."
                     project.add_log("info", f"🎯 {task_id[:8]}: {task_type}")
-                    task_info = TaskInfo(task_id=task_id, task_type=task_type, status="running", start_time=time.time())
+                    task_info = TaskInfo(
+                        task_id=task_id,
+                        task_type=task_type,
+                        status="running",
+                        start_time=time.time(),
+                    )
                     project.tasks.append(task_info)
                     total = max(project.total_tasks, len(project.tasks))
                     project.progress = int((len(project.tasks) - 1) / total * 100)
@@ -1282,15 +1392,15 @@ File: {project.file_name}
                         if task.task_id == task_id:
                             task.status = "completed"
                             task.progress = 100
-                            if hasattr(result, 'score'):
+                            if hasattr(result, "score"):
                                 task.score = result.score
-                            if hasattr(result, 'model_used'):
+                            if hasattr(result, "model_used"):
                                 task.model = str(result.model_used)
                             break
                     project.completed_tasks += 1
-                    if hasattr(result, 'cost'):
+                    if hasattr(result, "cost"):
                         project.cost += result.cost
-                    score_str = f" ({result.score:.2f})" if hasattr(result, 'score') else ""
+                    score_str = f" ({result.score:.2f})" if hasattr(result, "score") else ""
                     project.add_log("success", f"✅ {task_id[:8]}{score_str}")
                     total = max(project.total_tasks, len(project.tasks))
                     project.progress = min(int(project.completed_tasks / total * 100), 99)
@@ -1334,13 +1444,19 @@ File: {project.file_name}
                     if current_tasks == last_task_count and current_tasks > 0:
                         stuck_counter += 1
                         if stuck_counter >= 2:  # 60 seconds without new tasks
-                            project.add_log("warning", f"⚠️ No new tasks for {stuck_counter * interval}s - orchestrator may be stuck")
+                            project.add_log(
+                                "warning",
+                                f"⚠️ No new tasks for {stuck_counter * interval}s - orchestrator may be stuck",
+                            )
                     else:
                         stuck_counter = 0
 
                     last_task_count = current_tasks
 
-                    project.add_log("info", f"💓 Orchestrator running... ({elapsed}s elapsed, {project.completed_tasks}/{current_tasks} tasks, current: {project.current_task})")
+                    project.add_log(
+                        "info",
+                        f"💓 Orchestrator running... ({elapsed}s elapsed, {project.completed_tasks}/{current_tasks} tasks, current: {project.current_task})",
+                    )
                     await self._broadcast_state()
         except asyncio.CancelledError:
             project.add_log("info", "🛑 Heartbeat stopped")
@@ -1377,8 +1493,6 @@ File: {project.file_name}
         await self._check_api_connections()
         print("[Server.run] API check complete")
 
-
-
         config = Config(
             app=self.app,
             host=self.host,
@@ -1386,7 +1500,6 @@ File: {project.file_name}
             log_level="info",
         )
         server = Server(config)
-
 
         logger.info(f"🚀 LLM Orchestrator v6.5.22 on http://{self.host}:{self.port}")
         print(f"""
@@ -1407,7 +1520,7 @@ File: {project.file_name}
         await server.serve()
 
     def _get_html(self) -> str:
-        return '''<!DOCTYPE html>
+        return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -3098,7 +3211,7 @@ File: {project.file_name}
     </script>
 </body>
 </html>
-'''
+"""
 
 
 def run_mission_control(host: str = "127.0.0.1", port: int = 8888, open_browser: bool = True):

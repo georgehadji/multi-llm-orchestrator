@@ -22,11 +22,11 @@ from .fallback_handler import FallbackHandler
 from .task_executor import TaskExecutor
 
 __all__ = [
-    'OrchestratorCore',
-    'TaskExecutor',
-    'CritiqueCycle',
-    'CritiqueState',
-    'FallbackHandler',
-    'BudgetEnforcer',
-    'DependencyResolver',
+    "OrchestratorCore",
+    "TaskExecutor",
+    "CritiqueCycle",
+    "CritiqueState",
+    "FallbackHandler",
+    "BudgetEnforcer",
+    "DependencyResolver",
 ]

@@ -12,6 +12,7 @@ Usage:
     condenser = ContextCondenser()
     compressed_context = await condenser.condense(context="...", target_ratio=0.5)
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,8 +30,9 @@ class ContextCondenser:
         """Initialize the context condenser."""
         self.model = model
 
-    async def condense(self, context: str, target_ratio: float = 0.5,
-                       preserve_formatting: bool = True) -> str:
+    async def condense(
+        self, context: str, target_ratio: float = 0.5, preserve_formatting: bool = True
+    ) -> str:
         """
         Condense the context to a target ratio of its original size.
 
@@ -52,7 +54,7 @@ class ContextCondenser:
         strategies = [
             self._semantic_condense,
             self._summarize_condense,
-            self._keyword_extract_condense
+            self._keyword_extract_condense,
         ]
 
         for strategy in strategies:
@@ -68,8 +70,9 @@ class ContextCondenser:
         target_length = int(len(context) * target_ratio)
         return context[:target_length]
 
-    async def _semantic_condense(self, context: str, target_ratio: float,
-                                preserve_formatting: bool) -> str:
+    async def _semantic_condense(
+        self, context: str, target_ratio: float, preserve_formatting: bool
+    ) -> str:
         """Condense context semantically using LLM."""
         from .api_clients import UnifiedClient
 
@@ -89,8 +92,7 @@ class ContextCondenser:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": condense_prompt}]
+                model=self.model, messages=[{"role": "user", "content": condense_prompt}]
             )
 
             condensed = response.content.strip()
@@ -105,8 +107,9 @@ class ContextCondenser:
             logger.error(f"Semantic condensing failed: {e}")
             raise
 
-    async def _summarize_condense(self, context: str, target_ratio: float,
-                                  preserve_formatting: bool) -> str:
+    async def _summarize_condense(
+        self, context: str, target_ratio: float, preserve_formatting: bool
+    ) -> str:
         """Condense context by summarization."""
         from .api_clients import UnifiedClient
 
@@ -126,8 +129,7 @@ class ContextCondenser:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": summary_prompt}]
+                model=self.model, messages=[{"role": "user", "content": summary_prompt}]
             )
 
             summary = response.content.strip()
@@ -136,8 +138,9 @@ class ContextCondenser:
             logger.error(f"Summarization condensing failed: {e}")
             raise
 
-    async def _keyword_extract_condense(self, context: str, target_ratio: float,
-                                       preserve_formatting: bool) -> str:
+    async def _keyword_extract_condense(
+        self, context: str, target_ratio: float, preserve_formatting: bool
+    ) -> str:
         """Condense context by extracting key sentences based on keywords."""
         from .api_clients import UnifiedClient
 
@@ -155,14 +158,13 @@ class ContextCondenser:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": topic_prompt}]
+                model=self.model, messages=[{"role": "user", "content": topic_prompt}]
             )
 
-            topics = [topic.strip() for topic in response.content.split('\n') if topic.strip()]
+            topics = [topic.strip() for topic in response.content.split("\n") if topic.strip()]
 
             # Split context into sentences
-            sentences = re.split(r'[.!?]+', context)
+            sentences = re.split(r"[.!?]+", context)
             sentences = [s.strip() for s in sentences if s.strip()]
 
             # Score sentences based on keyword presence
@@ -174,7 +176,10 @@ class ContextCondenser:
                         score += 1
 
                 # Also score based on sentence position (beginning and end often contain important info)
-                if sentences.index(sentence) < len(sentences) * 0.1 or sentences.index(sentence) > len(sentences) * 0.9:  # First 10%
+                if (
+                    sentences.index(sentence) < len(sentences) * 0.1
+                    or sentences.index(sentence) > len(sentences) * 0.9
+                ):  # First 10%
                     score += 0.5
 
                 scored_sentences.append((sentence, score))
@@ -196,24 +201,25 @@ class ContextCondenser:
             # Reconstruct the condensed context
             if preserve_formatting:
                 # Try to maintain some structure by joining with original separators
-                original_parts = re.split(r'([.!?]+)', context)
+                original_parts = re.split(r"([.!?]+)", context)
                 condensed_parts = []
 
                 for part in original_parts:
                     if any(s in part for s in selected_sentences):
                         condensed_parts.append(part)
 
-                result = ''.join(condensed_parts)
+                result = "".join(condensed_parts)
             else:
-                result = '. '.join(selected_sentences) + '.'
+                result = ". ".join(selected_sentences) + "."
 
             return result
         except Exception as e:
             logger.error(f"Keyword extraction condensing failed: {e}")
             raise
 
-    async def condense_dialogue(self, dialogue: list[dict[str, str]],
-                               target_turns: int | None = None) -> list[dict[str, str]]:
+    async def condense_dialogue(
+        self, dialogue: list[dict[str, str]], target_turns: int | None = None
+    ) -> list[dict[str, str]]:
         """
         Condense a dialogue by reducing the number of turns while preserving key information.
 
@@ -260,17 +266,18 @@ class ContextCondenser:
                 condensed_dialogue.append(summary_batch[0])
             else:
                 # Summarize the batch
-                summary_content = "\n".join([f"{turn['role']}: {turn['content']}" for turn in summary_batch])
+                summary_content = "\n".join(
+                    [f"{turn['role']}: {turn['content']}" for turn in summary_batch]
+                )
 
                 summary = await self.condense(
                     f"Summarize this dialogue segment: {summary_content}",
-                    target_ratio=0.3  # Aggressive summary
+                    target_ratio=0.3,  # Aggressive summary
                 )
 
-                condensed_dialogue.append({
-                    "role": "system",
-                    "content": f"Summary of previous conversation: {summary}"
-                })
+                condensed_dialogue.append(
+                    {"role": "system", "content": f"Summary of previous conversation: {summary}"}
+                )
 
             i = batch_end
 
@@ -280,8 +287,9 @@ class ContextCondenser:
 
         return condensed_dialogue
 
-    async def condense_with_preservation(self, context: str, important_phrases: list[str],
-                                         target_ratio: float) -> str:
+    async def condense_with_preservation(
+        self, context: str, important_phrases: list[str], target_ratio: float
+    ) -> str:
         """
         Condense context while preserving specified important phrases.
 
@@ -359,8 +367,9 @@ class ContextCondenser:
                 section_ratio = len(section) / total_non_preserved
                 target_section_chars = int(remaining_chars * section_ratio)
                 if len(section) > target_section_chars:
-                    condensed_section = await self.condense(section,
-                                                           target_ratio=target_section_chars/len(section))
+                    condensed_section = await self.condense(
+                        section, target_ratio=target_section_chars / len(section)
+                    )
                     condensed_non_preserved.append(condensed_section)
                 else:
                     condensed_non_preserved.append(section)
@@ -388,8 +397,9 @@ class ContextCondenser:
 
         return "".join(result_parts)
 
-    async def estimate_token_reduction(self, original_context: str,
-                                      target_ratio: float) -> dict[str, float]:
+    async def estimate_token_reduction(
+        self, original_context: str, target_ratio: float
+    ) -> dict[str, float]:
         """
         Estimate the token reduction achievable with condensation.
 
@@ -409,5 +419,5 @@ class ContextCondenser:
             "original_tokens": original_tokens,
             "estimated_target_tokens": target_tokens,
             "estimated_reduction_percentage": (1 - target_ratio) * 100,
-            "estimated_savings_tokens": original_tokens - target_tokens
+            "estimated_savings_tokens": original_tokens - target_tokens,
         }

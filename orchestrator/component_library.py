@@ -44,8 +44,10 @@ logger = logging.getLogger("orchestrator.component_library")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class ComponentType(str, Enum):
     """Component types."""
+
     FORM = "form"
     TABLE = "table"
     CARD = "card"
@@ -60,6 +62,7 @@ class ComponentType(str, Enum):
 
 class Framework(str, Enum):
     """Supported frameworks."""
+
     REACT = "react"
     VUE = "vue"
     SVELTE = "svelte"
@@ -69,6 +72,7 @@ class Framework(str, Enum):
 # ─────────────────────────────────────────────
 # Data Structures
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class Component:
@@ -84,6 +88,7 @@ class Component:
         styles: CSS styles
         framework: Target framework
     """
+
     name: str
     type: ComponentType
     variant: str = "default"
@@ -132,6 +137,7 @@ class Component:
 @dataclass
 class ComponentTemplate:
     """Component template with multiple variants."""
+
     type: ComponentType
     name: str
     description: str
@@ -151,8 +157,10 @@ class ComponentTemplate:
 # Component Renderers
 # ─────────────────────────────────────────────
 
+
 class ComponentRenderer(Protocol):
     """Component renderer interface."""
+
     def render(self, component: Component) -> str: ...
 
 
@@ -331,10 +339,7 @@ export default function {component.name}({{ data, columns }}) {{
         props = component.props
         items = props.get("items", [])
 
-        "".join(
-            '<a href="{item.href}" className="nav-link">{item.label}</a>'
-            for item in items
-        )
+        "".join('<a href="{item.href}" className="nav-link">{item.label}</a>' for item in items)
 
         return f"""import React from 'react';
 
@@ -485,6 +490,7 @@ class ComponentRenderer:
 # Component Library
 # ─────────────────────────────────────────────
 
+
 class ComponentLibrary:
     """
     Registry and factory for reusable components.
@@ -517,7 +523,12 @@ class ComponentLibrary:
                     props={
                         "fields": [
                             {"name": "email", "label": "Email", "type": "email", "required": True},
-                            {"name": "password", "label": "Password", "type": "password", "required": True},
+                            {
+                                "name": "password",
+                                "label": "Password",
+                                "type": "password",
+                                "required": True,
+                            },
                         ],
                         "submitText": "Sign In",
                     },
@@ -531,8 +542,18 @@ class ComponentLibrary:
                     props={
                         "fields": [
                             {"name": "email", "label": "Email", "type": "email", "required": True},
-                            {"name": "password", "label": "Password", "type": "password", "required": True},
-                            {"name": "remember", "label": "Remember me", "type": "checkbox", "required": False},
+                            {
+                                "name": "password",
+                                "label": "Password",
+                                "type": "password",
+                                "required": True,
+                            },
+                            {
+                                "name": "remember",
+                                "label": "Remember me",
+                                "type": "checkbox",
+                                "required": False,
+                            },
                         ],
                         "submitText": "Sign In",
                     },
@@ -554,10 +575,25 @@ class ComponentLibrary:
                     variant="register",
                     props={
                         "fields": [
-                            {"name": "name", "label": "Full Name", "type": "text", "required": True},
+                            {
+                                "name": "name",
+                                "label": "Full Name",
+                                "type": "text",
+                                "required": True,
+                            },
                             {"name": "email", "label": "Email", "type": "email", "required": True},
-                            {"name": "password", "label": "Password", "type": "password", "required": True},
-                            {"name": "confirmPassword", "label": "Confirm Password", "type": "password", "required": True},
+                            {
+                                "name": "password",
+                                "label": "Password",
+                                "type": "password",
+                                "required": True,
+                            },
+                            {
+                                "name": "confirmPassword",
+                                "label": "Confirm Password",
+                                "type": "password",
+                                "required": True,
+                            },
                         ],
                         "submitText": "Create Account",
                     },
@@ -581,7 +617,12 @@ class ComponentLibrary:
                         "fields": [
                             {"name": "name", "label": "Name", "type": "text", "required": True},
                             {"name": "email", "label": "Email", "type": "email", "required": True},
-                            {"name": "message", "label": "Message", "type": "textarea", "required": True},
+                            {
+                                "name": "message",
+                                "label": "Message",
+                                "type": "textarea",
+                                "required": True,
+                            },
                         ],
                         "submitText": "Send Message",
                     },

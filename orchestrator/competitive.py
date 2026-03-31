@@ -12,6 +12,7 @@ Usage:
     competitor = CompetitiveIntelligence()
     recommendation = await competitor.get_routing_recommendation(task_type="code_gen")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -74,7 +75,7 @@ class CompetitiveIntelligence:
                 latency_ms=800.0,
                 availability=0.98,
                 quality_score=0.92,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             MarketDataPoint(
                 model=Model.DEEPSEEK_REASONER,
@@ -82,7 +83,7 @@ class CompetitiveIntelligence:
                 latency_ms=1200.0,
                 availability=0.95,
                 quality_score=0.89,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             MarketDataPoint(
                 model=Model.DEEPSEEK_CHAT,
@@ -90,7 +91,7 @@ class CompetitiveIntelligence:
                 latency_ms=600.0,
                 availability=0.97,
                 quality_score=0.85,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             MarketDataPoint(
                 model=Model.GOOGLE_GEMINI_PRO,
@@ -98,7 +99,7 @@ class CompetitiveIntelligence:
                 latency_ms=900.0,
                 availability=0.96,
                 quality_score=0.88,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             MarketDataPoint(
                 model=Model.CLAUDE_3_OPUS,
@@ -106,7 +107,7 @@ class CompetitiveIntelligence:
                 latency_ms=1500.0,
                 availability=0.94,
                 quality_score=0.95,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             MarketDataPoint(
                 model=Model.CLAUDE_3_5_SONNET,
@@ -114,7 +115,7 @@ class CompetitiveIntelligence:
                 latency_ms=1000.0,
                 availability=0.96,
                 quality_score=0.93,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             MarketDataPoint(
                 model=Model.CLAUDE_3_HAIKU,
@@ -122,7 +123,7 @@ class CompetitiveIntelligence:
                 latency_ms=400.0,
                 availability=0.97,
                 quality_score=0.78,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
         ]
 
@@ -171,10 +172,10 @@ class CompetitiveIntelligence:
             # Calculate composite score
             # Weight: 40% quality, 30% cost efficiency, 20% availability, 10% latency
             composite_score = (
-                adjusted_quality * 0.4 +
-                normalized_price * 0.3 +
-                data_point.availability * 0.2 +
-                (1 - min(data_point.latency_ms / 2000.0, 1.0)) * 0.1  # Lower latency is better
+                adjusted_quality * 0.4
+                + normalized_price * 0.3
+                + data_point.availability * 0.2
+                + (1 - min(data_point.latency_ms / 2000.0, 1.0)) * 0.1  # Lower latency is better
             )
 
             # Accumulate scores for models that appear multiple times
@@ -224,7 +225,7 @@ class CompetitiveIntelligence:
                 Model.OPENAI_GPT4: 1.0,
                 Model.GOOGLE_GEMINI_PRO: 1.0,
                 Model.DEEPSEEK_REASONER: 0.95,
-            }
+            },
         }
 
         multiplier = task_multipliers.get(task_type, {}).get(Model.DEEPSEEK_CHAT, 1.0)
@@ -255,7 +256,7 @@ class CompetitiveIntelligence:
                 performance_gains=0.0,
                 risk_assessment="low",
                 confidence=0.5,
-                alternatives=[]
+                alternatives=[],
             )
 
         # Get the top recommended model
@@ -280,18 +281,17 @@ class CompetitiveIntelligence:
             performance_gains=performance_gains,
             risk_assessment=risk_level,
             confidence=min(recommended_score, 1.0),
-            alternatives=alternatives
+            alternatives=alternatives,
         )
 
     def _calculate_cost_savings(self, recommended_model: Model, default_model: Model) -> float:
         """Calculate potential cost savings of using recommended model vs default."""
         recommended_price = next(
             (md.price_per_mil_tokens for md in self.market_data if md.model == recommended_model),
-            float('inf')
+            float("inf"),
         )
         default_price = next(
-            (md.price_per_mil_tokens for md in self.market_data if md.model == default_model),
-            0
+            (md.price_per_mil_tokens for md in self.market_data if md.model == default_model), 0
         )
 
         # Savings = default_price - recommended_price (positive if recommended is cheaper)
@@ -330,7 +330,8 @@ class CompetitiveIntelligence:
         for data_point in self.market_data:
             # Compare against the most expensive model in the same quality bracket
             same_quality_models = [
-                md for md in self.market_data
+                md
+                for md in self.market_data
                 if abs(md.quality_score - data_point.quality_score) < 0.05
             ]
 
@@ -339,20 +340,26 @@ class CompetitiveIntelligence:
                 cheapest_in_bracket = min(same_quality_models, key=lambda x: x.price_per_mil_tokens)
 
                 if cheapest_in_bracket.model != data_point.model:
-                    savings_per_mil = data_point.price_per_mil_tokens - cheapest_in_bracket.price_per_mil_tokens
+                    savings_per_mil = (
+                        data_point.price_per_mil_tokens - cheapest_in_bracket.price_per_mil_tokens
+                    )
 
                     if savings_per_mil > 0:  # Only if there are actual savings
-                        opportunities.append({
-                            "current_model": data_point.model,
-                            "recommended_model": cheapest_in_bracket.model,
-                            "savings_per_mil_tokens": savings_per_mil,
-                            "quality_difference": abs(data_point.quality_score - cheapest_in_bracket.quality_score),
-                            "opportunity_description": (
-                                f"Switch from {data_point.model.value} to {cheapest_in_bracket.model.value} "
-                                f"for ${savings_per_mil:.2f} savings per million tokens "
-                                f"with similar quality ({cheapest_in_bracket.quality_score:.2f})"
-                            )
-                        })
+                        opportunities.append(
+                            {
+                                "current_model": data_point.model,
+                                "recommended_model": cheapest_in_bracket.model,
+                                "savings_per_mil_tokens": savings_per_mil,
+                                "quality_difference": abs(
+                                    data_point.quality_score - cheapest_in_bracket.quality_score
+                                ),
+                                "opportunity_description": (
+                                    f"Switch from {data_point.model.value} to {cheapest_in_bracket.model.value} "
+                                    f"for ${savings_per_mil:.2f} savings per million tokens "
+                                    f"with similar quality ({cheapest_in_bracket.quality_score:.2f})"
+                                ),
+                            }
+                        )
 
         # Sort by savings potential
         opportunities.sort(key=lambda x: x["savings_per_mil_tokens"], reverse=True)

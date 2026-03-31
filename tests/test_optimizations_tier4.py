@@ -21,10 +21,10 @@ from orchestrator.cost_optimization import (
     GitHubMetrics,
 )
 
-
 # ─────────────────────────────────────────────
 # Test DockerSandbox
 # ─────────────────────────────────────────────
+
 
 class TestDockerSandbox:
     """Test DockerSandbox class."""
@@ -136,6 +136,7 @@ class TestDockerSandbox:
 # Test GitHubIntegration
 # ─────────────────────────────────────────────
 
+
 class TestGitHubIntegration:
     """Test GitHubIntegration class."""
 
@@ -155,6 +156,7 @@ class TestGitHubIntegration:
     def test_github_from_env(self):
         """Test GitHub integration from environment."""
         import os
+
         os.environ["GITHUB_TOKEN"] = "env_token"
         os.environ["GITHUB_OWNER"] = "env_owner"
         os.environ["GITHUB_REPO"] = "env_repo"
@@ -309,6 +311,7 @@ class TestGitHubIntegration:
 # Test Integration
 # ─────────────────────────────────────────────
 
+
 class TestIntegration:
     """Test integration between Tier 4 modules."""
 
@@ -364,6 +367,7 @@ class TestIntegration:
 # Test Tier 3 & 4 Fixes
 # ─────────────────────────────────────────────
 
+
 class TestDeferredBugFixes:
     """Tests for BUG-OPT-004 and BUG-OPT-005 fixes."""
 
@@ -371,6 +375,7 @@ class TestDeferredBugFixes:
         """Test BUG-OPT-004: Pydantic import raises clear error."""
         # This test verifies the module imports correctly when pydantic is available
         from orchestrator.cost_optimization import StructuredOutputEnforcer
+
         assert StructuredOutputEnforcer is not None
 
     @pytest.mark.asyncio
@@ -379,14 +384,15 @@ class TestDeferredBugFixes:
         from orchestrator.cost_optimization import EvalDatasetBuilder
         import asyncio
         import json
-        
+
         builder = EvalDatasetBuilder()
-        
+
         # Create temp file
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             builder.dataset_path = Path(f.name)
-        
+
         try:
             # Simulate concurrent writes
             async def write_failure(i):
@@ -398,18 +404,18 @@ class TestDeferredBugFixes:
                     model=f"model-{i % 3}",
                     task_type="code_generation",
                 )
-            
+
             # Write 10 failures concurrently
             await asyncio.gather(*[write_failure(i) for i in range(10)])
-            
+
             # Verify file is valid JSONL (each line is valid JSON)
-            with open(builder.dataset_path, 'r') as f:
+            with open(builder.dataset_path, "r") as f:
                 lines = f.readlines()
-            
+
             # Note: Due to atomic append, all lines should be written
             # but order may vary due to async scheduling
             assert len(lines) == 10, f"Expected 10 lines, got {len(lines)}"
-            
+
             for i, line in enumerate(lines):
                 try:
                     data = json.loads(line)
@@ -417,7 +423,7 @@ class TestDeferredBugFixes:
                     assert "bad_output" in data, f"Line {i} missing 'bad_output'"
                 except json.JSONDecodeError as e:
                     pytest.fail(f"Line {i} is not valid JSON: {e}")
-        
+
         finally:
             # Cleanup
             builder.dataset_path.unlink(missing_ok=True)
@@ -426,16 +432,17 @@ class TestDeferredBugFixes:
         """Test BUG-OPT-005: File locking prevents interleaved writes."""
         from orchestrator.cost_optimization import EvalDatasetBuilder
         import tempfile
-        
+
         builder = EvalDatasetBuilder()
-        
+
         # Create temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             builder.dataset_path = Path(f.name)
-        
+
         try:
             # Record failure synchronously
             import asyncio
+
             asyncio.get_event_loop().run_until_complete(
                 builder.record_failure(
                     task_prompt="Test prompt",
@@ -446,14 +453,14 @@ class TestDeferredBugFixes:
                     task_type="code_generation",
                 )
             )
-            
+
             # Verify file content
-            with open(builder.dataset_path, 'r') as f:
+            with open(builder.dataset_path, "r") as f:
                 content = f.read()
-            
+
             assert "Test prompt" in content
             assert "test code" in content
-        
+
         finally:
             # Cleanup
             builder.dataset_path.unlink(missing_ok=True)

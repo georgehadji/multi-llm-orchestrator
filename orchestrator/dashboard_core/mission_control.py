@@ -74,7 +74,11 @@ class MissionControlView(DashboardView):
 
     def _render_header(self, context: ViewContext) -> str:
         """Render header with gamification elements."""
-        budget_pct = (context.budget.get("spent", 0) / context.budget.get("max", 1)) * 100 if context.budget.get("max") else 0
+        budget_pct = (
+            (context.budget.get("spent", 0) / context.budget.get("max", 1)) * 100
+            if context.budget.get("max")
+            else 0
+        )
 
         return f"""
     <header class="glass fixed top-0 w-full z-50 border-b border-gray-700">
@@ -424,7 +428,7 @@ class MissionControlView(DashboardView):
     def handle_event(self, event: Any) -> dict[str, Any] | None:
         """Transform events for Mission Control view."""
         # Add gamification data to events
-        if hasattr(event, 'event_type'):
+        if hasattr(event, "event_type"):
             return {
                 "gamified": True,
                 "xp_reward": self._get_xp_reward(event.event_type.value),

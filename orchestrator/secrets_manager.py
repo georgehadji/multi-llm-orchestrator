@@ -34,23 +34,34 @@ logger = logging.getLogger("orchestrator.secrets")
 # ─────────────────────────────────────────────
 
 SECRET_PATTERNS = [
-    (re.compile(r'sk-[a-zA-Z0-9]{20,}'), 'API_KEY'),  # OpenAI/Anthropic style
-    (re.compile(r'AIza[a-zA-Z0-9_-]{35}'), 'GOOGLE_KEY'),  # Google style
-    (re.compile(r'ghp_[a-zA-Z0-9]{36}'), 'GITHUB_TOKEN'),  # GitHub PAT
-    (re.compile(r'xox[baprs]-[a-zA-Z0-9-]+'), 'SLACK_TOKEN'),  # Slack
-    (re.compile(r'Bearer\s+[a-zA-Z0-9_-]{20,}'), 'BEARER_TOKEN'),
+    (re.compile(r"sk-[a-zA-Z0-9]{20,}"), "API_KEY"),  # OpenAI/Anthropic style
+    (re.compile(r"AIza[a-zA-Z0-9_-]{35}"), "GOOGLE_KEY"),  # Google style
+    (re.compile(r"ghp_[a-zA-Z0-9]{36}"), "GITHUB_TOKEN"),  # GitHub PAT
+    (re.compile(r"xox[baprs]-[a-zA-Z0-9-]+"), "SLACK_TOKEN"),  # Slack
+    (re.compile(r"Bearer\s+[a-zA-Z0-9_-]{20,}"), "BEARER_TOKEN"),
 ]
 
 # Known secret environment variable names
 SECRET_ENV_NAMES = {
-    'API_KEY', 'SECRET', 'TOKEN', 'PASSWORD', 'PASSWD', 'CREDENTIAL',
-    'PRIVATE_KEY', 'AUTH', 'BEARER', 'JWT', 'APIKEY', 'API_SECRET'
+    "API_KEY",
+    "SECRET",
+    "TOKEN",
+    "PASSWORD",
+    "PASSWD",
+    "CREDENTIAL",
+    "PRIVATE_KEY",
+    "AUTH",
+    "BEARER",
+    "JWT",
+    "APIKEY",
+    "API_SECRET",
 }
 
 
 @dataclass
 class SecretsConfig:
     """Secrets manager configuration."""
+
     required_secrets: list[str] = field(default_factory=list)
     optional_secrets: list[str] = field(default_factory=list)
     mask_in_logs: bool = True
@@ -78,7 +89,7 @@ class SecretsManager:
 
     def __init__(self, config: SecretsConfig | None = None):
         """Initialize secrets manager."""
-        if hasattr(self, '_initialized') and self._initialized:
+        if hasattr(self, "_initialized") and self._initialized:
             return
 
         self.config = config or SecretsConfig()
@@ -232,12 +243,12 @@ class SecretsManager:
 
         # Mask known secret patterns
         for pattern, replacement in SECRET_PATTERNS:
-            masked = pattern.sub(f'[REDACTED_{replacement}]', masked)
+            masked = pattern.sub(f"[REDACTED_{replacement}]", masked)
 
         # Mask loaded secrets
         for name, value in self._secrets.items():
             if value and len(value) > 4:
-                masked = masked.replace(value, f'[REDACTED_{name}]')
+                masked = masked.replace(value, f"[REDACTED_{name}]")
 
         return masked
 
@@ -267,6 +278,7 @@ class SecretsManager:
 # ─────────────────────────────────────────────
 # Secure Logging Filter
 # ─────────────────────────────────────────────
+
 
 class SecretsFilter(logging.Filter):
     """
@@ -346,13 +358,13 @@ def setup_secure_logging(logger_obj: logging.Logger) -> None:
 
 LLM_SECRETS_CONFIG = SecretsConfig(
     required_secrets=[
-        'DEEPSEEK_API_KEY',  # At least one LLM provider required
+        "DEEPSEEK_API_KEY",  # At least one LLM provider required
     ],
     optional_secrets=[
-        'OPENAI_API_KEY',
-        'GOOGLE_API_KEY',
-        'ANTHROPIC_API_KEY',
-        'MINIMAX_API_KEY',
+        "OPENAI_API_KEY",
+        "GOOGLE_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "MINIMAX_API_KEY",
     ],
     mask_in_logs=True,
     validate_on_load=False,  # Allow running without all providers
@@ -361,9 +373,9 @@ LLM_SECRETS_CONFIG = SecretsConfig(
 DATABASE_SECRETS_CONFIG = SecretsConfig(
     required_secrets=[],
     optional_secrets=[
-        'DATABASE_URL',
-        'DB_PASSWORD',
-        'DB_USER',
+        "DATABASE_URL",
+        "DB_PASSWORD",
+        "DB_USER",
     ],
     mask_in_logs=True,
     validate_on_load=False,

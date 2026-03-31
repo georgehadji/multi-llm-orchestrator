@@ -13,6 +13,7 @@ Usage:
     builder = PlanThenBuilder()
     result = await builder.execute_planned_task(description="Build a REST API")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,14 +52,18 @@ class ExecutionPlan:
 class PlanThenBuilder:
     """Implements the plan-then-build pattern for improved task execution."""
 
-    def __init__(self, planner_model: Model = Model.DEEPSEEK_REASONER,
-                 executor_model: Model = Model.DEEPSEEK_CHAT):
+    def __init__(
+        self,
+        planner_model: Model = Model.DEEPSEEK_REASONER,
+        executor_model: Model = Model.DEEPSEEK_CHAT,
+    ):
         """Initialize the plan-then-builder."""
         self.planner_model = planner_model
         self.executor_model = executor_model
 
-    async def execute_planned_task(self, description: str,
-                                   context: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def execute_planned_task(
+        self, description: str, context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Execute a task using the plan-then-build pattern.
 
@@ -77,8 +82,9 @@ class PlanThenBuilder:
 
         return result
 
-    async def create_plan(self, task_description: str,
-                          context: dict[str, Any] | None = None) -> ExecutionPlan:
+    async def create_plan(
+        self, task_description: str, context: dict[str, Any] | None = None
+    ) -> ExecutionPlan:
         """
         Create an execution plan for the given task.
 
@@ -129,8 +135,7 @@ class PlanThenBuilder:
 
         try:
             response = await client.acomplete(
-                model=self.planner_model,
-                messages=[{"role": "user", "content": planning_prompt}]
+                model=self.planner_model, messages=[{"role": "user", "content": planning_prompt}]
             )
 
             return self._parse_execution_plan(response.content)
@@ -146,18 +151,18 @@ class PlanThenBuilder:
                         description=f"Execute the task: {task_description}",
                         dependencies=[],
                         estimated_duration=30.0,
-                        resources_needed=["general_computation"]
+                        resources_needed=["general_computation"],
                     )
                 ],
                 estimated_total_duration=30.0,
                 critical_path=["fallback_step_1"],
                 risks=["Planning failed, using fallback execution"],
-                success_criteria=[f"Task '{task_description}' completed"]
+                success_criteria=[f"Task '{task_description}' completed"],
             )
 
     def _parse_execution_plan(self, plan_text: str) -> ExecutionPlan:
         """Parse the execution plan from the LLM response."""
-        lines = plan_text.split('\n')
+        lines = plan_text.split("\n")
 
         steps = []
         risks = []
@@ -168,15 +173,17 @@ class PlanThenBuilder:
         for line in lines:
             line = line.strip()
 
-            if line.startswith('STEPS:'):
-                current_section = 'steps'
-            elif line.startswith('RISKS:'):
-                current_section = 'risks'
-            elif line.startswith('SUCCESS CRITERIA:'):
-                current_section = 'success_criteria'
-            elif current_section == 'steps' and line.startswith(('1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')):
+            if line.startswith("STEPS:"):
+                current_section = "steps"
+            elif line.startswith("RISKS:"):
+                current_section = "risks"
+            elif line.startswith("SUCCESS CRITERIA:"):
+                current_section = "success_criteria"
+            elif current_section == "steps" and line.startswith(
+                ("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")
+            ):
                 # Parse step information
-                parts = line.split(': ', 1)
+                parts = line.split(": ", 1)
                 if len(parts) == 2:
                     step_info = parts[1].strip()
 
@@ -185,34 +192,44 @@ class PlanThenBuilder:
                     duration = 30.0  # Default duration
                     resources = []
 
-                    if '(Depends:' in step_info:
+                    if "(Depends:" in step_info:
                         # Extract dependencies, duration, and resources
-                        paren_part = step_info[step_info.find('(Depends:'):]
-                        step_desc = step_info[:step_info.find('(Depends:')].strip()
+                        paren_part = step_info[step_info.find("(Depends:") :]
+                        step_desc = step_info[: step_info.find("(Depends:")].strip()
 
                         # Parse dependencies
-                        if 'Depends:' in paren_part:
-                            deps_part = paren_part.split('Depends:')[1].split(',')[0].split(')', 1)[0].strip()
-                            deps = [d.strip() for d in deps_part.split(',') if d.strip()]
+                        if "Depends:" in paren_part:
+                            deps_part = (
+                                paren_part.split("Depends:")[1]
+                                .split(",")[0]
+                                .split(")", 1)[0]
+                                .strip()
+                            )
+                            deps = [d.strip() for d in deps_part.split(",") if d.strip()]
 
                         # Parse duration
-                        if 'Duration:' in paren_part:
-                            dur_part = paren_part.split('Duration:')[1].split(',')[0].split(')', 1)[0].strip()
+                        if "Duration:" in paren_part:
+                            dur_part = (
+                                paren_part.split("Duration:")[1]
+                                .split(",")[0]
+                                .split(")", 1)[0]
+                                .strip()
+                            )
                             try:
                                 duration = float(dur_part)
                             except ValueError:
                                 duration = 30.0  # Default if parsing fails
 
                         # Parse resources
-                        if 'Resources:' in paren_part:
-                            res_part = paren_part.split('Resources:')[1].split(')')[0].strip()
-                            resources = [r.strip() for r in res_part.split(',') if r.strip()]
+                        if "Resources:" in paren_part:
+                            res_part = paren_part.split("Resources:")[1].split(")")[0].strip()
+                            resources = [r.strip() for r in res_part.split(",") if r.strip()]
                     else:
                         # Simple format without parentheses
                         step_desc = step_info
 
                     # Extract step ID from the beginning
-                    step_num = parts[0].split('.')[0].strip()
+                    step_num = parts[0].split(".")[0].strip()
                     step_id = f"step_{step_num}"
 
                     step = PlanStep(
@@ -220,13 +237,13 @@ class PlanThenBuilder:
                         description=step_desc,
                         dependencies=deps,
                         estimated_duration=duration,
-                        resources_needed=resources
+                        resources_needed=resources,
                     )
                     steps.append(step)
-            elif current_section == 'risks' and line.startswith('- '):
+            elif current_section == "risks" and line.startswith("- "):
                 risk = line[2:].strip()
                 risks.append(risk)
-            elif current_section == 'success_criteria' and line.startswith('- '):
+            elif current_section == "success_criteria" and line.startswith("- "):
                 criterion = line[2:].strip()
                 success_criteria.append(criterion)
 
@@ -240,11 +257,12 @@ class PlanThenBuilder:
             estimated_total_duration=total_duration,
             critical_path=critical_path,
             risks=risks,
-            success_criteria=success_criteria
+            success_criteria=success_criteria,
         )
 
-    async def execute_plan(self, plan: ExecutionPlan,
-                           context: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def execute_plan(
+        self, plan: ExecutionPlan, context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Execute the given execution plan.
 
@@ -306,13 +324,14 @@ class PlanThenBuilder:
             "total_steps": len(plan.steps),
             "step_results": results,
             "risks_encountered": [],
-            "success_criteria_met": len(results) == len(plan.steps)  # Simplified check
+            "success_criteria_met": len(results) == len(plan.steps),  # Simplified check
         }
 
         return final_result
 
-    async def _execute_step(self, step: PlanStep, context: dict[str, Any] | None,
-                            previous_results: dict[str, Any]) -> str:
+    async def _execute_step(
+        self, step: PlanStep, context: dict[str, Any] | None, previous_results: dict[str, Any]
+    ) -> str:
         """Execute a single step in the plan."""
         from .api_clients import UnifiedClient
 
@@ -335,8 +354,7 @@ class PlanThenBuilder:
 
         try:
             response = await client.acomplete(
-                model=self.executor_model,
-                messages=[{"role": "user", "content": execution_prompt}]
+                model=self.executor_model, messages=[{"role": "user", "content": execution_prompt}]
             )
 
             return response.content
@@ -392,7 +410,7 @@ class PlanThenBuilder:
             "cycles_detected": cycles,
             "resource_availability": dict.fromkeys(all_resources, True),  # Simplified
             "estimated_duration": plan.estimated_total_duration,
-            "recommendations": []
+            "recommendations": [],
         }
 
         if cycles:

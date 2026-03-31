@@ -17,6 +17,7 @@ Usage:
         context={"team": "engineering"}
     )
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -33,6 +34,7 @@ logger = logging.getLogger("orchestrator.triggers")
 
 class TriggerConditionOperator(Enum):
     """Operators for trigger conditions."""
+
     GREATER_THAN = "gt"
     LESS_THAN = "lt"
     EQUALS = "eq"
@@ -71,9 +73,15 @@ class TriggerManager:
         self.custom_conditions: dict[str, Callable] = {}
         self.custom_actions: dict[str, Callable] = {}
 
-    def create_trigger(self, name: str, condition: str, action: str,
-                      context: dict[str, Any], cooldown_period: float = 300.0,
-                      eval_frequency: float = 60.0) -> Trigger:
+    def create_trigger(
+        self,
+        name: str,
+        condition: str,
+        action: str,
+        context: dict[str, Any],
+        cooldown_period: float = 300.0,
+        eval_frequency: float = 60.0,
+    ) -> Trigger:
         """
         Create a new trigger.
 
@@ -97,7 +105,7 @@ class TriggerManager:
             action=action,
             context=context,
             cooldown_period=cooldown_period,
-            eval_frequency=eval_frequency
+            eval_frequency=eval_frequency,
         )
 
         self.triggers[trigger_id] = trigger
@@ -194,8 +202,10 @@ class TriggerManager:
 
         # Check cooldown period
         current_time = time.time()
-        if (trigger.last_triggered and
-            current_time - trigger.last_triggered < trigger.cooldown_period):
+        if (
+            trigger.last_triggered
+            and current_time - trigger.last_triggered < trigger.cooldown_period
+        ):
             return False
 
         # Evaluate the condition
@@ -232,12 +242,12 @@ class TriggerManager:
             ast.Eq: operator.eq,
             ast.NotEq: operator.ne,
             ast.GtE: operator.ge,
-            ast.LtE: operator.le
+            ast.LtE: operator.le,
         }
 
         try:
             # Parse the condition expression
-            tree = ast.parse(condition, mode='eval')
+            tree = ast.parse(condition, mode="eval")
             return self._eval_expr(tree.body, context, ops)
         except SyntaxError:
             # If it's not a valid expression, check for custom conditions
@@ -333,9 +343,10 @@ class TriggerManager:
                 current_time = time.time()
 
                 for trigger_id, trigger in self.triggers.items():
-                    if (trigger.enabled and
-                        (trigger.last_evaluated is None or
-                         current_time - trigger.last_evaluated >= trigger.eval_frequency)):
+                    if trigger.enabled and (
+                        trigger.last_evaluated is None
+                        or current_time - trigger.last_evaluated >= trigger.eval_frequency
+                    ):
                         # Evaluate this trigger with empty context (should come from system)
                         await self.evaluate_trigger(trigger_id, {})
 
@@ -363,7 +374,9 @@ class TriggerManager:
         avg_evaluation_freq = 0.0
 
         if self.triggers:
-            avg_evaluation_freq = sum(t.eval_frequency for t in self.triggers.values()) / len(self.triggers)
+            avg_evaluation_freq = sum(t.eval_frequency for t in self.triggers.values()) / len(
+                self.triggers
+            )
 
         # Count total firings by looking at last_triggered times
         for trigger in self.triggers.values():
@@ -376,7 +389,7 @@ class TriggerManager:
             "disabled_triggers": len(self.triggers) - active_triggers,
             "total_firings": total_firings,
             "average_evaluation_frequency": avg_evaluation_freq,
-            "running": self.running
+            "running": self.running,
         }
 
     async def trigger_manual_evaluation(self, trigger_id: str, context: dict[str, Any]) -> bool:
@@ -410,8 +423,13 @@ class TriggerManager:
 
         # Update allowed properties
         updatable_fields = {
-            'name', 'condition', 'action', 'context', 'enabled',
-            'cooldown_period', 'eval_frequency'
+            "name",
+            "condition",
+            "action",
+            "context",
+            "enabled",
+            "cooldown_period",
+            "eval_frequency",
         }
 
         for field, value in updates.items():

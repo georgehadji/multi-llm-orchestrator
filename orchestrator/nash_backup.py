@@ -46,14 +46,16 @@ logger = get_logger(__name__)
 
 class BackupFormat(Enum):
     """Backup format options."""
+
     JSON = "json"
     JSON_GZ = "json.gz"  # Compressed
-    ENCRYPTED = "enc"     # Encrypted
+    ENCRYPTED = "enc"  # Encrypted
 
 
 @dataclass
 class BackupComponent:
     """A single component in a backup."""
+
     name: str
     path: Path
     size_bytes: int = 0
@@ -73,6 +75,7 @@ class BackupComponent:
 @dataclass
 class BackupManifest:
     """Manifest describing a backup."""
+
     backup_id: str
     created_at: datetime
     format: BackupFormat
@@ -135,6 +138,7 @@ class BackupManifest:
 @dataclass
 class RestoreResult:
     """Result of a restore operation."""
+
     success: bool
     backup_id: str
     components_restored: int
@@ -258,7 +262,9 @@ class NashBackupManager:
             # Create archive
             if compress:
                 archive_path = backup_path.with_suffix(".tar.gz")
-                with tarfile.open(archive_path, "w:gz", compresslevel=self.COMPRESSION_LEVEL) as tar:
+                with tarfile.open(
+                    archive_path, "w:gz", compresslevel=self.COMPRESSION_LEVEL
+                ) as tar:
                     tar.add(temp_path, arcname=backup_id)
             else:
                 archive_path = backup_path.with_suffix(".tar")
@@ -616,7 +622,7 @@ class NashBackupManager:
         backups = self.list_backups()
 
         if len(backups) > self.MAX_BACKUPS:
-            for old_backup in backups[self.MAX_BACKUPS:]:
+            for old_backup in backups[self.MAX_BACKUPS :]:
                 await self.delete_backup(old_backup.backup_id)
                 logger.info(f"Cleaned up old backup: {old_backup.backup_id}")
 
