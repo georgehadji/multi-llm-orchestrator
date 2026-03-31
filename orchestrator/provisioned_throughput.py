@@ -33,9 +33,10 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import aiohttp
+if TYPE_CHECKING:
+    import aiohttp
 
 logger = logging.getLogger("orchestrator.provisioned_throughput")
 
@@ -157,17 +158,18 @@ class ProvisionedThroughputManager:
         self.usage = UsageMetrics()
         self._capacity_units: list[CapacityUnit] = []
         self._lock = asyncio.Lock()
-        self._session: aiohttp.ClientSession | None = None
+        self._session: Any = None  # aiohttp.ClientSession, lazy-loaded
 
         # Metrics
         self.total_capacity_checks = 0
         self.total_capacity_exceeded = 0
         self.auto_scale_events = 0
 
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
+    async def _get_session(self) -> Any:
+        """Get or create aiohttp session (lazy-loads aiohttp to avoid import hang)."""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
+            import aiohttp as _aiohttp  # Lazy import to avoid hang at module load time
+            self._session = _aiohttp.ClientSession(
                 headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
             )
         return self._session
