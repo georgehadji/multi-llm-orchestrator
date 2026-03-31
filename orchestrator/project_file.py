@@ -17,6 +17,8 @@ Schema reference (all fields except `project` and `criteria` are optional):
     output_dir: "./results"                # optional: write output files here
     assemble: true                          # optional: assemble into real project tree
     verify_cmd: "pytest"                    # optional: run after assembly (e.g. npm run build)
+    tdd_first: true                         # default true — write tests before implementation
+    tdd_quality: "balanced"                 # "budget" | "balanced" | "premium"
     quality_targets:
       code_generation: 0.90
       code_review:     0.88
@@ -73,6 +75,8 @@ class ProjectFileResult:
     assemble: bool = False  # assemble into real project tree
     verify_cmd: str = ""  # shell command to run after assembly
     task_paths: dict[str, str] = None  # {task_id/index -> target_path}
+    tdd_first: bool = True  # write tests before implementation (TDD)
+    tdd_quality: str = "balanced"  # "budget" | "balanced" | "premium"
 
     def __post_init__(self):
         if self.task_paths is None:
@@ -133,6 +137,16 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
     assemble: bool = bool(raw.get("assemble", False))
     verify_cmd: str = str(raw.get("verify_cmd", "")).strip()
 
+    # ── TDD settings ──────────────────────────────────────────────────────────
+    tdd_first: bool = bool(raw.get("tdd_first", True))  # default ON
+    tdd_quality_raw = str(raw.get("tdd_quality", "balanced")).strip().lower()
+    if tdd_quality_raw not in ("budget", "balanced", "premium"):
+        raise ValueError(
+            f"'{path}': invalid tdd_quality '{tdd_quality_raw}'. "
+            "Valid values: budget, balanced, premium"
+        )
+    tdd_quality: str = tdd_quality_raw
+
     # ── Per-task target paths (for assembly) ──────────────────────────────────
     # Accepts either:
     #   task_paths:
@@ -178,6 +192,8 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
         assemble=assemble,
         verify_cmd=verify_cmd,
         task_paths=task_paths,
+        tdd_first=tdd_first,
+        tdd_quality=tdd_quality,
     )
 
 

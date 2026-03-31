@@ -634,9 +634,16 @@ async def _async_file_project(args):
     spec = result.spec
 
     # ═══════════════════════════════════════════════════════
-    # TDD Configuration (NEW v3.0)
+    # TDD Configuration — YAML values are baseline, CLI flags override
     # ═══════════════════════════════════════════════════════
-    if getattr(args, "tdd_first", False):
+    # Determine effective TDD settings:
+    #   - YAML tdd_first defaults to True (on by default)
+    #   - CLI --tdd-first forces True; absence does NOT force False (YAML wins)
+    cli_tdd_first = getattr(args, "tdd_first", False)
+    effective_tdd_first = result.tdd_first or cli_tdd_first
+    effective_tdd_quality = args.tdd_quality if cli_tdd_first else result.tdd_quality
+
+    if effective_tdd_first:
         from .cost_optimization import (
             get_optimization_config,
             update_config,
@@ -644,13 +651,13 @@ async def _async_file_project(args):
 
         config = get_optimization_config()
         config.enable_tdd_first = True
-        config.tdd_quality_tier = args.tdd_quality
+        config.tdd_quality_tier = effective_tdd_quality
         config.tdd_max_iterations = args.tdd_max_iterations
         config.tdd_min_test_coverage = args.tdd_min_coverage
         update_config(config)
 
         logger.info(
-            f"TDD enabled: quality={args.tdd_quality}, "
+            f"TDD enabled: quality={effective_tdd_quality}, "
             f"max_iterations={args.tdd_max_iterations}, "
             f"min_coverage={args.tdd_min_coverage}"
         )
