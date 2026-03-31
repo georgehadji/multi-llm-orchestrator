@@ -34,11 +34,12 @@ except Exception as e:
     print(f"[LLM Orchestrator] [WARN] Failed to load .env: {e}")
 
 from .analyzer import CodebaseAnalyzer
+from .budget import Budget
 from .engine import Orchestrator
 from .hooks import EventType
 from .improvement_suggester import ImprovementSuggester
 from .log_config import get_logger
-from .models import Budget, ProjectStatus, Task, TaskResult
+from .models import ProjectStatus, Task, TaskResult
 
 logger = get_logger(__name__)
 

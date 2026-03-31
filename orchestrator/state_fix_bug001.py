@@ -18,7 +18,8 @@ import json
 import logging
 from pathlib import Path
 
-from .models import Budget, Model, ProjectState, Task, TaskResult, TaskStatus, TaskType
+from .budget import Budget
+from .models import Model, ProjectState, Task, TaskResult, TaskStatus, TaskType
 
 logger = logging.getLogger("orchestrator.state")
 

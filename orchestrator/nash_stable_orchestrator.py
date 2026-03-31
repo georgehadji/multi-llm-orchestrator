@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from .adaptive_templates import (
     get_adaptive_template_system,
 )
+from .budget import Budget
 from .engine import Orchestrator
 from .federated_learning import (
     get_federated_orchestrator,
@@ -39,7 +40,7 @@ from .federated_learning import (
 from .feedback_loop import CodebaseFingerprint, ProductionOutcome
 from .knowledge_graph import get_knowledge_graph
 from .log_config import get_logger
-from .models import Budget, Model, Task, TaskType
+from .models import Model, Task, TaskType
 from .pareto_frontier import (
     Objective,
     get_cost_quality_frontier,
