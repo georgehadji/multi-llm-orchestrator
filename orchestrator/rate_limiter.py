@@ -76,6 +76,18 @@ class RateLimiter:
         """Close limiter."""
         await self._limiter.close()
 
+    def check(self, tenant: str, model: str, tokens: int) -> None:
+        """Check rate limit — no-op stub (limits enforced via acquire())."""
+
+    def release(self, tenant: str, model: str, tokens: int) -> None:
+        """Release reserved tokens — no-op stub."""
+
+    def record(self, tenant: str, model: str, tokens: int) -> None:
+        """Record token usage — no-op stub."""
+
+    def set_limits(self, tenant: str, model: str, tpm: int, rpm: int) -> None:
+        """Set per-tenant limits — no-op stub."""
+
 
 # ─────────────────────────────────────────────
 # Main Implementation
