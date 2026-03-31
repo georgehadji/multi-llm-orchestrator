@@ -189,9 +189,7 @@ class DependencyResolver:
             dep_task = tasks.get(dep_id)
 
             # Build context section for this dependency
-            context_section = self._format_dependency_context(
-                dep_id, dep_task, dep_result
-            )
+            context_section = self._format_dependency_context(dep_id, dep_task, dep_result)
 
             if context_section:
                 context_parts.append(context_section)
@@ -232,10 +230,7 @@ class DependencyResolver:
         # Format based on task type
         task_type = dep_task.type.value if dep_task else "unknown"
 
-        return (
-            f"### {dep_id} ({task_type})\n"
-            f"```\n{output}\n```\n"
-        )
+        return f"### {dep_id} ({task_type})\n" f"```\n{output}\n```\n"
 
     def reset(self) -> None:
         """Reset resolver state for new project."""
@@ -288,6 +283,5 @@ class DependencyResolver:
             return True
 
         return all(
-            dep_id in results and results[dep_id].success
-            for dep_id in self.reverse_graph[task_id]
+            dep_id in results and results[dep_id].success for dep_id in self.reverse_graph[task_id]
         )

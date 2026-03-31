@@ -38,28 +38,31 @@ logger = get_logger(__name__)
 
 class OutputTarget(str, Enum):
     """Target output platform/type."""
-    PYTHON_LIBRARY = "python"           # Current behavior
-    REACT_WEB_APP = "react"             # React + Next.js
-    REACT_NATIVE_MOBILE = "react_native" # iOS + Android
-    SWIFTUI_IOS = "swiftui"             # Native iOS
-    KOTLIN_ANDROID = "kotlin"           # Native Android
-    FASTAPI_BACKEND = "fastapi"         # Backend API
-    FLASK_BACKEND = "flask"             # Simple backend
-    FULL_STACK = "full_stack"           # Frontend + Backend + Database
-    PWA = "pwa"                         # Progressive Web App
+
+    PYTHON_LIBRARY = "python"  # Current behavior
+    REACT_WEB_APP = "react"  # React + Next.js
+    REACT_NATIVE_MOBILE = "react_native"  # iOS + Android
+    SWIFTUI_IOS = "swiftui"  # Native iOS
+    KOTLIN_ANDROID = "kotlin"  # Native Android
+    FASTAPI_BACKEND = "fastapi"  # Backend API
+    FLASK_BACKEND = "flask"  # Simple backend
+    FULL_STACK = "full_stack"  # Frontend + Backend + Database
+    PWA = "pwa"  # Progressive Web App
 
 
 class DeploymentTarget(str, Enum):
     """Deployment target platform."""
-    APP_STORE = "app_store"       # Apple App Store
-    PLAY_STORE = "play_store"     # Google Play Store
-    WEB = "web"                   # Web deployment
-    DESKTOP = "desktop"           # Desktop (Mac, Windows, Linux)
+
+    APP_STORE = "app_store"  # Apple App Store
+    PLAY_STORE = "play_store"  # Google Play Store
+    WEB = "web"  # Web deployment
+    DESKTOP = "desktop"  # Desktop (Mac, Windows, Linux)
 
 
 @dataclass
 class ProjectOutputConfig:
     """Configuration for project output generation."""
+
     targets: list[OutputTarget] = field(default_factory=list)
     ios_deployment: bool = False
     android_deployment: bool = False
@@ -68,7 +71,7 @@ class ProjectOutputConfig:
     # App Store compliance
     include_privacy_policy: bool = True
     include_app_store_assets: bool = True  # Screenshots, descriptions
-    hig_compliance: bool = True            # Apple Human Interface Guidelines
+    hig_compliance: bool = True  # Apple Human Interface Guidelines
 
     # Code quality
     include_tests: bool = True
@@ -119,6 +122,7 @@ class ProjectOutputConfig:
 @dataclass
 class GeneratedFile:
     """A generated file."""
+
     path: str
     content: str
     description: str = ""
@@ -128,6 +132,7 @@ class GeneratedFile:
 @dataclass
 class PlatformOutput:
     """Output for a specific platform."""
+
     target: OutputTarget
     files: list[GeneratedFile] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
@@ -152,6 +157,7 @@ class PlatformOutput:
 @dataclass
 class MultiPlatformResult:
     """Result of multi-platform generation."""
+
     project_name: str
     project_description: str
     outputs: dict[OutputTarget, PlatformOutput] = field(default_factory=dict)
@@ -278,45 +284,55 @@ class MultiPlatformGenerator:
 
         # README.md
         readme_content = self._generate_readme(project_name, config)
-        files.append(GeneratedFile(
-            path="README.md",
-            content=readme_content,
-            description="Project README",
-        ))
+        files.append(
+            GeneratedFile(
+                path="README.md",
+                content=readme_content,
+                description="Project README",
+            )
+        )
 
         # LICENSE
         license_content = self._generate_license()
-        files.append(GeneratedFile(
-            path="LICENSE",
-            content=license_content,
-            description="MIT License",
-        ))
+        files.append(
+            GeneratedFile(
+                path="LICENSE",
+                content=license_content,
+                description="MIT License",
+            )
+        )
 
         # Privacy Policy (if requested)
         if config.include_privacy_policy:
             privacy_content = self._generate_privacy_policy(project_name)
-            files.append(GeneratedFile(
-                path="PRIVACY_POLICY.md",
-                content=privacy_content,
-                description="Privacy Policy",
-            ))
+            files.append(
+                GeneratedFile(
+                    path="PRIVACY_POLICY.md",
+                    content=privacy_content,
+                    description="Privacy Policy",
+                )
+            )
 
         # .gitignore
         gitignore_content = self._generate_gitignore(config)
-        files.append(GeneratedFile(
-            path=".gitignore",
-            content=gitignore_content,
-            description="Git ignore file",
-        ))
+        files.append(
+            GeneratedFile(
+                path=".gitignore",
+                content=gitignore_content,
+                description="Git ignore file",
+            )
+        )
 
         # CI/CD (if requested)
         if config.include_ci_cd:
             ci_content = self._generate_github_actions(config)
-            files.append(GeneratedFile(
-                path=".github/workflows/ci.yml",
-                content=ci_content,
-                description="GitHub Actions CI/CD",
-            ))
+            files.append(
+                GeneratedFile(
+                    path=".github/workflows/ci.yml",
+                    content=ci_content,
+                    description="GitHub Actions CI/CD",
+                )
+            )
 
         return files
 
@@ -505,8 +521,19 @@ coverage/
 
     def _generate_github_actions(self, config: ProjectOutputConfig) -> str:
         """Generate GitHub Actions CI/CD workflow."""
-        has_node = any(t in [OutputTarget.REACT_WEB_APP, OutputTarget.REACT_NATIVE_MOBILE, OutputTarget.PWA] for t in config.targets)
-        has_python = any(t in [OutputTarget.PYTHON_LIBRARY, OutputTarget.FASTAPI_BACKEND, OutputTarget.FLASK_BACKEND] for t in config.targets)
+        has_node = any(
+            t in [OutputTarget.REACT_WEB_APP, OutputTarget.REACT_NATIVE_MOBILE, OutputTarget.PWA]
+            for t in config.targets
+        )
+        has_python = any(
+            t
+            in [
+                OutputTarget.PYTHON_LIBRARY,
+                OutputTarget.FASTAPI_BACKEND,
+                OutputTarget.FLASK_BACKEND,
+            ]
+            for t in config.targets
+        )
 
         steps = []
         if has_node:
@@ -581,12 +608,19 @@ jobs:
         output.add_file("pyproject.toml", self._generate_pyproject(project_name, config))
 
         # Main module
-        output.add_file(f"{project_name}/__init__.py", f'"""{project_name} package."""\n\n__version__ = "0.1.0"\n')
-        output.add_file(f"{project_name}/main.py", self._generate_python_main(description, project_name))
+        output.add_file(
+            f"{project_name}/__init__.py",
+            f'"""{project_name} package."""\n\n__version__ = "0.1.0"\n',
+        )
+        output.add_file(
+            f"{project_name}/main.py", self._generate_python_main(description, project_name)
+        )
 
         # Tests
         if config.include_tests:
-            output.add_file(f"tests/test_{project_name}.py", self._generate_python_tests(project_name))
+            output.add_file(
+                f"tests/test_{project_name}.py", self._generate_python_tests(project_name)
+            )
 
         # Dependencies
         output.dependencies = ["pydantic>=2.0", "httpx>=0.24"]
@@ -708,14 +742,22 @@ def test_main():
 
         # Tests
         if config.include_tests:
-            output.add_file("__tests__/page.test.tsx" if ts else "__tests__/page.test.jsx",
-                          self._generate_react_tests(ts))
+            output.add_file(
+                "__tests__/page.test.tsx" if ts else "__tests__/page.test.jsx",
+                self._generate_react_tests(ts),
+            )
 
         # Dependencies
         output.dependencies = ["next@14", "react@18", "react-dom@18"]
         if config.styling == "tailwind":
             output.dependencies.extend(["tailwindcss", "postcss", "autoprefixer"])
-        output.dev_dependencies = ["typescript", "@types/react", "@types/node", "jest", "testing-library"]
+        output.dev_dependencies = [
+            "typescript",
+            "@types/react",
+            "@types/node",
+            "jest",
+            "testing-library",
+        ]
         output.scripts = {
             "dev": "next dev",
             "build": "next build",
@@ -728,30 +770,35 @@ def test_main():
 
         return output
 
-    def _generate_package_json(self, project_name: str, config: ProjectOutputConfig, web: bool = True) -> str:
+    def _generate_package_json(
+        self, project_name: str, config: ProjectOutputConfig, web: bool = True
+    ) -> str:
         """Generate package.json."""
-        return json.dumps({
-            "name": project_name,
-            "version": "0.1.0",
-            "private": True,
-            "scripts": {
-                "dev": "next dev",
-                "build": "next build",
-                "start": "next start",
-                "lint": "next lint",
-                "test": "jest",
+        return json.dumps(
+            {
+                "name": project_name,
+                "version": "0.1.0",
+                "private": True,
+                "scripts": {
+                    "dev": "next dev",
+                    "build": "next build",
+                    "start": "next start",
+                    "lint": "next lint",
+                    "test": "jest",
+                },
+                "dependencies": {
+                    "next": "14.0.0",
+                    "react": "18.2.0",
+                    "react-dom": "18.2.0",
+                },
+                "devDependencies": {
+                    "@types/node": "20.0.0",
+                    "@types/react": "18.2.0",
+                    "typescript": "5.0.0",
+                },
             },
-            "dependencies": {
-                "next": "14.0.0",
-                "react": "18.2.0",
-                "react-dom": "18.2.0",
-            },
-            "devDependencies": {
-                "@types/node": "20.0.0",
-                "@types/react": "18.2.0",
-                "typescript": "5.0.0",
-            },
-        }, indent=2)
+            indent=2,
+        )
 
     def _generate_next_config(self) -> str:
         """Generate next.config.js."""
@@ -766,30 +813,33 @@ module.exports = nextConfig
 
     def _generate_tsconfig(self) -> str:
         """Generate tsconfig.json."""
-        return json.dumps({
-            "compilerOptions": {
-                "target": "es5",
-                "lib": ["dom", "dom.iterable", "esnext"],
-                "allowJs": True,
-                "skipLibCheck": True,
-                "strict": True,
-                "noEmit": True,
-                "esModuleInterop": True,
-                "module": "esnext",
-                "moduleResolution": "bundler",
-                "resolveJsonModule": True,
-                "isolatedModules": True,
-                "jsx": "preserve",
-                "incremental": True,
-                "plugins": [{"name": "next"}],
+        return json.dumps(
+            {
+                "compilerOptions": {
+                    "target": "es5",
+                    "lib": ["dom", "dom.iterable", "esnext"],
+                    "allowJs": True,
+                    "skipLibCheck": True,
+                    "strict": True,
+                    "noEmit": True,
+                    "esModuleInterop": True,
+                    "module": "esnext",
+                    "moduleResolution": "bundler",
+                    "resolveJsonModule": True,
+                    "isolatedModules": True,
+                    "jsx": "preserve",
+                    "incremental": True,
+                    "plugins": [{"name": "next"}],
+                },
+                "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+                "exclude": ["node_modules"],
             },
-            "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-            "exclude": ["node_modules"],
-        }, indent=2)
+            indent=2,
+        )
 
     def _generate_react_homepage(self, description: str, ts: bool) -> str:
         """Generate React homepage."""
-        return f'''import React from 'react';
+        return f"""import React from 'react';
 
 export default function Home() {{
   return (
@@ -799,11 +849,11 @@ export default function Home() {{
     </main>
   );
 }}
-'''
+"""
 
     def _generate_react_layout(self, project_name: str, ts: bool) -> str:
         """Generate React layout."""
-        return f'''import React from 'react';
+        return f"""import React from 'react';
 import Header from '../components/Header';
 
 export const metadata = {{
@@ -825,11 +875,11 @@ export default function RootLayout({{
     </html>
   );
 }}
-'''
+"""
 
     def _generate_header_component(self, ts: bool) -> str:
         """Generate Header component."""
-        return '''import React from 'react';
+        return """import React from 'react';
 
 export default function Header() {
   return (
@@ -844,7 +894,7 @@ export default function Header() {
     </header>
   );
 }
-'''
+"""
 
     def _generate_tailwind_config(self) -> str:
         """Generate tailwind.config.js."""
@@ -881,7 +931,7 @@ body {
 
     def _generate_react_tests(self, ts: bool) -> str:
         """Generate React tests."""
-        return '''import { render, screen } from '@testing-library/react';
+        return """import { render, screen } from '@testing-library/react';
 import Home from '../app/page';
 
 describe('Home', () => {
@@ -890,7 +940,7 @@ describe('Home', () => {
     expect(screen.getByText(/welcome/i)).toBeInTheDocument();
   });
 });
-'''
+"""
 
     def _generate_react_readme(self, project_name: str, description: str) -> str:
         """Generate React-specific README section."""
@@ -932,10 +982,14 @@ npm run start  # Start production server
         ext = "tsx" if ts else "jsx"
 
         # package.json
-        output.add_file("package.json", self._generate_package_json(project_name, config, web=False))
+        output.add_file(
+            "package.json", self._generate_package_json(project_name, config, web=False)
+        )
 
         # App entry
-        output.add_file(f"App.{ext}", self._generate_react_native_app(description, project_name, ts))
+        output.add_file(
+            f"App.{ext}", self._generate_react_native_app(description, project_name, ts)
+        )
 
         # TypeScript config
         if ts:
@@ -971,14 +1025,17 @@ module.exports = mergeConfig(getDefaultConfig(__dirname), config);
 
     def _generate_app_json(self, project_name: str) -> str:
         """Generate app.json."""
-        return json.dumps({
-            "name": project_name,
-            "displayName": project_name.title(),
-        }, indent=2)
+        return json.dumps(
+            {
+                "name": project_name,
+                "displayName": project_name.title(),
+            },
+            indent=2,
+        )
 
     def _generate_react_native_app(self, description: str, project_name: str, ts: bool) -> str:
         """Generate React Native App.tsx."""
-        return f'''import React, {{useState}} from 'react';
+        return f"""import React, {{useState}} from 'react';
 import {{
   SafeAreaView,
   StyleSheet,
@@ -1041,7 +1098,7 @@ const styles = StyleSheet.create({{
 }});
 
 export default App;
-'''
+"""
 
     async def _generate_swiftui(
         self,
@@ -1059,14 +1116,19 @@ export default App;
         output.add_file(f"{ios_name}App.swift", self._generate_swiftui_app(ios_name))
 
         # ContentView
-        output.add_file(f"{ios_name}/ContentView.swift", self._generate_swiftui_contentview(description, ios_name))
+        output.add_file(
+            f"{ios_name}/ContentView.swift",
+            self._generate_swiftui_contentview(description, ios_name),
+        )
 
         # Info.plist
         output.add_file(f"{ios_name}/Info.plist", self._generate_ios_infoplist(ios_name, config))
 
         # Assets
-        output.add_file(f"{ios_name}/Assets.xcassets/AccentColor.colorset/Contents.json",
-                       self._generate_colorset())
+        output.add_file(
+            f"{ios_name}/Assets.xcassets/AccentColor.colorset/Contents.json",
+            self._generate_colorset(),
+        )
 
         # Privacy policy
         if config.include_privacy_policy:
@@ -1086,7 +1148,7 @@ export default App;
 
     def _generate_swiftui_app(self, ios_name: str) -> str:
         """Generate SwiftUI App entry."""
-        return f'''import SwiftUI
+        return f"""import SwiftUI
 
 @main
 struct {ios_name}App: App {{
@@ -1096,11 +1158,11 @@ struct {ios_name}App: App {{
         }}
     }}
 }}
-'''
+"""
 
     def _generate_swiftui_contentview(self, description: str, ios_name: str) -> str:
         """Generate SwiftUI ContentView."""
-        return f'''import SwiftUI
+        return f"""import SwiftUI
 
 struct ContentView: View {{
     @State private var count = 0
@@ -1142,7 +1204,7 @@ struct ContentView: View {{
 #Preview {{
     ContentView()
 }}
-'''
+"""
 
     def _generate_ios_infoplist(self, ios_name: str, config: ProjectOutputConfig) -> str:
         """Generate Info.plist."""
@@ -1153,7 +1215,7 @@ struct ContentView: View {{
     <string>https://example.com/privacy</string>
 """
 
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
+        return f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -1202,14 +1264,17 @@ struct ContentView: View {{
 {privacy_keys}
 </dict>
 </plist>
-'''
+"""
 
     def _generate_colorset(self) -> str:
         """Generate colorset JSON."""
-        return json.dumps({
-            "colors": [{"idiom": "universal"}],
-            "info": {"author": "xcode", "version": 1},
-        }, indent=2)
+        return json.dumps(
+            {
+                "colors": [{"idiom": "universal"}],
+                "info": {"author": "xcode", "version": 1},
+            },
+            indent=2,
+        )
 
     def _generate_swiftui_readme(self, ios_name: str, description: str) -> str:
         """Generate SwiftUI README."""
@@ -1256,11 +1321,16 @@ xcodebuild -scheme {ios_name}
         output.add_file("app/build.gradle.kts", self._generate_android_build_gradle(android_name))
 
         # MainActivity.kt
-        output.add_file(f"app/src/main/java/com/example/{android_name}/MainActivity.kt",
-                       self._generate_main_activity(description, android_name))
+        output.add_file(
+            f"app/src/main/java/com/example/{android_name}/MainActivity.kt",
+            self._generate_main_activity(description, android_name),
+        )
 
         # AndroidManifest.xml
-        output.add_file("app/src/main/AndroidManifest.xml", self._generate_android_manifest(android_name, config))
+        output.add_file(
+            "app/src/main/AndroidManifest.xml",
+            self._generate_android_manifest(android_name, config),
+        )
 
         # Dependencies
         output.dependencies = ["com.android.application", "org.jetbrains.kotlin.android"]
@@ -1275,7 +1345,7 @@ xcodebuild -scheme {ios_name}
 
     def _generate_android_build_gradle(self, android_name: str) -> str:
         """Generate build.gradle.kts."""
-        return f'''plugins {{
+        return f"""plugins {{
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }}
@@ -1313,11 +1383,11 @@ dependencies {{
     implementation("androidx.activity:activity-ktx:1.8.2")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 }}
-'''
+"""
 
     def _generate_main_activity(self, description: str, android_name: str) -> str:
         """Generate MainActivity.kt."""
-        return f'''package com.example.{android_name}
+        return f"""package com.example.{android_name}
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -1375,11 +1445,11 @@ fun MainContent() {{
         }}
     }}
 }}
-'''
+"""
 
     def _generate_android_manifest(self, android_name: str, config: ProjectOutputConfig) -> str:
         """Generate AndroidManifest.xml."""
-        return f'''<?xml version="1.0" encoding="utf-8"?>
+        return f"""<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
@@ -1402,7 +1472,7 @@ fun MainContent() {{
     </application>
 
 </manifest>
-'''
+"""
 
     async def _generate_fastapi(
         self,
@@ -1451,12 +1521,16 @@ pydantic>=2.0.0
 pydantic-settings>=2.0.0
 """
 
-    def _generate_fastapi_main(self, description: str, project_name: str, config: ProjectOutputConfig) -> str:
+    def _generate_fastapi_main(
+        self, description: str, project_name: str, config: ProjectOutputConfig
+    ) -> str:
         """Generate FastAPI main.py."""
         auth_import = ""
         auth_router = ""
         if config.include_auth:
-            auth_import = "from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm"
+            auth_import = (
+                "from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm"
+            )
             auth_router = """
 
 @app.post("/token")
@@ -1551,7 +1625,7 @@ class Item(BaseModel):
 
     def _generate_fastapi_tests(self) -> str:
         """Generate FastAPI tests."""
-        return '''import pytest
+        return """import pytest
 from fastapi.testclient import TestClient
 from main import app
 
@@ -1579,7 +1653,7 @@ def test_create_item():
     )
     assert response.status_code == 200
     assert response.json()["name"] == "Test Item"
-'''
+"""
 
     def _generate_fastapi_readme(self, project_name: str, description: str) -> str:
         """Generate FastAPI README."""
@@ -1631,7 +1705,9 @@ uvicorn main:app --reload
         output.add_file("requirements.txt", "flask>=3.0\npython-dotenv>=1.0\n")
 
         # app.py
-        output.add_file("app.py", f'''"""
+        output.add_file(
+            "app.py",
+            f'''"""
 {project_name} - {description}
 """
 
@@ -1649,7 +1725,8 @@ def health():
 
 if __name__ == "__main__":
     app.run(debug=True)
-''')
+''',
+        )
 
         output.dependencies = ["flask>=3.0", "python-dotenv>=1.0"]
         output.dev_dependencies = ["pytest>=8.0"]
@@ -1695,7 +1772,7 @@ if __name__ == "__main__":
 
     def _generate_docker_compose(self, project_name: str) -> str:
         """Generate docker-compose.yml."""
-        return '''version: '3.8'
+        return """version: '3.8'
 
 services:
   backend:
@@ -1715,7 +1792,7 @@ services:
       - backend
     environment:
       - NEXT_PUBLIC_API_URL=http://backend:8000
-'''
+"""
 
     def _generate_fullstack_readme(self, project_name: str, description: str) -> str:
         """Generate full-stack README."""
@@ -1779,19 +1856,22 @@ docker-compose -f docker-compose.prod.yml up
 
     def _generate_pwa_manifest(self, project_name: str) -> str:
         """Generate manifest.json for PWA."""
-        return json.dumps({
-            "name": project_name.title(),
-            "short_name": project_name[:15],
-            "description": "Auto-generated PWA",
-            "start_url": "/",
-            "display": "standalone",
-            "background_color": "#ffffff",
-            "theme_color": "#000000",
-            "icons": [
-                {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
-                {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
-            ],
-        }, indent=2)
+        return json.dumps(
+            {
+                "name": project_name.title(),
+                "short_name": project_name[:15],
+                "description": "Auto-generated PWA",
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#ffffff",
+                "theme_color": "#000000",
+                "icons": [
+                    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+                ],
+            },
+            indent=2,
+        )
 
     def _generate_service_worker(self) -> str:
         """Generate service worker."""

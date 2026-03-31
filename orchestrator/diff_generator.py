@@ -37,6 +37,7 @@ logger = get_logger(__name__)
 @dataclass
 class DiffResult:
     """Result of diff-based revision."""
+
     diff_text: str
     patched_code: str
     success: bool
@@ -129,10 +130,7 @@ class DiffGenerator:
             # Calculate diff stats
             lines_added, lines_removed = self._count_diff_changes(diff_text)
 
-            logger.info(
-                f"  {task.id}: Diff generated - "
-                f"+{lines_added}/-{lines_removed} lines"
-            )
+            logger.info(f"  {task.id}: Diff generated - " f"+{lines_added}/-{lines_removed} lines")
 
             return DiffResult(
                 diff_text=diff_text,
@@ -259,14 +257,16 @@ class DiffGenerator:
 
             if in_diff:
                 # Keep diff lines
-                if (line.startswith("--- ") or
-                    line.startswith("+++ ") or
-                    line.startswith("@@") or
-                    line.startswith("+") or
-                    line.startswith("-") or
-                    line.startswith(" ") or
-                    line.startswith("\\") or  # No newline marker
-                    line == ""):
+                if (
+                    line.startswith("--- ")
+                    or line.startswith("+++ ")
+                    or line.startswith("@@")
+                    or line.startswith("+")
+                    or line.startswith("-")
+                    or line.startswith(" ")
+                    or line.startswith("\\")  # No newline marker
+                    or line == ""
+                ):
                     cleaned_lines.append(line)
 
         return "\n".join(cleaned_lines)
@@ -288,7 +288,7 @@ class DiffGenerator:
         if task_type == TaskType.CODE_GEN:
             # Basic Python syntax check
             try:
-                compile(code, '<string>', 'exec')
+                compile(code, "<string>", "exec")
             except SyntaxError as e:
                 return f"Syntax error in patched code: {e}"
 
@@ -379,10 +379,12 @@ def _parse_unified_diff(diff_text: str) -> list[dict]:
         if line.startswith("@@"):
             # Save previous hunk
             if current_hunk is not None:
-                hunks.append({
-                    "header": current_hunk,
-                    "lines": current_hunk_lines,
-                })
+                hunks.append(
+                    {
+                        "header": current_hunk,
+                        "lines": current_hunk_lines,
+                    }
+                )
 
             # Parse new hunk header
             # Format: @@ -start,count +start,count @@
@@ -402,10 +404,12 @@ def _parse_unified_diff(diff_text: str) -> list[dict]:
 
     # Save last hunk
     if current_hunk is not None:
-        hunks.append({
-            "header": current_hunk,
-            "lines": current_hunk_lines,
-        })
+        hunks.append(
+            {
+                "header": current_hunk,
+                "lines": current_hunk_lines,
+            }
+        )
 
     return hunks
 
@@ -436,7 +440,7 @@ def _apply_hunk(code: str, hunk: dict) -> str:
     # Find where context matches in original code
     match_idx = -1
     for i in range(len(code_lines) - len(context_before) + 1):
-        if code_lines[i:i+len(context_before)] == context_before:
+        if code_lines[i : i + len(context_before)] == context_before:
             match_idx = i
             break
 
@@ -464,11 +468,7 @@ def _apply_hunk(code: str, hunk: dict) -> str:
             new_lines.append(line[1:])  # Remove + prefix
 
     # Reconstruct code
-    result_lines = (
-        code_lines[:match_idx] +
-        new_lines +
-        code_lines[code_idx:]
-    )
+    result_lines = code_lines[:match_idx] + new_lines + code_lines[code_idx:]
 
     return "\n".join(result_lines)
 

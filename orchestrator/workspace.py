@@ -13,6 +13,7 @@ Usage:
     workspace = ws_manager.create_workspace("project_alpha", owner="user123")
     ws_manager.activate_workspace(workspace.id)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,8 +29,15 @@ logger = logging.getLogger("orchestrator.workspace")
 class Workspace:
     """Represents a single workspace."""
 
-    def __init__(self, id: str, name: str, owner: str, description: str = "",
-                 created_at: datetime = None, metadata: dict = None):
+    def __init__(
+        self,
+        id: str,
+        name: str,
+        owner: str,
+        description: str = "",
+        created_at: datetime = None,
+        metadata: dict = None,
+    ):
         self.id = id
         self.name = name
         self.owner = owner
@@ -38,11 +46,7 @@ class Workspace:
         self.metadata = metadata or {}
         self.members: list[str] = []
         self.settings: dict[str, any] = {}
-        self.stats = {
-            "tasks_completed": 0,
-            "tokens_used": 0,
-            "storage_used": 0
-        }
+        self.stats = {"tasks_completed": 0, "tokens_used": 0, "storage_used": 0}
 
     def to_dict(self) -> dict[str, any]:
         """Convert workspace to dictionary for serialization."""
@@ -55,7 +59,7 @@ class Workspace:
             "metadata": self.metadata,
             "members": self.members,
             "settings": self.settings,
-            "stats": self.stats
+            "stats": self.stats,
         }
 
     @classmethod
@@ -67,11 +71,13 @@ class Workspace:
             owner=data["owner"],
             description=data.get("description", ""),
             created_at=datetime.fromisoformat(data["created_at"]),
-            metadata=data.get("metadata", {})
+            metadata=data.get("metadata", {}),
         )
         workspace.members = data.get("members", [])
         workspace.settings = data.get("settings", {})
-        workspace.stats = data.get("stats", {"tasks_completed": 0, "tokens_used": 0, "storage_used": 0})
+        workspace.stats = data.get(
+            "stats", {"tasks_completed": 0, "tokens_used": 0, "storage_used": 0}
+        )
         return workspace
 
 
@@ -97,7 +103,7 @@ class WorkspaceManager:
                 config_file = workspace_dir / "config.json"
                 if config_file.exists():
                     try:
-                        with open(config_file, encoding='utf-8') as f:
+                        with open(config_file, encoding="utf-8") as f:
                             data = json.load(f)
 
                         workspace = Workspace.from_dict(data)
@@ -108,8 +114,9 @@ class WorkspaceManager:
                     except Exception as e:
                         logger.error(f"Failed to load workspace from {config_file}: {e}")
 
-    def create_workspace(self, name: str, owner: str, description: str = "",
-                        metadata: dict = None) -> Workspace:
+    def create_workspace(
+        self, name: str, owner: str, description: str = "", metadata: dict = None
+    ) -> Workspace:
         """
         Create a new workspace.
 
@@ -143,7 +150,7 @@ class WorkspaceManager:
             name=name,
             owner=owner,
             description=description,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # Add owner as the first member
@@ -151,7 +158,7 @@ class WorkspaceManager:
 
         # Save workspace configuration
         config_file = workspace_dir / "config.json"
-        with open(config_file, 'w', encoding='utf-8') as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(workspace.to_dict(), f, indent=2, default=str)
 
         # Store in memory
@@ -229,7 +236,7 @@ class WorkspaceManager:
 
             # Update config file
             config_file = self.workspace_dirs[workspace_id] / "config.json"
-            with open(config_file, 'w', encoding='utf-8') as f:
+            with open(config_file, "w", encoding="utf-8") as f:
                 json.dump(workspace.to_dict(), f, indent=2, default=str)
 
             logger.info(f"Added member {user_id} to workspace {workspace_id}")
@@ -258,7 +265,7 @@ class WorkspaceManager:
 
             # Update config file
             config_file = self.workspace_dirs[workspace_id] / "config.json"
-            with open(config_file, 'w', encoding='utf-8') as f:
+            with open(config_file, "w", encoding="utf-8") as f:
                 json.dump(workspace.to_dict(), f, indent=2, default=str)
 
             logger.info(f"Removed member {user_id} from workspace {workspace_id}")
@@ -286,7 +293,7 @@ class WorkspaceManager:
 
         # Update config file
         config_file = self.workspace_dirs[workspace_id] / "config.json"
-        with open(config_file, 'w', encoding='utf-8') as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(workspace.to_dict(), f, indent=2, default=str)
 
         logger.info(f"Updated settings for workspace {workspace_id}")
@@ -336,14 +343,13 @@ class WorkspaceManager:
 
         # Update config file
         config_file = self.workspace_dirs[workspace_id] / "config.json"
-        with open(config_file, 'w', encoding='utf-8') as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(workspace.to_dict(), f, indent=2, default=str)
 
         logger.info(f"Updated stats for workspace {workspace_id}: {stats}")
         return True
 
-    async def cleanup_workspace(self, workspace_id: str,
-                               preserve_recent_days: int = 30) -> bool:
+    async def cleanup_workspace(self, workspace_id: str, preserve_recent_days: int = 30) -> bool:
         """
         Clean up a workspace by removing old temporary files and logs.
 
@@ -460,7 +466,7 @@ class WorkspaceManager:
             "member_count": len(workspace.members),
             "disk_usage_bytes": total_size,
             "disk_usage_mb": round(total_size / (1024 * 1024), 2),
-            "stats": workspace.stats
+            "stats": workspace.stats,
         }
 
 

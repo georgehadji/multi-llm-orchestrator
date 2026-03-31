@@ -16,6 +16,7 @@ Usage:
     await kb.learn_from_project(project_id, artifacts)
     similar = await kb.find_similar_problems(current_task)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -39,6 +40,7 @@ logger = get_logger(__name__)
 
 class KnowledgeType(Enum):
     """Types of knowledge artifacts."""
+
     CODE_SNIPPET = "code_snippet"
     SOLUTION = "solution"
     BUGFIX = "bugfix"
@@ -51,6 +53,7 @@ class KnowledgeType(Enum):
 @dataclass
 class KnowledgeArtifact:
     """A single piece of knowledge."""
+
     id: str
     type: KnowledgeType
     title: str
@@ -76,6 +79,7 @@ class KnowledgeArtifact:
 @dataclass
 class Pattern:
     """Recognized pattern from multiple artifacts."""
+
     id: str
     name: str
     description: str
@@ -116,7 +120,7 @@ class KnowledgeBase:
         index_file = self.storage_path / "index.json"
         if index_file.exists():
             try:
-                with open(index_file, encoding='utf-8') as f:
+                with open(index_file, encoding="utf-8") as f:
                     data = json.load(f)
                     for item in data.get("artifacts", []):
                         artifact = KnowledgeArtifact.from_dict(item)
@@ -131,7 +135,8 @@ class KnowledgeBase:
             try:
                 # Try sentence-transformers
                 from sentence_transformers import SentenceTransformer
-                self._embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+                self._embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
                 logger.info("Loaded sentence-transformers model")
             except ImportError:
                 # Fallback to simple hashing
@@ -143,19 +148,19 @@ class KnowledgeBase:
         """Fallback embedding using hash."""
         # Simple but deterministic embedding
         hash_val = hashlib.sha256(text.encode()).hexdigest()
-        return [int(hash_val[i:i+8], 16) / 2**32 for i in range(0, 64, 8)]
+        return [int(hash_val[i : i + 8], 16) / 2**32 for i in range(0, 64, 8)]
 
     async def _compute_embedding(self, text: str) -> list[float]:
         """Compute embedding vector for text."""
         model = await self._get_embedding_model()
 
-        if callable(model) and not hasattr(model, 'encode'):
+        if callable(model) and not hasattr(model, "encode"):
             return model(text)
 
         # Run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         embedding = await loop.run_in_executor(None, model.encode, text)
-        return embedding.tolist() if hasattr(embedding, 'tolist') else list(embedding)
+        return embedding.tolist() if hasattr(embedding, "tolist") else list(embedding)
 
     def _cosine_similarity(self, a: list[float], b: list[float]) -> float:
         """Compute cosine similarity between two vectors."""
@@ -261,9 +266,11 @@ class KnowledgeBase:
                 continue
 
             # Text search
-            if (query_lower in artifact.title.lower() or
-                query_lower in artifact.content.lower() or
-                query_lower in ' '.join(artifact.tags)):
+            if (
+                query_lower in artifact.title.lower()
+                or query_lower in artifact.content.lower()
+                or query_lower in " ".join(artifact.tags)
+            ):
                 results.append(artifact)
 
         # Sort by usage (popularity)
@@ -299,7 +306,7 @@ class KnowledgeBase:
         if artifacts_dir.exists():
             for code_file in artifacts_dir.rglob("*.py"):
                 try:
-                    content = code_file.read_text(encoding='utf-8')
+                    content = code_file.read_text(encoding="utf-8")
                     # Extract functions/classes as snippets
                     artifact = await self.add_artifact(
                         type=KnowledgeType.CODE_SNIPPET,
@@ -355,25 +362,29 @@ class KnowledgeBase:
         similar = await self.find_similar(current_task, top_k=3)
 
         for artifact in similar:
-            recommendations.append({
-                "type": "similar_solution",
-                "artifact_id": artifact.id,
-                "title": artifact.title,
-                "relevance": f"{artifact.similarity_score:.1%}",
-                "content_preview": artifact.content[:200] + "...",
-                "source_project": artifact.source_project,
-            })
+            recommendations.append(
+                {
+                    "type": "similar_solution",
+                    "artifact_id": artifact.id,
+                    "title": artifact.title,
+                    "relevance": f"{artifact.similarity_score:.1%}",
+                    "content_preview": artifact.content[:200] + "...",
+                    "source_project": artifact.source_project,
+                }
+            )
 
         # Check for patterns
         for pattern in self._patterns.values():
             if pattern.confidence > 0.7:
-                recommendations.append({
-                    "type": "pattern",
-                    "pattern_id": pattern.id,
-                    "name": pattern.name,
-                    "frequency": pattern.frequency,
-                    "confidence": f"{pattern.confidence:.1%}",
-                })
+                recommendations.append(
+                    {
+                        "type": "pattern",
+                        "pattern_id": pattern.id,
+                        "name": pattern.name,
+                        "frequency": pattern.frequency,
+                        "confidence": f"{pattern.confidence:.1%}",
+                    }
+                )
 
         return recommendations
 
@@ -403,8 +414,8 @@ class KnowledgeBase:
         }
 
         # Write atomically
-        temp_file = index_file.with_suffix('.tmp')
-        with open(temp_file, 'w', encoding='utf-8') as f:
+        temp_file = index_file.with_suffix(".tmp")
+        with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, default=str)
         temp_file.replace(index_file)
 

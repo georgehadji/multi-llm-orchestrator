@@ -30,6 +30,7 @@ The metrics dict shape (produced by Orchestrator._build_metrics_dict()):
     ...
 }
 """
+
 from __future__ import annotations
 
 import json
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
 # ─────────────────────────────────────────────────────────────────────────────
 # MetricsExporter ABC
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class MetricsExporter(ABC):
     """
@@ -71,16 +73,16 @@ class MetricsExporter(ABC):
 # ─────────────────────────────────────────────────────────────────────────────
 
 _CONSOLE_COLS = [
-    ("model",                20),
-    ("calls",                 6),
-    ("success%",              9),
-    ("avg_lat_ms",           11),
-    ("p95_lat_ms",           11),
-    ("quality",               8),
-    ("trust",                 7),
-    ("avg_cost_usd",         13),
-    ("val_fails",            10),
-    ("err_rate",              9),
+    ("model", 20),
+    ("calls", 6),
+    ("success%", 9),
+    ("avg_lat_ms", 11),
+    ("p95_lat_ms", 11),
+    ("quality", 8),
+    ("trust", 7),
+    ("avg_cost_usd", 13),
+    ("val_fails", 10),
+    ("err_rate", 9),
 ]
 
 
@@ -119,6 +121,7 @@ class ConsoleExporter(MetricsExporter):
 # JSONExporter
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class JSONExporter(MetricsExporter):
     """
     Writes the metrics dict to a JSON file with 2-space indentation.
@@ -145,15 +148,19 @@ class JSONExporter(MetricsExporter):
 
 _PROMETHEUS_METRICS: list[tuple[str, str, str]] = [
     # (key_in_stats,            prometheus_metric_name,                  help_text)
-    ("call_count",              "orchestrator_model_calls_total",         "Total API calls made to this model"),
-    ("success_rate",            "orchestrator_success_rate",              "Rolling success rate (0-1)"),
-    ("avg_latency_ms",          "orchestrator_latency_avg_ms",            "Exponential moving average latency in ms"),
-    ("latency_p95_ms",          "orchestrator_latency_p95_ms",            "p95 latency in ms (last 50 samples)"),
-    ("quality_score",           "orchestrator_quality_score",             "EMA of LLM evaluator quality scores"),
-    ("trust_factor",            "orchestrator_trust_factor",              "Trust factor (degrades on failures)"),
-    ("avg_cost_usd",            "orchestrator_cost_avg_usd",              "EMA of per-call USD cost"),
-    ("validator_fail_count",    "orchestrator_validator_failures_total",  "Cumulative deterministic validator failures"),
-    ("error_rate",              "orchestrator_error_rate",                "error_rate = failure_count / call_count"),
+    ("call_count", "orchestrator_model_calls_total", "Total API calls made to this model"),
+    ("success_rate", "orchestrator_success_rate", "Rolling success rate (0-1)"),
+    ("avg_latency_ms", "orchestrator_latency_avg_ms", "Exponential moving average latency in ms"),
+    ("latency_p95_ms", "orchestrator_latency_p95_ms", "p95 latency in ms (last 50 samples)"),
+    ("quality_score", "orchestrator_quality_score", "EMA of LLM evaluator quality scores"),
+    ("trust_factor", "orchestrator_trust_factor", "Trust factor (degrades on failures)"),
+    ("avg_cost_usd", "orchestrator_cost_avg_usd", "EMA of per-call USD cost"),
+    (
+        "validator_fail_count",
+        "orchestrator_validator_failures_total",
+        "Cumulative deterministic validator failures",
+    ),
+    ("error_rate", "orchestrator_error_rate", "error_rate = failure_count / call_count"),
 ]
 
 
@@ -228,8 +235,8 @@ async def render_dashboard(store: TelemetryStore, days: int = 30) -> str:
         Lookback window in days.
     """
     rankings = await store.model_rankings(days=days)
-    leaders  = await store.task_type_leaders(days=days)
-    recs     = await store.recommendations(days=days)
+    leaders = await store.task_type_leaders(days=days)
+    recs = await store.recommendations(days=days)
 
     lines: list[str] = [_SEP]
 
@@ -241,9 +248,7 @@ async def render_dashboard(store: TelemetryStore, days: int = 30) -> str:
 
     total_calls = sum(r.call_count for r in rankings)
     avg_quality = sum(r.quality_score for r in rankings) / len(rankings)
-    lines.append(
-        f" {total_calls} calls  |  avg quality {avg_quality:.3f}  |  last {days} days"
-    )
+    lines.append(f" {total_calls} calls  |  avg quality {avg_quality:.3f}  |  last {days} days")
     lines.append(_SEP)
 
     # ── Model Rankings ─────────────────────────────────────────────────────────
@@ -255,7 +260,7 @@ async def render_dashboard(store: TelemetryStore, days: int = 30) -> str:
     for r in rankings:
         sym = conf_symbol.get(r.confidence, " ")
         calls_str = f"{r.call_count} calls"
-        cost_str  = f"${r.avg_cost_usd:.4f}/call"
+        cost_str = f"${r.avg_cost_usd:.4f}/call"
         quality_str = f"q:{r.quality_score:.3f}"
         lines.append(
             f"  {sym}  {r.model.value:<22}  {r.value_score:>7.2f}  "

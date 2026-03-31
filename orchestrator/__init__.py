@@ -61,6 +61,7 @@ try:
         get_dashboard_core,
         run_dashboard,
     )
+
     HAS_UNIFIED_DASHBOARD = True
 except ImportError as _e:
     HAS_UNIFIED_DASHBOARD = False
@@ -96,6 +97,7 @@ try:
         log_capability_use,
         set_current_project,
     )
+
     HAS_UNIFIED_EVENTS = True
 except ImportError as _e:
     HAS_UNIFIED_EVENTS = False
@@ -125,6 +127,7 @@ except ImportError as _e:
 # Codebase Enhancer
 # ═════════════════════════════════════════════════════════════════════════════==
 from .codebase_analyzer import CodebaseAnalyzer, CodebaseMap
+from .openrouter_sync import OpenRouterSync
 from .codebase_profile import CodebaseProfile
 from .codebase_understanding import CodebaseUnderstanding
 from .hybrid_search_pipeline import HybridSearchPipeline
@@ -138,6 +141,7 @@ from .policy import (
     PolicyHierarchy,
     PolicySet,
     RateLimit,
+    VALID_QUALITY_MODES,
 )
 from .policy_engine import PolicyEngine
 from .query_expander import QueryExpander
@@ -158,6 +162,7 @@ try:
         get_tier_for_phase,
         select_model,
     )
+
     HAS_MODEL_ROUTING = True
 except ImportError:
     HAS_MODEL_ROUTING = False
@@ -170,12 +175,14 @@ try:
         get_autonomy_config,
         requires_approval,
     )
+
     HAS_AUTONOMY = True
 except ImportError:
     HAS_AUTONOMY = False
 
 try:
     from .verification import REPLVerifier, VerificationLevel, VerificationResult, self_healing_loop
+
     HAS_VERIFICATION = True
 except ImportError:
     HAS_VERIFICATION = False
@@ -218,6 +225,7 @@ try:
         get_cache_optimizer,
         reset_cache_optimizer,
     )
+
     HAS_CACHE_OPTIMIZER = True
 except ImportError as _e:
     HAS_CACHE_OPTIMIZER = False
@@ -254,6 +262,7 @@ try:
         run_live_dashboard,
         run_mission_control,
     )
+
     HAS_COMPAT_LAYER = True
 except ImportError:
     HAS_COMPAT_LAYER = False
@@ -396,9 +405,16 @@ except ImportError:
 
 __all__ = [
     # Core
-    "Orchestrator", "AttemptRecord", "Budget", "Model", "Task", "TaskResult",
-    "TaskType", "TaskStatus", "ProjectState", "ProjectStatus",
-
+    "Orchestrator",
+    "AttemptRecord",
+    "Budget",
+    "Model",
+    "Task",
+    "TaskResult",
+    "TaskType",
+    "TaskStatus",
+    "ProjectState",
+    "ProjectStatus",
     # NEW: Unified Dashboard (v6.0)
     "DashboardCore",
     "get_dashboard_core",
@@ -409,7 +425,6 @@ __all__ = [
     "MissionControlView",
     "MissionControlServer",
     "HAS_UNIFIED_DASHBOARD",
-
     # NEW: Unified Events (v6.0)
     "UnifiedEventBus",
     "get_event_bus",
@@ -430,7 +445,6 @@ __all__ = [
     "set_current_project",
     "get_current_project",
     "HAS_UNIFIED_EVENTS",
-
     # Backward Compatibility
     "run_live_dashboard",
     "run_mission_control",
@@ -444,7 +458,6 @@ __all__ = [
     "ProjectCompleted",
     "print_migration_guide",
     "HAS_COMPAT_LAYER",
-
     # Legacy (deprecated)
     "AntDesignDashboardServer",
     "EnhancedDashboardServer",
@@ -459,98 +472,163 @@ __all__ = [
     "run_dashboard_realtime",
     "run_enhanced_dashboard",
     "run_unified_dashboard",
-
     # Routing & Cost
-    "COST_TABLE", "ROUTING_TABLE", "FALLBACK_CHAIN",
-
+    "COST_TABLE",
+    "ROUTING_TABLE",
+    "FALLBACK_CHAIN",
     # App Building
-    "AppBuilder", "AppBuildResult", "AppDetector", "AppProfile",
-    "ArchitectureDecision", "ArchitectureAdvisor",
-
+    "AppBuilder",
+    "AppBuildResult",
+    "AppDetector",
+    "AppProfile",
+    "ArchitectureDecision",
+    "ArchitectureAdvisor",
     # Validation
-    "run_validators", "async_run_validators", "VALIDATORS", "ValidationResult",
-
+    "run_validators",
+    "async_run_validators",
+    "VALIDATORS",
+    "ValidationResult",
     # Codebase Enhancer
-    "CodebaseAnalyzer", "CodebaseMap",
-    "CodebaseUnderstanding", "CodebaseProfile",
-    "Improvement", "ImprovementSuggester",
-
+    "CodebaseAnalyzer",
+    "CodebaseMap",
+    "OpenRouterSync",
+    "CodebaseUnderstanding",
+    "CodebaseProfile",
+    "Improvement",
+    "ImprovementSuggester",
     # Hybrid Search Pipeline
-    "QueryExpander", "HybridSearchPipeline",
-
+    "QueryExpander",
+    "HybridSearchPipeline",
     # Rate Limiting
-    "RateLimiter", "RateLimitExceeded",
-
+    "RateLimiter",
+    "RateLimitExceeded",
     # Session Lifecycle
     "SessionLifecycleManager",
-
     # Model Routing Tiers
-    "ModelTier", "TIER_ROUTING", "PHASE_TO_TIER", "select_model", "get_tier_for_phase",
+    "ModelTier",
+    "TIER_ROUTING",
+    "PHASE_TO_TIER",
+    "select_model",
+    "get_tier_for_phase",
     "HAS_MODEL_ROUTING",
-
     # Autonomy
-    "AutonomyLevel", "AutonomyConfig", "AUTONOMY_PRESETS", "get_autonomy_config", "requires_approval",
+    "AutonomyLevel",
+    "AutonomyConfig",
+    "AUTONOMY_PRESETS",
+    "get_autonomy_config",
+    "requires_approval",
     "HAS_AUTONOMY",
-
     # Verification
-    "VerificationLevel", "VerificationResult", "REPLVerifier", "self_healing_loop",
+    "VerificationLevel",
+    "VerificationResult",
+    "REPLVerifier",
+    "self_healing_loop",
     "HAS_VERIFICATION",
-
     # Policy
-    "ModelProfile", "Policy", "PolicySet", "JobSpec",
-    "PolicyEngine", "PolicyViolationError",
-    "ConstraintPlanner", "EnforcementMode", "RateLimit", "PolicyHierarchy",
-
+    "ModelProfile",
+    "Policy",
+    "PolicySet",
+    "JobSpec",
+    "PolicyEngine",
+    "PolicyViolationError",
+    "ConstraintPlanner",
+    "EnforcementMode",
+    "RateLimit",
+    "PolicyHierarchy",
     # Optimization
-    "OptimizationBackend", "GreedyBackend", "WeightedSumBackend", "ParetoBackend",
-
+    "OptimizationBackend",
+    "GreedyBackend",
+    "WeightedSumBackend",
+    "ParetoBackend",
     # Audit & Telemetry
-    "AuditLog", "AuditRecord",
-    "TelemetryCollector", "TelemetryStore",
-    "HookRegistry", "HookEventType", "DashboardHookRegistry",
-    "MetricsExporter", "ConsoleExporter", "JSONExporter", "PrometheusExporter",
-    "TracingConfig", "configure_tracing", "get_tracer",
-
+    "AuditLog",
+    "AuditRecord",
+    "TelemetryCollector",
+    "TelemetryStore",
+    "HookRegistry",
+    "HookEventType",
+    "DashboardHookRegistry",
+    "MetricsExporter",
+    "ConsoleExporter",
+    "JSONExporter",
+    "PrometheusExporter",
+    "TracingConfig",
+    "configure_tracing",
+    "get_tracer",
     # Cost Management
-    "BudgetHierarchy", "CostPredictor", "CostForecaster", "ForecastReport", "RiskLevel",
-
+    "BudgetHierarchy",
+    "CostPredictor",
+    "CostForecaster",
+    "ForecastReport",
+    "RiskLevel",
     # Advanced Features
-    "AdaptiveRouter", "ModelState",
-    "SemanticCache", "DuplicationDetector",
-    "ProfileAggregator", "RunRecord",
-    "RemediationEngine", "RemediationStrategy", "RemediationPlan",
-
+    "AdaptiveRouter",
+    "ModelState",
+    "SemanticCache",
+    "DuplicationDetector",
+    "ProfileAggregator",
+    "RunRecord",
+    "RemediationEngine",
+    "RemediationStrategy",
+    "RemediationPlan",
     # Output & Progress
     "write_output_dir",
-    "ProgressWriter", "ProgressEntry",
-    "ExecutionPlan", "TaskPlan", "DryRunRenderer",
-
+    "ProgressWriter",
+    "ProgressEntry",
+    "ExecutionPlan",
+    "TaskPlan",
+    "DryRunRenderer",
     # Exceptions
     "ApplicationError",
-    "ConfigurationError", "MissingAPIKeyError",
-    "OrchestratorError", "BudgetExceededError", "TimeoutError",
-    "ModelError", "ModelUnavailableError", "RateLimitError", "TokenLimitError", "AuthenticationError",
-    "TaskError", "TaskValidationError", "TaskTimeoutError", "TaskRetryExhaustedError",
-    "PolicyError", "PolicyViolationError",
-    "CacheError", "StateError",
-
+    "ConfigurationError",
+    "MissingAPIKeyError",
+    "OrchestratorError",
+    "BudgetExceededError",
+    "TimeoutError",
+    "ModelError",
+    "ModelUnavailableError",
+    "RateLimitError",
+    "TokenLimitError",
+    "AuthenticationError",
+    "TaskError",
+    "TaskValidationError",
+    "TaskTimeoutError",
+    "TaskRetryExhaustedError",
+    "PolicyError",
+    "PolicyViolationError",
+    "CacheError",
+    "StateError",
     # Logging
-    "get_logger", "set_correlation_id", "get_correlation_id", "configure_logging",
-    "LogContext", "JSONFormatter", "TextFormatter",
-
+    "get_logger",
+    "set_correlation_id",
+    "get_correlation_id",
+    "configure_logging",
+    "LogContext",
+    "JSONFormatter",
+    "TextFormatter",
     # Control Plane
-    "SLAs", "InputSpec", "Constraints", "JobSpecV2",
-    "RoutingHint", "ValidationRule", "EscalationRule", "PolicySpecV2",
-    "Decision", "MonitorResult", "ReferenceMonitor",
-    "ControlPlane", "RoutingPlan", "SpecValidationError", "PolicyViolation",
-    "AgentDraft", "OrchestrationAgent",
-
+    "SLAs",
+    "InputSpec",
+    "Constraints",
+    "JobSpecV2",
+    "RoutingHint",
+    "ValidationRule",
+    "EscalationRule",
+    "PolicySpecV2",
+    "Decision",
+    "MonitorResult",
+    "ReferenceMonitor",
+    "ControlPlane",
+    "RoutingPlan",
+    "SpecValidationError",
+    "PolicyViolation",
+    "AgentDraft",
+    "OrchestrationAgent",
     # Agents
-    "AgentPool", "TaskChannel",
-
+    "AgentPool",
+    "TaskChannel",
     # Project File
     "load_project_file",
-
     # Utility
     "build_default_profiles",
 ]
@@ -571,10 +649,17 @@ try:
     from .output_organizer import (
         TestResult as OrgTestResult,
     )
-    __all__.extend([
-        "OutputOrganizer", "organize_project_output", "OrganizationReport",
-        "OrgTestResult", "suppress_cache_messages", "CacheMessageSuppressor",
-    ])
+
+    __all__.extend(
+        [
+            "OutputOrganizer",
+            "organize_project_output",
+            "OrganizationReport",
+            "OrgTestResult",
+            "suppress_cache_messages",
+            "CacheMessageSuppressor",
+        ]
+    )
 except ImportError:
     pass
 
@@ -599,10 +684,16 @@ try:
         Pattern,
         get_knowledge_base,
     )
-    __all__.extend([
-        "KnowledgeBase", "KnowledgeArtifact", "KnowledgeType", "Pattern",
-        "get_knowledge_base",
-    ])
+
+    __all__.extend(
+        [
+            "KnowledgeBase",
+            "KnowledgeArtifact",
+            "KnowledgeType",
+            "Pattern",
+            "get_knowledge_base",
+        ]
+    )
 except ImportError:
     pass
 
@@ -620,11 +711,21 @@ try:
         TaskSchedule,
         get_project_manager,
     )
-    __all__.extend([
-        "ProjectManager", "TaskSchedule", "Resource", "Milestone", "Risk",
-        "CriticalPathAnalyzer", "ResourceScheduler",
-        "TaskPriority", "ResourceType", "get_project_manager",
-    ])
+
+    __all__.extend(
+        [
+            "ProjectManager",
+            "TaskSchedule",
+            "Resource",
+            "Milestone",
+            "Risk",
+            "CriticalPathAnalyzer",
+            "ResourceScheduler",
+            "TaskPriority",
+            "ResourceType",
+            "get_project_manager",
+        ]
+    )
 except ImportError:
     pass
 
@@ -642,11 +743,21 @@ try:
         UserFeedback,
         get_product_manager,
     )
-    __all__.extend([
-        "ProductManager", "Feature", "Release", "UserFeedback",
-        "RICEScore", "FeatureStatus", "FeaturePriority",
-        "FeatureFlagManager", "SentimentAnalyzer", "get_product_manager",
-    ])
+
+    __all__.extend(
+        [
+            "ProductManager",
+            "Feature",
+            "Release",
+            "UserFeedback",
+            "RICEScore",
+            "FeatureStatus",
+            "FeaturePriority",
+            "FeatureFlagManager",
+            "SentimentAnalyzer",
+            "get_product_manager",
+        ]
+    )
 except ImportError:
     pass
 
@@ -664,11 +775,21 @@ try:
         TestRunner,
         get_quality_controller,
     )
-    __all__.extend([
-        "QualityController", "QualityReport", "TestResult", "QualityIssue",
-        "CodeMetrics", "StaticAnalyzer", "TestRunner",
-        "TestLevel", "QualitySeverity", "get_quality_controller",
-    ])
+
+    __all__.extend(
+        [
+            "QualityController",
+            "QualityReport",
+            "TestResult",
+            "QualityIssue",
+            "CodeMetrics",
+            "StaticAnalyzer",
+            "TestRunner",
+            "TestLevel",
+            "QualitySeverity",
+            "get_quality_controller",
+        ]
+    )
 except ImportError:
     pass
 
@@ -687,17 +808,25 @@ try:
         TechnologyStack,
         create_architecture_rules,
     )
-    __all__.extend([
-        "ArchitectureRulesEngine", "RulesGenerator",
-        "create_architecture_rules",
-        "ProjectRules", "ArchitectureDecision",
-        "TechnologyStack", "CodingStandard",
-        "ArchitecturalStyle", "ProgrammingParadigm",
-    "APIStyle", "DatabaseType",
-    "InDesignPluginRules",
-    "InDesignRulesConfig",
-    "generate_indesign_plugin_rules",
-    ])
+
+    __all__.extend(
+        [
+            "ArchitectureRulesEngine",
+            "RulesGenerator",
+            "create_architecture_rules",
+            "ProjectRules",
+            "ArchitectureDecision",
+            "TechnologyStack",
+            "CodingStandard",
+            "ArchitecturalStyle",
+            "ProgrammingParadigm",
+            "APIStyle",
+            "DatabaseType",
+            "InDesignPluginRules",
+            "InDesignRulesConfig",
+            "generate_indesign_plugin_rules",
+        ]
+    )
 except ImportError:
     pass
 
@@ -717,11 +846,19 @@ try:
         SimilarityMatch,
         get_knowledge_graph,
     )
-    __all__.extend([
-        "PerformanceKnowledgeGraph", "get_knowledge_graph",
-        "NodeType", "EdgeType", "Node", "Edge",
-        "PathResult", "SimilarityMatch",
-    ])
+
+    __all__.extend(
+        [
+            "PerformanceKnowledgeGraph",
+            "get_knowledge_graph",
+            "NodeType",
+            "EdgeType",
+            "Node",
+            "Edge",
+            "PathResult",
+            "SimilarityMatch",
+        ]
+    )
 except ImportError:
     pass
 
@@ -737,11 +874,19 @@ try:
         TemplateVariant,
         get_adaptive_template_system,
     )
-    __all__.extend([
-        "AdaptiveTemplateSystem", "get_adaptive_template_system",
-        "TemplateVariant", "TemplateStyle", "TemplatePerformance",
-        "ContextProfile", "PYTHON_TEMPLATES", "WEB_TEMPLATES",
-    ])
+
+    __all__.extend(
+        [
+            "AdaptiveTemplateSystem",
+            "get_adaptive_template_system",
+            "TemplateVariant",
+            "TemplateStyle",
+            "TemplatePerformance",
+            "ContextProfile",
+            "PYTHON_TEMPLATES",
+            "WEB_TEMPLATES",
+        ]
+    )
 except ImportError:
     pass
 
@@ -756,11 +901,18 @@ try:
         ParetoPoint,
         get_cost_quality_frontier,
     )
-    __all__.extend([
-        "CostQualityFrontier", "get_cost_quality_frontier",
-        "Objective", "OptimizationDirection",
-        "ModelPrediction", "ParetoPoint", "FrontierRecommendation",
-    ])
+
+    __all__.extend(
+        [
+            "CostQualityFrontier",
+            "get_cost_quality_frontier",
+            "Objective",
+            "OptimizationDirection",
+            "ModelPrediction",
+            "ParetoPoint",
+            "FrontierRecommendation",
+        ]
+    )
 except ImportError:
     pass
 
@@ -776,12 +928,19 @@ try:
         PrivacyMechanism,
         get_federated_orchestrator,
     )
-    __all__.extend([
-        "FederatedLearningOrchestrator", "get_federated_orchestrator",
-        "DifferentialPrivacyEngine", "PrivacyBudget",
-        "ModelInsight", "GlobalBaseline", "LocalModel",
-        "PrivacyMechanism",
-    ])
+
+    __all__.extend(
+        [
+            "FederatedLearningOrchestrator",
+            "get_federated_orchestrator",
+            "DifferentialPrivacyEngine",
+            "PrivacyBudget",
+            "ModelInsight",
+            "GlobalBaseline",
+            "LocalModel",
+            "PrivacyMechanism",
+        ]
+    )
 except ImportError:
     pass
 
@@ -792,10 +951,14 @@ try:
         NashStableOrchestrator,
         get_nash_stable_orchestrator,
     )
-    __all__.extend([
-        "NashStableOrchestrator", "get_nash_stable_orchestrator",
-        "NashStabilityMetrics",
-    ])
+
+    __all__.extend(
+        [
+            "NashStableOrchestrator",
+            "get_nash_stable_orchestrator",
+            "NashStabilityMetrics",
+        ]
+    )
 except ImportError:
     pass
 
@@ -822,15 +985,26 @@ try:
         get_event_bus,
         on_event,
     )
-    __all__.extend([
-        "NashEventBus", "get_event_bus", "on_event",
-        "EventType", "NashEvent",
-        "KnowledgeGraphUpdatedEvent", "TemplateSelectedEvent",
-        "TemplateResultReportedEvent", "FrontierComputedEvent",
-        "DriftDetectedEvent", "InsightContributedEvent",
-        "StabilityScoreUpdatedEvent", "AutoTuningTriggeredEvent",
-        "BackupCreatedEvent", "NashEventHandlers",
-    ])
+
+    __all__.extend(
+        [
+            "NashEventBus",
+            "get_event_bus",
+            "on_event",
+            "EventType",
+            "NashEvent",
+            "KnowledgeGraphUpdatedEvent",
+            "TemplateSelectedEvent",
+            "TemplateResultReportedEvent",
+            "FrontierComputedEvent",
+            "DriftDetectedEvent",
+            "InsightContributedEvent",
+            "StabilityScoreUpdatedEvent",
+            "AutoTuningTriggeredEvent",
+            "BackupCreatedEvent",
+            "NashEventHandlers",
+        ]
+    )
 except ImportError:
     pass
 
@@ -844,11 +1018,17 @@ try:
         RestoreResult,
         get_backup_manager,
     )
-    __all__.extend([
-        "NashBackupManager", "get_backup_manager",
-        "BackupManifest", "BackupComponent",
-        "RestoreResult", "BackupFormat",
-    ])
+
+    __all__.extend(
+        [
+            "NashBackupManager",
+            "get_backup_manager",
+            "BackupManifest",
+            "BackupComponent",
+            "RestoreResult",
+            "BackupFormat",
+        ]
+    )
 except ImportError:
     pass
 
@@ -863,12 +1043,18 @@ try:
         TuningStrategy,
         get_auto_tuner,
     )
-    __all__.extend([
-        "AutoTuner", "get_auto_tuner",
-        "ParameterConfig", "TuningResult",
-        "OptimizationDirection", "TuningStrategy",
-        "MultiArmedBandit",
-    ])
+
+    __all__.extend(
+        [
+            "AutoTuner",
+            "get_auto_tuner",
+            "ParameterConfig",
+            "TuningResult",
+            "OptimizationDirection",
+            "TuningStrategy",
+            "MultiArmedBandit",
+        ]
+    )
 except ImportError:
     pass
 
@@ -879,6 +1065,7 @@ except ImportError:
 # Brain and Cognitive Layer
 try:
     from .brain import Brain, CognitiveState, ReasoningStep
+
     __all__.extend(["Brain", "ReasoningStep", "CognitiveState"])
 except ImportError:
     pass
@@ -886,6 +1073,7 @@ except ImportError:
 # Evaluation Module
 try:
     from .evaluation import EvaluationResult, Evaluator
+
     __all__.extend(["Evaluator", "EvaluationResult"])
 except ImportError:
     pass
@@ -893,6 +1081,7 @@ except ImportError:
 # Escalation Module
 try:
     from .escalation import EscalationHandler, EscalationResult, EscalationRule
+
     __all__.extend(["EscalationHandler", "EscalationRule", "EscalationResult"])
 except ImportError:
     pass
@@ -900,6 +1089,7 @@ except ImportError:
 # Checkpoints Module
 try:
     from .checkpoints import Checkpoint, CheckpointManager
+
     __all__.extend(["CheckpointManager", "Checkpoint"])
 except ImportError:
     pass
@@ -907,6 +1097,7 @@ except ImportError:
 # Prompt Enhancer Module
 try:
     from .prompt_enhancer import PromptEnhancer
+
     __all__.extend(["PromptEnhancer"])
 except ImportError:
     pass
@@ -914,6 +1105,7 @@ except ImportError:
 # Cost Analytics Module
 try:
     from .cost_analytics import CostAnalytics, CostBreakdown, CostForecast
+
     __all__.extend(["CostAnalytics", "CostBreakdown", "CostForecast"])
 except ImportError:
     pass
@@ -921,6 +1113,7 @@ except ImportError:
 # Competitive Intelligence Module
 try:
     from .competitive import CompetitiveIntelligence, CompetitiveRecommendation, MarketDataPoint
+
     __all__.extend(["CompetitiveIntelligence", "CompetitiveRecommendation", "MarketDataPoint"])
 except ImportError:
     pass
@@ -928,6 +1121,7 @@ except ImportError:
 # Plan-Then-Build Module
 try:
     from .plan_then_build import ExecutionPlan, PlanStep, PlanThenBuilder
+
     __all__.extend(["PlanThenBuilder", "PlanStep", "ExecutionPlan"])
 except ImportError:
     pass
@@ -935,6 +1129,7 @@ except ImportError:
 # Memory Bank Module
 try:
     from .memory_bank import MemoryBank, MemoryEntry
+
     __all__.extend(["MemoryBank", "MemoryEntry"])
 except ImportError:
     pass
@@ -942,6 +1137,7 @@ except ImportError:
 # Context Condensing Module
 try:
     from .context_condensing import ContextCondenser
+
     __all__.extend(["ContextCondenser"])
 except ImportError:
     pass
@@ -949,6 +1145,7 @@ except ImportError:
 # Hierarchy Module
 try:
     from .hierarchy import HierarchyManager, Node, NodeType
+
     __all__.extend(["HierarchyManager", "Node", "NodeType"])
 except ImportError:
     pass
@@ -956,6 +1153,7 @@ except ImportError:
 # Triggers Module
 try:
     from .triggers import Trigger, TriggerConditionOperator, TriggerManager
+
     __all__.extend(["TriggerManager", "Trigger", "TriggerConditionOperator"])
 except ImportError:
     pass
@@ -963,6 +1161,7 @@ except ImportError:
 # Workspace Module
 try:
     from .workspace import Workspace, WorkspaceManager
+
     __all__.extend(["WorkspaceManager", "Workspace"])
 except ImportError:
     pass
@@ -970,6 +1169,7 @@ except ImportError:
 # Gateway Module
 try:
     from .gateway import APIGateway, APIRequest, APIResponse, RateLimitInfo
+
     __all__.extend(["APIGateway", "APIRequest", "APIResponse", "RateLimitInfo"])
 except ImportError:
     pass
@@ -983,13 +1183,17 @@ try:
         FileConnector,
         HTTPConnector,
     )
-    __all__.extend(["ConnectorManager", "BaseConnector", "DatabaseConnector", "HTTPConnector", "FileConnector"])
+
+    __all__.extend(
+        ["ConnectorManager", "BaseConnector", "DatabaseConnector", "HTTPConnector", "FileConnector"]
+    )
 except ImportError:
     pass
 
 # Sandbox Module
 try:
     from .sandbox import ExecutionResult, Sandbox
+
     __all__.extend(["Sandbox", "ExecutionResult"])
 except ImportError:
     pass
@@ -997,6 +1201,7 @@ except ImportError:
 # Context Sources Module
 try:
     from .context_sources import BaseContextSource, ContextChunk, ContextSourceManager
+
     __all__.extend(["ContextSourceManager", "ContextChunk", "BaseContextSource"])
 except ImportError:
     pass
@@ -1004,6 +1209,7 @@ except ImportError:
 # Skills Module
 try:
     from .skills import SkillDefinition, SkillManager, get_global_skill_manager
+
     __all__.extend(["SkillManager", "SkillDefinition", "get_global_skill_manager"])
 except ImportError:
     pass
@@ -1016,7 +1222,10 @@ try:
         ModelDriftMonitor,
         get_global_drift_detector,
     )
-    __all__.extend(["DriftDetector", "DriftDetectionResult", "ModelDriftMonitor", "get_global_drift_detector"])
+
+    __all__.extend(
+        ["DriftDetector", "DriftDetectionResult", "ModelDriftMonitor", "get_global_drift_detector"]
+    )
 except ImportError:
     pass
 
@@ -1024,6 +1233,7 @@ except ImportError:
 try:
     from .browser_testing import BrowserTester, TestStep, get_global_browser_tester
     from .browser_testing import TestResult as BrowserTestResult
+
     __all__.extend(["BrowserTester", "TestStep", "BrowserTestResult", "get_global_browser_tester"])
 except ImportError:
     pass
@@ -1031,6 +1241,7 @@ except ImportError:
 # Token Optimizer Module
 try:
     from .token_optimizer import TokenOptimizer, get_global_token_optimizer
+
     __all__.extend(["TokenOptimizer", "get_global_token_optimizer"])
 except ImportError:
     pass
@@ -1053,11 +1264,25 @@ try:
         TaskStatus,
         get_global_a2a_coordinator,
     )
-    __all__.extend([
-        "A2AClient", "A2ACoordinator", "A2AMessage", "A2ATask", "A2AResponse", "get_global_a2a_coordinator",
-        "A2AManager", "A2AQueueManager", "TaskSendRequest", "TaskResult", "AgentCard", "MessagePart",
-        "TaskStatus", "AgentState",
-    ])
+
+    __all__.extend(
+        [
+            "A2AClient",
+            "A2ACoordinator",
+            "A2AMessage",
+            "A2ATask",
+            "A2AResponse",
+            "get_global_a2a_coordinator",
+            "A2AManager",
+            "A2AQueueManager",
+            "TaskSendRequest",
+            "TaskResult",
+            "AgentCard",
+            "MessagePart",
+            "TaskStatus",
+            "AgentState",
+        ]
+    )
 except ImportError:
     pass
 
@@ -1069,6 +1294,7 @@ try:
         PersonaModeManager,
         get_global_persona_manager,
     )
+
     __all__.extend(["PersonaModeManager", "Persona", "PersonaConfig", "get_global_persona_manager"])
 except ImportError:
     pass
@@ -1081,13 +1307,22 @@ try:
         RoutingRecommendation,
         TaskPerformanceRecord,
     )
-    __all__.extend(["LearningAggregator", "TaskPerformanceRecord", "ModelPerformanceStats", "RoutingRecommendation"])
+
+    __all__.extend(
+        [
+            "LearningAggregator",
+            "TaskPerformanceRecord",
+            "ModelPerformanceStats",
+            "RoutingRecommendation",
+        ]
+    )
 except ImportError:
     pass
 
 # Multi-Tenant Gateway Module
 try:
     from .multi_tenant_gateway import MultiTenantGateway, QuotaUsage, Tenant, get_global_gateway
+
     __all__.extend(["MultiTenantGateway", "Tenant", "QuotaUsage", "get_global_gateway"])
 except ImportError:
     pass

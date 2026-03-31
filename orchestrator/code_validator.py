@@ -45,25 +45,20 @@ DANGEROUS_PATTERNS = {
     "exec": r"\bexec\s*\(",
     "compile": r"\bcompile\s*\(",
     "__import__": r"\b__import__\s*\(",
-
     # File system access
     "os_system": r"\bos\.system\s*\(",
     "os_popen": r"\bos\.popen\s*\(",
     "subprocess": r"\bsubprocess\.(call|run|Popen|check_output)\s*\(",
-
     # Network access
     "socket": r"\bsocket\.(socket|connect)\s*\(",
     "urllib": r"\burllib\.request\.(urlopen|Request)\s*\(",
     "requests": r"\brequests\.(get|post|put|delete)\s*\(",
-
     # Dynamic attribute access
     "setattr": r"\bsetattr\s*\(",
     "getattr_dangerous": r"\bgetattr\s*\([^,]+,\s*[^)]+\)",  # getattr with dynamic attr
-
     # Pickle (deserialization vulnerability)
     "pickle": r"\bpickle\.(load|loads|Unpickler)\s*\(",
     "marshal": r"\bmarshal\.(load|loads)\s*\(",
-
     # Built-in override
     "builtins_override": r"\b__builtins__\s*=",
     "globals_modify": r"\bglobals\s*\(\)\s*\[",
@@ -81,9 +76,11 @@ TEST_ONLY_PATTERNS = {
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class ValidationResult:
     """Result of code validation."""
+
     is_valid: bool
     syntax_valid: bool = True
     security_valid: bool = True
@@ -108,6 +105,7 @@ class ValidationResult:
 @dataclass
 class SecurityConfig:
     """Security validation configuration."""
+
     allow_eval: bool = False
     allow_exec: bool = False
     allow_os_system: bool = False
@@ -135,6 +133,7 @@ class SecurityConfig:
 # ─────────────────────────────────────────────
 # AST Security Analyzer
 # ─────────────────────────────────────────────
+
 
 class ASTSecurityAnalyzer(ast.NodeVisitor):
     """
@@ -175,7 +174,9 @@ class ASTSecurityAnalyzer(ast.NodeVisitor):
             elif node.func.id == "getattr":
                 # Check if second argument is a string literal (safe) or variable (potentially dangerous)
                 if len(node.args) >= 2 and not isinstance(node.args[1], ast.Constant):
-                    self.warnings.append(f"Line {node.lineno}: getattr() with dynamic attribute - review")
+                    self.warnings.append(
+                        f"Line {node.lineno}: getattr() with dynamic attribute - review"
+                    )
                     self.dangerous_patterns.append("getattr_dangerous")
 
         # Check for os.system, os.popen
@@ -193,9 +194,16 @@ class ASTSecurityAnalyzer(ast.NodeVisitor):
                     if not self.config.allow_subprocess:
                         self.errors.append(f"Line {node.lineno}: subprocess calls are not allowed")
                         self.dangerous_patterns.append("subprocess")
-                elif full_name in ["socket.socket", "urllib.request.urlopen", "requests.get", "requests.post"]:
+                elif full_name in [
+                    "socket.socket",
+                    "urllib.request.urlopen",
+                    "requests.get",
+                    "requests.post",
+                ]:
                     if not self.config.allow_network:
-                        self.warnings.append(f"Line {node.lineno}: Network access detected - review")
+                        self.warnings.append(
+                            f"Line {node.lineno}: Network access detected - review"
+                        )
                         self.dangerous_patterns.append("network")
 
         self.generic_visit(node)
@@ -205,7 +213,7 @@ class ASTSecurityAnalyzer(ast.NodeVisitor):
         self.node_count += 1
 
         # Count lines in function
-        if hasattr(node, 'end_lineno') and hasattr(node, 'lineno'):
+        if hasattr(node, "end_lineno") and hasattr(node, "lineno"):
             lines = node.end_lineno - node.lineno
             if lines > self.config.max_function_length:
                 self.warnings.append(
@@ -234,6 +242,7 @@ class ASTSecurityAnalyzer(ast.NodeVisitor):
 # ─────────────────────────────────────────────
 # Code Validator
 # ─────────────────────────────────────────────
+
 
 def validate_code(
     code: str,
@@ -292,7 +301,16 @@ def validate_code(
         if re.search(pattern, code, re.MULTILINE):
             # Check config for allowed patterns
             allowed = False
-            if pattern_name == "eval" and config.allow_eval or pattern_name == "exec" and config.allow_exec or pattern_name == "os_system" and config.allow_os_system or pattern_name == "subprocess" and config.allow_subprocess:
+            if (
+                pattern_name == "eval"
+                and config.allow_eval
+                or pattern_name == "exec"
+                and config.allow_exec
+                or pattern_name == "os_system"
+                and config.allow_os_system
+                or pattern_name == "subprocess"
+                and config.allow_subprocess
+            ):
                 allowed = True
 
             if not allowed:
@@ -340,10 +358,12 @@ def extract_code_from_llm_response(response: str, language: str = "python") -> s
     cleaned = response
 
     # Remove "Here's the code:" type lines
-    cleaned = re.sub(r'^.*?(here|this)\s+is\s+the\s+code.*?$', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+    cleaned = re.sub(
+        r"^.*?(here|this)\s+is\s+the\s+code.*?$", "", cleaned, flags=re.IGNORECASE | re.MULTILINE
+    )
 
     # Remove lines that are clearly not code
-    lines = cleaned.split('\n')
+    lines = cleaned.split("\n")
     code_lines = []
     in_code = False
 
@@ -355,14 +375,16 @@ def extract_code_from_llm_response(response: str, language: str = "python") -> s
             continue
 
         # Detect start of code
-        if not in_code and (stripped.startswith(('import ', 'from ', 'def ', 'class ', '#', '@')) or
-                           any(c in stripped for c in '=()[]{}')):
+        if not in_code and (
+            stripped.startswith(("import ", "from ", "def ", "class ", "#", "@"))
+            or any(c in stripped for c in "=()[]{}")
+        ):
             in_code = True
 
         if in_code:
             code_lines.append(line)
 
-    return '\n'.join(code_lines).strip()
+    return "\n".join(code_lines).strip()
 
 
 def is_code_safe(

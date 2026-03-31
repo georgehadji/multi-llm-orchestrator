@@ -1,4 +1,5 @@
 """Verify engine exposes SessionLifecycleManager integration."""
+
 import pathlib
 import tempfile
 import pytest
@@ -9,6 +10,7 @@ from orchestrator.engine import Orchestrator
 def _make_wired_orch(tmp):
     """Return a bare Orchestrator-shell with _lifecycle_manager wired."""
     from orchestrator.memory_tier import MemoryTierManager
+
     orch = Orchestrator.__new__(Orchestrator)
     mem = MemoryTierManager(storage_path=pathlib.Path(tmp), enable_bm25=False)
     orch._lifecycle_manager = SessionLifecycleManager(memory_tier_manager=mem)
@@ -32,6 +34,7 @@ def test_engine_exposes_configure_lifecycle():
 
 def test_configure_lifecycle_raises_if_scheduler_running():
     """configure_session_lifecycle() raises RuntimeError if scheduler already running."""
+
     async def _run():
         with tempfile.TemporaryDirectory() as tmp:
             orch = _make_wired_orch(tmp)
@@ -43,10 +46,12 @@ def test_configure_lifecycle_raises_if_scheduler_running():
                 await orch._lifecycle_manager.stop()
 
     import asyncio
+
     asyncio.get_event_loop().run_until_complete(_run())
 
 
 def test_session_lifecycle_is_imported_at_module_level():
     """SessionLifecycleManager is importable from orchestrator package."""
     from orchestrator import SessionLifecycleManager as SLM
+
     assert SLM is not None

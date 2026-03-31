@@ -102,18 +102,21 @@ class EventDrivenOrchestrator(BaseOrchestrator):
 
         # Generate project ID and track start
         import hashlib
+
         self._current_project_id = hashlib.sha256(
             f"{project_description}:{datetime.utcnow().isoformat()}".encode()
         ).hexdigest()[:12]
         self._project_start_time = datetime.utcnow()
 
         # Emit project started event
-        await self._emit_event(ProjectStartedEvent(
-            aggregate_id=self._current_project_id,
-            project_id=self._current_project_id,
-            description=project_description[:100],  # Truncate for event size
-            budget=self.budget.max_usd if self.budget else 0.0,
-        ))
+        await self._emit_event(
+            ProjectStartedEvent(
+                aggregate_id=self._current_project_id,
+                project_id=self._current_project_id,
+                description=project_description[:100],  # Truncate for event size
+                budget=self.budget.max_usd if self.budget else 0.0,
+            )
+        )
 
         try:
             # Call parent implementation
@@ -125,25 +128,29 @@ class EventDrivenOrchestrator(BaseOrchestrator):
                 duration = (datetime.utcnow() - self._project_start_time).total_seconds()
 
             # Emit project completed event
-            await self._emit_event(ProjectCompletedEvent(
-                aggregate_id=self._current_project_id,
-                project_id=self._current_project_id,
-                status=self._map_project_status(result.status),
-                total_cost=result.budget.spent_usd if result.budget else 0.0,
-                duration_seconds=duration,
-            ))
+            await self._emit_event(
+                ProjectCompletedEvent(
+                    aggregate_id=self._current_project_id,
+                    project_id=self._current_project_id,
+                    status=self._map_project_status(result.status),
+                    total_cost=result.budget.spent_usd if result.budget else 0.0,
+                    duration_seconds=duration,
+                )
+            )
 
             return result
 
         except Exception:
             # Emit project failed event
-            await self._emit_event(ProjectCompletedEvent(
-                aggregate_id=self._current_project_id,
-                project_id=self._current_project_id,
-                status="failed",
-                total_cost=self.budget.spent_usd if self.budget else 0.0,
-                duration_seconds=0.0,
-            ))
+            await self._emit_event(
+                ProjectCompletedEvent(
+                    aggregate_id=self._current_project_id,
+                    project_id=self._current_project_id,
+                    status="failed",
+                    total_cost=self.budget.spent_usd if self.budget else 0.0,
+                    duration_seconds=0.0,
+                )
+            )
             raise
 
     async def _execute_task(self, task: Task, attempt: int = 0) -> TaskResult:
@@ -153,13 +160,15 @@ class EventDrivenOrchestrator(BaseOrchestrator):
         Wraps the parent _execute_task with event publishing.
         """
         # Emit task started event
-        await self._emit_event(TaskStartedEvent(
-            aggregate_id=task.id,
-            task_id=task.id,
-            task_type=task.task_type.value,
-            model="",  # Will be filled after model selection
-            project_id=self._current_project_id,
-        ))
+        await self._emit_event(
+            TaskStartedEvent(
+                aggregate_id=task.id,
+                task_id=task.id,
+                task_type=task.task_type.value,
+                model="",  # Will be filled after model selection
+                project_id=self._current_project_id,
+            )
+        )
 
         start_time = datetime.utcnow()
 
@@ -171,14 +180,16 @@ class EventDrivenOrchestrator(BaseOrchestrator):
                 model = await original_select_model(task_obj, *args, **kwargs)
 
                 # Emit model selected event
-                await self._emit_event(ModelSelectedEvent(
-                    aggregate_id=task_obj.id,
-                    task_id=task_obj.id,
-                    model=model.value,
-                    strategy="constraint_planner",
-                    reason="default_routing",
-                    confidence=0.8,
-                ))
+                await self._emit_event(
+                    ModelSelectedEvent(
+                        aggregate_id=task_obj.id,
+                        task_id=task_obj.id,
+                        model=model.value,
+                        strategy="constraint_planner",
+                        reason="default_routing",
+                        confidence=0.8,
+                    )
+                )
 
                 return model
 
@@ -197,38 +208,44 @@ class EventDrivenOrchestrator(BaseOrchestrator):
 
             # Emit appropriate event based on result
             if result.success:
-                await self._emit_event(TaskCompletedEvent(
-                    aggregate_id=task.id,
-                    task_id=task.id,
-                    model=result.model.value if result.model else "",
-                    score=result.score or 0.0,
-                    cost_usd=result.cost_usd or 0.0,
-                    latency_ms=latency_ms,
-                    tokens_input=result.tokens_used or 0,
-                    tokens_output=0,  # Not tracked in current model
-                ))
+                await self._emit_event(
+                    TaskCompletedEvent(
+                        aggregate_id=task.id,
+                        task_id=task.id,
+                        model=result.model.value if result.model else "",
+                        score=result.score or 0.0,
+                        cost_usd=result.cost_usd or 0.0,
+                        latency_ms=latency_ms,
+                        tokens_input=result.tokens_used or 0,
+                        tokens_output=0,  # Not tracked in current model
+                    )
+                )
             else:
-                await self._emit_event(TaskFailedEvent(
-                    aggregate_id=task.id,
-                    task_id=task.id,
-                    model=result.model.value if result.model else "",
-                    error=result.error or "Unknown error",
-                    attempt=attempt,
-                    will_retry=attempt < 2 and result.score < 0.5,
-                ))
+                await self._emit_event(
+                    TaskFailedEvent(
+                        aggregate_id=task.id,
+                        task_id=task.id,
+                        model=result.model.value if result.model else "",
+                        error=result.error or "Unknown error",
+                        attempt=attempt,
+                        will_retry=attempt < 2 and result.score < 0.5,
+                    )
+                )
 
             return result
 
         except Exception as e:
             # Emit task failed event for exceptions
-            await self._emit_event(TaskFailedEvent(
-                aggregate_id=task.id,
-                task_id=task.id,
-                model="",
-                error=str(e),
-                attempt=attempt,
-                will_retry=False,
-            ))
+            await self._emit_event(
+                TaskFailedEvent(
+                    aggregate_id=task.id,
+                    task_id=task.id,
+                    model="",
+                    error=str(e),
+                    attempt=attempt,
+                    will_retry=False,
+                )
+            )
             raise
 
     async def _emit_event(self, event: DomainEvent) -> None:
@@ -273,57 +290,79 @@ class EventDrivenOrchestrator(BaseOrchestrator):
 
     def _on_task_started_hook(self, task_id: str, task: Task, **kwargs) -> None:
         """Bridge hook to event."""
-        asyncio.create_task(self._emit_event(TaskStartedEvent(
-            aggregate_id=task_id,
-            task_id=task_id,
-            task_type=task.task_type.value,
-            project_id=self._current_project_id,
-        )))
+        asyncio.create_task(
+            self._emit_event(
+                TaskStartedEvent(
+                    aggregate_id=task_id,
+                    task_id=task_id,
+                    task_type=task.task_type.value,
+                    project_id=self._current_project_id,
+                )
+            )
+        )
 
     def _on_task_completed_hook(self, task_id: str, result: TaskResult, **kwargs) -> None:
         """Bridge hook to event."""
         if result.success:
-            asyncio.create_task(self._emit_event(TaskCompletedEvent(
-                aggregate_id=task_id,
-                task_id=task_id,
-                model=result.model.value if result.model else "",
-                score=result.score or 0.0,
-                cost_usd=result.cost_usd or 0.0,
-                latency_ms=0.0,
-            )))
+            asyncio.create_task(
+                self._emit_event(
+                    TaskCompletedEvent(
+                        aggregate_id=task_id,
+                        task_id=task_id,
+                        model=result.model.value if result.model else "",
+                        score=result.score or 0.0,
+                        cost_usd=result.cost_usd or 0.0,
+                        latency_ms=0.0,
+                    )
+                )
+            )
         else:
-            asyncio.create_task(self._emit_event(TaskFailedEvent(
-                aggregate_id=task_id,
-                task_id=task_id,
-                model=result.model.value if result.model else "",
-                error=result.error or "Failed",
-            )))
+            asyncio.create_task(
+                self._emit_event(
+                    TaskFailedEvent(
+                        aggregate_id=task_id,
+                        task_id=task_id,
+                        model=result.model.value if result.model else "",
+                        error=result.error or "Failed",
+                    )
+                )
+            )
 
-    def _on_validation_failed_hook(self, task_id: str, model: str, validators: list[str], **kwargs) -> None:
+    def _on_validation_failed_hook(
+        self, task_id: str, model: str, validators: list[str], **kwargs
+    ) -> None:
         """Bridge hook to event."""
-        asyncio.create_task(self._emit_event(ValidationFailedEvent(
-            aggregate_id=task_id,
-            task_id=task_id,
-            model=model,
-            validators=validators,
-        )))
+        asyncio.create_task(
+            self._emit_event(
+                ValidationFailedEvent(
+                    aggregate_id=task_id,
+                    task_id=task_id,
+                    model=model,
+                    validators=validators,
+                )
+            )
+        )
 
-    def _on_budget_warning_hook(self, phase: str, spent: float, cap: float, ratio: float, **kwargs) -> None:
+    def _on_budget_warning_hook(
+        self, phase: str, spent: float, cap: float, ratio: float, **kwargs
+    ) -> None:
         """Bridge hook to event."""
-        asyncio.create_task(self._emit_event(BudgetWarningEvent(
-            phase=phase,
-            spent=spent,
-            budget=cap,
-            ratio=ratio,
-            project_id=self._current_project_id,
-        )))
+        asyncio.create_task(
+            self._emit_event(
+                BudgetWarningEvent(
+                    phase=phase,
+                    spent=spent,
+                    budget=cap,
+                    ratio=ratio,
+                    project_id=self._current_project_id,
+                )
+            )
+        )
 
 
 # Convenience function for migration
 def create_orchestrator(
-    use_events: bool = True,
-    event_backend: str = "sqlite",
-    **kwargs
+    use_events: bool = True, event_backend: str = "sqlite", **kwargs
 ) -> BaseOrchestrator:
     """
     Factory function to create orchestrator with optional event support.

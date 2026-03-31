@@ -55,6 +55,7 @@ from .validators import all_validators_pass, async_run_validators
 
 try:
     from .cache_optimizer import CacheConfig, CacheOptimizer
+
     HAS_CACHE_OPTIMIZER = True
 except ImportError:
     HAS_CACHE_OPTIMIZER = False
@@ -67,6 +68,7 @@ from .state import StateManager
 # Test validation for reliable test generation
 try:
     from .test_validator import TestValidator, validate_and_generate_test
+
     HAS_TEST_VALIDATOR = True
 except ImportError as _e:
     HAS_TEST_VALIDATOR = False
@@ -76,6 +78,7 @@ except ImportError as _e:
 # Code validation for clean code generation (no LLM commentary)
 try:
     from .code_validator import extract_code_from_llm_response, validate_code
+
     HAS_CODE_VALIDATOR = True
 except ImportError as _e:
     HAS_CODE_VALIDATOR = False
@@ -135,6 +138,7 @@ if TYPE_CHECKING:
 # PARADIGM SHIFT: TDD-First and Diff-Based Generation
 try:
     from .test_first_generator import TDDResult, TestFirstGenerator
+
     HAS_TDD = True
 except ImportError:
     HAS_TDD = False
@@ -143,6 +147,7 @@ except ImportError:
 
 try:
     from .diff_generator import DiffGenerator, DiffResult, apply_unified_diff
+
     HAS_DIFF = True
 except ImportError:
     HAS_DIFF = False
@@ -164,31 +169,31 @@ def _clean_code_output(text: str, task_type: TaskType) -> str:
         return text
 
     # Remove markdown code fences
-    text = re.sub(r'^```\w*\n?', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\n?```\s*$', '', text, flags=re.MULTILINE)
+    text = re.sub(r"^```\w*\n?", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\n?```\s*$", "", text, flags=re.MULTILINE)
 
     # Remove common placeholder/explanatory comment patterns
     # Matches: // Add content that can be easily replaced...
     #          /* Add your code here */
     #          <!-- Placeholder for ... -->
     placeholder_patterns = [
-        r'//\s*[Aa]dd\s+(?:content|code|your|more|placeholder).*?\n',
-        r'//\s*[Rr]eplace\s+this.*?(?:\n|$)',
-        r'//\s*[Tt]ODO:.*?(?:\n|$)',
-        r'//\s*[Ff]IXME:.*?(?:\n|$)',
-        r'/\*\s*[Aa]dd\s+(?:content|code|your).*?\*/',
-        r'/\*\s*[Rr]eplace\s+this.*?\*/',
-        r'<!--\s*[Aa]dd\s+(?:content|code|your).*?-->',
-        r'<!--\s*[Rr]eplace\s+this.*?-->',
-        r'#\s*[Aa]dd\s+(?:content|code|your|more).*?(?:\n|$)',
-        r'#\s*[Rr]eplace\s+this.*?(?:\n|$)',
+        r"//\s*[Aa]dd\s+(?:content|code|your|more|placeholder).*?\n",
+        r"//\s*[Rr]eplace\s+this.*?(?:\n|$)",
+        r"//\s*[Tt]ODO:.*?(?:\n|$)",
+        r"//\s*[Ff]IXME:.*?(?:\n|$)",
+        r"/\*\s*[Aa]dd\s+(?:content|code|your).*?\*/",
+        r"/\*\s*[Rr]eplace\s+this.*?\*/",
+        r"<!--\s*[Aa]dd\s+(?:content|code|your).*?-->",
+        r"<!--\s*[Rr]eplace\s+this.*?-->",
+        r"#\s*[Aa]dd\s+(?:content|code|your|more).*?(?:\n|$)",
+        r"#\s*[Rr]eplace\s+this.*?(?:\n|$)",
     ]
 
     for pattern in placeholder_patterns:
-        text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
 
     # Clean up multiple consecutive blank lines
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
 
@@ -208,15 +213,19 @@ class Orchestrator:
     # Circuit breaker: model is marked unhealthy after this many consecutive errors
     _CIRCUIT_BREAKER_THRESHOLD: int = 3
 
-    def __init__(self, budget: Budget | None = None,
-                 cache: DiskCache | None = None,
-                 state_manager: StateManager | None = None,
-                 max_concurrency: int = 3,
-                 max_parallel_tasks: int = 3,
-                 budget_hierarchy: BudgetHierarchy | None = None,
-                 cost_predictor: CostPredictor | None = None,
-                 tracing_cfg: TracingConfig | None = None,
-                 telemetry_store: TelemetryStore | None = None):
+    def __init__(
+        self,
+        budget: Budget | None = None,
+        cache: DiskCache | None = None,
+        state_manager: StateManager | None = None,
+        max_concurrency: int = 3,
+        max_parallel_tasks: int = 3,
+        budget_hierarchy: BudgetHierarchy | None = None,
+        cost_predictor: CostPredictor | None = None,
+        tracing_cfg: TracingConfig | None = None,
+        telemetry_store: TelemetryStore | None = None,
+        profiles: dict | None = None,
+    ):
         self.budget = budget or Budget()
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
@@ -224,13 +233,15 @@ class Orchestrator:
 
         # NEW: Multi-level cache optimizer (L1/L2/L3)
         if HAS_CACHE_OPTIMIZER:
-            self._cache_optimizer = CacheOptimizer(CacheConfig(
-                l1_max_size=200,
-                l1_ttl_seconds=3600,
-                l2_ttl_hours=48,
-                l3_quality_threshold=0.85,
-                track_stats=True,
-            ))
+            self._cache_optimizer = CacheOptimizer(
+                CacheConfig(
+                    l1_max_size=200,
+                    l1_ttl_seconds=3600,
+                    l2_ttl_hours=48,
+                    l3_quality_threshold=0.85,
+                    track_stats=True,
+                )
+            )
         else:
             self._cache_optimizer = None
         self.api_health: dict[Model, bool] = dict.fromkeys(Model, True)
@@ -250,6 +261,7 @@ class Orchestrator:
         # BUG-SHUTDOWN-001 FIX: Track fire-and-forget background tasks for proper shutdown
         # P0-2 OPTIMIZATION: Use WeakSet to prevent memory leaks in long-running sessions
         import weakref
+
         self._background_tasks: weakref.WeakSet = weakref.WeakSet()
         self._cleanup_timer: asyncio.Task | None = None
 
@@ -259,7 +271,9 @@ class Orchestrator:
                 logger.warning(f"{model.value}: provider SDK/key not available")
 
         # Policy-driven components (initialised with default profiles from static tables)
-        self._profiles: dict[Model, ModelProfile] = build_default_profiles()
+        self._profiles: dict[Model, ModelProfile] = (
+            profiles if profiles is not None else build_default_profiles()
+        )
         # P1-1 OPTIMIZATION: Cache for active profiles to avoid repeated iteration
         self._active_profiles_cache: List[Tuple[Model, ModelProfile]] | None = None
         self._audit_log = AuditLog()
@@ -289,6 +303,7 @@ class Orchestrator:
         self._event_bus: ProjectEventBus | None = None
         # Task 6: adaptive router v2 — circuit breaker with degraded/disabled states
         from .adaptive_router import AdaptiveRouter
+
         self._adaptive_router = AdaptiveRouter()
         # Task 7: configure OpenTelemetry tracing if a config was provided
         if tracing_cfg is not None:
@@ -333,13 +348,16 @@ class Orchestrator:
         # Memory Tier Manager - HOT/WARM/COLD memory hierarchy with BM25
         self._memory_manager: MemoryTierManager = MemoryTierManager(enable_bm25=True)
         # BM25 Search - SQLite FTS5 full-text search
-        self._bm25_search: BM25Search = get_bm25_search(str(self._memory_manager.storage_path / "search.db"))
+        self._bm25_search: BM25Search = get_bm25_search(
+            str(self._memory_manager.storage_path / "search.db")
+        )
         # LLM Re-ranker - quality-based result re-ranking
         self._reranker: LLMReranker = get_reranker()
         # Hybrid Search Pipeline - BM25 + vector RRF fusion + query expansion
         from .hybrid_search_pipeline import HybridSearchPipeline
         from .knowledge_base import get_knowledge_base
         from .query_expander import QueryExpander
+
         self._knowledge_base = get_knowledge_base()
         self._hybrid_pipeline = HybridSearchPipeline(
             bm25_search=self._bm25_search,
@@ -359,6 +377,7 @@ class Orchestrator:
         # NEW: Meta-Optimization V2 Integration (Phase 3-5)
         # Provides A/B testing, HITL approval, gradual rollout, and transfer learning
         from .meta_integration import initialize_meta_optimization
+
         self.meta_v2 = initialize_meta_optimization(
             orchestrator=self,
             state_manager=self.state_mgr,
@@ -513,7 +532,7 @@ class Orchestrator:
 
         # 4. Flush audit log if needed
         try:
-            if hasattr(self._audit_log, 'flush'):
+            if hasattr(self._audit_log, "flush"):
                 await self._audit_log.flush()
                 logger.debug("Audit log flushed")
         except Exception as e:
@@ -555,6 +574,7 @@ class Orchestrator:
         Latency is only overridden at HOT confidence to avoid noise.
         """
         from .models import TaskType as _TT
+
         for model, profile in self._profiles.items():
             # Use CODE_GEN as the representative task type for global quality blending.
             # In future, per-task-type blending can be added here.
@@ -564,14 +584,14 @@ class Orchestrator:
 
             if hist.call_count >= 50:
                 # HOT: 100% historical
-                profile.quality_score  = hist.quality_score
-                profile.trust_factor   = hist.trust_factor
+                profile.quality_score = hist.quality_score
+                profile.trust_factor = hist.trust_factor
                 profile.avg_latency_ms = hist.avg_latency_ms
                 profile.latency_p95_ms = hist.latency_p95_ms
             else:
                 # WARM: 40% historical / 60% default blend
                 profile.quality_score = 0.4 * hist.quality_score + 0.6 * profile.quality_score
-                profile.trust_factor  = 0.4 * hist.trust_factor  + 0.6 * profile.trust_factor
+                profile.trust_factor = 0.4 * hist.trust_factor + 0.6 * profile.trust_factor
 
     async def _flush_telemetry_snapshots(self, project_id: str) -> None:
         """
@@ -602,9 +622,13 @@ class Orchestrator:
                             f"{result['failed']} failed"
                         )
                         for err in result.get("errors", [])[:5]:  # Log first 5 errors
-                            logger.warning(f"  - {err.get('model', 'unknown')}: {err.get('error', 'unknown')}")
+                            logger.warning(
+                                f"  - {err.get('model', 'unknown')}: {err.get('error', 'unknown')}"
+                            )
                     else:
-                        logger.debug(f"P2-2: Batch telemetry flush complete for {len(active_profiles)} models")
+                        logger.debug(
+                            f"P2-2: Batch telemetry flush complete for {len(active_profiles)} models"
+                        )
                 except Exception as exc:
                     logger.warning(f"TelemetryStore.record_snapshots_batch failed: {exc}")
             else:
@@ -656,6 +680,7 @@ class Orchestrator:
         # because WeakSet doesn't support iteration while being modified.
         # Instead, we rely on GC to clean up completed tasks automatically.
         import gc
+
         gc.collect()  # Force GC to clean up completed tasks
 
         logger.debug(f"Background tasks after GC: {len(self._background_tasks)}")
@@ -671,11 +696,13 @@ class Orchestrator:
         Args:
             interval_seconds: How often to run cleanup (default: 5 minutes)
         """
+
         async def _cleanup_loop():
             """Background cleanup loop."""
             while True:
                 await asyncio.sleep(interval_seconds)
                 import gc
+
                 gc.collect()  # Force GC to collect weakrefs
                 logger.debug(
                     f"Periodic cleanup: {len(self._background_tasks)} active background tasks"
@@ -693,9 +720,7 @@ class Orchestrator:
     ) -> None:
         """Fire-and-forget wrapper: record a routing event, swallowing exceptions."""
         try:
-            await self._telemetry_store.record_routing_event(
-                project_id, task_id, task_type, result
-            )
+            await self._telemetry_store.record_routing_event(project_id, task_id, task_type, result)
         except Exception as exc:
             logger.warning("TelemetryStore.record_routing_event failed: %s", exc)
 
@@ -857,6 +882,7 @@ class Orchestrator:
     ) -> str:
         """Store a memory in the tiered memory system."""
         from .memory_tier import MemoryType
+
         return await self._memory_manager.store(
             project_id=project_id,
             content=content,
@@ -899,7 +925,7 @@ class Orchestrator:
         if use_reranking and query and results:
             reranked = await self._reranker.rerank(query, results, top_k=limit)
             # Convert back to memory entries (or return ranked dicts)
-            return [r.to_dict() if hasattr(r, 'to_dict') else r for r in reranked]
+            return [r.to_dict() if hasattr(r, "to_dict") else r for r in reranked]
 
         return memories[:limit]
 
@@ -994,6 +1020,7 @@ class Orchestrator:
     ) -> Any:
         """Send a task to another agent via A2A."""
         from .a2a_protocol import TaskSendRequest
+
         request = TaskSendRequest(
             task_id=task_id,
             target_agent=target_agent,
@@ -1117,25 +1144,28 @@ class Orchestrator:
         result: dict = {}
         for model, profile in self._profiles.items():
             result[model.value] = {
-                "call_count":           profile.call_count,
-                "failure_count":        profile.failure_count,
-                "success_rate":         profile.success_rate,
-                "avg_latency_ms":       profile.avg_latency_ms,
-                "latency_p95_ms":       profile.latency_p95_ms,
-                "quality_score":        profile.quality_score,
-                "trust_factor":         profile.trust_factor,
-                "avg_cost_usd":         profile.avg_cost_usd,
+                "call_count": profile.call_count,
+                "failure_count": profile.failure_count,
+                "success_rate": profile.success_rate,
+                "avg_latency_ms": profile.avg_latency_ms,
+                "latency_p95_ms": profile.latency_p95_ms,
+                "quality_score": profile.quality_score,
+                "trust_factor": profile.trust_factor,
+                "avg_cost_usd": profile.avg_cost_usd,
                 "validator_fail_count": profile.validator_fail_count,
-                "error_rate":           self._telemetry.error_rate(model),
+                "error_rate": self._telemetry.error_rate(model),
             }
         return result
 
-    async def run_project(self, project_description: str,
-                          success_criteria: str,
-                          project_id: str = "",
-                          app_profile: AppProfile | None = None,
-                          analyze_on_complete: bool = False,
-                          output_dir: Path | None = None) -> ProjectState:
+    async def run_project(
+        self,
+        project_description: str,
+        success_criteria: str,
+        project_id: str = "",
+        app_profile: AppProfile | None = None,
+        analyze_on_complete: bool = False,
+        output_dir: Path | None = None,
+    ) -> ProjectState:
         """
         Main entry point. Decomposes project → executes tasks → returns state.
 
@@ -1176,12 +1206,12 @@ class Orchestrator:
                 self._architecture_rules = architecture_rules
 
                 # Phase 1: Decompose
-                tasks = await self._decompose(project_description, success_criteria,
-                                              app_profile=app_profile)
+                tasks = await self._decompose(
+                    project_description, success_criteria, app_profile=app_profile
+                )
                 if not tasks:
                     return self._make_state(
-                        project_description, success_criteria, {},
-                        ProjectStatus.SYSTEM_FAILURE
+                        project_description, success_criteria, {}, ProjectStatus.SYSTEM_FAILURE
                     )
 
                 # Topological sort
@@ -1190,8 +1220,7 @@ class Orchestrator:
 
                 # Create initial state for dashboard
                 initial_state = self._make_state(
-                    project_description, success_criteria, tasks,
-                    execution_order=execution_order
+                    project_description, success_criteria, tasks, execution_order=execution_order
                 )
 
                 # Notify dashboard of project start
@@ -1202,14 +1231,17 @@ class Orchestrator:
                 # Emit ProjectStarted streaming event
                 if self._event_bus:
                     from .events import ProjectStartedEvent
+
                     logger.debug("Publishing ProjectStarted event...")
-                    await self._event_bus.publish(ProjectStartedEvent(
-                        project_id=self._project_id,
-                        description=project_description[:200],
-                        budget=self.budget.max_usd,
-                        budget_usd=self.budget.max_usd,
-                        total_tasks=len(tasks),
-                    ))
+                    await self._event_bus.publish(
+                        ProjectStartedEvent(
+                            project_id=self._project_id,
+                            description=project_description[:200],
+                            budget=self.budget.max_usd,
+                            budget_usd=self.budget.max_usd,
+                            total_tasks=len(tasks),
+                        )
+                    )
                     logger.debug("ProjectStarted event published")
 
                 # Phase 2-5: Execute
@@ -1229,15 +1261,14 @@ class Orchestrator:
                 # NEW: Meta-optimization V2 - record completion and optimize
                 if self.meta_v2:
                     from .meta_integration import on_project_completed
+
                     await on_project_completed(self.meta_v2, state, run_optimization=True)
 
                 # Final Git commit for project completion
-                if (self._git_integration is not None and
-                    self._git_integration.is_available()):
+                if self._git_integration is not None and self._git_integration.is_available():
                     try:
                         total_tasks = len(tasks)
-                        sum(1 for r in self.results.values()
-                                      if r.status == TaskStatus.COMPLETED)
+                        sum(1 for r in self.results.values() if r.status == TaskStatus.COMPLETED)
                         commit_hash = self._git_integration.commit_project(
                             project_name=project_description[:50],
                             total_tasks=total_tasks,
@@ -1254,20 +1285,25 @@ class Orchestrator:
                 # Emit ProjectCompleted streaming event
                 if self._event_bus:
                     from .events import ProjectCompletedEvent
-                    completed_count = sum(1 for r in self.results.values()
-                                          if r.status != TaskStatus.FAILED)
-                    failed_count = sum(1 for r in self.results.values()
-                                       if r.status == TaskStatus.FAILED)
-                    await self._event_bus.publish(ProjectCompletedEvent(
-                        project_id=self._project_id,
-                        status=state.status.value,
-                        total_cost=self.budget.spent_usd,
-                        total_cost_usd=self.budget.spent_usd,
-                        duration_seconds=self.budget.elapsed_seconds,
-                        elapsed_seconds=self.budget.elapsed_seconds,
-                        tasks_completed=completed_count,
-                        tasks_failed=failed_count,
-                    ))
+
+                    completed_count = sum(
+                        1 for r in self.results.values() if r.status != TaskStatus.FAILED
+                    )
+                    failed_count = sum(
+                        1 for r in self.results.values() if r.status == TaskStatus.FAILED
+                    )
+                    await self._event_bus.publish(
+                        ProjectCompletedEvent(
+                            project_id=self._project_id,
+                            status=state.status.value,
+                            total_cost=self.budget.spent_usd,
+                            total_cost_usd=self.budget.spent_usd,
+                            duration_seconds=self.budget.elapsed_seconds,
+                            elapsed_seconds=self.budget.elapsed_seconds,
+                            tasks_completed=completed_count,
+                            tasks_failed=failed_count,
+                        )
+                    )
 
                 # Post-project analysis and improvement suggestions
                 if analyze_on_complete and output_dir:
@@ -1291,6 +1327,7 @@ class Orchestrator:
         """
         self.budget = spec.budget
         self._active_policies = spec.policy_set
+        self._quality_mode: str = getattr(spec, "quality_mode", "standard")
         # JobSpec may override the per-task parallelism limit
         if spec.max_parallel_tasks > 0:
             self._max_parallel_tasks = spec.max_parallel_tasks
@@ -1298,7 +1335,7 @@ class Orchestrator:
         await self._apply_warm_start()
         # Extract once; both the pre-flight check and charge path need them.
         job_id = getattr(spec, "job_id", "") or ""
-        team   = getattr(spec, "team",   "") or ""
+        team = getattr(spec, "team", "") or ""
         # BudgetHierarchy pre-flight check (Improvement 6)
         if self._budget_hierarchy is not None:
             if not self._budget_hierarchy.can_afford_job(job_id, team, spec.budget.max_usd):
@@ -1358,8 +1395,7 @@ class Orchestrator:
 
         await task  # propagate any unhandled exceptions
 
-    async def dry_run(self, project_description: str,
-                      success_criteria: str) -> ExecutionPlan:
+    async def dry_run(self, project_description: str, success_criteria: str) -> ExecutionPlan:
         """
         Dry-run: decompose the project, build an execution plan, and return it
         WITHOUT executing any tasks. (Improvement 12)
@@ -1399,24 +1435,27 @@ class Orchestrator:
             available = [m for m in model_list if self.api_health.get(m, True)]
             primary = available[0] if available else (model_list[0] if model_list else None)
 
-            in_tokens, out_tokens = _TOKEN_ESTIMATES.get(
-                task.type.value, _DEFAULT_TOKENS
-            )
+            in_tokens, out_tokens = _TOKEN_ESTIMATES.get(task.type.value, _DEFAULT_TOKENS)
             cost = estimate_cost(primary, in_tokens, out_tokens) if primary else 0.0
             total_cost += cost
 
-            task_plans.append(TaskPlan(
-                task_id=tid,
-                task_type=task.type.value,
-                prompt_preview=(task.prompt[:80].replace("\n", " ") + "…"
-                                if len(task.prompt) > 80 else task.prompt),
-                dependencies=list(task.dependencies),
-                parallel_level=level_index.get(tid, 0),
-                primary_model=primary.value if primary else "unknown",
-                estimated_cost_usd=round(cost, 6),
-                acceptance_threshold=task.acceptance_threshold,
-                max_iterations=task.max_iterations,
-            ))
+            task_plans.append(
+                TaskPlan(
+                    task_id=tid,
+                    task_type=task.type.value,
+                    prompt_preview=(
+                        task.prompt[:80].replace("\n", " ") + "…"
+                        if len(task.prompt) > 80
+                        else task.prompt
+                    ),
+                    dependencies=list(task.dependencies),
+                    parallel_level=level_index.get(tid, 0),
+                    primary_model=primary.value if primary else "unknown",
+                    estimated_cost_usd=round(cost, 6),
+                    acceptance_threshold=task.acceptance_threshold,
+                    max_iterations=task.max_iterations,
+                )
+            )
 
         # Sort by (level, task_id) so render is deterministic
         task_plans.sort(key=lambda t: (t.parallel_level, t.task_id))
@@ -1434,8 +1473,9 @@ class Orchestrator:
     # Phase 1: Decomposition
     # ─────────────────────────────────────────
 
-    async def _decompose(self, project: str, criteria: str,
-                          app_profile: AppProfile | None = None) -> dict[str, Task]:
+    async def _decompose(
+        self, project: str, criteria: str, app_profile: AppProfile | None = None
+    ) -> dict[str, Task]:
         """Use cheapest capable model to break project into atomic tasks."""
         valid_types = [t.value for t in TaskType]
 
@@ -1444,16 +1484,20 @@ class Orchestrator:
         if app_profile is not None:
             from orchestrator.scaffold import _TEMPLATE_MAP
             from orchestrator.scaffold.templates import generic
+
             template_files = _TEMPLATE_MAP.get(app_profile.app_type, generic.FILES)
             scaffold_list = "\n".join(f"  - {p}" for p in sorted(template_files))
-            tech_stack_str = ", ".join(app_profile.tech_stack) if app_profile.tech_stack else "unknown"
+            tech_stack_str = (
+                ", ".join(app_profile.tech_stack) if app_profile.tech_stack else "unknown"
+            )
 
             # Build architecture block if ArchitectureDecision fields are present
             arch_block = ""
             if hasattr(app_profile, "structural_pattern") and app_profile.structural_pattern:
                 rationale_line = (
                     f"\n  Rationale:          {app_profile.rationale}"
-                    if getattr(app_profile, "rationale", "") else ""
+                    if getattr(app_profile, "rationale", "")
+                    else ""
                 )
                 arch_block = f"""
 ARCHITECTURE DECISION:
@@ -1517,7 +1561,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         async def _try_decompose(m: Model) -> dict[str, Task]:
             resp = await self.client.call(
-                m, prompt, system=decomp_system, max_tokens=4096, timeout=120,
+                m,
+                prompt,
+                system=decomp_system,
+                max_tokens=4096,
+                timeout=120,
                 bypass_cache=True,  # never reuse a cached decomposition response
             )
             await self.budget.charge(resp.cost_usd, "decomposition")
@@ -1530,11 +1578,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # Try primary model, then fallback, with one retry on empty/malformed output
         # v3.0 FIX: If JSON parsing fails, try with a model known for structured output
         models_to_try = [model, self._get_fallback(model)]
-        
+
         # Add Qwen3 Coder Next as final fallback for JSON structure issues
         if Model.QWEN_3_CODER_NEXT not in models_to_try:
             models_to_try.append(Model.QWEN_3_CODER_NEXT)
-        
+
         for attempt, m in enumerate(models_to_try):
             if m is None:
                 break
@@ -1542,13 +1590,17 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 return await _try_decompose(m)
             except (json.JSONDecodeError, ValueError) as e:
                 # JSON parsing failed - try next model
-                logger.warning(f"Decomposition attempt {attempt + 1} with {m.value} failed (JSON parse error): {e}")
-                logger.warning(f"  Raw response (first 200 chars): {resp.text[:200] if 'resp' in locals() else 'N/A'}...")
+                logger.warning(
+                    f"Decomposition attempt {attempt + 1} with {m.value} failed (JSON parse error): {e}"
+                )
+                logger.warning(
+                    f"  Raw response (first 200 chars): {resp.text[:200] if 'resp' in locals() else 'N/A'}..."
+                )
                 await self._record_failure(m, error=e)
             except (Exception, asyncio.CancelledError) as e:
                 logger.error(f"Decomposition attempt {attempt + 1} with {m.value} failed: {e}")
                 await self._record_failure(m, error=e)
-        
+
         logger.error("All decomposition attempts failed — returning empty task list")
         return {}
 
@@ -1576,6 +1628,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         items = None
         try:
             import json5
+
             items = json5.loads(text)
             logger.debug("P2-1: JSON5 parse succeeded on full text")
         except ImportError:
@@ -1592,6 +1645,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         # Fallback: If json5 failed or not available, try standard json with fixes
         if items is None:
+
             def _try_parse_standard(s: str):
                 """Attempt json.loads with progressively more aggressive fixes."""
                 # 1. Direct parse
@@ -1600,13 +1654,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 except json.JSONDecodeError:
                     pass
                 # 2. Strip trailing commas before ] or } (common LLM mistake)
-                cleaned = re.sub(r',\s*([}\]])', r'\1', s)
+                cleaned = re.sub(r",\s*([}\]])", r"\1", s)
                 try:
                     return json.loads(cleaned)
                 except json.JSONDecodeError:
                     pass
                 # 3. Remove control characters (except \n \r \t)
-                cleaned2 = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', cleaned)
+                cleaned2 = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", cleaned)
                 try:
                     return json.loads(cleaned2)
                 except json.JSONDecodeError:
@@ -1624,11 +1678,12 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         # Extract outermost [...] block and retry (greedy — captures the full tasks array)
         if not isinstance(items, list):
-            match = re.search(r'\[.*\]', text, re.DOTALL)
+            match = re.search(r"\[.*\]", text, re.DOTALL)
             if match:
                 # Try json5 on extracted block first
                 try:
                     import json5
+
                     items = json5.loads(match.group())
                     logger.debug("P2-1: JSON5 parse succeeded on extracted [...] block")
                 except (ImportError, Exception):
@@ -1655,40 +1710,44 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 # Strip Python validators for non-Python tasks
                 # Detect if task is for HTML/CSS/JS based on prompt keywords or file extension
                 (
-                    "python" in prompt.lower() or
-                    ".py" in target_path.lower() or
-                    "flask" in prompt.lower() or
-                    "django" in prompt.lower() or
-                    "fastapi" in prompt.lower()
+                    "python" in prompt.lower()
+                    or ".py" in target_path.lower()
+                    or "flask" in prompt.lower()
+                    or "django" in prompt.lower()
+                    or "fastapi" in prompt.lower()
                 )
 
                 # Priority: If it's explicitly a backend Python task (FastAPI/Flask/Django),
                 # keep Python validators even if it mentions HTML/JS (full-stack projects)
                 is_backend_python_task = (
-                    "fastapi" in prompt.lower() or
-                    "flask" in prompt.lower() or
-                    "django" in prompt.lower() or
-                    "backend" in prompt.lower() and ".py" in target_path.lower()
+                    "fastapi" in prompt.lower()
+                    or "flask" in prompt.lower()
+                    or "django" in prompt.lower()
+                    or "backend" in prompt.lower()
+                    and ".py" in target_path.lower()
                 )
 
                 is_web_frontend_task = (
-                    ("html" in prompt.lower() or
-                    "css" in prompt.lower() or
-                    "javascript" in prompt.lower() or
-                    "js" in prompt.lower() or
-                    ".html" in target_path.lower() or
-                    ".css" in target_path.lower() or
-                    ".js" in target_path.lower())
-                    and not is_backend_python_task  # Don't remove if it's a backend task
-                )
+                    "html" in prompt.lower()
+                    or "css" in prompt.lower()
+                    or "javascript" in prompt.lower()
+                    or "js" in prompt.lower()
+                    or ".html" in target_path.lower()
+                    or ".css" in target_path.lower()
+                    or ".js" in target_path.lower()
+                ) and not is_backend_python_task  # Don't remove if it's a backend task
 
                 # Only remove Python validators for pure frontend tasks, not backend tasks
                 if is_web_frontend_task:
                     # Remove Python-specific validators for frontend tasks
                     original_validators = hard_validators
-                    hard_validators = [v for v in hard_validators if v not in ("python_syntax", "ruff", "pytest")]
+                    hard_validators = [
+                        v for v in hard_validators if v not in ("python_syntax", "ruff", "pytest")
+                    ]
                     if original_validators != hard_validators:
-                        logger.info(f"Task {item['id']}: removed Python validators {set(original_validators) - set(hard_validators)} (web frontend task)")
+                        logger.info(
+                            f"Task {item['id']}: removed Python validators {set(original_validators) - set(hard_validators)} (web frontend task)"
+                        )
                 # NOTE: Don't remove validators for non-Python tasks here.
                 # Let _filter_validators_for_task() decide based on actual output content.
 
@@ -1733,19 +1792,24 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             )
         elif ratio >= 1.0:
             logger.warning(
-                f"Phase '{phase}' exceeded soft cap: "
-                f"${spent:.4f} / ${cap:.4f} ({ratio:.0%})"
+                f"Phase '{phase}' exceeded soft cap: " f"${spent:.4f} / ${cap:.4f} ({ratio:.0%})"
             )
             self._hook_registry.fire(
                 EventType.BUDGET_WARNING,
-                phase=phase, spent=spent, cap=cap, ratio=ratio,
+                phase=phase,
+                spent=spent,
+                cap=cap,
+                ratio=ratio,
             )
 
-    async def _execute_all(self, tasks: dict[str, Task],
-                            execution_order: list[str],
-                            project_desc: str,
-                            success_criteria: str,
-                            output_dir: Path | None = None) -> ProjectState:
+    async def _execute_all(
+        self,
+        tasks: dict[str, Task],
+        execution_order: list[str],
+        project_desc: str,
+        success_criteria: str,
+        output_dir: Path | None = None,
+    ) -> ProjectState:
         """
         Execute all tasks respecting dependencies, with intra-level parallelism.
 
@@ -1772,7 +1836,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             logger.info(f"Initializing progress writer for output: {output_dir}")
             # Build a temporary ProjectState reference for summary.json writes
             _partial_state = self._make_state(
-                project_desc, success_criteria, tasks,
+                project_desc,
+                success_criteria,
+                tasks,
                 execution_order=execution_order,
             )
             # Share the live results dict so summary.json always reflects current state
@@ -1781,8 +1847,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             # Initialize progressive output manager (bmalph-style)
             _prog_output = ProgressiveOutputManager(
-                Path(output_dir),
-                project_name=project_desc[:30].replace(" ", "_")
+                Path(output_dir), project_name=project_desc[:30].replace(" ", "_")
             )
             logger.info(f"Progressive output manager initialized in {output_dir}/outputs/")
 
@@ -1820,7 +1885,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     logger.warning(f"Budget reservation failed, skipping {task_id}")
                     async with self._results_lock:
                         self.results[task_id] = TaskResult(
-                            task_id=task_id, output="", score=0.0,
+                            task_id=task_id,
+                            output="",
+                            score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
                         )
@@ -1833,7 +1900,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     logger.warning(f"Time limit reached, skipping {task_id}")
                     async with self._results_lock:
                         self.results[task_id] = TaskResult(
-                            task_id=task_id, output="", score=0.0,
+                            task_id=task_id,
+                            output="",
+                            score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
                         )
@@ -1855,7 +1924,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     result = await self._execute_task(task)
 
                     # FIX-001a: Commit reservation with actual cost
-                    await self.budget.commit_reservation(reserved_amount, result.cost_usd, "generation")
+                    await self.budget.commit_reservation(
+                        reserved_amount, result.cost_usd, "generation"
+                    )
                     reservation_made = False  # Successfully committed, don't release
 
                     # BUG-RACE-002 FIX: Protect results dict with lock
@@ -1866,11 +1937,15 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     # Notify dashboard of task completion
                     self._notify_dashboard_task_complete(task_id, result.status.value)
 
-                    self._hook_registry.fire(EventType.TASK_COMPLETED, task_id=task_id, result=result)
+                    self._hook_registry.fire(
+                        EventType.TASK_COMPLETED, task_id=task_id, result=result
+                    )
 
                     # BUG-SHUTDOWN-001 FIX: Track fire-and-forget task
                     bg_task = asyncio.create_task(
-                        self._safe_record_routing_event(self._project_id, task_id, task.type, result)
+                        self._safe_record_routing_event(
+                            self._project_id, task_id, task.type, result
+                        )
                     )
                     self._background_tasks.add(bg_task)
                     bg_task.add_done_callback(self._background_tasks.discard)
@@ -1891,7 +1966,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     try:
                         return await self._execute_task(task)
                     except sqlite3.OperationalError as retry_e:
-                        logger.error(f"Task {task_id}: database still locked after retry: {retry_e}")
+                        logger.error(
+                            f"Task {task_id}: database still locked after retry: {retry_e}"
+                        )
                         raise
                 raise
             except Exception as e:
@@ -1934,16 +2011,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     for r in dep_results
                 )
                 if any_failed:
-                    failed_deps = [
-                        r.task_id for r in dep_results
-                        if r.status == TaskStatus.FAILED
-                    ]
-                    logger.warning(
-                        f"Skipping {task_id}: dependencies failed: {failed_deps}"
-                    )
+                    failed_deps = [r.task_id for r in dep_results if r.status == TaskStatus.FAILED]
+                    logger.warning(f"Skipping {task_id}: dependencies failed: {failed_deps}")
                     async with self._results_lock:
                         self.results[task_id] = TaskResult(
-                            task_id=task_id, output="", score=0.0,
+                            task_id=task_id,
+                            output="",
+                            score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
                         )
@@ -1953,7 +2027,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     logger.warning(f"Skipping {task_id}: unmet dependencies")
                     async with self._results_lock:
                         self.results[task_id] = TaskResult(
-                            task_id=task_id, output="", score=0.0,
+                            task_id=task_id,
+                            output="",
+                            score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
                         )
@@ -1965,7 +2041,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             if parallel_count > 1:
                 logger.info(
                     "Executing level %d: %d tasks in parallel (max=%d): %s",
-                    level_idx, parallel_count, self._max_parallel_tasks, runnable,
+                    level_idx,
+                    parallel_count,
+                    self._max_parallel_tasks,
+                    runnable,
                 )
             else:
                 logger.info("Executing level %d: %s", level_idx, runnable)
@@ -1973,9 +2052,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # ═══════════════════════════════════════════════════════
             # OPTIMIZATION: Cache warming before parallel execution
             # ═══════════════════════════════════════════════════════
-            if (self.optim_config.enable_prompt_caching and
-                self.optim_config.cache_warming_enabled and
-                len(runnable) > 1):
+            if (
+                self.optim_config.enable_prompt_caching
+                and self.optim_config.cache_warming_enabled
+                and len(runnable) > 1
+            ):
                 # Warm cache before firing parallel requests
                 # Prevents cache miss storm when multiple tasks start simultaneously
                 await self._warm_cache_for_level(tasks, runnable)
@@ -1994,15 +2075,15 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     logger.error("Level %d: task raised %s", level_idx, exc)
 
             # Checkpoint after each level completes
-            state = self._make_state(project_desc, success_criteria, tasks,
-                                     execution_order=execution_order)
+            state = self._make_state(
+                project_desc, success_criteria, tasks, execution_order=execution_order
+            )
             if runnable:
-                await self.state_mgr.save_checkpoint(
-                    self._project_id, runnable[-1], state
-                )
+                await self.state_mgr.save_checkpoint(self._project_id, runnable[-1], state)
 
-        return self._make_state(project_desc, success_criteria, tasks,
-                                execution_order=execution_order)
+        return self._make_state(
+            project_desc, success_criteria, tasks, execution_order=execution_order
+        )
 
     async def _warm_cache_for_level(self, tasks: Dict[str, Task], runnable: List[str]) -> None:
         """
@@ -2036,14 +2117,41 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         except Exception as e:
             logger.warning(f"Cache warming failed (non-critical): {e}")
 
-    def _build_system_prompt(self) -> str:
-        """Build standard system prompt for cache warming."""
+    def _build_system_prompt(self, task_type: str = "") -> str:
+        """Build system prompt based on current quality_mode."""
+        mode = getattr(self, "_quality_mode", "standard")
+        if mode == "production":
+            return self._build_production_system_prompt(task_type)
+        return self._build_standard_system_prompt(task_type)
+
+    def _build_standard_system_prompt(self, task_type: str = "") -> str:
+        """Standard quality system prompt."""
         return (
             "You are an expert software engineer executing a task. "
-            "Produce high-quality, complete, production-ready code. "
-            "Follow best practices, include comprehensive comments, "
-            "and ensure all code is valid and runnable."
+            "Produce high-quality, complete output. "
+            "Follow best practices and ensure all code is valid and runnable."
         )
+
+    def _build_production_system_prompt(self, task_type: str = "") -> str:
+        """Production-grade system prompt with strict quality requirements."""
+        base = (
+            "You are a senior software engineer delivering production-grade output. "
+            "Requirements:\n"
+            "1. Full type annotations on every function and class.\n"
+            "2. Comprehensive error handling and input validation.\n"
+            "3. Unit tests for every public function (pytest style).\n"
+            "4. Docstrings on every module, class, and public function.\n"
+            "5. Logging via the standard library logger (not print).\n"
+            "6. No TODOs, no placeholder implementations.\n"
+            "7. Follow SOLID principles and keep cyclomatic complexity ≤ 10.\n"
+            "8. Include a brief inline comment for any non-obvious logic.\n"
+        )
+        if task_type in ("code_gen", "code_generation"):
+            base += (
+                "9. Return ONLY raw code — no markdown fences, no prose outside code.\n"
+                "10. Code must pass mypy --strict.\n"
+            )
+        return base
 
     def _build_project_context(self) -> str:
         """Build project context from existing results."""
@@ -2051,10 +2159,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         context_parts = []
         for task_id, result in list(self.results.items())[:3]:  # Limit to first 3
             if result.success and result.output:
-                context_parts.append(
-                    f"## {task_id}\n"
-                    f"```python\n{result.output[:2000]}\n```"
-                )
+                context_parts.append(f"## {task_id}\n" f"```python\n{result.output[:2000]}\n```")
 
         if context_parts:
             return "## Existing Code Context\n\n" + "\n\n".join(context_parts)
@@ -2078,7 +2183,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         import ast
 
         # Quick bracket balance check
-        brackets = {'(': ')', '[': ']', '{': '}'}
+        brackets = {"(": ")", "[": "]", "{": "}"}
         stack = []
         for char in partial_output:
             if char in brackets:
@@ -2092,7 +2197,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # Try parsing as Python (may fail on incomplete code)
         try:
             # Only validate if we have a complete statement (ends with newline)
-            if partial_output.strip().endswith(':') or partial_output.count('\n') < 2:
+            if partial_output.strip().endswith(":") or partial_output.count("\n") < 2:
                 return True  # Incomplete statement, can't validate yet
 
             ast.parse(partial_output)
@@ -2100,11 +2205,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         except SyntaxError as e:
             # Check if error is likely due to incompleteness vs actual error
             error_msg = str(e).lower()
-            if 'eof' in error_msg or 'unexpected eof' in error_msg:
+            if "eof" in error_msg or "unexpected eof" in error_msg:
                 return True  # Incomplete code, not necessarily wrong
-            elif 'invalid syntax' in error_msg:
+            elif "invalid syntax" in error_msg:
                 # Check if it's a common incomplete pattern
-                if partial_output.rstrip().endswith((',', '\\', '...')):
+                if partial_output.rstrip().endswith((",", "\\", "...")):
                     return True  # Likely continuation
                 return False  # Actual syntax error
             return True  # Other errors, be lenient
@@ -2120,6 +2225,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             True if syntax valid, False otherwise
         """
         import ast
+
         try:
             ast.parse(output)
             return True
@@ -2147,7 +2253,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
                     # Skip dunder methods
-                    if not node.name.startswith('__'):
+                    if not node.name.startswith("__"):
                         return node.name
 
             # Fallback: Look for class __init__
@@ -2157,12 +2263,12 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         except SyntaxError:
             # AST parsing failed, try regex
-            match = re.search(r'def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', code)
+            match = re.search(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", code)
             if match:
                 return match.group(1)
 
             # Try class name
-            class_match = re.search(r'class\s+([a-zA-Z_][a-zA-Z0-9_]*)', code)
+            class_match = re.search(r"class\s+([a-zA-Z_][a-zA-Z0-9_]*)", code)
             if class_match:
                 return class_match.group(1)
 
@@ -2189,13 +2295,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             text = text.replace("PREVIOUS ATTEMPT FAILED:", "[PREVIOUS ATTEMPT]:")
             return text
 
-        safe_reason     = _sanitize(record.failure_reason)
+        safe_reason = _sanitize(record.failure_reason)
         safe_validators = [_sanitize(v) for v in record.validators_failed]
-        validators_str  = ", ".join(safe_validators) if safe_validators else "none"
+        validators_str = ", ".join(safe_validators) if safe_validators else "none"
 
         snippet_section = ""
         if record.output_snippet:
-            safe_snippet    = _sanitize(record.output_snippet)
+            safe_snippet = _sanitize(record.output_snippet)
             snippet_section = f"\n- Output snippet: {safe_snippet}"
 
         # Add specific guidance for common ruff/python_syntax errors
@@ -2218,16 +2324,19 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 "\n\n⚠️ IMPORT POSITION ERROR: Move all imports to the TOP of the file.\n"
                 "FIX: Place all import statements before any code (functions, classes, etc.)."
             )
-        elif "unterminated triple-quoted string" in record.failure_reason or "Syntax error" in record.failure_reason:
+        elif (
+            "unterminated triple-quoted string" in record.failure_reason
+            or "Syntax error" in record.failure_reason
+        ):
             additional_guidance = (
                 "\n\n⚠️ SYNTAX ERROR DETECTED: Unclosed string literal or code structure issue.\n"
                 "FIX:\n"
-                "1. Check ALL triple-quoted strings (\"\"\"...\"\"\") are properly CLOSED\n"
+                '1. Check ALL triple-quoted strings ("""...""") are properly CLOSED\n'
                 "2. Ensure all parentheses (), brackets [], and braces {} are matched\n"
                 "3. Verify all string literals have matching opening and closing quotes\n"
                 "4. Check that if/else/for/while blocks have proper indentation\n"
                 "5. Run your code through a Python syntax checker BEFORE submitting\n"
-                "\nCRITICAL: Every opening \"\"\" must have a closing \"\"\" on a later line!"
+                '\nCRITICAL: Every opening """ must have a closing """ on a later line!'
             )
         elif "invalid-syntax" in record.failure_reason:
             additional_guidance = (
@@ -2263,7 +2372,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             models = self._get_available_models(task.type)
             if not models:
                 return TaskResult(
-                    task_id=task.id, output="", score=0.0,
+                    task_id=task.id,
+                    output="",
+                    score=0.0,
                     model_used=Model.GPT_4O_MINI,
                     status=TaskStatus.FAILED,
                 )
@@ -2274,11 +2385,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # Emit TaskStarted streaming event
             if self._event_bus:
                 from .events import TaskStartedEvent
-                await self._event_bus.publish(TaskStartedEvent(
-                    aggregate_id=task.id,
-                    task_id=task.id,
-                    task_type=task.type.value,
-                ))
+
+                await self._event_bus.publish(
+                    TaskStartedEvent(
+                        aggregate_id=task.id,
+                        task_id=task.id,
+                        task_type=task.type.value,
+                    )
+                )
 
             # Fire MODEL_SELECTED event so hooks can observe routing decisions
             self._hook_registry.fire(
@@ -2325,7 +2439,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     reviewer_model=None,
                     tokens_used={
                         "input": cached_result.get("tokens_input", 0),
-                        "output": cached_result.get("tokens_output", 0)
+                        "output": cached_result.get("tokens_output", 0),
                     },
                     iterations=0,
                     cost_usd=cached_result.get("cost", 0.0),
@@ -2356,31 +2470,35 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # ═══════════════════════════════════════════════════════
             # If enabled and task is code generation, use TDD approach:
             # Generate tests FIRST → Generate code to pass tests → Verify
-            if (HAS_TDD and
-                self.optim_config.enable_tdd_first and
-                task.type == TaskType.CODE_GEN and
-                self._tdd_generator is None):
+            if (
+                HAS_TDD
+                and self.optim_config.enable_tdd_first
+                and task.type == TaskType.CODE_GEN
+                and self._tdd_generator is None
+            ):
 
                 # Lazy initialize TDD generator with optimal model config (v3.0)
                 from .cost_optimization import get_tdd_profile
-                
+
                 tdd_config = get_tdd_profile(
                     tier=self.optim_config.tdd_quality_tier,
                     language=None,  # Auto-detect from task/project
                 )
-                
+
                 self._tdd_generator = TestFirstGenerator(
                     client=self.client,
-                    sandbox=self.sandbox if hasattr(self, 'sandbox') else None,
+                    sandbox=self.sandbox if hasattr(self, "sandbox") else None,
                     max_test_iterations=self.optim_config.tdd_max_iterations,
                     model_config=tdd_config,
                     quality_tier=self.optim_config.tdd_quality_tier,
                 )
 
-            if (HAS_TDD and
-                self.optim_config.enable_tdd_first and
-                task.type == TaskType.CODE_GEN and
-                self._tdd_generator is not None):
+            if (
+                HAS_TDD
+                and self.optim_config.enable_tdd_first
+                and task.type == TaskType.CODE_GEN
+                and self._tdd_generator is not None
+            ):
 
                 logger.info(
                     f"  {task.id}: Using TDD-first generation "
@@ -2408,11 +2526,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             score=1.0 if tdd_result.test_result.passed else 0.8,
                             model_used=(
                                 Model(tdd_result.implementation_model_used)
-                                if tdd_result.implementation_model_used else primary
+                                if tdd_result.implementation_model_used
+                                else primary
                             ),
                             reviewer_model=(
                                 Model(tdd_result.test_model_used)
-                                if tdd_result.test_model_used else None
+                                if tdd_result.test_model_used
+                                else None
                             ),
                             tokens_used={
                                 "input": 0,  # Would need to track from TDD
@@ -2420,9 +2540,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             },
                             iterations=tdd_result.iterations,
                             cost_usd=tdd_result.cost_usd,
-                            status=TaskStatus.COMPLETED if tdd_result.success else TaskStatus.DEGRADED,
+                            status=(
+                                TaskStatus.COMPLETED if tdd_result.success else TaskStatus.DEGRADED
+                            ),
                             critique=f"Tests: {tdd_result.test_result.tests_passed}/"
-                                    f"{tdd_result.test_result.tests_run} passed",
+                            f"{tdd_result.test_result.tests_run} passed",
                             deterministic_check_passed=tdd_result.test_result.passed,
                             degraded_fallback_count=0,
                             attempt_history=[],
@@ -2466,8 +2588,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             _failed_validator_names: list[str] = []
             model_escalated = False  # Track if we've tried model escalation
 
-            logger.info(f"Executing {task.id} ({task.type.value}): "
-                         f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}")
+            logger.info(
+                f"Executing {task.id} ({task.type.value}): "
+                f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}"
+            )
 
             for iteration in range(task.max_iterations):
                 # FIX #5: Mid-task budget check — estimate minimum cost for one
@@ -2490,9 +2614,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 # content output. For code tasks on these models, double the token budget
                 # (cap at 16384) to ensure complete output. Both also need longer timeouts.
                 _provider = get_provider(primary)
-                _is_reasoning_model = (
-                    primary.value.startswith("anthropic/") or  # Claude models can be reasoning-heavy
-                    (primary.value.startswith("deepseek/") and primary.value == "deepseek/deepseek-reasoner")
+                _is_reasoning_model = primary.value.startswith(
+                    "anthropic/"
+                ) or (  # Claude models can be reasoning-heavy
+                    primary.value.startswith("deepseek/")
+                    and primary.value == "deepseek/deepseek-reasoner"
                 )
                 _is_deepseek_chat = primary.value == "deepseek/deepseek-chat"
                 if _is_reasoning_model:
@@ -2519,19 +2645,25 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     effective_max_tokens = min(effective_max_tokens, model_limit)
 
                 try:
-                    # Build system prompt with explicit instructions for code tasks
-                    system_prompt = f"You are an expert executing a {task.type.value} task. " \
-                                   f"Produce high-quality, complete output."
-                    if task.type == TaskType.CODE_GEN:
+                    # Build system prompt — production mode enriches with strict requirements
+                    _mode = getattr(self, "_quality_mode", "standard")
+                    if _mode == "production":
+                        system_prompt = self._build_production_system_prompt(task.type.value)
+                    else:
+                        system_prompt = (
+                            f"You are an expert executing a {task.type.value} task. "
+                            f"Produce high-quality, complete output."
+                        )
+                    if task.type == TaskType.CODE_GEN and _mode != "production":
                         system_prompt += (
                             "\n\nCRITICAL REQUIREMENTS:\n"
                             "1. Return ONLY raw code - NO markdown fences (```), NO explanations outside code\n"
                             "2. Code must be THOROUGHLY COMMENTED - every function, class, and complex logic block\n"
                             "3. EVERY file MUST include this header comment using Python docstrings:\n"
-                            "   \"\"\"\n"
+                            '   """\n'
                             "   Author: Georgios-Chrysovalantis Chatzivantsidis\n"
                             "   Description: [Brief description of the file's purpose]\n"
-                            "   \"\"\"\n"
+                            '   """\n'
                             "4. Output must be valid, complete, production-ready code that passes syntax checks.\n"
                             "5. Use Python-style comments (# or docstrings), NEVER C-style comments (/* */)"
                         )
@@ -2544,7 +2676,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             task.type.value, effective_max_tokens
                         )
                         effective_max_tokens = min(effective_max_tokens, phase_limit)
-                        logger.debug(f"  {task.id}: output token limit set to {effective_max_tokens}")
+                        logger.debug(
+                            f"  {task.id}: output token limit set to {effective_max_tokens}"
+                        )
 
                     # ═══════════════════════════════════════════════════════
                     # OPTIMIZATION: Adaptive temperature per retry
@@ -2552,8 +2686,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     if self.optim_config.enable_adaptive_temperature and iteration > 0:
                         temp_key = f"retry_{iteration}" if iteration > 0 else "initial"
                         gen_temperature = self.optim_config.temperature_strategy.get(
-                            task.type.value,
-                            {"initial": 0.0, "retry_1": 0.2, "retry_2": 0.4}
+                            task.type.value, {"initial": 0.0, "retry_1": 0.2, "retry_2": 0.4}
                         ).get(temp_key, 0.3)
                         logger.debug(f"  {task.id}: adaptive temperature set to {gen_temperature}")
                     else:
@@ -2566,11 +2699,15 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     # For CRITICAL tasks: run cheap and premium models in parallel.
                     # If cheap model scores high enough, cancel premium (save cost).
                     # If cheap fails, premium is already running (zero latency penalty).
-                    if (self.optim_config.enable_speculative and
-                        iteration == 0 and
-                        getattr(task, 'is_critical', False)):
+                    if (
+                        self.optim_config.enable_speculative
+                        and iteration == 0
+                        and getattr(task, "is_critical", False)
+                    ):
 
-                        logger.info(f"  {task.id}: using speculative generation (parallel cheap+premium)")
+                        logger.info(
+                            f"  {task.id}: using speculative generation (parallel cheap+premium)"
+                        )
 
                         try:
                             gen_response = await speculative_generate(
@@ -2590,19 +2727,25 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                                 f"used {gen_response.model_used} (cheap_win={gen_response.cheap_won})"
                             )
                         except Exception as spec_error:
-                            logger.warning(f"  {task.id}: speculative gen failed, falling back: {spec_error}")
+                            logger.warning(
+                                f"  {task.id}: speculative gen failed, falling back: {spec_error}"
+                            )
                             # Fallback to standard single-model call below
                             # Continue to standard generation path
 
                     # ═══════════════════════════════════════════════════════
                     # OPTIMIZATION: Model cascading (try cheap first, escalate)
                     # ═══════════════════════════════════════════════════════
-                    elif (self.optim_config.enable_cascading and
-                        iteration == 0 and  # Only on first iteration
-                        task.type.value in self.optim_config.cascade_chains):
+                    elif (
+                        self.optim_config.enable_cascading
+                        and iteration == 0  # Only on first iteration
+                        and task.type.value in self.optim_config.cascade_chains
+                    ):
 
                         cascade_chain = self.optim_config.cascade_chains[task.type.value]
-                        logger.info(f"  {task.id}: using model cascading with chain {cascade_chain}")
+                        logger.info(
+                            f"  {task.id}: using model cascading with chain {cascade_chain}"
+                        )
 
                         try:
                             gen_response = await cascading_generate(
@@ -2614,38 +2757,57 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                                 max_tokens=effective_max_tokens,
                                 timeout=gen_timeout,
                             )
-                            logger.info(f"  {task.id}: cascading exited at {gen_response.model_used} with score {gen_response.score:.2f}")
+                            logger.info(
+                                f"  {task.id}: cascading exited at {gen_response.model_used} with score {gen_response.score:.2f}"
+                            )
                         except Exception as cascade_error:
-                            logger.warning(f"  {task.id}: cascading failed, falling back to standard: {cascade_error}")
+                            logger.warning(
+                                f"  {task.id}: cascading failed, falling back to standard: {cascade_error}"
+                            )
                             # Fallback to standard single-model call
-                            logger.info(f"  {task.id}: calling {primary.value} for generation (timeout={gen_timeout}s)")
+                            logger.info(
+                                f"  {task.id}: calling {primary.value} for generation (timeout={gen_timeout}s)"
+                            )
                             _rl_tenant = getattr(task, "tenant", "default")
-                            self._rate_limiter.check(_rl_tenant, primary.value, effective_max_tokens)
+                            self._rate_limiter.check(
+                                _rl_tenant, primary.value, effective_max_tokens
+                            )
                             try:
                                 gen_response = await self.client.call(
-                                    primary, full_prompt,
+                                    primary,
+                                    full_prompt,
                                     system=system_prompt,
                                     max_tokens=effective_max_tokens,
                                     temperature=gen_temperature,
                                     timeout=gen_timeout,
                                 )
                             except Exception:
-                                self._rate_limiter.release(_rl_tenant, primary.value, effective_max_tokens)
+                                self._rate_limiter.release(
+                                    _rl_tenant, primary.value, effective_max_tokens
+                                )
                                 raise
                             self._rate_limiter.record(
-                                _rl_tenant, primary.value,
+                                _rl_tenant,
+                                primary.value,
                                 gen_response.input_tokens + gen_response.output_tokens,
                             )
 
                     # ═══════════════════════════════════════════════════════
                     # OPTIMIZATION: Batch API for non-critical phases
                     # ═══════════════════════════════════════════════════════
-                    elif (self.optim_config.enable_batch_api and
-                          task.type.value in ["evaluation", "critique", "condensing"]):
+                    elif self.optim_config.enable_batch_api and task.type.value in [
+                        "evaluation",
+                        "critique",
+                        "condensing",
+                    ]:
 
                         from orchestrator.cost_optimization import OptimizationPhase, batch_call
 
-                        phase = OptimizationPhase(task.type.value) if task.type.value in [e.value for e in OptimizationPhase] else OptimizationPhase.GENERATION
+                        phase = (
+                            OptimizationPhase(task.type.value)
+                            if task.type.value in [e.value for e in OptimizationPhase]
+                            else OptimizationPhase.GENERATION
+                        )
 
                         logger.info(f"  {task.id}: using batch API for {phase.value}")
                         gen_response = await batch_call(
@@ -2661,25 +2823,33 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
                     # Standard single-model generation (fallback)
                     else:
-                        logger.info(f"  {task.id}: calling {primary.value} for generation (timeout={gen_timeout}s)")
+                        logger.info(
+                            f"  {task.id}: calling {primary.value} for generation (timeout={gen_timeout}s)"
+                        )
                         _rl_tenant = getattr(task, "tenant", "default")
                         self._rate_limiter.check(_rl_tenant, primary.value, effective_max_tokens)
                         try:
                             gen_response = await self.client.call(
-                                primary, full_prompt,
+                                primary,
+                                full_prompt,
                                 system=system_prompt,
                                 max_tokens=effective_max_tokens,
                                 temperature=gen_temperature,
                                 timeout=gen_timeout,
                             )
                         except Exception:
-                            self._rate_limiter.release(_rl_tenant, primary.value, effective_max_tokens)
+                            self._rate_limiter.release(
+                                _rl_tenant, primary.value, effective_max_tokens
+                            )
                             raise
                         self._rate_limiter.record(
-                            _rl_tenant, primary.value,
+                            _rl_tenant,
+                            primary.value,
                             gen_response.input_tokens + gen_response.output_tokens,
                         )
-                    logger.info(f"  {task.id}: generation complete, tokens={gen_response.input_tokens}/{gen_response.output_tokens}")
+                    logger.info(
+                        f"  {task.id}: generation complete, tokens={gen_response.input_tokens}/{gen_response.output_tokens}"
+                    )
                     output = _clean_code_output(gen_response.text, task.type)
 
                     # ═══════════════════════════════════════════════════════
@@ -2687,9 +2857,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     # ═══════════════════════════════════════════════════════
                     # For long code outputs (>4000 tokens), validate as we receive
                     # chunks. Early abort if obvious syntax errors detected.
-                    if (self.optim_config.enable_streaming_validation and
-                        task.type == TaskType.CODE_GEN and
-                        len(output) > 4000):
+                    if (
+                        self.optim_config.enable_streaming_validation
+                        and task.type == TaskType.CODE_GEN
+                        and len(output) > 4000
+                    ):
 
                         logger.info(f"  {task.id}: running streaming validation on long output")
 
@@ -2720,7 +2892,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             else:
                                 logger.info(f"  {task.id}: streaming validation passed")
                         except Exception as stream_error:
-                            logger.warning(f"  {task.id}: streaming validation failed, using original: {stream_error}")
+                            logger.warning(
+                                f"  {task.id}: streaming validation failed, using original: {stream_error}"
+                            )
                             # Keep original output, continue normally
 
                     gen_cost = gen_response.cost_usd
@@ -2751,7 +2925,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             )
                             logger.debug(f"  {task.id}: failure recorded to eval dataset")
                         except Exception as eval_err:
-                            logger.warning(f"  {task.id}: failed to record to eval dataset: {eval_err}")
+                            logger.warning(
+                                f"  {task.id}: failed to record to eval dataset: {eval_err}"
+                            )
 
                     # OPTIMIZATION: Escalate tier on failure
                     self._escalate_tier(task.type)
@@ -2760,18 +2936,20 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     if fb:
                         try:
                             # Reuse same system prompt as primary
-                            fb_system = f"You are an expert executing a {task.type.value} task. " \
-                                       f"Produce high-quality, complete output."
+                            fb_system = (
+                                f"You are an expert executing a {task.type.value} task. "
+                                f"Produce high-quality, complete output."
+                            )
                             if task.type == TaskType.CODE_GEN:
                                 fb_system += (
                                     "\n\nCRITICAL REQUIREMENTS:\n"
                                     "1. Return ONLY raw code - NO markdown fences (```), NO explanations outside code\n"
                                     "2. Code must be THOROUGHLY COMMENTED - every function, class, and complex logic block\n"
                                     "3. EVERY file MUST include this header comment using Python docstrings:\n"
-                                    "   \"\"\"\n"
+                                    '   """\n'
                                     "   Author: Georgios-Chrysovalantis Chatzivantsidis\n"
                                     "   Description: [Brief description of the file's purpose]\n"
-                                    "   \"\"\"\n"
+                                    '   """\n'
                                     "4. Output must be valid, complete, production-ready code that passes syntax checks.\n"
                                     "5. Use Python-style comments (# or docstrings), NEVER C-style comments (/* */)"
                                 )
@@ -2781,7 +2959,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             self._rate_limiter.check(_rl_tenant, fb.value, effective_max_tokens)
                             try:
                                 gen_response = await self.client.call(
-                                    fb, full_prompt,
+                                    fb,
+                                    full_prompt,
                                     system=fb_system,
                                     max_tokens=effective_max_tokens,
                                     temperature=fb_temperature,
@@ -2789,10 +2968,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                                 )
                             except Exception:
                                 # BUG-005 FIX: release the in-flight reservation on error
-                                self._rate_limiter.release(_rl_tenant, fb.value, effective_max_tokens)
+                                self._rate_limiter.release(
+                                    _rl_tenant, fb.value, effective_max_tokens
+                                )
                                 raise
                             self._rate_limiter.record(
-                                _rl_tenant, fb.value,
+                                _rl_tenant,
+                                fb.value,
                                 gen_response.input_tokens + gen_response.output_tokens,
                             )
                             output = _clean_code_output(gen_response.text, task.type)
@@ -2825,9 +3007,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     # need the same doubled budget as when generating. Standard models
                     # only need 800 tokens to produce a focused critique.
                     _rev_provider = get_provider(reviewer)
-                    _reviewer_is_reasoning = (
-                        _rev_provider == "anthropic" or  # Claude models
-                        (_rev_provider == "deepseek" and reviewer.value == "deepseek-reasoner")
+                    _reviewer_is_reasoning = _rev_provider == "anthropic" or (  # Claude models
+                        _rev_provider == "deepseek" and reviewer.value == "deepseek-reasoner"
                     )
                     if _reviewer_is_reasoning:
                         critique_max_tokens = min(task.max_output_tokens * 2, 8192)
@@ -2859,7 +3040,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         critique = critique_response.text
                         await self.budget.charge(critique_response.cost_usd, "cross_review")
                         if self._cost_predictor is not None:
-                            self._cost_predictor.record(primary, task.type, critique_response.cost_usd)
+                            self._cost_predictor.record(
+                                primary, task.type, critique_response.cost_usd
+                            )
                         total_cost += critique_response.cost_usd
                         # Record success to reset circuit breaker counter for reviewer.
                         # This ensures counter only tracks consecutive failures, allowing recovery
@@ -2885,14 +3068,20 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         # ═══════════════════════════════════════════════════════
                         # Instead of rewriting entire file, generate minimal diff
                         # Saves 60-80% output tokens, reduces hallucination risk
-                        if (HAS_DIFF and
-                            self.optim_config.enable_diff_revisions and
-                            self._diff_generator is None):
+                        if (
+                            HAS_DIFF
+                            and self.optim_config.enable_diff_revisions
+                            and self._diff_generator is None
+                        ):
 
                             # Lazy initialize diff generator
                             self._diff_generator = DiffGenerator(client=self.client)
 
-                        if HAS_DIFF and self.optim_config.enable_diff_revisions and self._diff_generator is not None:
+                        if (
+                            HAS_DIFF
+                            and self.optim_config.enable_diff_revisions
+                            and self._diff_generator is not None
+                        ):
                             logger.info(f"  {task.id}: Using diff-based revision")
 
                             diff_result = await self._diff_generator.generate_diff(
@@ -2910,11 +3099,15 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                                 )
                                 # Note: Diff cost tracking would need to be added
                                 # For now, estimate based on diff size
-                                diff_cost = (diff_result.lines_added + diff_result.lines_removed) * 0.00001  # Rough estimate
+                                diff_cost = (
+                                    diff_result.lines_added + diff_result.lines_removed
+                                ) * 0.00001  # Rough estimate
                                 await self.budget.charge(diff_cost, "diff_revision")
                                 total_cost += diff_cost
                             else:
-                                logger.warning(f"  {task.id}: Diff revision failed, falling back to full rewrite")
+                                logger.warning(
+                                    f"  {task.id}: Diff revision failed, falling back to full rewrite"
+                                )
                                 # Fall through to standard full rewrite below
                         else:
                             # Standard full rewrite (original behavior)
@@ -2995,23 +3188,29 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 if self._event_bus:
                     try:
                         from .unified_events import TaskProgressEvent
-                        await self._event_bus.publish(TaskProgressEvent(
-                            aggregate_id=task.id,
-                            task_id=task.id,
-                            iteration=iteration + 1,
-                            score=score,
-                            message=f"Best score: {best_score:.3f}",
-                        ))
+
+                        await self._event_bus.publish(
+                            TaskProgressEvent(
+                                aggregate_id=task.id,
+                                task_id=task.id,
+                                iteration=iteration + 1,
+                                score=score,
+                                message=f"Best score: {best_score:.3f}",
+                            )
+                        )
                     except ImportError:
                         # Fallback to standard events
                         from .events import TaskProgressEvent
-                        await self._event_bus.publish(TaskProgressEvent(
-                            task_id=task.id,
-                            iteration=iteration + 1,
-                            score=score,
-                            best_score=best_score,
-                            model=primary.value,
-                        ))
+
+                        await self._event_bus.publish(
+                            TaskProgressEvent(
+                                task_id=task.id,
+                                iteration=iteration + 1,
+                                score=score,
+                                best_score=best_score,
+                                model=primary.value,
+                            )
+                        )
 
                 # Notify dashboard of task progress
                 self._notify_dashboard_task_progress(iteration + 1, best_score)
@@ -3022,7 +3221,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 )
 
                 # ── FAILURE HISTORY + DELTA-PROMPT (Improvement 8) ──
-                _iteration_passed = (score >= task.acceptance_threshold and det_passed)
+                _iteration_passed = score >= task.acceptance_threshold and det_passed
                 if not _iteration_passed:
                     if not det_passed:
                         _failure_reason = (
@@ -3081,7 +3280,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         elif len(scores_history) >= 3:
                             # After 3+ iterations with no improvement AND bad score,
                             # try model escalation before giving up
-                            if best_score >= task.acceptance_threshold * 0.3 and not model_escalated:
+                            if (
+                                best_score >= task.acceptance_threshold * 0.3
+                                and not model_escalated
+                            ):
                                 # Try escalating to a better model
                                 next_model = self._get_next_tier_model(primary, task.type)
                                 if next_model and self.budget.can_afford(0.05):
@@ -3111,7 +3313,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                             )
                             break
 
-            status = TaskStatus.COMPLETED if best_score >= task.acceptance_threshold else TaskStatus.DEGRADED
+            status = (
+                TaskStatus.COMPLETED
+                if best_score >= task.acceptance_threshold
+                else TaskStatus.DEGRADED
+            )
             if best_score == 0.0 and not det_passed:
                 status = TaskStatus.FAILED
 
@@ -3139,7 +3345,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # Feed final eval score back to telemetry so ConstraintPlanner re-ranks
             if best_score > 0.0:
                 self._telemetry.record_call(
-                    primary, latency_ms=0.0, cost_usd=0.0,
+                    primary,
+                    latency_ms=0.0,
+                    cost_usd=0.0,
                     success=(status != TaskStatus.FAILED),
                     quality_score=best_score,
                 )
@@ -3166,29 +3374,34 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             # Emit TaskCompleted or TaskFailed streaming event
             if self._event_bus:
                 from .events import TaskCompletedEvent, TaskFailedEvent
+
                 if status == TaskStatus.FAILED:
-                    await self._event_bus.publish(TaskFailedEvent(
-                        aggregate_id=task.id,
-                        task_id=task.id,
-                        error="all attempts failed",
-                    ))
+                    await self._event_bus.publish(
+                        TaskFailedEvent(
+                            aggregate_id=task.id,
+                            task_id=task.id,
+                            error="all attempts failed",
+                        )
+                    )
                 else:
-                    await self._event_bus.publish(TaskCompletedEvent(
-                        aggregate_id=task.id,
-                        task_id=task.id,
-                        score=best_score,
-                        model=primary.value,
-                        cost_usd=total_cost,
-                        iterations=len(scores_history),
-                        status=status.value,
-                    ))
+                    await self._event_bus.publish(
+                        TaskCompletedEvent(
+                            aggregate_id=task.id,
+                            task_id=task.id,
+                            score=best_score,
+                            model=primary.value,
+                            cost_usd=total_cost,
+                            iterations=len(scores_history),
+                            status=status.value,
+                        )
+                    )
 
             span.set_attribute("task.status", status.value)
             span.set_attribute("task.score", best_score or 0.0)
 
             # Save to progressive output structure (bmalph-style)
             saved_files = []
-            if '_prog_output' in locals() and _prog_output is not None:
+            if "_prog_output" in locals() and _prog_output is not None:
                 saved_path = _prog_output.save_task_output(
                     task=task,
                     output=best_output,
@@ -3202,9 +3415,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 saved_files = [saved_path] if saved_path else []
 
             # Git auto-commit after task (bmalph-style TDD commits)
-            if (self._git_integration is not None and
-                self._git_integration.is_available() and
-                saved_files):
+            if (
+                self._git_integration is not None
+                and self._git_integration.is_available()
+                and saved_files
+            ):
                 try:
                     commit_hash = self._git_integration.commit_task_completion(
                         task_id=task.id,
@@ -3220,17 +3435,19 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     logger.warning(f"  {task.id}: git commit failed: {e}")
 
             # NEW: Test validation for code generation tasks
-            if (HAS_TEST_VALIDATOR and
-                task.type == TaskType.CODE_GEN and
-                best_output and
-                hasattr(self, '_output_dir') and
-                self._output_dir):
+            if (
+                HAS_TEST_VALIDATOR
+                and task.type == TaskType.CODE_GEN
+                and best_output
+                and hasattr(self, "_output_dir")
+                and self._output_dir
+            ):
 
                 logger.info(f"  {task.id}: Validating test generation...")
                 try:
                     # FIRST: Validate syntax of generated code
                     try:
-                        compile(best_output, '<generated>', 'exec')
+                        compile(best_output, "<generated>", "exec")
                         logger.debug(f"  {task.id}: Generated code syntax OK")
                     except SyntaxError as e:
                         logger.warning(f"  {task.id}: Generated code has syntax error: {e}")
@@ -3243,7 +3460,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     source_file = None
                     if self._output_dir.exists() and best_output:
                         for f in self._output_dir.rglob("*.py"):
-                            if task.id.replace('_', '') in f.stem.replace('_', ''):
+                            if task.id.replace("_", "") in f.stem.replace("_", ""):
                                 source_file = f
                                 break
 
@@ -3262,10 +3479,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         if test_result.passed:
                             # Save the validated test
                             test_file = source_file.parent / f"test_{source_file.name}"
-                            test_file.write_text(test_result.test_code, encoding='utf-8')
-                            logger.info(f"  {task.id}: ✅ Test validated and saved: {test_file.name}")
+                            test_file.write_text(test_result.test_code, encoding="utf-8")
+                            logger.info(
+                                f"  {task.id}: ✅ Test validated and saved: {test_file.name}"
+                            )
                         else:
-                            logger.warning(f"  {task.id}: ⚠️ Test validation failed: {test_result.error_message[:200]}")
+                            logger.warning(
+                                f"  {task.id}: ⚠️ Test validation failed: {test_result.error_message[:200]}"
+                            )
                     else:
                         logger.debug(f"  {task.id}: No source file found for test validation")
 
@@ -3334,7 +3555,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             penalized = round(score * 0.85, 4)
             logger.warning(
                 "[preflight] WARN task=%s score %.3f->%.3f: %s",
-                task.id, score, penalized, "; ".join(pf_result.warnings),
+                task.id,
+                score,
+                penalized,
+                "; ".join(pf_result.warnings),
             )
             self._hook_registry.fire(
                 EventType.PREFLIGHT_CHECK,
@@ -3350,7 +3574,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         critique_text = pf_result.reason or pf_result.enrichment or "Improve the response quality."
         logger.info(
             "[preflight] %s task=%s — attempting 1 revision: %s",
-            pf_result.action.value.upper(), task.id, critique_text[:100],
+            pf_result.action.value.upper(),
+            task.id,
+            critique_text[:100],
         )
         try:
             revised_prompt = (
@@ -3438,13 +3664,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             try:
                 logger.debug(f"  {task.id}: eval run {run + 1}/2 starting...")
                 response = await self.client.call(
-                    eval_model, eval_prompt,
+                    eval_model,
+                    eval_prompt,
                     system="You are a precise evaluator. Score exactly, return only JSON.",
                     max_tokens=300,
                     temperature=0.1,
                     timeout=60,
                 )
-                logger.debug(f"  {task.id}: eval run {run + 1}/2 complete, score={self._parse_score(response.text):.3f}")
+                logger.debug(
+                    f"  {task.id}: eval run {run + 1}/2 complete, score={self._parse_score(response.text):.3f}"
+                )
                 await self.budget.charge(response.cost_usd, "evaluation")
                 score = self._parse_score(response.text)
                 scores.append(score)
@@ -3468,7 +3697,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         """Parse score from LLM evaluation output with robust JSON handling."""
         text = text.strip()
         logger.debug(f"_parse_score: parsing text length={len(text)}")
-        
+
         # Try 1: Direct JSON parse
         try:
             # Strip markdown fences if present
@@ -3476,14 +3705,15 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 text = re.sub(r"^```\w*\n?", "", text)
                 text = re.sub(r"\n?```$", "", text)
                 text = text.strip()
-            
+
             # Try json5 first (handles trailing commas, comments, etc.)
             try:
                 import json5
+
                 data = json5.loads(text)
             except (ImportError, Exception):
                 data = json.loads(text)
-            
+
             # Handle nested JSON structures
             if isinstance(data, dict):
                 score = float(data.get("score", data.get("Score", 0.5)))
@@ -3491,43 +3721,43 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 score = float(data)
             else:
                 # Try to extract score from any numeric value in the response
-                match = re.search(r'([0-9]*\.?[0-9]+)', str(data))
+                match = re.search(r"([0-9]*\.?[0-9]+)", str(data))
                 score = float(match.group(1)) if match else 0.5
-            
+
             logger.debug(f"_parse_score: JSON parsed score={score}")
             return max(0.0, min(1.0, score))
-            
+
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.debug(f"_parse_score: JSON parse failed: {e}")
             pass
-        
+
         # Try 2: Regex extraction from text
         # Look for patterns like "score": 0.85 or "score":0.85 or score=0.85
         patterns = [
             r'"?score"?\s*[:=]\s*([0-9]*\.?[0-9]+)',  # "score": 0.85 or score=0.85
-            r'评分\s*[:=]\s*([0-9]*\.?[0-9]+)',  # Chinese: 评分：0.85
-            r'得分\s*[:=]\s*([0-9]*\.?[0-9]+)',  # Chinese: 得分：0.85
-            r'([0-9]\.[0-9]{1,2})\s*/\s*1',  # 0.85/1
-            r'([0-9]{1,2})\s*%',  # 85%
+            r"评分\s*[:=]\s*([0-9]*\.?[0-9]+)",  # Chinese: 评分：0.85
+            r"得分\s*[:=]\s*([0-9]*\.?[0-9]+)",  # Chinese: 得分：0.85
+            r"([0-9]\.[0-9]{1,2})\s*/\s*1",  # 0.85/1
+            r"([0-9]{1,2})\s*%",  # 85%
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 score = float(match.group(1))
                 # Convert percentage to 0-1 scale
-                if '%' in text or score > 1.0:
+                if "%" in text or score > 1.0:
                     score = score / 100.0
                 logger.debug(f"_parse_score: regex pattern '{pattern}' matched score={score}")
                 return max(0.0, min(1.0, score))
-        
+
         # Try 3: Extract any number between 0 and 1
-        match = re.search(r'\b(0\.[0-9]+|1\.0+)\b', text)
+        match = re.search(r"\b(0\.[0-9]+|1\.0+)\b", text)
         if match:
             score = float(match.group(1))
             logger.debug(f"_parse_score: extracted number={score}")
             return max(0.0, min(1.0, score))
-        
+
         # Fallback: return default score with warning
         logger.warning(f"Could not parse score from: {text[:150]}...")
         return 0.5  # Default fallback score
@@ -3604,8 +3834,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # 401 = bad API key, 404 = wrong model name, 400 = bad request (e.g. invalid param)
         error_str = str(error) if error else ""
         is_permanent_error = (
-            "401" in error_str or "invalid_authentication" in error_str.lower()
-            or "404" in error_str or "not found" in error_str.lower()
+            "401" in error_str
+            or "invalid_authentication" in error_str.lower()
+            or "404" in error_str
+            or "not found" in error_str.lower()
             or ("400" in error_str and "invalid_request_error" in error_str.lower())
         )
         if is_permanent_error:
@@ -3617,9 +3849,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     reason = "model not found (404) — check model name"
                 else:
                     reason = f"invalid request (400) — {error_str[error_str.find('message'):error_str.find('message')+80]}"
-                logger.warning(
-                    f"Model {model.value} marked unhealthy immediately: {reason}."
-                )
+                logger.warning(f"Model {model.value} marked unhealthy immediately: {reason}.")
             # Task 6: auth/permanent errors permanently disable in adaptive router
             if "401" in error_str or "invalid_authentication" in error_str.lower():
                 await self._adaptive_router.record_auth_failure(model)
@@ -3629,15 +3859,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         self._consecutive_failures[model] = self._consecutive_failures.get(model, 0) + 1
         # Task 6: record timeout in adaptive router for degradation tracking
         _is_timeout = (
-            "timeout" in error_str.lower() or "timed out" in error_str.lower()
+            "timeout" in error_str.lower()
+            or "timed out" in error_str.lower()
             or "asyncio.timeouterror" in error_str.lower()
             or "TimeoutError" in (type(error).__name__ if error else "")
         )
         if _is_timeout:
             await self._adaptive_router.record_timeout(model)
-        self._telemetry.record_call(
-            model, latency_ms=0.0, cost_usd=0.0, success=False
-        )
+        self._telemetry.record_call(model, latency_ms=0.0, cost_usd=0.0, success=False)
         if self._consecutive_failures[model] >= self._CIRCUIT_BREAKER_THRESHOLD:
             if self.api_health.get(model, True):
                 self.api_health[model] = False
@@ -3655,7 +3884,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         scores_history: list[float],
         threshold: float,
         confidence_window: int = 2,
-        variance_tolerance: float = 0.001
+        variance_tolerance: float = 0.001,
     ) -> bool:
         """
         Determine if we should exit early based on stable high performance.
@@ -3697,32 +3926,32 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     # PRIORITY: Best value models first (Xiaomi, StepFun, GLM, Grok)
     # Updated: Use faster models for code gen to avoid timeouts
     _TIER_CHEAP = [
-        Model.QWEN_3_CODER_NEXT,        # $0.12/$0.75 - Fast coding specialist ⭐ BEST
-        Model.XIAOMI_MIMO_V2_FLASH,     # $0.09/$0.29 - #1 SWE-bench, fast
-        Model.ZHIPU_GLM_4_7,            # $0.39/$1.75 - Enhanced programming
-        Model.STEPFUN_STEP_3_5_FLASH,   # $0.10/$0.30 - 196B MoE reasoning
-        Model.PHI_4,                    # $0.07/$0.14 - Microsoft 14B
-        Model.GEMMA_3_27B,              # $0.08/$0.20 - Google open-weights
-        Model.LLAMA_3_3_70B,            # $0.12/$0.30 - Meta 70B reliable
+        Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75 - Fast coding specialist ⭐ BEST
+        Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 - #1 SWE-bench, fast
+        Model.ZHIPU_GLM_4_7,  # $0.39/$1.75 - Enhanced programming
+        Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30 - 196B MoE reasoning
+        Model.PHI_4,  # $0.07/$0.14 - Microsoft 14B
+        Model.GEMMA_3_27B,  # $0.08/$0.20 - Google open-weights
+        Model.LLAMA_3_3_70B,  # $0.12/$0.30 - Meta 70B reliable
         Model.NVIDIA_NEMOTRON_3_SUPER,  # $0.10/$0.50 - 120B MoE efficient
     ]
     _TIER_BALANCED = [
-        Model.DEEPSEEK_V3_2,            # $0.27/$1.10 - 1.24T tokens, faster than MiMo-Pro
-        Model.MOONSHOT_KIMI_K2_5,       # $0.42/$2.20 - Visual coding SOTA
-        Model.MINIMAX_M2_7,             # $0.30/$1.20 - 56.2% SWE-Pro
-        Model.GEMINI_FLASH,             # $0.15/$0.60 - 1M context, fast
-        Model.CLAUDE_3_HAIKU,           # $0.25/$1.25 - Claude budget tier
-        Model.DEEPSEEK_CHAT,            # $0.28/$0.42 - Cost effective
+        Model.DEEPSEEK_V3_2,  # $0.27/$1.10 - 1.24T tokens, faster than MiMo-Pro
+        Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20 - Visual coding SOTA
+        Model.MINIMAX_M2_7,  # $0.30/$1.20 - 56.2% SWE-Pro
+        Model.GEMINI_FLASH,  # $0.15/$0.60 - 1M context, fast
+        Model.CLAUDE_3_HAIKU,  # $0.25/$1.25 - Claude budget tier
+        Model.DEEPSEEK_CHAT,  # $0.28/$0.42 - Cost effective
         # MiMo-V2-Pro moved to end - too slow for iterative work
-        Model.XIAOMI_MIMO_V2_PRO,       # $1.00/$3.00 - 1T+ params (slow)
+        Model.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00 - 1T+ params (slow)
     ]
     _TIER_PREMIUM = [
-        Model.XAI_GROK_4_20_BETA,       # $2.00/$6.00 - Lowest hallucination ⭐
-        Model.CLAUDE_SONNET_4_6,        # $3.00/$15.00 - Best coding
-        Model.QWEN_3_5_397B_A17B,       # $0.39/$2.34 - 397B MoE SOTA ⭐
-        Model.GPT_5_4_CODEX,            # $1.75/$14.00 - SWE-Bench Pro SOTA
-        Model.GEMINI_PRO,               # $2.00/$12.00 - Gemini premium
-        Model.O4_MINI,                  # $1.50/$6.00 - OpenAI reasoning
+        Model.XAI_GROK_4_20_BETA,  # $2.00/$6.00 - Lowest hallucination ⭐
+        Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Best coding
+        Model.QWEN_3_5_397B_A17B,  # $0.39/$2.34 - 397B MoE SOTA ⭐
+        Model.GPT_5_4_CODEX,  # $1.75/$14.00 - SWE-Bench Pro SOTA
+        Model.GEMINI_PRO,  # $2.00/$12.00 - Gemini premium
+        Model.O4_MINI,  # $1.50/$6.00 - OpenAI reasoning
     ]
 
     # Track tier escalation per task type to prevent loops
@@ -3768,7 +3997,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         """Escalate to higher tier after cheap tier failure."""
         tier_key = f"{task_type.value}"
         self._tier_escalation_count[tier_key] = self._tier_escalation_count.get(tier_key, 0) + 1
-        logger.info(f"Tier escalation for {task_type.value}: level {self._tier_escalation_count[tier_key]}")
+        logger.info(
+            f"Tier escalation for {task_type.value}: level {self._tier_escalation_count[tier_key]}"
+        )
 
     def _select_decomposition_model(self, project_description: str) -> Model:
         """
@@ -3794,35 +4025,71 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # Complexity keywords that indicate architectural complexity
         complexity_keywords = [
             # Architecture patterns
-            'microservice', 'distributed', 'kubernetes', 'cluster', 'scalable',
+            "microservice",
+            "distributed",
+            "kubernetes",
+            "cluster",
+            "scalable",
             # Security
-            'authentication', 'authorization', 'OAuth', 'JWT', 'RBAC', 'permissions',
+            "authentication",
+            "authorization",
+            "OAuth",
+            "JWT",
+            "RBAC",
+            "permissions",
             # Data
-            'database', 'migration', 'replication', 'sharding', 'caching', 'redis',
+            "database",
+            "migration",
+            "replication",
+            "sharding",
+            "caching",
+            "redis",
             # Real-time
-            'real-time', 'websocket', 'streaming', 'queue', 'kafka', 'rabbitmq',
+            "real-time",
+            "websocket",
+            "streaming",
+            "queue",
+            "kafka",
+            "rabbitmq",
             # Advanced features
-            'multi-tenant', 'SaaS', 'API gateway', 'load balancer', 'CDN',
+            "multi-tenant",
+            "SaaS",
+            "API gateway",
+            "load balancer",
+            "CDN",
             # ML/AI
-            'machine learning', 'ML', 'AI', 'neural', 'embedding', 'vector',
+            "machine learning",
+            "ML",
+            "AI",
+            "neural",
+            "embedding",
+            "vector",
         ]
 
         # Count complexity indicators
         project_lower = project_description.lower()
-        complexity_score = sum(
-            1 for kw in complexity_keywords if kw in project_lower
-        )
+        complexity_score = sum(1 for kw in complexity_keywords if kw in project_lower)
 
         # Also check for file/tech stack complexity
         tech_stack_keywords = [
-            'react', 'next.js', 'vue', 'angular',  # Frontend frameworks
-            'fastapi', 'django', 'flask', 'express',  # Backend frameworks
-            'postgresql', 'mongodb', 'mysql',  # Databases
-            'docker', 'terraform', 'aws', 'azure', 'gcp',  # DevOps
+            "react",
+            "next.js",
+            "vue",
+            "angular",  # Frontend frameworks
+            "fastapi",
+            "django",
+            "flask",
+            "express",  # Backend frameworks
+            "postgresql",
+            "mongodb",
+            "mysql",  # Databases
+            "docker",
+            "terraform",
+            "aws",
+            "azure",
+            "gcp",  # DevOps
         ]
-        tech_score = sum(
-            1 for kw in tech_stack_keywords if kw in project_lower
-        )
+        tech_score = sum(1 for kw in tech_stack_keywords if kw in project_lower)
 
         # Combined complexity score
         total_complexity = complexity_score + (tech_score // 2)
@@ -3832,16 +4099,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         if self.api_health.get(M.QWEN_3_CODER_NEXT, True):
             logger.debug(f"P1-2: Using Qwen3 Coder Next for decomposition (best JSON structure)")
             return M.QWEN_3_CODER_NEXT
-        
+
         # Fallback to other structured output models
         if self.api_health.get(M.XIAOMI_MIMO_V2_FLASH, True):
             logger.debug(f"P1-2: Using MiMo-V2-Flash for decomposition")
             return M.XIAOMI_MIMO_V2_FLASH
-        
+
         if self.api_health.get(M.GEMINI_FLASH, True):
             logger.debug(f"P1-2: Using Gemini Flash for decomposition")
             return M.GEMINI_FLASH
-        
+
         # Last resort: Step 3.5 Flash (but add JSON retry logic)
         logger.warning(f"P1-2: Using Step 3.5 Flash as fallback (may have JSON issues)")
         return M.STEPFUN_STEP_3_5_FLASH
@@ -3861,11 +4128,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # NOTE: Decomposition requires structured JSON output, so we need models
         # with good instruction following, not just reasoning capability
         fast_models = [
-            Model.QWEN_3_CODER_NEXT,        # $0.12/$0.75 - Best JSON structure ⭐
-            Model.XIAOMI_MIMO_V2_FLASH,     # $0.09/$0.29 - #1 SWE-bench, good structure
-            Model.ZHIPU_GLM_4_7,            # $0.39/$1.75 - Enhanced programming
-            Model.GEMINI_FLASH,             # $0.15/$0.60 - Reliable JSON output
-            Model.STEPFUN_STEP_3_5_FLASH,   # $0.10/$0.30 - Good but less structured
+            Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75 - Best JSON structure ⭐
+            Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 - #1 SWE-bench, good structure
+            Model.ZHIPU_GLM_4_7,  # $0.39/$1.75 - Enhanced programming
+            Model.GEMINI_FLASH,  # $0.15/$0.60 - Reliable JSON output
+            Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30 - Good but less structured
         ]
 
         for m in fast_models:
@@ -3878,6 +4145,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
     def _get_cheapest_available(self) -> Model:
         from .models import COST_TABLE
+
         healthy = [m for m in Model if self.api_health.get(m, False)]
         if not healthy:
             raise RuntimeError("No healthy models available")
@@ -3935,7 +4203,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         # Get all models one tier higher that are healthy
         candidates = [
-            m for m in Model
+            m
+            for m in Model
             if model_tiers.get(m, 1) > current_tier
             and self.api_health.get(m, False)
             and m in self._get_available_models(task_type)  # Valid for this task type
@@ -4033,37 +4302,41 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         # Detect if this is a Python task
         is_python_task = (
-            "python" in task.prompt.lower() or
-            ".py" in task.target_path.lower() or
-            "flask" in task.prompt.lower() or
-            "django" in task.prompt.lower() or
-            "fastapi" in task.prompt.lower() or
-            "def " in output[:500] or  # Check output for Python function defs
-            "import " in output[:500]   # Check output for Python imports
+            "python" in task.prompt.lower()
+            or ".py" in task.target_path.lower()
+            or "flask" in task.prompt.lower()
+            or "django" in task.prompt.lower()
+            or "fastapi" in task.prompt.lower()
+            or "def " in output[:500]  # Check output for Python function defs
+            or "import " in output[:500]  # Check output for Python imports
         )
 
         # Detect if this is a web task (HTML/CSS/JS)
         is_web_task = (
-            "html" in task.prompt.lower() or
-            "css" in task.prompt.lower() or
-            "javascript" in task.prompt.lower() or
-            "js" in task.prompt.lower() or
-            ".html" in task.target_path.lower() or
-            ".css" in task.target_path.lower() or
-            ".js" in task.target_path.lower() or
-            "<!DOCTYPE" in output[:100] or
-            "<html" in output[:100] or
-            "function(" in output[:500] or
-            "const " in output[:500]
+            "html" in task.prompt.lower()
+            or "css" in task.prompt.lower()
+            or "javascript" in task.prompt.lower()
+            or "js" in task.prompt.lower()
+            or ".html" in task.target_path.lower()
+            or ".css" in task.target_path.lower()
+            or ".js" in task.target_path.lower()
+            or "<!DOCTYPE" in output[:100]
+            or "<html" in output[:100]
+            or "function(" in output[:500]
+            or "const " in output[:500]
         )
 
         if is_web_task or not is_python_task:
             # Remove Python-specific validators
             original = set(task.hard_validators)
-            filtered = [v for v in task.hard_validators if v not in ("python_syntax", "ruff", "pytest")]
+            filtered = [
+                v for v in task.hard_validators if v not in ("python_syntax", "ruff", "pytest")
+            ]
             removed = original - set(filtered)
             if removed:
-                logger.info(f"Task {task.id}: skipped Python validators {removed} (non-Python content detected)")
+                logger.info(
+                    f"Task {task.id}: skipped Python validators {removed} (non-Python content detected)"
+                )
             return filtered
 
         return task.hard_validators
@@ -4106,7 +4379,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         completed_tasks=completed_tasks,
                         dependencies=dep_ids,
                     )
-                    logger.info(f"  {task.id}: dependency context injected for {len(completed_tasks)} dependencies")
+                    logger.info(
+                        f"  {task.id}: dependency context injected for {len(completed_tasks)} dependencies"
+                    )
                     return context
             except Exception as e:
                 logger.warning(f"  {task.id}: dependency context injection failed: {e}")
@@ -4173,8 +4448,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         # COMPLETED or DEGRADED both count as "passed" for final status
         all_passed = all(
-            r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED)
-            for r in state.results.values()
+            r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED) for r in state.results.values()
         )
 
         degraded_heavy = any(
@@ -4223,9 +4497,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
         self.results = dict(state.results)
         remaining = [
-            tid for tid in state.execution_order
-            if tid not in self.results or
-            self.results[tid].status in (TaskStatus.PENDING, TaskStatus.FAILED)
+            tid
+            for tid in state.execution_order
+            if tid not in self.results
+            or self.results[tid].status in (TaskStatus.PENDING, TaskStatus.FAILED)
         ]
         if remaining:
             logger.info(f"Resuming: {len(remaining)} tasks remaining")
@@ -4238,11 +4513,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         state.status = self._determine_final_status(state)
         return state
 
-    def _make_state(self, project_desc: str, criteria: str,
-                     tasks: dict[str, Task],
-                     status: ProjectStatus = ProjectStatus.PARTIAL_SUCCESS,
-                     execution_order: list[str] | None = None,
-                     ) -> ProjectState:
+    def _make_state(
+        self,
+        project_desc: str,
+        criteria: str,
+        tasks: dict[str, Task],
+        status: ProjectStatus = ProjectStatus.PARTIAL_SUCCESS,
+        execution_order: list[str] | None = None,
+    ) -> ProjectState:
         return ProjectState(
             project_description=project_desc,
             success_criteria=criteria,
@@ -4267,7 +4545,6 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             )
         logger.info("=" * 60)
 
-
     async def _analyze_completed_project(self, state: ProjectState, output_dir: Path):
         """
         Analyze completed project and generate improvement suggestions.
@@ -4282,9 +4559,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             analyzer = ProjectAnalyzer()
             report = await analyzer.analyze_project(
-                project_path=output_dir,
-                project_id=state.project_id,
-                run_quality_gate=True
+                project_path=output_dir, project_id=state.project_id, run_quality_gate=True
             )
 
             # Print summary
@@ -4293,25 +4568,27 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             # Save report to file
             report_file = output_dir / "analysis_report.json"
-            with open(report_file, 'w', encoding='utf-8') as f:
+            with open(report_file, "w", encoding="utf-8") as f:
                 json.dump(report.to_dict(), f, indent=2, default=str)
             logger.info(f"📊 Analysis report saved to: {report_file}")
 
             # Print actionable suggestions
             if report.suggestions:
-                print("\n" + "="*70)
+                print("\n" + "=" * 70)
                 print("💡 IMPROVEMENT SUGGESTIONS")
-                print("="*70)
+                print("=" * 70)
 
                 for suggestion in report.suggestions[:5]:  # Top 5
                     priority_icon = {
                         "critical": "🔴",
                         "high": "🟠",
                         "medium": "🟡",
-                        "low": "🔵"
+                        "low": "🔵",
                     }.get(suggestion.priority.value, "⚪")
 
-                    print(f"\n{priority_icon} [{suggestion.priority.value.upper()}] {suggestion.title}")
+                    print(
+                        f"\n{priority_icon} [{suggestion.priority.value.upper()}] {suggestion.title}"
+                    )
                     print(f"   Category: {suggestion.category.value}")
                     print(f"   Effort: {suggestion.estimated_effort}")
                     print(f"   Impact: {suggestion.expected_impact}")
@@ -4319,23 +4596,19 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
                     if suggestion.code_example:
                         print("\n   Example:")
-                        for line in suggestion.code_example.strip().split('\n')[:3]:
+                        for line in suggestion.code_example.strip().split("\n")[:3]:
                             print(f"     {line}")
 
-                print("\n" + "="*70)
+                print("\n" + "=" * 70)
                 print(f"💾 {len(report.suggestions)} suggestions stored in Knowledge Base")
-                print("="*70)
+                print("=" * 70)
 
         except Exception as e:
             logger.warning(f"Project analysis failed: {e}")
             # Don't fail the project if analysis fails
 
-
     async def _generate_architecture_rules(
-        self,
-        project_description: str,
-        success_criteria: str,
-        output_dir: Path | None
+        self, project_description: str, success_criteria: str, output_dir: Path | None
     ) -> ProjectRules | None:
         """
         Generate architecture rules at project start.
@@ -4422,7 +4695,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 ---
 *Generated by Multi-LLM Orchestrator Architecture Rules Engine*
 """
-                summary_file.write_text(summary_content, encoding='utf-8')
+                summary_file.write_text(summary_content, encoding="utf-8")
                 logger.info(f"📖 Architecture summary saved to: {summary_file}")
 
             return rules

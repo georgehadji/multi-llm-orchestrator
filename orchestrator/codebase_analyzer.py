@@ -1,12 +1,50 @@
-"""Codebase static analysis and structure extraction."""
+"""
+Codebase static analysis and LLM-backed review/debug/suggest capabilities.
 
+Author: Georgios-Chrysovalantis Chatzivantsidis
+Description: Static structure extraction (scan) and LLM-driven analysis
+(review, debug, suggest) for existing codebases.
+"""
+
+from __future__ import annotations
+
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .api_clients import UnifiedClient
+
+logger = logging.getLogger(__name__)
+
+# File extensions treated as source code for LLM analysis
+_CODE_EXTENSIONS = {
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".cpp",
+    ".c",
+    ".h",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".kt",
+}
+# Max bytes read from a single file to avoid flooding the LLM context
+_MAX_FILE_BYTES = 8_000
 
 
 @dataclass
 class CodebaseMap:
     """Static analysis result of a codebase"""
+
     root_path: str
     total_files: int
     total_lines_of_code: int
@@ -25,13 +63,130 @@ class CodebaseMap:
 
 
 class CodebaseAnalyzer:
-    """Analyze codebase structure without LLM"""
+    """
+    Analyze codebase structure (static) and perform LLM-backed review/debug/suggest.
+
+    Static methods (scan, collect_files, build_summary) work without a client.
+    LLM methods (review, debug, suggest) require a UnifiedClient.
+    """
 
     SKIP_DIRS = {
-        ".git", ".venv", "venv", "env", "__pycache__",
-        "node_modules", ".pytest_cache", ".mypy_cache",
-        "dist", "build", ".egg-info", ".next", "out"
+        ".git",
+        ".venv",
+        "venv",
+        "env",
+        "__pycache__",
+        "node_modules",
+        ".pytest_cache",
+        ".mypy_cache",
+        "dist",
+        "build",
+        ".egg-info",
+        ".next",
+        "out",
+        ".tox",
+        "coverage_html",
+        "htmlcov",
     }
+
+    def __init__(self, client: Optional["UnifiedClient"] = None) -> None:
+        self._client = client
+
+    # ─────────────────────────────────────────
+    # File collection helpers
+    # ─────────────────────────────────────────
+
+    def collect_files(self, path: Path) -> list[Path]:
+        """Return all source-code files under *path*, skipping ignored dirs."""
+        path = Path(path)
+        if path.is_file():
+            return [path] if path.suffix in _CODE_EXTENSIONS else []
+        files: list[Path] = []
+        for item in sorted(path.rglob("*")):
+            if any(skip in item.parts for skip in self.SKIP_DIRS):
+                continue
+            if item.is_file() and item.suffix in _CODE_EXTENSIONS:
+                files.append(item)
+        return files
+
+    def build_summary(self, files: list[Path], root: Path) -> str:
+        """Build a compact textual summary of source files for LLM consumption."""
+        root = Path(root)
+        parts: list[str] = [f"Codebase at: {root}\n"]
+        for f in files[:30]:
+            try:
+                rel = f.relative_to(root)
+                content = f.read_bytes()[:_MAX_FILE_BYTES].decode("utf-8", errors="replace")
+                parts.append(f"### {rel}\n```\n{content}\n```")
+            except Exception as exc:
+                logger.debug("Skipping %s: %s", f, exc)
+        if len(files) > 30:
+            parts.append(f"\n... and {len(files) - 30} more files (truncated).")
+        return "\n\n".join(parts)
+
+    # ─────────────────────────────────────────
+    # LLM-backed capabilities
+    # ─────────────────────────────────────────
+
+    async def review(self, path: Path) -> str:
+        """Generate a comprehensive code review for the codebase at *path*."""
+        files = self.collect_files(path)
+        summary = self.build_summary(files, path)
+        prompt = (
+            "You are a senior software engineer performing a thorough code review.\n\n"
+            f"{summary}\n\n"
+            "Provide a structured code review covering:\n"
+            "1. Architecture and design patterns\n"
+            "2. Code quality and readability\n"
+            "3. Error handling and robustness\n"
+            "4. Test coverage gaps\n"
+            "5. Security considerations\n\n"
+            "Format your response as a markdown report with clear section headings."
+        )
+        return await self._call_llm(prompt)
+
+    async def debug(self, path: Path, issue: str = "") -> str:
+        """Perform a targeted debugging analysis for a reported *issue*."""
+        files = self.collect_files(path)
+        summary = self.build_summary(files, path)
+        issue_section = f"Reported issue: {issue}\n\n" if issue else ""
+        prompt = (
+            "You are an expert debugger. Analyze the following codebase and identify bugs.\n\n"
+            f"{issue_section}"
+            f"{summary}\n\n"
+            "Provide: identified bugs with root causes, affected files, and concrete fix "
+            "recommendations with code snippets.\n"
+            "Format your response as a markdown debug report."
+        )
+        return await self._call_llm(prompt)
+
+    async def suggest(self, path: Path) -> str:
+        """Suggest improvements, new features, and additions for the codebase."""
+        files = self.collect_files(path)
+        summary = self.build_summary(files, path)
+        prompt = (
+            "You are a principal engineer advising on a codebase.\n\n"
+            f"{summary}\n\n"
+            "Suggest concrete improvements and additions, prioritised by impact:\n"
+            "1. Quick wins (low effort, high value)\n"
+            "2. Architecture improvements\n"
+            "3. Missing features or capabilities\n"
+            "4. Testing and observability enhancements\n\n"
+            "Format your response as a prioritised markdown list."
+        )
+        return await self._call_llm(prompt)
+
+    async def _call_llm(self, prompt: str) -> str:
+        if self._client is None:
+            raise RuntimeError("CodebaseAnalyzer requires a UnifiedClient to call LLMs.")
+        from .models import Model
+
+        response = await self._client.call(Model.GPT_4O_MINI, prompt)
+        return response.text
+
+    # ─────────────────────────────────────────
+    # Static analysis (original implementation)
+    # ─────────────────────────────────────────
 
     def scan(self, root_path: str) -> CodebaseMap:
         """
@@ -78,8 +233,15 @@ class CodebaseAnalyzer:
                 pass
 
             # Track key files
-            if file_path.name in ["README.md", "requirements.txt", "package.json",
-                                  "main.py", "app.py", "index.js", "Dockerfile"]:
+            if file_path.name in [
+                "README.md",
+                "requirements.txt",
+                "package.json",
+                "main.py",
+                "app.py",
+                "index.js",
+                "Dockerfile",
+            ]:
                 key_files.append(str(file_path.relative_to(root)))
 
         # Detect tests and docs
@@ -111,14 +273,40 @@ class CodebaseAnalyzer:
     def _is_text_file(self, path: Path) -> bool:
         """Check if file is text-based"""
         text_extensions = {
-            ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs",
-            ".cpp", ".c", ".h", ".rb", ".php", ".swift", ".kt",
-            ".yml", ".yaml", ".json", ".xml", ".html", ".css", ".md",
-            ".txt", ".sql", ".sh", ".bash", ".env", ".properties"
+            ".py",
+            ".js",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".java",
+            ".go",
+            ".rs",
+            ".cpp",
+            ".c",
+            ".h",
+            ".rb",
+            ".php",
+            ".swift",
+            ".kt",
+            ".yml",
+            ".yaml",
+            ".json",
+            ".xml",
+            ".html",
+            ".css",
+            ".md",
+            ".txt",
+            ".sql",
+            ".sh",
+            ".bash",
+            ".env",
+            ".properties",
         }
         return path.suffix.lower() in text_extensions
 
-    def _detect_primary_language(self, files_by_language: dict[str, int]) -> tuple[str | None, list[str]]:
+    def _detect_primary_language(
+        self, files_by_language: dict[str, int]
+    ) -> tuple[str | None, list[str]]:
         """Detect primary and secondary programming languages"""
         language_map = {
             ".py": "python",
@@ -150,7 +338,9 @@ class CodebaseAnalyzer:
 
         return primary, secondary
 
-    def _detect_project_type(self, root: Path, key_files: list[str], dependencies: list[str]) -> str:
+    def _detect_project_type(
+        self, root: Path, key_files: list[str], dependencies: list[str]
+    ) -> str:
         """Detect project type from config files and dependencies"""
 
         # Check Python projects
@@ -169,6 +359,7 @@ class CodebaseAnalyzer:
         if package_json_path.exists():
             try:
                 import json
+
                 pkg = json.loads(package_json_path.read_text())
                 deps = pkg.get("dependencies", {})
                 if "next" in deps:

@@ -4,6 +4,7 @@ Test P2-1: JSON5 Parsing Optimization
 Tests that JSON5 library is used for robust JSON parsing
 that handles trailing commas, comments, and other LLM output quirks.
 """
+
 import pytest
 import json
 from unittest.mock import patch, MagicMock
@@ -26,7 +27,7 @@ class TestJSON5Parsing:
         Verify valid JSON is parsed correctly.
         """
         # Arrange: Valid JSON array
-        valid_json = '''
+        valid_json = """
         [
             {
                 "id": "task_1",
@@ -35,11 +36,11 @@ class TestJSON5Parsing:
                 "dependencies": []
             }
         ]
-        '''
-        
+        """
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(valid_json)
-        
+
         # Assert: Should parse successfully
         assert len(tasks) == 1
         assert "task_1" in tasks
@@ -50,7 +51,7 @@ class TestJSON5Parsing:
         Verify JSON with trailing commas is parsed (JSON5 feature).
         """
         # Arrange: JSON with trailing commas (invalid in standard JSON)
-        trailing_commas = '''
+        trailing_commas = """
         [
             {
                 "id": "task_1",
@@ -59,11 +60,11 @@ class TestJSON5Parsing:
                 "dependencies": [],
             },
         ]
-        '''
-        
+        """
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(trailing_commas)
-        
+
         # Assert: Should parse (either via JSON5 or fallback)
         # If JSON5 is available, this should work
         # If not, fallback should handle it
@@ -74,7 +75,7 @@ class TestJSON5Parsing:
         Verify JSON with comments is parsed (JSON5 feature).
         """
         # Arrange: JSON with comments (invalid in standard JSON)
-        with_comments = '''
+        with_comments = """
         [
             // This is a comment
             {
@@ -84,11 +85,11 @@ class TestJSON5Parsing:
                 "dependencies": []
             }
         ]
-        '''
-        
+        """
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(with_comments)
-        
+
         # Assert: Should parse (either via JSON5 or fallback)
         assert len(tasks) >= 0
 
@@ -107,10 +108,10 @@ class TestJSON5Parsing:
             }
         ]
         """
-        
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(single_quotes)
-        
+
         # Assert: Should parse (either via JSON5 or fallback)
         assert len(tasks) >= 0
 
@@ -119,7 +120,7 @@ class TestJSON5Parsing:
         Verify JSON with unquoted keys is parsed (JSON5 feature).
         """
         # Arrange: JSON with unquoted keys (invalid in standard JSON)
-        unquoted_keys = '''
+        unquoted_keys = """
         [
             {
                 id: "task_1",
@@ -128,11 +129,11 @@ class TestJSON5Parsing:
                 dependencies: []
             }
         ]
-        '''
-        
+        """
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(unquoted_keys)
-        
+
         # Assert: Should parse (either via JSON5 or fallback)
         assert len(tasks) >= 0
 
@@ -141,7 +142,7 @@ class TestJSON5Parsing:
         Verify markdown code fences are stripped.
         """
         # Arrange: JSON wrapped in markdown fences
-        with_fences = '''
+        with_fences = """
         ```json
         [
             {
@@ -152,11 +153,11 @@ class TestJSON5Parsing:
             }
         ]
         ```
-        '''
-        
+        """
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(with_fences)
-        
+
         # Assert: Should parse successfully
         assert len(tasks) == 1
 
@@ -165,7 +166,7 @@ class TestJSON5Parsing:
         Verify dict containing tasks array is handled.
         """
         # Arrange: Dict with tasks in a key
-        dict_format = '''
+        dict_format = """
         {
             "tasks": [
                 {
@@ -176,11 +177,11 @@ class TestJSON5Parsing:
                 }
             ]
         }
-        '''
-        
+        """
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(dict_format)
-        
+
         # Assert: Should extract tasks array
         assert len(tasks) == 1
 
@@ -189,7 +190,7 @@ class TestJSON5Parsing:
         Verify outermost [...] block is extracted when JSON is malformed.
         """
         # Arrange: Malformed JSON with extractable array
-        malformed = '''
+        malformed = """
         Here are the tasks:
         [
             {
@@ -200,11 +201,11 @@ class TestJSON5Parsing:
             }
         ]
         That's all!
-        '''
-        
+        """
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(malformed)
-        
+
         # Assert: Should extract and parse array
         assert len(tasks) == 1
 
@@ -214,10 +215,10 @@ class TestJSON5Parsing:
         """
         # Arrange: Completely invalid input
         invalid = "This is not JSON at all!!!"
-        
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(invalid)
-        
+
         # Assert: Should return empty dict
         assert tasks == {}
         assert isinstance(tasks, dict)
@@ -227,7 +228,7 @@ class TestJSON5Parsing:
         Verify target_path field is parsed correctly.
         """
         # Arrange: JSON with target_path
-        with_target = '''
+        with_target = """
         [
             {
                 "id": "task_1",
@@ -238,11 +239,11 @@ class TestJSON5Parsing:
                 "dependencies": []
             }
         ]
-        '''
-        
+        """
+
         # Act: Parse
         tasks = orchestrator._parse_decomposition(with_target)
-        
+
         # Assert: target_path and tech_context should be present
         assert "task_1" in tasks
         assert tasks["task_1"].target_path == "app.py"
@@ -254,9 +255,9 @@ class TestJSON5Parsing:
         Verify graceful fallback when json5 is not installed.
         """
         # Arrange: Mock json5 import to fail
-        with patch.dict('sys.modules', {'json5': None}):
+        with patch.dict("sys.modules", {"json5": None}):
             # Valid standard JSON should still work
-            valid_json = '''
+            valid_json = """
             [
                 {
                     "id": "task_1",
@@ -265,11 +266,11 @@ class TestJSON5Parsing:
                     "dependencies": []
                 }
             ]
-            '''
-            
+            """
+
             # Act: Parse (should fallback to standard json)
             tasks = orchestrator._parse_decomposition(valid_json)
-            
+
             # Assert: Should still parse valid JSON
             assert len(tasks) == 1
 
@@ -278,15 +279,15 @@ class TestJSON5Parsing:
         Benchmark-style: Compare JSON5 vs standard JSON parsing speed.
         """
         import time
-        
+
         # Arrange: Large JSON payload
-        large_json = '''
+        large_json = """
         [
             {"id": "task_%d", "type": "code_generation", "prompt": "Task %d", "dependencies": []}
             for i in range(100)
         ]
-        '''.replace('%d', '%s') % tuple([(i, i) for i in range(100) for _ in range(2)])
-        
+        """.replace("%d", "%s") % tuple([(i, i) for i in range(100) for _ in range(2)])
+
         # This test is more for manual benchmarking
         # In CI, we just verify it doesn't crash
         try:

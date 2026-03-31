@@ -77,6 +77,7 @@ class ResilientEventStore(EventStore):
     def _create_store(self, path: str) -> SQLiteEventStore:
         """Create a SQLite event store."""
         from .events import SQLiteEventStore
+
         return SQLiteEventStore(path)
 
     def _enable_wal(self, db_path: str) -> None:
@@ -111,7 +112,7 @@ class ResilientEventStore(EventStore):
                 logger.warning(f"Primary write failed (attempt {attempt + 1}): {e}")
                 if attempt == 2:
                     raise  # Failed after retries
-                await asyncio.sleep(0.1 * (2 ** attempt))
+                await asyncio.sleep(0.1 * (2**attempt))
 
         # 3. Store checksum
         self.checksums[event.event_id] = checksum
@@ -133,7 +134,7 @@ class ResilientEventStore(EventStore):
                 except Exception as e:
                     logger.warning(f"Replication failed (attempt {attempt + 1}): {e}")
                     if attempt < 4:
-                        await asyncio.sleep(0.5 * (2 ** attempt))
+                        await asyncio.sleep(0.5 * (2**attempt))
                     else:
                         logger.error(f"Failed to replicate to {replica.db_path}")
 
@@ -174,8 +175,7 @@ class ResilientEventStore(EventStore):
                 for i, event in enumerate(events):
                     if event in corrupted:
                         recovered_event = next(
-                            (r for r in recovered if r.event_id == event.event_id),
-                            None
+                            (r for r in recovered if r.event_id == event.event_id), None
                         )
                         if recovered_event:
                             events[i] = recovered_event
@@ -194,9 +194,7 @@ class ResilientEventStore(EventStore):
     def _calculate_checksum(self, event: DomainEvent) -> str:
         """Calculate SHA-256 checksum of event."""
         data = event.to_dict()
-        return hashlib.sha256(
-            json.dumps(data, sort_keys=True, default=str).encode()
-        ).hexdigest()
+        return hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
 
     async def _recover_events(
         self,
@@ -305,10 +303,12 @@ class ResilientEventStore(EventStore):
 
                 missing = primary_ids - replica_ids
                 if missing:
-                    report["missing_in_replicas"].append({
-                        "replica_index": i,
-                        "missing_count": len(missing),
-                    })
+                    report["missing_in_replicas"].append(
+                        {
+                            "replica_index": i,
+                            "missing_count": len(missing),
+                        }
+                    )
 
                 report["replica_health"].append({"index": i, "healthy": True})
             except Exception as e:

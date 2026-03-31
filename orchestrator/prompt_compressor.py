@@ -40,9 +40,11 @@ logger = logging.getLogger("orchestrator.prompt_compressor")
 # Compression Statistics
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class CompressionStats:
     """Statistics for a compression operation."""
+
     original_tokens: int
     compressed_tokens: int
     original_chars: int
@@ -88,6 +90,7 @@ class CompressionStats:
 # ─────────────────────────────────────────────
 # Prompt Compressor
 # ─────────────────────────────────────────────
+
 
 class PromptCompressor:
     """
@@ -135,6 +138,7 @@ class PromptCompressor:
             Compressed prompt
         """
         import time
+
         start_time = time.time()
 
         if not prompt:
@@ -171,9 +175,11 @@ class PromptCompressor:
         current_tokens = self._count_tokens(compressed)
 
         # Strategy 4: LLM summarization (if needed and enabled)
-        if (current_tokens > target and
-            self.llm_compression_enabled and
-            current_tokens > self.min_tokens_for_llm):
+        if (
+            current_tokens > target
+            and self.llm_compression_enabled
+            and current_tokens > self.min_tokens_for_llm
+        ):
 
             compressed = await self._llm_summarize(
                 compressed,
@@ -213,13 +219,13 @@ class PromptCompressor:
         Savings: 5-10%
         """
         # Remove multiple spaces
-        text = re.sub(r' {2,}', ' ', text)
+        text = re.sub(r" {2,}", " ", text)
 
         # Remove trailing whitespace on lines
-        text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
+        text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
 
         # Remove multiple blank lines
-        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
 
         # Remove leading/trailing whitespace from entire text
         text = text.strip()
@@ -259,7 +265,7 @@ class PromptCompressor:
         for verbose, concise in replacements.items():
             # Case-insensitive replacement
             text = re.sub(
-                r'\b' + re.escape(verbose) + r'\b',
+                r"\b" + re.escape(verbose) + r"\b",
                 concise,
                 text,
                 flags=re.IGNORECASE,
@@ -274,7 +280,7 @@ class PromptCompressor:
         Savings: 10-15%
         """
         # Remove repeated words
-        text = re.sub(r'\b(\w+)( \1\b)+', r'\1', text, flags=re.IGNORECASE)
+        text = re.sub(r"\b(\w+)( \1\b)+", r"\1", text, flags=re.IGNORECASE)
 
         # Remove filler sentences
         filler_patterns = [
@@ -286,7 +292,7 @@ class PromptCompressor:
         ]
 
         for pattern in filler_patterns:
-            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+            text = re.sub(pattern, "", text, flags=re.IGNORECASE)
 
         return text.strip()
 
@@ -323,13 +329,13 @@ class PromptCompressor:
         if preserve_instructions:
             # Look for instruction patterns
             instruction_match = re.search(
-                r'^(.*?(?:instruction|requirement|constraint|rule|must|should|do not).*)\n\n',
+                r"^(.*?(?:instruction|requirement|constraint|rule|must|should|do not).*)\n\n",
                 text,
                 re.IGNORECASE | re.DOTALL,
             )
             if instruction_match:
                 instructions = instruction_match.group(1)
-                content = text[len(instructions):].strip()
+                content = text[len(instructions) :].strip()
                 instructions = instructions.strip() + "\n\n"
 
         # Create summarization prompt
@@ -367,7 +373,7 @@ class PromptCompressor:
         Uses simple heuristic: 1 token ≈ 4 characters for English text.
         """
         # More accurate: split on whitespace and punctuation
-        words = re.findall(r'\b\w+\b', text)
+        words = re.findall(r"\b\w+\b", text)
         return len(words)
 
     def get_compression_ratio(self, original: str, compressed: str) -> float:
@@ -388,9 +394,8 @@ class PromptCompressor:
         """Get compression statistics."""
         avg_reduction = 0.0
         if self._stats_history:
-            avg_reduction = (
-                sum(s.token_reduction_percent for s in self._stats_history) /
-                len(self._stats_history)
+            avg_reduction = sum(s.token_reduction_percent for s in self._stats_history) / len(
+                self._stats_history
             )
 
         return {

@@ -52,6 +52,7 @@ logger = logging.getLogger("orchestrator.swiftstack_integration")
 # Configuration
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class SwiftStackConfig:
     """SwiftStack features configuration."""
@@ -94,6 +95,7 @@ class SwiftStackConfig:
 # ─────────────────────────────────────────────
 # SwiftStack Integration
 # ─────────────────────────────────────────────
+
 
 class SwiftStackIntegration:
     """
@@ -332,6 +334,7 @@ class SwiftStackIntegration:
         if generate_models:
             logger.info(f"Generating {orm} models")
             from .database_generator import ORMType
+
             result["models"] = self.database_generator.generate_models(
                 schema,
                 ORMType(orm),

@@ -31,6 +31,7 @@ Usage:
         # Handle any orchestrator error
         logger.error(f"Orchestration failed: {e}")
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -93,14 +94,17 @@ class ApplicationError(Exception):
 # Configuration Errors
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class ConfigurationError(ApplicationError):
     """Configuration is invalid, missing, or cannot be loaded."""
+
     code = "CONFIGURATION_ERROR"
     retriable = False
 
 
 class MissingAPIKeyError(ConfigurationError):
     """Required API key is not configured."""
+
     code = "MISSING_API_KEY"
 
     def __init__(self, provider: str, **kwargs):
@@ -115,14 +119,17 @@ class MissingAPIKeyError(ConfigurationError):
 # Orchestrator Errors
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class OrchestratorError(ApplicationError):
     """Core orchestration failure."""
+
     code = "ORCHESTRATOR_ERROR"
     retriable = True
 
 
 class BudgetExceededError(OrchestratorError):
     """Budget limit has been exceeded."""
+
     code = "BUDGET_EXCEEDED"
     retriable = False
 
@@ -136,13 +143,18 @@ class BudgetExceededError(OrchestratorError):
 
 class TimeoutError(OrchestratorError):
     """Operation timed out."""
+
     code = "TIMEOUT"
     retriable = True
 
     def __init__(self, operation: str, timeout_seconds: float, **kwargs):
         super().__init__(
             f"Operation '{operation}' timed out after {timeout_seconds}s",
-            details={"operation": operation, "timeout": timeout_seconds, **kwargs.get("details", {})},
+            details={
+                "operation": operation,
+                "timeout": timeout_seconds,
+                **kwargs.get("details", {}),
+            },
             **kwargs,
         )
 
@@ -151,14 +163,17 @@ class TimeoutError(OrchestratorError):
 # Model Errors
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class ModelError(ApplicationError):
     """LLM provider or model-related error."""
+
     code = "MODEL_ERROR"
     retriable = True
 
 
 class ModelUnavailableError(ModelError):
     """Model is temporarily unavailable."""
+
     code = "MODEL_UNAVAILABLE"
     retriable = True
 
@@ -175,6 +190,7 @@ class ModelUnavailableError(ModelError):
 
 class RateLimitError(ModelError):
     """Rate limit exceeded for provider."""
+
     code = "RATE_LIMIT_EXCEEDED"
     retriable = True
 
@@ -188,6 +204,7 @@ class RateLimitError(ModelError):
 
 class TokenLimitError(ModelError):
     """Token limit exceeded for model."""
+
     code = "TOKEN_LIMIT_EXCEEDED"
     retriable = False
 
@@ -201,6 +218,7 @@ class TokenLimitError(ModelError):
 
 class AuthenticationError(ModelError):
     """API authentication failed."""
+
     code = "AUTHENTICATION_ERROR"
     retriable = False
 
@@ -209,20 +227,24 @@ class AuthenticationError(ModelError):
 # Task Errors
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TaskError(ApplicationError):
     """Task execution error."""
+
     code = "TASK_ERROR"
     retriable = True
 
 
 class TaskValidationError(TaskError):
     """Task validation failed."""
+
     code = "TASK_VALIDATION_ERROR"
     retriable = False
 
 
 class TaskTimeoutError(TaskError):
     """Task execution timed out."""
+
     code = "TASK_TIMEOUT"
     retriable = True
 
@@ -236,6 +258,7 @@ class TaskTimeoutError(TaskError):
 
 class TaskRetryExhaustedError(TaskError):
     """All retry attempts exhausted."""
+
     code = "RETRY_EXHAUSTED"
     retriable = False
 
@@ -251,14 +274,17 @@ class TaskRetryExhaustedError(TaskError):
 # Policy Errors
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class PolicyError(ApplicationError):
     """Policy enforcement error."""
+
     code = "POLICY_ERROR"
     retriable = False
 
 
 class PolicyViolationError(PolicyError):
     """Policy constraint was violated."""
+
     code = "POLICY_VIOLATION"
 
     def __init__(self, policy: str, constraint: str, **kwargs):
@@ -273,13 +299,16 @@ class PolicyViolationError(PolicyError):
 # Cache/Storage Errors
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class CacheError(ApplicationError):
     """Cache or storage operation failed."""
+
     code = "CACHE_ERROR"
     retriable = True
 
 
 class StateError(ApplicationError):
     """State persistence/loading failed."""
+
     code = "STATE_ERROR"
     retriable = True

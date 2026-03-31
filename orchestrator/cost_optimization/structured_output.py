@@ -35,6 +35,7 @@ from typing import Any
 
 try:
     from pydantic import BaseModel, Field
+
     HAS_PYDANTIC = True
 except ImportError:
     HAS_PYDANTIC = False
@@ -49,8 +50,7 @@ logger = get_logger(__name__)
 # FIX-OPT-004: Fail-fast if Pydantic not available - consistent error handling
 if not HAS_PYDANTIC:
     raise ImportError(
-        "Pydantic is required for structured output. "
-        "Install with: pip install pydantic>=2.0"
+        "Pydantic is required for structured output. " "Install with: pip install pydantic>=2.0"
     )
 
 
@@ -58,8 +58,10 @@ if not HAS_PYDANTIC:
 # Pydantic Models for Structured Output
 # ─────────────────────────────────────────────
 
+
 class TaskSpec(BaseModel):
     """Specification for a single task."""
+
     id: str = Field(..., description="Unique task identifier")
     type: str = Field(..., description="Task type: code_generation, code_review, reasoning")
     prompt: str = Field(..., description="Task prompt")
@@ -70,6 +72,7 @@ class TaskSpec(BaseModel):
 
 class DecompositionOutput(BaseModel):
     """Structured output for decomposition phase."""
+
     tasks: list[TaskSpec] = Field(..., description="List of tasks")
     execution_order: list[str] = Field(..., description="Topologically sorted task IDs")
     estimated_cost: float = Field(..., description="Estimated cost in USD")
@@ -78,6 +81,7 @@ class DecompositionOutput(BaseModel):
 
 class CritiqueOutput(BaseModel):
     """Structured output for critique phase."""
+
     score: float = Field(..., ge=0.0, le=1.0, description="Quality score 0-1")
     issues: list[str] = Field(default_factory=list, description="List of issues found")
     suggestions: list[str] = Field(default_factory=list, description="Improvement suggestions")
@@ -86,6 +90,7 @@ class CritiqueOutput(BaseModel):
 
 class EvaluationOutput(BaseModel):
     """Structured output for evaluation phase."""
+
     score: float = Field(..., ge=0.0, le=1.0, description="Quality score 0-1")
     metrics: dict[str, float] = Field(default_factory=dict, description="Evaluation metrics")
     passed: bool = Field(..., description="Whether evaluation passed")
@@ -94,6 +99,7 @@ class EvaluationOutput(BaseModel):
 
 class CodeReviewOutput(BaseModel):
     """Structured output for code review phase."""
+
     score: float = Field(..., ge=0.0, le=1.0, description="Quality score 0-1")
     bugs_found: list[str] = Field(default_factory=list, description="Bugs identified")
     improvements: list[str] = Field(default_factory=list, description="Suggested improvements")
@@ -103,13 +109,17 @@ class CodeReviewOutput(BaseModel):
 
 class PromptEnhancementOutput(BaseModel):
     """Structured output for prompt enhancement phase."""
+
     enhanced_prompt: str = Field(..., description="Enhanced prompt text")
     improvements_made: list[str] = Field(default_factory=list, description="List of improvements")
-    estimated_quality_gain: float = Field(default=0.0, ge=0.0, le=1.0, description="Expected quality improvement")
+    estimated_quality_gain: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Expected quality improvement"
+    )
 
 
 class CondensingOutput(BaseModel):
     """Structured output for condensing/summarization phase."""
+
     summary: str = Field(..., description="Condensed summary")
     key_points: list[str] = Field(default_factory=list, description="Key points extracted")
     tokens_saved: int = Field(default=0, description="Estimated tokens saved")
@@ -144,7 +154,9 @@ class StructuredOutputEnforcer:
         """
         if not HAS_PYDANTIC:
             logger.warning("Pydantic not installed, structured output disabled")
-            raise ImportError("Pydantic is required for structured output. Install with: pip install pydantic")
+            raise ImportError(
+                "Pydantic is required for structured output. Install with: pip install pydantic"
+            )
 
         self.client = client
         self._output_types = dict(OUTPUT_TYPES)
@@ -192,7 +204,9 @@ class StructuredOutputEnforcer:
 
         # Try OpenAI function calling
         elif self._is_openai_model(model):
-            return await self._generate_openai_function(model, prompt, schema, output_type, **kwargs)
+            return await self._generate_openai_function(
+                model, prompt, schema, output_type, **kwargs
+            )
 
         # Fallback to JSON parsing
         else:
@@ -235,8 +249,8 @@ class StructuredOutputEnforcer:
             # Call with tool
             response = await self.client.messages.create(
                 model=model,
-                max_tokens=kwargs.get('max_tokens', 4000),
-                system=kwargs.get('system', 'Generate structured output only.'),
+                max_tokens=kwargs.get("max_tokens", 4000),
+                system=kwargs.get("system", "Generate structured output only."),
                 messages=[{"role": "user", "content": prompt}],
                 tools=[tool],
                 tool_choice={"type": "tool", "name": "structured_output"},
@@ -245,7 +259,7 @@ class StructuredOutputEnforcer:
             # Extract tool output
             tool_output = None
             for content in response.content:
-                if hasattr(content, 'type') and content.type == 'tool_use':
+                if hasattr(content, "type") and content.type == "tool_use":
                     tool_output = content.input
                     break
 
@@ -293,18 +307,20 @@ class StructuredOutputEnforcer:
                     {"role": "system", "content": "Generate structured JSON output only."},
                     {"role": "user", "content": prompt},
                 ],
-                functions=[{
-                    "name": "structured_output",
-                    "description": f"Generate structured output: {schema.get('title', 'Output')}",
-                    "parameters": schema,
-                }],
+                functions=[
+                    {
+                        "name": "structured_output",
+                        "description": f"Generate structured output: {schema.get('title', 'Output')}",
+                        "parameters": schema,
+                    }
+                ],
                 function_call={"name": "structured_output"},
                 **kwargs,
             )
 
             # Extract function output
             message = response.choices[0].message
-            if not hasattr(message, 'function_call') or not message.function_call:
+            if not hasattr(message, "function_call") or not message.function_call:
                 raise ValueError("No function call in response")
 
             tool_output = json.loads(message.function_call.arguments)
@@ -351,14 +367,14 @@ class StructuredOutputEnforcer:
         response = await self.client.call(
             model=model,
             system_prompt=json_prompt,
-            max_tokens=kwargs.get('max_tokens', 4000),
+            max_tokens=kwargs.get("max_tokens", 4000),
         )
 
         # Extract text
-        text = response.text if hasattr(response, 'text') else str(response)
+        text = response.text if hasattr(response, "text") else str(response)
 
         # Extract JSON from response
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        json_match = re.search(r"\{.*\}", text, re.DOTALL)
         if json_match:
             text = json_match.group()
 
@@ -396,6 +412,7 @@ class StructuredOutputEnforcer:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def generate_decomposition(
     client,

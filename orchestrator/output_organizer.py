@@ -16,6 +16,7 @@ Usage:
     organizer = OutputOrganizer(output_dir)
     await organizer.organize_project()
 """
+
 from __future__ import annotations
 
 import json
@@ -42,6 +43,7 @@ except ImportError:
 @dataclass
 class TestResult:
     """Result of a test run."""
+
     test_file: str
     passed: bool
     duration_ms: float
@@ -53,6 +55,7 @@ class TestResult:
 @dataclass
 class OrganizationReport:
     """Report of the organization process."""
+
     tasks_moved: list[str] = field(default_factory=list)
     tests_created: list[str] = field(default_factory=list)
     tests_run: list[TestResult] = field(default_factory=list)
@@ -63,21 +66,28 @@ class OrganizationReport:
         return {
             "tasks_moved": self.tasks_moved,
             "tests_created": self.tests_created,
-            "tests_run": [{
-                "test_file": r.test_file,
-                "passed": r.passed,
-                "duration_ms": r.duration_ms,
-                "coverage_percent": r.coverage_percent,
-                "error_message": r.error_message if not r.passed else None,
-            } for r in self.tests_run],
+            "tests_run": [
+                {
+                    "test_file": r.test_file,
+                    "passed": r.passed,
+                    "duration_ms": r.duration_ms,
+                    "coverage_percent": r.coverage_percent,
+                    "error_message": r.error_message if not r.passed else None,
+                }
+                for r in self.tests_run
+            ],
             "tests_moved": self.tests_moved,
             "errors": self.errors,
             "summary": {
                 "total_tests": len(self.tests_run),
                 "passed_tests": sum(1 for r in self.tests_run if r.passed),
                 "failed_tests": sum(1 for r in self.tests_run if not r.passed),
-                "coverage_avg": sum(r.coverage_percent for r in self.tests_run) / len(self.tests_run) if self.tests_run else 0,
-            }
+                "coverage_avg": (
+                    sum(r.coverage_percent for r in self.tests_run) / len(self.tests_run)
+                    if self.tests_run
+                    else 0
+                ),
+            },
         }
 
 
@@ -222,11 +232,7 @@ class OutputOrganizer:
     def _is_test_file(self, path: Path) -> bool:
         """Check if a file is a test file."""
         name = path.name
-        return (
-            name.startswith("test_") or
-            name.endswith("_test.py") or
-            path.parent.name == "tests"
-        )
+        return name.startswith("test_") or name.endswith("_test.py") or path.parent.name == "tests"
 
     async def _generate_missing_tests(self, source_files: list[Path]):
         """Generate tests for source files that lack them."""
@@ -291,40 +297,44 @@ class OutputOrganizer:
 
         test_lines = [
             '"""',
-            f'Auto-generated tests for {src_file.name}',
+            f"Auto-generated tests for {src_file.name}",
             '"""',
-            'import pytest',
+            "import pytest",
             f'from {module_path} import {", ".join(classes + public_functions[:5])}',
-            '',
-            '',
+            "",
+            "",
         ]
 
         # Generate test for each class
         for cls in classes:
-            test_lines.extend([
-                f'class Test{cls}:',
-                f'    """Tests for {cls} class."""',
-                '',
-                f'    def test_{cls.lower()}_initialization(self):',
-                f'        """Test {cls} can be instantiated."""',
-                '        # TODO: Add proper initialization parameters',
-                f'        # instance = {cls}()',
-                '        # assert instance is not None',
-                '        pass',
-                '',
-            ])
+            test_lines.extend(
+                [
+                    f"class Test{cls}:",
+                    f'    """Tests for {cls} class."""',
+                    "",
+                    f"    def test_{cls.lower()}_initialization(self):",
+                    f'        """Test {cls} can be instantiated."""',
+                    "        # TODO: Add proper initialization parameters",
+                    f"        # instance = {cls}()",
+                    "        # assert instance is not None",
+                    "        pass",
+                    "",
+                ]
+            )
 
         # Generate test for each function
         for func in public_functions[:5]:  # Limit to first 5 functions
-            test_lines.extend([
-                f'def test_{func}():',
-                f'    """Test {func} function."""',
-                '    # TODO: Add proper test parameters and assertions',
-                f'    # result = {func}()',
-                '    # assert result is not None',
-                '    pass',
-                '',
-            ])
+            test_lines.extend(
+                [
+                    f"def test_{func}():",
+                    f'    """Test {func} function."""',
+                    "    # TODO: Add proper test parameters and assertions",
+                    f"    # result = {func}()",
+                    "    # assert result is not None",
+                    "    pass",
+                    "",
+                ]
+            )
 
         return "\n".join(test_lines)
 
@@ -377,7 +387,9 @@ class OutputOrganizer:
         try:
             # Run pytest with coverage
             cmd = [
-                sys.executable, "-m", "pytest",
+                sys.executable,
+                "-m",
+                "pytest",
                 str(test_file),
                 "-v",
                 "--tb=short",
@@ -388,6 +400,7 @@ class OutputOrganizer:
             # Try to add coverage if available
             try:
                 import pytest_cov
+
                 cmd.extend(["--cov=.", "--cov-report=term-missing"])
             except ImportError:
                 pass
@@ -405,7 +418,7 @@ class OutputOrganizer:
 
             # Parse coverage
             coverage = 0.0
-            coverage_match = re.search(r'(\d+)%', result.stdout)
+            coverage_match = re.search(r"(\d+)%", result.stdout)
             if coverage_match:
                 coverage = float(coverage_match.group(1))
 
@@ -459,7 +472,7 @@ class OutputOrganizer:
             self.fix_report = await fixer.fix_failing_tests(
                 project_path=str(self.output_dir),
                 max_iterations=self.max_fix_iterations,
-                min_pass_rate=self.min_pass_rate
+                min_pass_rate=self.min_pass_rate,
             )
 
             # Re-run tests after fixing
@@ -545,7 +558,9 @@ class OutputOrganizer:
                 logger.info(f"     ❌ Failed: {failed}")
 
             # Coverage
-            avg_coverage = sum(r.coverage_percent for r in self.report.tests_run) / len(self.report.tests_run)
+            avg_coverage = sum(r.coverage_percent for r in self.report.tests_run) / len(
+                self.report.tests_run
+            )
             logger.info(f"     📈 Coverage: {avg_coverage:.1f}%")
 
         # Tests organized
@@ -560,10 +575,7 @@ class OutputOrganizer:
         """Save organization report to JSON."""
         report_file = self.output_dir / "organization_report.json"
         try:
-            report_file.write_text(
-                json.dumps(self.report.to_dict(), indent=2),
-                encoding="utf-8"
-            )
+            report_file.write_text(json.dumps(self.report.to_dict(), indent=2), encoding="utf-8")
             logger.info(f"📄 Report saved: {report_file}")
         except Exception as e:
             logger.warning(f"Failed to save report: {e}")

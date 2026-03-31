@@ -22,19 +22,21 @@ from orchestrator.cost_optimization import (
     StreamingResult,
 )
 
-
 # ─────────────────────────────────────────────
 # Test Fixtures
 # ─────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_client():
     """Create mock API client."""
     client = AsyncMock()
-    client.call = AsyncMock(return_value=MagicMock(
-        text="Generated code response",
-        usage=MagicMock(input_tokens=100, output_tokens=50),
-    ))
+    client.call = AsyncMock(
+        return_value=MagicMock(
+            text="Generated code response",
+            usage=MagicMock(input_tokens=100, output_tokens=50),
+        )
+    )
     client.stream = AsyncMock()
     client.stream.__aiter__ = MagicMock(return_value=iter(["chunk1", "chunk2", "chunk3"]))
     return client
@@ -61,6 +63,7 @@ def streaming_validator(mock_client):
 # ─────────────────────────────────────────────
 # Test ModelCascader
 # ─────────────────────────────────────────────
+
 
 class TestModelCascader:
     """Test ModelCascader class."""
@@ -101,9 +104,11 @@ class TestModelCascader:
     @pytest.mark.asyncio
     async def test_cascading_generate_success(self, model_cascader, mock_client):
         """Test successful cascading generation."""
-        mock_client.call = AsyncMock(return_value=MagicMock(
-            text="Good quality code",
-        ))
+        mock_client.call = AsyncMock(
+            return_value=MagicMock(
+                text="Good quality code",
+            )
+        )
 
         result = await model_cascader.cascading_generate(
             prompt="Generate Python code",
@@ -119,9 +124,11 @@ class TestModelCascader:
     async def test_cascading_generate_early_exit(self, model_cascader, mock_client):
         """Test early exit from cascade."""
         # Mock client to return good response
-        mock_client.call = AsyncMock(return_value=MagicMock(
-            text="Excellent code with def function(): pass",
-        ))
+        mock_client.call = AsyncMock(
+            return_value=MagicMock(
+                text="Excellent code with def function(): pass",
+            )
+        )
 
         result = await model_cascader.cascading_generate(
             prompt="Generate Python code",
@@ -136,9 +143,11 @@ class TestModelCascader:
     async def test_cascading_generate_all_tiers(self, model_cascader, mock_client):
         """Test cascading through all tiers."""
         # Mock to return poor quality (low score)
-        mock_client.call = AsyncMock(return_value=MagicMock(
-            text="Error: failed",
-        ))
+        mock_client.call = AsyncMock(
+            return_value=MagicMock(
+                text="Error: failed",
+            )
+        )
 
         result = await model_cascader.cascading_generate(
             prompt="Generate Python code",
@@ -186,6 +195,7 @@ class TestModelCascader:
 # Test SpeculativeGenerator
 # ─────────────────────────────────────────────
 
+
 class TestSpeculativeGenerator:
     """Test SpeculativeGenerator class."""
 
@@ -222,9 +232,11 @@ class TestSpeculativeGenerator:
     @pytest.mark.asyncio
     async def test_speculative_generate_cheap_wins(self, speculative_gen, mock_client):
         """Test speculative generation where cheap model wins."""
-        mock_client.call = AsyncMock(return_value=MagicMock(
-            text="Excellent code with def function(): pass",
-        ))
+        mock_client.call = AsyncMock(
+            return_value=MagicMock(
+                text="Excellent code with def function(): pass",
+            )
+        )
 
         result = await speculative_gen.speculative_generate(
             prompt="Generate Python code",
@@ -240,9 +252,11 @@ class TestSpeculativeGenerator:
     async def test_speculative_generate_premium_wins(self, speculative_gen, mock_client):
         """Test speculative generation where premium is needed."""
         # Return poor quality for cheap model
-        mock_client.call = AsyncMock(return_value=MagicMock(
-            text="Error: failed to generate",
-        ))
+        mock_client.call = AsyncMock(
+            return_value=MagicMock(
+                text="Error: failed to generate",
+            )
+        )
 
         result = await speculative_gen.speculative_generate(
             prompt="Generate Python code",
@@ -295,6 +309,7 @@ class TestSpeculativeGenerator:
 # ─────────────────────────────────────────────
 # Test StreamingValidator
 # ─────────────────────────────────────────────
+
 
 class TestStreamingValidator:
     """Test StreamingValidator class."""
@@ -372,9 +387,11 @@ class TestStreamingValidator:
     async def test_stream_and_validate_early_abort(self, streaming_validator, mock_client):
         """Test early abort on failure."""
         # Mock to return refusal pattern
-        mock_client.call = AsyncMock(return_value=MagicMock(
-            text="I cannot help with that. As an AI, I am unable.",
-        ))
+        mock_client.call = AsyncMock(
+            return_value=MagicMock(
+                text="I cannot help with that. As an AI, I am unable.",
+            )
+        )
 
         result = await streaming_validator.stream_and_validate(
             model="claude-sonnet-4.6",
@@ -407,6 +424,7 @@ class TestStreamingValidator:
 # ─────────────────────────────────────────────
 # Test Integration
 # ─────────────────────────────────────────────
+
 
 class TestIntegration:
     """Test integration between Tier 2 modules."""

@@ -12,21 +12,28 @@ Warm-start:
 
 These tests will initially FAIL because the wiring does not exist yet.
 """
+
 from __future__ import annotations
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from orchestrator.models import (
-    Budget, Model, ProjectStatus, Task, TaskResult, TaskStatus, TaskType,
+    Budget,
+    Model,
+    ProjectStatus,
+    Task,
+    TaskResult,
+    TaskStatus,
+    TaskType,
 )
 from orchestrator.policy import ModelProfile
 from orchestrator.telemetry_store import TelemetryStore, HistoricalProfile
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _make_state(status=ProjectStatus.SUCCESS):
     state = MagicMock()
@@ -53,6 +60,7 @@ def _make_task_result(task_id="t1", model=Model.DEEPSEEK_CHAT, score=0.88):
 # TelemetryStore is injectable into Orchestrator
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_orchestrator_accepts_telemetry_store_kwarg(tmp_path):
     """Orchestrator.__init__() accepts a telemetry_store keyword argument."""
     from orchestrator.engine import Orchestrator
@@ -75,6 +83,7 @@ def test_orchestrator_creates_default_telemetry_store():
 # ─────────────────────────────────────────────────────────────────────────────
 # Snapshot written after run_project()
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_record_snapshot_called_for_models_with_calls(tmp_path):
@@ -100,6 +109,7 @@ async def test_record_snapshot_called_for_models_with_calls(tmp_path):
         orch._profiles[Model.GPT_4O].call_count = 3
 
         from orchestrator.policy import JobSpec
+
         spec = JobSpec(
             project_description="Test",
             success_criteria="Works",
@@ -137,6 +147,7 @@ async def test_record_snapshot_not_called_for_models_with_zero_calls(tmp_path):
         orch._profiles[Model.DEEPSEEK_CHAT].call_count = 3
 
         from orchestrator.policy import JobSpec
+
         spec = JobSpec(
             project_description="Test",
             success_criteria="Works",
@@ -184,6 +195,7 @@ async def test_snapshots_are_fire_and_forget(tmp_path):
         orch._profiles[Model.DEEPSEEK_CHAT].call_count = 1
 
         from orchestrator.policy import JobSpec
+
         spec = JobSpec(
             project_description="Test",
             success_criteria="Works",
@@ -206,6 +218,7 @@ async def test_snapshots_are_fire_and_forget(tmp_path):
 # Routing event written after each task
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_record_routing_event_called_after_task_completion(tmp_path):
     """
@@ -222,8 +235,12 @@ async def test_record_routing_event_called_after_task_completion(tmp_path):
     task = Task(id="task-1", type=TaskType.CODE_GEN, prompt="Write code")
 
     with (
-        patch("orchestrator.engine.Orchestrator._decompose", new_callable=AsyncMock) as mock_decompose,
-        patch("orchestrator.engine.Orchestrator._execute_task", new_callable=AsyncMock) as mock_exec,
+        patch(
+            "orchestrator.engine.Orchestrator._decompose", new_callable=AsyncMock
+        ) as mock_decompose,
+        patch(
+            "orchestrator.engine.Orchestrator._execute_task", new_callable=AsyncMock
+        ) as mock_exec,
         patch("orchestrator.engine.Orchestrator._determine_final_status") as mock_status,
         patch("orchestrator.engine.Orchestrator._topological_sort") as mock_sort,
         patch("orchestrator.engine.StateManager.load_project", new_callable=AsyncMock) as mock_load,
@@ -254,6 +271,7 @@ async def test_record_routing_event_called_after_task_completion(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # Warm-start blending
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_warm_start_blending_applied_when_historical_data_exists(tmp_path):
@@ -296,6 +314,7 @@ async def test_warm_start_blending_applied_when_historical_data_exists(tmp_path)
 
         orch = Orchestrator(telemetry_store=store)
         from orchestrator.policy import JobSpec
+
         spec = JobSpec(
             project_description="Test",
             success_criteria="Works",
@@ -305,9 +324,9 @@ async def test_warm_start_blending_applied_when_historical_data_exists(tmp_path)
 
     # After warm-start blending, the profile should reflect blended quality
     blended_quality = orch._profiles[Model.DEEPSEEK_CHAT].quality_score
-    assert blended_quality == pytest.approx(expected_blended, abs=0.01), (
-        f"Expected blended quality ~{expected_blended:.3f}, got {blended_quality:.3f}"
-    )
+    assert blended_quality == pytest.approx(
+        expected_blended, abs=0.01
+    ), f"Expected blended quality ~{expected_blended:.3f}, got {blended_quality:.3f}"
 
 
 @pytest.mark.asyncio
@@ -340,6 +359,7 @@ async def test_hot_start_uses_100_percent_historical(tmp_path):
 
         orch = Orchestrator(telemetry_store=store)
         from orchestrator.policy import JobSpec
+
         spec = JobSpec(
             project_description="Test",
             success_criteria="Works",
@@ -372,6 +392,7 @@ async def test_cold_start_uses_defaults(tmp_path):
 
         orch = Orchestrator(telemetry_store=store)
         from orchestrator.policy import JobSpec
+
         spec = JobSpec(
             project_description="Test",
             success_criteria="Works",

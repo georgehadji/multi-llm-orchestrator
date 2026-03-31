@@ -86,13 +86,16 @@ class OrchestratorCore:
         self._cache_optimizer = None
         try:
             from ..cache_optimizer import CacheConfig, CacheOptimizer
-            self._cache_optimizer = CacheOptimizer(CacheConfig(
-                l1_max_size=200,
-                l1_ttl_seconds=3600,
-                l2_ttl_hours=48,
-                l3_quality_threshold=0.85,
-                track_stats=True,
-            ))
+
+            self._cache_optimizer = CacheOptimizer(
+                CacheConfig(
+                    l1_max_size=200,
+                    l1_ttl_seconds=3600,
+                    l2_ttl_hours=48,
+                    l3_quality_threshold=0.85,
+                    track_stats=True,
+                )
+            )
         except ImportError:
             pass
 
@@ -100,10 +103,7 @@ class OrchestratorCore:
         self._semantic_cache = SemanticCache(quality_threshold=0.85)
 
         # Initialize engine components
-        self._init_engine_components(
-            max_parallel_tasks=max_parallel_tasks,
-            **kwargs
-        )
+        self._init_engine_components(max_parallel_tasks=max_parallel_tasks, **kwargs)
 
         # State tracking
         self.results: dict[str, TaskResult] = {}
@@ -124,8 +124,8 @@ class OrchestratorCore:
         self._fallback_handler = FallbackHandler(adaptive_router=adaptive_router)
 
         # Budget enforcer (depends on budget)
-        budget_hierarchy = kwargs.get('budget_hierarchy')
-        cost_predictor = kwargs.get('cost_predictor')
+        budget_hierarchy = kwargs.get("budget_hierarchy")
+        cost_predictor = kwargs.get("cost_predictor")
         self._budget_enforcer = BudgetEnforcer(
             budget=self.budget,
             budget_hierarchy=budget_hierarchy,
@@ -134,14 +134,14 @@ class OrchestratorCore:
 
         # Dependency resolver (no dependencies)
         self._dependency_resolver = DependencyResolver(
-            context_truncation_limit=kwargs.get('context_truncation_limit', 40000)
+            context_truncation_limit=kwargs.get("context_truncation_limit", 40000)
         )
 
         # Critique cycle (depends on client)
         self._critique_cycle = CritiqueCycle(
             client=self.client,
-            max_iterations=kwargs.get('max_iterations', 5),
-            enable_streaming=kwargs.get('enable_streaming', False),
+            max_iterations=kwargs.get("max_iterations", 5),
+            enable_streaming=kwargs.get("enable_streaming", False),
         )
 
         # Task executor (depends on all above)
@@ -187,15 +187,12 @@ class OrchestratorCore:
         logger.info(f"Starting project: {project_description[:100]}...")
 
         # Phase 1: Decompose project into tasks
-        tasks = await self._decompose_project(
-            project_description, success_criteria
-        )
+        tasks = await self._decompose_project(project_description, success_criteria)
 
         if not tasks:
             logger.error("Project decomposition failed")
             return self._make_state(
-                project_description, success_criteria, {},
-                ProjectStatus.SYSTEM_FAILURE
+                project_description, success_criteria, {}, ProjectStatus.SYSTEM_FAILURE
             )
 
         # Phase 2: Build dependency graph and execution order
@@ -255,7 +252,8 @@ class OrchestratorCore:
 
         try:
             response = await self.client.call_with_retry(
-                model=self._fallback_handler.select_model(TaskType.DECOMPOSITION) or Model.GPT_4O_MINI,
+                model=self._fallback_handler.select_model(TaskType.DECOMPOSITION)
+                or Model.GPT_4O_MINI,
                 prompt=decomposition_prompt,
                 max_tokens=4000,
                 timeout=120,
@@ -263,15 +261,16 @@ class OrchestratorCore:
 
             # Parse JSON response
             import json
+
             tasks_data = json.loads(response.text)
 
             tasks = {}
             for task_data in tasks_data:
                 task = Task(
-                    id=task_data['id'],
-                    type=TaskType(task_data['type']),
-                    prompt=task_data['prompt'],
-                    dependencies=task_data.get('dependencies', []),
+                    id=task_data["id"],
+                    type=TaskType(task_data["type"]),
+                    prompt=task_data["prompt"],
+                    dependencies=task_data.get("dependencies", []),
                 )
                 tasks[task.id] = task
 
@@ -347,8 +346,7 @@ class OrchestratorCore:
 
         # Check if all tasks completed
         all_completed = all(
-            r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED)
-            for r in self.results.values()
+            r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED) for r in self.results.values()
         )
 
         if all_completed:
@@ -415,4 +413,4 @@ from .dependency_resolver import DependencyResolver
 from .fallback_handler import FallbackHandler
 from .task_executor import TaskExecutor
 
-__all__ = ['OrchestratorCore']
+__all__ = ["OrchestratorCore"]

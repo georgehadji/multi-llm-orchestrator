@@ -32,6 +32,7 @@ Usage:
     if report.risk_level == RiskLevel.HIGH:
         print("Warning: may exceed budget!")
 """
+
 from __future__ import annotations
 
 import logging
@@ -48,37 +49,37 @@ logger = logging.getLogger("orchestrator.cost")
 
 # Typical call counts per task: generate(1) + critique(1) + revise(1) + 15% eval overhead
 _CALLS_PER_TASK: float = 3.0
-_EVAL_OVERHEAD:  float = 0.15   # 15% extra for evaluation passes
+_EVAL_OVERHEAD: float = 0.15  # 15% extra for evaluation passes
 
 # Typical token counts for cost estimation (mirrors planner._TYPICAL_*_TOKENS)
 _TYPICAL_INPUT_TOKENS: dict[TaskType, int] = {
-    TaskType.CODE_GEN:     800,
-    TaskType.CODE_REVIEW:  600,
-    TaskType.REASONING:    600,
-    TaskType.WRITING:      400,
+    TaskType.CODE_GEN: 800,
+    TaskType.CODE_REVIEW: 600,
+    TaskType.REASONING: 600,
+    TaskType.WRITING: 400,
     TaskType.DATA_EXTRACT: 300,
-    TaskType.SUMMARIZE:    600,
-    TaskType.EVALUATE:     500,
+    TaskType.SUMMARIZE: 600,
+    TaskType.EVALUATE: 500,
 }
 _TYPICAL_OUTPUT_TOKENS: dict[TaskType, int] = {
-    TaskType.CODE_GEN:     1000,
-    TaskType.CODE_REVIEW:  600,
-    TaskType.REASONING:    800,
-    TaskType.WRITING:      600,
+    TaskType.CODE_GEN: 1000,
+    TaskType.CODE_REVIEW: 600,
+    TaskType.REASONING: 800,
+    TaskType.WRITING: 600,
     TaskType.DATA_EXTRACT: 200,
-    TaskType.SUMMARIZE:    300,
-    TaskType.EVALUATE:     400,
+    TaskType.SUMMARIZE: 300,
+    TaskType.EVALUATE: 400,
 }
 
 # Average task execution time in seconds (rough estimates for forecasting)
 _TYPICAL_TASK_SECONDS: dict[TaskType, float] = {
-    TaskType.CODE_GEN:     90.0,
-    TaskType.CODE_REVIEW:  60.0,
-    TaskType.REASONING:    75.0,
-    TaskType.WRITING:      60.0,
+    TaskType.CODE_GEN: 90.0,
+    TaskType.CODE_REVIEW: 60.0,
+    TaskType.REASONING: 75.0,
+    TaskType.WRITING: 60.0,
     TaskType.DATA_EXTRACT: 30.0,
-    TaskType.SUMMARIZE:    30.0,
-    TaskType.EVALUATE:     45.0,
+    TaskType.SUMMARIZE: 30.0,
+    TaskType.EVALUATE: 45.0,
 }
 
 
@@ -86,16 +87,19 @@ _TYPICAL_TASK_SECONDS: dict[TaskType, float] = {
 # RiskLevel
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class RiskLevel(str, Enum):
     """Budget risk level for a forecast."""
-    LOW    = "low"      # estimated cost < 50% of budget
-    MEDIUM = "medium"   # estimated cost 50–80% of budget
-    HIGH   = "high"     # estimated cost ≥ 80% of budget
+
+    LOW = "low"  # estimated cost < 50% of budget
+    MEDIUM = "medium"  # estimated cost 50–80% of budget
+    HIGH = "high"  # estimated cost ≥ 80% of budget
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ForecastReport
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class ForecastReport:
@@ -109,10 +113,11 @@ class ForecastReport:
     estimated_time_seconds : total predicted wall-clock time
     risk_level             : LOW / MEDIUM / HIGH relative to budget (if provided)
     """
-    estimated_total_usd:    float
-    estimated_per_phase:    dict[str, float]
+
+    estimated_total_usd: float
+    estimated_per_phase: dict[str, float]
     estimated_time_seconds: float
-    risk_level:             RiskLevel
+    risk_level: RiskLevel
 
     def will_exceed_budget(self, budget_max_usd: float) -> bool:
         """Return True if the estimated total exceeds the given budget cap."""
@@ -122,6 +127,7 @@ class ForecastReport:
 # ─────────────────────────────────────────────────────────────────────────────
 # BudgetHierarchy
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class BudgetHierarchy:
     """
@@ -144,33 +150,33 @@ class BudgetHierarchy:
 
     def __init__(
         self,
-        org_max_usd:   float,
-        team_budgets:  dict[str, float] | None = None,
-        job_budgets:   dict[str, float] | None = None,
+        org_max_usd: float,
+        team_budgets: dict[str, float] | None = None,
+        job_budgets: dict[str, float] | None = None,
     ) -> None:
-        self._org_max   = org_max_usd
-        self._team_max  = dict(team_budgets) if team_budgets else {}
-        self._job_max   = dict(job_budgets)  if job_budgets  else {}
+        self._org_max = org_max_usd
+        self._team_max = dict(team_budgets) if team_budgets else {}
+        self._job_max = dict(job_budgets) if job_budgets else {}
 
         # Spent trackers
-        self._org_spent:  float = 0.0
+        self._org_spent: float = 0.0
         self._team_spent: dict[str, float] = {}
-        self._job_spent:  dict[str, float] = {}
+        self._job_spent: dict[str, float] = {}
 
         # Pessimistic reservation counters (prevent TOCTOU race between
         # can_afford_job() and charge_job() across concurrent run_job() calls).
         # A reservation is claimed atomically when can_afford_job() returns True,
         # then settled by charge_job() or released by release_reservation().
-        self._reserved_usd:  float = 0.0
+        self._reserved_usd: float = 0.0
         self._team_reserved: dict[str, float] = {}
-        self._reservations:  dict[str, float] = {}  # job_id → reserved amount
+        self._reservations: dict[str, float] = {}  # job_id → reserved amount
 
     # ── Query ────────────────────────────────────────────────────────────────
 
     def can_afford_job(
         self,
-        job_id:         str,
-        team:           str,
+        job_id: str,
+        team: str,
         estimated_cost: float,
     ) -> bool:
         """
@@ -187,15 +193,16 @@ class BudgetHierarchy:
             logger.warning(
                 "BudgetHierarchy: org cap would be exceeded "
                 "(spent=%.4f, reserved=%.4f, est=%.4f, max=%.4f)",
-                self._org_spent, self._reserved_usd, estimated_cost, self._org_max,
+                self._org_spent,
+                self._reserved_usd,
+                estimated_cost,
+                self._org_max,
             )
             return False
 
         # Team level
         if team and team in self._team_max:
-            committed_team = (
-                self._team_spent.get(team, 0.0) + self._team_reserved.get(team, 0.0)
-            )
+            committed_team = self._team_spent.get(team, 0.0) + self._team_reserved.get(team, 0.0)
             if (committed_team + estimated_cost) > self._team_max[team]:
                 logger.warning(
                     "BudgetHierarchy: team '%s' cap would be exceeded "
@@ -215,7 +222,10 @@ class BudgetHierarchy:
                 logger.warning(
                     "BudgetHierarchy: job '%s' cap would be exceeded "
                     "(spent=%.4f, est=%.4f, max=%.4f)",
-                    job_id, job_spent, estimated_cost, self._job_max[job_id],
+                    job_id,
+                    job_spent,
+                    estimated_cost,
+                    self._job_max[job_id],
                 )
                 return False
 
@@ -239,9 +249,7 @@ class BudgetHierarchy:
         reserved = self._reservations.pop(job_id, 0.0)
         self._reserved_usd = max(0.0, self._reserved_usd - reserved)
         if team and reserved:
-            self._team_reserved[team] = max(
-                0.0, self._team_reserved.get(team, 0.0) - reserved
-            )
+            self._team_reserved[team] = max(0.0, self._team_reserved.get(team, 0.0) - reserved)
 
         if amount <= 0:
             return
@@ -264,9 +272,7 @@ class BudgetHierarchy:
         self._reserved_usd = max(0.0, self._reserved_usd - reserved)
         # Release team-level reservation to mirror the cleanup done in charge_job().
         if team and reserved:
-            self._team_reserved[team] = max(
-                0.0, self._team_reserved.get(team, 0.0) - reserved
-            )
+            self._team_reserved[team] = max(0.0, self._team_reserved.get(team, 0.0) - reserved)
 
     def remaining(self, level: str = "org", key: str = "") -> float:
         """
@@ -300,13 +306,17 @@ class BudgetHierarchy:
         return {
             "org": {"max": self._org_max, "spent": self._org_spent},
             "team": {
-                k: {"max": self._team_max.get(k, self._org_max),
-                    "spent": self._team_spent.get(k, 0.0)}
+                k: {
+                    "max": self._team_max.get(k, self._org_max),
+                    "spent": self._team_spent.get(k, 0.0),
+                }
                 for k in set(list(self._team_max.keys()) + list(self._team_spent.keys()))
             },
             "job": {
-                k: {"max": self._job_max.get(k, self._org_max),
-                    "spent": self._job_spent.get(k, 0.0)}
+                k: {
+                    "max": self._job_max.get(k, self._org_max),
+                    "spent": self._job_spent.get(k, 0.0),
+                }
                 for k in set(list(self._job_max.keys()) + list(self._job_spent.keys()))
             },
         }
@@ -315,6 +325,7 @@ class BudgetHierarchy:
 # ─────────────────────────────────────────────────────────────────────────────
 # CostPredictor
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class CostPredictor:
     """
@@ -346,12 +357,12 @@ class CostPredictor:
     def record(self, model: Model, task_type: TaskType, actual_cost_usd: float) -> None:
         """Update the EMA for (model, task_type) with the observed cost."""
         if actual_cost_usd <= 0:
-            return   # don't corrupt EMA with zero/negative costs (cache hits, free calls)
+            return  # don't corrupt EMA with zero/negative costs (cache hits, free calls)
         key = (model, task_type)
         if key in self._ema:
             self._ema[key] = self._alpha * actual_cost_usd + (1 - self._alpha) * self._ema[key]
         else:
-            self._ema[key] = actual_cost_usd   # seed with first observed value
+            self._ema[key] = actual_cost_usd  # seed with first observed value
 
     def predict(self, model: Model, task_type: TaskType) -> float:
         """
@@ -369,7 +380,7 @@ class CostPredictor:
 
     def _static_estimate(self, model: Model, task_type: TaskType) -> float:
         """Fallback: estimate cost from COST_TABLE + typical token counts."""
-        input_t  = _TYPICAL_INPUT_TOKENS.get(task_type, 500)
+        input_t = _TYPICAL_INPUT_TOKENS.get(task_type, 500)
         output_t = _TYPICAL_OUTPUT_TOKENS.get(task_type, 500)
         try:
             return estimate_cost(model, input_t, output_t)
@@ -378,7 +389,7 @@ class CostPredictor:
 
     def cheapest_model(
         self,
-        task_type:  TaskType,
+        task_type: TaskType,
         candidates: list[Model],
     ) -> Model | None:
         """Return the candidate model with the lowest predicted cost for task_type."""
@@ -391,6 +402,7 @@ class CostPredictor:
 # CostForecaster
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class CostForecaster:
     """
     Pre-flight project-level cost and time estimator.
@@ -401,10 +413,10 @@ class CostForecaster:
 
     @staticmethod
     def forecast(
-        tasks:     list[Task],
-        profiles:  dict[Model, ModelProfile],
+        tasks: list[Task],
+        profiles: dict[Model, ModelProfile],
         predictor: CostPredictor,
-        budget:    Budget | None = None,
+        budget: Budget | None = None,
     ) -> ForecastReport:
         """
         Estimate total cost and time for the given task list.
@@ -431,34 +443,36 @@ class CostForecaster:
         # Pick the cheapest available model per task type for estimation
         all_models = list(profiles.keys())
 
-        total_gen_cost    = 0.0
+        total_gen_cost = 0.0
         total_review_cost = 0.0
-        total_eval_cost   = 0.0
-        total_time        = 0.0
+        total_eval_cost = 0.0
+        total_time = 0.0
 
         for task in tasks:
             task_type = getattr(task, "type", TaskType.CODE_GEN)
-            cheapest = predictor.cheapest_model(task_type, all_models) or (all_models[0] if all_models else None)
+            cheapest = predictor.cheapest_model(task_type, all_models) or (
+                all_models[0] if all_models else None
+            )
             if cheapest is None:
                 continue
 
             per_call = predictor.predict(cheapest, task_type)
-            max_iter    = getattr(task, "max_iterations", 1) or 1
-            gen_cost    = per_call * max_iter              # N generation calls (one per iteration)
-            review_cost = per_call * max_iter              # N cross-review calls (one per iteration)
-            eval_cost   = per_call * _EVAL_OVERHEAD        # ~15% for evaluation (once per task)
+            max_iter = getattr(task, "max_iterations", 1) or 1
+            gen_cost = per_call * max_iter  # N generation calls (one per iteration)
+            review_cost = per_call * max_iter  # N cross-review calls (one per iteration)
+            eval_cost = per_call * _EVAL_OVERHEAD  # ~15% for evaluation (once per task)
 
-            total_gen_cost    += gen_cost
+            total_gen_cost += gen_cost
             total_review_cost += review_cost
-            total_eval_cost   += eval_cost
-            total_time        += _TYPICAL_TASK_SECONDS.get(task_type, 60.0)
+            total_eval_cost += eval_cost
+            total_time += _TYPICAL_TASK_SECONDS.get(task_type, 60.0)
 
         estimated_total = total_gen_cost + total_review_cost + total_eval_cost
 
         per_phase = {
-            "generation":   total_gen_cost,
+            "generation": total_gen_cost,
             "cross_review": total_review_cost,
-            "evaluation":   total_eval_cost,
+            "evaluation": total_eval_cost,
         }
 
         # Risk level relative to budget
@@ -467,7 +481,7 @@ class CostForecaster:
         elif budget is not None:
             ratio = 1.0
         else:
-            ratio = 0.0   # no budget → unknown risk, treat as LOW
+            ratio = 0.0  # no budget → unknown risk, treat as LOW
 
         if ratio >= 0.8:
             risk = RiskLevel.HIGH

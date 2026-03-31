@@ -45,6 +45,7 @@ from .log_config import get_logger
 # Import BM25 search for hybrid retrieval
 try:
     from .bm25_search import BM25Search, get_bm25_search
+
     HAS_BM25 = True
 except ImportError:
     HAS_BM25 = False
@@ -55,13 +56,15 @@ logger = get_logger(__name__)
 
 class MemoryTier(Enum):
     """Memory tier based on age."""
-    HOT = "hot"     # Days 1-3: Raw JSONL, instant search
-    WARM = "warm"   # Days 4-30: Summarized + embedded
-    COLD = "cold"   # Day 30+: Compressed archive
+
+    HOT = "hot"  # Days 1-3: Raw JSONL, instant search
+    WARM = "warm"  # Days 4-30: Summarized + embedded
+    COLD = "cold"  # Day 30+: Compressed archive
 
 
 class MemoryType(Enum):
     """Type of memory."""
+
     TASK = "task"
     CONVERSATION = "conversation"
     KNOWLEDGE = "knowledge"
@@ -72,6 +75,7 @@ class MemoryType(Enum):
 @dataclass
 class MemoryEntry:
     """A single memory entry."""
+
     id: str
     project_id: str
     content: str
@@ -173,7 +177,7 @@ class MemoryTierManager:
         # Load HOT tier
         for file_path in self.tier_paths[MemoryTier.HOT].glob("*.json"):
             try:
-                with open(file_path, encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
                     entry = MemoryEntry.from_dict(data)
                     self._hot_index[entry.id] = entry
@@ -183,7 +187,7 @@ class MemoryTierManager:
         # Load WARM tier
         for file_path in self.tier_paths[MemoryTier.WARM].glob("*.json"):
             try:
-                with open(file_path, encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
                     entry = MemoryEntry.from_dict(data)
                     self._warm_index[entry.id] = entry
@@ -196,7 +200,7 @@ class MemoryTierManager:
         """Save memory to disk."""
         file_path = self._memory_file_path(entry.tier, entry.id)
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(entry.to_dict(), f, indent=2)
 
     def _get_tier_for_age(self, age_days: int) -> MemoryTier:
@@ -246,7 +250,11 @@ class MemoryTierManager:
                 doc_id=memory_id,
                 project_id=project_id,
                 content=content,
-                metadata={"memory_type": memory_type.value, **metadata} if metadata else {"memory_type": memory_type.value},
+                metadata=(
+                    {"memory_type": memory_type.value, **metadata}
+                    if metadata
+                    else {"memory_type": memory_type.value}
+                ),
             )
 
         logger.debug(f"Stored memory {memory_id} in HOT tier")
@@ -394,7 +402,7 @@ class MemoryTierManager:
         # Check COLD (load if found)
         for file_path in self.tier_paths[MemoryTier.COLD].glob("*.json"):
             try:
-                with open(file_path, encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
                     if data["id"] == memory_id:
                         entry = MemoryEntry.from_dict(data)
@@ -534,7 +542,7 @@ class MemoryTierManager:
         # Delete from COLD
         for file_path in self.tier_paths[MemoryTier.COLD].glob("*.json"):
             try:
-                with open(file_path, encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
                     if data["project_id"] == project_id:
                         file_path.unlink()

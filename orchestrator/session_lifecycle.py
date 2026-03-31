@@ -11,6 +11,7 @@ Usage:
     await manager.stop()           # cancel background task
     await manager.run_migration()  # run one cycle manually
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -59,9 +60,7 @@ class SessionLifecycleManager:
             logger.debug("SessionLifecycleManager scheduler already running")
             return
         self._task = asyncio.create_task(self._scheduler_loop())
-        logger.info(
-            "SessionLifecycleManager started (interval=%ds)", self._interval
-        )
+        logger.info("SessionLifecycleManager started (interval=%ds)", self._interval)
 
     async def stop(self) -> None:
         """Cancel the background scheduler and wait for it to finish."""
@@ -71,7 +70,6 @@ class SessionLifecycleManager:
                 await self._task
             except asyncio.CancelledError:
                 pass
-
 
         logger.info("SessionLifecycleManager stopped")
 

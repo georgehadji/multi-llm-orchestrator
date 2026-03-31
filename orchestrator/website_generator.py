@@ -6,6 +6,7 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 Main pipeline for generating websites using design system-driven approach.
 Integrates with existing Orchestrator engine for parallel execution.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ClientInfo:
     """Client information for website generation."""
+
     name: str = ""
     industry: str = ""
     location: str = ""
@@ -38,20 +40,21 @@ class ClientInfo:
     def from_dict(cls, data: dict) -> ClientInfo:
         """Create ClientInfo from dictionary."""
         return cls(
-            name=data.get('name', ''),
-            industry=data.get('industry', ''),
-            location=data.get('location', ''),
-            description=data.get('description', ''),
-            target_audience=data.get('target_audience', ''),
-            competitors=data.get('competitors', []),
-            preferences=data.get('preferences', {}),
+            name=data.get("name", ""),
+            industry=data.get("industry", ""),
+            location=data.get("location", ""),
+            description=data.get("description", ""),
+            target_audience=data.get("target_audience", ""),
+            competitors=data.get("competitors", []),
+            preferences=data.get("preferences", {}),
         )
 
     @classmethod
     def from_yaml(cls, path: Path) -> ClientInfo:
         """Load client info from YAML file."""
         import yaml
-        with open(path, encoding='utf-8') as f:
+
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return cls.from_dict(data)
 
@@ -59,10 +62,19 @@ class ClientInfo:
 @dataclass
 class WebsiteConfig:
     """Configuration for website generation."""
+
     page_type: str = "landing"  # "landing", "saas", "portfolio", "ecommerce"
-    sections: list[str] = field(default_factory=lambda: [
-        "hero", "features", "pricing", "testimonials", "faq", "cta", "footer"
-    ])
+    sections: list[str] = field(
+        default_factory=lambda: [
+            "hero",
+            "features",
+            "pricing",
+            "testimonials",
+            "faq",
+            "cta",
+            "footer",
+        ]
+    )
     framework: str = "next.js"  # "next.js", "react", "html"
     styling: str = "tailwind"  # "tailwind", "css-modules", "styled-components"
     include_dark_mode: bool = False
@@ -74,6 +86,7 @@ class WebsiteConfig:
 @dataclass
 class WebsiteBuildResult:
     """Result of website generation."""
+
     success: bool = False
     output_dir: str = ""
     design_system: DesignSystem | None = None
@@ -207,6 +220,7 @@ class WebsiteGenerator:
         WebsiteBuildResult with generated files and quality report
         """
         import time
+
         start_time = time.time()
 
         output_dir = Path(output_dir)
@@ -270,6 +284,7 @@ class WebsiteGenerator:
             # Step 6: Generate quality report
             logger.info("WebsiteGenerator: validating quality...")
             from .website_validator import WebsiteQualityValidator
+
             validator = WebsiteQualityValidator()
             quality_report = await validator.validate(output_dir)
             result.quality_report = quality_report
@@ -390,7 +405,8 @@ Export as default export. Include TypeScript types.
 
         for section in sections:
             component_path = components_dir / f"{section}.tsx"
-            component_path.write_text(f"""
+            component_path.write_text(
+                f"""
 // {section} component
 // Generated with Design System: {design_system.tone.value}
 
@@ -402,12 +418,15 @@ export default function {section.title()}() {{
     </section>
   )
 }}
-""", encoding='utf-8')
+""",
+                encoding="utf-8",
+            )
 
         # Write design system tokens
         tokens_path = output_dir / "design_system.json"
         import json
-        with open(tokens_path, 'w', encoding='utf-8') as f:
+
+        with open(tokens_path, "w", encoding="utf-8") as f:
             json.dump(design_system.to_dict(), f, indent=2)
 
     def _assemble_page(
@@ -431,30 +450,30 @@ export default function {section.title()}() {{
         config: WebsiteConfig,
     ) -> None:
         """Assemble Next.js page."""
-        page_content = '''
+        page_content = """
 "use client"
 
 import { useState, useEffect } from 'react'
-'''
+"""
         # Import all components
         for section in sections:
             page_content += f"import {section.title()} from '@/components/{section}'\n"
 
-        page_content += f'''
+        page_content += f"""
 
 export default function HomePage() {{
   return (
     <main className="min-h-screen bg-[{design_system.colors.surface}]">
-'''
+"""
         # Add all sections
         for section in sections:
             page_content += f"      <{section.title()} />\n"
 
-        page_content += '''
+        page_content += """
     </main>
   )
 }
-'''
+"""
 
         # Write page file
         if config.framework == "next.js":
@@ -462,7 +481,7 @@ export default function HomePage() {{
         else:
             page_path = output_dir / "App.tsx"
 
-        page_path.write_text(page_content, encoding='utf-8')
+        page_path.write_text(page_content, encoding="utf-8")
 
         # Write Tailwind config with design tokens
         self._write_tailwind_config(output_dir, design_system)
@@ -483,7 +502,7 @@ export default function HomePage() {{
         design_system: DesignSystem,
     ) -> None:
         """Write Tailwind CSS configuration with design tokens."""
-        tailwind_config = f'''
+        tailwind_config = f"""
 /** @type {{import('tailwindcss').Config}} */
 module.exports = {{
   content: [
@@ -530,10 +549,10 @@ module.exports = {{
   }},
   plugins: [],
 }}
-'''
+"""
 
         config_path = output_dir / "tailwind.config.js"
-        config_path.write_text(tailwind_config, encoding='utf-8')
+        config_path.write_text(tailwind_config, encoding="utf-8")
 
 
 async def generate_website(

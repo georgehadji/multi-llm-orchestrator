@@ -21,7 +21,7 @@ def validate_toml(file_path: Path) -> tuple[bool, str]:
         (is_valid, error_message)
     """
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             tomllib.load(f)
         return True, ""
     except tomllib.TOMLDecodeError as e:
@@ -34,12 +34,12 @@ def fix_toml_newlines(file_path: Path) -> bool:
 
     This is a common issue when LLMs generate TOML with multi-line strings.
     """
-    content = file_path.read_text(encoding='utf-8')
+    content = file_path.read_text(encoding="utf-8")
     original = content
 
     # Find and fix multi-line strings in TOML values
     # Pattern: key = "value\ncontinued"
-    lines = content.split('\n')
+    lines = content.split("\n")
     fixed_lines = []
     i = 0
 
@@ -47,7 +47,7 @@ def fix_toml_newlines(file_path: Path) -> bool:
         line = lines[i]
 
         # Check if line has unclosed string
-        if '=' in line and '"' in line:
+        if "=" in line and '"' in line:
             # Count quotes
             quote_count = line.count('"') - line.count('\\"')
 
@@ -58,7 +58,7 @@ def fix_toml_newlines(file_path: Path) -> bool:
                     i += 1
                     next_line = lines[i].strip()
                     # Remove leading/trailing whitespace but keep content
-                    merged = merged + ' ' + next_line
+                    merged = merged + " " + next_line
                     quote_count += next_line.count('"') - next_line.count('\\"')
 
                 # Now merge into single line
@@ -68,14 +68,14 @@ def fix_toml_newlines(file_path: Path) -> bool:
         fixed_lines.append(line)
         i += 1
 
-    content = '\n'.join(fixed_lines)
+    content = "\n".join(fixed_lines)
 
     # Additional fix: Replace literal \n in strings with space
     # This handles cases like: description = "text\ncontinued"
     content = re.sub(r'"([^"]*)\\n([^"]*)"', r'"\1 \2"', content)
 
     if content != original:
-        file_path.write_text(content, encoding='utf-8')
+        file_path.write_text(content, encoding="utf-8")
         print(f"✅ Fixed TOML file: {file_path}")
         return True
 

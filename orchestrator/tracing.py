@@ -14,6 +14,7 @@ Usage:
         # Execute task
         result = await orchestrator.run_task(task)
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,11 +48,9 @@ class Span:
 
     def add_event(self, name: str, attributes: dict[str, Any] | None = None):
         """Add an event to the span."""
-        self.events.append({
-            "name": name,
-            "attributes": attributes or {},
-            "timestamp": self._get_timestamp()
-        })
+        self.events.append(
+            {"name": name, "attributes": attributes or {}, "timestamp": self._get_timestamp()}
+        )
 
     def set_status(self, status: str):
         """Set the status of the span."""
@@ -60,6 +59,7 @@ class Span:
     def _get_timestamp(self) -> float:
         """Get the current timestamp."""
         import time
+
         return time.time()
 
 
@@ -75,7 +75,9 @@ class Tracer:
         self.exporter = None  # Will be set when exporter is configured
 
     @contextmanager
-    def trace(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[Span, None, None]:
+    def trace(
+        self, name: str, attributes: dict[str, Any] | None = None
+    ) -> Generator[Span, None, None]:
         """
         Create and manage a tracing span.
 
@@ -174,7 +176,9 @@ class Tracer:
             self._export_spans()
 
     @contextmanager
-    def start_as_current_span(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[Span, None, None]:
+    def start_as_current_span(
+        self, name: str, attributes: dict[str, Any] | None = None
+    ) -> Generator[Span, None, None]:
         """
         Start a span and make it the current active span (OpenTelemetry-style API).
 
@@ -321,23 +325,29 @@ def trace_function(tracer: Tracer | None = None, span_name: str | None = None):
         tracer: Tracer instance to use (defaults to global tracer)
         span_name: Name for the span (defaults to function name)
     """
+
     def decorator(func):
         async def async_wrapper(*args, **kwargs):
             t = tracer or get_tracer()
             name = span_name or func.__name__
 
-            with t.trace(name, {"function.args.count": len(args), "function.kwargs.count": len(kwargs)}):
+            with t.trace(
+                name, {"function.args.count": len(args), "function.kwargs.count": len(kwargs)}
+            ):
                 return await func(*args, **kwargs)
 
         def sync_wrapper(*args, **kwargs):
             t = tracer or get_tracer()
             name = span_name or func.__name__
 
-            with t.trace(name, {"function.args.count": len(args), "function.kwargs.count": len(kwargs)}):
+            with t.trace(
+                name, {"function.args.count": len(args), "function.kwargs.count": len(kwargs)}
+            ):
                 return func(*args, **kwargs)
 
         # Return the appropriate wrapper based on whether the function is async
         import inspect
+
         if inspect.iscoroutinefunction(func):
             return async_wrapper
         else:
@@ -352,7 +362,9 @@ class ConsoleExporter:
     def export(self, spans: list[Span]):
         """Export spans to console."""
         for span in spans:
-            duration = (span.end_time - span.start_time) * 1000 if span.end_time and span.start_time else 0
+            duration = (
+                (span.end_time - span.start_time) * 1000 if span.end_time and span.start_time else 0
+            )
             print(f"[TRACE] {span.name} - {duration:.2f}ms - Status: {span.status}")
             for attr_key, attr_val in span.attributes.items():
                 print(f"  {attr_key}: {attr_val}")
@@ -382,9 +394,11 @@ class InMemoryExporter:
 # missing from this module, causing an ImportError at startup.
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TracingConfig:
     """Minimal tracing configuration passed to Orchestrator.__init__."""
+
     enabled: bool = True
     service_name: str = "orchestrator"
     export_endpoint: str = ""

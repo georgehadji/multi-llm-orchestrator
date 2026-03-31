@@ -35,6 +35,7 @@ logger = get_logger(__name__)
 @dataclass
 class CacheEntry:
     """Cache entry metadata."""
+
     key: str
     created_at: float
     last_accessed: float
@@ -45,6 +46,7 @@ class CacheEntry:
 @dataclass
 class CacheMetrics:
     """Metrics for prompt caching."""
+
     hits: int = 0
     misses: int = 0
     warmings: int = 0
@@ -138,7 +140,7 @@ class PromptCacher:
                 ]
 
             # Make dummy call to warm cache
-            if self.client and hasattr(self.client, 'messages'):
+            if self.client and hasattr(self.client, "messages"):
                 await self.client.messages.create(
                     model=model,
                     system=system_content,
@@ -209,7 +211,7 @@ class PromptCacher:
 
         try:
             # Make API call with cached system prompt
-            if self.client and hasattr(self.client, 'messages'):
+            if self.client and hasattr(self.client, "messages"):
                 response = await self.client.messages.create(
                     model=model,
                     system=system_content,
@@ -270,11 +272,13 @@ class PromptCacher:
             # Anthropic cache_control format
             response = await self.client.messages.create(
                 model=model,
-                system=[{
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=messages,
                 **kwargs,
             )
@@ -364,6 +368,7 @@ class PromptCacher:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def warm_prompt_cache(
     system_prompt: str,

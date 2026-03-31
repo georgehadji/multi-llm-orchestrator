@@ -49,22 +49,25 @@ logger = get_logger(__name__)
 
 class OptimizationDirection(Enum):
     """Direction of optimization."""
+
     MAXIMIZE = "maximize"
     MINIMIZE = "minimize"
 
 
 class TuningStrategy(Enum):
     """Tuning strategy options."""
-    EMA_TRACKING = "ema"           # Exponential moving average
-    BAYESIAN = "bayesian"          # Simplified Bayesian
-    BANDIT = "bandit"              # Multi-armed bandit
-    GRID_SEARCH = "grid"           # Grid search
-    ADAPTIVE = "adaptive"          # Adaptive based on variance
+
+    EMA_TRACKING = "ema"  # Exponential moving average
+    BAYESIAN = "bayesian"  # Simplified Bayesian
+    BANDIT = "bandit"  # Multi-armed bandit
+    GRID_SEARCH = "grid"  # Grid search
+    ADAPTIVE = "adaptive"  # Adaptive based on variance
 
 
 @dataclass
 class ParameterConfig:
     """Configuration for a tunable parameter."""
+
     name: str
     current_value: float
     min_value: float
@@ -89,9 +92,7 @@ class ParameterConfig:
             "max_value": self.max_value,
             "direction": self.direction.value,
             "strategy": self.strategy.value,
-            "history": [
-                (t.isoformat(), v, m) for t, v, m in self.history
-            ],
+            "history": [(t.isoformat(), v, m) for t, v, m in self.history],
             "ema_alpha": self.ema_alpha,
         }
 
@@ -99,6 +100,7 @@ class ParameterConfig:
 @dataclass
 class TuningResult:
     """Result of a tuning operation."""
+
     parameter_name: str
     old_value: float
     new_value: float
@@ -122,6 +124,7 @@ class TuningResult:
 @dataclass
 class DriftConfig:
     """Configuration for drift detection."""
+
     metric_name: str
     window_size: int = 30
     threshold_std: float = 2.0  # Standard deviations
@@ -149,7 +152,7 @@ class DriftConfig:
 
         # Check recent window
         if len(self.recent_values) >= self.window_size:
-            recent = list(self.recent_values)[-self.window_size:]
+            recent = list(self.recent_values)[-self.window_size :]
             recent_mean = statistics.mean(recent)
 
             # Detect drift
@@ -184,10 +187,7 @@ class MultiArmedBandit:
 
     def select_arm(self) -> int:
         """Select arm using Thompson Sampling."""
-        samples = [
-            random.betavariate(self.alpha[i], self.beta[i])
-            for i in range(self.n_arms)
-        ]
+        samples = [random.betavariate(self.alpha[i], self.beta[i]) for i in range(self.n_arms)]
         return max(range(self.n_arms), key=lambda i: samples[i])
 
     def update(self, arm: int, reward: float) -> None:
@@ -196,14 +196,11 @@ class MultiArmedBandit:
         # Reward should be in [0, 1]
         reward = max(0, min(1, reward))
         self.alpha[arm] += reward
-        self.beta[arm] += (1 - reward)
+        self.beta[arm] += 1 - reward
 
     def get_best_arm(self) -> int:
         """Get arm with highest expected reward."""
-        expected = [
-            self.alpha[i] / (self.alpha[i] + self.beta[i])
-            for i in range(self.n_arms)
-        ]
+        expected = [self.alpha[i] / (self.alpha[i] + self.beta[i]) for i in range(self.n_arms)]
         return max(range(self.n_arms), key=lambda i: expected[i])
 
 
@@ -232,9 +229,7 @@ class AutoTuner:
         self._bandits: dict[str, MultiArmedBandit] = {}
 
         # Performance tracking
-        self._metric_history: dict[str, deque] = defaultdict(
-            lambda: deque(maxlen=1000)
-        )
+        self._metric_history: dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
 
         # Load saved state
         self._load_state()
@@ -464,10 +459,7 @@ class AutoTuner:
             candidate = max(param.min_value, min(param.max_value, candidate))
 
             # Find similar historical values
-            similar = [
-                (v, m) for _, v, m in param.history
-                if abs(v - candidate) < 0.05
-            ]
+            similar = [(v, m) for _, v, m in param.history if abs(v - candidate) < 0.05]
 
             if similar:
                 avg_metric = statistics.mean(m for _, m in similar)
@@ -495,8 +487,11 @@ class AutoTuner:
         bandit = self._bandits[param_name]
 
         # Map current value to arm
-        current_arm = int((param.current_value - param.min_value) /
-                         (param.max_value - param.min_value) * (n_arms - 1))
+        current_arm = int(
+            (param.current_value - param.min_value)
+            / (param.max_value - param.min_value)
+            * (n_arms - 1)
+        )
 
         # Update bandit
         bandit.update(current_arm, metric_value)
@@ -541,10 +536,7 @@ class AutoTuner:
     ) -> float:
         """Estimate expected improvement from tuning."""
         # Based on historical performance at similar parameter values
-        similar = [
-            m for _, v, m in param.history
-            if abs(v - param.current_value) < 0.05
-        ]
+        similar = [m for _, v, m in param.history if abs(v - param.current_value) < 0.05]
 
         if similar:
             avg = statistics.mean(similar)
@@ -607,13 +599,9 @@ class AutoTuner:
                     f"{name}: Need more samples ({len(param.history)}/{param.min_samples_before_tune})"
                 )
             elif param.current_value == param.min_value:
-                recommendations.append(
-                    f"{name}: At minimum - consider expanding range"
-                )
+                recommendations.append(f"{name}: At minimum - consider expanding range")
             elif param.current_value == param.max_value:
-                recommendations.append(
-                    f"{name}: At maximum - consider expanding range"
-                )
+                recommendations.append(f"{name}: At maximum - consider expanding range")
 
         return recommendations
 

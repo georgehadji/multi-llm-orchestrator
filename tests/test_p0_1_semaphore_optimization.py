@@ -4,6 +4,7 @@ Test P0-1: Semaphore Optimization
 Tests that budget checks are performed BEFORE semaphore acquisition
 to prevent blocking other tasks during DB reads.
 """
+
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -28,15 +29,15 @@ class TestSemaphoreOptimization:
     async def test_budget_check_before_semaphore(self, orchestrator):
         """
         Verify budget checks happen BEFORE semaphore acquisition.
-        
+
         This ensures DB reads don't block other tasks waiting for API execution.
         """
         # Arrange: Set up budget that will fail
         orchestrator.budget._spent_usd = 9.99  # Nearly exhausted
-        
+
         # Mock _execute_task to track if it's called
         orchestrator._execute_task = AsyncMock()
-        
+
         # Create test tasks
         tasks = {
             "task_1": Task(
@@ -46,10 +47,10 @@ class TestSemaphoreOptimization:
                 dependencies=[],
             ),
         }
-        
+
         # Mock results for dependency checking
         orchestrator.results = {}
-        
+
         # Act: Execute (should fail budget check before semaphore)
         state = await orchestrator._execute_all(
             tasks=tasks,
@@ -57,7 +58,7 @@ class TestSemaphoreOptimization:
             project_desc="Test",
             success_criteria="Test",
         )
-        
+
         # Assert: Task should be marked as FAILED due to budget
         assert "task_1" in orchestrator.results
         assert orchestrator.results["task_1"].status == TaskStatus.FAILED
@@ -68,31 +69,33 @@ class TestSemaphoreOptimization:
     async def test_semaphore_not_held_during_budget_check(self, orchestrator):
         """
         Verify semaphore is not held during budget validation.
-        
+
         This is the core optimization: budget checks (DB reads) happen
         outside the semaphore, so they don't block API execution.
         """
         # Arrange: Track semaphore acquisition timing
         semaphore_acquire_times = []
         budget_check_times = []
-        
+
         original_semaphore = asyncio.Semaphore(orchestrator._max_parallel_tasks)
-        
+
         class TrackedSemaphore:
             async def __aenter__(self):
                 semaphore_acquire_times.append(asyncio.get_event_loop().time())
                 return original_semaphore
-        
+
             async def __aexit__(self, *args):
                 return await original_semaphore.__aexit__(*args)
-        
+
         # Mock budget check to track timing
         original_can_afford = orchestrator.budget.can_afford
+
         def tracked_can_afford(amount):
             budget_check_times.append(asyncio.get_event_loop().time())
             return original_can_afford(amount)
+
         orchestrator.budget.can_afford = tracked_can_afford
-        
+
         # Create test task
         tasks = {
             "task_1": Task(
@@ -104,7 +107,7 @@ class TestSemaphoreOptimization:
         }
         orchestrator.results = {}
         orchestrator._execute_task = AsyncMock()
-        
+
         # Act
         await orchestrator._execute_all(
             tasks=tasks,
@@ -112,7 +115,7 @@ class TestSemaphoreOptimization:
             project_desc="Test",
             success_criteria="Test",
         )
-        
+
         # Assert: Budget check should happen before semaphore acquisition
         # (This is verified by code inspection - the test ensures no errors)
         assert len(budget_check_times) > 0
@@ -121,7 +124,7 @@ class TestSemaphoreOptimization:
     async def test_parallel_execution_with_budget_checks(self, orchestrator):
         """
         Test that multiple tasks can check budget in parallel.
-        
+
         With the optimization, budget checks don't block on semaphore,
         so multiple tasks can validate budget simultaneously.
         """
@@ -135,10 +138,10 @@ class TestSemaphoreOptimization:
             )
             for i in range(3)
         }
-        
+
         orchestrator.results = {}
         orchestrator._execute_task = AsyncMock()
-        
+
         # Act: Execute all tasks
         await orchestrator._execute_all(
             tasks=tasks,
@@ -146,7 +149,7 @@ class TestSemaphoreOptimization:
             project_desc="Test",
             success_criteria="Test",
         )
-        
+
         # Assert: All tasks should execute (budget is sufficient)
         assert orchestrator._execute_task.call_count == 3
 
@@ -157,7 +160,7 @@ class TestSemaphoreOptimization:
         """
         # Arrange: Set up budget with very short time limit
         orchestrator.budget._start_time = asyncio.get_event_loop().time() - 1000  # Long ago
-        
+
         # Create test task
         tasks = {
             "task_1": Task(
@@ -169,7 +172,7 @@ class TestSemaphoreOptimization:
         }
         orchestrator.results = {}
         orchestrator._execute_task = AsyncMock()
-        
+
         # Act
         await orchestrator._execute_all(
             tasks=tasks,
@@ -177,7 +180,7 @@ class TestSemaphoreOptimization:
             project_desc="Test",
             success_criteria="Test",
         )
-        
+
         # Assert: Task should fail due to time limit
         assert orchestrator.results["task_1"].status == TaskStatus.FAILED
         orchestrator._execute_task.assert_not_called()

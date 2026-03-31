@@ -13,6 +13,7 @@ Usage:
     optimizer = TokenOptimizer()
     compressed = optimizer.compress_command_output("git log", git_log_output)
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,8 +40,7 @@ class TokenOptimizer:
             "netstat": self._compress_netstat,
         }
 
-    def compress_command_output(self, command: str, output: str,
-                              target_ratio: float = 0.5) -> str:
+    def compress_command_output(self, command: str, output: str, target_ratio: float = 0.5) -> str:
         """
         Compress command output using the appropriate strategy.
 
@@ -72,7 +72,7 @@ class TokenOptimizer:
     def _normalize_command(self, command: str) -> str:
         """Normalize command name to a standard form."""
         # Extract base command name, ignoring arguments
-        base_cmd = command.split()[0].split('/')[-1].lower()
+        base_cmd = command.split()[0].split("/")[-1].lower()
 
         # Map variations to standard names
         cmd_mapping = {
@@ -87,7 +87,7 @@ class TokenOptimizer:
             "df": "df_h",
             "free": "free_m",
             "top": "top",
-            "netstat": "netstat"
+            "netstat": "netstat",
         }
 
         # Special handling for specific subcommands
@@ -106,24 +106,24 @@ class TokenOptimizer:
 
     def _compress_git_log(self, output: str, target_ratio: float) -> str:
         """Compress git log output."""
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         # Extract commit hashes and messages
         commits = []
         current_commit = {}
 
         for line in lines:
-            if line.startswith('commit '):
+            if line.startswith("commit "):
                 if current_commit:
                     commits.append(current_commit)
-                current_commit = {'hash': line.split()[1][:8], 'details': []}
-            elif line.startswith('Author:') or line.startswith('Date:'):
-                current_commit[line.split(':')[0].lower()] = line[len(line.split(':')[0])+2:]
+                current_commit = {"hash": line.split()[1][:8], "details": []}
+            elif line.startswith("Author:") or line.startswith("Date:"):
+                current_commit[line.split(":")[0].lower()] = line[len(line.split(":")[0]) + 2 :]
             else:
                 # Add other lines as details
-                if 'details' not in current_commit:
-                    current_commit['details'] = []
-                current_commit['details'].append(line)
+                if "details" not in current_commit:
+                    current_commit["details"] = []
+                current_commit["details"].append(line)
 
         # Add the last commit
         if current_commit:
@@ -139,21 +139,21 @@ class TokenOptimizer:
         result_lines = []
         for commit in selected_commits:
             result_lines.append(f"commit {commit['hash']}")
-            if 'author' in commit:
+            if "author" in commit:
                 result_lines.append(f"Author: {commit['author']}")
-            if 'date' in commit:
+            if "date" in commit:
                 result_lines.append(f"Date: {commit['date']}")
-            result_lines.extend(commit.get('details', []))
+            result_lines.extend(commit.get("details", []))
             result_lines.append("")  # Empty line between commits
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _compress_pytest_output(self, output: str, target_ratio: float) -> str:
         """Compress pytest output."""
         # Extract key information: passed, failed, skipped counts
-        summary_match = re.search(r'(\d+) passed, (\d+) failed, (\d+) error, (\d+) skipped', output)
+        summary_match = re.search(r"(\d+) passed, (\d+) failed, (\d+) error, (\d+) skipped", output)
         if not summary_match:
-            summary_match = re.search(r'(\d+) passed, (\d+) failed', output)
+            summary_match = re.search(r"(\d+) passed, (\d+) failed", output)
 
         if summary_match:
             # Start with the summary
@@ -163,24 +163,26 @@ class TokenOptimizer:
 
         # Extract failure details if any
         failure_sections = []
-        lines = output.split('\n')
+        lines = output.split("\n")
         in_failure = False
         current_failure = []
 
         for line in lines:
-            if 'FAILED' in line or line.strip().startswith('_ test'):
+            if "FAILED" in line or line.strip().startswith("_ test"):
                 in_failure = True
                 if current_failure:
-                    failure_sections.append('\n'.join(current_failure))
+                    failure_sections.append("\n".join(current_failure))
                     if len(failure_sections) >= 5:  # Limit to top 5 failures
                         break
                 current_failure = [line]
             elif in_failure:
-                if line.strip() == '' and len(current_failure) > 5:  # End of failure block
+                if line.strip() == "" and len(current_failure) > 5:  # End of failure block
                     # Check if we're moving to a new test or end of output
-                    next_nonempty = next((l for l in lines[lines.index(line)+1:] if l.strip()), '')
-                    if next_nonempty.strip().startswith('===') or 'passed' in next_nonempty.lower():
-                        failure_sections.append('\n'.join(current_failure))
+                    next_nonempty = next(
+                        (l for l in lines[lines.index(line) + 1 :] if l.strip()), ""
+                    )
+                    if next_nonempty.strip().startswith("===") or "passed" in next_nonempty.lower():
+                        failure_sections.append("\n".join(current_failure))
                         current_failure = []
                         in_failure = False
                     else:
@@ -190,7 +192,7 @@ class TokenOptimizer:
 
         # Add the last failure if exists
         if current_failure and len(failure_sections) < 5:
-            failure_sections.append('\n'.join(current_failure))
+            failure_sections.append("\n".join(current_failure))
 
         # Combine summary and limited failures
         result = summary
@@ -199,9 +201,9 @@ class TokenOptimizer:
             result += "\n\n".join(failure_sections)
 
         # Add final summary if not included in our extracted text
-        if '=====' in output:
+        if "=====" in output:
             # Extract the final summary section
-            parts = output.split('=====')
+            parts = output.split("=====")
             if len(parts) > 1:
                 final_summary = parts[-1]
                 result += f"\n\n{final_summary}"
@@ -210,16 +212,18 @@ class TokenOptimizer:
 
     def _compress_eslint_output(self, output: str, target_ratio: float) -> str:
         """Compress ESLint output."""
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         # Extract summary information
         summary_lines = []
         detail_lines = []
 
         for line in lines:
-            if re.match(r'^\s*\d+ problems? \(\d+ errors?, \d+ warnings?\)', line):
+            if re.match(r"^\s*\d+ problems? \(\d+ errors?, \d+ warnings?\)", line):
                 summary_lines.append(line)
-            elif re.match(r'^.*:\d+:\d+\s+', line) or '[Error]' in line or '[Warning]' in line:  # Lines with file:line:col
+            elif (
+                re.match(r"^.*:\d+:\d+\s+", line) or "[Error]" in line or "[Warning]" in line
+            ):  # Lines with file:line:col
                 detail_lines.append(line)
 
         # Calculate how many details to keep based on target ratio
@@ -229,11 +233,11 @@ class TokenOptimizer:
         result_lines = summary_lines
         result_lines.extend(detail_lines[:target_details])
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _compress_docker_ps(self, output: str, target_ratio: float) -> str:
         """Compress docker ps output."""
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         if not lines:
             return output
@@ -249,11 +253,11 @@ class TokenOptimizer:
         result_lines = [header]
         result_lines.extend(containers[:target_containers])
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _compress_npm_ls(self, output: str, target_ratio: float) -> str:
         """Compress npm ls output."""
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         # Count depth levels to identify packages
         packages = []
@@ -261,7 +265,7 @@ class TokenOptimizer:
             # Count leading spaces or tree characters to determine depth
             depth = 0
             for char in line:
-                if char in [' ', '|', '+', '-']:
+                if char in [" ", "|", "+", "-"]:
                     depth += 1
                 else:
                     break
@@ -285,11 +289,11 @@ class TokenOptimizer:
                 kept_count += 1
                 current_depth = depth
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _compress_ps_aux(self, output: str, target_ratio: float) -> str:
         """Compress ps aux output."""
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         if not lines:
             return output
@@ -306,11 +310,11 @@ class TokenOptimizer:
         result_lines = [header]
         result_lines.extend(processes[:target_processes])
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _compress_df_h(self, output: str, target_ratio: float) -> str:
         """Compress df -h output."""
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         if not lines:
             return output
@@ -328,18 +332,18 @@ class TokenOptimizer:
         # Optionally filter out less important filesystems
         important_fs = []
         for fs in filesystems:
-            if fs.strip() and not any(skip in fs for skip in ['tmpfs', 'devtmpfs', 'overlay']):
+            if fs.strip() and not any(skip in fs for skip in ["tmpfs", "devtmpfs", "overlay"]):
                 important_fs.append(fs)
 
         result_lines.extend(important_fs[:target_filesystems])
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _compress_free_m(self, output: str, target_ratio: float) -> str:
         """Compress free -m output."""
         # Free output is usually just a few lines, so just return as is if small
         # Otherwise, return just the main memory info
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         # If already small, return as is
         if len(lines) <= 5:
@@ -347,15 +351,15 @@ class TokenOptimizer:
 
         # Otherwise, return just the main memory line
         for line in lines:
-            if line.startswith('Mem:') or line.startswith('Swap:'):
+            if line.startswith("Mem:") or line.startswith("Swap:"):
                 return f"MEMORY USAGE:\n{line}"
 
         # If no Mem: or Swap: line found, return first few lines
-        return '\n'.join(lines[:3])
+        return "\n".join(lines[:3])
 
     def _compress_top(self, output: str, target_ratio: float) -> str:
         """Compress top output."""
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         # Keep header lines (first few lines with system info)
         header_lines = []
@@ -363,7 +367,7 @@ class TokenOptimizer:
 
         in_processes = False
         for line in lines:
-            if not in_processes and ('PID' in line and 'USER' in line):
+            if not in_processes and ("PID" in line and "USER" in line):
                 in_processes = True
                 process_lines.append(line)
             elif in_processes:
@@ -378,11 +382,11 @@ class TokenOptimizer:
         result_lines = header_lines
         result_lines.extend(process_lines[:target_processes])
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _compress_netstat(self, output: str, target_ratio: float) -> str:
         """Compress netstat output."""
-        lines = output.split('\n')
+        lines = output.split("\n")
 
         if not lines:
             return output
@@ -398,12 +402,12 @@ class TokenOptimizer:
         result_lines = [header]
         result_lines.extend(connections[:target_connections])
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def _generic_compress(self, output: str, target_ratio: float) -> str:
         """Generic compression when no specific strategy applies."""
         # Simple approach: keep the first and last portions, drop the middle
-        lines = output.split('\n')
+        lines = output.split("\n")
         total_lines = len(lines)
 
         if total_lines <= 10:  # Already small
@@ -423,7 +427,7 @@ class TokenOptimizer:
         if tail_lines > 0 and len(lines) > header_lines:
             result_lines.extend(lines[-tail_lines:])
 
-        return '\n'.join(result_lines)
+        return "\n".join(result_lines)
 
     def get_compression_ratio(self, original: str, compressed: str) -> float:
         """

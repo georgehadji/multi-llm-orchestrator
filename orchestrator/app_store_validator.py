@@ -36,6 +36,7 @@ logger = get_logger(__name__)
 
 class AppStorePlatform(Enum):
     """Target app store platform."""
+
     IOS = "ios"  # Apple App Store
     ANDROID = "android"  # Google Play Store
     WEB = "web"  # PWA / Web App
@@ -44,6 +45,7 @@ class AppStorePlatform(Enum):
 
 class GuidelineCategory(Enum):
     """App Store Guideline Categories."""
+
     COMPLETENESS = "2.1_completeness"
     SELF_CONTAINED = "2.5.2_self_contained"
     MINIMUM_FUNCTIONALITY = "4.2_minimum_functionality"
@@ -57,6 +59,7 @@ class GuidelineCategory(Enum):
 @dataclass
 class ComplianceCheck:
     """A single compliance check."""
+
     id: str
     category: GuidelineCategory
     guideline: str
@@ -78,6 +81,7 @@ class ComplianceCheck:
 @dataclass
 class AppStoreComplianceResult:
     """Result of app store compliance validation."""
+
     platform: AppStorePlatform
     violations: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -466,7 +470,7 @@ class AppStoreValidator:
         result.metadata = {
             "platform": platform.value,
             "source_files": len(source_files),
-            "total_lines": sum(len(c.split('\n')) for c in content_map.values()),
+            "total_lines": sum(len(c.split("\n")) for c in content_map.values()),
         }
 
         return result
@@ -484,7 +488,15 @@ class AppStoreValidator:
         elif platform == AppStorePlatform.ANDROID:
             patterns = ["**/*.kt", "**/*.java", "**/*.xml"]
         elif platform == AppStorePlatform.WEB:
-            patterns = ["**/*.html", "**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.css", "manifest.json"]
+            patterns = [
+                "**/*.html",
+                "**/*.js",
+                "**/*.ts",
+                "**/*.tsx",
+                "**/*.jsx",
+                "**/*.css",
+                "manifest.json",
+            ]
         else:
             patterns = ["**/*"]
 
@@ -833,9 +845,16 @@ class AppStoreValidator:
         all_content = "\n".join(content_map.values())
 
         # Check if app uses AI
-        ai_usage = any(re.search(p, all_content, re.IGNORECASE) for p in [
-            r"openai", r"anthropic", r"gemini", r"llm", r"chatgpt",
-        ])
+        ai_usage = any(
+            re.search(p, all_content, re.IGNORECASE)
+            for p in [
+                r"openai",
+                r"anthropic",
+                r"gemini",
+                r"llm",
+                r"chatgpt",
+            ]
+        )
 
         if not ai_usage:
             return True, ""  # No AI = no labeling needed
@@ -865,9 +884,16 @@ class AppStoreValidator:
         all_content = "\n".join(content_map.values())
 
         # Check if app uses AI
-        ai_usage = any(re.search(p, all_content, re.IGNORECASE) for p in [
-            r"openai", r"anthropic", r"gemini", r"llm", r"chatgpt",
-        ])
+        ai_usage = any(
+            re.search(p, all_content, re.IGNORECASE)
+            for p in [
+                r"openai",
+                r"anthropic",
+                r"gemini",
+                r"llm",
+                r"chatgpt",
+            ]
+        )
 
         if not ai_usage:
             return True, ""
@@ -926,6 +952,7 @@ class AppStoreValidator:
 
         try:
             import json
+
             manifest = json.loads(manifest_path.read_text())
 
             required_fields = ["name", "short_name", "start_url", "display", "icons"]

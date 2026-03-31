@@ -32,6 +32,7 @@ TaskChannel
         # Later, in a downstream task handler:
         msgs = ch.peek_all()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,6 +50,7 @@ logger = logging.getLogger("orchestrator.agents")
 # ─────────────────────────────────────────────────────────────────────────────
 # TaskChannel
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TaskChannel:
     """
@@ -103,6 +105,7 @@ class TaskChannel:
 # AgentPool
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class AgentPool:
     """
     Meta-controller for multiple Orchestrator instances.
@@ -146,8 +149,8 @@ class AgentPool:
         Agents that raised exceptions are omitted from the result (exception
         is logged at ERROR level).
         """
-        names   = list(assignments.keys())
-        coros   = [self._agents[name].run_job(assignments[name]) for name in names]
+        names = list(assignments.keys())
+        coros = [self._agents[name].run_job(assignments[name]) for name in names]
         results_raw = await asyncio.gather(*coros, return_exceptions=True)
 
         results: dict[str, ProjectState] = {}
@@ -155,7 +158,8 @@ class AgentPool:
             if isinstance(outcome, Exception):
                 logger.error(
                     "AgentPool: agent %r raised during run_job: %s",
-                    name, outcome,
+                    name,
+                    outcome,
                 )
             else:
                 results[name] = outcome
@@ -206,9 +210,9 @@ class AgentPool:
 
         # Collect per-model lists of profiles
         from .models import build_default_profiles
+
         all_profile_dicts: list[dict[Model, ModelProfile]] = [
-            agent._profiles for agent in self._agents.values()
-            if hasattr(agent, "_profiles")
+            agent._profiles for agent in self._agents.values() if hasattr(agent, "_profiles")
         ]
         if not all_profile_dicts:
             return build_default_profiles()
@@ -230,8 +234,8 @@ class AgentPool:
             template = contributing[0]
 
             # Sum counters
-            total_calls     = sum(p.call_count          for p in contributing)
-            total_failures  = sum(p.failure_count       for p in contributing)
+            total_calls = sum(p.call_count for p in contributing)
+            total_failures = sum(p.failure_count for p in contributing)
             total_val_fails = sum(p.validator_fail_count for p in contributing)
 
             # Weighted average for EMA fields — weight by call_count so agents
@@ -242,35 +246,31 @@ class AgentPool:
             def _wavg(attr: str) -> float:
                 if total_calls == 0:
                     return sum(getattr(p, attr) for p in contributing) / len(contributing)
-                return sum(
-                    getattr(p, attr) * p.call_count for p in contributing
-                ) / weight_sum
+                return sum(getattr(p, attr) * p.call_count for p in contributing) / weight_sum
 
             avg_latency = _wavg("avg_latency_ms")
-            lat_p95     = _wavg("latency_p95_ms")
-            quality     = _wavg("quality_score")
-            trust       = _wavg("trust_factor")
-            avg_cost    = _wavg("avg_cost_usd")
+            lat_p95 = _wavg("latency_p95_ms")
+            quality = _wavg("quality_score")
+            trust = _wavg("trust_factor")
+            avg_cost = _wavg("avg_cost_usd")
 
             # Re-derive success_rate
-            success_rate = (
-                (total_calls - total_failures) / total_calls
-                if total_calls > 0 else 1.0
-            )
+            success_rate = (total_calls - total_failures) / total_calls if total_calls > 0 else 1.0
 
             # Build merged profile
             from dataclasses import replace
+
             mp = replace(
                 template,
-                call_count          = total_calls,
-                failure_count       = total_failures,
-                validator_fail_count= total_val_fails,
-                avg_latency_ms      = avg_latency,
-                latency_p95_ms      = lat_p95,
-                quality_score       = quality,
-                trust_factor        = trust,
-                avg_cost_usd        = avg_cost,
-                success_rate        = success_rate,
+                call_count=total_calls,
+                failure_count=total_failures,
+                validator_fail_count=total_val_fails,
+                avg_latency_ms=avg_latency,
+                latency_p95_ms=lat_p95,
+                quality_score=quality,
+                trust_factor=trust,
+                avg_cost_usd=avg_cost,
+                success_rate=success_rate,
             )
             merged[model] = mp
 

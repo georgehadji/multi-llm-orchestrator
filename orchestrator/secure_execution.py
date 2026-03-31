@@ -30,21 +30,25 @@ logger = logging.getLogger("orchestrator.security")
 
 class SecurityError(Exception):
     """Raised when a security violation is detected."""
+
     pass
 
 
 class PathTraversalError(SecurityError):
     """Raised when a path traversal attempt is detected."""
+
     pass
 
 
 class CommandInjectionError(SecurityError):
     """Raised when command injection is detected."""
+
     pass
 
 
 class InputValidationError(SecurityError):
     """Raised when input validation fails."""
+
     pass
 
 
@@ -62,13 +66,14 @@ class SecurePath:
         except PathTraversalError:
             print("Path traversal detected!")
     """
+
     base_path: Path
     user_input: str
     resolved: Path = None
 
     def __post_init__(self):
         # Check for null bytes before processing
-        if '\x00' in self.user_input:
+        if "\x00" in self.user_input:
             raise PathTraversalError("Path contains null bytes")
 
         if self.resolved is None:
@@ -85,10 +90,12 @@ class SecurePath:
 
         # Normalize path separators for cross-platform compatibility
         # Replace backslashes with forward slashes for consistent handling
-        normalized_input = self.user_input.replace('\\', '/')
+        normalized_input = self.user_input.replace("\\", "/")
 
         # Check for absolute paths (Unix and Windows)
-        if normalized_input.startswith('/') or (len(normalized_input) > 1 and normalized_input[1] == ':'):
+        if normalized_input.startswith("/") or (
+            len(normalized_input) > 1 and normalized_input[1] == ":"
+        ):
             # Absolute path - check if it's within base after resolution
             pass  # Will be caught by relative_to check
 
@@ -125,6 +132,7 @@ class SafeCommand:
         cmd = SafeCommand(["python", "-c", user_code])
         # Raises if user_code contains shell metacharacters
     """
+
     args: list[str]
 
     # Shell metacharacters that could enable injection
@@ -156,7 +164,9 @@ class SafeCommand:
         if executable_name in dangerous_executables and len(self.args) > 1:
             if "-c" in self.args or "/c" in self.args:
                 # Check the script content
-                script_idx = self.args.index("-c") + 1 if "-c" in self.args else self.args.index("/c") + 1
+                script_idx = (
+                    self.args.index("-c") + 1 if "-c" in self.args else self.args.index("/c") + 1
+                )
                 if script_idx < len(self.args):
                     script = self.args[script_idx]
                     if any(c in script for c in self._SHELL_METACHARACTERS):
@@ -191,7 +201,7 @@ class SecureSubprocess:
         timeout: int | None = None,
         env: dict[str, str] | None = None,
         capture_output: bool = True,
-        **kwargs
+        **kwargs,
     ) -> subprocess.CompletedProcess:
         """
         Run a command securely (no shell=True).
@@ -237,7 +247,7 @@ class SecureSubprocess:
             timeout=timeout,
             shell=False,  # NEVER True
             env=run_env,
-            **kwargs
+            **kwargs,
         )
 
         return result
@@ -249,7 +259,7 @@ class SecureSubprocess:
         cwd: str | Path | None = None,
         timeout: int | None = None,
         env: dict[str, str] | None = None,
-        **kwargs
+        **kwargs,
     ) -> tuple[int, str, str]:
         """
         Run a command asynchronously (no shell=True).
@@ -278,15 +288,16 @@ class SecureSubprocess:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=run_env,
-            **kwargs
+            **kwargs,
         )
 
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=timeout
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            return (
+                proc.returncode,
+                stdout.decode("utf-8", errors="replace"),
+                stderr.decode("utf-8", errors="replace"),
             )
-            return proc.returncode, stdout.decode('utf-8', errors='replace'), stderr.decode('utf-8', errors='replace')
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
@@ -329,7 +340,7 @@ class InputValidator:
             return "unnamed"
 
         # Remove null bytes
-        filename = filename.replace('\x00', '')
+        filename = filename.replace("\x00", "")
 
         # Replace dangerous characters
         dangerous = '<>:"/\\|?*'
@@ -337,21 +348,42 @@ class InputValidator:
             filename = filename.replace(char, replacement)
 
         # Remove leading/trailing dots and spaces
-        filename = filename.strip('. ')
+        filename = filename.strip(". ")
 
         # Limit length
         if len(filename) > cls.MAX_FILENAME_LENGTH:
             name, ext = os.path.splitext(filename)
-            filename = name[:cls.MAX_FILENAME_LENGTH - len(ext)] + ext
+            filename = name[: cls.MAX_FILENAME_LENGTH - len(ext)] + ext
 
         # Ensure not empty after sanitization (whitespace-only becomes empty)
         if not filename:
             filename = "unnamed"
 
         # Check for reserved names (Windows)
-        reserved = {'CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4',
-                   'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3',
-                   'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'}
+        reserved = {
+            "CON",
+            "PRN",
+            "AUX",
+            "NUL",
+            "COM1",
+            "COM2",
+            "COM3",
+            "COM4",
+            "COM5",
+            "COM6",
+            "COM7",
+            "COM8",
+            "COM9",
+            "LPT1",
+            "LPT2",
+            "LPT3",
+            "LPT4",
+            "LPT5",
+            "LPT6",
+            "LPT7",
+            "LPT8",
+            "LPT9",
+        }
         base = os.path.splitext(filename)[0].upper()
         if base in reserved:
             filename = f"_{filename}"
@@ -376,7 +408,9 @@ class InputValidator:
             raise InputValidationError("Identifier cannot be empty")
 
         if len(identifier) > cls.MAX_IDENTIFIER_LENGTH:
-            raise InputValidationError(f"Identifier too long: {len(identifier)} > {cls.MAX_IDENTIFIER_LENGTH}")
+            raise InputValidationError(
+                f"Identifier too long: {len(identifier)} > {cls.MAX_IDENTIFIER_LENGTH}"
+            )
 
         if not cls.SAFE_IDENTIFIER_CHARS.match(identifier):
             raise InputValidationError(
@@ -385,6 +419,7 @@ class InputValidator:
 
         # Check Python keywords
         import keyword
+
         if keyword.iskeyword(identifier):
             raise InputValidationError(f"Identifier cannot be a Python keyword: '{identifier}'")
 
@@ -405,13 +440,13 @@ class InputValidator:
             raise InputValidationError("Branch name cannot be empty")
 
         # Replace spaces and dangerous chars
-        name = re.sub(r'[^\w\-\./]', '_', name)
+        name = re.sub(r"[^\w\-\./]", "_", name)
 
         # Remove consecutive dots
-        name = re.sub(r'\.{2,}', '.', name)
+        name = re.sub(r"\.{2,}", ".", name)
 
         # Remove leading/trailing dots and slashes
-        name = name.strip('./ ')
+        name = name.strip("./ ")
 
         # Limit length
         if len(name) > 250:
@@ -422,10 +457,10 @@ class InputValidator:
             name = "branch"
 
         # Git restrictions
-        forbidden = {'HEAD', '-', '@{'}
+        forbidden = {"HEAD", "-", "@{"}
         for f in forbidden:
             if f in name:
-                name = name.replace(f, '_')
+                name = name.replace(f, "_")
 
         return name
 
@@ -490,9 +525,7 @@ class SecurityContext:
             except PathTraversalError:
                 continue
 
-        raise PathTraversalError(
-            f"Path '{user_path}' is not within allowed directories"
-        )
+        raise PathTraversalError(f"Path '{user_path}' is not within allowed directories")
 
     def read_file(self, user_path: str) -> str:
         """Safely read a file."""
@@ -507,7 +540,7 @@ class SecurityContext:
         if size > self.max_file_size:
             raise SecurityError(f"File too large: {size} > {self.max_file_size}")
 
-        return path.read_text(encoding='utf-8')
+        return path.read_text(encoding="utf-8")
 
     def write_file(self, user_path: str, content: str) -> None:
         """Safely write a file."""
@@ -520,7 +553,7 @@ class SecurityContext:
         # Ensure directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        path.write_text(content, encoding='utf-8')
+        path.write_text(content, encoding="utf-8")
 
     def execute(self, command: list[str], **kwargs) -> subprocess.CompletedProcess:
         """Execute command securely."""
@@ -529,9 +562,7 @@ class SecurityContext:
 
 # Legacy compatibility functions
 def secure_subprocess_run(
-    cmd: list[str],
-    cwd: Path | None = None,
-    **kwargs
+    cmd: list[str], cwd: Path | None = None, **kwargs
 ) -> subprocess.CompletedProcess:
     """
     DEPRECATED: Use SecureSubprocess.run() instead.

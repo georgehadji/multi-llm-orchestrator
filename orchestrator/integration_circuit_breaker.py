@@ -26,18 +26,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class IntegrationState(enum.Enum):
     """Circuit breaker states for integrations."""
-    CLOSED = "closed"      # Normal operation
-    OPEN = "open"          # Failing, rejecting requests
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing, rejecting requests
     HALF_OPEN = "half_open"  # Testing if recovered
 
 
 class IntegrationType(enum.Enum):
     """Types of integrations that can be guarded."""
+
     GITHUB = "github"
     GITLAB = "gitlab"
     SLACK = "slack"
@@ -48,6 +50,7 @@ class IntegrationType(enum.Enum):
 @dataclass
 class IntegrationHealth:
     """Health status of an integration."""
+
     integration_type: IntegrationType
     state: IntegrationState
     consecutive_failures: int
@@ -120,7 +123,9 @@ class IntegrationCircuitBreaker:
         """
         self.strict_mode = strict_mode
         self.fail_silently = fail_silently
-        self._states: dict[IntegrationType, IntegrationState] = dict.fromkeys(IntegrationType, IntegrationState.CLOSED)
+        self._states: dict[IntegrationType, IntegrationState] = dict.fromkeys(
+            IntegrationType, IntegrationState.CLOSED
+        )
         self._failures: dict[IntegrationType, int] = dict.fromkeys(IntegrationType, 0)
         self._last_failure: dict[IntegrationType, datetime | None] = dict.fromkeys(IntegrationType)
         self._last_success: dict[IntegrationType, datetime | None] = dict.fromkeys(IntegrationType)
@@ -225,6 +230,7 @@ class IntegrationCircuitBreaker:
             async def create_check_run(...):
                 ...
         """
+
         def decorator(func: Callable[..., T]) -> Callable[..., T]:
             @wraps(func)
             async def async_wrapper(*args, **kwargs) -> T:
@@ -235,7 +241,8 @@ class IntegrationCircuitBreaker:
                         integration=integration,
                         operation=operation,
                         reason=f"Circuit breaker OPEN: {msg}",
-                        remediation=remediation or "Wait for circuit to recover or check integration config",
+                        remediation=remediation
+                        or "Wait for circuit to recover or check integration config",
                     )
 
                     if self.strict_mode:
@@ -263,7 +270,8 @@ class IntegrationCircuitBreaker:
                         integration=integration,
                         operation=operation,
                         reason=str(e),
-                        remediation=remediation or "Check integration configuration and network connectivity",
+                        remediation=remediation
+                        or "Check integration configuration and network connectivity",
                     )
 
                     if self.strict_mode:

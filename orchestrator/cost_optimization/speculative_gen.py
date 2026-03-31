@@ -42,6 +42,7 @@ logger = get_logger(__name__)
 @dataclass
 class SpeculativeMetrics:
     """Metrics for speculative generation."""
+
     total_attempts: int = 0
     cheap_wins: int = 0  # Cheap model was good enough
     premium_wins: int = 0  # Required premium
@@ -74,6 +75,7 @@ class SpeculativeMetrics:
 @dataclass
 class SpeculativeResult:
     """Result of speculative generation."""
+
     response: str
     model_used: str
     score: float
@@ -227,9 +229,7 @@ class SpeculativeGenerator:
             cheap_result = await cheap_task
             cheap_score = await self._quick_evaluate(prompt, cheap_result)
 
-            logger.info(
-                f"Cheap model {cheap} completed with score {cheap_score:.3f}"
-            )
+            logger.info(f"Cheap model {cheap} completed with score {cheap_score:.3f}")
 
             # Check if cheap model is good enough
             if cheap_score >= score_threshold:
@@ -252,9 +252,8 @@ class SpeculativeGenerator:
 
                 self.metrics.total_cost += cost
                 self.metrics.avg_cheap_score = (
-                    (self.metrics.avg_cheap_score * (self.metrics.total_attempts - 1) + cheap_score)
-                    / self.metrics.total_attempts
-                )
+                    self.metrics.avg_cheap_score * (self.metrics.total_attempts - 1) + cheap_score
+                ) / self.metrics.total_attempts
 
                 return SpeculativeResult(
                     response=cheap_result,
@@ -276,9 +275,7 @@ class SpeculativeGenerator:
                 premium_result = await premium_task
                 premium_score = await self._quick_evaluate(prompt, premium_result)
 
-                logger.info(
-                    f"Premium model {premium} completed with score {premium_score:.3f}"
-                )
+                logger.info(f"Premium model {premium} completed with score {premium_score:.3f}")
 
                 self.metrics.premium_wins += 1
 
@@ -361,9 +358,9 @@ class SpeculativeGenerator:
                 **kwargs,
             )
 
-            if hasattr(response, 'text'):
+            if hasattr(response, "text"):
                 return response.text
-            elif hasattr(response, 'content'):
+            elif hasattr(response, "content"):
                 return response.content
             else:
                 return str(response)
@@ -460,6 +457,7 @@ class SpeculativeGenerator:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def speculative_generate(
     client,

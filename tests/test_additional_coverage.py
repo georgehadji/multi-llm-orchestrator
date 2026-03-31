@@ -26,60 +26,98 @@ from typing import Dict, Any
 
 # Component Library
 from orchestrator.component_library import (
-    ComponentLibrary, Component, ComponentType, Framework,
-    get_component_library, get_component, assemble_ui,
+    ComponentLibrary,
+    Component,
+    ComponentType,
+    Framework,
+    get_component_library,
+    get_component,
+    assemble_ui,
 )
 
 # Full-Stack Generator
 from orchestrator.fullstack_generator import (
-    FullStackGenerator, FullStackApp, GenerationOptions,
-    FrontendFramework, BackendFramework, DatabaseType, AuthType,
-    get_fullstack_generator, generate_fullstack_app,
+    FullStackGenerator,
+    FullStackApp,
+    GenerationOptions,
+    FrontendFramework,
+    BackendFramework,
+    DatabaseType,
+    AuthType,
+    get_fullstack_generator,
+    generate_fullstack_app,
 )
 
 # API Builder
 from orchestrator.api_builder import (
-    APIIntegrationBuilder, APIIntegration, APIEndpoint,
-    AuthType as APIAuthType, HTTPMethod,
-    get_api_builder, import_from_openapi, import_from_postman,
+    APIIntegrationBuilder,
+    APIIntegration,
+    APIEndpoint,
+    AuthType as APIAuthType,
+    HTTPMethod,
+    get_api_builder,
+    import_from_openapi,
+    import_from_postman,
 )
 
 # Deployment Service
 from orchestrator.deployment_service import (
-    DeploymentService, DeploymentTarget, DeploymentStatus,
-    DeploymentResult, DeploymentConfig,
-    get_deployment_service, deploy_to_vercel, deploy_to_netlify, deploy_to_docker,
+    DeploymentService,
+    DeploymentTarget,
+    DeploymentStatus,
+    DeploymentResult,
+    DeploymentConfig,
+    get_deployment_service,
+    deploy_to_vercel,
+    deploy_to_netlify,
+    deploy_to_docker,
 )
 
 # GitHub Sync
 from orchestrator.github_sync import (
-    GitHubSync, SyncConfig, SyncDirection, Change, ChangeOperation,
-    get_github_sync, sync_with_github,
+    GitHubSync,
+    SyncConfig,
+    SyncDirection,
+    Change,
+    ChangeOperation,
+    get_github_sync,
+    sync_with_github,
 )
 
 # Preview Server
 from orchestrator.preview_server import (
-    PreviewServer, PreviewConfig, PreviewSession,
-    get_preview_server, start_preview, stop_preview,
+    PreviewServer,
+    PreviewConfig,
+    PreviewSession,
+    get_preview_server,
+    start_preview,
+    stop_preview,
 )
 
 # Database Generator
 from orchestrator.database_generator import (
-    DatabaseSchemaGenerator, DatabaseSchema, Table, Column,
-    DatabaseType as DBType, ORMType,
-    get_database_generator, generate_database_schema,
+    DatabaseSchemaGenerator,
+    DatabaseSchema,
+    Table,
+    Column,
+    DatabaseType as DBType,
+    ORMType,
+    get_database_generator,
+    generate_database_schema,
 )
 
 # SwiftStack Integration
 from orchestrator.swiftstack_integration import (
-    SwiftStackIntegration, SwiftStackConfig,
-    get_swiftstack_integration, generate_app,
+    SwiftStackIntegration,
+    SwiftStackConfig,
+    get_swiftstack_integration,
+    generate_app,
 )
-
 
 # ─────────────────────────────────────────────
 # Component Library Tests
 # ─────────────────────────────────────────────
+
 
 class TestComponentLibrary:
     """Test component library functionality."""
@@ -92,7 +130,7 @@ class TestComponentLibrary:
             variant="primary",
             props={"text": "Click me"},
         )
-        
+
         assert component.name == "TestButton"
         assert component.type == ComponentType.BUTTON
         assert component.props["text"] == "Click me"
@@ -101,7 +139,7 @@ class TestComponentLibrary:
         """Test React component rendering."""
         library = ComponentLibrary(framework=Framework.REACT)
         button = library.get(ComponentType.BUTTON, "primary")
-        
+
         rendered = button.render()
         assert "button" in rendered.lower()
         assert "React" in rendered or "export default" in rendered
@@ -110,30 +148,30 @@ class TestComponentLibrary:
         """Test Vue component rendering."""
         library = ComponentLibrary(framework=Framework.VUE)
         form = library.get(ComponentType.FORM, "login")
-        
+
         rendered = form.render()
         assert "<template>" in rendered or "Vue" in rendered
 
     def test_component_assemble(self):
         """Test component assembly."""
         library = ComponentLibrary()
-        
+
         components = [
             library.get(ComponentType.NAVIGATION, "navbar"),
             library.get(ComponentType.FORM, "login"),
         ]
-        
+
         assembled = library.assemble(components, layout="vertical")
         assert len(assembled) > 0
 
     def test_component_stats(self):
         """Test component statistics."""
         library = ComponentLibrary()
-        
+
         # Use some components
         library.get(ComponentType.FORM, "login")
         library.get(ComponentType.BUTTON, "primary")
-        
+
         stats = library.get_stats()
         assert stats["total_uses"] >= 2
         assert stats["total_tokens_saved"] > 0
@@ -155,6 +193,7 @@ class TestComponentLibrary:
 # Full-Stack Generator Tests
 # ─────────────────────────────────────────────
 
+
 class TestFullStackGenerator:
     """Test full-stack generator functionality."""
 
@@ -167,7 +206,7 @@ class TestFullStackGenerator:
             auth=AuthType.JWT,
             include_tests=True,
         )
-        
+
         opts_dict = options.to_dict()
         assert opts_dict["frontend"] == "react"
         assert opts_dict["backend"] == "fastapi"
@@ -180,7 +219,7 @@ class TestFullStackGenerator:
             frontend_framework=FrontendFramework.REACT,
             backend_framework=BackendFramework.FASTAPI,
         )
-        
+
         assert app.name == "TestApp"
         assert app.frontend_framework == FrontendFramework.REACT
 
@@ -190,7 +229,7 @@ class TestFullStackGenerator:
             name="TestApp",
             description="Test",
         )
-        
+
         app_dict = app.to_dict()
         assert app_dict["name"] == "TestApp"
         assert app_dict["frontend_framework"] == "react"
@@ -199,7 +238,7 @@ class TestFullStackGenerator:
         """Test generator statistics."""
         generator = FullStackGenerator()
         stats = generator.get_stats()
-        
+
         assert "total_generations" in stats
         assert "component_library_stats" in stats
 
@@ -207,6 +246,7 @@ class TestFullStackGenerator:
 # ─────────────────────────────────────────────
 # API Builder Tests
 # ─────────────────────────────────────────────
+
 
 class TestAPIBuilder:
     """Test API builder functionality."""
@@ -218,7 +258,7 @@ class TestAPIBuilder:
             method=HTTPMethod.GET,
             summary="Get all users",
         )
-        
+
         assert endpoint.path == "/users"
         assert endpoint.method == HTTPMethod.GET
 
@@ -229,7 +269,7 @@ class TestAPIBuilder:
             base_url="https://api.example.com",
             auth_type=APIAuthType.BEARER,
         )
-        
+
         assert integration.name == "Test API"
         assert integration.base_url == "https://api.example.com"
 
@@ -239,7 +279,7 @@ class TestAPIBuilder:
             name="Test API",
             base_url="https://api.example.com",
         )
-        
+
         int_dict = integration.to_dict()
         assert int_dict["name"] == "Test API"
         assert int_dict["base_url"] == "https://api.example.com"
@@ -257,7 +297,7 @@ class TestAPIBuilder:
                 }
             ],
         }
-        
+
         integration = APIIntegration.from_dict(data)
         assert integration.name == "Test API"
         assert len(integration.endpoints) == 1
@@ -266,7 +306,7 @@ class TestAPIBuilder:
         """Test builder statistics."""
         builder = APIIntegrationBuilder()
         stats = builder.get_stats()
-        
+
         assert "total_imports" in stats
         assert "total_endpoints" in stats
 
@@ -274,6 +314,7 @@ class TestAPIBuilder:
 # ─────────────────────────────────────────────
 # Deployment Service Tests
 # ─────────────────────────────────────────────
+
 
 class TestDeploymentService:
     """Test deployment service functionality."""
@@ -296,7 +337,7 @@ class TestDeploymentService:
             target=DeploymentTarget.VERCEL,
             url="https://app.vercel.app",
         )
-        
+
         assert result.success
         assert result.url == "https://app.vercel.app"
 
@@ -306,7 +347,7 @@ class TestDeploymentService:
             success=True,
             target=DeploymentTarget.VERCEL,
         )
-        
+
         result_dict = result.to_dict()
         assert result_dict["success"]
         assert result_dict["target"] == "vercel"
@@ -318,7 +359,7 @@ class TestDeploymentService:
             project_path="./my-app",
             environment="production",
         )
-        
+
         assert config.target == DeploymentTarget.VERCEL
         assert config.environment == "production"
 
@@ -326,7 +367,7 @@ class TestDeploymentService:
         """Test deployment service statistics."""
         service = DeploymentService()
         stats = service.get_stats()
-        
+
         assert "total_deployments" in stats
         assert "providers" in stats
 
@@ -334,6 +375,7 @@ class TestDeploymentService:
 # ─────────────────────────────────────────────
 # GitHub Sync Tests
 # ─────────────────────────────────────────────
+
 
 class TestGitHubSync:
     """Test GitHub sync functionality."""
@@ -357,7 +399,7 @@ class TestGitHubSync:
             content="print('hello')",
             operation=ChangeOperation.CREATE,
         )
-        
+
         assert change.path == "src/main.py"
         assert change.operation == ChangeOperation.CREATE
 
@@ -368,7 +410,7 @@ class TestGitHubSync:
             content="print('hello')",
             operation=ChangeOperation.CREATE,
         )
-        
+
         change_dict = change.to_dict()
         assert change_dict["path"] == "src/main.py"
         assert change_dict["operation"] == "create"
@@ -380,7 +422,7 @@ class TestGitHubSync:
             branch="main",
             direction=SyncDirection.BIDIRECTIONAL,
         )
-        
+
         assert config.repo_url == "https://github.com/user/repo"
         assert config.branch == "main"
 
@@ -388,7 +430,7 @@ class TestGitHubSync:
         """Test sync statistics."""
         sync = GitHubSync(token="test_token")
         stats = sync.get_stats()
-        
+
         assert "total_syncs" in stats
         assert "connected_repos" in stats
 
@@ -396,6 +438,7 @@ class TestGitHubSync:
 # ─────────────────────────────────────────────
 # Preview Server Tests
 # ─────────────────────────────────────────────
+
 
 class TestPreviewServer:
     """Test preview server functionality."""
@@ -407,7 +450,7 @@ class TestPreviewServer:
             host="localhost",
             hot_reload=True,
         )
-        
+
         assert config.port == 3000
         assert config.hot_reload
 
@@ -418,7 +461,7 @@ class TestPreviewServer:
             url="http://localhost:3000",
             port=3000,
         )
-        
+
         assert session.project_path == "./my-app"
         assert session.url == "http://localhost:3000"
 
@@ -429,7 +472,7 @@ class TestPreviewServer:
             url="http://localhost:3000",
             port=3000,
         )
-        
+
         session_dict = session.to_dict()
         assert session_dict["project_path"] == "./my-app"
         assert session_dict["url"] == "http://localhost:3000"
@@ -444,7 +487,7 @@ class TestPreviewServer:
         """Test preview server statistics."""
         server = PreviewServer()
         stats = server.get_stats()
-        
+
         assert "total_previews" in stats
         assert "active_sessions" in stats
 
@@ -452,6 +495,7 @@ class TestPreviewServer:
 # ─────────────────────────────────────────────
 # Database Generator Tests
 # ─────────────────────────────────────────────
+
 
 class TestDatabaseGenerator:
     """Test database generator functionality."""
@@ -463,7 +507,7 @@ class TestDatabaseGenerator:
             type="UUID",
             primary_key=True,
         )
-        
+
         assert column.name == "id"
         assert column.primary_key
 
@@ -475,7 +519,7 @@ class TestDatabaseGenerator:
             nullable=False,
             unique=True,
         )
-        
+
         col_dict = column.to_dict()
         assert col_dict["name"] == "email"
         assert col_dict["nullable"] == False
@@ -490,7 +534,7 @@ class TestDatabaseGenerator:
                 Column("email", "VARCHAR(255)"),
             ],
         )
-        
+
         assert table.name == "users"
         assert len(table.columns) == 2
 
@@ -500,7 +544,7 @@ class TestDatabaseGenerator:
             name="users",
             columns=[Column("id", "UUID", primary_key=True)],
         )
-        
+
         table_dict = table.to_dict()
         assert table_dict["name"] == "users"
         assert len(table_dict["columns"]) == 1
@@ -512,7 +556,7 @@ class TestDatabaseGenerator:
                 Table("users", [Column("id", "UUID", primary_key=True)]),
             ],
         )
-        
+
         assert len(schema.tables) == 1
 
     def test_database_schema_to_dict(self):
@@ -520,7 +564,7 @@ class TestDatabaseGenerator:
         schema = DatabaseSchema(
             tables=[Table("users", [Column("id", "UUID", primary_key=True)])],
         )
-        
+
         schema_dict = schema.to_dict()
         assert len(schema_dict["tables"]) == 1
 
@@ -528,13 +572,14 @@ class TestDatabaseGenerator:
         """Test generator statistics."""
         generator = DatabaseSchemaGenerator()
         stats = generator.get_stats()
-        
+
         assert "total_generations" in stats
 
 
 # ─────────────────────────────────────────────
 # SwiftStack Integration Tests
 # ─────────────────────────────────────────────
+
 
 class TestSwiftStackIntegration:
     """Test SwiftStack integration functionality."""
@@ -546,7 +591,7 @@ class TestSwiftStackIntegration:
             github_token="ghp_test",
             preview_port=3000,
         )
-        
+
         assert config.enable_all
         assert config.github_token == "ghp_test"
         assert config.preview_port == 3000
@@ -557,7 +602,7 @@ class TestSwiftStackIntegration:
         config = SwiftStackConfig()
         assert config.component_library_enabled
         assert config.deployment_enabled
-        
+
         # enable_all=True keeps all features enabled
         config = SwiftStackConfig(enable_all=True)
         assert config.component_library_enabled
@@ -567,7 +612,7 @@ class TestSwiftStackIntegration:
         """Test SwiftStack integration creation."""
         config = SwiftStackConfig(enable_all=True)
         integration = SwiftStackIntegration(config)
-        
+
         assert integration.component_library is not None
         assert integration.deployment_service is not None
         assert integration.fullstack_generator is not None
@@ -576,9 +621,9 @@ class TestSwiftStackIntegration:
         """Test SwiftStack integration statistics."""
         config = SwiftStackConfig(enable_all=True)
         integration = SwiftStackIntegration(config)
-        
+
         stats = integration.get_stats()
-        
+
         assert "enabled_features" in stats
         assert len(stats["enabled_features"]) > 0
 
@@ -586,7 +631,7 @@ class TestSwiftStackIntegration:
         """Test getting component from integration."""
         config = SwiftStackConfig(enable_all=True)
         integration = SwiftStackIntegration(config)
-        
+
         component = integration.get_component("form", "login")
         assert component is not None
         assert component.type == ComponentType.FORM

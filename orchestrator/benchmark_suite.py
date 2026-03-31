@@ -51,6 +51,7 @@ class BenchmarkProject:
         expected_files: List of expected output files
         quality_checks: List of quality checks to run
     """
+
     name: str
     description: str
     criteria: list[str]
@@ -72,6 +73,7 @@ class BenchmarkProject:
 @dataclass
 class BenchmarkResult:
     """Result of running a single benchmark project."""
+
     project: str
     success: bool
     quality_score: float
@@ -99,6 +101,7 @@ class BenchmarkResult:
 @dataclass
 class BenchmarkReport:
     """Aggregated benchmark report."""
+
     results: list[BenchmarkResult]
     avg_quality: float
     avg_cost: float
@@ -408,9 +411,9 @@ class BenchmarkRunner:
 
             # Determine success
             success = (
-                state.status.value == "COMPLETED" and
-                quality_score >= 0.7 and
-                files_generated >= len(project.expected_files) * 0.5
+                state.status.value == "COMPLETED"
+                and quality_score >= 0.7
+                and files_generated >= len(project.expected_files) * 0.5
             )
 
             # Collect errors
@@ -424,14 +427,18 @@ class BenchmarkRunner:
                 project=project.name,
                 success=success,
                 quality_score=quality_score,
-                cost_usd=state.budget.spent_usd if hasattr(state, 'budget') else 0.0,
+                cost_usd=state.budget.spent_usd if hasattr(state, "budget") else 0.0,
                 time_seconds=elapsed,
                 tests_passed=tests_passed,
                 files_generated=files_generated,
                 errors=errors,
                 metadata={
                     "status": state.status.value,
-                    "tasks_completed": len([t for t in state.tasks.values() if t.status.value == "COMPLETED"]) if hasattr(state, 'tasks') else 0,
+                    "tasks_completed": (
+                        len([t for t in state.tasks.values() if t.status.value == "COMPLETED"])
+                        if hasattr(state, "tasks")
+                        else 0
+                    ),
                 },
             )
 
@@ -452,16 +459,16 @@ class BenchmarkRunner:
 
     def _count_generated_files(self, state) -> int:
         """Count generated files from project state."""
-        if hasattr(state, 'outputs'):
+        if hasattr(state, "outputs"):
             return len(state.outputs)
-        elif hasattr(state, 'files'):
+        elif hasattr(state, "files"):
             return len(state.files)
         return 0
 
     def _count_passed_tests(self, state) -> int:
         """Count passed tests from project state."""
-        if hasattr(state, 'test_results'):
-            return sum(1 for r in state.test_results if r.get('passed', False))
+        if hasattr(state, "test_results"):
+            return sum(1 for r in state.test_results if r.get("passed", False))
         return 0
 
     def _calculate_quality_score(self, state, project: BenchmarkProject) -> float:
@@ -478,9 +485,9 @@ class BenchmarkRunner:
         scores = []
 
         # Base score from state
-        if hasattr(state, 'overall_quality_score'):
+        if hasattr(state, "overall_quality_score"):
             scores.append(state.overall_quality_score)
-        elif hasattr(state, 'average_score'):
+        elif hasattr(state, "average_score"):
             scores.append(state.average_score)
 
         # Check quality checks
@@ -515,7 +522,8 @@ class BenchmarkRunner:
 
         # Get orchestrator version
         from orchestrator import __version__
-        version = __version__ if '__version__' in dir() else "unknown"
+
+        version = __version__ if "__version__" in dir() else "unknown"
 
         return BenchmarkReport(
             results=results,
@@ -543,15 +551,15 @@ class BenchmarkRunner:
 
     def _print_summary(self, report: BenchmarkReport) -> None:
         """Print benchmark summary to console."""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("BENCHMARK SUMMARY")
-        print("="*60)
+        print("=" * 60)
         print(f"Projects: {len(report.results)}")
         print(f"Avg Quality: {report.avg_quality:.2f}")
         print(f"Avg Cost: ${report.avg_cost:.2f}")
         print(f"Success Rate: {report.success_rate:.0%}")
         print(f"Total Time: {report.total_time:.1f}s ({report.total_time/60:.1f} min)")
-        print("="*60)
+        print("=" * 60)
 
 
 __all__ = [

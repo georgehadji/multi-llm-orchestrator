@@ -5,28 +5,26 @@ from orchestrator.semantic_cache import SemanticCache, DuplicationDetector
 
 def test_exact_prompt_returns_cached():
     cache = SemanticCache()
-    asyncio.run(cache.put("t1", "code_gen", "def hello(): return 42",
-                           prompt="Write hello world function"))
-    result = asyncio.run(cache.get("t2", "code_gen",
-                                   "Write hello world function"))
+    asyncio.run(
+        cache.put("t1", "code_gen", "def hello(): return 42", prompt="Write hello world function")
+    )
+    result = asyncio.run(cache.get("t2", "code_gen", "Write hello world function"))
     assert result == "def hello(): return 42"
 
 
 def test_different_task_type_no_hit():
     cache = SemanticCache()
-    asyncio.run(cache.put("t1", "code_gen", "some code",
-                           prompt="Write hello world"))
-    result = asyncio.run(cache.get("t2", "code_review",
-                                   "Write hello world"))
-    assert result is None   # different task type — no cross-type reuse
+    asyncio.run(cache.put("t1", "code_gen", "some code", prompt="Write hello world"))
+    result = asyncio.run(cache.get("t2", "code_review", "Write hello world"))
+    assert result is None  # different task type — no cross-type reuse
 
 
 def test_no_hit_on_unrelated_prompt():
     cache = SemanticCache()
-    asyncio.run(cache.put("t1", "code_gen", "def hello(): return 42",
-                           prompt="Write hello world function"))
-    result = asyncio.run(cache.get("t2", "code_gen",
-                                   "Analyze the database schema for performance"))
+    asyncio.run(
+        cache.put("t1", "code_gen", "def hello(): return 42", prompt="Write hello world function")
+    )
+    result = asyncio.run(cache.get("t2", "code_gen", "Analyze the database schema for performance"))
     assert result is None
 
 

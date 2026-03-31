@@ -51,8 +51,10 @@ logger = logging.getLogger("orchestrator.meta")
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 class StrategyType(str, Enum):
     """Types of optimization strategies."""
+
     MODEL_ROUTING = "model_routing"
     BUDGET_ALLOCATION = "budget_allocation"
     TASK_DECOMPOSITION = "task_decomposition"
@@ -62,6 +64,7 @@ class StrategyType(str, Enum):
 
 class ProposalStatus(str, Enum):
     """Status of a strategy proposal."""
+
     PENDING = "pending"
     EVALUATING = "evaluating"
     APPROVED = "approved"
@@ -73,6 +76,7 @@ class ProposalStatus(str, Enum):
 @dataclass
 class ExecutionRecord:
     """Record of a single task execution."""
+
     task_id: str
     task_type: str
     model_used: str
@@ -110,6 +114,7 @@ class ExecutionRecord:
 @dataclass
 class ProjectTrajectory:
     """Complete execution trajectory for a project."""
+
     project_id: str
     project_description: str
     total_cost: float
@@ -148,6 +153,7 @@ class ProjectTrajectory:
 @dataclass
 class StrategyProposal:
     """A proposal for system improvement."""
+
     proposal_id: str
     strategy_type: StrategyType
     description: str
@@ -181,6 +187,7 @@ class StrategyProposal:
 # ─────────────────────────────────────────────
 # Execution Archive
 # ─────────────────────────────────────────────
+
 
 class ExecutionArchive:
     """
@@ -297,7 +304,9 @@ class ExecutionArchive:
 
     def get_task_type_performance(self, task_type: str) -> dict[str, float]:
         """Get performance statistics for a task type."""
-        stats = self._task_type_stats.get(task_type, {"success": 0, "total": 0, "cost": 0, "score": 0})
+        stats = self._task_type_stats.get(
+            task_type, {"success": 0, "total": 0, "cost": 0, "score": 0}
+        )
         total = max(stats["total"], 1)
         return {
             "success_rate": stats["success"] / total,
@@ -358,12 +367,14 @@ class ExecutionArchive:
         avg_cost = sum(r.cost_usd for r in self._records) / max(len(self._records), 1)
         for record in self._records:
             if record.cost_usd > avg_cost * 2:
-                patterns["cost_anomalies"].append({
-                    "task_id": record.task_id,
-                    "model": record.model_used,
-                    "cost": record.cost_usd,
-                    "avg": avg_cost,
-                })
+                patterns["cost_anomalies"].append(
+                    {
+                        "task_id": record.task_id,
+                        "model": record.model_used,
+                        "cost": record.cost_usd,
+                        "avg": avg_cost,
+                    }
+                )
 
         # Failure patterns
         failures_by_model: dict[str, int] = defaultdict(int)
@@ -374,11 +385,13 @@ class ExecutionArchive:
         for model, count in failures_by_model.items():
             total = self._model_stats[model]["total"]
             if total >= 5 and count / total > 0.3:  # >30% failure rate
-                patterns["failure_patterns"].append({
-                    "model": model,
-                    "failure_rate": count / total,
-                    "total": total,
-                })
+                patterns["failure_patterns"].append(
+                    {
+                        "model": model,
+                        "failure_rate": count / total,
+                        "total": total,
+                    }
+                )
 
         return patterns
 
@@ -394,6 +407,7 @@ class ExecutionArchive:
 # ─────────────────────────────────────────────
 # Meta-Optimizer
 # ─────────────────────────────────────────────
+
 
 class MetaOptimizer:
     """
@@ -419,7 +433,9 @@ class MetaOptimizer:
         proposals = []
 
         if self.archive.total_executions < self.min_samples:
-            logger.info(f"Insufficient data for optimization ({self.archive.total_executions} < {self.min_samples})")
+            logger.info(
+                f"Insufficient data for optimization ({self.archive.total_executions} < {self.min_samples})"
+            )
             return proposals
 
         # Generate proposals for each strategy type
@@ -449,7 +465,9 @@ class MetaOptimizer:
                 proposed_config={"task_type": task_type, "routing": "fixed", "model": best_model},
                 expected_improvement=0.10,  # 10% expected improvement
                 confidence=0.8,
-                evidence=[f"Best model for {task_type} based on {self.archive.total_executions} executions"],
+                evidence=[
+                    f"Best model for {task_type} based on {self.archive.total_executions} executions"
+                ],
             )
             proposals.append(proposal)
 
@@ -464,7 +482,9 @@ class MetaOptimizer:
                     proposed_config={"model": failure["model"], "enabled": False},
                     expected_improvement=0.15,
                     confidence=0.9,
-                    evidence=[f"Failure rate: {failure['failure_rate']:.2%} over {failure['total']} executions"],
+                    evidence=[
+                        f"Failure rate: {failure['failure_rate']:.2%} over {failure['total']} executions"
+                    ],
                 )
                 proposals.append(proposal)
 
@@ -497,7 +517,9 @@ class MetaOptimizer:
                     proposed_config={"task_type": task_type, "budget_factor": 1.5},
                     expected_improvement=0.05,
                     confidence=0.7,
-                    evidence=[f"P90 cost ({p90_cost:.3f}) is {p90_cost/avg_cost:.1f}x average ({avg_cost:.3f})"],
+                    evidence=[
+                        f"P90 cost ({p90_cost:.3f}) is {p90_cost/avg_cost:.1f}x average ({avg_cost:.3f})"
+                    ],
                 )
                 proposals.append(proposal)
 
@@ -550,12 +572,16 @@ class MetaOptimizer:
         if simulated_improvement >= self.improvement_threshold:
             proposal.status = ProposalStatus.APPROVED
             proposal.evaluated_at = time.time()
-            logger.info(f"Proposal {proposal.proposal_id} approved (simulated improvement: {simulated_improvement:.2%})")
+            logger.info(
+                f"Proposal {proposal.proposal_id} approved (simulated improvement: {simulated_improvement:.2%})"
+            )
             return True
         else:
             proposal.status = ProposalStatus.REJECTED
             proposal.evaluated_at = time.time()
-            logger.info(f"Proposal {proposal.proposal_id} rejected (simulated improvement: {simulated_improvement:.2%} < threshold)")
+            logger.info(
+                f"Proposal {proposal.proposal_id} rejected (simulated improvement: {simulated_improvement:.2%} < threshold)"
+            )
             return False
 
     def _simulate_proposal(self, proposal: StrategyProposal) -> float:
@@ -605,7 +631,9 @@ class MetaOptimizer:
     async def apply_proposal(self, proposal: StrategyProposal) -> bool:
         """Apply an approved proposal."""
         if proposal.status != ProposalStatus.APPROVED:
-            logger.warning(f"Cannot apply proposal {proposal.proposal_id}: status={proposal.status.value}")
+            logger.warning(
+                f"Cannot apply proposal {proposal.proposal_id}: status={proposal.status.value}"
+            )
             return False
 
         # Apply based on strategy type
@@ -664,6 +692,7 @@ class MetaOptimizer:
 # ─────────────────────────────────────────────
 # Integration Hooks
 # ─────────────────────────────────────────────
+
 
 class MetaOptimizationIntegration:
     """

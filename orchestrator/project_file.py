@@ -44,6 +44,7 @@ Schema reference (all fields except `project` and `criteria` are optional):
       3: tests/test_main.py
       4: README.md
 """
+
 from __future__ import annotations
 
 import sys
@@ -58,17 +59,19 @@ from .policy import JobSpec, Policy, PolicySet
 # Public result type
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ProjectFileResult:
     """Everything extracted from a YAML project file."""
+
     spec: JobSpec
     concurrency: int
     verbose: bool
     project_id: str
-    output_dir: str | None = None      # write output files here (optional)
-    assemble: bool = False                 # assemble into real project tree
-    verify_cmd: str = ""                   # shell command to run after assembly
-    task_paths: dict[str, str] = None     # {task_id/index -> target_path}
+    output_dir: str | None = None  # write output files here (optional)
+    assemble: bool = False  # assemble into real project tree
+    verify_cmd: str = ""  # shell command to run after assembly
+    task_paths: dict[str, str] = None  # {task_id/index -> target_path}
 
     def __post_init__(self):
         if self.task_paths is None:
@@ -78,6 +81,7 @@ class ProjectFileResult:
 # ─────────────────────────────────────────────────────────────────────────────
 # Loader
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def load_project_file(path: str | Path) -> ProjectFileResult:
     """
@@ -145,14 +149,13 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
         except ValueError:
             valid = [t.value for t in TaskType]
             raise ValueError(
-                f"'{path}': unknown task type '{key}' in quality_targets. "
-                f"Valid values: {valid}"
+                f"'{path}': unknown task type '{key}' in quality_targets. " f"Valid values: {valid}"
             )
         quality_targets[task_type] = float(value)
 
     # ── Policies ──────────────────────────────────────────────────────────────
     policies: list[Policy] = []
-    for p_raw in (raw.get("policies") or []):
+    for p_raw in raw.get("policies") or []:
         policies.append(_parse_policy(p_raw, path))
     policy_set = PolicySet(global_policies=policies)
 
@@ -180,6 +183,7 @@ def load_project_file(path: str | Path) -> ProjectFileResult:
 # ─────────────────────────────────────────────────────────────────────────────
 # Internal helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _parse_policy(raw: dict[str, Any], source_path: Path) -> Policy:
     """Convert a YAML policy dict → Policy dataclass."""
@@ -211,9 +215,7 @@ def _parse_policy(raw: dict[str, Any], source_path: Path) -> Policy:
     max_cost: float | None = (
         float(raw["max_cost_per_task_usd"]) if "max_cost_per_task_usd" in raw else None
     )
-    max_latency: float | None = (
-        float(raw["max_latency_ms"]) if "max_latency_ms" in raw else None
-    )
+    max_latency: float | None = float(raw["max_latency_ms"]) if "max_latency_ms" in raw else None
 
     return Policy(
         name=name,

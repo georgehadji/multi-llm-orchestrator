@@ -12,6 +12,7 @@ Usage:
     detector = DriftDetector(window_size=100, threshold=0.05)
     is_drifting = await detector.check_drift(new_sample=np.array([...]))
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,8 +28,9 @@ logger = logging.getLogger("orchestrator.drift")
 class DriftDetectionResult:
     """Result of a drift detection operation."""
 
-    def __init__(self, is_drifting: bool, confidence: float,
-                 drift_score: float, details: dict[str, Any]):
+    def __init__(
+        self, is_drifting: bool, confidence: float, drift_score: float, details: dict[str, Any]
+    ):
         self.is_drifting = is_drifting
         self.confidence = confidence
         self.drift_score = drift_score
@@ -39,8 +41,13 @@ class DriftDetectionResult:
 class DriftDetector:
     """Detects and manages concept/model drift in the orchestrator."""
 
-    def __init__(self, window_size: int = 100, threshold: float = 0.05,
-                 metric: str = "ks_test", warmup_samples: int = 50):
+    def __init__(
+        self,
+        window_size: int = 100,
+        threshold: float = 0.05,
+        metric: str = "ks_test",
+        warmup_samples: int = 50,
+    ):
         """
         Initialize the drift detector.
 
@@ -91,17 +98,23 @@ class DriftDetector:
                 is_drifting=False,
                 confidence=0.0,
                 drift_score=0.0,
-                details={"status": "warmup", "samples_seen": self.samples_seen}
+                details={"status": "warmup", "samples_seen": self.samples_seen},
             )
 
         # If reference window is not filled, fill it with initial samples
-        if len(self.reference_window) < self.window_size and self.samples_seen <= self.warmup_samples + self.window_size:
+        if (
+            len(self.reference_window) < self.window_size
+            and self.samples_seen <= self.warmup_samples + self.window_size
+        ):
             self.reference_window.append(sample)
             return DriftDetectionResult(
                 is_drifting=False,
                 confidence=0.0,
                 drift_score=0.0,
-                details={"status": "building_reference", "reference_size": len(self.reference_window)}
+                details={
+                    "status": "building_reference",
+                    "reference_size": len(self.reference_window),
+                },
             )
 
         # Calculate drift score using the selected metric
@@ -126,17 +139,15 @@ class DriftDetector:
             details={
                 "metric": self.metric,
                 "threshold": self.threshold,
-                "sample_shape": sample.shape if hasattr(sample, 'shape') else len(sample)
-            }
+                "sample_shape": sample.shape if hasattr(sample, "shape") else len(sample),
+            },
         )
 
         # Record in history
         self.drift_history.append(result)
-        self.metrics_history.append({
-            "timestamp": result.timestamp,
-            "drift_score": drift_score,
-            "is_drifting": is_drifting
-        })
+        self.metrics_history.append(
+            {"timestamp": result.timestamp, "drift_score": drift_score, "is_drifting": is_drifting}
+        )
 
         # Update counters if drift detected
         if is_drifting:
@@ -159,6 +170,7 @@ class DriftDetector:
 
         # Perform KS test
         from scipy import stats
+
         ks_statistic, p_value = stats.ks_2samp(ref_flat, curr_flat)
 
         # Return the KS statistic as the drift score
@@ -209,7 +221,7 @@ class DriftDetector:
         bc = np.sum(np.sqrt(ref_hist * curr_hist))
 
         # Calculate Bhattacharyya distance
-        bhattacharyya_dist = -np.log(bc) if bc > 0 else float('inf')
+        bhattacharyya_dist = -np.log(bc) if bc > 0 else float("inf")
 
         return float(bhattacharyya_dist)
 
@@ -233,7 +245,7 @@ class DriftDetector:
                 "drift_count": self.drift_count,
                 "drift_rate": 0.0,
                 "last_drift": None,
-                "avg_drift_score": 0.0
+                "avg_drift_score": 0.0,
             }
 
         drift_rates = [m["drift_score"] for m in self.metrics_history]
@@ -242,11 +254,13 @@ class DriftDetector:
             "samples_seen": self.samples_seen,
             "drift_count": self.drift_count,
             "drift_rate": self.drift_count / max(self.samples_seen - self.warmup_samples, 1),
-            "last_drift": self.last_drift_timestamp.isoformat() if self.last_drift_timestamp else None,
+            "last_drift": (
+                self.last_drift_timestamp.isoformat() if self.last_drift_timestamp else None
+            ),
             "avg_drift_score": float(np.mean(drift_rates)),
             "std_drift_score": float(np.std(drift_rates)),
             "min_drift_score": float(np.min(drift_rates)),
-            "max_drift_score": float(np.max(drift_rates))
+            "max_drift_score": float(np.max(drift_rates)),
         }
 
     def update_threshold(self, new_threshold: float):
@@ -255,8 +269,7 @@ class DriftDetector:
         self.threshold = new_threshold
         logger.info(f"Drift detection threshold updated from {old_threshold} to {new_threshold}")
 
-    def calibrate(self, calibration_data: list[np.ndarray],
-                  percentile: float = 95.0) -> float:
+    def calibrate(self, calibration_data: list[np.ndarray], percentile: float = 95.0) -> float:
         """
         Calibrate the threshold based on calibration data.
 
@@ -346,9 +359,9 @@ class ModelDriftMonitor:
         """
         return self.detector.add_sample(input_sample)
 
-    async def monitor_performance_drift(self, input_sample: np.ndarray,
-                                      expected_output: np.ndarray,
-                                      actual_output: np.ndarray) -> dict[str, Any]:
+    async def monitor_performance_drift(
+        self, input_sample: np.ndarray, expected_output: np.ndarray, actual_output: np.ndarray
+    ) -> dict[str, Any]:
         """
         Monitor for drift based on model performance.
 
@@ -375,7 +388,9 @@ class ModelDriftMonitor:
             "timestamp": datetime.now(),
             "error": float(error),
             "accuracy": float(accuracy),
-            "input_sample": input_sample.tolist() if isinstance(input_sample, np.ndarray) else input_sample
+            "input_sample": (
+                input_sample.tolist() if isinstance(input_sample, np.ndarray) else input_sample
+            ),
         }
         self.performance_history.append(perf_record)
 
@@ -387,15 +402,11 @@ class ModelDriftMonitor:
             "current_error": float(error),
             "current_accuracy": float(accuracy),
             "avg_error": float(np.mean([p["error"] for p in self.performance_history])),
-            "avg_accuracy": float(np.mean([p["accuracy"] for p in self.performance_history]))
+            "avg_accuracy": float(np.mean([p["accuracy"] for p in self.performance_history])),
         }
 
         if is_degrading:
-            alert = {
-                "timestamp": datetime.now(),
-                "type": "performance_drift",
-                "details": result
-            }
+            alert = {"timestamp": datetime.now(), "type": "performance_drift", "details": result}
             self.drift_alerts.append(alert)
             logger.warning(f"Performance drift detected for model {self.model_name}: {result}")
 
@@ -408,7 +419,11 @@ class ModelDriftMonitor:
 
         # Get recent performance metrics
         recent_metrics = list(self.performance_history)[-10:]
-        older_metrics = list(self.performance_history)[-20:-10] if len(self.performance_history) >= 20 else list(self.performance_history)[:10]
+        older_metrics = (
+            list(self.performance_history)[-20:-10]
+            if len(self.performance_history) >= 20
+            else list(self.performance_history)[:10]
+        )
 
         recent_avg_error = np.mean([m["error"] for m in recent_metrics])
         older_avg_error = np.mean([m["error"] for m in older_metrics])
@@ -436,7 +451,7 @@ class ModelDriftMonitor:
                 "max_error": float(np.max(perf_errors)),
                 "avg_accuracy": float(np.mean(perf_accuracies)),
                 "std_accuracy": float(np.std(perf_accuracies)),
-                "total_performance_records": len(self.performance_history)
+                "total_performance_records": len(self.performance_history),
             }
         else:
             performance_stats = {
@@ -446,14 +461,14 @@ class ModelDriftMonitor:
                 "max_error": 0.0,
                 "avg_accuracy": 1.0,
                 "std_accuracy": 0.0,
-                "total_performance_records": 0
+                "total_performance_records": 0,
             }
 
         return {
             "model_name": self.model_name,
             "drift_stats": drift_stats,
             "performance_stats": performance_stats,
-            "total_drift_alerts": len(self.drift_alerts)
+            "total_drift_alerts": len(self.drift_alerts),
         }
 
 
@@ -461,8 +476,12 @@ class ModelDriftMonitor:
 _global_drift_detector: DriftDetector | None = None
 
 
-def get_global_drift_detector(window_size: int = 100, threshold: float = 0.05,
-                             metric: str = "ks_test", warmup_samples: int = 50) -> DriftDetector:
+def get_global_drift_detector(
+    window_size: int = 100,
+    threshold: float = 0.05,
+    metric: str = "ks_test",
+    warmup_samples: int = 50,
+) -> DriftDetector:
     """
     Get the global drift detector instance, creating it if it doesn't exist.
 
@@ -481,6 +500,6 @@ def get_global_drift_detector(window_size: int = 100, threshold: float = 0.05,
             window_size=window_size,
             threshold=threshold,
             metric=metric,
-            warmup_samples=warmup_samples
+            warmup_samples=warmup_samples,
         )
     return _global_drift_detector

@@ -54,6 +54,7 @@ logger = get_logger(__name__)
 @dataclass
 class NashStabilityMetrics:
     """Metrics tracking Nash stability of the system."""
+
     # Knowledge accumulation
     knowledge_graph_nodes: int = 0
     knowledge_graph_edges: int = 0
@@ -131,10 +132,14 @@ class NashStableOrchestrator:
         self.knowledge_graph = get_knowledge_graph()
         self.adaptive_templates = get_adaptive_template_system()
         self.pareto_frontier = get_cost_quality_frontier()
-        self.federated = get_federated_orchestrator(
-            org_id=org_id,
-            privacy_budget=privacy_budget,
-        ) if enable_federation else None
+        self.federated = (
+            get_federated_orchestrator(
+                org_id=org_id,
+                privacy_budget=privacy_budget,
+            )
+            if enable_federation
+            else None
+        )
 
         # Metrics
         self.metrics = NashStabilityMetrics()
@@ -275,13 +280,15 @@ class NashStableOrchestrator:
         )
 
         for rec in kg_recs:
-            recommendations.append({
-                "source": "knowledge_graph",
-                "model": rec["model_name"],
-                "score": rec["score"],
-                "confidence": rec["confidence"],
-                "evidence_count": rec["evidence_count"],
-            })
+            recommendations.append(
+                {
+                    "source": "knowledge_graph",
+                    "model": rec["model_name"],
+                    "score": rec["score"],
+                    "confidence": rec["confidence"],
+                    "evidence_count": rec["evidence_count"],
+                }
+            )
 
         # 2. Pareto frontier recommendations
         frontier = await self.pareto_frontier.get_pareto_frontier(
@@ -292,14 +299,16 @@ class NashStableOrchestrator:
         )
 
         for rec in frontier[:3]:
-            recommendations.append({
-                "source": "pareto_frontier",
-                "model": rec.model.value,
-                "quality": rec.quality,
-                "cost": rec.cost,
-                "confidence": rec.confidence,
-                "is_pareto_optimal": rec.is_pareto_optimal,
-            })
+            recommendations.append(
+                {
+                    "source": "pareto_frontier",
+                    "model": rec.model.value,
+                    "quality": rec.quality,
+                    "cost": rec.cost,
+                    "confidence": rec.confidence,
+                    "is_pareto_optimal": rec.is_pareto_optimal,
+                }
+            )
 
         # 3. Global baseline
         if self.federated:
@@ -309,13 +318,15 @@ class NashStableOrchestrator:
             )
 
             for model_rec in baseline.recommended_models[:3]:
-                recommendations.append({
-                    "source": "global_baseline",
-                    "model": model_rec["model"],
-                    "quality": model_rec["quality"],
-                    "confidence": model_rec["confidence"],
-                    "sample_size": model_rec["sample_size"],
-                })
+                recommendations.append(
+                    {
+                        "source": "global_baseline",
+                        "model": model_rec["model"],
+                        "quality": model_rec["quality"],
+                        "confidence": model_rec["confidence"],
+                        "sample_size": model_rec["sample_size"],
+                    }
+                )
 
         # Aggregate scores
         model_scores: dict[str, list[float]] = defaultdict(list)
@@ -339,12 +350,14 @@ class NashStableOrchestrator:
             avg_score = sum(scores) / len(scores)
             avg_confidence = sum(model_confidences[model]) / len(scores)
 
-            aggregated.append({
-                "model": model,
-                "aggregated_score": avg_score,
-                "confidence": avg_confidence,
-                "source_count": len(scores),
-            })
+            aggregated.append(
+                {
+                    "model": model,
+                    "aggregated_score": avg_score,
+                    "confidence": avg_confidence,
+                    "source_count": len(scores),
+                }
+            )
 
         aggregated.sort(key=lambda x: x["aggregated_score"], reverse=True)
 
@@ -420,7 +433,9 @@ class NashStableOrchestrator:
             self.metrics.local_insights = fed_stats["local_insights"]
             self.metrics.global_insights = fed_stats["global_insights"]
             self.metrics.contributing_orgs = fed_stats["contributing_orgs"]
-            self.metrics.switching_cost_usd = fed_stats["switching_cost"]["total_switching_cost_usd"]
+            self.metrics.switching_cost_usd = fed_stats["switching_cost"][
+                "total_switching_cost_usd"
+            ]
 
         # Calculate composite Nash stability score
         # Formula: weighted combination of all factors
@@ -437,10 +452,10 @@ class NashStableOrchestrator:
         federated_score = fed_stats.get("nash_stability_score", 0) if self.federated else 0
 
         self.metrics.nash_stability_score = (
-            weights["knowledge"] * knowledge_score +
-            weights["templates"] * template_score +
-            weights["frontier"] * frontier_score +
-            weights["federated"] * federated_score
+            weights["knowledge"] * knowledge_score
+            + weights["templates"] * template_score
+            + weights["frontier"] * frontier_score
+            + weights["federated"] * federated_score
         )
 
     def get_nash_stability_report(self) -> dict[str, Any]:

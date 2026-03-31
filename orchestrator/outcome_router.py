@@ -44,19 +44,22 @@ logger = get_logger(__name__)
 # Routing Strategies
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class RoutingStrategy(Enum):
     """Available routing strategies."""
-    COST_OPTIMIZED = "cost_optimized"      # Minimize cost
+
+    COST_OPTIMIZED = "cost_optimized"  # Minimize cost
     QUALITY_OPTIMIZED = "quality_optimized"  # Maximize quality
-    BALANCED = "balanced"                  # Balance cost/quality
+    BALANCED = "balanced"  # Balance cost/quality
     PRODUCTION_WEIGHTED = "production_weighted"  # Use production outcomes
     CODEBASE_SPECIFIC = "codebase_specific"  # Match similar codebases
-    EXPLORATION = "exploration"            # Try under-sampled models
+    EXPLORATION = "exploration"  # Try under-sampled models
 
 
 @dataclass
 class ModelScore:
     """Comprehensive scoring for a model."""
+
     model: Model
 
     # Base scores (0.0 - 1.0)
@@ -71,7 +74,7 @@ class ModelScore:
 
     # Metadata
     confidence: float = 1.0  # How confident we are in these scores
-    sample_size: int = 0     # Number of production samples
+    sample_size: int = 0  # Number of production samples
 
     @property
     def composite_score(self) -> float:
@@ -100,16 +103,17 @@ class ModelScore:
         reliability_weight = reliability_weight / total_other * remaining
 
         return (
-            production_weight * self.production_score +
-            quality_weight * self.quality_score +
-            cost_weight * self.cost_score +
-            reliability_weight * self.reliability_score
+            production_weight * self.production_score
+            + quality_weight * self.quality_score
+            + cost_weight * self.cost_score
+            + reliability_weight * self.reliability_score
         )
 
 
 @dataclass
 class RoutingContext:
     """Context for routing decisions."""
+
     task: Task
     task_type: TaskType
     budget_remaining: float
@@ -123,6 +127,7 @@ class RoutingContext:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Outcome-Weighted Router
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class OutcomeWeightedRouter:
     """
@@ -168,20 +173,14 @@ class OutcomeWeightedRouter:
         candidates = ROUTING_TABLE.get(context.task_type, list(Model))
 
         # Filter by adaptive router health
-        healthy_candidates = [
-            m for m in candidates
-            if self.adaptive.is_available(m)
-        ]
+        healthy_candidates = [m for m in candidates if self.adaptive.is_available(m)]
 
         if not healthy_candidates:
             logger.warning("No healthy models available, using fallback")
             healthy_candidates = candidates  # Use all as fallback
 
         # Score all candidates
-        scores = {
-            model: self._score_model(model, context)
-            for model in healthy_candidates
-        }
+        scores = {model: self._score_model(model, context) for model in healthy_candidates}
 
         # Apply strategy-specific adjustments
         scores = self._apply_strategy(scores, context)
@@ -217,11 +216,14 @@ class OutcomeWeightedRouter:
             "composite_score": best_score.composite_score,
             "production_score": best_score.production_score,
             "confidence": best_score.confidence,
-            "all_scores": {m.value: {
-                "composite": s.composite_score,
-                "production": s.production_score,
-                "quality": s.quality_score,
-            } for m, s in scores.items()},
+            "all_scores": {
+                m.value: {
+                    "composite": s.composite_score,
+                    "production": s.production_score,
+                    "quality": s.quality_score,
+                }
+                for m, s in scores.items()
+            },
         }
 
     def _score_model(self, model: Model, context: RoutingContext) -> ModelScore:
@@ -285,8 +287,11 @@ class OutcomeWeightedRouter:
                 # Get sample size estimate
                 fp_hash = self._hash_fingerprint(context.codebase_fingerprint)
                 outcomes = self.feedback._codebase_outcomes.get(fp_hash, [])
-                relevant = [o for o in outcomes
-                           if o.model_used == model and o.task_type == context.task_type]
+                relevant = [
+                    o
+                    for o in outcomes
+                    if o.model_used == model and o.task_type == context.task_type
+                ]
                 return score, len(relevant)
 
         # Fall back to global score
@@ -302,11 +307,15 @@ class OutcomeWeightedRouter:
         """Hash a codebase fingerprint."""
         import hashlib
         import json
-        data = json.dumps({
-            "languages": sorted(fingerprint.languages),
-            "framework": fingerprint.framework,
-            "patterns": sorted(fingerprint.patterns),
-        }, sort_keys=True)
+
+        data = json.dumps(
+            {
+                "languages": sorted(fingerprint.languages),
+                "framework": fingerprint.framework,
+                "patterns": sorted(fingerprint.patterns),
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
     def _calculate_cost_score(self, model: Model, context: RoutingContext) -> float:
@@ -315,10 +324,9 @@ class OutcomeWeightedRouter:
         avg_cost = (costs["input"] + costs["output"]) / 2
 
         # Find max cost for normalization
-        max_cost = max(
-            (c["input"] + c["output"]) / 2
-            for c in COST_TABLE.values()
-        ) if COST_TABLE else 10.0
+        max_cost = (
+            max((c["input"] + c["output"]) / 2 for c in COST_TABLE.values()) if COST_TABLE else 10.0
+        )
 
         # Inverse score (lower cost = higher score)
         score = 1.0 - (avg_cost / max_cost)
@@ -491,8 +499,7 @@ class OutcomeWeightedRouter:
         This helps understand why users shouldn't switch to competitors.
         """
         total_samples = sum(
-            r.total_deployments
-            for r in self.feedback._performance_records.values()
+            r.total_deployments for r in self.feedback._performance_records.values()
         )
 
         codebase_count = len(self.feedback._codebase_outcomes)
@@ -525,7 +532,8 @@ class OutcomeWeightedRouter:
             "exploration_status": {
                 "exploration_rate": self.EXPLORATION_RATE,
                 "underexplored_models": [
-                    m.value for m in Model
+                    m.value
+                    for m in Model
                     if m not in {k[0] for k in self.feedback._performance_records}
                 ],
             },

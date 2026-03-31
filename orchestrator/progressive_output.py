@@ -39,6 +39,7 @@ logger = logging.getLogger("orchestrator.output")
 @dataclass
 class OutputEntry:
     """Single output entry in the progressive structure."""
+
     sequence: int
     phase: str
     task_id: str | None
@@ -55,6 +56,7 @@ class OutputEntry:
 @dataclass
 class SpecChange:
     """Change record for spec changelog."""
+
     timestamp: str
     change_type: str  # 'added', 'modified', 'completed', 'removed'
     description: str
@@ -217,14 +219,16 @@ class ProgressiveOutputManager:
         # Save as JSON
         tasks_data = []
         for task in tasks:
-            tasks_data.append({
-                "id": task.id,
-                "type": task.type.value if task.type else None,
-                "prompt": task.prompt,
-                "dependencies": task.dependencies,
-                "acceptance_threshold": task.acceptance_threshold,
-                "max_iterations": task.max_iterations,
-            })
+            tasks_data.append(
+                {
+                    "id": task.id,
+                    "type": task.type.value if task.type else None,
+                    "prompt": task.prompt,
+                    "dependencies": task.dependencies,
+                    "acceptance_threshold": task.acceptance_threshold,
+                    "max_iterations": task.max_iterations,
+                }
+            )
 
         file_path = folder / "tasks.json"
         file_path.write_text(json.dumps(tasks_data, indent=2), encoding="utf-8")
@@ -257,7 +261,9 @@ class ProgressiveOutputManager:
         self._entries.append(entry)
         self._save_state()
 
-        self._add_changelog("added", f"Decomposition: {len(tasks)} tasks", None, json.dumps(tasks_data))
+        self._add_changelog(
+            "added", f"Decomposition: {len(tasks)} tasks", None, json.dumps(tasks_data)
+        )
 
         logger.info(f"Saved decomposition ({len(tasks)} tasks) to {folder}")
         return folder
@@ -443,7 +449,8 @@ class ProgressiveOutputManager:
     def get_completed_task_ids(self) -> list[str]:
         """Get list of completed task IDs for resume."""
         return [
-            e.task_id for e in self._entries
+            e.task_id
+            for e in self._entries
             if e.phase == "execution" and e.status == "completed" and e.task_id
         ]
 

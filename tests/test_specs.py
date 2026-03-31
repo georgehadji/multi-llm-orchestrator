@@ -1,6 +1,7 @@
 """
 Unit tests for specs.py (B1).
 """
+
 from __future__ import annotations
 
 import pytest

@@ -6,6 +6,7 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 Multi-source component library with quality scoring and automated selection
 based on design system compatibility.
 """
+
 from __future__ import annotations
 
 import logging
@@ -92,7 +93,6 @@ Mobile: Content first, visual below.
 """,
         ),
     ],
-
     # ═══════════════════════════════════════════════════════════════════════════
     # FEATURES SECTIONS
     # ═══════════════════════════════════════════════════════════════════════════
@@ -158,7 +158,6 @@ Mobile: Linearized, all cards same width.
 """,
         ),
     ],
-
     # ═══════════════════════════════════════════════════════════════════════════
     # PRICING SECTIONS
     # ═══════════════════════════════════════════════════════════════════════════
@@ -204,7 +203,6 @@ Mobile: Toggle above stacked cards.
 """,
         ),
     ],
-
     # ═══════════════════════════════════════════════════════════════════════════
     # TESTIMONIALS SECTIONS
     # ═══════════════════════════════════════════════════════════════════════════
@@ -250,7 +248,6 @@ Mobile: Touch-enabled swipe.
 """,
         ),
     ],
-
     # ═══════════════════════════════════════════════════════════════════════════
     # FAQ SECTIONS
     # ═══════════════════════════════════════════════════════════════════════════
@@ -276,7 +273,6 @@ Mobile: Full-width, touch-friendly.
 """,
         ),
     ],
-
     # ═══════════════════════════════════════════════════════════════════════════
     # CTA SECTIONS
     # ═══════════════════════════════════════════════════════════════════════════
@@ -322,7 +318,6 @@ Mobile: Reduced padding, single button.
 """,
         ),
     ],
-
     # ═══════════════════════════════════════════════════════════════════════════
     # FOOTER SECTIONS
     # ═══════════════════════════════════════════════════════════════════════════
@@ -435,9 +430,7 @@ class ComponentRegistry:
 
             # Pick highest-scoring
             best = max(scored, key=lambda x: x[1])
-            logger.info(
-                f"Selected {best[0].name} for {section} (score: {best[1]:.2f})"
-            )
+            logger.info(f"Selected {best[0].name} for {section} (score: {best[1]:.2f})")
             selected.append(best[0])
 
         return selected
@@ -523,8 +516,9 @@ Mobile-first responsive design.
 # Convenience Functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_registry() -> ComponentRegistry:
     """Get or create component registry singleton."""
-    if not hasattr(get_registry, '_registry'):
+    if not hasattr(get_registry, "_registry"):
         get_registry._registry = ComponentRegistry()
     return get_registry._registry

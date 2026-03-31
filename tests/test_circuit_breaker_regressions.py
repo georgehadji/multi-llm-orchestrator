@@ -17,8 +17,14 @@ Regression #2: COMPLETED_DEGRADED assumes full task execution
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from orchestrator.models import (
-    Model, TaskType, Task, TaskStatus, TaskResult, ProjectState,
-    ProjectStatus, Budget
+    Model,
+    TaskType,
+    Task,
+    TaskStatus,
+    TaskResult,
+    ProjectState,
+    ProjectStatus,
+    Budget,
 )
 from orchestrator.engine import Orchestrator
 
@@ -56,15 +62,16 @@ class TestReviewerCircuitBreakerReset:
         orch._record_success(reviewer, mock_response)
 
         # Counter should be reset after success
-        assert orch._consecutive_failures.get(reviewer, 0) == 0, \
-            "Success should reset consecutive failures counter for reviewer"
+        assert (
+            orch._consecutive_failures.get(reviewer, 0) == 0
+        ), "Success should reset consecutive failures counter for reviewer"
 
         # Now 2 more transient errors should still leave reviewer healthy
         orch._record_failure(reviewer, error=Exception("429"))
         orch._record_failure(reviewer, error=Exception("timeout"))
-        assert orch.api_health.get(reviewer, True) is True, \
-            "After reset, 2 failures should not disable reviewer (threshold is 3)"
-
+        assert (
+            orch.api_health.get(reviewer, True) is True
+        ), "After reset, 2 failures should not disable reviewer (threshold is 3)"
 
     def test_three_transient_critique_errors_disable_reviewer_permanently(self):
         """
@@ -84,8 +91,9 @@ class TestReviewerCircuitBreakerReset:
         orch._record_failure(reviewer, error=Exception("temporary"))
 
         # Should be permanently disabled
-        assert orch.api_health.get(reviewer, True) is False, \
-            "3 consecutive transient failures should trigger circuit breaker"
+        assert (
+            orch.api_health.get(reviewer, True) is False
+        ), "3 consecutive transient failures should trigger circuit breaker"
 
 
 class TestCompletedDegradedGuard:
@@ -113,9 +121,7 @@ class TestCompletedDegradedGuard:
         # Add 5 tasks to the project
         for i in range(5):
             state.tasks[f"task_{i}"] = Task(
-                id=f"task_{i}",
-                type=TaskType.CODE_GEN,
-                prompt=f"Task {i}"
+                id=f"task_{i}", type=TaskType.CODE_GEN, prompt=f"Task {i}"
             )
 
         # Execute only first 3 tasks (simulate early termination)
@@ -126,7 +132,7 @@ class TestCompletedDegradedGuard:
                 score=0.9,
                 model_used=Model.CLAUDE_SONNET,
                 status=TaskStatus.COMPLETED,
-                deterministic_check_passed=False  # ← Failed validation
+                deterministic_check_passed=False,  # ← Failed validation
             )
 
         # Tasks 4-5 never executed (no results)
@@ -137,10 +143,10 @@ class TestCompletedDegradedGuard:
         status = orch._determine_final_status(state)
 
         # Must return PARTIAL_SUCCESS (resumable), NOT COMPLETED_DEGRADED (terminal)
-        assert status == ProjectStatus.PARTIAL_SUCCESS, \
-            "Partial execution with failed validation must return PARTIAL_SUCCESS (resumable), " \
+        assert status == ProjectStatus.PARTIAL_SUCCESS, (
+            "Partial execution with failed validation must return PARTIAL_SUCCESS (resumable), "
             "not COMPLETED_DEGRADED (terminal)"
-
+        )
 
     def test_completed_degraded_only_when_all_tasks_executed_and_failed_validation(self):
         """
@@ -157,9 +163,7 @@ class TestCompletedDegradedGuard:
         # 3 tasks, all executed
         for i in range(3):
             state.tasks[f"task_{i}"] = Task(
-                id=f"task_{i}",
-                type=TaskType.CODE_GEN,
-                prompt=f"Task {i}"
+                id=f"task_{i}", type=TaskType.CODE_GEN, prompt=f"Task {i}"
             )
             state.results[f"task_{i}"] = TaskResult(
                 task_id=f"task_{i}",
@@ -167,7 +171,7 @@ class TestCompletedDegradedGuard:
                 score=0.9,
                 model_used=Model.CLAUDE_SONNET,
                 status=TaskStatus.COMPLETED,
-                deterministic_check_passed=False  # ← Failed validation
+                deterministic_check_passed=False,  # ← Failed validation
             )
 
         # All tasks executed, some failed validation
@@ -176,9 +180,9 @@ class TestCompletedDegradedGuard:
         status = orch._determine_final_status(state)
 
         # Should return COMPLETED_DEGRADED (terminal)
-        assert status == ProjectStatus.COMPLETED_DEGRADED, \
-            "All tasks executed with failed validation should return COMPLETED_DEGRADED (terminal)"
-
+        assert (
+            status == ProjectStatus.COMPLETED_DEGRADED
+        ), "All tasks executed with failed validation should return COMPLETED_DEGRADED (terminal)"
 
     def test_partial_execution_always_resumable(self):
         """
@@ -195,11 +199,7 @@ class TestCompletedDegradedGuard:
 
         # 10 tasks defined
         for i in range(10):
-            state.tasks[f"t_{i}"] = Task(
-                id=f"t_{i}",
-                type=TaskType.CODE_GEN,
-                prompt=f"Task {i}"
-            )
+            state.tasks[f"t_{i}"] = Task(id=f"t_{i}", type=TaskType.CODE_GEN, prompt=f"Task {i}")
 
         # Only 5 executed
         for i in range(5):
@@ -209,12 +209,13 @@ class TestCompletedDegradedGuard:
                 score=0.95,
                 model_used=Model.CLAUDE_SONNET,
                 status=TaskStatus.COMPLETED,
-                deterministic_check_passed=True  # ← Passed validation
+                deterministic_check_passed=True,  # ← Passed validation
             )
 
         status = orch._determine_final_status(state)
 
         # Even though executed tasks passed validation, partial execution = resumable
-        assert status == ProjectStatus.PARTIAL_SUCCESS, \
-            "Partial execution must always return PARTIAL_SUCCESS (resumable), " \
+        assert status == ProjectStatus.PARTIAL_SUCCESS, (
+            "Partial execution must always return PARTIAL_SUCCESS (resumable), "
             "never COMPLETED_DEGRADED (terminal)"
+        )

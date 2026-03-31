@@ -47,6 +47,7 @@ logger = logging.getLogger("orchestrator.projections")
 # Projection Base Classes
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class Projection(ABC):
     """
     Base class for CQRS projections (read models).
@@ -112,9 +113,11 @@ class PersistentProjection(Projection):
 # Model Performance Projection
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class ModelPerformanceStats:
     """Statistics for a model on a specific task type."""
+
     model: str
     task_type: str
 
@@ -174,9 +177,9 @@ class ModelPerformanceStats:
         """Calculate composite score for ranking."""
         # Weight: Quality 30%, Success Rate 30%, Production 40%
         return (
-            0.3 * self.quality_score_ema +
-            0.3 * self.success_rate_ema +
-            0.4 * self.production_score_ema
+            0.3 * self.quality_score_ema
+            + 0.3 * self.success_rate_ema
+            + 0.4 * self.production_score_ema
         )
 
     @property
@@ -339,7 +342,8 @@ class ModelPerformanceProjection(PersistentProjection):
             failure_count=sum(s.failure_count for s in model_stats),
             quality_score_ema=sum(s.quality_score_ema for s in model_stats) / len(model_stats),
             success_rate_ema=sum(s.success_rate_ema for s in model_stats) / len(model_stats),
-            production_score_ema=sum(s.production_score_ema for s in model_stats) / len(model_stats),
+            production_score_ema=sum(s.production_score_ema for s in model_stats)
+            / len(model_stats),
             total_cost_usd=sum(s.total_cost_usd for s in model_stats),
             avg_latency_ms=sum(s.avg_latency_ms for s in model_stats) / len(model_stats),
         )
@@ -359,7 +363,8 @@ class ModelPerformanceProjection(PersistentProjection):
         # Filter stats
         if task_type:
             stats_list = [
-                s for (m, tt), s in self._stats.items()
+                s
+                for (m, tt), s in self._stats.items()
                 if tt == task_type and s.total_calls >= min_calls
             ]
         else:
@@ -376,9 +381,12 @@ class ModelPerformanceProjection(PersistentProjection):
                     task_type="aggregate",
                     total_calls=sum(s.total_calls for s in model_stats),
                     success_count=sum(s.success_count for s in model_stats),
-                    quality_score_ema=sum(s.quality_score_ema for s in model_stats) / len(model_stats),
-                    success_rate_ema=sum(s.success_rate_ema for s in model_stats) / len(model_stats),
-                    production_score_ema=sum(s.production_score_ema for s in model_stats) / len(model_stats),
+                    quality_score_ema=sum(s.quality_score_ema for s in model_stats)
+                    / len(model_stats),
+                    success_rate_ema=sum(s.success_rate_ema for s in model_stats)
+                    / len(model_stats),
+                    production_score_ema=sum(s.production_score_ema for s in model_stats)
+                    / len(model_stats),
                 )
                 stats_list.append(aggregated)
 
@@ -407,8 +415,7 @@ class ModelPerformanceProjection(PersistentProjection):
             strategy: "quality", "cost", "balanced", or "production"
         """
         candidates = [
-            s for (m, tt), s in self._stats.items()
-            if tt == task_type and s.total_calls >= 3
+            s for (m, tt), s in self._stats.items() if tt == task_type and s.total_calls >= 3
         ]
 
         if not candidates:
@@ -449,7 +456,7 @@ class ModelPerformanceProjection(PersistentProjection):
                     INSERT OR REPLACE INTO model_stats (model, task_type, data, updated_at)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (stats.model, stats.task_type, json.dumps(stats.to_dict()), now)
+                    (stats.model, stats.task_type, json.dumps(stats.to_dict()), now),
                 )
 
             conn.commit()
@@ -519,9 +526,11 @@ class ModelPerformanceProjection(PersistentProjection):
 # Budget Projection
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class BudgetSnapshot:
     """Budget state at a point in time."""
+
     project_id: str
     total_budget: float
     spent: float
@@ -544,12 +553,14 @@ class BudgetProjection(Projection):
 
     async def on_budget_warning(self, event: BudgetWarningEvent) -> None:
         """Track budget warnings."""
-        self._alerts.append({
-            "project_id": event.project_id,
-            "phase": event.phase,
-            "ratio": event.ratio,
-            "timestamp": datetime.utcnow(),
-        })
+        self._alerts.append(
+            {
+                "project_id": event.project_id,
+                "phase": event.phase,
+                "ratio": event.ratio,
+                "timestamp": datetime.utcnow(),
+            }
+        )
 
     def get_budget_status(self, project_id: str) -> BudgetSnapshot | None:
         """Get current budget status for a project."""
@@ -595,6 +606,7 @@ def get_model_performance_projection(
 
     if "model_performance" not in _projections:
         from .events import get_event_bus
+
         bus = event_bus or get_event_bus()
         _projections["model_performance"] = ModelPerformanceProjection(bus)
 
@@ -609,6 +621,7 @@ def get_budget_projection(
 
     if "budget" not in _projections:
         from .events import get_event_bus
+
         bus = event_bus or get_event_bus()
         _projections["budget"] = BudgetProjection(bus)
 

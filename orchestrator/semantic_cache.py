@@ -22,6 +22,7 @@ from .models import Task, TaskType
 @dataclass
 class SemanticPattern:
     """A cached semantic pattern with quality threshold."""
+
     pattern_hash: str
     task_type: TaskType
     normalized_intent: str
@@ -62,23 +63,23 @@ class SemanticCache:
         - Preserve structure and operation types
         """
         # Remove code blocks and quotes
-        text = re.sub(r'```[\s\S]*?```', '<CODE_BLOCK>', prompt)
-        text = re.sub(r'["\'][^"\']+["\']', '<LITERAL>', text)
+        text = re.sub(r"```[\s\S]*?```", "<CODE_BLOCK>", prompt)
+        text = re.sub(r'["\'][^"\']+["\']', "<LITERAL>", text)
 
         # Replace variable-like identifiers (camelCase, snake_case)
-        text = re.sub(r'\b[a-z][a-zA-Z0-9_]*\b', '<identifier>', text)
-        text = re.sub(r'\b[A-Z][a-zA-Z0-9_]*\b', '<Identifier>', text)
+        text = re.sub(r"\b[a-z][a-zA-Z0-9_]*\b", "<identifier>", text)
+        text = re.sub(r"\b[A-Z][a-zA-Z0-9_]*\b", "<Identifier>", text)
 
         # Replace numbers
-        text = re.sub(r'\b\d+\b', '<NUM>', text)
+        text = re.sub(r"\b\d+\b", "<NUM>", text)
 
         # Normalize task-specific patterns
         if task_type == TaskType.CODE_GEN:
             # Normalize function/class names in definitions
-            text = re.sub(r'\b(def|class)\s+\w+', r'\1 <NAME>', text)
+            text = re.sub(r"\b(def|class)\s+\w+", r"\1 <NAME>", text)
 
         # Normalize whitespace
-        text = ' '.join(text.split())
+        text = " ".join(text.split())
         text = text.lower()
 
         return text
@@ -117,12 +118,7 @@ class SemanticCache:
         pattern.use_count += 1
         return pattern.output
 
-    def cache_pattern(
-        self,
-        task: Task,
-        output: str,
-        quality_score: float
-    ) -> bool:
+    def cache_pattern(self, task: Task, output: str, quality_score: float) -> bool:
         """
         Cache a pattern if it meets quality threshold.
 
@@ -155,7 +151,7 @@ class SemanticCache:
                 normalized_intent=normalized,
                 output=output,
                 quality_score=quality_score,
-                use_count=1
+                use_count=1,
             )
 
         return True
@@ -172,7 +168,7 @@ class SemanticCache:
             "entries": len(self._cache),
             "avg_quality": sum(qualities) / len(qualities),
             "total_uses": sum(uses),
-            "hot_entries": sum(1 for u in uses if u >= self._min_use_count)
+            "hot_entries": sum(1 for u in uses if u >= self._min_use_count),
         }
 
     def clear(self) -> None:

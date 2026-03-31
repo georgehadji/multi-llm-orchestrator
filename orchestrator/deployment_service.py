@@ -44,8 +44,10 @@ logger = logging.getLogger("orchestrator.deployment_service")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class DeploymentTarget(str, Enum):
     """Deployment targets."""
+
     VERCEL = "vercel"
     NETLIFY = "netlify"
     DOCKER = "docker"
@@ -54,6 +56,7 @@ class DeploymentTarget(str, Enum):
 
 class DeploymentStatus(str, Enum):
     """Deployment status."""
+
     PENDING = "pending"
     BUILDING = "building"
     DEPLOYING = "deploying"
@@ -66,9 +69,11 @@ class DeploymentStatus(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class DeploymentResult:
     """Deployment result."""
+
     success: bool
     target: DeploymentTarget
     url: str | None = None
@@ -95,6 +100,7 @@ class DeploymentResult:
 @dataclass
 class DeploymentConfig:
     """Deployment configuration."""
+
     target: DeploymentTarget
     project_path: str
     environment: str = "production"  # production, staging, development
@@ -134,6 +140,7 @@ class DeploymentConfig:
 # Deployment Providers
 # ─────────────────────────────────────────────
 
+
 class DeploymentProvider(ABC):
     """Deployment provider interface."""
 
@@ -169,6 +176,7 @@ class VercelProvider(DeploymentProvider):
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Deploy to Vercel."""
         import time
+
         start_time = time.time()
 
         try:
@@ -269,7 +277,8 @@ class VercelProvider(DeploymentProvider):
     def _extract_vercel_url(self, output: str) -> str | None:
         """Extract deployment URL from Vercel output."""
         import re
-        match = re.search(r'https://[^\s]+\.vercel\.app', output)
+
+        match = re.search(r"https://[^\s]+\.vercel\.app", output)
         if match:
             return match.group(0)
         return None
@@ -306,6 +315,7 @@ class NetlifyProvider(DeploymentProvider):
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Deploy to Netlify."""
         import time
+
         start_time = time.time()
 
         try:
@@ -406,7 +416,8 @@ class NetlifyProvider(DeploymentProvider):
     def _extract_netlify_url(self, output: str) -> str | None:
         """Extract deployment URL from Netlify output."""
         import re
-        match = re.search(r'https://[^\s]+\.netlify\.app', output)
+
+        match = re.search(r"https://[^\s]+\.netlify\.app", output)
         if match:
             return match.group(0)
         return None
@@ -443,6 +454,7 @@ class DockerProvider(DeploymentProvider):
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Build and push Docker image."""
         import time
+
         start_time = time.time()
 
         try:
@@ -562,6 +574,7 @@ class LocalProvider(DeploymentProvider):
     async def deploy(self, config: DeploymentConfig) -> DeploymentResult:
         """Simulate local deployment."""
         import time
+
         start_time = time.time()
 
         await asyncio.sleep(0.1)  # Simulate deployment time
@@ -594,6 +607,7 @@ class LocalProvider(DeploymentProvider):
 # ─────────────────────────────────────────────
 # Deployment Service
 # ─────────────────────────────────────────────
+
 
 class DeploymentService:
     """

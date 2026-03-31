@@ -43,6 +43,7 @@ logger = logging.getLogger("orchestrator.meta_performance")
 # Configuration
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class PerformanceConfig:
     """Configuration for performance optimizations."""
@@ -71,8 +72,8 @@ class PerformanceConfig:
 # Async Batch Processor
 # ─────────────────────────────────────────────
 
-T = TypeVar('T')
-U = TypeVar('U')
+T = TypeVar("T")
+U = TypeVar("U")
 
 
 class AsyncBatchProcessor:
@@ -128,10 +129,7 @@ class AsyncBatchProcessor:
                     raise
 
         # Split into batches
-        batches = [
-            items[i:i + batch_size]
-            for i in range(0, len(items), batch_size)
-        ]
+        batches = [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
 
         # Process all batches concurrently
         tasks = []
@@ -179,6 +177,7 @@ class AsyncBatchProcessor:
         Returns:
             List of processed results
         """
+
         async def process_with_retry(item: T) -> U:
             last_error = None
             for attempt in range(max_retries):
@@ -187,7 +186,7 @@ class AsyncBatchProcessor:
                 except Exception as e:
                     last_error = e
                     if attempt < max_retries - 1:
-                        delay = retry_delay * (2 ** attempt)  # Exponential backoff
+                        delay = retry_delay * (2**attempt)  # Exponential backoff
                         await asyncio.sleep(delay)
 
             if last_error:
@@ -208,9 +207,11 @@ class AsyncBatchProcessor:
 # LRU Cache
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class CacheEntry(Generic[T]):
     """Cache entry with metadata."""
+
     value: T
     created_at: float
     last_accessed: float
@@ -296,8 +297,7 @@ class LRUCache(Generic[T]):
 
             # Check memory limit
             if self.max_memory_bytes:
-                while (self._current_memory + size_bytes > self.max_memory_bytes and
-                       self._cache):
+                while self._current_memory + size_bytes > self.max_memory_bytes and self._cache:
                     # Evict least recently used
                     oldest_key = next(iter(self._cache))
                     await self._evict(oldest_key)
@@ -341,7 +341,8 @@ class LRUCache(Generic[T]):
         async with self._lock:
             now = time.time()
             expired = [
-                key for key, entry in self._cache.items()
+                key
+                for key, entry in self._cache.items()
                 if now - entry.created_at > self.ttl_seconds
             ]
 
@@ -371,6 +372,7 @@ class LRUCache(Generic[T]):
 # ─────────────────────────────────────────────
 # Connection Pool
 # ─────────────────────────────────────────────
+
 
 class ConnectionPool:
     """
@@ -529,6 +531,7 @@ class ConnectionPool:
 # ─────────────────────────────────────────────
 # Context Manager for Pooled Connections
 # ─────────────────────────────────────────────
+
 
 class PooledConnection:
     """Context manager for acquiring pooled connections."""

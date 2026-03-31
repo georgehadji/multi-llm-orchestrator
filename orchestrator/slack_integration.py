@@ -38,8 +38,10 @@ logger = logging.getLogger(__name__)
 # Data Models
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AlertSeverity(Enum):
     """Severity levels for alerts."""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -49,6 +51,7 @@ class AlertSeverity(Enum):
 @dataclass
 class BudgetStats:
     """Budget statistics for a project/run."""
+
     total_budget: float
     spent: float
     remaining: float
@@ -59,6 +62,7 @@ class BudgetStats:
 @dataclass
 class BudgetAlertPayload:
     """Payload for budget threshold alerts."""
+
     project_id: str
     run_id: str
     threshold_crossed: float  # 0.5, 0.8, 1.0, etc.
@@ -72,6 +76,7 @@ class BudgetAlertPayload:
 @dataclass
 class FailedCheck:
     """A single failed quality check."""
+
     name: str
     expected: str
     actual: str
@@ -81,6 +86,7 @@ class FailedCheck:
 @dataclass
 class QualityGateFailurePayload:
     """Payload for quality gate failure alerts."""
+
     project_id: str
     run_id: str
     quality_score: float
@@ -95,6 +101,7 @@ class QualityGateFailurePayload:
 @dataclass
 class CircuitBreakerPayload:
     """Payload for model circuit breaker alerts."""
+
     model_name: str
     error_count: int
     last_error_message: str
@@ -108,6 +115,7 @@ class CircuitBreakerPayload:
 @dataclass
 class IssueItem:
     """A single issue in a run summary."""
+
     category: str  # SECURITY, TEST, PERFORMANCE, etc.
     description: str
     severity: str = "medium"
@@ -118,6 +126,7 @@ class IssueItem:
 @dataclass
 class CostBreakdown:
     """Cost breakdown by model."""
+
     model_name: str
     cost_usd: float
     tokens_used: int | None = None
@@ -126,6 +135,7 @@ class CostBreakdown:
 @dataclass
 class RunSummaryPayload:
     """Payload for end-of-run summaries."""
+
     project_id: str
     run_id: str
     status: str  # "PASSED" or "FAILED"
@@ -145,6 +155,7 @@ class RunSummaryPayload:
 @dataclass
 class SlashCommandRequest:
     """Incoming Slack slash command request."""
+
     command: str
     text: str  # Everything after the command
     user_id: str
@@ -159,6 +170,7 @@ class SlashCommandRequest:
 @dataclass
 class SlashCommandResponse:
     """Response to a slash command."""
+
     text: str
     response_type: str = "ephemeral"  # "ephemeral" or "in_channel"
     blocks: list[dict] | None = None
@@ -167,6 +179,7 @@ class SlashCommandResponse:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Low-Level Slack Client
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class SlackClient:
     """
@@ -260,6 +273,7 @@ class SlackClient:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Slack Notifier (High-Level Alerting)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class SlackNotifier:
     """
@@ -418,43 +432,47 @@ class SlackNotifier:
         }
 
         if payload.report_url:
-            message["blocks"].append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"<🔗 {payload.report_url}|View Full Report>",
-                },
-            })
+            message["blocks"].append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"<🔗 {payload.report_url}|View Full Report>",
+                    },
+                }
+            )
 
-        message["blocks"].extend([
-            {"type": "divider"},
-            {
-                "type": "actions",
-                "elements": [
-                    {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "🔄 Rerun with Same Settings",
-                            "emoji": True,
+        message["blocks"].extend(
+            [
+                {"type": "divider"},
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "🔄 Rerun with Same Settings",
+                                "emoji": True,
+                            },
+                            "url": payload.rerun_url,
+                            "style": "primary",
+                            "action_id": "rerun_project",
                         },
-                        "url": payload.rerun_url,
-                        "style": "primary",
-                        "action_id": "rerun_project",
-                    },
-                    {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "📊 Open in Dashboard",
-                            "emoji": True,
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "📊 Open in Dashboard",
+                                "emoji": True,
+                            },
+                            "url": payload.dashboard_url,
+                            "action_id": "open_dashboard",
                         },
-                        "url": payload.dashboard_url,
-                        "action_id": "open_dashboard",
-                    },
-                ],
-            },
-        ])
+                    ],
+                },
+            ]
+        )
 
         success = await self.client.send_message(message)
         if success:
@@ -533,6 +551,7 @@ class SlackNotifier:
 # Run Summary Formatter
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class RunSummaryFormatter:
     """Formats end-of-run summaries for Slack."""
 
@@ -545,7 +564,9 @@ class RunSummaryFormatter:
         lines = []
         for cost in costs:
             if cost.tokens_used:
-                lines.append(f"• {cost.model_name}: ${cost.cost_usd:.3f} ({cost.tokens_used:,} tokens)")
+                lines.append(
+                    f"• {cost.model_name}: ${cost.cost_usd:.3f} ({cost.tokens_used:,} tokens)"
+                )
             else:
                 lines.append(f"• {cost.model_name}: ${cost.cost_usd:.3f}")
         return "\n".join(lines)
@@ -570,7 +591,9 @@ class RunSummaryFormatter:
     def build_slack_message(cls, payload: RunSummaryPayload) -> dict:
         """Build a complete Slack message from a run summary payload."""
         status_emoji = "✅" if payload.status == "PASSED" else "❌"
-        quality_emoji = "🟢" if payload.quality_score >= 0.8 else "🟡" if payload.quality_score >= 0.6 else "🔴"
+        quality_emoji = (
+            "🟢" if payload.quality_score >= 0.8 else "🟡" if payload.quality_score >= 0.6 else "🔴"
+        )
 
         duration_str = ""
         if payload.duration_seconds:
@@ -612,49 +635,59 @@ class RunSummaryFormatter:
 
         # Add cost breakdown
         if payload.cost_breakdown:
-            blocks.append({
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*Cost Breakdown:*\n{cls.format_cost_breakdown(payload.cost_breakdown)}",
+                    },
+                }
+            )
+
+        # Add issues
+        blocks.append(
+            {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*Cost Breakdown:*\n{cls.format_cost_breakdown(payload.cost_breakdown)}",
+                    "text": f"*Top Issues:*\n{cls.format_issues(payload.top_issues)}",
                 },
-            })
-
-        # Add issues
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*Top Issues:*\n{cls.format_issues(payload.top_issues)}",
-            },
-        })
+            }
+        )
 
         # Add action buttons
         actions = {"type": "actions", "elements": []}
 
         if payload.dashboard_url:
-            actions["elements"].append({
-                "type": "button",
-                "text": {"type": "plain_text", "text": "📊 Open Dashboard", "emoji": True},
-                "url": payload.dashboard_url,
-                "action_id": "open_dashboard",
-            })
+            actions["elements"].append(
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "📊 Open Dashboard", "emoji": True},
+                    "url": payload.dashboard_url,
+                    "action_id": "open_dashboard",
+                }
+            )
 
         if payload.artifacts_url:
-            actions["elements"].append({
-                "type": "button",
-                "text": {"type": "plain_text", "text": "📦 Download Artifacts", "emoji": True},
-                "url": payload.artifacts_url,
-                "action_id": "download_artifacts",
-            })
+            actions["elements"].append(
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "📦 Download Artifacts", "emoji": True},
+                    "url": payload.artifacts_url,
+                    "action_id": "download_artifacts",
+                }
+            )
 
         if payload.audit_log_url:
-            actions["elements"].append({
-                "type": "button",
-                "text": {"type": "plain_text", "text": "📋 View Audit Log", "emoji": True},
-                "url": payload.audit_log_url,
-                "action_id": "view_audit_log",
-            })
+            actions["elements"].append(
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "📋 View Audit Log", "emoji": True},
+                    "url": payload.audit_log_url,
+                    "action_id": "view_audit_log",
+                }
+            )
 
         if actions["elements"]:
             blocks.extend([{"type": "divider"}, actions])
@@ -682,6 +715,7 @@ async def send_run_summary_to_slack(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Slash Command Handling
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class RateLimiter:
     """
@@ -741,6 +775,7 @@ class RateLimiter:
 @dataclass
 class PresetTemplate:
     """A predefined template for project runs."""
+
     name: str
     description: str
     policy_overrides: dict[str, Any]
@@ -757,44 +792,50 @@ class TemplateRegistry:
 
     def _register_defaults(self):
         """Register default templates."""
-        self.register(PresetTemplate(
-            name="secure-api-starter",
-            description="FastAPI + JWT auth with strict security policies",
-            policy_overrides={
-                "allowed_models": ["gpt-4o", "claude-3-5-sonnet"],
-                "security_checks": ["bandit", "safety", "secrets"],
-                "required_tests": True,
-                "min_coverage": 80,
-            },
-            default_budget=8.0,
-            allowed_overrides=["budget", "description"],
-        ))
+        self.register(
+            PresetTemplate(
+                name="secure-api-starter",
+                description="FastAPI + JWT auth with strict security policies",
+                policy_overrides={
+                    "allowed_models": ["gpt-4o", "claude-3-5-sonnet"],
+                    "security_checks": ["bandit", "safety", "secrets"],
+                    "required_tests": True,
+                    "min_coverage": 80,
+                },
+                default_budget=8.0,
+                allowed_overrides=["budget", "description"],
+            )
+        )
 
-        self.register(PresetTemplate(
-            name="internal-dashboard",
-            description="Next.js dashboard with basic auth (relaxed settings)",
-            policy_overrides={
-                "allowed_models": ["gpt-4o-mini", "deepseek-chat"],
-                "security_checks": ["basic"],
-                "required_tests": False,
-                "min_coverage": 50,
-            },
-            default_budget=3.0,
-            allowed_overrides=["budget", "description", "models"],
-        ))
+        self.register(
+            PresetTemplate(
+                name="internal-dashboard",
+                description="Next.js dashboard with basic auth (relaxed settings)",
+                policy_overrides={
+                    "allowed_models": ["gpt-4o-mini", "deepseek-chat"],
+                    "security_checks": ["basic"],
+                    "required_tests": False,
+                    "min_coverage": 50,
+                },
+                default_budget=3.0,
+                allowed_overrides=["budget", "description", "models"],
+            )
+        )
 
-        self.register(PresetTemplate(
-            name="python-cli",
-            description="Python CLI tool with standard quality gates",
-            policy_overrides={
-                "allowed_models": ["deepseek-chat", "gpt-4o-mini"],
-                "security_checks": ["bandit"],
-                "required_tests": True,
-                "min_coverage": 70,
-            },
-            default_budget=2.0,
-            allowed_overrides=["budget", "description"],
-        ))
+        self.register(
+            PresetTemplate(
+                name="python-cli",
+                description="Python CLI tool with standard quality gates",
+                policy_overrides={
+                    "allowed_models": ["deepseek-chat", "gpt-4o-mini"],
+                    "security_checks": ["bandit"],
+                    "required_tests": True,
+                    "min_coverage": 70,
+                },
+                default_budget=2.0,
+                allowed_overrides=["budget", "description"],
+            )
+        )
 
     def register(self, template: PresetTemplate):
         """Register a new template."""
@@ -888,9 +929,7 @@ class SlashCommandHandler:
     ):
         self.templates = TemplateRegistry()
         self.runner = template_runner
-        self.signing_secret = signing_secret or os.environ.get(
-            "ORCHESTRATOR_SLACK_SIGNING_SECRET"
-        )
+        self.signing_secret = signing_secret or os.environ.get("ORCHESTRATOR_SLACK_SIGNING_SECRET")
         self.rate_limiter = rate_limiter or RateLimiter(max_requests=10, window_seconds=60)
         self.host = os.environ.get("ORCHESTRATOR_HOST", "localhost:8888")
 
@@ -924,11 +963,14 @@ class SlashCommandHandler:
         sig_basestring = f"v0:{timestamp}:{body}"
 
         # Calculate signature
-        my_signature = "v0=" + hmac.new(
-            self.signing_secret.encode(),
-            sig_basestring.encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        my_signature = (
+            "v0="
+            + hmac.new(
+                self.signing_secret.encode(),
+                sig_basestring.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         return hmac.compare_digest(my_signature, signature)
 
@@ -1079,13 +1121,15 @@ class SlashCommandHandler:
         ]
 
         for template in templates:
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*`{template.name}`*\n{template.description}\nDefault budget: ${template.default_budget}",
-                },
-            })
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*`{template.name}`*\n{template.description}\nDefault budget: ${template.default_budget}",
+                    },
+                }
+            )
 
         return SlashCommandResponse(
             text="Available templates",
@@ -1113,12 +1157,12 @@ class SlashCommandHandler:
                         "type": "mrkdwn",
                         "text": (
                             "*Commands:*\n"
-                            "• `/orchestrator run <template> [budget=X] [description=\"...\"]` - Start a new run\n"
+                            '• `/orchestrator run <template> [budget=X] [description="..."]` - Start a new run\n'
                             "• `/orchestrator list` - List available templates\n"
                             "• `/orchestrator help` - Show this help message\n\n"
                             "*Examples:*\n"
                             "• `/orchestrator run secure-api-starter`\n"
-                            "• `/orchestrator run internal-dashboard budget=10 description=\"Q4 dashboard\"`"
+                            '• `/orchestrator run internal-dashboard budget=10 description="Q4 dashboard"`'
                         ),
                     },
                 },
@@ -1129,6 +1173,7 @@ class SlashCommandHandler:
 # ═══════════════════════════════════════════════════════════════════════════════
 # HTTP Endpoint Handler (FastAPI/Starlette)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class SlackEndpointHandler:
     """
@@ -1180,11 +1225,13 @@ class SlackEndpointHandler:
         try:
             from fastapi import Request as FastAPIRequest
             from fastapi.responses import JSONResponse as FastAPIJSONResponse
+
             ResponseType = FastAPIJSONResponse
         except ImportError:
             try:
                 from starlette.requests import Request as StarletteRequest
                 from starlette.responses import JSONResponse as StarletteJSONResponse
+
                 ResponseType = StarletteJSONResponse
             except ImportError:
                 raise ImportError(
@@ -1223,6 +1270,7 @@ class SlackEndpointHandler:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Orchestrator Lifecycle Hooks
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class SlackIntegrationHooks:
     """

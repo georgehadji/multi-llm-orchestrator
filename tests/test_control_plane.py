@@ -1,6 +1,7 @@
 """
 Unit tests for ControlPlane (B3).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +27,7 @@ from orchestrator.specs import (
 
 def _minimal_state() -> ProjectState:
     from orchestrator.models import Budget
+
     return ProjectState(
         project_description="test",
         success_criteria="pass",
@@ -40,6 +42,7 @@ def _minimal_state() -> ProjectState:
 # ─────────────────────────────────────────────────────────────────────────────
 # Validation
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_validate_empty_goal():
     cp = ControlPlane()
@@ -88,6 +91,7 @@ def test_validate_valid_job():
 # Submit — validation error path
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_submit_raises_on_validation_error():
     cp = ControlPlane()
     job = JobSpecV2(goal="")  # empty goal → validation error
@@ -99,15 +103,18 @@ def test_submit_raises_on_validation_error():
 # Submit — policy violation path
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_submit_raises_on_policy_violation():
     cp = ControlPlane()
     job = JobSpecV2(
         goal="my job",
         inputs=InputSpec(data_locality="us"),
     )
-    policy = PolicySpecV2(allow_deny_rules=[
-        {"effect": "deny", "when": "data_locality == us"},
-    ])
+    policy = PolicySpecV2(
+        allow_deny_rules=[
+            {"effect": "deny", "when": "data_locality == us"},
+        ]
+    )
     with pytest.raises(PolicyViolation):
         asyncio.run(cp.submit(job, policy))
 
@@ -115,6 +122,7 @@ def test_submit_raises_on_policy_violation():
 # ─────────────────────────────────────────────────────────────────────────────
 # solve_constraints
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_solve_eu_only_constraint():
     cp = ControlPlane()
@@ -144,6 +152,7 @@ def test_solve_quality_tier_above_threshold():
 # ─────────────────────────────────────────────────────────────────────────────
 # Full submit — happy path (mocked orchestrator)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_submit_happy_path():
     cp = ControlPlane()

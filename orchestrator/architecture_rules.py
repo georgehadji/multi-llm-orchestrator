@@ -18,6 +18,7 @@ Usage:
     # Save rules file
     RulesGenerator.save_rules(rules, output_dir)
 """
+
 from __future__ import annotations
 
 import json
@@ -38,6 +39,7 @@ logger = get_logger(__name__)
 
 class ArchitecturalStyle(Enum):
     """High-level architectural styles."""
+
     MICROSERVICES = "microservices"
     MONOLITH = "monolith"
     SERVERLESS = "serverless"
@@ -50,6 +52,7 @@ class ArchitecturalStyle(Enum):
 
 class ProgrammingParadigm(Enum):
     """Programming paradigms."""
+
     OBJECT_ORIENTED = "object_oriented"
     FUNCTIONAL = "functional"
     PROCEDURAL = "procedural"
@@ -59,6 +62,7 @@ class ProgrammingParadigm(Enum):
 
 class APIStyle(Enum):
     """API architectural styles."""
+
     REST = "rest"
     GRAPHQL = "graphql"
     GRPC = "grpc"
@@ -68,6 +72,7 @@ class APIStyle(Enum):
 
 class DatabaseType(Enum):
     """Database types."""
+
     RELATIONAL = "relational"
     DOCUMENT = "document"
     KEY_VALUE = "key_value"
@@ -80,6 +85,7 @@ class DatabaseType(Enum):
 @dataclass
 class TechnologyStack:
     """Recommended technology stack."""
+
     primary_language: str
     secondary_languages: list[str] = field(default_factory=list)
     frameworks: list[str] = field(default_factory=list)
@@ -92,6 +98,7 @@ class TechnologyStack:
 @dataclass
 class ArchitectureDecision:
     """Complete architecture decision."""
+
     # Core decisions
     style: ArchitecturalStyle
     paradigm: ProgrammingParadigm
@@ -130,6 +137,7 @@ class ArchitectureDecision:
 @dataclass
 class CodingStandard:
     """Coding standards and conventions."""
+
     naming_conventions: dict[str, str] = field(default_factory=dict)
     code_style: str = ""
     documentation_required: bool = True
@@ -142,18 +150,21 @@ class CodingStandard:
 @dataclass
 class ProjectRules:
     """Complete project rules."""
+
     version: str = "1.0"
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     project_type: str = ""
 
     # Architecture
-    architecture: ArchitectureDecision = field(default_factory=lambda: ArchitectureDecision(
-        style=ArchitecturalStyle.LAYERED,
-        paradigm=ProgrammingParadigm.OBJECT_ORIENTED,
-        api_style=APIStyle.REST,
-        database_type=DatabaseType.RELATIONAL,
-        stack=TechnologyStack(primary_language="python")
-    ))
+    architecture: ArchitectureDecision = field(
+        default_factory=lambda: ArchitectureDecision(
+            style=ArchitecturalStyle.LAYERED,
+            paradigm=ProgrammingParadigm.OBJECT_ORIENTED,
+            api_style=APIStyle.REST,
+            database_type=DatabaseType.RELATIONAL,
+            stack=TechnologyStack(primary_language="python"),
+        )
+    )
 
     # Standards
     coding_standards: CodingStandard = field(default_factory=CodingStandard)
@@ -176,17 +187,17 @@ class ProjectRules:
         """Convert to YAML format."""
         data = asdict(self)
         # Remove internal metadata fields
-        data.pop('_llm_generated', None)
-        data.pop('_llm_optimized', None)
-        data.pop('_llm_model', None)
+        data.pop("_llm_generated", None)
+        data.pop("_llm_optimized", None)
+        data.pop("_llm_model", None)
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         # Remove internal metadata fields
-        data.pop('_llm_generated', None)
-        data.pop('_llm_optimized', None)
-        data.pop('_llm_model', None)
+        data.pop("_llm_generated", None)
+        data.pop("_llm_optimized", None)
+        data.pop("_llm_model", None)
         return data
 
 
@@ -196,25 +207,55 @@ class ArchitectureAnalyzer:
     # Keywords that trigger specific architectures
     ARCHITECTURE_TRIGGERS = {
         ArchitecturalStyle.MICROSERVICES: [
-            "microservice", "distributed", "scale", "independent deployment",
-            "service mesh", "kubernetes", "docker swarm", "multiple teams"
+            "microservice",
+            "distributed",
+            "scale",
+            "independent deployment",
+            "service mesh",
+            "kubernetes",
+            "docker swarm",
+            "multiple teams",
         ],
         ArchitecturalStyle.SERVERLESS: [
-            "serverless", "lambda", "function", "event-triggered", "pay-per-use",
-            "no server management", "aws lambda", "azure functions"
+            "serverless",
+            "lambda",
+            "function",
+            "event-triggered",
+            "pay-per-use",
+            "no server management",
+            "aws lambda",
+            "azure functions",
         ],
         ArchitecturalStyle.EVENT_DRIVEN: [
-            "event-driven", "kafka", "message queue", "message-queue",
-            "streaming", "event sourcing", "event-sourcing", "cqrs",
-            "pub-sub", "pub/sub", "rabbitmq", "event bus"
+            "event-driven",
+            "kafka",
+            "message queue",
+            "message-queue",
+            "streaming",
+            "event sourcing",
+            "event-sourcing",
+            "cqrs",
+            "pub-sub",
+            "pub/sub",
+            "rabbitmq",
+            "event bus",
         ],
         ArchitecturalStyle.HEXAGONAL: [
-            "ports", "adapters", "testable", "ports and adapters",
-            "dependency injection", "clean architecture"
+            "ports",
+            "adapters",
+            "testable",
+            "ports and adapters",
+            "dependency injection",
+            "clean architecture",
         ],
         ArchitecturalStyle.CQRS: [
-            "read model", "write model", "command", "query", "separate",
-            "event sourcing", "complex queries"
+            "read model",
+            "write model",
+            "command",
+            "query",
+            "separate",
+            "event sourcing",
+            "complex queries",
         ],
     }
 
@@ -226,21 +267,21 @@ class ArchitectureAnalyzer:
             libraries=["uvicorn", "httpx", "sqlalchemy"],
             databases=["postgresql"],
             tools=["pytest", "black", "ruff"],
-            infrastructure=["docker", "nginx"]
+            infrastructure=["docker", "nginx"],
         ),
         "web_frontend": TechnologyStack(
             primary_language="typescript",
             frameworks=["react", "next.js"],
             libraries=["tailwindcss", "zustand", "react-query"],
             tools=["vite", "eslint", "prettier"],
-            infrastructure=["vercel", "netlify"]
+            infrastructure=["vercel", "netlify"],
         ),
         "cli_tool": TechnologyStack(
             primary_language="python",
             frameworks=["typer", "click"],
             libraries=["rich", "pydantic"],
             tools=["pytest", "mypy"],
-            infrastructure=["pip", "homebrew"]
+            infrastructure=["pip", "homebrew"],
         ),
         "data_pipeline": TechnologyStack(
             primary_language="python",
@@ -248,14 +289,14 @@ class ArchitectureAnalyzer:
             libraries=["numpy", "polars", "dask"],
             databases=["postgresql", "clickhouse"],
             tools=["jupyter", "dbt"],
-            infrastructure=["airflow", "kubernetes"]
+            infrastructure=["airflow", "kubernetes"],
         ),
         "machine_learning": TechnologyStack(
             primary_language="python",
             frameworks=["pytorch", "tensorflow", "scikit-learn"],
             libraries=["numpy", "pandas", "matplotlib"],
             tools=["jupyter", "mlflow", "wandb"],
-            infrastructure=["docker", "kubernetes"]
+            infrastructure=["docker", "kubernetes"],
         ),
     }
 
@@ -297,7 +338,7 @@ class ArchitectureAnalyzer:
             constraints=constraints,
             patterns=patterns,
             rationale=rationale,
-            tradeoffs=self._generate_tradeoffs(style)
+            tradeoffs=self._generate_tradeoffs(style),
         )
 
     def _detect_architectural_style(self, text: str) -> ArchitecturalStyle:
@@ -346,8 +387,15 @@ class ArchitectureAnalyzer:
         """Detect database type."""
         # Check for explicit "no database" indicators
         no_db_indicators = [
-            "no database", "no db", "hardcoded", "in-memory", "mock data",
-            "static files", "json file", "no persistence", "without database"
+            "no database",
+            "no db",
+            "hardcoded",
+            "in-memory",
+            "mock data",
+            "static files",
+            "json file",
+            "no persistence",
+            "without database",
         ]
         if any(phrase in text for phrase in no_db_indicators):
             return DatabaseType.NONE
@@ -396,7 +444,9 @@ class ArchitectureAnalyzer:
 
         return "web_api"
 
-    def _generate_constraints(self, style: ArchitecturalStyle, paradigm: ProgrammingParadigm) -> list[str]:
+    def _generate_constraints(
+        self, style: ArchitecturalStyle, paradigm: ProgrammingParadigm
+    ) -> list[str]:
         """Generate architecture constraints."""
         constraints = [
             "All code must be type-annotated",
@@ -406,29 +456,37 @@ class ArchitectureAnalyzer:
         ]
 
         if style == ArchitecturalStyle.MICROSERVICES:
-            constraints.extend([
-                "Each service must have its own database",
-                "Services communicate via events or HTTP",
-                "No shared databases between services",
-                "Services must be independently deployable",
-            ])
+            constraints.extend(
+                [
+                    "Each service must have its own database",
+                    "Services communicate via events or HTTP",
+                    "No shared databases between services",
+                    "Services must be independently deployable",
+                ]
+            )
         elif style == ArchitecturalStyle.HEXAGONAL:
-            constraints.extend([
-                "Business logic must not depend on frameworks",
-                "All external dependencies through ports/adapters",
-                "Domain layer has no external dependencies",
-            ])
+            constraints.extend(
+                [
+                    "Business logic must not depend on frameworks",
+                    "All external dependencies through ports/adapters",
+                    "Domain layer has no external dependencies",
+                ]
+            )
 
         if paradigm == ProgrammingParadigm.FUNCTIONAL:
-            constraints.extend([
-                "Prefer pure functions",
-                "Minimize mutable state",
-                "Use immutable data structures",
-            ])
+            constraints.extend(
+                [
+                    "Prefer pure functions",
+                    "Minimize mutable state",
+                    "Use immutable data structures",
+                ]
+            )
 
         return constraints
 
-    def _generate_patterns(self, style: ArchitecturalStyle, paradigm: ProgrammingParadigm) -> list[str]:
+    def _generate_patterns(
+        self, style: ArchitecturalStyle, paradigm: ProgrammingParadigm
+    ) -> list[str]:
         """Generate recommended patterns."""
         patterns = [
             "Repository Pattern",
@@ -437,22 +495,28 @@ class ArchitectureAnalyzer:
         ]
 
         if style == ArchitecturalStyle.MICROSERVICES:
-            patterns.extend([
-                "Circuit Breaker",
-                "API Gateway",
-                "Event Sourcing",
-                "CQRS",
-            ])
+            patterns.extend(
+                [
+                    "Circuit Breaker",
+                    "API Gateway",
+                    "Event Sourcing",
+                    "CQRS",
+                ]
+            )
         elif style == ArchitecturalStyle.EVENT_DRIVEN:
-            patterns.extend([
-                "Event Sourcing",
-                "Pub/Sub",
-                "Message Queue",
-            ])
+            patterns.extend(
+                [
+                    "Event Sourcing",
+                    "Pub/Sub",
+                    "Message Queue",
+                ]
+            )
 
         return patterns
 
-    def _generate_rationale(self, style: ArchitecturalStyle, paradigm: ProgrammingParadigm, stack: TechnologyStack) -> str:
+    def _generate_rationale(
+        self, style: ArchitecturalStyle, paradigm: ProgrammingParadigm, stack: TechnologyStack
+    ) -> str:
         """Generate decision rationale."""
         return f"""
 Selected {style.value.replace('_', ' ').title()} architecture with {paradigm.value.replace('_', ' ').title()} paradigm.
@@ -492,10 +556,7 @@ class RulesGenerator:
     RULES_FILENAME = ".orchestrator-rules.yml"
 
     def generate_rules(
-        self,
-        description: str,
-        criteria: str,
-        project_type: str = ""
+        self, description: str, criteria: str, project_type: str = ""
     ) -> ProjectRules:
         """Generate complete rules for a project."""
 
@@ -511,7 +572,11 @@ class RulesGenerator:
                 "constants": "UPPER_SNAKE_CASE",
                 "variables": "snake_case",
             },
-            code_style=f"{architecture.stack.primary_language}_pep8" if architecture.stack.primary_language == "python" else "standard",
+            code_style=(
+                f"{architecture.stack.primary_language}_pep8"
+                if architecture.stack.primary_language == "python"
+                else "standard"
+            ),
             documentation_required=True,
             type_hints=True,
             max_line_length=100,
@@ -559,7 +624,7 @@ class RulesGenerator:
 
 """
 
-        rules_file.write_text(header + yaml_content, encoding='utf-8')
+        rules_file.write_text(header + yaml_content, encoding="utf-8")
         logger.info(f"Saved architecture rules to: {rules_file}")
 
         return rules_file
@@ -570,7 +635,7 @@ class RulesGenerator:
             return None
 
         try:
-            data = yaml.safe_load(rules_file.read_text(encoding='utf-8'))
+            data = yaml.safe_load(rules_file.read_text(encoding="utf-8"))
 
             # Reconstruct objects
             stack_data = data.get("architecture", {}).get("stack", {})
@@ -637,10 +702,7 @@ class ArchitectureRulesEngine:
         self.client = client
 
     async def generate_rules(
-        self,
-        description: str,
-        criteria: str,
-        project_type: str = ""
+        self, description: str, criteria: str, project_type: str = ""
     ) -> ProjectRules:
         """Generate architecture rules for a project using LLM if available."""
         logger.info("Generating architecture rules...")
@@ -654,7 +716,9 @@ class ArchitectureRulesEngine:
                 logger.info(f"Stack (LLM): {rules.architecture.stack.primary_language}")
                 return rules
             except Exception as e:
-                logger.warning(f"LLM architecture generation failed: {e}, falling back to rule-based")
+                logger.warning(
+                    f"LLM architecture generation failed: {e}, falling back to rule-based"
+                )
 
         # Step 1: Generate rule-based architecture
         rules = self.generator.generate_rules(description, criteria, project_type)
@@ -666,9 +730,7 @@ class ArchitectureRulesEngine:
         # Step 2: Ask LLM to optimize (if client available)
         if self.client is not None:
             try:
-                optimized_rules = await self._optimize_rules_with_llm(
-                    rules, description, criteria
-                )
+                optimized_rules = await self._optimize_rules_with_llm(rules, description, criteria)
                 if optimized_rules:
                     logger.info("✨ Architecture optimized by LLM")
                     logger.info(f"Optimized Style: {optimized_rules.architecture.style.value}")
@@ -679,10 +741,7 @@ class ArchitectureRulesEngine:
         return rules
 
     async def _generate_rules_with_llm(
-        self,
-        description: str,
-        criteria: str,
-        project_type: str = ""
+        self, description: str, criteria: str, project_type: str = ""
     ) -> ProjectRules:
         """Generate architecture rules using LLM."""
         from .models import Model
@@ -718,14 +777,15 @@ Choose the best options based on the project requirements. Be specific and pract
         # Select optimal model for architecture decisions (v3.0)
         # Architecture decisions require strong reasoning + system design knowledge
         from .models import Model as M
+
         architecture_models = [
-            M.QWEN_3_5_397B_A17B,       # $0.39/$2.34, 397B MoE ⭐ BEST VALUE
-            M.XIAOMI_MIMO_V2_PRO,       # $1.00/$3.00, 1T+ params, 1M+ ctx
-            M.XAI_GROK_4_20_BETA,       # $2.00/$6.00, lowest hallucination
-            M.CLAUDE_SONNET_4_6,        # $3.00/$15.00, premium quality
-            M.GPT_5_4,                  # $2.50/$10.00, reliable
+            M.QWEN_3_5_397B_A17B,  # $0.39/$2.34, 397B MoE ⭐ BEST VALUE
+            M.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
+            M.XAI_GROK_4_20_BETA,  # $2.00/$6.00, lowest hallucination
+            M.CLAUDE_SONNET_4_6,  # $3.00/$15.00, premium quality
+            M.GPT_5_4,  # $2.50/$10.00, reliable
         ]
-        
+
         # Use first available model
         model = None
         for m in architecture_models:
@@ -735,13 +795,17 @@ Choose the best options based on the project requirements. Be specific and pract
                 break
             except Exception:
                 continue
-        
+
         if model is None:
             model = M.GPT_4O  # Fallback
 
         resp = await self.client.call(
-            model, prompt, system="You are a principal software architect with 20 years of experience.",
-            max_tokens=2000, temperature=0.3, timeout=60
+            model,
+            prompt,
+            system="You are a principal software architect with 20 years of experience.",
+            max_tokens=2000,
+            temperature=0.3,
+            timeout=60,
         )
 
         # Parse the response (strip markdown if present)
@@ -768,7 +832,7 @@ Choose the best options based on the project requirements. Be specific and pract
                 response_text = "\n".join(lines).strip()
 
         # Try to find JSON in the response (in case there's extra text)
-        json_match = re.search(r'\{[\s\S]*\}', response_text)
+        json_match = re.search(r"\{[\s\S]*\}", response_text)
         if json_match:
             response_text = json_match.group(0)
 
@@ -841,10 +905,7 @@ Choose the best options based on the project requirements. Be specific and pract
         )
 
     async def _optimize_rules_with_llm(
-        self,
-        initial_rules: ProjectRules,
-        description: str,
-        criteria: str
+        self, initial_rules: ProjectRules, description: str, criteria: str
     ) -> ProjectRules | None:
         """
         Ask LLM to review and optimize the rule-based architecture decisions.
@@ -914,9 +975,12 @@ Be conservative - only suggest changes if they provide clear benefits."""
             model = Model.GPT_4O
 
             resp = await self.client.call(
-                model, prompt,
+                model,
+                prompt,
                 system="You are a principal software architect. Be conservative - only suggest changes if they provide clear architectural benefits.",
-                max_tokens=2500, temperature=0.2, timeout=60
+                max_tokens=2500,
+                temperature=0.2,
+                timeout=60,
             )
 
             # Parse the response (strip markdown if present)
@@ -941,7 +1005,7 @@ Be conservative - only suggest changes if they provide clear benefits."""
                     response_text = "\n".join(lines).strip()
 
             # Try to find JSON in the response
-            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            json_match = re.search(r"\{[\s\S]*\}", response_text)
             if json_match:
                 response_text = json_match.group(0)
 
@@ -1030,9 +1094,9 @@ Be conservative - only suggest changes if they provide clear benefits."""
         arch = rules.architecture
 
         # Determine decision label based on metadata
-        llm_generated = getattr(rules, '_llm_generated', False)
-        llm_optimized = getattr(rules, '_llm_optimized', False)
-        llm_model = getattr(rules, '_llm_model', '')
+        llm_generated = getattr(rules, "_llm_generated", False)
+        llm_optimized = getattr(rules, "_llm_optimized", False)
+        llm_model = getattr(rules, "_llm_model", "")
 
         # Format model name for display
         model_display = f" via {llm_model}" if llm_model else ""
@@ -1070,38 +1134,40 @@ Be conservative - only suggest changes if they provide clear benefits."""
         if arch.stack.databases:
             lines.append(f"  Databases: {', '.join(arch.stack.databases)}")
 
-        lines.extend([
-            "",
-            "Key Constraints:",
-        ])
+        lines.extend(
+            [
+                "",
+                "Key Constraints:",
+            ]
+        )
 
         for constraint in arch.constraints[:3]:
             lines.append(f"  • {constraint}")
 
-        lines.extend([
-            "",
-            "Recommended Patterns:",
-        ])
+        lines.extend(
+            [
+                "",
+                "Recommended Patterns:",
+            ]
+        )
 
         for pattern in arch.patterns[:3]:
             lines.append(f"  • {pattern}")
 
-        lines.extend([
-            "",
-            "Rules file: .orchestrator-rules.yml",
-            "=" * 60,
-        ])
+        lines.extend(
+            [
+                "",
+                "Rules file: .orchestrator-rules.yml",
+                "=" * 60,
+            ]
+        )
 
         return "\n".join(lines)
 
 
 # Convenience function
 async def create_architecture_rules(
-    description: str,
-    criteria: str,
-    output_dir: Path,
-    project_type: str = "",
-    client = None
+    description: str, criteria: str, output_dir: Path, project_type: str = "", client=None
 ) -> ProjectRules:
     """
     Quick function to create and save architecture rules.

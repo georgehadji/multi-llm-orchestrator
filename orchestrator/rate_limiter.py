@@ -46,6 +46,7 @@ logger = logging.getLogger("orchestrator.rate_limiter")
 # Backward Compatibility Classes
 # ─────────────────────────────────────────────
 
+
 class RateLimitExceeded(Exception):
     """Exception raised when rate limit is exceeded."""
 
@@ -76,18 +77,17 @@ class RateLimiter:
         """Close limiter."""
         await self._limiter.close()
 
-    # Backward compatibility methods
     def check(self, tenant: str, model: str, tokens: int) -> None:
-        """Check rate limit (backward compatibility)."""
-        pass  # No-op for now
+        """Check rate limit — no-op stub (limits enforced via acquire())."""
 
     def release(self, tenant: str, model: str, tokens: int) -> None:
-        """Release tokens (backward compatibility)."""
-        pass  # No-op for now
+        """Release reserved tokens — no-op stub."""
 
     def record(self, tenant: str, model: str, tokens: int) -> None:
-        """Record token usage (backward compatibility)."""
-        pass  # No-op for now
+        """Record token usage — no-op stub."""
+
+    def set_limits(self, tenant: str, model: str, tpm: int, rpm: int) -> None:
+        """Set per-tenant limits — no-op stub."""
 
 
 # ─────────────────────────────────────────────
@@ -98,6 +98,7 @@ class RateLimiter:
 @dataclass
 class TierLimits:
     """Rate limits for a specific tier."""
+
     rpm: int  # Requests per minute
     tpm: int  # Tokens per minute
     tpd: int  # Tokens per day (optional)
@@ -113,6 +114,7 @@ class TierLimits:
 @dataclass
 class RateLimitState:
     """Current rate limit state."""
+
     current_rpm: int = 0
     current_tpm: int = 0
     current_tpd: int = 0
@@ -146,8 +148,8 @@ class GrokRateLimiter:
 
     # Tier limits (estimated based on xAI documentation)
     TIER_LIMITS = {
-        1: TierLimits(rpm=10, tpm=10_000, tpd=100_000),      # $0 spend
-        2: TierLimits(rpm=60, tpm=100_000, tpd=1_000_000),   # $50+ spend
+        1: TierLimits(rpm=10, tpm=10_000, tpd=100_000),  # $0 spend
+        2: TierLimits(rpm=60, tpm=100_000, tpd=1_000_000),  # $50+ spend
         3: TierLimits(rpm=120, tpm=500_000, tpd=5_000_000),  # $200+ spend
         4: TierLimits(rpm=300, tpm=1_000_000, tpd=10_000_000),  # $500+ spend
         5: TierLimits(rpm=600, tpm=2_000_000, tpd=20_000_000),  # $1,000+ spend
@@ -221,7 +223,9 @@ class GrokRateLimiter:
                 break
 
         if new_tier != self.state.current_tier:
-            logger.info(f"Tier upgraded: {self.state.current_tier} → {new_tier} (spend: ${spend:.2f})")
+            logger.info(
+                f"Tier upgraded: {self.state.current_tier} → {new_tier} (spend: ${spend:.2f})"
+            )
             self.state.current_tier = new_tier
 
     async def acquire(self, tokens: int = 1000, timeout: float = 60.0) -> bool:
@@ -253,24 +257,32 @@ class GrokRateLimiter:
 
                     # Check RPM limit
                     if self.state.current_rpm >= limits.rpm:
-                        wait_time = max(0.0, 60.0 - (datetime.now() - self.state.last_reset).total_seconds())
+                        wait_time = max(
+                            0.0, 60.0 - (datetime.now() - self.state.last_reset).total_seconds()
+                        )
                         if wait_time > 0 and (time.time() - start_time) + wait_time <= timeout:
                             logger.debug(f"RPM limit hit, waiting {wait_time:.1f}s")
                             self.rate_limit_hits += 1
                             sleep_secs = wait_time
                         else:
-                            logger.warning(f"RPM rate limit exceeded (tier {self.state.current_tier})")
+                            logger.warning(
+                                f"RPM rate limit exceeded (tier {self.state.current_tier})"
+                            )
                             return False
 
                     # Check TPM limit
                     elif self.state.current_tpm + tokens > limits.tpm:
-                        wait_time = max(0.0, 60.0 - (datetime.now() - self.state.last_reset).total_seconds())
+                        wait_time = max(
+                            0.0, 60.0 - (datetime.now() - self.state.last_reset).total_seconds()
+                        )
                         if wait_time > 0 and (time.time() - start_time) + wait_time <= timeout:
                             logger.debug(f"TPM limit hit, waiting {wait_time:.1f}s")
                             self.rate_limit_hits += 1
                             sleep_secs = wait_time
                         else:
-                            logger.warning(f"TPM rate limit exceeded (tier {self.state.current_tier})")
+                            logger.warning(
+                                f"TPM rate limit exceeded (tier {self.state.current_tier})"
+                            )
                             return False
 
                     else:
@@ -303,7 +315,9 @@ class GrokRateLimiter:
         """
         self.state.cumulative_spend += amount
         self._update_tier_from_spend()
-        logger.debug(f"Recorded spend: ${amount:.2f}, cumulative: ${self.state.cumulative_spend:.2f}")
+        logger.debug(
+            f"Recorded spend: ${amount:.2f}, cumulative: ${self.state.cumulative_spend:.2f}"
+        )
 
     async def fetch_current_spend(self) -> float:
         """

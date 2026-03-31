@@ -42,15 +42,19 @@ logger = logging.getLogger("orchestrator.cache_optimizer")
 # Configuration
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class CacheConfig:
     """Configuration for multi-level cache."""
+
     # L1 Memory Cache
     l1_max_size: int = 100  # Max entries in memory
     l1_ttl_seconds: int = 3600  # 1 hour
 
     # L2 Disk Cache
-    l2_db_path: Path = field(default_factory=lambda: Path.home() / ".orchestrator_cache" / "cache_l2.db")
+    l2_db_path: Path = field(
+        default_factory=lambda: Path.home() / ".orchestrator_cache" / "cache_l2.db"
+    )
     l2_ttl_hours: int = 24
     l2_max_size_mb: int = 1000
     l2_compression_threshold: int = 1000  # Compress responses > 1KB
@@ -71,9 +75,11 @@ class CacheConfig:
 # L1: In-Memory Cache (LRU with TTL)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class MemoryCacheEntry:
     """Entry in L1 memory cache with TTL."""
+
     value: Any
     created_at: float
     ttl_seconds: int
@@ -124,9 +130,7 @@ class L1MemoryCache:
                 self._cache.popitem(last=False)
 
             entry = MemoryCacheEntry(
-                value=value,
-                created_at=time.time(),
-                ttl_seconds=ttl or self._default_ttl
+                value=value, created_at=time.time(), ttl_seconds=ttl or self._default_ttl
             )
             self._cache[key] = entry
             self._cache.move_to_end(key)
@@ -152,6 +156,7 @@ class L1MemoryCache:
 # ═══════════════════════════════════════════════════════════════════════════════
 # L2: Disk Cache with TTL and Compression
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class L2DiskCache:
     """
@@ -195,20 +200,22 @@ class L2DiskCache:
 
     def _compress(self, data: str) -> bytes:
         """Compress string data."""
-        return zlib.compress(data.encode('utf-8'), level=6)
+        return zlib.compress(data.encode("utf-8"), level=6)
 
     def _decompress(self, data: bytes) -> str:
         """Decompress bytes to string."""
-        return zlib.decompress(data).decode('utf-8')
+        return zlib.decompress(data).decode("utf-8")
 
-    def _generate_key(self, model: str, prompt: str, max_tokens: int,
-                      system: str = "", temperature: float = 0.3) -> str:
+    def _generate_key(
+        self, model: str, prompt: str, max_tokens: int, system: str = "", temperature: float = 0.3
+    ) -> str:
         """Generate deterministic cache key."""
         payload = f"{model}:{prompt}:{max_tokens}:{system}:{temperature}"
         return hashlib.sha256(payload.encode()).hexdigest()
 
-    async def get(self, model: str, prompt: str, max_tokens: int,
-                  system: str = "", temperature: float = 0.3) -> dict[str, Any] | None:
+    async def get(
+        self, model: str, prompt: str, max_tokens: int, system: str = "", temperature: float = 0.3
+    ) -> dict[str, Any] | None:
         """Get from disk cache with TTL check."""
         key = self._generate_key(model, prompt, max_tokens, system, temperature)
 
@@ -222,7 +229,7 @@ class L2DiskCache:
 
             async with conn.execute(
                 "SELECT value, tokens_input, tokens_output, cost, compressed FROM cache WHERE key = ?",
-                (key,)
+                (key,),
             ) as cursor:
                 row = await cursor.fetchone()
 
@@ -240,7 +247,7 @@ class L2DiskCache:
                     logger.warning(f"Failed to decompress cache entry: {e}")
                     return None
             else:
-                value = value.decode('utf-8') if isinstance(value, bytes) else value
+                value = value.decode("utf-8") if isinstance(value, bytes) else value
 
             self._hits += 1
             self._tokens_saved += tokens_in + tokens_out
@@ -254,10 +261,19 @@ class L2DiskCache:
                 "cached": True,
             }
 
-    async def put(self, model: str, prompt: str, max_tokens: int,
-                  response: str, tokens_input: int = 0, tokens_output: int = 0,
-                  cost: float = 0.0, system: str = "", temperature: float = 0.3,
-                  ttl_hours: int | None = None) -> None:
+    async def put(
+        self,
+        model: str,
+        prompt: str,
+        max_tokens: int,
+        response: str,
+        tokens_input: int = 0,
+        tokens_output: int = 0,
+        cost: float = 0.0,
+        system: str = "",
+        temperature: float = 0.3,
+        ttl_hours: int | None = None,
+    ) -> None:
         """Store in disk cache with optional compression."""
         key = self._generate_key(model, prompt, max_tokens, system, temperature)
         ttl = ttl_hours or self._config.l2_ttl_hours
@@ -277,7 +293,7 @@ class L2DiskCache:
                 """INSERT OR REPLACE INTO cache
                    (key, value, tokens_input, tokens_output, cost, created_at, ttl_hours, compressed)
                    VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), ?, ?)""",
-                (key, response, tokens_input, tokens_output, cost, ttl, compressed)
+                (key, response, tokens_input, tokens_output, cost, ttl, compressed),
             )
             await conn.commit()
 
@@ -303,7 +319,9 @@ class L2DiskCache:
         async with self._lock:
             conn = await self._get_conn()
 
-            async with conn.execute("SELECT COUNT(*), SUM(tokens_input + tokens_output), SUM(cost) FROM cache") as cursor:
+            async with conn.execute(
+                "SELECT COUNT(*), SUM(tokens_input + tokens_output), SUM(cost) FROM cache"
+            ) as cursor:
                 row = await cursor.fetchone()
                 total_entries = row[0] or 0
                 row[1] or 0
@@ -319,13 +337,16 @@ class L2DiskCache:
                 "hit_rate": self._hits / total_requests if total_requests > 0 else 0.0,
                 "tokens_saved": self._tokens_saved,
                 "cost_saved": self._cost_saved,
-                "db_size_mb": self._db_path.stat().st_size / (1024 * 1024) if self._db_path.exists() else 0,
+                "db_size_mb": (
+                    self._db_path.stat().st_size / (1024 * 1024) if self._db_path.exists() else 0
+                ),
             }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Smart Cache Key Generator
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class SmartCacheKeyGenerator:
     """
@@ -334,16 +355,16 @@ class SmartCacheKeyGenerator:
 
     # Patterns to normalize
     PATTERNS = [
-        (r'\b\d{4}-\d{2}-\d{2}\b', '<DATE>'),           # Dates
-        (r'\b\d{2}/\d{2}/\d{4}\b', '<DATE>'),          # US dates
-        (r'\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b', '<UUID>'),  # UUIDs
-        (r'\b0x[0-9a-fA-F]+\b', '<HEX>'),              # Hex numbers
-        (r'\b\d+\.\d+\.\d+\.\d+\b', '<IP>'),          # IP addresses
-        (r'\buser\d+\b', '<USER>'),                    # user123 → <USER>
-        (r'\bitem\d+\b', '<ITEM>'),                    # item456 → <ITEM>
-        (r'\btask_\d+\b', '<TASK_ID>'),                # task_001 → <TASK_ID>
-        (r'"[^"]*"', '"<STRING>"'),                    # String literals
-        (r"'[^']*'", "'<STRING>'"),                    # String literals
+        (r"\b\d{4}-\d{2}-\d{2}\b", "<DATE>"),  # Dates
+        (r"\b\d{2}/\d{2}/\d{4}\b", "<DATE>"),  # US dates
+        (r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<UUID>"),  # UUIDs
+        (r"\b0x[0-9a-fA-F]+\b", "<HEX>"),  # Hex numbers
+        (r"\b\d+\.\d+\.\d+\.\d+\b", "<IP>"),  # IP addresses
+        (r"\buser\d+\b", "<USER>"),  # user123 → <USER>
+        (r"\bitem\d+\b", "<ITEM>"),  # item456 → <ITEM>
+        (r"\btask_\d+\b", "<TASK_ID>"),  # task_001 → <TASK_ID>
+        (r'"[^"]*"', '"<STRING>"'),  # String literals
+        (r"'[^']*'", "'<STRING>'"),  # String literals
     ]
 
     @classmethod
@@ -357,13 +378,14 @@ class SmartCacheKeyGenerator:
             text = re.sub(pattern, replacement, text)
 
         # Normalize whitespace
-        text = ' '.join(text.split())
+        text = " ".join(text.split())
 
         return text
 
     @classmethod
-    def generate_key(cls, model: str, prompt: str, max_tokens: int,
-                     system: str = "", temperature: float = 0.3) -> str:
+    def generate_key(
+        cls, model: str, prompt: str, max_tokens: int, system: str = "", temperature: float = 0.3
+    ) -> str:
         """Generate smart cache key."""
         normalized_prompt = cls.normalize(prompt)
         normalized_system = cls.normalize(system)
@@ -376,9 +398,11 @@ class SmartCacheKeyGenerator:
 # Cache Warming
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class WarmPattern:
     """Pattern for cache warming."""
+
     task_type: TaskType
     prompt_template: str
     variables: dict[str, list[str]] = field(default_factory=dict)
@@ -388,28 +412,21 @@ DEFAULT_WARM_PATTERNS: list[WarmPattern] = [
     WarmPattern(
         TaskType.CODE_GEN,
         "Generate a Python function to {operation} with type hints and docstring",
-        {"operation": ["validate email", "parse JSON", "hash password", "format date"]}
+        {"operation": ["validate email", "parse JSON", "hash password", "format date"]},
     ),
     WarmPattern(
         TaskType.CODE_REVIEW,
         "Review this {language} code for {issues}",
         {
             "language": ["Python", "JavaScript", "TypeScript"],
-            "issues": ["security vulnerabilities", "performance issues", "code smells"]
-        }
+            "issues": ["security vulnerabilities", "performance issues", "code smells"],
+        },
     ),
-    WarmPattern(
-        TaskType.EVALUATE,
-        "Evaluate the quality of this code on a scale of 0 to 1",
-        {}
-    ),
+    WarmPattern(TaskType.EVALUATE, "Evaluate the quality of this code on a scale of 0 to 1", {}),
     WarmPattern(
         TaskType.SUMMARIZE,
         "Summarize the following {content_type} in {length} sentences",
-        {
-            "content_type": ["documentation", "code", "error logs"],
-            "length": ["2-3", "3-5", "5-7"]
-        }
+        {"content_type": ["documentation", "code", "error logs"], "length": ["2-3", "3-5", "5-7"]},
     ),
 ]
 
@@ -443,9 +460,7 @@ class CacheWarmer:
                 for model in models:
                     try:
                         # Check if already cached
-                        cached = await self._client.cache.get(
-                            model.value, prompt, max_tokens=1000
-                        )
+                        cached = await self._client.cache.get(model.value, prompt, max_tokens=1000)
 
                         if cached is None:
                             # Generate and cache
@@ -473,7 +488,9 @@ class CacheWarmer:
                     except Exception as e:
                         logger.warning(f"Failed to warm cache for {model.value}: {e}")
 
-        logger.info(f"Cache warming complete: {stats['cache_entries']} entries, ${stats['cost']:.4f}")
+        logger.info(
+            f"Cache warming complete: {stats['cache_entries']} entries, ${stats['cost']:.4f}"
+        )
         return stats
 
     def _generate_combinations(self, variables: dict[str, list[str]]) -> list[dict[str, str]]:
@@ -485,6 +502,7 @@ class CacheWarmer:
         values = list(variables.values())
 
         import itertools
+
         combinations = []
         for combo in itertools.product(*values):
             combinations.append(dict(zip(keys, combo, strict=False)))
@@ -495,6 +513,7 @@ class CacheWarmer:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Main Cache Optimizer
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class CacheOptimizer:
     """
@@ -518,8 +537,7 @@ class CacheOptimizer:
 
         # L1: Memory cache
         self._l1 = L1MemoryCache(
-            max_size=self._config.l1_max_size,
-            default_ttl=self._config.l1_ttl_seconds
+            max_size=self._config.l1_max_size, default_ttl=self._config.l1_ttl_seconds
         )
 
         # L2: Disk cache
@@ -528,7 +546,7 @@ class CacheOptimizer:
         # L3: Semantic cache
         self._l3 = SemanticCache(
             quality_threshold=self._config.l3_quality_threshold,
-            min_use_count=self._config.l3_min_use_count
+            min_use_count=self._config.l3_min_use_count,
         )
 
         # Statistics
@@ -539,16 +557,21 @@ class CacheOptimizer:
         self._tokens_saved = 0
         self._cost_saved = 0.0
 
-    def _generate_key(self, model: str, prompt: str, max_tokens: int,
-                      system: str = "", temperature: float = 0.3) -> str:
+    def _generate_key(
+        self, model: str, prompt: str, max_tokens: int, system: str = "", temperature: float = 0.3
+    ) -> str:
         """Generate smart cache key."""
-        return SmartCacheKeyGenerator.generate_key(
-            model, prompt, max_tokens, system, temperature
-        )
+        return SmartCacheKeyGenerator.generate_key(model, prompt, max_tokens, system, temperature)
 
-    async def get(self, model: str, prompt: str, max_tokens: int,
-                  system: str = "", temperature: float = 0.3,
-                  task_type: TaskType | None = None) -> dict[str, Any] | None:
+    async def get(
+        self,
+        model: str,
+        prompt: str,
+        max_tokens: int,
+        system: str = "",
+        temperature: float = 0.3,
+        task_type: TaskType | None = None,
+    ) -> dict[str, Any] | None:
         """
         Get from cache with multi-level lookup.
 
@@ -600,11 +623,20 @@ class CacheOptimizer:
         self._total_misses += 1
         return None
 
-    async def put(self, model: str, prompt: str, max_tokens: int,
-                  response: str, tokens_input: int, tokens_output: int,
-                  cost: float, system: str = "", temperature: float = 0.3,
-                  task_type: TaskType | None = None,
-                  quality_score: float | None = None) -> None:
+    async def put(
+        self,
+        model: str,
+        prompt: str,
+        max_tokens: int,
+        response: str,
+        tokens_input: int,
+        tokens_output: int,
+        cost: float,
+        system: str = "",
+        temperature: float = 0.3,
+        task_type: TaskType | None = None,
+        quality_score: float | None = None,
+    ) -> None:
         """
         Store in cache at all levels.
         """
@@ -623,9 +655,15 @@ class CacheOptimizer:
 
         # L2: Disk cache
         await self._l2.put(
-            model, prompt, max_tokens, response,
-            tokens_input, tokens_output, cost,
-            system, temperature
+            model,
+            prompt,
+            max_tokens,
+            response,
+            tokens_input,
+            tokens_output,
+            cost,
+            system,
+            temperature,
         )
 
         # L3: Semantic cache (if quality score provided)
@@ -664,11 +702,11 @@ class CacheOptimizer:
         Args:
             level: 'l1', 'l2', 'l3', or None for all
         """
-        if level is None or level == 'l1':
+        if level is None or level == "l1":
             await self._l1.clear()
-        if level is None or level == 'l2':
+        if level is None or level == "l2":
             await self._l2.clear()
-        if level is None or level == 'l3':
+        if level is None or level == "l3":
             self._l3._cache.clear()
 
     def get_stats(self) -> dict[str, Any]:
@@ -695,7 +733,8 @@ class CacheOptimizer:
         """Print cache statistics in readable format."""
         stats = self.get_stats()
 
-        print("""
+        print(
+            """
 ╔══════════════════════════════════════════════════════════════╗
 ║                    CACHE STATISTICS                          ║
 ╠══════════════════════════════════════════════════════════════╣
@@ -713,16 +752,17 @@ class CacheOptimizer:
 ║   Cost Saved:      ${cost_saved:>9.2f}                              ║
 ╚══════════════════════════════════════════════════════════════╝
         """.format(
-            total_requests=stats['total_requests'],
-            total_hits=stats['total_hits'],
-            hit_rate=stats['overall_hit_rate'],
-            total_misses=stats['total_misses'],
-            l1_hits=stats['l1_hits'],
-            l2_hits=stats['l2_hits'],
-            l3_hits=stats['l3_hits'],
-            tokens_saved=stats['tokens_saved'],
-            cost_saved=stats['cost_saved'],
-        ))
+                total_requests=stats["total_requests"],
+                total_hits=stats["total_hits"],
+                hit_rate=stats["overall_hit_rate"],
+                total_misses=stats["total_misses"],
+                l1_hits=stats["l1_hits"],
+                l2_hits=stats["l2_hits"],
+                l3_hits=stats["l3_hits"],
+                tokens_saved=stats["tokens_saved"],
+                cost_saved=stats["cost_saved"],
+            )
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

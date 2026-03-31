@@ -117,7 +117,12 @@
       "Bash(mkdir -p \"$HOOKS_DIR\")",
       "Bash(\"$HOOKS_DIR/post_bash_pytest.py\")",
       "Bash(\"$HOOKS_DIR/pre_edit_core.py\")",
-      "Bash(\"$HOOKS_DIR/post_edit_ruff.py\")"
+      "Bash(\"$HOOKS_DIR/post_edit_ruff.py\")",
+      "Bash(sed -n '250,290p' orchestrator/api_clients.py)",
+      "Bash(sed -n '42,60p' orchestrator/model_routing.py)",
+      "Bash(grep -v \"^README.md$\\\\|^CLAUDE.md$\\\\|^USAGE_GUIDE.md$\\\\|^CAPABILITIES.md$\\\\|^METHODS.md$\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(gh run:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

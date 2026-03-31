@@ -81,8 +81,12 @@ class ResultDeduplicator:
             results = self._dedup_by_content_similarity(results)
             logger.debug(f"After content dedup: {len(results)}/{original_count}")
 
-        duplicate_rate = (original_count - len(results)) / original_count if original_count > 0 else 0
-        logger.info(f"Deduplication complete: {original_count} → {len(results)} ({duplicate_rate:.1%} removed)")
+        duplicate_rate = (
+            (original_count - len(results)) / original_count if original_count > 0 else 0
+        )
+        logger.info(
+            f"Deduplication complete: {original_count} → {len(results)} ({duplicate_rate:.1%} removed)"
+        )
 
         return results
 
@@ -101,8 +105,8 @@ class ResultDeduplicator:
         for result in results:
             # Normalize URL
             url_normalized = result.url.lower().strip()
-            url_normalized = url_normalized.rstrip('/')
-            url_normalized = url_normalized.replace('www.', '')
+            url_normalized = url_normalized.rstrip("/")
+            url_normalized = url_normalized.replace("www.", "")
 
             if url_normalized not in seen_urls:
                 seen_urls.add(url_normalized)
@@ -127,12 +131,12 @@ class ResultDeduplicator:
             title_normalized = result.title.lower().strip()
 
             # Remove common prefixes
-            for prefix in ['review: ', 'article: ', 'post: ', 'guide: ']:
+            for prefix in ["review: ", "article: ", "post: ", "guide: "]:
                 if title_normalized.startswith(prefix):
-                    title_normalized = title_normalized[len(prefix):]
+                    title_normalized = title_normalized[len(prefix) :]
 
             # Create hash
-            title_hash = hashlib.md5(title_normalized.encode('utf-8')).hexdigest()
+            title_hash = hashlib.md5(title_normalized.encode("utf-8")).hexdigest()
 
             if title_hash not in seen_hashes:
                 seen_hashes.add(title_hash)
@@ -171,7 +175,7 @@ class ResultDeduplicator:
         # TF-IDF vectorization
         try:
             vectorizer = TfidfVectorizer(
-                stop_words='english',
+                stop_words="english",
                 max_features=1000,
                 ngram_range=(1, 2),
                 min_df=1,

@@ -15,10 +15,10 @@ from orchestrator.models import Model
 from orchestrator.api_clients import APIResponse
 from orchestrator.cli import _async_new_project
 
-
 # ─────────────────────────────────────────────
 # Tests for Enhancement dataclass
 # ─────────────────────────────────────────────
+
 
 def test_enhancement_is_immutable():
     """Enhancement should be frozen (immutable)."""
@@ -51,6 +51,7 @@ def test_enhancement_creation():
 # Tests for _select_enhance_model()
 # ─────────────────────────────────────────────
 
+
 def test_select_enhance_model_empty_string():
     """Empty description should return DEEPSEEK_CHAT."""
     result = _select_enhance_model("")
@@ -76,24 +77,27 @@ def test_select_enhance_model_long_description():
 # Tests for _parse_enhancements()
 # ─────────────────────────────────────────────
 
+
 def test_parse_enhancements_valid_json():
     """Valid JSON with 2 enhancements should parse correctly."""
-    json_str = json.dumps([
-        {
-            "type": "completeness",
-            "title": "Add logging",
-            "description": "Ensure logging is in place.",
-            "patch_description": "Add logging to all functions.",
-            "patch_criteria": "All functions log their inputs.",
-        },
-        {
-            "type": "criteria",
-            "title": "Test coverage",
-            "description": "Increase test coverage.",
-            "patch_description": "Achieve 80% test coverage.",
-            "patch_criteria": "Test coverage must be ≥80%.",
-        },
-    ])
+    json_str = json.dumps(
+        [
+            {
+                "type": "completeness",
+                "title": "Add logging",
+                "description": "Ensure logging is in place.",
+                "patch_description": "Add logging to all functions.",
+                "patch_criteria": "All functions log their inputs.",
+            },
+            {
+                "type": "criteria",
+                "title": "Test coverage",
+                "description": "Increase test coverage.",
+                "patch_description": "Achieve 80% test coverage.",
+                "patch_criteria": "Test coverage must be ≥80%.",
+            },
+        ]
+    )
     result = _parse_enhancements(json_str)
     assert len(result) == 2
     assert result[0].type == "completeness"
@@ -109,30 +113,34 @@ def test_parse_enhancements_invalid_json():
 
 def test_parse_enhancements_missing_field():
     """Missing required field should return empty list."""
-    json_str = json.dumps([
-        {
-            "type": "completeness",
-            "title": "Add logging",
-            # missing "description"
-            "patch_description": "Add logging to all functions.",
-            "patch_criteria": "All functions log their inputs.",
-        }
-    ])
+    json_str = json.dumps(
+        [
+            {
+                "type": "completeness",
+                "title": "Add logging",
+                # missing "description"
+                "patch_description": "Add logging to all functions.",
+                "patch_criteria": "All functions log their inputs.",
+            }
+        ]
+    )
     result = _parse_enhancements(json_str)
     assert result == []
 
 
 def test_parse_enhancements_invalid_type():
     """Invalid type value should return empty list."""
-    json_str = json.dumps([
-        {
-            "type": "invalid_type",  # Not in completeness|criteria|risk
-            "title": "Add logging",
-            "description": "Ensure logging is in place.",
-            "patch_description": "Add logging to all functions.",
-            "patch_criteria": "All functions log their inputs.",
-        }
-    ])
+    json_str = json.dumps(
+        [
+            {
+                "type": "invalid_type",  # Not in completeness|criteria|risk
+                "title": "Add logging",
+                "description": "Ensure logging is in place.",
+                "patch_description": "Add logging to all functions.",
+                "patch_criteria": "All functions log their inputs.",
+            }
+        ]
+    )
     result = _parse_enhancements(json_str)
     assert result == []
 
@@ -140,6 +148,7 @@ def test_parse_enhancements_invalid_type():
 # ─────────────────────────────────────────────
 # Tests for _apply_enhancements()
 # ─────────────────────────────────────────────
+
 
 def test_apply_enhancements_empty_list():
     """Empty enhancements list should return unchanged description and criteria."""
@@ -224,26 +233,29 @@ def test_apply_enhancements_already_patched():
 # Tests for ProjectEnhancer class
 # ─────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_project_enhancer_valid_llm_response():
     """Valid LLM response should return list of Enhancement objects."""
     # Create valid JSON response
-    json_response = json.dumps([
-        {
-            "type": "completeness",
-            "title": "Add Performance Metrics",
-            "description": "The project lacks specific performance requirements.",
-            "patch_description": "with response time < 100ms",
-            "patch_criteria": "achieve response time < 100ms for all endpoints"
-        },
-        {
-            "type": "criteria",
-            "title": "Add Error Handling",
-            "description": "Need comprehensive error handling strategy.",
-            "patch_description": "with comprehensive error handling",
-            "patch_criteria": "handles all error cases gracefully"
-        }
-    ])
+    json_response = json.dumps(
+        [
+            {
+                "type": "completeness",
+                "title": "Add Performance Metrics",
+                "description": "The project lacks specific performance requirements.",
+                "patch_description": "with response time < 100ms",
+                "patch_criteria": "achieve response time < 100ms for all endpoints",
+            },
+            {
+                "type": "criteria",
+                "title": "Add Error Handling",
+                "description": "Need comprehensive error handling strategy.",
+                "patch_description": "with comprehensive error handling",
+                "patch_criteria": "handles all error cases gracefully",
+            },
+        ]
+    )
 
     # Mock UnifiedClient.call()
     mock_client = AsyncMock()
@@ -316,18 +328,20 @@ async def test_project_enhancer_model_selection_long_description():
     """Long combined description should use DEEPSEEK_REASONER model."""
     # Create long description and criteria (combined > 50 words)
     long_description = " ".join(["word"] * 35)  # 35 words
-    long_criteria = " ".join(["word"] * 20)      # 20 words
+    long_criteria = " ".join(["word"] * 20)  # 20 words
     # Combined = 55 words > 50, should use DEEPSEEK_REASONER
 
-    json_response = json.dumps([
-        {
-            "type": "completeness",
-            "title": "Test",
-            "description": "Test enhancement",
-            "patch_description": "test patch",
-            "patch_criteria": "test criteria"
-        }
-    ])
+    json_response = json.dumps(
+        [
+            {
+                "type": "completeness",
+                "title": "Test",
+                "description": "Test enhancement",
+                "patch_description": "test patch",
+                "patch_criteria": "test criteria",
+            }
+        ]
+    )
 
     # Mock UnifiedClient.call()
     mock_client = AsyncMock()
@@ -355,18 +369,20 @@ async def test_project_enhancer_model_selection_short_description():
     """Short combined description should use DEEPSEEK_CHAT model."""
     # Create short description and criteria (combined ≤ 50 words)
     short_description = "Build a web app"  # ~3 words
-    short_criteria = "Must be fast"       # ~3 words
+    short_criteria = "Must be fast"  # ~3 words
     # Combined = 6 words ≤ 50, should use DEEPSEEK_CHAT
 
-    json_response = json.dumps([
-        {
-            "type": "completeness",
-            "title": "Test",
-            "description": "Test enhancement",
-            "patch_description": "test patch",
-            "patch_criteria": "test criteria"
-        }
-    ])
+    json_response = json.dumps(
+        [
+            {
+                "type": "completeness",
+                "title": "Test",
+                "description": "Test enhancement",
+                "patch_description": "test patch",
+                "patch_criteria": "test criteria",
+            }
+        ]
+    )
 
     # Mock UnifiedClient.call()
     mock_client = AsyncMock()
@@ -396,12 +412,27 @@ from orchestrator.enhancer import _present_enhancements
 
 def _make_three_enhancements() -> list[Enhancement]:
     return [
-        Enhancement("completeness", "Missing: refresh tokens",
-                    "JWT auth needs refresh tokens.", "with refresh tokens (7d)", ""),
-        Enhancement("criteria", "Vague success criteria",
-                    "Tests pass is unmeasurable.", "", "≥80% test coverage"),
-        Enhancement("risk", "Missing: password hashing",
-                    "Plain-text passwords are insecure.", "with bcrypt (cost 12)", ""),
+        Enhancement(
+            "completeness",
+            "Missing: refresh tokens",
+            "JWT auth needs refresh tokens.",
+            "with refresh tokens (7d)",
+            "",
+        ),
+        Enhancement(
+            "criteria",
+            "Vague success criteria",
+            "Tests pass is unmeasurable.",
+            "",
+            "≥80% test coverage",
+        ),
+        Enhancement(
+            "risk",
+            "Missing: password hashing",
+            "Plain-text passwords are insecure.",
+            "with bcrypt (cost 12)",
+            "",
+        ),
     ]
 
 
@@ -445,12 +476,14 @@ def test_present_default_is_yes(monkeypatch):
 def test_present_ctrl_c_treated_as_no(monkeypatch):
     """KeyboardInterrupt on any prompt → reject all remaining, return what was accepted so far."""
     call_count = 0
+
     def mock_input(_):
         nonlocal call_count
         call_count += 1
         if call_count == 2:
             raise KeyboardInterrupt
         return "y"
+
     monkeypatch.setattr("builtins.input", mock_input)
     accepted = _present_enhancements(_make_three_enhancements())
     assert len(accepted) == 1  # first was accepted, then Ctrl-C on second
@@ -465,7 +498,9 @@ def test_cli_no_enhance_flag():
     """--no-enhance flag causes ProjectEnhancer to be skipped entirely."""
     import asyncio
 
-    with patch("orchestrator.enhancer.ProjectEnhancer.analyze", new_callable=AsyncMock) as mock_analyze:
+    with patch(
+        "orchestrator.enhancer.ProjectEnhancer.analyze", new_callable=AsyncMock
+    ) as mock_analyze:
         args = types.SimpleNamespace(
             project="Build a FastAPI auth service",
             criteria="tests pass",
@@ -476,14 +511,16 @@ def test_cli_no_enhance_flag():
             concurrency=3,
             verbose=False,
             raw_tasks=False,
-            no_enhance=True,   # ← the flag under test
+            no_enhance=True,  # ← the flag under test
             tracing=False,
             otlp_endpoint=None,
             dependency_report=False,
             new_project=True,  # skip resume detection too
         )
 
-        with patch("orchestrator.app_builder.AppBuilder.build", new_callable=AsyncMock) as mock_build:
+        with patch(
+            "orchestrator.app_builder.AppBuilder.build", new_callable=AsyncMock
+        ) as mock_build:
             mock_build.return_value = MagicMock(success=True, output_dir="/tmp/test", errors=[])
             asyncio.run(_async_new_project(args))
 

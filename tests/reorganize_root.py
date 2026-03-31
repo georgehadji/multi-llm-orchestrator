@@ -6,7 +6,7 @@ Moves files from root to appropriate subdirectories.
 
 Categories:
 - scripts/setup/     : Setup and initialization scripts
-- scripts/utils/     : Utility/check/debug scripts  
+- scripts/utils/     : Utility/check/debug scripts
 - scripts/git/       : Git-related scripts
 - scripts/batch/     : Windows batch files
 - examples/          : Example usage scripts
@@ -19,35 +19,38 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
+
 def ensure_dir(path: Path):
     """Create directory if it doesn't exist."""
     path.mkdir(parents=True, exist_ok=True)
     return path
+
 
 def move_file(src: Path, dst: Path, dry_run: bool = True):
     """Move file from src to dst."""
     if not src.exists():
         print(f"  ⚠️  Missing: {src}")
         return
-    
+
     if dst.exists():
         print(f"  ⚠️  Exists: {dst} (skipping)")
         return
-    
+
     action = "[DRY-RUN] Would move" if dry_run else "Moving"
     print(f"  {action}: {src.name} -> {dst}")
-    
+
     if not dry_run:
         shutil.move(str(src), str(dst))
 
+
 def main(dry_run: bool = True):
     root = Path(".")
-    
+
     print(f"\n{'='*60}")
     print(f"Root Folder Reorganization")
     print(f"Mode: {'DRY-RUN (preview only)' if dry_run else 'LIVE'}")
     print(f"{'='*60}\n")
-    
+
     # Define directories
     scripts_setup = ensure_dir(root / "scripts" / "setup")
     scripts_utils = ensure_dir(root / "scripts" / "utils")
@@ -55,9 +58,9 @@ def main(dry_run: bool = True):
     scripts_batch = ensure_dir(root / "scripts" / "batch")
     examples = ensure_dir(root / "examples")
     tests = ensure_dir(root / "tests")
-    
+
     # Files to move
-    
+
     # 1. SETUP SCRIPTS -> scripts/setup/
     setup_scripts = [
         "setup_project.py",
@@ -78,11 +81,11 @@ def main(dry_run: bool = True):
         "create_workflow.py",
         "temp_setup_slack.py",
     ]
-    
+
     print(f"\n📦 Setup Scripts -> {scripts_setup}")
     for name in setup_scripts:
         move_file(root / name, scripts_setup / name, dry_run)
-    
+
     # 2. UTILITY SCRIPTS -> scripts/utils/
     utility_scripts = [
         # Check scripts
@@ -158,11 +161,11 @@ def main(dry_run: bool = True):
         "verify_mc_import.py",
         "verify_syntax.py",
     ]
-    
+
     print(f"\n🔧 Utility Scripts -> {scripts_utils}")
     for name in utility_scripts:
         move_file(root / name, scripts_utils / name, dry_run)
-    
+
     # 3. GIT SCRIPTS -> scripts/git/
     git_scripts = [
         "clean_and_push.py",
@@ -171,11 +174,11 @@ def main(dry_run: bool = True):
         "git_auto_commit.py",
         "git_commit_push.py",
     ]
-    
+
     print(f"\n📁 Git Scripts -> {scripts_git}")
     for name in git_scripts:
         move_file(root / name, scripts_git / name, dry_run)
-    
+
     # 4. BATCH FILES -> scripts/batch/
     batch_files = [
         "Check_API_Keys.bat",
@@ -194,11 +197,11 @@ def main(dry_run: bool = True):
         "start_with_log.bat",
         "stop_server.bat",
     ]
-    
+
     print(f"\n🪟 Batch Files -> {scripts_batch}")
     for name in batch_files:
         move_file(root / name, scripts_batch / name, dry_run)
-    
+
     # 5. EXAMPLES -> examples/
     example_files = [
         "example_capability_logging.py",
@@ -211,11 +214,11 @@ def main(dry_run: bool = True):
         "example_slack_integration.py",
         "example_wordpress_plugin_rules.py",
     ]
-    
+
     print(f"\n📚 Examples -> {examples}")
     for name in example_files:
         move_file(root / name, examples / name, dry_run)
-    
+
     # 6. TESTS -> tests/
     test_files = [
         "test_all_dashboards.py",
@@ -250,11 +253,11 @@ def main(dry_run: bool = True):
         "test_v65_fix.py",
         "test_wordpress_plugin_rules.py",
     ]
-    
+
     print(f"\n🧪 Tests -> {tests}")
     for name in test_files:
         move_file(root / name, tests / name, dry_run)
-    
+
     # Summary
     print(f"\n{'='*60}")
     print("Summary")
@@ -265,15 +268,19 @@ def main(dry_run: bool = True):
     print(f"Batch files: {len(batch_files)}")
     print(f"Examples: {len(example_files)}")
     print(f"Tests: {len(test_files)}")
-    print(f"\nTotal files to move: {sum([len(setup_scripts), len(utility_scripts), len(git_scripts), len(batch_files), len(example_files), len(test_files)])}")
-    
+    print(
+        f"\nTotal files to move: {sum([len(setup_scripts), len(utility_scripts), len(git_scripts), len(batch_files), len(example_files), len(test_files)])}"
+    )
+
     if dry_run:
         print(f"\n⚠️  This was a DRY RUN. No files were moved.")
         print(f"Run with --apply to execute the moves.")
-    
+
     print()
+
 
 if __name__ == "__main__":
     import sys
+
     dry_run = "--apply" not in sys.argv
     main(dry_run=dry_run)

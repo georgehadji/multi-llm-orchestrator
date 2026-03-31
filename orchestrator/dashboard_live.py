@@ -16,6 +16,7 @@ Usage:
     dashboard = LiveDashboard()
     dashboard.start()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,6 +35,7 @@ logger = get_logger(__name__)
 @dataclass
 class LiveTask:
     """Live task with real-time updates."""
+
     task_id: str
     task_type: str
     prompt: str
@@ -53,6 +55,7 @@ class LiveTask:
 @dataclass
 class TestExecution:
     """Test execution status."""
+
     test_file: str
     status: str = "pending"  # pending, running, passed, failed
     progress: float = 0.0
@@ -66,6 +69,7 @@ class TestExecution:
 @dataclass
 class Achievement:
     """Gamification achievement."""
+
     id: str
     title: str
     description: str
@@ -86,6 +90,7 @@ class Achievement:
 @dataclass
 class DashboardState:
     """Complete dashboard state for live updates."""
+
     # Project
     project_id: str = ""
     project_description: str = ""
@@ -220,10 +225,12 @@ class LiveDashboardServer:
                 self.state.budget_total = data.get("budget", 0)
                 self.state.start_time = time.time()
 
-                await self._broadcast({
-                    "type": "project_started",
-                    "data": self.state.to_dict(),
-                })
+                await self._broadcast(
+                    {
+                        "type": "project_started",
+                        "data": self.state.to_dict(),
+                    }
+                )
 
                 return {"status": "ok"}
 
@@ -272,14 +279,18 @@ class LiveDashboardServer:
 
                 # Update project progress
                 if self.state.total_tasks > 0:
-                    self.state.project_progress = (self.state.completed_tasks / self.state.total_tasks) * 100
+                    self.state.project_progress = (
+                        self.state.completed_tasks / self.state.total_tasks
+                    ) * 100
 
                 # Broadcast update
-                await self._broadcast({
-                    "type": "task_update",
-                    "task": task,
-                    "progress": self.state.project_progress,
-                })
+                await self._broadcast(
+                    {
+                        "type": "task_update",
+                        "task": task,
+                        "progress": self.state.project_progress,
+                    }
+                )
 
                 return {"status": "ok"}
 
@@ -296,11 +307,13 @@ class LiveDashboardServer:
                 if self.state.budget_used < self.state.budget_total * 0.5:
                     await self._unlock_achievement("budget_master")
 
-                await self._broadcast({
-                    "type": "project_completed",
-                    "data": self.state.to_dict(),
-                    "celebration": True,
-                })
+                await self._broadcast(
+                    {
+                        "type": "project_completed",
+                        "data": self.state.to_dict(),
+                        "celebration": True,
+                    }
+                )
 
                 return {"status": "ok"}
 
@@ -329,10 +342,12 @@ class LiveDashboardServer:
                 elif test["status"] == "failed":
                     self.state.tests_failed += 1
 
-                await self._broadcast({
-                    "type": "test_update",
-                    "test": test,
-                })
+                await self._broadcast(
+                    {
+                        "type": "test_update",
+                        "test": test,
+                    }
+                )
 
                 return {"status": "ok"}
 
@@ -343,10 +358,12 @@ class LiveDashboardServer:
                 self.connections.add(websocket)
 
                 # Send initial state
-                await websocket.send_json({
-                    "type": "init",
-                    "data": self.state.to_dict(),
-                })
+                await websocket.send_json(
+                    {
+                        "type": "init",
+                        "data": self.state.to_dict(),
+                    }
+                )
 
                 try:
                     while True:
@@ -385,10 +402,14 @@ class LiveDashboardServer:
             self.state.xp_to_next_level = int(self.state.xp_to_next_level * 1.5)
 
             # Broadcast level up
-            asyncio.create_task(self._broadcast({
-                "type": "level_up",
-                "level": self.state.level,
-            }))
+            asyncio.create_task(
+                self._broadcast(
+                    {
+                        "type": "level_up",
+                        "level": self.state.level,
+                    }
+                )
+            )
 
     async def _unlock_achievement(self, achievement_id: str):
         """Unlock an achievement."""
@@ -400,14 +421,16 @@ class LiveDashboardServer:
             # Bonus XP
             self._add_xp(50)
 
-            await self._broadcast({
-                "type": "achievement_unlocked",
-                "achievement": achievement.to_dict(),
-            })
+            await self._broadcast(
+                {
+                    "type": "achievement_unlocked",
+                    "achievement": achievement.to_dict(),
+                }
+            )
 
     def _get_html(self) -> str:
         """Generate HTML with gamified UI."""
-        return '''<!DOCTYPE html>
+        return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1055,7 +1078,7 @@ class LiveDashboardServer:
         root.render(<App />);
     </script>
 </body>
-</html>'''
+</html>"""
 
     async def run(self):
         """Start the server."""
@@ -1114,9 +1137,12 @@ class DashboardLiveIntegration:
     def __init__(self, server: LiveDashboardServer):
         self.server = server
 
-    async def on_project_start(self, project_id: str, description: str, total_tasks: int, budget: float):
+    async def on_project_start(
+        self, project_id: str, description: str, total_tasks: int, budget: float
+    ):
         """Notify dashboard of project start."""
         import httpx
+
         async with httpx.AsyncClient() as client:
             await client.post(
                 f"http://{self.server.host}:{self.server.port}/api/project/start",
@@ -1125,13 +1151,15 @@ class DashboardLiveIntegration:
                     "description": description,
                     "total_tasks": total_tasks,
                     "budget": budget,
-                }
+                },
             )
 
-    async def on_task_update(self, task_id: str, task_type: str, status: str,
-                             iteration: int, score: float, model: str):
+    async def on_task_update(
+        self, task_id: str, task_type: str, status: str, iteration: int, score: float, model: str
+    ):
         """Update task status."""
         import httpx
+
         async with httpx.AsyncClient() as client:
             await client.post(
                 f"http://{self.server.host}:{self.server.port}/api/task/update",
@@ -1142,21 +1170,22 @@ class DashboardLiveIntegration:
                     "iteration": iteration,
                     "score": score,
                     "model_used": model,
-                }
+                },
             )
 
     async def on_project_complete(self):
         """Notify project completion."""
         import httpx
+
         async with httpx.AsyncClient() as client:
             await client.post(
-                f"http://{self.server.host}:{self.server.port}/api/project/complete",
-                json={}
+                f"http://{self.server.host}:{self.server.port}/api/project/complete", json={}
             )
 
     async def on_test_update(self, test_file: str, status: str, progress: float, output: str = ""):
         """Update test execution."""
         import httpx
+
         async with httpx.AsyncClient() as client:
             await client.post(
                 f"http://{self.server.host}:{self.server.port}/api/test/update",
@@ -1165,7 +1194,7 @@ class DashboardLiveIntegration:
                     "status": status,
                     "progress": progress,
                     "output": output,
-                }
+                },
             )
 
 

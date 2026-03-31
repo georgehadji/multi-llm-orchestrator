@@ -1,6 +1,7 @@
 """
 WebSocket Event Handlers
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -55,7 +56,9 @@ def setup_websocket_handlers(
         session = await session_manager.get_session(session_id)
         if session:
             await connection_manager.send_to_session(
-                session_id, "messages_update", {"messages": [m.to_dict() for m in session.messages[-10:]]}
+                session_id,
+                "messages_update",
+                {"messages": [m.to_dict() for m in session.messages[-10:]]},
             )
 
         # Simulate AI response (in production, this would call the orchestrator)
@@ -75,8 +78,7 @@ def setup_websocket_handlers(
 
         # Broadcast thinking state
         await connection_manager.send_to_session(
-            session_id, "messages_update",
-            {"messages": [thinking_message.to_dict()]}
+            session_id, "messages_update", {"messages": [thinking_message.to_dict()]}
         )
 
         # Simulate processing
@@ -100,8 +102,7 @@ def setup_websocket_handlers(
             await session_manager._save_session(session)
 
             await connection_manager.send_to_session(
-                session_id, "messages_update",
-                {"messages": [completed_message.to_dict()]}
+                session_id, "messages_update", {"messages": [completed_message.to_dict()]}
             )
 
     @connection_manager.register_handler("session_update")
@@ -163,8 +164,7 @@ def setup_websocket_handlers(
 
         if file_node:
             await connection_manager.send_to_client(
-                websocket, "file_content",
-                {"path": file_path, "content": file_node.content or ""}
+                websocket, "file_content", {"path": file_path, "content": file_node.content or ""}
             )
 
     @connection_manager.register_handler("file_update")
@@ -180,9 +180,7 @@ def setup_websocket_handlers(
         await session_manager.update_file(session_id, file_path, content)
 
         # Broadcast update
-        await connection_manager.send_to_session(
-            session_id, "file_updated", {"path": file_path}
-        )
+        await connection_manager.send_to_session(session_id, "file_updated", {"path": file_path})
 
     @connection_manager.register_handler("terminal_command")
     async def handle_terminal_command(data: dict[str, Any], websocket: WebSocket):
@@ -198,16 +196,13 @@ def setup_websocket_handlers(
 
         # Simulate command output
         await asyncio.sleep(0.3)
-        await session_manager.add_terminal_line(
-            session_id, "out", f"Executing: {command}"
-        )
+        await session_manager.add_terminal_line(session_id, "out", f"Executing: {command}")
 
         # Broadcast terminal update
         session = await session_manager.get_session(session_id)
         if session:
             await connection_manager.send_to_session(
-                session_id, "terminal_update",
-                {"lines": session.terminal_lines[-20:]}
+                session_id, "terminal_update", {"lines": session.terminal_lines[-20:]}
             )
 
     @connection_manager.register_handler("ping")

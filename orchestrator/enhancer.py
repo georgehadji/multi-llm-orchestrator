@@ -28,6 +28,7 @@ def _get_nexus_search():
     try:
         from orchestrator.nexus_search import SearchSource
         from orchestrator.nexus_search import search as nexus_search
+
         return nexus_search, SearchSource
     except ImportError:
         return None, None
@@ -38,6 +39,7 @@ def _get_x_search():
     """Lazy import of X Search to avoid circular dependencies."""
     try:
         from orchestrator.xai_search import XSearchClient
+
         return XSearchClient
     except ImportError:
         return None
@@ -63,11 +65,12 @@ class Enhancement:
     patch_criteria : str
         Clause to append to the success criteria
     """
-    type: str           # "completeness" | "criteria" | "risk"
-    title: str          # ≤8 words
-    description: str    # 1–2 sentences
+
+    type: str  # "completeness" | "criteria" | "risk"
+    title: str  # ≤8 words
+    description: str  # 1–2 sentences
     patch_description: str  # Clause to append to project description
-    patch_criteria: str     # Clause to append to success criteria
+    patch_criteria: str  # Clause to append to success criteria
 
 
 def _select_enhance_model(description: str) -> Model:
@@ -136,8 +139,11 @@ def _parse_enhancements(llm_output: str) -> list[Enhancement]:
 
                 # Check for required fields
                 required_fields = {
-                    "type", "title", "description",
-                    "patch_description", "patch_criteria"
+                    "type",
+                    "title",
+                    "description",
+                    "patch_description",
+                    "patch_criteria",
                 }
                 if not required_fields.issubset(item.keys()):
                     return []
@@ -164,9 +170,7 @@ def _parse_enhancements(llm_output: str) -> list[Enhancement]:
 
 
 def _apply_enhancements(
-    description: str,
-    criteria: str,
-    accepted: list[Enhancement]
+    description: str, criteria: str, accepted: list[Enhancement]
 ) -> tuple[str, str]:
     """Apply all accepted enhancements to description and criteria.
 
@@ -429,22 +433,22 @@ class ProjectEnhancer:
                 f"\n\nProject Description: {description}\n"
                 f"Success Criteria: {criteria}\n\n"
                 "For each enhancement, provide the following information:\n"
-                "1. type: \"completeness\" | \"criteria\" | \"risk\"\n"
-                "   - \"completeness\" for missing details about what the project should include\n"
-                "   - \"criteria\" for missing or unclear success metrics\n"
-                "   - \"risk\" for unaddressed risks or edge cases\n"
+                '1. type: "completeness" | "criteria" | "risk"\n'
+                '   - "completeness" for missing details about what the project should include\n'
+                '   - "criteria" for missing or unclear success metrics\n'
+                '   - "risk" for unaddressed risks or edge cases\n'
                 "2. title: short title (≤8 words)\n"
                 "3. description: 1-2 sentence explanation of why this improvement is needed\n"
-                "4. patch_description: a clause to append to the project description (e.g., \"with JWT authentication\")\n"
-                "5. patch_criteria: a clause to append to the success criteria (e.g., \"supports JWT authentication\")\n\n"
+                '4. patch_description: a clause to append to the project description (e.g., "with JWT authentication")\n'
+                '5. patch_criteria: a clause to append to the success criteria (e.g., "supports JWT authentication")\n\n'
                 "Return your response as a valid JSON array. Example format:\n"
                 "[\n"
                 "  {\n"
-                "    \"type\": \"completeness\",\n"
-                "    \"title\": \"Add Performance Metrics\",\n"
-                "    \"description\": \"The project lacks specific performance requirements.\",\n"
-                "    \"patch_description\": \"with response time < 100ms for all endpoints\",\n"
-                "    \"patch_criteria\": \"achieve response time < 100ms for all endpoints\"\n"
+                '    "type": "completeness",\n'
+                '    "title": "Add Performance Metrics",\n'
+                '    "description": "The project lacks specific performance requirements.",\n'
+                '    "patch_description": "with response time < 100ms for all endpoints",\n'
+                '    "patch_criteria": "achieve response time < 100ms for all endpoints"\n'
                 "  }\n"
                 "]\n\n"
                 "Important: Return ONLY the JSON array, with no additional text or markdown formatting."
@@ -502,9 +506,9 @@ def _present_enhancements(enhancements: list[Enhancement]) -> list[Enhancement]:
             print(f"  [{i}/{total}] {e.type} — {e.title}")
             print(f"        {e.description}")
             if e.patch_description:
-                print(f"        Adds: \"{e.patch_description}\"")
+                print(f'        Adds: "{e.patch_description}"')
             if e.patch_criteria:
-                print(f"        Adds criteria: \"{e.patch_criteria}\"")
+                print(f'        Adds criteria: "{e.patch_criteria}"')
             try:
                 answer = input("        Apply? [Y/n]: ").strip().lower()
             except KeyboardInterrupt:

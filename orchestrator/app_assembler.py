@@ -8,6 +8,7 @@ Steps:
 3. Run ImportFixer: ensure __init__.py exists for every Python package directory
 4. Return AssemblyReport(files_written, files_skipped, import_issues)
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,9 +38,9 @@ class AppAssembler:
 
     def assemble(
         self,
-        results: dict,      # task_id -> TaskResult
-        tasks: dict,        # task_id -> Task
-        scaffold: dict,     # rel_path -> content (from ScaffoldEngine)
+        results: dict,  # task_id -> TaskResult
+        tasks: dict,  # task_id -> Task
+        scaffold: dict,  # rel_path -> content (from ScaffoldEngine)
         output_dir: Path,
     ) -> AssemblyReport:
         """
@@ -69,7 +70,9 @@ class AppAssembler:
             # Skip if output is empty or whitespace-only
             if not result.output or not result.output.strip():
                 report.files_skipped.append(f"{task_id} (empty output)")
-                logger.warning("Task %s produced empty output; skipping %s", task_id, task.target_path)
+                logger.warning(
+                    "Task %s produced empty output; skipping %s", task_id, task.target_path
+                )
                 continue
 
             dest = output_dir / task.target_path

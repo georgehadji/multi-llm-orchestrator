@@ -4,6 +4,7 @@ Cross-run profile aggregator.
 Records (model, task_type, score, cost, latency) from completed runs
 and computes aggregated statistics to guide future model routing.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -41,9 +42,9 @@ class ProfileAggregator:
             return {"count": 0, "avg_score": 0.0, "avg_cost": 0.0, "avg_latency": 0.0}
         n = len(records)
         return {
-            "count":       n,
-            "avg_score":   sum(r.score      for r in records) / n,
-            "avg_cost":    sum(r.cost_usd   for r in records) / n,
+            "count": n,
+            "avg_score": sum(r.score for r in records) / n,
+            "avg_cost": sum(r.cost_usd for r in records) / n,
             "avg_latency": sum(r.latency_ms for r in records) / n,
         }
 
@@ -54,9 +55,7 @@ class ProfileAggregator:
             return None
         return max(candidates, key=lambda m: self.stats_for(m, task_type)["avg_score"])
 
-    def cost_efficiency_ranking(
-        self, task_type: TaskType
-    ) -> list[tuple[Model, float]]:
+    def cost_efficiency_ranking(self, task_type: TaskType) -> list[tuple[Model, float]]:
         """(model, efficiency) sorted by score/cost descending."""
         candidates = {model for (model, tt) in self._records if tt == task_type}
         results = []
