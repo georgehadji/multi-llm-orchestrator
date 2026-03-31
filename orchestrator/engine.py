@@ -82,51 +82,169 @@ except ImportError as _e:
 HAS_CODE_VALIDATOR = False
 validate_code = None
 extract_code_from_llm_response = None
-from .a2a_protocol import A2AManager, AgentCard
-from .accountability import AccountabilityTracker, ActionType, ActorType
-from .agent_safety import AgentSafetyMonitor, SafetyEventType
-from .agents import TaskChannel
-from .audit import AuditLog
-from .bm25_search import BM25Search, get_bm25_search
+
+# Optional advanced features - wrapped in try/except to allow CLI to load even if any fail
+# These modules may have external dependencies or circular import issues
+HAS_ADVANCED_FEATURES = True
+
+try:
+    from .a2a_protocol import A2AManager, AgentCard
+except (ImportError, TimeoutError):
+    A2AManager = None
+    AgentCard = None
+    HAS_ADVANCED_FEATURES = False
+
+try:
+    from .accountability import AccountabilityTracker, ActionType, ActorType
+except (ImportError, TimeoutError):
+    AccountabilityTracker = None
+    ActionType = None
+    ActorType = None
+
+try:
+    from .agent_safety import AgentSafetyMonitor, SafetyEventType
+except (ImportError, TimeoutError):
+    AgentSafetyMonitor = None
+    SafetyEventType = None
+
+try:
+    from .agents import TaskChannel
+except (ImportError, TimeoutError):
+    TaskChannel = None
+
+try:
+    from .audit import AuditLog
+except (ImportError, TimeoutError):
+    AuditLog = None
+
+try:
+    from .bm25_search import BM25Search, get_bm25_search
+except (ImportError, TimeoutError):
+    BM25Search = None
+    get_bm25_search = None
 
 # OPTIMIZATION: Cost & performance optimizations (Tiers 1-4)
-from .cost_optimization import (
-    AdaptiveTemperatureController,
-    BatchClient,
-    DependencyContextInjector,
-    EvalDatasetBuilder,
-    ModelCascader,
-    OptimizationConfig,
-    PromptCacher,
-    SpeculativeGenerator,
-    StreamingValidator,
-    TokenBudget,
-    cascading_generate,
-    get_optimization_config,
-    inject_dependency_context,
-    speculative_generate,
-    stream_and_validate,
-    warm_prompt_cache,
-)
-from .hooks import EventType, HookRegistry
-from .memory_tier import MemoryTierManager
-from .persona import PersonaManager, PersonaMode
-from .planner import ConstraintPlanner
-from .preflight import PreflightMode, PreflightValidator
-from .rate_limiter import RateLimiter
-from .red_team import RedTeamFramework
-from .reranker import LLMReranker, get_reranker
-from .session_lifecycle import SessionLifecycleManager
-from .session_watcher import SessionWatcher
+try:
+    from .cost_optimization import (
+        AdaptiveTemperatureController,
+        BatchClient,
+        DependencyContextInjector,
+        EvalDatasetBuilder,
+        ModelCascader,
+        OptimizationConfig,
+        PromptCacher,
+        SpeculativeGenerator,
+        StreamingValidator,
+        TokenBudget,
+        cascading_generate,
+        get_optimization_config,
+        inject_dependency_context,
+        speculative_generate,
+        stream_and_validate,
+        warm_prompt_cache,
+    )
+except (ImportError, TimeoutError):
+    OptimizationConfig = None
+    get_optimization_config = None
+    # Set all others to None too
+    AdaptiveTemperatureController = None
+    BatchClient = None
+    DependencyContextInjector = None
+    EvalDatasetBuilder = None
+    ModelCascader = None
+    PromptCacher = None
+    SpeculativeGenerator = None
+    StreamingValidator = None
+    TokenBudget = None
+    cascading_generate = None
+    inject_dependency_context = None
+    speculative_generate = None
+    stream_and_validate = None
+    warm_prompt_cache = None
+
+try:
+    from .hooks import EventType, HookRegistry
+except (ImportError, TimeoutError):
+    EventType = None
+    HookRegistry = None
+
+try:
+    from .memory_tier import MemoryTierManager
+except (ImportError, TimeoutError):
+    MemoryTierManager = None
+
+try:
+    from .persona import PersonaManager, PersonaMode
+except (ImportError, TimeoutError):
+    PersonaManager = None
+    PersonaMode = None
+
+try:
+    from .planner import ConstraintPlanner
+except (ImportError, TimeoutError):
+    ConstraintPlanner = None
+
+try:
+    from .preflight import PreflightMode, PreflightValidator
+except (ImportError, TimeoutError):
+    PreflightMode = None
+    PreflightValidator = None
+
+try:
+    from .rate_limiter import RateLimiter
+except (ImportError, TimeoutError):
+    RateLimiter = None
+
+try:
+    from .red_team import RedTeamFramework
+except (ImportError, TimeoutError):
+    RedTeamFramework = None
+
+try:
+    from .reranker import LLMReranker, get_reranker
+except (ImportError, TimeoutError):
+    LLMReranker = None
+    get_reranker = None
+
+try:
+    from .session_lifecycle import SessionLifecycleManager
+except (ImportError, TimeoutError):
+    SessionLifecycleManager = None
+
+try:
+    from .session_watcher import SessionWatcher
+except (ImportError, TimeoutError):
+    SessionWatcher = None
 
 # NEW: Security & Accountability modules from "Agents of Chaos" paper (arXiv:2602.20021)
-from .task_verifier import TaskVerifier
-from .telemetry import TelemetryCollector
-from .telemetry_store import TelemetryStore
+try:
+    from .task_verifier import TaskVerifier
+except (ImportError, TimeoutError):
+    TaskVerifier = None
+
+try:
+    from .telemetry import TelemetryCollector
+except (ImportError, TimeoutError):
+    TelemetryCollector = None
+
+try:
+    from .telemetry_store import TelemetryStore
+except (ImportError, TimeoutError):
+    TelemetryStore = None
 
 # NEW: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
-from .token_optimizer import TokenOptimizer
-from .tracing import TracingConfig, configure_tracing, get_tracer, traced_task
+try:
+    from .token_optimizer import TokenOptimizer
+except (ImportError, TimeoutError):
+    TokenOptimizer = None
+
+try:
+    from .tracing import TracingConfig, configure_tracing, get_tracer, traced_task
+except (ImportError, TimeoutError):
+    TracingConfig = None
+    configure_tracing = None
+    get_tracer = None
+    traced_task = None
 
 if TYPE_CHECKING:
     from .cost import BudgetHierarchy, CostPredictor
