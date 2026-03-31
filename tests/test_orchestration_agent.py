@@ -1,6 +1,7 @@
 """
 Unit tests for OrchestrationAgent (B4+B5).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -12,34 +13,37 @@ import pytest
 from orchestrator.orchestration_agent import AgentDraft, OrchestrationAgent
 from orchestrator.specs import JobSpecV2, PolicySpecV2
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _make_llm_response(goal: str, hard: list[str], rationale: str) -> str:
     """Build a valid JSON response string for the agent."""
-    return json.dumps({
-        "job": {
-            "goal": goal,
-            "inputs": {"data_locality": "eu", "contains_pii": False},
-            "slas": {"max_cost_usd": 2.0, "min_quality_tier": 0.85},
-            "constraints": {"hard": hard, "soft": {}},
-            "metrics": [],
-        },
-        "policy": {
-            "allow_deny_rules": [],
-            "routing_hints": [],
-            "validation_rules": [],
-            "escalation_rules": [],
-        },
-        "rationale": rationale,
-    })
+    return json.dumps(
+        {
+            "job": {
+                "goal": goal,
+                "inputs": {"data_locality": "eu", "contains_pii": False},
+                "slas": {"max_cost_usd": 2.0, "min_quality_tier": 0.85},
+                "constraints": {"hard": hard, "soft": {}},
+                "metrics": [],
+            },
+            "policy": {
+                "allow_deny_rules": [],
+                "routing_hints": [],
+                "validation_rules": [],
+                "escalation_rules": [],
+            },
+            "rationale": rationale,
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # draft()
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_draft_returns_agent_draft():
     agent = OrchestrationAgent()
@@ -104,6 +108,7 @@ def test_draft_falls_back_on_bad_json():
 # refine()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_refine_returns_updated_draft():
     agent = OrchestrationAgent()
     initial_resp = _make_llm_response("initial goal", [], "initial rationale")
@@ -121,6 +126,7 @@ def test_refine_returns_updated_draft():
 # ─────────────────────────────────────────────────────────────────────────────
 # analyze_run() — B5 telemetry loop
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_analyze_run_returns_suggestions():
     from orchestrator.models import Budget, ProjectState, ProjectStatus
@@ -148,6 +154,7 @@ def test_analyze_run_returns_suggestions():
 # ─────────────────────────────────────────────────────────────────────────────
 # Default draft
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_default_draft():
     agent = OrchestrationAgent()

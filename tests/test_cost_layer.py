@@ -3,6 +3,7 @@ Tests for the Cost Layer — BudgetHierarchy, CostPredictor, CostForecaster.
 Covers: multi-level budget caps, EMA updates, COST_TABLE fallback,
         pre-flight forecasting, risk levels, planner/engine integration.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -16,10 +17,10 @@ from orchestrator.cost import (
 )
 from orchestrator.models import Budget, Model, Task, TaskType, build_default_profiles
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _make_task(task_type: TaskType = TaskType.CODE_GEN, task_id: str = "t_001") -> Task:
     return Task(id=task_id, type=task_type, prompt="test task prompt")
@@ -28,6 +29,7 @@ def _make_task(task_type: TaskType = TaskType.CODE_GEN, task_id: str = "t_001") 
 # ─────────────────────────────────────────────────────────────────────────────
 # BudgetHierarchy — can_afford_job
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_can_afford_job_within_org_limit():
     h = BudgetHierarchy(org_max_usd=100.0)
@@ -87,6 +89,7 @@ def test_can_afford_no_team_constraint():
 # BudgetHierarchy — charge_job
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_charge_job_updates_org_spend():
     h = BudgetHierarchy(org_max_usd=100.0)
     h.charge_job("j1", "eng", 10.0)
@@ -128,6 +131,7 @@ def test_can_afford_false_after_spending():
 # BudgetHierarchy — remaining
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_remaining_org_initial():
     h = BudgetHierarchy(org_max_usd=50.0)
     assert h.remaining("org") == pytest.approx(50.0)
@@ -154,6 +158,7 @@ def test_remaining_unknown_level_raises():
 # BudgetHierarchy — to_dict
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_to_dict_has_expected_keys():
     h = BudgetHierarchy(org_max_usd=100.0, team_budgets={"eng": 30.0})
     d = h.to_dict()
@@ -166,6 +171,7 @@ def test_to_dict_has_expected_keys():
 # ─────────────────────────────────────────────────────────────────────────────
 # CostPredictor — EMA behaviour
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_predict_unknown_falls_back_to_cost_table():
     predictor = CostPredictor()
@@ -214,8 +220,9 @@ def test_ema_different_model_task_type_isolated():
     predictor = CostPredictor()
     predictor.record(Model.KIMI_K2_5, TaskType.CODE_GEN, 0.001)
     predictor.record(Model.GPT_4O, TaskType.WRITING, 0.01)
-    assert predictor.predict(Model.KIMI_K2_5, TaskType.CODE_GEN) < \
-           predictor.predict(Model.GPT_4O, TaskType.WRITING)
+    assert predictor.predict(Model.KIMI_K2_5, TaskType.CODE_GEN) < predictor.predict(
+        Model.GPT_4O, TaskType.WRITING
+    )
 
 
 def test_invalid_alpha_raises():
@@ -229,6 +236,7 @@ def test_invalid_alpha_raises():
 # ─────────────────────────────────────────────────────────────────────────────
 # CostPredictor — cheapest_model
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_cheapest_model_returns_model_with_lowest_predict():
     predictor = CostPredictor()
@@ -252,6 +260,7 @@ def test_cheapest_model_single_candidate():
 # ─────────────────────────────────────────────────────────────────────────────
 # CostForecaster.forecast
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_forecast_empty_task_list_returns_zero_report():
     profiles = build_default_profiles()
@@ -369,10 +378,12 @@ def test_forecast_zero_budget_max_gives_high_risk():
 # ConstraintPlanner + CostPredictor integration
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _make_planner(profiles, predictor=None):
     """Helper matching the pattern used by test_constraint_planner.py."""
     from orchestrator.planner import ConstraintPlanner
     from orchestrator.policy_engine import PolicyEngine
+
     engine = PolicyEngine()
     health = {m: True for m in profiles}
     return ConstraintPlanner(profiles, engine, health, cost_predictor=predictor)

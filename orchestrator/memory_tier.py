@@ -9,45 +9,43 @@ Implements Mnemo Cortex memory tiers:
 
 Usage:
     from orchestrator.memory_tier import MemoryTierManager, MemoryEntry
-    
+
     manager = MemoryTierManager()
-    
+
     # Store a memory
     await manager.store(
         project_id="project_001",
         content="User asked for fibonacci function",
         memory_type="task",
     )
-    
+
     # Retrieve memories (searches all tiers)
     memories = await manager.retrieve(
         project_id="project_001",
         query="fibonacci",
         limit=5,
     )
-    
+
     # Run tier migration
     await manager.migrate_tiers()
 """
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import json
-import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .log_config import get_logger
 
 # Import BM25 search for hybrid retrieval
 try:
     from .bm25_search import BM25Search, get_bm25_search
+
     HAS_BM25 = True
 except ImportError:
     HAS_BM25 = False
@@ -58,13 +56,15 @@ logger = get_logger(__name__)
 
 class MemoryTier(Enum):
     """Memory tier based on age."""
-    HOT = "hot"     # Days 1-3: Raw JSONL, instant search
-    WARM = "warm"   # Days 4-30: Summarized + embedded
-    COLD = "cold"   # Day 30+: Compressed archive
+
+    HOT = "hot"  # Days 1-3: Raw JSONL, instant search
+    WARM = "warm"  # Days 4-30: Summarized + embedded
+    COLD = "cold"  # Day 30+: Compressed archive
 
 
 class MemoryType(Enum):
     """Type of memory."""
+
     TASK = "task"
     CONVERSATION = "conversation"
     KNOWLEDGE = "knowledge"
@@ -75,6 +75,7 @@ class MemoryType(Enum):
 @dataclass
 class MemoryEntry:
     """A single memory entry."""
+
     id: str
     project_id: str
     content: str
@@ -83,15 +84,15 @@ class MemoryEntry:
     created_at: datetime
     last_accessed: datetime
     access_count: int = 0
-    embedding: Optional[List[float]] = None
-    summary: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    embedding: list[float] | None = None
+    summary: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     @property
     def age_days(self) -> int:
         return (datetime.utcnow() - self.created_at).days
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "project_id": self.project_id,
@@ -104,9 +105,9 @@ class MemoryEntry:
             "summary": self.summary,
             "metadata": self.metadata,
         }
-    
+
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "MemoryEntry":
+    def from_dict(cls, d: dict[str, Any]) -> MemoryEntry:
         return cls(
             id=d["id"],
             project_id=d["project_id"],
@@ -124,7 +125,7 @@ class MemoryEntry:
 class MemoryTierManager:
     """
     Manages multi-tier memory system.
-    
+
     Implements HOT/WARM/COLD hierarchy:
     - HOT: Recent memories, raw storage, fast access
     - WARM: Older memories, summarized, indexed for search
@@ -133,7 +134,7 @@ class MemoryTierManager:
 
     def __init__(
         self,
-        storage_path: Optional[Path] = None,
+        storage_path: Path | None = None,
         hot_ttl_days: int = 3,
         warm_ttl_days: int = 30,
         enable_auto_migration: bool = True,
@@ -156,11 +157,11 @@ class MemoryTierManager:
             path.mkdir(parents=True, exist_ok=True)
 
         # In-memory index for fast lookup
-        self._hot_index: Dict[str, MemoryEntry] = {}
-        self._warm_index: Dict[str, MemoryEntry] = {}
+        self._hot_index: dict[str, MemoryEntry] = {}
+        self._warm_index: dict[str, MemoryEntry] = {}
 
         # BM25 search index for hybrid retrieval
-        self._bm25_search: Optional[BM25Search] = None
+        self._bm25_search: BM25Search | None = None
         if self.enable_bm25:
             self._bm25_search = get_bm25_search(str(self.storage_path / "search.db"))
 
@@ -176,30 +177,30 @@ class MemoryTierManager:
         # Load HOT tier
         for file_path in self.tier_paths[MemoryTier.HOT].glob("*.json"):
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
                     entry = MemoryEntry.from_dict(data)
                     self._hot_index[entry.id] = entry
             except Exception as e:
                 logger.warning(f"Failed to load memory {file_path}: {e}")
-        
+
         # Load WARM tier
         for file_path in self.tier_paths[MemoryTier.WARM].glob("*.json"):
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
                     entry = MemoryEntry.from_dict(data)
                     self._warm_index[entry.id] = entry
             except Exception as e:
                 logger.warning(f"Failed to load memory {file_path}: {e}")
-        
+
         logger.info(f"Loaded {len(self._hot_index)} hot, {len(self._warm_index)} warm memories")
 
     def _save_memory(self, entry: MemoryEntry) -> None:
         """Save memory to disk."""
         file_path = self._memory_file_path(entry.tier, entry.id)
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
+
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(entry.to_dict(), f, indent=2)
 
     def _get_tier_for_age(self, age_days: int) -> MemoryTier:
@@ -216,7 +217,7 @@ class MemoryTierManager:
         project_id: str,
         content: str,
         memory_type: MemoryType = MemoryType.TASK,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Store a new memory entry.
@@ -249,7 +250,11 @@ class MemoryTierManager:
                 doc_id=memory_id,
                 project_id=project_id,
                 content=content,
-                metadata={"memory_type": memory_type.value, **metadata} if metadata else {"memory_type": memory_type.value},
+                metadata=(
+                    {"memory_type": memory_type.value, **metadata}
+                    if metadata
+                    else {"memory_type": memory_type.value}
+                ),
             )
 
         logger.debug(f"Stored memory {memory_id} in HOT tier")
@@ -259,33 +264,33 @@ class MemoryTierManager:
     async def retrieve(
         self,
         project_id: str,
-        query: Optional[str] = None,
-        memory_type: Optional[MemoryType] = None,
+        query: str | None = None,
+        memory_type: MemoryType | None = None,
         limit: int = 5,
         use_hybrid: bool = True,
-    ) -> List[MemoryEntry]:
+    ) -> list[MemoryEntry]:
         """
         Retrieve memories for a project.
 
         Searches HOT first, then WARM, then COLD.
         If BM25 is enabled and query is provided, uses hybrid search.
-        
+
         Args:
             project_id: Project to retrieve from
             query: Search query (optional)
             memory_type: Filter by memory type
             limit: Maximum results
             use_hybrid: Use BM25 hybrid search if available
-            
+
         Returns:
             List of MemoryEntry ordered by relevance
         """
         # Use BM25 hybrid search if available and query provided
         if self._bm25_search and query and use_hybrid:
             return await self._retrieve_with_bm25(project_id, query, limit, memory_type)
-        
+
         # Fall back to basic keyword search
-        results: List[MemoryEntry] = []
+        results: list[MemoryEntry] = []
 
         # Search HOT tier
         for entry in self._hot_index.values():
@@ -320,8 +325,8 @@ class MemoryTierManager:
         project_id: str,
         query: str,
         limit: int,
-        memory_type: Optional[MemoryType] = None,
-    ) -> List[MemoryEntry]:
+        memory_type: MemoryType | None = None,
+    ) -> list[MemoryEntry]:
         """Retrieve memories using BM25 hybrid search."""
         # Search using BM25
         bm25_results = await self._bm25_search.bm25_search(
@@ -329,7 +334,7 @@ class MemoryTierManager:
             project_id=project_id,
             limit=limit * 2,  # Get more to filter
         )
-        
+
         # Convert BM25 results to MemoryEntry
         results = []
         for result in bm25_results:
@@ -338,10 +343,10 @@ class MemoryTierManager:
                 mt = result.metadata.get("memory_type")
                 if mt != memory_type.value:
                     continue
-            
+
             # Try to find in hot/warm index first
             entry = self._hot_index.get(result.doc_id) or self._warm_index.get(result.doc_id)
-            
+
             if entry:
                 results.append(entry)
             else:
@@ -357,23 +362,23 @@ class MemoryTierManager:
                     metadata=result.metadata,
                 )
                 results.append(entry)
-        
+
         return results[:limit]
 
     async def get_recent(
         self,
         project_id: str,
         limit: int = 10,
-    ) -> List[MemoryEntry]:
+    ) -> list[MemoryEntry]:
         """Get most recent memories."""
         all_entries = list(self._hot_index.values()) + list(self._warm_index.values())
-        
+
         # Filter by project
         entries = [e for e in all_entries if e.project_id == project_id]
-        
+
         # Sort by created_at
         entries.sort(key=lambda e: e.created_at, reverse=True)
-        
+
         return entries[:limit]
 
     async def update_access(self, memory_id: str) -> None:
@@ -385,7 +390,7 @@ class MemoryTierManager:
             entry.access_count += 1
             self._save_memory(entry)
             return
-        
+
         # Check WARM
         if memory_id in self._warm_index:
             entry = self._warm_index[memory_id]
@@ -393,11 +398,11 @@ class MemoryTierManager:
             entry.access_count += 1
             self._save_memory(entry)
             return
-        
+
         # Check COLD (load if found)
         for file_path in self.tier_paths[MemoryTier.COLD].glob("*.json"):
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
                     if data["id"] == memory_id:
                         entry = MemoryEntry.from_dict(data)
@@ -419,7 +424,7 @@ class MemoryTierManager:
             entry.summary = summary
             self._save_memory(entry)
             return
-        
+
         # Check WARM
         if memory_id in self._warm_index:
             entry = self._warm_index[memory_id]
@@ -427,61 +432,61 @@ class MemoryTierManager:
             self._save_memory(entry)
             return
 
-    async def migrate_tiers(self) -> Dict[str, int]:
+    async def migrate_tiers(self) -> dict[str, int]:
         """
         Migrate memories between tiers based on age.
-        
+
         Returns migration counts.
         """
         counts = {"hot_to_warm": 0, "warm_to_cold": 0}
-        
+
         now = datetime.utcnow()
-        
+
         # Migrate HOT -> WARM
         to_migrate = []
         for entry in self._hot_index.values():
             age = (now - entry.created_at).days
             if age >= self.hot_ttl_days:
                 to_migrate.append(entry)
-        
+
         for entry in to_migrate:
             # Remove from HOT
             del self._hot_index[entry.id]
-            
+
             # Update tier
             entry.tier = MemoryTier.WARM
             self._warm_index[entry.id] = entry
-            
+
             # Save
             self._save_memory(entry)
-            
+
             counts["hot_to_warm"] += 1
-        
+
         # Migrate WARM -> COLD
         to_migrate = []
         for entry in self._warm_index.values():
             age = (now - entry.created_at).days
             if age >= self.warm_ttl_days:
                 to_migrate.append(entry)
-        
+
         for entry in to_migrate:
             # Remove from WARM
             del self._warm_index[entry.id]
-            
+
             # Update tier
             entry.tier = MemoryTier.COLD
-            
+
             # Save to cold path
             self._save_memory(entry)
-            
+
             counts["warm_to_cold"] += 1
-        
+
         if sum(counts.values()) > 0:
             logger.info(f"Migrated memories: {counts}")
-        
+
         return counts
 
-    def get_stats(self, project_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_stats(self, project_id: str | None = None) -> dict[str, Any]:
         """Get memory statistics."""
         hot_count = len(self._hot_index)
         warm_count = len(self._warm_index)
@@ -502,55 +507,55 @@ class MemoryTierManager:
             "hot_ttl_days": self.hot_ttl_days,
             "warm_ttl_days": self.warm_ttl_days,
         }
-        
+
         # Add BM25 stats if available
         if self._bm25_search:
             stats["bm25"] = self._bm25_search.get_stats()
             stats["hybrid_search_enabled"] = True
         else:
             stats["hybrid_search_enabled"] = False
-        
+
         return stats
 
     async def delete_project_memories(self, project_id: str) -> int:
         """Delete all memories for a project."""
         deleted = 0
-        
+
         # Delete from HOT
         to_delete = [id for id, e in self._hot_index.items() if e.project_id == project_id]
         for memory_id in to_delete:
-            entry = self._hot_index.pop(memory_id)
+            self._hot_index.pop(memory_id)
             file_path = self._memory_file_path(MemoryTier.HOT, memory_id)
             if file_path.exists():
                 file_path.unlink()
             deleted += 1
-        
+
         # Delete from WARM
         to_delete = [id for id, e in self._warm_index.items() if e.project_id == project_id]
         for memory_id in to_delete:
-            entry = self._warm_index.pop(memory_id)
+            self._warm_index.pop(memory_id)
             file_path = self._memory_file_path(MemoryTier.WARM, memory_id)
             if file_path.exists():
                 file_path.unlink()
             deleted += 1
-        
+
         # Delete from COLD
         for file_path in self.tier_paths[MemoryTier.COLD].glob("*.json"):
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
                     if data["project_id"] == project_id:
                         file_path.unlink()
                         deleted += 1
             except Exception:
                 continue
-        
+
         logger.info(f"Deleted {deleted} memories for project {project_id}")
         return deleted
 
 
 # Global manager instance
-_default_manager: Optional[MemoryTierManager] = None
+_default_manager: MemoryTierManager | None = None
 
 
 def get_memory_manager() -> MemoryTierManager:

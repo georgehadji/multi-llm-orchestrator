@@ -32,8 +32,9 @@ def test_completed_degraded_status_exists():
     - All tasks have status in {COMPLETED, DEGRADED, FAILED}
     - But some failed deterministic validation (det_ok = False)
     """
-    assert hasattr(ProjectStatus, 'COMPLETED_DEGRADED'), \
-        "COMPLETED_DEGRADED status must be added to ProjectStatus enum to prevent infinite resume loops"
+    assert hasattr(
+        ProjectStatus, "COMPLETED_DEGRADED"
+    ), "COMPLETED_DEGRADED status must be added to ProjectStatus enum to prevent infinite resume loops"
 
 
 def test_partial_success_vs_completed_degraded_distinction():
@@ -49,11 +50,10 @@ def test_partial_success_vs_completed_degraded_distinction():
     # This test documents the semantic difference after the fix
     # It will pass once COMPLETED_DEGRADED exists and logic is updated
     project_statuses = [
-        attr for attr in dir(ProjectStatus)
-        if not attr.startswith('_') and attr.isupper()
+        attr for attr in dir(ProjectStatus) if not attr.startswith("_") and attr.isupper()
     ]
 
     # Both statuses should exist after fix
-    should_exist = ['PARTIAL_SUCCESS', 'COMPLETED_DEGRADED']
+    should_exist = ["PARTIAL_SUCCESS", "COMPLETED_DEGRADED"]
     for status in should_exist:
         assert status in project_statuses, f"{status} must exist in ProjectStatus"

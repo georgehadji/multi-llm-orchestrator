@@ -8,6 +8,7 @@ BUG-005  rate_limiter.py  TOCTOU between check() and record(): concurrent async
 OPENAI-T api_clients.py   temperature was forwarded to OpenAI models, which fix it
                      at 1 and reject the parameter.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,9 +35,9 @@ class TestTeamRemainingIncludesReservations:
         h.can_afford_job("job-1", "eng", 60.0)
 
         remaining = h.remaining("team", key="eng")
-        assert remaining == pytest.approx(40.0), (
-            f"Expected 40.0 after reserving 60.0, got {remaining}"
-        )
+        assert remaining == pytest.approx(
+            40.0
+        ), f"Expected 40.0 after reserving 60.0, got {remaining}"
 
     def test_remaining_team_restored_after_release(self):
         """After release_reservation(), remaining(team) must be fully restored."""
@@ -45,9 +46,9 @@ class TestTeamRemainingIncludesReservations:
         h.release_reservation("job-2", "eng")
 
         remaining = h.remaining("team", key="eng")
-        assert remaining == pytest.approx(100.0), (
-            "Team budget must be fully restored after reservation release"
-        )
+        assert remaining == pytest.approx(
+            100.0
+        ), "Team budget must be fully restored after reservation release"
 
     def test_remaining_team_reflects_charge(self):
         """After charge_job(), remaining(team) must reflect actual spend."""
@@ -65,9 +66,9 @@ class TestTeamRemainingIncludesReservations:
         h.can_afford_job("job-5", "eng", 20.0)
 
         remaining = h.remaining("team", key="eng")
-        assert remaining == pytest.approx(50.0), (
-            f"Expected 50.0 after two reservations totalling 50.0, got {remaining}"
-        )
+        assert remaining == pytest.approx(
+            50.0
+        ), f"Expected 50.0 after two reservations totalling 50.0, got {remaining}"
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +132,7 @@ class TestRateLimiterNoConcurrentBypass:
         async def try_call(name: str, tokens: int) -> None:
             try:
                 rl.check("acme", "deepseek-chat", tokens)
-                await asyncio.sleep(0)   # yield — other coroutine runs here
+                await asyncio.sleep(0)  # yield — other coroutine runs here
                 rl.record("acme", "deepseek-chat", tokens)
                 passed.append(name)
             except RateLimitExceeded:
@@ -151,11 +152,11 @@ class TestRateLimiterNoConcurrentBypass:
         rl = RateLimiter()
         rl.set_limits("tenant", "model", tpm=100, rpm=1000)
 
-        rl.check("tenant", "model", 60)    # reserves 60 in-flight
-        rl.record("tenant", "model", 60)   # settles — in-flight goes to window
+        rl.check("tenant", "model", 60)  # reserves 60 in-flight
+        rl.record("tenant", "model", 60)  # settles — in-flight goes to window
 
         # Now 60 tokens are in the window; 40 more should pass
-        rl.check("tenant", "model", 40)    # no raise — 60+40=100 == limit
+        rl.check("tenant", "model", 40)  # no raise — 60+40=100 == limit
         with pytest.raises(RateLimitExceeded):
             rl.check("tenant", "model", 1)  # now 60+40 in-flight/window + 1 > 100
 
@@ -188,6 +189,6 @@ class TestOpenAINoTemperature:
         await clients._call_openai(Model.GPT_4O, "prompt", "system", 100, 0.7)
 
         call_kwargs = mock_openai.chat.completions.create.call_args.kwargs
-        assert "temperature" not in call_kwargs, (
-            f"temperature must not be forwarded to OpenAI; got kwargs: {call_kwargs}"
-        )
+        assert (
+            "temperature" not in call_kwargs
+        ), f"temperature must not be forwarded to OpenAI; got kwargs: {call_kwargs}"

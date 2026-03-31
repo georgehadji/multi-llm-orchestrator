@@ -22,16 +22,19 @@ Usage
     engine.check(model, profile, policies, task_id="task_001")
     log.flush_jsonl("audit/policy_audit.jsonl")
 """
+
 from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Optional
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ── AuditRecord ───────────────────────────────────────────────────────────────
+
 
 @dataclass
 class AuditRecord:
@@ -60,17 +63,19 @@ class AuditRecord:
     policies_applied : list[str]
         Names (Policy.name) of all policies that were evaluated.
     """
-    timestamp:        float
-    task_id:          str
-    model:            str
-    passed:           bool
-    raw_passed:       bool
-    violations:       list[str]
+
+    timestamp: float
+    task_id: str
+    model: str
+    passed: bool
+    raw_passed: bool
+    violations: list[str]
     enforcement_mode: str
     policies_applied: list[str]
 
 
 # ── AuditLog ──────────────────────────────────────────────────────────────────
+
 
 class AuditLog:
     """
@@ -97,25 +102,27 @@ class AuditLog:
 
     def record(
         self,
-        task_id:          str,
-        model:            str,
-        passed:           bool,
-        raw_passed:       bool,
-        violations:       list[str],
+        task_id: str,
+        model: str,
+        passed: bool,
+        raw_passed: bool,
+        violations: list[str],
         enforcement_mode: str,
         policies_applied: list[str],
     ) -> None:
         """Append one audit record. Called internally by PolicyEngine.check()."""
-        self._records.append(AuditRecord(
-            timestamp=time.time(),
-            task_id=task_id,
-            model=model,
-            passed=passed,
-            raw_passed=raw_passed,
-            violations=violations,
-            enforcement_mode=enforcement_mode,
-            policies_applied=policies_applied,
-        ))
+        self._records.append(
+            AuditRecord(
+                timestamp=time.time(),
+                task_id=task_id,
+                model=model,
+                passed=passed,
+                raw_passed=raw_passed,
+                violations=violations,
+                enforcement_mode=enforcement_mode,
+                policies_applied=policies_applied,
+            )
+        )
 
     # ── Read ───────────────────────────────────────────────────────────────────
 

@@ -4,11 +4,15 @@ Cross-run profile aggregator.
 Records (model, task_type, score, cost, latency) from completed runs
 and computes aggregated statistics to guide future model routing.
 """
+
 from __future__ import annotations
+
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional
-from .models import Model, TaskType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import Model, TaskType
 
 
 @dataclass
@@ -38,22 +42,20 @@ class ProfileAggregator:
             return {"count": 0, "avg_score": 0.0, "avg_cost": 0.0, "avg_latency": 0.0}
         n = len(records)
         return {
-            "count":       n,
-            "avg_score":   sum(r.score      for r in records) / n,
-            "avg_cost":    sum(r.cost_usd   for r in records) / n,
+            "count": n,
+            "avg_score": sum(r.score for r in records) / n,
+            "avg_cost": sum(r.cost_usd for r in records) / n,
             "avg_latency": sum(r.latency_ms for r in records) / n,
         }
 
-    def best_model(self, task_type: TaskType) -> Optional[Model]:
+    def best_model(self, task_type: TaskType) -> Model | None:
         """Model with the highest average score for this task type."""
         candidates = {model for (model, tt) in self._records if tt == task_type}
         if not candidates:
             return None
         return max(candidates, key=lambda m: self.stats_for(m, task_type)["avg_score"])
 
-    def cost_efficiency_ranking(
-        self, task_type: TaskType
-    ) -> list[tuple[Model, float]]:
+    def cost_efficiency_ranking(self, task_type: TaskType) -> list[tuple[Model, float]]:
         """(model, efficiency) sorted by score/cost descending."""
         candidates = {model for (model, tt) in self._records if tt == task_type}
         results = []
@@ -66,7 +68,7 @@ class ProfileAggregator:
     def summary_table(self) -> dict[TaskType, list[dict]]:
         """Dict of task_type -> list of model stats, sorted by avg_score desc."""
         by_type: dict[TaskType, list[dict]] = defaultdict(list)
-        for (model, task_type), records in self._records.items():
+        for (model, task_type), _records in self._records.items():
             s = self.stats_for(model, task_type)
             by_type[task_type].append({"model": model, **s})
         for task_type in by_type:

@@ -5,12 +5,13 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 Description: Static structure extraction (scan) and LLM-driven analysis
 (review, debug, suggest) for existing codebases.
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .api_clients import UnifiedClient
@@ -19,8 +20,22 @@ logger = logging.getLogger(__name__)
 
 # File extensions treated as source code for LLM analysis
 _CODE_EXTENSIONS = {
-    ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java",
-    ".cpp", ".c", ".h", ".cs", ".rb", ".php", ".swift", ".kt",
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".cpp",
+    ".c",
+    ".h",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".kt",
 }
 # Max bytes read from a single file to avoid flooding the LLM context
 _MAX_FILE_BYTES = 8_000
@@ -29,17 +44,18 @@ _MAX_FILE_BYTES = 8_000
 @dataclass
 class CodebaseMap:
     """Static analysis result of a codebase"""
+
     root_path: str
     total_files: int
     total_lines_of_code: int
-    files_by_language: Dict[str, int] = field(default_factory=dict)
+    files_by_language: dict[str, int] = field(default_factory=dict)
     key_files: list[str] = field(default_factory=list)
-    module_structure: Dict[str, list[str]] = field(default_factory=dict)
+    module_structure: dict[str, list[str]] = field(default_factory=dict)
     dependencies: list[str] = field(default_factory=list)
     has_tests: bool = False
     has_docs: bool = False
     estimated_complexity: str = "unknown"  # low, medium, high
-    primary_language: Optional[str] = None
+    primary_language: str | None = None
     secondary_languages: list[str] = field(default_factory=list)
     has_python_tests: bool = False
     has_js_tests: bool = False
@@ -55,10 +71,22 @@ class CodebaseAnalyzer:
     """
 
     SKIP_DIRS = {
-        ".git", ".venv", "venv", "env", "__pycache__",
-        "node_modules", ".pytest_cache", ".mypy_cache",
-        "dist", "build", ".egg-info", ".next", "out",
-        ".tox", "coverage_html", "htmlcov",
+        ".git",
+        ".venv",
+        "venv",
+        "env",
+        "__pycache__",
+        "node_modules",
+        ".pytest_cache",
+        ".mypy_cache",
+        "dist",
+        "build",
+        ".egg-info",
+        ".next",
+        "out",
+        ".tox",
+        "coverage_html",
+        "htmlcov",
     }
 
     def __init__(self, client: Optional["UnifiedClient"] = None) -> None:
@@ -152,6 +180,7 @@ class CodebaseAnalyzer:
         if self._client is None:
             raise RuntimeError("CodebaseAnalyzer requires a UnifiedClient to call LLMs.")
         from .models import Model
+
         response = await self._client.call(Model.GPT_4O_MINI, prompt)
         return response.text
 
@@ -173,10 +202,10 @@ class CodebaseAnalyzer:
         if not root.exists():
             raise ValueError(f"Directory does not exist: {root_path}")
 
-        files_by_language: Dict[str, int] = {}
+        files_by_language: dict[str, int] = {}
         total_files = 0
         total_lines = 0
-        module_structure: Dict[str, list[str]] = {}
+        module_structure: dict[str, list[str]] = {}
         key_files: list[str] = []
 
         # Scan all files
@@ -204,8 +233,15 @@ class CodebaseAnalyzer:
                 pass
 
             # Track key files
-            if file_path.name in ["README.md", "requirements.txt", "package.json",
-                                  "main.py", "app.py", "index.js", "Dockerfile"]:
+            if file_path.name in [
+                "README.md",
+                "requirements.txt",
+                "package.json",
+                "main.py",
+                "app.py",
+                "index.js",
+                "Dockerfile",
+            ]:
                 key_files.append(str(file_path.relative_to(root)))
 
         # Detect tests and docs
@@ -237,14 +273,40 @@ class CodebaseAnalyzer:
     def _is_text_file(self, path: Path) -> bool:
         """Check if file is text-based"""
         text_extensions = {
-            ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs",
-            ".cpp", ".c", ".h", ".rb", ".php", ".swift", ".kt",
-            ".yml", ".yaml", ".json", ".xml", ".html", ".css", ".md",
-            ".txt", ".sql", ".sh", ".bash", ".env", ".properties"
+            ".py",
+            ".js",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".java",
+            ".go",
+            ".rs",
+            ".cpp",
+            ".c",
+            ".h",
+            ".rb",
+            ".php",
+            ".swift",
+            ".kt",
+            ".yml",
+            ".yaml",
+            ".json",
+            ".xml",
+            ".html",
+            ".css",
+            ".md",
+            ".txt",
+            ".sql",
+            ".sh",
+            ".bash",
+            ".env",
+            ".properties",
         }
         return path.suffix.lower() in text_extensions
 
-    def _detect_primary_language(self, files_by_language: Dict[str, int]) -> tuple[Optional[str], list[str]]:
+    def _detect_primary_language(
+        self, files_by_language: dict[str, int]
+    ) -> tuple[str | None, list[str]]:
         """Detect primary and secondary programming languages"""
         language_map = {
             ".py": "python",
@@ -276,7 +338,9 @@ class CodebaseAnalyzer:
 
         return primary, secondary
 
-    def _detect_project_type(self, root: Path, key_files: list[str], dependencies: list[str]) -> str:
+    def _detect_project_type(
+        self, root: Path, key_files: list[str], dependencies: list[str]
+    ) -> str:
         """Detect project type from config files and dependencies"""
 
         # Check Python projects
@@ -295,6 +359,7 @@ class CodebaseAnalyzer:
         if package_json_path.exists():
             try:
                 import json
+
                 pkg = json.loads(package_json_path.read_text())
                 deps = pkg.get("dependencies", {})
                 if "next" in deps:

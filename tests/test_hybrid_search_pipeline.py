@@ -1,4 +1,5 @@
 """Tests for HybridSearchPipeline — BM25 + Vector + RRF + Query Expansion."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from orchestrator.hybrid_search_pipeline import HybridSearchPipeline
@@ -7,8 +8,12 @@ from orchestrator.bm25_search import BM25Search, SearchResult
 
 def _make_sr(doc_id: str, score: float, rank: int) -> SearchResult:
     return SearchResult(
-        doc_id=doc_id, project_id="proj1", content=f"content {doc_id}",
-        title=doc_id, score=score, rank=rank,
+        doc_id=doc_id,
+        project_id="proj1",
+        content=f"content {doc_id}",
+        title=doc_id,
+        score=score,
+        rank=rank,
     )
 
 

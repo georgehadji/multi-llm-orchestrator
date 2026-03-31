@@ -1,4 +1,5 @@
 """Tests for SessionLifecycleManager — automatic HOT/WARM/COLD lifecycle with LLM compression."""
+
 from datetime import datetime, timedelta
 import pytest
 
@@ -8,12 +9,15 @@ from orchestrator.memory_tier import MemoryTierManager, MemoryEntry, MemoryTier,
 
 def _make_manager(tmp_path):
     """Create a MemoryTierManager with tmp storage."""
-    return MemoryTierManager(storage_path=tmp_path, hot_ttl_days=3, warm_ttl_days=30, enable_bm25=False)
+    return MemoryTierManager(
+        storage_path=tmp_path, hot_ttl_days=3, warm_ttl_days=30, enable_bm25=False
+    )
 
 
 def _old_entry(manager, days_old: int) -> MemoryEntry:
     """Inject a HOT entry that is `days_old` days old into the manager's hot index."""
     import uuid
+
     entry = MemoryEntry(
         id=str(uuid.uuid4()),
         project_id="proj1",

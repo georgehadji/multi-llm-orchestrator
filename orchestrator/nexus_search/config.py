@@ -8,19 +8,16 @@ Configuration management for Nexus Search.
 
 from __future__ import annotations
 
-import os
-from typing import Optional
-
 from .models import NexusConfig
 
 # Global config instance
-_config: Optional[NexusConfig] = None
+_config: NexusConfig | None = None
 
 
 def get_config() -> NexusConfig:
     """
     Get Nexus Search configuration.
-    
+
     Returns:
         NexusConfig instance
     """
@@ -31,17 +28,17 @@ def get_config() -> NexusConfig:
 
 
 def configure(
-    enabled: Optional[bool] = None,
-    api_url: Optional[str] = None,
-    timeout: Optional[int] = None,
-    max_results: Optional[int] = None,
-    rate_limit: Optional[int] = None,
-    cache_enabled: Optional[bool] = None,
-    cache_ttl: Optional[int] = None,
+    enabled: bool | None = None,
+    api_url: str | None = None,
+    timeout: int | None = None,
+    max_results: int | None = None,
+    rate_limit: int | None = None,
+    cache_enabled: bool | None = None,
+    cache_ttl: int | None = None,
 ) -> NexusConfig:
     """
     Configure Nexus Search.
-    
+
     Args:
         enabled: Enable/disable Nexus Search
         api_url: Nexus API URL
@@ -50,15 +47,15 @@ def configure(
         rate_limit: Queries per minute
         cache_enabled: Enable result caching
         cache_ttl: Cache TTL (seconds)
-        
+
     Returns:
         Updated NexusConfig
     """
     global _config
-    
+
     if _config is None:
         _config = NexusConfig.from_env()
-    
+
     # Update configuration
     if enabled is not None:
         _config.enabled = enabled
@@ -74,7 +71,7 @@ def configure(
         _config.cache_enabled = cache_enabled
     if cache_ttl is not None:
         _config.cache_ttl = cache_ttl
-    
+
     return _config
 
 

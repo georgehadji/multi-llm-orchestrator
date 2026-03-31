@@ -7,6 +7,7 @@ the ConstraintPlanner.set_backend() integration.
 Pattern: reuses _make_profile() from test_constraint_planner.py style.
 No pytest-asyncio; all tests are synchronous.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -22,8 +23,8 @@ from orchestrator.optimization import (
     WeightedSumBackend,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_profile(
     model: Model,
@@ -64,6 +65,7 @@ def _make_planner(
 
 # ── GreedyBackend ─────────────────────────────────────────────────────────────
 
+
 class TestGreedyBackend:
 
     def test_empty_candidates_returns_none(self):
@@ -80,8 +82,10 @@ class TestGreedyBackend:
     def test_higher_quality_wins_with_equal_cost(self):
         """Model with quality 0.99 should beat model with quality 0.5 at equal cost."""
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",      cost_in=1.0, quality=0.99),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai", cost_in=1.0, quality=0.50),
+            Model.GPT_4O: _make_profile(Model.GPT_4O, "openai", cost_in=1.0, quality=0.99),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", cost_in=1.0, quality=0.50
+            ),
         }
         backend = GreedyBackend()
         result = backend.select(
@@ -92,8 +96,8 @@ class TestGreedyBackend:
     def test_lower_cost_wins_when_quality_equal(self):
         """With equal quality, cheaper model scores higher (quality/cost formula)."""
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",      cost_in=10.0, quality=0.8),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai", cost_in=0.1,  quality=0.8),
+            Model.GPT_4O: _make_profile(Model.GPT_4O, "openai", cost_in=10.0, quality=0.8),
+            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai", cost_in=0.1, quality=0.8),
         }
         backend = GreedyBackend()
         result = backend.select(
@@ -104,7 +108,7 @@ class TestGreedyBackend:
     def test_low_trust_degrades_score_despite_quality(self):
         """High quality (0.99) with near-zero trust (0.01) loses to average model."""
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",      quality=0.99, trust=0.01),
+            Model.GPT_4O: _make_profile(Model.GPT_4O, "openai", quality=0.99, trust=0.01),
             Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai", quality=0.80, trust=1.0),
         }
         backend = GreedyBackend()
@@ -116,12 +120,22 @@ class TestGreedyBackend:
     def test_priority_rank_tiebreaker(self):
         """When quality×trust/cost is equal, lower priority_rank (rank 0) wins."""
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",
-                                              task_types={TaskType.CODE_GEN: 0},  # rank 0
-                                              quality=0.8, trust=1.0, cost_in=1.0),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai",
-                                              task_types={TaskType.CODE_GEN: 1},  # rank 1
-                                              quality=0.8, trust=1.0, cost_in=1.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O,
+                "openai",
+                task_types={TaskType.CODE_GEN: 0},  # rank 0
+                quality=0.8,
+                trust=1.0,
+                cost_in=1.0,
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI,
+                "openai",
+                task_types={TaskType.CODE_GEN: 1},  # rank 1
+                quality=0.8,
+                trust=1.0,
+                cost_in=1.0,
+            ),
         }
         backend = GreedyBackend()
         result = backend.select(
@@ -132,6 +146,7 @@ class TestGreedyBackend:
 
 # ── WeightedSumBackend ────────────────────────────────────────────────────────
 
+
 class TestWeightedSumBackend:
 
     def test_empty_candidates_returns_none(self):
@@ -141,10 +156,12 @@ class TestWeightedSumBackend:
     def test_latency_dominates_when_beta_one(self):
         """With β=1.0 (α=0.0), lower latency wins even at slightly higher cost."""
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",
-                                              cost_in=0.1, quality=0.8, latency=500.0),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai",
-                                              cost_in=0.05, quality=0.8, latency=5000.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", cost_in=0.1, quality=0.8, latency=500.0
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", cost_in=0.05, quality=0.8, latency=5000.0
+            ),
         }
         backend = WeightedSumBackend(alpha=0.0, beta=1.0)
         result = backend.select(
@@ -156,10 +173,12 @@ class TestWeightedSumBackend:
     def test_cost_dominates_when_alpha_one(self):
         """With α=1.0 (β=0.0), lower cost wins even at higher latency."""
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",
-                                              cost_in=10.0, quality=0.8, latency=500.0),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai",
-                                              cost_in=0.1,  quality=0.8, latency=5000.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", cost_in=10.0, quality=0.8, latency=500.0
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", cost_in=0.1, quality=0.8, latency=5000.0
+            ),
         }
         backend = WeightedSumBackend(alpha=1.0, beta=0.0)
         result = backend.select(
@@ -172,8 +191,9 @@ class TestWeightedSumBackend:
         """With α=β=0.5 (default), intermediate behaviour between pure-cost and pure-latency."""
         backend = WeightedSumBackend()  # defaults: α=0.5, β=0.5
         profiles = {
-            Model.GPT_4O: _make_profile(Model.GPT_4O, "openai",
-                                         cost_in=1.0, quality=0.9, latency=1000.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", cost_in=1.0, quality=0.9, latency=1000.0
+            ),
         }
         result = backend.select([Model.GPT_4O], profiles, TaskType.CODE_GEN, _cost_fn)
         assert result == Model.GPT_4O
@@ -181,10 +201,12 @@ class TestWeightedSumBackend:
     def test_custom_latency_scale(self):
         """Latency scale affects normalisation; low scale_ms makes latency penalise more."""
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",
-                                              cost_in=1.0, quality=0.8, latency=2000.0),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai",
-                                              cost_in=1.0, quality=0.8, latency=100.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", cost_in=1.0, quality=0.8, latency=2000.0
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", cost_in=1.0, quality=0.8, latency=100.0
+            ),
         }
         # With very small scale_ms (100ms), latency=2000ms is heavily penalised
         backend = WeightedSumBackend(alpha=0.5, beta=0.5, latency_scale_ms=100.0)
@@ -195,6 +217,7 @@ class TestWeightedSumBackend:
 
 
 # ── ParetoBackend ─────────────────────────────────────────────────────────────
+
 
 class TestParetoBackend:
 
@@ -215,10 +238,12 @@ class TestParetoBackend:
         Only GPT_4O_MINI should survive.
         """
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",
-                                              cost_in=10.0, quality=0.9, latency=5000.0),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai",
-                                              cost_in=1.0,  quality=0.7, latency=1000.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", cost_in=10.0, quality=0.9, latency=5000.0
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", cost_in=1.0, quality=0.7, latency=1000.0
+            ),
         }
         backend = ParetoBackend()
         result = backend.select(
@@ -235,10 +260,12 @@ class TestParetoBackend:
         Among Pareto-front, quality × trust picks the winner.
         """
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",
-                                              cost_in=1.0, quality=0.95, latency=5000.0),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai",
-                                              cost_in=10.0, quality=0.70, latency=500.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", cost_in=1.0, quality=0.95, latency=5000.0
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", cost_in=10.0, quality=0.70, latency=500.0
+            ),
         }
         backend = ParetoBackend()
         result = backend.select(
@@ -250,10 +277,12 @@ class TestParetoBackend:
     def test_all_equal_falls_back_to_quality(self):
         """When all models have identical cost/latency, quality × trust decides."""
         profiles = {
-            Model.GPT_4O:      _make_profile(Model.GPT_4O, "openai",
-                                              cost_in=1.0, quality=0.5, latency=2000.0),
-            Model.GPT_4O_MINI: _make_profile(Model.GPT_4O_MINI, "openai",
-                                              cost_in=1.0, quality=0.9, latency=2000.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", cost_in=1.0, quality=0.5, latency=2000.0
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", cost_in=1.0, quality=0.9, latency=2000.0
+            ),
         }
         backend = ParetoBackend()
         result = backend.select(
@@ -270,17 +299,22 @@ class TestParetoBackend:
         """
         # Use GPT_4O, GPT_4O_MINI, GEMINI_FLASH as our three models
         profiles = {
-            Model.GPT_4O:       _make_profile(Model.GPT_4O, "openai",
-                                               cost_in=5.0, quality=0.9, latency=2000.0),
-            Model.GPT_4O_MINI:  _make_profile(Model.GPT_4O_MINI, "openai",
-                                               cost_in=2.0, quality=0.7, latency=1000.0),
-            Model.GEMINI_FLASH: _make_profile(Model.GEMINI_FLASH, "google",
-                                               cost_in=10.0, quality=0.85, latency=500.0),
+            Model.GPT_4O: _make_profile(
+                Model.GPT_4O, "openai", cost_in=5.0, quality=0.9, latency=2000.0
+            ),
+            Model.GPT_4O_MINI: _make_profile(
+                Model.GPT_4O_MINI, "openai", cost_in=2.0, quality=0.7, latency=1000.0
+            ),
+            Model.GEMINI_FLASH: _make_profile(
+                Model.GEMINI_FLASH, "google", cost_in=10.0, quality=0.85, latency=500.0
+            ),
         }
         backend = ParetoBackend()
         result = backend.select(
             [Model.GPT_4O, Model.GPT_4O_MINI, Model.GEMINI_FLASH],
-            profiles, TaskType.CODE_GEN, _cost_fn
+            profiles,
+            TaskType.CODE_GEN,
+            _cost_fn,
         )
         # GPT_4O is dominated by GPT_4O_MINI → excluded
         # Pareto front = {GPT_4O_MINI (0.7), GEMINI_FLASH (0.85)}
@@ -289,6 +323,7 @@ class TestParetoBackend:
 
 
 # ── Backend swap in ConstraintPlanner ────────────────────────────────────────
+
 
 class TestBackendSwapInPlanner:
 
@@ -299,13 +334,19 @@ class TestBackendSwapInPlanner:
         """
         return {
             Model.GPT_4O: _make_profile(
-                Model.GPT_4O, "openai",
-                cost_in=0.1, quality=0.8, latency=5000.0,
+                Model.GPT_4O,
+                "openai",
+                cost_in=0.1,
+                quality=0.8,
+                latency=5000.0,
                 task_types={TaskType.CODE_GEN: 0},
             ),
             Model.GPT_4O_MINI: _make_profile(
-                Model.GPT_4O_MINI, "openai",
-                cost_in=10.0, quality=0.7, latency=500.0,
+                Model.GPT_4O_MINI,
+                "openai",
+                cost_in=10.0,
+                quality=0.7,
+                latency=500.0,
                 task_types={TaskType.CODE_GEN: 1},
             ),
         }

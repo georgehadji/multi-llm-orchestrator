@@ -22,35 +22,38 @@ import asyncio
 import logging
 import re
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
 
 from dotenv import load_dotenv
+
 # Note: override=True makes .env values override existing system env vars.
 # However, system env vars set before Python startup may take precedence
 # depending on the python-dotenv version and platform.
 load_dotenv(override=True)
 
-from .models import Budget
-from .engine import Orchestrator
-from .tracing import TracingConfig
-from .state import StateManager
-from .project_file import load_project_file
-from .output_writer import write_output_dir
+# Setup logging
+logger = logging.getLogger("orchestrator.cli")
+
 from .assembler import assemble_project
+from .engine import Orchestrator
+from .models import Budget
 from .output_organizer import (
     organize_project_output,
     suppress_cache_messages,
-    CacheMessageSuppressor,
 )
-from .run_tests import run_project_tests
+from .output_writer import write_output_dir
 from .progress import ProgressRenderer
+from .project_file import load_project_file
+from .run_tests import run_project_tests
+from .state import StateManager
+from .tracing import TracingConfig
+
 try:
     from .unified_events import ProjectCompletedEvent as _ProjectCompleted
 except ImportError:
-    from .events import ProjectCompletedEvent as _ProjectCompleted
-from .visualization import DagRenderer
+    pass
 from .resume_detector import (
     ResumeCandidate,
     _extract_keywords,
@@ -58,6 +61,7 @@ from .resume_detector import (
     _recency_factor,
     _score_candidates,
 )
+from .visualization import DagRenderer
 
 
 def cmd_analyze(args) -> None:
@@ -66,27 +70,28 @@ def cmd_analyze(args) -> None:
 
     Uses CodebaseReader to scan files and CodebaseAnalyzer to run multi-LLM analysis.
     """
-    from orchestrator.analyzer import CodebaseAnalyzer
-    from orchestrator.secure_execution import InputValidator, SecurityContext, PathTraversalError
     from pathlib import Path
+
+    from orchestrator.analyzer import CodebaseAnalyzer
+    from orchestrator.secure_execution import InputValidator
 
     # SECURITY FIX: Validate input path to prevent path traversal
     try:
         # Sanitize and resolve path
         base_path = Path.cwd()
         path = (base_path / args.path).resolve()
-        
+
         # Verify path is within allowed base directory
         try:
             path.relative_to(base_path)
         except ValueError:
             print(f"ERROR: Path traversal detected: {args.path}", file=sys.stderr)
             sys.exit(1)
-            
+
     except Exception as e:
         print(f"ERROR: Invalid path: {e}", file=sys.stderr)
         sys.exit(1)
-    
+
     if not path.exists():
         print(f"ERROR: Path does not exist: {path}", file=sys.stderr)
         sys.exit(1)
@@ -99,11 +104,11 @@ def cmd_analyze(args) -> None:
             f = f.strip()
             if f:  # Only add non-empty values
                 # Basic validation: alphanumeric and common separators only
-                if not re.match(r'^[\w\s\-_,]+$', f):
+                if not re.match(r"^[\w\s\-_,]+$", f):
                     print(f"ERROR: Invalid focus area: {f}", file=sys.stderr)
                     sys.exit(1)
                 focus.append(f)
-    
+
     include_exts = None
     if args.extensions:
         include_exts = set()
@@ -111,7 +116,7 @@ def cmd_analyze(args) -> None:
             ext = ext.strip()
             if ext:
                 # Validate extension format
-                if not re.match(r'^[\w.]+$', ext):
+                if not re.match(r"^[\w.]+$", ext):
                     print(f"ERROR: Invalid extension: {ext}", file=sys.stderr)
                     sys.exit(1)
                 # Ensure extension starts with dot
@@ -130,19 +135,25 @@ def cmd_analyze(args) -> None:
     print(f"Budget: ${args.budget:.2f} | Context limit: {args.context_tokens:,} tokens")
     print("-" * 60)
 
-    report = asyncio.run(analyzer.analyze(
-        path=path,
-        focus=focus,
-        budget_usd=args.budget,
-        include_exts=include_exts,
-        max_tokens_per_section=args.section_tokens,
-    ))
+    report = asyncio.run(
+        analyzer.analyze(
+            path=path,
+            focus=focus,
+            budget_usd=args.budget,
+            include_exts=include_exts,
+            max_tokens_per_section=args.section_tokens,
+        )
+    )
 
     # Print summary
-    print(f"\nAnalysis complete: {len(report.sections)} sections | "
-          f"${report.total_cost:.4f} | {report.elapsed_s:.1f}s")
-    print(f"Files analyzed: {report.files_analyzed} | "
-          f"Languages: {', '.join(sorted(report.languages))}")
+    print(
+        f"\nAnalysis complete: {len(report.sections)} sections | "
+        f"${report.total_cost:.4f} | {report.elapsed_s:.1f}s"
+    )
+    print(
+        f"Files analyzed: {report.files_analyzed} | "
+        f"Languages: {', '.join(sorted(report.languages))}"
+    )
 
     # Write report
     # SECURITY FIX: Validate output path
@@ -152,7 +163,7 @@ def cmd_analyze(args) -> None:
         try:
             output_path.relative_to(Path.cwd())
         except ValueError:
-            print(f"ERROR: Output path must be within current directory", file=sys.stderr)
+            print("ERROR: Output path must be within current directory", file=sys.stderr)
             sys.exit(1)
         # Validate filename
         safe_filename = InputValidator.sanitize_filename(output_path.name)
@@ -161,7 +172,7 @@ def cmd_analyze(args) -> None:
             output_path = output_path.parent / safe_filename
     else:
         output_path = path / "ANALYSIS_REPORT.md"
-    
+
     output_path.write_text(report.markdown, encoding="utf-8")
     print(f"\nReport written to: {output_path}")
 
@@ -182,18 +193,21 @@ def cmd_build(args) -> None:
     """
     import tempfile
     from pathlib import Path
+
     from orchestrator.app_builder import AppBuilder
 
     output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
 
     builder = AppBuilder()
-    result = asyncio.run(builder.build(
-        description=args.description,
-        criteria=args.criteria,
-        output_dir=Path(output_dir),
-        app_type_override=args.app_type or None,
-        docker=args.docker,
-    ))
+    result = asyncio.run(
+        builder.build(
+            description=args.description,
+            criteria=args.criteria,
+            output_dir=Path(output_dir),
+            app_type_override=args.app_type or None,
+            docker=args.docker,
+        )
+    )
 
     if result.success:
         print(f"Build successful: {result.output_dir}")
@@ -209,12 +223,14 @@ def _analyze_subparsers(subparsers) -> None:
         help="Analyze a codebase and produce an improvement report",
     )
     ap.add_argument(
-        "--path", "-p",
+        "--path",
+        "-p",
         required=True,
         help="Root directory of the codebase to analyze",
     )
     ap.add_argument(
-        "--focus", "-f",
+        "--focus",
+        "-f",
         default="",
         help=(
             "Comma-separated focus areas: architecture, quality, security, "
@@ -222,12 +238,14 @@ def _analyze_subparsers(subparsers) -> None:
         ),
     )
     ap.add_argument(
-        "--extensions", "-e",
+        "--extensions",
+        "-e",
         default="",
         help="Comma-separated file extensions to include (e.g. .py,.ts). Default: all code files",
     )
     ap.add_argument(
-        "--budget", "-b",
+        "--budget",
+        "-b",
         type=float,
         default=3.0,
         help="Max API spend in USD (default: 3.0)",
@@ -253,12 +271,14 @@ def _analyze_subparsers(subparsers) -> None:
         help="Max simultaneous API calls (default: 2)",
     )
     ap.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default="",
         help="Output file path for the report (default: <path>/ANALYSIS_REPORT.md)",
     )
     ap.add_argument(
-        "--quiet", "-q",
+        "--quiet",
+        "-q",
         action="store_true",
         default=False,
         help="Suppress report preview in terminal",
@@ -273,17 +293,20 @@ def _build_subparsers(subparsers) -> None:
         help="Build a complete app from a description",
     )
     build_parser.add_argument(
-        "--description", "-d",
+        "--description",
+        "-d",
         required=True,
         help="App description",
     )
     build_parser.add_argument(
-        "--criteria", "-c",
+        "--criteria",
+        "-c",
         default="The app must work correctly",
         help="Success criteria (default: 'The app must work correctly')",
     )
     build_parser.add_argument(
-        "--app-type", "-t",
+        "--app-type",
+        "-t",
         dest="app_type",
         default="",
         help="Force app type (fastapi/cli/library/generic)",
@@ -295,7 +318,8 @@ def _build_subparsers(subparsers) -> None:
         help="Run Docker-based verification after build",
     )
     build_parser.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         dest="output_dir",
         default="",
         help="Directory to write the generated app (default: auto-generated temp dir)",
@@ -307,26 +331,27 @@ def cmd_agent(args) -> None:
     """
     Handle the 'agent' subcommand: NL intent → draft specs → submit to ControlPlane.
     """
-    from orchestrator.orchestration_agent import OrchestrationAgent
-    from orchestrator.control_plane import ControlPlane
-    from orchestrator.secure_execution import CommandInjectionError
     import re
+
+    from orchestrator.control_plane import ControlPlane
+    from orchestrator.orchestration_agent import OrchestrationAgent
+    from orchestrator.secure_execution import CommandInjectionError
 
     # SECURITY FIX: Validate intent input length and content
     intent = args.intent.strip()
     if len(intent) > 10000:
         print("ERROR: Intent description too long (max 10000 chars)", file=sys.stderr)
         sys.exit(1)
-    
+
     # Basic check for potential injection patterns
     dangerous_patterns = [
-        r'`.*?`',  # Backtick execution
-        r'\$\(',  # Command substitution
-        r'\$\{',  # Variable expansion
+        r"`.*?`",  # Backtick execution
+        r"\$\(",  # Command substitution
+        r"\$\{",  # Variable expansion
     ]
     for pattern in dangerous_patterns:
         if re.search(pattern, intent):
-            print(f"WARNING: Intent contains potentially dangerous characters", file=sys.stderr)
+            print("WARNING: Intent contains potentially dangerous characters", file=sys.stderr)
             # Don't block, just warn - natural language can contain backticks
 
     agent = OrchestrationAgent()
@@ -335,6 +360,7 @@ def cmd_agent(args) -> None:
     print("\n=== Draft Job Spec ===")
     import json as _json
     from dataclasses import asdict
+
     print(_json.dumps(asdict(draft.job), indent=2, default=str))
     print("\n=== Draft Policy Spec ===")
     print(_json.dumps(asdict(draft.policy), indent=2, default=str))
@@ -349,24 +375,24 @@ def cmd_agent(args) -> None:
         except (EOFError, KeyboardInterrupt):
             print("\nExiting...")
             return
-        
+
         # SECURITY FIX: Validate feedback length
         if len(feedback) > 5000:
             print("ERROR: Feedback too long (max 5000 chars)", file=sys.stderr)
             continue
-        
+
         if feedback.lower() == "quit":
             return
         if feedback.lower() == "submit":
             break
-        
+
         # SECURITY FIX: Additional validation for feedback
         try:
             draft = asyncio.run(agent.refine(draft, feedback))
         except CommandInjectionError as e:
             print(f"ERROR: Security violation in feedback: {e}", file=sys.stderr)
             continue
-            
+
         print("\n=== Revised Job Spec ===")
         print(_json.dumps(asdict(draft.job), indent=2, default=str))
         print(f"\nRationale: {draft.rationale}")
@@ -384,7 +410,8 @@ def _agent_subparsers(subparsers) -> None:
         help="Convert NL intent to typed specs and optionally run via ControlPlane",
     )
     ap.add_argument(
-        "--intent", "-i",
+        "--intent",
+        "-i",
         required=True,
         help="Natural language description of the job to run",
     )
@@ -410,18 +437,21 @@ def _slash_subparsers(subparsers) -> None:
         help="Slash command to execute (e.g., 'analyst', 'architect', 'help')",
     )
     sp.add_argument(
-        "--args", "-a",
+        "--args",
+        "-a",
         default="",
         help="Arguments for the slash command",
     )
     sp.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         type=str,
         default="./slash_outputs",
         help="Directory for progressive output",
     )
     sp.add_argument(
-        "--interactive", "-i",
+        "--interactive",
+        "-i",
         action="store_true",
         help="Enter interactive REPL mode",
     )
@@ -432,30 +462,31 @@ def cmd_slash(args) -> None:
     """Handle the 'slash' subcommand."""
     import asyncio
     from pathlib import Path
-    from .slash_commands import get_slash_registry, SlashCommandContext
+
     from .api_clients import UnifiedClient
     from .cache import DiskCache
-    
+    from .slash_commands import SlashCommandContext, get_slash_registry
+
     registry = get_slash_registry()
     cache = DiskCache()
     client = UnifiedClient(cache=cache)
-    
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     ctx = SlashCommandContext(
         client=client,
         output_dir=output_dir,
         project_id=f"slash_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
     )
-    
+
     if args.interactive or not args.command:
         # Interactive REPL mode
         print("╔══════════════════════════════════════════════════════════╗")
         print("║     Multi-LLM Orchestrator - Slash Command Mode          ║")
         print("╚══════════════════════════════════════════════════════════╝")
         print("\nType /help for available commands, or /quit to exit\n")
-        
+
         while True:
             try:
                 user_input = input("orchestrator> ").strip()
@@ -466,10 +497,10 @@ def cmd_slash(args) -> None:
                     break
                 if not user_input.startswith("/"):
                     user_input = "/" + user_input
-                
+
                 result = asyncio.run(registry.execute(user_input, ctx))
                 print(f"\n{result}\n")
-                
+
             except KeyboardInterrupt:
                 print("\nGoodbye!")
                 break
@@ -484,8 +515,8 @@ def cmd_slash(args) -> None:
 
 def cmd_dashboard(args) -> None:
     """Handle the 'dashboard' subcommand: render persistent cross-run learning."""
-    from .telemetry_store import TelemetryStore
     from .metrics import render_dashboard
+    from .telemetry_store import TelemetryStore
 
     store = TelemetryStore()
     output = asyncio.run(render_dashboard(store, days=args.days))
@@ -518,6 +549,7 @@ def _default_output_dir(project_id: str | None) -> str:
         return str(Path("outputs") / project_id)
     # Generate timestamp-based directory for AppBuilder projects
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return str(Path("outputs") / f"app_{timestamp}")
 
@@ -530,7 +562,7 @@ def setup_logging(verbose: bool = False, suppress_cache: bool = True):
         datefmt="%H:%M:%S",
         force=True,  # re-apply even if already configured
     )
-    
+
     # Suppress verbose cache messages unless in verbose mode
     if suppress_cache and not verbose:
         suppress_cache_messages()
@@ -547,6 +579,7 @@ async def _async_list_projects():
             print("-" * 55)
             for p in projects:
                 from datetime import datetime
+
                 updated = datetime.fromtimestamp(p["updated_at"]).strftime("%Y-%m-%d %H:%M")
                 print(f"{p['project_id']:<15} {p['status']:<20} {updated}")
     finally:
@@ -565,8 +598,9 @@ def _build_tracing_cfg(args) -> "TracingConfig | None":
 
 async def _async_resume(args):
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
-                        tracing_cfg=_build_tracing_cfg(args))
+    orch = Orchestrator(
+        budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
+    )
     existing = await orch.state_mgr.load_project(args.resume)
     if not existing:
         print(f"Project {args.resume} not found.")
@@ -577,11 +611,11 @@ async def _async_resume(args):
         existing.success_criteria,
         project_id=args.resume,
     )
-    _print_results(state)
+    _print_results(state, orch)
     output_dir = args.output_dir or _default_output_dir(args.resume)
     path = write_output_dir(state, output_dir, project_id=args.resume)
     print(f"\nOutput written to: {path}")
-    
+
     # Organize output: move tasks to tasks/, generate/run tests
     print("\n📁 Organizing project output...")
     org_report = await organize_project_output(path, auto_generate_tests=True, run_tests=True)
@@ -599,6 +633,28 @@ async def _async_file_project(args):
         sys.exit(1)
     spec = result.spec
 
+    # ═══════════════════════════════════════════════════════
+    # TDD Configuration (NEW v3.0)
+    # ═══════════════════════════════════════════════════════
+    if getattr(args, "tdd_first", False):
+        from .cost_optimization import (
+            get_optimization_config,
+            update_config,
+        )
+
+        config = get_optimization_config()
+        config.enable_tdd_first = True
+        config.tdd_quality_tier = args.tdd_quality
+        config.tdd_max_iterations = args.tdd_max_iterations
+        config.tdd_min_test_coverage = args.tdd_min_coverage
+        update_config(config)
+
+        logger.info(
+            f"TDD enabled: quality={args.tdd_quality}, "
+            f"max_iterations={args.tdd_max_iterations}, "
+            f"min_coverage={args.tdd_min_coverage}"
+        )
+
     # CLI flags override file values when explicitly provided
     concurrency = args.concurrency if args.concurrency != 3 else result.concurrency
     # Re-apply logging with file's verbose setting merged with CLI flag
@@ -611,8 +667,9 @@ async def _async_file_project(args):
     print(f"Budget: ${budget.max_usd} / {budget.max_time_seconds}s")
     print("-" * 60)
 
-    orch = Orchestrator(budget=budget, max_concurrency=concurrency,
-                        tracing_cfg=_build_tracing_cfg(args))
+    orch = Orchestrator(
+        budget=budget, max_concurrency=concurrency, tracing_cfg=_build_tracing_cfg(args)
+    )
 
     # CLI --output-dir > YAML output_dir > auto default
     output_dir = args.output_dir or result.output_dir or _default_output_dir(result.project_id)
@@ -631,52 +688,53 @@ async def _async_file_project(args):
     except Exception as e:
         print(f"\n❌ Error during execution: {e}")
         import traceback
+
         traceback.print_exc()
         return
 
     # Get the actual project_id that was used (orchestrator may have generated one)
-    actual_project_id = getattr(orch, '_project_id', None) or project_id
-    
+    actual_project_id = getattr(orch, "_project_id", None) or project_id
+
     try:
         state = await orch.state_mgr.load_project(actual_project_id)
     except Exception as e:
         print(f"\nError loading state: {e}")
         state = None
-    
+
     if state:
-        _print_results(state)
-    
+        _print_results(state, orch)
+
     if state:
         path = write_output_dir(state, output_dir, project_id=actual_project_id)
         print(f"\nOutput written to: {path}")
-        
+
         # Organize output: move tasks to tasks/, generate/run tests
         print("\n📁 Organizing project output...")
         org_report = await organize_project_output(
             path,
             auto_generate_tests=True,
             run_tests=True,
-            fix_tests=getattr(args, 'fix_tests', True),
-            max_fix_iterations=getattr(args, 'max_fix_iterations', 3),
-            min_pass_rate=getattr(args, 'min_pass_rate', 0.7),
+            fix_tests=getattr(args, "fix_tests", True),
+            max_fix_iterations=getattr(args, "max_fix_iterations", 3),
+            min_pass_rate=getattr(args, "min_pass_rate", 0.7),
         )
         print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
         if org_report.tests_run:
             passed = sum(1 for r in org_report.tests_run if r.passed)
             print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
-        
+
         # EXTRA: Run final test execution with detailed reporting
         print("\n🧪 Running final test validation...")
-        tests_passed = await run_project_tests(
-            output_dir=path,
-            fix_tests=True,
-            max_iterations=3,
-            min_pass_rate=0.8
-        )
-        if tests_passed:
-            print("\n✅ All tests passed!")
+        # Tests already ran in organize_project_output - just report results
+        if org_report.tests_run:
+            passed = sum(1 for r in org_report.tests_run if r.passed)
+            total = len(org_report.tests_run)
+            if passed == total:
+                print("\n✅ All tests passed!")
+            else:
+                print(f"\n⚠️ {passed}/{total} tests passed - check output for details")
         else:
-            print("\n⚠️ Some tests failed - check output for details")
+            print("\nℹ️ No tests were executed")
     else:
         print("\n⚠️ No state available - skipping output writing")
 
@@ -711,8 +769,8 @@ async def _check_resume(
     description: str,
     state_mgr,
     new_project: bool = False,
-    _input_fn: Optional[Callable[[str], str]] = None,
-) -> Optional[str]:
+    _input_fn: Callable[[str], str] | None = None,
+) -> str | None:
     """Gate that detects and offers to resume a previous project.
 
     Algorithm:
@@ -755,9 +813,7 @@ async def _check_resume(
 
     # ── Fetch candidates with a hard timeout ────────────────────────────────
     try:
-        rows: list[dict] = await asyncio.wait_for(
-            state_mgr.find_resumable(keywords), timeout=0.2
-        )
+        rows: list[dict] = await asyncio.wait_for(state_mgr.find_resumable(keywords), timeout=0.2)
     except (asyncio.TimeoutError, Exception):
         return None
 
@@ -783,7 +839,7 @@ async def _check_resume(
                 keywords=row.get("keywords", []),
                 recency_score=recency,
                 similarity_score=0.0,  # computed by _score_candidates
-                overall_score=0.0,     # computed by _score_candidates
+                overall_score=0.0,  # computed by _score_candidates
             )
         )
 
@@ -805,11 +861,15 @@ async def _check_resume(
     if len(scored) == 1:
         c = scored[0]
         try:
-            answer = _input_fn(
-                f"\nFound a resumable project:\n"
-                f"  [{c.project_id}] {c.description[:80]}\n"
-                f"Resume it? [Y/n]: "
-            ).strip().lower()
+            answer = (
+                _input_fn(
+                    f"\nFound a resumable project:\n"
+                    f"  [{c.project_id}] {c.description[:80]}\n"
+                    f"Resume it? [Y/n]: "
+                )
+                .strip()
+                .lower()
+            )
         except (EOFError, KeyboardInterrupt):
             return None
         if answer in ("y", "yes", ""):
@@ -820,7 +880,7 @@ async def _check_resume(
     print("\nFound multiple resumable projects:")
     for i, c in enumerate(scored, start=1):
         print(f"  {i}. [{c.project_id}] {c.description[:70]}")
-    print(f"  n. Start a new project")
+    print("  n. Start a new project")
     try:
         answer = _input_fn("Pick a number to resume, or 'n' to start fresh: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
@@ -853,6 +913,28 @@ async def _async_dry_run(args):
 
 
 async def _async_new_project(args):
+    # ═══════════════════════════════════════════════════════
+    # TDD Configuration (NEW v3.0)
+    # ═══════════════════════════════════════════════════════
+    if getattr(args, "tdd_first", False):
+        from .cost_optimization import (
+            get_optimization_config,
+            update_config,
+        )
+
+        config = get_optimization_config()
+        config.enable_tdd_first = True
+        config.tdd_quality_tier = args.tdd_quality
+        config.tdd_max_iterations = args.tdd_max_iterations
+        config.tdd_min_test_coverage = args.tdd_min_coverage
+        update_config(config)
+
+        logger.info(
+            f"TDD enabled: quality={args.tdd_quality}, "
+            f"max_iterations={args.tdd_max_iterations}, "
+            f"min_coverage={args.tdd_min_coverage}"
+        )
+
     # ── Resume detection gate ────────────────────────────────────────────────
     if not getattr(args, "new_project", False):
         state_mgr = StateManager()
@@ -874,7 +956,8 @@ async def _async_new_project(args):
     no_enhance = getattr(args, "no_enhance", False)
 
     if not no_enhance:
-        from .enhancer import ProjectEnhancer, _present_enhancements, _apply_enhancements
+        from .enhancer import ProjectEnhancer, _apply_enhancements, _present_enhancements
+
         enhancer = ProjectEnhancer()
         suggestions = await enhancer.analyze(description, criteria)
         if suggestions:
@@ -886,6 +969,7 @@ async def _async_new_project(args):
     if not raw_tasks:
         # Route through AppBuilder (detects app_type automatically)
         from orchestrator.app_builder import AppBuilder
+
         output_dir = args.output_dir or _default_output_dir(None)
         print(f"Starting app build (budget: ${args.budget})")
         print(f"Project: {description}")
@@ -901,26 +985,29 @@ async def _async_new_project(args):
             print(f"Build successful: {result.output_dir}")
             # Debug: show state info
             if result.state:
-                print(f"  State tasks: {len(result.state.tasks)}, results: {len(result.state.results)}")
+                print(
+                    f"  State tasks: {len(result.state.tasks)}, results: {len(result.state.results)}"
+                )
                 print(f"  Execution order: {result.state.execution_order}")
             # Also write individual task files
             if result.state:
                 from .output_writer import write_output_dir
+
                 tasks_dir = Path(output_dir) / "tasks"
-                project_id = getattr(result.state, 'project_id', '')
+                project_id = getattr(result.state, "project_id", "")
                 print(f"  Writing task files to: {tasks_dir}")
                 path = write_output_dir(result.state, tasks_dir, project_id=project_id)
                 print(f"Task files written to: {path}")
-            
+
             # Organize output: move tasks to tasks/, generate/run tests
             print("\n📁 Organizing project output...")
             org_report = await organize_project_output(
-                Path(output_dir), 
-                auto_generate_tests=True, 
+                Path(output_dir),
+                auto_generate_tests=True,
                 run_tests=True,
-                fix_tests=getattr(args, 'fix_tests', True),
-                max_fix_iterations=getattr(args, 'max_fix_iterations', 3),
-                min_pass_rate=getattr(args, 'min_pass_rate', 0.7),
+                fix_tests=getattr(args, "fix_tests", True),
+                max_fix_iterations=getattr(args, "max_fix_iterations", 3),
+                min_pass_rate=getattr(args, "min_pass_rate", 0.7),
             )
             print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
             if org_report.tests_run:
@@ -934,8 +1021,9 @@ async def _async_new_project(args):
 
     # --raw-tasks: legacy flat-file path (opt-in)
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
-                        tracing_cfg=_build_tracing_cfg(args))
+    orch = Orchestrator(
+        budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
+    )
 
     print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
     print(f"Project: {description}")
@@ -951,11 +1039,11 @@ async def _async_new_project(args):
         renderer.handle(event)
 
     state = await orch.state_mgr.load_project(orch._project_id)
-    _print_results(state)
+    _print_results(state, orch)
     output_dir = args.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
     print(f"\nOutput written to: {path}")
-    
+
     # Organize output: move tasks to tasks/, generate/run tests
     print("\n📁 Organizing project output...")
     org_report = await organize_project_output(path, auto_generate_tests=True, run_tests=True)
@@ -963,7 +1051,7 @@ async def _async_new_project(args):
     if org_report.tests_run:
         passed = sum(1 for r in org_report.tests_run if r.passed)
         print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
-    
+
     if getattr(args, "dependency_report", False) and state:
         renderer = DagRenderer(state.tasks, results=state.results)
         print("\n" + renderer.dependency_report())
@@ -990,8 +1078,9 @@ async def _async_visualize(args):
         project_description = args.project
         success_criteria = getattr(args, "criteria", "") or ""
 
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
-                        tracing_cfg=_build_tracing_cfg(args))
+    orch = Orchestrator(
+        budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
+    )
     tasks = await orch._decompose(project_description, success_criteria)
 
     renderer = DagRenderer(tasks)
@@ -1037,27 +1126,29 @@ def _nash_subparsers(subparsers):
     """Add Nash stability subcommands."""
     nash_parser = subparsers.add_parser("nash", help="Nash stability management")
     nash_subparsers = nash_parser.add_subparsers(dest="nash_command", metavar="COMMAND")
-    
+
     # nash status
     status_parser = nash_subparsers.add_parser("status", help="Show Nash stability status")
     status_parser.add_argument("--format", choices=["table", "json"], default="table")
     status_parser.add_argument("--watch", action="store_true", help="Watch mode")
     status_parser.set_defaults(func=_cmd_nash_status)
-    
+
     # nash backup
-    backup_parser = nash_subparsers.add_parser("backup", help="Backup/restore accumulated knowledge")
+    backup_parser = nash_subparsers.add_parser(
+        "backup", help="Backup/restore accumulated knowledge"
+    )
     backup_parser.add_argument("--list", action="store_true", help="List backups")
     backup_parser.add_argument("--restore", type=str, help="Restore from backup file")
     backup_parser.add_argument("--value", action="store_true", help="Show estimated value")
     backup_parser.set_defaults(func=_cmd_nash_backup)
-    
+
     # nash tuning
     tuning_parser = nash_subparsers.add_parser("tuning", help="Auto-tuning control")
     tuning_parser.add_argument("--status", action="store_true", help="Show tuning status")
     tuning_parser.add_argument("--tune", type=str, help="Parameter to tune")
     tuning_parser.add_argument("--value", type=float, help="New value for parameter")
     tuning_parser.set_defaults(func=_cmd_nash_tuning)
-    
+
     # nash compare
     compare_parser = nash_subparsers.add_parser("compare", help="Compare two models")
     compare_parser.add_argument("model_a", help="First model to compare")
@@ -1069,24 +1160,28 @@ def _nash_subparsers(subparsers):
 def _cmd_nash_status(args):
     """Handle nash status command."""
     import asyncio
+
     from orchestrator.nash_stable_orchestrator import get_nash_stable_orchestrator
-    
+
     async def show():
         orch = get_nash_stable_orchestrator()
         report = orch.get_nash_stability_report()
-        
+
         if args.format == "json":
             import json
+
             print(json.dumps(report, indent=2))
         else:
             _print_nash_status(report)
-    
+
     if args.watch:
         import time
+
         try:
             while True:
                 import os
-                os.system('cls' if os.name == 'nt' else 'clear')
+
+                os.system("cls" if os.name == "nt" else "clear")
                 asyncio.run(show())
                 print("\n[Press Ctrl+C to exit]")
                 time.sleep(5)
@@ -1101,33 +1196,34 @@ def _print_nash_status(report):
     print("\n" + "=" * 60)
     print("NASH STABILITY REPORT".center(60))
     print("=" * 60)
-    
+
     score = report.get("nash_stability_score", 0)
     score_bar = "█" * int(score * 20) + "░" * (20 - int(score * 20))
     print(f"\n  Stability Score: {score:.2f} [{score_bar}]")
     print(f"  Status: {report.get('interpretation', 'Unknown')}")
-    
+
     switching = report.get("switching_cost_analysis", {})
     print(f"\n  Switching Cost: ${switching.get('total_switching_cost_usd', 0):.2f}")
-    
+
     assets = report.get("accumulated_assets", {})
     print("\n  Accumulated Assets:")
     print(f"    • Knowledge Graph: {assets.get('knowledge_graph_relationships', 0)} relationships")
     print(f"    • Learned Patterns: {assets.get('learned_patterns', 0)}")
     print(f"    • Template Variants: {assets.get('optimized_templates', 0)}")
     print(f"    • Calibrated Predictions: {assets.get('calibrated_predictions', 0)}")
-    
+
     print("\n" + "=" * 60)
 
 
 def _cmd_nash_backup(args):
     """Handle nash backup command."""
     import asyncio
+
     from orchestrator.nash_backup import get_backup_manager
-    
+
     async def run():
         mgr = get_backup_manager()
-        
+
         if args.list:
             backups = mgr.list_backups()
             if not backups:
@@ -1140,7 +1236,7 @@ def _cmd_nash_backup(args):
                 size_str = f"{b.total_size_bytes / 1024:.1f} KB"
                 value_str = f"${b.estimated_value_usd:.2f}"
                 print(f"{b.backup_id:<30} {date_str:<20} {size_str:<10} {value_str:<10}")
-        
+
         elif args.restore:
             result = await mgr.restore_backup(args.restore)
             if result.success:
@@ -1149,28 +1245,28 @@ def _cmd_nash_backup(args):
                 print("✗ Restore failed")
                 for error in result.errors:
                     print(f"  - {error}")
-        
+
         elif args.value:
             estimate = mgr.estimate_switching_cost()
             print(f"\nEstimated Value: ${estimate['total_value_usd']:.2f}")
             print(f"Total Records: {estimate['total_records']}")
-        
+
         else:
             manifest = await mgr.create_backup()
             print(f"✓ Backup created: {manifest.backup_id}")
             print(f"  Components: {len(manifest.components)}")
             print(f"  Size: {manifest.total_size_bytes / 1024:.1f} KB")
             print(f"  Value: ${manifest.estimated_value_usd:.2f}")
-    
+
     asyncio.run(run())
 
 
 def _cmd_nash_tuning(args):
     """Handle nash tuning command."""
     from orchestrator.nash_auto_tuning import get_auto_tuner
-    
+
     tuner = get_auto_tuner()
-    
+
     if args.status or (not args.tune):
         report = tuner.get_tuning_report()
         print("\nAuto-Tuning Status:")
@@ -1180,7 +1276,7 @@ def _cmd_nash_tuning(args):
             print(f"  Current: {info['current_value']:.4f}")
             print(f"  Strategy: {info['strategy']}")
             print(f"  Samples: {info['samples']}")
-    
+
     elif args.tune and args.value is not None:
         param = tuner._parameters.get(args.tune)
         if param:
@@ -1195,95 +1291,104 @@ def _cmd_nash_tuning(args):
 def _cmd_nash_compare(args):
     """Handle nash compare command."""
     import asyncio
-    from orchestrator.pareto_frontier import get_cost_quality_frontier
+
     from orchestrator.models import Model, TaskType
-    
+    from orchestrator.pareto_frontier import get_cost_quality_frontier
+
     async def run():
         frontier = get_cost_quality_frontier()
         try:
             model_a = Model(args.model_a)
             model_b = Model(args.model_b)
             task_type = TaskType(args.task_type)
-            
+
             comparison = frontier.compare_models(model_a, model_b, task_type)
-            
+
             print("\n" + "=" * 70)
             print(f"MODEL COMPARISON: {args.model_a} vs {args.model_b}".center(70))
             print("=" * 70)
-            
+
             data_a = comparison.get("model_a", {})
             data_b = comparison.get("model_b", {})
-            
+
             print(f"\n  {'Metric':<15} {args.model_a:<12} {args.model_b:<12}")
             print("  " + "-" * 40)
-            print(f"  {'Quality':<15} {data_a.get('quality', 0):<12.3f} {data_b.get('quality', 0):<12.3f}")
+            print(
+                f"  {'Quality':<15} {data_a.get('quality', 0):<12.3f} {data_b.get('quality', 0):<12.3f}"
+            )
             print(f"  {'Cost':<15} ${data_a.get('cost', 0):<11.4f} ${data_b.get('cost', 0):<11.4f}")
-            print(f"  {'Efficiency':<15} {data_a.get('efficiency', 0):<12.1f} {data_b.get('efficiency', 0):<12.1f}")
-            
+            print(
+                f"  {'Efficiency':<15} {data_a.get('efficiency', 0):<12.1f} {data_b.get('efficiency', 0):<12.1f}"
+            )
+
             print(f"\n  {comparison.get('recommendation', '')}")
             print("=" * 70 + "\n")
-            
+
         except ValueError as e:
             print(f"Error: {e}")
-    
+
     asyncio.run(run())
 
 
 def cmd_cache_stats(args) -> None:
     """Show cache statistics."""
     from orchestrator.cache_optimizer import get_cache_optimizer
-    
+
     optimizer = get_cache_optimizer()
-    
+
     if args.clear:
         level = args.level if args.level else None
         asyncio.run(optimizer.clear(level))
         print(f"✓ Cache cleared (level: {level or 'all'})")
         return
-    
+
     if args.cleanup:
         stats = asyncio.run(optimizer.cleanup())
         print(f"✓ Cleanup complete: {stats['l2_deleted']} expired entries removed")
         return
-    
+
     # Print statistics
     stats = optimizer.get_stats()
-    
+
     print("""
 ╔══════════════════════════════════════════════════════════════════╗
 ║                    CACHE STATISTICS                              ║
 ╠══════════════════════════════════════════════════════════════════╣""")
     print(f"║ Total Requests:     {stats['total_requests']:>10,}                               ║")
-    print(f"║ Total Hits:         {stats['total_hits']:>10,}  ({stats['overall_hit_rate']:.1%})                        ║")
+    print(
+        f"║ Total Hits:         {stats['total_hits']:>10,}  ({stats['overall_hit_rate']:.1%})                        ║"
+    )
     print(f"║ Total Misses:       {stats['total_misses']:>10,}                               ║")
     print("╠══════════════════════════════════════════════════════════════════╣")
-    print(f"║ By Level:                                                        ║")
+    print("║ By Level:                                                        ║")
     print(f"║   L1 (Memory):      {stats['l1_hits']:>10,} hits                              ║")
     print(f"║   L2 (Disk):        {stats['l2_hits']:>10,} hits                              ║")
     print(f"║   L3 (Semantic):    {stats['l3_hits']:>10,} hits                              ║")
     print("╠══════════════════════════════════════════════════════════════════╣")
-    print(f"║ Savings:                                                         ║")
+    print("║ Savings:                                                         ║")
     print(f"║   Tokens Saved:     {stats['tokens_saved']:>10,}                               ║")
     print(f"║   Cost Saved:       ${stats['cost_saved']:>9.2f}                               ║")
     print("╚══════════════════════════════════════════════════════════════════╝")
-    
+
     # L1 detailed stats
-    if stats.get('l1_stats'):
-        l1 = stats['l1_stats']
-        print(f"\nL1 Memory Cache:")
-        print(f"  Entries: {l1['entries']}/{l1['max_size']} ({100*l1['entries']/l1['max_size']:.1f}%)")
+    if stats.get("l1_stats"):
+        l1 = stats["l1_stats"]
+        print("\nL1 Memory Cache:")
+        print(
+            f"  Entries: {l1['entries']}/{l1['max_size']} ({100*l1['entries']/l1['max_size']:.1f}%)"
+        )
         print(f"  Hit Rate: {l1['hit_rate']:.1%}")
 
 
 def cmd_cache_stats(args: argparse.Namespace) -> int:
     """Handle cache-stats subcommand."""
     import asyncio
-    
+
     async def _run():
         from .cache_optimizer import get_cache_optimizer
-        
+
         optimizer = get_cache_optimizer()
-        
+
         if args.clear:
             level = args.level
             if level:
@@ -1302,7 +1407,7 @@ def cmd_cache_stats(args: argparse.Namespace) -> int:
                 optimizer.l3_cache.clear()
                 print("✅ All caches cleared")
             return 0
-        
+
         if args.cleanup:
             print("🧹 Cleaning up expired entries...")
             optimizer.l1_cache.cleanup()
@@ -1310,11 +1415,11 @@ def cmd_cache_stats(args: argparse.Namespace) -> int:
             optimizer.l3_cache.cleanup()
             print("✅ Cleanup complete")
             return 0
-        
+
         # Show statistics
         optimizer.print_stats()
         return 0
-    
+
     return asyncio.run(_run())
 
 
@@ -1349,29 +1454,30 @@ def _nexus_subparsers(subparsers) -> None:
         help="Nexus Search - Web search for AI Orchestrator",
     )
     nexus_sub = parser.add_subparsers(dest="nexus_command", metavar="COMMAND")
-    
+
     # Search command
     search_p = nexus_sub.add_parser("search", help="Perform web search")
     search_p.add_argument("query", help="Search query")
     search_p.add_argument("-s", "--sources", help="Sources (web,academic,tech,news,code)")
-    search_p.add_argument("-o", "--optimization", default="balanced",
-                          choices=["speed", "balanced", "quality"])
+    search_p.add_argument(
+        "-o", "--optimization", default="balanced", choices=["speed", "balanced", "quality"]
+    )
     search_p.add_argument("-n", "--num-results", type=int, default=10)
     search_p.add_argument("--json", action="store_true")
     search_p.set_defaults(func=_nexus_search_cmd)
-    
+
     # Research command
     research_p = nexus_sub.add_parser("research", help="Deep research")
     research_p.add_argument("query", help="Research query")
     research_p.add_argument("-d", "--depth", type=int, default=3)
     research_p.add_argument("--json", action="store_true")
     research_p.set_defaults(func=_nexus_research_cmd)
-    
+
     # Status command
     status_p = nexus_sub.add_parser("status", help="Check Nexus Search status")
     status_p.add_argument("--json", action="store_true")
     status_p.set_defaults(func=_nexus_status_cmd)
-    
+
     # Classify command
     classify_p = nexus_sub.add_parser("classify", help="Classify a query")
     classify_p.add_argument("query", help="Query to classify")
@@ -1382,39 +1488,44 @@ def _nexus_subparsers(subparsers) -> None:
 def _nexus_search_cmd(args) -> int:
     """Execute Nexus search."""
     from .nexus_cli import cmd_search
+
     return asyncio.run(cmd_search(args))
 
 
 def _nexus_research_cmd(args) -> int:
     """Execute Nexus research."""
     from .nexus_cli import cmd_research
+
     return asyncio.run(cmd_research(args))
 
 
 def _nexus_status_cmd(args) -> int:
     """Execute Nexus status."""
     from .nexus_cli import cmd_status
+
     return asyncio.run(cmd_status(args))
 
 
 def _nexus_classify_cmd(args) -> int:
     """Execute Nexus classify."""
     from .nexus_cli import cmd_classify
+
     return asyncio.run(cmd_classify(args))
 
 
 def main():
     # ── Suppress specific warnings ───────────────────────────────────────────
     import warnings
-    warnings.filterwarnings("ignore", 
-                            message="urllib3.*doesn't match a supported version",
-                            category=Warning,
-                            module="requests")
+
+    warnings.filterwarnings(
+        "ignore",
+        message="urllib3.*doesn't match a supported version",
+        category=Warning,
+        module="requests",
+    )
 
     # ── Top-level parser ─────────────────────────────────────────────────────
-    parser = argparse.ArgumentParser(
-        description="Multi-LLM Orchestrator — Local AI Project Runner"
-    )
+    parser = argparse.ArgumentParser(description="Multi-LLM Orchestrator — Local AI Project Runner")
 
     # ── Subcommands (e.g. 'build') ────────────────────────────────────────────
     subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
@@ -1430,23 +1541,31 @@ def main():
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
     parser.add_argument("--criteria", "-c", type=str, help="Success criteria")
-    parser.add_argument("--budget", "-b", type=float, default=8.0,
-                        help="Max budget in USD (default: 8.0)")
-    parser.add_argument("--time", type=float, default=5400,
-                        help="Max time in seconds (default: 5400)")
-    parser.add_argument("--project-id", type=str, default="",
-                        help="Project ID (auto-generated if empty)")
-    parser.add_argument("--resume", type=str, default="",
-                        help="Resume a previous project by ID")
-    parser.add_argument("--list-projects", action="store_true",
-                        help="List all saved projects")
-    parser.add_argument("--concurrency", type=int, default=3,
-                        help="Max simultaneous API calls (default: 3)")
+    parser.add_argument(
+        "--budget", "-b", type=float, default=8.0, help="Max budget in USD (default: 8.0)"
+    )
+    parser.add_argument(
+        "--time", type=float, default=5400, help="Max time in seconds (default: 5400)"
+    )
+    parser.add_argument(
+        "--project-id", type=str, default="", help="Project ID (auto-generated if empty)"
+    )
+    parser.add_argument("--resume", type=str, default="", help="Resume a previous project by ID")
+    parser.add_argument("--list-projects", action="store_true", help="List all saved projects")
+    parser.add_argument(
+        "--concurrency", type=int, default=3, help="Max simultaneous API calls (default: 3)"
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
-    parser.add_argument("--file", "-f", type=str, default="",
-                        help="Load project spec from a YAML file")
-    parser.add_argument("--output-dir", "-o", type=str, default="",
-                        help="Write structured output files to this directory")
+    parser.add_argument(
+        "--file", "-f", type=str, default="", help="Load project spec from a YAML file"
+    )
+    parser.add_argument(
+        "--output-dir",
+        "-o",
+        type=str,
+        default="",
+        help="Write structured output files to this directory",
+    )
     parser.add_argument(
         "--fix-tests",
         action="store_true",
@@ -1471,6 +1590,34 @@ def main():
         default=0.7,
         help="Minimum pass rate to stop fixing (default: 0.7)",
     )
+
+    # ═══════════════════════════════════════════════════════
+    # TDD-First Generation (NEW v3.0)
+    # ═══════════════════════════════════════════════════════
+    parser.add_argument(
+        "--tdd-first",
+        action="store_true",
+        help="Enable Test-First Generation (TDD) for code tasks",
+    )
+    parser.add_argument(
+        "--tdd-quality",
+        choices=["budget", "balanced", "premium"],
+        default="balanced",
+        help="TDD model quality tier (default: balanced)",
+    )
+    parser.add_argument(
+        "--tdd-max-iterations",
+        type=int,
+        default=3,
+        help="Maximum TDD iterations before fallback (default: 3)",
+    )
+    parser.add_argument(
+        "--tdd-min-coverage",
+        type=float,
+        default=0.8,
+        help="Minimum test coverage required (default: 0.8)",
+    )
+
     parser.add_argument(
         "--visualize",
         choices=["mermaid", "ascii"],
@@ -1504,7 +1651,7 @@ def main():
         "--tracing",
         action="store_true",
         default=False,
-        help="Enable OpenTelemetry distributed tracing. Requires: pip install -e '.[tracing]'"
+        help="Enable OpenTelemetry distributed tracing. Requires: pip install -e '.[tracing]'",
     )
     parser.add_argument(
         "--otlp-endpoint",
@@ -1512,7 +1659,7 @@ def main():
         default=None,
         metavar="URL",
         help="OTLP gRPC endpoint for tracing export (e.g. http://localhost:4317). "
-             "If --tracing is set but this is omitted, spans are printed to console."
+        "If --tracing is set but this is omitted, spans are printed to console.",
     )
     parser.add_argument(
         "--raw-tasks",
@@ -1524,7 +1671,8 @@ def main():
         ),
     )
     parser.add_argument(
-        "--new-project", "-N",
+        "--new-project",
+        "-N",
         action="store_true",
         default=False,
         help="Skip resume detection and always start a fresh project",
@@ -1533,13 +1681,16 @@ def main():
         "--no-enhance",
         action="store_true",
         default=False,
-        help=(
-            "Skip LLM spec enhancement pass and run original project description directly"
-        ),
+        help=("Skip LLM spec enhancement pass and run original project description directly"),
     )
-    parser.add_argument("--dry-run", "-n", action="store_true", default=False,
-                        help="Show execution plan without running any tasks")
-    
+    parser.add_argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        default=False,
+        help="Show execution plan without running any tasks",
+    )
+
     # ── Nash Stability commands ───────────────────────────────────────────────
     _nash_subparsers(subparsers)
 
@@ -1592,7 +1743,7 @@ def main():
     asyncio.run(_async_new_project(args))
 
 
-def _print_results(state):
+def _print_results(state, orch=None):
     print("\n" + "=" * 60)
     print(f"STATUS: {state.status.value}")
     print(f"Budget spent: ${state.budget.spent_usd:.4f} / ${state.budget.max_usd}")
@@ -1600,7 +1751,11 @@ def _print_results(state):
     print("-" * 60)
 
     for tid, result in state.results.items():
-        emoji = "OK" if result.status.value == "completed" else "FAIL" if result.status.value == "failed" else "~"
+        emoji = (
+            "OK"
+            if result.status.value == "completed"
+            else "FAIL" if result.status.value == "failed" else "~"
+        )
         print(
             f"  {emoji} {tid}: score={result.score:.3f} "
             f"[{result.model_used.value}] "
@@ -1611,13 +1766,14 @@ def _print_results(state):
     print("=" * 60)
 
     # NEW: Show meta-optimization status if available
-    if hasattr(orch, 'meta_v2') and orch.meta_v2:
+    if orch is not None and hasattr(orch, "meta_v2") and orch.meta_v2:
         from .meta_integration import get_meta_status
+
         meta_status = get_meta_status(orch.meta_v2)
         print("\n--- META-OPTIMIZATION STATUS ---")
         print(f"  Enabled: {meta_status.get('enabled', False)}")
         print(f"  Optimizations run: {meta_status.get('optimization_count', 0)}")
-        if 'archive_stats' in meta_status:
+        if "archive_stats" in meta_status:
             print(f"  Projects in archive: {meta_status['archive_stats'].get('total_projects', 0)}")
             print(f"  Total executions: {meta_status['archive_stats'].get('total_executions', 0)}")
 
@@ -1626,77 +1782,93 @@ def _print_results(state):
 # Meta-Optimization CLI Commands
 # ─────────────────────────────────────────────
 
+
 def cmd_meta(args) -> None:
     """Handle meta-optimization subcommands."""
-    from .meta_integration import get_meta_status
-    
     # Initialize a minimal orchestrator to access meta_v2
     from .engine import Orchestrator
-    from .state import StateManager
-    
+    from .meta_integration import get_meta_status
+
     async def run():
         orch = Orchestrator()
         await orch.__aenter__()
-        
+
         try:
             if orch.meta_v2:
                 status = get_meta_status(orch.meta_v2)
-                
+
                 if args.meta_cmd == "status":
                     print("\n=== META-OPTIMIZATION STATUS ===")
                     print(f"Enabled: {status.get('enabled', False)}")
                     print(f"Optimizations run: {status.get('optimization_count', 0)}")
-                    
-                    if 'archive_stats' in status:
-                        print(f"\nArchive:")
-                        print(f"  Total projects: {status['archive_stats'].get('total_projects', 0)}")
-                        print(f"  Total executions: {status['archive_stats'].get('total_executions', 0)}")
-                    
-                    if 'ab_testing' in status:
-                        print(f"\nA/B Testing:")
-                        print(f"  Total experiments: {status['ab_testing'].get('total_experiments', 0)}")
-                        print(f"  Active experiments: {status['ab_testing'].get('active_experiments', 0)}")
-                    
-                    if 'hitl' in status:
-                        print(f"\nHITL:")
+
+                    if "archive_stats" in status:
+                        print("\nArchive:")
+                        print(
+                            f"  Total projects: {status['archive_stats'].get('total_projects', 0)}"
+                        )
+                        print(
+                            f"  Total executions: {status['archive_stats'].get('total_executions', 0)}"
+                        )
+
+                    if "ab_testing" in status:
+                        print("\nA/B Testing:")
+                        print(
+                            f"  Total experiments: {status['ab_testing'].get('total_experiments', 0)}"
+                        )
+                        print(
+                            f"  Active experiments: {status['ab_testing'].get('active_experiments', 0)}"
+                        )
+
+                    if "hitl" in status:
+                        print("\nHITL:")
                         print(f"  Pending requests: {status['hitl'].get('pending_count', 0)}")
                         print(f"  Auto-approved: {status['hitl'].get('auto_approved_count', 0)}")
-                    
-                    if 'rollout' in status:
-                        print(f"\nGradual Rollout:")
+
+                    if "rollout" in status:
+                        print("\nGradual Rollout:")
                         print(f"  Active rollouts: {status['rollout'].get('active_rollouts', 0)}")
-                        print(f"  Completed rollouts: {status['rollout'].get('completed_rollouts', 0)}")
-                
+                        print(
+                            f"  Completed rollouts: {status['rollout'].get('completed_rollouts', 0)}"
+                        )
+
                 elif args.meta_cmd == "optimize":
                     print("\nRunning meta-optimization...")
                     outcomes = await orch.meta_v2.maybe_optimize()
-                    
+
                     if outcomes:
                         print(f"\nGenerated {len(outcomes)} proposals:")
                         for outcome in outcomes:
-                            print(f"  [{outcome.decision.value}] {outcome.proposal.description[:60]}...")
+                            print(
+                                f"  [{outcome.decision.value}] {outcome.proposal.description[:60]}..."
+                            )
                     else:
-                        print("No optimization proposals generated (insufficient data or no improvements found)")
-                
+                        print(
+                            "No optimization proposals generated (insufficient data or no improvements found)"
+                        )
+
                 elif args.meta_cmd == "transfer":
                     from .transfer_learning import get_transfer_engine
+
                     transfer_engine = get_transfer_engine()
-                    
+
                     if transfer_engine:
                         stats = transfer_engine.get_stats()
                         print("\n=== TRANSFER LEARNING STATUS ===")
                         print(f"Indexed projects: {stats.get('indexed_projects', 0)}")
                         print(f"Active patterns: {stats.get('active_patterns', 0)}")
                         print(f"Total patterns: {stats.get('total_patterns', 0)}")
-                        print(f"Average pattern confidence: {stats.get('avg_pattern_confidence', 0):.2f}")
+                        print(
+                            f"Average pattern confidence: {stats.get('avg_pattern_confidence', 0):.2f}"
+                        )
                     else:
                         print("Transfer learning not initialized")
             else:
                 print("Meta-optimization not available")
-        
+
         finally:
             await orch.__aexit__(None, None, None)
-    
+
     asyncio.run(run())
 
 
@@ -1706,17 +1878,17 @@ def _setup_meta_parser(subparsers):
         "meta",
         help="Meta-optimization management (A/B testing, HITL, rollout, transfer learning)",
     )
-    
+
     meta_subparsers = meta_parser.add_subparsers(dest="meta_cmd", help="Meta-optimization command")
-    
+
     # Status command
     status_parser = meta_subparsers.add_parser("status", help="Show meta-optimization status")
     status_parser.set_defaults(func=cmd_meta)
-    
+
     # Optimize command
     optimize_parser = meta_subparsers.add_parser("optimize", help="Run meta-optimization cycle")
     optimize_parser.set_defaults(func=cmd_meta)
-    
+
     # Transfer command
     transfer_parser = meta_subparsers.add_parser("transfer", help="Show transfer learning status")
     transfer_parser.set_defaults(func=cmd_meta)
@@ -1727,12 +1899,14 @@ try:
     import click
 
     @click.command()
-    @click.option('--analyze-codebase', type=click.Path(exists=True),
-                  help='Analyze an existing codebase')
+    @click.option(
+        "--analyze-codebase", type=click.Path(exists=True), help="Analyze an existing codebase"
+    )
     def cli(analyze_codebase):
         """AI Orchestrator: Codebase Analysis"""
         if analyze_codebase:
             import asyncio
+
             from orchestrator.codebase_understanding import CodebaseUnderstanding
             from orchestrator.improvement_suggester import ImprovementSuggester
 
@@ -1741,9 +1915,9 @@ try:
                 profile = await understanding.analyze(analyze_codebase)
 
                 # Display analysis results
-                print("\n" + "="*60)
+                print("\n" + "=" * 60)
                 print("CODEBASE ANALYSIS COMPLETE")
-                print("="*60)
+                print("=" * 60)
                 print(profile)
 
                 # Generate and display improvement suggestions
@@ -1751,9 +1925,9 @@ try:
                 improvements = suggester.suggest(profile)
 
                 if improvements:
-                    print("\n" + "="*60)
+                    print("\n" + "=" * 60)
                     print("IMPROVEMENT RECOMMENDATIONS")
-                    print("="*60)
+                    print("=" * 60)
                     total_effort = sum(i.effort_hours for i in improvements)
                     print(f"\n{len(improvements)} recommendations | {total_effort}h total effort\n")
 

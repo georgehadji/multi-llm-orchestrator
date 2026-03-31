@@ -4,6 +4,7 @@ QueryExpander — LLM-based query expansion for hybrid search.
 Uses DeepSeek-Chat to generate alternative phrasings of a search
 query, improving recall in BM25 and vector search.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,7 @@ class QueryExpander:
 
     def __init__(
         self,
-        model: str = "deepseek-chat",
+        model: str = "deepseek/deepseek-chat",
         max_variants: int = 3,
     ) -> None:
         self.model = model

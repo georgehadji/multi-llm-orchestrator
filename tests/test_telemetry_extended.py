@@ -3,16 +3,17 @@ Tests for TelemetryCollector — extended telemetry (Improvement 3).
 Covers: real p95 via sorted buffer, cost EMA, validator_fail_count,
         error_rate(), record_policy_violation(), trust dynamics.
 """
+
 from __future__ import annotations
 
 import pytest
 from orchestrator.models import Model, build_default_profiles
 from orchestrator.telemetry import TelemetryCollector, _LATENCY_BUFFER_SIZE
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def profiles():
@@ -32,6 +33,7 @@ def model():
 # ─────────────────────────────────────────────────────────────────────────────
 # Basic call tracking
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_call_count_increments(collector, profiles, model):
     collector.record_call(model, 1000.0, 0.001, success=True)
@@ -59,6 +61,7 @@ def test_unknown_model_is_ignored(collector):
 # Latency EMA
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_latency_ema_moves_toward_new_value(collector, profiles, model):
     initial = profiles[model].avg_latency_ms
     collector.record_call(model, 5000.0, 0.001, success=True)
@@ -76,6 +79,7 @@ def test_zero_latency_does_not_update_ema(collector, profiles, model):
 # ─────────────────────────────────────────────────────────────────────────────
 # Real p95 via sorted buffer
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_p95_is_not_double_avg_after_real_samples(collector, profiles, model):
     """Real p95 from sorted buffer must differ from the old 2*avg approximation."""
@@ -103,6 +107,7 @@ def test_latency_buffer_max_50_samples(collector, profiles, model):
 def test_latency_buffer_is_sorted_ascending(collector, profiles, model):
     """Sorted buffer must always be in non-decreasing order."""
     import random
+
     random.seed(42)
     for _ in range(30):
         collector.record_call(model, random.uniform(100, 5000), 0.001, success=True)
@@ -129,6 +134,7 @@ def test_zero_latency_samples_not_added_to_buffer(collector, profiles, model):
 # ─────────────────────────────────────────────────────────────────────────────
 # Cost EMA
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_cost_ema_updates_on_positive_cost(collector, profiles, model):
     initial = profiles[model].avg_cost_usd  # 0.0
@@ -163,6 +169,7 @@ def test_cost_ema_converges_toward_observed_values(collector, profiles, model):
 # Success rate rolling window
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_success_rate_100_percent_all_success(collector, profiles, model):
     for _ in range(5):
         collector.record_call(model, 500.0, 0.001, success=True)
@@ -191,6 +198,7 @@ def test_success_rate_window_evicts_old_results(collector, profiles, model):
 # Quality EMA
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_quality_ema_updated_when_score_provided(collector, profiles, model):
     initial = profiles[model].quality_score  # 0.8
     collector.record_call(model, 500.0, 0.001, success=True, quality_score=1.0)
@@ -206,6 +214,7 @@ def test_quality_ema_unchanged_when_no_score(collector, profiles, model):
 # ─────────────────────────────────────────────────────────────────────────────
 # Trust factor dynamics
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_trust_factor_degrades_on_failure(collector, profiles, model):
     initial = profiles[model].trust_factor  # 1.0
@@ -232,6 +241,7 @@ def test_trust_factor_capped_at_1(collector, profiles, model):
 # record_validator_failure
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_record_validator_failure_increments_count(collector, profiles, model):
     collector.record_validator_failure(model)
     assert profiles[model].validator_fail_count == 1
@@ -248,6 +258,7 @@ def test_record_validator_failure_unknown_model_is_noop(collector):
 # record_policy_violation
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_record_policy_violation_degrades_trust(collector, profiles, model):
     initial = profiles[model].trust_factor
     collector.record_policy_violation(model)
@@ -261,6 +272,7 @@ def test_record_policy_violation_unknown_model_is_noop(collector):
 # ─────────────────────────────────────────────────────────────────────────────
 # error_rate
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_error_rate_zero_when_no_calls(collector, model):
     assert collector.error_rate(model) == 0.0
@@ -284,6 +296,7 @@ def test_error_rate_unknown_model_returns_zero(collector):
 # ─────────────────────────────────────────────────────────────────────────────
 # get_profiles
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_get_profiles_returns_live_reference(collector, profiles, model):
     returned = collector.get_profiles()

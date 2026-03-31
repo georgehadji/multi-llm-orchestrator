@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check state files."""
+
 from pathlib import Path
 import json
 

@@ -21,7 +21,6 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("orchestrator.validators")
 
@@ -35,12 +34,13 @@ class ValidationResult:
         self.validator_name = validator_name
 
 
-def validate_json_schema(output: str, schema: Optional[dict] = None) -> ValidationResult:
+def validate_json_schema(output: str, schema: dict | None = None) -> ValidationResult:
     """Validate that output is valid JSON, optionally against a schema."""
     try:
         parsed = json.loads(output)
         if schema:
             import jsonschema
+
             jsonschema.validate(instance=parsed, schema=schema)
         return ValidationResult(True, "Valid JSON", "json_schema")
     except json.JSONDecodeError as e:
@@ -61,18 +61,18 @@ def validate_python_syntax(output: str) -> ValidationResult:
     """
     import textwrap
     import warnings
+
     code = _extract_code_block(output, "python")
 
     # Detect truncated output: last non-empty line ends mid-statement
     # (no colon, no closing bracket/paren, not a complete expression)
     last_line = next((l for l in reversed(code.splitlines()) if l.strip()), "")
-    truncated = (
-        last_line.rstrip().endswith(":")  # incomplete annotation like `access_token:`
-        or (last_line.rstrip()[-1:] not in {"}", ")", "]", '"', "'", "\\"}
-            and not last_line.strip().startswith("#")
-            and ":" not in last_line
-            and len(code.splitlines()) >= 50)  # only flag as truncated for long outputs
-    )
+    truncated = last_line.rstrip().endswith(":") or (  # incomplete annotation like `access_token:`
+        last_line.rstrip()[-1:] not in {"}", ")", "]", '"', "'", "\\"}
+        and not last_line.strip().startswith("#")
+        and ":" not in last_line
+        and len(code.splitlines()) >= 50
+    )  # only flag as truncated for long outputs
 
     # Truncation check before syntax parsing: fail immediately so the engine
     # knows to retry with a higher max_output_tokens rather than silently passing
@@ -101,11 +101,28 @@ def validate_python_syntax(output: str) -> ValidationResult:
             except SyntaxError as e:
                 return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
         except SyntaxError as e:
-            return ValidationResult(False, f"Syntax error: {e}", "python_syntax")
+            # Provide detailed error context for common issues
+            error_msg = f"Syntax error: {e.msg} (line {e.lineno})"
+
+            # Add helpful context
+            lines = code.split("\n")
+            if e.lineno and 0 < e.lineno <= len(lines):
+                error_line = lines[e.lineno - 1]
+                error_context = f"\n\nProblematic line {e.lineno}:\n  {error_line}"
+
+                # Specific guidance for common errors
+                if "unterminated" in str(e.msg) or "string literal" in str(e.msg):
+                    error_context += (
+                        '\n\n💡 TIP: Check for unclosed triple-quoted strings (""").\n'
+                        '   Every opening """ must have a matching closing """.'
+                    )
+                elif "EOF" in str(e.msg):
+                    error_context += "\n\n💡 TIP: Unexpected end of file - check for unclosed parentheses, brackets, or strings."
+
+            return ValidationResult(False, error_msg + error_context, "python_syntax")
 
 
-def validate_pytest(output: str, test_code: str = "",
-                    timeout: int = 30) -> ValidationResult:
+def validate_pytest(output: str, test_code: str = "", timeout: int = 30) -> ValidationResult:
     """
     Run pytest on generated code. Writes to temp dir, executes, checks exit code.
     Requires pytest installed in environment.
@@ -129,10 +146,9 @@ def validate_pytest(output: str, test_code: str = "",
         """
         import importlib.util
         import re as _re
+
         # Match 'import X' and 'from X import Y' at column 0
-        pattern = _re.compile(
-            r"^(?:import|from)\s+([A-Za-z_][A-Za-z0-9_]*)", _re.MULTILINE
-        )
+        pattern = _re.compile(r"^(?:import|from)\s+([A-Za-z_][A-Za-z0-9_]*)", _re.MULTILINE)
         for m in pattern.finditer(src):
             top_pkg = m.group(1)
             spec = importlib.util.find_spec(top_pkg)
@@ -167,8 +183,7 @@ def validate_pytest(output: str, test_code: str = "",
                     )
                 test_path = Path(tmpdir) / "test_import.py"
                 test_path.write_text(
-                    "# -*- coding: utf-8 -*-\n"
-                    "def test_import():\n    import generated_code\n",
+                    "# -*- coding: utf-8 -*-\n" "def test_import():\n    import generated_code\n",
                     encoding="utf-8",
                 )
 
@@ -180,9 +195,13 @@ def validate_pytest(output: str, test_code: str = "",
             try:
                 result = subprocess.run(
                     ["python", "-m", "pytest", str(tmpdir), "-v", "--tb=short"],
-                    capture_output=True, text=True, timeout=timeout,
-                    cwd=tmpdir, env=env,
-                    encoding="utf-8", errors="replace",
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    cwd=tmpdir,
+                    env=env,
+                    encoding="utf-8",
+                    errors="replace",
                 )
                 if result.returncode == 0:
                     return ValidationResult(True, result.stdout[-500:], "pytest")
@@ -191,7 +210,7 @@ def validate_pytest(output: str, test_code: str = "",
                         False,
                         f"Tests failed (exit {result.returncode}):\n"
                         f"{result.stdout[-500:]}\n{result.stderr[-300:]}",
-                        "pytest"
+                        "pytest",
                     )
             except subprocess.TimeoutExpired:
                 return ValidationResult(False, f"Pytest timed out after {timeout}s", "pytest")
@@ -232,15 +251,22 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
 
             # Pass 1: auto-fix all safe fixable issues in-place
             subprocess.run(
-                ["ruff", "check", tmp_path, "--select=E,F",
-                 f"--ignore={_IGNORE}", "--fix", "--unsafe-fixes"],
-                capture_output=True, timeout=timeout,
+                [
+                    "ruff",
+                    "check",
+                    tmp_path,
+                    "--select=E,F",
+                    f"--ignore={_IGNORE}",
+                    "--fix",
+                    "--unsafe-fixes",
+                ],
+                capture_output=True,
+                timeout=timeout,
             )
 
             # Pass 2: report any remaining errors
             result = subprocess.run(
-                ["ruff", "check", tmp_path, "--select=E,F",
-                 f"--ignore={_IGNORE}"],
+                ["ruff", "check", tmp_path, "--select=E,F", f"--ignore={_IGNORE}"],
                 capture_output=True,
                 encoding="utf-8",
                 errors="replace",
@@ -249,11 +275,7 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
             if result.returncode == 0:
                 return ValidationResult(True, "No lint errors", "ruff")
             else:
-                return ValidationResult(
-                    False,
-                    f"Lint issues:\n{result.stdout[-500:]}",
-                    "ruff"
-                )
+                return ValidationResult(False, f"Lint issues:\n{result.stdout[-500:]}", "ruff")
         except FileNotFoundError:
             logger.warning("ruff not installed, skipping lint check")
             return ValidationResult(True, "ruff not available, skipped", "ruff")
@@ -275,24 +297,24 @@ def validate_latex(output: str, timeout: int = 30) -> ValidationResult:
     Check LaTeX compiles (requires pdflatex).
     For async callers use async_run_validators() which offloads via asyncio.to_thread().
     """
+
     def _run_sync() -> ValidationResult:
         with tempfile.TemporaryDirectory() as tmpdir:
             tex_path = Path(tmpdir) / "check.tex"
             tex_path.write_text(output)
             try:
                 result = subprocess.run(
-                    ["pdflatex", "-interaction=nonstopmode", "-halt-on-error",
-                     str(tex_path)],
-                    capture_output=True, text=True, timeout=timeout,
+                    ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", str(tex_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
                     cwd=tmpdir,
                 )
                 if result.returncode == 0:
                     return ValidationResult(True, "LaTeX compiled", "latex")
                 else:
                     return ValidationResult(
-                        False,
-                        f"LaTeX compilation failed:\n{result.stderr[-500:]}",
-                        "latex"
+                        False, f"LaTeX compilation failed:\n{result.stderr[-500:]}", "latex"
                     )
             except FileNotFoundError:
                 return ValidationResult(True, "pdflatex not available, skipped", "latex")
@@ -302,18 +324,15 @@ def validate_latex(output: str, timeout: int = 30) -> ValidationResult:
     return _run_sync()
 
 
-def validate_length_bounds(output: str, min_chars: int = 10,
-                           max_chars: int = 50000) -> ValidationResult:
+def validate_length_bounds(
+    output: str, min_chars: int = 10, max_chars: int = 50000
+) -> ValidationResult:
     """Check output is within reasonable length bounds."""
     length = len(output.strip())
     if length < min_chars:
-        return ValidationResult(
-            False, f"Output too short ({length} < {min_chars})", "length"
-        )
+        return ValidationResult(False, f"Output too short ({length} < {min_chars})", "length")
     if length > max_chars:
-        return ValidationResult(
-            False, f"Output too long ({length} > {max_chars})", "length"
-        )
+        return ValidationResult(False, f"Output too long ({length} > {max_chars})", "length")
     return ValidationResult(True, f"Length OK ({length} chars)", "length")
 
 
@@ -321,20 +340,18 @@ def validate_length_bounds(output: str, min_chars: int = 10,
 # These patterns indicate potentially dangerous LLM-generated commands
 _SUSPICIOUS_PATTERNS = [
     # Shell execution
-    (r'\b(os\.system|subprocess\.call|subprocess\.run|subprocess\.Popen)\s*\(',
-     "potential shell execution"),
+    (
+        r"\b(os\.system|subprocess\.call|subprocess\.run|subprocess\.Popen)\s*\(",
+        "potential shell execution",
+    ),
     # Code evaluation
-    (r'\b(eval|exec)\s*\(',
-     "code evaluation"),
+    (r"\b(eval|exec)\s*\(", "code evaluation"),
     # File system operations outside temp
-    (r'\bopen\s*\(\s*["\']/(etc|usr|bin|sbin|root|home)',
-     "system file access"),
+    (r'\bopen\s*\(\s*["\']/(etc|usr|bin|sbin|root|home)', "system file access"),
     # Network calls
-    (r'\b(urllib\.request|requests\.(get|post)|socket\.)',
-     "network call"),
+    (r"\b(urllib\.request|requests\.(get|post)|socket\.)", "network call"),
     # Import of dangerous modules
-    (r'^\s*import\s+(os|subprocess|sys|socket|urllib)',
-     "suspicious import"),
+    (r"^\s*import\s+(os|subprocess|sys|socket|urllib)", "suspicious import"),
 ]
 
 
@@ -342,31 +359,31 @@ def validate_tool_safety(output: str) -> ValidationResult:
     """
     HARDEN: Validate that output doesn't contain hallucinated tool calls
     or potentially dangerous code patterns.
-    
+
     This prevents:
     - Shell command injection
-    - Code evaluation attacks  
+    - Code evaluation attacks
     - Unauthorized file system access
     - Unexpected network calls
-    
+
     Note: This is a safety check, not a functionality check.
     Legitimate uses of these patterns should use the proper validators.
     """
     import re
-    
+
     found_issues = []
     for pattern, description in _SUSPICIOUS_PATTERNS:
         if re.search(pattern, output, re.MULTILINE | re.IGNORECASE):
             found_issues.append(description)
-    
+
     if found_issues:
         return ValidationResult(
             False,
             f"Potentially unsafe patterns detected: {', '.join(found_issues)}. "
             f"If these are intentional, use appropriate sandboxed validators.",
-            "tool_safety"
+            "tool_safety",
         )
-    
+
     return ValidationResult(True, "No unsafe patterns detected", "tool_safety")
 
 
@@ -395,15 +412,16 @@ def _filter_kwargs_for(fn, kwargs: dict) -> dict:
     # If function has **kwargs, pass everything
     if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
         return kwargs
-    accepted = {k for k, p in params.items()
-                if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                              inspect.Parameter.KEYWORD_ONLY)
-                and k != "output"}  # 'output' is positional arg
+    accepted = {
+        k
+        for k, p in params.items()
+        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+        and k != "output"
+    }  # 'output' is positional arg
     return {k: v for k, v in kwargs.items() if k in accepted}
 
 
-def run_validators(output: str, validator_names: list[str],
-                   **kwargs) -> list[ValidationResult]:
+def run_validators(output: str, validator_names: list[str], **kwargs) -> list[ValidationResult]:
     """Run all specified validators. Returns list of results."""
     results = []
     for name in validator_names:
@@ -429,8 +447,9 @@ def all_validators_pass(results: list[ValidationResult]) -> bool:
 _SUBPROCESS_VALIDATORS = {"pytest", "ruff", "latex"}
 
 
-async def async_run_validators(output: str, validator_names: list[str],
-                               **kwargs) -> list[ValidationResult]:
+async def async_run_validators(
+    output: str, validator_names: list[str], **kwargs
+) -> list[ValidationResult]:
     """
     Async variant of run_validators().
 
@@ -483,6 +502,7 @@ async def async_run_validators(output: str, validator_names: list[str],
 # Helper
 # ─────────────────────────────────────────────
 
+
 def _extract_code_block(text: str, language: str = "python") -> str:
     """Extract first code block from markdown-fenced output.
 
@@ -513,7 +533,7 @@ def _extract_code_block(text: str, language: str = "python") -> str:
     )
     m = code_start_re.search(text)
     if m:
-        return text[m.start():]
+        return text[m.start() :]
 
     # 4. Fallback: return as-is
     return text

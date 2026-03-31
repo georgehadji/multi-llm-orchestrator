@@ -7,24 +7,24 @@ validation rules and escalation rules.
 
 These are used by ControlPlane.submit() and OrchestrationAgent.draft().
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from .policy import Budget, PolicySet
-
 
 # ─────────────────────────────────────────────
 # SLA + Input description
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class SLAs:
     """Service-level agreements for a job run."""
 
-    max_latency_ms: Optional[int] = None
-    max_cost_usd: Optional[float] = None
+    max_latency_ms: int | None = None
+    max_cost_usd: float | None = None
     min_quality_tier: float = 0.85
     reliability_target: float = 0.95
 
@@ -34,7 +34,7 @@ class InputSpec:
     """Describes the shape and locality of input data."""
 
     schema: dict = field(default_factory=dict)
-    data_locality: str = "any"   # "eu" | "us" | "any"
+    data_locality: str = "any"  # "eu" | "us" | "any"
     contains_pii: bool = False
 
 
@@ -51,6 +51,7 @@ class Constraints:
 # ─────────────────────────────────────────────
 # JobSpecV2
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class JobSpecV2:
@@ -77,19 +78,20 @@ class JobSpecV2:
 # PolicySpecV2 components
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class RoutingHint:
     """Route tasks to specific model sets when a condition matches."""
 
-    condition: str    # "eu_only AND contains_pii"
-    target: str       # "self_hosted_only" | "eu_models_only"
+    condition: str  # "eu_only AND contains_pii"
+    target: str  # "self_hosted_only" | "eu_models_only"
 
 
 @dataclass
 class ValidationRule:
     """Require specific validators on tasks matching a node pattern."""
 
-    node_pattern: str                    # TaskType value or "*"
+    node_pattern: str  # TaskType value or "*"
     mandatory_validators: list[str] = field(default_factory=list)
 
 
@@ -97,8 +99,8 @@ class ValidationRule:
 class EscalationRule:
     """Trigger an action when a condition is met during execution."""
 
-    trigger: str    # "validator_failed AND iterations >= 3"
-    action: str     # "human_review" | "abort" | "fallback_model"
+    trigger: str  # "validator_failed AND iterations >= 3"
+    action: str  # "human_review" | "abort" | "fallback_model"
 
 
 @dataclass
@@ -116,8 +118,12 @@ class PolicySpecV2:
 
 
 __all__ = [
-    "SLAs", "InputSpec", "Constraints",
+    "SLAs",
+    "InputSpec",
+    "Constraints",
     "JobSpecV2",
-    "RoutingHint", "ValidationRule", "EscalationRule",
+    "RoutingHint",
+    "ValidationRule",
+    "EscalationRule",
     "PolicySpecV2",
 ]

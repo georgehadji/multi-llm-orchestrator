@@ -1,4 +1,5 @@
 """Tests for ArchitectureDecision dataclass and pure utility functions."""
+
 from __future__ import annotations
 
 import json
@@ -11,8 +12,8 @@ from orchestrator.architecture_advisor import (
 )
 from orchestrator.models import Model
 
-
 # ─── _select_model ────────────────────────────────────────────────────────────
+
 
 def test_select_model_short():
     """≤50 words → DeepSeek Chat."""
@@ -34,19 +35,21 @@ def test_select_model_exactly_50():
 
 # ─── _parse_response ──────────────────────────────────────────────────────────
 
-FULL_VALID_JSON = json.dumps({
-    "app_type": "fastapi",
-    "tech_stack": ["python", "fastapi", "postgresql"],
-    "entry_point": "src/main.py",
-    "test_command": "pytest",
-    "run_command": "uvicorn src.main:app --reload",
-    "requires_docker": False,
-    "structural_pattern": "layered",
-    "topology": "monolith",
-    "data_paradigm": "relational",
-    "api_paradigm": "rest",
-    "rationale": "FastAPI is well-suited for REST APIs. Layered architecture keeps things clean.",
-})
+FULL_VALID_JSON = json.dumps(
+    {
+        "app_type": "fastapi",
+        "tech_stack": ["python", "fastapi", "postgresql"],
+        "entry_point": "src/main.py",
+        "test_command": "pytest",
+        "run_command": "uvicorn src.main:app --reload",
+        "requires_docker": False,
+        "structural_pattern": "layered",
+        "topology": "monolith",
+        "data_paradigm": "relational",
+        "api_paradigm": "rest",
+        "rationale": "FastAPI is well-suited for REST APIs. Layered architecture keeps things clean.",
+    }
+)
 
 
 def test_parse_valid_response():
@@ -67,20 +70,22 @@ def test_parse_invalid_json():
     """Invalid JSON → fallback defaults, no exception."""
     result = _parse_response("this is not json {{{{")
     assert isinstance(result, ArchitectureDecision)
-    assert result.app_type == "script"   # fallback default
+    assert result.app_type == "script"  # fallback default
     assert result.detected_from == "advisor"
 
 
 def test_parse_missing_arch_fields():
     """JSON with only AppProfile fields → arch fields get sensible defaults."""
-    minimal = json.dumps({
-        "app_type": "fastapi",
-        "tech_stack": ["python", "fastapi"],
-        "entry_point": "src/main.py",
-        "test_command": "pytest",
-        "run_command": "uvicorn src.main:app",
-        "requires_docker": False,
-    })
+    minimal = json.dumps(
+        {
+            "app_type": "fastapi",
+            "tech_stack": ["python", "fastapi"],
+            "entry_point": "src/main.py",
+            "test_command": "pytest",
+            "run_command": "uvicorn src.main:app",
+            "requires_docker": False,
+        }
+    )
     result = _parse_response(minimal)
     assert result.app_type == "fastapi"
     # arch fields should default to known fastapi defaults
@@ -102,12 +107,15 @@ def test_parse_empty_string():
     assert isinstance(result, ArchitectureDecision)
     assert result.app_type == "script"
 
+
 def test_parse_unknown_app_type():
     """Unknown app_type value → normalised to 'generic', no exception."""
     import json
+
     result = _parse_response(json.dumps({"app_type": "blockchain-dao"}))
     assert result.app_type == "generic"
     assert result.detected_from == "advisor"
+
 
 # ─── ArchitectureAdvisor ──────────────────────────────────────────────────────
 
@@ -215,13 +223,16 @@ def test_detect_from_yaml_unknown_type():
 
 # ─── backward compatibility ───────────────────────────────────────────────────
 
+
 def test_app_profile_alias():
     """AppProfile is a type alias for ArchitectureDecision — same object."""
     from orchestrator.app_detector import AppProfile
+
     assert AppProfile is ArchitectureDecision
 
 
 # ─── AppBuilder integration ───────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_app_builder_uses_architecture_advisor():
@@ -237,6 +248,7 @@ async def test_app_builder_uses_architecture_advisor():
 
 
 # ─── engine.py decomposition prompt ──────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_decompose_prompt_includes_arch_fields():
@@ -267,20 +279,25 @@ async def test_decompose_prompt_includes_arch_fields():
 
     # Patch client.call to capture the prompt
     captured_prompts = []
+
     async def mock_call(model, prompt, **kwargs):
         captured_prompts.append(prompt)
         import json as _json
-        fake_tasks = _json.dumps([{
-            "id": "task_001",
-            "type": "code_generation",
-            "prompt": "Write main.py",
-            "dependencies": [],
-            "hard_validators": ["python_syntax"],
-            "target_path": "src/main.py",
-            "tech_context": "FastAPI",
-        }])
-        return APIResponse(text=fake_tasks, input_tokens=100,
-                           output_tokens=50, model=model)
+
+        fake_tasks = _json.dumps(
+            [
+                {
+                    "id": "task_001",
+                    "type": "code_generation",
+                    "prompt": "Write main.py",
+                    "dependencies": [],
+                    "hard_validators": ["python_syntax"],
+                    "target_path": "src/main.py",
+                    "tech_context": "FastAPI",
+                }
+            ]
+        )
+        return APIResponse(text=fake_tasks, input_tokens=100, output_tokens=50, model=model)
 
     orch.client.call = mock_call
 

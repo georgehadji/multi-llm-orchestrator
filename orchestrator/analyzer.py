@@ -33,17 +33,15 @@ Usage (CLI):
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
-from .codebase_reader import CodebaseReader, CodebaseContext
-from .models import Budget, Model, TaskType
 from .api_clients import UnifiedClient
 from .cache import DiskCache
+from .codebase_reader import CodebaseContext, CodebaseReader
+from .models import Model, TaskType
 
 logger = logging.getLogger("orchestrator.analyzer")
 
@@ -90,7 +88,6 @@ Be specific, cite file names and function names. Prioritize actionable observati
 ---CODEBASE---
 {context}
 """,
-
     "quality": """You are an expert code reviewer. Analyze the codebase below and identify:
 
 1. **Bugs & Logic Errors** — Any clear bugs, off-by-one errors, null pointer risks, race conditions?
@@ -105,7 +102,6 @@ For each issue: cite the file + line number (if visible), explain the problem, a
 ---CODEBASE---
 {context}
 """,
-
     "security": """You are a cybersecurity expert and secure code reviewer. Analyze the codebase for:
 
 1. **Injection Vulnerabilities** — SQL injection, command injection, XSS, SSTI, path traversal?
@@ -121,7 +117,6 @@ For each finding: cite file + context, explain the risk, provide the remediation
 ---CODEBASE---
 {context}
 """,
-
     "performance": """You are a performance engineering expert. Analyze the codebase for:
 
 1. **Algorithmic Complexity** — Any O(n²) or worse where O(n log n) is achievable? Inefficient data structures?
@@ -137,7 +132,6 @@ Be specific: cite file + function name, explain the bottleneck, show the improve
 ---CODEBASE---
 {context}
 """,
-
     "improvements": """You are a senior engineering consultant. Based on the codebase below, provide:
 
 1. **Quick Wins** (< 1 day each) — Low-effort, high-impact improvements ready to implement now.
@@ -157,9 +151,9 @@ For each recommendation: explain WHY it matters, estimate effort, and describe t
 # Best model per analysis type
 ANALYSIS_MODEL_PREFERENCE: dict[str, TaskType] = {
     "architecture": TaskType.REASONING,
-    "quality":      TaskType.CODE_REVIEW,
-    "security":     TaskType.CODE_REVIEW,
-    "performance":  TaskType.REASONING,
+    "quality": TaskType.CODE_REVIEW,
+    "security": TaskType.CODE_REVIEW,
+    "performance": TaskType.REASONING,
     "improvements": TaskType.EVALUATE,
 }
 
@@ -168,9 +162,11 @@ ANALYSIS_MODEL_PREFERENCE: dict[str, TaskType] = {
 # Result types
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class AnalysisSection:
     """Result of one focus-area analysis."""
+
     focus: str
     content: str
     model_used: str
@@ -195,6 +191,7 @@ class AnalysisReport:
     files_analyzed: Number of source files included in the context
     languages     : Detected programming languages
     """
+
     path: Path
     sections: list[AnalysisSection] = field(default_factory=list)
     markdown: str = ""
@@ -208,6 +205,7 @@ class AnalysisReport:
 # ─────────────────────────────────────────────
 # Analyzer
 # ─────────────────────────────────────────────
+
 
 class CodebaseAnalyzer:
     """
@@ -232,9 +230,9 @@ class CodebaseAnalyzer:
     async def analyze(
         self,
         path: str | Path,
-        focus: Optional[list[str]] = None,
+        focus: list[str] | None = None,
         budget_usd: float = 3.0,
-        include_exts: Optional[set[str]] = None,
+        include_exts: set[str] | None = None,
         max_tokens_per_section: int = 4096,
     ) -> AnalysisReport:
         """
@@ -334,7 +332,7 @@ class CodebaseAnalyzer:
                 prompt=prompt,
                 system=system,
                 max_tokens=max_tokens,
-                temperature=0.2,   # low temperature for analytical tasks
+                temperature=0.2,  # low temperature for analytical tasks
                 timeout=120,
                 retries=1,
             )
@@ -363,6 +361,7 @@ class CodebaseAnalyzer:
         Falls back through the routing table until an available model is found.
         """
         from .models import ROUTING_TABLE
+
         for model in ROUTING_TABLE.get(task_type, []):
             if self.client.is_available(model):
                 return model
@@ -372,7 +371,7 @@ class CodebaseAnalyzer:
                 return model
         raise RuntimeError("No LLM providers available. Check your API keys.")
 
-    def _resolve_focus(self, focus: Optional[list[str]]) -> list[str]:
+    def _resolve_focus(self, focus: list[str] | None) -> list[str]:
         """Normalize and validate focus area names."""
         if not focus:
             return list(ALL_FOCUS_AREAS)
@@ -412,8 +411,10 @@ class CodebaseAnalyzer:
         lines.append("### Models used")
         lines.append("")
         for s in report.sections:
-            lines.append(f"- **{s.focus.title()}**: `{s.model_used}` "
-                         f"({s.tokens_used:,} tokens, ${s.cost_usd:.4f})")
+            lines.append(
+                f"- **{s.focus.title()}**: `{s.model_used}` "
+                f"({s.tokens_used:,} tokens, ${s.cost_usd:.4f})"
+            )
         lines.append("")
 
         # Directory tree
@@ -428,17 +429,19 @@ class CodebaseAnalyzer:
         lines.append("---")
         lines.append("")
         section_titles = {
-            "architecture":  "🏗️ Architecture Overview",
-            "quality":       "🔍 Code Quality Review",
-            "security":      "🔒 Security Audit",
-            "performance":   "⚡ Performance Assessment",
-            "improvements":  "💡 Improvement Suggestions",
+            "architecture": "🏗️ Architecture Overview",
+            "quality": "🔍 Code Quality Review",
+            "security": "🔒 Security Audit",
+            "performance": "⚡ Performance Assessment",
+            "improvements": "💡 Improvement Suggestions",
         }
         for s in report.sections:
             title = section_titles.get(s.focus, s.focus.title())
             lines.append(f"## {title}")
-            lines.append(f"*Model: `{s.model_used}` | Tokens: {s.tokens_used:,} | "
-                         f"Cost: ${s.cost_usd:.4f} | Latency: {s.latency_ms:.0f}ms*")
+            lines.append(
+                f"*Model: `{s.model_used}` | Tokens: {s.tokens_used:,} | "
+                f"Cost: ${s.cost_usd:.4f} | Latency: {s.latency_ms:.0f}ms*"
+            )
             lines.append("")
             lines.append(s.content)
             lines.append("")

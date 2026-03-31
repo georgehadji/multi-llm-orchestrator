@@ -17,9 +17,9 @@ Features:
 
 USAGE:
     from orchestrator.fullstack_generator import FullStackGenerator
-    
+
     generator = FullStackGenerator()
-    
+
     # Generate complete app
     app = await generator.generate(
         "Build a task management app with user auth and real-time updates",
@@ -29,7 +29,7 @@ USAGE:
             "database": "postgresql",
         },
     )
-    
+
     # Deploy
     result = await generator.deploy(app, "vercel")
 """
@@ -39,11 +39,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Dict, List, Any
-from pathlib import Path
+from typing import Any
 
-from .component_library import ComponentLibrary, Component, ComponentType, Framework
-from .deployment_service import DeploymentService, DeploymentTarget, DeploymentResult
+from .component_library import Component, ComponentLibrary, ComponentType
+from .deployment_service import DeploymentResult, DeploymentService, DeploymentTarget
 
 logger = logging.getLogger("orchestrator.fullstack_generator")
 
@@ -52,8 +51,10 @@ logger = logging.getLogger("orchestrator.fullstack_generator")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class FrontendFramework(str, Enum):
     """Frontend frameworks."""
+
     REACT = "react"
     VUE = "vue"
     SVELTE = "svelte"
@@ -63,6 +64,7 @@ class FrontendFramework(str, Enum):
 
 class BackendFramework(str, Enum):
     """Backend frameworks."""
+
     FASTAPI = "fastapi"
     FLASK = "flask"
     EXPRESS = "express"
@@ -71,6 +73,7 @@ class BackendFramework(str, Enum):
 
 class DatabaseType(str, Enum):
     """Database types."""
+
     POSTGRESQL = "postgresql"
     SQLITE = "sqlite"
     MONGODB = "mongodb"
@@ -79,6 +82,7 @@ class DatabaseType(str, Enum):
 
 class AuthType(str, Enum):
     """Authentication types."""
+
     JWT = "jwt"
     OAUTH = "oauth"
     MAGIC_LINK = "magic_link"
@@ -89,42 +93,44 @@ class AuthType(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class FullStackApp:
     """Complete full-stack application."""
+
     name: str
     description: str = ""
-    
+
     # Frontend
     frontend_framework: FrontendFramework = FrontendFramework.REACT
-    frontend_components: List[Component] = field(default_factory=list)
-    frontend_code: Dict[str, str] = field(default_factory=dict)
-    
+    frontend_components: list[Component] = field(default_factory=list)
+    frontend_code: dict[str, str] = field(default_factory=dict)
+
     # Backend
     backend_framework: BackendFramework = BackendFramework.FASTAPI
-    api_endpoints: List[dict] = field(default_factory=list)
-    backend_code: Dict[str, str] = field(default_factory=dict)
-    
+    api_endpoints: list[dict] = field(default_factory=list)
+    backend_code: dict[str, str] = field(default_factory=dict)
+
     # Database
     database_type: DatabaseType = DatabaseType.POSTGRESQL
-    database_schema: Optional[dict] = None
-    migrations: List[str] = field(default_factory=list)
-    
+    database_schema: dict | None = None
+    migrations: list[str] = field(default_factory=list)
+
     # Authentication
     auth_type: AuthType = AuthType.JWT
     auth_config: dict = field(default_factory=dict)
-    
+
     # Deployment
     deployment_config: dict = field(default_factory=dict)
-    
+
     # Project structure
-    file_tree: Dict[str, Any] = field(default_factory=dict)
-    
+    file_tree: dict[str, Any] = field(default_factory=dict)
+
     # Statistics
     total_files: int = 0
     total_lines: int = 0
     estimated_tokens: int = 0
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -142,6 +148,7 @@ class FullStackApp:
 @dataclass
 class GenerationOptions:
     """Generation options."""
+
     frontend: FrontendFramework = FrontendFramework.REACT
     backend: BackendFramework = BackendFramework.FASTAPI
     database: DatabaseType = DatabaseType.POSTGRESQL
@@ -151,7 +158,7 @@ class GenerationOptions:
     include_docker: bool = True
     styling: str = "tailwind"  # tailwind, bootstrap, css
     state_management: str = "redux"  # redux, zustand, context
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -171,46 +178,47 @@ class GenerationOptions:
 # Full-Stack Generator
 # ─────────────────────────────────────────────
 
+
 class FullStackGenerator:
     """
     Generate complete full-stack applications.
-    
+
     Takes a project description and generates frontend, backend,
     database schema, authentication, and deployment configuration.
     """
-    
+
     def __init__(
         self,
-        component_library: Optional[ComponentLibrary] = None,
-        deployment_service: Optional[DeploymentService] = None,
+        component_library: ComponentLibrary | None = None,
+        deployment_service: DeploymentService | None = None,
     ):
         self.component_library = component_library or ComponentLibrary()
         self.deployment_service = deployment_service or DeploymentService()
-        
+
         # Statistics
         self._total_generations = 0
         self._total_apps_deployed = 0
-    
+
     async def generate(
         self,
         description: str,
-        options: Optional[GenerationOptions] = None,
+        options: GenerationOptions | None = None,
     ) -> FullStackApp:
         """
         Generate complete full-stack application.
-        
+
         Args:
             description: Project description
             options: Generation options
-        
+
         Returns:
             Generated full-stack app
         """
         options = options or GenerationOptions()
-        
+
         # Extract app name from description
         name = self._extract_app_name(description)
-        
+
         # Create app instance
         app = FullStackApp(
             name=name,
@@ -220,62 +228,62 @@ class FullStackGenerator:
             database_type=options.database,
             auth_type=options.auth,
         )
-        
+
         # Generate frontend
         logger.info(f"Generating frontend for {name}...")
         app.frontend_components = await self._generate_frontend(description, options)
         app.frontend_code = await self._generate_frontend_code(app, options)
-        
+
         # Generate backend
         logger.info(f"Generating backend for {name}...")
         app.api_endpoints = await self._generate_api_endpoints(description, options)
         app.backend_code = await self._generate_backend_code(app, options)
-        
+
         # Generate database schema
         logger.info(f"Generating database schema for {name}...")
         app.database_schema = await self._generate_database_schema(description, options)
         app.migrations = await self._generate_migrations(app, options)
-        
+
         # Generate authentication
         logger.info(f"Generating authentication for {name}...")
         app.auth_config = await self._generate_auth_config(options)
-        
+
         # Generate deployment config
         logger.info(f"Generating deployment config for {name}...")
         app.deployment_config = await self._generate_deployment_config(app, options)
-        
+
         # Generate project structure
         app.file_tree = self._generate_file_tree(app, options)
-        
+
         # Calculate statistics
         app.total_files = len(app.frontend_code) + len(app.backend_code) + len(app.migrations)
-        app.total_lines = sum(len(code.split('\n')) for code in app.frontend_code.values())
-        app.total_lines += sum(len(code.split('\n')) for code in app.backend_code.values())
+        app.total_lines = sum(len(code.split("\n")) for code in app.frontend_code.values())
+        app.total_lines += sum(len(code.split("\n")) for code in app.backend_code.values())
         app.estimated_tokens = int(app.total_lines * 1.3)  # Rough estimate
-        
+
         self._total_generations += 1
-        
+
         logger.info(
             f"Generated {name}: {app.total_files} files, "
             f"{app.total_lines} lines, ~{app.estimated_tokens} tokens"
         )
-        
+
         return app
-    
+
     async def deploy(
         self,
         app: FullStackApp,
         target: str,
-        project_path: Optional[str] = None,
+        project_path: str | None = None,
     ) -> DeploymentResult:
         """
         Deploy generated application.
-        
+
         Args:
             app: Generated app
             target: Deployment target (vercel, netlify, docker)
             project_path: Optional project path
-        
+
         Returns:
             Deployment result
         """
@@ -285,97 +293,87 @@ class FullStackGenerator:
                 target=DeploymentTarget.LOCAL,
                 error="Deployment service not configured",
             )
-        
+
         deployment_target = DeploymentTarget(target.lower())
-        
+
         result = await self.deployment_service.deploy(
             project_path=project_path or f"./{app.name}",
             target=deployment_target,
             config=app.deployment_config,
         )
-        
+
         if result.success:
             self._total_apps_deployed += 1
-        
+
         return result
-    
+
     def _extract_app_name(self, description: str) -> str:
         """Extract app name from description."""
         # Simple extraction - first few words
         words = description.lower().split()[:3]
         name = "_".join(words).replace("-", "_")
         return name
-    
+
     async def _generate_frontend(
         self,
         description: str,
         options: GenerationOptions,
-    ) -> List[Component]:
+    ) -> list[Component]:
         """Generate frontend components."""
         components = []
-        
+
         # Analyze description for required components
         desc_lower = description.lower()
-        
+
         # Add common components based on description
         if "login" in desc_lower or "auth" in desc_lower or "user" in desc_lower:
-            components.append(
-                self.component_library.get(ComponentType.FORM, "login")
-            )
-        
+            components.append(self.component_library.get(ComponentType.FORM, "login"))
+
         if "register" in desc_lower or "sign up" in desc_lower:
-            components.append(
-                self.component_library.get(ComponentType.FORM, "register")
-            )
-        
+            components.append(self.component_library.get(ComponentType.FORM, "register"))
+
         if "dashboard" in desc_lower:
-            components.append(
-                self.component_library.get(ComponentType.CARD, "dashboard")
-            )
-        
+            components.append(self.component_library.get(ComponentType.CARD, "dashboard"))
+
         if "table" in desc_lower or "list" in desc_lower or "data" in desc_lower:
-            components.append(
-                self.component_library.get(ComponentType.TABLE, "datatable")
-            )
-        
+            components.append(self.component_library.get(ComponentType.TABLE, "datatable"))
+
         # Always add navigation
-        components.append(
-            self.component_library.get(ComponentType.NAVIGATION, "navbar")
-        )
-        
+        components.append(self.component_library.get(ComponentType.NAVIGATION, "navbar"))
+
         return components
-    
+
     async def _generate_frontend_code(
         self,
         app: FullStackApp,
         options: GenerationOptions,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Generate frontend code files."""
         code = {}
-        
+
         # Generate main App component
-        app_component = f"""import React from 'react';
-import {{ BrowserRouter, Routes, Route }} from 'react-router-dom';
+        app_component = """import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // Import pages
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 
-function App() {{
+function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={{<HomePage />}} />
-        <Route path="/login" element={{<LoginPage />}} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
       </Routes>
     </BrowserRouter>
   );
-}}
+}
 
 export default App;
 """
         code["src/App.tsx"] = app_component
-        
+
         # Generate package.json
         package_json = f"""{{
   "name": "{app.name}",
@@ -395,67 +393,75 @@ export default App;
 }}
 """
         code["package.json"] = package_json
-        
+
         # Generate component files from components
         for component in app.frontend_components:
             filename = f"src/components/{component.name}.tsx"
             code[filename] = component.render()
-        
+
         return code
-    
+
     async def _generate_api_endpoints(
         self,
         description: str,
         options: GenerationOptions,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Generate API endpoints."""
         endpoints = []
-        
+
         # Add auth endpoints
-        endpoints.append({
-            "method": "POST",
-            "path": "/api/auth/login",
-            "description": "User login",
-            "body": {"email": "string", "password": "string"},
-            "response": {"token": "string", "user": "object"},
-        })
-        
-        endpoints.append({
-            "method": "POST",
-            "path": "/api/auth/register",
-            "description": "User registration",
-            "body": {"email": "string", "password": "string", "name": "string"},
-            "response": {"token": "string", "user": "object"},
-        })
-        
+        endpoints.append(
+            {
+                "method": "POST",
+                "path": "/api/auth/login",
+                "description": "User login",
+                "body": {"email": "string", "password": "string"},
+                "response": {"token": "string", "user": "object"},
+            }
+        )
+
+        endpoints.append(
+            {
+                "method": "POST",
+                "path": "/api/auth/register",
+                "description": "User registration",
+                "body": {"email": "string", "password": "string", "name": "string"},
+                "response": {"token": "string", "user": "object"},
+            }
+        )
+
         # Add CRUD endpoints based on description
         desc_lower = description.lower()
-        
+
         if "task" in desc_lower or "todo" in desc_lower:
-            endpoints.append({
-                "method": "GET",
-                "path": "/api/tasks",
-                "description": "List all tasks",
-                "response": {"tasks": "array"},
-            })
-            endpoints.append({
-                "method": "POST",
-                "path": "/api/tasks",
-                "description": "Create task",
-                "body": {"title": "string", "description": "string"},
-                "response": {"task": "object"},
-            })
-        
+            endpoints.append(
+                {
+                    "method": "GET",
+                    "path": "/api/tasks",
+                    "description": "List all tasks",
+                    "response": {"tasks": "array"},
+                }
+            )
+            endpoints.append(
+                {
+                    "method": "POST",
+                    "path": "/api/tasks",
+                    "description": "Create task",
+                    "body": {"title": "string", "description": "string"},
+                    "response": {"task": "object"},
+                }
+            )
+
         return endpoints
-    
+
     async def _generate_backend_code(
         self,
         app: FullStackApp,
         options: GenerationOptions,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Generate backend code files."""
         code = {}
-        
+
         # Generate main.py for FastAPI
         if app.backend_framework == BackendFramework.FASTAPI:
             main_py = f"""from fastapi import FastAPI, HTTPException
@@ -512,7 +518,7 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 """
             code["main.py"] = main_py
-            
+
             # Generate requirements.txt
             code["requirements.txt"] = """fastapi==0.104.0
 uvicorn==0.24.0
@@ -520,9 +526,9 @@ pydantic==2.0.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 """
-        
+
         return code
-    
+
     async def _generate_database_schema(
         self,
         description: str,
@@ -535,7 +541,12 @@ passlib[bcrypt]==1.7.4
                     "name": "users",
                     "columns": [
                         {"name": "id", "type": "UUID", "primary_key": True},
-                        {"name": "email", "type": "VARCHAR(255)", "unique": True, "nullable": False},
+                        {
+                            "name": "email",
+                            "type": "VARCHAR(255)",
+                            "unique": True,
+                            "nullable": False,
+                        },
                         {"name": "password_hash", "type": "VARCHAR(255)", "nullable": False},
                         {"name": "name", "type": "VARCHAR(255)"},
                         {"name": "created_at", "type": "TIMESTAMP", "default": "NOW()"},
@@ -544,33 +555,35 @@ passlib[bcrypt]==1.7.4
                 },
             ],
         }
-        
+
         # Add tables based on description
         desc_lower = description.lower()
-        
+
         if "task" in desc_lower or "todo" in desc_lower:
-            schema["tables"].append({
-                "name": "tasks",
-                "columns": [
-                    {"name": "id", "type": "UUID", "primary_key": True},
-                    {"name": "title", "type": "VARCHAR(255)", "nullable": False},
-                    {"name": "description", "type": "TEXT"},
-                    {"name": "status", "type": "VARCHAR(50)", "default": "'pending'"},
-                    {"name": "user_id", "type": "UUID", "foreign_key": "users.id"},
-                    {"name": "created_at", "type": "TIMESTAMP", "default": "NOW()"},
-                ],
-            })
-        
+            schema["tables"].append(
+                {
+                    "name": "tasks",
+                    "columns": [
+                        {"name": "id", "type": "UUID", "primary_key": True},
+                        {"name": "title", "type": "VARCHAR(255)", "nullable": False},
+                        {"name": "description", "type": "TEXT"},
+                        {"name": "status", "type": "VARCHAR(50)", "default": "'pending'"},
+                        {"name": "user_id", "type": "UUID", "foreign_key": "users.id"},
+                        {"name": "created_at", "type": "TIMESTAMP", "default": "NOW()"},
+                    ],
+                }
+            )
+
         return schema
-    
+
     async def _generate_migrations(
         self,
         app: FullStackApp,
         options: GenerationOptions,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate database migrations."""
         migrations = []
-        
+
         # Generate initial migration
         migration = f"""-- Initial migration for {app.name}
 -- Generated by AI Orchestrator
@@ -586,17 +599,17 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX idx_users_email ON users(email);
 """
-        
+
         if app.database_schema:
             for table in app.database_schema.get("tables", []):
                 if table["name"] != "users":
                     migration += f"\n-- Table: {table['name']}\n"
                     # Add table creation SQL
-        
+
         migrations.append(migration)
-        
+
         return migrations
-    
+
     async def _generate_auth_config(
         self,
         options: GenerationOptions,
@@ -608,7 +621,7 @@ CREATE INDEX idx_users_email ON users(email);
             "jwt_expiry": "24h",
             "refresh_token_expiry": "7d",
         }
-        
+
         if options.auth == AuthType.OAUTH:
             config["providers"] = {
                 "google": {
@@ -620,9 +633,9 @@ CREATE INDEX idx_users_email ON users(email);
                     "client_secret": "${GITHUB_CLIENT_SECRET}",
                 },
             }
-        
+
         return config
-    
+
     async def _generate_deployment_config(
         self,
         app: FullStackApp,
@@ -637,7 +650,7 @@ CREATE INDEX idx_users_email ON users(email);
                 "API_KEY",
             ],
         }
-        
+
         # Vercel config
         if options.frontend in [FrontendFramework.REACT, FrontendFramework.NEXTJS]:
             config["vercel"] = {
@@ -645,16 +658,16 @@ CREATE INDEX idx_users_email ON users(email);
                 "output_directory": "dist",
                 "install_command": "npm install",
             }
-        
+
         # Docker config
         if options.include_docker:
             config["docker"] = {
                 "base_image": "python:3.11-slim",
                 "port": 8000,
             }
-        
+
         return config
-    
+
     def _generate_file_tree(
         self,
         app: FullStackApp,
@@ -694,10 +707,10 @@ CREATE INDEX idx_users_email ON users(email);
                 {"name": ".gitignore", "type": "file"},
             ],
         }
-        
+
         return tree
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get generator statistics."""
         return {
             "total_generations": self._total_generations,
@@ -711,7 +724,7 @@ CREATE INDEX idx_users_email ON users(email);
 # Convenience Functions
 # ─────────────────────────────────────────────
 
-_default_generator: Optional[FullStackGenerator] = None
+_default_generator: FullStackGenerator | None = None
 
 
 def get_fullstack_generator() -> FullStackGenerator:
@@ -730,23 +743,20 @@ def reset_fullstack_generator() -> None:
 
 async def generate_fullstack_app(
     description: str,
-    options: Optional[dict] = None,
+    options: dict | None = None,
 ) -> FullStackApp:
     """
     Generate full-stack app using default generator.
-    
+
     Args:
         description: Project description
         options: Optional generation options
-    
+
     Returns:
         Generated app
     """
     generator = get_fullstack_generator()
-    
-    if options:
-        gen_options = GenerationOptions(**options)
-    else:
-        gen_options = GenerationOptions()
-    
+
+    gen_options = GenerationOptions(**options) if options else GenerationOptions()
+
     return await generator.generate(description, gen_options)

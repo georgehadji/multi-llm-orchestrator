@@ -13,7 +13,7 @@ Features:
 
 Usage:
     from orchestrator.cost_optimization import DockerSandbox
-    
+
     sandbox = DockerSandbox()
     result = await sandbox.execute(
         code_files={"main.py": "print('hello')"},
@@ -24,14 +24,12 @@ Usage:
 
 from __future__ import annotations
 
-import logging
 import tempfile
-import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -39,6 +37,7 @@ logger = get_logger(__name__)
 @dataclass
 class ExecutionResult:
     """Result of sandbox execution."""
+
     return_code: int
     output: str
     error: str = ""
@@ -50,6 +49,7 @@ class ExecutionResult:
 @dataclass
 class SandboxMetrics:
     """Metrics for sandbox execution."""
+
     total_executions: int = 0
     successful_executions: int = 0
     failed_executions: int = 0
@@ -58,7 +58,7 @@ class SandboxMetrics:
     security_violations: int = 0
     avg_execution_time: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_executions": self.total_executions,
             "successful_executions": self.successful_executions,
@@ -92,10 +92,10 @@ class DockerSandbox:
 
     def __init__(
         self,
-        image: Optional[str] = None,
-        memory_limit: Optional[str] = None,
-        cpu_quota: Optional[int] = None,
-        timeout: Optional[int] = None,
+        image: str | None = None,
+        memory_limit: str | None = None,
+        cpu_quota: int | None = None,
+        timeout: int | None = None,
     ):
         """
         Initialize Docker sandbox.
@@ -114,10 +114,10 @@ class DockerSandbox:
         self.network_disabled = self.DEFAULT_NETWORK_DISABLED
 
         self.metrics = SandboxMetrics()
-        self._workspaces: Dict[str, Path] = {}
+        self._workspaces: dict[str, Path] = {}
 
         # Check if Docker is available
-        self._docker_available: Optional[bool] = None
+        self._docker_available: bool | None = None
 
     async def _check_docker(self) -> bool:
         """Check if Docker is available."""
@@ -126,6 +126,7 @@ class DockerSandbox:
 
         try:
             import docker
+
             client = docker.from_env()
             client.ping()
             self._docker_available = True
@@ -138,11 +139,11 @@ class DockerSandbox:
 
     async def execute(
         self,
-        code_files: Dict[str, str],
+        code_files: dict[str, str],
         command: str,
-        timeout: Optional[int] = None,
+        timeout: int | None = None,
         working_dir: str = "/app",
-        environment: Optional[Dict[str, str]] = None,
+        environment: dict[str, str] | None = None,
         **kwargs,
     ) -> ExecutionResult:
         """
@@ -160,6 +161,7 @@ class DockerSandbox:
             ExecutionResult with output, errors, etc.
         """
         import time
+
         start_time = time.time()
 
         self.metrics.total_executions += 1
@@ -171,6 +173,7 @@ class DockerSandbox:
         if docker_available:
             try:
                 import docker
+
                 client = docker.from_env()
 
                 # Create temporary workspace
@@ -200,7 +203,7 @@ class DockerSandbox:
                 try:
                     # Wait for completion with timeout
                     result = container.wait(timeout=timeout)
-                    logs = container.logs().decode('utf-8', errors='replace')
+                    logs = container.logs().decode("utf-8", errors="replace")
 
                     execution_time = time.time() - start_time
 
@@ -211,9 +214,9 @@ class DockerSandbox:
                         self.metrics.failed_executions += 1
 
                     self.metrics.avg_execution_time = (
-                        (self.metrics.avg_execution_time * (self.metrics.total_executions - 1) + execution_time)
-                        / self.metrics.total_executions
-                    )
+                        self.metrics.avg_execution_time * (self.metrics.total_executions - 1)
+                        + execution_time
+                    ) / self.metrics.total_executions
 
                     return ExecutionResult(
                         return_code=result["StatusCode"],
@@ -280,14 +283,14 @@ class DockerSandbox:
     def _cleanup_workspace(self, workspace: Path, max_retries: int = 3) -> None:
         """
         FIX-OPT-003a: Cleanup workspace with retry logic.
-        
+
         Args:
             workspace: Workspace path to cleanup
             max_retries: Maximum retry attempts
         """
         import shutil
         import time
-        
+
         for attempt in range(max_retries):
             try:
                 shutil.rmtree(workspace, ignore_errors=False)
@@ -298,17 +301,22 @@ class DockerSandbox:
             except (OSError, PermissionError) as e:
                 if attempt < max_retries - 1:
                     # Exponential backoff
-                    wait_time = 0.1 * (2 ** attempt)
-                    logger.warning(f"Cleanup attempt {attempt + 1} failed, retrying in {wait_time}s: {e}")
+                    wait_time = 0.1 * (2**attempt)
+                    logger.warning(
+                        f"Cleanup attempt {attempt + 1} failed, retrying in {wait_time}s: {e}"
+                    )
                     time.sleep(wait_time)
                 else:
-                    logger.error(f"Failed to cleanup workspace after {max_retries} attempts: {workspace} - {e}")
+                    logger.error(
+                        f"Failed to cleanup workspace after {max_retries} attempts: {workspace} - {e}"
+                    )
                     # Keep in orphaned workspaces for manual cleanup
                     self._workspaces[str(workspace)] = workspace
 
     async def cleanup(self) -> None:
         """Cleanup all workspaces."""
         import shutil
+
         for workspace_path in list(self._workspaces.values()):
             try:
                 shutil.rmtree(workspace_path, ignore_errors=True)
@@ -322,8 +330,9 @@ class DockerSandbox:
 # Convenience Functions
 # ─────────────────────────────────────────────
 
+
 async def execute_in_sandbox(
-    code_files: Dict[str, str],
+    code_files: dict[str, str],
     command: str,
     timeout: int = 30,
 ) -> ExecutionResult:

@@ -11,30 +11,36 @@ Tracks critical KPIs:
 
 Usage:
     from orchestrator.monitoring import KPIReporter, monitor_endpoint
-    
+
     @monitor_endpoint("/api/models")
     async def get_models():
         return await fetch_models()
 """
+
 from __future__ import annotations
 
 import asyncio
 import functools
 import json
 import platform
+
 try:
     import resource
 except ModuleNotFoundError:
     resource = None
 import time
 from collections import deque
-from dataclasses import dataclass, asdict, field
-from datetime import datetime, timedelta
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
 from typing_extensions import ParamSpec
 
 from .log_config import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = get_logger(__name__)
 
@@ -46,22 +52,25 @@ T = TypeVar("T")
 # KPI DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class KPITier(Enum):
     """KPI criticality tiers."""
+
     CRITICAL = "critical"  # Page on failure
-    HIGH = "high"          # Alert immediately
-    MEDIUM = "medium"      # Daily report
-    LOW = "low"            # Weekly report
+    HIGH = "high"  # Alert immediately
+    MEDIUM = "medium"  # Daily report
+    LOW = "low"  # Weekly report
 
 
 @dataclass
 class KPIThreshold:
     """Threshold configuration for a KPI."""
+
     warning: float
     critical: float
     unit: str
-    
-    def check(self, value: float) -> Tuple[bool, str]:
+
+    def check(self, value: float) -> tuple[bool, str]:
         """Check value against thresholds. Returns (is_alert, severity)."""
         if value >= self.critical:
             return True, "critical"
@@ -73,13 +82,14 @@ class KPIThreshold:
 @dataclass
 class KPIDefinition:
     """Definition of a Key Performance Indicator."""
+
     name: str
     description: str
     tier: KPITier
     threshold: KPIThreshold
-    target_value: Optional[float] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    target_value: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -123,7 +133,6 @@ STANDARD_KPIS = {
         threshold=KPIThreshold(warning=10, critical=100, unit="req/s"),
         target_value=50,
     ),
-    
     # Reliability KPIs
     "error_rate": KPIDefinition(
         name="Error Rate",
@@ -146,7 +155,6 @@ STANDARD_KPIS = {
         threshold=KPIThreshold(warning=0.5, critical=0.3, unit="percent"),
         target_value=0.85,
     ),
-    
     # Cost KPIs
     "daily_cost": KPIDefinition(
         name="Daily API Cost",
@@ -162,7 +170,6 @@ STANDARD_KPIS = {
         threshold=KPIThreshold(warning=0.3, critical=0.2, unit="ratio"),
         target_value=0.5,
     ),
-    
     # Resource KPIs
     "memory_usage": KPIDefinition(
         name="Memory Usage",
@@ -185,52 +192,54 @@ STANDARD_KPIS = {
 # METRICS COLLECTION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class MetricSample:
     """Single metric sample."""
+
     value: float
     timestamp: float
-    labels: Dict[str, str] = field(default_factory=dict)
+    labels: dict[str, str] = field(default_factory=dict)
 
 
 class SlidingWindow:
     """Sliding window for metric samples."""
-    
+
     def __init__(self, duration_seconds: int = 300):
         self.duration = duration_seconds
         self._samples: deque = deque()
         self._lock = asyncio.Lock()
-    
-    async def add(self, value: float, labels: Optional[Dict[str, str]] = None):
+
+    async def add(self, value: float, labels: dict[str, str] | None = None):
         """Add sample to window."""
         async with self._lock:
             now = time.time()
             self._samples.append(MetricSample(value, now, labels or {}))
             self._prune(now)
-    
+
     def _prune(self, now: float):
         """Remove old samples."""
         cutoff = now - self.duration
         while self._samples and self._samples[0].timestamp < cutoff:
             self._samples.popleft()
-    
-    async def get_samples(self) -> List[MetricSample]:
+
+    async def get_samples(self) -> list[MetricSample]:
         """Get all samples in window."""
         async with self._lock:
             self._prune(time.time())
             return list(self._samples)
-    
-    async def get_stats(self) -> Dict[str, float]:
+
+    async def get_stats(self) -> dict[str, float]:
         """Get statistics for window."""
         samples = await self.get_samples()
-        
+
         if not samples:
             return {"count": 0}
-        
+
         values = [s.value for s in samples]
         values_sorted = sorted(values)
         n = len(values)
-        
+
         return {
             "count": n,
             "min": values_sorted[0],
@@ -244,61 +253,63 @@ class SlidingWindow:
 
 class MetricsRegistry:
     """Central registry for all metrics."""
-    
+
     def __init__(self):
-        self._windows: Dict[str, SlidingWindow] = {}
-        self._counters: Dict[str, int] = {}
-        self._gauges: Dict[str, float] = {}
+        self._windows: dict[str, SlidingWindow] = {}
+        self._counters: dict[str, int] = {}
+        self._gauges: dict[str, float] = {}
         self._lock = asyncio.Lock()
-    
-    async def record(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
+
+    async def record(self, name: str, value: float, labels: dict[str, str] | None = None):
         """Record a metric value."""
         async with self._lock:
             if name not in self._windows:
                 self._windows[name] = SlidingWindow()
-        
+
         await self._windows[name].add(value, labels)
-    
+
     async def increment(self, name: str, value: int = 1):
         """Increment a counter."""
         async with self._lock:
             self._counters[name] = self._counters.get(name, 0) + value
-    
+
     async def gauge(self, name: str, value: float):
         """Set a gauge value."""
         async with self._lock:
             self._gauges[name] = value
-    
-    async def get_metric(self, name: str) -> Dict[str, Any]:
+
+    async def get_metric(self, name: str) -> dict[str, Any]:
         """Get metric statistics."""
         async with self._lock:
             window = self._windows.get(name)
             counter = self._counters.get(name)
             gauge = self._gauges.get(name)
-        
+
         result = {}
-        
+
         if window:
             result["window"] = await window.get_stats()
-        
+
         if counter is not None:
             result["counter"] = counter
-        
+
         if gauge is not None:
             result["gauge"] = gauge
-        
+
         return result
-    
-    async def get_all_metrics(self) -> Dict[str, Dict[str, Any]]:
+
+    async def get_all_metrics(self) -> dict[str, dict[str, Any]]:
         """Get all metrics."""
         all_metrics = {}
-        
+
         async with self._lock:
-            names = list(self._windows.keys()) + list(self._counters.keys()) + list(self._gauges.keys())
-        
+            names = (
+                list(self._windows.keys()) + list(self._counters.keys()) + list(self._gauges.keys())
+            )
+
         for name in set(names):
             all_metrics[name] = await self.get_metric(name)
-        
+
         return all_metrics
 
 
@@ -310,30 +321,31 @@ metrics = MetricsRegistry()
 # KPI REPORTER
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class KPIReporter:
     """
     Reports KPI status and generates alerts.
-    
+
     Features:
     - Real-time KPI monitoring
     - Alert generation on threshold breaches
     - Health score calculation
     - Trend analysis
     """
-    
-    def __init__(self, kpis: Optional[Dict[str, KPIDefinition]] = None):
+
+    def __init__(self, kpis: dict[str, KPIDefinition] | None = None):
         self.kpis = kpis or STANDARD_KPIS
         self._alert_history: deque = deque(maxlen=100)
         self._health_score = 100.0
-    
-    async def evaluate(self, kpi_name: str, value: float) -> Dict[str, Any]:
+
+    async def evaluate(self, kpi_name: str, value: float) -> dict[str, Any]:
         """Evaluate a KPI value against thresholds."""
         definition = self.kpis.get(kpi_name)
         if not definition:
             return {"error": f"Unknown KPI: {kpi_name}"}
-        
+
         is_alert, severity = definition.threshold.check(value)
-        
+
         result = {
             "kpi": definition.name,
             "value": value,
@@ -345,95 +357,103 @@ class KPIReporter:
             "is_alert": is_alert,
             "tier": definition.tier.value,
         }
-        
+
         if is_alert:
             alert = {
                 "timestamp": datetime.now().isoformat(),
                 "kpi": kpi_name,
                 "severity": severity,
                 "value": value,
-                "threshold": definition.threshold.critical if severity == "critical" else definition.threshold.warning,
+                "threshold": (
+                    definition.threshold.critical
+                    if severity == "critical"
+                    else definition.threshold.warning
+                ),
             }
             self._alert_history.append(alert)
-            
+
             # Log alert
             log_method = logger.error if severity == "critical" else logger.warning
             log_method(
                 f"KPI ALERT: {definition.name} = {value}{definition.threshold.unit} "
                 f"(threshold: {definition.threshold.critical}{definition.threshold.unit})"
             )
-        
+
         return result
-    
-    async def get_health_score(self) -> Dict[str, Any]:
+
+    async def get_health_score(self) -> dict[str, Any]:
         """Calculate overall health score."""
         all_metrics = await metrics.get_all_metrics()
-        
+
         scores = []
         details = []
-        
+
         for kpi_name, definition in self.kpis.items():
             metric_data = all_metrics.get(kpi_name, {})
             window = metric_data.get("window", {})
-            
+
             if window.get("count", 0) > 0:
                 current_value = window.get("avg", 0)
                 evaluation = await self.evaluate(kpi_name, current_value)
-                
+
                 # Calculate individual score
                 if evaluation["is_alert"]:
-                    if evaluation["status"] == "critical":
-                        score = 0
-                    else:
-                        score = 50
+                    score = 0 if evaluation["status"] == "critical" else 50
                 else:
                     score = 100
-                
+
                 scores.append(score)
-                details.append({
-                    "kpi": kpi_name,
-                    "score": score,
-                    "current": current_value,
-                    "target": definition.target_value,
-                })
-        
+                details.append(
+                    {
+                        "kpi": kpi_name,
+                        "score": score,
+                        "current": current_value,
+                        "target": definition.target_value,
+                    }
+                )
+
         overall_score = sum(scores) / len(scores) if scores else 100
         self._health_score = overall_score
-        
+
         return {
             "overall": round(overall_score, 1),
-            "status": "healthy" if overall_score >= 90 else "degraded" if overall_score >= 70 else "critical",
+            "status": (
+                "healthy"
+                if overall_score >= 90
+                else "degraded" if overall_score >= 70 else "critical"
+            ),
             "details": details,
             "timestamp": datetime.now().isoformat(),
         }
-    
-    def get_alert_summary(self, since_minutes: int = 60) -> Dict[str, Any]:
+
+    def get_alert_summary(self, since_minutes: int = 60) -> dict[str, Any]:
         """Get summary of recent alerts."""
         cutoff = time.time() - (since_minutes * 60)
-        
+
         recent_alerts = [
-            a for a in self._alert_history
+            a
+            for a in self._alert_history
             if datetime.fromisoformat(a["timestamp"]).timestamp() > cutoff
         ]
-        
+
         by_severity = {"critical": 0, "warning": 0}
-        by_kpi: Dict[str, int] = {}
-        
+        by_kpi: dict[str, int] = {}
+
         for alert in recent_alerts:
             by_severity[alert["severity"]] += 1
             by_kpi[alert["kpi"]] = by_kpi.get(alert["kpi"], 0) + 1
-        
+
         return {
             "total": len(recent_alerts),
             "by_severity": by_severity,
             "by_kpi": by_kpi,
             "recent": recent_alerts[-10:],  # Last 10 alerts
         }
-    
-    async def generate_report(self) -> Dict[str, Any]:
+
+    async def generate_report(self) -> dict[str, Any]:
         """Generate comprehensive KPI report."""
         all_metrics = await metrics.get_all_metrics()
-        
+
         report = {
             "timestamp": datetime.now().isoformat(),
             "health": await self.get_health_score(),
@@ -441,33 +461,33 @@ class KPIReporter:
             "kpis": {},
             "system": await self._get_system_metrics(),
         }
-        
+
         for kpi_name, definition in self.kpis.items():
             metric_data = all_metrics.get(kpi_name, {})
             window = metric_data.get("window", {})
-            
+
             if window.get("count", 0) > 0:
                 current_value = window.get("avg", 0)
                 evaluation = await self.evaluate(kpi_name, current_value)
-                
+
                 report["kpis"][kpi_name] = {
                     "definition": definition.to_dict(),
                     "current": current_value,
                     "evaluation": evaluation,
                     "stats": window,
                 }
-        
+
         return report
-    
-    async def _get_system_metrics(self) -> Dict[str, Any]:
+
+    async def _get_system_metrics(self) -> dict[str, Any]:
         """Get system-level metrics."""
         try:
             import psutil
-            
+
             return {
                 "cpu_percent": psutil.cpu_percent(),
                 "memory_percent": psutil.virtual_memory().percent,
-                "disk_percent": psutil.disk_usage('/').percent,
+                "disk_percent": psutil.disk_usage("/").percent,
                 "network_io": psutil.net_io_counters()._asdict(),
             }
         except ImportError:
@@ -482,84 +502,93 @@ class KPIReporter:
 # MONITORING DECORATORS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def monitor_endpoint(name: Optional[str] = None):
+
+def monitor_endpoint(name: str | None = None):
     """
     Decorator to monitor endpoint performance.
-    
+
     Automatically tracks:
     - Response time
     - Request count
     - Error count
-    
+
     Usage:
         @monitor_endpoint("/api/models")
         async def get_models():
             return await fetch_models()
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         endpoint_name = name or func.__name__
-        
+
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             start_time = time.time()
-            
+
             try:
                 result = await func(*args, **kwargs)
-                
+
                 # Record success
                 response_time = (time.time() - start_time) * 1000
-                await metrics.record("response_time_p50", response_time, {"endpoint": endpoint_name})
-                await metrics.record("response_time_p95", response_time, {"endpoint": endpoint_name})
+                await metrics.record(
+                    "response_time_p50", response_time, {"endpoint": endpoint_name}
+                )
+                await metrics.record(
+                    "response_time_p95", response_time, {"endpoint": endpoint_name}
+                )
                 await metrics.increment(f"requests_total:{endpoint_name}")
-                
+
                 return result
-                
-            except Exception as e:
+
+            except Exception:
                 # Record error
                 await metrics.increment(f"errors_total:{endpoint_name}")
                 await metrics.increment("error_rate")
                 raise
-        
+
         @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             # Fire and forget metrics for sync functions
             asyncio.create_task(metrics.increment(f"requests_total:{endpoint_name}"))
             return func(*args, **kwargs)
-        
+
         return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+
     return decorator
 
 
-def monitor_async_task(name: Optional[str] = None):
+def monitor_async_task(name: str | None = None):
     """
     Decorator to monitor async task execution.
-    
+
     Usage:
         @monitor_async_task("model_routing")
         async def route_model(task):
             # ... routing logic
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         task_name = name or func.__name__
-        
+
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             start_time = time.time()
-            
+
             try:
                 result = await func(*args, **kwargs)
-                
+
                 duration = (time.time() - start_time) * 1000
                 await metrics.record(f"task_duration:{task_name}", duration)
                 await metrics.increment(f"tasks_completed:{task_name}")
-                
+
                 return result
-                
-            except Exception as e:
+
+            except Exception:
                 await metrics.increment(f"tasks_failed:{task_name}")
                 raise
-        
+
         return wrapper
+
     return decorator
 
 
@@ -567,36 +596,37 @@ def monitor_async_task(name: Optional[str] = None):
 # HEALTH CHECK
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class HealthChecker:
     """Comprehensive health check for the orchestrator."""
-    
+
     def __init__(self):
-        self._checks: Dict[str, Callable[[], Any]] = {}
-    
+        self._checks: dict[str, Callable[[], Any]] = {}
+
     def register(self, name: str, check_func: Callable[[], Any]):
         """Register a health check."""
         self._checks[name] = check_func
-    
-    async def check(self) -> Dict[str, Any]:
+
+    async def check(self) -> dict[str, Any]:
         """Run all health checks."""
         results = {}
         overall_healthy = True
-        
+
         for name, check_func in self._checks.items():
             try:
                 if asyncio.iscoroutinefunction(check_func):
                     result = await check_func()
                 else:
                     result = check_func()
-                
+
                 results[name] = {
                     "status": "healthy" if result else "unhealthy",
                     "healthy": bool(result),
                 }
-                
+
                 if not result:
                     overall_healthy = False
-                    
+
             except Exception as e:
                 results[name] = {
                     "status": "error",
@@ -604,7 +634,7 @@ class HealthChecker:
                     "error": str(e),
                 }
                 overall_healthy = False
-        
+
         return {
             "overall": "healthy" if overall_healthy else "unhealthy",
             "healthy": overall_healthy,
@@ -621,34 +651,35 @@ health_checker = HealthChecker()
 # EXAMPLE USAGE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def example():
     """Example monitoring usage."""
-    
+
     # Create reporter
     reporter = KPIReporter()
-    
+
     # Simulate metrics
     await metrics.record("response_time_p50", 45)
     await metrics.record("response_time_p95", 120)
     await metrics.record("error_rate", 0.005)
     await metrics.gauge("memory_usage", 65.5)
-    
+
     # Evaluate KPIs
     result = await reporter.evaluate("response_time_p50", 45)
     print(f"Response time status: {result['status']}")
-    
+
     # Get health score
     health = await reporter.get_health_score()
     print(f"Health score: {health['overall']}")
-    
+
     # Generate report
     report = await reporter.generate_report()
     print(json.dumps(report, indent=2))
-    
+
     # Health checks
     health_checker.register("cache", lambda: True)
     health_checker.register("database", lambda: True)
-    
+
     health_status = await health_checker.check()
     print(f"Health check: {health_status['overall']}")
 

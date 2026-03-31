@@ -32,6 +32,7 @@ Improvement 10 — Project Assembler:
     and other files to create a runnable, integrated project from task files.
     Uses AST-based dependency detection for accurate import extraction.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,7 +40,6 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .models import ProjectState, TaskType
 
@@ -51,8 +51,7 @@ logger = logging.getLogger("orchestrator.output_writer")
 # Matches: **path/to/file.ext** or **`path/to/file.ext`** (bold filename header)
 # Also matches dotfiles like **.gitignore** (leading dot, no extension)
 _FILENAME_HEADER = re.compile(
-    r"\*\*`?(\.?[a-zA-Z0-9_@-][a-zA-Z0-9_./ @-]*\.[a-zA-Z0-9]{1,6}|"
-    r"\.[a-zA-Z0-9_-]+)`?\*\*"
+    r"\*\*`?(\.?[a-zA-Z0-9_@-][a-zA-Z0-9_./ @-]*\.[a-zA-Z0-9]{1,6}|" r"\.[a-zA-Z0-9_-]+)`?\*\*"
 )
 
 # Matches a fenced code block (``` ... ```) with optional language tag
@@ -60,10 +59,27 @@ _CODE_FENCE = re.compile(r"```(?:\w+)?\n(.*?)```", re.DOTALL)
 
 # Extensions we consider "source code" worth extracting
 _SOURCE_EXTS = {
-    ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
-    ".py", ".css", ".scss", ".html", ".json", ".toml",
-    ".yaml", ".yml", ".env", ".md", ".sh", ".sql",
-    ".gitignore", ".eslintrc", ".prettierrc",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".py",
+    ".css",
+    ".scss",
+    ".html",
+    ".json",
+    ".toml",
+    ".yaml",
+    ".yml",
+    ".env",
+    ".md",
+    ".sh",
+    ".sql",
+    ".gitignore",
+    ".eslintrc",
+    ".prettierrc",
 }
 
 # Min characters to bother writing (skip near-empty stubs)
@@ -142,13 +158,13 @@ def write_extracted_files(
 
 # ── Extension mapping per TaskType ───────────────────────────────────────────
 _EXT: dict[TaskType, str] = {
-    TaskType.CODE_GEN:     ".py",
-    TaskType.CODE_REVIEW:  ".md",
-    TaskType.REASONING:    ".md",
-    TaskType.WRITING:      ".md",
-    TaskType.DATA_EXTRACT: ".json",   # falls back to .md if output is not valid JSON
-    TaskType.SUMMARIZE:    ".md",
-    TaskType.EVALUATE:     ".md",
+    TaskType.CODE_GEN: ".py",
+    TaskType.CODE_REVIEW: ".md",
+    TaskType.REASONING: ".md",
+    TaskType.WRITING: ".md",
+    TaskType.DATA_EXTRACT: ".json",  # falls back to .md if output is not valid JSON
+    TaskType.SUMMARIZE: ".md",
+    TaskType.EVALUATE: ".md",
 }
 
 
@@ -170,7 +186,7 @@ def write_output_dir(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    file_map: dict[str, str] = {}   # task_id -> raw task filename
+    file_map: dict[str, str] = {}  # task_id -> raw task filename
     extracted_total: dict[str, str] = {}  # rel_path -> content (across all tasks)
 
     order = state.execution_order or list(state.results.keys())
@@ -198,7 +214,8 @@ def write_output_dir(
                 extracted_total.update(named)
                 logger.info(
                     "  → Extracted %d named files from %s: %s",
-                    len(named), task_id,
+                    len(named),
+                    task_id,
                     ", ".join(list(named.keys())[:5]) + ("…" if len(named) > 5 else ""),
                 )
 
@@ -215,6 +232,7 @@ def write_output_dir(
     # Improvement 10: Generate integrated project files using ProjectAssembler
     try:
         from .project_assembler import ProjectAssembler
+
         assembler = ProjectAssembler(out, state)
         created_files = assembler.assemble()
         logger.info("Project Assembler: created %d integrated files", len(created_files))
@@ -227,6 +245,7 @@ def write_output_dir(
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
 
 def _ext_for(task_type: TaskType, output: str) -> str:
     """
@@ -299,8 +318,18 @@ def _render_content(task_type: TaskType, raw_output: str, ext: str) -> str:
 # Non-Python languages that code_generation tasks commonly produce.
 # Ordered by specificity (longer tags first to avoid ambiguity).
 _NON_PYTHON_FENCE_LANGS = (
-    "dockerfile", "yaml", "yml", "proto", "protobuf",
-    "bash", "sh", "toml", "json", "sql", "xml", "ini",
+    "dockerfile",
+    "yaml",
+    "yml",
+    "proto",
+    "protobuf",
+    "bash",
+    "sh",
+    "toml",
+    "json",
+    "sql",
+    "xml",
+    "ini",
 )
 
 
@@ -330,9 +359,7 @@ def _extract_code_for_py_task(text: str) -> str:
 
     # 2. Named non-Python block
     for lang in _NON_PYTHON_FENCE_LANGS:
-        match = re.search(
-            rf"```{lang}\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE
-        )
+        match = re.search(rf"```{lang}\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
         if match:
             return match.group(1)
 
@@ -342,12 +369,9 @@ def _extract_code_for_py_task(text: str) -> str:
         return match.group(1)
 
     # 4. Heuristic: first top-level Python statement at column 0
-    m = re.search(
-        r"^(import |from \w|def |class |@\w|if __name__|async def )",
-        text, re.MULTILINE
-    )
+    m = re.search(r"^(import |from \w|def |class |@\w|if __name__|async def )", text, re.MULTILINE)
     if m:
-        return text[m.start():]
+        return text[m.start() :]
 
     # 5. Fallback: return as-is
     return text
@@ -393,31 +417,33 @@ def _write_summary_json(
         else:
             degraded += 1
 
-        tasks_list.append({
-            "task_id": task_id,
-            "task_type": task.type.value if task else "unknown",
-            "prompt": task.prompt if task else "",
-            "status": s,
-            "score": round(result.score, 4),
-            "model_used": result.model_used.value,
-            "reviewer_model": result.reviewer_model.value if result.reviewer_model else None,
-            "iterations": result.iterations,
-            "cost_usd": round(result.cost_usd, 6),
-            "deterministic_check_passed": result.deterministic_check_passed,
-            "degraded_fallback_count": result.degraded_fallback_count,
-            "attempt_history": [
-                {
-                    "attempt_num": a.attempt_num,
-                    "model_used": a.model_used,
-                    "output_snippet": a.output_snippet,
-                    "failure_reason": a.failure_reason,
-                    "validators_failed": a.validators_failed,
-                }
-                for a in result.attempt_history
-            ],
-            "output_file": file_map.get(task_id, ""),
-            "output": result.output,
-        })
+        tasks_list.append(
+            {
+                "task_id": task_id,
+                "task_type": task.type.value if task else "unknown",
+                "prompt": task.prompt if task else "",
+                "status": s,
+                "score": round(result.score, 4),
+                "model_used": result.model_used.value,
+                "reviewer_model": result.reviewer_model.value if result.reviewer_model else None,
+                "iterations": result.iterations,
+                "cost_usd": round(result.cost_usd, 6),
+                "deterministic_check_passed": result.deterministic_check_passed,
+                "degraded_fallback_count": result.degraded_fallback_count,
+                "attempt_history": [
+                    {
+                        "attempt_num": a.attempt_num,
+                        "model_used": a.model_used,
+                        "output_snippet": a.output_snippet,
+                        "failure_reason": a.failure_reason,
+                        "validators_failed": a.validators_failed,
+                    }
+                    for a in result.attempt_history
+                ],
+                "output_file": file_map.get(task_id, ""),
+                "output": result.output,
+            }
+        )
 
     summary = {
         "project_id": project_id,
@@ -480,9 +506,10 @@ def _write_readme(
     """Write a human-readable README.md summarizing the project run."""
     b = state.budget
     budget_pct = (b.spent_usd / b.max_usd * 100) if b.max_usd > 0 else 0.0
-    
+
     # Import the detect function from output_writer
     from orchestrator.output_writer import _detect_project_type
+
     project_type, install_instructions = _detect_project_type(file_map, out)
 
     lines = [
@@ -552,25 +579,25 @@ def _write_readme(
         "",
         "```bash",
         "# Install using modern Python packaging",
-        f"pip install -e .",
+        "pip install -e .",
         "",
         "# Or with development dependencies",
-        f"pip install -e '.[dev]'",
+        "pip install -e '.[dev]'",
         "",
         "# Run using Make",
-        f"make run",
+        "make run",
         "",
         "# Or directly",
-        f"python main.py",
+        "python main.py",
         "",
         "# List all pipeline steps",
-        f"python main.py --list",
+        "python main.py --list",
         "",
         "# Run specific step only",
-        f"python main.py --step 2",
+        "python main.py --step 2",
         "",
         "# Preview execution plan",
-        f"python main.py --dry-run",
+        "python main.py --dry-run",
         "```",
         "",
     ]

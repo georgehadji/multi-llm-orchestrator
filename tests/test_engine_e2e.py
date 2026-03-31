@@ -23,6 +23,7 @@ Run with:
     cd "E:\\Documents\\Vibe-Coding\\Ai Orchestrator"
     python -m pytest tests/test_engine_e2e.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,22 +37,33 @@ import pytest
 from orchestrator.api_clients import APIResponse
 from orchestrator.engine import Orchestrator
 from orchestrator.models import (
-    Budget, Model, ProjectStatus, Task, TaskStatus, TaskType,
+    Budget,
+    Model,
+    ProjectStatus,
+    Task,
+    TaskStatus,
+    TaskType,
     build_default_profiles,
 )
 from orchestrator.policy import JobSpec, PolicySet
 from orchestrator.validators import (
-    ValidationResult, async_run_validators, run_validators,
+    ValidationResult,
+    async_run_validators,
+    run_validators,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _api_response(text: str, model: Model = Model.GEMINI_FLASH,
-                  input_tokens: int = 100, output_tokens: int = 200,
-                  latency_ms: float = 100.0) -> APIResponse:
+
+def _api_response(
+    text: str,
+    model: Model = Model.GEMINI_FLASH,
+    input_tokens: int = 100,
+    output_tokens: int = 200,
+    latency_ms: float = 100.0,
+) -> APIResponse:
     resp = APIResponse(
         text=text,
         input_tokens=input_tokens,
@@ -87,6 +99,7 @@ def _run(coro):
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 1 — Happy path: single task passes threshold
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_single_task_success():
     orch = _make_orch()
@@ -130,15 +143,26 @@ def test_single_task_success():
 # Test 2 — Budget exhaustion halts run
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_budget_exhausted_halts():
     budget = Budget(max_usd=0.001, max_time_seconds=300.0)
     orch = _make_orch(budget)
 
     two_tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "Task 1",
-         "dependencies": [], "hard_validators": []},
-        {"id": "task_002", "type": "code_generation", "prompt": "Task 2",
-         "dependencies": [], "hard_validators": []},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "Task 1",
+            "dependencies": [],
+            "hard_validators": [],
+        },
+        {
+            "id": "task_002",
+            "type": "code_generation",
+            "prompt": "Task 2",
+            "dependencies": [],
+            "hard_validators": [],
+        },
     ]
 
     async def fake_call(model, prompt, **kwargs):
@@ -161,13 +185,19 @@ def test_budget_exhausted_halts():
 # Test 3 — Timeout halts execution
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_timeout_halts():
     budget = Budget(max_usd=100.0, max_time_seconds=0.001)  # 1ms → always expired
     orch = _make_orch(budget)
 
     tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "T",
-         "dependencies": [], "hard_validators": []},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "T",
+            "dependencies": [],
+            "hard_validators": [],
+        },
     ]
 
     async def fake_call(model, prompt, **kwargs):
@@ -187,12 +217,18 @@ def test_timeout_halts():
 # Test 4 — Deterministic validator forces score = 0.0
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_validator_gate_forces_zero_score():
     orch = _make_orch()
 
     tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "Write code",
-         "dependencies": [], "hard_validators": ["python_syntax"]},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "Write code",
+            "dependencies": [],
+            "hard_validators": ["python_syntax"],
+        },
     ]
 
     async def fake_call(model, prompt, **kwargs):
@@ -218,14 +254,25 @@ def test_validator_gate_forces_zero_score():
 # Test 5 — Dependency ordering respected
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_dependency_ordering():
     orch = _make_orch()
 
     tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "Write lib",
-         "dependencies": [], "hard_validators": []},
-        {"id": "task_002", "type": "code_review", "prompt": "Review lib",
-         "dependencies": ["task_001"], "hard_validators": []},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "Write lib",
+            "dependencies": [],
+            "hard_validators": [],
+        },
+        {
+            "id": "task_002",
+            "type": "code_review",
+            "prompt": "Review lib",
+            "dependencies": ["task_001"],
+            "hard_validators": [],
+        },
     ]
     execution_log: list[str] = []
 
@@ -255,12 +302,18 @@ def test_dependency_ordering():
 # Test 6 — Fallback routing when primary model raises
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_fallback_on_primary_failure():
     orch = _make_orch()
 
     tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "Write code",
-         "dependencies": [], "hard_validators": []},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "Write code",
+            "dependencies": [],
+            "hard_validators": [],
+        },
     ]
     primary = orch._get_available_models(TaskType.CODE_GEN)[0]
     fallback = orch._get_fallback(primary)
@@ -289,6 +342,7 @@ def test_fallback_on_primary_failure():
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 7 — Circuit breaker trips after threshold failures
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_circuit_breaker_marks_unhealthy():
     orch = _make_orch()
@@ -322,12 +376,18 @@ def test_circuit_breaker_resets_on_success():
 # Test 8 — Decomposition retry on bad JSON
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_decomposition_retries_on_bad_json():
     orch = _make_orch()
 
     good_tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "Write code",
-         "dependencies": [], "hard_validators": []},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "Write code",
+            "dependencies": [],
+            "hard_validators": [],
+        },
     ]
     attempt = [0]
 
@@ -355,6 +415,7 @@ def test_decomposition_retries_on_bad_json():
 # Test 9 — run_job() policy-driven entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_run_job_sets_budget_and_policies():
     orch = _make_orch()
 
@@ -367,8 +428,13 @@ def test_run_job_sets_budget_and_policies():
     )
 
     tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "P",
-         "dependencies": [], "hard_validators": []},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "P",
+            "dependencies": [],
+            "hard_validators": [],
+        },
     ]
 
     async def fake_call(model, prompt, **kwargs):
@@ -392,23 +458,26 @@ def test_run_job_sets_budget_and_policies():
 # Test 10 — tokens_used populated in TaskResult
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_tokens_used_populated():
     orch = _make_orch()
 
     tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "Write code",
-         "dependencies": [], "hard_validators": []},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "Write code",
+            "dependencies": [],
+            "hard_validators": [],
+        },
     ]
 
     async def fake_call(model, prompt, **kwargs):
         if "decomposition" in kwargs.get("system", "").lower():
-            return _api_response(_decomp_json(tasks), model,
-                                 input_tokens=50, output_tokens=150)
+            return _api_response(_decomp_json(tasks), model, input_tokens=50, output_tokens=150)
         if "evaluator" in kwargs.get("system", "").lower() or "score" in prompt.lower():
-            return _api_response(_score_json(0.93), model,
-                                 input_tokens=30, output_tokens=50)
-        return _api_response("def foo(): pass\n", model,
-                             input_tokens=200, output_tokens=400)
+            return _api_response(_score_json(0.93), model, input_tokens=30, output_tokens=50)
+        return _api_response("def foo(): pass\n", model, input_tokens=200, output_tokens=400)
 
     async def _run_test():
         with patch.object(orch.client, "call", side_effect=fake_call):
@@ -425,8 +494,10 @@ def test_tokens_used_populated():
 # Test 11 — Context truncation warning
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_context_truncation_warning(caplog):
     from orchestrator.models import TaskResult as TR
+
     orch = _make_orch()
     orch.context_truncation_limit = 10  # tiny limit
 
@@ -442,14 +513,15 @@ def test_context_truncation_warning(caplog):
         ctx = orch._gather_dependency_context(["task_001"])
 
     assert len(ctx) <= 300  # truncated output + label + potential head/tail overhead
-    assert any("truncated" in r.message.lower() for r in caplog.records), (
-        "Expected a truncation warning in logs"
-    )
+    assert any(
+        "truncated" in r.message.lower() for r in caplog.records
+    ), "Expected a truncation warning in logs"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Tests 12–16 — async_run_validators
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_async_run_validators_json_schema():
     results = _run(async_run_validators('{"key": "value"}', ["json_schema"]))
@@ -465,9 +537,7 @@ def test_async_run_validators_python_syntax_pass():
 
 
 def test_async_run_validators_python_syntax_fail():
-    results = _run(async_run_validators(
-        "def broken(\n    this is not python", ["python_syntax"]
-    ))
+    results = _run(async_run_validators("def broken(\n    this is not python", ["python_syntax"]))
     assert results[0].passed is False
 
 
@@ -491,6 +561,7 @@ def test_async_run_validators_unknown_validator(caplog):
 # Tests 17–18 — budget phase partition warnings
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_phase_budget_warning_at_cap(caplog):
     orch = _make_orch(Budget(max_usd=10.0))
     # generation soft cap = 45% of 10 = $4.50; spend $5.00 → over cap
@@ -510,13 +581,13 @@ def test_phase_budget_error_at_2x_cap(caplog):
     with caplog.at_level(logging.ERROR, logger="orchestrator"):
         orch._check_phase_budget("generation")
 
-    assert any(r.levelname == "ERROR" and "generation" in r.message
-               for r in caplog.records)
+    assert any(r.levelname == "ERROR" and "generation" in r.message for r in caplog.records)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Tests 19–21 — topological sort
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_topological_sort_chain():
     orch = _make_orch()
@@ -535,8 +606,7 @@ def test_topological_sort_parallel():
     tasks = {
         "a": Task(id="a", type=TaskType.CODE_GEN, prompt="a"),
         "b": Task(id="b", type=TaskType.CODE_GEN, prompt="b"),
-        "c": Task(id="c", type=TaskType.CODE_GEN, prompt="c",
-                  dependencies=["a", "b"]),
+        "c": Task(id="c", type=TaskType.CODE_GEN, prompt="c", dependencies=["a", "b"]),
     }
     order = orch._topological_sort(tasks)
     assert order.index("c") > order.index("a")
@@ -560,6 +630,7 @@ def test_topological_sort_cycle_detected(caplog):
 # Test 22 — build_default_profiles covers all 8 models
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_build_default_profiles_all_models():
     profiles = build_default_profiles()
     for model in Model:
@@ -574,16 +645,32 @@ def test_build_default_profiles_all_models():
 # Test 23 — Multi-task project with partial success
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_multi_task_partial_success():
     orch = _make_orch(Budget(max_usd=5.0))
 
     tasks = [
-        {"id": "task_001", "type": "code_generation", "prompt": "T1",
-         "dependencies": [], "hard_validators": []},
-        {"id": "task_002", "type": "code_review", "prompt": "T2",
-         "dependencies": ["task_001"], "hard_validators": []},
-        {"id": "task_003", "type": "summarization", "prompt": "T3",
-         "dependencies": ["task_002"], "hard_validators": []},
+        {
+            "id": "task_001",
+            "type": "code_generation",
+            "prompt": "T1",
+            "dependencies": [],
+            "hard_validators": [],
+        },
+        {
+            "id": "task_002",
+            "type": "code_review",
+            "prompt": "T2",
+            "dependencies": ["task_001"],
+            "hard_validators": [],
+        },
+        {
+            "id": "task_003",
+            "type": "summarization",
+            "prompt": "T3",
+            "dependencies": ["task_002"],
+            "hard_validators": [],
+        },
     ]
 
     async def fake_call(model, prompt, **kwargs):
@@ -609,17 +696,27 @@ def test_multi_task_partial_success():
 # Test 24 — Streaming events lifecycle
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_streaming_events_include_task_lifecycle():
     """Full streaming run: verify event sequence is coherent."""
     from orchestrator.streaming import (
-        ProjectStarted, TaskStarted, TaskCompleted, ProjectCompleted,
+        ProjectStarted,
+        TaskStarted,
+        TaskCompleted,
+        ProjectCompleted,
     )
 
-    decomp = json.dumps([{
-        "id": "task_001", "type": "code_generation",
-        "prompt": "Write hello world", "dependencies": [],
-        "hard_validators": [],
-    }])
+    decomp = json.dumps(
+        [
+            {
+                "id": "task_001",
+                "type": "code_generation",
+                "prompt": "Write hello world",
+                "dependencies": [],
+                "hard_validators": [],
+            }
+        ]
+    )
 
     orch = _make_orch(Budget(max_usd=2.0))
     events = []
@@ -634,22 +731,21 @@ def test_streaming_events_include_task_lifecycle():
 
     async def run():
         with patch.object(orch.client, "call", side_effect=mock_call):
-            async for ev in orch.run_project_streaming(
-                "Hello world", "Must return Hello"
-            ):
+            async for ev in orch.run_project_streaming("Hello world", "Must return Hello"):
                 events.append(ev)
 
     _run(run())
     types = {type(e).__name__ for e in events}
-    assert "ProjectStarted"   in types
-    assert "TaskStarted"      in types
-    assert "TaskCompleted"    in types
+    assert "ProjectStarted" in types
+    assert "TaskStarted" in types
+    assert "TaskCompleted" in types
     assert "ProjectCompleted" in types
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 25 — Remediation threshold logic
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_remediation_degrade_quality_lowers_threshold():
     """Task scoring 0.70 with threshold 0.85 → DEGRADE_QUALITY makes it pass."""
@@ -660,8 +756,11 @@ def test_remediation_degrade_quality_lowers_threshold():
     # score=0.75: needs remediation at threshold=0.85, but passes after
     # DEGRADE_QUALITY lowers threshold to 0.85*0.85=0.7225 (0.75 > 0.7225)
     result = TaskResult(
-        task_id="t1", output="partial output", score=0.75,
-        model_used=Model.DEEPSEEK_CHAT, status=TaskStatus.DEGRADED,
+        task_id="t1",
+        output="partial output",
+        score=0.75,
+        model_used=Model.DEEPSEEK_CHAT,
+        status=TaskStatus.DEGRADED,
     )
     assert engine.should_remediate(result, threshold=0.85)
     new_threshold = engine.adjusted_threshold(RemediationStrategy.DEGRADE_QUALITY, 0.85)

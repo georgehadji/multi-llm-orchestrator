@@ -4,6 +4,7 @@ Test P1-2: Adaptive Decomposition Model Selection
 Tests that decomposition model is selected based on project complexity
 to optimize cost while maintaining quality.
 """
+
 import pytest
 from unittest.mock import patch
 
@@ -18,14 +19,14 @@ class TestAdaptiveDecomposition:
     def orchestrator(self):
         """Create orchestrator with multiple models available."""
         orch = Orchestrator(budget=Budget(max_usd=100.0))
-        
+
         # Ensure multiple models are "available" for testing
         orch.api_health[Model.GPT_4O_MINI] = True
         orch.api_health[Model.GPT_4O] = True
         orch.api_health[Model.DEEPSEEK_CHAT] = True
         orch.api_health[Model.GEMINI_FLASH] = True
         orch.api_health[Model.CLAUDE_3_5_SONNET] = True
-        
+
         return orch
 
     def test_simple_project_selects_fast_model(self, orchestrator):
@@ -34,10 +35,10 @@ class TestAdaptiveDecomposition:
         """
         # Arrange: Simple project description
         simple_project = "Create a hello world Flask app"
-        
+
         # Act: Select model
         model = orchestrator._select_decomposition_model(simple_project)
-        
+
         # Assert: Should select fast/cheap model
         assert model == Model.GPT_4O_MINI
 
@@ -53,10 +54,10 @@ class TestAdaptiveDecomposition:
         - PostgreSQL database integration
         - Basic error handling
         """
-        
+
         # Act: Select model
         model = orchestrator._select_decomposition_model(medium_project)
-        
+
         # Assert: Should select balanced model
         # (DeepSeek-Chat or GPT-4o-mini fallback)
         assert model in [Model.DEEPSEEK_CHAT, Model.GPT_4O_MINI]
@@ -79,10 +80,10 @@ class TestAdaptiveDecomposition:
         - Machine learning model embeddings
         - Docker containerization with Terraform
         """
-        
+
         # Act: Select model
         model = orchestrator._select_decomposition_model(complex_project)
-        
+
         # Assert: Should select high-quality model
         assert model in [Model.GPT_4O, Model.CLAUDE_3_5_SONNET, Model.DEEPSEEK_CHAT]
 
@@ -92,12 +93,12 @@ class TestAdaptiveDecomposition:
         """
         # Arrange: Project with known length
         project = "A" * 2000  # 2000 chars = ~500 tokens
-        
+
         # Act: Select model (this internally calculates token_estimate)
         # We can't directly test the calculation, but we can verify
         # the behavior matches expectations
         model = orchestrator._select_decomposition_model(project)
-        
+
         # 500 tokens is borderline, should use fast model if no complexity
         assert model == Model.GPT_4O_MINI
 
@@ -113,7 +114,7 @@ class TestAdaptiveDecomposition:
             ("real-time websocket", 1),
             ("machine learning ML", 2),  # Both "machine learning" and "ML"
         ]
-        
+
         for project, expected_min_complexity in keyword_tests:
             # The model selection logic counts keywords internally
             # We verify by checking the selected model
@@ -129,10 +130,10 @@ class TestAdaptiveDecomposition:
         tech_project = """
         Build with React, Next.js, FastAPI, PostgreSQL, Docker, and AWS
         """
-        
+
         # Act: Select model
         model = orchestrator._select_decomposition_model(tech_project)
-        
+
         # Assert: Tech keywords should increase complexity score
         # (tech_score is divided by 2, so need several to matter)
         assert isinstance(model, Model)
@@ -144,10 +145,10 @@ class TestAdaptiveDecomposition:
         # Arrange: Disable all models
         for model in Model:
             orchestrator.api_health[model] = False
-        
+
         # Act: Select model (should use fallback)
         model = orchestrator._select_decomposition_model("test")
-        
+
         # Assert: Should return some model (fallback logic)
         # Note: With all models disabled, this may return None or a default
         # depending on _get_fast_decomposition_model implementation
@@ -159,12 +160,12 @@ class TestAdaptiveDecomposition:
         # Arrange: Enable specific fast models
         for model in Model:
             orchestrator.api_health[model] = False
-        
+
         orchestrator.api_health[Model.MISTRAL_NEMO] = True
-        
+
         # Act: Get fast model
         model = orchestrator._get_fast_decomposition_model()
-        
+
         # Assert: Should return available fast model
         assert model == Model.MISTRAL_NEMO
 
@@ -175,12 +176,12 @@ class TestAdaptiveDecomposition:
         # Arrange: Enable only expensive models
         for model in Model:
             orchestrator.api_health[model] = False
-        
+
         orchestrator.api_health[Model.GPT_4O] = True
-        
+
         # Act: Get cheapest
         model = orchestrator._get_cheapest_available()
-        
+
         # Assert: Should return available model
         assert model == Model.GPT_4O
 
@@ -190,27 +191,29 @@ class TestAdaptiveDecomposition:
         """
         # This is a higher-level test that would actually call LLM APIs
         # For unit testing, we just verify the method exists and is callable
-        
+
         # Arrange: Mock the API client to avoid real calls
         async def mock_call(*args, **kwargs):
             from orchestrator.api_clients import APIResponse
+
             return APIResponse(
                 text='[{"id": "task_1", "type": "code_generation", "prompt": "test", "dependencies": []}]',
                 input_tokens=10,
                 output_tokens=50,
                 model=Model.GPT_4O_MINI,
             )
-        
+
         orchestrator.client.call = mock_call
-        
+
         # Act: Decompose simple project (should use fast model)
         import asyncio
+
         tasks = asyncio.get_event_loop().run_until_complete(
             orchestrator._decompose(
                 project="Simple hello world",
                 criteria="Works",
             )
         )
-        
+
         # Assert: Should return tasks (exact behavior depends on mock)
         assert isinstance(tasks, dict)

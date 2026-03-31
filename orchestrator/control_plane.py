@@ -13,20 +13,21 @@ Usage:
     cp = ControlPlane()
     state = await cp.submit(job, policy)
 """
+
 from __future__ import annotations
 
-import dataclasses
 import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from .audit import AuditLog
-from .models import ProjectState
-from .policy_engine import PolicyViolationError
-from .reference_monitor import Decision, MonitorResult, ReferenceMonitor
-from .specs import JobSpecV2, PolicySpecV2, RoutingHint
+from .reference_monitor import Decision, ReferenceMonitor
+from .specs import JobSpecV2, PolicySpecV2
+
+if TYPE_CHECKING:
+    from .models import ProjectState, Task
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 # Errors
 # ─────────────────────────────────────────────
+
 
 class SpecValidationError(ValueError):
     """Raised when JobSpecV2 / PolicySpecV2 fail static validation."""
@@ -51,6 +53,7 @@ class PolicyViolation(RuntimeError):
 # Routing plan
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class RoutingPlan:
     """Resolved routing decisions produced by solve_constraints()."""
@@ -65,6 +68,7 @@ class RoutingPlan:
 # ControlPlane
 # ─────────────────────────────────────────────
 
+
 class ControlPlane:
     """
     Main entry point for constraint-driven job execution.
@@ -76,7 +80,7 @@ class ControlPlane:
 
     def __init__(
         self,
-        audit_log: Optional[AuditLog] = None,
+        audit_log: AuditLog | None = None,
     ) -> None:
         self._monitor = ReferenceMonitor()
         self._audit = audit_log or AuditLog()
@@ -148,9 +152,7 @@ class ControlPlane:
 
         for rule in policy.allow_deny_rules:
             if "effect" not in rule:
-                errors.append(
-                    f"PolicySpecV2.allow_deny_rules entry missing 'effect': {rule}"
-                )
+                errors.append(f"PolicySpecV2.allow_deny_rules entry missing 'effect': {rule}")
             elif rule["effect"] not in ("allow", "deny"):
                 errors.append(
                     f"PolicySpecV2.allow_deny_rules 'effect' must be 'allow' or 'deny'; "
@@ -163,9 +165,7 @@ class ControlPlane:
     # Step 3: Constraint solving
     # ─────────────────────────────────────────
 
-    def _solve_constraints(
-        self, job: JobSpecV2, policy: PolicySpecV2
-    ) -> RoutingPlan:
+    def _solve_constraints(self, job: JobSpecV2, policy: PolicySpecV2) -> RoutingPlan:
         """
         Produce a RoutingPlan by applying hard constraints + routing hints.
 
@@ -190,9 +190,7 @@ class ControlPlane:
             )
 
         if job.slas.max_cost_usd is not None:
-            notes.append(
-                f"max_cost_usd={job.slas.max_cost_usd}: enforced via budget in JobSpecV2"
-            )
+            notes.append(f"max_cost_usd={job.slas.max_cost_usd}: enforced via budget in JobSpecV2")
             # Reflect in budget if lower than default
             if job.slas.max_cost_usd < job.budget.max_usd:
                 job.budget.max_usd = job.slas.max_cost_usd
@@ -217,7 +215,6 @@ class ControlPlane:
     ) -> ProjectState:
         """Delegate to Orchestrator, wiring in per-task monitor checks."""
         from .engine import Orchestrator
-        from .models import Task
 
         orchestrator = Orchestrator(budget=job.budget)
         monitor = self._monitor
@@ -228,19 +225,18 @@ class ControlPlane:
         async def _guarded_execute(task: Task) -> object:
             result = monitor.check(task, job, PolicySpecV2())
             if result.decision == Decision.DENY:
-                logger.error(
-                    "ReferenceMonitor DENIED task %s: %s", task.id, result.reason
-                )
-                from .models import TaskResult, TaskStatus, Model
+                logger.error("ReferenceMonitor DENIED task %s: %s", task.id, result.reason)
+                from .models import Model, TaskResult, TaskStatus
+
                 return TaskResult(
-                    task_id=task.id, output="", score=0.0,
+                    task_id=task.id,
+                    output="",
+                    score=0.0,
                     model_used=Model.GPT_4O_MINI,
                     status=TaskStatus.FAILED,
                 )
             if result.decision == Decision.ESCALATE:
-                logger.warning(
-                    "ReferenceMonitor ESCALATE task %s: %s", task.id, result.reason
-                )
+                logger.warning("ReferenceMonitor ESCALATE task %s: %s", task.id, result.reason)
             return await original_execute(task)
 
         orchestrator._execute_task = _guarded_execute  # type: ignore[method-assign]
@@ -248,8 +244,7 @@ class ControlPlane:
         return await orchestrator.run_project(
             project_description=job.goal,
             success_criteria=(
-                "; ".join(job.metrics) if job.metrics
-                else "All tasks complete successfully"
+                "; ".join(job.metrics) if job.metrics else "All tasks complete successfully"
             ),
         )
 

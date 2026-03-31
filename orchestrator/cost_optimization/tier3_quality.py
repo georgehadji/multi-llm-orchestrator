@@ -11,15 +11,13 @@ Includes:
 from __future__ import annotations
 
 import json
-import logging
 import os
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -28,9 +26,11 @@ logger = get_logger(__name__)
 # Adaptive Temperature
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class TemperatureMetrics:
     """Metrics for adaptive temperature."""
+
     total_attempts: int = 0
     initial_successes: int = 0
     retry_successes: int = 0
@@ -38,13 +38,14 @@ class TemperatureMetrics:
     avg_temperature: float = 0.0
     avg_retry_count: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_attempts": self.total_attempts,
             "initial_successes": self.initial_successes,
             "retry_successes": self.retry_successes,
             "failures": self.failures,
-            "success_rate": (self.initial_successes + self.retry_successes) / max(1, self.total_attempts),
+            "success_rate": (self.initial_successes + self.retry_successes)
+            / max(1, self.total_attempts),
             "avg_temperature": self.avg_temperature,
             "avg_retry_count": self.avg_retry_count,
         }
@@ -152,9 +153,8 @@ class AdaptiveTemperatureController:
                     self.metrics.retry_successes += 1
 
                 self.metrics.avg_temperature = (
-                    (self.metrics.avg_temperature * (self.metrics.total_attempts - 1) + temperature)
-                    / self.metrics.total_attempts
-                )
+                    self.metrics.avg_temperature * (self.metrics.total_attempts - 1) + temperature
+                ) / self.metrics.total_attempts
 
                 return response
 
@@ -166,13 +166,12 @@ class AdaptiveTemperatureController:
         # All attempts failed
         self.metrics.failures += 1
         self.metrics.avg_retry_count = (
-            (self.metrics.avg_retry_count * (self.metrics.total_attempts - 1) + retry_count)
-            / self.metrics.total_attempts
-        )
+            self.metrics.avg_retry_count * (self.metrics.total_attempts - 1) + retry_count
+        ) / self.metrics.total_attempts
 
         raise RuntimeError(f"All {self.MAX_RETRIES + 1} attempts failed: {last_error}")
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get temperature metrics."""
         return self.metrics.to_dict()
 
@@ -181,13 +180,15 @@ class AdaptiveTemperatureController:
 # Auto Eval Dataset Builder
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class EvalTestCase:
     """Single evaluation test case."""
+
     prompt: str
     bad_output: str
-    errors: List[str]
-    scores: Dict[str, float]
+    errors: list[str]
+    scores: dict[str, float]
     timestamp: str
     model: str
     task_type: str
@@ -196,12 +197,13 @@ class EvalTestCase:
 @dataclass
 class DatasetMetrics:
     """Metrics for eval dataset."""
+
     total_cases: int = 0
-    cases_by_error_type: Dict[str, int] = field(default_factory=dict)
-    cases_by_model: Dict[str, int] = field(default_factory=dict)
+    cases_by_error_type: dict[str, int] = field(default_factory=dict)
+    cases_by_model: dict[str, int] = field(default_factory=dict)
     avg_score: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_cases": self.total_cases,
             "cases_by_error_type": self.cases_by_error_type,
@@ -220,16 +222,18 @@ class EvalDatasetBuilder:
         dataset = builder.get_dataset()
     """
 
-    def __init__(self, dataset_path: Optional[str] = None):
+    def __init__(self, dataset_path: str | None = None):
         """
         Initialize eval dataset builder.
 
         Args:
             dataset_path: Path to store dataset (default: .orchestrator/eval_dataset.jsonl)
         """
-        self.dataset_path = Path(dataset_path) if dataset_path else Path(".orchestrator/eval_dataset.jsonl")
+        self.dataset_path = (
+            Path(dataset_path) if dataset_path else Path(".orchestrator/eval_dataset.jsonl")
+        )
         self.metrics = DatasetMetrics()
-        self._cases: List[EvalTestCase] = []
+        self._cases: list[EvalTestCase] = []
 
         # Ensure directory exists
         self.dataset_path.parent.mkdir(parents=True, exist_ok=True)
@@ -238,8 +242,8 @@ class EvalDatasetBuilder:
         self,
         task_prompt: str,
         generated_code: str,
-        errors: List[str],
-        eval_scores: Dict[str, float],
+        errors: list[str],
+        eval_scores: dict[str, float],
         model: str,
         task_type: str,
     ) -> None:
@@ -275,35 +279,30 @@ class EvalDatasetBuilder:
             )
 
         # Update model counts
-        self.metrics.cases_by_model[model] = (
-            self.metrics.cases_by_model.get(model, 0) + 1
-        )
+        self.metrics.cases_by_model[model] = self.metrics.cases_by_model.get(model, 0) + 1
 
         # Update average score
         if eval_scores:
             avg = sum(eval_scores.values()) / len(eval_scores)
             self.metrics.avg_score = (
-                (self.metrics.avg_score * (self.metrics.total_cases - 1) + avg)
-                / self.metrics.total_cases
-            )
+                self.metrics.avg_score * (self.metrics.total_cases - 1) + avg
+            ) / self.metrics.total_cases
 
         # Persist to file
         self._persist_case(test_case)
 
         logger.info(
-            f"Recorded failure: {task_type} ({model}) - "
-            f"errors: {len(errors)}, score: {avg:.3f}"
+            f"Recorded failure: {task_type} ({model}) - " f"errors: {len(errors)}, score: {avg:.3f}"
         )
 
     def _persist_case(self, case: EvalTestCase) -> None:
         """
         Persist test case to JSONL file with file locking.
-        
+
         FIX-OPT-005: Use atomic append to prevent race conditions
         when multiple failures are recorded concurrently.
         """
-        import sys
-        
+
         case_dict = {
             "prompt": case.prompt,
             "bad_output": case.bad_output,
@@ -313,7 +312,7 @@ class EvalDatasetBuilder:
             "model": case.model,
             "task_type": case.task_type,
         }
-        
+
         json_line = json.dumps(case_dict, ensure_ascii=False) + "\n"
 
         # FIX-OPT-005: Atomic append - Python's file append is atomic on most platforms
@@ -323,11 +322,11 @@ class EvalDatasetBuilder:
             f.flush()
             os.fsync(f.fileno())  # Ensure written to disk
 
-    def get_dataset(self) -> List[EvalTestCase]:
+    def get_dataset(self) -> list[EvalTestCase]:
         """Get all test cases."""
         return self._cases
 
-    def load_dataset(self) -> List[EvalTestCase]:
+    def load_dataset(self) -> list[EvalTestCase]:
         """Load dataset from file."""
         if not self.dataset_path.exists():
             return []
@@ -346,9 +345,9 @@ class EvalDatasetBuilder:
 
     def get_regression_tests(
         self,
-        model: Optional[str] = None,
-        task_type: Optional[str] = None,
-    ) -> List[EvalTestCase]:
+        model: str | None = None,
+        task_type: str | None = None,
+    ) -> list[EvalTestCase]:
         """
         Get regression tests filtered by model/task type.
 
@@ -368,7 +367,7 @@ class EvalDatasetBuilder:
 
         return cases
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get dataset metrics."""
         return self.metrics.to_dict()
 
@@ -376,6 +375,7 @@ class EvalDatasetBuilder:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def generate_with_adaptive_temp(
     client,

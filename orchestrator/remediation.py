@@ -12,20 +12,22 @@ Strategies (tried in the order specified):
   DEGRADE_QUALITY  — lower acceptance threshold by 15%
   ABORT_TASK       — give up, mark FAILED, continue with next task
 """
+
 from __future__ import annotations
+
 from enum import Enum
-from typing import Optional
+
 from .models import TaskResult, TaskStatus
 from .tracing import traced_remediation
 
 
 class RemediationStrategy(str, Enum):
-    AUTO_RETRY      = "auto_retry"
-    FALLBACK_MODEL  = "fallback_model"
-    ADJUST_PROMPT   = "adjust_prompt"
-    SKIP_VALIDATOR  = "skip_validator"
+    AUTO_RETRY = "auto_retry"
+    FALLBACK_MODEL = "fallback_model"
+    ADJUST_PROMPT = "adjust_prompt"
+    SKIP_VALIDATOR = "skip_validator"
     DEGRADE_QUALITY = "degrade_quality"
-    ABORT_TASK      = "abort_task"
+    ABORT_TASK = "abort_task"
 
 
 _DEFAULT_PLAN = [
@@ -35,7 +37,7 @@ _DEFAULT_PLAN = [
     RemediationStrategy.ABORT_TASK,
 ]
 
-_DEGRADE_FACTOR = 0.85   # reduce threshold by 15%
+_DEGRADE_FACTOR = 0.85  # reduce threshold by 15%
 
 
 class RemediationPlan:
@@ -45,7 +47,7 @@ class RemediationPlan:
         self._strategies = list(strategies)
         self._index = 0
 
-    def next_strategy(self) -> Optional[RemediationStrategy]:
+    def next_strategy(self) -> RemediationStrategy | None:
         if self._index >= len(self._strategies):
             return None
         return self._strategies[self._index]
@@ -67,10 +69,7 @@ class RemediationEngine:
     """
 
     def should_remediate(self, result: TaskResult, threshold: float) -> bool:
-        return (
-            result.status == TaskStatus.FAILED
-            or result.score < threshold
-        )
+        return result.status == TaskStatus.FAILED or result.score < threshold
 
     def adjusted_threshold(
         self,
@@ -84,8 +83,7 @@ class RemediationEngine:
     def rephrase_prompt(self, original_prompt: str) -> str:
         return (
             "Please provide a complete, detailed, and correct response "
-            "to the following task. Be thorough and precise.\n\n"
-            + original_prompt
+            "to the following task. Be thorough and precise.\n\n" + original_prompt
         )
 
     def default_plan(self) -> RemediationPlan:
@@ -98,7 +96,7 @@ class RemediationEngine:
         self,
         plan: RemediationPlan,
         trigger_reason: str,
-    ) -> Optional[RemediationStrategy]:
+    ) -> RemediationStrategy | None:
         """
         Consume the next strategy from *plan*, emit a traced_remediation span,
         advance the plan, and return the strategy that was applied (or None if

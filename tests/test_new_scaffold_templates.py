@@ -4,6 +4,7 @@ Unit tests for new scaffold templates (A1):
 
 Each template must have the required files and valid structure.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,10 +15,10 @@ from orchestrator.app_detector import AppProfile
 from orchestrator.scaffold import ScaffoldEngine
 from orchestrator.scaffold.templates import html, nextjs, react_vite
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # File-structure assertions
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestNextjsTemplate:
     def test_has_package_json(self):
@@ -140,6 +141,7 @@ class TestHtmlTemplate:
 # ─────────────────────────────────────────────────────────────────────────────
 # ScaffoldEngine integration
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_scaffold_nextjs_writes_files(tmp_path):
     engine = ScaffoldEngine()

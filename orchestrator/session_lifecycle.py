@@ -11,6 +11,7 @@ Usage:
     await manager.stop()           # cancel background task
     await manager.run_migration()  # run one cycle manually
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -42,7 +43,7 @@ class SessionLifecycleManager:
         self,
         memory_tier_manager: MemoryTierManager,
         migration_interval_seconds: int = _DEFAULT_INTERVAL_SECONDS,
-        llm_model: str = "deepseek-chat",
+        llm_model: str = "deepseek/deepseek-chat",
     ) -> None:
         self._mem = memory_tier_manager
         self._interval = migration_interval_seconds
@@ -59,9 +60,7 @@ class SessionLifecycleManager:
             logger.debug("SessionLifecycleManager scheduler already running")
             return
         self._task = asyncio.create_task(self._scheduler_loop())
-        logger.info(
-            "SessionLifecycleManager started (interval=%ds)", self._interval
-        )
+        logger.info("SessionLifecycleManager started (interval=%ds)", self._interval)
 
     async def stop(self) -> None:
         """Cancel the background scheduler and wait for it to finish."""
@@ -71,8 +70,7 @@ class SessionLifecycleManager:
                 await self._task
             except asyncio.CancelledError:
                 pass
-        
-            
+
         logger.info("SessionLifecycleManager stopped")
 
     async def run_migration(self) -> dict[str, int]:
@@ -137,7 +135,7 @@ class SessionLifecycleManager:
         # Create client once if not already created
         if self._client is None:
             self._client = UnifiedClient()
-        
+
         prompt = _SUMMARY_PROMPT.format(content=content[:3000])  # cap input tokens
         response = await self._client.call(
             Model(self._model),

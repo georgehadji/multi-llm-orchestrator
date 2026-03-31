@@ -1,4 +1,5 @@
 """Tests for Content Preflight Gate integration."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from orchestrator.hooks import EventType
@@ -40,12 +41,14 @@ def test_task_result_accepts_preflight_result():
 # _run_preflight_check unit tests
 # ─────────────────────────────────────────
 
+
 def _make_orchestrator():
     """Minimal Orchestrator stub for unit testing preflight."""
     from orchestrator.engine import Orchestrator
     from orchestrator.models import Budget
     from orchestrator.preflight import PreflightValidator
     from orchestrator.hooks import HookRegistry
+
     orch = Orchestrator.__new__(Orchestrator)
     orch._preflight_validator = PreflightValidator()
     orch._hook_registry = HookRegistry()
@@ -86,6 +89,7 @@ async def test_preflight_warn_applies_score_penalty():
     # Inject a validator that always returns WARN so we test the WARN branch of
     # _run_preflight_check without depending on AUTO-mode routing heuristics.
     from orchestrator.preflight import PreflightResult, PreflightAction
+
     warn_result = PreflightResult(
         action=PreflightAction.WARN,
         passed=False,
@@ -125,8 +129,8 @@ async def test_preflight_block_retries_and_recovers():
     )
 
     orch.client.call.assert_called_once()
-    assert final_output == good_output   # revised output delivered
-    assert final_score == score          # score preserved on recovery
+    assert final_output == good_output  # revised output delivered
+    assert final_score == score  # score preserved on recovery
     assert pf_result.action != PreflightAction.BLOCK  # recovered: no longer blocked
 
 
@@ -148,8 +152,8 @@ async def test_preflight_block_still_blocked_after_retry():
         task=task, output=bad_output, score=score, primary=Model.DEEPSEEK_CHAT
     )
 
-    assert final_score == 0.0           # degraded
-    assert final_output == bad_output   # original preserved (not revision)
+    assert final_score == 0.0  # degraded
+    assert final_output == bad_output  # original preserved (not revision)
     assert pf_result.action == PreflightAction.BLOCK
 
 

@@ -34,42 +34,45 @@ returned in ``AssemblyResult.verify_output``.
 All filesystem operations use ``pathlib.Path`` and are safe to call from
 sync or async code (blocking I/O, but small files only).
 """
+
 from __future__ import annotations
 
 import json
 import logging
-import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from .models import ProjectState, TaskType
 from .output_writer import _ext_for, _render_content, _strip_fences
+
+if TYPE_CHECKING:
+    from .models import ProjectState, TaskType
 
 logger = logging.getLogger("orchestrator.assembler")
 
 
 # ── Result ────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class AssemblyResult:
     """Summary of a completed assembly run."""
+
     output_dir: Path
-    files_written: list[str] = field(default_factory=list)   # relative paths
-    files_skipped: list[str] = field(default_factory=list)   # task_ids with no output
-    verify_output: str = ""                                    # stdout+stderr of verify_cmd
-    verify_returncode: Optional[int] = None                   # None = not run
+    files_written: list[str] = field(default_factory=list)  # relative paths
+    files_skipped: list[str] = field(default_factory=list)  # task_ids with no output
+    verify_output: str = ""  # stdout+stderr of verify_cmd
+    verify_returncode: int | None = None  # None = not run
     errors: list[str] = field(default_factory=list)
 
     @property
     def success(self) -> bool:
-        return not self.errors and (
-            self.verify_returncode is None or self.verify_returncode == 0
-        )
+        return not self.errors and (self.verify_returncode is None or self.verify_returncode == 0)
 
 
 # ── Main class ────────────────────────────────────────────────────────────────
+
 
 class ProjectAssembler:
     """
@@ -89,7 +92,7 @@ class ProjectAssembler:
     def __init__(
         self,
         state: ProjectState,
-        task_paths: Optional[dict[str, str]] = None,
+        task_paths: dict[str, str] | None = None,
     ) -> None:
         self._state = state
         self._task_paths: dict[str, str] = task_paths or {}
@@ -136,9 +139,8 @@ class ProjectAssembler:
                 continue
 
             # Resolve destination path
-            target = (
-                self._task_paths.get(task_id)
-                or (task.target_path if hasattr(task, "target_path") else "")
+            target = self._task_paths.get(task_id) or (
+                task.target_path if hasattr(task, "target_path") else ""
             )
             if target:
                 dest = out / target
@@ -175,9 +177,7 @@ class ProjectAssembler:
 
         # Optional post-assembly verification
         if verify_cmd:
-            result.verify_output, result.verify_returncode = _run_verify(
-                verify_cmd, cwd=out
-            )
+            result.verify_output, result.verify_returncode = _run_verify(verify_cmd, cwd=out)
             if result.verify_returncode != 0:
                 result.errors.append(
                     f"Verification failed (exit {result.verify_returncode}): {verify_cmd}"
@@ -209,6 +209,7 @@ class ProjectAssembler:
 
 # ── Content rendering ─────────────────────────────────────────────────────────
 
+
 def _render_content_for_ext(task_type: TaskType, raw_output: str, ext: str) -> str:
     """
     Render content for an arbitrary file extension.
@@ -220,10 +221,33 @@ def _render_content_for_ext(task_type: TaskType, raw_output: str, ext: str) -> s
                                 run the Python-aware extractor via output_writer.
     - Everything else         → return prose as-is (markdown, txt, rst, …)
     """
-    _CODE_EXTS = {".py", ".ts", ".tsx", ".jsx", ".js", ".rs", ".go",
-                  ".sh", ".bash", ".sql", ".proto", ".toml", ".yaml",
-                  ".yml", ".xml", ".ini", ".dockerfile", ".rb", ".java",
-                  ".cs", ".cpp", ".c", ".h", ".kt", ".swift"}
+    _CODE_EXTS = {
+        ".py",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".js",
+        ".rs",
+        ".go",
+        ".sh",
+        ".bash",
+        ".sql",
+        ".proto",
+        ".toml",
+        ".yaml",
+        ".yml",
+        ".xml",
+        ".ini",
+        ".dockerfile",
+        ".rb",
+        ".java",
+        ".cs",
+        ".cpp",
+        ".c",
+        ".h",
+        ".kt",
+        ".swift",
+    }
 
     ext_lower = ext.lower()
 
@@ -245,29 +269,31 @@ def _render_content_for_ext(task_type: TaskType, raw_output: str, ext: str) -> s
 
 # ── Verification helper ───────────────────────────────────────────────────────
 
+
 def _run_verify(cmd: str, cwd: Path) -> tuple[str, int]:
     """
     Run *cmd* in *cwd*, return (combined_output, returncode).
-    
+
     SECURITY FIX: Uses shlex.split() to parse command safely instead of shell=True.
     This prevents command injection attacks.
     """
     import shlex
-    from .secure_execution import SecureSubprocess, CommandInjectionError
-    
+
+    from .secure_execution import CommandInjectionError, SecureSubprocess
+
     logger.info("Running verification: %s", cmd)
-    
+
     # Parse command safely - prevents shell injection
     try:
         cmd_parts = shlex.split(cmd)
     except ValueError as e:
         logger.error(f"Invalid command syntax: {e}")
         return f"Invalid command syntax: {e}", 1
-    
+
     if not cmd_parts:
         logger.error("Empty verify command")
         return "Empty verify command", 1
-    
+
     try:
         # Use SecureSubprocess which never uses shell=True
         result = SecureSubprocess.run(
@@ -292,10 +318,11 @@ def _run_verify(cmd: str, cwd: Path) -> tuple[str, int]:
 
 # ── Convenience function ──────────────────────────────────────────────────────
 
+
 def assemble_project(
     state: ProjectState,
     output_dir: str | Path,
-    task_paths: Optional[dict[str, str]] = None,
+    task_paths: dict[str, str] | None = None,
     verify_cmd: str = "",
     overwrite: bool = True,
 ) -> AssemblyResult:

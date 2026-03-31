@@ -26,19 +26,24 @@ Three concrete backends ship with the orchestrator:
 All backends share the same interface so ConstraintPlanner can swap them
 at construction time or at runtime via set_backend().
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import TYPE_CHECKING
 
-from .models import Model, TaskType
-from .policy import ModelProfile
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .models import Model, TaskType
+    from .policy import ModelProfile
 
 # ── Shared constant ────────────────────────────────────────────────────────────
-_EPSILON: float = 1e-6   # prevents division by zero when cost rounds to 0
+_EPSILON: float = 1e-6  # prevents division by zero when cost rounds to 0
 
 
 # ── Abstract base ─────────────────────────────────────────────────────────────
+
 
 class OptimizationBackend(ABC):
     """
@@ -65,11 +70,12 @@ class OptimizationBackend(ABC):
         profiles: dict[Model, ModelProfile],
         task_type: TaskType,
         typical_cost_fn: Callable[[ModelProfile, TaskType], float],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """Return the best model from candidates, or None if empty."""
 
 
 # ── GreedyBackend ─────────────────────────────────────────────────────────────
+
 
 class GreedyBackend(OptimizationBackend):
     """
@@ -86,7 +92,7 @@ class GreedyBackend(OptimizationBackend):
         profiles: dict[Model, ModelProfile],
         task_type: TaskType,
         typical_cost_fn: Callable[[ModelProfile, TaskType], float],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         if not candidates:
             return None
 
@@ -101,6 +107,7 @@ class GreedyBackend(OptimizationBackend):
 
 
 # ── WeightedSumBackend ────────────────────────────────────────────────────────
+
 
 class WeightedSumBackend(OptimizationBackend):
     """
@@ -148,7 +155,7 @@ class WeightedSumBackend(OptimizationBackend):
         profiles: dict[Model, ModelProfile],
         task_type: TaskType,
         typical_cost_fn: Callable[[ModelProfile, TaskType], float],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         if not candidates:
             return None
 
@@ -165,6 +172,7 @@ class WeightedSumBackend(OptimizationBackend):
 
 
 # ── ParetoBackend ─────────────────────────────────────────────────────────────
+
 
 class ParetoBackend(OptimizationBackend):
     """
@@ -202,17 +210,18 @@ class ParetoBackend(OptimizationBackend):
         profiles: dict[Model, ModelProfile],
         task_type: TaskType,
         typical_cost_fn: Callable[[ModelProfile, TaskType], float],
-    ) -> Optional[Model]:
+    ) -> Model | None:
         if not candidates:
             return None
 
         # Step 1: compute objectives for each candidate
         costs = {m: typical_cost_fn(profiles[m], task_type) for m in candidates}
-        lats  = {m: profiles[m].avg_latency_ms for m in candidates}
+        lats = {m: profiles[m].avg_latency_ms for m in candidates}
 
         # Pareto dominance filter
         pareto: list[Model] = [
-            m for m in candidates
+            m
+            for m in candidates
             if not any(
                 costs[o] <= costs[m]
                 and lats[o] <= lats[m]

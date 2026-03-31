@@ -14,15 +14,19 @@ Design principles:
   • Stateless per call — no mutable shared state
   • Fail-closed — unknown hard constraint → DENY
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional
+from typing import TYPE_CHECKING
 
-from .models import Task
-from .specs import JobSpecV2, PolicySpecV2, EscalationRule
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .models import Task
+    from .specs import EscalationRule, JobSpecV2, PolicySpecV2
 
 
 class Decision(str, Enum):
@@ -35,7 +39,7 @@ class Decision(str, Enum):
 class MonitorResult:
     decision: Decision
     reason: str = ""
-    rule: Optional[EscalationRule] = None
+    rule: EscalationRule | None = None
 
 
 # ─────────────────────────────────────────────
@@ -43,12 +47,14 @@ class MonitorResult:
 # ─────────────────────────────────────────────
 
 # Models whose infrastructure is EU-hosted or self-hosted (not US cloud)
-_EU_SAFE_MODELS: frozenset[str] = frozenset({
-    "self_hosted",
-    "mistral",
-    "mistral-large",
-    "mistral-small",
-})
+_EU_SAFE_MODELS: frozenset[str] = frozenset(
+    {
+        "self_hosted",
+        "mistral",
+        "mistral-large",
+        "mistral-small",
+    }
+)
 
 # Known US-based model name prefixes to block under eu_only
 _US_MODEL_PREFIXES: tuple[str, ...] = (
@@ -65,12 +71,12 @@ _US_MODEL_PREFIXES: tuple[str, ...] = (
 
 _TRAINING_KEYWORDS_RE = re.compile(
     r"(?:"
-    r"fine[- ]?tun(?:e|ing|ed)?"           # fine-tune, fine-tuning, finetune
+    r"fine[- ]?tun(?:e|ing|ed)?"  # fine-tune, fine-tuning, finetune
     r"|train(?:ing)?[ _](?:data|set|loop|model)"  # training data/set/loop/model
-    r"|gradient[ _]descent"                # gradient descent
-    r"|backprop(?:agation)?"               # backprop, backpropagation
-    r"|loss\.backward"                     # PyTorch loss.backward()
-    r"|model\.fit"                         # Keras model.fit()
+    r"|gradient[ _]descent"  # gradient descent
+    r"|backprop(?:agation)?"  # backprop, backpropagation
+    r"|loss\.backward"  # PyTorch loss.backward()
+    r"|model\.fit"  # Keras model.fit()
     r")",
     re.IGNORECASE,
 )
@@ -135,6 +141,7 @@ def _check_no_pii_logging(task: Task, job: JobSpecV2, policy: PolicySpecV2) -> M
 # Simple rule-expression evaluator
 # ─────────────────────────────────────────────
 
+
 def _eval_condition(condition: str, context: dict) -> bool:
     """
     Evaluate a simple boolean condition string against a context dict.
@@ -189,8 +196,8 @@ class ReferenceMonitor:
     """
 
     HARD_RULES: dict[str, Callable[[Task, JobSpecV2, PolicySpecV2], MonitorResult]] = {
-        "no_training":    _check_no_training,
-        "eu_only":        _check_eu_only,
+        "no_training": _check_no_training,
+        "eu_only": _check_eu_only,
         "no_pii_logging": _check_no_pii_logging,
     }
 
@@ -216,7 +223,7 @@ class ReferenceMonitor:
                 return MonitorResult(
                     decision=Decision.DENY,
                     reason=f"Unknown hard constraint '{constraint}' — failing closed. "
-                           f"Task id={task.id!r}",
+                    f"Task id={task.id!r}",
                 )
             result = checker(task, job, policy)
             if result.decision != Decision.ALLOW:
@@ -250,7 +257,9 @@ class ReferenceMonitor:
         is executed.  Does not require a specific Task.
         """
         # For now, check with a sentinel task to run the hard rules
-        from .models import Task as _Task, TaskType
+        from .models import Task as _Task
+        from .models import TaskType
+
         sentinel = _Task(id="__global__", type=TaskType.EVALUATE, prompt="")
         return self.check(sentinel, job, policy)
 
@@ -261,11 +270,11 @@ class ReferenceMonitor:
         policy: PolicySpecV2,
     ) -> dict:
         return {
-            "task_type":     task.type.value,
+            "task_type": task.type.value,
             "data_locality": job.inputs.data_locality,
-            "contains_pii":  str(job.inputs.contains_pii).lower(),
-            "jurisdiction":  job.inputs.data_locality,
-            "risk_level":    "low",  # placeholder — extend when risk scoring is added
+            "contains_pii": str(job.inputs.contains_pii).lower(),
+            "jurisdiction": job.inputs.data_locality,
+            "risk_level": "low",  # placeholder — extend when risk scoring is added
         }
 
     def _eval_rule(

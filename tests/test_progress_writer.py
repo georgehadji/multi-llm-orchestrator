@@ -10,6 +10,7 @@ Covers:
   - tasks with empty output are silently skipped
   - ProgressEntry exported from orchestrator package
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,12 +22,18 @@ import pytest
 
 from orchestrator import ProgressWriter, ProgressEntry
 from orchestrator.models import (
-    Budget, Model, ProjectState, ProjectStatus,
-    Task, TaskResult, TaskStatus, TaskType,
+    Budget,
+    Model,
+    ProjectState,
+    ProjectStatus,
+    Task,
+    TaskResult,
+    TaskStatus,
+    TaskType,
 )
 
-
 # ─── helpers ─────────────────────────────────────────────────────────────────
+
 
 def _make_state() -> ProjectState:
     return ProjectState(
@@ -68,6 +75,7 @@ def _run(coro):
 
 # ─── ProgressEntry export ─────────────────────────────────────────────────────
 
+
 class TestProgressEntryExport:
     def test_progress_entry_importable(self):
         assert ProgressEntry is not None
@@ -90,6 +98,7 @@ class TestProgressEntryExport:
 
 
 # ─── task_completed writes output file ───────────────────────────────────────
+
 
 class TestTaskCompletedWritesFile:
     def test_output_file_created(self):
@@ -152,6 +161,7 @@ class TestTaskCompletedWritesFile:
 
 # ─── PROGRESS.jsonl ──────────────────────────────────────────────────────────
 
+
 class TestProgressJsonl:
     def test_progress_jsonl_created(self):
         state = _make_state()
@@ -213,13 +223,12 @@ class TestProgressJsonl:
             pw = ProgressWriter(Path(tmpdir), state)
             _run(pw.task_completed("task_001", result, task))
 
-            entry = json.loads(
-                (Path(tmpdir) / "PROGRESS.jsonl").read_text().strip()
-            )
+            entry = json.loads((Path(tmpdir) / "PROGRESS.jsonl").read_text().strip())
             assert "task_001" in entry["output_file"]
 
 
 # ─── summary.json updated incrementally ─────────────────────────────────────
+
 
 class TestSummaryJsonIncremental:
     def test_summary_json_created_after_first_task(self):
@@ -262,6 +271,7 @@ class TestSummaryJsonIncremental:
 
 # ─── Concurrent safety ───────────────────────────────────────────────────────
 
+
 class TestConcurrentSafety:
     def test_concurrent_completions_all_written(self):
         """Multiple concurrent task_completed calls all append to PROGRESS.jsonl."""
@@ -275,10 +285,9 @@ class TestConcurrentSafety:
             pw = ProgressWriter(Path(tmpdir), state)
 
             async def run_all():
-                await asyncio.gather(*[
-                    pw.task_completed(f"t{i}", results[i], tasks[i])
-                    for i in range(5)
-                ])
+                await asyncio.gather(
+                    *[pw.task_completed(f"t{i}", results[i], tasks[i]) for i in range(5)]
+                )
 
             asyncio.run(run_all())
 
@@ -288,6 +297,7 @@ class TestConcurrentSafety:
 
 
 # ─── CODE_GEN named file extraction ──────────────────────────────────────────
+
 
 class TestCodeGenExtraction:
     def test_named_files_extracted_from_code_gen(self):
@@ -315,12 +325,7 @@ class TestCodeGenExtraction:
         """Writing tasks with code-like content do not trigger extraction."""
         state = _make_state()
         task = _make_task("t1", TaskType.WRITING)
-        prose_output = (
-            "**src/main.py**\n"
-            "```python\n"
-            "def main(): pass\n"
-            "```\n"
-        )
+        prose_output = "**src/main.py**\n" "```python\n" "def main(): pass\n" "```\n"
         result = _make_result("t1", output=prose_output)
         state.results["t1"] = result
 

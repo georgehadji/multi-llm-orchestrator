@@ -24,10 +24,10 @@ from orchestrator.diff_generator import (
 )
 from orchestrator.models import Task, TaskType, Model
 
-
 # ─────────────────────────────────────────────
 # Test TestFirstGenerator
 # ─────────────────────────────────────────────
+
 
 class TestTestFirstGenerator:
     """Test TDD-first generation."""
@@ -59,8 +59,7 @@ class TestTestFirstGenerator:
     async def test_generate_test_spec(self, tdd_generator, mock_client):
         """Test Phase 1: Test specification generation."""
         # Mock LLM response
-        mock_client.call.return_value = MagicMock(
-            text="""
+        mock_client.call.return_value = MagicMock(text="""
 import pytest
 
 def test_should_return_only_valid_emails():
@@ -75,8 +74,7 @@ def test_should_handle_empty_list():
 def test_should_handle_invalid_emails():
     result = filter_valid_emails(['not-an-email', 'also-not'])
     assert result == []
-"""
-        )
+""")
 
         # Generate test spec
         test_spec = await tdd_generator._generate_test_spec(
@@ -96,16 +94,14 @@ def test_should_handle_invalid_emails():
     async def test_generate_code_to_pass_tests(self, tdd_generator, mock_client):
         """Test Phase 2: Implementation generation."""
         # Mock LLM response
-        mock_client.call.return_value = MagicMock(
-            text="""
+        mock_client.call.return_value = MagicMock(text="""
 import re
 
 def filter_valid_emails(emails):
     '''Filter and return only valid email addresses.'''
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'
     return [email for email in emails if re.match(email_pattern, email)]
-"""
-        )
+""")
 
         # Generate implementation
         code = await tdd_generator._generate_code_to_pass_tests(
@@ -197,7 +193,9 @@ E       AssertionError: assert None == []
         # Mock LLM responses (first fails, second succeeds)
         mock_client.call.side_effect = [
             # First repair attempt
-            MagicMock(text="def filter_valid_emails(emails):\n    return [e for e in emails if '@' in e]"),
+            MagicMock(
+                text="def filter_valid_emails(emails):\n    return [e for e in emails if '@' in e]"
+            ),
         ]
 
         # Mock sandbox (tests pass after repair)
@@ -304,6 +302,7 @@ def test_should_handle_invalid_input():
 # Test DiffGenerator
 # ─────────────────────────────────────────────
 
+
 class TestDiffGenerator:
     """Test diff-based revisions."""
 
@@ -400,8 +399,7 @@ No headers, no hunks, no changes.
     async def test_generate_diff(self, diff_generator, mock_client):
         """Test diff generation."""
         # Mock LLM response
-        mock_client.call.return_value = MagicMock(
-            text="""--- a/main.py
+        mock_client.call.return_value = MagicMock(text="""--- a/main.py
 +++ b/main.py
 @@ -10,7 +10,8 @@
  def validate_email(email):
@@ -409,8 +407,7 @@ No headers, no hunks, no changes.
 +    import re
 +    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$
 +    return bool(re.match(pattern, email))
-"""
-        )
+""")
 
         # Create test task
         task = Task(
@@ -465,6 +462,7 @@ No headers, no hunks, no changes.
 # Test Integration
 # ─────────────────────────────────────────────
 
+
 class TestParadigmShiftIntegration:
     """Test integration of paradigm shifts."""
 
@@ -474,8 +472,8 @@ class TestParadigmShiftIntegration:
 
         config = OptimizationConfig()
 
-        assert hasattr(config, 'enable_tdd_first')
-        assert hasattr(config, 'enable_diff_revisions')
+        assert hasattr(config, "enable_tdd_first")
+        assert hasattr(config, "enable_diff_revisions")
         assert config.enable_tdd_first is False  # Opt-in by default
         assert config.enable_diff_revisions is True  # On by default
 
@@ -484,8 +482,8 @@ class TestParadigmShiftIntegration:
         from orchestrator import test_first_generator
         from orchestrator import diff_generator
 
-        assert hasattr(test_first_generator, 'TestFirstGenerator')
-        assert hasattr(diff_generator, 'DiffGenerator')
+        assert hasattr(test_first_generator, "TestFirstGenerator")
+        assert hasattr(diff_generator, "DiffGenerator")
 
 
 if __name__ == "__main__":

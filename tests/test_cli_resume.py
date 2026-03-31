@@ -10,6 +10,7 @@ Tests cover:
 - Timeout on slow DB → returns None (silent fallback)
 - No keyword overlap → filtered by _score_candidates → returns None
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,9 +52,7 @@ class TestCheckResume:
 
         state_mgr = AsyncMock()
         state_mgr.find_resumable.return_value = []
-        result = await _check_resume(
-            "Build a GraphQL API", state_mgr, new_project=False
-        )
+        result = await _check_resume("Build a GraphQL API", state_mgr, new_project=False)
         assert result is None
 
     @pytest.mark.asyncio
@@ -63,9 +62,7 @@ class TestCheckResume:
         state_mgr = AsyncMock()
         state_mgr.find_resumable.return_value = [_make_db_row()]
         # new_project=True must bypass all detection and return None immediately
-        result = await _check_resume(
-            "Build a FastAPI auth service", state_mgr, new_project=True
-        )
+        result = await _check_resume("Build a FastAPI auth service", state_mgr, new_project=True)
         assert result is None
 
     @pytest.mark.asyncio

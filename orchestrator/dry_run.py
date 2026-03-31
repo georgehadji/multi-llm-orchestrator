@@ -20,25 +20,21 @@ Programmatic usage:
     plan = asyncio.run(orch.dry_run("build FastAPI auth", "tests pass"))
     print(plan.render())
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .models import Task
-
 
 # ─── Token estimates for cost prediction ─────────────────────────────────────
 # Average prompt + output tokens per task type (rough heuristic)
 _TOKEN_ESTIMATES: dict[str, tuple[int, int]] = {
-    "code_generation":  (2_500, 1_500),
-    "code_review":      (2_000, 800),
+    "code_generation": (2_500, 1_500),
+    "code_review": (2_000, 800),
     "complex_reasoning": (1_500, 1_000),
-    "creative_writing":  (1_200, 1_000),
-    "data_extraction":  (2_000, 600),
-    "summarization":    (3_000, 500),
-    "evaluation":       (1_500, 400),
+    "creative_writing": (1_200, 1_000),
+    "data_extraction": (2_000, 600),
+    "summarization": (3_000, 500),
+    "evaluation": (1_500, 400),
 }
 _DEFAULT_TOKENS = (1_500, 600)
 
@@ -46,12 +42,13 @@ _DEFAULT_TOKENS = (1_500, 600)
 @dataclass
 class TaskPlan:
     """Plan for a single task in the execution plan."""
+
     task_id: str
     task_type: str
-    prompt_preview: str       # first 80 chars of prompt
+    prompt_preview: str  # first 80 chars of prompt
     dependencies: list[str]
-    parallel_level: int       # 0-indexed level (tasks in the same level run in parallel)
-    primary_model: str        # model that will be used
+    parallel_level: int  # 0-indexed level (tasks in the same level run in parallel)
+    primary_model: str  # model that will be used
     estimated_cost_usd: float
     acceptance_threshold: float
     max_iterations: int
@@ -71,6 +68,7 @@ class ExecutionPlan:
     estimated_total_cost: Sum of per-task cost estimates.
     num_parallel_levels:  Number of sequential execution waves.
     """
+
     project_description: str
     success_criteria: str
     tasks: list[TaskPlan] = field(default_factory=list)
@@ -87,7 +85,7 @@ class DryRunRenderer:
     """Renders an ExecutionPlan as human-readable text."""
 
     @staticmethod
-    def render(plan: "ExecutionPlan") -> str:
+    def render(plan: ExecutionPlan) -> str:
         lines: list[str] = []
         lines.append("=" * 64)
         lines.append("DRY-RUN: Execution Plan")
@@ -108,10 +106,7 @@ class DryRunRenderer:
                 tp = next((t for t in plan.tasks if t.task_id == tid), None)
                 if tp is None:
                     continue
-                dep_str = (
-                    f"  deps=[{', '.join(tp.dependencies)}]"
-                    if tp.dependencies else ""
-                )
+                dep_str = f"  deps=[{', '.join(tp.dependencies)}]" if tp.dependencies else ""
                 lines.append(
                     f"  {tp.task_id}  [{tp.task_type}]"
                     f"  model={tp.primary_model}"

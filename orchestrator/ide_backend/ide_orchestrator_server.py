@@ -2,11 +2,11 @@
 AI Orchestrator IDE Server - Full Integration
 Supports: HTML/CSS/JS, React, Next.js, FastAPI, Node.js
 """
+
 from __future__ import annotations
+
 import asyncio
-import json
 import logging
-import os
 import re
 import socket
 import subprocess
@@ -14,18 +14,17 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.staticfiles import StaticFiles
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("ide_orchestrator")
 
@@ -36,20 +35,21 @@ base_path = Path(__file__).parent
 # Tech Stack Selection Logic
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TechStackSelector:
     """Intelligent tech stack selector based on project requirements."""
-    
+
     # Complexity levels
     SIMPLE = 1
     INTERMEDIATE = 2
     ADVANCED = 3
     ENTERPRISE = 4
-    
+
     @classmethod
     def detect_stack(cls, user_request: str) -> dict:
         """
         Detect appropriate tech stack based on user request.
-        
+
         Returns:
             dict: {
                 "stack_type": "static" | "premium" | "react" | "nextjs" | "fastapi" | "fullstack",
@@ -61,10 +61,10 @@ class TechStackSelector:
             }
         """
         req = user_request.lower()
-        
+
         # Calculate complexity score
         complexity = cls._calculate_complexity(req)
-        
+
         # Detect premium/awwwards website
         if cls._is_premium_website(req):
             return {
@@ -75,7 +75,7 @@ class TechStackSelector:
                 "database": None,
                 "deploy": "Vercel/Netlify",
                 "files": ["index.html", "styles.css", "script.js (Three.js)"],
-                "message": "✨ Creating premium website with 3D elements..."
+                "message": "✨ Creating premium website with 3D elements...",
             }
 
         # Detect full-stack FIRST (before React)
@@ -88,7 +88,7 @@ class TechStackSelector:
                 "database": "PostgreSQL",
                 "deploy": "Vercel",
                 "files": ["app/page.tsx", "app/api/", "lib/supabase.ts"],
-                "message": "🚀 Building full-stack application..."
+                "message": "🚀 Building full-stack application...",
             }
 
         # Detect static site (before React)
@@ -101,7 +101,7 @@ class TechStackSelector:
                 "database": None,
                 "deploy": "Netlify/Vercel",
                 "files": ["index.html", "styles.css", "script.js"],
-                "message": "📄 Generating static website..."
+                "message": "📄 Generating static website...",
             }
 
         # Detect React app
@@ -114,7 +114,7 @@ class TechStackSelector:
                 "database": None,
                 "deploy": "Vercel/Netlify",
                 "files": ["src/App.tsx", "package.json"],
-                "message": "⚛️ Building React application..."
+                "message": "⚛️ Building React application...",
             }
 
         # Detect backend
@@ -127,7 +127,7 @@ class TechStackSelector:
                 "database": "SQLite" if "database" in req else None,
                 "deploy": "Railway",
                 "files": ["src/main.py", "requirements.txt"],
-                "message": "🔌 Creating REST API..."
+                "message": "🔌 Creating REST API...",
             }
 
         # Default: Static site
@@ -139,140 +139,255 @@ class TechStackSelector:
             "database": None,
             "deploy": "Netlify/Vercel",
             "files": ["index.html", "styles.css", "script.js"],
-            "message": "🌐 Creating simple website..."
+            "message": "🌐 Creating simple website...",
         }
 
     @classmethod
     def _calculate_complexity(cls, req: str) -> int:
         """Calculate complexity score 1-4 based on keywords."""
         score = 1
-        
+
         # Simple indicators
         simple_words = ["simple", "basic", "landing", "portfolio", "brochure"]
         if any(w in req for w in simple_words):
             score = 1
-        
+
         # Intermediate indicators
         intermediate_words = ["interactive", "dashboard", "dynamic", "forms", "api"]
         if any(w in req for w in intermediate_words):
             score = 2
-        
+
         # Advanced indicators
         advanced_words = ["users", "auth", "login", "database", "real-time", "websocket"]
         if any(w in req for w in advanced_words):
             score = 3
-        
+
         # Enterprise indicators
         enterprise_words = ["microservices", "scalable", "kubernetes", "kafka", "redis"]
         if any(w in req for w in enterprise_words):
             score = 4
-        
+
         # Length bonus (longer requirements = more complex)
         if len(req.split()) > 50:
             score = min(score + 1, 4)
-        
+
         return score
-    
+
     @classmethod
     def _is_premium_website(cls, req: str) -> bool:
         """Check if user wants a premium Awwwards-level website."""
         premium_keywords = [
-            "awwwards", "awward", "high-end", "high end", "premium",
-            "3d", "three.js", "webgl", "threejs",
-            "modern", "minimal", "minimalist", "sleek",
-            "animated", "animation", "interactive",
-            "portfolio", "showcase", "creative",
-            "luxury", "elegant", "sophisticated",
-            "micro-interaction", "micro interaction", "microinteractions"
+            "awwwards",
+            "awward",
+            "high-end",
+            "high end",
+            "premium",
+            "3d",
+            "three.js",
+            "webgl",
+            "threejs",
+            "modern",
+            "minimal",
+            "minimalist",
+            "sleek",
+            "animated",
+            "animation",
+            "interactive",
+            "portfolio",
+            "showcase",
+            "creative",
+            "luxury",
+            "elegant",
+            "sophisticated",
+            "micro-interaction",
+            "micro interaction",
+            "microinteractions",
         ]
         return any(k in req for k in premium_keywords)
-    
+
     @classmethod
     def _is_static_site(cls, req: str) -> bool:
         """Check if user wants a static website."""
         static_keywords = [
             # English
-            "portfolio", "landing page", "brochure", "business card",
-            "simple website", "personal site", "showcase", "cv", "resume",
-            "restaurant website", "cafe website", "hotel website",
-            "plumber", "electrician", "mechanic", "contractor",
-            "lawyer", "law firm", "attorney", "legal", "law office",
+            "portfolio",
+            "landing page",
+            "brochure",
+            "business card",
+            "simple website",
+            "personal site",
+            "showcase",
+            "cv",
+            "resume",
+            "restaurant website",
+            "cafe website",
+            "hotel website",
+            "plumber",
+            "electrician",
+            "mechanic",
+            "contractor",
+            "lawyer",
+            "law firm",
+            "attorney",
+            "legal",
+            "law office",
             # Greek
-            "ιστοσελίδα", "сайт", "προφίλ", "βιογραφικό",
-            "επαγγελματική καρτα", "παρουσίαση", "οδοντίατρο", "γιατρό",
-            "δικηγόρο", "επιχείρηση", "κατάστημα", "εστιατόριο",
-            "ξενοδοχείο", "салон", "γραφείο",
-            "υδραυλικό", "ηλεκτρολόγο", "μηχανικό", "τεχνικό",
-            "συνεργείο", "επισκευή", "κατασκευή", "ανακαίνιση"
+            "ιστοσελίδα",
+            "сайт",
+            "προφίλ",
+            "βιογραφικό",
+            "επαγγελματική καρτα",
+            "παρουσίαση",
+            "οδοντίατρο",
+            "γιατρό",
+            "δικηγόρο",
+            "επιχείρηση",
+            "κατάστημα",
+            "εστιατόριο",
+            "ξενοδοχείο",
+            "салон",
+            "γραφείο",
+            "υδραυλικό",
+            "ηλεκτρολόγο",
+            "μηχανικό",
+            "τεχνικό",
+            "συνεργείο",
+            "επισκευή",
+            "κατασκευή",
+            "ανακαίνιση",
         ]
         return any(k in req for k in static_keywords)
-    
+
     @classmethod
     def _is_react_app(cls, req: str) -> bool:
         """Check if user wants a React application."""
         react_keywords = [
             # English
-            "dashboard", "admin panel", "single page", "SPA",
-            "interactive", "real-time updates", "chart", "graph",
-            "data visualization", "analytics",
+            "dashboard",
+            "admin panel",
+            "single page",
+            "SPA",
+            "interactive",
+            "real-time updates",
+            "chart",
+            "graph",
+            "data visualization",
+            "analytics",
             # Greek
-            "ταμπλό", "διαχείριση", "διαδραστικό", "γραφικά",
-            "στατιστικά", "αναφορές", "admin", "panel"
+            "ταμπλό",
+            "διαχείριση",
+            "διαδραστικό",
+            "γραφικά",
+            "στατιστικά",
+            "αναφορές",
+            "admin",
+            "panel",
         ]
         return any(k in req for k in react_keywords) and not cls._is_fullstack(req)
-    
+
     @classmethod
     def _is_fullstack(cls, req: str) -> bool:
         """Check if user wants a full-stack application."""
         fullstack_keywords = [
             # English
-            "users", "authentication", "login", "register", "sign up",
-            "database", "postgres", "mysql", "mongodb",
-            "e-commerce", "shop", "store", "products",
-            "blog", "cms", "content management",
-            "saas", "subscription", "payment", "stripe",
-            "social", "feed", "posts", "comments", "likes",
+            "users",
+            "authentication",
+            "login",
+            "register",
+            "sign up",
+            "database",
+            "postgres",
+            "mysql",
+            "mongodb",
+            "e-commerce",
+            "shop",
+            "store",
+            "products",
+            "blog",
+            "cms",
+            "content management",
+            "saas",
+            "subscription",
+            "payment",
+            "stripe",
+            "social",
+            "feed",
+            "posts",
+            "comments",
+            "likes",
             # Greek
-            "χρήστε", "σύνδεση", "εγγραφή", "καταχώρηση",
-            "βάση δεδομένων", "ηλεκτρονικό κατάστημα", "eshop",
-            "προϊόντα", "καλάθι", "παραγγελία", "πληρωμή",
-            "ιστολόγιο", "άρθρα", "ανάρτηση", "σχόλια",
-            "κοινωνικό", "feed", "δημοσίευση"
+            "χρήστε",
+            "σύνδεση",
+            "εγγραφή",
+            "καταχώρηση",
+            "βάση δεδομένων",
+            "ηλεκτρονικό κατάστημα",
+            "eshop",
+            "προϊόντα",
+            "καλάθι",
+            "παραγγελία",
+            "πληρωμή",
+            "ιστολόγιο",
+            "άρθρα",
+            "ανάρτηση",
+            "σχόλια",
+            "κοινωνικό",
+            "feed",
+            "δημοσίευση",
         ]
         return any(k in req for k in fullstack_keywords)
-    
+
     @classmethod
     def _is_backend(cls, req: str) -> bool:
         """Check if user wants a backend API."""
         backend_keywords = [
             # English
-            "api", "rest", "graphql", "endpoint",
-            "microservice", "backend", "server",
-            "python", "fastapi", "django", "flask",
-            "node", "express", "nestjs",
+            "api",
+            "rest",
+            "graphql",
+            "endpoint",
+            "microservice",
+            "backend",
+            "server",
+            "python",
+            "fastapi",
+            "django",
+            "flask",
+            "node",
+            "express",
+            "nestjs",
             # Greek
-            "api", "backend", "server", "εξυπηρετητής",
-            "δεδομένα", "υπηρεσία"
+            "api",
+            "backend",
+            "server",
+            "εξυπηρετητής",
+            "δεδομένα",
+            "υπηρεσία",
         ]
-        return any(k in req for k in backend_keywords) and "ιστοσελίδα" not in req and "сайт" not in req
+        return (
+            any(k in req for k in backend_keywords)
+            and "ιστοσελίδα" not in req
+            and "сайт" not in req
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Session Manager
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class SessionManager:
     """Manages IDE sessions with state persistence."""
-    
+
     def __init__(self):
-        self.sessions: Dict[str, Dict[str, Any]] = {}
-        self.ws_connections: Dict[str, List[WebSocket]] = {}
-        self.running_processes: Dict[str, subprocess.Popen] = {}
-    
-    def create_session(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        self.sessions: dict[str, dict[str, Any]] = {}
+        self.ws_connections: dict[str, list[WebSocket]] = {}
+        self.running_processes: dict[str, subprocess.Popen] = {}
+
+    def create_session(self, config: dict[str, Any]) -> dict[str, Any]:
         """Create a new session."""
         session_id = str(uuid.uuid4())[:8]
-        
+
         session = {
             "id": session_id,
             "project_name": config.get("project_name", "Untitled Project"),
@@ -293,91 +408,91 @@ class SessionManager:
             "cache_hit_rate": 0.0,
             "tech_stack": None,
         }
-        
+
         self.sessions[session_id] = session
         self.ws_connections[session_id] = []
-        
+
         logger.info(f"Session created: {session_id}")
         return session
-    
-    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+
+    def get_session(self, session_id: str) -> dict[str, Any] | None:
         """Get session by ID."""
         return self.sessions.get(session_id)
-    
+
     def update_session(self, session_id: str, **updates):
         """Update session fields."""
         if session_id in self.sessions:
             self.sessions[session_id].update(updates)
-    
-    def set_files(self, session_id: str, files: List[Dict[str, Any]]):
+
+    def set_files(self, session_id: str, files: list[dict[str, Any]]):
         """Set session files."""
         if session_id in self.sessions:
             self.sessions[session_id]["files"] = files
-    
-    def add_message(self, session_id: str, message: Dict[str, Any]):
+
+    def add_message(self, session_id: str, message: dict[str, Any]):
         """Add message to session."""
         if session_id in self.sessions:
             self.sessions[session_id]["messages"].append(message)
-    
+
     def add_terminal_line(self, session_id: str, line_type: str, content: str):
         """Add line to terminal output."""
         if session_id in self.sessions:
-            self.sessions[session_id]["terminal_lines"].append({
-                "type": line_type,
-                "content": content,
-                "ts": datetime.now().strftime("%H:%M:%S")
-            })
-    
+            self.sessions[session_id]["terminal_lines"].append(
+                {"type": line_type, "content": content, "ts": datetime.now().strftime("%H:%M:%S")}
+            )
+
     def add_websocket(self, session_id: str, websocket: WebSocket):
         """Add WebSocket connection."""
         if session_id not in self.ws_connections:
             self.ws_connections[session_id] = []
         self.ws_connections[session_id].append(websocket)
-    
+
     def remove_websocket(self, session_id: str, websocket: WebSocket):
         """Remove WebSocket connection."""
         if session_id in self.ws_connections:
             self.ws_connections[session_id] = [
                 ws for ws in self.ws_connections[session_id] if ws != websocket
             ]
-    
+
     async def broadcast(self, session_id: str, event: str, data: Any):
         """Broadcast event to all WebSocket connections."""
         if session_id not in self.ws_connections:
             return
-        
+
         message = {"event": event, "data": data}
         disconnected = []
-        
+
         for ws in self.ws_connections[session_id]:
             try:
                 await ws.send_json(message)
             except Exception:
                 disconnected.append(ws)
-        
+
         # Clean up disconnected
         for ws in disconnected:
             self.ws_connections[session_id].remove(ws)
-    
+
     def is_port_available(self, port: int) -> bool:
         """Check if port is available."""
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.bind(("0.0.0.0", port))
                 return True
-        except socket.error:
+        except OSError:
             return False
-    
-    def start_server(self, session_id: str, output_dir: Path, port: int = 8000, server_type: str = "fastapi"):
+
+    def start_server(
+        self, session_id: str, output_dir: Path, port: int = 8000, server_type: str = "fastapi"
+    ):
         """Start a web server for a session (FastAPI, HTTP, or npm dev)."""
         if session_id in self.running_processes:
             logger.info(f"Server already running for session {session_id}")
             return False
-        
+
         if not self.is_port_available(port):
             logger.warning(f"Port {port} is already in use")
             return False
-        
+
         try:
             if server_type == "http":
                 cmd = [sys.executable, "-m", "http.server", str(port)]
@@ -385,29 +500,33 @@ class SessionManager:
                 cmd = ["npm", "run", "dev", "--", "--port", str(port)]
             else:  # fastapi
                 cmd = [
-                    sys.executable, "-m", "uvicorn",
+                    sys.executable,
+                    "-m",
+                    "uvicorn",
                     "src.main:app",
-                    "--host", "0.0.0.0",
-                    "--port", str(port),
-                    "--reload"
+                    "--host",
+                    "0.0.0.0",
+                    "--port",
+                    str(port),
+                    "--reload",
                 ]
-            
+
             process = subprocess.Popen(
                 cmd,
                 cwd=str(output_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1
+                bufsize=1,
             )
-            
+
             self.running_processes[session_id] = process
             logger.info(f"Server started for session {session_id} on port {port} ({server_type})")
             return True
         except Exception as e:
             logger.error(f"Failed to start server: {e}")
             return False
-    
+
     def stop_server(self, session_id: str):
         """Stop server for a session."""
         if session_id in self.running_processes:
@@ -429,29 +548,60 @@ session_manager = SessionManager()
 # File Generators
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class FileGenerators:
     """Generators for different tech stacks."""
-    
+
     @staticmethod
     def generate_premium_website(project_name: str, description: str) -> tuple[dict, list]:
         """Generate premium Awwwards-level website with Three.js 3D elements."""
-        
+
         # Detect profession from description
         desc_lower = description.lower()
         profession = "Business"
         profession_gr = "Επιχείρηση"
 
         # Check for lawyer/law firm FIRST (before generic business)
-        if any(w in desc_lower for w in ["lawyer", "law firm", "attorney", "legal", "law office", "δικηγόρο", "δικηγορικό", "νομικό", "δικαστήριο"]):
+        if any(
+            w in desc_lower
+            for w in [
+                "lawyer",
+                "law firm",
+                "attorney",
+                "legal",
+                "law office",
+                "δικηγόρο",
+                "δικηγορικό",
+                "νομικό",
+                "δικαστήριο",
+            ]
+        ):
             profession = "Law Firm"
             profession_gr = "Δικηγορικό Γραφείο"
-        elif any(w in desc_lower for w in ["web designer", "web design", "ux designer", "ui designer", "graphic designer", "designer", "portfolio", "σχεδιαστής", "σχεδίαση"]):
+        elif any(
+            w in desc_lower
+            for w in [
+                "web designer",
+                "web design",
+                "ux designer",
+                "ui designer",
+                "graphic designer",
+                "designer",
+                "portfolio",
+                "σχεδιαστής",
+                "σχεδίαση",
+            ]
+        ):
             profession = "Web Designer"
             profession_gr = "Web Designer"
-        elif any(w in desc_lower for w in ["photographer", "photography", "φωτογράφο", "φωτογραφία"]):
+        elif any(
+            w in desc_lower for w in ["photographer", "photography", "φωτογράφο", "φωτογραφία"]
+        ):
             profession = "Photographer"
             profession_gr = "Φωτογράφος"
-        elif any(w in desc_lower for w in ["architect", "architecture", "αρχιτέκτονα", "αρχιτεκτονική"]):
+        elif any(
+            w in desc_lower for w in ["architect", "architecture", "αρχιτέκτονα", "αρχιτεκτονική"]
+        ):
             profession = "Architecture Studio"
             profession_gr = "Αρχιτεκτονικό Γραφείο"
         elif any(w in desc_lower for w in ["dentist", "dental", "οδοντίατρο", "δόντι", "clinic"]):
@@ -485,7 +635,7 @@ class FileGenerators:
 
         # Build profession-specific content blocks
         if profession == "Web Designer":
-            services_html = '''            <div class="service-card" data-service="ui-ux">
+            services_html = """            <div class="service-card" data-service="ui-ux">
                 <div class="service-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
@@ -524,9 +674,9 @@ class FileGenerators:
                 <h3>Motion & 3D</h3>
                 <p>Immersive animations and 3D experiences that captivate visitors</p>
                 <a href="#" class="service-link">Learn More →</a>
-            </div>'''
+            </div>"""
             about_text = f"Based in {city}, I craft bold digital experiences that push boundaries. Combining brutalist aesthetics with cutting-edge 3D technology to create websites that leave an impression."
-            stats_html = '''                    <div class="stat">
+            stats_html = """                    <div class="stat">
                         <span class="stat-number">50+</span>
                         <span class="stat-label">Projects Delivered</span>
                     </div>
@@ -537,22 +687,22 @@ class FileGenerators:
                     <div class="stat">
                         <span class="stat-number">100%</span>
                         <span class="stat-label">Client Satisfaction</span>
-                    </div>'''
+                    </div>"""
             contact_title = "Start a Project"
             contact_email = f"hello@{project_name.lower().replace(' ', '')}.gr"
             form_placeholder = "Tell me about your project..."
             cta_button = "Send Message"
-            footer_tagline = f"Crafting bold digital experiences since 2018"
+            footer_tagline = "Crafting bold digital experiences since 2018"
             nav_cta = "Hire Me"
         elif profession == "Dental Clinic":
-            services_html = '''            <div class="service-card"><div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/></svg></div><h3>General Dentistry</h3><p>Comprehensive dental care for the whole family</p><a href="#" class="service-link">Learn More →</a></div>
+            services_html = """            <div class="service-card"><div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/></svg></div><h3>General Dentistry</h3><p>Comprehensive dental care for the whole family</p><a href="#" class="service-link">Learn More →</a></div>
             <div class="service-card"><div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg></div><h3>Teeth Whitening</h3><p>Professional whitening for a radiant smile</p><a href="#" class="service-link">Learn More →</a></div>
             <div class="service-card"><div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div><h3>Orthodontics</h3><p>Braces and aligners for a perfect smile</p><a href="#" class="service-link">Learn More →</a></div>
-            <div class="service-card"><div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/></svg></div><h3>Dental Implants</h3><p>Permanent solutions for missing teeth</p><a href="#" class="service-link">Learn More →</a></div>'''
+            <div class="service-card"><div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/></svg></div><h3>Dental Implants</h3><p>Permanent solutions for missing teeth</p><a href="#" class="service-link">Learn More →</a></div>"""
             about_text = f"Located in {city}, our clinic combines the latest dental technology with a gentle, patient-centered approach to deliver exceptional oral care."
-            stats_html = '''                    <div class="stat"><span class="stat-number">15+</span><span class="stat-label">Years Experience</span></div>
+            stats_html = """                    <div class="stat"><span class="stat-number">15+</span><span class="stat-label">Years Experience</span></div>
                     <div class="stat"><span class="stat-number">2000+</span><span class="stat-label">Happy Patients</span></div>
-                    <div class="stat"><span class="stat-number">99%</span><span class="stat-label">Satisfaction Rate</span></div>'''
+                    <div class="stat"><span class="stat-number">99%</span><span class="stat-label">Satisfaction Rate</span></div>"""
             contact_title = "Book an Appointment"
             contact_email = f"info@{project_name.lower().replace(' ', '')}.gr"
             form_placeholder = "Describe your dental concern..."
@@ -560,7 +710,7 @@ class FileGenerators:
             footer_tagline = f"Your trusted dental care in {city}"
             nav_cta = "Book Now"
         else:  # Law Firm and generic fallback
-            services_html = '''            <div class="service-card" data-service="consultation">
+            services_html = """            <div class="service-card" data-service="consultation">
                 <div class="service-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
@@ -602,9 +752,9 @@ class FileGenerators:
                 <h3>Corporate Law</h3>
                 <p>Business formation, compliance, and corporate governance services</p>
                 <a href="#" class="service-link">Learn More →</a>
-            </div>'''
+            </div>"""
             about_text = f"Located in the heart of {city}, our firm combines deep {profession_gr} expertise with personalized attention to deliver exceptional results for every client."
-            stats_html = '''                    <div class="stat">
+            stats_html = """                    <div class="stat">
                         <span class="stat-number">25+</span>
                         <span class="stat-label">Years Experience</span>
                     </div>
@@ -615,16 +765,16 @@ class FileGenerators:
                     <div class="stat">
                         <span class="stat-number">98%</span>
                         <span class="stat-label">Success Rate</span>
-                    </div>'''
+                    </div>"""
             contact_title = "Schedule a Consultation"
             contact_email = f"info@{project_name.lower().replace(' ', '')}.gr"
             form_placeholder = "Brief Description of Your Case"
             cta_button = "Request Consultation"
             footer_tagline = f"Trusted {profession_gr} excellence since 2010"
             nav_cta = "Book Now"
-        
+
         files = {
-            "index.html": f'''<!DOCTYPE html>
+            "index.html": f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -636,7 +786,7 @@ class FileGenerators:
 <body>
     <!-- 3D Background Canvas -->
     <canvas id="webgl-canvas"></canvas>
-    
+
     <!-- Loading Screen -->
     <div class="loader">
         <div class="loader-content">
@@ -644,7 +794,7 @@ class FileGenerators:
             <p>Loading Experience...</p>
         </div>
     </div>
-    
+
     <!-- Navigation -->
     <nav class="navbar">
         <div class="logo">
@@ -658,7 +808,7 @@ class FileGenerators:
         </ul>
         <button class="nav-cta">{nav_cta}</button>
     </nav>
-    
+
     <!-- Hero Section -->
     <section id="home" class="hero">
         <div class="hero-content">
@@ -684,7 +834,7 @@ class FileGenerators:
             </div>
         </div>
     </section>
-    
+
     <!-- Services Section -->
     <section id="services" class="services">
         <div class="section-header">
@@ -695,7 +845,7 @@ class FileGenerators:
 {services_html}
         </div>
     </section>
-    
+
     <!-- About Section -->
     <section id="about" class="about">
         <div class="about-content">
@@ -714,7 +864,7 @@ class FileGenerators:
             </div>
         </div>
     </section>
-    
+
     <!-- Contact Section -->
     <section id="contact" class="contact">
         <div class="contact-container">
@@ -767,7 +917,7 @@ class FileGenerators:
             </form>
         </div>
     </section>
-    
+
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-content">
@@ -793,12 +943,11 @@ class FileGenerators:
             <p>&copy; 2026 {project_name}. All rights reserved.</p>
         </div>
     </footer>
-    
+
     <script src="script.js"></script>
 </body>
-</html>''',
-            
-            "styles.css": '''/* Premium Awwwards-Level Styles */
+</html>""",
+            "styles.css": """/* Premium Awwwards-Level Styles */
 :root {
     --primary: #0a0a0f;
     --secondary: #1a1a2e;
@@ -1364,9 +1513,8 @@ body {
     .stats-grid { grid-template-columns: 1fr; }
     .footer { padding: 2rem; }
 }
-''',
-            
-            "script.js": '''// Premium Website - Three.js + Animations
+""",
+            "script.js": """// Premium Website - Three.js + Animations
 
 // Loading Screen
 window.addEventListener('load', () => {
@@ -1381,56 +1529,56 @@ const initThreeJS = () => {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    
+
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    
+
     // Create floating particles
     const particlesGeometry = new THREE.BufferGeometry();
     const particlesCount = 2000;
     const positions = new Float32Array(particlesCount * 3);
-    
+
     for (let i = 0; i < particlesCount * 3; i++) {
         positions[i] = (Math.random() - 0.5) * 10;
     }
-    
+
     particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    
+
     const particlesMaterial = new THREE.PointsMaterial({
         color: 0xc9a55c,
         size: 0.02,
         transparent: true,
         opacity: 0.6
     });
-    
+
     const particles = new THREE.Points(particlesGeometry, particlesMaterial);
     scene.add(particles);
-    
+
     camera.position.z = 3;
-    
+
     // Mouse interaction
     let mouseX = 0, mouseY = 0;
     document.addEventListener('mousemove', (e) => {
         mouseX = (e.clientX / window.innerWidth) * 2 - 1;
         mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
     });
-    
+
     // Animation loop
     const animate = () => {
         requestAnimationFrame(animate);
-        
+
         particles.rotation.x += 0.0005;
         particles.rotation.y += 0.0005;
-        
+
         // Parallax effect
         camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
         camera.position.y += (mouseY * 0.5 - camera.position.y) * 0.05;
-        
+
         renderer.render(scene, camera);
     };
-    
+
     animate();
-    
+
     // Resize handler
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -1491,11 +1639,11 @@ const contactForm = document.querySelector('.contact-form');
 if (contactForm) {
     contactForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        
+
         // Get form values
         const formData = new FormData(contactForm);
         const name = contactForm.querySelector('input[type="text"]').value;
-        
+
         // Show success message
         alert(`Ευχαριστούμε ${name}! Το μήνυμά σας εστάλη. Θα επικοινωνήσουμε μαζί σας σύντομα!`);
         contactForm.reset();
@@ -1515,22 +1663,22 @@ document.querySelectorAll('.nav-cta, .btn-primary').forEach(btn => {
 // Console greeting
 console.log('%c🦷 ' + document.title, 'font-size: 24px; font-weight: bold; color: #c9a55c;');
 console.log('%cPremium Dental Clinic Website - Thessaloniki', 'font-size: 14px; color: #a0a0a0;');
-'''
+""",
         }
-        
+
         file_tree = [
             {"name": "index.html", "type": "file", "language": "html"},
             {"name": "styles.css", "type": "file", "language": "css"},
-            {"name": "script.js", "type": "file", "language": "javascript"}
+            {"name": "script.js", "type": "file", "language": "javascript"},
         ]
-        
+
         return files, file_tree
-    
+
     @staticmethod
     def generate_static_site(project_name: str, description: str) -> tuple[dict, list]:
         """Generate static HTML/CSS/JS website."""
         files = {
-            "index.html": f'''<!DOCTYPE html>
+            "index.html": f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1554,12 +1702,12 @@ console.log('%cPremium Dental Clinic Website - Thessaloniki', 'font-size: 14px; 
             <a href="#contact" class="cta-button">Get Started</a>
         </div>
     </header>
-    
+
     <section id="about" class="section">
         <h2>About Us</h2>
         <p>We are dedicated to providing excellent services.</p>
     </section>
-    
+
     <section id="services" class="section">
         <h2>Our Services</h2>
         <div class="services-grid">
@@ -1573,7 +1721,7 @@ console.log('%cPremium Dental Clinic Website - Thessaloniki', 'font-size: 14px; 
             </div>
         </div>
     </section>
-    
+
     <section id="contact" class="section">
         <h2>Contact Us</h2>
         <form class="contact-form">
@@ -1583,16 +1731,15 @@ console.log('%cPremium Dental Clinic Website - Thessaloniki', 'font-size: 14px; 
             <button type="submit">Send Message</button>
         </form>
     </section>
-    
+
     <footer>
         <p>&copy; 2026 {project_name}. All rights reserved.</p>
     </footer>
-    
+
     <script src="script.js"></script>
 </body>
-</html>''',
-            
-            "styles.css": '''/* Modern Responsive Styles */
+</html>""",
+            "styles.css": """/* Modern Responsive Styles */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
@@ -1718,9 +1865,8 @@ footer {
     .hero-content h1 { font-size: 2rem; }
     .nav-links { gap: 1rem; }
 }
-''',
-            
-            "script.js": '''// Interactive JavaScript
+""",
+            "script.js": """// Interactive JavaScript
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
@@ -1741,22 +1887,22 @@ if (contactForm) {
 }
 
 console.log('%c👋 Welcome to ' + document.title, 'font-size: 20px; color: #2563eb;');
-'''
+""",
         }
-        
+
         file_tree = [
             {"name": "index.html", "type": "file", "language": "html"},
             {"name": "styles.css", "type": "file", "language": "css"},
-            {"name": "script.js", "type": "file", "language": "javascript"}
+            {"name": "script.js", "type": "file", "language": "javascript"},
         ]
-        
+
         return files, file_tree
-    
+
     @staticmethod
     def generate_react_app(project_name: str, description: str) -> tuple[dict, list]:
         """Generate React + Vite application."""
         files = {
-            "package.json": f'''{{
+            "package.json": f"""{{
   "name": "{project_name.lower().replace(' ', '-')}",
   "private": true,
   "version": "0.0.0",
@@ -1777,17 +1923,15 @@ console.log('%c👋 Welcome to ' + document.title, 'font-size: 20px; color: #256
     "typescript": "^5.2.2",
     "vite": "^5.0.8"
   }}
-}}''',
-            
-            "vite.config.ts": '''import { defineConfig } from 'vite'
+}}""",
+            "vite.config.ts": """import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
   server: { port: 3000 }
-})''',
-            
-            "index.html": f'''<!DOCTYPE html>
+})""",
+            "index.html": f"""<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -1798,9 +1942,8 @@ export default defineConfig({
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
-</html>''',
-            
-            "src/main.tsx": '''import React from 'react'
+</html>""",
+            "src/main.tsx": """import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
@@ -1809,9 +1952,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,
-)''',
-            
-            "src/App.tsx": f'''import {{ useState }} from 'react'
+)""",
+            "src/App.tsx": f"""import {{ useState }} from 'react'
 import './App.css'
 
 function App() {{
@@ -1823,7 +1965,7 @@ function App() {{
         <h1>{project_name}</h1>
         <p>React + Vite + TypeScript</p>
       </header>
-      
+
       <main className="content">
         <div className="card">
           <button onClick={{() => setCount((count) => count + 1)}}>
@@ -1837,9 +1979,8 @@ function App() {{
 }}
 
 export default App
-''',
-            
-            "src/App.css": '''.hero {
+""",
+            "src/App.css": """.hero {
   text-align: center;
   padding: 4rem 2rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -1872,32 +2013,35 @@ button {
 button:hover {
   background: #5568d3;
 }
-''',
-            
-            "src/index.css": '''* { margin: 0; padding: 0; box-sizing: border-box; }
+""",
+            "src/index.css": """* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
   line-height: 1.6;
   color: #0f172a;
 }
-'''
+""",
         }
-        
+
         file_tree = [
-            {"name": "src", "type": "folder", "children": [
-                {"name": "main.tsx", "type": "file", "language": "typescript"},
-                {"name": "App.tsx", "type": "file", "language": "typescript"},
-                {"name": "App.css", "type": "file", "language": "css"},
-                {"name": "index.css", "type": "file", "language": "css"},
-            ]},
+            {
+                "name": "src",
+                "type": "folder",
+                "children": [
+                    {"name": "main.tsx", "type": "file", "language": "typescript"},
+                    {"name": "App.tsx", "type": "file", "language": "typescript"},
+                    {"name": "App.css", "type": "file", "language": "css"},
+                    {"name": "index.css", "type": "file", "language": "css"},
+                ],
+            },
             {"name": "package.json", "type": "file", "language": "json"},
             {"name": "vite.config.ts", "type": "file", "language": "typescript"},
             {"name": "index.html", "type": "file", "language": "html"},
         ]
-        
+
         return files, file_tree
-    
+
     @staticmethod
     def generate_fastapi_backend(project_name: str, description: str) -> tuple[dict, list]:
         """Generate FastAPI backend."""
@@ -1966,14 +2110,12 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
 ''',
-            
-            "requirements.txt": '''fastapi==0.109.0
+            "requirements.txt": """fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pytest==7.4.4
-''',
-            
-            "README.md": f'''# {project_name}
+""",
+            "README.md": f"""# {project_name}
 
 {description}
 
@@ -1997,17 +2139,21 @@ http://localhost:8000/docs
 - `GET /items` - List all items
 - `POST /items` - Create item
 - `GET /items/{{id}}` - Get item by ID
-'''
+""",
         }
-        
+
         file_tree = [
-            {"name": "src", "type": "folder", "children": [
-                {"name": "main.py", "type": "file", "language": "python"},
-            ]},
+            {
+                "name": "src",
+                "type": "folder",
+                "children": [
+                    {"name": "main.py", "type": "file", "language": "python"},
+                ],
+            },
             {"name": "requirements.txt", "type": "file", "language": "text"},
             {"name": "README.md", "type": "file", "language": "markdown"},
         ]
-        
+
         return files, file_tree
 
 
@@ -2015,43 +2161,45 @@ http://localhost:8000/docs
 # WebSocket Handler
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def handle_websocket(websocket: WebSocket, session_id: str):
     """Handle WebSocket connection."""
     await websocket.accept()
     session_manager.add_websocket(session_id, websocket)
-    
+
     logger.info(f"WebSocket connected: {session_id}")
-    
+
     try:
         while True:
             data = await websocket.receive_json()
             event = data.get("event")
             payload = data.get("data", {})
-            
+
             logger.info(f"WebSocket event: {event}")
-            
+
             if event == "ping":
-                await websocket.send_json({
-                    "event": "pong",
-                    "data": {"ts": datetime.now().isoformat()}
-                })
-            
+                await websocket.send_json(
+                    {"event": "pong", "data": {"ts": datetime.now().isoformat()}}
+                )
+
             elif event == "chat_message":
                 await handle_chat_message(session_id, payload.get("message", ""), websocket)
-            
+
             elif event == "session_update":
                 session_manager.update_session(session_id, **payload)
-                await session_manager.broadcast(session_id, "session_state", session_manager.get_session(session_id))
-            
+                await session_manager.broadcast(
+                    session_id, "session_state", session_manager.get_session(session_id)
+                )
+
             elif event == "terminal_command":
                 await handle_terminal_command(session_id, payload.get("command", ""), websocket)
-            
+
             elif event == "file_request":
                 await handle_file_request(session_id, payload.get("path", ""), websocket)
-            
+
             else:
                 logger.warning(f"Unknown event: {event}")
-                
+
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected: {session_id}")
         session_manager.remove_websocket(session_id, websocket)
@@ -2060,30 +2208,36 @@ async def handle_websocket(websocket: WebSocket, session_id: str):
 async def handle_modification_request(session_id: str, message: str, websocket: WebSocket):
     """Handle modification/edit request for existing project."""
     logger.info(f"Modification request for {session_id}: {message[:100]}...")
-    
-    session = session_manager.get_session(session_id)
+
+    session_manager.get_session(session_id)
     output_dir = Path.cwd() / "ide_outputs" / session_id
-    
+
     # Send thinking state
-    await session_manager.broadcast(session_id, "messages_update", {
-        "messages": [{
-            "role": "assistant",
-            "content": None,
-            "thinking": True,
-            "steps": [
-                {"label": "Analyzing modification request...", "done": True},
-                {"label": "Identifying files to modify...", "done": False},
-                {"label": "Applying changes...", "done": False},
-            ],
-            "ts": datetime.now().strftime("%H:%M")
-        }]
-    })
-    
+    await session_manager.broadcast(
+        session_id,
+        "messages_update",
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "thinking": True,
+                    "steps": [
+                        {"label": "Analyzing modification request...", "done": True},
+                        {"label": "Identifying files to modify...", "done": False},
+                        {"label": "Applying changes...", "done": False},
+                    ],
+                    "ts": datetime.now().strftime("%H:%M"),
+                }
+            ]
+        },
+    )
+
     # Detect type of modification
     msg_lower = message.lower()
     modifications = []
     new_color = None
-    
+
     # Color scheme changes - check FIRST
     color_map = {
         "blue": "#3b82f6",
@@ -2104,93 +2258,105 @@ async def handle_modification_request(session_id: str, message: str, websocket: 
         "gray": "#6b7280",
         "slate": "#475569",
     }
-    
+
     for color_name, color_hex in color_map.items():
         if color_name in msg_lower:
             new_color = color_hex
             modifications.append(f"color_scheme ({color_name})")
             break
-    
+
     # Layout changes
     if any(w in msg_lower for w in ["layout", "spacing", "padding", "margin", "grid", "flex"]):
         modifications.append("layout")
-    
+
     # Font changes
     if any(w in msg_lower for w in ["font", "typography", "text", "heading", "title"]):
         modifications.append("typography")
-    
+
     # Add section
     if any(w in msg_lower for w in ["add", "create", "new", "insert"]):
         if "section" in msg_lower or "component" in msg_lower:
             modifications.append("add_section")
-    
+
     # Remove/hide
     if any(w in msg_lower for w in ["remove", "delete", "hide", "drop"]):
         modifications.append("remove_element")
-    
+
     # Animation
     if any(w in msg_lower for w in ["animate", "animation", "transition", "effect", "motion"]):
         modifications.append("animation")
-    
+
     # Dark/light mode
     if "dark" in msg_lower or "darker" in msg_lower:
         modifications.append("dark_mode")
     if "light" in msg_lower or "lighter" in msg_lower and "dark" not in msg_lower:
         modifications.append("light_mode")
-    
+
     # Default: general improvement
     if not modifications:
         modifications.append("general")
-    
+
     logger.info(f"Detected modifications: {modifications}")
-    
+
     # Update thinking state
-    await session_manager.broadcast(session_id, "messages_update", {
-        "messages": [{
-            "role": "assistant",
-            "content": None,
-            "thinking": True,
-            "steps": [
-                {"label": "Analyzing modification request...", "done": True},
-                {"label": f"Applying: {', '.join(modifications)}", "done": True},
-                {"label": "Updating files...", "done": False},
-            ],
-            "ts": datetime.now().strftime("%H:%M")
-        }]
-    })
-    
+    await session_manager.broadcast(
+        session_id,
+        "messages_update",
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "thinking": True,
+                    "steps": [
+                        {"label": "Analyzing modification request...", "done": True},
+                        {"label": f"Applying: {', '.join(modifications)}", "done": True},
+                        {"label": "Updating files...", "done": False},
+                    ],
+                    "ts": datetime.now().strftime("%H:%M"),
+                }
+            ]
+        },
+    )
+
     files_modified = []
-    
+
     # Apply modifications to CSS file
     css_path = output_dir / "styles.css"
     if css_path.exists():
         try:
-            with open(css_path, "r", encoding="utf-8") as f:
+            with open(css_path, encoding="utf-8") as f:
                 css_content = f.read()
-            
+
             # Apply color scheme modification
             if new_color:
                 # Use regex to find and replace existing --accent color
-                accent_pattern = r'--accent:\s*#[0-9a-fA-F]{3,6}'
+                accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
                 match = re.search(accent_pattern, css_content)
-                
+
                 if match:
                     # Replace ONLY the existing accent color (first occurrence)
-                    css_content = re.sub(accent_pattern, f'--accent: {new_color}', css_content, count=1)
+                    css_content = re.sub(
+                        accent_pattern, f"--accent: {new_color}", css_content, count=1
+                    )
                     files_modified.append("styles.css")
                     logger.info(f"Color changed from {match.group(0)} to --accent: {new_color}")
                 else:
                     # No accent color found - log warning
-                    logger.warning(f"No --accent color found in CSS, skipping color change to {new_color}")
-                    session_manager.add_terminal_line(session_id, "warning", f"⚠ No accent color found to change")
-            
+                    logger.warning(
+                        f"No --accent color found in CSS, skipping color change to {new_color}"
+                    )
+                    session_manager.add_terminal_line(
+                        session_id, "warning", "⚠ No accent color found to change"
+                    )
+
             # Apply dark mode (black background)
             if new_color == "#000000" or "dark_mode" in modifications:
                 css_content = css_content.replace("--primary: #0a0a0f", "--primary: #000000")
                 css_content = css_content.replace("--secondary: #1a1a2e", "--secondary: #0a0a0f")
                 if "styles.css" not in files_modified:
                     files_modified.append("styles.css")
-            
+
             # Apply light mode (white background)
             if new_color == "#ffffff" or "light_mode" in modifications:
                 css_content = css_content.replace("--primary: #0a0a0f", "--primary: #ffffff")
@@ -2198,56 +2364,70 @@ async def handle_modification_request(session_id: str, message: str, websocket: 
                 css_content = css_content.replace("color: var(--text)", "color: #000000")
                 if "styles.css" not in files_modified:
                     files_modified.append("styles.css")
-            
+
             # Apply animation modification
             if "animation" in modifications:
                 if "more" in msg_lower or "faster" in msg_lower:
-                    css_content = css_content.replace("transition: all 0.3s", "transition: all 0.2s")
-                    css_content = css_content.replace("transition: all 0.4s", "transition: all 0.3s")
+                    css_content = css_content.replace(
+                        "transition: all 0.3s", "transition: all 0.2s"
+                    )
+                    css_content = css_content.replace(
+                        "transition: all 0.4s", "transition: all 0.3s"
+                    )
                     files_modified.append("styles.css")
                 elif "less" in msg_lower or "slower" in msg_lower:
-                    css_content = css_content.replace("transition: all 0.2s", "transition: all 0.4s")
-                    css_content = css_content.replace("transition: all 0.3s", "transition: all 0.5s")
+                    css_content = css_content.replace(
+                        "transition: all 0.2s", "transition: all 0.4s"
+                    )
+                    css_content = css_content.replace(
+                        "transition: all 0.3s", "transition: all 0.5s"
+                    )
                     files_modified.append("styles.css")
-            
+
             # Write updated CSS
             with open(css_path, "w", encoding="utf-8") as f:
                 f.write(css_content)
-            
-            session_manager.add_terminal_line(session_id, "success", f"✓ Updated styles.css ({new_color or 'modified'})")
+
+            session_manager.add_terminal_line(
+                session_id, "success", f"✓ Updated styles.css ({new_color or 'modified'})"
+            )
             logger.info("CSS modifications applied")
-            
+
             # Broadcast terminal update immediately
-            await session_manager.broadcast(session_id, "terminal_update", {
-                "lines": session_manager.get_session(session_id)["terminal_lines"][-10:]
-            })
-            
+            await session_manager.broadcast(
+                session_id,
+                "terminal_update",
+                {"lines": session_manager.get_session(session_id)["terminal_lines"][-10:]},
+            )
+
         except Exception as e:
             logger.error(f"Error modifying CSS: {e}")
             session_manager.add_terminal_line(session_id, "error", f"✗ Error: {e}")
-            await session_manager.broadcast(session_id, "terminal_update", {
-                "lines": session_manager.get_session(session_id)["terminal_lines"][-10:]
-            })
-    
+            await session_manager.broadcast(
+                session_id,
+                "terminal_update",
+                {"lines": session_manager.get_session(session_id)["terminal_lines"][-10:]},
+            )
+
     # Apply modifications to JS file
     js_path = output_dir / "script.js"
     if js_path.exists():
         try:
-            with open(js_path, "r", encoding="utf-8") as f:
+            with open(js_path, encoding="utf-8") as f:
                 js_content = f.read()
-            
+
             # Add more animations
             if "animation" in modifications and "more" in msg_lower:
                 if "observer" not in js_content.lower():
                     # Add intersection observer for animations
-                    observer_code = '''
+                    observer_code = """
 // Additional scroll animations
 const animatedElements = document.querySelectorAll('.service-card, .stat, .btn');
 animatedElements.forEach((el, i) => {
     el.style.opacity = '0';
     el.style.transform = 'translateY(30px)';
     el.style.transition = `opacity 0.6s ease ${i * 0.1}s, transform 0.6s ease ${i * 0.1}s`;
-    
+
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -2256,55 +2436,71 @@ animatedElements.forEach((el, i) => {
             }
         });
     }, { threshold: 0.1 });
-    
+
     observer.observe(el);
 });
-'''
-                    js_content = js_content.replace("console.log('%c", observer_code + "\nconsole.log('%c")
+"""
+                    js_content = js_content.replace(
+                        "console.log('%c", observer_code + "\nconsole.log('%c"
+                    )
                     files_modified.append("script.js")
-            
+
             # Write updated JS
             with open(js_path, "w", encoding="utf-8") as f:
                 f.write(js_content)
-            
+
             if "script.js" not in files_modified:
                 files_modified.append("script.js")
-            
-            session_manager.add_terminal_line(session_id, "success", f"✓ Updated script.js")
+
+            session_manager.add_terminal_line(session_id, "success", "✓ Updated script.js")
             logger.info("JS modifications applied")
-            
+
             # Broadcast terminal update
-            await session_manager.broadcast(session_id, "terminal_update", {
-                "lines": session_manager.get_session(session_id)["terminal_lines"][-10:]
-            })
-            
+            await session_manager.broadcast(
+                session_id,
+                "terminal_update",
+                {"lines": session_manager.get_session(session_id)["terminal_lines"][-10:]},
+            )
+
         except Exception as e:
             logger.error(f"Error modifying JS: {e}")
             session_manager.add_terminal_line(session_id, "error", f"✗ Error: {e}")
-            await session_manager.broadcast(session_id, "terminal_update", {
-                "lines": session_manager.get_session(session_id)["terminal_lines"][-10:]
-            })
-    
+            await session_manager.broadcast(
+                session_id,
+                "terminal_update",
+                {"lines": session_manager.get_session(session_id)["terminal_lines"][-10:]},
+            )
+
     # Broadcast updates - session_state FIRST, then terminal, then messages
     # Update session status before broadcasting
     session_manager.update_session(session_id, status="completed")
-    
+
     # 1. Broadcast session_state FIRST so frontend has latest data
-    await session_manager.broadcast(session_id, "session_state", session_manager.get_session(session_id))
-    
+    await session_manager.broadcast(
+        session_id, "session_state", session_manager.get_session(session_id)
+    )
+
     # 2. Broadcast terminal update
-    await session_manager.broadcast(session_id, "terminal_update", {
-        "lines": session_manager.get_session(session_id)["terminal_lines"][-10:]
-    })
-    
+    await session_manager.broadcast(
+        session_id,
+        "terminal_update",
+        {"lines": session_manager.get_session(session_id)["terminal_lines"][-10:]},
+    )
+
     # 3. Broadcast session_state AGAIN after terminal_update to ensure frontend has latest data
-    await session_manager.broadcast(session_id, "session_state", session_manager.get_session(session_id))
-    
+    await session_manager.broadcast(
+        session_id, "session_state", session_manager.get_session(session_id)
+    )
+
     # 4. Broadcast messages update last
-    await session_manager.broadcast(session_id, "messages_update", {
-        "messages": [{
-            "role": "assistant",
-            "content": f"""✓ **Changes Applied Successfully!**
+    await session_manager.broadcast(
+        session_id,
+        "messages_update",
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": f"""✓ **Changes Applied Successfully!**
 
 **Modifications:**
 {chr(10).join(f"• {mod.replace('_', ' ').title()}" for mod in modifications)}
@@ -2320,73 +2516,93 @@ animatedElements.forEach((el, i) => {
 • "make it darker/lighter"
 • "increase spacing"
 """,
-            "thinking": False,
-            "steps": [
-                {"label": "Analyzing modification request...", "done": True},
-                {"label": "Applying changes...", "done": True},
-            ],
-            "ts": datetime.now().strftime("%H:%M"),
-            "quality": 0.95,
-            "cost": 0.05
-        }]
-    })
-    
+                    "thinking": False,
+                    "steps": [
+                        {"label": "Analyzing modification request...", "done": True},
+                        {"label": "Applying changes...", "done": True},
+                    ],
+                    "ts": datetime.now().strftime("%H:%M"),
+                    "quality": 0.95,
+                    "cost": 0.05,
+                }
+            ]
+        },
+    )
+
     # Final session state broadcast
-    await session_manager.broadcast(session_id, "session_state", session_manager.get_session(session_id))
+    await session_manager.broadcast(
+        session_id, "session_state", session_manager.get_session(session_id)
+    )
 
 
 async def handle_chat_message(session_id: str, message: str, websocket: WebSocket):
     """Handle chat message and generate/modify project."""
     logger.info(f"Chat message for {session_id}: {message[:100]}...")
-    
+
     # Add user message
-    session_manager.add_message(session_id, {
-        "role": "user",
-        "content": message,
-        "ts": datetime.now().strftime("%H:%M"),
-    })
-    
+    session_manager.add_message(
+        session_id,
+        {
+            "role": "user",
+            "content": message,
+            "ts": datetime.now().strftime("%H:%M"),
+        },
+    )
+
     session = session_manager.get_session(session_id)
-    
+
     # Check if this is a modification request (project already exists)
     is_modification = session and session.get("files") and len(session["files"]) > 0
-    
+
     if is_modification:
         # Handle modification/edit request
         await handle_modification_request(session_id, message, websocket)
         return
-    
+
     # Detect tech stack for new project
     stack_info = TechStackSelector.detect_stack(message)
     session_manager.update_session(session_id, tech_stack=stack_info)
 
-    logger.info(f"Detected stack: {stack_info['stack_type']} - {stack_info['frontend'] or stack_info['backend']}")
-    
+    logger.info(
+        f"Detected stack: {stack_info['stack_type']} - {stack_info['frontend'] or stack_info['backend']}"
+    )
+
     # Get user-friendly message
     stack_message = stack_info.get("message", "Creating project...")
 
     # Send thinking state
-    await session_manager.broadcast(session_id, "messages_update", {
-        "messages": [{
-            "role": "assistant",
-            "content": stack_message,
-            "thinking": False,
-            "steps": [
-                {"label": "Analyzing requirements...", "done": True},
-                {"label": f"Selected: {stack_info['frontend'] or stack_info['backend']}", "done": True},
-                {"label": "Generating files...", "done": False},
-            ],
-            "ts": datetime.now().strftime("%H:%M")
-        }]
-    })
-    
+    await session_manager.broadcast(
+        session_id,
+        "messages_update",
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": stack_message,
+                    "thinking": False,
+                    "steps": [
+                        {"label": "Analyzing requirements...", "done": True},
+                        {
+                            "label": f"Selected: {stack_info['frontend'] or stack_info['backend']}",
+                            "done": True,
+                        },
+                        {"label": "Generating files...", "done": False},
+                    ],
+                    "ts": datetime.now().strftime("%H:%M"),
+                }
+            ]
+        },
+    )
+
     # Update session status
-    session_manager.update_session(session_id, status="running", started_at=datetime.now().timestamp())
-    
+    session_manager.update_session(
+        session_id, status="running", started_at=datetime.now().timestamp()
+    )
+
     # Generate files based on stack
     project_name = session_manager.get_session(session_id).get("project_name", "Project")
     description = message  # Use the actual user chat message, not the empty session description
-    
+
     if stack_info["stack_type"] == "premium":
         files, file_tree = FileGenerators.generate_premium_website(project_name, description)
     elif stack_info["stack_type"] == "static":
@@ -2395,26 +2611,35 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
         files, file_tree = FileGenerators.generate_react_app(project_name, description)
     else:  # backend
         files, file_tree = FileGenerators.generate_fastapi_backend(project_name, description)
-    
+
     # Create output directory
     output_dir = Path.cwd() / "ide_outputs" / session_id
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Send file creation updates
-    await session_manager.broadcast(session_id, "messages_update", {
-        "messages": [{
-            "role": "assistant",
-            "content": None,
-            "thinking": True,
-            "steps": [
-                {"label": "Analyzing requirements...", "done": True},
-                {"label": f"Selected stack: {stack_info['frontend'] or stack_info['backend']}", "done": True},
-                {"label": "Generating files...", "done": True},
-            ],
-            "ts": datetime.now().strftime("%H:%M")
-        }]
-    })
-    
+    await session_manager.broadcast(
+        session_id,
+        "messages_update",
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "thinking": True,
+                    "steps": [
+                        {"label": "Analyzing requirements...", "done": True},
+                        {
+                            "label": f"Selected stack: {stack_info['frontend'] or stack_info['backend']}",
+                            "done": True,
+                        },
+                        {"label": "Generating files...", "done": True},
+                    ],
+                    "ts": datetime.now().strftime("%H:%M"),
+                }
+            ]
+        },
+    )
+
     # Write files to disk
     created_files = []
     for file_path, content in files.items():
@@ -2428,124 +2653,170 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
         await asyncio.sleep(0.2)
 
     # Broadcast terminal update after file creation
-    await session_manager.broadcast(session_id, "terminal_update", {
-        "lines": session_manager.get_session(session_id)["terminal_lines"][-10:]
-    })
+    await session_manager.broadcast(
+        session_id,
+        "terminal_update",
+        {"lines": session_manager.get_session(session_id)["terminal_lines"][-10:]},
+    )
 
     # Update session files
     session_manager.set_files(session_id, file_tree)
     await session_manager.broadcast(session_id, "files_update", {"files": file_tree})
-    
+
     # Auto-install dependencies if package.json or requirements.txt exists
     if (output_dir / "package.json").exists():
         session_manager.add_terminal_line(session_id, "cmd", "$ npm install")
-        await session_manager.broadcast(session_id, "terminal_update", {
-            "lines": session_manager.get_session(session_id)["terminal_lines"][-10:]
-        })
-        
+        await session_manager.broadcast(
+            session_id,
+            "terminal_update",
+            {"lines": session_manager.get_session(session_id)["terminal_lines"][-10:]},
+        )
+
         try:
             process = await asyncio.create_subprocess_exec(
-                "npm", "install",
+                "npm",
+                "install",
                 cwd=str(output_dir),
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT
+                stderr=asyncio.subprocess.STDOUT,
             )
             stdout, _ = await asyncio.wait_for(process.communicate(), timeout=120)
             output = stdout.decode()
-            
+
             for line in output.split("\n")[:20]:
                 if line.strip():
                     session_manager.add_terminal_line(session_id, "out", line)
-            
+
             session_manager.add_terminal_line(session_id, "success", "✓ Dependencies installed")
         except asyncio.TimeoutError:
             session_manager.add_terminal_line(session_id, "warning", "⚠ npm install timed out")
         except Exception as e:
             session_manager.add_terminal_line(session_id, "error", f"✗ Install failed: {e}")
-        
-        await session_manager.broadcast(session_id, "terminal_update", {
-            "lines": session_manager.get_session(session_id)["terminal_lines"][-15:]
-        })
-    
+
+        await session_manager.broadcast(
+            session_id,
+            "terminal_update",
+            {"lines": session_manager.get_session(session_id)["terminal_lines"][-15:]},
+        )
+
     elif (output_dir / "requirements.txt").exists():
         session_manager.add_terminal_line(session_id, "cmd", "$ pip install -r requirements.txt")
-        await session_manager.broadcast(session_id, "terminal_update", {
-            "lines": session_manager.get_session(session_id)["terminal_lines"][-10:]
-        })
-        
+        await session_manager.broadcast(
+            session_id,
+            "terminal_update",
+            {"lines": session_manager.get_session(session_id)["terminal_lines"][-10:]},
+        )
+
         try:
             process = await asyncio.create_subprocess_exec(
-                sys.executable, "-m", "pip", "install", "-r", "requirements.txt",
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "-r",
+                "requirements.txt",
                 cwd=str(output_dir),
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT
+                stderr=asyncio.subprocess.STDOUT,
             )
             stdout, _ = await asyncio.wait_for(process.communicate(), timeout=120)
             output = stdout.decode()
-            
+
             for line in output.split("\n")[:20]:
                 if line.strip():
                     session_manager.add_terminal_line(session_id, "out", line)
-            
+
             session_manager.add_terminal_line(session_id, "success", "✓ Dependencies installed")
         except asyncio.TimeoutError:
             session_manager.add_terminal_line(session_id, "warning", "⚠ pip install timed out")
         except Exception as e:
             session_manager.add_terminal_line(session_id, "error", f"✗ Install failed: {e}")
-        
-        await session_manager.broadcast(session_id, "terminal_update", {
-            "lines": session_manager.get_session(session_id)["terminal_lines"][-15:]
-        })
-    
+
+        await session_manager.broadcast(
+            session_id,
+            "terminal_update",
+            {"lines": session_manager.get_session(session_id)["terminal_lines"][-15:]},
+        )
+
     # Auto-start development server
     await asyncio.sleep(1)
     if (output_dir / "package.json").exists():
         # React/Vite/Next.js app
         session_manager.add_terminal_line(session_id, "cmd", "$ npm run dev")
-        server_started = session_manager.start_server(session_id, output_dir, port=3000, server_type="npm")
-        
+        server_started = session_manager.start_server(
+            session_id, output_dir, port=3000, server_type="npm"
+        )
+
         if server_started:
             await asyncio.sleep(3)
-            session_manager.add_terminal_line(session_id, "success", "✓ Dev server running on http://localhost:3000")
-            session_manager.add_terminal_line(session_id, "info", "🌐 Open http://localhost:3000 to view your app")
+            session_manager.add_terminal_line(
+                session_id, "success", "✓ Dev server running on http://localhost:3000"
+            )
+            session_manager.add_terminal_line(
+                session_id, "info", "🌐 Open http://localhost:3000 to view your app"
+            )
         else:
-            session_manager.add_terminal_line(session_id, "warning", "⚠ Server could not start (port may be in use)")
-    
+            session_manager.add_terminal_line(
+                session_id, "warning", "⚠ Server could not start (port may be in use)"
+            )
+
     elif (output_dir / "src" / "main.py").exists():
         # FastAPI backend
         session_manager.add_terminal_line(session_id, "cmd", "$ uvicorn src.main:app --reload")
-        server_started = session_manager.start_server(session_id, output_dir, port=8000, server_type="fastapi")
-        
+        server_started = session_manager.start_server(
+            session_id, output_dir, port=8000, server_type="fastapi"
+        )
+
         if server_started:
             await asyncio.sleep(2)
-            session_manager.add_terminal_line(session_id, "success", "✓ API running on http://localhost:8000")
-            session_manager.add_terminal_line(session_id, "info", "📄 Swagger docs: http://localhost:8000/docs")
+            session_manager.add_terminal_line(
+                session_id, "success", "✓ API running on http://localhost:8000"
+            )
+            session_manager.add_terminal_line(
+                session_id, "info", "📄 Swagger docs: http://localhost:8000/docs"
+            )
         else:
-            session_manager.add_terminal_line(session_id, "warning", "⚠ Server could not start (port may be in use)")
-    
+            session_manager.add_terminal_line(
+                session_id, "warning", "⚠ Server could not start (port may be in use)"
+            )
+
     elif (output_dir / "index.html").exists():
         # Static site - start simple HTTP server
         session_manager.add_terminal_line(session_id, "cmd", "$ python -m http.server 3000")
-        server_started = session_manager.start_server(session_id, output_dir, port=3000, server_type="http")
-        
+        server_started = session_manager.start_server(
+            session_id, output_dir, port=3000, server_type="http"
+        )
+
         if server_started:
             await asyncio.sleep(2)
-            session_manager.add_terminal_line(session_id, "success", "✓ Server running on http://localhost:3000")
-            session_manager.add_terminal_line(session_id, "info", "🌐 Open http://localhost:3000 to view your website")
+            session_manager.add_terminal_line(
+                session_id, "success", "✓ Server running on http://localhost:3000"
+            )
+            session_manager.add_terminal_line(
+                session_id, "info", "🌐 Open http://localhost:3000 to view your website"
+            )
         else:
-            session_manager.add_terminal_line(session_id, "warning", "⚠ Server could not start (port may be in use)")
-    
+            session_manager.add_terminal_line(
+                session_id, "warning", "⚠ Server could not start (port may be in use)"
+            )
+
     # Broadcast final terminal state
-    await session_manager.broadcast(session_id, "terminal_update", {
-        "lines": session_manager.get_session(session_id)["terminal_lines"][-25:]
-    })
-    
+    await session_manager.broadcast(
+        session_id,
+        "terminal_update",
+        {"lines": session_manager.get_session(session_id)["terminal_lines"][-25:]},
+    )
+
     # Send completion message
     stack_display = stack_info["frontend"] or stack_info["backend"]
-    await session_manager.broadcast(session_id, "messages_update", {
-        "messages": [{
-            "role": "assistant",
-            "content": f"""✓ **Project Generated Successfully!**
+    await session_manager.broadcast(
+        session_id,
+        "messages_update",
+        {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": f"""✓ **Project Generated Successfully!**
 
 **Tech Stack:** {stack_display}
 **Complexity:** {'⭐' * stack_info['complexity']}
@@ -2559,71 +2830,87 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
 2. Start the development server
 3. Deploy to {stack_info['deploy']}
 """,
-            "thinking": False,
-            "steps": [
-                {"label": "Analyzing requirements...", "done": True},
-                {"label": "Generating files...", "done": True},
-            ],
-            "ts": datetime.now().strftime("%H:%M"),
-            "quality": 0.92,
-            "cost": 0.15,
-            "files": created_files
-        }]
-    })
-    
+                    "thinking": False,
+                    "steps": [
+                        {"label": "Analyzing requirements...", "done": True},
+                        {"label": "Generating files...", "done": True},
+                    ],
+                    "ts": datetime.now().strftime("%H:%M"),
+                    "quality": 0.92,
+                    "cost": 0.15,
+                    "files": created_files,
+                }
+            ]
+        },
+    )
+
     # Update session
     session_manager.update_session(session_id, status="completed", quality_score=0.92, spent=0.15)
-    await session_manager.broadcast(session_id, "session_state", session_manager.get_session(session_id))
+    await session_manager.broadcast(
+        session_id, "session_state", session_manager.get_session(session_id)
+    )
 
 
 async def handle_terminal_command(session_id: str, command: str, websocket: WebSocket):
     """Handle terminal command."""
     logger.info(f"Terminal command: {command}")
     session_manager.add_terminal_line(session_id, "cmd", f"$ {command}")
-    
+
     await asyncio.sleep(0.3)
     session_manager.add_terminal_line(session_id, "info", f"Executing: {command}")
     session_manager.add_terminal_line(session_id, "success", "Command completed")
-    
-    await session_manager.broadcast(session_id, "terminal_update", {
-        "lines": session_manager.get_session(session_id)["terminal_lines"][-20:]
-    })
+
+    await session_manager.broadcast(
+        session_id,
+        "terminal_update",
+        {"lines": session_manager.get_session(session_id)["terminal_lines"][-20:]},
+    )
 
 
 async def handle_file_request(session_id: str, file_path: str, websocket: WebSocket):
     """Handle file content request."""
     logger.info(f"File request: session={session_id}, path={file_path}")
-    
+
     session = session_manager.get_session(session_id)
     if not session:
         return
-    
+
     output_dir = Path.cwd() / "ide_outputs" / session_id
     full_path = output_dir / file_path
-    
+
     if full_path.exists():
         try:
-            with open(full_path, "r", encoding="utf-8") as f:
+            with open(full_path, encoding="utf-8") as f:
                 content = f.read()
-            
+
             ext = file_path.split(".")[-1] if "." in file_path else ""
             language_map = {
-                "py": "python", "js": "javascript", "jsx": "javascript",
-                "ts": "typescript", "tsx": "typescript", "md": "markdown",
-                "txt": "text", "json": "json", "yaml": "yaml", "yml": "yaml",
-                "html": "html", "css": "css"
+                "py": "python",
+                "js": "javascript",
+                "jsx": "javascript",
+                "ts": "typescript",
+                "tsx": "typescript",
+                "md": "markdown",
+                "txt": "text",
+                "json": "json",
+                "yaml": "yaml",
+                "yml": "yaml",
+                "html": "html",
+                "css": "css",
             }
             language = language_map.get(ext, "text")
-            
+
             logger.info(f"Sending file content: {file_path} ({len(content)} bytes)")
-            await websocket.send_json({
-                "event": "file_content",
-                "data": {"path": file_path, "content": content, "language": language}
-            })
+            await websocket.send_json(
+                {
+                    "event": "file_content",
+                    "data": {"path": file_path, "content": content, "language": language},
+                }
+            )
             return
         except Exception as e:
             logger.error(f"Error reading file: {e}")
-    
+
     logger.warning(f"File not found: {full_path}")
 
 
@@ -2642,6 +2929,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Add cache-busting headers
 @app.middleware("http")
 async def add_cache_headers(request, call_next):
@@ -2651,20 +2939,23 @@ async def add_cache_headers(request, call_next):
     response.headers["Expires"] = "0"
     return response
 
+
 # API Routes
 @app.get("/health")
 def health():
     return {
         "status": "healthy",
         "sessions": len(session_manager.sessions),
-        "orchestrator": "available"
+        "orchestrator": "available",
     }
 
+
 @app.post("/api/session")
-def create_session(config: Dict[str, Any] = None):
+def create_session(config: dict[str, Any] = None):
     config = config or {}
     session = session_manager.create_session(config)
     return {"session": session}
+
 
 @app.get("/api/session/{session_id}")
 def get_session(session_id: str):
@@ -2673,21 +2964,25 @@ def get_session(session_id: str):
         return {"error": "Session not found"}, 404
     return {"session": session}
 
+
 # WebSocket
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await handle_websocket(websocket, session_id)
+
 
 # Serve Frontend
 frontend_dist = base_path.parent.parent / "ide_frontend" / "dist"
 if frontend_dist.exists():
     logger.info(f"Serving frontend from {frontend_dist}")
     app.mount("/ide", StaticFiles(directory=str(frontend_dist), html=True), name="ide")
-    
+
     @app.get("/")
     def root():
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url="/ide")
+
 else:
     logger.warning(f"Frontend not found at {frontend_dist}")
 
@@ -2698,13 +2993,13 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     print("\n" + "=" * 70)
     print("  AI Orchestrator IDE - Full Integration")
     print("=" * 70)
-    print(f"  🌐 Server: http://localhost:8765")
+    print("  🌐 Server: http://localhost:8765")
     print(f"  📁 Frontend: {'Yes' if frontend_dist.exists() else 'No'}")
-    print(f"  🤖 Tech Stacks: HTML/CSS/JS, React, Next.js, FastAPI")
+    print("  🤖 Tech Stacks: HTML/CSS/JS, React, Next.js, FastAPI")
     print("=" * 70 + "\n")
-    
+
     uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")

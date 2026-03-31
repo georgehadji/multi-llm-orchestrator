@@ -18,29 +18,31 @@ Adaptive re-planning rationale:
 No I/O: all state lives in the in-memory ModelProfile objects passed at init.
 Thread-safety: NOT thread-safe. The asyncio event loop serialises all updates.
 """
+
 from __future__ import annotations
 
 import collections
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from .models import Model
-from .policy import ModelProfile
+if TYPE_CHECKING:
+    from .models import Model
+    from .policy import ModelProfile
 
 logger = logging.getLogger("orchestrator.telemetry")
 
 # ── EMA configuration ──────────────────────────────────────────────────────────
 # OPTIMIZATION: Increased alpha from 0.1 to 0.2 for faster regression detection
 # This makes the system respond to quality changes in ~5 calls instead of ~10
-_EMA_ALPHA: float = 0.2        # learning rate for latency, quality, and cost EMAs
+_EMA_ALPHA: float = 0.2  # learning rate for latency, quality, and cost EMAs
 
 # ── Success rate rolling window ────────────────────────────────────────────────
-_SUCCESS_WINDOW: int = 10      # number of recent calls to track
+_SUCCESS_WINDOW: int = 10  # number of recent calls to track
 
 # ── Trust factor dynamics ──────────────────────────────────────────────────────
-_TRUST_DEGRADE: float = 0.95   # multiplier on each failure / policy violation
+_TRUST_DEGRADE: float = 0.95  # multiplier on each failure / policy violation
 _TRUST_RECOVER: float = 1.001  # multiplier on each success
-_TRUST_CAP: float = 1.0        # ceiling (trust can never exceed 1.0)
+_TRUST_CAP: float = 1.0  # ceiling (trust can never exceed 1.0)
 
 # ── Latency p95 buffer ─────────────────────────────────────────────────────────
 _LATENCY_BUFFER_SIZE: int = 50  # circular buffer for real p95 computation
@@ -48,6 +50,7 @@ _LATENCY_BUFFER_SIZE: int = 50  # circular buffer for real p95 computation
 # Try to import numpy for faster percentile calculation
 try:
     import numpy as np
+
     _HAS_NUMPY = True
 except ImportError:
     _HAS_NUMPY = False
@@ -67,8 +70,7 @@ class TelemetryCollector:
         self._profiles = profiles
         # Rolling window per model: deque of bool (True=success, False=failure)
         self._success_windows: dict[Model, collections.deque] = {
-            m: collections.deque(maxlen=_SUCCESS_WINDOW)
-            for m in profiles
+            m: collections.deque(maxlen=_SUCCESS_WINDOW) for m in profiles
         }
         # Latency buffer per model using deque for O(1) append
         self._latency_buffers: dict[Model, collections.deque] = {
@@ -85,11 +87,11 @@ class TelemetryCollector:
         latency_ms: float,
         cost_usd: float,
         success: bool,
-        quality_score: Optional[float] = None,
+        quality_score: float | None = None,
     ) -> None:
         """
         Update ModelProfile after a single API call.
-        
+
         OPTIMIZATION: p95 calculation uses numpy.percentile if available (O(n)),
         otherwise uses statistics.quantiles with partial sort.
         """
@@ -106,8 +108,7 @@ class TelemetryCollector:
         # ── Latency EMA + p95 (skip if latency_ms <= 0, e.g. cache hits) ─
         if latency_ms > 0:
             profile.avg_latency_ms = (
-                _EMA_ALPHA * latency_ms
-                + (1 - _EMA_ALPHA) * profile.avg_latency_ms
+                _EMA_ALPHA * latency_ms + (1 - _EMA_ALPHA) * profile.avg_latency_ms
             )
 
             # Update latency buffer
@@ -115,37 +116,28 @@ class TelemetryCollector:
                 model, collections.deque(maxlen=_LATENCY_BUFFER_SIZE)
             )
             buf.append(latency_ms)
-            
+
             # OPTIMIZED p95 calculation
             profile.latency_p95_ms = self._calculate_p95(list(buf))
 
         # ── Cost EMA (skip if cost_usd <= 0 to avoid dragging EMA to zero) ───
         if cost_usd > 0:
-            profile.avg_cost_usd = (
-                _EMA_ALPHA * cost_usd
-                + (1 - _EMA_ALPHA) * profile.avg_cost_usd
-            )
+            profile.avg_cost_usd = _EMA_ALPHA * cost_usd + (1 - _EMA_ALPHA) * profile.avg_cost_usd
 
         # ── Success rate: rolling window ──────────────────────────────────────
-        win = self._success_windows.setdefault(
-            model, collections.deque(maxlen=_SUCCESS_WINDOW)
-        )
+        win = self._success_windows.setdefault(model, collections.deque(maxlen=_SUCCESS_WINDOW))
         win.append(success)
         profile.success_rate = sum(win) / len(win)
 
         # ── Quality EMA (only when evaluator score available) ─────────────────
         if quality_score is not None:
             profile.quality_score = (
-                _EMA_ALPHA * quality_score
-                + (1 - _EMA_ALPHA) * profile.quality_score
+                _EMA_ALPHA * quality_score + (1 - _EMA_ALPHA) * profile.quality_score
             )
 
         # ── Trust factor: degradation / recovery ──────────────────────────────
         if success:
-            profile.trust_factor = min(
-                _TRUST_CAP,
-                profile.trust_factor * _TRUST_RECOVER
-            )
+            profile.trust_factor = min(_TRUST_CAP, profile.trust_factor * _TRUST_RECOVER)
         else:
             profile.trust_factor *= _TRUST_DEGRADE
 
@@ -173,23 +165,24 @@ class TelemetryCollector:
     def _calculate_p95(self, values: list[float]) -> float:
         """
         Calculate 95th percentile efficiently.
-        
+
         Uses numpy if available for vectorized operation,
         otherwise uses statistics.quantiles for partial sort.
         """
         if not values:
             return 0.0
-        
+
         if len(values) == 1:
             return values[0]
-        
+
         # Use numpy for O(n) performance
         if _HAS_NUMPY:
-            return float(np.percentile(values, 95, interpolation='linear'))
-        
+            return float(np.percentile(values, 95, interpolation="linear"))
+
         # Fallback to statistics.quantiles (uses partial sort, O(n) average)
         try:
             import statistics
+
             # quantiles returns a list, we want the 95th (index 18 for 20 quantiles)
             return statistics.quantiles(values, n=20)[18]
         except Exception:
@@ -201,10 +194,10 @@ class TelemetryCollector:
         profile = self._profiles.get(model)
         if profile is None:
             return {}
-        
+
         buf = self._latency_buffers.get(model, collections.deque())
         win = self._success_windows.get(model, collections.deque())
-        
+
         return {
             "model": model.value,
             "call_count": profile.call_count,

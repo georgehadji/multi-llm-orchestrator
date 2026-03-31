@@ -7,16 +7,17 @@ RED → GREEN workflow:
 3. Codebase analyzer can review/debug/suggest on a directory
 4. OpenRouter sync fetches and returns model data
 """
+
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 from orchestrator.policy import JobSpec, PolicySet
 from orchestrator.models import Budget, TaskType
 
-
 # ─────────────────────────────────────────────
 # Quality mode on JobSpec
 # ─────────────────────────────────────────────
+
 
 class TestJobSpecQualityMode:
     """JobSpec.quality_mode field defaults to 'standard' and accepts 'production'."""
@@ -48,27 +49,36 @@ class TestJobSpecQualityMode:
             )
             # If dataclass doesn't validate, trigger explicit check
             from orchestrator.policy import VALID_QUALITY_MODES
-            assert spec.quality_mode in VALID_QUALITY_MODES, \
-                f"Invalid quality_mode: {spec.quality_mode}"
+
+            assert (
+                spec.quality_mode in VALID_QUALITY_MODES
+            ), f"Invalid quality_mode: {spec.quality_mode}"
 
 
 # ─────────────────────────────────────────────
 # Engine enriches prompt for production mode
 # ─────────────────────────────────────────────
 
+
 class TestProductionModePromptEnrichment:
     """Engine adds production-grade requirements to system prompt when quality_mode='production'."""
 
     def test_production_system_prompt_contains_requirements(self):
         from orchestrator.engine import Orchestrator
+
         orch = object.__new__(Orchestrator)
         prompt = orch._build_production_system_prompt(task_type="code_generation")
-        assert "type annotation" in prompt.lower() or "type hint" in prompt.lower() or "typed" in prompt.lower()
+        assert (
+            "type annotation" in prompt.lower()
+            or "type hint" in prompt.lower()
+            or "typed" in prompt.lower()
+        )
         assert "test" in prompt.lower()
         assert "error" in prompt.lower() or "exception" in prompt.lower()
 
     def test_standard_system_prompt_differs_from_production(self):
         from orchestrator.engine import Orchestrator
+
         orch = object.__new__(Orchestrator)
         standard = orch._build_standard_system_prompt(task_type="code_generation")
         production = orch._build_production_system_prompt(task_type="code_generation")
@@ -80,16 +90,19 @@ class TestProductionModePromptEnrichment:
 # Codebase analyzer
 # ─────────────────────────────────────────────
 
+
 class TestCodebaseAnalyzer:
     """CodebaseAnalyzer reviews, debugs, and suggests improvements for a directory."""
 
     def test_analyzer_can_be_instantiated(self):
         from orchestrator.codebase_analyzer import CodebaseAnalyzer
+
         analyzer = CodebaseAnalyzer(client=None)
         assert analyzer is not None
 
     def test_collect_files_returns_python_files(self, tmp_path):
         from orchestrator.codebase_analyzer import CodebaseAnalyzer
+
         (tmp_path / "main.py").write_text("def main(): pass")
         (tmp_path / "utils.py").write_text("def helper(): pass")
         (tmp_path / "README.md").write_text("# Project")
@@ -103,6 +116,7 @@ class TestCodebaseAnalyzer:
 
     def test_collect_files_respects_gitignore_patterns(self, tmp_path):
         from orchestrator.codebase_analyzer import CodebaseAnalyzer
+
         (tmp_path / "main.py").write_text("x = 1")
         venv = tmp_path / ".venv"
         venv.mkdir()
@@ -115,6 +129,7 @@ class TestCodebaseAnalyzer:
 
     def test_build_summary_returns_string(self, tmp_path):
         from orchestrator.codebase_analyzer import CodebaseAnalyzer
+
         (tmp_path / "app.py").write_text("class App:\n    pass\n")
         analyzer = CodebaseAnalyzer(client=None)
         files = analyzer.collect_files(tmp_path)
@@ -197,11 +212,13 @@ class TestCodebaseAnalyzer:
 # OpenRouter sync
 # ─────────────────────────────────────────────
 
+
 class TestOpenRouterSync:
     """OpenRouterSync fetches model list + pricing from OpenRouter API."""
 
     def test_sync_can_be_instantiated(self):
         from orchestrator.openrouter_sync import OpenRouterSync
+
         sync = OpenRouterSync(api_key="test-key")
         assert sync is not None
 
@@ -242,17 +259,21 @@ class TestOpenRouterSync:
 
     def test_to_cost_table_entry_converts_pricing(self):
         from orchestrator.openrouter_sync import OpenRouterSync
+
         sync = OpenRouterSync(api_key="test-key")
-        entry = sync.to_cost_table_entry({
-            "id": "anthropic/claude-3-5-sonnet",
-            "pricing": {"prompt": "0.000003", "completion": "0.000015"},
-        })
+        entry = sync.to_cost_table_entry(
+            {
+                "id": "anthropic/claude-3-5-sonnet",
+                "pricing": {"prompt": "0.000003", "completion": "0.000015"},
+            }
+        )
         # pricing is per-token; cost table is per million tokens
         assert entry["input"] == pytest.approx(3.0, rel=1e-3)
         assert entry["output"] == pytest.approx(15.0, rel=1e-3)
 
     def test_to_cost_table_entry_handles_missing_pricing(self):
         from orchestrator.openrouter_sync import OpenRouterSync
+
         sync = OpenRouterSync(api_key="test-key")
         entry = sync.to_cost_table_entry({"id": "some/model", "pricing": {}})
         assert "input" in entry

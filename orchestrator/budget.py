@@ -8,6 +8,7 @@ Pattern: Dataclass + async Lock
 Async: Yes — charge/reserve/commit/release are coroutines
 Layer: L1 Infrastructure
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,17 +26,20 @@ class Budget:
     FIX-001a: Added reserve/commit/release pattern to prevent race conditions
     when multiple concurrent tasks check budget simultaneously.
     """
+
     max_usd: float = 8.0
     max_time_seconds: float = 5400.0  # 90 min
     spent_usd: float = 0.0
     start_time: float = field(default_factory=time.time)
-    phase_spent: dict[str, float] = field(default_factory=lambda: {
-        "decomposition": 0.0,
-        "generation": 0.0,
-        "cross_review": 0.0,
-        "evaluation": 0.0,
-        "reserve": 0.0,
-    })
+    phase_spent: dict[str, float] = field(
+        default_factory=lambda: {
+            "decomposition": 0.0,
+            "generation": 0.0,
+            "cross_review": 0.0,
+            "evaluation": 0.0,
+            "reserve": 0.0,
+        }
+    )
     # FIX-001a: Track reserved but not-yet-charged budget
     _reserved_usd: float = field(default=0.0, repr=False)
     # FIX-001a: Async lock for atomic operations (lazy initialized)
@@ -102,7 +106,9 @@ class Budget:
                 return True
             return False
 
-    async def commit_reservation(self, reserved_amount: float, actual_amount: float, phase: str = "generation"):
+    async def commit_reservation(
+        self, reserved_amount: float, actual_amount: float, phase: str = "generation"
+    ):
         """
         FIX-001a: Convert reservation to actual charge.
 

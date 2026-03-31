@@ -8,6 +8,7 @@ Tests for governance improvements:
 
 All tests are synchronous (no pytest-asyncio required).
 """
+
 from __future__ import annotations
 
 import json
@@ -28,8 +29,8 @@ from orchestrator.policy import (
 )
 from orchestrator.policy_engine import PolicyEngine, PolicyViolationError
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_profile(
     model: Model = Model.GPT_4O,
@@ -52,12 +53,13 @@ def _make_profile(
 
 # ── EnforcementMode ───────────────────────────────────────────────────────────
 
+
 class TestEnforcementMode:
 
     def test_enum_values(self):
         assert EnforcementMode.MONITOR.value == "monitor"
-        assert EnforcementMode.SOFT.value    == "soft"
-        assert EnforcementMode.HARD.value    == "hard"
+        assert EnforcementMode.SOFT.value == "soft"
+        assert EnforcementMode.HARD.value == "hard"
 
     def test_monitor_mode_allows_violating_model(self):
         """MONITOR: even a blocked provider should pass (with violations logged)."""
@@ -69,8 +71,8 @@ class TestEnforcementMode:
             enforcement_mode=EnforcementMode.MONITOR,
         )
         result = engine.check(Model.GPT_4O, profile, [policy])
-        assert result.passed is True          # allowed by MONITOR
-        assert len(result.violations) == 1    # violation still recorded
+        assert result.passed is True  # allowed by MONITOR
+        assert len(result.violations) == 1  # violation still recorded
 
     def test_hard_mode_blocks_violating_model(self):
         """HARD: blocked provider is denied."""
@@ -116,8 +118,8 @@ class TestEnforcementMode:
             enforcement_mode=EnforcementMode.SOFT,
         )
         result = engine.check(Model.GPT_4O, profile, [policy])
-        assert result.passed is True          # soft violation allowed
-        assert len(result.violations) == 1    # still recorded
+        assert result.passed is True  # soft violation allowed
+        assert len(result.violations) == 1  # still recorded
 
     def test_monitor_mode_overrides_multiple_violations(self):
         """MONITOR with multiple violations: all logged but all allowed."""
@@ -138,16 +140,19 @@ class TestEnforcementMode:
         A MONITOR policy must never override a HARD compliance rule (e.g. GDPR)."""
         engine = PolicyEngine()
         profile = _make_profile(provider="openai")
-        hard_policy    = Policy(name="hard", blocked_providers=["openai"],
-                                enforcement_mode=EnforcementMode.HARD)
-        monitor_policy = Policy(name="monitor", allowed_regions=["eu"],
-                                enforcement_mode=EnforcementMode.MONITOR)
+        hard_policy = Policy(
+            name="hard", blocked_providers=["openai"], enforcement_mode=EnforcementMode.HARD
+        )
+        monitor_policy = Policy(
+            name="monitor", allowed_regions=["eu"], enforcement_mode=EnforcementMode.MONITOR
+        )
         # HARD is more restrictive → effective mode = HARD → should fail
         result = engine.check(Model.GPT_4O, profile, [hard_policy, monitor_policy])
-        assert result.passed is False   # HARD wins over MONITOR
+        assert result.passed is False  # HARD wins over MONITOR
 
 
 # ── PolicyHierarchy ───────────────────────────────────────────────────────────
+
 
 class TestPolicyHierarchy:
 
@@ -159,7 +164,7 @@ class TestPolicyHierarchy:
         assert policies[0].name == "gdpr"
 
     def test_org_plus_team_merged(self):
-        gdpr    = Policy(name="gdpr")
+        gdpr = Policy(name="gdpr")
         eu_only = Policy(name="eu_only", allowed_regions=["eu"])
         hier = PolicyHierarchy(
             org=[gdpr],
@@ -172,9 +177,9 @@ class TestPolicyHierarchy:
         assert "eu_only" in names
 
     def test_all_four_levels_merged(self):
-        p_org  = Policy(name="p_org")
+        p_org = Policy(name="p_org")
         p_team = Policy(name="p_team")
-        p_job  = Policy(name="p_job")
+        p_job = Policy(name="p_job")
         p_node = Policy(name="p_node")
         hier = PolicyHierarchy(
             org=[p_org],
@@ -224,6 +229,7 @@ class TestPolicyHierarchy:
 
 # ── RateLimit ─────────────────────────────────────────────────────────────────
 
+
 class TestRateLimit:
 
     def test_all_fields_none_by_default(self):
@@ -251,6 +257,7 @@ class TestRateLimit:
 
 # ── AuditLog ──────────────────────────────────────────────────────────────────
 
+
 class TestAuditLog:
 
     def test_initially_empty(self):
@@ -273,9 +280,13 @@ class TestAuditLog:
     def test_record_content_correct(self):
         log = AuditLog()
         log.record(
-            task_id="t1", model="gpt-4o", passed=False, raw_passed=False,
+            task_id="t1",
+            model="gpt-4o",
+            passed=False,
+            raw_passed=False,
             violations=["[p] provider 'openai' blocked"],
-            enforcement_mode="hard", policies_applied=["p"],
+            enforcement_mode="hard",
+            policies_applied=["p"],
         )
         rec = log.records()[0]
         assert isinstance(rec, AuditRecord)
@@ -335,6 +346,7 @@ class TestAuditLog:
 
 # ── AuditLog integration with PolicyEngine ────────────────────────────────────
 
+
 class TestAuditLogInPolicyEngine:
 
     def test_check_emits_one_record(self):
@@ -372,12 +384,13 @@ class TestAuditLogInPolicyEngine:
         log = AuditLog()
         engine = PolicyEngine(audit_log=log)
         profile = _make_profile(provider="openai")
-        policy = Policy(name="no_openai", blocked_providers=["openai"],
-                        enforcement_mode=EnforcementMode.MONITOR)
+        policy = Policy(
+            name="no_openai", blocked_providers=["openai"], enforcement_mode=EnforcementMode.MONITOR
+        )
         engine.check(Model.GPT_4O, profile, [policy])
         rec = log.records()[0]
-        assert rec.raw_passed is False   # genuine violation
-        assert rec.passed is True        # overridden by MONITOR
+        assert rec.raw_passed is False  # genuine violation
+        assert rec.passed is True  # overridden by MONITOR
         assert rec.enforcement_mode == "monitor"
 
     def test_task_id_propagated_to_record(self):

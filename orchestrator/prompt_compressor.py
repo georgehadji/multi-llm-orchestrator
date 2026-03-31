@@ -14,12 +14,12 @@ Strategies:
 
 USAGE:
     from orchestrator.prompt_compressor import PromptCompressor
-    
+
     compressor = PromptCompressor()
-    
+
     # Compress to target tokens
     compressed = await compressor.compress(prompt, target_tokens=500)
-    
+
     # Get compression ratio
     ratio = compressor.get_compression_ratio(original, compressed)
 """
@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional, Dict, List, Any
+from typing import Any
 
 from .models import Model
 
@@ -40,36 +40,38 @@ logger = logging.getLogger("orchestrator.prompt_compressor")
 # Compression Statistics
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class CompressionStats:
     """Statistics for a compression operation."""
+
     original_tokens: int
     compressed_tokens: int
     original_chars: int
     compressed_chars: int
-    strategies_applied: List[str]
+    strategies_applied: list[str]
     time_ms: float
-    
+
     @property
     def token_reduction(self) -> int:
         return self.original_tokens - self.compressed_tokens
-    
+
     @property
     def token_reduction_percent(self) -> float:
         if self.original_tokens == 0:
             return 0.0
         return (self.token_reduction / self.original_tokens) * 100
-    
+
     @property
     def char_reduction(self) -> int:
         return self.original_chars - self.compressed_chars
-    
+
     @property
     def char_reduction_percent(self) -> float:
         if self.original_chars == 0:
             return 0.0
         return (self.char_reduction / self.original_chars) * 100
-    
+
     def to_dict(self) -> dict:
         return {
             "original_tokens": self.original_tokens,
@@ -89,17 +91,18 @@ class CompressionStats:
 # Prompt Compressor
 # ─────────────────────────────────────────────
 
+
 class PromptCompressor:
     """
     Compress prompts using multiple strategies.
-    
+
     Applies compression strategies in order of increasing cost:
     1. Whitespace cleanup (fast, 5-10% savings)
     2. Phrase simplification (fast, 10-15% savings)
     3. Redundancy removal (medium, 10-15% savings)
     4. LLM summarization (slow, 20-30% savings)
     """
-    
+
     def __init__(
         self,
         model: Model = Model.DEEPSEEK_CHAT,
@@ -109,40 +112,41 @@ class PromptCompressor:
         self.model = model
         self.llm_compression_enabled = llm_compression_enabled
         self.min_tokens_for_llm = min_tokens_for_llm
-        
+
         # Statistics tracking
         self._total_compressions = 0
         self._total_tokens_saved = 0
-        self._stats_history: List[CompressionStats] = []
-    
+        self._stats_history: list[CompressionStats] = []
+
     async def compress(
         self,
         prompt: str,
-        target_tokens: Optional[int] = None,
-        target_ratio: Optional[float] = None,
+        target_tokens: int | None = None,
+        target_ratio: float | None = None,
         preserve_instructions: bool = True,
     ) -> str:
         """
         Compress a prompt.
-        
+
         Args:
             prompt: Original prompt to compress
             target_tokens: Target token count (overrides target_ratio)
             target_ratio: Target size as ratio of original (0.5 = 50%)
             preserve_instructions: Try to preserve instruction text
-        
+
         Returns:
             Compressed prompt
         """
         import time
+
         start_time = time.time()
-        
+
         if not prompt:
             return prompt
-        
+
         original_tokens = self._count_tokens(prompt)
         original_chars = len(prompt)
-        
+
         # Determine target
         if target_tokens:
             target = target_tokens
@@ -150,42 +154,44 @@ class PromptCompressor:
             target = int(original_tokens * target_ratio)
         else:
             target = int(original_tokens * 0.7)  # Default 30% reduction
-        
+
         # Apply strategies in order
         strategies_applied = []
         compressed = prompt
-        
+
         # Strategy 1: Whitespace cleanup
         compressed = self._cleanup_whitespace(compressed)
         strategies_applied.append("whitespace_cleanup")
-        
+
         # Strategy 2: Phrase simplification
         compressed = self._simplify_phrases(compressed)
         strategies_applied.append("phrase_simplification")
-        
+
         # Strategy 3: Redundancy removal
         compressed = self._remove_redundancy(compressed)
         strategies_applied.append("redundancy_removal")
-        
+
         # Check if we've reached target
         current_tokens = self._count_tokens(compressed)
-        
+
         # Strategy 4: LLM summarization (if needed and enabled)
-        if (current_tokens > target and 
-            self.llm_compression_enabled and 
-            current_tokens > self.min_tokens_for_llm):
-            
+        if (
+            current_tokens > target
+            and self.llm_compression_enabled
+            and current_tokens > self.min_tokens_for_llm
+        ):
+
             compressed = await self._llm_summarize(
                 compressed,
                 target_tokens=target,
                 preserve_instructions=preserve_instructions,
             )
             strategies_applied.append("llm_summarization")
-        
+
         # Record statistics
         compressed_tokens = self._count_tokens(compressed)
         compressed_chars = len(compressed)
-        
+
         stats = CompressionStats(
             original_tokens=original_tokens,
             compressed_tokens=compressed_tokens,
@@ -194,42 +200,42 @@ class PromptCompressor:
             strategies_applied=strategies_applied,
             time_ms=(time.time() - start_time) * 1000,
         )
-        
+
         self._total_compressions += 1
         self._total_tokens_saved += stats.token_reduction
         self._stats_history.append(stats)
-        
+
         logger.debug(
             f"Prompt compressed: {original_tokens} → {compressed_tokens} tokens "
             f"({stats.token_reduction_percent:.1f}% reduction) in {stats.time_ms:.1f}ms"
         )
-        
+
         return compressed
-    
+
     def _cleanup_whitespace(self, text: str) -> str:
         """
         Clean up whitespace to reduce tokens.
-        
+
         Savings: 5-10%
         """
         # Remove multiple spaces
-        text = re.sub(r' {2,}', ' ', text)
-        
+        text = re.sub(r" {2,}", " ", text)
+
         # Remove trailing whitespace on lines
-        text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
-        
+        text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
+
         # Remove multiple blank lines
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        
+        text = re.sub(r"\n{3,}", "\n\n", text)
+
         # Remove leading/trailing whitespace from entire text
         text = text.strip()
-        
+
         return text
-    
+
     def _simplify_phrases(self, text: str) -> str:
         """
         Simplify verbose phrases.
-        
+
         Savings: 10-15%
         """
         # Common verbose phrase replacements
@@ -255,27 +261,27 @@ class PromptCompressor:
             "there are": "",
             "it is": "",
         }
-        
+
         for verbose, concise in replacements.items():
             # Case-insensitive replacement
             text = re.sub(
-                r'\b' + re.escape(verbose) + r'\b',
+                r"\b" + re.escape(verbose) + r"\b",
                 concise,
                 text,
                 flags=re.IGNORECASE,
             )
-        
+
         return text
-    
+
     def _remove_redundancy(self, text: str) -> str:
         """
         Remove redundant content.
-        
+
         Savings: 10-15%
         """
         # Remove repeated words
-        text = re.sub(r'\b(\w+)( \1\b)+', r'\1', text, flags=re.IGNORECASE)
-        
+        text = re.sub(r"\b(\w+)( \1\b)+", r"\1", text, flags=re.IGNORECASE)
+
         # Remove filler sentences
         filler_patterns = [
             r"Let me know if you have any questions\.",
@@ -284,12 +290,12 @@ class PromptCompressor:
             r"Thank you for your patience\.",
             r"Please let me know if this works\.",
         ]
-        
+
         for pattern in filler_patterns:
-            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
-        
+            text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+
         return text.strip()
-    
+
     async def _llm_summarize(
         self,
         text: str,
@@ -298,40 +304,40 @@ class PromptCompressor:
     ) -> str:
         """
         Summarize text using LLM.
-        
+
         Savings: 20-30%
-        
+
         Args:
             text: Text to summarize
             target_tokens: Target token count
             preserve_instructions: Try to preserve instruction text
-        
+
         Returns:
             Summarized text
         """
         from .api_clients import UnifiedClient
-        
+
         client = UnifiedClient()
-        
+
         # Estimate target characters (rough: 1 token ≈ 4 chars)
         target_chars = target_tokens * 4
-        
+
         # Extract instructions if preserving
         instructions = ""
         content = text
-        
+
         if preserve_instructions:
             # Look for instruction patterns
             instruction_match = re.search(
-                r'^(.*?(?:instruction|requirement|constraint|rule|must|should|do not).*)\n\n',
+                r"^(.*?(?:instruction|requirement|constraint|rule|must|should|do not).*)\n\n",
                 text,
                 re.IGNORECASE | re.DOTALL,
             )
             if instruction_match:
                 instructions = instruction_match.group(1)
-                content = text[len(instructions):].strip()
+                content = text[len(instructions) :].strip()
                 instructions = instructions.strip() + "\n\n"
-        
+
         # Create summarization prompt
         summary_prompt = (
             f"Summarize the following text to approximately {target_chars} characters "
@@ -339,7 +345,7 @@ class PromptCompressor:
             f"{content}\n\n"
             f"SUMMARY:"
         )
-        
+
         try:
             response = await client.call(
                 model=self.model,
@@ -348,51 +354,50 @@ class PromptCompressor:
                 max_tokens=target_tokens,
                 timeout=30,
             )
-            
+
             summary = response.text.strip()
-            
+
             # Reattach instructions
             if instructions:
                 return instructions + summary
             return summary
-            
+
         except Exception as e:
             logger.warning(f"LLM summarization failed: {e}, returning original")
             return text
-    
+
     def _count_tokens(self, text: str) -> int:
         """
         Estimate token count.
-        
+
         Uses simple heuristic: 1 token ≈ 4 characters for English text.
         """
         # More accurate: split on whitespace and punctuation
-        words = re.findall(r'\b\w+\b', text)
+        words = re.findall(r"\b\w+\b", text)
         return len(words)
-    
+
     def get_compression_ratio(self, original: str, compressed: str) -> float:
         """
         Calculate compression ratio.
-        
+
         Returns:
             Ratio (0.5 = 50% reduction, 0.0 = no reduction)
         """
         original_tokens = self._count_tokens(original)
         if original_tokens == 0:
             return 0.0
-        
+
         compressed_tokens = self._count_tokens(compressed)
         return (original_tokens - compressed_tokens) / original_tokens
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """Get compression statistics."""
         avg_reduction = 0.0
         if self._stats_history:
-            avg_reduction = (
-                sum(s.token_reduction_percent for s in self._stats_history) /
-                len(self._stats_history)
+            avg_reduction = sum(s.token_reduction_percent for s in self._stats_history) / len(
+                self._stats_history
             )
-        
+
         return {
             "total_compressions": self._total_compressions,
             "total_tokens_saved": self._total_tokens_saved,
@@ -406,7 +411,7 @@ class PromptCompressor:
 # Convenience Functions
 # ─────────────────────────────────────────────
 
-_default_compressor: Optional[PromptCompressor] = None
+_default_compressor: PromptCompressor | None = None
 
 
 def get_prompt_compressor() -> PromptCompressor:
@@ -425,17 +430,17 @@ def reset_prompt_compressor() -> None:
 
 async def compress_prompt(
     prompt: str,
-    target_tokens: Optional[int] = None,
-    target_ratio: Optional[float] = None,
+    target_tokens: int | None = None,
+    target_ratio: float | None = None,
 ) -> str:
     """
     Compress a prompt using default compressor.
-    
+
     Args:
         prompt: Prompt to compress
         target_tokens: Target token count
         target_ratio: Target size ratio
-    
+
     Returns:
         Compressed prompt
     """

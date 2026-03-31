@@ -23,12 +23,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
-from ..log_config import get_logger
+from orchestrator.log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -36,6 +35,7 @@ logger = get_logger(__name__)
 @dataclass
 class CacheEntry:
     """Cache entry metadata."""
+
     key: str
     created_at: float
     last_accessed: float
@@ -46,6 +46,7 @@ class CacheEntry:
 @dataclass
 class CacheMetrics:
     """Metrics for prompt caching."""
+
     hits: int = 0
     misses: int = 0
     warmings: int = 0
@@ -80,8 +81,8 @@ class PromptCacher:
         """
         self.client = client
         self.metrics = CacheMetrics()
-        self._cache_entries: Dict[str, CacheEntry] = {}
-        self._system_prompt_cache: Optional[str] = None
+        self._cache_entries: dict[str, CacheEntry] = {}
+        self._system_prompt_cache: str | None = None
         self._lock = asyncio.Lock()
 
     def _compute_cache_key(self, system_prompt: str, project_context: str) -> str:
@@ -139,7 +140,7 @@ class PromptCacher:
                 ]
 
             # Make dummy call to warm cache
-            if self.client and hasattr(self.client, 'messages'):
+            if self.client and hasattr(self.client, "messages"):
                 await self.client.messages.create(
                     model=model,
                     system=system_content,
@@ -171,7 +172,7 @@ class PromptCacher:
     async def call_with_cache(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         system_prompt: str,
         project_context: str = "",
         **kwargs,
@@ -210,7 +211,7 @@ class PromptCacher:
 
         try:
             # Make API call with cached system prompt
-            if self.client and hasattr(self.client, 'messages'):
+            if self.client and hasattr(self.client, "messages"):
                 response = await self.client.messages.create(
                     model=model,
                     system=system_content,
@@ -243,7 +244,7 @@ class PromptCacher:
     async def call_anthropic_with_cache(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         system_prompt: str,
         **kwargs,
     ) -> Any:
@@ -271,11 +272,13 @@ class PromptCacher:
             # Anthropic cache_control format
             response = await self.client.messages.create(
                 model=model,
-                system=[{
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=messages,
                 **kwargs,
             )
@@ -291,7 +294,7 @@ class PromptCacher:
     async def call_openai_with_cache(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         system_prompt: str,
         **kwargs,
     ) -> Any:
@@ -334,7 +337,7 @@ class PromptCacher:
             logger.warning("OpenAI not available, using fallback")
             return await self.call_with_cache(model, messages, system_prompt, **kwargs)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get caching metrics.
 
@@ -365,6 +368,7 @@ class PromptCacher:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def warm_prompt_cache(
     system_prompt: str,
