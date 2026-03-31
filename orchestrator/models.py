@@ -305,8 +305,8 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GEMINI_FLASH:           {"input": 0.15,  "output": 0.60},
     Model.GEMINI_FLASH_LITE:      {"input": 0.10,  "output": 0.40},  # alias of GEMINI_2_5_FLASH_LITE
     Model.GEMINI_3_1_FLASH_LITE:  {"input": 0.25,  "output": 1.50},
-    # GEMINI_2_0_FLASH removed - deprecated by Google
-    # GEMINI_2_0_FLASH_LITE removed - deprecated by Google
+    Model.GEMINI_2_0_FLASH:        {"input": 0.10,  "output": 0.40},  # deprecated but still in enum
+    Model.GEMINI_2_0_FLASH_LITE:   {"input": 0.10,  "output": 0.40},  # deprecated but still in enum
     Model.GEMINI_2_5_FLASH_LITE:  {"input": 0.10,  "output": 0.40},
     Model.GEMINI_1_5_PRO:         {"input": 3.50,  "output": 10.50},
 
@@ -358,6 +358,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GROK_3:             {"input": 2.00,  "output": 10.00},
     Model.GROK_3_MINI:        {"input": 0.10,  "output": 0.30},
     Model.GROK_4:             {"input": 3.00,  "output": 15.00},
+    Model.GROK_4_LATEST:      {"input": 3.00,  "output": 15.00},  # alias for grok-4
     Model.GROK_4_1_FAST:      {"input": 0.20,  "output": 0.50},
     Model.GROK_4_20:          {"input": 0.25,  "output": 0.75},  # Latest model
     Model.GROK_4_20_REASONING:{"input": 0.25,  "output": 0.75},  # Reasoning variant
