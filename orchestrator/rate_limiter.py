@@ -182,6 +182,9 @@ class GrokRateLimiter:
         self.state = RateLimitState(current_tier=initial_tier)
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._lock = asyncio.Lock()
+        # Copy class-level TIER_LIMITS to instance so test/external mutations
+        # on one instance don't bleed into other instances.
+        self.TIER_LIMITS = dict(self.__class__.TIER_LIMITS)
         self._session: aiohttp.ClientSession | None = None
 
         # Metrics
@@ -220,7 +223,9 @@ class GrokRateLimiter:
             else:
                 break
 
-        if new_tier != self.state.current_tier:
+        # Only ever upgrade tiers — never downgrade an explicitly-set initial_tier
+        # or a previously-earned higher tier.
+        if new_tier > self.state.current_tier:
             logger.info(f"Tier upgraded: {self.state.current_tier} → {new_tier} (spend: ${spend:.2f})")
             self.state.current_tier = new_tier
 
