@@ -71,8 +71,8 @@ class TestBudgetRaceConditionFix:
         assert budget.remaining_usd == pytest.approx(5.0, rel=1e-9)
         assert budget._reserved_usd == pytest.approx(5.0, rel=1e-9)
         
-        # Commit reservation
-        await budget.commit_reservation(5.0, "generation")
+        # Commit reservation (reserved_amount=5.0, actual_amount=5.0)
+        await budget.commit_reservation(5.0, 5.0, "generation")
         assert budget._reserved_usd == pytest.approx(0.0, rel=1e-9)
         assert budget.spent_usd == pytest.approx(5.0, rel=1e-9)
         assert budget.phase_spent["generation"] == pytest.approx(5.0, rel=1e-9)
@@ -85,9 +85,9 @@ class TestBudgetRaceConditionFix:
         # Reserve $5
         await budget.reserve(5.0)
         
-        # Commit with different amount ($4.50)
-        await budget.commit_reservation(4.5, "generation")
-        
+        # Commit with different amount: reserved=$5, actual=$4.50
+        await budget.commit_reservation(5.0, 4.5, "generation")
+
         assert budget._reserved_usd == pytest.approx(0.0, rel=1e-9)
         assert budget.spent_usd == pytest.approx(4.5, rel=1e-9)
         assert budget.remaining_usd == pytest.approx(5.5, rel=1e-9)
@@ -233,7 +233,7 @@ class TestIntegration:
             if success:
                 await router.record_success(model)
                 await router.record_latency(model, 100.0)
-                await budget.commit_reservation(cost, "generation")
+                await budget.commit_reservation(cost, cost, "generation")
             else:
                 await router.record_timeout(model)
                 await budget.release_reservation(cost)
@@ -286,7 +286,7 @@ class TestRegressionPrevention:
         budget = Budget(max_usd=10.0)
         await budget.reserve(5.0)
         
-        result = budget.commit_reservation(4.5)
+        result = budget.commit_reservation(4.5, 4.5)
         assert asyncio.iscoroutine(result), "Budget.commit_reservation() must be async!"
         await result
 
