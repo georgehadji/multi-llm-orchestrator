@@ -161,7 +161,7 @@ class OptimizationConfig:
     # ═══════════════════════════════════════════════════════
 
     # TDD-First Generation
-    enable_tdd_first: bool = False  # Opt-in until proven
+    enable_tdd_first: bool = True  # On by default — write tests before implementation
     tdd_quality_tier: str = "balanced"  # "budget", "balanced", "premium"
     tdd_max_iterations: int = 3  # Max TDD iterations before fallback
     tdd_min_test_coverage: float = 0.8  # Minimum test coverage required (0.0-1.0)
