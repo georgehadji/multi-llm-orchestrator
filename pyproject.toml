@@ -236,7 +236,7 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
     "typing.TYPE_CHECKING",
 ]
-fail_under = 0  # temporary relaxation so tests can run while coverage is low
+fail_under = 14  # ratchet: current baseline; raise as more tests are added (target: 50)
 precision = 2
 
 [tool.coverage.html]
