@@ -51,8 +51,10 @@ logger = logging.getLogger("orchestrator.fullstack_generator")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class FrontendFramework(str, Enum):
     """Frontend frameworks."""
+
     REACT = "react"
     VUE = "vue"
     SVELTE = "svelte"
@@ -62,6 +64,7 @@ class FrontendFramework(str, Enum):
 
 class BackendFramework(str, Enum):
     """Backend frameworks."""
+
     FASTAPI = "fastapi"
     FLASK = "flask"
     EXPRESS = "express"
@@ -70,6 +73,7 @@ class BackendFramework(str, Enum):
 
 class DatabaseType(str, Enum):
     """Database types."""
+
     POSTGRESQL = "postgresql"
     SQLITE = "sqlite"
     MONGODB = "mongodb"
@@ -78,6 +82,7 @@ class DatabaseType(str, Enum):
 
 class AuthType(str, Enum):
     """Authentication types."""
+
     JWT = "jwt"
     OAUTH = "oauth"
     MAGIC_LINK = "magic_link"
@@ -88,9 +93,11 @@ class AuthType(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class FullStackApp:
     """Complete full-stack application."""
+
     name: str
     description: str = ""
 
@@ -141,6 +148,7 @@ class FullStackApp:
 @dataclass
 class GenerationOptions:
     """Generation options."""
+
     frontend: FrontendFramework = FrontendFramework.REACT
     backend: BackendFramework = BackendFramework.FASTAPI
     database: DatabaseType = DatabaseType.POSTGRESQL
@@ -169,6 +177,7 @@ class GenerationOptions:
 # ─────────────────────────────────────────────
 # Full-Stack Generator
 # ─────────────────────────────────────────────
+
 
 class FullStackGenerator:
     """
@@ -248,8 +257,8 @@ class FullStackGenerator:
 
         # Calculate statistics
         app.total_files = len(app.frontend_code) + len(app.backend_code) + len(app.migrations)
-        app.total_lines = sum(len(code.split('\n')) for code in app.frontend_code.values())
-        app.total_lines += sum(len(code.split('\n')) for code in app.backend_code.values())
+        app.total_lines = sum(len(code.split("\n")) for code in app.frontend_code.values())
+        app.total_lines += sum(len(code.split("\n")) for code in app.backend_code.values())
         app.estimated_tokens = int(app.total_lines * 1.3)  # Rough estimate
 
         self._total_generations += 1
@@ -318,29 +327,19 @@ class FullStackGenerator:
 
         # Add common components based on description
         if "login" in desc_lower or "auth" in desc_lower or "user" in desc_lower:
-            components.append(
-                self.component_library.get(ComponentType.FORM, "login")
-            )
+            components.append(self.component_library.get(ComponentType.FORM, "login"))
 
         if "register" in desc_lower or "sign up" in desc_lower:
-            components.append(
-                self.component_library.get(ComponentType.FORM, "register")
-            )
+            components.append(self.component_library.get(ComponentType.FORM, "register"))
 
         if "dashboard" in desc_lower:
-            components.append(
-                self.component_library.get(ComponentType.CARD, "dashboard")
-            )
+            components.append(self.component_library.get(ComponentType.CARD, "dashboard"))
 
         if "table" in desc_lower or "list" in desc_lower or "data" in desc_lower:
-            components.append(
-                self.component_library.get(ComponentType.TABLE, "datatable")
-            )
+            components.append(self.component_library.get(ComponentType.TABLE, "datatable"))
 
         # Always add navigation
-        components.append(
-            self.component_library.get(ComponentType.NAVIGATION, "navbar")
-        )
+        components.append(self.component_library.get(ComponentType.NAVIGATION, "navbar"))
 
         return components
 
@@ -411,39 +410,47 @@ export default App;
         endpoints = []
 
         # Add auth endpoints
-        endpoints.append({
-            "method": "POST",
-            "path": "/api/auth/login",
-            "description": "User login",
-            "body": {"email": "string", "password": "string"},
-            "response": {"token": "string", "user": "object"},
-        })
+        endpoints.append(
+            {
+                "method": "POST",
+                "path": "/api/auth/login",
+                "description": "User login",
+                "body": {"email": "string", "password": "string"},
+                "response": {"token": "string", "user": "object"},
+            }
+        )
 
-        endpoints.append({
-            "method": "POST",
-            "path": "/api/auth/register",
-            "description": "User registration",
-            "body": {"email": "string", "password": "string", "name": "string"},
-            "response": {"token": "string", "user": "object"},
-        })
+        endpoints.append(
+            {
+                "method": "POST",
+                "path": "/api/auth/register",
+                "description": "User registration",
+                "body": {"email": "string", "password": "string", "name": "string"},
+                "response": {"token": "string", "user": "object"},
+            }
+        )
 
         # Add CRUD endpoints based on description
         desc_lower = description.lower()
 
         if "task" in desc_lower or "todo" in desc_lower:
-            endpoints.append({
-                "method": "GET",
-                "path": "/api/tasks",
-                "description": "List all tasks",
-                "response": {"tasks": "array"},
-            })
-            endpoints.append({
-                "method": "POST",
-                "path": "/api/tasks",
-                "description": "Create task",
-                "body": {"title": "string", "description": "string"},
-                "response": {"task": "object"},
-            })
+            endpoints.append(
+                {
+                    "method": "GET",
+                    "path": "/api/tasks",
+                    "description": "List all tasks",
+                    "response": {"tasks": "array"},
+                }
+            )
+            endpoints.append(
+                {
+                    "method": "POST",
+                    "path": "/api/tasks",
+                    "description": "Create task",
+                    "body": {"title": "string", "description": "string"},
+                    "response": {"task": "object"},
+                }
+            )
 
         return endpoints
 
@@ -534,7 +541,12 @@ passlib[bcrypt]==1.7.4
                     "name": "users",
                     "columns": [
                         {"name": "id", "type": "UUID", "primary_key": True},
-                        {"name": "email", "type": "VARCHAR(255)", "unique": True, "nullable": False},
+                        {
+                            "name": "email",
+                            "type": "VARCHAR(255)",
+                            "unique": True,
+                            "nullable": False,
+                        },
                         {"name": "password_hash", "type": "VARCHAR(255)", "nullable": False},
                         {"name": "name", "type": "VARCHAR(255)"},
                         {"name": "created_at", "type": "TIMESTAMP", "default": "NOW()"},
@@ -548,17 +560,19 @@ passlib[bcrypt]==1.7.4
         desc_lower = description.lower()
 
         if "task" in desc_lower or "todo" in desc_lower:
-            schema["tables"].append({
-                "name": "tasks",
-                "columns": [
-                    {"name": "id", "type": "UUID", "primary_key": True},
-                    {"name": "title", "type": "VARCHAR(255)", "nullable": False},
-                    {"name": "description", "type": "TEXT"},
-                    {"name": "status", "type": "VARCHAR(50)", "default": "'pending'"},
-                    {"name": "user_id", "type": "UUID", "foreign_key": "users.id"},
-                    {"name": "created_at", "type": "TIMESTAMP", "default": "NOW()"},
-                ],
-            })
+            schema["tables"].append(
+                {
+                    "name": "tasks",
+                    "columns": [
+                        {"name": "id", "type": "UUID", "primary_key": True},
+                        {"name": "title", "type": "VARCHAR(255)", "nullable": False},
+                        {"name": "description", "type": "TEXT"},
+                        {"name": "status", "type": "VARCHAR(50)", "default": "'pending'"},
+                        {"name": "user_id", "type": "UUID", "foreign_key": "users.id"},
+                        {"name": "created_at", "type": "TIMESTAMP", "default": "NOW()"},
+                    ],
+                }
+            )
 
         return schema
 

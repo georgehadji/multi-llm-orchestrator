@@ -1,6 +1,7 @@
 """
 FastAPI Server - IDE Backend
 """
+
 from __future__ import annotations
 
 import logging
@@ -11,7 +12,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 # Simple logging setup
-logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(name)s | %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
 logger = logging.getLogger("ide_backend")
 
 from typing import TYPE_CHECKING
@@ -71,15 +74,11 @@ def create_app(
         # Send initial state
         session = await session_manager.get_session(session_id)
         if session:
-            await connection_manager.send_to_client(
-                websocket, "session_state", session.to_dict()
-            )
+            await connection_manager.send_to_client(websocket, "session_state", session.to_dict())
         else:
             # Create default session
             session = await session_manager.create_session()
-            await connection_manager.send_to_client(
-                websocket, "session_state", session.to_dict()
-            )
+            await connection_manager.send_to_client(websocket, "session_state", session.to_dict())
 
         try:
             while True:
@@ -93,9 +92,7 @@ def create_app(
                     raise
                 except Exception as e:
                     logger.error(f"WebSocket message error: {e}")
-                    await connection_manager.send_to_client(
-                        websocket, "error", {"message": str(e)}
-                    )
+                    await connection_manager.send_to_client(websocket, "error", {"message": str(e)})
         except WebSocketDisconnect:
             await connection_manager.disconnect(websocket)
         except Exception as e:
@@ -116,9 +113,7 @@ def create_app(
         return {
             "status": "healthy",
             "sessions": len(session_manager._sessions),
-            "connections": sum(
-                len(conns) for conns in connection_manager._connections.values()
-            ),
+            "connections": sum(len(conns) for conns in connection_manager._connections.values()),
         }
 
     logger.info("FastAPI app created successfully")

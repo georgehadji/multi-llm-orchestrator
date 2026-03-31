@@ -13,6 +13,7 @@ Usage:
     await manager.save_checkpoint(state_data, "task_id")
     restored_state = await manager.load_checkpoint("task_id")
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,7 +29,9 @@ logger = logging.getLogger("orchestrator.checkpoints")
 class Checkpoint:
     """Represents a single checkpoint with metadata."""
 
-    def __init__(self, task_id: str, data: dict[str, Any], timestamp: datetime, version: str = "1.0"):
+    def __init__(
+        self, task_id: str, data: dict[str, Any], timestamp: datetime, version: str = "1.0"
+    ):
         self.task_id = task_id
         self.data = data
         self.timestamp = timestamp
@@ -47,7 +50,7 @@ class Checkpoint:
             "data": self.data,
             "timestamp": self.timestamp.isoformat(),
             "version": self.version,
-            "checksum": self.checksum
+            "checksum": self.checksum,
         }
 
     @classmethod
@@ -58,7 +61,7 @@ class Checkpoint:
             task_id=data["task_id"],
             data=data["data"],
             timestamp=timestamp,
-            version=data.get("version", "1.0")
+            version=data.get("version", "1.0"),
         )
         # Verify checksum
         if checkpoint.checksum != data["checksum"]:
@@ -86,11 +89,7 @@ class CheckpointManager:
             str: The path to the saved checkpoint file
         """
         # Create checkpoint object
-        checkpoint = Checkpoint(
-            task_id=task_id,
-            data=data,
-            timestamp=datetime.now()
-        )
+        checkpoint = Checkpoint(task_id=task_id, data=data, timestamp=datetime.now())
 
         # Create filename with timestamp and task ID
         timestamp_str = checkpoint.timestamp.strftime("%Y%m%d_%H%M%S")
@@ -99,7 +98,7 @@ class CheckpointManager:
 
         # Write checkpoint to file
         try:
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(checkpoint.to_dict(), f, indent=2, default=str)
 
             logger.info(f"Checkpoint saved: {filepath}")
@@ -129,7 +128,7 @@ class CheckpointManager:
         latest_file = max(checkpoint_files, key=lambda f: f.stat().st_mtime)
 
         try:
-            with open(latest_file, encoding='utf-8') as f:
+            with open(latest_file, encoding="utf-8") as f:
                 checkpoint_data = json.load(f)
 
             checkpoint = Checkpoint.from_dict(checkpoint_data)
@@ -150,7 +149,7 @@ class CheckpointManager:
             Checkpoint: The loaded checkpoint or None if not found
         """
         try:
-            with open(filepath, encoding='utf-8') as f:
+            with open(filepath, encoding="utf-8") as f:
                 checkpoint_data = json.load(f)
 
             checkpoint = Checkpoint.from_dict(checkpoint_data)
@@ -258,7 +257,9 @@ class CheckpointManager:
             logger.error(f"Failed to validate checkpoint: {e}")
             return False
 
-    async def restore_from_latest(self, task_id: str, default_data: dict[str, Any] = None) -> dict[str, Any]:
+    async def restore_from_latest(
+        self, task_id: str, default_data: dict[str, Any] = None
+    ) -> dict[str, Any]:
         """
         Restore state from the latest checkpoint for a task, with a default fallback.
 

@@ -52,15 +52,17 @@ logger = get_logger(__name__)
 
 class Objective(Enum):
     """Optimization objectives."""
-    COST = "cost"              # Minimize
-    QUALITY = "quality"        # Maximize
-    LATENCY = "latency"        # Minimize
+
+    COST = "cost"  # Minimize
+    QUALITY = "quality"  # Maximize
+    LATENCY = "latency"  # Minimize
     RELIABILITY = "reliability"  # Maximize
     EFFICIENCY = "efficiency"  # Maximize (quality per dollar)
 
 
 class OptimizationDirection(Enum):
     """Direction of optimization."""
+
     MINIMIZE = auto()
     MAXIMIZE = auto()
 
@@ -77,6 +79,7 @@ OBJECTIVE_DIRECTIONS = {
 @dataclass
 class ModelPrediction:
     """Predicted performance for a model."""
+
     model: Model
 
     # Predicted values
@@ -120,6 +123,7 @@ class ModelPrediction:
 @dataclass
 class ParetoPoint:
     """A point on the Pareto frontier."""
+
     prediction: ModelPrediction
 
     # Objective values (normalized 0-1)
@@ -140,6 +144,7 @@ class ParetoPoint:
 @dataclass
 class FrontierRecommendation:
     """A recommendation from the frontier analysis."""
+
     model: Model
     rank: int
 
@@ -235,15 +240,18 @@ class CostQualityFrontier:
         try:
             data = {}
             for key, predictions in self._history.items():
-                data[key] = [{
-                    "model": p.model.value,
-                    "quality": p.quality,
-                    "cost": p.cost,
-                    "latency_ms": p.latency_ms,
-                    "reliability": p.reliability,
-                    "efficiency": p.efficiency,
-                    "prediction_timestamp": p.prediction_timestamp.isoformat(),
-                } for p in predictions[-100:]]  # Keep last 100 per key
+                data[key] = [
+                    {
+                        "model": p.model.value,
+                        "quality": p.quality,
+                        "cost": p.cost,
+                        "latency_ms": p.latency_ms,
+                        "reliability": p.reliability,
+                        "efficiency": p.efficiency,
+                        "prediction_timestamp": p.prediction_timestamp.isoformat(),
+                    }
+                    for p in predictions[-100:]
+                ]  # Keep last 100 per key
 
             history_file = self.storage_path / "history.json"
             history_file.write_text(json.dumps(data, indent=2, default=str))
@@ -272,9 +280,7 @@ class CostQualityFrontier:
             Ranked list of frontier recommendations
         """
         # Generate predictions for all models
-        predictions = await self._predict_all_models(
-            task_type, fingerprint, objectives
-        )
+        predictions = await self._predict_all_models(task_type, fingerprint, objectives)
 
         # Filter by budget constraint
         if budget_constraint is not None:
@@ -299,7 +305,9 @@ class CostQualityFrontier:
         )
 
         # Cache and save
-        cache_key = f"{task_type.value}:{fingerprint._hash_fingerprint() if fingerprint else 'none'}"
+        cache_key = (
+            f"{task_type.value}:{fingerprint._hash_fingerprint() if fingerprint else 'none'}"
+        )
         for pred in predictions:
             self._history[cache_key].append(pred)
         self._save_history()
@@ -350,9 +358,7 @@ class CostQualityFrontier:
             samples.append(feedback_samples)
 
         # 2. Benchmark data
-        benchmark_score, benchmark_samples = self._get_benchmark_prediction(
-            model, task_type
-        )
+        benchmark_score, benchmark_samples = self._get_benchmark_prediction(model, task_type)
         if benchmark_samples > 0:
             evidence_sources.append("benchmarks")
             samples.append(benchmark_samples)
@@ -393,9 +399,7 @@ class CostQualityFrontier:
         reliability = self._estimate_reliability(model, task_type, total_samples)
 
         # Calculate confidence intervals
-        quality_ci = self._calculate_confidence_interval(
-            quality, total_samples, uncertainty
-        )
+        quality_ci = self._calculate_confidence_interval(quality, total_samples, uncertainty)
 
         prediction = ModelPrediction(
             model=model,
@@ -675,7 +679,9 @@ class CostQualityFrontier:
 
             # Generate recommendation text
             if point.pareto_rank == 0:
-                recommendation = f"Pareto-optimal: Best balance of {', '.join(o.value for o in objectives)}"
+                recommendation = (
+                    f"Pareto-optimal: Best balance of {', '.join(o.value for o in objectives)}"
+                )
             elif pred.confidence > 0.8:
                 recommendation = "High-confidence choice with proven performance"
             elif pred.cost < 0.005:
@@ -721,12 +727,8 @@ class CostQualityFrontier:
     ) -> dict[str, Any]:
         """Compare two models with statistical significance."""
         # Get predictions
-        pred_a = asyncio.run(self._predict_model(
-            model_a, task_type, fingerprint, list(Objective)
-        ))
-        pred_b = asyncio.run(self._predict_model(
-            model_b, task_type, fingerprint, list(Objective)
-        ))
+        pred_a = asyncio.run(self._predict_model(model_a, task_type, fingerprint, list(Objective)))
+        pred_b = asyncio.run(self._predict_model(model_b, task_type, fingerprint, list(Objective)))
 
         if not pred_a or not pred_b:
             return {"error": "Could not generate predictions"}
@@ -736,9 +738,7 @@ class CostQualityFrontier:
         cost_diff = pred_a.cost - pred_b.cost
 
         # Determine significance
-        quality_significant = abs(quality_diff) > (
-            pred_a.uncertainty + pred_b.uncertainty
-        )
+        quality_significant = abs(quality_diff) > (pred_a.uncertainty + pred_b.uncertainty)
 
         # Determine winner per objective
         winners = {}
@@ -770,9 +770,11 @@ class CostQualityFrontier:
             "recommendation": (
                 f"{model_a.value} is better for quality"
                 if quality_diff > 0.1 and quality_significant
-                else f"{model_b.value} is more cost-effective"
-                if cost_diff < -0.01
-                else "Both models are comparable"
+                else (
+                    f"{model_b.value} is more cost-effective"
+                    if cost_diff < -0.01
+                    else "Both models are comparable"
+                )
             ),
         }
 
@@ -781,9 +783,7 @@ class CostQualityFrontier:
         return {
             "cache_size": len(self._prediction_cache),
             "history_entries": sum(len(h) for h in self._history.values()),
-            "tracked_models": len({
-                p.model for history in self._history.values() for p in history
-            }),
+            "tracked_models": len({p.model for history in self._history.values() for p in history}),
         }
 
 

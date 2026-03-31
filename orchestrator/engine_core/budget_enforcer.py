@@ -73,8 +73,10 @@ class BudgetEnforcer:
         # Warning state (to avoid repeated warnings)
         self._warned_thresholds: set[str] = set()
 
-        logger.info(f"Budget enforcer initialized: max=${budget.max_usd:.2f}, "
-                   f"time={budget.max_time_seconds}s")
+        logger.info(
+            f"Budget enforcer initialized: max=${budget.max_usd:.2f}, "
+            f"time={budget.max_time_seconds}s"
+        )
 
     def check_budget(self, task: Task | None = None) -> tuple[bool, bool]:
         """
@@ -290,9 +292,7 @@ class BudgetEnforcer:
 
         # Use historical data if available
         if completed_results and self.cost_predictor:
-            return self.cost_predictor.predict_remaining_tasks(
-                tasks, completed_results
-            )
+            return self.cost_predictor.predict_remaining_tasks(tasks, completed_results)
 
         # Simple average-based prediction
         if completed_results:

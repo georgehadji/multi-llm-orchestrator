@@ -12,6 +12,7 @@ Usage:
     dashboard = EnhancedDashboard()
     dashboard.start()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,6 +33,7 @@ logger = get_logger(__name__)
 @dataclass
 class ActiveTaskInfo:
     """Information about the currently active task."""
+
     task_id: str = ""
     task_type: str = ""
     prompt: str = ""
@@ -46,6 +48,7 @@ class ActiveTaskInfo:
 @dataclass
 class ProjectInfo:
     """Information about the current project."""
+
     project_id: str = ""
     description: str = ""
     success_criteria: str = ""
@@ -62,6 +65,7 @@ class ProjectInfo:
 @dataclass
 class ArchitectureInfo:
     """Architecture decisions for the current project."""
+
     style: str = ""
     paradigm: str = ""
     api_style: str = ""
@@ -93,6 +97,7 @@ class ArchitectureInfo:
 @dataclass
 class ModelStatusInfo:
     """Detailed model status with reason if inactive."""
+
     name: str
     provider: str
     available: bool
@@ -127,7 +132,9 @@ class EnhancedDataProvider:
         self._model_health: dict[Model, dict[str, Any]] = {}
         self._consecutive_failures: dict[Model, int] = dict.fromkeys(Model, 0)
 
-    def set_current_project(self, project_id: str, state: Any, architecture_rules: Any | None = None):
+    def set_current_project(
+        self, project_id: str, state: Any, architecture_rules: Any | None = None
+    ):
         """Set the current active project."""
         self._current_project_id = project_id
         self._current_state = state
@@ -142,13 +149,13 @@ class EnhancedDataProvider:
         """Set the currently active task."""
         self._active_task = ActiveTaskInfo(
             task_id=task_id,
-            task_type=task.type.value if hasattr(task, 'type') else "unknown",
-            prompt=task.prompt if hasattr(task, 'prompt') else "",
+            task_type=task.type.value if hasattr(task, "type") else "unknown",
+            prompt=task.prompt if hasattr(task, "prompt") else "",
             status="running",
             iteration=1,
-            max_iterations=task.max_iterations if hasattr(task, 'max_iterations') else 3,
+            max_iterations=task.max_iterations if hasattr(task, "max_iterations") else 3,
             model_used=model.value if model else "",
-            elapsed_seconds=0.0
+            elapsed_seconds=0.0,
         )
 
     def update_task_progress(self, iteration: int, score: float, status: str = "running"):
@@ -169,22 +176,34 @@ class EnhancedDataProvider:
     def _convert_architecture_rules(self, rules: Any) -> ArchitectureInfo:
         """Convert ProjectRules to ArchitectureInfo."""
         try:
-            arch = rules.architecture if hasattr(rules, 'architecture') else rules
-            stack = arch.stack if hasattr(arch, 'stack') else None
+            arch = rules.architecture if hasattr(rules, "architecture") else rules
+            stack = arch.stack if hasattr(arch, "stack") else None
 
             return ArchitectureInfo(
-                style=arch.style.value if hasattr(arch, 'style') else str(arch.get('style', '')),
-                paradigm=arch.paradigm.value if hasattr(arch, 'paradigm') else str(arch.get('paradigm', '')),
-                api_style=arch.api_style.value if hasattr(arch, 'api_style') else str(arch.get('api_style', '')),
-                database_type=arch.database_type.value if hasattr(arch, 'database_type') else str(arch.get('database_type', '')),
+                style=arch.style.value if hasattr(arch, "style") else str(arch.get("style", "")),
+                paradigm=(
+                    arch.paradigm.value
+                    if hasattr(arch, "paradigm")
+                    else str(arch.get("paradigm", ""))
+                ),
+                api_style=(
+                    arch.api_style.value
+                    if hasattr(arch, "api_style")
+                    else str(arch.get("api_style", ""))
+                ),
+                database_type=(
+                    arch.database_type.value
+                    if hasattr(arch, "database_type")
+                    else str(arch.get("database_type", ""))
+                ),
                 primary_language=stack.primary_language if stack else "",
                 frameworks=list(stack.frameworks) if stack else [],
                 libraries=list(stack.libraries) if stack else [],
                 databases=list(stack.databases) if stack else [],
                 tools=list(stack.tools) if stack else [],
-                constraints=list(arch.constraints) if hasattr(arch, 'constraints') else [],
-                patterns=list(arch.patterns) if hasattr(arch, 'patterns') else [],
-                rationale=arch.rationale if hasattr(arch, 'rationale') else "",
+                constraints=list(arch.constraints) if hasattr(arch, "constraints") else [],
+                patterns=list(arch.patterns) if hasattr(arch, "patterns") else [],
+                rationale=arch.rationale if hasattr(arch, "rationale") else "",
             )
         except Exception as e:
             logger.warning(f"Could not convert architecture rules: {e}")
@@ -197,6 +216,7 @@ class EnhancedDataProvider:
         # Import here to avoid circular dependency
         try:
             from .api_clients import UnifiedClient
+
             client = UnifiedClient()
         except Exception:
             client = None
@@ -225,12 +245,15 @@ class EnhancedDataProvider:
                 else:
                     try:
                         from .adaptive_router import AdaptiveRouter
+
                         router = AdaptiveRouter()
                         if not router.is_available(model):
                             available = False
                             state = router.get_model_state(model)
                             reason = f"Adaptive router: {state.value if hasattr(state, 'value') else str(state)}"
-                            health_status = "degraded" if "degraded" in str(state).lower() else "unhealthy"
+                            health_status = (
+                                "degraded" if "degraded" in str(state).lower() else "unhealthy"
+                            )
                     except Exception:
                         pass
 
@@ -244,30 +267,34 @@ class EnhancedDataProvider:
                     avg_latency = telemetry.get("latency_avg_ms", 100)
                     call_count = telemetry.get("call_count", 0)
 
-                models.append(ModelStatusInfo(
-                    name=model.value,
-                    provider=get_provider(model),
-                    available=available,
-                    reason=reason,
-                    health_status=health_status,
-                    success_rate=success_rate,
-                    avg_latency=avg_latency,
-                    call_count=call_count,
-                    cost_input=COST_TABLE[model]["input"],
-                    cost_output=COST_TABLE[model]["output"],
-                    consecutive_failures=self._consecutive_failures.get(model, 0),
-                ))
+                models.append(
+                    ModelStatusInfo(
+                        name=model.value,
+                        provider=get_provider(model),
+                        available=available,
+                        reason=reason,
+                        health_status=health_status,
+                        success_rate=success_rate,
+                        avg_latency=avg_latency,
+                        call_count=call_count,
+                        cost_input=COST_TABLE[model]["input"],
+                        cost_output=COST_TABLE[model]["output"],
+                        consecutive_failures=self._consecutive_failures.get(model, 0),
+                    )
+                )
             except Exception as e:
                 logger.debug(f"Could not get status for {model}: {e}")
-                models.append(ModelStatusInfo(
-                    name=model.value,
-                    provider=get_provider(model),
-                    available=False,
-                    reason=f"Error checking status: {str(e)[:50]}",
-                    health_status="unknown",
-                    cost_input=COST_TABLE[model]["input"],
-                    cost_output=COST_TABLE[model]["output"],
-                ))
+                models.append(
+                    ModelStatusInfo(
+                        name=model.value,
+                        provider=get_provider(model),
+                        available=False,
+                        reason=f"Error checking status: {str(e)[:50]}",
+                        health_status="unknown",
+                        cost_input=COST_TABLE[model]["input"],
+                        cost_output=COST_TABLE[model]["output"],
+                    )
+                )
 
         return models
 
@@ -284,28 +311,40 @@ class EnhancedDataProvider:
         if self._current_state:
             state = self._current_state
             info.project_id = self._current_project_id or ""
-            info.description = state.project_description if hasattr(state, 'project_description') else ""
-            info.success_criteria = state.success_criteria if hasattr(state, 'success_criteria') else ""
-            info.status = state.status.value if hasattr(state, 'status') else "unknown"
+            info.description = (
+                state.project_description if hasattr(state, "project_description") else ""
+            )
+            info.success_criteria = (
+                state.success_criteria if hasattr(state, "success_criteria") else ""
+            )
+            info.status = state.status.value if hasattr(state, "status") else "unknown"
 
             # Task counts
-            tasks = state.tasks if hasattr(state, 'tasks') else {}
-            results = state.results if hasattr(state, 'results') else {}
+            tasks = state.tasks if hasattr(state, "tasks") else {}
+            results = state.results if hasattr(state, "results") else {}
             info.total_tasks = len(tasks)
-            info.completed_tasks = sum(1 for r in results.values()
-                                       if hasattr(r, 'status') and r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED))
-            info.failed_tasks = sum(1 for r in results.values()
-                                    if hasattr(r, 'status') and r.status == TaskStatus.FAILED)
+            info.completed_tasks = sum(
+                1
+                for r in results.values()
+                if hasattr(r, "status") and r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED)
+            )
+            info.failed_tasks = sum(
+                1
+                for r in results.values()
+                if hasattr(r, "status") and r.status == TaskStatus.FAILED
+            )
 
             if info.total_tasks > 0:
                 info.progress_percent = (info.completed_tasks / info.total_tasks) * 100
 
             # Budget
-            budget = state.budget if hasattr(state, 'budget') else None
+            budget = state.budget if hasattr(state, "budget") else None
             if budget:
-                info.budget_used = budget.spent_usd if hasattr(budget, 'spent_usd') else 0.0
-                info.budget_total = budget.max_usd if hasattr(budget, 'max_usd') else 0.0
-                info.elapsed_seconds = budget.elapsed_seconds if hasattr(budget, 'elapsed_seconds') else 0.0
+                info.budget_used = budget.spent_usd if hasattr(budget, "spent_usd") else 0.0
+                info.budget_total = budget.max_usd if hasattr(budget, "max_usd") else 0.0
+                info.elapsed_seconds = (
+                    budget.elapsed_seconds if hasattr(budget, "elapsed_seconds") else 0.0
+                )
 
         return info
 
@@ -358,7 +397,11 @@ class EnhancedDataProvider:
             if task_type in ROUTING_TABLE:
                 routing[task_type.value] = {
                     "preferred": [m.value for m in ROUTING_TABLE[task_type]],
-                    "fallback": [m.value for m in ROUTING_TABLE[task_type][1:]] if len(ROUTING_TABLE[task_type]) > 1 else [],
+                    "fallback": (
+                        [m.value for m in ROUTING_TABLE[task_type][1:]]
+                        if len(ROUTING_TABLE[task_type]) > 1
+                        else []
+                    ),
                 }
 
         return routing
@@ -441,13 +484,18 @@ class EnhancedDashboardServer:
             @self.app.get("/api/status")
             async def get_full_status():
                 """Get complete status in one call."""
-                return JSONResponse(content={
-                    "project": asdict(await self.data_provider.get_project_info()),
-                    "architecture": await self.data_provider.get_architecture_info() or {},
-                    "active_task": await self.data_provider.get_active_task() or {"status": "idle"},
-                    "metrics": await self.data_provider.get_metrics(),
-                    "models": [asdict(m) for m in await self.data_provider.get_models_with_status()],
-                })
+                return JSONResponse(
+                    content={
+                        "project": asdict(await self.data_provider.get_project_info()),
+                        "architecture": await self.data_provider.get_architecture_info() or {},
+                        "active_task": await self.data_provider.get_active_task()
+                        or {"status": "idle"},
+                        "metrics": await self.data_provider.get_metrics(),
+                        "models": [
+                            asdict(m) for m in await self.data_provider.get_models_with_status()
+                        ],
+                    }
+                )
 
         except ImportError:
             logger.error("FastAPI not installed. Run: pip install fastapi uvicorn")
@@ -455,7 +503,7 @@ class EnhancedDashboardServer:
 
     def _get_html(self) -> str:
         """Generate enhanced dashboard HTML."""
-        return '''<!DOCTYPE html>
+        return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1396,7 +1444,7 @@ class EnhancedDashboardServer:
         setInterval(refreshData, 3000);
     </script>
 </body>
-</html>'''
+</html>"""
 
     async def run(self):
         """Start the dashboard server."""

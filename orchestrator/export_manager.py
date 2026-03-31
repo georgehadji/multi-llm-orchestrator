@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 try:
     import yaml
+
     YAML_AVAILABLE = True
 except ImportError:
     YAML_AVAILABLE = False
@@ -37,6 +38,7 @@ logger = logging.getLogger("orchestrator.export")
 
 class ExportFormat(Enum):
     """Supported export formats."""
+
     MARKDOWN = "md"
     JSON = "json"
     YAML = "yaml"
@@ -79,17 +81,17 @@ class ExportManager:
 
         for i, task in enumerate(tasks, 1):
             result = results.get(task.id, {})
-            status = result.get('status', 'pending')
-            score = result.get('score', 0.0)
-            model = result.get('model_used', 'N/A')
+            status = result.get("status", "pending")
+            score = result.get("score", 0.0)
+            model = result.get("model_used", "N/A")
 
             # Status emoji
             status_emoji = {
-                'completed': '✅',
-                'degraded': '⚠️',
-                'failed': '❌',
-                'pending': '⏳',
-            }.get(status, '❓')
+                "completed": "✅",
+                "degraded": "⚠️",
+                "failed": "❌",
+                "pending": "⏳",
+            }.get(status, "❓")
 
             lines.append(f"### {i}. {task.id} {status_emoji}\n\n")
             lines.append(f"**Type:** `{task.type.value if task.type else 'unknown'}`\n\n")
@@ -97,7 +99,7 @@ class ExportManager:
 
             if score > 0:
                 lines.append(f"**Score:** {score:.2f}/1.0\n\n")
-            if model != 'N/A':
+            if model != "N/A":
                 lines.append(f"**Model:** `{model}`\n\n")
 
             lines.append(f"**Description:**\n{task.prompt[:300]}...\n\n")
@@ -106,7 +108,7 @@ class ExportManager:
                 lines.append(f"**Dependencies:** {', '.join(task.dependencies)}\n\n")
 
             # Add output preview if available
-            output = result.get('output', '')
+            output = result.get("output", "")
             if output:
                 lines.append("**Output Preview:**\n")
                 lines.append("```\n")
@@ -124,10 +126,10 @@ class ExportManager:
 
         for task in tasks:
             result = results.get(task.id, {})
-            model = result.get('model_used', 'N/A')
-            cost = result.get('cost_usd', 0.0)
-            tokens = result.get('tokens_used', {})
-            total_tokens = tokens.get('input', 0) + tokens.get('output', 0)
+            model = result.get("model_used", "N/A")
+            cost = result.get("cost_usd", 0.0)
+            tokens = result.get("tokens_used", {})
+            total_tokens = tokens.get("input", 0) + tokens.get("output", 0)
             lines.append(f"| {task.id} | {model} | ${cost:.4f} | {total_tokens:,} |\n")
 
         lines.append(f"\n**Total:** ${total_cost:.4f}\n\n")
@@ -136,22 +138,27 @@ class ExportManager:
         lines.append("## 🤖 Model Usage\n\n")
         model_usage: dict[str, dict[str, Any]] = {}
         for result in results.values():
-            model = result.get('model_used', 'unknown')
+            model = result.get("model_used", "unknown")
             if model not in model_usage:
-                model_usage[model] = {'count': 0, 'cost': 0.0, 'tokens': 0}
-            model_usage[model]['count'] += 1
-            model_usage[model]['cost'] += result.get('cost_usd', 0.0)
-            tokens = result.get('tokens_used', {})
-            model_usage[model]['tokens'] += tokens.get('input', 0) + tokens.get('output', 0)
+                model_usage[model] = {"count": 0, "cost": 0.0, "tokens": 0}
+            model_usage[model]["count"] += 1
+            model_usage[model]["cost"] += result.get("cost_usd", 0.0)
+            tokens = result.get("tokens_used", {})
+            model_usage[model]["tokens"] += tokens.get("input", 0) + tokens.get("output", 0)
 
         lines.append("| Model | Tasks | Cost | Tokens |\n")
         lines.append("|-------|-------|------|--------|\n")
-        for model, stats in sorted(model_usage.items(), key=lambda x: x[1]['cost'], reverse=True):
-            lines.append(f"| {model} | {stats['count']} | ${stats['cost']:.4f} | {stats['tokens']:,} |\n")
+        for model, stats in sorted(model_usage.items(), key=lambda x: x[1]["cost"], reverse=True):
+            lines.append(
+                f"| {model} | {stats['count']} | ${stats['cost']:.4f} | {stats['tokens']:,} |\n"
+            )
 
         # Write file
-        output_path = self.exports_dir / f"{project_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.md"
-        output_path.write_text(''.join(lines), encoding="utf-8")
+        output_path = (
+            self.exports_dir
+            / f"{project_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.md"
+        )
+        output_path.write_text("".join(lines), encoding="utf-8")
 
         logger.info(f"Exported Markdown to {output_path}")
         return output_path
@@ -184,8 +191,10 @@ class ExportManager:
             },
             "summary": {
                 "total_tasks": len(tasks),
-                "completed_tasks": sum(1 for r in results.values() if r.get('status') == 'completed'),
-                "failed_tasks": sum(1 for r in results.values() if r.get('status') == 'failed'),
+                "completed_tasks": sum(
+                    1 for r in results.values() if r.get("status") == "completed"
+                ),
+                "failed_tasks": sum(1 for r in results.values() if r.get("status") == "failed"),
                 "total_cost_usd": round(total_cost, 6),
                 "elapsed_time_seconds": round(elapsed_time, 2),
             },
@@ -204,22 +213,26 @@ class ExportManager:
                 "dependencies": task.dependencies,
                 "acceptance_threshold": task.acceptance_threshold,
                 "max_iterations": task.max_iterations,
-                "result": {
-                    "status": result.get('status', 'pending'),
-                    "score": result.get('score'),
-                    "model_used": result.get('model_used'),
-                    "cost_usd": result.get('cost_usd'),
-                    "tokens_used": result.get('tokens_used'),
-                    "iterations": result.get('iterations'),
-                    "output": result.get('output'),
-                } if result else None,
+                "result": (
+                    {
+                        "status": result.get("status", "pending"),
+                        "score": result.get("score"),
+                        "model_used": result.get("model_used"),
+                        "cost_usd": result.get("cost_usd"),
+                        "tokens_used": result.get("tokens_used"),
+                        "iterations": result.get("iterations"),
+                        "output": result.get("output"),
+                    }
+                    if result
+                    else None
+                ),
             }
             export_data["tasks"].append(task_data)
 
         # Add model usage stats
         model_stats: dict[str, dict[str, Any]] = {}
         for result in results.values():
-            model = result.get('model_used', 'unknown')
+            model = result.get("model_used", "unknown")
             if model not in model_stats:
                 model_stats[model] = {
                     "tasks": 0,
@@ -227,15 +240,18 @@ class ExportManager:
                     "total_tokens": {"input": 0, "output": 0},
                 }
             model_stats[model]["tasks"] += 1
-            model_stats[model]["total_cost_usd"] += result.get('cost_usd', 0.0)
-            tokens = result.get('tokens_used', {})
-            model_stats[model]["total_tokens"]["input"] += tokens.get('input', 0)
-            model_stats[model]["total_tokens"]["output"] += tokens.get('output', 0)
+            model_stats[model]["total_cost_usd"] += result.get("cost_usd", 0.0)
+            tokens = result.get("tokens_used", {})
+            model_stats[model]["total_tokens"]["input"] += tokens.get("input", 0)
+            model_stats[model]["total_tokens"]["output"] += tokens.get("output", 0)
 
         export_data["model_usage"] = model_stats
 
         # Write file
-        output_path = self.exports_dir / f"{project_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.json"
+        output_path = (
+            self.exports_dir
+            / f"{project_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.json"
+        )
         output_path.write_text(json.dumps(export_data, indent=2), encoding="utf-8")
 
         logger.info(f"Exported JSON to {output_path}")
@@ -261,8 +277,13 @@ class ExportManager:
             logger.warning("PyYAML not installed. Install with: pip install pyyaml")
             # Fallback to JSON
             return self.export_json(
-                project_name, project_desc, success_criteria,
-                tasks, results, total_cost, elapsed_time
+                project_name,
+                project_desc,
+                success_criteria,
+                tasks,
+                results,
+                total_cost,
+                elapsed_time,
             )
 
         export_data = {
@@ -276,8 +297,8 @@ class ExportManager:
             },
             "summary": {
                 "total_tasks": len(tasks),
-                "completed": sum(1 for r in results.values() if r.get('status') == 'completed'),
-                "failed": sum(1 for r in results.values() if r.get('status') == 'failed'),
+                "completed": sum(1 for r in results.values() if r.get("status") == "completed"),
+                "failed": sum(1 for r in results.values() if r.get("status") == "failed"),
                 "cost_usd": round(total_cost, 6),
                 "time_seconds": round(elapsed_time, 2),
             },
@@ -292,25 +313,32 @@ class ExportManager:
                 "type": task.type.value if task.type else "unknown",
                 "prompt": task.prompt[:200] + "..." if len(task.prompt) > 200 else task.prompt,
                 "dependencies": task.dependencies or [],
-                "result": {
-                    "status": result.get('status', 'pending'),
-                    "score": result.get('score'),
-                    "model": result.get('model_used'),
-                    "cost": result.get('cost_usd'),
-                } if result else None,
+                "result": (
+                    {
+                        "status": result.get("status", "pending"),
+                        "score": result.get("score"),
+                        "model": result.get("model_used"),
+                        "cost": result.get("cost_usd"),
+                    }
+                    if result
+                    else None
+                ),
             }
             export_data["tasks"].append(task_yaml)
 
         # Custom YAML representer for better formatting
         def str_representer(dumper, data):
-            if '\n' in data:
-                return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-            return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+            if "\n" in data:
+                return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
         yaml.add_representer(str, str_representer)
 
         # Write file
-        output_path = self.exports_dir / f"{project_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.yaml"
+        output_path = (
+            self.exports_dir
+            / f"{project_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.yaml"
+        )
 
         yaml_content = yaml.dump(
             export_data,
@@ -353,24 +381,34 @@ class ExportManager:
         exported = {}
 
         try:
-            exported['markdown'] = self.export_markdown(
+            exported["markdown"] = self.export_markdown(
                 project_name, tasks, results, total_cost, elapsed_time
             )
         except Exception as e:
             logger.error(f"Markdown export failed: {e}")
 
         try:
-            exported['json'] = self.export_json(
-                project_name, project_desc, success_criteria,
-                tasks, results, total_cost, elapsed_time
+            exported["json"] = self.export_json(
+                project_name,
+                project_desc,
+                success_criteria,
+                tasks,
+                results,
+                total_cost,
+                elapsed_time,
             )
         except Exception as e:
             logger.error(f"JSON export failed: {e}")
 
         try:
-            exported['yaml'] = self.export_yaml(
-                project_name, project_desc, success_criteria,
-                tasks, results, total_cost, elapsed_time
+            exported["yaml"] = self.export_yaml(
+                project_name,
+                project_desc,
+                success_criteria,
+                tasks,
+                results,
+                total_cost,
+                elapsed_time,
             )
         except Exception as e:
             logger.error(f"YAML export failed: {e}")

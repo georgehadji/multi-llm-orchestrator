@@ -26,15 +26,12 @@ __all__ = [
     # Deduplication
     "ResultDeduplicator",
     "deduplicate_results",
-
     # Query Cache
     "QueryCache",
     "get_query_cache",
-
     # Semantic Reranking
     "SemanticReranker",
     "rerank_results",
-
     # Parallel Search
     "ParallelSearchExecutor",
     "search_parallel",

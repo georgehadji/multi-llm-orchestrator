@@ -42,6 +42,7 @@ Improvement 10 — Project Assembler:
     and other files to create a runnable, integrated project from task files.
     Uses AST-based dependency detection for accurate import extraction.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,6 +56,7 @@ from .models import ProjectState, TaskType
 # Code validation for clean code generation
 try:
     from .code_validator import extract_code_from_llm_response, validate_code
+
     HAS_CODE_VALIDATOR = True
 except ImportError:
     HAS_CODE_VALIDATOR = False
@@ -69,8 +71,7 @@ logger = logging.getLogger("orchestrator.output_writer")
 # Matches: **path/to/file.ext** or **`path/to/file.ext`** (bold filename header)
 # Also matches dotfiles like **.gitignore** (leading dot, no extension)
 _FILENAME_HEADER = re.compile(
-    r"\*\*`?(\.?[a-zA-Z0-9_@-][a-zA-Z0-9_./ @-]*\.[a-zA-Z0-9]{1,6}|"
-    r"\.[a-zA-Z0-9_-]+)`?\*\*"
+    r"\*\*`?(\.?[a-zA-Z0-9_@-][a-zA-Z0-9_./ @-]*\.[a-zA-Z0-9]{1,6}|" r"\.[a-zA-Z0-9_-]+)`?\*\*"
 )
 
 # Matches a fenced code block (``` ... ```) with optional language tag
@@ -78,10 +79,27 @@ _CODE_FENCE = re.compile(r"```(?:\w+)?\n(.*?)```", re.DOTALL)
 
 # Extensions we consider "source code" worth extracting
 _SOURCE_EXTS = {
-    ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
-    ".py", ".css", ".scss", ".html", ".json", ".toml",
-    ".yaml", ".yml", ".env", ".md", ".sh", ".sql",
-    ".gitignore", ".eslintrc", ".prettierrc",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".py",
+    ".css",
+    ".scss",
+    ".html",
+    ".json",
+    ".toml",
+    ".yaml",
+    ".yml",
+    ".env",
+    ".md",
+    ".sh",
+    ".sql",
+    ".gitignore",
+    ".eslintrc",
+    ".prettierrc",
 }
 
 # Min characters to bother writing (skip near-empty stubs)
@@ -160,13 +178,13 @@ def write_extracted_files(
 
 # ── Extension mapping per TaskType ───────────────────────────────────────────
 _EXT: dict[TaskType, str] = {
-    TaskType.CODE_GEN:     ".py",
-    TaskType.CODE_REVIEW:  ".md",
-    TaskType.REASONING:    ".md",
-    TaskType.WRITING:      ".md",
-    TaskType.DATA_EXTRACT: ".json",   # falls back to .md if output is not valid JSON
-    TaskType.SUMMARIZE:    ".md",
-    TaskType.EVALUATE:     ".md",
+    TaskType.CODE_GEN: ".py",
+    TaskType.CODE_REVIEW: ".md",
+    TaskType.REASONING: ".md",
+    TaskType.WRITING: ".md",
+    TaskType.DATA_EXTRACT: ".json",  # falls back to .md if output is not valid JSON
+    TaskType.SUMMARIZE: ".md",
+    TaskType.EVALUATE: ".md",
 }
 
 
@@ -188,7 +206,7 @@ def write_output_dir(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    file_map: dict[str, str] = {}   # task_id -> raw task filename
+    file_map: dict[str, str] = {}  # task_id -> raw task filename
     extracted_total: dict[str, str] = {}  # rel_path -> content (across all tasks)
 
     order = state.execution_order or list(state.results.keys())
@@ -210,10 +228,12 @@ def write_output_dir(
         if task.type == TaskType.CODE_GEN and HAS_CODE_VALIDATOR:
             validation_result = validate_code(content, filename=filename)
             if not validation_result.is_valid:
-                error_msg = "; ".join(validation_result.errors) if validation_result.errors else "Unknown error"
-                logger.warning(
-                    f"⚠️ Code validation failed for {filename}: {error_msg}"
+                error_msg = (
+                    "; ".join(validation_result.errors)
+                    if validation_result.errors
+                    else "Unknown error"
                 )
+                logger.warning(f"⚠️ Code validation failed for {filename}: {error_msg}")
                 # Try to extract clean code
                 extracted = extract_code_from_llm_response(content, ext)
                 if extracted and extracted != content:
@@ -222,7 +242,11 @@ def write_output_dir(
                         content = extracted
                         logger.info(f"✅ Code cleaned and validated for {filename}")
                     else:
-                        re_error_msg = "; ".join(re_validation.errors) if re_validation.errors else "Unknown error"
+                        re_error_msg = (
+                            "; ".join(re_validation.errors)
+                            if re_validation.errors
+                            else "Unknown error"
+                        )
                         logger.error(f"❌ Code still invalid after cleaning: {re_error_msg}")
                 else:
                     logger.error(f"❌ Could not clean code for {filename}")
@@ -238,7 +262,8 @@ def write_output_dir(
                 extracted_total.update(named)
                 logger.info(
                     "  → Extracted %d named files from %s: %s",
-                    len(named), task_id,
+                    len(named),
+                    task_id,
                     ", ".join(list(named.keys())[:5]) + ("…" if len(named) > 5 else ""),
                 )
 
@@ -255,6 +280,7 @@ def write_output_dir(
     # Improvement 10: Generate integrated project files using ProjectAssembler
     try:
         from .project_assembler import ProjectAssembler
+
         assembler = ProjectAssembler(out, state)
         created_files = assembler.assemble()
         logger.info("Project Assembler: created %d integrated files", len(created_files))
@@ -267,6 +293,7 @@ def write_output_dir(
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
 
 def _ext_for(task_type: TaskType, output: str) -> str:
     """
@@ -339,8 +366,18 @@ def _render_content(task_type: TaskType, raw_output: str, ext: str) -> str:
 # Non-Python languages that code_generation tasks commonly produce.
 # Ordered by specificity (longer tags first to avoid ambiguity).
 _NON_PYTHON_FENCE_LANGS = (
-    "dockerfile", "yaml", "yml", "proto", "protobuf",
-    "bash", "sh", "toml", "json", "sql", "xml", "ini",
+    "dockerfile",
+    "yaml",
+    "yml",
+    "proto",
+    "protobuf",
+    "bash",
+    "sh",
+    "toml",
+    "json",
+    "sql",
+    "xml",
+    "ini",
 )
 
 
@@ -370,9 +407,7 @@ def _extract_code_for_py_task(text: str) -> str:
 
     # 2. Named non-Python block
     for lang in _NON_PYTHON_FENCE_LANGS:
-        match = re.search(
-            rf"```{lang}\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE
-        )
+        match = re.search(rf"```{lang}\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
         if match:
             return match.group(1)
 
@@ -382,12 +417,9 @@ def _extract_code_for_py_task(text: str) -> str:
         return match.group(1)
 
     # 4. Heuristic: first top-level Python statement at column 0
-    m = re.search(
-        r"^(import |from \w|def |class |@\w|if __name__|async def )",
-        text, re.MULTILINE
-    )
+    m = re.search(r"^(import |from \w|def |class |@\w|if __name__|async def )", text, re.MULTILINE)
     if m:
-        return text[m.start():]
+        return text[m.start() :]
 
     # 5. Fallback: return as-is
     return text
@@ -426,7 +458,7 @@ def _write_summary_json(
             scores.append(result.score)
 
         # Handle both enum and string status values
-        s = result.status.value if hasattr(result.status, 'value') else str(result.status)
+        s = result.status.value if hasattr(result.status, "value") else str(result.status)
         if s == "completed":
             completed += 1
         elif s == "failed":
@@ -434,37 +466,47 @@ def _write_summary_json(
         else:
             degraded += 1
 
-        tasks_list.append({
-            "task_id": task_id,
-            "task_type": task.type.value if task else "unknown",
-            "prompt": task.prompt if task else "",
-            "status": s,
-            "score": round(result.score, 4),
-            "model_used": result.model_used.value if hasattr(result.model_used, 'value') else str(result.model_used),
-            "reviewer_model": result.reviewer_model.value if result.reviewer_model and hasattr(result.reviewer_model, 'value') else (str(result.reviewer_model) if result.reviewer_model else None),
-            "iterations": result.iterations,
-            "cost_usd": round(result.cost_usd, 6),
-            "deterministic_check_passed": result.deterministic_check_passed,
-            "degraded_fallback_count": result.degraded_fallback_count,
-            "attempt_history": [
-                {
-                    "attempt_num": a.attempt_num,
-                    "model_used": a.model_used,
-                    "output_snippet": a.output_snippet,
-                    "failure_reason": a.failure_reason,
-                    "validators_failed": a.validators_failed,
-                }
-                for a in result.attempt_history
-            ],
-            "output_file": file_map.get(task_id, ""),
-            "output": result.output,
-        })
+        tasks_list.append(
+            {
+                "task_id": task_id,
+                "task_type": task.type.value if task else "unknown",
+                "prompt": task.prompt if task else "",
+                "status": s,
+                "score": round(result.score, 4),
+                "model_used": (
+                    result.model_used.value
+                    if hasattr(result.model_used, "value")
+                    else str(result.model_used)
+                ),
+                "reviewer_model": (
+                    result.reviewer_model.value
+                    if result.reviewer_model and hasattr(result.reviewer_model, "value")
+                    else (str(result.reviewer_model) if result.reviewer_model else None)
+                ),
+                "iterations": result.iterations,
+                "cost_usd": round(result.cost_usd, 6),
+                "deterministic_check_passed": result.deterministic_check_passed,
+                "degraded_fallback_count": result.degraded_fallback_count,
+                "attempt_history": [
+                    {
+                        "attempt_num": a.attempt_num,
+                        "model_used": a.model_used,
+                        "output_snippet": a.output_snippet,
+                        "failure_reason": a.failure_reason,
+                        "validators_failed": a.validators_failed,
+                    }
+                    for a in result.attempt_history
+                ],
+                "output_file": file_map.get(task_id, ""),
+                "output": result.output,
+            }
+        )
 
     summary = {
         "project_id": project_id,
         "project_description": state.project_description,
         "success_criteria": state.success_criteria,
-        "status": state.status.value if hasattr(state.status, 'value') else str(state.status),
+        "status": state.status.value if hasattr(state.status, "value") else str(state.status),
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "budget": state.budget.to_dict(),
         "tasks": tasks_list,
@@ -557,7 +599,7 @@ Navigate to: http://localhost:3000
 npm run build
 ```
 
-**Note:** This is a Node.js/Next.js project, not Python."""
+**Note:** This is a Node.js/Next.js project, not Python.""",
         )
     elif is_react:
         return (
@@ -588,7 +630,7 @@ Navigate to: http://localhost:5173
 npm run build
 ```
 
-**Note:** This is a Node.js/React project, not Python."""
+**Note:** This is a Node.js/React project, not Python.""",
         )
     elif has_package_json and has_js:
         return (
@@ -613,7 +655,7 @@ npm run dev
 
 ---
 
-**Note:** This is a Node.js project, not Python."""
+**Note:** This is a Node.js project, not Python.""",
         )
     elif has_html and has_js and has_css and not has_package_json:
         return (
@@ -638,7 +680,7 @@ Then open: http://localhost:8000
 
 ---
 
-**Note:** This is a vanilla HTML/CSS/JS project, not Python."""
+**Note:** This is a vanilla HTML/CSS/JS project, not Python.""",
         )
     elif has_py:
         return (
@@ -667,7 +709,7 @@ python main.py
 
 ---
 
-**This IS a Python project.**"""
+**This IS a Python project.**""",
         )
     else:
         return (
@@ -682,7 +724,7 @@ python main.py
 
 ---
 
-**Note:** Check app/README.md for detailed instructions."""
+**Note:** Check app/README.md for detailed instructions.""",
         )
 
 
@@ -731,13 +773,17 @@ def _write_readme(
         filename = file_map.get(task_id, task_id)
         task_type = task.type.value if task else "unknown"
         # Shorten model name for table readability
-        model_value = result.model_used.value if hasattr(result.model_used, 'value') else str(result.model_used)
+        model_value = (
+            result.model_used.value
+            if hasattr(result.model_used, "value")
+            else str(result.model_used)
+        )
         model_parts = model_value.split("-")
         model_display = "-".join(model_parts[:2])
-        status_value = result.status.value if hasattr(result.status, 'value') else str(result.status)
-        status_icon = {"completed": "✅", "failed": "❌", "degraded": "⚠️"}.get(
-            status_value, "~"
+        status_value = (
+            result.status.value if hasattr(result.status, "value") else str(result.status)
         )
+        status_icon = {"completed": "✅", "failed": "❌", "degraded": "⚠️"}.get(status_value, "~")
         lines.append(
             f"| `{filename}` | {task_type} | {result.score:.3f} "
             f"| {model_display} | {status_icon} {status_value} |"

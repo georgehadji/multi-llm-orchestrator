@@ -17,6 +17,7 @@ Usage:
     await pm.add_feature(feature)
     roadmap = await pm.generate_roadmap()
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -36,6 +37,7 @@ logger = get_logger(__name__)
 
 class FeatureStatus(Enum):
     """Feature lifecycle status."""
+
     IDEA = "idea"
     RESEARCH = "research"
     PLANNED = "planned"
@@ -47,6 +49,7 @@ class FeatureStatus(Enum):
 
 class FeaturePriority(Enum):
     """Business priority levels."""
+
     P0_CRITICAL = 0
     P1_HIGH = 1
     P2_MEDIUM = 2
@@ -60,6 +63,7 @@ class RICEScore:
 
     RICE = (Reach * Impact * Confidence) / Effort
     """
+
     reach: int  # How many users will this affect? (1-1000)
     impact: int  # How much will it impact? (0.25, 0.5, 1, 2, 3)
     confidence: int  # How confident are we? (0-100%)
@@ -85,6 +89,7 @@ class RICEScore:
 @dataclass
 class Feature:
     """Product feature definition."""
+
     id: str
     name: str
     description: str
@@ -114,6 +119,7 @@ class Feature:
 @dataclass
 class Release:
     """Product release definition."""
+
     id: str
     name: str
     version: str
@@ -132,6 +138,7 @@ class Release:
 @dataclass
 class UserFeedback:
     """User feedback entry."""
+
     id: str
     user_id: str
     feature_id: str | None
@@ -209,8 +216,7 @@ class FeatureFlagManager:
             "exposures": metrics["exposures"],
             "engagements": metrics["engagements"],
             "conversion_rate": (
-                metrics["engagements"] / metrics["exposures"]
-                if metrics["exposures"] > 0 else 0
+                metrics["engagements"] / metrics["exposures"] if metrics["exposures"] > 0 else 0
             ),
         }
 
@@ -220,15 +226,46 @@ class SentimentAnalyzer:
 
     # Simple keyword-based approach
     POSITIVE_WORDS = {
-        "good", "great", "excellent", "amazing", "love", "perfect", "awesome",
-        "fantastic", "wonderful", "best", "happy", "satisfied", "helpful",
-        "easy", "fast", "smooth", "intuitive", "beautiful", "clean"
+        "good",
+        "great",
+        "excellent",
+        "amazing",
+        "love",
+        "perfect",
+        "awesome",
+        "fantastic",
+        "wonderful",
+        "best",
+        "happy",
+        "satisfied",
+        "helpful",
+        "easy",
+        "fast",
+        "smooth",
+        "intuitive",
+        "beautiful",
+        "clean",
     }
 
     NEGATIVE_WORDS = {
-        "bad", "terrible", "awful", "hate", "worst", "broken", "slow",
-        "confusing", "difficult", "hard", "annoying", "frustrating",
-        "buggy", "crash", "error", "problem", "issue", "missing"
+        "bad",
+        "terrible",
+        "awful",
+        "hate",
+        "worst",
+        "broken",
+        "slow",
+        "confusing",
+        "difficult",
+        "hard",
+        "annoying",
+        "frustrating",
+        "buggy",
+        "crash",
+        "error",
+        "problem",
+        "issue",
+        "missing",
     }
 
     def analyze(self, text: str) -> float:
@@ -239,7 +276,7 @@ class SentimentAnalyzer:
             Score from -1 (negative) to 1 (positive)
         """
         text_lower = text.lower()
-        words = re.findall(r'\b\w+\b', text_lower)
+        words = re.findall(r"\b\w+\b", text_lower)
 
         positive_count = sum(1 for w in words if w in self.POSITIVE_WORDS)
         negative_count = sum(1 for w in words if w in self.NEGATIVE_WORDS)
@@ -356,7 +393,8 @@ class ProductManager:
 
         # Get ready features
         ready_features = [
-            f for f in self._features.values()
+            f
+            for f in self._features.values()
             if f.status in (FeatureStatus.PLANNED, FeatureStatus.IN_PROGRESS)
         ]
 
@@ -464,10 +502,7 @@ class ProductManager:
 
         top_keywords = sorted(keywords.items(), key=lambda x: x[1], reverse=True)[:5]
 
-        return [
-            {"term": term, "mentions": count}
-            for term, count in top_keywords
-        ]
+        return [{"term": term, "mentions": count} for term, count in top_keywords]
 
     @cached(ttl=300)
     async def generate_roadmap(self) -> dict[str, Any]:
@@ -494,24 +529,29 @@ class ProductManager:
 
             # Find releases in this quarter
             quarter_releases = [
-                r for r in self._releases.values()
-                if (r.target_date.year == quarter_start.year and
-                    (r.target_date.month - 1) // 3 == (quarter_start.month - 1) // 3)
+                r
+                for r in self._releases.values()
+                if (
+                    r.target_date.year == quarter_start.year
+                    and (r.target_date.month - 1) // 3 == (quarter_start.month - 1) // 3
+                )
             ]
 
-            quarters.append({
-                "name": quarter_name,
-                "releases": [
-                    {
-                        "id": r.id,
-                        "name": r.name,
-                        "version": r.version,
-                        "features": len(r.features),
-                        "status": r.status,
-                    }
-                    for r in quarter_releases
-                ],
-            })
+            quarters.append(
+                {
+                    "name": quarter_name,
+                    "releases": [
+                        {
+                            "id": r.id,
+                            "name": r.name,
+                            "version": r.version,
+                            "features": len(r.features),
+                            "status": r.status,
+                        }
+                        for r in quarter_releases
+                    ],
+                }
+            )
 
         return {
             "generated_at": now.isoformat(),
@@ -584,14 +624,14 @@ class ProductManager:
             "features": [f.to_dict() for f in self._features.values()],
         }
 
-        with open(features_file, 'w') as f:
+        with open(features_file, "w") as f:
             json.dump(data, f, indent=2)
 
     async def _persist_feedback(self):
         """Save feedback to disk."""
         feedback_file = self.storage_path / "feedback.json"
 
-        with open(feedback_file, 'w') as f:
+        with open(feedback_file, "w") as f:
             json.dump(
                 {
                     "feedback": [

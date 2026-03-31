@@ -1,4 +1,5 @@
 """Verify engine.hybrid_search() delegates to HybridSearchPipeline."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from orchestrator.hybrid_search_pipeline import HybridSearchPipeline
@@ -8,6 +9,7 @@ from orchestrator.bm25_search import SearchResult
 def test_engine_has_hybrid_pipeline_attribute():
     """Engine must expose _hybrid_pipeline after __init__."""
     from orchestrator.engine import Orchestrator
+
     orch = Orchestrator.__new__(Orchestrator)
     # Minimal setup so the attribute check works without full init
     bm25 = MagicMock()
@@ -27,7 +29,9 @@ async def test_engine_hybrid_search_delegates_to_pipeline():
 
     orch = Orchestrator.__new__(Orchestrator)
     mock_pipeline = MagicMock()
-    expected = [SearchResult(doc_id="d1", project_id="p1", content="c", title="t", score=0.9, rank=1)]
+    expected = [
+        SearchResult(doc_id="d1", project_id="p1", content="c", title="t", score=0.9, rank=1)
+    ]
     mock_pipeline.search = AsyncMock(return_value=expected)
     orch._hybrid_pipeline = mock_pipeline
 

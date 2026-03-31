@@ -11,6 +11,7 @@ Usage:
         --budget 3.0 \
         --output ./results/my-website
 """
+
 from __future__ import annotations
 
 import logging
@@ -117,7 +118,8 @@ def setup_website_parser(subparsers):
     # Output options
     output_group = website_parser.add_argument_group("Output")
     output_group.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         default=Path("./results/website"),
         help="Output directory for generated website",
@@ -232,6 +234,7 @@ async def run_website_generation(args: argparse.Namespace) -> int:
         logger.error(f"Website generation failed with error: {e}")
         if logger.isEnabledFor(logging.DEBUG):
             import traceback
+
             traceback.print_exc()
         return 1
 
@@ -239,6 +242,7 @@ async def run_website_generation(args: argparse.Namespace) -> int:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Example Design System YAML Generator
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def generate_design_system_yaml(preset: str, output_path: Path) -> None:
     """Generate a design system YAML file from a preset."""
@@ -311,5 +315,5 @@ accessibility:
   semantic_html: {str(design_system.accessibility.semantic_html).lower()}
 """
 
-    output_path.write_text(yaml_content, encoding='utf-8')
+    output_path.write_text(yaml_content, encoding="utf-8")
     logger.info(f"Generated design system YAML: {output_path}")

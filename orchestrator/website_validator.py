@@ -11,6 +11,7 @@ Validates generated websites against quality standards:
 - SEO Basics
 - Content Quality
 """
+
 from __future__ import annotations
 
 import logging
@@ -117,22 +118,21 @@ class WebsiteQualityValidator:
         recommendations = []
 
         # Find all TSX/JSX files
-        component_files = list(output_dir.glob("**/*.tsx")) + \
-                         list(output_dir.glob("**/*.jsx"))
+        component_files = list(output_dir.glob("**/*.tsx")) + list(output_dir.glob("**/*.jsx"))
 
         for file_path in component_files:
-            content = file_path.read_text(encoding='utf-8')
+            content = file_path.read_text(encoding="utf-8")
 
             # Check for img without alt
-            img_tags = re.findall(r'<img\s+[^>]*>', content, re.IGNORECASE)
+            img_tags = re.findall(r"<img\s+[^>]*>", content, re.IGNORECASE)
             for img in img_tags:
-                if 'alt=' not in img and 'alt={' not in content:
+                if "alt=" not in img and "alt={" not in content:
                     issues.append(f"{file_path.name}: <img> missing alt attribute")
 
             # Check for buttons without aria-label or text content
-            button_tags = re.findall(r'<button\s+[^>]*>', content, re.IGNORECASE)
+            button_tags = re.findall(r"<button\s+[^>]*>", content, re.IGNORECASE)
             for button in button_tags:
-                if 'aria-label=' not in button and 'aria-label={' not in content:
+                if "aria-label=" not in button and "aria-label={" not in content:
                     # Check if button has children (text content)
                     # This is a simplified check
                     recommendations.append(
@@ -142,19 +142,18 @@ class WebsiteQualityValidator:
             # Check for semantic HTML
             if '<div className="container"' in content or '<div className="wrapper"' in content:
                 # Should use <main>, <section>, <article>, etc.
-                if '<main' not in content and '<section' not in content:
+                if "<main" not in content and "<section" not in content:
                     recommendations.append(
                         f"{file_path.name}: Consider using semantic HTML elements"
                     )
 
         # Check for focus styles in CSS/Tailwind
-        css_files = list(output_dir.glob("**/*.css")) + \
-                   list(output_dir.glob("**/*.scss"))
+        css_files = list(output_dir.glob("**/*.css")) + list(output_dir.glob("**/*.scss"))
 
         has_focus_styles = False
         for css_file in css_files:
-            content = css_file.read_text(encoding='utf-8')
-            if ':focus' in content or 'focus:' in content:
+            content = css_file.read_text(encoding="utf-8")
+            if ":focus" in content or "focus:" in content:
                 has_focus_styles = True
                 break
 
@@ -208,8 +207,8 @@ class WebsiteQualityValidator:
         has_lazy_loading = False
 
         for file_path in component_files:
-            content = file_path.read_text(encoding='utf-8')
-            if 'loading="lazy"' in content or 'lazy' in content.lower():
+            content = file_path.read_text(encoding="utf-8")
+            if 'loading="lazy"' in content or "lazy" in content.lower():
                 has_lazy_loading = True
                 break
 
@@ -219,8 +218,8 @@ class WebsiteQualityValidator:
         # Check for Next.js Image component usage
         uses_next_image = False
         for file_path in component_files:
-            content = file_path.read_text(encoding='utf-8')
-            if 'import Image' in content or 'from next/image' in content:
+            content = file_path.read_text(encoding="utf-8")
+            if "import Image" in content or "from next/image" in content:
                 uses_next_image = True
                 break
 
@@ -265,21 +264,24 @@ class WebsiteQualityValidator:
             design_system.colors.success.lower(),
             design_system.colors.error.lower(),
             # Common Tailwind utilities that are okay
-            "#000000", "#ffffff", "#000", "#fff",
-            "transparent", "currentColor",
+            "#000000",
+            "#ffffff",
+            "#000",
+            "#fff",
+            "transparent",
+            "currentColor",
         }
 
         # Find all TSX/JSX files
-        component_files = list(output_dir.glob("**/*.tsx")) + \
-                         list(output_dir.glob("**/*.jsx"))
+        component_files = list(output_dir.glob("**/*.tsx")) + list(output_dir.glob("**/*.jsx"))
 
         arbitrary_colors_found = []
 
         for file_path in component_files:
-            content = file_path.read_text(encoding='utf-8')
+            content = file_path.read_text(encoding="utf-8")
 
             # Find arbitrary hex colors (not in design system)
-            hex_colors = re.findall(r'#[0-9a-fA-F]{3,6}', content)
+            hex_colors = re.findall(r"#[0-9a-fA-F]{3,6}", content)
             for color in hex_colors:
                 if color.lower() not in allowed_colors:
                     arbitrary_colors_found.append(f"{file_path.name}: {color}")
@@ -317,26 +319,25 @@ class WebsiteQualityValidator:
         has_responsive_classes = False
 
         # Find all TSX/JSX files
-        component_files = list(output_dir.glob("**/*.tsx")) + \
-                         list(output_dir.glob("**/*.jsx"))
+        component_files = list(output_dir.glob("**/*.tsx")) + list(output_dir.glob("**/*.jsx"))
 
         for file_path in component_files:
-            content = file_path.read_text(encoding='utf-8')
+            content = file_path.read_text(encoding="utf-8")
 
             # Check for Tailwind responsive classes
-            if 'sm:' in content:
+            if "sm:" in content:
                 breakpoints_tested += 1
                 has_responsive_classes = True
-            if 'md:' in content:
+            if "md:" in content:
                 breakpoints_tested += 1
-            if 'lg:' in content:
+            if "lg:" in content:
                 breakpoints_tested += 1
-            if 'xl:' in content or '2xl:' in content:
+            if "xl:" in content or "2xl:" in content:
                 breakpoints_tested += 1
 
             # Check for fixed widths without max-width
             fixed_widths = re.findall(r'w-\d+["\']', content)
-            max_widths = re.findall(r'max-w-', content)
+            max_widths = re.findall(r"max-w-", content)
 
             if fixed_widths and not max_widths:
                 recommendations.append(
@@ -346,9 +347,9 @@ class WebsiteQualityValidator:
         # Check CSS files for media queries
         css_files = list(output_dir.glob("**/*.css"))
         for css_file in css_files:
-            content = css_file.read_text(encoding='utf-8')
-            if '@media' in content:
-                breakpoints_tested += len(re.findall(r'@media', content))
+            content = css_file.read_text(encoding="utf-8")
+            if "@media" in content:
+                breakpoints_tested += len(re.findall(r"@media", content))
 
         passed = has_responsive_classes and breakpoints_tested >= 3
         score = min(1.0, breakpoints_tested / 4.0) if has_responsive_classes else 0.5
@@ -375,30 +376,32 @@ class WebsiteQualityValidator:
         recommendations = []
 
         # Find main page file
-        page_files = list(output_dir.glob("page.tsx")) + \
-                    list(output_dir.glob("page.jsx")) + \
-                    list(output_dir.glob("App.tsx")) + \
-                    list(output_dir.glob("App.jsx")) + \
-                    list(output_dir.glob("index.html"))
+        page_files = (
+            list(output_dir.glob("page.tsx"))
+            + list(output_dir.glob("page.jsx"))
+            + list(output_dir.glob("App.tsx"))
+            + list(output_dir.glob("App.jsx"))
+            + list(output_dir.glob("index.html"))
+        )
 
         if not page_files:
             # No main page found, check any HTML/TSX file
             page_files = list(output_dir.glob("**/*.tsx"))[:1]
 
         for file_path in page_files:
-            content = file_path.read_text(encoding='utf-8')
+            content = file_path.read_text(encoding="utf-8")
 
             # Check for title
-            if '<title' not in content and 'metadata' not in content.lower():
+            if "<title" not in content and "metadata" not in content.lower():
                 recommendations.append(f"{file_path.name}: Add page title/metadata")
 
             # Check for meta description
-            if 'description' not in content.lower() and '<meta' not in content:
+            if "description" not in content.lower() and "<meta" not in content:
                 recommendations.append(f"{file_path.name}: Add meta description")
 
             # Check heading hierarchy
-            has_h1 = '<h1' in content or '<H1' in content
-            has_h2 = '<h2' in content or '<H2' in content
+            has_h1 = "<h1" in content or "<H1" in content
+            has_h2 = "<h2" in content or "<H2" in content
 
             if not has_h1:
                 issues.append(f"{file_path.name}: Missing <h1> heading")
@@ -429,20 +432,19 @@ class WebsiteQualityValidator:
         issues = []
 
         placeholder_patterns = [
-            r'lorem\s+ipsum',
-            r'TODO[:\s]',
-            r'FIXME[:\s]',
-            r'placeholder\s+content',
-            r'your\s+content\s+here',
-            r'insert\s+.*\s+here',
+            r"lorem\s+ipsum",
+            r"TODO[:\s]",
+            r"FIXME[:\s]",
+            r"placeholder\s+content",
+            r"your\s+content\s+here",
+            r"insert\s+.*\s+here",
         ]
 
         # Find all TSX/JSX files
-        component_files = list(output_dir.glob("**/*.tsx")) + \
-                         list(output_dir.glob("**/*.jsx"))
+        component_files = list(output_dir.glob("**/*.tsx")) + list(output_dir.glob("**/*.jsx"))
 
         for file_path in component_files:
-            content = file_path.read_text(encoding='utf-8').lower()
+            content = file_path.read_text(encoding="utf-8").lower()
 
             for pattern in placeholder_patterns:
                 matches = re.findall(pattern, content, re.IGNORECASE)

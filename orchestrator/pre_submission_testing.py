@@ -42,6 +42,7 @@ logger = logging.getLogger("orchestrator.pre_submission")
 
 class CheckType(str, Enum):
     """Type of pre-submission check."""
+
     BUILD_VERIFICATION = "build_verification"
     LAUNCH_TIME = "launch_time"
     CRASH_DETECTION = "crash_detection"
@@ -67,6 +68,7 @@ class CheckResult:
         severity: Issue severity (critical, warning, info)
         guideline: Related App Store guideline
     """
+
     check_type: CheckType
     passed: bool
     message: str
@@ -99,6 +101,7 @@ class ReviewResult:
         warnings: List of warnings
         timestamp: When review was performed
     """
+
     passed: bool
     checks: list[CheckResult]
     estimated_approval_probability: float
@@ -133,25 +136,25 @@ class PreSubmissionTester:
 
     # Placeholder patterns to detect
     PLACEHOLDER_PATTERNS = [
-        r'\bTODO\b',
-        r'\bFIXME\b',
-        r'\bXXX\b',
-        r'\bHACK\b',
-        r'Lorem\s+ipsum',
-        r'placeholder',
-        r'coming\s+soon',
-        r'under\s+construction',
-        r'tbd',
-        r'tba',
+        r"\bTODO\b",
+        r"\bFIXME\b",
+        r"\bXXX\b",
+        r"\bHACK\b",
+        r"Lorem\s+ipsum",
+        r"placeholder",
+        r"coming\s+soon",
+        r"under\s+construction",
+        r"tbd",
+        r"tba",
     ]
 
     # Dynamic code execution patterns
     DYNAMIC_CODE_PATTERNS = [
-        r'\beval\s*\(',
-        r'\bexec\s*\(',
-        r'\bNSClassFromString\s*\(',
-        r'\bperformSelector\s*:',
-        r'\brespondsToSelector\s*:',
+        r"\beval\s*\(",
+        r"\bexec\s*\(",
+        r"\bNSClassFromString\s*\(",
+        r"\bperformSelector\s*:",
+        r"\brespondsToSelector\s*:",
     ]
 
     # Required privacy keys
@@ -213,14 +216,8 @@ class PreSubmissionTester:
 
         # Calculate results
         passed = all(r.passed for r in results)
-        critical_issues = [
-            r.message for r in results
-            if not r.passed and r.severity == "critical"
-        ]
-        warnings = [
-            r.message for r in results
-            if not r.passed and r.severity == "warning"
-        ]
+        critical_issues = [r.message for r in results if not r.passed and r.severity == "critical"]
+        warnings = [r.message for r in results if not r.passed and r.severity == "warning"]
         approval_probability = self._calculate_approval_probability(results)
 
         review_result = ReviewResult(
@@ -357,17 +354,17 @@ class PreSubmissionTester:
             for view_file in view_files[:10]:  # Check first 10 views
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = view_file.read_text(encoding='utf-8')
+                    content = view_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{view_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
 
                 # Check for force unwrapping (!)
-                if re.search(r'\b\w+!\s*\.', content):
+                if re.search(r"\b\w+!\s*\.", content):
                     crashes_found.append(f"{view_file.name}: Force unwrapping detected")
 
                 # Check for unhandled optionals
-                if re.search(r'\.try!\s*\(', content):
+                if re.search(r"\.try!\s*\(", content):
                     crashes_found.append(f"{view_file.name}: Unhandled try!")
 
             # Add unreadable files to crashes_found
@@ -419,16 +416,14 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8').lower()
+                    content = swift_file.read_text(encoding="utf-8").lower()
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
 
                 for pattern in self.PLACEHOLDER_PATTERNS:
                     if re.search(pattern, content, re.IGNORECASE):
-                        placeholders_found.append(
-                            f"{swift_file.name}: {pattern}"
-                        )
+                        placeholders_found.append(f"{swift_file.name}: {pattern}")
 
             # Add unreadable files
             placeholders_found.extend([f"Unreadable file: {uf}" for uf in unreadable_files])
@@ -484,7 +479,7 @@ class PreSubmissionTester:
 
             # FIX-001a: Parse Info.plist as proper XML instead of raw text
             try:
-                with open(info_plist_files[0], 'rb') as f:
+                with open(info_plist_files[0], "rb") as f:
                     plist_data = plistlib.load(f)
             except (plistlib.InvalidFileException, Exception) as e:
                 return CheckResult(
@@ -503,7 +498,7 @@ class PreSubmissionTester:
                 feature_used = False
                 for swift_file in app_path.rglob("*.swift"):
                     try:
-                        content = swift_file.read_text(encoding='utf-8').lower()
+                        content = swift_file.read_text(encoding="utf-8").lower()
                         if feature in content:
                             feature_used = True
                             break
@@ -564,7 +559,7 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8')
+                    content = swift_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
@@ -628,7 +623,7 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8')
+                    content = swift_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
@@ -685,7 +680,7 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8')
+                    content = swift_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
@@ -694,7 +689,7 @@ class PreSubmissionTester:
                     uses_URLSession = True
 
                 # Check for hardcoded IPv4 addresses
-                if re.search(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', content):
+                if re.search(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", content):
                     uses_hardcoded_ipv4 = True
 
             if uses_hardcoded_ipv4 and not uses_URLSession:
@@ -742,7 +737,7 @@ class PreSubmissionTester:
             for swift_file in swift_files:
                 # FIX-002a: Add UTF-8 encoding and per-file exception handling
                 try:
-                    content = swift_file.read_text(encoding='utf-8')
+                    content = swift_file.read_text(encoding="utf-8")
                 except (UnicodeDecodeError, Exception) as e:
                     unreadable_files.append(f"{swift_file.name}: {str(e)}")
                     continue  # Skip this file, continue with others
@@ -881,6 +876,7 @@ class PreSubmissionTester:
 # ─────────────────────────────────────────────
 # Convenience Function
 # ─────────────────────────────────────────────
+
 
 async def run_pre_submission_review(app_path: Path) -> ReviewResult:
     """

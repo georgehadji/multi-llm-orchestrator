@@ -33,6 +33,7 @@ logger = get_logger(__name__)
 
 class OptimizationPhase(str, Enum):
     """Phases where optimizations apply."""
+
     DECOMPOSITION = "decomposition"
     GENERATION = "generation"
     CRITIQUE = "critique"
@@ -44,6 +45,7 @@ class OptimizationPhase(str, Enum):
 @dataclass
 class OptimizationMetrics:
     """Metrics for tracking optimization effectiveness."""
+
     # Prompt caching
     cache_hits: int = 0
     cache_misses: int = 0
@@ -85,43 +87,50 @@ class OptimizationMetrics:
 @dataclass
 class OptimizationConfig:
     """Configuration for all optimizations."""
+
     # Prompt caching
     enable_prompt_caching: bool = True
     cache_warming_enabled: bool = True
 
     # Batch API
     enable_batch_api: bool = True
-    batch_phases: list[OptimizationPhase] = field(default_factory=lambda: [
-        OptimizationPhase.EVALUATION,
-        OptimizationPhase.PROMPT_ENHANCEMENT,
-        OptimizationPhase.CONDENSING,
-    ])
+    batch_phases: list[OptimizationPhase] = field(
+        default_factory=lambda: [
+            OptimizationPhase.EVALUATION,
+            OptimizationPhase.PROMPT_ENHANCEMENT,
+            OptimizationPhase.CONDENSING,
+        ]
+    )
 
     # Token budget
     enable_token_budget: bool = True
-    output_token_limits: dict[str, int] = field(default_factory=lambda: {
-        "decomposition": 2000,
-        "generation": 4000,
-        "critique": 800,
-        "evaluation": 500,
-        "prompt_enhancement": 500,
-        "condensing": 1000,
-    })
+    output_token_limits: dict[str, int] = field(
+        default_factory=lambda: {
+            "decomposition": 2000,
+            "generation": 4000,
+            "critique": 800,
+            "evaluation": 500,
+            "prompt_enhancement": 500,
+            "condensing": 1000,
+        }
+    )
 
     # Model cascading
     enable_cascading: bool = False
-    cascade_chains: dict[str, list[tuple]] = field(default_factory=lambda: {
-        "code_generation": [
-            ("deepseek-v3.2", 0.80),
-            ("claude-sonnet-4.6", 0.75),
-            ("claude-opus-4.6", 0.0),
-        ],
-        "code_review": [
-            ("deepseek-v3.2", 0.75),
-            ("claude-sonnet-4.6", 0.70),
-            ("claude-opus-4.6", 0.0),
-        ],
-    })
+    cascade_chains: dict[str, list[tuple]] = field(
+        default_factory=lambda: {
+            "code_generation": [
+                ("deepseek-v3.2", 0.80),
+                ("claude-sonnet-4.6", 0.75),
+                ("claude-opus-4.6", 0.0),
+            ],
+            "code_review": [
+                ("deepseek-v3.2", 0.75),
+                ("claude-sonnet-4.6", 0.70),
+                ("claude-opus-4.6", 0.0),
+            ],
+        }
+    )
 
     # Speculative generation
     enable_speculative: bool = False
@@ -132,12 +141,14 @@ class OptimizationConfig:
 
     # Adaptive temperature
     enable_adaptive_temperature: bool = True
-    temperature_strategy: dict[str, dict[str, float]] = field(default_factory=lambda: {
-        "decomposition": {"initial": 0.0, "retry_1": 0.2, "retry_2": 0.4},
-        "generation": {"initial": 0.0, "retry_1": 0.1, "retry_2": 0.3},
-        "critique": {"initial": 0.3, "retry_1": 0.5, "retry_2": 0.7},
-        "creative": {"initial": 0.7, "retry_1": 0.9, "retry_2": 1.0},
-    })
+    temperature_strategy: dict[str, dict[str, float]] = field(
+        default_factory=lambda: {
+            "decomposition": {"initial": 0.0, "retry_1": 0.2, "retry_2": 0.4},
+            "generation": {"initial": 0.0, "retry_1": 0.1, "retry_2": 0.3},
+            "critique": {"initial": 0.3, "retry_1": 0.5, "retry_2": 0.7},
+            "creative": {"initial": 0.7, "retry_1": 0.9, "retry_2": 1.0},
+        }
+    )
 
     # Dependency context injection
     enable_dependency_context: bool = True
@@ -210,7 +221,6 @@ from ..tdd_config import (
     get_tdd_profile,
     estimate_tdd_cost,
 )
-
 
 # Import optimization modules for convenience
 from .batch_client import BatchClient, BatchMetrics, BatchStatus, batch_call

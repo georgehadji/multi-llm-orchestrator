@@ -55,8 +55,10 @@ logger = logging.getLogger("orchestrator.ab_testing")
 # Enums & Constants
 # ─────────────────────────────────────────────
 
+
 class ExperimentStatus(str, Enum):
     """Status of an A/B experiment."""
+
     RUNNING = "running"
     COMPLETED = "completed"
     PAUSED = "paused"
@@ -65,15 +67,17 @@ class ExperimentStatus(str, Enum):
 
 class Recommendation(str, Enum):
     """Statistical recommendation from A/B test."""
-    ADOPT = "adopt"           # Treatment significantly better
-    REJECT = "reject"         # Treatment significantly worse or no difference
+
+    ADOPT = "adopt"  # Treatment significantly better
+    REJECT = "reject"  # Treatment significantly worse or no difference
     INCONCLUSIVE = "inconclusive"  # Insufficient data or unclear result
 
 
 class Variant(str, Enum):
     """Experiment variants."""
-    CONTROL = "control"         # Current strategy (A)
-    TREATMENT = "treatment"     # Proposed strategy (B)
+
+    CONTROL = "control"  # Current strategy (A)
+    TREATMENT = "treatment"  # Proposed strategy (B)
 
 
 # Statistical constants
@@ -86,9 +90,11 @@ DEFAULT_MIN_SAMPLES = 30  # Minimum samples per variant for analysis
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class MetricSummary:
     """Summary statistics for a metric."""
+
     mean: float
     std: float
     count: int
@@ -117,6 +123,7 @@ class MetricSummary:
 @dataclass
 class ExperimentOutcome:
     """Outcome recorded for an experiment."""
+
     outcome_id: str
     experiment_id: str
     variant: Variant
@@ -158,6 +165,7 @@ class ExperimentOutcome:
 @dataclass
 class ExperimentResult:
     """Statistical analysis result of an experiment."""
+
     experiment_id: str
     control_metrics: MetricSummary
     treatment_metrics: MetricSummary
@@ -199,6 +207,7 @@ class ExperimentResult:
 @dataclass
 class Experiment:
     """An A/B test experiment."""
+
     experiment_id: str
     proposal: StrategyProposal
     traffic_split: float  # 0.1 = 10% to treatment
@@ -247,9 +256,7 @@ class Experiment:
         )
 
         # Load outcomes
-        experiment.outcomes = [
-            ExperimentOutcome.from_dict(o) for o in data.get("outcomes", [])
-        ]
+        experiment.outcomes = [ExperimentOutcome.from_dict(o) for o in data.get("outcomes", [])]
 
         # Load result if present
         if data.get("result"):
@@ -261,6 +268,7 @@ class Experiment:
 # ─────────────────────────────────────────────
 # Statistical Analysis
 # ─────────────────────────────────────────────
+
 
 class StatisticalAnalyzer:
     """
@@ -341,7 +349,7 @@ class StatisticalAnalyzer:
             return 1.0
 
         # Use continued fraction approximation (simplified)
-        return x ** a * (1 - x) ** b / a
+        return x**a * (1 - x) ** b / a
 
     @staticmethod
     def cohens_d(
@@ -401,6 +409,7 @@ class StatisticalAnalyzer:
 # ─────────────────────────────────────────────
 # A/B Testing Engine
 # ─────────────────────────────────────────────
+
 
 class ABTestingEngine:
     """
@@ -515,8 +524,7 @@ class ABTestingEngine:
         """
         # Find active experiments
         active_experiments = [
-            exp for exp in self._experiments.values()
-            if exp.status == ExperimentStatus.RUNNING
+            exp for exp in self._experiments.values() if exp.status == ExperimentStatus.RUNNING
         ]
 
         if not active_experiments:
@@ -527,8 +535,7 @@ class ABTestingEngine:
 
         # Consistent hashing based on project_id
         hash_value = int(
-            hashlib.sha256(f"{project_id}:{experiment.experiment_id}".encode()).hexdigest(),
-            16
+            hashlib.sha256(f"{project_id}:{experiment.experiment_id}".encode()).hexdigest(), 16
         )
         normalized = (hash_value % 1000) / 1000  # 0.0 to 1.0
 
@@ -614,8 +621,10 @@ class ABTestingEngine:
             experiment = self._experiments[experiment_id]
 
             # Check minimum samples
-            if (experiment.control_count < experiment.min_samples or
-                experiment.treatment_count < experiment.min_samples):
+            if (
+                experiment.control_count < experiment.min_samples
+                or experiment.treatment_count < experiment.min_samples
+            ):
                 logger.info(
                     f"Insufficient samples for {experiment_id}: "
                     f"control={experiment.control_count}, "
@@ -625,19 +634,13 @@ class ABTestingEngine:
                 return None
 
             # Extract scores by variant
-            control_scores = [
-                o.score for o in experiment.outcomes
-                if o.variant == Variant.CONTROL
-            ]
+            control_scores = [o.score for o in experiment.outcomes if o.variant == Variant.CONTROL]
             treatment_scores = [
-                o.score for o in experiment.outcomes
-                if o.variant == Variant.TREATMENT
+                o.score for o in experiment.outcomes if o.variant == Variant.TREATMENT
             ]
 
             # Perform t-test
-            t_stat, p_value = self._analyzer.two_sample_t_test(
-                control_scores, treatment_scores
-            )
+            t_stat, p_value = self._analyzer.two_sample_t_test(control_scores, treatment_scores)
 
             # Calculate effect size
             effect_size = self._analyzer.cohens_d(control_scores, treatment_scores)
@@ -649,7 +652,10 @@ class ABTestingEngine:
 
             # Pooled confidence interval
             all_scores = control_scores + treatment_scores
-            ci_margin = self._analyzer.confidence_interval(all_scores)[1] - self._analyzer.confidence_interval(all_scores)[0]
+            ci_margin = (
+                self._analyzer.confidence_interval(all_scores)[1]
+                - self._analyzer.confidence_interval(all_scores)[0]
+            )
             ci_margin = ci_margin / 2
             confidence_interval = (diff - ci_margin, diff + ci_margin)
 
@@ -664,14 +670,12 @@ class ABTestingEngine:
                 else:
                     recommendation = Recommendation.REJECT
                     reasoning = (
-                        f"Treatment significantly worse (p={p_value:.4f}, "
-                        f"d={effect_size:.3f})"
+                        f"Treatment significantly worse (p={p_value:.4f}, " f"d={effect_size:.3f})"
                     )
             else:
                 recommendation = Recommendation.REJECT  # Default to reject if not significant
                 reasoning = (
-                    f"No significant difference (p={p_value:.4f}, "
-                    f"d={abs(effect_size):.3f})"
+                    f"No significant difference (p={p_value:.4f}, " f"d={abs(effect_size):.3f})"
                 )
 
             # Create result
@@ -694,18 +698,14 @@ class ABTestingEngine:
             self._persist_experiment(experiment)
 
             logger.info(
-                f"Experiment {experiment_id} complete: "
-                f"{recommendation.value} - {reasoning}"
+                f"Experiment {experiment_id} complete: " f"{recommendation.value} - {reasoning}"
             )
 
             return result
 
     async def get_active_experiments(self) -> list[Experiment]:
         """Get all running experiments."""
-        return [
-            exp for exp in self._experiments.values()
-            if exp.status == ExperimentStatus.RUNNING
-        ]
+        return [exp for exp in self._experiments.values() if exp.status == ExperimentStatus.RUNNING]
 
     async def get_experiment(self, experiment_id: str) -> Experiment | None:
         """Get experiment by ID."""
@@ -744,17 +744,13 @@ class ABTestingEngine:
         """Get overall experiment statistics."""
         return {
             "total_experiments": len(self._experiments),
-            "active_experiments": len([
-                e for e in self._experiments.values()
-                if e.status == ExperimentStatus.RUNNING
-            ]),
-            "completed_experiments": len([
-                e for e in self._experiments.values()
-                if e.status == ExperimentStatus.COMPLETED
-            ]),
-            "total_outcomes": sum(
-                len(e.outcomes) for e in self._experiments.values()
+            "active_experiments": len(
+                [e for e in self._experiments.values() if e.status == ExperimentStatus.RUNNING]
             ),
+            "completed_experiments": len(
+                [e for e in self._experiments.values() if e.status == ExperimentStatus.COMPLETED]
+            ),
+            "total_outcomes": sum(len(e.outcomes) for e in self._experiments.values()),
         }
 
 
@@ -762,9 +758,11 @@ class ABTestingEngine:
 # Advanced A/B Testing Features
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class SequentialTestConfig:
     """Configuration for sequential testing with early stopping."""
+
     min_samples: int = 10
     max_samples: int = 1000
     stopping_threshold: float = 0.95  # Confidence for early stop
@@ -806,14 +804,16 @@ class SequentialABTest:
             return True, f"Maximum samples reached ({self.config.max_samples})"
 
         # Check if enough data for analysis
-        if (experiment.control_count >= self.config.min_samples and
-            experiment.treatment_count >= self.config.min_samples):
+        if (
+            experiment.control_count >= self.config.min_samples
+            and experiment.treatment_count >= self.config.min_samples
+        ):
 
             # Perform interim analysis
-            control_scores = [o.score for o in experiment.outcomes
-                            if o.variant == Variant.CONTROL]
-            treatment_scores = [o.score for o in experiment.outcomes
-                              if o.variant == Variant.TREATMENT]
+            control_scores = [o.score for o in experiment.outcomes if o.variant == Variant.CONTROL]
+            treatment_scores = [
+                o.score for o in experiment.outcomes if o.variant == Variant.TREATMENT
+            ]
 
             if control_scores and treatment_scores:
                 t_stat, p_value = StatisticalAnalyzer.two_sample_t_test(
@@ -836,6 +836,7 @@ class SequentialABTest:
 @dataclass
 class BanditArm:
     """A bandit arm with Thompson Sampling."""
+
     arm_id: str
     successes: int = 0
     failures: int = 0
@@ -853,6 +854,7 @@ class BanditArm:
     def sample(self) -> float:
         """Sample from posterior distribution."""
         import random
+
         return random.betavariate(self.alpha, self.beta)
 
     def update(self, success: bool):
@@ -895,10 +897,7 @@ class MultiArmedBandit:
             return {}
 
         # Sample from each arm's posterior
-        samples = {
-            arm_id: arm.sample()
-            for arm_id, arm in self._arms.items()
-        }
+        samples = {arm_id: arm.sample() for arm_id, arm in self._arms.items()}
 
         # Find winner (highest sample)
         winner = max(samples.keys(), key=lambda k: samples[k])
@@ -978,13 +977,11 @@ class CUPEDAdjustment:
 
         # Adjust metrics
         adjusted_treatment = [
-            y - self.theta * (x - mean_pre)
-            for y, x in zip(treatment, pre_experiment, strict=False)
+            y - self.theta * (x - mean_pre) for y, x in zip(treatment, pre_experiment, strict=False)
         ]
 
         adjusted_control = [
-            y - self.theta * (x - mean_pre)
-            for y, x in zip(control, pre_experiment, strict=False)
+            y - self.theta * (x - mean_pre) for y, x in zip(control, pre_experiment, strict=False)
         ]
 
         return adjusted_treatment, adjusted_control
@@ -1007,7 +1004,9 @@ class CUPEDAdjustment:
         mean_x = sum(covariate) / n
 
         # Covariance
-        cov = sum((y - mean_y) * (x - mean_x) for y, x in zip(metrics, covariate, strict=False)) / (n - 1)
+        cov = sum((y - mean_y) * (x - mean_x) for y, x in zip(metrics, covariate, strict=False)) / (
+            n - 1
+        )
 
         # Variance of covariate
         var_x = sum((x - mean_x) ** 2 for x in covariate) / (n - 1)
@@ -1031,8 +1030,12 @@ class CUPEDAdjustment:
         if len(original) < 2:
             return 0.0
 
-        var_original = sum((x - sum(original)/len(original))**2 for x in original) / (len(original) - 1)
-        var_adjusted = sum((x - sum(adjusted)/len(adjusted))**2 for x in adjusted) / (len(adjusted) - 1)
+        var_original = sum((x - sum(original) / len(original)) ** 2 for x in original) / (
+            len(original) - 1
+        )
+        var_adjusted = sum((x - sum(adjusted) / len(adjusted)) ** 2 for x in adjusted) / (
+            len(adjusted) - 1
+        )
 
         if var_original == 0:
             return 0.0

@@ -39,8 +39,10 @@ logger = logging.getLogger("orchestrator.context_dedup")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class DedupStrategy(str, Enum):
     """Strategy for deduplication."""
+
     EXACT = "exact"
     SEMANTIC = "semantic"
     INCREMENTAL = "incremental"
@@ -51,9 +53,11 @@ class DedupStrategy(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class Turn:
     """A conversation turn."""
+
     role: str  # "user", "assistant", "system"
     content: str
     timestamp: float = 0.0
@@ -72,6 +76,7 @@ class Turn:
 @dataclass
 class DedupResult:
     """Result of deduplication."""
+
     original_tokens: int
     deduped_tokens: int
     turns_original: int
@@ -107,6 +112,7 @@ class DedupResult:
 # ─────────────────────────────────────────────
 # Context Deduplicator
 # ─────────────────────────────────────────────
+
 
 class ContextDeduplicator:
     """
@@ -207,7 +213,7 @@ class ContextDeduplicator:
         """Normalize content for comparison."""
         if self.normalize_whitespace:
             # Normalize whitespace
-            content = re.sub(r'\s+', ' ', content).strip()
+            content = re.sub(r"\s+", " ", content).strip()
 
         # Remove very short content
         if len(content) < self.min_content_length:
@@ -375,12 +381,12 @@ class ContextDeduplicator:
             if is_new:
                 new_sentences.append(sentence)
 
-        return ' '.join(new_sentences)
+        return " ".join(new_sentences)
 
     def _split_sentences(self, text: str) -> list[str]:
         """Split text into sentences."""
         # Simple sentence splitting
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = re.split(r"(?<=[.!?])\s+", text)
         return [s.strip() for s in sentences if s.strip()]
 
     def get_incremental_update(
@@ -412,15 +418,14 @@ class ContextDeduplicator:
             if new_info:
                 new_info_parts.append(f"[{turn.role}]: {new_info}")
 
-        return '\n\n'.join(new_info_parts)
+        return "\n\n".join(new_info_parts)
 
     def get_stats(self) -> dict[str, Any]:
         """Get deduplication statistics."""
         avg_reduction = 0.0
         if self._stats_history:
-            avg_reduction = (
-                sum(s.token_reduction_percent for s in self._stats_history) /
-                len(self._stats_history)
+            avg_reduction = sum(s.token_reduction_percent for s in self._stats_history) / len(
+                self._stats_history
             )
 
         return {

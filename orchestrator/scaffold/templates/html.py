@@ -5,6 +5,7 @@ Provides a minimal frontend scaffold with:
 - CSS and JS files
 - A responsive layout
 """
+
 from __future__ import annotations
 
 FILES: dict[str, str] = {

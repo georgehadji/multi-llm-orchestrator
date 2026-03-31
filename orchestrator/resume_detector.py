@@ -10,6 +10,7 @@ Features:
 - Recency decay scoring (30-day window, not 7-day)
 - Match threshold: 0.6
 """
+
 from __future__ import annotations
 
 import time
@@ -34,6 +35,7 @@ class ResumeCandidate:
         similarity_score: 0.0–1.0; how similar to current project
         overall_score: weighted combination for ranking (0.6*similarity + 0.4*recency)
     """
+
     project_id: str
     description: str
     keywords: list[str]
@@ -59,8 +61,22 @@ def _extract_keywords(text: str | None) -> list[str] | set[str]:
     """
     # Common English stopwords
     stopwords = {
-        'the', 'a', 'an', 'is', 'are', 'and', 'or', 'to', 'for', 'of',
-        'in', 'on', 'at', 'by', 'with', 'from'
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "and",
+        "or",
+        "to",
+        "for",
+        "of",
+        "in",
+        "on",
+        "at",
+        "by",
+        "with",
+        "from",
     }
 
     # Handle empty/None input
@@ -69,10 +85,7 @@ def _extract_keywords(text: str | None) -> list[str] | set[str]:
 
     # Split, lowercase, and filter
     words = text.lower().split()
-    keywords = {
-        word for word in words
-        if len(word) >= 3 and word not in stopwords
-    }
+    keywords = {word for word in words if len(word) >= 3 and word not in stopwords}
 
     return keywords
 

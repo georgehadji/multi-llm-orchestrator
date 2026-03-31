@@ -4,6 +4,7 @@ Integration tests for BudgetHierarchy wiring into Orchestrator.run_job()
 Verifies that charge_job() is called after each job with the actual spent amount,
 enabling cross-run budget enforcement.
 """
+
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock, call
 
@@ -71,7 +72,9 @@ async def test_run_job_calls_charge_job_on_hierarchy():
 
     hierarchy = BudgetHierarchy(org_max_usd=100.0, team_budgets={"eng": 50.0})
 
-    with patch('orchestrator.engine.Orchestrator.run_project', new_callable=AsyncMock) as mock_run_project:
+    with patch(
+        "orchestrator.engine.Orchestrator.run_project", new_callable=AsyncMock
+    ) as mock_run_project:
         # Mock run_project to return a state with SUCCESS status
         mock_state = MagicMock()
         mock_state.status = ProjectStatus.SUCCESS
@@ -96,7 +99,7 @@ async def test_run_job_calls_charge_job_on_hierarchy():
         mock_run_project.side_effect = side_effect
 
         # Patch charge_job to track if it's called
-        with patch.object(hierarchy, 'charge_job', wraps=hierarchy.charge_job) as mock_charge:
+        with patch.object(hierarchy, "charge_job", wraps=hierarchy.charge_job) as mock_charge:
             # This test will FAIL: charge_job() is not called from run_job()
             await orch.run_job(spec)
 

@@ -1,4 +1,5 @@
 """Tests for QueryExpander — LLM-based query expansion."""
+
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from orchestrator.query_expander import QueryExpander
@@ -10,7 +11,7 @@ async def test_expand_returns_list_including_original():
     with patch.object(expander, "_call_llm", new_callable=AsyncMock) as mock_llm:
         mock_llm.return_value = ["find python code", "search python examples", "python source code"]
         result = await expander.expand("python code")
-    assert "python code" in result           # original always included
+    assert "python code" in result  # original always included
     assert isinstance(result, list)
     assert len(result) >= 1
 
@@ -21,7 +22,7 @@ async def test_expand_falls_back_on_llm_error():
     with patch.object(expander, "_call_llm", new_callable=AsyncMock) as mock_llm:
         mock_llm.side_effect = Exception("LLM unavailable")
         result = await expander.expand("python code")
-    assert result == ["python code"]          # graceful fallback = original only
+    assert result == ["python code"]  # graceful fallback = original only
 
 
 @pytest.mark.asyncio

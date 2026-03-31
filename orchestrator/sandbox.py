@@ -12,6 +12,7 @@ Usage:
     sandbox = Sandbox()
     result = await sandbox.execute_code("python", "print('Hello, world!')")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,8 +41,12 @@ class ExecutionResult:
 class Sandbox:
     """Securely executes untrusted code in isolated environments."""
 
-    def __init__(self, timeout: float = 30.0, max_memory_mb: int = 100,
-                 allowed_languages: list[str] | None = None):
+    def __init__(
+        self,
+        timeout: float = 30.0,
+        max_memory_mb: int = 100,
+        allowed_languages: list[str] | None = None,
+    ):
         """Initialize the sandbox."""
         self.timeout = timeout
         self.max_memory_mb = max_memory_mb
@@ -53,12 +58,16 @@ class Sandbox:
             "cpu_time": timeout,
             "memory_mb": max_memory_mb,
             "disk_mb": 10,
-            "network": False  # By default, no network access
+            "network": False,  # By default, no network access
         }
 
-    async def execute_code(self, language: str, code: str,
-                          inputs: list[str] | None = None,
-                          resource_limits: dict[str, Any] | None = None) -> ExecutionResult:
+    async def execute_code(
+        self,
+        language: str,
+        code: str,
+        inputs: list[str] | None = None,
+        resource_limits: dict[str, Any] | None = None,
+    ) -> ExecutionResult:
         """
         Execute code in a secure sandbox.
 
@@ -77,7 +86,7 @@ class Sandbox:
                 output="",
                 error=f"Language {language} not allowed in sandbox",
                 execution_time=0.0,
-                resources_used={}
+                resources_used={},
             )
 
         # Use provided limits or default
@@ -99,7 +108,7 @@ class Sandbox:
             input_file = None
             if inputs:
                 input_file = exec_dir / "input.txt"
-                with open(input_file, 'w') as f:
+                with open(input_file, "w") as f:
                     f.write("\n".join(inputs))
 
             # Execute the code with resource limits
@@ -120,7 +129,7 @@ class Sandbox:
                 output=stdout,
                 error=stderr,
                 execution_time=execution_time,
-                resources_used=resources_used
+                resources_used=resources_used,
             )
         except Exception as e:
             logger.error(f"Sandbox execution failed: {e}")
@@ -128,8 +137,8 @@ class Sandbox:
                 success=False,
                 output="",
                 error=str(e),
-                execution_time=time.time() - start_time if 'start_time' in locals() else 0.0,
-                resources_used={}
+                execution_time=time.time() - start_time if "start_time" in locals() else 0.0,
+                resources_used={},
             )
         finally:
             # Cleanup execution directory
@@ -145,20 +154,20 @@ class Sandbox:
             "rust": ".rs",
             "java": ".java",
             "c": ".c",
-            "cpp": ".cpp"
+            "cpp": ".cpp",
         }
 
         ext = ext_map.get(language, ".txt")
         code_file = exec_dir / f"code{ext}"
 
-        with open(code_file, 'w', encoding='utf-8') as f:
+        with open(code_file, "w", encoding="utf-8") as f:
             f.write(code)
 
         return code_file
 
-    async def _execute_with_limits(self, code_file: Path, language: str,
-                                   input_file: Path | None,
-                                   limits: dict[str, Any]) -> tuple[str, str, int]:
+    async def _execute_with_limits(
+        self, code_file: Path, language: str, input_file: Path | None, limits: dict[str, Any]
+    ) -> tuple[str, str, int]:
         """Execute code with resource limits."""
         # Determine the command to run based on language
         cmd = self._get_execution_command(code_file, language)
@@ -175,20 +184,17 @@ class Sandbox:
                     *cmd,
                     stdin=stdin,
                     stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+                    stderr=asyncio.subprocess.PIPE,
                 ),
-                timeout=limits["cpu_time"]
+                timeout=limits["cpu_time"],
             )
 
             # Wait for completion with timeout
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=limits["cpu_time"]
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=limits["cpu_time"])
 
             # Decode output
-            stdout_str = stdout.decode('utf-8', errors='replace')
-            stderr_str = stderr.decode('utf-8', errors='replace')
+            stdout_str = stdout.decode("utf-8", errors="replace")
+            stderr_str = stderr.decode("utf-8", errors="replace")
 
             return stdout_str, stderr_str, proc.returncode
         except asyncio.TimeoutError:
@@ -224,22 +230,25 @@ class Sandbox:
             compile_cmd = ["javac", str(code_file)]
             # Run compilation in a subprocess
             import subprocess
+
             result = subprocess.run(compile_cmd, capture_output=True, text=True)
             if result.returncode != 0:
                 raise Exception(f"Compilation failed: {result.stderr}")
             return ["java", "-cp", str(code_file.parent), class_name]
         elif language == "c":
-            exe_file = code_file.with_suffix('.exe')
+            exe_file = code_file.with_suffix(".exe")
             compile_cmd = ["gcc", str(code_file), "-o", str(exe_file)]
             import subprocess
+
             result = subprocess.run(compile_cmd, capture_output=True, text=True)
             if result.returncode != 0:
                 raise Exception(f"Compilation failed: {result.stderr}")
             return [str(exe_file)]
         elif language == "cpp":
-            exe_file = code_file.with_suffix('.exe')
+            exe_file = code_file.with_suffix(".exe")
             compile_cmd = ["g++", str(code_file), "-o", str(exe_file)]
             import subprocess
+
             result = subprocess.run(compile_cmd, capture_output=True, text=True)
             if result.returncode != 0:
                 raise Exception(f"Compilation failed: {result.stderr}")
@@ -260,12 +269,13 @@ class Sandbox:
         return {
             "disk_usage_mb": round(total_size / (1024 * 1024), 2),
             "peak_memory_mb": 0,  # Placeholder - would need actual measurement
-            "cpu_time_seconds": 0  # Placeholder - would need actual measurement
+            "cpu_time_seconds": 0,  # Placeholder - would need actual measurement
         }
 
     async def _cleanup_exec_dir(self, exec_dir: Path):
         """Clean up the execution directory."""
         import shutil
+
         try:
             shutil.rmtree(exec_dir)
         except Exception as e:
@@ -287,10 +297,18 @@ class Sandbox:
         # Check for dangerous patterns based on language
         if language == "python":
             dangerous_patterns = [
-                "import os", "import sys", "import subprocess",
-                "import shutil", "import socket", "import urllib",
-                "__import__", "eval(", "exec(", "compile(",
-                "open(", "file("
+                "import os",
+                "import sys",
+                "import subprocess",
+                "import shutil",
+                "import socket",
+                "import urllib",
+                "__import__",
+                "eval(",
+                "exec(",
+                "compile(",
+                "open(",
+                "file(",
             ]
 
             for pattern in dangerous_patterns:
@@ -299,9 +317,16 @@ class Sandbox:
 
         elif language == "javascript":
             dangerous_patterns = [
-                "require('child_process')", "require('fs')", "require('net')",
-                "require('tls')", "require('dgram')", "require('dns')",
-                "eval(", "new Function(", "setTimeout(", "setInterval("
+                "require('child_process')",
+                "require('fs')",
+                "require('net')",
+                "require('tls')",
+                "require('dgram')",
+                "require('dns')",
+                "eval(",
+                "new Function(",
+                "setTimeout(",
+                "setInterval(",
             ]
 
             for pattern in dangerous_patterns:
@@ -310,8 +335,16 @@ class Sandbox:
 
         elif language == "bash":
             dangerous_patterns = [
-                "rm -rf", "chmod", "chown", "wget", "curl",
-                "> /dev/tcp/", "nc ", "netcat", "ssh ", "scp "
+                "rm -rf",
+                "chmod",
+                "chown",
+                "wget",
+                "curl",
+                "> /dev/tcp/",
+                "nc ",
+                "netcat",
+                "ssh ",
+                "scp ",
             ]
 
             for pattern in dangerous_patterns:
@@ -324,8 +357,9 @@ class Sandbox:
 
         return len(issues) == 0, issues
 
-    async def execute_safe_code(self, language: str, code: str,
-                               inputs: list[str] | None = None) -> ExecutionResult:
+    async def execute_safe_code(
+        self, language: str, code: str, inputs: list[str] | None = None
+    ) -> ExecutionResult:
         """
         Execute code after validating it for security issues.
 
@@ -345,7 +379,7 @@ class Sandbox:
                 output="",
                 error=f"Code validation failed: {'; '.join(issues)}",
                 execution_time=0.0,
-                resources_used={}
+                resources_used={},
             )
 
         return await self.execute_code(language, code, inputs)
@@ -386,12 +420,13 @@ class Sandbox:
             "temp_dir": str(self.temp_dir),
             "disk_usage_mb": round(total_size / (1024 * 1024), 2),
             "timeout_setting": self.timeout,
-            "max_memory_mb": self.max_memory_mb
+            "max_memory_mb": self.max_memory_mb,
         }
 
     async def cleanup_temp_files(self):
         """Clean up temporary files created by the sandbox."""
         import shutil
+
         try:
             shutil.rmtree(self.temp_dir)
             self.temp_dir = Path(tempfile.mkdtemp(prefix="orchestrator_sandbox_"))
@@ -399,7 +434,9 @@ class Sandbox:
         except Exception as e:
             logger.error(f"Failed to clean up sandbox temp files: {e}")
 
-    async def execute_multiple_codes(self, executions: list[dict[str, str]]) -> list[ExecutionResult]:
+    async def execute_multiple_codes(
+        self, executions: list[dict[str, str]]
+    ) -> list[ExecutionResult]:
         """
         Execute multiple code snippets in parallel.
 
@@ -412,9 +449,7 @@ class Sandbox:
         tasks = []
         for exec_data in executions:
             task = self.execute_safe_code(
-                exec_data["language"],
-                exec_data["code"],
-                exec_data.get("inputs")
+                exec_data["language"], exec_data["code"], exec_data.get("inputs")
             )
             tasks.append(task)
 
@@ -430,7 +465,7 @@ class Sandbox:
                         output="",
                         error=f"Execution error: {str(result)}",
                         execution_time=0.0,
-                        resources_used={}
+                        resources_used={},
                     )
                 )
             else:

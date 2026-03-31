@@ -2,6 +2,7 @@
 
 Author: Georgios-Chrysovalantis Chatzivantsidis
 """
+
 from __future__ import annotations
 
 CLI_ENTRY = '''\
@@ -28,23 +29,23 @@ FILES: dict[str, str] = {
     "src/__init__.py": "",
     "tests/__init__.py": "",
     "tests/test_cli.py": (
-        'import subprocess\nimport sys\n\n\n'
-        'def test_cli_runs():\n'
-        '    result = subprocess.run(\n'
+        "import subprocess\nimport sys\n\n\n"
+        "def test_cli_runs():\n"
+        "    result = subprocess.run(\n"
         '        [sys.executable, "cli.py"],\n'
-        '        capture_output=True, text=True\n'
-        '    )\n'
-        '    assert result.returncode == 0\n'
+        "        capture_output=True, text=True\n"
+        "    )\n"
+        "    assert result.returncode == 0\n"
     ),
     "pyproject.toml": (
-        '[project]\n'
+        "[project]\n"
         'name = "my-cli"\n'
         'version = "0.1.0"\n'
         'requires-python = ">=3.11"\n'
-        'dependencies = []\n\n'
-        '[project.scripts]\n'
+        "dependencies = []\n\n"
+        "[project.scripts]\n"
         'my-cli = "cli:main"\n\n'
-        '[build-system]\n'
+        "[build-system]\n"
         'requires = ["setuptools>=68"]\n'
         'build-backend = "setuptools.build_meta"\n'
     ),

@@ -80,6 +80,7 @@ class GuardrailConfig:
 @dataclass
 class GuardrailStatus:
     """Status of a single guardrail check."""
+
     name: str
     passed: bool
     value: Any
@@ -154,7 +155,7 @@ class ProductionGuardrails:
                 passed=False,
                 value=spent,
                 threshold=max_budget,
-                message="Invalid budget (zero or negative)"
+                message="Invalid budget (zero or negative)",
             )
 
         ratio = spent / max_budget
@@ -166,7 +167,7 @@ class ProductionGuardrails:
                 passed=False,
                 value=spent,
                 threshold=max_budget,
-                message=f"Budget exceeded: ${spent:.2f} > ${max_budget:.2f}"
+                message=f"Budget exceeded: ${spent:.2f} > ${max_budget:.2f}",
             )
 
         if ratio >= self.config.budget_critical_threshold:
@@ -175,11 +176,7 @@ class ProductionGuardrails:
             if self._on_budget_critical:
                 self._on_budget_critical(spent, max_budget)
             return GuardrailStatus(
-                name="budget",
-                passed=True,
-                value=spent,
-                threshold=max_budget,
-                message=msg
+                name="budget", passed=True, value=spent, threshold=max_budget, message=msg
             )
 
         if ratio >= self.config.budget_warning_threshold:
@@ -193,7 +190,7 @@ class ProductionGuardrails:
             passed=True,
             value=spent,
             threshold=max_budget,
-            message=f"Budget OK: {ratio*100:.1f}% used"
+            message=f"Budget OK: {ratio*100:.1f}% used",
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -241,18 +238,13 @@ class ProductionGuardrails:
         Args:
             force: If True, create force kill file (immediate termination)
         """
-        target = Path(
-            self.config.force_kill_file if force else self.config.kill_switch_file
-        )
+        target = Path(self.config.force_kill_file if force else self.config.kill_switch_file)
         target.touch()
         logger.warning(f"Kill switch activated: {target}")
 
     def deactivate_kill_switch(self) -> None:
         """Deactivate kill switch."""
-        for path in [
-            Path(self.config.kill_switch_file),
-            Path(self.config.force_kill_file)
-        ]:
+        for path in [Path(self.config.kill_switch_file), Path(self.config.force_kill_file)]:
             if path.exists():
                 path.unlink()
         logger.info("Kill switch deactivated")
@@ -290,7 +282,7 @@ class ProductionGuardrails:
                 passed=True,
                 value=0.0,
                 threshold=self.config.max_error_rate,
-                message="Not enough data for error rate calculation"
+                message="Not enough data for error rate calculation",
             )
 
         errors = sum(1 for success in self._error_window if not success)
@@ -306,7 +298,7 @@ class ProductionGuardrails:
                 passed=False,
                 value=error_rate,
                 threshold=self.config.max_error_rate,
-                message=msg
+                message=msg,
             )
 
         return GuardrailStatus(
@@ -314,7 +306,7 @@ class ProductionGuardrails:
             passed=True,
             value=error_rate,
             threshold=self.config.max_error_rate,
-            message=f"Error rate OK: {error_rate*100:.1f}%"
+            message=f"Error rate OK: {error_rate*100:.1f}%",
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -336,12 +328,13 @@ class ProductionGuardrails:
                 passed=True,
                 value=0,
                 threshold=self.config.max_memory_mb,
-                message="Memory check skipped (recently checked)"
+                message="Memory check skipped (recently checked)",
             )
         self._memory_checked = now
 
         try:
             import psutil
+
             process = psutil.Process()
             memory_mb = process.memory_info().rss / 1024 / 1024
 
@@ -353,7 +346,7 @@ class ProductionGuardrails:
                     passed=False,
                     value=memory_mb,
                     threshold=self.config.max_memory_mb,
-                    message=msg
+                    message=msg,
                 )
 
             ratio = memory_mb / self.config.max_memory_mb
@@ -365,7 +358,7 @@ class ProductionGuardrails:
                 passed=True,
                 value=memory_mb,
                 threshold=self.config.max_memory_mb,
-                message=f"Memory OK: {memory_mb:.0f}MB ({ratio*100:.1f}%)"
+                message=f"Memory OK: {memory_mb:.0f}MB ({ratio*100:.1f}%)",
             )
 
         except ImportError:
@@ -374,7 +367,7 @@ class ProductionGuardrails:
                 passed=True,
                 value=0,
                 threshold=self.config.max_memory_mb,
-                message="psutil not available, memory check skipped"
+                message="psutil not available, memory check skipped",
             )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -413,17 +406,11 @@ class ProductionGuardrails:
             if key in self._drift_baseline:
                 baseline = self._drift_baseline[key]
                 if baseline != value:
-                    drift[key] = {
-                        "baseline": baseline,
-                        "current": value
-                    }
+                    drift[key] = {"baseline": baseline, "current": value}
 
         if drift:
             logger.warning(f"CONFIGURATION DRIFT DETECTED: {drift}")
-            self._drift_history.append({
-                "timestamp": time.time(),
-                "drift": drift
-            })
+            self._drift_history.append({"timestamp": time.time(), "drift": drift})
 
         return drift
 
@@ -437,7 +424,7 @@ class ProductionGuardrails:
         max_budget: float,
         check_memory: bool = True,
         check_error_rate: bool = True,
-        check_kill_switch: bool = True
+        check_kill_switch: bool = True,
     ) -> bool:
         """
         Run all guardrail checks.
@@ -452,9 +439,7 @@ class ProductionGuardrails:
         Returns:
             True if all checks pass, False otherwise
         """
-        checks = [
-            self.check_budget(spent, max_budget)
-        ]
+        checks = [self.check_budget(spent, max_budget)]
 
         if check_memory:
             checks.append(self.check_memory())
@@ -533,7 +518,7 @@ class KillSwitch:
         self,
         kill_file: str = "/tmp/orchestrator_kill",
         force_file: str = "/tmp/orchestrator_force_kill",
-        audit_file: str | None = None
+        audit_file: str | None = None,
     ):
         self.kill_file = Path(kill_file)
         self.force_file = Path(force_file)

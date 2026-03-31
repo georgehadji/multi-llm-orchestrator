@@ -13,6 +13,7 @@ Usage:
     gateway = APIGateway()
     await gateway.route_request(request_data, target_service="orchestrator")
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -27,8 +28,14 @@ logger = logging.getLogger("orchestrator.gateway")
 class APIRequest:
     """Represents an incoming API request."""
 
-    def __init__(self, method: str, url: str, headers: dict[str, str],
-                 body: str | None = None, query_params: dict[str, str] | None = None):
+    def __init__(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str],
+        body: str | None = None,
+        query_params: dict[str, str] | None = None,
+    ):
         self.method = method
         self.url = url
         self.headers = headers
@@ -43,8 +50,13 @@ class APIRequest:
 class APIResponse:
     """Represents an outgoing API response."""
 
-    def __init__(self, status_code: int, headers: dict[str, str],
-                 body: str | None = None, error: str | None = None):
+    def __init__(
+        self,
+        status_code: int,
+        headers: dict[str, str],
+        body: str | None = None,
+        error: str | None = None,
+    ):
         self.status_code = status_code
         self.headers = headers
         self.body = body
@@ -110,7 +122,7 @@ class APIGateway:
             "user_id": user_id,
             "permissions": permissions or [],
             "created_at": datetime.now(),
-            "last_used": None
+            "last_used": None,
         }
 
         logger.info(f"Registered API key for user: {user_id}")
@@ -184,8 +196,7 @@ class APIGateway:
         if client_id not in self.rate_limits:
             # Initialize rate limit for this client
             self.rate_limits[client_id] = RateLimitInfo(
-                self.rate_limit_default,
-                self.rate_window_seconds
+                self.rate_limit_default, self.rate_window_seconds
             )
 
         rate_info = self.rate_limits[client_id]
@@ -258,8 +269,9 @@ class APIGateway:
 
         return response
 
-    async def route_request(self, request_data: dict[str, Any],
-                           target_service: str | None = None) -> APIResponse:
+    async def route_request(
+        self, request_data: dict[str, Any], target_service: str | None = None
+    ) -> APIResponse:
         """
         Route an incoming request to the appropriate service.
 
@@ -276,7 +288,7 @@ class APIGateway:
             url=request_data.get("url", "/"),
             headers=request_data.get("headers", {}),
             body=request_data.get("body"),
-            query_params=request_data.get("query_params", {})
+            query_params=request_data.get("query_params", {}),
         )
 
         # Set client IP if available
@@ -288,7 +300,7 @@ class APIGateway:
                 status_code=401,
                 headers={"Content-Type": "application/json"},
                 body=json.dumps({"error": "Unauthorized"}),
-                error="Authentication failed"
+                error="Authentication failed",
             )
             self._log_request_response(request, response)
             return response
@@ -304,10 +316,10 @@ class APIGateway:
                     "Content-Type": "application/json",
                     "X-RateLimit-Limit": str(self.rate_limit_default),
                     "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(reset_time)
+                    "X-RateLimit-Reset": str(reset_time),
                 },
                 body=json.dumps({"error": "Rate limit exceeded"}),
-                error="Rate limit exceeded"
+                error="Rate limit exceeded",
             )
             self._log_request_response(request, response)
             return response
@@ -321,7 +333,7 @@ class APIGateway:
                 status_code=404,
                 headers={"Content-Type": "application/json"},
                 body=json.dumps({"error": "Service not found"}),
-                error="No matching route found"
+                error="No matching route found",
             )
             self._log_request_response(request, response)
             return response
@@ -338,7 +350,7 @@ class APIGateway:
                 status_code=500,
                 headers={"Content-Type": "application/json"},
                 body=json.dumps({"error": "Internal server error"}),
-                error=str(e)
+                error=str(e),
             )
             self._log_request_response(request, response)
             return response
@@ -376,7 +388,7 @@ class APIGateway:
             return APIResponse(
                 status_code=200,
                 headers={"Content-Type": "application/json"},
-                body=json.dumps({"status": "healthy", "timestamp": datetime.now().isoformat()})
+                body=json.dumps({"status": "healthy", "timestamp": datetime.now().isoformat()}),
             )
         elif target_service == "orchestrator_service":
             # Simulate orchestrator service response
@@ -384,28 +396,31 @@ class APIGateway:
             return APIResponse(
                 status_code=200,
                 headers={"Content-Type": "application/json"},
-                body=json.dumps({
-                    "message": "Request processed by orchestrator",
-                    "service": target_service,
-                    "request_id": hashlib.sha256((request.url + str(request.timestamp)).encode()).hexdigest()[:16]
-                })
+                body=json.dumps(
+                    {
+                        "message": "Request processed by orchestrator",
+                        "service": target_service,
+                        "request_id": hashlib.sha256(
+                            (request.url + str(request.timestamp)).encode()
+                        ).hexdigest()[:16],
+                    }
+                ),
             )
         elif target_service == "model_service":
             # Simulate model service response
             return APIResponse(
                 status_code=200,
                 headers={"Content-Type": "application/json"},
-                body=json.dumps({
-                    "models": ["gpt-4", "claude-3", "gemini-pro"],
-                    "service": target_service
-                })
+                body=json.dumps(
+                    {"models": ["gpt-4", "claude-3", "gemini-pro"], "service": target_service}
+                ),
             )
         else:
             # Unknown service
             return APIResponse(
                 status_code=501,
                 headers={"Content-Type": "application/json"},
-                body=json.dumps({"error": f"Service {target_service} not implemented"})
+                body=json.dumps({"error": f"Service {target_service} not implemented"}),
             )
 
     def _log_request_response(self, request: APIRequest, response: APIResponse):
@@ -414,7 +429,7 @@ class APIGateway:
 
         # Trim log if it gets too long
         if len(self.request_log) > self.max_log_entries:
-            self.request_log = self.request_log[-self.max_log_entries:]
+            self.request_log = self.request_log[-self.max_log_entries :]
 
     def get_request_logs(self, limit: int = 100) -> list[tuple[APIRequest, APIResponse]]:
         """Get recent request logs."""
@@ -423,12 +438,16 @@ class APIGateway:
     def get_stats(self) -> dict[str, Any]:
         """Get gateway statistics."""
         total_requests = len(self.request_log)
-        successful_requests = sum(1 for req, resp in self.request_log if 200 <= resp.status_code < 300)
+        successful_requests = sum(
+            1 for req, resp in self.request_log if 200 <= resp.status_code < 300
+        )
         error_requests = sum(1 for req, resp in self.request_log if resp.status_code >= 400)
 
         # Calculate requests per minute
         if self.request_log:
-            time_diff = (self.request_log[-1][0].timestamp - self.request_log[0][0].timestamp).total_seconds()
+            time_diff = (
+                self.request_log[-1][0].timestamp - self.request_log[0][0].timestamp
+            ).total_seconds()
             if time_diff > 0:
                 requests_per_minute = (total_requests / time_diff) * 60
             else:
@@ -443,7 +462,7 @@ class APIGateway:
             "requests_per_minute": round(requests_per_minute, 2),
             "active_rate_limits": len(self.rate_limits),
             "registered_api_keys": len(self.api_keys),
-            "routes_count": len(self.routes)
+            "routes_count": len(self.routes),
         }
 
     async def invalidate_rate_limit(self, client_id: str):

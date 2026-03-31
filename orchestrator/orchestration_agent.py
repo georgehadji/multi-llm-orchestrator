@@ -20,6 +20,7 @@ Usage:
     from orchestrator.control_plane import ControlPlane
     state = await ControlPlane().submit(draft.job, draft.policy)
 """
+
 from __future__ import annotations
 
 import json
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 # Draft
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class AgentDraft:
@@ -114,6 +116,7 @@ Available escalation actions: human_review, abort, fallback_model
 # OrchestrationAgent
 # ─────────────────────────────────────────────
 
+
 class OrchestrationAgent:
     """
     Converts NL intent into draft specs and supports a human-in-the-loop
@@ -132,6 +135,7 @@ class OrchestrationAgent:
         if self._client is None:
             from .api_clients import UnifiedClient
             from .cache import DiskCache
+
             self._client = UnifiedClient(cache=DiskCache(), max_concurrency=1)
         return self._client
 
@@ -190,7 +194,8 @@ class OrchestrationAgent:
             "constraints_used": job.constraints.hard,
             "avg_score": (
                 sum(r.score for r in state.results.values()) / len(state.results)
-                if state.results else 0.0
+                if state.results
+                else 0.0
             ),
         }
 
@@ -211,6 +216,7 @@ class OrchestrationAgent:
 
     async def _call_llm(self, prompt: str) -> str:
         from .models import Model
+
         client = self._get_client()
 
         _PREFERENCE = [
@@ -223,8 +229,7 @@ class OrchestrationAgent:
             model = next((m for m in Model if client.is_available(m)), None)
         if model is None:
             raise RuntimeError(
-                "OrchestrationAgent: no LLM provider available. "
-                "Check API keys in .env."
+                "OrchestrationAgent: no LLM provider available. " "Check API keys in .env."
             )
 
         resp = await client.call(
@@ -235,9 +240,7 @@ class OrchestrationAgent:
             temperature=0.1,
             timeout=60,
         )
-        logger.debug(
-            "OrchestrationAgent: used %s (cost $%.6f)", model.value, resp.cost_usd
-        )
+        logger.debug("OrchestrationAgent: used %s (cost $%.6f)", model.value, resp.cost_usd)
         return resp.text
 
     # ─────────────────────────────────────────
@@ -251,8 +254,7 @@ class OrchestrationAgent:
         if text.startswith("```"):
             lines = text.splitlines()
             text = "\n".join(
-                ln for i, ln in enumerate(lines)
-                if i > 0 and ln.strip() != "```"
+                ln for i, ln in enumerate(lines) if i > 0 and ln.strip() != "```"
             ).strip()
 
         try:

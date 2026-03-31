@@ -45,25 +45,41 @@ logger = logging.getLogger("orchestrator.preview_server")
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class PreviewConfig:
     """Preview server configuration."""
+
     port: int = 3000
     host: str = "localhost"
     hot_reload: bool = True
     open_browser: bool = False
     build_command: str | None = None
-    watch_patterns: list[str] = field(default_factory=lambda: [
-        "*.tsx", "*.ts", "*.jsx", "*.js", "*.css", "*.html",
-    ])
-    ignore_patterns: list[str] = field(default_factory=lambda: [
-        "node_modules/", ".git/", "*.log", "dist/", "build/",
-    ])
+    watch_patterns: list[str] = field(
+        default_factory=lambda: [
+            "*.tsx",
+            "*.ts",
+            "*.jsx",
+            "*.js",
+            "*.css",
+            "*.html",
+        ]
+    )
+    ignore_patterns: list[str] = field(
+        default_factory=lambda: [
+            "node_modules/",
+            ".git/",
+            "*.log",
+            "dist/",
+            "build/",
+        ]
+    )
 
 
 @dataclass
 class PreviewSession:
     """Active preview session."""
+
     project_path: str
     url: str
     port: int
@@ -88,6 +104,7 @@ class PreviewSession:
 # ─────────────────────────────────────────────
 # Preview Server
 # ─────────────────────────────────────────────
+
 
 class PreviewServer:
     """
@@ -231,10 +248,13 @@ class PreviewServer:
         self._total_reloads += 1
 
         # Notify WebSocket clients
-        await self._notify_clients("reload", {
-            "project": project_path,
-            "changes": [str(c) for c in changes] if changes else [],
-        })
+        await self._notify_clients(
+            "reload",
+            {
+                "project": project_path,
+                "changes": [str(c) for c in changes] if changes else [],
+            },
+        )
 
         logger.debug(f"Hot reload triggered for {project_path}")
         return True
@@ -381,6 +401,7 @@ class PreviewServer:
         config: PreviewConfig,
     ) -> None:
         """Start file watcher for hot reload."""
+
         async def watch_loop():
             from pathlib import Path
 
@@ -395,10 +416,7 @@ class PreviewServer:
                     for pattern in config.watch_patterns:
                         for file in path.rglob(pattern):
                             # Check ignore patterns
-                            if any(
-                                ignore in str(file)
-                                for ignore in config.ignore_patterns
-                            ):
+                            if any(ignore in str(file) for ignore in config.ignore_patterns):
                                 continue
 
                             # Check modification time
@@ -427,6 +445,7 @@ class PreviewServer:
     async def _open_browser(self, url: str) -> None:
         """Open browser to preview URL."""
         import webbrowser
+
         webbrowser.open(url)
 
     async def _notify_clients(self, event: str, data: dict) -> None:

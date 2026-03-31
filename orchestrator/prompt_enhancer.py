@@ -12,6 +12,7 @@ Usage:
     enhancer = PromptEnhancer()
     enhanced_prompt = await enhancer.enhance(prompt="...", context="...")
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,11 +65,12 @@ class PromptEnhancer:
                 "- Implications\n"
                 "- Recommendations\n\n"
                 "Analysis:"
-            )
+            ),
         }
 
-    async def enhance(self, prompt: str, context: str | None = None,
-                      enhancement_type: str | None = None) -> str:
+    async def enhance(
+        self, prompt: str, context: str | None = None, enhancement_type: str | None = None
+    ) -> str:
         """
         Enhance a prompt using LLM-based optimization.
 
@@ -85,15 +87,14 @@ class PromptEnhancer:
         client = UnifiedClient()
 
         # Select enhancement template based on type
-        template = self.enhancement_templates.get(enhancement_type or "instruction",
-                                                 self.enhancement_templates["instruction"])
+        template = self.enhancement_templates.get(
+            enhancement_type or "instruction", self.enhancement_templates["instruction"]
+        )
 
         # Format the template with the provided prompt
-        formatted_prompt = template.format(instruction=prompt,
-                                          context=context or "",
-                                          question=prompt,
-                                          topic=prompt,
-                                          info=prompt)
+        formatted_prompt = template.format(
+            instruction=prompt, context=context or "", question=prompt, topic=prompt, info=prompt
+        )
 
         # Create an enhancement request
         enhancement_request = f"""
@@ -113,8 +114,7 @@ class PromptEnhancer:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": enhancement_request}]
+                model=self.model, messages=[{"role": "user", "content": enhancement_request}]
             )
 
             enhanced_prompt = response.content.strip()
@@ -161,8 +161,7 @@ class PromptEnhancer:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": optimization_request}]
+                model=self.model, messages=[{"role": "user", "content": optimization_request}]
             )
 
             optimized_prompt = response.content.strip()
@@ -203,8 +202,7 @@ class PromptEnhancer:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": context_request}]
+                model=self.model, messages=[{"role": "user", "content": context_request}]
             )
 
             context_aware_prompt = response.content.strip()
@@ -247,8 +245,7 @@ class PromptEnhancer:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": role_request}]
+                model=self.model, messages=[{"role": "user", "content": role_request}]
             )
 
             role_prompt = response.content.strip()
@@ -286,8 +283,7 @@ class PromptEnhancer:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": clarity_request}]
+                model=self.model, messages=[{"role": "user", "content": clarity_request}]
             )
 
             clear_prompt = response.content.strip()
@@ -329,8 +325,7 @@ class PromptEnhancer:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": format_request}]
+                model=self.model, messages=[{"role": "user", "content": format_request}]
             )
 
             formatted_prompt = response.content.strip()

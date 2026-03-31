@@ -15,6 +15,7 @@ Usage:
         {"action": "fill", "selector": "#input", "value": "test"}
     ])
 """
+
 from __future__ import annotations
 
 import json
@@ -52,8 +53,12 @@ class TestResult:
 class BrowserTester:
     """Performs browser-based testing using Playwright or similar tools."""
 
-    def __init__(self, browser_type: str = "chromium", headless: bool = True,
-                 screenshot_on_failure: bool = True):
+    def __init__(
+        self,
+        browser_type: str = "chromium",
+        headless: bool = True,
+        screenshot_on_failure: bool = True,
+    ):
         """
         Initialize the browser tester.
 
@@ -109,13 +114,14 @@ class BrowserTester:
             await self.context.close()
         if self.browser:
             await self.browser.close()
-        if hasattr(self, 'playwright'):
+        if hasattr(self, "playwright"):
             await self.playwright.stop()
 
         logger.info("Browser tester closed")
 
-    async def test_page(self, url: str, test_steps: list[TestStep],
-                       wait_until: str = "networkidle") -> TestResult:
+    async def test_page(
+        self, url: str, test_steps: list[TestStep], wait_until: str = "networkidle"
+    ) -> TestResult:
         """
         Test a page by executing a series of steps.
 
@@ -175,11 +181,7 @@ class BrowserTester:
             errors=errors,
             screenshots=self.screenshots_taken,
             execution_time=execution_time,
-            details={
-                "url": url,
-                "browser_type": self.browser_type,
-                "headless": self.headless
-            }
+            details={"url": url, "browser_type": self.browser_type, "headless": self.headless},
         )
 
     async def _execute_step(self, step: TestStep):
@@ -235,7 +237,9 @@ class BrowserTester:
         elif step.action == "scroll":
             # Scroll by pixels or to an element
             if step.selector:
-                await self.page.locator(step.selector).scroll_into_view_if_needed(timeout=step.timeout)
+                await self.page.locator(step.selector).scroll_into_view_if_needed(
+                    timeout=step.timeout
+                )
             else:
                 # Scroll by pixels (value should be a JSON string like '{"x": 0, "y": 500}')
                 scroll_params = json.loads(step.value) if step.value else {"x": 0, "y": 500}
@@ -285,7 +289,7 @@ class BrowserTester:
                     selector=step_data.get("selector"),
                     value=step_data.get("value"),
                     expected=step_data.get("expected"),
-                    timeout=step_data.get("timeout", 30000)
+                    timeout=step_data.get("timeout", 30000),
                 )
                 steps.append(step)
 
@@ -484,7 +488,7 @@ class BrowserTester:
         return {
             "browser_type": self.browser_type,
             "headless": self.headless,
-            "is_connected": self.browser.is_connected() if self.browser else False
+            "is_connected": self.browser.is_connected() if self.browser else False,
         }
 
 
@@ -492,8 +496,9 @@ class BrowserTester:
 _global_browser_tester: BrowserTester | None = None
 
 
-async def get_global_browser_tester(browser_type: str = "chromium",
-                                  headless: bool = True) -> BrowserTester:
+async def get_global_browser_tester(
+    browser_type: str = "chromium", headless: bool = True
+) -> BrowserTester:
     """
     Get the global browser tester instance, creating it if it doesn't exist.
 

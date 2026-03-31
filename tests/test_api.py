@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """Quick API test"""
+
 import urllib.request
 import json
 import sys
+
 
 def test_endpoint(url, timeout=5):
     """Test a single endpoint."""
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = resp.read().decode('utf-8')
+            data = resp.read().decode("utf-8")
             return json.loads(data)
     except Exception as e:
         return {"error": str(e)}
+
 
 BASE = "http://127.0.0.1:8888"
 
@@ -45,16 +48,12 @@ else:
 # Test POST with small timeout
 print("\n4. POST /api/project/start (timeout 3s)")
 try:
-    data = json.dumps({
-        "name": "Test",
-        "prompt": "Test prompt",
-        "budget": 1.0
-    }).encode()
+    data = json.dumps({"name": "Test", "prompt": "Test prompt", "budget": 1.0}).encode()
     req = urllib.request.Request(
         f"{BASE}/api/project/start",
         data=data,
-        headers={'Content-Type': 'application/json'},
-        method='POST'
+        headers={"Content-Type": "application/json"},
+        method="POST",
     )
     with urllib.request.urlopen(req, timeout=3) as resp:
         result = json.loads(resp.read().decode())

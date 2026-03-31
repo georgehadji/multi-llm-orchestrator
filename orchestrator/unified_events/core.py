@@ -38,8 +38,10 @@ logger = logging.getLogger("orchestrator.unified_events")
 # Event Types
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class EventType(Enum):
     """All event types in the unified system."""
+
     # Project lifecycle
     PROJECT_STARTED = auto()
     PROJECT_COMPLETED = auto()
@@ -86,12 +88,14 @@ class EventType(Enum):
 # Domain Events
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True)
 class DomainEvent:
     """
     Base class for all domain events.
     Immutable, serializable, timestamped.
     """
+
     event_type: EventType
     aggregate_id: str  # e.g., project_id or task_id
     timestamp: datetime = field(default_factory=datetime.utcnow)
@@ -131,7 +135,7 @@ class ProjectStartedEvent(DomainEvent):
                 "project_id": project_id,
                 "description": description,
                 "budget": budget,
-            }
+            },
         )
 
 
@@ -142,8 +146,15 @@ class ProjectCompletedEvent(DomainEvent):
     tasks_completed: int = 0
     tasks_failed: int = 0
 
-    def __init__(self, aggregate_id: str, project_id: str, status: str, total_cost: float,
-                 tasks_completed: int = 0, tasks_failed: int = 0):
+    def __init__(
+        self,
+        aggregate_id: str,
+        project_id: str,
+        status: str,
+        total_cost: float,
+        tasks_completed: int = 0,
+        tasks_failed: int = 0,
+    ):
         super().__init__(
             event_type=EventType.PROJECT_COMPLETED,
             aggregate_id=aggregate_id,
@@ -153,7 +164,7 @@ class ProjectCompletedEvent(DomainEvent):
                 "total_cost": total_cost,
                 "tasks_completed": tasks_completed,
                 "tasks_failed": tasks_failed,
-            }
+            },
         )
 
 
@@ -171,7 +182,7 @@ class TaskStartedEvent(DomainEvent):
                 "task_id": task_id,
                 "task_type": task_type,
                 "model": model,
-            }
+            },
         )
 
 
@@ -181,8 +192,14 @@ class TaskCompletedEvent(DomainEvent):
     cost: float = 0.0
     duration_ms: int = 0
 
-    def __init__(self, aggregate_id: str, task_id: str, score: float = 0.0,
-                 cost: float = 0.0, duration_ms: int = 0):
+    def __init__(
+        self,
+        aggregate_id: str,
+        task_id: str,
+        score: float = 0.0,
+        cost: float = 0.0,
+        duration_ms: int = 0,
+    ):
         super().__init__(
             event_type=EventType.TASK_COMPLETED,
             aggregate_id=aggregate_id,
@@ -191,7 +208,7 @@ class TaskCompletedEvent(DomainEvent):
                 "score": score,
                 "cost": cost,
                 "duration_ms": duration_ms,
-            }
+            },
         )
 
 
@@ -208,7 +225,7 @@ class TaskFailedEvent(DomainEvent):
                 "task_id": task_id,
                 "error": error,
                 "will_retry": will_retry,
-            }
+            },
         )
 
 
@@ -218,8 +235,9 @@ class TaskProgressEvent(DomainEvent):
     score: float = 0.0
     message: str = ""
 
-    def __init__(self, aggregate_id: str, task_id: str, iteration: int,
-                 score: float, message: str = ""):
+    def __init__(
+        self, aggregate_id: str, task_id: str, iteration: int, score: float, message: str = ""
+    ):
         super().__init__(
             event_type=EventType.TASK_PROGRESS,
             aggregate_id=aggregate_id,
@@ -228,7 +246,7 @@ class TaskProgressEvent(DomainEvent):
                 "iteration": iteration,
                 "score": score,
                 "message": message,
-            }
+            },
         )
 
 
@@ -246,7 +264,7 @@ class ModelSelectedEvent(DomainEvent):
                 "task_id": task_id,
                 "model": model,
                 "reason": reason,
-            }
+            },
         )
 
 
@@ -264,7 +282,7 @@ class FallbackTriggeredEvent(DomainEvent):
                 "original_model": original_model,
                 "fallback_model": fallback_model,
                 "reason": reason,
-            }
+            },
         )
 
 
@@ -275,8 +293,13 @@ class CapabilityUsedEvent(DomainEvent):
     project_id: str = ""
     parameters: dict[str, Any] = field(default_factory=dict)
 
-    def __init__(self, aggregate_id: str, capability: str, project_id: str = "",
-                 parameters: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        aggregate_id: str,
+        capability: str,
+        project_id: str = "",
+        parameters: dict[str, Any] | None = None,
+    ):
         super().__init__(
             event_type=EventType.CAPABILITY_USED,
             aggregate_id=aggregate_id,
@@ -284,7 +307,7 @@ class CapabilityUsedEvent(DomainEvent):
                 "capability": capability,
                 "project_id": project_id,
                 "parameters": parameters or {},
-            }
+            },
         )
 
 
@@ -294,8 +317,9 @@ class CapabilityCompletedEvent(DomainEvent):
     duration_ms: int = 0
     result_summary: str = ""
 
-    def __init__(self, aggregate_id: str, capability: str, duration_ms: int = 0,
-                 result_summary: str = ""):
+    def __init__(
+        self, aggregate_id: str, capability: str, duration_ms: int = 0, result_summary: str = ""
+    ):
         super().__init__(
             event_type=EventType.CAPABILITY_COMPLETED,
             aggregate_id=aggregate_id,
@@ -303,7 +327,7 @@ class CapabilityCompletedEvent(DomainEvent):
                 "capability": capability,
                 "duration_ms": duration_ms,
                 "result_summary": result_summary,
-            }
+            },
         )
 
 
@@ -324,13 +348,14 @@ class BudgetWarningEvent(DomainEvent):
                 "spent": spent,
                 "cap": cap,
                 "ratio": ratio,
-            }
+            },
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Event Store
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class EventStore:
     """
@@ -345,7 +370,7 @@ class EventStore:
 
     def _get_conn(self) -> sqlite3.Connection:
         """Get thread-local connection."""
-        if not hasattr(self._local, 'conn') or self._local.conn is None:
+        if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(str(self.db_path))
             self._local.conn.row_factory = sqlite3.Row
         return self._local.conn
@@ -377,14 +402,21 @@ class EventStore:
         conn = self._get_conn()
         conn.execute(
             "INSERT INTO events (event_type, aggregate_id, timestamp, data) VALUES (?, ?, ?, ?)",
-            (event.event_type.name, event.aggregate_id,
-             event.timestamp.isoformat(), json.dumps(event.to_dict()))
+            (
+                event.event_type.name,
+                event.aggregate_id,
+                event.timestamp.isoformat(),
+                json.dumps(event.to_dict()),
+            ),
         )
         conn.commit()
 
-    def get_events(self, aggregate_id: str | None = None,
-                   event_type: EventType | None = None,
-                   since: datetime | None = None) -> list[DomainEvent]:
+    def get_events(
+        self,
+        aggregate_id: str | None = None,
+        event_type: EventType | None = None,
+        since: datetime | None = None,
+    ) -> list[DomainEvent]:
         """Query events with filters."""
         conn = self._get_conn()
         query = "SELECT data FROM events WHERE 1=1"
@@ -422,6 +454,7 @@ if TYPE_CHECKING:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Projections (Read Models)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class Projection(ABC):
     """Base class for read model projections."""
@@ -500,7 +533,8 @@ class ProjectStateProjection(Projection):
 
     def get_active_tasks(self, project_id: str) -> list[dict[str, Any]]:
         return [
-            self.tasks[tid] for tid in self.projects.get(project_id, {}).get("tasks", [])
+            self.tasks[tid]
+            for tid in self.projects.get(project_id, {}).get("tasks", [])
             if self.tasks.get(tid, {}).get("status") == "running"
         ]
 
@@ -537,6 +571,7 @@ class MetricsProjection(Projection):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Unified Event Bus
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class UnifiedEventBus:
     """
@@ -660,8 +695,9 @@ class UnifiedEventBus:
 
     # Convenience methods for common events
 
-    async def log_capability(self, capability: str, project_id: str = "",
-                            parameters: dict[str, Any] | None = None) -> None:
+    async def log_capability(
+        self, capability: str, project_id: str = "", parameters: dict[str, Any] | None = None
+    ) -> None:
         """Log capability usage (replaces capability_logger.py)."""
         event = CapabilityUsedEvent(
             aggregate_id=f"capability:{capability}:{datetime.utcnow().isoformat()}",
@@ -671,8 +707,9 @@ class UnifiedEventBus:
         )
         await self.publish(event)
 
-    async def log_task_progress(self, task_id: str, iteration: int,
-                                score: float, message: str = "") -> None:
+    async def log_task_progress(
+        self, task_id: str, iteration: int, score: float, message: str = ""
+    ) -> None:
         """Log task progress update."""
         event = TaskProgressEvent(
             aggregate_id=task_id,
@@ -702,13 +739,14 @@ class UnifiedEventBus:
 # Global Instance & Convenience Functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def get_event_bus() -> UnifiedEventBus:
     """Get the global event bus instance."""
     return await UnifiedEventBus.get_instance()
 
 
 # Context variable for automatic event tracking
-_current_project: ContextVar[str | None] = ContextVar('current_project', default=None)
+_current_project: ContextVar[str | None] = ContextVar("current_project", default=None)
 
 
 def set_current_project(project_id: str) -> None:
@@ -724,6 +762,7 @@ def get_current_project() -> str | None:
 # Decorator for automatic capability logging
 def log_capability_use(capability_name: str):
     """Decorator to automatically log capability usage."""
+
     def decorator(func):
         async def wrapper(*args, **kwargs):
             bus = await get_event_bus()
@@ -738,21 +777,27 @@ def log_capability_use(capability_name: str):
 
                 # Log completion
                 duration = (datetime.utcnow() - start_time).total_seconds() * 1000
-                await bus.publish(CapabilityCompletedEvent(
-                    aggregate_id=f"capability:{capability_name}:{start_time.isoformat()}",
-                    capability=capability_name,
-                    duration_ms=int(duration),
-                    result_summary="success",
-                ))
+                await bus.publish(
+                    CapabilityCompletedEvent(
+                        aggregate_id=f"capability:{capability_name}:{start_time.isoformat()}",
+                        capability=capability_name,
+                        duration_ms=int(duration),
+                        result_summary="success",
+                    )
+                )
 
                 return result
             except Exception as e:
                 # Log failure
-                await bus.publish(DomainEvent(
-                    event_type=EventType.CAPABILITY_FAILED,
-                    aggregate_id=f"capability:{capability_name}:{start_time.isoformat()}",
-                    metadata={"capability": capability_name, "error": str(e)},
-                ))
+                await bus.publish(
+                    DomainEvent(
+                        event_type=EventType.CAPABILITY_FAILED,
+                        aggregate_id=f"capability:{capability_name}:{start_time.isoformat()}",
+                        metadata={"capability": capability_name, "error": str(e)},
+                    )
+                )
                 raise
+
         return wrapper
+
     return decorator

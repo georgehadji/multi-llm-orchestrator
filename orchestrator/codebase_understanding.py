@@ -75,15 +75,12 @@ class CodebaseUnderstanding:
 
         return contents
 
-    def _build_analysis_prompt(
-        self, codebase_map, key_file_contents: dict[str, str]
-    ) -> str:
+    def _build_analysis_prompt(self, codebase_map, key_file_contents: dict[str, str]) -> str:
         """Build prompt for LLM analysis"""
 
-        file_section = "\n\n".join([
-            f"### {name}\n```\n{content}\n```"
-            for name, content in key_file_contents.items()
-        ])
+        file_section = "\n\n".join(
+            [f"### {name}\n```\n{content}\n```" for name, content in key_file_contents.items()]
+        )
 
         prompt = f"""Analyze this codebase and provide semantic understanding:
 
@@ -138,7 +135,7 @@ Return as JSON:
             # Parse JSON response
             response_text = response.text
             # Extract JSON from response (handle markdown fences)
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
             if json_match:
                 try:
                     data = json.loads(json_match.group())

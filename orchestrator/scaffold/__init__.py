@@ -7,6 +7,7 @@ Usage:
     scaffold_dict = engine.scaffold(profile, output_dir)
     # scaffold_dict: dict[str, str] — relative path -> file content
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Map app_type -> template FILES dict
 _TEMPLATE_MAP: dict[str, dict[str, str]] = {
     "fastapi": fastapi.FILES,
-    "flask": generic.FILES,   # use generic as fallback for flask
+    "flask": generic.FILES,  # use generic as fallback for flask
     "cli": cli.FILES,
     "library": library.FILES,
     "script": generic.FILES,

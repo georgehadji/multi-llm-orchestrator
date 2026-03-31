@@ -32,11 +32,12 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Lifecycle(Enum):
     """Dependency lifecycle types."""
+
     SINGLETON = auto()
     SCOPED = auto()
     TRANSIENT = auto()
@@ -45,6 +46,7 @@ class Lifecycle(Enum):
 @dataclass
 class Registration:
     """Registration of a service in the container."""
+
     interface: type
     implementation: type | None = None
     factory: Callable[..., Any] | None = None
@@ -80,7 +82,7 @@ class Scope:
             instance = self.container._create_instance(registration, self)
             self._instances[interface] = instance
 
-            if hasattr(instance, 'close') or hasattr(instance, '__aexit__'):
+            if hasattr(instance, "close") or hasattr(instance, "__aexit__"):
                 self._disposables.append(instance)
 
             return instance
@@ -91,11 +93,11 @@ class Scope:
         """Close the scope and dispose all scoped instances."""
         for instance in self._disposables:
             try:
-                if hasattr(instance, '__aexit__'):
+                if hasattr(instance, "__aexit__"):
                     await instance.__aexit__(None, None, None)
-                elif hasattr(instance, '__exit__'):
+                elif hasattr(instance, "__exit__"):
                     instance.__exit__(None, None, None)
-                elif hasattr(instance, 'close'):
+                elif hasattr(instance, "close"):
                     if inspect.iscoroutinefunction(instance.close):
                         await instance.close()
                     else:
@@ -120,7 +122,7 @@ class Container:
         interface: type[T],
         implementation: type | None = None,
         lifecycle: Lifecycle = Lifecycle.TRANSIENT,
-        **kwargs
+        **kwargs,
     ) -> Registration:
         """Register a service."""
         registration = Registration(
@@ -134,28 +136,19 @@ class Container:
         return registration
 
     def register_singleton(
-        self,
-        interface: type[T],
-        implementation: type | None = None,
-        **kwargs
+        self, interface: type[T], implementation: type | None = None, **kwargs
     ) -> Registration:
         """Register as singleton."""
         return self.register(interface, implementation, Lifecycle.SINGLETON, **kwargs)
 
     def register_scoped(
-        self,
-        interface: type[T],
-        implementation: type | None = None,
-        **kwargs
+        self, interface: type[T], implementation: type | None = None, **kwargs
     ) -> Registration:
         """Register as scoped."""
         return self.register(interface, implementation, Lifecycle.SCOPED, **kwargs)
 
     def register_transient(
-        self,
-        interface: type[T],
-        implementation: type | None = None,
-        **kwargs
+        self, interface: type[T], implementation: type | None = None, **kwargs
     ) -> Registration:
         """Register as transient."""
         return self.register(interface, implementation, Lifecycle.TRANSIENT, **kwargs)
@@ -259,7 +252,7 @@ class Container:
         kwargs = dict(additional_kwargs)
 
         for name, param in sig.parameters.items():
-            if name == 'self':
+            if name == "self":
                 continue
             if name in kwargs:
                 continue

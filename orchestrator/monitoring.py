@@ -16,6 +16,7 @@ Usage:
     async def get_models():
         return await fetch_models()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,17 +52,20 @@ T = TypeVar("T")
 # KPI DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class KPITier(Enum):
     """KPI criticality tiers."""
+
     CRITICAL = "critical"  # Page on failure
-    HIGH = "high"          # Alert immediately
-    MEDIUM = "medium"      # Daily report
-    LOW = "low"            # Weekly report
+    HIGH = "high"  # Alert immediately
+    MEDIUM = "medium"  # Daily report
+    LOW = "low"  # Weekly report
 
 
 @dataclass
 class KPIThreshold:
     """Threshold configuration for a KPI."""
+
     warning: float
     critical: float
     unit: str
@@ -78,6 +82,7 @@ class KPIThreshold:
 @dataclass
 class KPIDefinition:
     """Definition of a Key Performance Indicator."""
+
     name: str
     description: str
     tier: KPITier
@@ -128,7 +133,6 @@ STANDARD_KPIS = {
         threshold=KPIThreshold(warning=10, critical=100, unit="req/s"),
         target_value=50,
     ),
-
     # Reliability KPIs
     "error_rate": KPIDefinition(
         name="Error Rate",
@@ -151,7 +155,6 @@ STANDARD_KPIS = {
         threshold=KPIThreshold(warning=0.5, critical=0.3, unit="percent"),
         target_value=0.85,
     ),
-
     # Cost KPIs
     "daily_cost": KPIDefinition(
         name="Daily API Cost",
@@ -167,7 +170,6 @@ STANDARD_KPIS = {
         threshold=KPIThreshold(warning=0.3, critical=0.2, unit="ratio"),
         target_value=0.5,
     ),
-
     # Resource KPIs
     "memory_usage": KPIDefinition(
         name="Memory Usage",
@@ -190,9 +192,11 @@ STANDARD_KPIS = {
 # METRICS COLLECTION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class MetricSample:
     """Single metric sample."""
+
     value: float
     timestamp: float
     labels: dict[str, str] = field(default_factory=dict)
@@ -299,7 +303,9 @@ class MetricsRegistry:
         all_metrics = {}
 
         async with self._lock:
-            names = list(self._windows.keys()) + list(self._counters.keys()) + list(self._gauges.keys())
+            names = (
+                list(self._windows.keys()) + list(self._counters.keys()) + list(self._gauges.keys())
+            )
 
         for name in set(names):
             all_metrics[name] = await self.get_metric(name)
@@ -314,6 +320,7 @@ metrics = MetricsRegistry()
 # ═══════════════════════════════════════════════════════════════════════════════
 # KPI REPORTER
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class KPIReporter:
     """
@@ -357,7 +364,11 @@ class KPIReporter:
                 "kpi": kpi_name,
                 "severity": severity,
                 "value": value,
-                "threshold": definition.threshold.critical if severity == "critical" else definition.threshold.warning,
+                "threshold": (
+                    definition.threshold.critical
+                    if severity == "critical"
+                    else definition.threshold.warning
+                ),
             }
             self._alert_history.append(alert)
 
@@ -392,19 +403,25 @@ class KPIReporter:
                     score = 100
 
                 scores.append(score)
-                details.append({
-                    "kpi": kpi_name,
-                    "score": score,
-                    "current": current_value,
-                    "target": definition.target_value,
-                })
+                details.append(
+                    {
+                        "kpi": kpi_name,
+                        "score": score,
+                        "current": current_value,
+                        "target": definition.target_value,
+                    }
+                )
 
         overall_score = sum(scores) / len(scores) if scores else 100
         self._health_score = overall_score
 
         return {
             "overall": round(overall_score, 1),
-            "status": "healthy" if overall_score >= 90 else "degraded" if overall_score >= 70 else "critical",
+            "status": (
+                "healthy"
+                if overall_score >= 90
+                else "degraded" if overall_score >= 70 else "critical"
+            ),
             "details": details,
             "timestamp": datetime.now().isoformat(),
         }
@@ -414,7 +431,8 @@ class KPIReporter:
         cutoff = time.time() - (since_minutes * 60)
 
         recent_alerts = [
-            a for a in self._alert_history
+            a
+            for a in self._alert_history
             if datetime.fromisoformat(a["timestamp"]).timestamp() > cutoff
         ]
 
@@ -469,7 +487,7 @@ class KPIReporter:
             return {
                 "cpu_percent": psutil.cpu_percent(),
                 "memory_percent": psutil.virtual_memory().percent,
-                "disk_percent": psutil.disk_usage('/').percent,
+                "disk_percent": psutil.disk_usage("/").percent,
                 "network_io": psutil.net_io_counters()._asdict(),
             }
         except ImportError:
@@ -483,6 +501,7 @@ class KPIReporter:
 # ═══════════════════════════════════════════════════════════════════════════════
 # MONITORING DECORATORS
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def monitor_endpoint(name: str | None = None):
     """
@@ -498,6 +517,7 @@ def monitor_endpoint(name: str | None = None):
         async def get_models():
             return await fetch_models()
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         endpoint_name = name or func.__name__
 
@@ -510,8 +530,12 @@ def monitor_endpoint(name: str | None = None):
 
                 # Record success
                 response_time = (time.time() - start_time) * 1000
-                await metrics.record("response_time_p50", response_time, {"endpoint": endpoint_name})
-                await metrics.record("response_time_p95", response_time, {"endpoint": endpoint_name})
+                await metrics.record(
+                    "response_time_p50", response_time, {"endpoint": endpoint_name}
+                )
+                await metrics.record(
+                    "response_time_p95", response_time, {"endpoint": endpoint_name}
+                )
                 await metrics.increment(f"requests_total:{endpoint_name}")
 
                 return result
@@ -529,6 +553,7 @@ def monitor_endpoint(name: str | None = None):
             return func(*args, **kwargs)
 
         return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+
     return decorator
 
 
@@ -541,6 +566,7 @@ def monitor_async_task(name: str | None = None):
         async def route_model(task):
             # ... routing logic
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         task_name = name or func.__name__
 
@@ -562,12 +588,14 @@ def monitor_async_task(name: str | None = None):
                 raise
 
         return wrapper
+
     return decorator
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HEALTH CHECK
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class HealthChecker:
     """Comprehensive health check for the orchestrator."""
@@ -622,6 +650,7 @@ health_checker = HealthChecker()
 # ═══════════════════════════════════════════════════════════════════════════════
 # EXAMPLE USAGE
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def example():
     """Example monitoring usage."""

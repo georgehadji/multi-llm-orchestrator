@@ -48,15 +48,17 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Saga State and Types
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class SagaState(Enum):
     """States of a saga execution."""
+
     PENDING = auto()
     RUNNING = auto()
     COMPENSATING = auto()
@@ -67,6 +69,7 @@ class SagaState(Enum):
 
 class SagaStatus(Enum):
     """Final status of a saga."""
+
     SUCCESS = "success"
     FAILURE = "failure"
     PARTIAL = "partial"  # Some steps succeeded, then failed and compensated
@@ -76,33 +79,37 @@ class SagaStatus(Enum):
 # Saga Events
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class SagaStartedEvent(DomainEvent):
     """Emitted when a saga starts."""
+
     saga_id: str = ""
     saga_type: str = ""
     step_count: int = 0
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'saga.started')
+        object.__setattr__(self, "event_type", "saga.started")
 
 
 @dataclass
 class SagaStepStartedEvent(DomainEvent):
     """Emitted when a saga step starts."""
+
     saga_id: str = ""
     step_name: str = ""
     step_index: int = 0
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'saga.step_started')
+        object.__setattr__(self, "event_type", "saga.step_started")
 
 
 @dataclass
 class SagaStepCompletedEvent(DomainEvent):
     """Emitted when a saga step completes."""
+
     saga_id: str = ""
     step_name: str = ""
     step_index: int = 0
@@ -110,12 +117,13 @@ class SagaStepCompletedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'saga.step_completed')
+        object.__setattr__(self, "event_type", "saga.step_completed")
 
 
 @dataclass
 class SagaStepFailedEvent(DomainEvent):
     """Emitted when a saga step fails."""
+
     saga_id: str = ""
     step_name: str = ""
     step_index: int = 0
@@ -123,36 +131,39 @@ class SagaStepFailedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'saga.step_failed')
+        object.__setattr__(self, "event_type", "saga.step_failed")
 
 
 @dataclass
 class SagaCompensatingEvent(DomainEvent):
     """Emitted when saga starts compensating."""
+
     saga_id: str = ""
     failed_step: str = ""
     steps_to_compensate: int = 0
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'saga.compensating')
+        object.__setattr__(self, "event_type", "saga.compensating")
 
 
 @dataclass
 class SagaCompensationStepEvent(DomainEvent):
     r"""Emitted when a compensation step runs."""
+
     saga_id: str = ""
     step_name: str = ""
     success: bool = True
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'saga.compensation_step')
+        object.__setattr__(self, "event_type", "saga.compensation_step")
 
 
 @dataclass
 class SagaCompletedEvent(DomainEvent):
     """Emitted when a saga completes."""
+
     saga_id: str = ""
     status: str = ""  # success, failure, partial
     steps_succeeded: int = 0
@@ -162,12 +173,13 @@ class SagaCompletedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'saga.completed')
+        object.__setattr__(self, "event_type", "saga.completed")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Saga Action Interface
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class SagaAction(ABC):
     """Abstract base class for saga actions."""
@@ -202,6 +214,7 @@ class SagaCompensation(ABC):
 @dataclass
 class SagaActionResult:
     """Result of a saga action."""
+
     success: bool
     result: Any = None
     error: str | None = None
@@ -211,6 +224,7 @@ class SagaActionResult:
 @dataclass
 class SagaContext:
     """Context passed through saga execution."""
+
     saga_id: str
     data: dict[str, Any] = field(default_factory=dict)
     step_results: list[SagaStepResult] = field(default_factory=list)
@@ -228,6 +242,7 @@ class SagaContext:
 @dataclass
 class SagaStepResult:
     """Result of executing a saga step."""
+
     step_name: str
     success: bool
     result: Any = None
@@ -248,9 +263,11 @@ class SagaStepResult:
 # Saga Step
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class SagaStep:
     """A single step in a saga."""
+
     name: str
     action: SagaAction
     compensation: SagaCompensation | None = None
@@ -329,9 +346,11 @@ class SagaStep:
 # Saga Orchestrator
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class SagaResult:
     """Final result of saga execution."""
+
     success: bool
     status: SagaStatus
     context: SagaContext
@@ -391,12 +410,14 @@ class Saga:
         )
 
         # Emit saga started event
-        await self._emit_event(SagaStartedEvent(
-            aggregate_id=self.saga_id,
-            saga_id=self.saga_id,
-            saga_type=self.saga_type,
-            step_count=len(self.steps),
-        ))
+        await self._emit_event(
+            SagaStartedEvent(
+                aggregate_id=self.saga_id,
+                saga_id=self.saga_id,
+                saga_type=self.saga_type,
+                step_count=len(self.steps),
+            )
+        )
 
         step_results: list[SagaStepResult] = []
 
@@ -404,12 +425,14 @@ class Saga:
             # Execute each step
             for i, step in enumerate(self.steps):
                 # Emit step started
-                await self._emit_event(SagaStepStartedEvent(
-                    aggregate_id=self.saga_id,
-                    saga_id=self.saga_id,
-                    step_name=step.name,
-                    step_index=i,
-                ))
+                await self._emit_event(
+                    SagaStepStartedEvent(
+                        aggregate_id=self.saga_id,
+                        saga_id=self.saga_id,
+                        step_name=step.name,
+                        step_index=i,
+                    )
+                )
 
                 # Execute step
                 result = await step.execute(context)
@@ -418,41 +441,53 @@ class Saga:
 
                 if result.success:
                     # Emit step completed
-                    await self._emit_event(SagaStepCompletedEvent(
-                        aggregate_id=self.saga_id,
-                        saga_id=self.saga_id,
-                        step_name=step.name,
-                        step_index=i,
-                        result=result.result,
-                    ))
+                    await self._emit_event(
+                        SagaStepCompletedEvent(
+                            aggregate_id=self.saga_id,
+                            saga_id=self.saga_id,
+                            step_name=step.name,
+                            step_index=i,
+                            result=result.result,
+                        )
+                    )
                 else:
                     # Step failed - emit event and compensate
-                    await self._emit_event(SagaStepFailedEvent(
-                        aggregate_id=self.saga_id,
-                        saga_id=self.saga_id,
-                        step_name=step.name,
-                        step_index=i,
-                        error=result.error or "Unknown error",
-                    ))
+                    await self._emit_event(
+                        SagaStepFailedEvent(
+                            aggregate_id=self.saga_id,
+                            saga_id=self.saga_id,
+                            step_name=step.name,
+                            step_index=i,
+                            error=result.error or "Unknown error",
+                        )
+                    )
 
                     # Compensate completed steps
                     await self._compensate(context, step_results)
 
                     duration = (datetime.utcnow() - start_time).total_seconds()
 
-                    await self._emit_event(SagaCompletedEvent(
-                        aggregate_id=self.saga_id,
-                        saga_id=self.saga_id,
-                        status="partial" if self.steps_compensated(step_results) > 0 else "failure",
-                        steps_succeeded=self.steps_succeeded(step_results),
-                        steps_failed=1,
-                        steps_compensated=self.steps_compensated(step_results),
-                        duration_seconds=duration,
-                    ))
+                    await self._emit_event(
+                        SagaCompletedEvent(
+                            aggregate_id=self.saga_id,
+                            saga_id=self.saga_id,
+                            status=(
+                                "partial" if self.steps_compensated(step_results) > 0 else "failure"
+                            ),
+                            steps_succeeded=self.steps_succeeded(step_results),
+                            steps_failed=1,
+                            steps_compensated=self.steps_compensated(step_results),
+                            duration_seconds=duration,
+                        )
+                    )
 
                     return SagaResult(
                         success=False,
-                        status=SagaStatus.PARTIAL if self.steps_compensated(step_results) > 0 else SagaStatus.FAILURE,
+                        status=(
+                            SagaStatus.PARTIAL
+                            if self.steps_compensated(step_results) > 0
+                            else SagaStatus.FAILURE
+                        ),
                         context=context,
                         step_results=step_results,
                         duration_seconds=duration,
@@ -463,15 +498,17 @@ class Saga:
             self.state = SagaState.COMPLETED
             duration = (datetime.utcnow() - start_time).total_seconds()
 
-            await self._emit_event(SagaCompletedEvent(
-                aggregate_id=self.saga_id,
-                saga_id=self.saga_id,
-                status="success",
-                steps_succeeded=len(self.steps),
-                steps_failed=0,
-                steps_compensated=0,
-                duration_seconds=duration,
-            ))
+            await self._emit_event(
+                SagaCompletedEvent(
+                    aggregate_id=self.saga_id,
+                    saga_id=self.saga_id,
+                    status="success",
+                    steps_succeeded=len(self.steps),
+                    steps_failed=0,
+                    steps_compensated=0,
+                    duration_seconds=duration,
+                )
+            )
 
             return SagaResult(
                 success=True,
@@ -491,15 +528,17 @@ class Saga:
 
             duration = (datetime.utcnow() - start_time).total_seconds()
 
-            await self._emit_event(SagaCompletedEvent(
-                aggregate_id=self.saga_id,
-                saga_id=self.saga_id,
-                status="failure",
-                steps_succeeded=self.steps_succeeded(step_results),
-                steps_failed=len(self.steps) - self.steps_succeeded(step_results),
-                steps_compensated=self.steps_compensated(step_results),
-                duration_seconds=duration,
-            ))
+            await self._emit_event(
+                SagaCompletedEvent(
+                    aggregate_id=self.saga_id,
+                    saga_id=self.saga_id,
+                    status="failure",
+                    steps_succeeded=self.steps_succeeded(step_results),
+                    steps_failed=len(self.steps) - self.steps_succeeded(step_results),
+                    steps_compensated=self.steps_compensated(step_results),
+                    duration_seconds=duration,
+                )
+            )
 
             return SagaResult(
                 success=False,
@@ -530,12 +569,14 @@ class Saga:
             return
 
         # Emit compensating event
-        await self._emit_event(SagaCompensatingEvent(
-            aggregate_id=self.saga_id,
-            saga_id=self.saga_id,
-            failed_step=step_results[-1].step_name if step_results else "",
-            steps_to_compensate=len(completed_steps),
-        ))
+        await self._emit_event(
+            SagaCompensatingEvent(
+                aggregate_id=self.saga_id,
+                saga_id=self.saga_id,
+                failed_step=step_results[-1].step_name if step_results else "",
+                steps_to_compensate=len(completed_steps),
+            )
+        )
 
         # Compensate in reverse order
         for step, result in reversed(completed_steps):
@@ -546,24 +587,28 @@ class Saga:
                 success = await step.compensate(context, result.result)
                 result.compensated = success
 
-                await self._emit_event(SagaCompensationStepEvent(
-                    aggregate_id=self.saga_id,
-                    saga_id=self.saga_id,
-                    step_name=step.name,
-                    success=success,
-                ))
+                await self._emit_event(
+                    SagaCompensationStepEvent(
+                        aggregate_id=self.saga_id,
+                        saga_id=self.saga_id,
+                        step_name=step.name,
+                        success=success,
+                    )
+                )
 
             except Exception as e:
                 logger.error(f"Compensation error for step {step.name}: {e}")
                 result.compensated = False
                 result.compensation_error = str(e)
 
-                await self._emit_event(SagaCompensationStepEvent(
-                    aggregate_id=self.saga_id,
-                    saga_id=self.saga_id,
-                    step_name=step.name,
-                    success=False,
-                ))
+                await self._emit_event(
+                    SagaCompensationStepEvent(
+                        aggregate_id=self.saga_id,
+                        saga_id=self.saga_id,
+                        step_name=step.name,
+                        success=False,
+                    )
+                )
 
     def steps_succeeded(self, step_results: list[SagaStepResult]) -> int:
         """Count succeeded steps."""
@@ -584,6 +629,7 @@ class Saga:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Pre-built Actions for Common Use Cases
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class FunctionAction(SagaAction):
     """Action that wraps a function."""
@@ -618,6 +664,7 @@ class FunctionCompensation(SagaCompensation):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Project Execution Saga
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class ProjectExecutionSaga:
     """
@@ -669,6 +716,7 @@ class ProjectExecutionSaga:
 
 
 # Placeholder actions for project execution saga
+
 
 class EnhanceProjectAction(SagaAction):
     def __init__(self, orchestrator: Any, description: str):
@@ -740,6 +788,7 @@ class NoOpCompensation(SagaCompensation):
 # Example Usage
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def example():
     """Example saga usage."""
 
@@ -760,6 +809,7 @@ async def example():
         async def execute(self, context: SagaContext) -> SagaActionResult:
             # Simulate payment (sometimes fails)
             import random
+
             if random.random() < 0.5:
                 return SagaActionResult(success=False, error="Payment declined")
             return SagaActionResult(success=True, result={"payment_id": "PAY-456"})

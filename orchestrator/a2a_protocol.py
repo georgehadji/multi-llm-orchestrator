@@ -13,6 +13,7 @@ Usage:
     client = A2AClient(agent_endpoint="https://external-agent.example.com")
     result = await client.invoke_agent(task="summarize", data={"text": "..."})
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +32,7 @@ logger = logging.getLogger("orchestrator.a2a_protocol")
 
 class AgentType(Enum):
     """Types of external agents supported."""
+
     LANGGRAPH = "langgraph"
     VERTEX_AI = "vertex_ai"
     AZURE_AI = "azure_ai"
@@ -75,8 +77,13 @@ class A2AResponse:
 class A2AClient:
     """Client for communicating with external agents using the A2A protocol."""
 
-    def __init__(self, agent_endpoint: str, agent_type: AgentType = AgentType.CUSTOM_HTTP,
-                 api_key: str | None = None, timeout: float = 30.0):
+    def __init__(
+        self,
+        agent_endpoint: str,
+        agent_type: AgentType = AgentType.CUSTOM_HTTP,
+        api_key: str | None = None,
+        timeout: float = 30.0,
+    ):
         """
         Initialize the A2A client.
 
@@ -117,8 +124,9 @@ class A2AClient:
             await self.session.close()
         logger.info("A2A client disconnected")
 
-    async def invoke_agent(self, task: A2ATask | str,
-                          data: dict[str, Any] | None = None) -> A2AResponse:
+    async def invoke_agent(
+        self, task: A2ATask | str, data: dict[str, Any] | None = None
+    ) -> A2AResponse:
         """
         Invoke an external agent with a task.
 
@@ -137,6 +145,7 @@ class A2AClient:
             if not data:
                 raise ValueError("Data is required when task is a string")
             import uuid
+
             task = A2ATask(id=str(uuid.uuid4()), type=task, data=data)
 
         start_time = asyncio.get_event_loop().time()
@@ -160,23 +169,14 @@ class A2AClient:
         except Exception as e:
             execution_time = asyncio.get_event_loop().time() - start_time
             logger.error(f"A2A agent invocation failed: {e}")
-            return A2AResponse(
-                success=False,
-                error=str(e),
-                execution_time=execution_time
-            )
+            return A2AResponse(success=False, error=str(e), execution_time=execution_time)
 
     async def _invoke_langgraph_agent(self, task: A2ATask) -> A2AResponse:
         """Invoke a LangGraph agent."""
         # LangGraph typically uses a state graph that can be invoked via HTTP
         url = f"{self.agent_endpoint}/invoke"
 
-        payload = {
-            "input": task.data,
-            "config": {
-                "recursion_limit": 50
-            }
-        }
+        payload = {"input": task.data, "config": {"recursion_limit": 50}}
 
         try:
             async with self.session.post(url, json=payload) as response:
@@ -185,13 +185,13 @@ class A2AClient:
                     return A2AResponse(
                         success=True,
                         content=json.dumps(result.get("output", result)),
-                        metadata=result.get("metadata", {})
+                        metadata=result.get("metadata", {}),
                     )
                 else:
                     error_text = await response.text()
                     return A2AResponse(
                         success=False,
-                        error=f"LangGraph agent returned status {response.status}: {error_text}"
+                        error=f"LangGraph agent returned status {response.status}: {error_text}",
                     )
         except Exception as e:
             return A2AResponse(success=False, error=str(e))
@@ -202,16 +202,11 @@ class A2AClient:
         url = f"{self.agent_endpoint}:predict"
 
         # Format the task for Vertex AI
-        instance = {
-            "prompt": self._format_task_for_vertex_ai(task)
-        }
+        instance = {"prompt": self._format_task_for_vertex_ai(task)}
 
         payload = {
             "instances": [instance],
-            "parameters": {
-                "temperature": 0.7,
-                "maxOutputTokens": 1024
-            }
+            "parameters": {"temperature": 0.7, "maxOutputTokens": 1024},
         }
 
         try:
@@ -228,7 +223,7 @@ class A2AClient:
                     error_text = await response.text()
                     return A2AResponse(
                         success=False,
-                        error=f"Vertex AI agent returned status {response.status}: {error_text}"
+                        error=f"Vertex AI agent returned status {response.status}: {error_text}",
                     )
         except Exception as e:
             return A2AResponse(success=False, error=str(e))
@@ -241,14 +236,10 @@ class A2AClient:
         # Format the task as a conversation
         messages = [
             {"role": "system", "content": "You are an AI assistant that helps with various tasks."},
-            {"role": "user", "content": self._format_task_for_azure(task)}
+            {"role": "user", "content": self._format_task_for_azure(task)},
         ]
 
-        payload = {
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 1024
-        }
+        payload = {"messages": messages, "temperature": 0.7, "max_tokens": 1024}
 
         try:
             async with self.session.post(url, json=payload) as response:
@@ -264,7 +255,7 @@ class A2AClient:
                     error_text = await response.text()
                     return A2AResponse(
                         success=False,
-                        error=f"Azure AI agent returned status {response.status}: {error_text}"
+                        error=f"Azure AI agent returned status {response.status}: {error_text}",
                     )
         except Exception as e:
             return A2AResponse(success=False, error=str(e))
@@ -274,12 +265,7 @@ class A2AClient:
         # Create a thread for the task
         thread_url = f"{self.agent_endpoint}/threads"
         thread_payload = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": self._format_task_for_openai_assistant(task)
-                }
-            ]
+            "messages": [{"role": "user", "content": self._format_task_for_openai_assistant(task)}]
         }
 
         try:
@@ -288,7 +274,7 @@ class A2AClient:
                     error_text = await thread_response.text()
                     return A2AResponse(
                         success=False,
-                        error=f"Failed to create thread: {thread_response.status} - {error_text}"
+                        error=f"Failed to create thread: {thread_response.status} - {error_text}",
                     )
 
                 thread_data = await thread_response.json()
@@ -297,7 +283,9 @@ class A2AClient:
                 # Run the assistant
                 run_url = f"{self.agent_endpoint}/threads/{thread_id}/runs"
                 run_payload = {
-                    "assistant_id": task.data.get("assistant_id")  # Expect assistant_id in task data
+                    "assistant_id": task.data.get(
+                        "assistant_id"
+                    )  # Expect assistant_id in task data
                 }
 
                 async with self.session.post(run_url, json=run_payload) as run_response:
@@ -305,7 +293,7 @@ class A2AClient:
                         error_text = await run_response.text()
                         return A2AResponse(
                             success=False,
-                            error=f"Failed to start run: {run_response.status} - {error_text}"
+                            error=f"Failed to start run: {run_response.status} - {error_text}",
                         )
 
                     run_data = await run_response.json()
@@ -322,7 +310,7 @@ class A2AClient:
                                 error_text = await status_response.text()
                                 return A2AResponse(
                                     success=False,
-                                    error=f"Failed to get run status: {status_response.status} - {error_text}"
+                                    error=f"Failed to get run status: {status_response.status} - {error_text}",
                                 )
 
                             status_data = await status_response.json()
@@ -336,21 +324,26 @@ class A2AClient:
                                 error_text = await messages_response.text()
                                 return A2AResponse(
                                     success=False,
-                                    error=f"Failed to get messages: {messages_response.status} - {error_text}"
+                                    error=f"Failed to get messages: {messages_response.status} - {error_text}",
                                 )
 
                             messages_data = await messages_response.json()
                             # Get the latest assistant message
                             assistant_messages = [
-                                msg for msg in messages_data["data"]
-                                if msg["role"] == "assistant"
+                                msg for msg in messages_data["data"] if msg["role"] == "assistant"
                             ]
 
                             if assistant_messages:
-                                content = assistant_messages[0]["content"][0].get("text", {}).get("value", "")
+                                content = (
+                                    assistant_messages[0]["content"][0]
+                                    .get("text", {})
+                                    .get("value", "")
+                                )
                                 return A2AResponse(success=True, content=content)
                             else:
-                                return A2AResponse(success=False, error="No assistant messages found")
+                                return A2AResponse(
+                                    success=False, error="No assistant messages found"
+                                )
                     else:
                         return A2AResponse(success=False, error=f"Run failed with status: {status}")
         except Exception as e:
@@ -365,7 +358,7 @@ class A2AClient:
             "task_id": task.id,
             "task_type": task.type,
             "data": task.data,
-            "metadata": task.metadata or {}
+            "metadata": task.metadata or {},
         }
 
         try:
@@ -376,13 +369,13 @@ class A2AClient:
                         success=True,
                         content=result.get("content", json.dumps(result)),
                         tool_results=result.get("tool_results"),
-                        metadata=result.get("metadata")
+                        metadata=result.get("metadata"),
                     )
                 else:
                     error_text = await response.text()
                     return A2AResponse(
                         success=False,
-                        error=f"Custom agent returned status {response.status}: {error_text}"
+                        error=f"Custom agent returned status {response.status}: {error_text}",
                     )
         except Exception as e:
             return A2AResponse(success=False, error=str(e))
@@ -436,7 +429,9 @@ class A2AClient:
             return f"Using this context: {context}\n\nPlease answer: {question}"
         else:
             # Generic formatting
-            return f"Please help with this task: {task.type}. Here's the data: {json.dumps(task.data)}"
+            return (
+                f"Please help with this task: {task.type}. Here's the data: {json.dumps(task.data)}"
+            )
 
     async def batch_invoke_agents(self, tasks: list[A2ATask]) -> list[A2AResponse]:
         """
@@ -459,9 +454,7 @@ class A2AClient:
         processed_responses = []
         for response in responses:
             if isinstance(response, Exception):
-                processed_responses.append(
-                    A2AResponse(success=False, error=str(response))
-                )
+                processed_responses.append(A2AResponse(success=False, error=str(response)))
             else:
                 processed_responses.append(response)
 
@@ -479,7 +472,11 @@ class A2AClient:
 
         try:
             # Try to make a simple request to the endpoint
-            url = f"{self.agent_endpoint}/health" if not self.agent_endpoint.endswith('/health') else self.agent_endpoint
+            url = (
+                f"{self.agent_endpoint}/health"
+                if not self.agent_endpoint.endswith("/health")
+                else self.agent_endpoint
+            )
 
             async with self.session.get(url) as response:
                 return response.status == 200
@@ -496,7 +493,7 @@ class A2AClient:
         return {
             "endpoint": self.agent_endpoint,
             "type": self.agent_type.value,
-            "connected": self.session is not None
+            "connected": self.session is not None,
         }
 
 
@@ -520,8 +517,9 @@ class A2ACoordinator:
         self.agent_registry[agent_id] = client
         logger.info(f"Registered agent {agent_id} with coordinator")
 
-    async def distribute_task(self, task: A2ATask,
-                             agent_filter: list[str] | None = None) -> dict[str, A2AResponse]:
+    async def distribute_task(
+        self, task: A2ATask, agent_filter: list[str] | None = None
+    ) -> dict[str, A2AResponse]:
         """
         Distribute a task to multiple agents and collect responses.
 
@@ -535,16 +533,14 @@ class A2ACoordinator:
         # Determine which agents to use
         target_agents = self.agent_registry
         if agent_filter:
-            target_agents = {aid: client for aid, client in self.agent_registry.items()
-                             if aid in agent_filter}
+            target_agents = {
+                aid: client for aid, client in self.agent_registry.items() if aid in agent_filter
+            }
 
         # Create tasks for each agent
         agent_tasks = []
         for agent_id, client in target_agents.items():
-            agent_task = asyncio.create_task(
-                client.invoke_agent(task),
-                name=f"agent_{agent_id}"
-            )
+            agent_task = asyncio.create_task(client.invoke_agent(task), name=f"agent_{agent_id}")
             agent_tasks.append((agent_id, agent_task))
 
         # Execute all tasks concurrently
@@ -576,7 +572,7 @@ class A2ACoordinator:
         return {
             "total_agents": len(self.clients),
             "connected_agents": connected_agents,
-            "agent_ids": list(self.agent_registry.keys())
+            "agent_ids": list(self.agent_registry.keys()),
         }
 
 
@@ -599,8 +595,10 @@ def get_global_a2a_coordinator() -> A2ACoordinator:
 # tests/test_reliability_regression.py.
 # ---------------------------------------------------------------------------
 
+
 class TaskStatus(str, Enum):
     """Status of a dispatched inter-agent task."""
+
     SUBMITTED = "submitted"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -610,6 +608,7 @@ class TaskStatus(str, Enum):
 
 class AgentState(str, Enum):
     """Lifecycle state of a registered agent."""
+
     IDLE = "idle"
     BUSY = "busy"
     OFFLINE = "offline"
@@ -618,6 +617,7 @@ class AgentState(str, Enum):
 @dataclass
 class AgentCard:
     """Metadata card for a registered agent."""
+
     agent_id: str
     name: str = ""
     description: str = ""
@@ -629,6 +629,7 @@ class AgentCard:
 @dataclass
 class MessagePart:
     """Single content part inside a routing A2AMessage."""
+
     content: str
     type: str = "text"
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -643,6 +644,7 @@ _LLMConversationMessage = A2AMessage  # preserve old class under a private name
 @dataclass
 class A2AMessage:  # noqa: F811  (intentional re-definition for routing format)
     """Routing message passed through agent message queues."""
+
     id: str
     sender: str
     receiver: str
@@ -654,6 +656,7 @@ class A2AMessage:  # noqa: F811  (intentional re-definition for routing format)
 @dataclass
 class TaskSendRequest:
     """Request to dispatch a task to a target agent."""
+
     task_id: str
     target_agent: str = ""
     message: str = ""
@@ -669,6 +672,7 @@ class TaskResult:
     Optional fields (output, score, model_used) mirror orchestrator.models.TaskResult
     so that tests sharing this type can construct instances with those fields.
     """
+
     task_id: str
     status: TaskStatus = TaskStatus.COMPLETED
     result: Any = None
@@ -793,8 +797,7 @@ class A2AQueueManager:
         """
         now = _time.time()
         orphaned = [
-            tid for tid, deadline in list(self._response_timeouts.items())
-            if now >= deadline
+            tid for tid, deadline in list(self._response_timeouts.items()) if now >= deadline
         ]
         for tid in orphaned:
             item = self._pending_responses.pop(tid, None)

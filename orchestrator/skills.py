@@ -14,6 +14,7 @@ Usage:
     skill_manager.register_skill("calculate_sum", calculate_sum, ["numbers"])
     result = await skill_manager.execute_skill("calculate_sum", numbers=[1, 2, 3, 4])
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,9 +50,15 @@ class SkillManager:
         self.skill_history: list[dict[str, Any]] = []
         self.max_history = 100
 
-    def register_skill(self, name: str, func: Callable,
-                      parameters: list[str], required_params: list[str] = None,
-                      description: str = "", examples: list[dict[str, Any]] = None):
+    def register_skill(
+        self,
+        name: str,
+        func: Callable,
+        parameters: list[str],
+        required_params: list[str] = None,
+        description: str = "",
+        examples: list[dict[str, Any]] = None,
+    ):
         """
         Register a new skill.
 
@@ -89,15 +96,21 @@ class SkillManager:
             function=func,
             parameters=parameters,
             required_params=required_params,
-            examples=examples
+            examples=examples,
         )
 
         self.skills[name] = skill_def
         logger.info(f"Registered skill: {name}")
 
-    def register_async_skill(self, name: str, func: Callable,
-                           parameters: list[str], required_params: list[str] = None,
-                           description: str = "", examples: list[dict[str, Any]] = None):
+    def register_async_skill(
+        self,
+        name: str,
+        func: Callable,
+        parameters: list[str],
+        required_params: list[str] = None,
+        description: str = "",
+        examples: list[dict[str, Any]] = None,
+    ):
         """
         Register a new asynchronous skill.
 
@@ -144,7 +157,7 @@ class SkillManager:
             "skill_name": skill_name,
             "arguments": kwargs,
             "timestamp": asyncio.get_event_loop().time(),
-            "status": "started"
+            "status": "started",
         }
 
         try:
@@ -168,7 +181,7 @@ class SkillManager:
 
             # Trim history if it gets too long
             if len(self.skill_history) > self.max_history:
-                self.skill_history = self.skill_history[-self.max_history:]
+                self.skill_history = self.skill_history[-self.max_history :]
 
     async def _execute_function(self, func: Callable, **kwargs) -> Any:
         """Execute a function, handling both sync and async cases."""
@@ -191,7 +204,7 @@ class SkillManager:
                 "description": skill.description,
                 "parameters": skill.parameters,
                 "required_params": skill.required_params,
-                "examples": skill.examples
+                "examples": skill.examples,
             }
             for skill in self.skills.values()
         ]
@@ -247,7 +260,9 @@ class SkillManager:
             Dict with skill statistics
         """
         total_executions = len(self.skill_history)
-        successful_executions = sum(1 for record in self.skill_history if record.get("status") == "completed")
+        successful_executions = sum(
+            1 for record in self.skill_history if record.get("status") == "completed"
+        )
         failed_executions = total_executions - successful_executions
 
         # Count executions by skill
@@ -263,11 +278,12 @@ class SkillManager:
             "failed_executions": failed_executions,
             "success_rate": successful_executions / total_executions if total_executions > 0 else 0,
             "skill_execution_counts": skill_counts,
-            "history_size": len(self.skill_history)
+            "history_size": len(self.skill_history),
         }
 
-    def create_skill_from_function(self, func: Callable, name: str = None,
-                                  description: str = "") -> str:
+    def create_skill_from_function(
+        self, func: Callable, name: str = None, description: str = ""
+    ) -> str:
         """
         Automatically create and register a skill from a function.
 
@@ -299,7 +315,7 @@ class SkillManager:
             func=func,
             parameters=parameters,
             required_params=required_params,
-            description=description
+            description=description,
         )
 
         return skill_name
@@ -324,7 +340,7 @@ async def search_web(query: str, num_results: int = 5) -> list[dict[str, str]]:
         {
             "title": f"Result {i} for '{query}'",
             "url": f"https://example.com/result{i}",
-            "snippet": f"This is a mock snippet for result {i} of the search query '{query}'"
+            "snippet": f"This is a mock snippet for result {i} of the search query '{query}'",
         }
         for i in range(1, num_results + 1)
     ]
@@ -367,6 +383,7 @@ async def get_current_datetime(format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
         Current date and time as a string
     """
     from datetime import datetime
+
     current_time = datetime.now()
     return current_time.strftime(format_str)
 
@@ -383,8 +400,8 @@ global_skill_manager.register_async_skill(
     description="Search the web for information",
     examples=[
         {"query": "AI developments 2023", "num_results": 3},
-        {"query": "Python programming tutorials"}
-    ]
+        {"query": "Python programming tutorials"},
+    ],
 )
 
 global_skill_manager.register_async_skill(
@@ -393,10 +410,7 @@ global_skill_manager.register_async_skill(
     parameters=["expression"],
     required_params=["expression"],
     description="Calculate a mathematical expression",
-    examples=[
-        {"expression": "2 + 2"},
-        {"expression": "10 * 5"}
-    ]
+    examples=[{"expression": "2 + 2"}, {"expression": "10 * 5"}],
 )
 
 global_skill_manager.register_async_skill(
@@ -405,10 +419,7 @@ global_skill_manager.register_async_skill(
     parameters=["format_str"],
     required_params=[],
     description="Get the current date and time",
-    examples=[
-        {"format_str": "%Y-%m-%d"},
-        {"format_str": "%H:%M:%S"}
-    ]
+    examples=[{"format_str": "%Y-%m-%d"}, {"format_str": "%H:%M:%S"}],
 )
 
 

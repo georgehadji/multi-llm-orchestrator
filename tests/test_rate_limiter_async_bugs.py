@@ -7,6 +7,7 @@ BUG-NEW-002: `limits` captured once before the while loop; tier upgrades
              triggered by _update_tier_from_spend() were not reflected in
              subsequent RPM/TPM checks within the same acquire() call.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,10 +18,10 @@ import pytest
 
 from orchestrator.rate_limiter import GrokRateLimiter, RateLimitState, TierLimits
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _limiter_at_rpm_limit(remaining_window_secs: float = 1.0) -> GrokRateLimiter:
     """
@@ -32,9 +33,7 @@ def _limiter_at_rpm_limit(remaining_window_secs: float = 1.0) -> GrokRateLimiter
     rpm_limit = limiter.TIER_LIMITS[1].rpm  # 10
     limiter.state.current_rpm = rpm_limit
     # Set last_reset so the window expires after remaining_window_secs
-    limiter.state.last_reset = datetime.now() - timedelta(
-        seconds=60.0 - remaining_window_secs
-    )
+    limiter.state.last_reset = datetime.now() - timedelta(seconds=60.0 - remaining_window_secs)
     return limiter
 
 
@@ -90,9 +89,7 @@ async def test_concurrent_acquires_do_not_block_each_other():
 
     assert all(results), "All acquires should succeed"
     # Eight fast acquires under no limit should finish in well under 1 s
-    assert elapsed < 1.0, (
-        f"8 concurrent acquires took {elapsed:.2f}s — serialisation suspected"
-    )
+    assert elapsed < 1.0, f"8 concurrent acquires took {elapsed:.2f}s — serialisation suspected"
 
 
 # ---------------------------------------------------------------------------

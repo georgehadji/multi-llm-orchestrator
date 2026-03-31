@@ -1,6 +1,7 @@
 """
 Unit tests for ReferenceMonitor (B2).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -27,6 +28,7 @@ def _task(prompt: str = "do something", tech_context: str = "") -> Task:
 # Basic allow
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_allow_with_no_constraints():
     monitor = ReferenceMonitor()
     job = _job()
@@ -38,6 +40,7 @@ def test_allow_with_no_constraints():
 # ─────────────────────────────────────────────────────────────────────────────
 # no_training rule
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_no_training_blocks_training_prompt():
     monitor = ReferenceMonitor()
@@ -67,6 +70,7 @@ def test_no_training_blocks_gradient_mention():
 # ─────────────────────────────────────────────────────────────────────────────
 # eu_only rule
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_eu_only_denies_gpt_model_mention():
     monitor = ReferenceMonitor()
@@ -108,6 +112,7 @@ def test_eu_only_not_triggered_when_locality_us():
 # no_pii_logging rule
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_no_pii_logging_allows_non_pii_task():
     monitor = ReferenceMonitor()
     job = _job(
@@ -139,6 +144,7 @@ def test_no_pii_logging_denies_logging_validator_with_pii():
 # Unknown hard constraint — fail-closed
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_unknown_hard_constraint_denied():
     monitor = ReferenceMonitor()
     job = _job(constraints=Constraints(hard=["unknown_future_constraint"]))
@@ -151,12 +157,15 @@ def test_unknown_hard_constraint_denied():
 # Allow/deny rules
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_allow_deny_rule_deny():
     monitor = ReferenceMonitor()
     job = _job(inputs=InputSpec(data_locality="us"))
-    policy = PolicySpecV2(allow_deny_rules=[
-        {"effect": "deny", "when": "data_locality == us"},
-    ])
+    policy = PolicySpecV2(
+        allow_deny_rules=[
+            {"effect": "deny", "when": "data_locality == us"},
+        ]
+    )
     result = monitor.check(_task(), job, policy)
     assert result.decision == Decision.DENY
 
@@ -164,9 +173,11 @@ def test_allow_deny_rule_deny():
 def test_allow_deny_rule_allow():
     monitor = ReferenceMonitor()
     job = _job(inputs=InputSpec(data_locality="eu"))
-    policy = PolicySpecV2(allow_deny_rules=[
-        {"effect": "deny", "when": "data_locality == us"},
-    ])
+    policy = PolicySpecV2(
+        allow_deny_rules=[
+            {"effect": "deny", "when": "data_locality == us"},
+        ]
+    )
     result = monitor.check(_task(), job, policy)
     assert result.decision == Decision.ALLOW
 
@@ -174,6 +185,7 @@ def test_allow_deny_rule_allow():
 # ─────────────────────────────────────────────────────────────────────────────
 # check_global
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_check_global_allow():
     monitor = ReferenceMonitor()

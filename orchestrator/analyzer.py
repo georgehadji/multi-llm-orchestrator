@@ -88,7 +88,6 @@ Be specific, cite file names and function names. Prioritize actionable observati
 ---CODEBASE---
 {context}
 """,
-
     "quality": """You are an expert code reviewer. Analyze the codebase below and identify:
 
 1. **Bugs & Logic Errors** — Any clear bugs, off-by-one errors, null pointer risks, race conditions?
@@ -103,7 +102,6 @@ For each issue: cite the file + line number (if visible), explain the problem, a
 ---CODEBASE---
 {context}
 """,
-
     "security": """You are a cybersecurity expert and secure code reviewer. Analyze the codebase for:
 
 1. **Injection Vulnerabilities** — SQL injection, command injection, XSS, SSTI, path traversal?
@@ -119,7 +117,6 @@ For each finding: cite file + context, explain the risk, provide the remediation
 ---CODEBASE---
 {context}
 """,
-
     "performance": """You are a performance engineering expert. Analyze the codebase for:
 
 1. **Algorithmic Complexity** — Any O(n²) or worse where O(n log n) is achievable? Inefficient data structures?
@@ -135,7 +132,6 @@ Be specific: cite file + function name, explain the bottleneck, show the improve
 ---CODEBASE---
 {context}
 """,
-
     "improvements": """You are a senior engineering consultant. Based on the codebase below, provide:
 
 1. **Quick Wins** (< 1 day each) — Low-effort, high-impact improvements ready to implement now.
@@ -155,9 +151,9 @@ For each recommendation: explain WHY it matters, estimate effort, and describe t
 # Best model per analysis type
 ANALYSIS_MODEL_PREFERENCE: dict[str, TaskType] = {
     "architecture": TaskType.REASONING,
-    "quality":      TaskType.CODE_REVIEW,
-    "security":     TaskType.CODE_REVIEW,
-    "performance":  TaskType.REASONING,
+    "quality": TaskType.CODE_REVIEW,
+    "security": TaskType.CODE_REVIEW,
+    "performance": TaskType.REASONING,
     "improvements": TaskType.EVALUATE,
 }
 
@@ -166,9 +162,11 @@ ANALYSIS_MODEL_PREFERENCE: dict[str, TaskType] = {
 # Result types
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class AnalysisSection:
     """Result of one focus-area analysis."""
+
     focus: str
     content: str
     model_used: str
@@ -193,6 +191,7 @@ class AnalysisReport:
     files_analyzed: Number of source files included in the context
     languages     : Detected programming languages
     """
+
     path: Path
     sections: list[AnalysisSection] = field(default_factory=list)
     markdown: str = ""
@@ -206,6 +205,7 @@ class AnalysisReport:
 # ─────────────────────────────────────────────
 # Analyzer
 # ─────────────────────────────────────────────
+
 
 class CodebaseAnalyzer:
     """
@@ -332,7 +332,7 @@ class CodebaseAnalyzer:
                 prompt=prompt,
                 system=system,
                 max_tokens=max_tokens,
-                temperature=0.2,   # low temperature for analytical tasks
+                temperature=0.2,  # low temperature for analytical tasks
                 timeout=120,
                 retries=1,
             )
@@ -361,6 +361,7 @@ class CodebaseAnalyzer:
         Falls back through the routing table until an available model is found.
         """
         from .models import ROUTING_TABLE
+
         for model in ROUTING_TABLE.get(task_type, []):
             if self.client.is_available(model):
                 return model
@@ -410,8 +411,10 @@ class CodebaseAnalyzer:
         lines.append("### Models used")
         lines.append("")
         for s in report.sections:
-            lines.append(f"- **{s.focus.title()}**: `{s.model_used}` "
-                         f"({s.tokens_used:,} tokens, ${s.cost_usd:.4f})")
+            lines.append(
+                f"- **{s.focus.title()}**: `{s.model_used}` "
+                f"({s.tokens_used:,} tokens, ${s.cost_usd:.4f})"
+            )
         lines.append("")
 
         # Directory tree
@@ -426,17 +429,19 @@ class CodebaseAnalyzer:
         lines.append("---")
         lines.append("")
         section_titles = {
-            "architecture":  "🏗️ Architecture Overview",
-            "quality":       "🔍 Code Quality Review",
-            "security":      "🔒 Security Audit",
-            "performance":   "⚡ Performance Assessment",
-            "improvements":  "💡 Improvement Suggestions",
+            "architecture": "🏗️ Architecture Overview",
+            "quality": "🔍 Code Quality Review",
+            "security": "🔒 Security Audit",
+            "performance": "⚡ Performance Assessment",
+            "improvements": "💡 Improvement Suggestions",
         }
         for s in report.sections:
             title = section_titles.get(s.focus, s.focus.title())
             lines.append(f"## {title}")
-            lines.append(f"*Model: `{s.model_used}` | Tokens: {s.tokens_used:,} | "
-                         f"Cost: ${s.cost_usd:.4f} | Latency: {s.latency_ms:.0f}ms*")
+            lines.append(
+                f"*Model: `{s.model_used}` | Tokens: {s.tokens_used:,} | "
+                f"Cost: ${s.cost_usd:.4f} | Latency: {s.latency_ms:.0f}ms*"
+            )
             lines.append("")
             lines.append(s.content)
             lines.append("")

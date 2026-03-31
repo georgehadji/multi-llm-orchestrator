@@ -34,12 +34,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("orchestrator.events")
 
-T = TypeVar('T', bound='DomainEvent')
+T = TypeVar("T", bound="DomainEvent")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Domain Events
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @dataclass(frozen=True)
 class DomainEvent:
@@ -49,6 +50,7 @@ class DomainEvent:
     Events are immutable facts that happened in the past.
     They are the source of truth for the system state.
     """
+
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     event_type: str = field(default="domain_event")
     aggregate_id: str = field(default="")
@@ -60,9 +62,7 @@ class DomainEvent:
         # Ensure event_type is set from class name if not provided
         if self.event_type == "domain_event":
             object.__setattr__(
-                self,
-                'event_type',
-                self.__class__.__name__.replace('Event', '').lower()
+                self, "event_type", self.__class__.__name__.replace("Event", "").lower()
             )
 
     def to_dict(self) -> dict[str, Any]:
@@ -92,18 +92,20 @@ class DomainEvent:
 @dataclass(frozen=True)
 class TaskStartedEvent(DomainEvent):
     """Emitted when a task starts execution."""
+
     task_id: str = field(default="")
     task_type: str = field(default="")
     model: str = field(default="")
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'task.started')
+        object.__setattr__(self, "event_type", "task.started")
 
 
 @dataclass(frozen=True)
 class TaskCompletedEvent(DomainEvent):
     """Emitted when a task completes successfully."""
+
     task_id: str = field(default="")
     model: str = field(default="")
     score: float = field(default=0.0)
@@ -112,12 +114,13 @@ class TaskCompletedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'task.completed')
+        object.__setattr__(self, "event_type", "task.completed")
 
 
 @dataclass(frozen=True)
 class TaskFailedEvent(DomainEvent):
     """Emitted when a task fails."""
+
     task_id: str = field(default="")
     model: str = field(default="")
     error: str = field(default="")
@@ -125,12 +128,13 @@ class TaskFailedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'task.failed')
+        object.__setattr__(self, "event_type", "task.failed")
 
 
 @dataclass(frozen=True)
 class ModelSelectedEvent(DomainEvent):
     """Emitted when a model is selected for a task."""
+
     task_id: str = field(default="")
     model: str = field(default="")
     strategy: str = field(default="")
@@ -138,12 +142,13 @@ class ModelSelectedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'model.selected')
+        object.__setattr__(self, "event_type", "model.selected")
 
 
 @dataclass(frozen=True)
 class ProductionOutcomeRecordedEvent(DomainEvent):
     """Emitted when production feedback is recorded."""
+
     project_id: str = field(default="")
     deployment_id: str = field(default="")
     model: str = field(default="")
@@ -152,12 +157,13 @@ class ProductionOutcomeRecordedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'event_type', 'production.outcome_recorded')
+        object.__setattr__(self, "event_type", "production.outcome_recorded")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Event Store
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class EventStore(ABC):
     """Abstract event store for persisting domain events."""
@@ -237,6 +243,7 @@ class SQLiteEventStore(EventStore):
             return
 
         import aiosqlite
+
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS events (
@@ -264,6 +271,7 @@ class SQLiteEventStore(EventStore):
         await self._init()
 
         import aiosqlite
+
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """
@@ -277,7 +285,7 @@ class SQLiteEventStore(EventStore):
                     event.timestamp.isoformat(),
                     json.dumps(event.payload),
                     json.dumps(event.metadata),
-                )
+                ),
             )
             await db.commit()
 
@@ -290,6 +298,7 @@ class SQLiteEventStore(EventStore):
         await self._init()
 
         import aiosqlite
+
         async with aiosqlite.connect(self.db_path) as db:
             query = "SELECT * FROM events WHERE 1=1"
             params = []
@@ -299,7 +308,7 @@ class SQLiteEventStore(EventStore):
                 params.append(aggregate_id)
 
             if event_types:
-                placeholders = ','.join('?' * len(event_types))
+                placeholders = ",".join("?" * len(event_types))
                 query += f" AND event_type IN ({placeholders})"
                 params.extend(event_types)
 
@@ -314,14 +323,16 @@ class SQLiteEventStore(EventStore):
 
                 events = []
                 for row in rows:
-                    events.append(DomainEvent(
-                        event_id=row[0],
-                        event_type=row[1],
-                        aggregate_id=row[2],
-                        timestamp=datetime.fromisoformat(row[3]),
-                        payload=json.loads(row[4]),
-                        metadata=json.loads(row[5]) if row[5] else {},
-                    ))
+                    events.append(
+                        DomainEvent(
+                            event_id=row[0],
+                            event_type=row[1],
+                            aggregate_id=row[2],
+                            timestamp=datetime.fromisoformat(row[3]),
+                            payload=json.loads(row[4]),
+                            metadata=json.loads(row[5]) if row[5] else {},
+                        )
+                    )
                 return events
 
     async def replay(self, handler, event_types=None):
@@ -333,6 +344,7 @@ class SQLiteEventStore(EventStore):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Event Bus
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class EventBus:
     """
@@ -347,7 +359,9 @@ class EventBus:
 
     def __init__(self, store: EventStore):
         self.store = store
-        self._handlers: dict[str, list[Callable[[DomainEvent], Awaitable[None]]]] = defaultdict(list)
+        self._handlers: dict[str, list[Callable[[DomainEvent], Awaitable[None]]]] = defaultdict(
+            list
+        )
         self._running = False
 
     @classmethod
@@ -393,10 +407,9 @@ class EventBus:
             return
 
         # Run handlers concurrently
-        results = await asyncio.gather(*[
-            self._run_handler(handler, event)
-            for handler in handlers
-        ], return_exceptions=True)
+        results = await asyncio.gather(
+            *[self._run_handler(handler, event) for handler in handlers], return_exceptions=True
+        )
 
         # Log errors but don't fail
         for handler, result in zip(handlers, results, strict=False):
@@ -437,6 +450,7 @@ class EventBus:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Projection (CQRS Read Model)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class Projection(ABC):
     """
@@ -522,11 +536,13 @@ class ModelPerformanceProjection(Projection):
     async def rebuild(self) -> None:
         """Rebuild from event history."""
         self._scores.clear()
-        await self.event_bus.replay(event_types=[
-            "task.completed",
-            "task.failed",
-            "production.outcome_recorded",
-        ])
+        await self.event_bus.replay(
+            event_types=[
+                "task.completed",
+                "task.failed",
+                "production.outcome_recorded",
+            ]
+        )
 
     def get_score(self, model: str) -> float:
         """Get current score for a model."""
@@ -542,6 +558,7 @@ class ModelPerformanceProjection(Projection):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Usage Example
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def example_usage():
     """Example of using the event system."""
@@ -562,21 +579,25 @@ async def example_usage():
         print(f"🚨 Task {event.task_id} failed: {event.error}")
 
     # Publish events
-    await bus.publish(TaskStartedEvent(
-        aggregate_id="task-123",
-        task_id="task-123",
-        task_type="code_gen",
-        model="gpt-4o",
-    ))
+    await bus.publish(
+        TaskStartedEvent(
+            aggregate_id="task-123",
+            task_id="task-123",
+            task_type="code_gen",
+            model="gpt-4o",
+        )
+    )
 
-    await bus.publish(TaskCompletedEvent(
-        aggregate_id="task-123",
-        task_id="task-123",
-        model="gpt-4o",
-        score=0.95,
-        cost_usd=0.02,
-        latency_ms=1200,
-    ))
+    await bus.publish(
+        TaskCompletedEvent(
+            aggregate_id="task-123",
+            task_id="task-123",
+            model="gpt-4o",
+            score=0.95,
+            cost_usd=0.02,
+            latency_ms=1200,
+        )
+    )
 
     # Query projection
     score = projection.get_score("gpt-4o")

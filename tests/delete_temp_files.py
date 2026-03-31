@@ -7,13 +7,11 @@ files_to_delete = [
     # Backup files
     "CAPABILITIES.md.bak",
     "USAGE_GUIDE.md.bak",
-    
     # Temporary files
     "temp_fix.py",
     "temp_setup_slack.py",
     "create_slack_dir.py",
     "setup_slack_module.py",
-    
     # Old session files
     ".env_old.txt",
     "COMMIT_SUMMARY.txt",

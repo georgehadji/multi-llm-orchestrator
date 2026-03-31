@@ -13,6 +13,7 @@ Usage:
     brain = Brain(model="deepseek/deepseek-chat")
     decision = await brain.reason(context="...")
 """
+
 from __future__ import annotations
 
 import logging
@@ -84,8 +85,7 @@ class Brain:
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model, messages=[{"role": "user", "content": prompt}]
             )
 
             # Parse the response into reasoning steps
@@ -98,7 +98,7 @@ class Brain:
                 context=context,
                 reasoning_history=reasoning_steps,
                 current_goal=goal,
-                confidence_score=confidence
+                confidence_score=confidence,
             )
 
             return self._cognitive_state
@@ -107,46 +107,47 @@ class Brain:
             logger.error(f"Reasoning failed: {e}")
             # Return a default cognitive state with the context
             self._cognitive_state = CognitiveState(
-                context=context,
-                reasoning_history=[],
-                current_goal=goal,
-                confidence_score=0.0
+                context=context, reasoning_history=[], current_goal=goal, confidence_score=0.0
             )
             return self._cognitive_state
 
     def _parse_reasoning_response(self, response: str) -> list[ReasoningStep]:
         """Parse the reasoning response into structured steps."""
         steps = []
-        lines = response.split('\n')
+        lines = response.split("\n")
 
         current_step = None
 
         for line in lines:
             line = line.strip()
 
-            if line.startswith('1.') or line.startswith('2.') or line.startswith('3.'):
+            if line.startswith("1.") or line.startswith("2.") or line.startswith("3."):
                 # Extract step number
                 step_num = int(line[0])
 
-                if 'Thought:' in line:
-                    thought = line.split('Thought:', 1)[1].strip()
+                if "Thought:" in line:
+                    thought = line.split("Thought:", 1)[1].strip()
                     current_step = ReasoningStep(step_number=step_num, thought=thought, action="")
 
-                elif 'Action:' in line:
-                    action = line.split('Action:', 1)[1].strip()
+                elif "Action:" in line:
+                    action = line.split("Action:", 1)[1].strip()
                     if current_step:
                         current_step.action = action
                     else:
-                        current_step = ReasoningStep(step_number=step_num, thought="", action=action)
+                        current_step = ReasoningStep(
+                            step_number=step_num, thought="", action=action
+                        )
 
-                elif 'Result:' in line:
-                    result = line.split('Result:', 1)[1].strip()
+                elif "Result:" in line:
+                    result = line.split("Result:", 1)[1].strip()
                     if current_step:
                         current_step.result = result
                         steps.append(current_step)
                         current_step = None
                     else:
-                        current_step = ReasoningStep(step_number=step_num, thought="", action="", result=result)
+                        current_step = ReasoningStep(
+                            step_number=step_num, thought="", action="", result=result
+                        )
                         steps.append(current_step)
                         current_step = None
 
@@ -163,7 +164,7 @@ class Brain:
             return 0.3  # Low confidence for very short responses
 
         # Check for presence of reasoning keywords
-        keywords = ['because', 'therefore', 'thus', 'consequently', 'hence']
+        keywords = ["because", "therefore", "thus", "consequently", "hence"]
         keyword_count = sum(1 for keyword in keywords if keyword.lower() in response.lower())
 
         # Base confidence on keyword count and response length
@@ -198,19 +199,19 @@ class Brain:
         """
 
         from .api_clients import UnifiedClient
+
         client = UnifiedClient()
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model, messages=[{"role": "user", "content": prompt}]
             )
 
             # Extract the final choice from the response
-            lines = response.content.split('\n')
+            lines = response.content.split("\n")
             for line in lines:
-                if line.startswith('FINAL CHOICE:'):
-                    choice = line.split('FINAL CHOICE:', 1)[1].strip()
+                if line.startswith("FINAL CHOICE:"):
+                    choice = line.split("FINAL CHOICE:", 1)[1].strip()
                     return choice
 
             # If no explicit final choice, return the first option
@@ -241,12 +242,12 @@ class Brain:
         """
 
         from .api_clients import UnifiedClient
+
         client = UnifiedClient()
 
         try:
             response = await client.acomplete(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model, messages=[{"role": "user", "content": prompt}]
             )
 
             return response.content.strip()

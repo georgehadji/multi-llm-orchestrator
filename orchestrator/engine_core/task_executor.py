@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ExecutionContext:
     """Context for task execution."""
+
     task: Task
     primary_model: Model
     reviewer_model: Model | None
@@ -101,6 +102,7 @@ class TaskExecutor:
         # Try to import TDD generator
         try:
             from .test_first_generator import TestFirstGenerator
+
             self._has_tdd = True
         except ImportError:
             pass
@@ -137,9 +139,7 @@ class TaskExecutor:
         # Get models for execution
         models = self.fallback_handler.get_available_models(task.type)
         if not models:
-            return self._build_failure_result(
-                task, "No models available for task type"
-            )
+            return self._build_failure_result(task, "No models available for task type")
 
         context.primary_model = models[0]
         context.reviewer_model = self.fallback_handler.select_reviewer(
@@ -243,8 +243,7 @@ class TaskExecutor:
                 )
             else:
                 full_prompt += (
-                    f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n"
-                    f"{context.dependency_context}"
+                    f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n" f"{context.dependency_context}"
                 )
 
         return full_prompt
@@ -276,6 +275,7 @@ class TaskExecutor:
             # Lazy initialize TDD generator
             if self._tdd_generator is None:
                 from .test_first_generator import TestFirstGenerator
+
                 self._tdd_generator = TestFirstGenerator(
                     client=self.client,
                     sandbox=None,  # Optional sandbox
@@ -296,6 +296,7 @@ class TaskExecutor:
                 )
 
                 from .models import TaskStatus
+
                 return TaskResult(
                     task_id=task.id,
                     output=tdd_result.implementation_code,
@@ -310,7 +311,7 @@ class TaskExecutor:
                     cost_usd=0.0,  # Would need to track from TDD
                     status=TaskStatus.COMPLETED if tdd_result.success else TaskStatus.DEGRADED,
                     critique=f"Tests: {tdd_result.test_result.tests_passed}/"
-                            f"{tdd_result.test_result.tests_run} passed",
+                    f"{tdd_result.test_result.tests_run} passed",
                     deterministic_check_passed=tdd_result.test_result.passed,
                     degraded_fallback_count=0,
                     attempt_history=[],

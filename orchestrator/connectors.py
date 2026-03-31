@@ -16,6 +16,7 @@ Usage:
     )
     result = await db_connector.query("SELECT * FROM users")
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,27 +63,28 @@ class DatabaseConnector(BaseConnector):
         try:
             if self.driver == "postgresql":
                 import asyncpg
+
                 self.connection = await asyncpg.connect(
                     host=self.config.get("host", "localhost"),
                     port=self.config.get("port", 5432),
                     user=self.config.get("user", "postgres"),
                     password=self.config.get("password", ""),
-                    database=self.config.get("database", "postgres")
+                    database=self.config.get("database", "postgres"),
                 )
             elif self.driver == "mysql":
                 import aiomysql
+
                 self.connection = await aiomysql.connect(
                     host=self.config.get("host", "localhost"),
                     port=self.config.get("port", 3306),
                     user=self.config.get("user", "root"),
                     password=self.config.get("password", ""),
-                    db=self.config.get("database", "mysql")
+                    db=self.config.get("database", "mysql"),
                 )
             elif self.driver == "sqlite":
                 import aiosqlite
-                self.connection = await aiosqlite.connect(
-                    self.config.get("path", ":memory:")
-                )
+
+                self.connection = await aiosqlite.connect(self.config.get("path", ":memory:"))
             else:
                 raise ValueError(f"Unsupported database driver: {self.driver}")
 
@@ -102,7 +104,7 @@ class DatabaseConnector(BaseConnector):
                 await self.connection.close()
             else:
                 self.connection.close()
-                if hasattr(self.connection, 'wait_closed'):
+                if hasattr(self.connection, "wait_closed"):
                     await self.connection.wait_closed()
 
             self.connected = False
@@ -202,6 +204,7 @@ class HTTPConnector(BaseConnector):
     async def connect(self):
         """Initialize the HTTP session."""
         import aiohttp
+
         timeout = aiohttp.ClientTimeout(total=self.timeout)
         self.session = aiohttp.ClientSession(timeout=timeout, headers=self.headers)
         self.connected = True
@@ -227,8 +230,12 @@ class HTTPConnector(BaseConnector):
         except Exception:
             return False
 
-    async def get(self, endpoint: str, params: dict[str, Any] | None = None,
-                  headers: dict[str, str] | None = None) -> dict[str, Any]:
+    async def get(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """
         Make a GET request.
 
@@ -254,9 +261,13 @@ class HTTPConnector(BaseConnector):
             logger.error(f"GET request failed: {e}")
             raise
 
-    async def post(self, endpoint: str, data: dict[str, Any] | None = None,
-                   json_data: dict[str, Any] | None = None,
-                   headers: dict[str, str] | None = None) -> dict[str, Any]:
+    async def post(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """
         Make a POST request.
 
@@ -276,16 +287,22 @@ class HTTPConnector(BaseConnector):
         all_headers = {**self.headers, **(headers or {})}
 
         try:
-            async with self.session.post(url, data=data, json=json_data, headers=all_headers) as response:
+            async with self.session.post(
+                url, data=data, json=json_data, headers=all_headers
+            ) as response:
                 response.raise_for_status()
                 return await response.json()
         except Exception as e:
             logger.error(f"POST request failed: {e}")
             raise
 
-    async def put(self, endpoint: str, data: dict[str, Any] | None = None,
-                  json_data: dict[str, Any] | None = None,
-                  headers: dict[str, str] | None = None) -> dict[str, Any]:
+    async def put(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """
         Make a PUT request.
 
@@ -305,7 +322,9 @@ class HTTPConnector(BaseConnector):
         all_headers = {**self.headers, **(headers or {})}
 
         try:
-            async with self.session.put(url, data=data, json=json_data, headers=all_headers) as response:
+            async with self.session.put(
+                url, data=data, json=json_data, headers=all_headers
+            ) as response:
                 response.raise_for_status()
                 return await response.json()
         except Exception as e:
@@ -353,10 +372,11 @@ class FileConnector(BaseConnector):
             if self.storage_type == "s3":
                 try:
                     import aioboto3
+
                     self.session = aioboto3.Session(
                         aws_access_key_id=self.config.get("aws_access_key_id"),
                         aws_secret_access_key=self.config.get("aws_secret_access_key"),
-                        region_name=self.config.get("region", "us-east-1")
+                        region_name=self.config.get("region", "us-east-1"),
                     )
                     self.s3_client = await self.session.client("s3").__aenter__()
                 except ImportError:
@@ -365,6 +385,7 @@ class FileConnector(BaseConnector):
             elif self.storage_type == "gcs":
                 try:
                     from gcloud.aio.storage import Storage
+
                     self.gcs_client = Storage(service_file=self.config.get("service_file"))
                 except ImportError:
                     logger.error("gcloud-aio-storage not installed for GCS support")
@@ -372,9 +393,10 @@ class FileConnector(BaseConnector):
             elif self.storage_type == "azure":
                 try:
                     from azure.storage.blob.aio import BlobServiceClient
+
                     self.azure_client = BlobServiceClient(
                         account_url=self.config.get("account_url"),
-                        credential=self.config.get("credential")
+                        credential=self.config.get("credential"),
                     )
                 except ImportError:
                     logger.error("azure-storage-blob not installed for Azure support")
@@ -383,9 +405,9 @@ class FileConnector(BaseConnector):
 
     async def disconnect(self):
         """Disconnect from the file storage."""
-        if self.storage_type == "s3" and hasattr(self, 's3_client'):
+        if self.storage_type == "s3" and hasattr(self, "s3_client"):
             await self.s3_client.__aexit__(None, None, None)
-        elif self.storage_type == "azure" and hasattr(self, 'azure_client'):
+        elif self.storage_type == "azure" and hasattr(self, "azure_client"):
             await self.azure_client.close()
         logger.info(f"File connector closed: {self.name}")
 
@@ -394,6 +416,7 @@ class FileConnector(BaseConnector):
         try:
             if self.storage_type == "local":
                 import os
+
                 return os.path.exists(self.root_path)
             elif self.storage_type == "s3":
                 await self.s3_client.list_buckets()
@@ -421,19 +444,19 @@ class FileConnector(BaseConnector):
         """
         if self.storage_type == "local":
             import os
-            full_path = os.path.join(self.root_path, file_path.lstrip('/'))
-            with open(full_path, 'rb') as f:
+
+            full_path = os.path.join(self.root_path, file_path.lstrip("/"))
+            with open(full_path, "rb") as f:
                 return f.read()
         elif self.storage_type == "s3":
             obj = await self.s3_client.get_object(Bucket=self.config.get("bucket"), Key=file_path)
-            return await obj['Body'].read()
+            return await obj["Body"].read()
         elif self.storage_type == "gcs":
             bucket = self.config.get("bucket", "")
             return await self.gcs_client.download_object(bucket=bucket, object_name=file_path)
         elif self.storage_type == "azure":
             blob_client = self.azure_client.get_blob_client(
-                container=self.config.get("container", ""),
-                blob=file_path
+                container=self.config.get("container", ""), blob=file_path
             )
             download_stream = await blob_client.download_blob()
             return await download_stream.readall()
@@ -451,30 +474,26 @@ class FileConnector(BaseConnector):
         """
         if self.storage_type == "local":
             import os
-            full_path = os.path.join(self.root_path, file_path.lstrip('/'))
+
+            full_path = os.path.join(self.root_path, file_path.lstrip("/"))
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            with open(full_path, 'wb') as f:
+            with open(full_path, "wb") as f:
                 f.write(content)
             return True
         elif self.storage_type == "s3":
             await self.s3_client.put_object(
-                Bucket=self.config.get("bucket"),
-                Key=file_path,
-                Body=content
+                Bucket=self.config.get("bucket"), Key=file_path, Body=content
             )
             return True
         elif self.storage_type == "gcs":
             bucket = self.config.get("bucket", "")
             await self.gcs_client.upload_object(
-                bucket=bucket,
-                object_name=file_path,
-                file_data=content
+                bucket=bucket, object_name=file_path, file_data=content
             )
             return True
         elif self.storage_type == "azure":
             blob_client = self.azure_client.get_blob_client(
-                container=self.config.get("container", ""),
-                blob=file_path
+                container=self.config.get("container", ""), blob=file_path
             )
             await blob_client.upload_blob(content, overwrite=True)
             return True
@@ -491,19 +510,19 @@ class FileConnector(BaseConnector):
         """
         if self.storage_type == "local":
             import os
-            full_path = os.path.join(self.root_path, prefix.lstrip('/'))
+
+            full_path = os.path.join(self.root_path, prefix.lstrip("/"))
             files = []
             for root, _, filenames in os.walk(full_path):
                 for filename in filenames:
                     rel_path = os.path.relpath(os.path.join(root, filename), self.root_path)
-                    files.append(rel_path.replace('\\', '/'))  # Normalize path separators
+                    files.append(rel_path.replace("\\", "/"))  # Normalize path separators
             return files
         elif self.storage_type == "s3":
             response = await self.s3_client.list_objects_v2(
-                Bucket=self.config.get("bucket"),
-                Prefix=prefix
+                Bucket=self.config.get("bucket"), Prefix=prefix
             )
-            return [obj['Key'] for obj in response.get('Contents', [])]
+            return [obj["Key"] for obj in response.get("Contents", [])]
         elif self.storage_type == "gcs":
             bucket = self.config.get("bucket", "")
             objects = await self.gcs_client.list_objects(bucket=bucket, prefix=prefix)
@@ -627,7 +646,7 @@ class ConnectorManager:
         stats = {
             "total_connectors": len(self.connectors),
             "connector_types": {},
-            "connected_count": 0
+            "connected_count": 0,
         }
 
         for connector in self.connectors.values():

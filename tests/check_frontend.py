@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Check Front-End Rules Engine functionality."""
+
 import sys
-sys.path.insert(0, r'E:\Documents\Vibe-Coding\Ai Orchestrator')
+
+sys.path.insert(0, r"E:\Documents\Vibe-Coding\Ai Orchestrator")
 
 from orchestrator.frontend_rules import FrontendRules, FrontendConfig, generate_frontend_rules
 from pathlib import Path

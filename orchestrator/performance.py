@@ -17,6 +17,7 @@ Usage:
     async def get_expensive_data():
         return await fetch_from_db()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -47,9 +48,11 @@ T = TypeVar("T")
 # CACHE IMPLEMENTATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class CacheEntry:
     """Cache entry with TTL and metadata."""
+
     value: Any
     created_at: float
     ttl: int
@@ -139,10 +142,7 @@ class LRUCache:
 
     async def _evict_expired(self):
         """Remove expired entries."""
-        expired_keys = [
-            key for key, entry in self._cache.items()
-            if entry.is_expired()
-        ]
+        expired_keys = [key for key, entry in self._cache.items() if entry.is_expired()]
         for key in expired_keys:
             del self._cache[key]
             self._stats["evictions"] += 1
@@ -153,9 +153,7 @@ class LRUCache:
         hit_rate = self._stats["hits"] / total if total > 0 else 0
 
         # Calculate memory usage estimate
-        total_accesses = sum(
-            entry.access_count for entry in self._cache.values()
-        )
+        total_accesses = sum(entry.access_count for entry in self._cache.values())
 
         return {
             "size": len(self._cache),
@@ -337,6 +335,7 @@ cache = property(get_cache)
 # CACHE DECORATORS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def generate_cache_key(func: Callable, args: tuple, kwargs: dict) -> str:
     """Generate deterministic cache key from function call."""
     # Get function signature
@@ -371,6 +370,7 @@ def cached(ttl: int = 300, key_prefix: str | None = None):
         async def get_models():
             return await fetch_models()
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -410,6 +410,7 @@ def cached(ttl: int = 300, key_prefix: str | None = None):
             return func(*args, **kwargs)
 
         return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+
     return decorator
 
 
@@ -422,6 +423,7 @@ def cache_invalidate(*keys: str):
         async def update_models():
             # ... update logic
     """
+
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -446,12 +448,14 @@ def cache_invalidate(*keys: str):
             return result
 
         return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+
     return decorator
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONNECTION POOLING
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class ConnectionPool:
     """
@@ -520,7 +524,7 @@ class ConnectionPool:
     async def _destroy_connection(self, conn: Any):
         """Close and remove connection."""
         try:
-            if hasattr(conn, 'close'):
+            if hasattr(conn, "close"):
                 await conn.close() if asyncio.iscoroutinefunction(conn.close) else conn.close()
             self._stats["destroyed"] += 1
         except Exception as e:
@@ -579,9 +583,11 @@ class ConnectionPool:
 # PERFORMANCE METRICS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class MetricPoint:
     """Single metric data point."""
+
     timestamp: float
     value: float
     labels: dict[str, str] = field(default_factory=dict)
@@ -619,7 +625,7 @@ class MetricsCollector:
 
             # Trim history
             if len(self._metrics[name]) > self._max_history:
-                self._metrics[name] = self._metrics[name][-self._max_history:]
+                self._metrics[name] = self._metrics[name][-self._max_history :]
 
     def get_stats(self, name: str, window_seconds: int = 300) -> dict[str, Any]:
         """Get statistics for a metric."""
@@ -648,10 +654,7 @@ class MetricsCollector:
 
     def get_all_stats(self, window_seconds: int = 300) -> dict[str, dict[str, Any]]:
         """Get statistics for all metrics."""
-        return {
-            name: self.get_stats(name, window_seconds)
-            for name in self._metrics
-        }
+        return {name: self.get_stats(name, window_seconds) for name in self._metrics}
 
 
 # Global metrics collector
@@ -661,6 +664,7 @@ metrics_collector = MetricsCollector()
 # ═══════════════════════════════════════════════════════════════════════════════
 # QUERY OPTIMIZATION
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class QueryOptimizer:
     """
@@ -698,7 +702,7 @@ class QueryOptimizer:
         results = []
 
         for i in range(0, len(ids), batch_size):
-            batch = ids[i:i + batch_size]
+            batch = ids[i : i + batch_size]
             batch_results = await fetch_func(batch)
             results.extend(batch_results)
 
@@ -745,6 +749,7 @@ class QueryOptimizer:
 # ═══════════════════════════════════════════════════════════════════════════════
 # USAGE EXAMPLES
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def example_usage():
     """Example usage of performance module."""

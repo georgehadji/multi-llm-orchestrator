@@ -63,8 +63,10 @@ logger = logging.getLogger("orchestrator.rollout")
 # Enums & Constants
 # ─────────────────────────────────────────────
 
+
 class RolloutStatus(str, Enum):
     """Status of a rollout."""
+
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     ROLLED_BACK = "rolled_back"
@@ -75,12 +77,14 @@ class RolloutStatus(str, Enum):
 @dataclass
 class StageDecision:
     """Decision for stage progression."""
+
     decision: str  # "advance", "rollback", "continue", "timeout"
     reason: str
 
 
 class RolloutEvent(str, Enum):
     """Events during rollout."""
+
     STARTED = "started"
     STAGE_ADVANCED = "stage_advanced"
     OUTCOME_RECORDED = "outcome_recorded"
@@ -102,9 +106,11 @@ DEFAULT_STAGES = [
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class RolloutStage:
     """A stage in the gradual rollout."""
+
     stage_index: int
     percentage: int  # Traffic percentage (5, 25, 50, 100)
     min_successes: int  # Successes required to advance
@@ -128,6 +134,7 @@ class RolloutStage:
 @dataclass
 class StageResult:
     """Results for a rollout stage."""
+
     stage_index: int
     successes: int = 0
     failures: int = 0
@@ -173,6 +180,7 @@ class StageResult:
 @dataclass
 class RolloutOutcome:
     """Single outcome recorded during rollout."""
+
     outcome_id: str
     rollout_id: str
     stage_index: int
@@ -204,6 +212,7 @@ class RolloutOutcome:
 @dataclass
 class Rollout:
     """A gradual rollout for a proposal."""
+
     rollout_id: str
     proposal: StrategyProposal
     stages: list[RolloutStage]
@@ -258,14 +267,10 @@ class Rollout:
         )
 
         # Load stage results
-        rollout.stage_results = [
-            StageResult.from_dict(sr) for sr in data.get("stage_results", [])
-        ]
+        rollout.stage_results = [StageResult.from_dict(sr) for sr in data.get("stage_results", [])]
 
         # Load outcomes
-        rollout.outcomes = [
-            RolloutOutcome.from_dict(o) for o in data.get("outcomes", [])
-        ]
+        rollout.outcomes = [RolloutOutcome.from_dict(o) for o in data.get("outcomes", [])]
 
         # Load events
         rollout.events = data.get("events", [])
@@ -288,16 +293,19 @@ class Rollout:
 
     def _log_event(self, event_type: RolloutEvent, details: dict[str, Any]):
         """Log an event."""
-        self.events.append({
-            "timestamp": time.time(),
-            "event_type": event_type.value,
-            "details": details,
-        })
+        self.events.append(
+            {
+                "timestamp": time.time(),
+                "event_type": event_type.value,
+                "details": details,
+            }
+        )
 
 
 @dataclass
 class RolloutConfig:
     """Configuration for gradual rollout."""
+
     stages: list[RolloutStage] = field(default_factory=list)
     auto_rollback_enabled: bool = True
     storage_path: Path | None = None
@@ -312,6 +320,7 @@ class RolloutConfig:
 # ─────────────────────────────────────────────
 # Gradual Rollout Manager
 # ─────────────────────────────────────────────
+
 
 class GradualRolloutManager:
     """
@@ -412,10 +421,13 @@ class GradualRolloutManager:
                 rollout.stage_results.append(StageResult(stage_index=stage.stage_index))
 
             # Log start event
-            rollout._log_event(RolloutEvent.STARTED, {
-                "proposal_id": proposal.proposal_id,
-                "stages": len(rollout.stages),
-            })
+            rollout._log_event(
+                RolloutEvent.STARTED,
+                {
+                    "proposal_id": proposal.proposal_id,
+                    "stages": len(rollout.stages),
+                },
+            )
 
             self._rollouts[rollout_id] = rollout
             self._persist_rollout(rollout)
@@ -479,20 +491,21 @@ class GradualRolloutManager:
 
             # Update averages
             stage_result.avg_score = (
-                (stage_result.avg_score * (stage_result.total_outcomes - 1) + score)
-                / stage_result.total_outcomes
-            )
+                stage_result.avg_score * (stage_result.total_outcomes - 1) + score
+            ) / stage_result.total_outcomes
             stage_result.avg_cost = (
-                (stage_result.avg_cost * (stage_result.total_outcomes - 1) + cost_usd)
-                / stage_result.total_outcomes
-            )
+                stage_result.avg_cost * (stage_result.total_outcomes - 1) + cost_usd
+            ) / stage_result.total_outcomes
 
             # Log event
-            rollout._log_event(RolloutEvent.OUTCOME_RECORDED, {
-                "outcome_id": outcome.outcome_id,
-                "success": success,
-                "score": score,
-            })
+            rollout._log_event(
+                RolloutEvent.OUTCOME_RECORDED,
+                {
+                    "outcome_id": outcome.outcome_id,
+                    "success": success,
+                    "score": score,
+                },
+            )
 
             self._persist_rollout(rollout)
 
@@ -581,18 +594,24 @@ class GradualRolloutManager:
                 # All stages completed
                 rollout.status = RolloutStatus.COMPLETED
                 rollout.completed_at = time.time()
-                rollout._log_event(RolloutEvent.COMPLETED, {
-                    "total_outcomes": len(rollout.outcomes),
-                    "total_stages": len(rollout.stages),
-                })
+                rollout._log_event(
+                    RolloutEvent.COMPLETED,
+                    {
+                        "total_outcomes": len(rollout.outcomes),
+                        "total_stages": len(rollout.stages),
+                    },
+                )
                 logger.info(f"Rollout {rollout_id} completed successfully")
             else:
                 # Start next stage
-                rollout._log_event(RolloutEvent.STAGE_ADVANCED, {
-                    "from_stage": rollout.current_stage_index - 1,
-                    "to_stage": rollout.current_stage_index,
-                    "traffic_percentage": rollout.current_stage.percentage,
-                })
+                rollout._log_event(
+                    RolloutEvent.STAGE_ADVANCED,
+                    {
+                        "from_stage": rollout.current_stage_index - 1,
+                        "to_stage": rollout.current_stage_index,
+                        "traffic_percentage": rollout.current_stage.percentage,
+                    },
+                )
                 logger.info(
                     f"Rollout {rollout_id} advanced to stage {rollout.current_stage_index} "
                     f"({rollout.current_stage.percentage}% traffic)"
@@ -625,10 +644,13 @@ class GradualRolloutManager:
             rollout.rollback_reason = reason
             rollout.rolled_back_at = time.time()
 
-            rollout._log_event(RolloutEvent.ROLLED_BACK, {
-                "reason": reason,
-                "stage_at_rollback": rollout.current_stage_index,
-            })
+            rollout._log_event(
+                RolloutEvent.ROLLED_BACK,
+                {
+                    "reason": reason,
+                    "stage_at_rollback": rollout.current_stage_index,
+                },
+            )
 
             self._persist_rollout(rollout)
 
@@ -637,10 +659,7 @@ class GradualRolloutManager:
 
     async def get_active_rollouts(self) -> list[Rollout]:
         """Get all in-progress rollouts."""
-        return [
-            r for r in self._rollouts.values()
-            if r.status == RolloutStatus.IN_PROGRESS
-        ]
+        return [r for r in self._rollouts.values() if r.status == RolloutStatus.IN_PROGRESS]
 
     async def get_rollout(self, rollout_id: str) -> Rollout | None:
         """Get rollout by ID."""

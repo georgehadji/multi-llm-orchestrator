@@ -25,6 +25,7 @@ logger = logging.getLogger("orchestrator")
 
 class ComplexityLevel(str, Enum):
     """Task complexity levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -33,6 +34,7 @@ class ComplexityLevel(str, Enum):
 
 class RiskLevel(str, Enum):
     """Risk levels for tasks."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -93,7 +95,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.JURY,
         ReasoningMethod.PRE_MORTEM,
     ],
-
     # Code Review
     (TaskType.CODE_REVIEW, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -106,7 +107,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.JURY,
         ReasoningMethod.PRE_MORTEM,
     ],
-
     # Reasoning
     (TaskType.REASONING, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -124,7 +124,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.DELPHI,
         ReasoningMethod.JURY,
     ],
-
     # Creative Writing
     (TaskType.WRITING, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -138,7 +137,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.ANALOGICAL,
         ReasoningMethod.DIALECTICAL,
     ],
-
     # Data Extraction
     (TaskType.DATA_EXTRACT, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -151,7 +149,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.RESEARCH,
         ReasoningMethod.BAYESIAN,
     ],
-
     # Summarization
     (TaskType.SUMMARIZE, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -160,7 +157,6 @@ METHOD_SELECTION_RULES = {
         ReasoningMethod.MULTI_PERSPECTIVE,
         ReasoningMethod.SOCRATIC,
     ],
-
     # Evaluation
     (TaskType.EVALUATE, ComplexityLevel.LOW, RiskLevel.LOW): [
         ReasoningMethod.MULTI_PERSPECTIVE,
@@ -177,23 +173,23 @@ METHOD_SELECTION_RULES = {
 
 # Cost multipliers per method (relative to baseline)
 METHOD_COST_MULTIPLIERS = {
-    ReasoningMethod.MULTI_PERSPECTIVE: 4.0,    # 4 parallel perspectives
-    ReasoningMethod.ITERATIVE: 2.0,            # Up to 3 rounds
-    ReasoningMethod.DEBATE: 2.5,               # 2 sides + judge
-    ReasoningMethod.RESEARCH: 1.5,             # +search API calls
-    ReasoningMethod.JURY: 5.0,                 # 4 generators + 3 critics + verifier
-    ReasoningMethod.SCIENTIFIC: 2.0,           # Hypothesize + test + evaluate
-    ReasoningMethod.SOCRATIC: 1.5,             # Multiple Q&A rounds
-    ReasoningMethod.PRE_MORTEM: 1.8,           # 4 phases
-    ReasoningMethod.BAYESIAN: 2.2,             # Priors + likelihoods + posteriors + sensitivity
-    ReasoningMethod.DIALECTICAL: 2.0,          # Thesis + antithesis + contradictions + aufhebung
-    ReasoningMethod.ANALOGICAL: 1.9,           # Abstraction + search + mapping + transfer
-    ReasoningMethod.DELPHI: 3.5,               # 4 experts × 2 rounds + aggregation
+    ReasoningMethod.MULTI_PERSPECTIVE: 4.0,  # 4 parallel perspectives
+    ReasoningMethod.ITERATIVE: 2.0,  # Up to 3 rounds
+    ReasoningMethod.DEBATE: 2.5,  # 2 sides + judge
+    ReasoningMethod.RESEARCH: 1.5,  # +search API calls
+    ReasoningMethod.JURY: 5.0,  # 4 generators + 3 critics + verifier
+    ReasoningMethod.SCIENTIFIC: 2.0,  # Hypothesize + test + evaluate
+    ReasoningMethod.SOCRATIC: 1.5,  # Multiple Q&A rounds
+    ReasoningMethod.PRE_MORTEM: 1.8,  # 4 phases
+    ReasoningMethod.BAYESIAN: 2.2,  # Priors + likelihoods + posteriors + sensitivity
+    ReasoningMethod.DIALECTICAL: 2.0,  # Thesis + antithesis + contradictions + aufhebung
+    ReasoningMethod.ANALOGICAL: 1.9,  # Abstraction + search + mapping + transfer
+    ReasoningMethod.DELPHI: 3.5,  # 4 experts × 2 rounds + aggregation
 }
 
 # Time multipliers per method (relative to baseline)
 METHOD_TIME_MULTIPLIERS = {
-    ReasoningMethod.MULTI_PERSPECTIVE: 1.4,    # Parallel execution
+    ReasoningMethod.MULTI_PERSPECTIVE: 1.4,  # Parallel execution
     ReasoningMethod.ITERATIVE: 1.3,
     ReasoningMethod.DEBATE: 1.6,
     ReasoningMethod.RESEARCH: 1.2,
@@ -210,48 +206,117 @@ METHOD_TIME_MULTIPLIERS = {
 # Keyword-based method hints
 METHOD_KEYWORDS = {
     ReasoningMethod.PRE_MORTEM: [
-        "risk", "failure", "critical", "production", "safety", "reliability",
-        "mission-critical", "high-stakes", "financial", "security",
+        "risk",
+        "failure",
+        "critical",
+        "production",
+        "safety",
+        "reliability",
+        "mission-critical",
+        "high-stakes",
+        "financial",
+        "security",
     ],
     ReasoningMethod.ANALOGICAL: [
-        "innovative", "creative", "novel", "breakthrough", "inspire",
-        "cross-domain", "analogy", "metaphor", "similar to",
+        "innovative",
+        "creative",
+        "novel",
+        "breakthrough",
+        "inspire",
+        "cross-domain",
+        "analogy",
+        "metaphor",
+        "similar to",
     ],
     ReasoningMethod.BAYESIAN: [
-        "uncertainty", "probability", "confidence", "likelihood", "risk quantification",
-        "bayesian", "prior", "posterior", "estimate",
+        "uncertainty",
+        "probability",
+        "confidence",
+        "likelihood",
+        "risk quantification",
+        "bayesian",
+        "prior",
+        "posterior",
+        "estimate",
     ],
     ReasoningMethod.DEBATE: [
-        "trade-off", "decision", "choose", "versus", "compare",
-        "architecture", "pattern", "strategy",
+        "trade-off",
+        "decision",
+        "choose",
+        "versus",
+        "compare",
+        "architecture",
+        "pattern",
+        "strategy",
     ],
     ReasoningMethod.DIALECTICAL: [
-        "conflict", "contradiction", "philosophical", "policy", "ethics",
-        "values", "principle", "ideology",
+        "conflict",
+        "contradiction",
+        "philosophical",
+        "policy",
+        "ethics",
+        "values",
+        "principle",
+        "ideology",
     ],
     ReasoningMethod.DELPHI: [
-        "prediction", "forecast", "expert", "consensus", "estimate",
-        "future", "trend", "projection",
+        "prediction",
+        "forecast",
+        "expert",
+        "consensus",
+        "estimate",
+        "future",
+        "trend",
+        "projection",
     ],
     ReasoningMethod.ITERATIVE: [
-        "optimize", "improve", "refine", "best", "optimal",
-        "performance", "efficiency", "quality",
+        "optimize",
+        "improve",
+        "refine",
+        "best",
+        "optimal",
+        "performance",
+        "efficiency",
+        "quality",
     ],
     ReasoningMethod.JURY: [
-        "critical", "high-stakes", "multiple stakeholders", "compliance",
-        "audit", "review board", "panel",
+        "critical",
+        "high-stakes",
+        "multiple stakeholders",
+        "compliance",
+        "audit",
+        "review board",
+        "panel",
     ],
     ReasoningMethod.RESEARCH: [
-        "current", "latest", "recent", "study", "evidence",
-        "empirical", "factual", "verify", "fact-check",
+        "current",
+        "latest",
+        "recent",
+        "study",
+        "evidence",
+        "empirical",
+        "factual",
+        "verify",
+        "fact-check",
     ],
     ReasoningMethod.SCIENTIFIC: [
-        "hypothesis", "experiment", "test", "validate", "scientific",
-        "algorithm", "technical", "research",
+        "hypothesis",
+        "experiment",
+        "test",
+        "validate",
+        "scientific",
+        "algorithm",
+        "technical",
+        "research",
     ],
     ReasoningMethod.SOCRATIC: [
-        "clarify", "understand", "explore", "question", "ambiguous",
-        "vague", "unclear requirements",
+        "clarify",
+        "understand",
+        "explore",
+        "question",
+        "ambiguous",
+        "vague",
+        "unclear requirements",
     ],
 }
 
@@ -334,13 +399,21 @@ class MethodSelector:
 
         # Fallback: try with lower complexity
         if complexity != ComplexityLevel.LOW:
-            lower_key = (task_type, ComplexityLevel(max(0, list(ComplexityLevel).index(complexity) - 1)), risk_level)
+            lower_key = (
+                task_type,
+                ComplexityLevel(max(0, list(ComplexityLevel).index(complexity) - 1)),
+                risk_level,
+            )
             if lower_key in METHOD_SELECTION_RULES:
                 return METHOD_SELECTION_RULES[lower_key]
 
         # Fallback: try with lower risk
         if risk_level != RiskLevel.LOW:
-            lower_key = (task_type, complexity, RiskLevel(max(0, list(RiskLevel).index(risk_level) - 1)))
+            lower_key = (
+                task_type,
+                complexity,
+                RiskLevel(max(0, list(RiskLevel).index(risk_level) - 1)),
+            )
             if lower_key in METHOD_SELECTION_RULES:
                 return METHOD_SELECTION_RULES[lower_key]
 
@@ -442,7 +515,7 @@ Recommend the optimal method.
                 return response
 
             response = asyncio.run(call_llm())
-            data = json.loads(response.text) if hasattr(response, 'text') else {}
+            data = json.loads(response.text) if hasattr(response, "text") else {}
 
             recommended = data.get("recommended_method")
             if recommended:
@@ -527,6 +600,7 @@ Recommend the optimal method.
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 def select_method_for_task(
     task: Task,

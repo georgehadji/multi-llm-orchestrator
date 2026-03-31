@@ -51,6 +51,7 @@ logger = logging.getLogger("orchestrator.db_backup")
 @dataclass
 class BackupManifest:
     """Metadata for a backup."""
+
     timestamp: datetime
     db_path: Path
     size_bytes: int
@@ -63,6 +64,7 @@ class BackupManifest:
 @dataclass
 class BackupInfo:
     """Information about an available backup."""
+
     path: Path
     timestamp: datetime
     databases: list[str]
@@ -128,7 +130,9 @@ class DatabaseBackupManager:
 
         self._running = True
         self._task = asyncio.create_task(self._backup_loop())
-        logger.info(f"Backup manager started (backup={self.backup_interval}s, checkpoint={self.checkpoint_interval}s)")
+        logger.info(
+            f"Backup manager started (backup={self.backup_interval}s, checkpoint={self.checkpoint_interval}s)"
+        )
 
     async def stop(self) -> None:
         """Stop backup scheduler."""
@@ -227,20 +231,24 @@ class DatabaseBackupManager:
                         "is_valid": m.is_valid,
                     }
                     for m in manifests
-                ]
+                ],
             }
             manifest_path.write_text(json.dumps(manifest_data, indent=2))
 
             # Update history
-            self._backup_history.append(BackupInfo(
-                path=backup_subdir,
-                timestamp=timestamp,
-                databases=[m.db_path.name for m in manifests],
-                total_size_bytes=sum(m.size_bytes for m in manifests),
-                is_valid=all(m.is_valid for m in manifests)
-            ))
+            self._backup_history.append(
+                BackupInfo(
+                    path=backup_subdir,
+                    timestamp=timestamp,
+                    databases=[m.db_path.name for m in manifests],
+                    total_size_bytes=sum(m.size_bytes for m in manifests),
+                    is_valid=all(m.is_valid for m in manifests),
+                )
+            )
 
-            logger.info(f"Backup complete: {len(manifests)} databases, {sum(m.size_bytes for m in manifests)} bytes")
+            logger.info(
+                f"Backup complete: {len(manifests)} databases, {sum(m.size_bytes for m in manifests)} bytes"
+            )
 
         return manifests
 
@@ -313,10 +321,7 @@ class DatabaseBackupManager:
             Number of backups removed
         """
         now = datetime.utcnow()
-        backups = sorted(
-            [d for d in self.backup_dir.iterdir() if d.is_dir()],
-            reverse=True
-        )
+        backups = sorted([d for d in self.backup_dir.iterdir() if d.is_dir()], reverse=True)
 
         removed = 0
         kept_daily = 0
@@ -363,9 +368,7 @@ class DatabaseBackupManager:
         return removed
 
     async def restore(
-        self,
-        backup_path: Path,
-        target_databases: list[str] | None = None
+        self, backup_path: Path, target_databases: list[str] | None = None
     ) -> dict[str, bool]:
         """
         Restore databases from backup.
@@ -476,30 +479,24 @@ class DatabaseBackupManager:
                     db_path = backup_dir / db_backup["db_name"]
 
                     if not db_path.exists():
-                        results["invalid"].append({
-                            "path": str(db_path),
-                            "reason": "file_not_found"
-                        })
+                        results["invalid"].append(
+                            {"path": str(db_path), "reason": "file_not_found"}
+                        )
                         continue
 
                     is_valid = await self._validate_backup(db_path)
 
                     if is_valid:
-                        results["valid"].append({
-                            "path": str(db_path),
-                            "size_bytes": db_path.stat().st_size
-                        })
+                        results["valid"].append(
+                            {"path": str(db_path), "size_bytes": db_path.stat().st_size}
+                        )
                     else:
-                        results["invalid"].append({
-                            "path": str(db_path),
-                            "reason": "integrity_check_failed"
-                        })
+                        results["invalid"].append(
+                            {"path": str(db_path), "reason": "integrity_check_failed"}
+                        )
 
             except Exception as e:
-                results["invalid"].append({
-                    "path": str(backup_dir),
-                    "reason": str(e)
-                })
+                results["invalid"].append({"path": str(backup_dir), "reason": str(e)})
 
         return results
 

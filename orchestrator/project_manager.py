@@ -17,6 +17,7 @@ Usage:
     schedule = await pm.create_schedule(tasks, resources)
     critical_path = pm.get_critical_path()
 """
+
 from __future__ import annotations
 
 import heapq
@@ -38,6 +39,7 @@ logger = get_logger(__name__)
 
 class TaskPriority(Enum):
     """Task priority levels."""
+
     CRITICAL = 0
     HIGH = 1
     MEDIUM = 2
@@ -46,6 +48,7 @@ class TaskPriority(Enum):
 
 class ResourceType(Enum):
     """Types of resources."""
+
     MODEL = "model"
     COMPUTE = "compute"
     MEMORY = "memory"
@@ -55,6 +58,7 @@ class ResourceType(Enum):
 @dataclass
 class Resource:
     """Resource definition."""
+
     id: str
     type: ResourceType
     capacity: float  # Total capacity
@@ -66,6 +70,7 @@ class Resource:
 @dataclass
 class TaskSchedule:
     """Scheduled task with timing."""
+
     task_id: str
     start_time: datetime
     end_time: datetime
@@ -81,6 +86,7 @@ class TaskSchedule:
 @dataclass
 class Milestone:
     """Project milestone."""
+
     id: str
     name: str
     description: str
@@ -93,6 +99,7 @@ class Milestone:
 @dataclass
 class Risk:
     """Identified project risk."""
+
     id: str
     description: str
     probability: float  # 0.0 - 1.0
@@ -110,6 +117,7 @@ class Risk:
 @dataclass
 class ProjectTimeline:
     """Complete project timeline."""
+
     project_id: str
     tasks: list[TaskSchedule]
     milestones: list[Milestone]
@@ -149,9 +157,7 @@ class CriticalPathAnalyzer:
             deps = self.dependencies.get(task_id, [])
 
             if deps:
-                max_end = max(
-                    self.tasks[d].end_time for d in deps if d in self.tasks
-                )
+                max_end = max(self.tasks[d].end_time for d in deps if d in self.tasks)
                 self.earliest_start[task_id] = max_end
             else:
                 self.earliest_start[task_id] = task.start_time
@@ -163,15 +169,11 @@ class CriticalPathAnalyzer:
             task = self.tasks[task_id]
 
             # Find successors
-            successors = [
-                tid for tid, deps in self.dependencies.items()
-                if task_id in deps
-            ]
+            successors = [tid for tid, deps in self.dependencies.items() if task_id in deps]
 
             if successors:
                 min_start = min(
-                    self.latest_start.get(s, self.tasks[s].start_time)
-                    for s in successors
+                    self.latest_start.get(s, self.tasks[s].start_time) for s in successors
                 )
                 self.latest_start[task_id] = min_start - task.estimated_duration
             else:
@@ -183,7 +185,7 @@ class CriticalPathAnalyzer:
             task = self.tasks[task_id]
             slack = self.latest_start[task_id] - self.earliest_start[task_id]
             task.slack = slack
-            task.is_critical = (slack.total_seconds() <= 1)  # Near zero slack
+            task.is_critical = slack.total_seconds() <= 1  # Near zero slack
 
             if task.is_critical:
                 critical_path.append(task_id)
@@ -209,8 +211,7 @@ class CriticalPathAnalyzer:
 
         # Use priority queue for deterministic ordering
         queue = [
-            (self.tasks[tid].priority.value, tid)
-            for tid, deg in in_degree.items() if deg == 0
+            (self.tasks[tid].priority.value, tid) for tid, deg in in_degree.items() if deg == 0
         ]
         heapq.heapify(queue)
 
@@ -387,10 +388,7 @@ class ProjectManager:
 
             if task_deps:
                 # Start after all dependencies complete
-                dep_ends = [
-                    scheduled_tasks[d].end_time
-                    for d in task_deps if d in scheduled_tasks
-                ]
+                dep_ends = [scheduled_tasks[d].end_time for d in task_deps if d in scheduled_tasks]
                 task_start = max(dep_ends) if dep_ends else start_date
             else:
                 task_start = start_date
@@ -447,10 +445,7 @@ class ProjectManager:
             end_date=end_date,
             total_duration=project_duration,
             critical_path=critical_path,
-            buffer_time=sum(
-                (s.slack for s in scheduled_tasks.values()),
-                timedelta(0)
-            ),
+            buffer_time=sum((s.slack for s in scheduled_tasks.values()), timedelta(0)),
             completion_probability=completion_prob,
         )
 
@@ -476,7 +471,7 @@ class ProjectManager:
             "analysis": timedelta(minutes=12),
         }
 
-        task_type = task.task_type.value if hasattr(task, 'task_type') else "code_generation"
+        task_type = task.task_type.value if hasattr(task, "task_type") else "code_generation"
         return defaults.get(task_type, timedelta(minutes=10))
 
     async def _get_resource_requirements(self, task: Task) -> dict[str, float]:
@@ -490,7 +485,7 @@ class ProjectManager:
     def _map_priority(self, task: Task) -> TaskPriority:
         """Map task to priority level."""
         # Map based on task properties
-        if hasattr(task, 'priority'):
+        if hasattr(task, "priority"):
             if task.priority >= 8:
                 return TaskPriority.CRITICAL
             elif task.priority >= 6:
@@ -511,19 +506,18 @@ class ProjectManager:
         # Risk 1: Critical path too long
         critical_tasks = [scheduled[tid] for tid in critical_path if tid in scheduled]
         if critical_tasks:
-            critical_duration = sum(
-                (t.estimated_duration for t in critical_tasks),
-                timedelta(0)
-            )
+            critical_duration = sum((t.estimated_duration for t in critical_tasks), timedelta(0))
             if critical_duration > timedelta(hours=1):
-                risks.append(Risk(
-                    id=f"risk_{hash('critical_path')}",
-                    description="Critical path is very long - any delay impacts project",
-                    probability=0.7,
-                    impact=0.9,
-                    mitigation="Consider parallelizing tasks or adding resources",
-                    affected_tasks=critical_path,
-                ))
+                risks.append(
+                    Risk(
+                        id=f"risk_{hash('critical_path')}",
+                        description="Critical path is very long - any delay impacts project",
+                        probability=0.7,
+                        impact=0.9,
+                        mitigation="Consider parallelizing tasks or adding resources",
+                        affected_tasks=critical_path,
+                    )
+                )
 
         # Risk 2: Resource contention
         resource_usage: dict[str, int] = {}
@@ -533,33 +527,37 @@ class ProjectManager:
 
         for res, count in resource_usage.items():
             if count > 5:  # High usage
-                risks.append(Risk(
-                    id=f"risk_{hash(res)}",
-                    description=f"High contention for resource: {res}",
-                    probability=0.6,
-                    impact=0.7,
-                    mitigation="Add more resources or reschedule tasks",
-                    affected_tasks=[
-                        s.task_id for s in scheduled.values()
-                        if res in s.resources_assigned
-                    ],
-                ))
+                risks.append(
+                    Risk(
+                        id=f"risk_{hash(res)}",
+                        description=f"High contention for resource: {res}",
+                        probability=0.6,
+                        impact=0.7,
+                        mitigation="Add more resources or reschedule tasks",
+                        affected_tasks=[
+                            s.task_id for s in scheduled.values() if res in s.resources_assigned
+                        ],
+                    )
+                )
 
         # Risk 3: Many dependencies
         for task_id, sched in scheduled.items():
             deps = [
-                t for t in scheduled.values()
+                t
+                for t in scheduled.values()
                 if t.end_time <= sched.start_time and t.task_id != task_id
             ]
             if len(deps) > 3:
-                risks.append(Risk(
-                    id=f"risk_deps_{task_id}",
-                    description=f"Task {task_id} has many dependencies",
-                    probability=0.5,
-                    impact=0.6,
-                    mitigation="Review if all dependencies are necessary",
-                    affected_tasks=[task_id],
-                ))
+                risks.append(
+                    Risk(
+                        id=f"risk_deps_{task_id}",
+                        description=f"Task {task_id} has many dependencies",
+                        probability=0.5,
+                        impact=0.6,
+                        mitigation="Review if all dependencies are necessary",
+                        affected_tasks=[task_id],
+                    )
+                )
 
         return risks
 
@@ -590,10 +588,7 @@ class ProjectManager:
 
         total_tasks = len(timeline.tasks)
         completed = sum(1 for t in timeline.tasks if t.actual_duration is not None)
-        in_progress = sum(
-            1 for t in timeline.tasks
-            if t.start_time <= datetime.now() < t.end_time
-        )
+        in_progress = sum(1 for t in timeline.tasks if t.start_time <= datetime.now() < t.end_time)
 
         percent_complete = (completed / total_tasks * 100) if total_tasks > 0 else 0
 
@@ -601,7 +596,8 @@ class ProjectManager:
         elapsed = datetime.now() - timeline.start_date
         expected_percent = (
             (elapsed / timeline.total_duration * 100)
-            if timeline.total_duration.total_seconds() > 0 else 0
+            if timeline.total_duration.total_seconds() > 0
+            else 0
         )
 
         status = "on_track" if percent_complete >= expected_percent - 10 else "behind"
@@ -648,15 +644,17 @@ class ProjectManager:
 
         tasks_data = []
         for task in timeline.tasks:
-            tasks_data.append({
-                "id": task.task_id,
-                "start": task.start_time.isoformat(),
-                "end": task.end_time.isoformat(),
-                "duration_minutes": task.estimated_duration.total_seconds() / 60,
-                "is_critical": task.is_critical,
-                "resources": task.resources_assigned,
-                "slack_minutes": task.slack.total_seconds() / 60,
-            })
+            tasks_data.append(
+                {
+                    "id": task.task_id,
+                    "start": task.start_time.isoformat(),
+                    "end": task.end_time.isoformat(),
+                    "duration_minutes": task.estimated_duration.total_seconds() / 60,
+                    "is_critical": task.is_critical,
+                    "resources": task.resources_assigned,
+                    "slack_minutes": task.slack.total_seconds() / 60,
+                }
+            )
 
         return {
             "project_id": project_id,
@@ -696,7 +694,7 @@ class ProjectManager:
             ],
         }
 
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             json.dump(data, f, indent=2)
 
     def get_resource_report(self) -> dict[str, Any]:

@@ -26,8 +26,13 @@ logger = logging.getLogger("orchestrator.api")
 
 # FIX #9: Rate-limit error patterns across providers
 _RATE_LIMIT_PATTERNS = (
-    "rate_limit", "rate limit", "429", "too many requests",
-    "resource_exhausted", "quota", "overloaded",
+    "rate_limit",
+    "rate limit",
+    "429",
+    "too many requests",
+    "resource_exhausted",
+    "quota",
+    "overloaded",
 )
 
 
@@ -39,11 +44,26 @@ def _is_rate_limit_error(error: Exception) -> bool:
 
 class APIResponse:
     """Normalized response from any provider."""
-    __slots__ = ("text", "input_tokens", "output_tokens", "model", "cost_usd",
-                 "cached", "latency_ms")
 
-    def __init__(self, text: str, input_tokens: int, output_tokens: int,
-                 model: Model, cached: bool = False, latency_ms: float = 0.0):
+    __slots__ = (
+        "text",
+        "input_tokens",
+        "output_tokens",
+        "model",
+        "cost_usd",
+        "cached",
+        "latency_ms",
+    )
+
+    def __init__(
+        self,
+        text: str,
+        input_tokens: int,
+        output_tokens: int,
+        model: Model,
+        cached: bool = False,
+        latency_ms: float = 0.0,
+    ):
         self.text = text
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
@@ -67,10 +87,13 @@ class UnifiedClient:
     DEFAULT_READ_TIMEOUT: float = 60.0
     DEFAULT_TOTAL_TIMEOUT: float = 90.0
 
-    def __init__(self, cache: DiskCache | None = None,
-                 max_concurrency: int = 3,
-                 connect_timeout: float | None = None,
-                 read_timeout: float | None = None):
+    def __init__(
+        self,
+        cache: DiskCache | None = None,
+        max_concurrency: int = 3,
+        connect_timeout: float | None = None,
+        read_timeout: float | None = None,
+    ):
         """
         Initialize UnifiedClient.
 
@@ -96,6 +119,7 @@ class UnifiedClient:
         # Configure timeouts
         try:
             import httpx
+
             timeout = httpx.Timeout(
                 connect=self._connect_timeout,
                 read=self._read_timeout,
@@ -111,6 +135,7 @@ class UnifiedClient:
         openrouter_key = os.environ.get("OPENROUTER_API_KEY")
         if openrouter_key:
             from openai import AsyncOpenAI
+
             self._clients["openrouter"] = AsyncOpenAI(
                 api_key=openrouter_key,
                 base_url="https://openrouter.ai/api/v1",
@@ -130,13 +155,17 @@ class UnifiedClient:
         provider = get_provider(model)
         return provider == "openrouter" or "/" in model.value
 
-    async def call(self, model: Model, prompt: str,
-                   system: str = "",
-                   max_tokens: int = 1500,
-                   temperature: float = 0.3,
-                   timeout: int = 60,
-                   retries: int = 2,
-                   bypass_cache: bool = False) -> APIResponse:
+    async def call(
+        self,
+        model: Model,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = 1500,
+        temperature: float = 0.3,
+        timeout: int = 60,
+        retries: int = 2,
+        bypass_cache: bool = False,
+    ) -> APIResponse:
         """
         Unified call with cache check → semaphore → retry → OpenRouter dispatch.
         """
@@ -164,24 +193,34 @@ class UnifiedClient:
                 span.set_attribute("llm.cached", False)
                 return response
 
-    async def _call_with_retry(self, model: Model, prompt: str,
-                                system: str, max_tokens: int,
-                                temperature: float, timeout: int,
-                                retries: int) -> APIResponse:
+    async def _call_with_retry(
+        self,
+        model: Model,
+        prompt: str,
+        system: str,
+        max_tokens: int,
+        temperature: float,
+        timeout: int,
+        retries: int,
+    ) -> APIResponse:
         last_error = None
         for attempt in range(retries + 1):
             try:
                 t0 = time.monotonic()
                 response = await asyncio.wait_for(
-                    self._dispatch(model, prompt, system, max_tokens, temperature),
-                    timeout=timeout
+                    self._dispatch(model, prompt, system, max_tokens, temperature), timeout=timeout
                 )
                 response.latency_ms = (time.monotonic() - t0) * 1000
 
                 await self.cache.put(
-                    model.value, prompt, max_tokens,
-                    response.text, response.input_tokens, response.output_tokens,
-                    system, temperature
+                    model.value,
+                    prompt,
+                    max_tokens,
+                    response.text,
+                    response.input_tokens,
+                    response.output_tokens,
+                    system,
+                    temperature,
                 )
                 return response
 
@@ -206,9 +245,9 @@ class UnifiedClient:
 
         raise last_error or RuntimeError(f"Failed to call {model.value}")
 
-    async def _dispatch(self, model: Model, prompt: str,
-                        system: str, max_tokens: int,
-                        temperature: float) -> APIResponse:
+    async def _dispatch(
+        self, model: Model, prompt: str, system: str, max_tokens: int, temperature: float
+    ) -> APIResponse:
         """Dispatch to OpenRouter."""
         client = self._clients.get("openrouter")
         if not client:
@@ -216,7 +255,9 @@ class UnifiedClient:
 
         # Check for reasoning models
         if self._is_reasoning_model(model):
-            return await self._call_reasoning_model(client, model, prompt, system, max_tokens, temperature)
+            return await self._call_reasoning_model(
+                client, model, prompt, system, max_tokens, temperature
+            )
 
         # Standard chat completion
         messages = []
@@ -244,15 +285,22 @@ class UnifiedClient:
     def _is_reasoning_model(self, model: Model) -> bool:
         """Check if model is a reasoning model requiring special handling."""
         reasoning_models = {
-            "o1", "o1-preview", "o3", "o3-mini", "o4-mini",
-            "deepseek-reasoner", "deepseek-r1",
-            "grok-4", "grok-4-reasoning", "grok-4.20-reasoning",
+            "o1",
+            "o1-preview",
+            "o3",
+            "o3-mini",
+            "o4-mini",
+            "deepseek-reasoner",
+            "deepseek-r1",
+            "grok-4",
+            "grok-4-reasoning",
+            "grok-4.20-reasoning",
         }
         return model.value in reasoning_models
 
-    async def _call_reasoning_model(self, client, model: Model, prompt: str,
-                                    system: str, max_tokens: int,
-                                    temperature: float) -> APIResponse:
+    async def _call_reasoning_model(
+        self, client, model: Model, prompt: str, system: str, max_tokens: int, temperature: float
+    ) -> APIResponse:
         """Call reasoning model with special handling."""
         reasoning_timeout = 3600  # 1 hour for complex reasoning
 

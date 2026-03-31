@@ -35,20 +35,22 @@ from orchestrator.cost_optimization.token_budget import (
     get_token_limit,
 )
 
-
 # ─────────────────────────────────────────────
 # Test Fixtures
 # ─────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_client():
     """Create mock API client."""
     client = AsyncMock()
     client.messages = AsyncMock()
-    client.messages.create = AsyncMock(return_value=MagicMock(
-        content="Mock response",
-        usage=MagicMock(input_tokens=100, output_tokens=50),
-    ))
+    client.messages.create = AsyncMock(
+        return_value=MagicMock(
+            content="Mock response",
+            usage=MagicMock(input_tokens=100, output_tokens=50),
+        )
+    )
     return client
 
 
@@ -73,6 +75,7 @@ def token_budget():
 # ─────────────────────────────────────────────
 # Test Optimization Config
 # ─────────────────────────────────────────────
+
 
 class TestOptimizationConfig:
     """Test optimization configuration."""
@@ -110,6 +113,7 @@ class TestOptimizationConfig:
 # ─────────────────────────────────────────────
 # Test PromptCacher
 # ─────────────────────────────────────────────
+
 
 class TestPromptCacher:
     """Test PromptCacher class."""
@@ -213,6 +217,7 @@ class TestPromptCacher:
 # Test BatchClient
 # ─────────────────────────────────────────────
 
+
 class TestBatchClient:
     """Test BatchClient class."""
 
@@ -305,6 +310,7 @@ class TestBatchClient:
 # ─────────────────────────────────────────────
 # Test TokenBudget
 # ─────────────────────────────────────────────
+
 
 class TestTokenBudget:
     """Test TokenBudget class."""
@@ -424,13 +430,14 @@ class TestTokenBudget:
 # Test Convenience Functions
 # ─────────────────────────────────────────────
 
+
 class TestConvenienceFunctions:
     """Test convenience functions."""
 
     @pytest.mark.asyncio
     async def test_warm_prompt_cache(self):
         """Test warm_prompt_cache function."""
-        with patch('orchestrator.optimization.prompt_cache.PromptCacher') as MockCacher:
+        with patch("orchestrator.optimization.prompt_cache.PromptCacher") as MockCacher:
             mock_cacher = MockCacher.return_value
             mock_cacher.warm_cache = AsyncMock(return_value="cache_key_123")
 
@@ -449,7 +456,7 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_batch_call(self):
         """Test batch_call function."""
-        with patch('orchestrator.optimization.batch_client.BatchClient') as MockClient:
+        with patch("orchestrator.optimization.batch_client.BatchClient") as MockClient:
             mock_client = MockClient.return_value
             mock_client.call = AsyncMock(return_value={"result": "test"})
 
@@ -465,6 +472,7 @@ class TestConvenienceFunctions:
 # ─────────────────────────────────────────────
 # Test Integration
 # ─────────────────────────────────────────────
+
 
 class TestIntegration:
     """Test integration between optimization modules."""

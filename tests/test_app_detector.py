@@ -2,6 +2,7 @@
 Tests for AppDetector and AppProfile (Task 2).
 All LLM calls are mocked — no real API calls.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,10 +12,10 @@ import pytest
 
 from orchestrator.app_detector import AppDetector, AppProfile
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # AppProfile — dataclass structure
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_app_profile_defaults():
     """AppProfile must have sensible defaults for all fields."""
@@ -48,6 +49,7 @@ def test_app_profile_fields_set():
 # AppDetector.detect_from_yaml — YAML override (no LLM call)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_detect_from_yaml_sets_detected_from():
     detector = AppDetector()
     profile = detector.detect_from_yaml("fastapi")
@@ -73,18 +75,21 @@ def test_detect_from_yaml_unknown_falls_back_to_script():
 # AppDetector.detect — async LLM-based detection
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_detect_uses_llm_response():
     """detect() must parse a valid LLM JSON response into AppProfile."""
     import asyncio
 
-    llm_json = json.dumps({
-        "app_type": "fastapi",
-        "tech_stack": ["python", "fastapi", "sqlalchemy"],
-        "entry_point": "src/main.py",
-        "test_command": "pytest",
-        "run_command": "uvicorn src.main:app",
-        "requires_docker": False,
-    })
+    llm_json = json.dumps(
+        {
+            "app_type": "fastapi",
+            "tech_stack": ["python", "fastapi", "sqlalchemy"],
+            "entry_point": "src/main.py",
+            "test_command": "pytest",
+            "run_command": "uvicorn src.main:app",
+            "requires_docker": False,
+        }
+    )
 
     detector = AppDetector()
     with patch.object(detector, "_call_llm", new=AsyncMock(return_value=llm_json)):

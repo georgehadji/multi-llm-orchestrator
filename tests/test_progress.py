@@ -1,8 +1,12 @@
 # tests/test_progress.py
 from orchestrator.progress import ProgressRenderer
 from orchestrator.streaming import (
-    ProjectStarted, TaskStarted, TaskProgressUpdate,
-    TaskCompleted, TaskFailed, ProjectCompleted,
+    ProjectStarted,
+    TaskStarted,
+    TaskProgressUpdate,
+    TaskCompleted,
+    TaskFailed,
+    ProjectCompleted,
 )
 from orchestrator.models import TaskStatus
 
@@ -28,7 +32,7 @@ def test_renderer_summary_string():
     r.handle(ProjectStarted("proj-1", total_tasks=2, budget_usd=5.0))
     r.handle(TaskCompleted("task_001", 0.9, TaskStatus.COMPLETED, "deepseek-chat", 0.001, 1))
     summary = r.summary()
-    assert "1" in summary and "2" in summary   # 1 completed / 2 total
+    assert "1" in summary and "2" in summary  # 1 completed / 2 total
 
 
 def test_renderer_multiple_completions():
@@ -45,6 +49,7 @@ def test_renderer_multiple_completions():
 def test_renderer_handles_all_event_types_without_error():
     """ProgressRenderer should not raise on any event type."""
     from orchestrator.streaming import BudgetWarning
+
     r = ProgressRenderer(quiet=True)
     r.handle(ProjectStarted("proj-1", 5, 10.0))
     r.handle(TaskStarted("t1", "code_generation", "deepseek-chat"))

@@ -10,6 +10,7 @@ Covers:
   - Dependency ordering is reflected in parallel_levels
   - CLI --dry-run flag dispatched correctly (no actual run)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,8 +24,8 @@ from orchestrator.api_clients import APIResponse
 from orchestrator.engine import Orchestrator
 from orchestrator.models import Budget, Model
 
-
 # ─── helpers ─────────────────────────────────────────────────────────────────
+
 
 def _api_response(text: str, model: Model = Model.GEMINI_FLASH) -> APIResponse:
     resp = APIResponse(text=text, input_tokens=50, output_tokens=100, model=model)
@@ -65,16 +66,20 @@ _TWO_TASKS = [
 ]
 
 _THREE_PARALLEL = [
-    {"id": "a", "type": "creative_writing", "prompt": "write a",
-     "dependencies": [], "priority": 0},
-    {"id": "b", "type": "creative_writing", "prompt": "write b",
-     "dependencies": [], "priority": 0},
-    {"id": "c", "type": "summarization", "prompt": "summarize",
-     "dependencies": ["a", "b"], "priority": 0},
+    {"id": "a", "type": "creative_writing", "prompt": "write a", "dependencies": [], "priority": 0},
+    {"id": "b", "type": "creative_writing", "prompt": "write b", "dependencies": [], "priority": 0},
+    {
+        "id": "c",
+        "type": "summarization",
+        "prompt": "summarize",
+        "dependencies": ["a", "b"],
+        "priority": 0,
+    },
 ]
 
 
 # ─── Export checks ────────────────────────────────────────────────────────────
+
 
 class TestExports:
     def test_execution_plan_importable(self):
@@ -93,6 +98,7 @@ class TestExports:
 
 
 # ─── dry_run returns ExecutionPlan ───────────────────────────────────────────
+
 
 class TestDryRunReturnsExecutionPlan:
     def test_returns_execution_plan_type(self):
@@ -167,6 +173,7 @@ class TestDryRunReturnsExecutionPlan:
 
 
 # ─── Parallel levels and dependency ordering ─────────────────────────────────
+
 
 class TestParallelLevels:
     def test_sequential_tasks_have_two_levels(self):
@@ -248,6 +255,7 @@ class TestParallelLevels:
 
 # ─── Cost estimation ─────────────────────────────────────────────────────────
 
+
 class TestCostEstimation:
     def test_estimated_cost_positive(self):
         orch = _make_orch()
@@ -301,6 +309,7 @@ class TestCostEstimation:
 
 
 # ─── render() output ─────────────────────────────────────────────────────────
+
 
 class TestRender:
     def test_render_contains_dry_run_header(self):

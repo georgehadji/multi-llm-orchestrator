@@ -1,4 +1,5 @@
 """Verify RateLimiter integration in Orchestrator."""
+
 import pytest
 from unittest.mock import MagicMock
 from orchestrator.rate_limiter import RateLimiter, RateLimitExceeded
@@ -8,7 +9,10 @@ from orchestrator.engine import Orchestrator
 def test_rate_limiter_is_imported_at_module_level():
     """RateLimiter must be importable from engine module (not deferred)."""
     import orchestrator.engine as eng_module
-    assert hasattr(eng_module, "RateLimiter"), "RateLimiter must be imported at module level in engine.py"
+
+    assert hasattr(
+        eng_module, "RateLimiter"
+    ), "RateLimiter must be imported at module level in engine.py"
 
 
 def test_engine_has_rate_limiter():
@@ -62,7 +66,7 @@ async def test_rate_limit_exceeded_skips_client_call():
     # This is the pattern that engine.py must implement around client.call():
     try:
         rl.check(tenant, model_str, tokens_to_use)
-        await mock_client.call()   # should NOT reach here
+        await mock_client.call()  # should NOT reach here
     except RateLimitExceeded:
         pass  # expected: limit was enforced
 

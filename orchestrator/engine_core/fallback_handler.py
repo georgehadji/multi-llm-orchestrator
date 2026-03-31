@@ -113,10 +113,7 @@ class FallbackHandler:
         # Fallback to any healthy model if preferred list exhausted
         if not available:
             logger.warning(f"No preferred models available for {task_type}, using fallback")
-            available = [
-                m for m in Model
-                if self.is_model_healthy(m) and m not in exclude_set
-            ]
+            available = [m for m in Model if self.is_model_healthy(m) and m not in exclude_set]
 
         return available
 
@@ -181,10 +178,7 @@ class FallbackHandler:
         available = self.get_available_models(task_type, exclude=[generator])
 
         # Filter for different provider
-        cross_provider = [
-            m for m in available
-            if get_provider(m) != generator_provider
-        ]
+        cross_provider = [m for m in available if get_provider(m) != generator_provider]
 
         if not cross_provider:
             # Fallback: any model except generator
@@ -258,8 +252,7 @@ class FallbackHandler:
             self._trip_circuit_breaker(model)
         else:
             logger.warning(
-                f"Model {model.value} failure {failures}/"
-                f"{self.CIRCUIT_BREAKER_THRESHOLD}"
+                f"Model {model.value} failure {failures}/" f"{self.CIRCUIT_BREAKER_THRESHOLD}"
             )
 
         # Update adaptive router
@@ -277,6 +270,7 @@ class FallbackHandler:
 
         # Set cooldown period
         import time
+
         self._cooldown_until[model] = time.time() + self.COOLDOWN_PERIOD
 
         logger.error(
@@ -299,6 +293,7 @@ class FallbackHandler:
             return False
 
         import time
+
         if time.time() >= self._cooldown_until[model]:
             # Cooldown expired, remove
             del self._cooldown_until[model]

@@ -13,6 +13,7 @@ Usage:
     gateway = MultiTenantGateway(jwt_secret="secret_key")
     await gateway.start_server()
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -60,8 +61,13 @@ class QuotaUsage:
 class MultiTenantGateway:
     """Multi-tenant API gateway with JWT/API-key authentication."""
 
-    def __init__(self, jwt_secret: str = None, default_quota: int = 10000,
-                 port: int = 8000, host: str = "localhost"):
+    def __init__(
+        self,
+        jwt_secret: str = None,
+        default_quota: int = 10000,
+        port: int = 8000,
+        host: str = "localhost",
+    ):
         """
         Initialize the multi-tenant gateway.
 
@@ -106,11 +112,9 @@ class MultiTenantGateway:
 
     async def health_check(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
-        return web.json_response({
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "multi_tenant": True
-        })
+        return web.json_response(
+            {"status": "healthy", "timestamp": datetime.now().isoformat(), "multi_tenant": True}
+        )
 
     async def register_tenant(self, request: web.Request) -> web.Response:
         """Register a new tenant."""
@@ -118,10 +122,7 @@ class MultiTenantGateway:
             data = await request.json()
 
             if "name" not in data:
-                return web.json_response(
-                    {"error": "Tenant name is required"},
-                    status=400
-                )
+                return web.json_response({"error": "Tenant name is required"}, status=400)
 
             tenant_name = data["name"]
 
@@ -144,7 +145,7 @@ class MultiTenantGateway:
                 quota_reset_day=1,  # Reset on the 1st of each month
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
-                metadata=data.get("metadata", {})
+                metadata=data.get("metadata", {}),
             )
 
             self.tenants[tenant_id] = tenant
@@ -158,24 +159,23 @@ class MultiTenantGateway:
                 requests_count=0,
                 tokens_count=0,
                 last_reset=datetime.now(),
-                remaining_quota=self.default_quota
+                remaining_quota=self.default_quota,
             )
 
             logger.info(f"Registered new tenant: {tenant_name} (ID: {tenant_id})")
 
-            return web.json_response({
-                "tenant_id": tenant_id,
-                "api_key": api_key,
-                "jwt_secret_hint": "Store this securely. It's needed for client-side JWT generation.",
-                "message": "Tenant registered successfully"
-            })
+            return web.json_response(
+                {
+                    "tenant_id": tenant_id,
+                    "api_key": api_key,
+                    "jwt_secret_hint": "Store this securely. It's needed for client-side JWT generation.",
+                    "message": "Tenant registered successfully",
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error registering tenant: {e}")
-            return web.json_response(
-                {"error": "Internal server error"},
-                status=500
-            )
+            return web.json_response({"error": "Internal server error"}, status=500)
 
     async def login(self, request: web.Request) -> web.Response:
         """Login endpoint to get JWT token."""
@@ -183,49 +183,39 @@ class MultiTenantGateway:
             data = await request.json()
 
             if "api_key" not in data:
-                return web.json_response(
-                    {"error": "API key is required"},
-                    status=400
-                )
+                return web.json_response({"error": "API key is required"}, status=400)
 
             api_key = data["api_key"]
 
             # Find tenant by API key
             tenant_id = self.api_key_to_tenant.get(api_key)
             if not tenant_id:
-                return web.json_response(
-                    {"error": "Invalid API key"},
-                    status=401
-                )
+                return web.json_response({"error": "Invalid API key"}, status=401)
 
             tenant = self.tenants.get(tenant_id)
             if not tenant or not tenant.is_active:
-                return web.json_response(
-                    {"error": "Tenant not active"},
-                    status=401
-                )
+                return web.json_response({"error": "Tenant not active"}, status=401)
 
             # Generate JWT token
             payload = {
                 "tenant_id": tenant_id,
                 "exp": datetime.utcnow() + timedelta(hours=24),  # 24-hour token
-                "iat": datetime.utcnow()
+                "iat": datetime.utcnow(),
             }
 
             token = jwt.encode(payload, tenant.jwt_secret, algorithm="HS256")
 
-            return web.json_response({
-                "token": token,
-                "tenant_id": tenant_id,
-                "expires_in": 24 * 60 * 60  # 24 hours in seconds
-            })
+            return web.json_response(
+                {
+                    "token": token,
+                    "tenant_id": tenant_id,
+                    "expires_in": 24 * 60 * 60,  # 24 hours in seconds
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error during login: {e}")
-            return web.json_response(
-                {"error": "Internal server error"},
-                status=500
-            )
+            return web.json_response({"error": "Internal server error"}, status=500)
 
     async def _authenticate_request(self, request: web.Request) -> Tenant | None:
         """Authenticate a request using JWT or API key."""
@@ -273,7 +263,7 @@ class MultiTenantGateway:
                 requests_count=0,
                 tokens_count=0,
                 last_reset=datetime.now(),
-                remaining_quota=tenant.quota_monthly
+                remaining_quota=tenant.quota_monthly,
             )
 
         quota = self.quota_usage[quota_key]
@@ -292,7 +282,7 @@ class MultiTenantGateway:
                 requests_count=0,
                 tokens_count=0,
                 last_reset=datetime.now(),
-                remaining_quota=tenant.quota_monthly
+                remaining_quota=tenant.quota_monthly,
             )
 
         quota = self.quota_usage[quota_key]
@@ -306,27 +296,18 @@ class MultiTenantGateway:
         # Authenticate request
         tenant = await self._authenticate_request(request)
         if not tenant:
-            return web.json_response(
-                {"error": "Authentication required"},
-                status=401
-            )
+            return web.json_response({"error": "Authentication required"}, status=401)
 
         # Check quota
         if not await self._check_quota(tenant):
-            return web.json_response(
-                {"error": "Quota exceeded"},
-                status=429
-            )
+            return web.json_response({"error": "Quota exceeded"}, status=429)
 
         try:
             data = await request.json()
 
             # Validate required fields
             if "task" not in data:
-                return web.json_response(
-                    {"error": "Task definition required"},
-                    status=400
-                )
+                return web.json_response({"error": "Task definition required"}, status=400)
 
             # Extract task parameters
             task_description = data["task"]
@@ -337,6 +318,7 @@ class MultiTenantGateway:
             # In a real implementation, we would call the orchestrator here
             # For now, we'll simulate the execution
             import uuid
+
             task_id = str(uuid.uuid4())
 
             # Simulate task execution
@@ -346,7 +328,7 @@ class MultiTenantGateway:
                 "result": f"Simulated execution of: {task_description}",
                 "cost": 0.05,
                 "tokens_used": 150,
-                "execution_time": 2.5
+                "execution_time": 2.5,
             }
 
             # Update quota
@@ -356,19 +338,13 @@ class MultiTenantGateway:
 
         except Exception as e:
             logger.error(f"Error executing task: {e}")
-            return web.json_response(
-                {"error": "Internal server error"},
-                status=500
-            )
+            return web.json_response({"error": "Internal server error"}, status=500)
 
     async def get_usage(self, request: web.Request) -> web.Response:
         """Get usage information for the authenticated tenant."""
         tenant = await self._authenticate_request(request)
         if not tenant:
-            return web.json_response(
-                {"error": "Authentication required"},
-                status=401
-            )
+            return web.json_response({"error": "Authentication required"}, status=401)
 
         current_month = datetime.now().strftime("%Y-%m")
         quota_key = f"{tenant.id}:{current_month}"
@@ -383,7 +359,9 @@ class MultiTenantGateway:
                 "tokens_used": quota.tokens_count,
                 "quota_remaining": quota.remaining_quota,
                 "quota_total": tenant.quota_monthly,
-                "quota_percentage_used": (tenant.quota_monthly - quota.remaining_quota) / tenant.quota_monthly * 100
+                "quota_percentage_used": (tenant.quota_monthly - quota.remaining_quota)
+                / tenant.quota_monthly
+                * 100,
             }
         else:
             usage_info = {
@@ -394,7 +372,7 @@ class MultiTenantGateway:
                 "tokens_used": 0,
                 "quota_remaining": tenant.quota_monthly,
                 "quota_total": tenant.quota_monthly,
-                "quota_percentage_used": 0
+                "quota_percentage_used": 0,
             }
 
         return web.json_response(usage_info)
@@ -404,17 +382,11 @@ class MultiTenantGateway:
         # Authenticate request
         tenant = await self._authenticate_request(request)
         if not tenant:
-            return web.json_response(
-                {"error": "Authentication required"},
-                status=401
-            )
+            return web.json_response({"error": "Authentication required"}, status=401)
 
         # Check quota
         if not await self._check_quota(tenant):
-            return web.json_response(
-                {"error": "Quota exceeded"},
-                status=429
-            )
+            return web.json_response({"error": "Quota exceeded"}, status=429)
 
         # Update quota for this request
         await self._update_quota(tenant)
@@ -422,11 +394,36 @@ class MultiTenantGateway:
         # In a real implementation, we would get the actual list of models
         # For now, we'll return a simulated list
         models = [
-            {"id": "gpt-4", "name": "GPT-4", "capabilities": ["text", "code"], "cost_per_mil_tokens": 30.0},
-            {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet", "capabilities": ["text", "code"], "cost_per_mil_tokens": 15.0},
-            {"id": "deepseek-chat", "name": "DeepSeek Chat", "capabilities": ["text", "code"], "cost_per_mil_tokens": 2.0},
-            {"id": "deepseek-reasoner", "name": "DeepSeek Reasoner", "capabilities": ["reasoning", "math"], "cost_per_mil_tokens": 12.0},
-            {"id": "gemini-pro", "name": "Gemini Pro", "capabilities": ["text", "multimodal"], "cost_per_mil_tokens": 15.0}
+            {
+                "id": "gpt-4",
+                "name": "GPT-4",
+                "capabilities": ["text", "code"],
+                "cost_per_mil_tokens": 30.0,
+            },
+            {
+                "id": "claude-3-5-sonnet",
+                "name": "Claude 3.5 Sonnet",
+                "capabilities": ["text", "code"],
+                "cost_per_mil_tokens": 15.0,
+            },
+            {
+                "id": "deepseek-chat",
+                "name": "DeepSeek Chat",
+                "capabilities": ["text", "code"],
+                "cost_per_mil_tokens": 2.0,
+            },
+            {
+                "id": "deepseek-reasoner",
+                "name": "DeepSeek Reasoner",
+                "capabilities": ["reasoning", "math"],
+                "cost_per_mil_tokens": 12.0,
+            },
+            {
+                "id": "gemini-pro",
+                "name": "Gemini Pro",
+                "capabilities": ["text", "multimodal"],
+                "cost_per_mil_tokens": 15.0,
+            },
         ]
 
         return web.json_response(models)
@@ -470,7 +467,7 @@ class MultiTenantGateway:
             "active_tenants": active_tenants,
             "total_requests_served": total_requests,
             "total_tokens_processed": total_tokens,
-            "quota_usage_records": len(self.quota_usage)
+            "quota_usage_records": len(self.quota_usage),
         }
 
     async def reset_quota_for_tenant(self, tenant_id: str):
@@ -488,7 +485,7 @@ class MultiTenantGateway:
             requests_count=0,
             tokens_count=0,
             last_reset=datetime.now(),
-            remaining_quota=tenant.quota_monthly
+            remaining_quota=tenant.quota_monthly,
         )
 
         logger.info(f"Reset quota for tenant {tenant_id}")
@@ -498,8 +495,9 @@ class MultiTenantGateway:
 _global_gateway: MultiTenantGateway | None = None
 
 
-async def get_global_gateway(jwt_secret: str = None, default_quota: int = 10000,
-                           port: int = 8000, host: str = "localhost") -> MultiTenantGateway:
+async def get_global_gateway(
+    jwt_secret: str = None, default_quota: int = 10000, port: int = 8000, host: str = "localhost"
+) -> MultiTenantGateway:
     """
     Get the global multi-tenant gateway instance, creating it if needed.
 
@@ -515,16 +513,14 @@ async def get_global_gateway(jwt_secret: str = None, default_quota: int = 10000,
     global _global_gateway
     if _global_gateway is None:
         _global_gateway = MultiTenantGateway(
-            jwt_secret=jwt_secret,
-            default_quota=default_quota,
-            port=port,
-            host=host
+            jwt_secret=jwt_secret, default_quota=default_quota, port=port, host=host
         )
     return _global_gateway
 
 
-async def start_global_gateway(jwt_secret: str = None, default_quota: int = 10000,
-                              port: int = 8000, host: str = "localhost"):
+async def start_global_gateway(
+    jwt_secret: str = None, default_quota: int = 10000, port: int = 8000, host: str = "localhost"
+):
     """
     Start the global multi-tenant gateway.
 

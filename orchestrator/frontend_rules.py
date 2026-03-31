@@ -12,6 +12,7 @@ Usage:
     rules = FrontendRules()
     config = rules.generate_config("My SaaS", template="saas")
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 @dataclass
 class FrontendConfig:
     """Front-end project configuration."""
+
     project_name: str
     project_slug: str
 
@@ -1008,10 +1010,9 @@ export default defineConfig({
         """Get all available templates."""
         return self.TEMPLATES
 
-    def recommend_template(self,
-                          project_type: str = "saas",
-                          team_size: int = 1,
-                          complexity: str = "medium") -> str:
+    def recommend_template(
+        self, project_type: str = "saas", team_size: int = 1, complexity: str = "medium"
+    ) -> str:
         """Recommend template based on requirements."""
         recommendations = {
             "saas": "saas",
@@ -1027,44 +1028,43 @@ export default defineConfig({
 
         return recommendations.get(project_type, "saas")
 
-    def generate_config(self,
-                       project_name: str,
-                       template: str | None = None,
-                       **kwargs) -> FrontendConfig:
+    def generate_config(
+        self, project_name: str, template: str | None = None, **kwargs
+    ) -> FrontendConfig:
         """Generate front-end project configuration."""
-        slug = project_name.lower().replace(' ', '-').replace('_', '-')
+        slug = project_name.lower().replace(" ", "-").replace("_", "-")
 
         if template is None:
             template = self.recommend_template(
-                project_type=kwargs.get('project_type', 'saas'),
-                team_size=kwargs.get('team_size', 1),
+                project_type=kwargs.get("project_type", "saas"),
+                team_size=kwargs.get("team_size", 1),
             )
 
         return FrontendConfig(
             project_name=project_name,
             project_slug=slug,
             template=template,
-            framework=kwargs.get('framework', 'react'),
-            language=kwargs.get('language', 'typescript'),
-            bundler=kwargs.get('bundler', 'vite'),
-            server_state=kwargs.get('server_state', 'tanstack_query'),
-            client_state=kwargs.get('client_state', 'zustand'),
-            styling=kwargs.get('styling', 'tailwind'),
-            component_library=kwargs.get('component_library', True),
-            form_library=kwargs.get('form_library', 'react_hook_form'),
-            validation=kwargs.get('validation', 'zod'),
-            test_framework=kwargs.get('test_framework', 'vitest'),
-            e2e_framework=kwargs.get('e2e_framework', 'playwright'),
-            coverage_threshold=kwargs.get('coverage_threshold', 80.0),
-            strict_typescript=kwargs.get('strict_typescript', True),
-            eslint_strict=kwargs.get('eslint_strict', True),
-            prettier=kwargs.get('prettier', True),
-            ci_provider=kwargs.get('ci_provider', 'github_actions'),
-            docker=kwargs.get('docker', True),
-            ssr=kwargs.get('ssr', False),
-            pwa=kwargs.get('pwa', False),
-            i18n=kwargs.get('i18n', False),
-            analytics=kwargs.get('analytics', False),
+            framework=kwargs.get("framework", "react"),
+            language=kwargs.get("language", "typescript"),
+            bundler=kwargs.get("bundler", "vite"),
+            server_state=kwargs.get("server_state", "tanstack_query"),
+            client_state=kwargs.get("client_state", "zustand"),
+            styling=kwargs.get("styling", "tailwind"),
+            component_library=kwargs.get("component_library", True),
+            form_library=kwargs.get("form_library", "react_hook_form"),
+            validation=kwargs.get("validation", "zod"),
+            test_framework=kwargs.get("test_framework", "vitest"),
+            e2e_framework=kwargs.get("e2e_framework", "playwright"),
+            coverage_threshold=kwargs.get("coverage_threshold", 80.0),
+            strict_typescript=kwargs.get("strict_typescript", True),
+            eslint_strict=kwargs.get("eslint_strict", True),
+            prettier=kwargs.get("prettier", True),
+            ci_provider=kwargs.get("ci_provider", "github_actions"),
+            docker=kwargs.get("docker", True),
+            ssr=kwargs.get("ssr", False),
+            pwa=kwargs.get("pwa", False),
+            i18n=kwargs.get("i18n", False),
+            analytics=kwargs.get("analytics", False),
         )
 
     def get_rules_file_content(self, config: FrontendConfig) -> str:
@@ -1217,11 +1217,7 @@ export default defineConfig({
 
 
 # Convenience function
-def generate_frontend_rules(
-    project_name: str,
-    output_dir: Path,
-    **kwargs
-) -> Path:
+def generate_frontend_rules(project_name: str, output_dir: Path, **kwargs) -> Path:
     """Generate front-end rules file."""
     rules = FrontendRules()
     config = rules.generate_config(project_name, **kwargs)

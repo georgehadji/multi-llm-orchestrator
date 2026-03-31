@@ -30,7 +30,9 @@ class TestCodebaseEnhancerE2E:
             codebase_map = analyzer.scan(str(root))
 
             # Verify static analysis results
-            assert codebase_map.total_files == 4  # main.py, requirements.txt, README.md, test_main.py
+            assert (
+                codebase_map.total_files == 4
+            )  # main.py, requirements.txt, README.md, test_main.py
             assert codebase_map.primary_language == "python"
             assert codebase_map.project_type == "fastapi"
             assert codebase_map.has_tests == True

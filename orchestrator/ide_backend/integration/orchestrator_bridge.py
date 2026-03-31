@@ -1,6 +1,7 @@
 """
 Orchestrator Bridge - Connects IDE to AI Orchestrator core
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,8 +41,8 @@ class OrchestratorBridge:
             )
 
             # Try to get event bus
-            event_bus = getattr(self.orchestrator, 'event_bus', None)
-            if event_bus and hasattr(event_bus, 'subscribe'):
+            event_bus = getattr(self.orchestrator, "event_bus", None)
+            if event_bus and hasattr(event_bus, "subscribe"):
                 event_bus.subscribe(self._on_event)
                 logger.info("Subscribed to orchestrator events")
             else:
@@ -53,14 +54,12 @@ class OrchestratorBridge:
     def _on_event(self, event: Any):
         """Handle orchestrator event."""
         try:
-            event_type = getattr(event, 'event_type', None) or getattr(event, 'type', None)
+            event_type = getattr(event, "event_type", None) or getattr(event, "type", None)
             event_data = self._convert_event(event)
 
             if event_type:
                 # Broadcast to all sessions or specific session
-                asyncio.create_task(
-                    self.connection_manager.broadcast(str(event_type), event_data)
-                )
+                asyncio.create_task(self.connection_manager.broadcast(str(event_type), event_data))
         except Exception as e:
             logger.error(f"Error handling orchestrator event: {e}")
 
@@ -69,7 +68,7 @@ class OrchestratorBridge:
         event_dict = {}
 
         # Extract common fields
-        for attr in ['task_id', 'project_id', 'model', 'cost', 'quality', 'status']:
+        for attr in ["task_id", "project_id", "model", "cost", "quality", "status"]:
             if hasattr(event, attr):
                 event_dict[attr] = getattr(event, attr)
 
@@ -93,10 +92,10 @@ class OrchestratorBridge:
         """Execute a task through the orchestrator."""
         try:
             # Get orchestrator method
-            if hasattr(self.orchestrator, 'execute'):
+            if hasattr(self.orchestrator, "execute"):
                 result = await self.orchestrator.execute(task_spec)
                 return result
-            elif hasattr(self.orchestrator, 'run'):
+            elif hasattr(self.orchestrator, "run"):
                 result = await self.orchestrator.run(task_spec)
                 return result
             else:

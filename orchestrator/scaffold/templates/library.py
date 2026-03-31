@@ -2,6 +2,7 @@
 
 Author: Georgios-Chrysovalantis Chatzivantsidis
 """
+
 from __future__ import annotations
 
 FILES: dict[str, str] = {
@@ -9,17 +10,17 @@ FILES: dict[str, str] = {
     "src/core.py": '"""Core library functionality."""\n\n\ndef hello() -> str:\n    return "Hello from library!"\n',
     "tests/__init__.py": "",
     "tests/test_core.py": (
-        'from src.core import hello\n\n\n'
-        'def test_hello():\n'
+        "from src.core import hello\n\n\n"
+        "def test_hello():\n"
         '    assert hello() == "Hello from library!"\n'
     ),
     "pyproject.toml": (
-        '[project]\n'
+        "[project]\n"
         'name = "my-library"\n'
         'version = "0.1.0"\n'
         'requires-python = ">=3.11"\n'
-        'dependencies = []\n\n'
-        '[build-system]\n'
+        "dependencies = []\n\n"
+        "[build-system]\n"
         'requires = ["setuptools>=68"]\n'
         'build-backend = "setuptools.build_meta"\n'
     ),

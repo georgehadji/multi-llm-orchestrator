@@ -14,6 +14,7 @@ Usage:
     await aggregator.record_task_result(task_type="code_gen", model="gpt-4", score=0.85)
     recommendations = await aggregator.get_routing_recommendations(task_type="code_gen")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -74,8 +75,12 @@ class RoutingRecommendation:
 class LearningAggregator:
     """Aggregates model performance across ALL runs for persistent learning."""
 
-    def __init__(self, storage_path: str = "./learning_data/",
-                 retention_days: int = 90, min_samples_for_recommendation: int = 5):
+    def __init__(
+        self,
+        storage_path: str = "./learning_data/",
+        retention_days: int = 90,
+        min_samples_for_recommendation: int = 5,
+    ):
         """
         Initialize the learning aggregator.
 
@@ -97,9 +102,17 @@ class LearningAggregator:
         # Lock for thread-safe operations
         self._lock = asyncio.Lock()
 
-    async def record_task_result(self, task_id: str, task_type: TaskType, model: Model,
-                                score: float, cost: float, tokens_used: int,
-                                execution_time: float, feedback: str | None = None):
+    async def record_task_result(
+        self,
+        task_id: str,
+        task_type: TaskType,
+        model: Model,
+        score: float,
+        cost: float,
+        tokens_used: int,
+        execution_time: float,
+        feedback: str | None = None,
+    ):
         """
         Record the result of a task for learning purposes.
 
@@ -123,7 +136,7 @@ class LearningAggregator:
                 cost=cost,
                 tokens_used=tokens_used,
                 execution_time=execution_time,
-                feedback=feedback
+                feedback=feedback,
             )
 
             # Add to cache
@@ -138,7 +151,9 @@ class LearningAggregator:
             # Update aggregated stats
             await self._update_aggregated_stats(cache_key)
 
-            logger.info(f"Recorded task result: {task_type.value} with {model.value}, score: {score:.2f}")
+            logger.info(
+                f"Recorded task result: {task_type.value} with {model.value}, score: {score:.2f}"
+            )
 
     async def _persist_record(self, record: TaskPerformanceRecord):
         """Persist a record to storage."""
@@ -156,12 +171,12 @@ class LearningAggregator:
             "cost": record.cost,
             "tokens_used": record.tokens_used,
             "execution_time": record.execution_time,
-            "feedback": record.feedback
+            "feedback": record.feedback,
         }
 
         try:
-            with open(filepath, 'a', encoding='utf-8') as f:
-                f.write(json.dumps(record_dict) + '\n')
+            with open(filepath, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record_dict) + "\n")
         except Exception as e:
             logger.error(f"Failed to persist record: {e}")
 
@@ -195,12 +210,14 @@ class LearningAggregator:
             avg_time=avg_time,
             total_runs=total_runs,
             success_rate=success_rate,
-            last_updated=datetime.now()
+            last_updated=datetime.now(),
         )
 
         self.aggregated_stats[cache_key] = stats
 
-    async def get_routing_recommendations(self, task_type: TaskType) -> RoutingRecommendation | None:
+    async def get_routing_recommendations(
+        self, task_type: TaskType
+    ) -> RoutingRecommendation | None:
         """
         Get routing recommendations for a task type based on historical performance.
 
@@ -213,7 +230,8 @@ class LearningAggregator:
         async with self._lock:
             # Find all models that have been used for this task type
             relevant_stats = [
-                stats for (t, m), stats in self.aggregated_stats.items()
+                stats
+                for (t, m), stats in self.aggregated_stats.items()
                 if t == task_type and stats.total_runs >= self.min_samples_for_recommendation
             ]
 
@@ -227,7 +245,9 @@ class LearningAggregator:
                 # Normalize score (higher is better) and cost efficiency (lower cost is better)
                 normalized_score = stats.avg_score
                 # Invert cost for efficiency calculation (lower cost = higher efficiency)
-                cost_efficiency = 1.0 / (stats.avg_cost + 0.0001)  # Add small value to avoid division by zero
+                cost_efficiency = 1.0 / (
+                    stats.avg_cost + 0.0001
+                )  # Add small value to avoid division by zero
                 return normalized_score * cost_efficiency
 
             relevant_stats.sort(key=score_key, reverse=True)
@@ -253,7 +273,7 @@ class LearningAggregator:
                 expected_score=best_stats.avg_score,
                 cost_efficiency=cost_efficiency,
                 confidence=confidence,
-                alternatives=alternatives
+                alternatives=alternatives,
             )
 
             return recommendation
@@ -264,7 +284,7 @@ class LearningAggregator:
             # Find all performance files
             for filepath in self.storage_path.glob("performance_*.jsonl"):
                 try:
-                    with open(filepath, encoding='utf-8') as f:
+                    with open(filepath, encoding="utf-8") as f:
                         for line in f:
                             if line.strip():
                                 try:
@@ -283,7 +303,7 @@ class LearningAggregator:
                                         cost=record_data["cost"],
                                         tokens_used=record_data["tokens_used"],
                                         execution_time=record_data["execution_time"],
-                                        feedback=record_data.get("feedback")
+                                        feedback=record_data.get("feedback"),
                                     )
 
                                     # Add to cache
@@ -302,7 +322,9 @@ class LearningAggregator:
             for cache_key in self.performance_cache:
                 await self._update_aggregated_stats(cache_key)
 
-            logger.info(f"Loaded historical data: {len(self.performance_cache)} task-model combinations")
+            logger.info(
+                f"Loaded historical data: {len(self.performance_cache)} task-model combinations"
+            )
 
     async def get_model_comparison(self, task_type: TaskType) -> list[ModelPerformanceStats]:
         """
@@ -316,7 +338,8 @@ class LearningAggregator:
         """
         async with self._lock:
             relevant_stats = [
-                stats for (t, m), stats in self.aggregated_stats.items()
+                stats
+                for (t, m), stats in self.aggregated_stats.items()
                 if t == task_type and stats.total_runs >= self.min_samples_for_recommendation
             ]
 
@@ -350,13 +373,15 @@ class LearningAggregator:
                     best_models[task_type.value] = recommendation.recommended_model.value
 
             # Calculate overall trends
-            all_scores = [record.score for records in self.performance_cache.values() for record in records]
+            all_scores = [
+                record.score for records in self.performance_cache.values() for record in records
+            ]
             avg_overall_score = sum(all_scores) / len(all_scores) if all_scores else 0.0
 
             # Calculate improvement over time (simplified)
             if len(all_scores) > 10:  # Need enough data points
                 recent_scores = all_scores[-10:]  # Last 10 scores
-                older_scores = all_scores[:10]   # First 10 scores
+                older_scores = all_scores[:10]  # First 10 scores
                 recent_avg = sum(recent_scores) / len(recent_scores)
                 older_avg = sum(older_scores) / len(older_scores)
                 trending_positive = recent_avg > older_avg
@@ -370,7 +395,7 @@ class LearningAggregator:
                 "best_models_by_task": best_models,
                 "average_overall_score": avg_overall_score,
                 "trending_improvement": trending_positive,
-                "last_updated": datetime.now().isoformat()
+                "last_updated": datetime.now().isoformat(),
             }
 
     async def cleanup_old_records(self):
@@ -389,7 +414,9 @@ class LearningAggregator:
             for filepath in self.storage_path.glob("performance_*.jsonl"):
                 try:
                     # Extract date from filename
-                    date_str = filepath.name.split("_")[1].split(".")[0]  # Gets YYYY-MM-DD from performance_YYYY-MM-DD.jsonl
+                    date_str = filepath.name.split("_")[1].split(".")[
+                        0
+                    ]  # Gets YYYY-MM-DD from performance_YYYY-MM-DD.jsonl
                     file_date = datetime.strptime(date_str, "%Y-%m-%d")
 
                     if file_date < cutoff_date:
@@ -423,15 +450,15 @@ class LearningAggregator:
                         "avg_time": stats.avg_time,
                         "total_runs": stats.total_runs,
                         "success_rate": stats.success_rate,
-                        "last_updated": stats.last_updated.isoformat()
+                        "last_updated": stats.last_updated.isoformat(),
                     }
                     for (task_type, model), stats in self.aggregated_stats.items()
                 },
                 "learning_insights": await self.get_learning_insights(),
-                "export_timestamp": datetime.now().isoformat()
+                "export_timestamp": datetime.now().isoformat(),
             }
 
-            with open(export_path, 'w', encoding='utf-8') as f:
+            with open(export_path, "w", encoding="utf-8") as f:
                 json.dump(export_data, f, indent=2, default=str)
 
             logger.info(f"Exported learning data to {export_path}")
@@ -451,7 +478,7 @@ class LearningAggregator:
             bool: True if import was successful
         """
         try:
-            with open(import_path, encoding='utf-8') as f:
+            with open(import_path, encoding="utf-8") as f:
                 import_data = json.load(f)
 
             # Import aggregated stats
@@ -468,7 +495,7 @@ class LearningAggregator:
                     avg_time=stats_data["avg_time"],
                     total_runs=stats_data["total_runs"],
                     success_rate=stats_data["success_rate"],
-                    last_updated=datetime.fromisoformat(stats_data["last_updated"])
+                    last_updated=datetime.fromisoformat(stats_data["last_updated"]),
                 )
 
                 self.aggregated_stats[(task_type, model)] = stats
@@ -484,7 +511,9 @@ class LearningAggregator:
 _global_learning_aggregator: LearningAggregator | None = None
 
 
-async def get_global_learning_aggregator(storage_path: str = "./learning_data/") -> LearningAggregator:
+async def get_global_learning_aggregator(
+    storage_path: str = "./learning_data/",
+) -> LearningAggregator:
     """
     Get the global learning aggregator instance, creating it if needed.
 
@@ -501,9 +530,16 @@ async def get_global_learning_aggregator(storage_path: str = "./learning_data/")
     return _global_learning_aggregator
 
 
-async def record_task_result_global(task_id: str, task_type: TaskType, model: Model,
-                                  score: float, cost: float, tokens_used: int,
-                                  execution_time: float, feedback: str | None = None):
+async def record_task_result_global(
+    task_id: str,
+    task_type: TaskType,
+    model: Model,
+    score: float,
+    cost: float,
+    tokens_used: int,
+    execution_time: float,
+    feedback: str | None = None,
+):
     """
     Record a task result using the global learning aggregator.
 

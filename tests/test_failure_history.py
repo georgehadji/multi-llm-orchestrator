@@ -9,6 +9,7 @@ Covers:
   - State serialization round-trip preserves attempt_history
   - summary.json includes attempt_history for each task
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,13 +24,20 @@ from orchestrator.api_clients import APIResponse
 from orchestrator.engine import Orchestrator
 from orchestrator.hooks import EventType
 from orchestrator.models import (
-    AttemptRecord, Budget, Model, ProjectState, ProjectStatus,
-    Task, TaskStatus, TaskType, build_default_profiles,
+    AttemptRecord,
+    Budget,
+    Model,
+    ProjectState,
+    ProjectStatus,
+    Task,
+    TaskStatus,
+    TaskType,
+    build_default_profiles,
 )
 from orchestrator.output_writer import write_output_dir
 
-
 # ─── helpers ─────────────────────────────────────────────────────────────────
+
 
 def _api_response(text: str, model: Model = Model.GEMINI_FLASH) -> APIResponse:
     resp = APIResponse(text=text, input_tokens=50, output_tokens=100, model=model)
@@ -71,6 +79,7 @@ _SINGLE_TASK = [
 
 # ─── AttemptRecord dataclass ─────────────────────────────────────────────────
 
+
 class TestAttemptRecord:
     def test_required_fields(self):
         r = AttemptRecord(
@@ -101,21 +110,27 @@ class TestAttemptRecord:
 
 # ─── _build_delta_prompt ─────────────────────────────────────────────────────
 
+
 class TestBuildDeltaPrompt:
     def _orch(self) -> Orchestrator:
         return _make_orch()
 
     def test_original_prompt_preserved(self):
         orch = self._orch()
-        record = AttemptRecord(attempt_num=1, model_used="m", output_snippet="x",
-                               failure_reason="bad score")
+        record = AttemptRecord(
+            attempt_num=1, model_used="m", output_snippet="x", failure_reason="bad score"
+        )
         result = orch._build_delta_prompt("Do something cool", record)
         assert result.startswith("Do something cool")
 
     def test_failure_section_included(self):
         orch = self._orch()
-        record = AttemptRecord(attempt_num=1, model_used="gpt-4o", output_snippet="x",
-                               failure_reason="Score 0.400 below threshold 0.7")
+        record = AttemptRecord(
+            attempt_num=1,
+            model_used="gpt-4o",
+            output_snippet="x",
+            failure_reason="Score 0.400 below threshold 0.7",
+        )
         result = orch._build_delta_prompt("original", record)
         assert "PREVIOUS ATTEMPT FAILED" in result
         assert "gpt-4o" in result
@@ -123,30 +138,41 @@ class TestBuildDeltaPrompt:
 
     def test_no_validators_shows_none(self):
         orch = self._orch()
-        record = AttemptRecord(attempt_num=1, model_used="m", output_snippet="x",
-                               failure_reason="fail", validators_failed=[])
+        record = AttemptRecord(
+            attempt_num=1,
+            model_used="m",
+            output_snippet="x",
+            failure_reason="fail",
+            validators_failed=[],
+        )
         result = orch._build_delta_prompt("original", record)
         assert "Validators failed: none" in result
 
     def test_validators_listed(self):
         orch = self._orch()
-        record = AttemptRecord(attempt_num=1, model_used="m", output_snippet="x",
-                               failure_reason="fail",
-                               validators_failed=["python_syntax", "json_valid"])
+        record = AttemptRecord(
+            attempt_num=1,
+            model_used="m",
+            output_snippet="x",
+            failure_reason="fail",
+            validators_failed=["python_syntax", "json_valid"],
+        )
         result = orch._build_delta_prompt("original", record)
         assert "python_syntax" in result
         assert "json_valid" in result
 
     def test_correction_instruction_included(self):
         orch = self._orch()
-        record = AttemptRecord(attempt_num=1, model_used="m", output_snippet="x",
-                               failure_reason="missing docstring")
+        record = AttemptRecord(
+            attempt_num=1, model_used="m", output_snippet="x", failure_reason="missing docstring"
+        )
         result = orch._build_delta_prompt("original", record)
         assert "Please correct specifically" in result
         assert "missing docstring" in result
 
 
 # ─── Attempt history in TaskResult via engine ─────────────────────────────────
+
 
 class TestAttemptHistoryInEngine:
     def test_failed_attempts_recorded(self):
@@ -250,6 +276,7 @@ class TestAttemptHistoryInEngine:
 
 # ─── TASK_RETRY_WITH_HISTORY hook ────────────────────────────────────────────
 
+
 class TestRetryWithHistoryHook:
     def test_hook_fires_on_failure(self):
         """TASK_RETRY_WITH_HISTORY fires once per failed iteration."""
@@ -284,6 +311,7 @@ class TestRetryWithHistoryHook:
 
 
 # ─── State serialization round-trip ──────────────────────────────────────────
+
 
 class TestAttemptHistorySerialization:
     def test_attempt_history_round_trips_through_state(self):
@@ -335,6 +363,7 @@ class TestAttemptHistorySerialization:
 
 
 # ─── summary.json includes attempt_history ───────────────────────────────────
+
 
 class TestAttemptHistoryInSummaryJson:
     def test_attempt_history_written_to_summary(self):

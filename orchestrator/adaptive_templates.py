@@ -56,6 +56,7 @@ logger = get_logger(__name__)
 
 class TemplateStyle(Enum):
     """Template style categories."""
+
     CONCISE = "concise"
     STRUCTURED = "structured"
     FEW_SHOT = "few_shot"
@@ -67,6 +68,7 @@ class TemplateStyle(Enum):
 @dataclass
 class TemplateVariant:
     """A single template variant."""
+
     name: str
     template: str
     style: TemplateStyle = TemplateStyle.STRUCTURED
@@ -90,6 +92,7 @@ class TemplateVariant:
 @dataclass
 class TemplatePerformance:
     """Performance tracking for a template variant."""
+
     variant_name: str
     task_type: TaskType
     model: Model
@@ -165,6 +168,7 @@ class TemplatePerformance:
 @dataclass
 class ContextProfile:
     """Profile of a context for similarity matching."""
+
     language: str | None = None
     framework: str | None = None
     complexity: str = "medium"  # low, medium, high
@@ -201,8 +205,13 @@ class ContextProfile:
 
         if self.complexity == other.complexity:
             score += weights["complexity"]
-        elif abs(["low", "medium", "high"].index(self.complexity) -
-                 ["low", "medium", "high"].index(other.complexity)) == 1:
+        elif (
+            abs(
+                ["low", "medium", "high"].index(self.complexity)
+                - ["low", "medium", "high"].index(other.complexity)
+            )
+            == 1
+        ):
             score += weights["complexity"] * 0.5
 
         domain_self = self.domain or "any"
@@ -292,10 +301,7 @@ class AdaptiveTemplateSystem:
         try:
             data = {}
             for key, perf in self._performance.items():
-                serialized_key = ":".join(
-                    k.value if hasattr(k, "value") else str(k)
-                    for k in key
-                )
+                serialized_key = ":".join(k.value if hasattr(k, "value") else str(k) for k in key)
                 data[serialized_key] = perf.to_dict()
 
             perf_file = self.storage_path / "performance.json"
@@ -368,7 +374,7 @@ Now write the code:
                     style=TemplateStyle.CHAIN_OF_THOUGHT,
                     description="Chain-of-thought reasoning",
                 ),
-            ]
+            ],
         )
 
         # CODE_REVIEW templates
@@ -395,7 +401,7 @@ Now write the code:
 Provide specific line-by-line feedback.""",
                     style=TemplateStyle.STRUCTURED,
                 ),
-            ]
+            ],
         )
 
         # REASONING templates
@@ -430,7 +436,7 @@ Step 4: Make recommendation
 Provide your analysis.""",
                     style=TemplateStyle.CHAIN_OF_THOUGHT,
                 ),
-            ]
+            ],
         )
 
     def register_variants(
@@ -475,7 +481,7 @@ Provide your analysis.""",
             # Return a default
             return (
                 TemplateVariant(name="default", template="{task}"),
-                {"strategy": "fallback", "reason": "no_variants"}
+                {"strategy": "fallback", "reason": "no_variants"},
             )
 
         # Check for exploration
@@ -490,7 +496,7 @@ Provide your analysis.""",
                         "strategy": "exploration",
                         "variant": explore_variant.name,
                         "reason": "epsilon_greedy",
-                    }
+                    },
                 )
 
         # Exploitation: select best performing variant
@@ -502,10 +508,7 @@ Provide your analysis.""",
 
     def _get_variants_for_task(self, task_type: TaskType) -> list[TemplateVariant]:
         """Get all variants for a task type."""
-        return [
-            variant for (tt, _), variant in self._templates.items()
-            if tt == task_type
-        ]
+        return [variant for (tt, _), variant in self._templates.items() if tt == task_type]
 
     def _build_context_profile(self, context: dict[str, Any]) -> ContextProfile:
         """Build context profile from context dict."""
@@ -560,9 +563,7 @@ Provide your analysis.""",
         scores = []
 
         for variant in variants:
-            score = self._calculate_variant_score(
-                variant, task_type, model, context_profile
-            )
+            score = self._calculate_variant_score(variant, task_type, model, context_profile)
             scores.append((variant, score))
 
         # Sort by score
@@ -619,17 +620,14 @@ Provide your analysis.""",
         # Context-adjusted score
         context_key = context_profile.to_key()
         context_score = self._context_performance.get(
-            (task_type, context_key, variant.name),
-            ema_score  # Fall back to global EMA
+            (task_type, context_key, variant.name), ema_score  # Fall back to global EMA
         )
 
         # Composite score with confidence weighting
         confidence = perf.confidence
-        composite = (
-            0.6 * ema_score +
-            0.3 * context_score +
-            0.1 * perf.success_rate
-        ) * (0.5 + 0.5 * confidence)  # Penalize low confidence
+        composite = (0.6 * ema_score + 0.3 * context_score + 0.1 * perf.success_rate) * (
+            0.5 + 0.5 * confidence
+        )  # Penalize low confidence
 
         return {
             "composite": composite,
@@ -714,8 +712,7 @@ Provide your analysis.""",
                 "confidence": perf.confidence,
             }
             for key, perf in self._performance.items()
-            if (task_type is None or key[0] == task_type) and
-               (model is None or key[1] == model)
+            if (task_type is None or key[0] == task_type) and (model is None or key[1] == model)
         ]
 
         performers.sort(key=lambda x: x["ema_score"], reverse=True)
@@ -853,9 +850,11 @@ def reset_adaptive_template_system() -> None:
 # Self-Improving Templates Integration (Hyperagents-inspired)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class TemplateEvolutionRecord:
     """Record of template evolution for meta-optimization."""
+
     task_type: str
     model: str
     variant_name: str
@@ -888,9 +887,15 @@ class SelfImprovingTemplates:
         self._evolution_records: list[TemplateEvolutionRecord] = []
         self._variant_performance: dict[str, list[float]] = defaultdict(list)
 
-    def record_execution(self, task_type: TaskType, model: Model,
-                        variant_name: str, score: float, success: bool,
-                        cost_usd: float):
+    def record_execution(
+        self,
+        task_type: TaskType,
+        model: Model,
+        variant_name: str,
+        score: float,
+        success: bool,
+        cost_usd: float,
+    ):
         """Record template execution for later analysis."""
         record = TemplateEvolutionRecord(
             task_type=task_type.value,
@@ -939,32 +944,38 @@ class SelfImprovingTemplates:
             for record in records:
                 variant_scores[record.variant_name].append(record.score)
 
-            best_variant = max(variant_scores.keys(),
-                              key=lambda v: sum(variant_scores[v]) / len(variant_scores[v]))
+            best_variant = max(
+                variant_scores.keys(), key=lambda v: sum(variant_scores[v]) / len(variant_scores[v])
+            )
             best_score = sum(variant_scores[best_variant]) / len(variant_scores[best_variant])
 
             # Find worst performing variant
-            worst_variant = min(variant_scores.keys(),
-                               key=lambda v: sum(variant_scores[v]) / len(variant_scores[v]))
+            worst_variant = min(
+                variant_scores.keys(), key=lambda v: sum(variant_scores[v]) / len(variant_scores[v])
+            )
             worst_score = sum(variant_scores[worst_variant]) / len(variant_scores[worst_variant])
 
             # Propose retiring underperforming variant
             if best_score - worst_score > 0.15:  # 15% difference
-                proposals.append({
-                    "type": "retire_variant",
-                    "task_type": task_type,
-                    "variant_to_retire": worst_variant,
-                    "reason": f"Underperforming ({worst_score:.2f} vs {best_score:.2f})",
-                })
+                proposals.append(
+                    {
+                        "type": "retire_variant",
+                        "task_type": task_type,
+                        "variant_to_retire": worst_variant,
+                        "reason": f"Underperforming ({worst_score:.2f} vs {best_score:.2f})",
+                    }
+                )
 
             # Propose making best variant the default
             if best_score > 0.85:
-                proposals.append({
-                    "type": "set_default",
-                    "task_type": task_type,
-                    "default_variant": best_variant,
-                    "reason": f"High performer ({best_score:.2f} avg score)",
-                })
+                proposals.append(
+                    {
+                        "type": "set_default",
+                        "task_type": task_type,
+                        "default_variant": best_variant,
+                        "reason": f"High performer ({best_score:.2f} avg score)",
+                    }
+                )
 
         return proposals
 
@@ -974,12 +985,16 @@ class SelfImprovingTemplates:
 
         if proposal_type == "retire_variant":
             # Mark variant as retired (would need template system support)
-            logger.info(f"Would retire variant: {proposal['variant_to_retire']} for {proposal['task_type']}")
+            logger.info(
+                f"Would retire variant: {proposal['variant_to_retire']} for {proposal['task_type']}"
+            )
             return True
 
         elif proposal_type == "set_default":
             # Set default variant for task type
-            logger.info(f"Would set default variant: {proposal['default_variant']} for {proposal['task_type']}")
+            logger.info(
+                f"Would set default variant: {proposal['default_variant']} for {proposal['task_type']}"
+            )
             return True
 
         return False

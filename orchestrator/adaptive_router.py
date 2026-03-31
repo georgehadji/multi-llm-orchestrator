@@ -15,6 +15,7 @@ DESIGN: All public methods are async and use asyncio.Lock for thread safety.
 FIX-BUG-002: Replaced threading.Lock with asyncio.Lock to prevent potential
         event loop blocking and follow async best practices.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +26,7 @@ from .models import Model, TaskType
 
 
 class ModelState(str, Enum):
-    HEALTHY  = "healthy"
+    HEALTHY = "healthy"
     DEGRADED = "degraded"
     DISABLED = "disabled"
 
@@ -132,8 +133,7 @@ class AdaptiveRouter:
         async with self._lock:
             self._disabled.add(model)
 
-    async def record_latency(self, model: Model, latency_ms: float,
-                             alpha: float = 0.1) -> None:
+    async def record_latency(self, model: Model, latency_ms: float, alpha: float = 0.1) -> None:
         """
         Record latency observation for EMA calculation (async-safe).
 
@@ -144,9 +144,7 @@ class AdaptiveRouter:
         """
         async with self._lock:
             if model in self._latencies:
-                self._latencies[model] = (
-                    alpha * latency_ms + (1 - alpha) * self._latencies[model]
-                )
+                self._latencies[model] = alpha * latency_ms + (1 - alpha) * self._latencies[model]
             else:
                 self._latencies[model] = latency_ms
 

@@ -42,6 +42,7 @@ logger = logging.getLogger("orchestrator.provisioned_throughput")
 
 class CapacityType(str, Enum):
     """Type of capacity."""
+
     COMMITTED = "committed"  # 30-day minimum
     ON_DEMAND = "on_demand"  # Pay-as-you-go overage
 
@@ -49,6 +50,7 @@ class CapacityType(str, Enum):
 @dataclass
 class CapacityUnit:
     """A single provisioned capacity unit."""
+
     unit_id: str
     model: str
     input_tpm: int = 31_500  # Tokens per minute (input)
@@ -72,6 +74,7 @@ class CapacityUnit:
 @dataclass
 class UsageMetrics:
     """Current usage metrics."""
+
     current_input_tpm: int = 0
     current_output_tpm: int = 0
     total_input_tokens: int = 0
@@ -92,6 +95,7 @@ class UsageMetrics:
 @dataclass
 class ProvisionedThroughputConfig:
     """Configuration for provisioned throughput."""
+
     enabled: bool = False
     units: int = 0
     models: list[str] = field(default_factory=lambda: ["grok-4.20", "grok-4.20-reasoning"])
@@ -253,7 +257,9 @@ class ProvisionedThroughputManager:
                 scaled = await self._auto_scale_capacity()
                 if scaled:
                     # Retry after scaling
-                    return await self.check_capacity(tokens, is_input, timeout - (time.time() - start_time))
+                    return await self.check_capacity(
+                        tokens, is_input, timeout - (time.time() - start_time)
+                    )
 
             # Check if we can wait for capacity to free up
             elapsed = time.time() - start_time
@@ -262,7 +268,9 @@ class ProvisionedThroughputManager:
                 if wait_time > 0 and elapsed + wait_time <= timeout:
                     logger.debug(f"Waiting {wait_time:.1f}s for capacity reset")
                     await asyncio.sleep(wait_time)
-                    return await self.check_capacity(tokens, is_input, timeout - elapsed - wait_time)
+                    return await self.check_capacity(
+                        tokens, is_input, timeout - elapsed - wait_time
+                    )
 
             # No capacity available, return False (caller should use on-demand)
             return False

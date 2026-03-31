@@ -143,8 +143,9 @@ class TestMinimaxFallbackChain:
         fallback = FALLBACK_CHAIN[Model.MINIMAX_TEXT_01]
         minimax_provider = get_provider(Model.MINIMAX_TEXT_01)
         fallback_provider = get_provider(fallback)
-        assert minimax_provider != fallback_provider, \
-            f"Minimax fallback should be cross-provider, got {fallback_provider}"
+        assert (
+            minimax_provider != fallback_provider
+        ), f"Minimax fallback should be cross-provider, got {fallback_provider}"
 
     def test_minimax_fallback_is_valid_model(self):
         """Minimax fallback should be a valid Model enum value."""
@@ -164,8 +165,9 @@ class TestZaiGlmFallbackChain:
         fallback = FALLBACK_CHAIN[Model.GLM_4]
         glm_provider = get_provider(Model.GLM_4)
         fallback_provider = get_provider(fallback)
-        assert glm_provider != fallback_provider, \
-            f"GLM-4 fallback should be cross-provider, got {fallback_provider}"
+        assert (
+            glm_provider != fallback_provider
+        ), f"GLM-4 fallback should be cross-provider, got {fallback_provider}"
 
     def test_zai_glm_fallback_is_valid_model(self):
         """Z.ai GLM fallback should be a valid Model enum value."""

@@ -50,6 +50,7 @@ logger = get_logger(__name__)
 
 class EventType(Enum):
     """Event types for Nash stability system."""
+
     # Knowledge Graph Events
     KNOWLEDGE_GRAPH_UPDATED = "kg:updated"
     KNOWLEDGE_NODE_ADDED = "kg:node_added"
@@ -84,6 +85,7 @@ class EventType(Enum):
 @dataclass
 class NashEvent:
     """Base class for all Nash events."""
+
     event_type: EventType
     timestamp: datetime = field(default_factory=datetime.utcnow)
     source: str = "unknown"
@@ -114,9 +116,11 @@ class NashEvent:
 # Specific Event Types
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class KnowledgeGraphUpdatedEvent(NashEvent):
     """Emitted when knowledge graph is updated."""
+
     nodes_added: int = 0
     edges_added: int = 0
     nodes_total: int = 0
@@ -136,6 +140,7 @@ class KnowledgeGraphUpdatedEvent(NashEvent):
 @dataclass
 class TemplateSelectedEvent(NashEvent):
     """Emitted when a template is selected."""
+
     task_type: str = ""
     model: str = ""
     variant_name: str = ""
@@ -157,6 +162,7 @@ class TemplateSelectedEvent(NashEvent):
 @dataclass
 class TemplateResultReportedEvent(NashEvent):
     """Emitted when template result is reported."""
+
     task_type: str = ""
     model: str = ""
     variant_name: str = ""
@@ -180,6 +186,7 @@ class TemplateResultReportedEvent(NashEvent):
 @dataclass
 class FrontierComputedEvent(NashEvent):
     """Emitted when Pareto frontier is computed."""
+
     task_type: str = ""
     models_considered: int = 0
     pareto_optimal_count: int = 0
@@ -199,6 +206,7 @@ class FrontierComputedEvent(NashEvent):
 @dataclass
 class DriftDetectedEvent(NashEvent):
     """Emitted when model drift is detected."""
+
     model: str = ""
     metric: str = ""
     expected_value: float = 0.0
@@ -222,6 +230,7 @@ class DriftDetectedEvent(NashEvent):
 @dataclass
 class InsightContributedEvent(NashEvent):
     """Emitted when insight is contributed to federation."""
+
     model: str = ""
     task_type: str = ""
     success_rate: float = 0.0
@@ -243,6 +252,7 @@ class InsightContributedEvent(NashEvent):
 @dataclass
 class StabilityScoreUpdatedEvent(NashEvent):
     """Emitted when Nash stability score changes."""
+
     previous_score: float = 0.0
     new_score: float = 0.0
     score_change: float = 0.0
@@ -262,6 +272,7 @@ class StabilityScoreUpdatedEvent(NashEvent):
 @dataclass
 class AutoTuningTriggeredEvent(NashEvent):
     """Emitted when auto-tuning runs."""
+
     parameter_name: str = ""
     old_value: float = 0.0
     new_value: float = 0.0
@@ -283,6 +294,7 @@ class AutoTuningTriggeredEvent(NashEvent):
 @dataclass
 class BackupCreatedEvent(NashEvent):
     """Emitted when backup is created."""
+
     backup_path: str = ""
     backup_size_bytes: int = 0
     components_backed_up: list[str] = field(default_factory=list)
@@ -304,6 +316,7 @@ class BackupCreatedEvent(NashEvent):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Event Bus
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class NashEventBus:
     """
@@ -375,9 +388,11 @@ class NashEventBus:
             async def handle_update(event):
                 ...
         """
+
         def decorator(func: Callable):
             self.subscribe(event_type, func)
             return func
+
         return decorator
 
     def subscribe(self, event_type: EventType, handler: Callable) -> None:
@@ -423,10 +438,7 @@ class NashEventBus:
 
         if handlers:
             # Run handlers concurrently with error isolation
-            tasks = [
-                self._run_handler(handler, event)
-                for handler in handlers
-            ]
+            tasks = [self._run_handler(handler, event) for handler in handlers]
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _run_handler(self, handler: Callable, event: NashEvent) -> None:
@@ -463,8 +475,7 @@ class NashEventBus:
             "history_size": len(self._event_history),
             "subscriber_count": sum(len(h) for h in self._subscribers.values()),
             "subscribers_by_type": {
-                et.value: len(handlers)
-                for et, handlers in self._subscribers.items()
+                et.value: len(handlers) for et, handlers in self._subscribers.items()
             },
         }
 
@@ -497,6 +508,7 @@ class NashEventBus:
 # Cross-Component Event Handlers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class NashEventHandlers:
     """
     Built-in event handlers that wire components together.
@@ -528,27 +540,17 @@ class NashEventHandlers:
         """Set up cross-component event handlers."""
         # Knowledge Graph → Pareto Frontier
         self.event_bus.subscribe(
-            EventType.KNOWLEDGE_GRAPH_UPDATED,
-            self._on_knowledge_graph_updated
+            EventType.KNOWLEDGE_GRAPH_UPDATED, self._on_knowledge_graph_updated
         )
 
         # Template Results → Knowledge Graph
-        self.event_bus.subscribe(
-            EventType.TEMPLATE_RESULT_REPORTED,
-            self._on_template_result
-        )
+        self.event_bus.subscribe(EventType.TEMPLATE_RESULT_REPORTED, self._on_template_result)
 
         # Drift Detection → Auto-tuning
-        self.event_bus.subscribe(
-            EventType.DRIFT_DETECTED,
-            self._on_drift_detected
-        )
+        self.event_bus.subscribe(EventType.DRIFT_DETECTED, self._on_drift_detected)
 
         # Federated Insights → Baseline Update
-        self.event_bus.subscribe(
-            EventType.INSIGHT_CONTRIBUTED,
-            self._on_insight_contributed
-        )
+        self.event_bus.subscribe(EventType.INSIGHT_CONTRIBUTED, self._on_insight_contributed)
 
     async def _on_knowledge_graph_updated(self, event: KnowledgeGraphUpdatedEvent):
         """Handle knowledge graph update - trigger frontier refresh."""
@@ -579,19 +581,20 @@ class NashEventHandlers:
 
         # Trigger auto-tuning
         if event.severity == "critical":
-            await self.event_bus.publish(AutoTuningTriggeredEvent(
-                parameter_name=f"model_weight_{event.model}",
-                old_value=1.0,
-                new_value=0.5,
-                reason=f"Drift detected: {event.metric}",
-                expected_improvement=0.1,
-            ))
+            await self.event_bus.publish(
+                AutoTuningTriggeredEvent(
+                    parameter_name=f"model_weight_{event.model}",
+                    old_value=1.0,
+                    new_value=0.5,
+                    reason=f"Drift detected: {event.metric}",
+                    expected_improvement=0.1,
+                )
+            )
 
     async def _on_insight_contributed(self, event: InsightContributedEvent):
         """Handle federated insight - trigger baseline update."""
         logger.debug(
-            f"Insight contributed: {event.model} "
-            f"(ε spent: {event.privacy_epsilon_spent:.3f})"
+            f"Insight contributed: {event.model} " f"(ε spent: {event.privacy_epsilon_spent:.3f})"
         )
 
         # Trigger baseline update if enough insights

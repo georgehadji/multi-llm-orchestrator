@@ -26,9 +26,11 @@ logger = get_logger(__name__)
 # Adaptive Temperature
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class TemperatureMetrics:
     """Metrics for adaptive temperature."""
+
     total_attempts: int = 0
     initial_successes: int = 0
     retry_successes: int = 0
@@ -42,7 +44,8 @@ class TemperatureMetrics:
             "initial_successes": self.initial_successes,
             "retry_successes": self.retry_successes,
             "failures": self.failures,
-            "success_rate": (self.initial_successes + self.retry_successes) / max(1, self.total_attempts),
+            "success_rate": (self.initial_successes + self.retry_successes)
+            / max(1, self.total_attempts),
             "avg_temperature": self.avg_temperature,
             "avg_retry_count": self.avg_retry_count,
         }
@@ -150,9 +153,8 @@ class AdaptiveTemperatureController:
                     self.metrics.retry_successes += 1
 
                 self.metrics.avg_temperature = (
-                    (self.metrics.avg_temperature * (self.metrics.total_attempts - 1) + temperature)
-                    / self.metrics.total_attempts
-                )
+                    self.metrics.avg_temperature * (self.metrics.total_attempts - 1) + temperature
+                ) / self.metrics.total_attempts
 
                 return response
 
@@ -164,9 +166,8 @@ class AdaptiveTemperatureController:
         # All attempts failed
         self.metrics.failures += 1
         self.metrics.avg_retry_count = (
-            (self.metrics.avg_retry_count * (self.metrics.total_attempts - 1) + retry_count)
-            / self.metrics.total_attempts
-        )
+            self.metrics.avg_retry_count * (self.metrics.total_attempts - 1) + retry_count
+        ) / self.metrics.total_attempts
 
         raise RuntimeError(f"All {self.MAX_RETRIES + 1} attempts failed: {last_error}")
 
@@ -179,9 +180,11 @@ class AdaptiveTemperatureController:
 # Auto Eval Dataset Builder
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class EvalTestCase:
     """Single evaluation test case."""
+
     prompt: str
     bad_output: str
     errors: list[str]
@@ -194,6 +197,7 @@ class EvalTestCase:
 @dataclass
 class DatasetMetrics:
     """Metrics for eval dataset."""
+
     total_cases: int = 0
     cases_by_error_type: dict[str, int] = field(default_factory=dict)
     cases_by_model: dict[str, int] = field(default_factory=dict)
@@ -225,7 +229,9 @@ class EvalDatasetBuilder:
         Args:
             dataset_path: Path to store dataset (default: .orchestrator/eval_dataset.jsonl)
         """
-        self.dataset_path = Path(dataset_path) if dataset_path else Path(".orchestrator/eval_dataset.jsonl")
+        self.dataset_path = (
+            Path(dataset_path) if dataset_path else Path(".orchestrator/eval_dataset.jsonl")
+        )
         self.metrics = DatasetMetrics()
         self._cases: list[EvalTestCase] = []
 
@@ -273,24 +279,20 @@ class EvalDatasetBuilder:
             )
 
         # Update model counts
-        self.metrics.cases_by_model[model] = (
-            self.metrics.cases_by_model.get(model, 0) + 1
-        )
+        self.metrics.cases_by_model[model] = self.metrics.cases_by_model.get(model, 0) + 1
 
         # Update average score
         if eval_scores:
             avg = sum(eval_scores.values()) / len(eval_scores)
             self.metrics.avg_score = (
-                (self.metrics.avg_score * (self.metrics.total_cases - 1) + avg)
-                / self.metrics.total_cases
-            )
+                self.metrics.avg_score * (self.metrics.total_cases - 1) + avg
+            ) / self.metrics.total_cases
 
         # Persist to file
         self._persist_case(test_case)
 
         logger.info(
-            f"Recorded failure: {task_type} ({model}) - "
-            f"errors: {len(errors)}, score: {avg:.3f}"
+            f"Recorded failure: {task_type} ({model}) - " f"errors: {len(errors)}, score: {avg:.3f}"
         )
 
     def _persist_case(self, case: EvalTestCase) -> None:
@@ -373,6 +375,7 @@ class EvalDatasetBuilder:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def generate_with_adaptive_temp(
     client,

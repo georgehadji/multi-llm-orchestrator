@@ -6,6 +6,7 @@ Provides a minimal but functional Next.js App Router project with:
 - Framer Motion for animations
 - A root layout and home page ready to be filled by the orchestrator
 """
+
 from __future__ import annotations
 
 FILES: dict[str, str] = {

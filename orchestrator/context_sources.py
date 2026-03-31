@@ -13,6 +13,7 @@ Usage:
     doc_source = source_manager.add_document_source("docs", "./documents/")
     context = await source_manager.get_context(query="What is AI?", sources=["docs"])
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -82,7 +83,9 @@ class DocumentSource(BaseContextSource):
             if file_path.suffix.lower() in self.supported_formats:
                 try:
                     content = await self._read_file(file_path)
-                    chunk_id = hashlib.sha256(f"{self.source_id}:{file_path}".encode()).hexdigest()[:16]
+                    chunk_id = hashlib.sha256(f"{self.source_id}:{file_path}".encode()).hexdigest()[
+                        :16
+                    ]
 
                     chunk = ContextChunk(
                         id=chunk_id,
@@ -93,8 +96,8 @@ class DocumentSource(BaseContextSource):
                             "file_path": str(file_path),
                             "file_name": file_path.name,
                             "file_size": file_path.stat().st_size,
-                            "modified": file_path.stat().st_mtime
-                        }
+                            "modified": file_path.stat().st_mtime,
+                        },
                     )
 
                     self.chunks.append(chunk)
@@ -108,7 +111,8 @@ class DocumentSource(BaseContextSource):
         """Read content from a file."""
         if file_path.suffix.lower() == ".pdf":
             import PyPDF2
-            with open(file_path, 'rb') as f:
+
+            with open(file_path, "rb") as f:
                 pdf_reader = PyPDF2.PdfReader(f)
                 text = ""
                 for page in pdf_reader.pages:
@@ -116,12 +120,13 @@ class DocumentSource(BaseContextSource):
             return text
         elif file_path.suffix.lower() in [".docx"]:
             from docx import Document
+
             doc = Document(str(file_path))
             text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
             return text
         else:
             # For text-based formats
-            with open(file_path, encoding='utf-8', errors='ignore') as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 return f.read()
 
     async def search(self, query: str, limit: int = 10) -> list[ContextChunk]:
@@ -151,7 +156,7 @@ class DocumentSource(BaseContextSource):
             content=new_content,
             source_id=self.source_id,
             source_type=self.source_type,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self.chunks.append(chunk)
@@ -194,7 +199,7 @@ class DatabaseSource(BaseContextSource):
             content=f"Mock database result for query: {query}",
             source_id=self.source_id,
             source_type=self.source_type,
-            metadata={"query": query, "result_count": 1}
+            metadata={"query": query, "result_count": 1},
         )
 
         return [chunk]
@@ -216,6 +221,7 @@ class APISource(BaseContextSource):
     async def load(self):
         """Initialize API session."""
         import aiohttp
+
         self.session = aiohttp.ClientSession()
         self.loaded = True
         logger.info(f"Initialized API source: {self.source_id}")
@@ -239,14 +245,16 @@ class APISource(BaseContextSource):
                     chunks = []
                     for item in data if isinstance(data, list) else [data]:
                         content = json.dumps(item) if isinstance(item, (dict, list)) else str(item)
-                        chunk_id = hashlib.sha256(f"{self.source_id}:{content[:50]}".encode()).hexdigest()[:16]
+                        chunk_id = hashlib.sha256(
+                            f"{self.source_id}:{content[:50]}".encode()
+                        ).hexdigest()[:16]
 
                         chunk = ContextChunk(
                             id=chunk_id,
                             content=content,
                             source_id=self.source_id,
                             source_type=self.source_type,
-                            metadata={"api_response": True}
+                            metadata={"api_response": True},
                         )
                         chunks.append(chunk)
 
@@ -298,7 +306,7 @@ class MemorySource(BaseContextSource):
                     content=value,
                     source_id=self.source_id,
                     source_type=self.source_type,
-                    metadata={"key": key}
+                    metadata={"key": key},
                 )
                 results.append(chunk)
 
@@ -306,7 +314,11 @@ class MemorySource(BaseContextSource):
 
     async def update(self, new_content: str, metadata: dict[str, Any] = None):
         """Update in-memory data with new content."""
-        key = metadata.get("key") if metadata else hashlib.sha256(new_content.encode()).hexdigest()[:16]
+        key = (
+            metadata.get("key")
+            if metadata
+            else hashlib.sha256(new_content.encode()).hexdigest()[:16]
+        )
         self.data[key] = new_content
         logger.info(f"Updated memory source {self.source_id} with key: {key}")
 
@@ -319,8 +331,9 @@ class ContextSourceManager:
         self.sources: dict[str, BaseContextSource] = {}
         self.default_sources: list[str] = []
 
-    def add_document_source(self, source_id: str, path: str,
-                           formats: list[str] = None) -> DocumentSource:
+    def add_document_source(
+        self, source_id: str, path: str, formats: list[str] = None
+    ) -> DocumentSource:
         """
         Add a document source.
 
@@ -332,10 +345,7 @@ class ContextSourceManager:
         Returns:
             DocumentSource instance
         """
-        config = {
-            "path": path,
-            "formats": formats or [".txt", ".md", ".pdf", ".docx"]
-        }
+        config = {"path": path, "formats": formats or [".txt", ".md", ".pdf", ".docx"]}
 
         source = DocumentSource(source_id, config)
         self.sources[source_id] = source
@@ -398,8 +408,9 @@ class ContextSourceManager:
             except Exception as e:
                 logger.error(f"Failed to load source {source_id}: {e}")
 
-    async def get_context(self, query: str, sources: list[str] = None,
-                         limit: int = 10) -> list[ContextChunk]:
+    async def get_context(
+        self, query: str, sources: list[str] = None, limit: int = 10
+    ) -> list[ContextChunk]:
         """
         Get context from specified sources.
 
@@ -432,8 +443,9 @@ class ContextSourceManager:
         # For now, just return all results
         return all_results
 
-    async def update_source(self, source_id: str, new_content: str,
-                           metadata: dict[str, Any] = None):
+    async def update_source(
+        self, source_id: str, new_content: str, metadata: dict[str, Any] = None
+    ):
         """
         Update a specific context source with new content.
 
@@ -459,16 +471,12 @@ class ContextSourceManager:
         Returns:
             Dict with source statistics
         """
-        stats = {
-            "total_sources": len(self.sources),
-            "source_types": {},
-            "total_chunks": 0
-        }
+        stats = {"total_sources": len(self.sources), "source_types": {}, "total_chunks": 0}
 
         for _source_id, source in self.sources.items():
             source_type = type(source).__name__
             stats["source_types"][source_type] = stats["source_types"].get(source_type, 0) + 1
-            if hasattr(source, 'chunks'):
+            if hasattr(source, "chunks"):
                 stats["total_chunks"] += len(source.chunks)
 
         return stats

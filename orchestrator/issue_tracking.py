@@ -48,8 +48,10 @@ logger = logging.getLogger(__name__)
 # Data Models
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class IssueSeverity(Enum):
     """Severity levels for issues."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -58,6 +60,7 @@ class IssueSeverity(Enum):
 
 class IssueType(Enum):
     """Types of issues from quality gates."""
+
     TEST = "test"
     SECURITY = "security"
     PERFORMANCE = "performance"
@@ -69,6 +72,7 @@ class IssueType(Enum):
 @dataclass
 class QualityIssue:
     """A single quality issue from the quality gate."""
+
     type: IssueType
     severity: IssueSeverity
     message: str
@@ -87,6 +91,7 @@ class QualityIssue:
 @dataclass
 class QualityGateReport:
     """Full quality gate report."""
+
     project_id: str
     run_id: str
     passed: bool
@@ -104,6 +109,7 @@ class QualityGateReport:
 @dataclass
 class IssueTrackerConfig:
     """Configuration for issue tracker integration."""
+
     provider: str  # "jira" or "linear"
     api_token: str
     project_key: str  # Jira project key or Linear team ID
@@ -120,13 +126,15 @@ class IssueTrackerConfig:
             project_key=os.environ["ISSUE_TRACKER_PROJECT_KEY"],
             base_url=os.environ.get("ISSUE_TRACKER_URL", ""),
             repeat_threshold=int(os.environ.get("ISSUE_TRACKER_REPEAT_THRESHOLD", "3")),
-            auto_create_tickets=os.environ.get("ISSUE_TRACKER_AUTO_CREATE", "true").lower() == "true",
+            auto_create_tickets=os.environ.get("ISSUE_TRACKER_AUTO_CREATE", "true").lower()
+            == "true",
         )
 
 
 @dataclass
 class Ticket:
     """Represents a ticket in an issue tracker."""
+
     id: str
     key: str
     title: str
@@ -152,6 +160,7 @@ class Ticket:
 @dataclass
 class BacklogItem:
     """Backlog item for RICE syncing."""
+
     id: str
     title: str
     description: str
@@ -159,7 +168,7 @@ class BacklogItem:
 
     # RICE inputs
     reach: int = 100  # Default: small audience
-    impact: int = 2   # Default: medium impact (scale 0-3)
+    impact: int = 2  # Default: medium impact (scale 0-3)
     confidence: int = 80  # Default: fairly confident
     effort: float = 1.0  # Default: 1 person-week
 
@@ -174,6 +183,7 @@ class BacklogItem:
 @dataclass
 class RICEResult:
     """RICE scoring result."""
+
     reach: int
     impact: int
     confidence: int
@@ -185,6 +195,7 @@ class RICEResult:
 @dataclass
 class KnowledgeArtifactDraft:
     """Draft knowledge artifact from resolved ticket."""
+
     title: str
     problem: str
     solution: str
@@ -201,6 +212,7 @@ class KnowledgeArtifactDraft:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Issue Tracker Service Abstraction
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class IssueTrackerService(ABC):
     """
@@ -345,13 +357,16 @@ class IssueTrackerService(ABC):
 # Jira Implementation
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class JiraIssueTrackerService(IssueTrackerService):
     """Jira Cloud implementation of IssueTrackerService."""
 
     def __init__(self, config: IssueTrackerConfig):
         super().__init__(config)
         if not config.base_url:
-            raise ValueError("Jira requires ISSUE_TRACKER_URL (e.g., https://your-domain.atlassian.net)")
+            raise ValueError(
+                "Jira requires ISSUE_TRACKER_URL (e.g., https://your-domain.atlassian.net)"
+            )
         self.api_url = f"{config.base_url.rstrip('/')}/rest/api/3"
         self.auth = (config.api_token, "")  # Jira uses token as username with empty password
 
@@ -411,28 +426,35 @@ class JiraIssueTrackerService(IssueTrackerService):
         for line in text.split("\n"):
             if line.strip().startswith("-"):
                 # Bullet point
-                content.append({
-                    "type": "bulletList",
-                    "content": [{
-                        "type": "listItem",
-                        "content": [{
-                            "type": "paragraph",
-                            "content": [{"type": "text", "text": line.strip()[1:].strip()}]
-                        }]
-                    }]
-                })
+                content.append(
+                    {
+                        "type": "bulletList",
+                        "content": [
+                            {
+                                "type": "listItem",
+                                "content": [
+                                    {
+                                        "type": "paragraph",
+                                        "content": [
+                                            {"type": "text", "text": line.strip()[1:].strip()}
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                )
             elif line.strip().startswith("#"):
                 # Heading
                 level = len(line) - len(line.lstrip("#"))
-                content.append({
-                    "type": f"heading{min(level, 6)}",
-                    "content": [{"type": "text", "text": line.strip("# ").strip()}]
-                })
+                content.append(
+                    {
+                        "type": f"heading{min(level, 6)}",
+                        "content": [{"type": "text", "text": line.strip("# ").strip()}],
+                    }
+                )
             else:
-                content.append({
-                    "type": "paragraph",
-                    "content": [{"type": "text", "text": line}]
-                })
+                content.append({"type": "paragraph", "content": [{"type": "text", "text": line}]})
 
         return {"type": "doc", "version": 1, "content": content}
 
@@ -489,17 +511,19 @@ class JiraIssueTrackerService(IssueTrackerService):
             "body": {
                 "type": "doc",
                 "version": 1,
-                "content": [{
-                    "type": "paragraph",
-                    "content": [
-                        {"type": "text", "text": "Orchestrator run linked: "},
-                        {
-                            "type": "text",
-                            "text": run_id,
-                            "marks": [{"type": "link", "attrs": {"href": run_url}}]
-                        }
-                    ]
-                }]
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {"type": "text", "text": "Orchestrator run linked: "},
+                            {
+                                "type": "text",
+                                "text": run_id,
+                                "marks": [{"type": "link", "attrs": {"href": run_url}}],
+                            },
+                        ],
+                    }
+                ],
             }
         }
 
@@ -523,7 +547,11 @@ class JiraIssueTrackerService(IssueTrackerService):
 
         response = await client.get(
             f"{self.api_url}/search",
-            params={"jql": jql, "maxResults": 100, "fields": "summary,description,status,labels,customfield_*"},
+            params={
+                "jql": jql,
+                "maxResults": 100,
+                "fields": "summary,description,status,labels,customfield_*",
+            },
             auth=self.auth,
         )
         response.raise_for_status()
@@ -561,7 +589,9 @@ class JiraIssueTrackerService(IssueTrackerService):
     ) -> bool:
         """Update Jira issue with RICE score and priority."""
         if dry_run:
-            logger.info(f"[DRY-RUN] Would update {issue_id} with RICE={rice_result.score:.2f}, priority={rice_result.priority}")
+            logger.info(
+                f"[DRY-RUN] Would update {issue_id} with RICE={rice_result.score:.2f}, priority={rice_result.priority}"
+            )
             return True
 
         client = await self._get_client()
@@ -621,17 +651,19 @@ class JiraIssueTrackerService(IssueTrackerService):
 
         for issue in data.get("issues", []):
             fields = issue["fields"]
-            tickets.append(Ticket(
-                id=issue["id"],
-                key=issue["key"],
-                title=fields["summary"],
-                description="",
-                status=fields["status"]["name"],
-                labels=fields.get("labels", []),
-                created_at=datetime.fromisoformat(fields["created"].replace("Z", "+00:00")),
-                updated_at=datetime.fromisoformat(fields["updated"].replace("Z", "+00:00")),
-                url=f"{self.config.base_url}/browse/{issue['key']}",
-            ))
+            tickets.append(
+                Ticket(
+                    id=issue["id"],
+                    key=issue["key"],
+                    title=fields["summary"],
+                    description="",
+                    status=fields["status"]["name"],
+                    labels=fields.get("labels", []),
+                    created_at=datetime.fromisoformat(fields["created"].replace("Z", "+00:00")),
+                    updated_at=datetime.fromisoformat(fields["updated"].replace("Z", "+00:00")),
+                    url=f"{self.config.base_url}/browse/{issue['key']}",
+                )
+            )
 
         return tickets
 
@@ -639,6 +671,7 @@ class JiraIssueTrackerService(IssueTrackerService):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Linear Implementation
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class LinearIssueTrackerService(IssueTrackerService):
     """Linear implementation using GraphQL API."""
@@ -854,14 +887,16 @@ class LinearIssueTrackerService(IssueTrackerService):
 
         items = []
         for issue in issues:
-            items.append(BacklogItem(
-                id=issue["id"],
-                title=issue["title"],
-                description=issue.get("description", ""),
-                status=issue["state"]["name"],
-                labels=[l["name"] for l in issue["labels"]["nodes"]],
-                url=issue["url"],
-            ))
+            items.append(
+                BacklogItem(
+                    id=issue["id"],
+                    title=issue["title"],
+                    description=issue.get("description", ""),
+                    status=issue["state"]["name"],
+                    labels=[l["name"] for l in issue["labels"]["nodes"]],
+                    url=issue["url"],
+                )
+            )
 
         return items
 
@@ -891,7 +926,7 @@ class LinearIssueTrackerService(IssueTrackerService):
             "id": issue_id,
             "input": {
                 "labelIds": [],  # Would need to create/get label IDs
-            }
+            },
         }
 
         await self._graphql_query(query, variables)
@@ -943,17 +978,19 @@ class LinearIssueTrackerService(IssueTrackerService):
 
         tickets = []
         for issue in issues:
-            tickets.append(Ticket(
-                id=issue["id"],
-                key=issue["identifier"],
-                title=issue["title"],
-                description="",
-                status=issue["state"]["name"],
-                labels=[l["name"] for l in issue["labels"]["nodes"]],
-                created_at=datetime.fromisoformat(issue["createdAt"].replace("Z", "+00:00")),
-                updated_at=datetime.fromisoformat(issue["updatedAt"].replace("Z", "+00:00")),
-                url=issue["url"],
-            ))
+            tickets.append(
+                Ticket(
+                    id=issue["id"],
+                    key=issue["identifier"],
+                    title=issue["title"],
+                    description="",
+                    status=issue["state"]["name"],
+                    labels=[l["name"] for l in issue["labels"]["nodes"]],
+                    created_at=datetime.fromisoformat(issue["createdAt"].replace("Z", "+00:00")),
+                    updated_at=datetime.fromisoformat(issue["updatedAt"].replace("Z", "+00:00")),
+                    url=issue["url"],
+                )
+            )
 
         return tickets
 
@@ -961,6 +998,7 @@ class LinearIssueTrackerService(IssueTrackerService):
 # ═══════════════════════════════════════════════════════════════════════════════
 # RICE Scoring Service
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class RICEMappingConfig:
     """Configuration for mapping issue fields to RICE inputs."""
@@ -1046,9 +1084,17 @@ class RICECalculator:
         """Calculate RICE from a backlog item using mapping config."""
         # Use mapped fields or defaults
         reach = getattr(item, config.reach_field, None) or item.reach or config.defaults["reach"]
-        impact = getattr(item, config.impact_field, None) or item.impact or config.defaults["impact"]
-        confidence = getattr(item, config.confidence_field, None) or item.confidence or config.defaults["confidence"]
-        effort = getattr(item, config.effort_field, None) or item.effort or config.defaults["effort"]
+        impact = (
+            getattr(item, config.impact_field, None) or item.impact or config.defaults["impact"]
+        )
+        confidence = (
+            getattr(item, config.confidence_field, None)
+            or item.confidence
+            or config.defaults["confidence"]
+        )
+        effort = (
+            getattr(item, config.effort_field, None) or item.effort or config.defaults["effort"]
+        )
 
         # Infer from labels if not set
         if impact == config.defaults["impact"]:
@@ -1136,15 +1182,17 @@ class BacklogSyncService:
                 dry_run=dry_run,
             )
 
-            results.append({
-                "id": item.id,
-                "title": item.title,
-                "url": item.url,
-                "original": original,
-                "rice": asdict(rice_result),
-                "updated": success and not dry_run,
-                "dry_run": dry_run,
-            })
+            results.append(
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "url": item.url,
+                    "original": original,
+                    "rice": asdict(rice_result),
+                    "updated": success and not dry_run,
+                    "dry_run": dry_run,
+                }
+            )
 
         logger.info(f"RICE sync complete. Processed {len(results)} items.")
         return results
@@ -1167,7 +1215,9 @@ class BacklogSyncService:
             rice = r["rice"]
             lines.append(f"- **{r['title'][:50]}...**")
             lines.append(f"  - RICE: {rice['score']:.2f} ({rice['priority']})")
-            lines.append(f"  - R×I×C/E = {rice['reach']}×{rice['impact']}×{rice['confidence']}%/{rice['effort']}")
+            lines.append(
+                f"  - R×I×C/E = {rice['reach']}×{rice['impact']}×{rice['confidence']}%/{rice['effort']}"
+            )
             lines.append(f"  - [View Issue]({r['url']})")
             lines.append("")
 
@@ -1177,6 +1227,7 @@ class BacklogSyncService:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Ticket to Knowledge Artifact Sync
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TicketKnowledgeSync:
     """
@@ -1371,6 +1422,7 @@ class TicketKnowledgeSync:
 # Ticket Sync Hooks (Orchestrator Lifecycle Integration)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TicketSyncHooks:
     """
     Orchestrator lifecycle hooks for ticket synchronization.
@@ -1406,7 +1458,11 @@ class TicketSyncHooks:
             f"**Run ID:** `{report.run_id}`",
             f"**Quality Score:** {report.quality_score:.2f}",
             f"**Test Coverage:** {report.coverage_percent}%" if report.coverage_percent else "",
-            f"**Tests:** {report.failed_test_count}/{report.test_count} failed" if report.test_count else "",
+            (
+                f"**Tests:** {report.failed_test_count}/{report.test_count} failed"
+                if report.test_count
+                else ""
+            ),
             "",
             "## Top Issues",
             "",
@@ -1433,15 +1489,17 @@ class TicketSyncHooks:
             lines.append("")
 
         # Add links
-        lines.extend([
-            "## Links",
-            "",
-            f"- [Dashboard]({report.dashboard_url})",
-            f"- [Logs]({report.logs_url})" if report.logs_url else "",
-            f"- [Artifacts]({report.artifacts_url})" if report.artifacts_url else "",
-            "",
-            f"<!-- signature:{self._generate_report_signature(report)} -->",
-        ])
+        lines.extend(
+            [
+                "## Links",
+                "",
+                f"- [Dashboard]({report.dashboard_url})",
+                f"- [Logs]({report.logs_url})" if report.logs_url else "",
+                f"- [Artifacts]({report.artifacts_url})" if report.artifacts_url else "",
+                "",
+                f"<!-- signature:{self._generate_report_signature(report)} -->",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -1517,7 +1575,11 @@ class TicketSyncHooks:
                     title=title,
                     description=description,
                     labels=labels,
-                    issue_type="Bug" if issue.type in (IssueType.BUG, IssueType.TEST, IssueType.SECURITY) else "Task",
+                    issue_type=(
+                        "Bug"
+                        if issue.type in (IssueType.BUG, IssueType.TEST, IssueType.SECURITY)
+                        else "Task"
+                    ),
                 )
 
                 created_issues.append(new_issue.id)
@@ -1554,6 +1616,7 @@ class TicketSyncHooks:
 # ═══════════════════════════════════════════════════════════════════════════════
 # CLI Commands
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class IssueTrackingCLI:
     """
@@ -1609,6 +1672,7 @@ class IssueTrackingCLI:
         # Import knowledge base here to avoid circular dependency
         try:
             from orchestrator import get_knowledge_base
+
             kb = get_knowledge_base()
         except ImportError:
             raise RuntimeError("Knowledge base not available")
@@ -1625,7 +1689,7 @@ class IssueTrackingCLI:
 
         logger.info(f"Processed {len(drafts)} tickets")
         for draft in drafts:
-            status = "✅ Created" if getattr(draft, 'created', False) else "⏳ Pending review"
+            status = "✅ Created" if getattr(draft, "created", False) else "⏳ Pending review"
             logger.info(f"  {status}: {draft.title[:60]}...")
 
         return drafts

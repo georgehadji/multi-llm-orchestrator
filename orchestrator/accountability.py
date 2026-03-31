@@ -54,6 +54,7 @@ logger = get_logger(__name__)
 
 class ActorType(Enum):
     """Types of actors that can initiate actions."""
+
     USER = "user"
     AGENT = "agent"
     TOOL = "tool"
@@ -64,6 +65,7 @@ class ActorType(Enum):
 
 class ActionType(Enum):
     """Types of actions that can be performed."""
+
     FILE_READ = "file_read"
     FILE_WRITE = "file_write"
     FILE_DELETE = "file_delete"
@@ -80,6 +82,7 @@ class ActionType(Enum):
 
 class ImpactSeverity(Enum):
     """Severity of downstream impacts."""
+
     NEGLIGIBLE = "negligible"
     LOW = "low"
     MEDIUM = "medium"
@@ -89,6 +92,7 @@ class ImpactSeverity(Enum):
 
 class ImpactType(Enum):
     """Types of downstream impacts."""
+
     RESOURCE_CONSUMPTION = "resource_consumption"
     DATA_DISCLOSURE = "data_disclosure"
     SYSTEM_MODIFICATION = "system_modification"
@@ -101,6 +105,7 @@ class ImpactType(Enum):
 @dataclass
 class Actor:
     """Represents an actor that can perform actions."""
+
     id: str
     type: ActorType
     name: str
@@ -118,6 +123,7 @@ class Action:
     This is the core unit of accountability - every significant
     operation should be recorded as an Action.
     """
+
     id: str
     timestamp: datetime
     actor: Actor
@@ -127,7 +133,9 @@ class Action:
     result: Any | None = None
     success: bool = True
     error_message: str | None = None
-    delegation_chain: list[str] = field(default_factory=list)  # ["user:admin", "agent:writer", "tool:write"]
+    delegation_chain: list[str] = field(
+        default_factory=list
+    )  # ["user:admin", "agent:writer", "tool:write"]
     parent_action_id: str | None = None  # For tracing causation
     verification_id: str | None = None  # Links to task verification
     session_id: str | None = None
@@ -155,6 +163,7 @@ class Action:
 @dataclass
 class Impact:
     """Represents a downstream impact from an action."""
+
     id: str
     timestamp: datetime
     action_id: str
@@ -180,6 +189,7 @@ class Impact:
 @dataclass
 class DelegationRecord:
     """Records a delegation of authority from one actor to another."""
+
     id: str
     timestamp: datetime
     delegator: str  # Actor ID
@@ -287,7 +297,9 @@ class AccountabilityTracker:
         if session_id:
             self._action_sessions[action_id] = session_id
 
-        logger.debug(f"Recorded action {action_id}: {actor_type.value}:{actor_name} -> {action_type.value} on {target}")
+        logger.debug(
+            f"Recorded action {action_id}: {actor_type.value}:{actor_name} -> {action_type.value} on {target}"
+        )
 
         return action_id
 
@@ -328,10 +340,7 @@ class AccountabilityTracker:
 
     def get_delegation_chain(self, actor_id: str) -> list[DelegationRecord]:
         """Get all delegations for an actor."""
-        return [
-            d for d in self._delegations.values()
-            if d.delegatee == actor_id and d.is_valid()
-        ]
+        return [d for d in self._delegations.values() if d.delegatee == actor_id and d.is_valid()]
 
     def track_impact(
         self,
@@ -360,7 +369,9 @@ class AccountabilityTracker:
             self._impacts[action_id] = []
         self._impacts[action_id].append(impact)
 
-        logger.debug(f"Tracked impact {impact_id} for action {action_id}: {severity.value} {impact_type.value}")
+        logger.debug(
+            f"Tracked impact {impact_id} for action {action_id}: {severity.value} {impact_type.value}"
+        )
 
         return impact_id
 
@@ -381,10 +392,7 @@ class AccountabilityTracker:
         all_impacts.extend(direct)
 
         # Find child actions
-        child_actions = [
-            a for a in self._actions.values()
-            if a.parent_action_id == action_id
-        ]
+        child_actions = [a for a in self._actions.values() if a.parent_action_id == action_id]
 
         # Recursively get impacts
         for child in child_actions:
@@ -404,10 +412,7 @@ class AccountabilityTracker:
 
     def get_actions_by_actor(self, actor_id: str) -> list[Action]:
         """Get all actions performed by an actor."""
-        return [
-            a for a in self._actions.values()
-            if a.actor.id == actor_id
-        ]
+        return [a for a in self._actions.values() if a.actor.id == actor_id]
 
     def get_failed_actions(self) -> list[Action]:
         """Get all failed actions."""
@@ -445,8 +450,9 @@ class AccountabilityTracker:
                 actor_stats[actor_key]["failed"] += 1
 
             at = action.action_type.value
-            actor_stats[actor_key]["action_types"][at] = \
+            actor_stats[actor_key]["action_types"][at] = (
                 actor_stats[actor_key]["action_types"].get(at, 0) + 1
+            )
 
         # Get high severity impacts
         high_impacts = self.get_high_severity_impacts()
@@ -463,9 +469,7 @@ class AccountabilityTracker:
                 "failed_actions": len([a for a in actions if not a.success]),
             },
             "actor_statistics": actor_stats,
-            "recent_high_impacts": [
-                i.to_dict() for i in high_impacts[-10:]
-            ],
+            "recent_high_impacts": [i.to_dict() for i in high_impacts[-10:]],
         }
 
     def flush_jsonl(self, path: str | Path) -> None:
