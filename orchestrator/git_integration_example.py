@@ -219,7 +219,8 @@ async def test_git_integration():
     await asyncio.sleep(2)
 
     # Complete
-    from orchestrator.models import Budget, ProjectState
+    from orchestrator.budget import Budget
+    from orchestrator.models import ProjectState
 
     state = ProjectState(
         project_description="Test",

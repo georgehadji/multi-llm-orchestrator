@@ -15,8 +15,9 @@ import time
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from ..budget import Budget
     from ..cost import BudgetHierarchy, CostPredictor
-    from ..models import Budget, Task, TaskResult
+    from ..models import Task, TaskResult
 
 logger = logging.getLogger(__name__)
 

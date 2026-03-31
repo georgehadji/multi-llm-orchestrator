@@ -23,9 +23,9 @@ from typing import Optional
 
 import aiosqlite
 
+from .budget import Budget
 from .models import (
     AttemptRecord,
-    Budget,
     Model,
     ProjectState,
     ProjectStatus,
