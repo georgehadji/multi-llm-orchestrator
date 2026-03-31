@@ -162,6 +162,11 @@ class TestS1QuickSmoke:
             cache=DiskCache(db_path=tmp_path / "cache.db"),
             state_manager=StateManager(db_path=tmp_path / "state.db"),
         )
+        # All models available in mock environment (no real API keys needed)
+        for m in Model:
+            orch.api_health[m] = True
+        # Disable L2/L3 cache optimizer to avoid SQLite locking in tests
+        orch._cache_optimizer = None
 
         call_count = {"n": 0}
 
@@ -608,9 +613,9 @@ class TestS7Resume:
 
         # State DB file should exist on disk
         assert state_db.exists(), "State DB file was not created"
-        # Verify the saved state can be loaded back
+        # Verify the saved state can be loaded back (load_project is async)
         mgr2 = StateManager(db_path=state_db)
-        loaded = mgr2.load_project("stress_resume_001")
+        loaded = _run(mgr2.load_project("stress_resume_001"))
         assert loaded is not None, "Could not load saved project state"
         log.info(f"S7 passed: state DB exists, loaded state status={loaded.status.value}")
 
@@ -627,8 +632,8 @@ class TestS7Resume:
         )
         state.api_health = {m.value: True for m in Model}
 
-        mgr.save_project("test_resume_proj", state)
-        loaded = mgr.load_project("test_resume_proj")
+        _run(mgr.save_project("test_resume_proj", state))
+        loaded = _run(mgr.load_project("test_resume_proj"))
 
         assert loaded is not None
         assert loaded.project_description == "Resume test"
@@ -827,14 +832,15 @@ class TestS10FullProjectSimulation:
         OUTPUTS = {
             "complex_reasoning": "## Architecture\nToken bucket algorithm with sliding window fallback.",
             "code_generation": (
+                "import time\n\n"
                 "class RateLimiter:\n"
                 "    def __init__(self, rate: int, period: float):\n"
                 "        self.rate = rate\n"
                 "        self.period = period\n"
                 "        self.tokens = rate\n"
-                "        self._last = __import__('time').time()\n\n"
+                "        self._last = time.time()\n\n"
                 "    def allow(self) -> bool:\n"
-                "        now = __import__('time').time()\n"
+                "        now = time.time()\n"
                 "        elapsed = now - self._last\n"
                 "        self.tokens = min(self.rate, self.tokens + elapsed * self.rate / self.period)\n"
                 "        self._last = now\n"
@@ -877,6 +883,11 @@ class TestS10FullProjectSimulation:
             cache=DiskCache(db_path=tmp_path / "cache.db"),
             state_manager=StateManager(db_path=tmp_path / "state.db"),
         )
+        # All models available in mock environment (no real API keys needed)
+        for m in Model:
+            orch.api_health[m] = True
+        # Disable L2/L3 cache optimizer to avoid SQLite locking in tests
+        orch._cache_optimizer = None
         start = time.time()
         with patch.object(orch.client, "call", side_effect=mock_call):
             state = _run(orch.run_project(
@@ -924,7 +935,7 @@ class TestS11PlannerScoring:
         qualities = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
         models_used = [
             Model.GPT_4O, Model.GEMINI_PRO, Model.CLAUDE_SONNET,
-            Model.KIMI_K2_5, Model.CLAUDE_HAIKU, Model.GPT_4O_MINI,
+            Model.KIMI_K2_5, Model.CLAUDE_3_HAIKU, Model.GPT_4O_MINI,
         ]
         for model, q in zip(models_used, qualities):
             profiles[model] = ModelProfile(

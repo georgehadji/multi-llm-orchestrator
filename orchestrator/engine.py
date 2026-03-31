@@ -198,7 +198,8 @@ class Orchestrator:
                  budget_hierarchy: Optional["BudgetHierarchy"] = None,
                  cost_predictor: Optional["CostPredictor"] = None,
                  tracing_cfg: Optional["TracingConfig"] = None,
-                 telemetry_store: Optional["TelemetryStore"] = None):
+                 telemetry_store: Optional["TelemetryStore"] = None,
+                 profiles: Optional[dict] = None):
         self.budget = budget or Budget()
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
@@ -241,7 +242,7 @@ class Orchestrator:
                 logger.warning(f"{model.value}: provider SDK/key not available")
 
         # Policy-driven components (initialised with default profiles from static tables)
-        self._profiles: dict[Model, ModelProfile] = build_default_profiles()
+        self._profiles: dict[Model, ModelProfile] = profiles if profiles is not None else build_default_profiles()
         # P1-1 OPTIMIZATION: Cache for active profiles to avoid repeated iteration
         self._active_profiles_cache: Optional[List[Tuple[Model, ModelProfile]]] = None
         self._audit_log = AuditLog()
