@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "orchestrator"))
 
 try:
-    from project_assembler import ProjectAssembler, DependencyAnalyzer, ModuleInfo
+    from orchestrator.project_assembler import ProjectAssembler, DependencyAnalyzer, ModuleInfo
 
     print("✓ ProjectAssembler imports successfully")
     print(f"  - ProjectAssembler: {ProjectAssembler}")
