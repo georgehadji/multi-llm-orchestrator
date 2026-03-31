@@ -29,6 +29,7 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
+from .budget import Budget
 from .events import (
     BudgetWarningEvent,
     DomainEvent,
@@ -41,7 +42,7 @@ from .events import (
     TaskStartedEvent,
     get_event_bus,
 )
-from .models import Budget, Task, TaskResult
+from .models import Task, TaskResult
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable

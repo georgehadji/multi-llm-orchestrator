@@ -17,8 +17,9 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from ..budget import Budget
     from ..cache import DiskCache
-    from ..models import Budget, ProjectState, ProjectStatus, Task, TaskResult
+    from ..models import ProjectState, ProjectStatus, Task, TaskResult
     from ..state import StateManager
 
 logger = logging.getLogger(__name__)
@@ -62,9 +63,10 @@ class OrchestratorCore:
             **kwargs: Additional configuration
         """
         from ..api_clients import UnifiedClient
+        from ..budget import Budget
         from ..cache import DiskCache
         from ..cost_optimization import OptimizationConfig, get_optimization_config
-        from ..models import Budget, Model
+        from ..models import Model
         from ..semantic_cache import SemanticCache
         from ..state import StateManager
 
