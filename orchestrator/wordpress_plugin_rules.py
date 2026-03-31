@@ -16,6 +16,7 @@ Usage:
     config = rules.generate_config(plugin_name="My Plugin")
     rules.save_rules_file(config, Path("./output"))
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
 @dataclass
 class WPRulesConfig:
     """WordPress Plugin Rules Configuration."""
+
     plugin_name: str
     plugin_slug: str
     text_domain: str
@@ -503,11 +505,13 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
         """Get all available architecture paths."""
         return self.ARCHITECTURE_PATHS
 
-    def recommend_architecture_path(self,
-                                    public_distribution: bool = False,
-                                    team_size: int = 1,
-                                    complexity: str = "medium",
-                                    timeline: str = "normal") -> str:
+    def recommend_architecture_path(
+        self,
+        public_distribution: bool = False,
+        team_size: int = 1,
+        complexity: str = "medium",
+        timeline: str = "normal",
+    ) -> str:
         """
         Recommend architecture path based on requirements.
         """
@@ -520,29 +524,28 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
 
         return "modular_oop"
 
-    def generate_config(self,
-                       plugin_name: str,
-                       architecture_path: str | None = None,
-                       **kwargs) -> WPRulesConfig:
+    def generate_config(
+        self, plugin_name: str, architecture_path: str | None = None, **kwargs
+    ) -> WPRulesConfig:
         """
         Generate WordPress plugin configuration.
         """
         # Generate slug from name
-        slug = plugin_name.lower().replace(' ', '-').replace('_', '-')
+        slug = plugin_name.lower().replace(" ", "-").replace("_", "-")
 
         # Generate namespace
-        namespace_parts = [p.capitalize() for p in slug.split('-')]
-        namespace = '\\\\'.join(namespace_parts)
+        namespace_parts = [p.capitalize() for p in slug.split("-")]
+        namespace = "\\\\".join(namespace_parts)
 
         # Generate prefix
-        prefix = slug.replace('-', '_') + '_'
+        prefix = slug.replace("-", "_") + "_"
 
         # Determine architecture path
         if architecture_path is None:
             architecture_path = self.recommend_architecture_path(
-                public_distribution=kwargs.get('public_distribution', True),
-                team_size=kwargs.get('team_size', 1),
-                complexity=kwargs.get('complexity', 'medium'),
+                public_distribution=kwargs.get("public_distribution", True),
+                team_size=kwargs.get("team_size", 1),
+                complexity=kwargs.get("complexity", "medium"),
             )
 
         return WPRulesConfig(
@@ -551,17 +554,17 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
             text_domain=slug,
             namespace=namespace,
             prefix=prefix,
-            version=kwargs.get('version', '1.0.0'),
-            author=kwargs.get('author', ''),
-            license=kwargs.get('license', 'GPL-2.0+'),
+            version=kwargs.get("version", "1.0.0"),
+            author=kwargs.get("author", ""),
+            license=kwargs.get("license", "GPL-2.0+"),
             architecture_path=architecture_path,
-            include_composer=kwargs.get('include_composer', True),
-            include_tests=kwargs.get('include_tests', True),
-            include_ci=kwargs.get('include_ci', True),
-            include_i18n=kwargs.get('include_i18n', True),
-            include_rest=kwargs.get('include_rest', False),
-            include_blocks=kwargs.get('include_blocks', False),
-            strict_security=kwargs.get('strict_security', True),
+            include_composer=kwargs.get("include_composer", True),
+            include_tests=kwargs.get("include_tests", True),
+            include_ci=kwargs.get("include_ci", True),
+            include_i18n=kwargs.get("include_i18n", True),
+            include_rest=kwargs.get("include_rest", False),
+            include_blocks=kwargs.get("include_blocks", False),
+            strict_security=kwargs.get("strict_security", True),
         )
 
     def get_rules_file_content(self, config: WPRulesConfig) -> str:
@@ -667,11 +670,7 @@ __( 'Hello', '{config.text_domain}' );
 
 
 # Convenience function
-def generate_wordpress_plugin_rules(
-    plugin_name: str,
-    output_dir: Path,
-    **kwargs
-) -> Path:
+def generate_wordpress_plugin_rules(plugin_name: str, output_dir: Path, **kwargs) -> Path:
     """
     Generate WordPress plugin rules file.
 
@@ -703,9 +702,7 @@ if __name__ == "__main__":
 
     print("\n\n🎯 Recommendation Example:")
     recommended = rules.recommend_architecture_path(
-        public_distribution=True,
-        team_size=3,
-        complexity="complex"
+        public_distribution=True, team_size=3, complexity="complex"
     )
     print(f"  Recommended: {recommended}")
 

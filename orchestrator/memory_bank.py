@@ -13,6 +13,7 @@ Usage:
     await bank.store(key="project_context", value={"info": "..."}, tags=["project", "context"])
     retrieved_value = await bank.retrieve(key="project_context")
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,8 +29,15 @@ logger = logging.getLogger("orchestrator.memory_bank")
 class MemoryEntry:
     """Represents a single memory entry."""
 
-    def __init__(self, key: str, value: Any, tags: list[str], timestamp: datetime,
-                 expiry: datetime | None = None, importance: float = 0.5):
+    def __init__(
+        self,
+        key: str,
+        value: Any,
+        tags: list[str],
+        timestamp: datetime,
+        expiry: datetime | None = None,
+        importance: float = 0.5,
+    ):
         self.key = key
         self.value = value
         self.tags = tags
@@ -54,7 +62,7 @@ class MemoryEntry:
             "expiry": self.expiry.isoformat() if self.expiry else None,
             "importance": self.importance,
             "access_count": self.access_count,
-            "checksum": self.checksum
+            "checksum": self.checksum,
         }
 
     @classmethod
@@ -71,7 +79,7 @@ class MemoryEntry:
             tags=data["tags"],
             timestamp=timestamp,
             expiry=expiry,
-            importance=data.get("importance", 0.5)
+            importance=data.get("importance", 0.5),
         )
         entry.access_count = data.get("access_count", 0)
 
@@ -97,8 +105,14 @@ class MemoryBank:
         self.retention_days = retention_days
         self.memory_dir.mkdir(parents=True, exist_ok=True)
 
-    async def store(self, key: str, value: Any, tags: list[str] = None,
-                    ttl_minutes: int | None = None, importance: float = 0.5) -> bool:
+    async def store(
+        self,
+        key: str,
+        value: Any,
+        tags: list[str] = None,
+        ttl_minutes: int | None = None,
+        importance: float = 0.5,
+    ) -> bool:
         """
         Store a value in memory with optional tags and expiration.
 
@@ -124,7 +138,7 @@ class MemoryBank:
             tags=tags or [],
             timestamp=datetime.now(),
             expiry=expiry,
-            importance=importance
+            importance=importance,
         )
 
         # Create filename with hash of key to avoid invalid characters
@@ -133,7 +147,7 @@ class MemoryBank:
         filepath = self.memory_dir / filename
 
         try:
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(entry.to_dict(), f, indent=2, default=str)
 
             logger.info(f"Stored memory entry: {key}")
@@ -158,7 +172,7 @@ class MemoryBank:
         filepath = self.memory_dir / filename
 
         try:
-            with open(filepath, encoding='utf-8') as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             entry = MemoryEntry.from_dict(data)
@@ -173,7 +187,7 @@ class MemoryBank:
             entry.access_count += 1
 
             # Update the file with incremented access count
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(entry.to_dict(), f, indent=2, default=str)
 
             logger.info(f"Retrieved memory entry: {key}")
@@ -200,7 +214,7 @@ class MemoryBank:
 
         for filepath in self.memory_dir.glob("memory_*.json"):
             try:
-                with open(filepath, encoding='utf-8') as f:
+                with open(filepath, encoding="utf-8") as f:
                     data = json.load(f)
 
                 entry = MemoryEntry.from_dict(data)
@@ -212,14 +226,16 @@ class MemoryBank:
 
                 # Check if entry has any of the requested tags
                 if any(tag in entry.tags for tag in tags):
-                    results.append({
-                        "key": entry.key,
-                        "value": entry.value,
-                        "tags": entry.tags,
-                        "timestamp": entry.timestamp,
-                        "importance": entry.importance,
-                        "access_count": entry.access_count
-                    })
+                    results.append(
+                        {
+                            "key": entry.key,
+                            "value": entry.value,
+                            "tags": entry.tags,
+                            "timestamp": entry.timestamp,
+                            "importance": entry.importance,
+                            "access_count": entry.access_count,
+                        }
+                    )
             except Exception as e:
                 logger.error(f"Failed to read memory file {filepath}: {e}")
 
@@ -244,7 +260,7 @@ class MemoryBank:
 
         for filepath in self.memory_dir.glob("memory_*.json"):
             try:
-                with open(filepath, encoding='utf-8') as f:
+                with open(filepath, encoding="utf-8") as f:
                     data = json.load(f)
 
                 entry = MemoryEntry.from_dict(data)
@@ -258,14 +274,16 @@ class MemoryBank:
                 value_str = json.dumps(entry.value, default=str).lower()
 
                 if query_lower in value_str:
-                    results.append({
-                        "key": entry.key,
-                        "value": entry.value,
-                        "tags": entry.tags,
-                        "timestamp": entry.timestamp,
-                        "importance": entry.importance,
-                        "access_count": entry.access_count
-                    })
+                    results.append(
+                        {
+                            "key": entry.key,
+                            "value": entry.value,
+                            "tags": entry.tags,
+                            "timestamp": entry.timestamp,
+                            "importance": entry.importance,
+                            "access_count": entry.access_count,
+                        }
+                    )
             except Exception as e:
                 logger.error(f"Failed to read memory file {filepath}: {e}")
 
@@ -296,14 +314,14 @@ class MemoryBank:
         filepath = self.memory_dir / filename
 
         try:
-            with open(filepath, encoding='utf-8') as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Update importance
             data["importance"] = max(0.0, min(1.0, importance))  # Clamp between 0.0 and 1.0
 
             # Write back to file
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, default=str)
 
             logger.info(f"Updated importance for memory entry: {key}")
@@ -334,7 +352,7 @@ class MemoryBank:
         filepath = self.memory_dir / filename
 
         try:
-            with open(filepath, encoding='utf-8') as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Add new tags, avoiding duplicates
@@ -346,7 +364,7 @@ class MemoryBank:
             data["tags"] = current_tags
 
             # Write back to file
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, default=str)
 
             logger.info(f"Added tags to memory entry: {key}")
@@ -392,7 +410,7 @@ class MemoryBank:
 
         for filepath in self.memory_dir.glob("memory_*.json"):
             try:
-                with open(filepath, encoding='utf-8') as f:
+                with open(filepath, encoding="utf-8") as f:
                     data = json.load(f)
 
                 entry = MemoryEntry.from_dict(data)
@@ -406,8 +424,9 @@ class MemoryBank:
 
         return cleaned_count
 
-    async def cleanup_low_importance(self, importance_threshold: float = 0.2,
-                                     min_age_days: int = 7) -> int:
+    async def cleanup_low_importance(
+        self, importance_threshold: float = 0.2, min_age_days: int = 7
+    ) -> int:
         """
         Clean up low-importance memory entries that are older than min_age_days.
 
@@ -423,15 +442,17 @@ class MemoryBank:
 
         for filepath in self.memory_dir.glob("memory_*.json"):
             try:
-                with open(filepath, encoding='utf-8') as f:
+                with open(filepath, encoding="utf-8") as f:
                     data = json.load(f)
 
                 entry = MemoryEntry.from_dict(data)
 
                 # Check if entry is old enough and has low importance
-                if (entry.timestamp < cutoff_date and
-                    entry.importance < importance_threshold and
-                    not entry.is_expired()):  # Don't delete already expired entries here
+                if (
+                    entry.timestamp < cutoff_date
+                    and entry.importance < importance_threshold
+                    and not entry.is_expired()
+                ):  # Don't delete already expired entries here
                     await self._delete_file(filepath)
                     cleaned_count += 1
                     logger.info(f"Cleaned up low-importance memory entry: {entry.key}")
@@ -455,7 +476,7 @@ class MemoryBank:
 
         for filepath in self.memory_dir.glob("memory_*.json"):
             try:
-                with open(filepath, encoding='utf-8') as f:
+                with open(filepath, encoding="utf-8") as f:
                     data = json.load(f)
 
                 entry = MemoryEntry.from_dict(data)
@@ -479,7 +500,7 @@ class MemoryBank:
             "total_size_bytes": total_size,
             "average_importance": avg_importance,
             "average_access_count": avg_access_count,
-            "memory_dir": str(self.memory_dir)
+            "memory_dir": str(self.memory_dir),
         }
 
     async def _delete_file(self, filepath: Path) -> bool:
@@ -506,7 +527,7 @@ class MemoryBank:
 
             for filepath in self.memory_dir.glob("memory_*.json"):
                 try:
-                    with open(filepath, encoding='utf-8') as f:
+                    with open(filepath, encoding="utf-8") as f:
                         data = json.load(f)
 
                     entry = MemoryEntry.from_dict(data)
@@ -518,7 +539,7 @@ class MemoryBank:
                     logger.error(f"Failed to read memory file {filepath} for export: {e}")
 
             # Write all entries to export file
-            with open(export_path, 'w', encoding='utf-8') as f:
+            with open(export_path, "w", encoding="utf-8") as f:
                 json.dump(all_entries, f, indent=2, default=str)
 
             logger.info(f"Exported {len(all_entries)} memory entries to {export_path}")
@@ -538,7 +559,7 @@ class MemoryBank:
             bool: True if imported successfully, False otherwise
         """
         try:
-            with open(import_path, encoding='utf-8') as f:
+            with open(import_path, encoding="utf-8") as f:
                 entries_data = json.load(f)
 
             import_count = 0
@@ -552,13 +573,15 @@ class MemoryBank:
                         key=entry.key,
                         value=entry.value,
                         tags=entry.tags,
-                        importance=entry.importance
+                        importance=entry.importance,
                     )
 
                     if success:
                         import_count += 1
                 except Exception as e:
-                    logger.error(f"Failed to import memory entry {entry_data.get('key', 'unknown')}: {e}")
+                    logger.error(
+                        f"Failed to import memory entry {entry_data.get('key', 'unknown')}: {e}"
+                    )
 
             logger.info(f"Imported {import_count} memory entries from {import_path}")
             return True

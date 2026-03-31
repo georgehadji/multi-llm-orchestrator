@@ -285,6 +285,7 @@ LaunchScreen.storyboard structure:
 # Helper Functions
 # ─────────────────────────────────────────────
 
+
 def get_ios_prompt(
     project_description: str,
     include_hig: bool = True,
@@ -349,7 +350,9 @@ def get_ios_prompt(
         prompt_parts.append("")
 
     prompt_parts.append("## Task")
-    prompt_parts.append("Generate a complete, production-ready iOS app that follows ALL guidelines above.")
+    prompt_parts.append(
+        "Generate a complete, production-ready iOS app that follows ALL guidelines above."
+    )
     prompt_parts.append("The app must be ready for App Store submission with no modifications.")
 
     return "\n".join(prompt_parts)
@@ -449,6 +452,7 @@ def validate_hig_compliance(code: str) -> tuple[bool, list[str]]:
 # ─────────────────────────────────────────────
 # Integration with Multi-Platform Generator
 # ─────────────────────────────────────────────
+
 
 def inject_hig_context(
     project_description: str,

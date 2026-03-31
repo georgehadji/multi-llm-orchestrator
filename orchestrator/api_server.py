@@ -18,6 +18,7 @@ Usage:
     server = APIServer(port=8000, cors_origins=["https://trusted-domain.com"])
     await server.start()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,6 +38,7 @@ logger = logging.getLogger("orchestrator.api_server")
 # ─────────────────────────────────────────────
 # Rate Limiter (Token Bucket)
 # ─────────────────────────────────────────────
+
 
 class TokenBucketRateLimiter:
     """
@@ -101,6 +103,7 @@ class TokenBucketRateLimiter:
 # API Server
 # ─────────────────────────────────────────────
 
+
 class APIServer:
     """REST API server for the orchestrator."""
 
@@ -147,7 +150,7 @@ class APIServer:
             "successful_requests": 0,
             "failed_requests": 0,
             "rate_limited_requests": 0,
-            "start_time": datetime.now()
+            "start_time": datetime.now(),
         }
 
         # Register routes
@@ -180,24 +183,26 @@ class APIServer:
         SECURITY FIX: No longer uses wildcard '*' which allows any origin.
         Now uses configurable allowlist for trusted domains only.
         """
+
         async def cors_middleware(app, handler):
             async def middleware_handler(request):
                 response = await handler(request)
 
                 # Check origin against allowlist
-                origin = request.headers.get('Origin', '')
+                origin = request.headers.get("Origin", "")
 
                 if origin in self.cors_origins:
-                    response.headers['Access-Control-Allow-Origin'] = origin
-                elif '*' in self.cors_origins:
+                    response.headers["Access-Control-Allow-Origin"] = origin
+                elif "*" in self.cors_origins:
                     # Only allow wildcard if explicitly configured
-                    response.headers['Access-Control-Allow-Origin'] = '*'
+                    response.headers["Access-Control-Allow-Origin"] = "*"
 
-                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-                response.headers['Access-Control-Max-Age'] = '86400'  # 24 hours
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+                response.headers["Access-Control-Max-Age"] = "86400"  # 24 hours
 
                 return response
+
             return middleware_handler
 
         self.app.middlewares.append(cors_middleware)
@@ -208,9 +213,10 @@ class APIServer:
 
         SECURITY: Prevents DoS and brute force attacks.
         """
+
         async def middleware_handler(request):
             # Get client identifier (IP address or API key)
-            client_id = request.headers.get('X-API-Key', request.remote or 'unknown')
+            client_id = request.headers.get("X-API-Key", request.remote or "unknown")
 
             # Check rate limit
             if not await self.rate_limiter.is_allowed(client_id):
@@ -223,7 +229,7 @@ class APIServer:
                         "retry_after": retry_after,
                     },
                     status=429,
-                    headers={'Retry-After': str(int(retry_after))}
+                    headers={"Retry-After": str(int(retry_after))},
                 )
 
             return await handler(request)
@@ -236,6 +242,7 @@ class APIServer:
 
         SECURITY: Prevents large payload DoS attacks.
         """
+
         async def middleware_handler(request):
             content_length = request.content_length
 
@@ -244,7 +251,7 @@ class APIServer:
                     {
                         "error": f"Request too large. Max size: {self.max_request_size} bytes",
                     },
-                    status=413
+                    status=413,
                 )
 
             return await handler(request)
@@ -255,11 +262,13 @@ class APIServer:
         """Health check endpoint."""
         self._update_request_stats(success=True)
 
-        return web.json_response({
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "uptime": str(datetime.now() - self.request_stats["start_time"])
-        })
+        return web.json_response(
+            {
+                "status": "healthy",
+                "timestamp": datetime.now().isoformat(),
+                "uptime": str(datetime.now() - self.request_stats["start_time"]),
+            }
+        )
 
     async def execute_task(self, request: web.Request) -> web.Response:
         """Execute a task via the orchestrator."""
@@ -271,18 +280,12 @@ class APIServer:
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
                 self._update_request_stats(success=False)
-                return web.json_response(
-                    {"error": "Authorization header required"},
-                    status=401
-                )
+                return web.json_response({"error": "Authorization header required"}, status=401)
 
             api_key = auth_header[7:]  # Remove "Bearer " prefix
             if not self._verify_api_key(api_key):
                 self._update_request_stats(success=False)
-                return web.json_response(
-                    {"error": "Invalid API key"},
-                    status=401
-                )
+                return web.json_response({"error": "Invalid API key"}, status=401)
 
         try:
             # Get request data
@@ -291,10 +294,7 @@ class APIServer:
             # Validate required fields
             if "task" not in data:
                 self._update_request_stats(success=False)
-                return web.json_response(
-                    {"error": "Task definition required"},
-                    status=400
-                )
+                return web.json_response({"error": "Task definition required"}, status=400)
 
             # Extract task parameters
             task_description = data["task"]
@@ -304,7 +304,9 @@ class APIServer:
 
             # In a real implementation, we would call the orchestrator here
             # For now, we'll simulate the execution
-            task_id = hashlib.sha256(f"{task_description}{datetime.now()}".encode()).hexdigest()[:16]
+            task_id = hashlib.sha256(f"{task_description}{datetime.now()}".encode()).hexdigest()[
+                :16
+            ]
 
             # Simulate task execution
             result = {
@@ -313,7 +315,7 @@ class APIServer:
                 "result": f"Simulated execution of: {task_description}",
                 "cost": 0.05,
                 "tokens_used": 150,
-                "execution_time": 2.5
+                "execution_time": 2.5,
             }
 
             self._update_request_stats(success=True)
@@ -321,17 +323,11 @@ class APIServer:
 
         except json.JSONDecodeError:
             self._update_request_stats(success=False)
-            return web.json_response(
-                {"error": "Invalid JSON in request body"},
-                status=400
-            )
+            return web.json_response({"error": "Invalid JSON in request body"}, status=400)
         except Exception as e:
             logger.error(f"Error executing task: {e}")
             self._update_request_stats(success=False)
-            return web.json_response(
-                {"error": "Internal server error"},
-                status=500
-            )
+            return web.json_response({"error": "Internal server error"}, status=500)
 
     async def get_task_status(self, request: web.Request) -> web.Response:
         """Get the status of a task."""
@@ -346,7 +342,7 @@ class APIServer:
             "status": "completed",
             "progress": 100,
             "result_available": True,
-            "estimated_completion": None
+            "estimated_completion": None,
         }
 
         return web.json_response(status)
@@ -358,11 +354,36 @@ class APIServer:
         # In a real implementation, we would get the actual list of models
         # For now, we'll return a simulated list
         models = [
-            {"id": "gpt-4", "name": "GPT-4", "capabilities": ["text", "code"], "cost_per_mil_tokens": 30.0},
-            {"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet", "capabilities": ["text", "code"], "cost_per_mil_tokens": 15.0},
-            {"id": "deepseek-chat", "name": "DeepSeek Chat", "capabilities": ["text", "code"], "cost_per_mil_tokens": 2.0},
-            {"id": "deepseek-reasoner", "name": "DeepSeek Reasoner", "capabilities": ["reasoning", "math"], "cost_per_mil_tokens": 12.0},
-            {"id": "gemini-pro", "name": "Gemini Pro", "capabilities": ["text", "multimodal"], "cost_per_mil_tokens": 15.0}
+            {
+                "id": "gpt-4",
+                "name": "GPT-4",
+                "capabilities": ["text", "code"],
+                "cost_per_mil_tokens": 30.0,
+            },
+            {
+                "id": "claude-3-5-sonnet",
+                "name": "Claude 3.5 Sonnet",
+                "capabilities": ["text", "code"],
+                "cost_per_mil_tokens": 15.0,
+            },
+            {
+                "id": "deepseek-chat",
+                "name": "DeepSeek Chat",
+                "capabilities": ["text", "code"],
+                "cost_per_mil_tokens": 2.0,
+            },
+            {
+                "id": "deepseek-reasoner",
+                "name": "DeepSeek Reasoner",
+                "capabilities": ["reasoning", "math"],
+                "cost_per_mil_tokens": 12.0,
+            },
+            {
+                "id": "gemini-pro",
+                "name": "Gemini Pro",
+                "capabilities": ["text", "multimodal"],
+                "cost_per_mil_tokens": 15.0,
+            },
         ]
 
         return web.json_response(models)
@@ -376,10 +397,7 @@ class APIServer:
 
             if "user_id" not in data:
                 self._update_request_stats(success=False)
-                return web.json_response(
-                    {"error": "user_id required"},
-                    status=400
-                )
+                return web.json_response({"error": "user_id required"}, status=400)
 
             user_id = data["user_id"]
             permissions = data.get("permissions", ["read", "execute"])
@@ -393,28 +411,21 @@ class APIServer:
                 "user_id": user_id,
                 "permissions": permissions,
                 "created_at": datetime.now().isoformat(),
-                "last_used": None
+                "last_used": None,
             }
 
             self._update_request_stats(success=True)
-            return web.json_response({
-                "api_key": raw_key,
-                "message": "API key registered successfully"
-            })
+            return web.json_response(
+                {"api_key": raw_key, "message": "API key registered successfully"}
+            )
 
         except json.JSONDecodeError:
             self._update_request_stats(success=False)
-            return web.json_response(
-                {"error": "Invalid JSON in request body"},
-                status=400
-            )
+            return web.json_response({"error": "Invalid JSON in request body"}, status=400)
         except Exception as e:
             logger.error(f"Error registering API key: {e}")
             self._update_request_stats(success=False)
-            return web.json_response(
-                {"error": "Internal server error"},
-                status=500
-            )
+            return web.json_response({"error": "Internal server error"}, status=500)
 
     async def get_stats(self, request: web.Request) -> web.Response:
         """Get server statistics."""
@@ -433,7 +444,7 @@ class APIServer:
             ),
             "uptime": str(uptime),
             "server_time": datetime.now().isoformat(),
-            "registered_api_keys": len(self.api_keys)
+            "registered_api_keys": len(self.api_keys),
         }
 
         return web.json_response(stats)

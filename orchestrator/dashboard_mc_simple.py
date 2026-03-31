@@ -2,6 +2,7 @@
 Mission Control Dashboard v6.0 - Simplified Version
 ===================================================
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,6 +20,7 @@ logger = get_logger(__name__)
 @dataclass
 class MissionState:
     """Simple mission control state."""
+
     version: str = "6.0.0"
     status: str = "idle"
     active_project: dict | None = None
@@ -116,7 +118,7 @@ class MissionControlServer:
         await server.serve()
 
     def _get_html(self) -> str:
-        return '''<!DOCTYPE html>
+        return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -178,7 +180,7 @@ class MissionControlServer:
     </script>
 </body>
 </html>
-'''
+"""
 
 
 def run_mission_control(host: str = "127.0.0.1", port: int = 8888, open_browser: bool = True):

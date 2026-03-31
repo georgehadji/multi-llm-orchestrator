@@ -49,15 +49,17 @@ logger = get_logger(__name__)
 
 class BackpressureStrategy(Enum):
     """Strategies for handling queue overflow."""
-    DROP_OLDEST = auto()    # Drop oldest events
-    DROP_NEWEST = auto()    # Drop newest events
-    BLOCK = auto()          # Block producer (risk: deadlock)
-    SAMPLE = auto()         # Keep every Nth event
-    PAUSE = auto()          # Pause pipeline temporarily
+
+    DROP_OLDEST = auto()  # Drop oldest events
+    DROP_NEWEST = auto()  # Drop newest events
+    BLOCK = auto()  # Block producer (risk: deadlock)
+    SAMPLE = auto()  # Keep every Nth event
+    PAUSE = auto()  # Pause pipeline temporarily
 
 
 class MemoryPressure(Enum):
     """Memory pressure levels."""
+
     NORMAL = auto()
     HIGH = auto()
     CRITICAL = auto()
@@ -65,14 +67,16 @@ class MemoryPressure(Enum):
 
 class CircuitState(Enum):
     """Circuit breaker states."""
-    CLOSED = auto()     # Normal operation
-    OPEN = auto()       # Failing, rejecting requests
+
+    CLOSED = auto()  # Normal operation
+    OPEN = auto()  # Failing, rejecting requests
     HALF_OPEN = auto()  # Testing if recovered
 
 
 @dataclass
 class MemoryPressureConfig:
     """Configuration for memory pressure handling."""
+
     max_queue_size: int = 1000
     max_memory_mb: int = 1024
     warning_threshold_percent: float = 70.0
@@ -86,6 +90,7 @@ class MemoryPressureConfig:
 @dataclass
 class CircuitBreakerConfig:
     """Configuration for circuit breaker."""
+
     failure_threshold: int = 5
     recovery_timeout: float = 30.0
     half_open_max_calls: int = 3
@@ -107,6 +112,7 @@ class MemoryMonitor:
         """Check if psutil is available."""
         try:
             import psutil
+
             return True
         except ImportError:
             logger.warning("psutil not available - using fallback memory monitoring")
@@ -126,11 +132,13 @@ class MemoryMonitor:
         """Get memory usage as percentage."""
         if self._psutil_available:
             import psutil
+
             return psutil.virtual_memory().percent
         else:
             # Fallback: estimate from process memory
             try:
                 import resource
+
                 usage = resource.getrusage(resource.RUSAGE_SELF)
                 # Rough estimate - not accurate but better than nothing
                 return min(usage.ru_maxrss / (1024 * 10), 100.0)
@@ -141,6 +149,7 @@ class MemoryMonitor:
         """Get available memory in MB."""
         if self._psutil_available:
             import psutil
+
             return psutil.virtual_memory().available // (1024 * 1024)
         return 1024  # Conservative estimate
 
@@ -148,6 +157,7 @@ class MemoryMonitor:
         """Get used memory in MB."""
         if self._psutil_available:
             import psutil
+
             return psutil.virtual_memory().used // (1024 * 1024)
         return 0
 
@@ -250,9 +260,7 @@ class ResilientStreamingPipeline(StreamingPipeline):
         """
         # Check circuit breaker
         if self.circuit.is_open():
-            raise StreamingUnavailableError(
-                "Streaming circuit breaker is open - too many failures"
-            )
+            raise StreamingUnavailableError("Streaming circuit breaker is open - too many failures")
 
         # Check memory before starting
         pressure = self.memory_monitor.get_pressure_level()
@@ -289,10 +297,7 @@ class ResilientStreamingPipeline(StreamingPipeline):
 
                 try:
                     # Wait for event with timeout
-                    event = await asyncio.wait_for(
-                        event_queue.get(),
-                        timeout=1.0
-                    )
+                    event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
 
                     # Apply sampling under pressure
                     if pressure == MemoryPressure.HIGH:
@@ -356,12 +361,14 @@ class ResilientStreamingPipeline(StreamingPipeline):
                 await self._run_stage_safe(stage, context, event_queue, semaphore)
             except MemoryError:
                 logger.critical("Memory exhausted during stage execution")
-                await event_queue.put(PipelineEvent(
-                    type=PipelineEventType.ERROR,
-                    project_id=context.project_id,
-                    timestamp=datetime.utcnow(),
-                    data={"error": "Memory exhausted", "stage": stage.name},
-                ))
+                await event_queue.put(
+                    PipelineEvent(
+                        type=PipelineEventType.ERROR,
+                        project_id=context.project_id,
+                        timestamp=datetime.utcnow(),
+                        data={"error": "Memory exhausted", "stage": stage.name},
+                    )
+                )
                 raise ResourceExhaustedError("Memory limit exceeded")
 
     async def _run_stage_safe(
@@ -437,9 +444,11 @@ class ResilientStreamingPipeline(StreamingPipeline):
 
 class ResourceExhaustedError(Exception):
     """Raised when system resources are exhausted."""
+
     pass
 
 
 class StreamingUnavailableError(Exception):
     """Raised when streaming is unavailable due to failures."""
+
     pass

@@ -26,6 +26,7 @@ logger = get_logger(__name__)
 
 class StabilityLevel(Enum):
     """Stability classification."""
+
     HEALTHY = "healthy"
     WARNING = "warning"  # τ_critical exceeded
     CRITICAL = "critical"  # τ_rollback exceeded
@@ -35,6 +36,7 @@ class StabilityLevel(Enum):
 @dataclass
 class MetricSample:
     """Single metric measurement."""
+
     timestamp: float
     value: float
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -94,10 +96,16 @@ class StabilityThreshold:
         Returns: (level, reason)
         """
         if self._rollback_violations >= self.violation_count_threshold:
-            return StabilityLevel.CRITICAL, f"{self.name} exceeded τ_rollback ({self.τ_rollback}) {self._rollback_violations} times"
+            return (
+                StabilityLevel.CRITICAL,
+                f"{self.name} exceeded τ_rollback ({self.τ_rollback}) {self._rollback_violations} times",
+            )
 
         if self._critical_violations >= self.violation_count_threshold:
-            return StabilityLevel.WARNING, f"{self.name} exceeded τ_critical ({self.τ_critical}) {self._critical_violations} times"
+            return (
+                StabilityLevel.WARNING,
+                f"{self.name} exceeded τ_critical ({self.τ_critical}) {self._critical_violations} times",
+            )
 
         return StabilityLevel.HEALTHY, ""
 
@@ -318,18 +326,18 @@ class NashRuntimeMonitor:
         violations: list[tuple],
     ):
         """Handle stability level change."""
-        logger.warning(
-            f"Stability level changed: {old_level.value} -> {new_level.value}"
-        )
+        logger.warning(f"Stability level changed: {old_level.value} -> {new_level.value}")
 
         # Record violation
         for metric, reason in violations:
-            self._violation_history.append({
-                "timestamp": time.time(),
-                "metric": metric,
-                "reason": reason,
-                "level": new_level.value,
-            })
+            self._violation_history.append(
+                {
+                    "timestamp": time.time(),
+                    "metric": metric,
+                    "reason": reason,
+                    "level": new_level.value,
+                }
+            )
 
         # Send alerts
         for handler in self._alert_handlers:
@@ -374,8 +382,7 @@ class NashRuntimeMonitor:
             "running": self._running,
             "check_interval": self.check_interval,
             "thresholds": {
-                name: threshold.get_stats()
-                for name, threshold in self._thresholds.items()
+                name: threshold.get_stats() for name, threshold in self._thresholds.items()
             },
             "recent_violations": list(self._violation_history)[-10:],
         }

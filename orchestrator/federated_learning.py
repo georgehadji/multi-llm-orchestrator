@@ -55,8 +55,9 @@ logger = get_logger(__name__)
 
 class PrivacyMechanism(Enum):
     """Differential privacy mechanisms."""
-    GAUSSIAN = "gaussian"      # Add Gaussian noise
-    LAPLACE = "laplace"        # Add Laplace noise
+
+    GAUSSIAN = "gaussian"  # Add Gaussian noise
+    LAPLACE = "laplace"  # Add Laplace noise
     RANDOMIZED_RESPONSE = "rr"  # Randomized response
     SUBSAMPLING = "subsampling"  # Gradient subsampling
 
@@ -64,8 +65,9 @@ class PrivacyMechanism(Enum):
 @dataclass
 class PrivacyBudget:
     """Privacy budget tracking."""
+
     epsilon: float = 1.0  # Total privacy budget
-    delta: float = 1e-5   # Failure probability
+    delta: float = 1e-5  # Failure probability
 
     # Consumed budget
     consumed_epsilon: float = 0.0
@@ -99,6 +101,7 @@ class PrivacyBudget:
 @dataclass
 class ModelInsight:
     """A single model performance insight."""
+
     # Identifiers (hashed for privacy)
     insight_id: str
     org_hash: str  # Anonymized org identifier
@@ -158,6 +161,7 @@ class ModelInsight:
 @dataclass
 class GlobalBaseline:
     """Global performance baseline from collective wisdom."""
+
     task_type: TaskType
 
     # Recommended models with confidence
@@ -196,6 +200,7 @@ class GlobalBaseline:
 @dataclass
 class LocalModel:
     """Local model trained on private data."""
+
     model: Model
     task_type: TaskType
 
@@ -221,17 +226,18 @@ class LocalModel:
         if mechanism == PrivacyMechanism.GAUSSIAN:
             # Add Gaussian noise
             sigma = math.sqrt(2 * math.log(1.25 / 1e-5)) / epsilon
-            return {
-                k: v + random.gauss(0, sigma)
-                for k, v in self.weights.items()
-            }
+            return {k: v + random.gauss(0, sigma) for k, v in self.weights.items()}
 
         elif mechanism == PrivacyMechanism.LAPLACE:
             # Add Laplace noise
             scale = 1.0 / epsilon
             return {
-                k: v + (scale * math.log(random.random()) if random.random() < 0.5
-                       else -scale * math.log(random.random()))
+                k: v
+                + (
+                    scale * math.log(random.random())
+                    if random.random() < 0.5
+                    else -scale * math.log(random.random())
+                )
                 for k, v in self.weights.items()
             }
 
@@ -332,7 +338,9 @@ class DifferentialPrivacyEngine:
         if mechanism == PrivacyMechanism.GAUSSIAN:
             # Advanced composition: epsilon' = epsilon * sqrt(2 * k * ln(1/delta'))
             composed_delta = self.delta / num_queries
-            composed_epsilon = self.epsilon * math.sqrt(2 * num_queries * math.log(1 / composed_delta))
+            composed_epsilon = self.epsilon * math.sqrt(
+                2 * num_queries * math.log(1 / composed_delta)
+            )
             return composed_epsilon, composed_delta
 
         elif mechanism == PrivacyMechanism.LAPLACE:
@@ -471,10 +479,7 @@ class FederatedLearningOrchestrator:
         """Save global cache."""
         try:
             global_file = self.storage_path / "global_cache.json"
-            data = {
-                key: baseline.to_dict()
-                for key, baseline in self._global_cache.items()
-            }
+            data = {key: baseline.to_dict() for key, baseline in self._global_cache.items()}
             global_file.write_text(json.dumps(data, indent=2, default=str))
         except Exception as e:
             logger.error(f"Failed to save global cache: {e}")
@@ -559,7 +564,9 @@ class FederatedLearningOrchestrator:
 
         New users start here instead of cold-start.
         """
-        cache_key = f"{task_type.value}:{fingerprint._hash_fingerprint() if fingerprint else 'none'}"
+        cache_key = (
+            f"{task_type.value}:{fingerprint._hash_fingerprint() if fingerprint else 'none'}"
+        )
 
         # Check cache freshness
         if cache_key in self._global_cache:
@@ -584,10 +591,7 @@ class FederatedLearningOrchestrator:
     ) -> GlobalBaseline:
         """Generate baseline from aggregated insights."""
         # Filter relevant insights
-        relevant = [
-            i for i in self._global_insights
-            if i.task_type == task_type
-        ]
+        relevant = [i for i in self._global_insights if i.task_type == task_type]
 
         if fingerprint:
             # Match by pattern signature similarity
@@ -595,10 +599,7 @@ class FederatedLearningOrchestrator:
                 json.dumps(sorted(fingerprint.patterns), sort_keys=True).encode()
             ).hexdigest()[:16]
 
-            pattern_relevant = [
-                i for i in relevant
-                if i.pattern_signature == fp_pattern_sig
-            ]
+            pattern_relevant = [i for i in relevant if i.pattern_signature == fp_pattern_sig]
             if pattern_relevant:
                 relevant = pattern_relevant
 
@@ -635,13 +636,15 @@ class FederatedLearningOrchestrator:
             privatized_quality = self.privacy.add_gaussian_noise(avg_quality, sensitivity=1.0)
             privatized_success = self.privacy.add_gaussian_noise(avg_success, sensitivity=1.0)
 
-            recommended_models.append({
-                "model": model.value,
-                "quality": max(0, min(1, privatized_quality)),
-                "success_rate": max(0, min(1, privatized_success)),
-                "sample_size": total_weight,
-                "confidence": min(1.0, total_weight / 50),
-            })
+            recommended_models.append(
+                {
+                    "model": model.value,
+                    "quality": max(0, min(1, privatized_quality)),
+                    "success_rate": max(0, min(1, privatized_success)),
+                    "sample_size": total_weight,
+                    "confidence": min(1.0, total_weight / 50),
+                }
+            )
 
         # Sort by quality
         recommended_models.sort(key=lambda x: x["quality"], reverse=True)
@@ -659,7 +662,10 @@ class FederatedLearningOrchestrator:
         return GlobalBaseline(
             task_type=task_type,
             recommended_models=recommended_models[:5],
-            quality_range=(min(qualities) if qualities else 0.5, max(qualities) if qualities else 0.5),
+            quality_range=(
+                min(qualities) if qualities else 0.5,
+                max(qualities) if qualities else 0.5,
+            ),
             cost_range=(min(costs) if costs else 0, max(costs) if costs else 0),
             confidence=confidence,
             total_contributions=len(relevant),
@@ -688,7 +694,9 @@ class FederatedLearningOrchestrator:
             logger.debug(f"Not enough orgs for aggregation: {unique_orgs}")
             return
 
-        logger.info(f"Running aggregation with {len(self._global_insights)} insights from {unique_orgs} orgs")
+        logger.info(
+            f"Running aggregation with {len(self._global_insights)} insights from {unique_orgs} orgs"
+        )
 
         # Regenerate all baselines
         for task_type in TaskType:

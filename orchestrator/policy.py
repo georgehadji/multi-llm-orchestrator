@@ -16,18 +16,23 @@ policy.py imports from models.py (Budget, Model, TaskType).
 models.py does NOT import from policy.py.
 engine.py imports from both.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from .models import Budget, Model, TaskType
 
+VALID_QUALITY_MODES = ("standard", "production")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # EnforcementMode — controls how violations are handled
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class EnforcementMode(str, Enum):
     """
@@ -38,26 +43,30 @@ class EnforcementMode(str, Enum):
               soft violations (latency SLA, cost cap) through
     HARD    — block on any violation (default; existing behaviour)
     """
+
     MONITOR = "monitor"
-    SOFT    = "soft"
-    HARD    = "hard"
+    SOFT = "soft"
+    HARD = "hard"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RateLimit — per-policy rate cap (enforcement counted externally)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class RateLimit:
     """Per-scope rate cap attached to a Policy. Actual enforcement is external."""
-    calls_per_minute:  int | None   = None
+
+    calls_per_minute: int | None = None
     cost_usd_per_hour: float | None = None
-    tokens_per_day:    int | None   = None
+    tokens_per_day: int | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ModelProfile — replaces static COST_TABLE + ROUTING_TABLE entries per model
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ModelProfile:
@@ -75,6 +84,7 @@ class ModelProfile:
     This encodes the joint optimization: prefer high quality, high trust,
     low cost — subject to policy and budget constraints.
     """
+
     model: Model
     provider: str
 
@@ -89,14 +99,14 @@ class ModelProfile:
     capable_task_types: dict[TaskType, int] = field(default_factory=dict)
 
     # ── Adaptive telemetry (mutable, updated by TelemetryCollector) ───────────
-    avg_latency_ms: float = 2000.0       # EMA of observed call latency
-    latency_p95_ms: float = 5000.0       # approximated as 2× avg
-    success_rate: float = 1.0            # rolling window: last 10 calls
-    quality_score: float = 0.8           # EMA of LLM evaluator scores
-    trust_factor: float = 1.0            # degrades on failures/violations, recovers on success
+    avg_latency_ms: float = 2000.0  # EMA of observed call latency
+    latency_p95_ms: float = 5000.0  # approximated as 2× avg
+    success_rate: float = 1.0  # rolling window: last 10 calls
+    quality_score: float = 0.8  # EMA of LLM evaluator scores
+    trust_factor: float = 1.0  # degrades on failures/violations, recovers on success
 
     # ── Compliance metadata (static, configurable per deployment) ─────────────
-    region: str = "global"               # e.g. "eu", "us", "global"
+    region: str = "global"  # e.g. "eu", "us", "global"
     compliance_tags: list[str] = field(default_factory=list)
     # Known compliance_tags:
     #   "no_train"    — provider guarantees no training on API outputs
@@ -109,21 +119,21 @@ class ModelProfile:
     failure_count: int = 0
 
     # ── Extended telemetry (Improvement 3) ───────────────────────────────────
-    avg_cost_usd:         float       = 0.0                           # EMA of actual per-call USD cost
-    validator_fail_count: int         = 0                             # cumulative deterministic-check failures
-    latency_samples:      list[float] = field(default_factory=list)   # sorted buffer, last 50 samples
+    avg_cost_usd: float = 0.0  # EMA of actual per-call USD cost
+    validator_fail_count: int = 0  # cumulative deterministic-check failures
+    latency_samples: list[float] = field(default_factory=list)  # sorted buffer, last 50 samples
 
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Compute estimated USD cost for a hypothetical call."""
         return (
-            input_tokens * self.cost_per_1m_input
-            + output_tokens * self.cost_per_1m_output
+            input_tokens * self.cost_per_1m_input + output_tokens * self.cost_per_1m_output
         ) / 1_000_000
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Policy — a single named compliance rule set
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class Policy:
@@ -138,34 +148,36 @@ class Policy:
         Policy(name="low_latency_sla", max_latency_ms=3000.0)
         Policy(name="gdpr", allow_training_on_output=False, pii_allowed=False)
     """
+
     name: str
 
     # ── Provider constraints ──────────────────────────────────────────────────
-    allowed_providers: list[str] | None = None    # whitelist; None = all allowed
-    blocked_providers: list[str] | None = None    # blacklist; None = none blocked
+    allowed_providers: list[str] | None = None  # whitelist; None = all allowed
+    blocked_providers: list[str] | None = None  # blacklist; None = none blocked
 
     # ── Region constraints ────────────────────────────────────────────────────
-    allowed_regions: list[str] | None = None      # e.g. ["eu", "global"]
+    allowed_regions: list[str] | None = None  # e.g. ["eu", "global"]
 
     # ── Model-level blocks ────────────────────────────────────────────────────
     blocked_models: list[Model] | None = None
 
     # ── Compliance requirements ───────────────────────────────────────────────
-    allow_training_on_output: bool = True            # False requires "no_train" tag
-    pii_allowed: bool = True                         # False requires "pii_allowed" tag
+    allow_training_on_output: bool = True  # False requires "no_train" tag
+    pii_allowed: bool = True  # False requires "pii_allowed" tag
 
     # ── Performance constraints ───────────────────────────────────────────────
-    max_cost_per_task_usd: float | None = None    # hard per-task cap
-    max_latency_ms: float | None = None           # reject if avg_latency > this
+    max_cost_per_task_usd: float | None = None  # hard per-task cap
+    max_latency_ms: float | None = None  # reject if avg_latency > this
 
     # ── Enforcement mode ──────────────────────────────────────────────────────
-    enforcement_mode: EnforcementMode | None = None   # None → HARD (default)
+    enforcement_mode: EnforcementMode | None = None  # None → HARD (default)
     rate_limit: RateLimit | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PolicySet — container of policies with per-node overrides
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class PolicySet:
@@ -186,6 +198,7 @@ class PolicySet:
             }
         )
     """
+
     global_policies: list[Policy] = field(default_factory=list)
     node_policies: dict[str, list[Policy]] = field(default_factory=dict)
 
@@ -200,6 +213,7 @@ class PolicySet:
 # ─────────────────────────────────────────────────────────────────────────────
 # JobSpec — first-class job specification
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class JobSpec:
@@ -224,6 +238,7 @@ class JobSpec:
         )
         state = await orch.run_job(spec)
     """
+
     project_description: str
     success_criteria: str
     budget: Budget
@@ -231,11 +246,19 @@ class JobSpec:
     quality_targets: dict[TaskType, float] = field(default_factory=dict)
     preferred_regions: list[str] = field(default_factory=list)
     max_parallel_tasks: int = 3
+    quality_mode: Literal["standard", "production"] = "standard"
+
+    def __post_init__(self) -> None:
+        if self.quality_mode not in VALID_QUALITY_MODES:
+            raise ValueError(
+                f"quality_mode must be one of {VALID_QUALITY_MODES}, got {self.quality_mode!r}"
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PolicyHierarchy — 4-level additive policy merge (Org → Team → Job → Node)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class PolicyHierarchy:
     """
@@ -252,20 +275,20 @@ class PolicyHierarchy:
 
     def __init__(
         self,
-        org:  list[Policy] | None            = None,
+        org: list[Policy] | None = None,
         team: dict[str, list[Policy]] | None = None,
-        job:  dict[str, list[Policy]] | None = None,
+        job: dict[str, list[Policy]] | None = None,
         node: dict[str, list[Policy]] | None = None,
     ):
-        self._org  = org  or []
+        self._org = org or []
         self._team = team or {}
-        self._job  = job  or {}
+        self._job = job or {}
         self._node = node or {}
 
     def policies_for(
         self,
-        team:    str = "",
-        job_id:  str = "",
+        team: str = "",
+        job_id: str = "",
         task_id: str = "",
     ) -> list[Policy]:
         """Return merged policy list: org + team[team] + job[job_id] + node[task_id]."""
@@ -278,8 +301,8 @@ class PolicyHierarchy:
 
     def as_policy_set(
         self,
-        team:    str = "",
-        job_id:  str = "",
+        team: str = "",
+        job_id: str = "",
         task_id: str = "",
     ) -> PolicySet:
         """Convert to a flat PolicySet compatible with the existing engine API."""

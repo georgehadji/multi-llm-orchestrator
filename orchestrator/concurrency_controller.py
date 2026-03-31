@@ -43,6 +43,7 @@ logger = logging.getLogger("orchestrator.concurrency")
 @dataclass
 class ConcurrencyStats:
     """Statistics for concurrency budget."""
+
     active_jobs: int
     available_slots: int
     total_reserved_usd: float
@@ -71,11 +72,7 @@ class ConcurrencyBudget:
             # Slot released automatically
     """
 
-    def __init__(
-        self,
-        max_concurrent_jobs: int = 10,
-        max_concurrent_cost_usd: float = 100.0
-    ):
+    def __init__(self, max_concurrent_jobs: int = 10, max_concurrent_cost_usd: float = 100.0):
         """
         Initialize concurrency budget.
 
@@ -102,12 +99,7 @@ class ConcurrencyBudget:
         self._jobs_rejected: int = 0
 
     @asynccontextmanager
-    async def acquire(
-        self,
-        job_id: str,
-        estimated_cost: float,
-        timeout_seconds: float = 30.0
-    ):
+    async def acquire(self, job_id: str, estimated_cost: float, timeout_seconds: float = 30.0):
         """
         Acquire budget slot for a job.
 
@@ -133,10 +125,7 @@ class ConcurrencyBudget:
         try:
             # Acquire job slot
             try:
-                await asyncio.wait_for(
-                    self._job_semaphore.acquire(),
-                    timeout=timeout_seconds
-                )
+                await asyncio.wait_for(self._job_semaphore.acquire(), timeout=timeout_seconds)
                 job_acquired = True
             except asyncio.TimeoutError:
                 self._jobs_rejected += 1
@@ -149,7 +138,7 @@ class ConcurrencyBudget:
             try:
                 await asyncio.wait_for(
                     self._cost_semaphore.acquire(),
-                    timeout=max(0.1, timeout_seconds - (time.monotonic() - start_time))
+                    timeout=max(0.1, timeout_seconds - (time.monotonic() - start_time)),
                 )
                 cost_acquired = True
             except asyncio.TimeoutError:
@@ -192,6 +181,7 @@ class ConcurrencyBudget:
             job_id: Job identifier
             actual_cost: Actual cost in USD
         """
+
         async def _record():
             async with self._lock:
                 self._total_spent += actual_cost
@@ -211,6 +201,7 @@ class ConcurrencyBudget:
         Args:
             job_id: Job identifier
         """
+
         async def _release():
             async with self._lock:
                 if job_id in self._active_jobs:
@@ -243,7 +234,7 @@ class ConcurrencyBudget:
             total_reserved_usd=self._total_reserved,
             total_spent_usd=self._total_spent,
             total_jobs_completed=self._jobs_completed,
-            total_jobs_rejected=self._jobs_rejected
+            total_jobs_rejected=self._jobs_rejected,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -278,14 +269,9 @@ class GlobalConcurrencyController:
     _instance: GlobalConcurrencyController | None = None
     _lock = asyncio.Lock()
 
-    def __init__(
-        self,
-        max_concurrent_jobs: int = 10,
-        max_concurrent_cost_usd: float = 100.0
-    ):
+    def __init__(self, max_concurrent_jobs: int = 10, max_concurrent_cost_usd: float = 100.0):
         self.budget = ConcurrencyBudget(
-            max_concurrent_jobs=max_concurrent_jobs,
-            max_concurrent_cost_usd=max_concurrent_cost_usd
+            max_concurrent_jobs=max_concurrent_jobs, max_concurrent_cost_usd=max_concurrent_cost_usd
         )
 
     @classmethod
@@ -322,7 +308,7 @@ class RateLimitedConcurrencyBudget(ConcurrencyBudget):
         max_concurrent_jobs: int = 10,
         max_concurrent_cost_usd: float = 100.0,
         default_tpm: int = 100000,
-        default_rpm: int = 1000
+        default_rpm: int = 1000,
     ):
         super().__init__(max_concurrent_jobs, max_concurrent_cost_usd)
 
@@ -334,10 +320,7 @@ class RateLimitedConcurrencyBudget(ConcurrencyBudget):
         self._tenant_usage: dict[str, dict[str, int]] = {}
 
     def set_tenant_limits(
-        self,
-        tenant: str,
-        tpm: int | None = None,
-        rpm: int | None = None
+        self, tenant: str, tpm: int | None = None, rpm: int | None = None
     ) -> None:
         """Set rate limits for a tenant."""
         if tenant not in self._tenant_limits:
@@ -359,10 +342,9 @@ class RateLimitedConcurrencyBudget(ConcurrencyBudget):
         Returns:
             True if within limits, False otherwise
         """
-        limits = self._tenant_limits.get(tenant, {
-            "tpm": self._default_tpm,
-            "rpm": self._default_rpm
-        })
+        limits = self._tenant_limits.get(
+            tenant, {"tpm": self._default_tpm, "rpm": self._default_rpm}
+        )
 
         usage = self._tenant_usage.get(tenant, {"tokens": 0, "requests": 0})
 

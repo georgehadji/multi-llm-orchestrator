@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check output files."""
+
 from pathlib import Path
 
 outputs_dir = Path("outputs")

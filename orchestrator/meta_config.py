@@ -46,9 +46,11 @@ logger = logging.getLogger("orchestrator.meta_config")
 # Configuration Errors
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class ConfigError:
     """A configuration error."""
+
     field: str
     message: str
     severity: str = "error"  # "error" or "warning"
@@ -60,6 +62,7 @@ class ConfigError:
 # ─────────────────────────────────────────────
 # A/B Testing Configuration
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class ABTestingConfig:
@@ -79,28 +82,36 @@ class ABTestingConfig:
         errors = []
 
         if not 0 < self.traffic_split < 1:
-            errors.append(ConfigError(
-                "ab_testing.traffic_split",
-                f"Must be between 0 and 1, got {self.traffic_split}",
-            ))
+            errors.append(
+                ConfigError(
+                    "ab_testing.traffic_split",
+                    f"Must be between 0 and 1, got {self.traffic_split}",
+                )
+            )
 
         if self.min_samples < 2:
-            errors.append(ConfigError(
-                "ab_testing.min_samples",
-                f"Must be at least 2, got {self.min_samples}",
-            ))
+            errors.append(
+                ConfigError(
+                    "ab_testing.min_samples",
+                    f"Must be at least 2, got {self.min_samples}",
+                )
+            )
 
         if self.max_samples < self.min_samples:
-            errors.append(ConfigError(
-                "ab_testing.max_samples",
-                f"Must be >= min_samples ({self.min_samples}), got {self.max_samples}",
-            ))
+            errors.append(
+                ConfigError(
+                    "ab_testing.max_samples",
+                    f"Must be >= min_samples ({self.min_samples}), got {self.max_samples}",
+                )
+            )
 
         if not 0 < self.significance_level < 1:
-            errors.append(ConfigError(
-                "ab_testing.significance_level",
-                f"Must be between 0 and 1, got {self.significance_level}",
-            ))
+            errors.append(
+                ConfigError(
+                    "ab_testing.significance_level",
+                    f"Must be between 0 and 1, got {self.significance_level}",
+                )
+            )
 
         return errors
 
@@ -108,6 +119,7 @@ class ABTestingConfig:
 # ─────────────────────────────────────────────
 # HITL Configuration
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class HITLConfig:
@@ -139,34 +151,44 @@ class HITLConfig:
         errors = []
 
         if not 0 < self.auto_approve_confidence_threshold < 1:
-            errors.append(ConfigError(
-                "hitl.auto_approve_confidence_threshold",
-                f"Must be between 0 and 1, got {self.auto_approve_confidence_threshold}",
-            ))
+            errors.append(
+                ConfigError(
+                    "hitl.auto_approve_confidence_threshold",
+                    f"Must be between 0 and 1, got {self.auto_approve_confidence_threshold}",
+                )
+            )
 
         if self.approval_timeout_hours <= 0:
-            errors.append(ConfigError(
-                "hitl.approval_timeout_hours",
-                f"Must be positive, got {self.approval_timeout_hours}",
-            ))
+            errors.append(
+                ConfigError(
+                    "hitl.approval_timeout_hours",
+                    f"Must be positive, got {self.approval_timeout_hours}",
+                )
+            )
 
         if self.email_enabled:
             if not self.email_smtp_host:
-                errors.append(ConfigError(
-                    "hitl.email_smtp_host",
-                    "Required when email_enabled is True",
-                ))
+                errors.append(
+                    ConfigError(
+                        "hitl.email_smtp_host",
+                        "Required when email_enabled is True",
+                    )
+                )
             if not self.email_from_address:
-                errors.append(ConfigError(
-                    "hitl.email_from_address",
-                    "Required when email_enabled is True",
-                ))
+                errors.append(
+                    ConfigError(
+                        "hitl.email_from_address",
+                        "Required when email_enabled is True",
+                    )
+                )
 
         if self.webhook_enabled and not self.webhook_url:
-            errors.append(ConfigError(
-                "hitl.webhook_url",
-                "Required when webhook_enabled is True",
-            ))
+            errors.append(
+                ConfigError(
+                    "hitl.webhook_url",
+                    "Required when webhook_enabled is True",
+                )
+            )
 
         return errors
 
@@ -175,9 +197,11 @@ class HITLConfig:
 # Rollout Configuration
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class RolloutStage:
     """A stage in gradual rollout."""
+
     percentage: int
     min_successes: int
     max_failures: int
@@ -192,12 +216,14 @@ class RolloutConfig:
     auto_rollback: bool = True
 
     # Default stages
-    stages: list[RolloutStage] = field(default_factory=lambda: [
-        RolloutStage(percentage=5, min_successes=10, max_failures=3, timeout_hours=24),
-        RolloutStage(percentage=25, min_successes=25, max_failures=5, timeout_hours=48),
-        RolloutStage(percentage=50, min_successes=50, max_failures=10, timeout_hours=72),
-        RolloutStage(percentage=100, min_successes=0, max_failures=0, timeout_hours=0),
-    ])
+    stages: list[RolloutStage] = field(
+        default_factory=lambda: [
+            RolloutStage(percentage=5, min_successes=10, max_failures=3, timeout_hours=24),
+            RolloutStage(percentage=25, min_successes=25, max_failures=5, timeout_hours=48),
+            RolloutStage(percentage=50, min_successes=50, max_failures=10, timeout_hours=72),
+            RolloutStage(percentage=100, min_successes=0, max_failures=0, timeout_hours=0),
+        ]
+    )
 
     # Canary analysis
     canary_enabled: bool = True
@@ -209,37 +235,47 @@ class RolloutConfig:
         errors = []
 
         if not self.stages:
-            errors.append(ConfigError(
-                "rollout.stages",
-                "Must have at least one stage",
-            ))
+            errors.append(
+                ConfigError(
+                    "rollout.stages",
+                    "Must have at least one stage",
+                )
+            )
 
         for i, stage in enumerate(self.stages):
             if not 0 <= stage.percentage <= 100:
-                errors.append(ConfigError(
-                    f"rollout.stages[{i}].percentage",
-                    f"Must be 0-100, got {stage.percentage}",
-                ))
+                errors.append(
+                    ConfigError(
+                        f"rollout.stages[{i}].percentage",
+                        f"Must be 0-100, got {stage.percentage}",
+                    )
+                )
 
             if stage.min_successes < 0:
-                errors.append(ConfigError(
-                    f"rollout.stages[{i}].min_successes",
-                    f"Must be non-negative, got {stage.min_successes}",
-                ))
+                errors.append(
+                    ConfigError(
+                        f"rollout.stages[{i}].min_successes",
+                        f"Must be non-negative, got {stage.min_successes}",
+                    )
+                )
 
             if stage.max_failures < 0:
-                errors.append(ConfigError(
-                    f"rollout.stages[{i}].max_failures",
-                    f"Must be non-negative, got {stage.max_failures}",
-                ))
+                errors.append(
+                    ConfigError(
+                        f"rollout.stages[{i}].max_failures",
+                        f"Must be non-negative, got {stage.max_failures}",
+                    )
+                )
 
         # Check stages are in ascending order by percentage
         for i in range(len(self.stages) - 1):
             if self.stages[i].percentage >= self.stages[i + 1].percentage:
-                errors.append(ConfigError(
-                    f"rollout.stages[{i}].percentage",
-                    f"Must be less than next stage ({self.stages[i+1].percentage}%)",
-                ))
+                errors.append(
+                    ConfigError(
+                        f"rollout.stages[{i}].percentage",
+                        f"Must be less than next stage ({self.stages[i+1].percentage}%)",
+                    )
+                )
 
         return errors
 
@@ -247,6 +283,7 @@ class RolloutConfig:
 # ─────────────────────────────────────────────
 # Transfer Learning Configuration
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class TransferConfig:
@@ -266,22 +303,28 @@ class TransferConfig:
         errors = []
 
         if not 0 < self.min_similarity < 1:
-            errors.append(ConfigError(
-                "transfer.min_similarity",
-                f"Must be between 0 and 1, got {self.min_similarity}",
-            ))
+            errors.append(
+                ConfigError(
+                    "transfer.min_similarity",
+                    f"Must be between 0 and 1, got {self.min_similarity}",
+                )
+            )
 
         if not 0 < self.min_pattern_confidence < 1:
-            errors.append(ConfigError(
-                "transfer.min_pattern_confidence",
-                f"Must be between 0 and 1, got {self.min_pattern_confidence}",
-            ))
+            errors.append(
+                ConfigError(
+                    "transfer.min_pattern_confidence",
+                    f"Must be between 0 and 1, got {self.min_pattern_confidence}",
+                )
+            )
 
         if self.min_pattern_successes < 1:
-            errors.append(ConfigError(
-                "transfer.min_pattern_successes",
-                f"Must be at least 1, got {self.min_pattern_successes}",
-            ))
+            errors.append(
+                ConfigError(
+                    "transfer.min_pattern_successes",
+                    f"Must be at least 1, got {self.min_pattern_successes}",
+                )
+            )
 
         return errors
 
@@ -289,6 +332,7 @@ class TransferConfig:
 # ─────────────────────────────────────────────
 # Performance Configuration
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class PerformanceConfig:
@@ -318,28 +362,36 @@ class PerformanceConfig:
         errors = []
 
         if self.batch_size < 1:
-            errors.append(ConfigError(
-                "performance.batch_size",
-                f"Must be at least 1, got {self.batch_size}",
-            ))
+            errors.append(
+                ConfigError(
+                    "performance.batch_size",
+                    f"Must be at least 1, got {self.batch_size}",
+                )
+            )
 
         if self.max_concurrency < 1:
-            errors.append(ConfigError(
-                "performance.max_concurrency",
-                f"Must be at least 1, got {self.max_concurrency}",
-            ))
+            errors.append(
+                ConfigError(
+                    "performance.max_concurrency",
+                    f"Must be at least 1, got {self.max_concurrency}",
+                )
+            )
 
         if self.cache_max_size < 1:
-            errors.append(ConfigError(
-                "performance.cache_max_size",
-                f"Must be at least 1, got {self.cache_max_size}",
-            ))
+            errors.append(
+                ConfigError(
+                    "performance.cache_max_size",
+                    f"Must be at least 1, got {self.cache_max_size}",
+                )
+            )
 
         if self.pool_max_size < self.pool_min_size:
-            errors.append(ConfigError(
-                "performance.pool_max_size",
-                f"Must be >= pool_min_size ({self.pool_min_size}), got {self.pool_max_size}",
-            ))
+            errors.append(
+                ConfigError(
+                    "performance.pool_max_size",
+                    f"Must be >= pool_min_size ({self.pool_min_size}), got {self.pool_max_size}",
+                )
+            )
 
         return errors
 
@@ -348,9 +400,11 @@ class PerformanceConfig:
 # Monitoring Configuration
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class AlertRule:
     """Configuration for an alert rule."""
+
     name: str
     metric_name: str
     condition: str  # "gt", "lt", "eq", "gte", "lte"
@@ -371,47 +425,55 @@ class MonitoringConfig:
     health_check_interval: int = 60  # seconds
 
     # Alert rules
-    alert_rules: list[AlertRule] = field(default_factory=lambda: [
-        AlertRule(
-            name="high_hitl_pending",
-            metric_name="meta_optimization_hitl_pending",
-            condition="gt",
-            threshold=10,
-            severity="warning",
-            cooldown_seconds=600,
-        ),
-        AlertRule(
-            name="critical_hitl_pending",
-            metric_name="meta_optimization_hitl_pending",
-            condition="gt",
-            threshold=50,
-            severity="critical",
-            cooldown_seconds=300,
-        ),
-    ])
+    alert_rules: list[AlertRule] = field(
+        default_factory=lambda: [
+            AlertRule(
+                name="high_hitl_pending",
+                metric_name="meta_optimization_hitl_pending",
+                condition="gt",
+                threshold=10,
+                severity="warning",
+                cooldown_seconds=600,
+            ),
+            AlertRule(
+                name="critical_hitl_pending",
+                metric_name="meta_optimization_hitl_pending",
+                condition="gt",
+                threshold=50,
+                severity="critical",
+                cooldown_seconds=300,
+            ),
+        ]
+    )
 
     def validate(self) -> list[ConfigError]:
         """Validate configuration."""
         errors = []
 
         if self.prometheus_port < 1 or self.prometheus_port > 65535:
-            errors.append(ConfigError(
-                "monitoring.prometheus_port",
-                f"Must be 1-65535, got {self.prometheus_port}",
-            ))
+            errors.append(
+                ConfigError(
+                    "monitoring.prometheus_port",
+                    f"Must be 1-65535, got {self.prometheus_port}",
+                )
+            )
 
         for i, rule in enumerate(self.alert_rules):
             if rule.condition not in ["gt", "lt", "eq", "gte", "lte"]:
-                errors.append(ConfigError(
-                    f"monitoring.alert_rules[{i}].condition",
-                    f"Must be gt/lt/eq/gte/lte, got {rule.condition}",
-                ))
+                errors.append(
+                    ConfigError(
+                        f"monitoring.alert_rules[{i}].condition",
+                        f"Must be gt/lt/eq/gte/lte, got {rule.condition}",
+                    )
+                )
 
             if rule.severity not in ["info", "warning", "critical"]:
-                errors.append(ConfigError(
-                    f"monitoring.alert_rules[{i}].severity",
-                    f"Must be info/warning/critical, got {rule.severity}",
-                ))
+                errors.append(
+                    ConfigError(
+                        f"monitoring.alert_rules[{i}].severity",
+                        f"Must be info/warning/critical, got {rule.severity}",
+                    )
+                )
 
         return errors
 
@@ -419,6 +481,7 @@ class MonitoringConfig:
 # ─────────────────────────────────────────────
 # Main Configuration
 # ─────────────────────────────────────────────
+
 
 @dataclass
 class MetaOptimizationConfig:
@@ -478,10 +541,12 @@ class MetaOptimizationConfig:
             # Check if parent directory exists or can be created
             self.storage_path.parent.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            errors.append(ConfigError(
-                "storage_path",
-                f"Cannot create directory: {e}",
-            ))
+            errors.append(
+                ConfigError(
+                    "storage_path",
+                    f"Cannot create directory: {e}",
+                )
+            )
 
         return errors
 
@@ -559,7 +624,11 @@ class MetaOptimizationConfig:
 
         # Handle storage path
         storage_path_str = data.get("storage_path")
-        storage_path = Path(storage_path_str) if storage_path_str else Path.home() / ".orchestrator_cache" / "meta_v2"
+        storage_path = (
+            Path(storage_path_str)
+            if storage_path_str
+            else Path.home() / ".orchestrator_cache" / "meta_v2"
+        )
 
         return cls(
             ab_testing=ab_testing,

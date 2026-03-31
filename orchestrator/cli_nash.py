@@ -29,6 +29,7 @@ logger = get_logger(__name__)
 # CLI Group
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @click.group(name="nash")
 def nash_cli():
     """Nash stability management commands."""
@@ -38,6 +39,7 @@ def nash_cli():
 # ═══════════════════════════════════════════════════════════════════════════════
 # Status Commands
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @nash_cli.command(name="status")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table")
@@ -91,7 +93,9 @@ def _print_status_table(report: dict):
     # Accumulated assets
     assets = report.get("accumulated_assets", {})
     click.echo("\n  📊 Accumulated Assets:")
-    click.echo(f"     • Knowledge Graph: {assets.get('knowledge_graph_relationships', 0)} relationships")
+    click.echo(
+        f"     • Knowledge Graph: {assets.get('knowledge_graph_relationships', 0)} relationships"
+    )
     click.echo(f"     • Learned Patterns: {assets.get('unique_patterns_learned', 0)}")
     click.echo(f"     • Template Variants: {assets.get('optimized_templates', 0)}")
     click.echo(f"     • Calibrated Predictions: {assets.get('calibrated_predictions', 0)}")
@@ -133,6 +137,7 @@ def _watch_status(output_format: str):
 # Backup Commands
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @nash_cli.command(name="backup")
 @click.option("--name", help="Backup name (default: timestamp)")
 @click.option("--encrypt/--no-encrypt", default=False, help="Encrypt backup")
@@ -168,10 +173,12 @@ async def _create_backup(name: str | None, encrypt: bool, compress: bool):
             backup_mgr = get_backup_manager()
             bar.update(1)
 
-            manifest = asyncio.run(backup_mgr.create_backup(
-                backup_name=name,
-                compress=compress,
-            ))
+            manifest = asyncio.run(
+                backup_mgr.create_backup(
+                    backup_name=name,
+                    compress=compress,
+                )
+            )
             bar.update(4)
 
         click.echo(f"\n✓ Backup created: {manifest.backup_id}")
@@ -257,7 +264,7 @@ def _show_backup_value():
         click.echo(f"\n  Total Value: ${estimate['total_value_usd']:.2f}")
         click.echo(f"  Total Records: {estimate['total_records']}")
         click.echo("\n  Component Breakdown:")
-        for comp, value in estimate['component_values'].items():
+        for comp, value in estimate["component_values"].items():
             click.echo(f"    • {comp}: ${value:.2f}")
         click.echo(f"\n  {estimate['recommendation']}")
         click.echo("=" * 50 + "\n")
@@ -270,6 +277,7 @@ def _show_backup_value():
 # ═══════════════════════════════════════════════════════════════════════════════
 # Tuning Commands
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @nash_cli.command(name="tuning")
 @click.option("--status", "show_status", is_flag=True, help="Show tuning status")
@@ -317,7 +325,7 @@ def _show_tuning_status():
                 click.echo(f"      Range: [{info['range'][0]:.4f}, {info['range'][1]:.4f}]")
                 click.echo(f"      Strategy: {info['strategy']}")
                 click.echo(f"      Samples: {info['samples']}")
-                if info['last_tuned']:
+                if info["last_tuned"]:
                     click.echo(f"      Last tuned: {info['last_tuned']}")
 
         # Recommendations
@@ -383,6 +391,7 @@ def _check_drift():
 # ═══════════════════════════════════════════════════════════════════════════════
 # Model Comparison Commands
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 @nash_cli.command(name="compare")
 @click.argument("model_a")
@@ -472,6 +481,7 @@ def _print_comparison_table(comparison: dict, model_a: str, model_b: str):
 # Event Monitor Command
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @nash_cli.command(name="events")
 @click.option("--follow", "-f", is_flag=True, help="Follow events in real-time")
 @click.option("--type", "event_type", help="Filter by event type")
@@ -543,6 +553,7 @@ def _follow_events(event_type: str | None):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Integration with main CLI
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def register_nash_commands(cli):
     """Register Nash CLI commands with main CLI."""

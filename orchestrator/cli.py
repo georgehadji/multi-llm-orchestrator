@@ -104,7 +104,7 @@ def cmd_analyze(args) -> None:
             f = f.strip()
             if f:  # Only add non-empty values
                 # Basic validation: alphanumeric and common separators only
-                if not re.match(r'^[\w\s\-_,]+$', f):
+                if not re.match(r"^[\w\s\-_,]+$", f):
                     print(f"ERROR: Invalid focus area: {f}", file=sys.stderr)
                     sys.exit(1)
                 focus.append(f)
@@ -116,7 +116,7 @@ def cmd_analyze(args) -> None:
             ext = ext.strip()
             if ext:
                 # Validate extension format
-                if not re.match(r'^[\w.]+$', ext):
+                if not re.match(r"^[\w.]+$", ext):
                     print(f"ERROR: Invalid extension: {ext}", file=sys.stderr)
                     sys.exit(1)
                 # Ensure extension starts with dot
@@ -135,19 +135,25 @@ def cmd_analyze(args) -> None:
     print(f"Budget: ${args.budget:.2f} | Context limit: {args.context_tokens:,} tokens")
     print("-" * 60)
 
-    report = asyncio.run(analyzer.analyze(
-        path=path,
-        focus=focus,
-        budget_usd=args.budget,
-        include_exts=include_exts,
-        max_tokens_per_section=args.section_tokens,
-    ))
+    report = asyncio.run(
+        analyzer.analyze(
+            path=path,
+            focus=focus,
+            budget_usd=args.budget,
+            include_exts=include_exts,
+            max_tokens_per_section=args.section_tokens,
+        )
+    )
 
     # Print summary
-    print(f"\nAnalysis complete: {len(report.sections)} sections | "
-          f"${report.total_cost:.4f} | {report.elapsed_s:.1f}s")
-    print(f"Files analyzed: {report.files_analyzed} | "
-          f"Languages: {', '.join(sorted(report.languages))}")
+    print(
+        f"\nAnalysis complete: {len(report.sections)} sections | "
+        f"${report.total_cost:.4f} | {report.elapsed_s:.1f}s"
+    )
+    print(
+        f"Files analyzed: {report.files_analyzed} | "
+        f"Languages: {', '.join(sorted(report.languages))}"
+    )
 
     # Write report
     # SECURITY FIX: Validate output path
@@ -193,13 +199,15 @@ def cmd_build(args) -> None:
     output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
 
     builder = AppBuilder()
-    result = asyncio.run(builder.build(
-        description=args.description,
-        criteria=args.criteria,
-        output_dir=Path(output_dir),
-        app_type_override=args.app_type or None,
-        docker=args.docker,
-    ))
+    result = asyncio.run(
+        builder.build(
+            description=args.description,
+            criteria=args.criteria,
+            output_dir=Path(output_dir),
+            app_type_override=args.app_type or None,
+            docker=args.docker,
+        )
+    )
 
     if result.success:
         print(f"Build successful: {result.output_dir}")
@@ -215,12 +223,14 @@ def _analyze_subparsers(subparsers) -> None:
         help="Analyze a codebase and produce an improvement report",
     )
     ap.add_argument(
-        "--path", "-p",
+        "--path",
+        "-p",
         required=True,
         help="Root directory of the codebase to analyze",
     )
     ap.add_argument(
-        "--focus", "-f",
+        "--focus",
+        "-f",
         default="",
         help=(
             "Comma-separated focus areas: architecture, quality, security, "
@@ -228,12 +238,14 @@ def _analyze_subparsers(subparsers) -> None:
         ),
     )
     ap.add_argument(
-        "--extensions", "-e",
+        "--extensions",
+        "-e",
         default="",
         help="Comma-separated file extensions to include (e.g. .py,.ts). Default: all code files",
     )
     ap.add_argument(
-        "--budget", "-b",
+        "--budget",
+        "-b",
         type=float,
         default=3.0,
         help="Max API spend in USD (default: 3.0)",
@@ -259,12 +271,14 @@ def _analyze_subparsers(subparsers) -> None:
         help="Max simultaneous API calls (default: 2)",
     )
     ap.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default="",
         help="Output file path for the report (default: <path>/ANALYSIS_REPORT.md)",
     )
     ap.add_argument(
-        "--quiet", "-q",
+        "--quiet",
+        "-q",
         action="store_true",
         default=False,
         help="Suppress report preview in terminal",
@@ -279,17 +293,20 @@ def _build_subparsers(subparsers) -> None:
         help="Build a complete app from a description",
     )
     build_parser.add_argument(
-        "--description", "-d",
+        "--description",
+        "-d",
         required=True,
         help="App description",
     )
     build_parser.add_argument(
-        "--criteria", "-c",
+        "--criteria",
+        "-c",
         default="The app must work correctly",
         help="Success criteria (default: 'The app must work correctly')",
     )
     build_parser.add_argument(
-        "--app-type", "-t",
+        "--app-type",
+        "-t",
         dest="app_type",
         default="",
         help="Force app type (fastapi/cli/library/generic)",
@@ -301,7 +318,8 @@ def _build_subparsers(subparsers) -> None:
         help="Run Docker-based verification after build",
     )
     build_parser.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         dest="output_dir",
         default="",
         help="Directory to write the generated app (default: auto-generated temp dir)",
@@ -327,9 +345,9 @@ def cmd_agent(args) -> None:
 
     # Basic check for potential injection patterns
     dangerous_patterns = [
-        r'`.*?`',  # Backtick execution
-        r'\$\(',  # Command substitution
-        r'\$\{',  # Variable expansion
+        r"`.*?`",  # Backtick execution
+        r"\$\(",  # Command substitution
+        r"\$\{",  # Variable expansion
     ]
     for pattern in dangerous_patterns:
         if re.search(pattern, intent):
@@ -342,6 +360,7 @@ def cmd_agent(args) -> None:
     print("\n=== Draft Job Spec ===")
     import json as _json
     from dataclasses import asdict
+
     print(_json.dumps(asdict(draft.job), indent=2, default=str))
     print("\n=== Draft Policy Spec ===")
     print(_json.dumps(asdict(draft.policy), indent=2, default=str))
@@ -391,7 +410,8 @@ def _agent_subparsers(subparsers) -> None:
         help="Convert NL intent to typed specs and optionally run via ControlPlane",
     )
     ap.add_argument(
-        "--intent", "-i",
+        "--intent",
+        "-i",
         required=True,
         help="Natural language description of the job to run",
     )
@@ -417,18 +437,21 @@ def _slash_subparsers(subparsers) -> None:
         help="Slash command to execute (e.g., 'analyst', 'architect', 'help')",
     )
     sp.add_argument(
-        "--args", "-a",
+        "--args",
+        "-a",
         default="",
         help="Arguments for the slash command",
     )
     sp.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         type=str,
         default="./slash_outputs",
         help="Directory for progressive output",
     )
     sp.add_argument(
-        "--interactive", "-i",
+        "--interactive",
+        "-i",
         action="store_true",
         help="Enter interactive REPL mode",
     )
@@ -526,6 +549,7 @@ def _default_output_dir(project_id: str | None) -> str:
         return str(Path("outputs") / project_id)
     # Generate timestamp-based directory for AppBuilder projects
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return str(Path("outputs") / f"app_{timestamp}")
 
@@ -555,6 +579,7 @@ async def _async_list_projects():
             print("-" * 55)
             for p in projects:
                 from datetime import datetime
+
                 updated = datetime.fromtimestamp(p["updated_at"]).strftime("%Y-%m-%d %H:%M")
                 print(f"{p['project_id']:<15} {p['status']:<20} {updated}")
     finally:
@@ -573,8 +598,9 @@ def _build_tracing_cfg(args) -> "TracingConfig | None":
 
 async def _async_resume(args):
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
-                        tracing_cfg=_build_tracing_cfg(args))
+    orch = Orchestrator(
+        budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
+    )
     existing = await orch.state_mgr.load_project(args.resume)
     if not existing:
         print(f"Project {args.resume} not found.")
@@ -615,14 +641,14 @@ async def _async_file_project(args):
             get_optimization_config,
             update_config,
         )
-        
+
         config = get_optimization_config()
         config.enable_tdd_first = True
         config.tdd_quality_tier = args.tdd_quality
         config.tdd_max_iterations = args.tdd_max_iterations
         config.tdd_min_test_coverage = args.tdd_min_coverage
         update_config(config)
-        
+
         logger.info(
             f"TDD enabled: quality={args.tdd_quality}, "
             f"max_iterations={args.tdd_max_iterations}, "
@@ -641,8 +667,9 @@ async def _async_file_project(args):
     print(f"Budget: ${budget.max_usd} / {budget.max_time_seconds}s")
     print("-" * 60)
 
-    orch = Orchestrator(budget=budget, max_concurrency=concurrency,
-                        tracing_cfg=_build_tracing_cfg(args))
+    orch = Orchestrator(
+        budget=budget, max_concurrency=concurrency, tracing_cfg=_build_tracing_cfg(args)
+    )
 
     # CLI --output-dir > YAML output_dir > auto default
     output_dir = args.output_dir or result.output_dir or _default_output_dir(result.project_id)
@@ -661,11 +688,12 @@ async def _async_file_project(args):
     except Exception as e:
         print(f"\n❌ Error during execution: {e}")
         import traceback
+
         traceback.print_exc()
         return
 
     # Get the actual project_id that was used (orchestrator may have generated one)
-    actual_project_id = getattr(orch, '_project_id', None) or project_id
+    actual_project_id = getattr(orch, "_project_id", None) or project_id
 
     try:
         state = await orch.state_mgr.load_project(actual_project_id)
@@ -686,9 +714,9 @@ async def _async_file_project(args):
             path,
             auto_generate_tests=True,
             run_tests=True,
-            fix_tests=getattr(args, 'fix_tests', True),
-            max_fix_iterations=getattr(args, 'max_fix_iterations', 3),
-            min_pass_rate=getattr(args, 'min_pass_rate', 0.7),
+            fix_tests=getattr(args, "fix_tests", True),
+            max_fix_iterations=getattr(args, "max_fix_iterations", 3),
+            min_pass_rate=getattr(args, "min_pass_rate", 0.7),
         )
         print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
         if org_report.tests_run:
@@ -785,9 +813,7 @@ async def _check_resume(
 
     # ── Fetch candidates with a hard timeout ────────────────────────────────
     try:
-        rows: list[dict] = await asyncio.wait_for(
-            state_mgr.find_resumable(keywords), timeout=0.2
-        )
+        rows: list[dict] = await asyncio.wait_for(state_mgr.find_resumable(keywords), timeout=0.2)
     except (asyncio.TimeoutError, Exception):
         return None
 
@@ -813,7 +839,7 @@ async def _check_resume(
                 keywords=row.get("keywords", []),
                 recency_score=recency,
                 similarity_score=0.0,  # computed by _score_candidates
-                overall_score=0.0,     # computed by _score_candidates
+                overall_score=0.0,  # computed by _score_candidates
             )
         )
 
@@ -835,11 +861,15 @@ async def _check_resume(
     if len(scored) == 1:
         c = scored[0]
         try:
-            answer = _input_fn(
-                f"\nFound a resumable project:\n"
-                f"  [{c.project_id}] {c.description[:80]}\n"
-                f"Resume it? [Y/n]: "
-            ).strip().lower()
+            answer = (
+                _input_fn(
+                    f"\nFound a resumable project:\n"
+                    f"  [{c.project_id}] {c.description[:80]}\n"
+                    f"Resume it? [Y/n]: "
+                )
+                .strip()
+                .lower()
+            )
         except (EOFError, KeyboardInterrupt):
             return None
         if answer in ("y", "yes", ""):
@@ -891,20 +921,20 @@ async def _async_new_project(args):
             get_optimization_config,
             update_config,
         )
-        
+
         config = get_optimization_config()
         config.enable_tdd_first = True
         config.tdd_quality_tier = args.tdd_quality
         config.tdd_max_iterations = args.tdd_max_iterations
         config.tdd_min_test_coverage = args.tdd_min_coverage
         update_config(config)
-        
+
         logger.info(
             f"TDD enabled: quality={args.tdd_quality}, "
             f"max_iterations={args.tdd_max_iterations}, "
             f"min_coverage={args.tdd_min_coverage}"
         )
-    
+
     # ── Resume detection gate ────────────────────────────────────────────────
     if not getattr(args, "new_project", False):
         state_mgr = StateManager()
@@ -927,6 +957,7 @@ async def _async_new_project(args):
 
     if not no_enhance:
         from .enhancer import ProjectEnhancer, _apply_enhancements, _present_enhancements
+
         enhancer = ProjectEnhancer()
         suggestions = await enhancer.analyze(description, criteria)
         if suggestions:
@@ -938,6 +969,7 @@ async def _async_new_project(args):
     if not raw_tasks:
         # Route through AppBuilder (detects app_type automatically)
         from orchestrator.app_builder import AppBuilder
+
         output_dir = args.output_dir or _default_output_dir(None)
         print(f"Starting app build (budget: ${args.budget})")
         print(f"Project: {description}")
@@ -953,13 +985,16 @@ async def _async_new_project(args):
             print(f"Build successful: {result.output_dir}")
             # Debug: show state info
             if result.state:
-                print(f"  State tasks: {len(result.state.tasks)}, results: {len(result.state.results)}")
+                print(
+                    f"  State tasks: {len(result.state.tasks)}, results: {len(result.state.results)}"
+                )
                 print(f"  Execution order: {result.state.execution_order}")
             # Also write individual task files
             if result.state:
                 from .output_writer import write_output_dir
+
                 tasks_dir = Path(output_dir) / "tasks"
-                project_id = getattr(result.state, 'project_id', '')
+                project_id = getattr(result.state, "project_id", "")
                 print(f"  Writing task files to: {tasks_dir}")
                 path = write_output_dir(result.state, tasks_dir, project_id=project_id)
                 print(f"Task files written to: {path}")
@@ -970,9 +1005,9 @@ async def _async_new_project(args):
                 Path(output_dir),
                 auto_generate_tests=True,
                 run_tests=True,
-                fix_tests=getattr(args, 'fix_tests', True),
-                max_fix_iterations=getattr(args, 'max_fix_iterations', 3),
-                min_pass_rate=getattr(args, 'min_pass_rate', 0.7),
+                fix_tests=getattr(args, "fix_tests", True),
+                max_fix_iterations=getattr(args, "max_fix_iterations", 3),
+                min_pass_rate=getattr(args, "min_pass_rate", 0.7),
             )
             print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
             if org_report.tests_run:
@@ -986,8 +1021,9 @@ async def _async_new_project(args):
 
     # --raw-tasks: legacy flat-file path (opt-in)
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
-                        tracing_cfg=_build_tracing_cfg(args))
+    orch = Orchestrator(
+        budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
+    )
 
     print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
     print(f"Project: {description}")
@@ -1042,8 +1078,9 @@ async def _async_visualize(args):
         project_description = args.project
         success_criteria = getattr(args, "criteria", "") or ""
 
-    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency,
-                        tracing_cfg=_build_tracing_cfg(args))
+    orch = Orchestrator(
+        budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
+    )
     tasks = await orch._decompose(project_description, success_criteria)
 
     renderer = DagRenderer(tasks)
@@ -1097,7 +1134,9 @@ def _nash_subparsers(subparsers):
     status_parser.set_defaults(func=_cmd_nash_status)
 
     # nash backup
-    backup_parser = nash_subparsers.add_parser("backup", help="Backup/restore accumulated knowledge")
+    backup_parser = nash_subparsers.add_parser(
+        "backup", help="Backup/restore accumulated knowledge"
+    )
     backup_parser.add_argument("--list", action="store_true", help="List backups")
     backup_parser.add_argument("--restore", type=str, help="Restore from backup file")
     backup_parser.add_argument("--value", action="store_true", help="Show estimated value")
@@ -1130,16 +1169,19 @@ def _cmd_nash_status(args):
 
         if args.format == "json":
             import json
+
             print(json.dumps(report, indent=2))
         else:
             _print_nash_status(report)
 
     if args.watch:
         import time
+
         try:
             while True:
                 import os
-                os.system('cls' if os.name == 'nt' else 'clear')
+
+                os.system("cls" if os.name == "nt" else "clear")
                 asyncio.run(show())
                 print("\n[Press Ctrl+C to exit]")
                 time.sleep(5)
@@ -1271,9 +1313,13 @@ def _cmd_nash_compare(args):
 
             print(f"\n  {'Metric':<15} {args.model_a:<12} {args.model_b:<12}")
             print("  " + "-" * 40)
-            print(f"  {'Quality':<15} {data_a.get('quality', 0):<12.3f} {data_b.get('quality', 0):<12.3f}")
+            print(
+                f"  {'Quality':<15} {data_a.get('quality', 0):<12.3f} {data_b.get('quality', 0):<12.3f}"
+            )
             print(f"  {'Cost':<15} ${data_a.get('cost', 0):<11.4f} ${data_b.get('cost', 0):<11.4f}")
-            print(f"  {'Efficiency':<15} {data_a.get('efficiency', 0):<12.1f} {data_b.get('efficiency', 0):<12.1f}")
+            print(
+                f"  {'Efficiency':<15} {data_a.get('efficiency', 0):<12.1f} {data_b.get('efficiency', 0):<12.1f}"
+            )
 
             print(f"\n  {comparison.get('recommendation', '')}")
             print("=" * 70 + "\n")
@@ -1309,7 +1355,9 @@ def cmd_cache_stats(args) -> None:
 ║                    CACHE STATISTICS                              ║
 ╠══════════════════════════════════════════════════════════════════╣""")
     print(f"║ Total Requests:     {stats['total_requests']:>10,}                               ║")
-    print(f"║ Total Hits:         {stats['total_hits']:>10,}  ({stats['overall_hit_rate']:.1%})                        ║")
+    print(
+        f"║ Total Hits:         {stats['total_hits']:>10,}  ({stats['overall_hit_rate']:.1%})                        ║"
+    )
     print(f"║ Total Misses:       {stats['total_misses']:>10,}                               ║")
     print("╠══════════════════════════════════════════════════════════════════╣")
     print("║ By Level:                                                        ║")
@@ -1323,10 +1371,12 @@ def cmd_cache_stats(args) -> None:
     print("╚══════════════════════════════════════════════════════════════════╝")
 
     # L1 detailed stats
-    if stats.get('l1_stats'):
-        l1 = stats['l1_stats']
+    if stats.get("l1_stats"):
+        l1 = stats["l1_stats"]
         print("\nL1 Memory Cache:")
-        print(f"  Entries: {l1['entries']}/{l1['max_size']} ({100*l1['entries']/l1['max_size']:.1f}%)")
+        print(
+            f"  Entries: {l1['entries']}/{l1['max_size']} ({100*l1['entries']/l1['max_size']:.1f}%)"
+        )
         print(f"  Hit Rate: {l1['hit_rate']:.1%}")
 
 
@@ -1409,8 +1459,9 @@ def _nexus_subparsers(subparsers) -> None:
     search_p = nexus_sub.add_parser("search", help="Perform web search")
     search_p.add_argument("query", help="Search query")
     search_p.add_argument("-s", "--sources", help="Sources (web,academic,tech,news,code)")
-    search_p.add_argument("-o", "--optimization", default="balanced",
-                          choices=["speed", "balanced", "quality"])
+    search_p.add_argument(
+        "-o", "--optimization", default="balanced", choices=["speed", "balanced", "quality"]
+    )
     search_p.add_argument("-n", "--num-results", type=int, default=10)
     search_p.add_argument("--json", action="store_true")
     search_p.set_defaults(func=_nexus_search_cmd)
@@ -1437,39 +1488,44 @@ def _nexus_subparsers(subparsers) -> None:
 def _nexus_search_cmd(args) -> int:
     """Execute Nexus search."""
     from .nexus_cli import cmd_search
+
     return asyncio.run(cmd_search(args))
 
 
 def _nexus_research_cmd(args) -> int:
     """Execute Nexus research."""
     from .nexus_cli import cmd_research
+
     return asyncio.run(cmd_research(args))
 
 
 def _nexus_status_cmd(args) -> int:
     """Execute Nexus status."""
     from .nexus_cli import cmd_status
+
     return asyncio.run(cmd_status(args))
 
 
 def _nexus_classify_cmd(args) -> int:
     """Execute Nexus classify."""
     from .nexus_cli import cmd_classify
+
     return asyncio.run(cmd_classify(args))
 
 
 def main():
     # ── Suppress specific warnings ───────────────────────────────────────────
     import warnings
-    warnings.filterwarnings("ignore",
-                            message="urllib3.*doesn't match a supported version",
-                            category=Warning,
-                            module="requests")
+
+    warnings.filterwarnings(
+        "ignore",
+        message="urllib3.*doesn't match a supported version",
+        category=Warning,
+        module="requests",
+    )
 
     # ── Top-level parser ─────────────────────────────────────────────────────
-    parser = argparse.ArgumentParser(
-        description="Multi-LLM Orchestrator — Local AI Project Runner"
-    )
+    parser = argparse.ArgumentParser(description="Multi-LLM Orchestrator — Local AI Project Runner")
 
     # ── Subcommands (e.g. 'build') ────────────────────────────────────────────
     subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
@@ -1485,23 +1541,31 @@ def main():
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
     parser.add_argument("--criteria", "-c", type=str, help="Success criteria")
-    parser.add_argument("--budget", "-b", type=float, default=8.0,
-                        help="Max budget in USD (default: 8.0)")
-    parser.add_argument("--time", type=float, default=5400,
-                        help="Max time in seconds (default: 5400)")
-    parser.add_argument("--project-id", type=str, default="",
-                        help="Project ID (auto-generated if empty)")
-    parser.add_argument("--resume", type=str, default="",
-                        help="Resume a previous project by ID")
-    parser.add_argument("--list-projects", action="store_true",
-                        help="List all saved projects")
-    parser.add_argument("--concurrency", type=int, default=3,
-                        help="Max simultaneous API calls (default: 3)")
+    parser.add_argument(
+        "--budget", "-b", type=float, default=8.0, help="Max budget in USD (default: 8.0)"
+    )
+    parser.add_argument(
+        "--time", type=float, default=5400, help="Max time in seconds (default: 5400)"
+    )
+    parser.add_argument(
+        "--project-id", type=str, default="", help="Project ID (auto-generated if empty)"
+    )
+    parser.add_argument("--resume", type=str, default="", help="Resume a previous project by ID")
+    parser.add_argument("--list-projects", action="store_true", help="List all saved projects")
+    parser.add_argument(
+        "--concurrency", type=int, default=3, help="Max simultaneous API calls (default: 3)"
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
-    parser.add_argument("--file", "-f", type=str, default="",
-                        help="Load project spec from a YAML file")
-    parser.add_argument("--output-dir", "-o", type=str, default="",
-                        help="Write structured output files to this directory")
+    parser.add_argument(
+        "--file", "-f", type=str, default="", help="Load project spec from a YAML file"
+    )
+    parser.add_argument(
+        "--output-dir",
+        "-o",
+        type=str,
+        default="",
+        help="Write structured output files to this directory",
+    )
     parser.add_argument(
         "--fix-tests",
         action="store_true",
@@ -1526,7 +1590,7 @@ def main():
         default=0.7,
         help="Minimum pass rate to stop fixing (default: 0.7)",
     )
-    
+
     # ═══════════════════════════════════════════════════════
     # TDD-First Generation (NEW v3.0)
     # ═══════════════════════════════════════════════════════
@@ -1553,7 +1617,7 @@ def main():
         default=0.8,
         help="Minimum test coverage required (default: 0.8)",
     )
-    
+
     parser.add_argument(
         "--visualize",
         choices=["mermaid", "ascii"],
@@ -1587,7 +1651,7 @@ def main():
         "--tracing",
         action="store_true",
         default=False,
-        help="Enable OpenTelemetry distributed tracing. Requires: pip install -e '.[tracing]'"
+        help="Enable OpenTelemetry distributed tracing. Requires: pip install -e '.[tracing]'",
     )
     parser.add_argument(
         "--otlp-endpoint",
@@ -1595,7 +1659,7 @@ def main():
         default=None,
         metavar="URL",
         help="OTLP gRPC endpoint for tracing export (e.g. http://localhost:4317). "
-             "If --tracing is set but this is omitted, spans are printed to console."
+        "If --tracing is set but this is omitted, spans are printed to console.",
     )
     parser.add_argument(
         "--raw-tasks",
@@ -1607,7 +1671,8 @@ def main():
         ),
     )
     parser.add_argument(
-        "--new-project", "-N",
+        "--new-project",
+        "-N",
         action="store_true",
         default=False,
         help="Skip resume detection and always start a fresh project",
@@ -1616,12 +1681,15 @@ def main():
         "--no-enhance",
         action="store_true",
         default=False,
-        help=(
-            "Skip LLM spec enhancement pass and run original project description directly"
-        ),
+        help=("Skip LLM spec enhancement pass and run original project description directly"),
     )
-    parser.add_argument("--dry-run", "-n", action="store_true", default=False,
-                        help="Show execution plan without running any tasks")
+    parser.add_argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        default=False,
+        help="Show execution plan without running any tasks",
+    )
 
     # ── Nash Stability commands ───────────────────────────────────────────────
     _nash_subparsers(subparsers)
@@ -1683,7 +1751,11 @@ def _print_results(state, orch=None):
     print("-" * 60)
 
     for tid, result in state.results.items():
-        emoji = "OK" if result.status.value == "completed" else "FAIL" if result.status.value == "failed" else "~"
+        emoji = (
+            "OK"
+            if result.status.value == "completed"
+            else "FAIL" if result.status.value == "failed" else "~"
+        )
         print(
             f"  {emoji} {tid}: score={result.score:.3f} "
             f"[{result.model_used.value}] "
@@ -1694,13 +1766,14 @@ def _print_results(state, orch=None):
     print("=" * 60)
 
     # NEW: Show meta-optimization status if available
-    if orch is not None and hasattr(orch, 'meta_v2') and orch.meta_v2:
+    if orch is not None and hasattr(orch, "meta_v2") and orch.meta_v2:
         from .meta_integration import get_meta_status
+
         meta_status = get_meta_status(orch.meta_v2)
         print("\n--- META-OPTIMIZATION STATUS ---")
         print(f"  Enabled: {meta_status.get('enabled', False)}")
         print(f"  Optimizations run: {meta_status.get('optimization_count', 0)}")
-        if 'archive_stats' in meta_status:
+        if "archive_stats" in meta_status:
             print(f"  Projects in archive: {meta_status['archive_stats'].get('total_projects', 0)}")
             print(f"  Total executions: {meta_status['archive_stats'].get('total_executions', 0)}")
 
@@ -1708,6 +1781,7 @@ def _print_results(state, orch=None):
 # ─────────────────────────────────────────────
 # Meta-Optimization CLI Commands
 # ─────────────────────────────────────────────
+
 
 def cmd_meta(args) -> None:
     """Handle meta-optimization subcommands."""
@@ -1728,25 +1802,35 @@ def cmd_meta(args) -> None:
                     print(f"Enabled: {status.get('enabled', False)}")
                     print(f"Optimizations run: {status.get('optimization_count', 0)}")
 
-                    if 'archive_stats' in status:
+                    if "archive_stats" in status:
                         print("\nArchive:")
-                        print(f"  Total projects: {status['archive_stats'].get('total_projects', 0)}")
-                        print(f"  Total executions: {status['archive_stats'].get('total_executions', 0)}")
+                        print(
+                            f"  Total projects: {status['archive_stats'].get('total_projects', 0)}"
+                        )
+                        print(
+                            f"  Total executions: {status['archive_stats'].get('total_executions', 0)}"
+                        )
 
-                    if 'ab_testing' in status:
+                    if "ab_testing" in status:
                         print("\nA/B Testing:")
-                        print(f"  Total experiments: {status['ab_testing'].get('total_experiments', 0)}")
-                        print(f"  Active experiments: {status['ab_testing'].get('active_experiments', 0)}")
+                        print(
+                            f"  Total experiments: {status['ab_testing'].get('total_experiments', 0)}"
+                        )
+                        print(
+                            f"  Active experiments: {status['ab_testing'].get('active_experiments', 0)}"
+                        )
 
-                    if 'hitl' in status:
+                    if "hitl" in status:
                         print("\nHITL:")
                         print(f"  Pending requests: {status['hitl'].get('pending_count', 0)}")
                         print(f"  Auto-approved: {status['hitl'].get('auto_approved_count', 0)}")
 
-                    if 'rollout' in status:
+                    if "rollout" in status:
                         print("\nGradual Rollout:")
                         print(f"  Active rollouts: {status['rollout'].get('active_rollouts', 0)}")
-                        print(f"  Completed rollouts: {status['rollout'].get('completed_rollouts', 0)}")
+                        print(
+                            f"  Completed rollouts: {status['rollout'].get('completed_rollouts', 0)}"
+                        )
 
                 elif args.meta_cmd == "optimize":
                     print("\nRunning meta-optimization...")
@@ -1755,12 +1839,17 @@ def cmd_meta(args) -> None:
                     if outcomes:
                         print(f"\nGenerated {len(outcomes)} proposals:")
                         for outcome in outcomes:
-                            print(f"  [{outcome.decision.value}] {outcome.proposal.description[:60]}...")
+                            print(
+                                f"  [{outcome.decision.value}] {outcome.proposal.description[:60]}..."
+                            )
                     else:
-                        print("No optimization proposals generated (insufficient data or no improvements found)")
+                        print(
+                            "No optimization proposals generated (insufficient data or no improvements found)"
+                        )
 
                 elif args.meta_cmd == "transfer":
                     from .transfer_learning import get_transfer_engine
+
                     transfer_engine = get_transfer_engine()
 
                     if transfer_engine:
@@ -1769,7 +1858,9 @@ def cmd_meta(args) -> None:
                         print(f"Indexed projects: {stats.get('indexed_projects', 0)}")
                         print(f"Active patterns: {stats.get('active_patterns', 0)}")
                         print(f"Total patterns: {stats.get('total_patterns', 0)}")
-                        print(f"Average pattern confidence: {stats.get('avg_pattern_confidence', 0):.2f}")
+                        print(
+                            f"Average pattern confidence: {stats.get('avg_pattern_confidence', 0):.2f}"
+                        )
                     else:
                         print("Transfer learning not initialized")
             else:
@@ -1808,8 +1899,9 @@ try:
     import click
 
     @click.command()
-    @click.option('--analyze-codebase', type=click.Path(exists=True),
-                  help='Analyze an existing codebase')
+    @click.option(
+        "--analyze-codebase", type=click.Path(exists=True), help="Analyze an existing codebase"
+    )
     def cli(analyze_codebase):
         """AI Orchestrator: Codebase Analysis"""
         if analyze_codebase:
@@ -1823,9 +1915,9 @@ try:
                 profile = await understanding.analyze(analyze_codebase)
 
                 # Display analysis results
-                print("\n" + "="*60)
+                print("\n" + "=" * 60)
                 print("CODEBASE ANALYSIS COMPLETE")
-                print("="*60)
+                print("=" * 60)
                 print(profile)
 
                 # Generate and display improvement suggestions
@@ -1833,9 +1925,9 @@ try:
                 improvements = suggester.suggest(profile)
 
                 if improvements:
-                    print("\n" + "="*60)
+                    print("\n" + "=" * 60)
                     print("IMPROVEMENT RECOMMENDATIONS")
-                    print("="*60)
+                    print("=" * 60)
                     total_effort = sum(i.effort_hours for i in improvements)
                     print(f"\n{len(improvements)} recommendations | {total_effort}h total effort\n")
 

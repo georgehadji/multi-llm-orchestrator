@@ -42,6 +42,7 @@ logger = get_logger(__name__)
 @dataclass
 class TokenUsage:
     """Token usage tracking."""
+
     input_tokens: int = 0
     output_tokens: int = 0
     input_cost: float = 0.0
@@ -64,6 +65,7 @@ class TokenUsage:
 @dataclass
 class TokenBudgetMetrics:
     """Metrics for token budget enforcement."""
+
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     total_input_cost: float = 0.0
@@ -96,12 +98,12 @@ class TokenBudget:
     # Phase-specific output token limits
     # Based on typical output requirements
     DEFAULT_LIMITS = {
-        OptimizationPhase.DECOMPOSITION: 2000,      # Task list, structured JSON
-        OptimizationPhase.GENERATION: 4000,          # Code output
-        OptimizationPhase.CRITIQUE: 800,             # Score + brief reasoning
-        OptimizationPhase.EVALUATION: 500,           # Score only
-        OptimizationPhase.PROMPT_ENHANCEMENT: 500,   # Enhanced prompt text
-        OptimizationPhase.CONDENSING: 1000,          # Summary
+        OptimizationPhase.DECOMPOSITION: 2000,  # Task list, structured JSON
+        OptimizationPhase.GENERATION: 4000,  # Code output
+        OptimizationPhase.CRITIQUE: 800,  # Score + brief reasoning
+        OptimizationPhase.EVALUATION: 500,  # Score only
+        OptimizationPhase.PROMPT_ENHANCEMENT: 500,  # Enhanced prompt text
+        OptimizationPhase.CONDENSING: 1000,  # Summary
     }
 
     # Cost per 1K tokens (USD) - approximate
@@ -350,6 +352,7 @@ class TokenBudget:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 def get_token_limit(phase: str) -> int:
     """

@@ -40,6 +40,7 @@ logger = get_logger(__name__)
 
 class PlanTier(str, Enum):
     """Subscription plan tiers."""
+
     FREE = "free"
     STARTER = "starter"
     PRO = "pro"
@@ -60,6 +61,7 @@ class Plan:
         features: Set of feature flags
         price_monthly: Monthly price in USD
     """
+
     name: PlanTier
     max_projects_per_month: int
     max_budget_per_project: float
@@ -140,6 +142,7 @@ class UsageTracker:
         api_calls_this_month: API calls made
         storage_used_mb: Storage used in MB
     """
+
     projects_this_month: int = 0
     budget_spent_this_month: float = 0.0
     api_calls_this_month: int = 0
@@ -175,6 +178,7 @@ class Tenant:
         expires_at: Subscription expiry
         active: Whether tenant is active
     """
+
     id: str
     name: str
     plan: Plan
@@ -248,9 +252,7 @@ class TenantManager:
                             id=tenant_data["id"],
                             name=tenant_data["name"],
                             plan=plan,
-                            usage=UsageTracker(
-                                **tenant_data.get("usage", {})
-                            ),
+                            usage=UsageTracker(**tenant_data.get("usage", {})),
                             api_key=tenant_data.get("api_key", ""),
                             created_at=datetime.fromisoformat(tenant_data["created_at"]),
                             expires_at=(
@@ -277,10 +279,14 @@ class TenantManager:
 
         try:
             with tenants_file.open("w") as f:
-                json.dump({
-                    "tenants": [t.to_dict() for t in self.tenants.values()],
-                    "last_updated": datetime.now().isoformat(),
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "tenants": [t.to_dict() for t in self.tenants.values()],
+                        "last_updated": datetime.now().isoformat(),
+                    },
+                    f,
+                    indent=2,
+                )
 
         except Exception as e:
             logger.error(f"Failed to save tenants: {e}")
@@ -364,10 +370,7 @@ class TenantManager:
         for stored_key, tenant_id in self.api_keys.items():
             # Constant-time comparison - always executes full comparison
             # regardless of where in the iteration we are
-            is_match = hmac.compare_digest(
-                stored_key.encode('utf-8'),
-                api_key.encode('utf-8')
-            )
+            is_match = hmac.compare_digest(stored_key.encode("utf-8"), api_key.encode("utf-8"))
 
             if is_match:
                 found_tenant = self.tenants.get(tenant_id)
@@ -524,10 +527,7 @@ class TenantManager:
             plan_name = tenant.plan.name.value
             by_plan[plan_name] = by_plan.get(plan_name, 0) + 1
 
-        total_revenue = sum(
-            t.plan.price_monthly for t in self.tenants.values()
-            if t.active
-        )
+        total_revenue = sum(t.plan.price_monthly for t in self.tenants.values() if t.active)
 
         return {
             "total_tenants": total_tenants,

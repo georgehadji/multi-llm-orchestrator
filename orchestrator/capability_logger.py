@@ -6,6 +6,7 @@ Tracks usage of system capabilities for analytics and debugging.
 Logs capability invocations with timestamps, context, and results.
 Integrates with the existing telemetry system.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,6 +25,7 @@ logger = get_logger(__name__)
 
 class CapabilityType(Enum):
     """Types of capabilities that can be logged."""
+
     # Model Routing
     ROUTING_DECISION = auto()
     FALLBACK_TRIGGERED = auto()
@@ -64,6 +66,7 @@ class CapabilityType(Enum):
 @dataclass
 class CapabilityEvent:
     """A single capability usage event."""
+
     timestamp: str
     capability: str
     task_type: str | None
@@ -360,6 +363,7 @@ def log_capability_use(
         def start_task(task_type: str, model: str):
             ...
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             start_time = time.time()
@@ -387,4 +391,5 @@ def log_capability_use(
                 )
 
         return wrapper
+
     return decorator

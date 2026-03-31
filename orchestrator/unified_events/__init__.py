@@ -3,6 +3,7 @@ Unified Events System
 =====================
 Single event bus for all orchestrator events.
 """
+
 from .core import (
     BudgetWarningEvent,
     CapabilityCompletedEvent,

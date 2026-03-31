@@ -30,6 +30,7 @@ logger = get_logger(__name__)
 @dataclass
 class XPost:
     """A single X post."""
+
     id: str
     text: str
     author: str
@@ -59,6 +60,7 @@ class XPost:
 @dataclass
 class XSearchResult:
     """Result from X search."""
+
     query: str
     posts: list[XPost] = field(default_factory=list)
     total_count: int = 0
@@ -76,6 +78,7 @@ class XSearchResult:
 @dataclass
 class TrendTopic:
     """A trending topic."""
+
     name: str
     tweet_volume: int = 0
     url: str = ""
@@ -85,6 +88,7 @@ class TrendTopic:
 @dataclass
 class TrendsResult:
     """Result from trends query."""
+
     location: str
     trends: list[TrendTopic] = field(default_factory=list)
     as_of: datetime = field(default_factory=datetime.now)
@@ -93,8 +97,7 @@ class TrendsResult:
         return {
             "location": self.location,
             "trends": [
-                {"name": t.name, "tweet_volume": t.tweet_volume, "url": t.url}
-                for t in self.trends
+                {"name": t.name, "tweet_volume": t.tweet_volume, "url": t.url} for t in self.trends
             ],
             "as_of": self.as_of.isoformat(),
         }
@@ -126,10 +129,13 @@ class XSearchClient:
             api_key: xAI API key (or set XAI_API_KEY env var)
         """
         import os
+
         self.api_key = api_key or os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
 
         if not self.api_key:
-            logger.warning("X Search: No API key provided. Set XAI_API_KEY or pass api_key parameter.")
+            logger.warning(
+                "X Search: No API key provided. Set XAI_API_KEY or pass api_key parameter."
+            )
 
         self._client: httpx.AsyncClient | None = None
         self.total_calls = 0
@@ -205,7 +211,11 @@ class XSearchClient:
                     text=post_data.get("text", ""),
                     author=post_data.get("author", {}).get("name", ""),
                     author_handle=post_data.get("author", {}).get("username", ""),
-                    created_at=datetime.fromisoformat(post_data["created_at"].replace("Z", "+00:00")) if post_data.get("created_at") else None,
+                    created_at=(
+                        datetime.fromisoformat(post_data["created_at"].replace("Z", "+00:00"))
+                        if post_data.get("created_at")
+                        else None
+                    ),
                     likes=post_data.get("likes", 0),
                     retweets=post_data.get("retweets", 0),
                     replies=post_data.get("replies", 0),

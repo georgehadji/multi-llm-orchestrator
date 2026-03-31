@@ -28,9 +28,11 @@ from typing import Any, Literal
 # Try to import pydantic
 try:
     from pydantic import BaseSettings, Field, root_validator, validator
+
     HAS_PYDANTIC = True
 except ImportError:
     HAS_PYDANTIC = False
+
     # Fallback base class
     class BaseSettings:
         def __init__(self, **kwargs):
@@ -43,11 +45,13 @@ except ImportError:
     def validator(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
     def root_validator(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
 
@@ -55,8 +59,10 @@ except ImportError:
 # Configuration Classes
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class CacheBackend(Enum):
     """Cache backend options."""
+
     MEMORY = "memory"
     REDIS = "redis"
     DISK = "disk"
@@ -64,12 +70,14 @@ class CacheBackend(Enum):
 
 class EventBusBackend(Enum):
     """Event bus backend options."""
+
     MEMORY = "memory"
     SQLITE = "sqlite"
     REDIS = "redis"
 
 
 if HAS_PYDANTIC:
+
     class OrchestratorConfig(BaseSettings):
         """
         Type-safe, validated configuration for the orchestrator.
@@ -250,15 +258,15 @@ if HAS_PYDANTIC:
         )
 
         # Validation
-        @validator('deepseek_api_key', 'openai_api_key', 'google_api_key', 'anthropic_api_key')
+        @validator("deepseek_api_key", "openai_api_key", "google_api_key", "anthropic_api_key")
         def validate_key_format(cls, v):
-            if v and not v.startswith(('sk-', 'sk-proj-', 'AIza')):
+            if v and not v.startswith(("sk-", "sk-proj-", "AIza")):
                 raise ValueError("Invalid API key format")
             return v
 
-        @validator('log_level')
+        @validator("log_level")
         def validate_log_level(cls, v):
-            valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+            valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
             if v not in valid_levels:
                 raise ValueError(f"Invalid log level: {v}")
             return v
@@ -277,51 +285,51 @@ else:
 
         def __init__(self, **kwargs):
             # Core Settings
-            self.default_budget = kwargs.get('default_budget', 5.0)
-            self.max_concurrency = kwargs.get('max_concurrency', 3)
-            self.max_parallel_tasks = kwargs.get('max_parallel_tasks', 3)
-            self.log_level = kwargs.get('log_level', 'INFO')
+            self.default_budget = kwargs.get("default_budget", 5.0)
+            self.max_concurrency = kwargs.get("max_concurrency", 3)
+            self.max_parallel_tasks = kwargs.get("max_parallel_tasks", 3)
+            self.log_level = kwargs.get("log_level", "INFO")
 
             # Feature Flags
-            self.enable_feedback_loop = kwargs.get('enable_feedback_loop', True)
-            self.enable_outcome_router = kwargs.get('enable_outcome_router', True)
-            self.enable_plugin_isolation = kwargs.get('enable_plugin_isolation', False)
-            self.enable_streaming = kwargs.get('enable_streaming', True)
-            self.enable_event_bus = kwargs.get('enable_event_bus', True)
+            self.enable_feedback_loop = kwargs.get("enable_feedback_loop", True)
+            self.enable_outcome_router = kwargs.get("enable_outcome_router", True)
+            self.enable_plugin_isolation = kwargs.get("enable_plugin_isolation", False)
+            self.enable_streaming = kwargs.get("enable_streaming", True)
+            self.enable_event_bus = kwargs.get("enable_event_bus", True)
 
             # Cache
-            self.cache_backend = kwargs.get('cache_backend', CacheBackend.DISK)
-            self.cache_ttl_seconds = kwargs.get('cache_ttl_seconds', 3600)
-            self.cache_memory_max_mb = kwargs.get('cache_memory_max_mb', 100)
-            self.cache_disk_max_mb = kwargs.get('cache_disk_max_mb', 1000)
+            self.cache_backend = kwargs.get("cache_backend", CacheBackend.DISK)
+            self.cache_ttl_seconds = kwargs.get("cache_ttl_seconds", 3600)
+            self.cache_memory_max_mb = kwargs.get("cache_memory_max_mb", 100)
+            self.cache_disk_max_mb = kwargs.get("cache_disk_max_mb", 1000)
 
             # Event Bus
-            self.event_bus_backend = kwargs.get('event_bus_backend', EventBusBackend.SQLITE)
-            self.event_store_path = kwargs.get('event_store_path', '.events/event_store.db')
+            self.event_bus_backend = kwargs.get("event_bus_backend", EventBusBackend.SQLITE)
+            self.event_store_path = kwargs.get("event_store_path", ".events/event_store.db")
 
             # Plugin Security
-            self.plugin_allow_network = kwargs.get('plugin_allow_network', True)
-            self.plugin_allow_filesystem = kwargs.get('plugin_allow_filesystem', True)
-            self.plugin_timeout_seconds = kwargs.get('plugin_timeout_seconds', 30.0)
-            self.plugin_memory_limit_mb = kwargs.get('plugin_memory_limit_mb', 512)
+            self.plugin_allow_network = kwargs.get("plugin_allow_network", True)
+            self.plugin_allow_filesystem = kwargs.get("plugin_allow_filesystem", True)
+            self.plugin_timeout_seconds = kwargs.get("plugin_timeout_seconds", 30.0)
+            self.plugin_memory_limit_mb = kwargs.get("plugin_memory_limit_mb", 512)
 
             # Health Checks
-            self.health_check_interval = kwargs.get('health_check_interval', 30)
-            self.health_check_timeout = kwargs.get('health_check_timeout', 5.0)
+            self.health_check_interval = kwargs.get("health_check_interval", 30)
+            self.health_check_timeout = kwargs.get("health_check_timeout", 5.0)
 
             # Provider Settings
-            self.deepseek_api_key = kwargs.get('deepseek_api_key')
-            self.openai_api_key = kwargs.get('openai_api_key')
-            self.google_api_key = kwargs.get('google_api_key')
-            self.anthropic_api_key = kwargs.get('anthropic_api_key')
+            self.deepseek_api_key = kwargs.get("deepseek_api_key")
+            self.openai_api_key = kwargs.get("openai_api_key")
+            self.google_api_key = kwargs.get("google_api_key")
+            self.anthropic_api_key = kwargs.get("anthropic_api_key")
 
             # Paths
-            self.data_dir = kwargs.get('data_dir', '.orchestrator')
-            self.results_dir = kwargs.get('results_dir', './results')
+            self.data_dir = kwargs.get("data_dir", ".orchestrator")
+            self.results_dir = kwargs.get("results_dir", "./results")
 
             # Telemetry
-            self.telemetry_enabled = kwargs.get('telemetry_enabled', True)
-            self.telemetry_endpoint = kwargs.get('telemetry_endpoint')
+            self.telemetry_enabled = kwargs.get("telemetry_enabled", True)
+            self.telemetry_endpoint = kwargs.get("telemetry_endpoint")
 
         @classmethod
         def from_env(cls):
@@ -330,24 +338,24 @@ else:
 
             # Map env vars to kwargs
             mappings = {
-                'ORCHESTRATOR_DEFAULT_BUDGET': 'default_budget',
-                'ORCHESTRATOR_MAX_CONCURRENCY': 'max_concurrency',
-                'ORCHESTRATOR_LOG_LEVEL': 'log_level',
-                'ORCHESTRATOR_DEEPSEEK_API_KEY': 'deepseek_api_key',
-                'ORCHESTRATOR_OPENAI_API_KEY': 'openai_api_key',
-                'ORCHESTRATOR_GOOGLE_API_KEY': 'google_api_key',
+                "ORCHESTRATOR_DEFAULT_BUDGET": "default_budget",
+                "ORCHESTRATOR_MAX_CONCURRENCY": "max_concurrency",
+                "ORCHESTRATOR_LOG_LEVEL": "log_level",
+                "ORCHESTRATOR_DEEPSEEK_API_KEY": "deepseek_api_key",
+                "ORCHESTRATOR_OPENAI_API_KEY": "openai_api_key",
+                "ORCHESTRATOR_GOOGLE_API_KEY": "google_api_key",
             }
 
             for env_var, key in mappings.items():
                 value = os.environ.get(env_var)
                 if value:
                     # Type conversion
-                    if key in ['default_budget']:
+                    if key in ["default_budget"]:
                         value = float(value)
-                    elif key in ['max_concurrency', 'max_parallel_tasks']:
+                    elif key in ["max_concurrency", "max_parallel_tasks"]:
                         value = int(value)
-                    elif key in ['enable_feedback_loop', 'enable_outcome_router']:
-                        value = value.lower() == 'true'
+                    elif key in ["enable_feedback_loop", "enable_outcome_router"]:
+                        value = value.lower() == "true"
 
                     kwargs[key] = value
 
@@ -391,13 +399,15 @@ def load_from_file(path: str) -> OrchestratorConfig:
         raise FileNotFoundError(f"Config file not found: {path}")
 
     # Parse based on extension
-    if path.suffix == '.json':
+    if path.suffix == ".json":
         import json
+
         with open(path) as f:
             data = json.load(f)
-    elif path.suffix in ['.yaml', '.yml']:
+    elif path.suffix in [".yaml", ".yml"]:
         try:
             import yaml
+
             with open(path) as f:
                 data = yaml.safe_load(f)
         except ImportError:
@@ -418,19 +428,18 @@ def save_to_file(config: OrchestratorConfig, path: str) -> None:
     if HAS_PYDANTIC:
         data = config.dict()
     else:
-        data = {
-            k: v for k, v in config.__dict__.items()
-            if not k.startswith('_')
-        }
+        data = {k: v for k, v in config.__dict__.items() if not k.startswith("_")}
 
-    if path.suffix == '.json':
+    if path.suffix == ".json":
         import json
-        with open(path, 'w') as f:
+
+        with open(path, "w") as f:
             json.dump(data, f, indent=2, default=str)
-    elif path.suffix in ['.yaml', '.yml']:
+    elif path.suffix in [".yaml", ".yml"]:
         try:
             import yaml
-            with open(path, 'w') as f:
+
+            with open(path, "w") as f:
                 yaml.dump(data, f, default_flow_style=False)
         except ImportError:
             raise ImportError("PyYAML required for YAML config files")
@@ -442,15 +451,16 @@ def save_to_file(config: OrchestratorConfig, path: str) -> None:
 # Configuration Helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_provider_config() -> dict[str, Any]:
     """Get provider API configuration."""
     config = get_config()
 
     return {
-        'deepseek': {'api_key': config.deepseek_api_key},
-        'openai': {'api_key': config.openai_api_key},
-        'google': {'api_key': config.google_api_key},
-        'anthropic': {'api_key': config.anthropic_api_key},
+        "deepseek": {"api_key": config.deepseek_api_key},
+        "openai": {"api_key": config.openai_api_key},
+        "google": {"api_key": config.google_api_key},
+        "anthropic": {"api_key": config.anthropic_api_key},
     }
 
 
@@ -459,10 +469,10 @@ def get_cache_config() -> dict[str, Any]:
     config = get_config()
 
     return {
-        'backend': config.cache_backend,
-        'ttl_seconds': config.cache_ttl_seconds,
-        'memory_max_mb': config.cache_memory_max_mb,
-        'disk_max_mb': config.cache_disk_max_mb,
+        "backend": config.cache_backend,
+        "ttl_seconds": config.cache_ttl_seconds,
+        "memory_max_mb": config.cache_memory_max_mb,
+        "disk_max_mb": config.cache_disk_max_mb,
     }
 
 
@@ -471,16 +481,17 @@ def get_plugin_config() -> dict[str, Any]:
     config = get_config()
 
     return {
-        'allow_network': config.plugin_allow_network,
-        'allow_filesystem': config.plugin_allow_filesystem,
-        'timeout_seconds': config.plugin_timeout_seconds,
-        'memory_limit_mb': config.plugin_memory_limit_mb,
+        "allow_network": config.plugin_allow_network,
+        "allow_filesystem": config.plugin_allow_filesystem,
+        "timeout_seconds": config.plugin_timeout_seconds,
+        "memory_limit_mb": config.plugin_memory_limit_mb,
     }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Example
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def example():
     """Example configuration usage."""

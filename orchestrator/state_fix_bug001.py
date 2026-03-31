@@ -27,6 +27,7 @@ logger = logging.getLogger("orchestrator.state")
 # CORE FIX: Updated serialization functions
 # =============================================================================
 
+
 def _task_to_dict(t: Task) -> dict:
     """
     Serialize Task to dictionary.
@@ -92,6 +93,7 @@ def _task_from_dict(d: dict) -> Task:
 # VALIDATION: Runtime completeness checking
 # =============================================================================
 
+
 def _validate_task_completeness(task: Task, source: str = "unknown") -> None:
     """
     Runtime validation that Task has all required fields.
@@ -124,14 +126,15 @@ def _validate_task_completeness(task: Task, source: str = "unknown") -> None:
 # FALLBACK: State reconstruction on failure
 # =============================================================================
 
+
 class StateLoadError(Exception):
     """Critical error during state loading that cannot be recovered."""
+
     pass
 
 
 async def _attempt_state_reconstruction(
-    project_id: str,
-    output_dir: Path | None = None
+    project_id: str, output_dir: Path | None = None
 ) -> ProjectState | None:
     """
     Attempt to reconstruct state from output files.
@@ -166,7 +169,7 @@ async def _attempt_state_reconstruction(
     for task_file in task_files:
         try:
             # Parse task ID from filename (e.g., "task_001_code_generation.py")
-            parts = task_file.stem.split('_')
+            parts = task_file.stem.split("_")
             if len(parts) >= 2:
                 task_id = f"{parts[0]}_{parts[1]}"
             else:
@@ -188,7 +191,7 @@ async def _attempt_state_reconstruction(
 
             # Read output as result
             try:
-                content = task_file.read_text(encoding='utf-8')
+                content = task_file.read_text(encoding="utf-8")
                 results[task_id] = TaskResult(
                     task_id=task_id,
                     output=content,
@@ -225,6 +228,7 @@ async def _attempt_state_reconstruction(
 # =============================================================================
 # INTEGRATION: StateManager mixin methods
 # =============================================================================
+
 
 class StateManagerBug001Mixin:
     """
@@ -295,7 +299,7 @@ class StateManagerBug001Mixin:
         # This is a placeholder - the actual implementation would be
         # the original load_project code from state.py
         # For now, delegate to parent if possible
-        if hasattr(super(), 'load_project'):
+        if hasattr(super(), "load_project"):
             return await super().load_project(project_id)
         raise NotImplementedError("Must provide load_project implementation")
 
@@ -303,6 +307,7 @@ class StateManagerBug001Mixin:
 # =============================================================================
 # BACKWARD COMPATIBILITY: Handle old states gracefully
 # =============================================================================
+
 
 def _migrate_task_from_legacy(d: dict) -> dict:
     """
@@ -327,6 +332,7 @@ def _migrate_task_from_legacy(d: dict) -> dict:
 # =============================================================================
 # TESTING HELPERS: For unit tests
 # =============================================================================
+
 
 def create_test_task_with_appbuilder_fields() -> Task:
     """

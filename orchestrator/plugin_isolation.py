@@ -52,6 +52,7 @@ except ModuleNotFoundError:  # Windows compatibility
 # Isolation Configuration
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class IsolationConfig:
     """Configuration for plugin isolation."""
@@ -84,19 +85,22 @@ class IsolationConfig:
 
 class IsolationLevel(Enum):
     """Levels of plugin isolation."""
-    NONE = "none"           # Same process (fastest, least secure)
-    THREAD = "thread"       # Separate thread
-    PROCESS = "process"     # Separate process (recommended)
-    CONTAINER = "container" # Container (future)
+
+    NONE = "none"  # Same process (fastest, least secure)
+    THREAD = "thread"  # Separate thread
+    PROCESS = "process"  # Separate process (recommended)
+    CONTAINER = "container"  # Container (future)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Plugin Execution Result
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class IsolatedResult:
     """Result from isolated plugin execution."""
+
     success: bool
     result: Any = None
     error: str | None = None
@@ -135,6 +139,7 @@ class PluginExecutionError(Exception):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Process-Level Isolation
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _set_resource_limits(config: IsolationConfig) -> None:
     """Set resource limits in child process."""
@@ -220,30 +225,36 @@ def _execute_in_process(
 
         execution_time = (time.time() - start_time) * 1000
 
-        result_queue.put({
-            "success": True,
-            "result": result,
-            "execution_time_ms": execution_time,
-        })
+        result_queue.put(
+            {
+                "success": True,
+                "result": result,
+                "execution_time_ms": execution_time,
+            }
+        )
 
     except TimeoutError as e:
         execution_time = (time.time() - start_time) * 1000
-        result_queue.put({
-            "success": False,
-            "error": str(e),
-            "error_type": "TimeoutError",
-            "execution_time_ms": execution_time,
-        })
+        result_queue.put(
+            {
+                "success": False,
+                "error": str(e),
+                "error_type": "TimeoutError",
+                "execution_time_ms": execution_time,
+            }
+        )
 
     except Exception as e:
         execution_time = (time.time() - start_time) * 1000
-        result_queue.put({
-            "success": False,
-            "error": str(e),
-            "error_type": type(e).__name__,
-            "traceback": traceback.format_exc(),
-            "execution_time_ms": execution_time,
-        })
+        result_queue.put(
+            {
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "traceback": traceback.format_exc(),
+                "execution_time_ms": execution_time,
+            }
+        )
 
     finally:
         signal.alarm(0)  # Cancel alarm
@@ -251,12 +262,14 @@ def _execute_in_process(
         # Cleanup
         if config.cleanup_on_exit and sandbox.exists():
             import shutil
+
             shutil.rmtree(sandbox, ignore_errors=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Isolated Plugin Runtime
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class IsolatedPluginRuntime:
     """
@@ -441,7 +454,9 @@ class IsolatedPluginRuntime:
         return {
             "total_executions": self._execution_count,
             "error_count": self._error_count,
-            "error_rate": self._error_count / self._execution_count if self._execution_count > 0 else 0,
+            "error_rate": (
+                self._error_count / self._execution_count if self._execution_count > 0 else 0
+            ),
             "isolation_config": {
                 "memory_limit_mb": self.config.memory_limit_mb,
                 "timeout_seconds": self.config.timeout_seconds,
@@ -453,8 +468,10 @@ class IsolatedPluginRuntime:
 # Capability-Based Security
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class Capability(Enum):
     """Capabilities that can be granted to plugins."""
+
     FILE_READ = "file:read"
     FILE_WRITE = "file:write"
     FILE_DELETE = "file:delete"
@@ -469,6 +486,7 @@ class Capability(Enum):
 @dataclass
 class CapabilitySet:
     """Set of capabilities granted to a plugin."""
+
     capabilities: set = field(default_factory=set)
 
     def grant(self, capability: Capability) -> None:
@@ -486,25 +504,30 @@ class CapabilitySet:
     @classmethod
     def trusted(cls) -> CapabilitySet:
         """Create capability set for trusted plugins."""
-        return cls({
-            Capability.FILE_READ,
-            Capability.FILE_WRITE,
-            Capability.NETWORK_OUTBOUND,
-            Capability.THREAD_CREATE,
-            Capability.ENV_READ,
-        })
+        return cls(
+            {
+                Capability.FILE_READ,
+                Capability.FILE_WRITE,
+                Capability.NETWORK_OUTBOUND,
+                Capability.THREAD_CREATE,
+                Capability.ENV_READ,
+            }
+        )
 
     @classmethod
     def untrusted(cls) -> CapabilitySet:
         """Create capability set for untrusted plugins."""
-        return cls({
-            Capability.THREAD_CREATE,
-        })
+        return cls(
+            {
+                Capability.THREAD_CREATE,
+            }
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Secure Plugin Registry
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class SecurePluginRegistry:
     """
@@ -578,6 +601,7 @@ class SecurePluginRegistry:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Usage Examples
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def example_usage():
     """Example of using isolated plugin runtime."""

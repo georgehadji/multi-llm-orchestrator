@@ -3,6 +3,7 @@ Tests for Policy DSL — load_policy_dict, load_policy_file, PolicyAnalyzer.
 Covers: JSON loading, YAML soft-dependency, _parse_policy, AnalysisReport,
         contradiction detection, impossible constraints, cross-policy conflicts.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,10 +20,10 @@ from orchestrator.policy_dsl import (
     load_policy_file,
 )
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # load_policy_dict — basic structure parsing
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_load_policy_dict_empty_returns_hierarchy():
     result = load_policy_dict({})
@@ -47,11 +48,7 @@ def test_load_policy_dict_org_alias_works():
 
 
 def test_load_policy_dict_team_policies_parsed():
-    d = {
-        "team": {
-            "eng": [{"name": "eu_only", "allowed_regions": ["eu", "global"]}]
-        }
-    }
+    d = {"team": {"eng": [{"name": "eu_only", "allowed_regions": ["eu", "global"]}]}}
     h = load_policy_dict(d)
     eng_policies = h.policies_for(team="eng")
     assert len(eng_policies) == 1
@@ -60,11 +57,7 @@ def test_load_policy_dict_team_policies_parsed():
 
 
 def test_load_policy_dict_job_policies_parsed():
-    d = {
-        "job": {
-            "job_001": [{"name": "cost_cap", "max_cost_per_task_usd": 0.50}]
-        }
-    }
+    d = {"job": {"job_001": [{"name": "cost_cap", "max_cost_per_task_usd": 0.50}]}}
     h = load_policy_dict(d)
     policies = h.policies_for(job_id="job_001")
     assert len(policies) == 1
@@ -72,11 +65,7 @@ def test_load_policy_dict_job_policies_parsed():
 
 
 def test_load_policy_dict_node_policies_parsed():
-    d = {
-        "node": {
-            "task_001": [{"name": "high_latency_ok", "max_latency_ms": 10000.0}]
-        }
-    }
+    d = {"node": {"task_001": [{"name": "high_latency_ok", "max_latency_ms": 10000.0}]}}
     h = load_policy_dict(d)
     policies = h.policies_for(task_id="task_001")
     assert len(policies) == 1
@@ -118,6 +107,7 @@ def test_load_policy_dict_different_team_is_isolated():
 # _parse_policy — field parsing
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_enforcement_mode_string_parsed():
     d = {"global": [{"name": "test", "enforcement_mode": "soft"}]}
     h = load_policy_dict(d)
@@ -149,10 +139,9 @@ def test_unknown_enforcement_mode_defaults_to_none():
 
 def test_rate_limit_parsed():
     d = {
-        "global": [{
-            "name": "rate_test",
-            "rate_limit": {"calls_per_minute": 60, "cost_usd_per_hour": 5.0}
-        }]
+        "global": [
+            {"name": "rate_test", "rate_limit": {"calls_per_minute": 60, "cost_usd_per_hour": 5.0}}
+        ]
     }
     h = load_policy_dict(d)
     p = h.policies_for()[0]
@@ -164,12 +153,8 @@ def test_rate_limit_parsed():
 def test_blocked_models_parsed():
     """Valid model strings should be converted to Model enums."""
     from orchestrator.models import Model
-    d = {
-        "global": [{
-            "name": "no_kimi",
-            "blocked_models": ["kimi-k2.5"]  # Model.KIMI_K2_5.value
-        }]
-    }
+
+    d = {"global": [{"name": "no_kimi", "blocked_models": ["kimi-k2.5"]}]}  # Model.KIMI_K2_5.value
     h = load_policy_dict(d)
     p = h.policies_for()[0]
     assert p.blocked_models is not None
@@ -178,12 +163,7 @@ def test_blocked_models_parsed():
 
 def test_unknown_blocked_model_is_skipped():
     """Unknown model strings should be skipped (not crash)."""
-    d = {
-        "global": [{
-            "name": "test",
-            "blocked_models": ["does-not-exist-model"]
-        }]
-    }
+    d = {"global": [{"name": "test", "blocked_models": ["does-not-exist-model"]}]}
     h = load_policy_dict(d)
     p = h.policies_for()[0]
     # Parsed models list should be empty (None) since all models were unknown
@@ -193,6 +173,7 @@ def test_unknown_blocked_model_is_skipped():
 # ─────────────────────────────────────────────────────────────────────────────
 # load_policy_file — JSON
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_load_json_policy_file(tmp_path):
     data = {"global": [{"name": "gdpr", "allow_training_on_output": False}]}
@@ -235,9 +216,11 @@ def test_load_policy_file_non_dict_json_raises(tmp_path):
 # load_policy_file — YAML (soft dependency)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_load_yaml_file_skip_if_no_pyyaml(tmp_path, monkeypatch):
     """If pyyaml is not installed, loading .yml must raise ImportError."""
     import builtins
+
     real_import = builtins.__import__
 
     def mock_import(name, *args, **kwargs):
@@ -270,6 +253,7 @@ def test_load_yaml_file_if_pyyaml_available(tmp_path):
 # AnalysisReport
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def test_analysis_report_is_clean_no_errors_no_warnings():
     r = AnalysisReport(errors=[], warnings=[], info=["some info"])
     assert r.is_clean() is True
@@ -288,6 +272,7 @@ def test_analysis_report_not_clean_with_warnings():
 # ─────────────────────────────────────────────────────────────────────────────
 # PolicyAnalyzer — contradiction detection
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_overlap_allowed_blocked_providers_is_error():
     p = Policy(
@@ -343,7 +328,8 @@ def test_overlapping_allowed_providers_across_two_policies_no_warning():
 # PolicyAnalyzer — coverage info
 # ─────────────────────────────────────────────────────────────────────────────
 
-def test_no_cost_cap_produces_info(  ):
+
+def test_no_cost_cap_produces_info():
     p = Policy(name="p1")
     report = PolicyAnalyzer.analyze([p])
     assert any("cost cap" in i.lower() for i in report.info)

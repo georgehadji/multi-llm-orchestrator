@@ -1,13 +1,17 @@
 # tests/test_remediation.py
 from orchestrator.remediation import (
-    RemediationStrategy, RemediationPlan, RemediationEngine,
+    RemediationStrategy,
+    RemediationPlan,
+    RemediationEngine,
 )
 from orchestrator.models import TaskResult, Model, TaskStatus
 
 
 def _failed_result(task_id="t1"):
     return TaskResult(
-        task_id=task_id, output="", score=0.0,
+        task_id=task_id,
+        output="",
+        score=0.0,
         model_used=Model.DEEPSEEK_CHAT,
         status=TaskStatus.FAILED,
     )
@@ -15,7 +19,9 @@ def _failed_result(task_id="t1"):
 
 def _low_score_result(task_id="t1", score=0.55):
     return TaskResult(
-        task_id=task_id, output="some output", score=score,
+        task_id=task_id,
+        output="some output",
+        score=score,
         model_used=Model.DEEPSEEK_CHAT,
         status=TaskStatus.DEGRADED,
     )
@@ -30,11 +36,13 @@ def test_plan_with_single_strategy():
 
 
 def test_plan_with_multiple_strategies():
-    plan = RemediationPlan([
-        RemediationStrategy.AUTO_RETRY,
-        RemediationStrategy.FALLBACK_MODEL,
-        RemediationStrategy.DEGRADE_QUALITY,
-    ])
+    plan = RemediationPlan(
+        [
+            RemediationStrategy.AUTO_RETRY,
+            RemediationStrategy.FALLBACK_MODEL,
+            RemediationStrategy.DEGRADE_QUALITY,
+        ]
+    )
     assert plan.next_strategy() == RemediationStrategy.AUTO_RETRY
     plan.advance()
     assert plan.next_strategy() == RemediationStrategy.FALLBACK_MODEL
@@ -57,7 +65,9 @@ def test_should_remediate_on_low_score():
 def test_no_remediation_on_success():
     engine = RemediationEngine()
     result = TaskResult(
-        task_id="t1", output="good", score=0.90,
+        task_id="t1",
+        output="good",
+        score=0.90,
         model_used=Model.DEEPSEEK_CHAT,
         status=TaskStatus.COMPLETED,
     )

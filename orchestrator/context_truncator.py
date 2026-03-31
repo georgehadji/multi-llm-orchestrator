@@ -40,8 +40,10 @@ logger = logging.getLogger("orchestrator.context_truncator")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class TruncationStrategy(str, Enum):
     """Strategy for truncating context."""
+
     IMPORTANCE_WEIGHTED = "importance_weighted"
     DIVERSITY = "diversity"
     RECENCY = "recency"
@@ -53,9 +55,11 @@ class TruncationStrategy(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class TruncationResult:
     """Result of context truncation."""
+
     original_tokens: int
     truncated_tokens: int
     items_kept: int
@@ -89,6 +93,7 @@ class TruncationResult:
 @dataclass
 class DependencyItem:
     """A dependency item for truncation."""
+
     task_id: str
     task_type: str
     output: str
@@ -107,6 +112,7 @@ class DependencyItem:
 # ─────────────────────────────────────────────
 # Smart Context Truncator
 # ─────────────────────────────────────────────
+
 
 class SmartContextTruncator:
     """
@@ -241,29 +247,30 @@ class SmartContextTruncator:
         for dep in dependencies:
             try:
                 # Handle different dependency formats
-                if hasattr(dep, 'to_dependency_item'):
+                if hasattr(dep, "to_dependency_item"):
                     item = dep.to_dependency_item()
                 elif isinstance(dep, dict):
                     item = DependencyItem(
-                        task_id=dep.get('task_id', ''),
-                        task_type=dep.get('task_type', ''),
-                        output=dep.get('output', ''),
-                        score=dep.get('score', 0.5),
-                        model_used=dep.get('model_used', ''),
-                        cost_usd=dep.get('cost_usd', 0.0),
-                        timestamp=dep.get('timestamp', 0.0),
+                        task_id=dep.get("task_id", ""),
+                        task_type=dep.get("task_type", ""),
+                        output=dep.get("output", ""),
+                        score=dep.get("score", 0.5),
+                        model_used=dep.get("model_used", ""),
+                        cost_usd=dep.get("cost_usd", 0.0),
+                        timestamp=dep.get("timestamp", 0.0),
                     )
                 else:
                     # Assume it's a TaskResult-like object
                     import time
+
                     item = DependencyItem(
-                        task_id=getattr(dep, 'task_id', ''),
-                        task_type=getattr(dep, 'task_type', type(dep).__name__),
-                        output=getattr(dep, 'output', str(dep)),
-                        score=getattr(dep, 'score', 0.5),
-                        model_used=getattr(dep, 'model_used', ''),
-                        cost_usd=getattr(dep, 'cost_usd', 0.0),
-                        timestamp=getattr(dep, 'timestamp', time.time()),
+                        task_id=getattr(dep, "task_id", ""),
+                        task_type=getattr(dep, "task_type", type(dep).__name__),
+                        output=getattr(dep, "output", str(dep)),
+                        score=getattr(dep, "score", 0.5),
+                        model_used=getattr(dep, "model_used", ""),
+                        cost_usd=getattr(dep, "cost_usd", 0.0),
+                        timestamp=getattr(dep, "timestamp", time.time()),
                     )
 
                 items.append(item)
@@ -464,9 +471,9 @@ class SmartContextTruncator:
             sorted_items = sorted(
                 type_items,
                 key=lambda x: (
-                    x.score *
-                    (x.timestamp / now if now > 0 else 1) *
-                    (1.5 if current_task_type and x.task_type == current_task_type else 1.0)
+                    x.score
+                    * (x.timestamp / now if now > 0 else 1)
+                    * (1.5 if current_task_type and x.task_type == current_task_type else 1.0)
                 ),
                 reverse=True,
             )
@@ -492,9 +499,8 @@ class SmartContextTruncator:
         """Get truncation statistics."""
         avg_reduction = 0.0
         if self._stats_history:
-            avg_reduction = (
-                sum(s.token_reduction_percent for s in self._stats_history) /
-                len(self._stats_history)
+            avg_reduction = sum(s.token_reduction_percent for s in self._stats_history) / len(
+                self._stats_history
             )
 
         return {

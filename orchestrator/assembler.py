@@ -34,6 +34,7 @@ returned in ``AssemblyResult.verify_output``.
 All filesystem operations use ``pathlib.Path`` and are safe to call from
 sync or async code (blocking I/O, but small files only).
 """
+
 from __future__ import annotations
 
 import json
@@ -53,24 +54,25 @@ logger = logging.getLogger("orchestrator.assembler")
 
 # ── Result ────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class AssemblyResult:
     """Summary of a completed assembly run."""
+
     output_dir: Path
-    files_written: list[str] = field(default_factory=list)   # relative paths
-    files_skipped: list[str] = field(default_factory=list)   # task_ids with no output
-    verify_output: str = ""                                    # stdout+stderr of verify_cmd
-    verify_returncode: int | None = None                   # None = not run
+    files_written: list[str] = field(default_factory=list)  # relative paths
+    files_skipped: list[str] = field(default_factory=list)  # task_ids with no output
+    verify_output: str = ""  # stdout+stderr of verify_cmd
+    verify_returncode: int | None = None  # None = not run
     errors: list[str] = field(default_factory=list)
 
     @property
     def success(self) -> bool:
-        return not self.errors and (
-            self.verify_returncode is None or self.verify_returncode == 0
-        )
+        return not self.errors and (self.verify_returncode is None or self.verify_returncode == 0)
 
 
 # ── Main class ────────────────────────────────────────────────────────────────
+
 
 class ProjectAssembler:
     """
@@ -137,9 +139,8 @@ class ProjectAssembler:
                 continue
 
             # Resolve destination path
-            target = (
-                self._task_paths.get(task_id)
-                or (task.target_path if hasattr(task, "target_path") else "")
+            target = self._task_paths.get(task_id) or (
+                task.target_path if hasattr(task, "target_path") else ""
             )
             if target:
                 dest = out / target
@@ -176,9 +177,7 @@ class ProjectAssembler:
 
         # Optional post-assembly verification
         if verify_cmd:
-            result.verify_output, result.verify_returncode = _run_verify(
-                verify_cmd, cwd=out
-            )
+            result.verify_output, result.verify_returncode = _run_verify(verify_cmd, cwd=out)
             if result.verify_returncode != 0:
                 result.errors.append(
                     f"Verification failed (exit {result.verify_returncode}): {verify_cmd}"
@@ -210,6 +209,7 @@ class ProjectAssembler:
 
 # ── Content rendering ─────────────────────────────────────────────────────────
 
+
 def _render_content_for_ext(task_type: TaskType, raw_output: str, ext: str) -> str:
     """
     Render content for an arbitrary file extension.
@@ -221,10 +221,33 @@ def _render_content_for_ext(task_type: TaskType, raw_output: str, ext: str) -> s
                                 run the Python-aware extractor via output_writer.
     - Everything else         → return prose as-is (markdown, txt, rst, …)
     """
-    _CODE_EXTS = {".py", ".ts", ".tsx", ".jsx", ".js", ".rs", ".go",
-                  ".sh", ".bash", ".sql", ".proto", ".toml", ".yaml",
-                  ".yml", ".xml", ".ini", ".dockerfile", ".rb", ".java",
-                  ".cs", ".cpp", ".c", ".h", ".kt", ".swift"}
+    _CODE_EXTS = {
+        ".py",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".js",
+        ".rs",
+        ".go",
+        ".sh",
+        ".bash",
+        ".sql",
+        ".proto",
+        ".toml",
+        ".yaml",
+        ".yml",
+        ".xml",
+        ".ini",
+        ".dockerfile",
+        ".rb",
+        ".java",
+        ".cs",
+        ".cpp",
+        ".c",
+        ".h",
+        ".kt",
+        ".swift",
+    }
 
     ext_lower = ext.lower()
 
@@ -245,6 +268,7 @@ def _render_content_for_ext(task_type: TaskType, raw_output: str, ext: str) -> s
 
 
 # ── Verification helper ───────────────────────────────────────────────────────
+
 
 def _run_verify(cmd: str, cwd: Path) -> tuple[str, int]:
     """
@@ -293,6 +317,7 @@ def _run_verify(cmd: str, cwd: Path) -> tuple[str, int]:
 
 
 # ── Convenience function ──────────────────────────────────────────────────────
+
 
 def assemble_project(
     state: ProjectState,

@@ -45,8 +45,10 @@ logger = logging.getLogger("orchestrator.token_budget")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class AllocationStrategy(str, Enum):
     """Strategy for allocating token budget."""
+
     EQUAL = "equal"  # Equal allocation to all turns
     WEIGHTED = "weighted"  # Weighted by priority
     DYNAMIC = "dynamic"  # Dynamic based on usage
@@ -56,9 +58,11 @@ class AllocationStrategy(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class TurnAllocation:
     """Budget allocation for a single turn."""
+
     turn_id: int
     allocated_tokens: int
     used_tokens: int = 0
@@ -89,6 +93,7 @@ class TurnAllocation:
 @dataclass
 class BudgetStats:
     """Statistics for token budget."""
+
     total_budget: int
     allocated_tokens: int
     used_tokens: int
@@ -126,6 +131,7 @@ class BudgetStats:
 # ─────────────────────────────────────────────
 # Token Budget Manager
 # ─────────────────────────────────────────────
+
 
 class TokenBudgetManager:
     """
@@ -180,15 +186,11 @@ class TokenBudgetManager:
         if strategy == "equal":
             allocations = self._allocate_equal(turns, min_tokens_per_turn)
         elif strategy == "weighted":
-            allocations = self._allocate_weighted(
-                turns, priority_turns, min_tokens_per_turn
-            )
+            allocations = self._allocate_weighted(turns, priority_turns, min_tokens_per_turn)
         elif strategy == "dynamic":
             allocations = self._allocate_dynamic(turns, priority_turns, min_tokens_per_turn)
         else:
-            allocations = self._allocate_weighted(
-                turns, priority_turns, min_tokens_per_turn
-            )
+            allocations = self._allocate_weighted(turns, priority_turns, min_tokens_per_turn)
 
         # Store allocations
         for turn_id, tokens in allocations.items():
@@ -202,8 +204,7 @@ class TokenBudgetManager:
         self._total_allocated = sum(allocations.values())
 
         logger.info(
-            f"Allocated {self._total_allocated}/{self.total_budget} tokens "
-            f"across {turns} turns"
+            f"Allocated {self._total_allocated}/{self.total_budget} tokens " f"across {turns} turns"
         )
 
         return allocations
@@ -329,8 +330,7 @@ class TokenBudgetManager:
         if tokens_used > allocation.allocated_tokens:
             self._budget_violations += 1
             logger.warning(
-                f"Turn {turn_id} exceeded budget: {tokens_used} > "
-                f"{allocation.allocated_tokens}"
+                f"Turn {turn_id} exceeded budget: {tokens_used} > " f"{allocation.allocated_tokens}"
             )
 
         # Calculate rollover
@@ -373,14 +373,10 @@ class TokenBudgetManager:
 
     def get_stats(self) -> BudgetStats:
         """Get budget statistics."""
-        turns_completed = sum(
-            1 for a in self._allocations.values()
-            if a.used_tokens > 0
-        )
+        turns_completed = sum(1 for a in self._allocations.values() if a.used_tokens > 0)
 
         over_budget_turns = sum(
-            1 for a in self._allocations.values()
-            if a.used_tokens > a.allocated_tokens
+            1 for a in self._allocations.values() if a.used_tokens > a.allocated_tokens
         )
 
         return BudgetStats(

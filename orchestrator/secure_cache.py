@@ -39,6 +39,7 @@ logger = logging.getLogger("orchestrator.secure_cache")
 @dataclass
 class CacheEntry:
     """Cache entry with metadata."""
+
     key: str
     value: Any
     created_at: float = field(default_factory=time.time)
@@ -115,8 +116,7 @@ class SecureCache:
             async with self._lock:
                 if self._conn is None:
                     self._conn = await asyncio.wait_for(
-                        aiosqlite.connect(self._db_path),
-                        timeout=self._CONN_TIMEOUT
+                        aiosqlite.connect(self._db_path), timeout=self._CONN_TIMEOUT
                     )
                     await self._conn.execute("PRAGMA journal_mode=WAL")
                     await self._conn.execute("PRAGMA synchronous=FULL")
@@ -154,11 +154,11 @@ class SecureCache:
 
     def _compress(self, data: str) -> bytes:
         """Compress data."""
-        return zlib.compress(data.encode('utf-8'), level=6)
+        return zlib.compress(data.encode("utf-8"), level=6)
 
     def _decompress(self, data: bytes) -> str:
         """Decompress data."""
-        return zlib.decompress(data).decode('utf-8')
+        return zlib.decompress(data).decode("utf-8")
 
     async def get(self, key: str, default: Any = None) -> Any:
         """
@@ -174,8 +174,7 @@ class SecureCache:
         try:
             db = await self._get_conn()
             async with db.execute(
-                "SELECT value, ttl_seconds, compressed FROM cache WHERE key = ?",
-                (key,)
+                "SELECT value, ttl_seconds, compressed FROM cache WHERE key = ?", (key,)
             ) as cursor:
                 row = await cursor.fetchone()
 
@@ -189,8 +188,7 @@ class SecureCache:
             if ttl_seconds:
                 # Get created_at from separate query
                 async with db.execute(
-                    "SELECT created_at FROM cache WHERE key = ?",
-                    (key,)
+                    "SELECT created_at FROM cache WHERE key = ?", (key,)
                 ) as cursor:
                     row2 = await cursor.fetchone()
 
@@ -240,7 +238,7 @@ class SecureCache:
 
             if compress and len(value_str) > 1024:  # Only compress if > 1KB
                 compressed_blob = self._compress(value_str)
-                if len(compressed_blob) < len(value_str.encode('utf-8')):
+                if len(compressed_blob) < len(value_str.encode("utf-8")):
                     value_blob = compressed_blob
                     compressed = True
 
@@ -249,7 +247,7 @@ class SecureCache:
                 """INSERT OR REPLACE INTO cache
                    (key, value, created_at, ttl_seconds, compressed)
                    VALUES (?, ?, ?, ?, ?)""",
-                (key, value_blob, time.time(), ttl_seconds, 1 if compressed else 0)
+                (key, value_blob, time.time(), ttl_seconds, 1 if compressed else 0),
             )
             await db.commit()
 
@@ -338,9 +336,7 @@ class SecureCache:
         try:
             db = await self._get_conn()
 
-            async with db.execute(
-                "SELECT COUNT(*), SUM(length(value)) FROM cache"
-            ) as cursor:
+            async with db.execute("SELECT COUNT(*), SUM(length(value)) FROM cache") as cursor:
                 row = await cursor.fetchone()
 
             count = row[0] if row else 0

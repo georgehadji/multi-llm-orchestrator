@@ -44,12 +44,14 @@ logger = logging.getLogger("orchestrator.caching")
 # Cache Level Enum
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class CacheLevel(Enum):
     """Cache levels in order of speed (fastest first)."""
-    L1_MEMORY = 1    # In-process dict (fastest, ~1MB)
-    L2_REDIS = 2     # Shared memory (fast, ~100MB)
-    L3_DISK = 3      # Local disk (slow, ~1GB)
-    L4_S3 = 4        # Object storage (slowest, unlimited)
+
+    L1_MEMORY = 1  # In-process dict (fastest, ~1MB)
+    L2_REDIS = 2  # Shared memory (fast, ~100MB)
+    L3_DISK = 3  # Local disk (slow, ~1GB)
+    L4_S3 = 4  # Object storage (slowest, unlimited)
 
     @property
     def is_local(self) -> bool:
@@ -61,9 +63,11 @@ class CacheLevel(Enum):
 # Cache Entry
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class CacheEntry:
     """A cached value with metadata."""
+
     key: str
     value: Any
     level: CacheLevel
@@ -92,6 +96,7 @@ class CacheEntry:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Cache Backend Interface
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class CacheBackend(ABC):
     """Abstract cache backend."""
@@ -138,6 +143,7 @@ class CacheBackend(ABC):
 # ═══════════════════════════════════════════════════════════════════════════════
 # L1: In-Memory Cache (LRU)
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class InMemoryCache(CacheBackend):
     """Thread-safe in-memory LRU cache."""
@@ -190,8 +196,8 @@ class InMemoryCache(CacheBackend):
         async with self._lock:
             # Check if we need to evict
             while (
-                len(self._cache) >= self.max_size or
-                self._current_memory + size > self.max_memory_bytes
+                len(self._cache) >= self.max_size
+                or self._current_memory + size > self.max_memory_bytes
             ):
                 if not self._cache:
                     break
@@ -235,6 +241,7 @@ class InMemoryCache(CacheBackend):
 
     async def keys(self, pattern: str = "*") -> list[str]:
         import fnmatch
+
         async with self._lock:
             return [k for k in self._cache if fnmatch.fnmatch(k, pattern)]
 
@@ -261,6 +268,7 @@ class InMemoryCache(CacheBackend):
 # L2: Redis Cache
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class RedisCache(CacheBackend):
     """Redis-based distributed cache."""
 
@@ -284,9 +292,8 @@ class RedisCache(CacheBackend):
     async def _get_client(self):
         if self._client is None:
             import aioredis
-            self._client = await aioredis.from_url(
-                f"redis://{self.host}:{self.port}/{self.db}"
-            )
+
+            self._client = await aioredis.from_url(f"redis://{self.host}:{self.port}/{self.db}")
         return self._client
 
     @property
@@ -319,11 +326,7 @@ class RedisCache(CacheBackend):
             data = pickle.dumps(value)
 
             if ttl:
-                await client.setex(
-                    self._get_key(key),
-                    int(ttl.total_seconds()),
-                    data
-                )
+                await client.setex(self._get_key(key), int(ttl.total_seconds()), data)
             else:
                 await client.set(self._get_key(key), data)
         except Exception as e:
@@ -354,7 +357,9 @@ class RedisCache(CacheBackend):
             full_pattern = self._get_key(pattern)
             keys = await client.keys(full_pattern)
             prefix_len = len(self.prefix)
-            return [k.decode()[prefix_len:] if isinstance(k, bytes) else k[prefix_len:] for k in keys]
+            return [
+                k.decode()[prefix_len:] if isinstance(k, bytes) else k[prefix_len:] for k in keys
+            ]
         except Exception as e:
             logger.error(f"Redis keys failed: {e}")
             return []
@@ -380,6 +385,7 @@ class RedisCache(CacheBackend):
 # ═══════════════════════════════════════════════════════════════════════════════
 # L3: Disk Cache
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class DiskCache(CacheBackend):
     """SQLite-based disk cache."""
@@ -425,10 +431,7 @@ class DiskCache(CacheBackend):
 
         try:
             with sqlite3.connect(str(self.db_path)) as conn:
-                cursor = conn.execute(
-                    "SELECT value, expires_at FROM cache WHERE key = ?",
-                    (key,)
-                )
+                cursor = conn.execute("SELECT value, expires_at FROM cache WHERE key = ?", (key,))
                 row = cursor.fetchone()
 
                 if row is None:
@@ -496,7 +499,7 @@ class DiskCache(CacheBackend):
                     INSERT OR REPLACE INTO cache (key, value, created_at, expires_at, size_bytes)
                     VALUES (?, ?, ?, ?, ?)
                     """,
-                    (key, value_blob, datetime.utcnow().isoformat(), expires_at, size)
+                    (key, value_blob, datetime.utcnow().isoformat(), expires_at, size),
                 )
                 conn.commit()
 
@@ -530,6 +533,7 @@ class DiskCache(CacheBackend):
 
         try:
             import fnmatch
+
             with sqlite3.connect(str(self.db_path)) as conn:
                 cursor = conn.execute("SELECT key FROM cache")
                 all_keys = [row[0] for row in cursor.fetchall()]
@@ -570,6 +574,7 @@ class DiskCache(CacheBackend):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Multi-Layer Cache
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class MultiLayerCache:
     """
@@ -646,10 +651,7 @@ class MultiLayerCache:
         # Determine which backends to write to
         start_index = 0
         if level:
-            start_index = next(
-                (i for i, b in enumerate(self.backends) if b.level == level),
-                0
-            )
+            start_index = next((i for i, b in enumerate(self.backends) if b.level == level), 0)
 
         # Write to specified level and all slower levels
         for i in range(start_index, len(self.backends)):
@@ -660,10 +662,7 @@ class MultiLayerCache:
 
     async def delete(self, key: str) -> bool:
         """Delete from all cache levels."""
-        results = await asyncio.gather(*[
-            backend.delete(key)
-            for backend in self.backends
-        ])
+        results = await asyncio.gather(*[backend.delete(key) for backend in self.backends])
         return any(results)
 
     async def invalidate(self, pattern: str = "*") -> int:
@@ -738,12 +737,14 @@ def reset_cache() -> None:
 
 # Convenience decorator for caching function results
 
+
 def cached(
     key_prefix: str = "",
     ttl: timedelta | None = None,
     level: CacheLevel | None = None,
 ):
     """Decorator to cache function results."""
+
     def decorator(func):
         async def wrapper(*args, **kwargs):
             cache = get_cache()
@@ -765,4 +766,5 @@ def cached(
             return result
 
         return wrapper
+
     return decorator

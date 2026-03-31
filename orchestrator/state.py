@@ -24,8 +24,15 @@ from typing import Optional
 import aiosqlite
 
 from .models import (
-    AttemptRecord, Budget, Model, ProjectState, ProjectStatus,
-    Task, TaskResult, TaskStatus, TaskType,
+    AttemptRecord,
+    Budget,
+    Model,
+    ProjectState,
+    ProjectStatus,
+    Task,
+    TaskResult,
+    TaskStatus,
+    TaskType,
 )
 
 logger = logging.getLogger("orchestrator.state")
@@ -36,6 +43,7 @@ DEFAULT_STATE_PATH = Path.home() / ".orchestrator_cache" / "state.db"
 # ─────────────────────────────────────────────
 # JSON serializers / deserializers
 # ─────────────────────────────────────────────
+
 
 def _budget_to_dict(b: Budget) -> dict:
     return {
@@ -140,7 +148,7 @@ def _result_to_dict(r: TaskResult) -> dict:
 
 def _result_from_dict(d: dict) -> TaskResult:
     reviewer = d.get("reviewer_model")
-    
+
     # Handle unknown models (e.g., removed models like kimi-k2.5)
     def _safe_model(model_value: str) -> Model:
         try:
@@ -148,7 +156,7 @@ def _result_from_dict(d: dict) -> TaskResult:
         except ValueError:
             # Return GPT_4O_MINI as fallback for unknown models
             return Model.GPT_4O_MINI
-    
+
     return TaskResult(
         task_id=d["task_id"],
         output=d["output"],
@@ -196,6 +204,7 @@ def _state_from_dict(d: dict) -> ProjectState:
 # StateManager (async)
 # ─────────────────────────────────────────────
 
+
 class StateManager:
     """
     FIX #10: Async aiosqlite-backed state manager.
@@ -217,7 +226,7 @@ class StateManager:
 
         BUG-DBCONN-001 FIX: Connection initialization is protected with
         try/except to ensure proper cleanup on error.
-        
+
         FIX STATE-001: Added timeout to prevent infinite hangs on DB init.
         """
         if self._lock is None:
@@ -235,8 +244,7 @@ class StateManager:
                     try:
                         # FIX STATE-001: Timeout prevents infinite hang
                         conn = await asyncio.wait_for(
-                            aiosqlite.connect(self._db_path),
-                            timeout=self._CONN_TIMEOUT
+                            aiosqlite.connect(self._db_path), timeout=self._CONN_TIMEOUT
                         )
                         # WAL mode for better concurrency
                         await conn.execute("PRAGMA journal_mode=WAL")
@@ -244,7 +252,9 @@ class StateManager:
                         # This ensures data is written to disk before commit returns
                         await conn.execute("PRAGMA synchronous=FULL")
                         # Additional durability settings
-                        await conn.execute("PRAGMA wal_autocheckpoint=0")  # Manual checkpoint control
+                        await conn.execute(
+                            "PRAGMA wal_autocheckpoint=0"
+                        )  # Manual checkpoint control
                         await conn.executescript("""
                             CREATE TABLE IF NOT EXISTS projects (
                                 project_id TEXT PRIMARY KEY,
@@ -313,21 +323,28 @@ class StateManager:
                VALUES (?, ?, ?, COALESCE(
                    (SELECT created_at FROM projects WHERE project_id = ?), ?
                ), ?, ?, ?)""",
-            (project_id, blob, state.status.value, project_id, now, now,
-             state.project_description, keywords_json)
+            (
+                project_id,
+                blob,
+                state.status.value,
+                project_id,
+                now,
+                now,
+                state.project_description,
+                keywords_json,
+            ),
         )
         await db.commit()
         # CRITICAL FIX: Checkpoint WAL after project save for durability
         await self._checkpoint_wal()
 
-    async def save_checkpoint(self, project_id: str, task_id: str,
-                              state: ProjectState):
+    async def save_checkpoint(self, project_id: str, task_id: str, state: ProjectState):
         blob = json.dumps(_state_to_dict(state))
         db = await self._get_conn()
         await db.execute(
             "INSERT INTO checkpoints (project_id, task_id, state, created_at) "
             "VALUES (?, ?, ?, ?)",
-            (project_id, task_id, blob, time.time())
+            (project_id, task_id, blob, time.time()),
         )
         await db.commit()
         # CRITICAL FIX: Checkpoint WAL to main database after critical writes
@@ -358,7 +375,7 @@ class StateManager:
         async with db.execute(
             """SELECT state FROM checkpoints
                WHERE project_id = ? ORDER BY created_at DESC LIMIT 1""",
-            (project_id,)
+            (project_id,),
         ) as cursor:
             row = await cursor.fetchone()
         if row:
@@ -373,19 +390,14 @@ class StateManager:
         ) as cursor:
             rows = await cursor.fetchall()
         return [
-            {"project_id": r[0], "status": r[1],
-             "created_at": r[2], "updated_at": r[3]}
+            {"project_id": r[0], "status": r[1], "created_at": r[2], "updated_at": r[3]}
             for r in rows
         ]
 
     async def delete_project(self, project_id: str):
         db = await self._get_conn()
-        await db.execute(
-            "DELETE FROM checkpoints WHERE project_id = ?", (project_id,)
-        )
-        await db.execute(
-            "DELETE FROM projects WHERE project_id = ?", (project_id,)
-        )
+        await db.execute("DELETE FROM checkpoints WHERE project_id = ?", (project_id,))
+        await db.execute("DELETE FROM projects WHERE project_id = ?", (project_id,))
         await db.commit()
 
     async def find_resumable(self, keywords: list[str]) -> list[dict]:
@@ -396,13 +408,13 @@ class StateManager:
         ``updated_at`` is a Unix timestamp float from the DB.
         """
         db = await self._get_conn()
-        
+
         # Build a query that matches projects with any of the provided keywords
         # We'll do a text-based search in the keywords_json column
         if keywords:
             keyword_conditions = " OR ".join(["keywords_json LIKE ?"] * len(keywords))
             query_params = [f'%"{kw}"%' for kw in keywords]
-            
+
             query = f"""SELECT project_id, project_description, keywords_json, status, updated_at
                        FROM projects
                        WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
@@ -410,7 +422,7 @@ class StateManager:
                        AND ({keyword_conditions})
                        ORDER BY updated_at DESC
                        LIMIT 50"""
-            
+
             async with db.execute(query, query_params) as cursor:
                 rows = await cursor.fetchall()
         else:
@@ -432,13 +444,15 @@ class StateManager:
                 keywords_list = json.loads(kw_json) if kw_json else []
             except json.JSONDecodeError:
                 keywords_list = []
-            result.append({
-                "project_id": project_id,
-                "description": desc or "",
-                "keywords": keywords_list,
-                "status": status,
-                "updated_at": updated_at or 0.0,
-            })
+            result.append(
+                {
+                    "project_id": project_id,
+                    "description": desc or "",
+                    "keywords": keywords_list,
+                    "status": status,
+                    "updated_at": updated_at or 0.0,
+                }
+            )
         return result
 
     async def close(self):
@@ -458,6 +472,7 @@ class StateManager:
 # ─────────────────────────────────────────────
 # Migration functions (Task 2: Database Persistence)
 # ─────────────────────────────────────────────
+
 
 def migrate_add_resume_fields(db_path: str | Path) -> bool:
     """
@@ -492,15 +507,11 @@ def migrate_add_resume_fields(db_path: str | Path) -> bool:
 
         # Add project_description if it doesn't exist
         if "project_description" not in columns:
-            cursor.execute(
-                "ALTER TABLE projects ADD COLUMN project_description TEXT"
-            )
+            cursor.execute("ALTER TABLE projects ADD COLUMN project_description TEXT")
 
         # Add keywords_json if it doesn't exist
         if "keywords_json" not in columns:
-            cursor.execute(
-                "ALTER TABLE projects ADD COLUMN keywords_json TEXT"
-            )
+            cursor.execute("ALTER TABLE projects ADD COLUMN keywords_json TEXT")
 
         conn.commit()
         conn.close()

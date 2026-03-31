@@ -41,16 +41,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("orchestrator.events")
 
-T = TypeVar('T', bound='DomainEvent')
+T = TypeVar("T", bound="DomainEvent")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Domain Events
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True)
 class DomainEvent:
     """Base class for all domain events. Immutable facts about past occurrences."""
+
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     event_type: str = field(default="domain_event")
     aggregate_id: str = field(default="")
@@ -62,8 +64,8 @@ class DomainEvent:
         if self.event_type == "domain_event":
             object.__setattr__(
                 self,
-                'event_type',
-                self.__class__.__name__.replace('Event', '').lower().replace('_', '.')
+                "event_type",
+                self.__class__.__name__.replace("Event", "").lower().replace("_", "."),
             )
 
     def to_dict(self) -> dict[str, Any]:
@@ -95,9 +97,10 @@ class DomainEvent:
 # Event registry for deserialization
 EVENT_REGISTRY: dict[str, type[DomainEvent]] = {}
 
+
 def register_event(cls: type[T]) -> type[T]:
     """Decorator to register event classes for deserialization."""
-    EVENT_REGISTRY[cls.__name__.lower().replace('_', '.')] = cls
+    EVENT_REGISTRY[cls.__name__.lower().replace("_", ".")] = cls
     return cls
 
 
@@ -105,6 +108,7 @@ def register_event(cls: type[T]) -> type[T]:
 @dataclass(frozen=True)
 class TaskStartedEvent(DomainEvent):
     """Emitted when a task starts execution."""
+
     task_id: str = ""
     task_type: str = ""
     model: str = ""
@@ -112,18 +116,23 @@ class TaskStartedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'payload', {
-            "task_id": self.task_id,
-            "task_type": self.task_type,
-            "model": self.model,
-            "project_id": self.project_id,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "task_id": self.task_id,
+                "task_type": self.task_type,
+                "model": self.model,
+                "project_id": self.project_id,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class TaskCompletedEvent(DomainEvent):
     """Emitted when a task completes successfully."""
+
     task_id: str = ""
     model: str = ""
     score: float = 0.0
@@ -136,23 +145,28 @@ class TaskCompletedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'payload', {
-            "task_id": self.task_id,
-            "model": self.model,
-            "score": self.score,
-            "cost_usd": self.cost_usd,
-            "latency_ms": self.latency_ms,
-            "tokens_input": self.tokens_input,
-            "tokens_output": self.tokens_output,
-            "iterations": self.iterations,
-            "status": self.status,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "task_id": self.task_id,
+                "model": self.model,
+                "score": self.score,
+                "cost_usd": self.cost_usd,
+                "latency_ms": self.latency_ms,
+                "tokens_input": self.tokens_input,
+                "tokens_output": self.tokens_output,
+                "iterations": self.iterations,
+                "status": self.status,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class TaskProgressEvent(DomainEvent):
     """Emitted during task execution to report progress."""
+
     task_id: str = ""
     iteration: int = 0
     score: float = 0.0
@@ -161,19 +175,24 @@ class TaskProgressEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'payload', {
-            "task_id": self.task_id,
-            "iteration": self.iteration,
-            "score": self.score,
-            "best_score": self.best_score,
-            "model": self.model,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "task_id": self.task_id,
+                "iteration": self.iteration,
+                "score": self.score,
+                "best_score": self.best_score,
+                "model": self.model,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class TaskFailedEvent(DomainEvent):
     """Emitted when a task fails."""
+
     task_id: str = ""
     model: str = ""
     error: str = ""
@@ -185,20 +204,25 @@ class TaskFailedEvent(DomainEvent):
         super().__post_init__()
         # Use error as reason if reason not provided
         reason_val = self.reason if self.reason else self.error
-        object.__setattr__(self, 'payload', {
-            "task_id": self.task_id,
-            "model": self.model,
-            "error": self.error,
-            "reason": reason_val,
-            "attempt": self.attempt,
-            "will_retry": self.will_retry,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "task_id": self.task_id,
+                "model": self.model,
+                "error": self.error,
+                "reason": reason_val,
+                "attempt": self.attempt,
+                "will_retry": self.will_retry,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class ModelSelectedEvent(DomainEvent):
     """Emitted when a model is selected for a task."""
+
     task_id: str = ""
     model: str = ""
     strategy: str = ""
@@ -207,19 +231,24 @@ class ModelSelectedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'payload', {
-            "task_id": self.task_id,
-            "model": self.model,
-            "strategy": self.strategy,
-            "reason": self.reason,
-            "confidence": self.confidence,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "task_id": self.task_id,
+                "model": self.model,
+                "strategy": self.strategy,
+                "reason": self.reason,
+                "confidence": self.confidence,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class ValidationFailedEvent(DomainEvent):
     """Emitted when deterministic validators fail."""
+
     task_id: str = ""
     model: str = ""
     validators: list[str] = field(default_factory=list)
@@ -227,18 +256,23 @@ class ValidationFailedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'payload', {
-            "task_id": self.task_id,
-            "model": self.model,
-            "validators": self.validators,
-            "errors": self.errors,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "task_id": self.task_id,
+                "model": self.model,
+                "validators": self.validators,
+                "errors": self.errors,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class BudgetWarningEvent(DomainEvent):
     """Emitted when budget thresholds are exceeded."""
+
     phase: str = ""
     spent: float = 0.0
     spent_usd: float = 0.0  # Alias for spent
@@ -251,19 +285,24 @@ class BudgetWarningEvent(DomainEvent):
         super().__post_init__()
         # Use aliases if provided, otherwise fall back to main fields
         spent_val = self.spent_usd if self.spent_usd else self.spent
-        object.__setattr__(self, 'payload', {
-            "phase": self.phase,
-            "spent": spent_val,
-            "budget": self.budget,
-            "ratio": self.ratio,
-            "project_id": self.project_id,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "phase": self.phase,
+                "spent": spent_val,
+                "budget": self.budget,
+                "ratio": self.ratio,
+                "project_id": self.project_id,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class ProjectStartedEvent(DomainEvent):
     """Emitted when a project starts."""
+
     project_id: str = ""
     description: str = ""
     budget: float = 0.0
@@ -273,19 +312,24 @@ class ProjectStartedEvent(DomainEvent):
     def __post_init__(self):
         super().__post_init__()
         budget_val = self.budget_usd if self.budget_usd else self.budget
-        object.__setattr__(self, 'payload', {
-            "project_id": self.project_id,
-            "description": self.description,
-            "budget": budget_val,
-            "budget_usd": budget_val,
-            "total_tasks": self.total_tasks,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "project_id": self.project_id,
+                "description": self.description,
+                "budget": budget_val,
+                "budget_usd": budget_val,
+                "total_tasks": self.total_tasks,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class ProjectCompletedEvent(DomainEvent):
     """Emitted when a project completes."""
+
     project_id: str = ""
     status: str = ""  # success, partial, failed
     total_cost: float = 0.0
@@ -299,39 +343,49 @@ class ProjectCompletedEvent(DomainEvent):
         super().__post_init__()
         cost_val = self.total_cost_usd if self.total_cost_usd else self.total_cost
         elapsed_val = self.elapsed_seconds if self.elapsed_seconds else self.duration_seconds
-        object.__setattr__(self, 'payload', {
-            "project_id": self.project_id,
-            "status": self.status,
-            "total_cost": cost_val,
-            "total_cost_usd": cost_val,
-            "duration_seconds": elapsed_val,
-            "elapsed_seconds": elapsed_val,
-            "tasks_completed": self.tasks_completed,
-            "tasks_failed": self.tasks_failed,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "project_id": self.project_id,
+                "status": self.status,
+                "total_cost": cost_val,
+                "total_cost_usd": cost_val,
+                "duration_seconds": elapsed_val,
+                "elapsed_seconds": elapsed_val,
+                "tasks_completed": self.tasks_completed,
+                "tasks_failed": self.tasks_failed,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class CircuitBreakerTrippedEvent(DomainEvent):
     """Emitted when circuit breaker opens for a model."""
+
     model: str = ""
     failure_count: int = 0
     threshold: int = 0
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'payload', {
-            "model": self.model,
-            "failure_count": self.failure_count,
-            "threshold": self.threshold,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "model": self.model,
+                "failure_count": self.failure_count,
+                "threshold": self.threshold,
+            },
+        )
 
 
 @register_event
 @dataclass(frozen=True)
 class ProductionOutcomeRecordedEvent(DomainEvent):
     """Emitted when production feedback is recorded."""
+
     project_id: str = ""
     deployment_id: str = ""
     model: str = ""
@@ -340,18 +394,23 @@ class ProductionOutcomeRecordedEvent(DomainEvent):
 
     def __post_init__(self):
         super().__post_init__()
-        object.__setattr__(self, 'payload', {
-            "project_id": self.project_id,
-            "deployment_id": self.deployment_id,
-            "model": self.model,
-            "status": self.status,
-            "score": self.score,
-        })
+        object.__setattr__(
+            self,
+            "payload",
+            {
+                "project_id": self.project_id,
+                "deployment_id": self.deployment_id,
+                "model": self.model,
+                "status": self.status,
+                "score": self.score,
+            },
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Event Store
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class EventStore(ABC):
     """Abstract event store for persisting domain events."""
@@ -505,7 +564,7 @@ class SQLiteEventStore(EventStore):
                     event.timestamp.isoformat(),
                     json.dumps(event.payload),
                     json.dumps(event.metadata),
-                )
+                ),
             )
             conn.commit()
 
@@ -525,7 +584,7 @@ class SQLiteEventStore(EventStore):
             aggregate_id,
             event_types,
             since.isoformat() if since else None,
-            limit
+            limit,
         )
 
     def _fetch_events(
@@ -533,7 +592,7 @@ class SQLiteEventStore(EventStore):
         aggregate_id: str | None,
         event_types: list[str] | None,
         since: str | None,
-        limit: int | None
+        limit: int | None,
     ) -> list[DomainEvent]:
         with sqlite3.connect(str(self.db_path)) as conn:
             query = "SELECT event_id, event_type, aggregate_id, timestamp, payload, metadata FROM events WHERE 1=1"
@@ -544,7 +603,7 @@ class SQLiteEventStore(EventStore):
                 params.append(aggregate_id)
 
             if event_types:
-                placeholders = ','.join('?' * len(event_types))
+                placeholders = ",".join("?" * len(event_types))
                 query += f" AND event_type IN ({placeholders})"
                 params.extend(event_types)
 
@@ -592,6 +651,7 @@ class SQLiteEventStore(EventStore):
 # Event Bus
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class EventBus:
     """
     Central event bus for publishing and subscribing to domain events.
@@ -606,7 +666,9 @@ class EventBus:
     def __init__(self, store: EventStore, handler_timeout: float = 30.0):
         self.store = store
         self.handler_timeout = handler_timeout
-        self._handlers: dict[str, list[Callable[[DomainEvent], Awaitable[None]]]] = defaultdict(list)
+        self._handlers: dict[str, list[Callable[[DomainEvent], Awaitable[None]]]] = defaultdict(
+            list
+        )
         self._metrics = {
             "published": 0,
             "handled": 0,
@@ -666,10 +728,9 @@ class EventBus:
             return
 
         # Run handlers concurrently with error isolation
-        results = await asyncio.gather(*[
-            self._run_handler(handler, event)
-            for handler in handlers
-        ], return_exceptions=True)
+        results = await asyncio.gather(
+            *[self._run_handler(handler, event) for handler in handlers], return_exceptions=True
+        )
 
         # 3. Log results
         for handler, result in zip(handlers, results, strict=False):
@@ -689,12 +750,11 @@ class EventBus:
     ) -> None:
         """Run a handler with timeout and error handling."""
         try:
-            await asyncio.wait_for(
-                handler(event),
-                timeout=self.handler_timeout
-            )
+            await asyncio.wait_for(handler(event), timeout=self.handler_timeout)
         except asyncio.TimeoutError:
-            raise TimeoutError(f"Handler {handler.__name__} timed out after {self.handler_timeout}s")
+            raise TimeoutError(
+                f"Handler {handler.__name__} timed out after {self.handler_timeout}s"
+            )
 
     async def replay(
         self,

@@ -37,6 +37,7 @@ logger = logging.getLogger("orchestrator.native_features")
 
 class NativeFeature(str, Enum):
     """Supported native iOS features."""
+
     PUSH_NOTIFICATIONS = "push_notifications"
     OFFLINE_SUPPORT = "offline_support"
     BIOMETRIC_AUTH = "biometric_auth"
@@ -64,6 +65,7 @@ class FeatureTemplate:
         targets: Additional targets (extensions, etc.)
         description: Feature description
     """
+
     feature: NativeFeature
     files: list[str]
     entitlements: list[str] = field(default_factory=list)
@@ -114,7 +116,6 @@ class NativeFeatureTemplateGenerator:
             targets=["NotificationServiceExtension"],
             description="Push notifications for user engagement and retention",
         ),
-
         NativeFeature.OFFLINE_SUPPORT: FeatureTemplate(
             feature=NativeFeature.OFFLINE_SUPPORT,
             files=[
@@ -132,7 +133,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="Offline data support with CoreData persistence and background sync",
         ),
-
         NativeFeature.BIOMETRIC_AUTH: FeatureTemplate(
             feature=NativeFeature.BIOMETRIC_AUTH,
             files=[
@@ -148,7 +148,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="FaceID/TouchID biometric authentication for enhanced security",
         ),
-
         NativeFeature.APP_SHORTCUTS: FeatureTemplate(
             feature=NativeFeature.APP_SHORTCUTS,
             files=[
@@ -163,7 +162,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="App Intents and shortcuts for Siri integration and quick actions",
         ),
-
         NativeFeature.WIDGETS: FeatureTemplate(
             feature=NativeFeature.WIDGETS,
             files=[
@@ -179,7 +177,6 @@ class NativeFeatureTemplateGenerator:
             targets=["WidgetExtension"],
             description="Home screen widgets for quick access to key information",
         ),
-
         NativeFeature.DEEP_LINKING: FeatureTemplate(
             feature=NativeFeature.DEEP_LINKING,
             files=[
@@ -201,7 +198,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="Deep linking and universal links for seamless user experience",
         ),
-
         NativeFeature.IN_APP_PURCHASES: FeatureTemplate(
             feature=NativeFeature.IN_APP_PURCHASES,
             files=[
@@ -217,7 +213,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="In-app purchases and subscriptions for monetization",
         ),
-
         NativeFeature.SHARE_SHEET: FeatureTemplate(
             feature=NativeFeature.SHARE_SHEET,
             files=[
@@ -232,7 +227,6 @@ class NativeFeatureTemplateGenerator:
             targets=["ShareExtension"],
             description="Share sheet extension for content sharing",
         ),
-
         NativeFeature.CAMERA_PHOTOS: FeatureTemplate(
             feature=NativeFeature.CAMERA_PHOTOS,
             files=[
@@ -251,7 +245,6 @@ class NativeFeatureTemplateGenerator:
             targets=[],
             description="Camera and photo library integration for media capture",
         ),
-
         NativeFeature.LOCATION_SERVICES: FeatureTemplate(
             feature=NativeFeature.LOCATION_SERVICES,
             files=[
@@ -378,9 +371,7 @@ class NativeFeatureTemplateGenerator:
         for key, value in customized.info_plist.items():
             if isinstance(value, str):
                 # Replace placeholders
-                customized.info_plist[key] = value.replace(
-                    "$(PRODUCT_NAME)", project_name
-                )
+                customized.info_plist[key] = value.replace("$(PRODUCT_NAME)", project_name)
 
         # Add bundle ID to entitlements if needed
         if bundle_id and "com.apple.developer.associated-domains" in customized.entitlements:
@@ -449,7 +440,7 @@ class NativeFeatureTemplateGenerator:
         """Generate push notification code."""
         project_name.replace(" ", "")
 
-        return f'''//
+        return f"""//
 //  AppDelegate+Notifications.swift
 //  {project_name}
 //
@@ -526,14 +517,14 @@ extension AppDelegate {{
         print("Failed to register: {{error.localizedDescription}}")
     }}
 }}
-'''
+"""
 
     def _generate_biometric_auth_code(
         self,
         project_name: str,
     ) -> str:
         """Generate biometric authentication code."""
-        return f'''//
+        return f"""//
 //  BiometricAuth.swift
 //  {project_name}
 //
@@ -618,14 +609,14 @@ class BiometricAuth {{
         }}
     }}
 }}
-'''
+"""
 
     def _generate_offline_support_code(
         self,
         project_name: str,
     ) -> str:
         """Generate offline support code."""
-        return f'''//
+        return f"""//
 //  OfflineManager.swift
 //  {project_name}
 //
@@ -698,14 +689,14 @@ class OfflineManager {{
         return try? decoder.decode(T.self, from: data)
     }}
 }}
-'''
+"""
 
     def _generate_app_shortcuts_code(
         self,
         project_name: str,
     ) -> str:
         """Generate app shortcuts code."""
-        return f'''//
+        return f"""//
 //  AppIntents.swift
 //  {project_name}
 //
@@ -751,14 +742,14 @@ struct QuickActionIntent: AppIntent {{
         return .result()
     }}
 }}
-'''
+"""
 
     def _generate_widget_code(
         self,
         project_name: str,
     ) -> str:
         """Generate widget code."""
-        return f'''//
+        return f"""//
 //  Widget.swift
 //  {project_name}WidgetExtension
 //
@@ -818,12 +809,13 @@ struct {project_name.replace(" ", "")}Widget: Widget {{
         .supportedFamilies([.systemSmall, .systemMedium])
     }}
 }}
-'''
+"""
 
 
 # ─────────────────────────────────────────────
 # Convenience Function
 # ─────────────────────────────────────────────
+
 
 async def generate_native_feature_template(
     feature: str,

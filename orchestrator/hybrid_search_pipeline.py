@@ -7,6 +7,7 @@ Unified search pipeline that:
   3. Fuses all result lists with Reciprocal Rank Fusion (k=60)
   4. Optionally reranks the fused results via LLMReranker
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -111,15 +112,17 @@ class HybridSearchPipeline:
                         # BUG-003 FIX: create a new SearchResult instead of mutating
                         # sr in-place.  If reranking raises mid-loop, fused[:top_k]
                         # in the except branch still contains unmodified RRF results.
-                        result.append(SearchResult(
-                            doc_id=sr.doc_id,
-                            project_id=sr.project_id,
-                            title=sr.title,
-                            content=sr.content,
-                            score=rr.relevance_score,
-                            rank=rr.new_rank,
-                            metadata=sr.metadata,
-                        ))
+                        result.append(
+                            SearchResult(
+                                doc_id=sr.doc_id,
+                                project_id=sr.project_id,
+                                title=sr.title,
+                                content=sr.content,
+                                score=rr.relevance_score,
+                                rank=rr.new_rank,
+                                metadata=sr.metadata,
+                            )
+                        )
                 return result[:top_k]
             except Exception as exc:
                 logger.warning("reranking failed (%s) — returning RRF results", exc)
@@ -139,15 +142,17 @@ class HybridSearchPipeline:
         artifacts = await self._kb.find_similar(query, top_k=limit)
         results = []
         for i, artifact in enumerate(artifacts):
-            results.append(SearchResult(
-                doc_id=artifact.id,
-                project_id=getattr(artifact, "source_project", "") or "",
-                title=getattr(artifact, "title", "") or "",
-                content=artifact.content,
-                score=getattr(artifact, "similarity_score", 0.5),
-                rank=i + 1,
-                metadata=getattr(artifact, "context", {}) or {},
-            ))
+            results.append(
+                SearchResult(
+                    doc_id=artifact.id,
+                    project_id=getattr(artifact, "source_project", "") or "",
+                    title=getattr(artifact, "title", "") or "",
+                    content=artifact.content,
+                    score=getattr(artifact, "similarity_score", 0.5),
+                    rank=i + 1,
+                    metadata=getattr(artifact, "context", {}) or {},
+                )
+            )
         return results
 
     def _rrf_merge(self, result_lists: list[list[SearchResult]]) -> list[SearchResult]:

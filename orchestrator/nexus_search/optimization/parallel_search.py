@@ -79,6 +79,7 @@ class ParallelSearchExecutor:
             Merged SearchResults
         """
         import time
+
         start_time = time.time()
 
         # Create search tasks for each source
@@ -184,7 +185,7 @@ class ParallelSearchExecutor:
         unique = []
 
         for result in results:
-            url_normalized = result.url.lower().rstrip('/')
+            url_normalized = result.url.lower().rstrip("/")
             if url_normalized not in seen_urls:
                 seen_urls.add(url_normalized)
                 unique.append(result)

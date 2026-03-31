@@ -51,8 +51,10 @@ logger = logging.getLogger("orchestrator.api_builder")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class AuthType(str, Enum):
     """Authentication types."""
+
     NONE = "none"
     API_KEY = "api_key"
     OAUTH = "oauth"
@@ -62,6 +64,7 @@ class AuthType(str, Enum):
 
 class HTTPMethod(str, Enum):
     """HTTP methods."""
+
     GET = "get"
     POST = "post"
     PUT = "put"
@@ -75,9 +78,11 @@ class HTTPMethod(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class APIEndpoint:
     """API endpoint definition."""
+
     path: str
     method: HTTPMethod
     summary: str = ""
@@ -104,6 +109,7 @@ class APIEndpoint:
 @dataclass
 class APIIntegration:
     """API integration configuration."""
+
     name: str
     base_url: str
     version: str = "1.0.0"
@@ -167,6 +173,7 @@ class APIIntegration:
 # ─────────────────────────────────────────────
 # API Integration Builder
 # ─────────────────────────────────────────────
+
 
 class APIIntegrationBuilder:
     """
@@ -237,9 +244,7 @@ class APIIntegrationBuilder:
             self._total_imports += 1
             self._total_endpoints += len(integration.endpoints)
 
-            logger.info(
-                f"Imported {len(integration.endpoints)} endpoints from {spec_url}"
-            )
+            logger.info(f"Imported {len(integration.endpoints)} endpoints from {spec_url}")
 
             return integration
 
@@ -278,9 +283,7 @@ class APIIntegrationBuilder:
             self._total_imports += 1
             self._total_endpoints += len(integration.endpoints)
 
-            logger.info(
-                f"Imported {len(integration.endpoints)} endpoints from Postman"
-            )
+            logger.info(f"Imported {len(integration.endpoints)} endpoints from Postman")
 
             return integration
 
@@ -404,21 +407,21 @@ class {integration.name.replace(" ", "")}Client:
         if integration.auth_type == AuthType.API_KEY:
             key_name = integration.auth_config.get("key_name", "X-API-Key")
             key_value = integration.auth_config.get("key_value", "")
-            client_code += f'''        self.client.headers["{key_name}"] = "{key_value}"
-'''
+            client_code += f"""        self.client.headers["{key_name}"] = "{key_value}"
+"""
 
         elif integration.auth_type == AuthType.BEARER:
             token = integration.auth_config.get("token", "")
-            client_code += f'''        self.client.headers["Authorization"] = "Bearer {token}"
-'''
+            client_code += f"""        self.client.headers["Authorization"] = "Bearer {token}"
+"""
 
         elif integration.auth_type == AuthType.BASIC:
             username = integration.auth_config.get("username", "")
             password = integration.auth_config.get("password", "")
-            client_code += f'''        import base64
+            client_code += f"""        import base64
         credentials = base64.b64encode(b"{username}:{password}").decode()
         self.client.headers["Authorization"] = f"Basic {{credentials}}"
-'''
+"""
 
         client_code += '''
     async def close(self):
@@ -472,21 +475,21 @@ class {integration.name.replace(" ", "")}Client:
         docstring = f'"""{endpoint.summary or endpoint.description}"""'
 
         # Generate method
-        method_code = f'''    async def {method_name}({params_str}) -> Dict[str, Any]:
+        method_code = f"""    async def {method_name}({params_str}) -> Dict[str, Any]:
         {docstring}
         url = "{endpoint.path}"
-'''
+"""
 
         if path_params:
-            method_code += f'''        url = url.format({", ".join(f"{p}={p}" for p in path_params)})
-'''
+            method_code += f"""        url = url.format({", ".join(f"{p}={p}" for p in path_params)})
+"""
 
-        method_code += f'''
+        method_code += f"""
         response = await self.client.{endpoint.method.value}(url)
         response.raise_for_status()
         return response.json()
 
-'''
+"""
 
         return method_code
 
@@ -510,7 +513,9 @@ from typing import Optional, List, Dict, Any
                 if status_code == "200" and "content" in response:
                     schema = response["content"].get("application/json", {}).get("schema", {})
                     if schema.get("type") == "object":
-                        model_name = f"{endpoint.path.split('/')[-1].title().replace('_', '')}Response"
+                        model_name = (
+                            f"{endpoint.path.split('/')[-1].title().replace('_', '')}Response"
+                        )
                         models_code += f'''
 @dataclass
 class {model_name}:
@@ -519,8 +524,8 @@ class {model_name}:
                         properties = schema.get("properties", {})
                         for prop_name, prop_schema in properties.items():
                             prop_type = self._openapi_type_to_python(prop_schema.get("type", "Any"))
-                            models_code += f'''    {prop_name}: {prop_type}
-'''
+                            models_code += f"""    {prop_name}: {prop_type}
+"""
                         models_code += "\n"
 
         return models_code
@@ -547,6 +552,7 @@ class {model_name}:
         if spec_url.startswith("http"):
             # Fetch from URL
             import httpx
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(spec_url)
                 response.raise_for_status()
@@ -559,6 +565,7 @@ class {model_name}:
                     return json.load(f)
             elif path.suffix in [".yaml", ".yml"]:
                 import yaml
+
                 with open(path) as f:
                     return yaml.safe_load(f)
 

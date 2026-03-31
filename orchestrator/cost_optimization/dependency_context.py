@@ -37,6 +37,7 @@ logger = get_logger(__name__)
 @dataclass
 class DependencyContext:
     """Context from a dependency task."""
+
     task_id: str
     task_type: str
     output: str
@@ -47,6 +48,7 @@ class DependencyContext:
 @dataclass
 class ContextMetrics:
     """Metrics for dependency context injection."""
+
     total_injections: int = 0
     contexts_injected: int = 0
     avg_context_size: float = 0.0
@@ -82,9 +84,9 @@ class DependencyContextInjector:
     # Symbol extraction patterns
     SYMBOL_PATTERNS = {
         "python": [
-            "def ",      # Functions
-            "class ",    # Classes
-            "async def ", # Async functions
+            "def ",  # Functions
+            "class ",  # Classes
+            "async def ",  # Async functions
         ],
         "javascript": [
             "function ",
@@ -152,12 +154,12 @@ class DependencyContextInjector:
             dep_result = completed_tasks[dep_id]
 
             # Skip if no output
-            if not hasattr(dep_result, 'output') or not dep_result.output:
+            if not hasattr(dep_result, "output") or not dep_result.output:
                 continue
 
             # For code_review tasks, inject the reviewed code
             # For code_generation tasks, inject the generated code
-            output = dep_result.output if hasattr(dep_result, 'output') else str(dep_result)
+            output = dep_result.output if hasattr(dep_result, "output") else str(dep_result)
 
             # Extract symbols for better context
             symbols = self._extract_symbols(output, language)
@@ -165,7 +167,7 @@ class DependencyContextInjector:
             # Build context section
             context_section = self._build_context_section(
                 dep_id=dep_id,
-                task_type=getattr(dep_result, 'task_type', 'unknown'),
+                task_type=getattr(dep_result, "task_type", "unknown"),
                 output=output,
                 symbols=symbols,
                 max_chars=min(self.PER_DEPENDENCY_LIMIT, max_context_chars - total_chars),
@@ -198,9 +200,8 @@ class DependencyContextInjector:
         # Update metrics
         self.metrics.contexts_injected += contexts_added
         self.metrics.avg_context_size = (
-            (self.metrics.avg_context_size * (self.metrics.total_injections - 1) + total_chars)
-            / self.metrics.total_injections
-        )
+            self.metrics.avg_context_size * (self.metrics.total_injections - 1) + total_chars
+        ) / self.metrics.total_injections
 
         logger.info(
             f"Injected context: {contexts_added} dependencies, "
@@ -232,7 +233,7 @@ class DependencyContextInjector:
         """
         # Truncate output if needed
         if len(output) > max_chars:
-            output = output[:max_chars - 500] + "\n... [truncated]"
+            output = output[: max_chars - 500] + "\n... [truncated]"
 
         # Build section header
         header = f"## Implemented: {dep_id} ({task_type})"
@@ -343,6 +344,7 @@ class DependencyContextInjector:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def inject_dependency_context(
     task_prompt: str,

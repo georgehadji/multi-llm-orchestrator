@@ -6,6 +6,7 @@ Tests cover:
 - Migration with existing projects
 - Helper function for keyword extraction and JSON storage
 """
+
 from __future__ import annotations
 
 import json

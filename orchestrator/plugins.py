@@ -46,6 +46,7 @@ class PluginHook(str, Enum):
 
     Plugins can register callbacks for any of these hooks.
     """
+
     # Pre-processing hooks
     PRE_DECOMPOSITION = "pre_decomposition"
     POST_DECOMPOSITION = "post_decomposition"
@@ -79,6 +80,7 @@ class PluginManifest:
         hooks: List of hooks this plugin implements
         dependencies: Plugin dependencies
     """
+
     name: str
     version: str
     description: str
@@ -91,10 +93,7 @@ class PluginManifest:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PluginManifest:
         """Create manifest from dictionary."""
-        hooks = [
-            PluginHook(h) if isinstance(h, str) else h
-            for h in data.get("hooks", [])
-        ]
+        hooks = [PluginHook(h) if isinstance(h, str) else h for h in data.get("hooks", [])]
         return cls(
             name=data["name"],
             version=data["version"],
@@ -134,6 +133,7 @@ class PluginContext:
 
     Plugins can read and modify this context.
     """
+
     data: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -260,7 +260,7 @@ class PluginManager:
             # ═══════════════════════════════════════════════════════
 
             # 1. Verify plugin is in allowed list (if allowlist configured)
-            if hasattr(self, '_allowed_entry_points'):
+            if hasattr(self, "_allowed_entry_points"):
                 if manifest.entry_point not in self._allowed_entry_points:
                     logger.error(
                         f"Plugin {manifest.name} entry point not in allowlist: "
@@ -269,15 +269,29 @@ class PluginManager:
                     return None
 
             # 2. Set up restricted import during plugin loading
-            original_import = __builtins__.__import__ if isinstance(__builtins__.__import__, type(lambda: None)) else __builtins__['__import__']
+            original_import = (
+                __builtins__.__import__
+                if isinstance(__builtins__.__import__, type(lambda: None))
+                else __builtins__["__import__"]
+            )
 
             def restricted_import(name, *args, **kwargs):
                 """Restricted import that blocks dangerous modules."""
                 # Block dangerous modules that could escape plugin sandbox
                 dangerous_modules = [
-                    'os', 'subprocess', 'sys', 'ctypes', 'pickle',
-                    'marshal', 'multiprocessing', 'socket', 'http',
-                    'urllib', 'ftplib', 'smtplib', 'telnetlib'
+                    "os",
+                    "subprocess",
+                    "sys",
+                    "ctypes",
+                    "pickle",
+                    "marshal",
+                    "multiprocessing",
+                    "socket",
+                    "http",
+                    "urllib",
+                    "ftplib",
+                    "smtplib",
+                    "telnetlib",
                 ]
 
                 if any(d in name for d in dangerous_modules):
@@ -293,7 +307,7 @@ class PluginManager:
 
             # Apply restricted import
             if isinstance(__builtins__, dict):
-                __builtins__['__import__'] = restricted_import
+                __builtins__["__import__"] = restricted_import
             else:
                 __builtins__.__import__ = restricted_import
 
@@ -326,7 +340,7 @@ class PluginManager:
             finally:
                 # Restore original import - CRITICAL: always restore even if load fails
                 if isinstance(__builtins__, dict):
-                    __builtins__['__import__'] = original_import
+                    __builtins__["__import__"] = original_import
                 else:
                     __builtins__.__import__ = original_import
 
@@ -352,10 +366,7 @@ class PluginManager:
         # Remove from hooks
         for hook in plugin.manifest.hooks:
             if hook in self.hooks:
-                self.hooks[hook] = [
-                    h for h in self.hooks[hook]
-                    if h.__self__ != plugin
-                ]
+                self.hooks[hook] = [h for h in self.hooks[hook] if h.__self__ != plugin]
 
         # Remove plugin
         del self.plugins[plugin_name]
@@ -406,6 +417,7 @@ class PluginManager:
 # Reference Plugins
 # ═══════════════════════════════════════════════════════
 
+
 class SecurityScannerPlugin(Plugin):
     """
     Reference plugin: Security scanning with Bandit + Safety.
@@ -454,13 +466,16 @@ class DjangoTemplatePlugin(Plugin):
         # Check if this is a Django project
         if "django" in prompt.lower():
             context.set("framework", "django")
-            context.set("templates", [
-                "models.py",
-                "views.py",
-                "urls.py",
-                "forms.py",
-                "admin.py",
-            ])
+            context.set(
+                "templates",
+                [
+                    "models.py",
+                    "views.py",
+                    "urls.py",
+                    "forms.py",
+                    "admin.py",
+                ],
+            )
 
         return context
 
@@ -481,12 +496,15 @@ class AWSDeployPlugin(Plugin):
         if framework == "fastapi":
             # Generate Lambda deployment config
             context.set("deployment_target", "aws-lambda")
-            context.set("deployment_config", {
-                "runtime": "python3.12",
-                "handler": "main.handler",
-                "memory_size": 128,
-                "timeout": 30,
-            })
+            context.set(
+                "deployment_config",
+                {
+                    "runtime": "python3.12",
+                    "handler": "main.handler",
+                    "memory_size": 128,
+                    "timeout": 30,
+                },
+            )
 
         return context
 

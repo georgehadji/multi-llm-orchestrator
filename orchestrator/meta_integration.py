@@ -66,9 +66,7 @@ def initialize_meta_optimization(
 
         # Create archive from state manager
         archive = ExecutionArchive(
-            archive_path=storage_path or (
-                Path.home() / ".orchestrator_cache" / "meta_v2"
-            )
+            archive_path=storage_path or (Path.home() / ".orchestrator_cache" / "meta_v2")
         )
 
         # Configure meta-optimization
@@ -90,6 +88,7 @@ def initialize_meta_optimization(
         # Initialize transfer learning if enabled
         if enable_transfer_learning:
             from .transfer_learning import initialize_transfer_engine
+
             initialize_transfer_engine(archive, storage_path=storage_path)
             logger.info("Transfer learning enabled")
 
@@ -140,6 +139,7 @@ class MetaOptimizationV2Wrapper:
 
             # Index for transfer learning
             from .transfer_learning import get_transfer_engine
+
             transfer_engine = get_transfer_engine()
             if transfer_engine:
                 await transfer_engine.index_project(trajectory)
@@ -168,8 +168,7 @@ class MetaOptimizationV2Wrapper:
 
                 for outcome in outcomes:
                     logger.info(
-                        f"  {outcome.decision.value}: "
-                        f"{outcome.proposal.description[:50]}..."
+                        f"  {outcome.decision.value}: " f"{outcome.proposal.description[:50]}..."
                     )
 
             return outcomes
@@ -187,24 +186,30 @@ class MetaOptimizationV2Wrapper:
         for task_id, result in state.results.items():
             record = ExecutionRecord(
                 task_id=task_id,
-                task_type=result.task_type.value if hasattr(result.task_type, 'value') else str(result.task_type),
-                model_used=result.model_used if hasattr(result, 'model_used') else "unknown",
-                success=result.success if hasattr(result, 'success') else True,
-                cost_usd=getattr(result, 'cost_usd', 0.0),
-                latency_ms=getattr(result, 'latency_ms', 0.0),
-                input_tokens=getattr(result, 'input_tokens', 0),
-                output_tokens=getattr(result, 'output_tokens', 0),
-                score=getattr(result, 'score', 0.9),
-                project_id=state.project_id if hasattr(state, 'project_id') else "",
+                task_type=(
+                    result.task_type.value
+                    if hasattr(result.task_type, "value")
+                    else str(result.task_type)
+                ),
+                model_used=result.model_used if hasattr(result, "model_used") else "unknown",
+                success=result.success if hasattr(result, "success") else True,
+                cost_usd=getattr(result, "cost_usd", 0.0),
+                latency_ms=getattr(result, "latency_ms", 0.0),
+                input_tokens=getattr(result, "input_tokens", 0),
+                output_tokens=getattr(result, "output_tokens", 0),
+                score=getattr(result, "score", 0.9),
+                project_id=state.project_id if hasattr(state, "project_id") else "",
             )
             task_records.append(record)
 
         trajectory = ProjectTrajectory(
-            project_id=state.project_id if hasattr(state, 'project_id') else "unknown",
-            project_description=state.project_description if hasattr(state, 'project_description') else "",
+            project_id=state.project_id if hasattr(state, "project_id") else "unknown",
+            project_description=(
+                state.project_description if hasattr(state, "project_description") else ""
+            ),
             total_cost=sum(r.cost_usd for r in task_records),
-            total_time=state.budget.elapsed_seconds if hasattr(state, 'budget') else 0.0,
-            success=state.status.value == "success" if hasattr(state, 'status') else True,
+            total_time=state.budget.elapsed_seconds if hasattr(state, "budget") else 0.0,
+            success=state.status.value == "success" if hasattr(state, "status") else True,
             task_records=task_records,
             model_sequence=[r.model_used for r in task_records],
         )
@@ -232,6 +237,7 @@ class MetaOptimizationV2Wrapper:
 # ─────────────────────────────────────────────
 # Engine Hooks
 # ─────────────────────────────────────────────
+
 
 async def on_task_completed(
     meta_wrapper: MetaOptimizationV2Wrapper | None,

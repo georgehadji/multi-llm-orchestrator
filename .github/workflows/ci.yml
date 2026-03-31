@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, "claude/**"]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install lint dependencies
+        run: pip install black ruff
+      - name: Check formatting
+        run: black --check orchestrator/ tests/
+      - name: Run ruff
+        run: ruff check orchestrator/ tests/
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -e ".[dev]" || pip install -e "." mypy
+      - name: Run mypy
+        run: mypy orchestrator/ --ignore-missing-imports --no-strict-optional
+        continue-on-error: true  # type errors are warnings until baseline is clean
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -e ".[dev]" || pip install -e "." pytest pytest-asyncio pytest-cov
+      - name: Run tests (no API / no slow / no stress / no e2e)
+        run: |
+          pytest -m "not slow and not requires_api and not stress and not e2e" \
+            --tb=short -q \
+            --cov=orchestrator \
+            --cov-report=xml \
+            --cov-report=term-missing
+        env:
+          # No API keys — all covered tests must run without live APIs
+          OPENAI_API_KEY: ""
+          ANTHROPIC_API_KEY: ""
+          GOOGLE_API_KEY: ""
+          OPENROUTER_API_KEY: ""
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false

@@ -40,7 +40,6 @@ __all__ = [
     # Main interface
     "NexusSearchOrchestrator",
     "get_nexus_orchestrator",
-
     # Models
     "SearchResult",
     "SearchResults",
@@ -50,7 +49,6 @@ __all__ = [
     "Finding",
     "QueryType",
     "OptimizationMode",
-
     # Configuration
     "NexusConfig",
     "get_config",

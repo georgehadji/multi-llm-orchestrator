@@ -47,8 +47,10 @@ logger = logging.getLogger("orchestrator.github_sync")
 # Enums
 # ─────────────────────────────────────────────
 
+
 class SyncDirection(str, Enum):
     """Sync direction."""
+
     PULL = "pull"
     PUSH = "push"
     BIDIRECTIONAL = "bidirectional"
@@ -56,6 +58,7 @@ class SyncDirection(str, Enum):
 
 class ChangeOperation(str, Enum):
     """File change operation."""
+
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
@@ -64,6 +67,7 @@ class ChangeOperation(str, Enum):
 
 class ConflictResolution(str, Enum):
     """Conflict resolution strategy."""
+
     MANUAL = "manual"
     AUTO_MERGE = "auto_merge"
     OURS = "ours"  # Keep local changes
@@ -74,9 +78,11 @@ class ConflictResolution(str, Enum):
 # Data Structures
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class Change:
     """File change."""
+
     path: str
     content: str | None
     operation: ChangeOperation
@@ -114,6 +120,7 @@ class Change:
 @dataclass
 class SyncConfig:
     """GitHub sync configuration."""
+
     repo_url: str
     branch: str = "main"
     direction: SyncDirection = SyncDirection.BIDIRECTIONAL
@@ -121,9 +128,9 @@ class SyncConfig:
     conflict_resolution: ConflictResolution = ConflictResolution.MANUAL
     commit_prefix: str = "[AI Orchestrator]"
     sync_interval: int = 300  # Seconds between auto-syncs
-    ignore_patterns: list[str] = field(default_factory=lambda: [
-        "*.pyc", "__pycache__/", ".git/", "node_modules/", "*.env"
-    ])
+    ignore_patterns: list[str] = field(
+        default_factory=lambda: ["*.pyc", "__pycache__/", ".git/", "node_modules/", "*.env"]
+    )
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -142,6 +149,7 @@ class SyncConfig:
 @dataclass
 class SyncResult:
     """Sync operation result."""
+
     success: bool
     changes_pulled: int = 0
     changes_pushed: int = 0
@@ -164,6 +172,7 @@ class SyncResult:
 # ─────────────────────────────────────────────
 # GitHub Sync
 # ─────────────────────────────────────────────
+
 
 class GitHubSync:
     """
@@ -508,6 +517,7 @@ class GitHubSync:
         config: SyncConfig,
     ) -> None:
         """Start automatic sync task."""
+
         async def auto_sync_loop():
             while True:
                 try:

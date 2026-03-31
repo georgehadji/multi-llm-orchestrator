@@ -78,6 +78,7 @@ def test_ascii_output_has_rows_for_each_task():
 
 def test_dependency_report_includes_context_size():
     from orchestrator.models import TaskResult, Model, TaskStatus
+
     tasks = {
         "t1": _make_task("t1"),
         "t2": _make_task("t2", deps=["t1"]),

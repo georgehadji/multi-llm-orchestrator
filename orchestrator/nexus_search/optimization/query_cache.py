@@ -42,6 +42,7 @@ logger = logging.getLogger("orchestrator.nexus_search")
 @dataclass
 class CacheEntry:
     """A single cache entry."""
+
     results: SearchResults
     timestamp: datetime
     ttl_seconds: int
@@ -106,11 +107,11 @@ class QueryCache:
             MD5 hash of query + sources
         """
         # Create canonical representation
-        sources_str = ','.join(sorted(s.value for s in sources))
+        sources_str = ",".join(sorted(s.value for s in sources))
         key = f"{query.lower().strip()}:{sources_str}"
 
         # Return MD5 hash
-        return hashlib.md5(key.encode('utf-8')).hexdigest()
+        return hashlib.md5(key.encode("utf-8")).hexdigest()
 
     async def get(
         self,
@@ -142,7 +143,9 @@ class QueryCache:
             # Cache hit
             entry.hits += 1
             self.hits += 1
-            logger.debug(f"Cache hit: {query[:50]}... (age: {(datetime.now() - entry.timestamp).seconds}s, hits: {entry.hits})")
+            logger.debug(
+                f"Cache hit: {query[:50]}... (age: {(datetime.now() - entry.timestamp).seconds}s, hits: {entry.hits})"
+            )
             return entry.results
 
         # Cache miss
@@ -187,10 +190,7 @@ class QueryCache:
             return
 
         # Find oldest entry
-        oldest_key = min(
-            self._cache.keys(),
-            key=lambda k: self._cache[k].timestamp
-        )
+        oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k].timestamp)
 
         del self._cache[oldest_key]
         self.evictions += 1
@@ -208,10 +208,7 @@ class QueryCache:
         Returns:
             Number of entries removed
         """
-        expired_keys = [
-            key for key, entry in self._cache.items()
-            if entry.is_expired()
-        ]
+        expired_keys = [key for key, entry in self._cache.items() if entry.is_expired()]
 
         for key in expired_keys:
             del self._cache[key]

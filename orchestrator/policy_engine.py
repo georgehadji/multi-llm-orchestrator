@@ -12,6 +12,7 @@ Policy-as-code novelty:
   you can print(policy_set) to see every constraint that was applied to a run,
   and PolicyCheckResult.violations explains exactly why a model was rejected.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
 # ─────────────────────────────────────────────────────────────────────────────
 # Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class PolicyViolationError(Exception):
     """
@@ -42,6 +44,7 @@ class PolicyViolationError(Exception):
     policies : list[Policy]  — the policies that were applied
     reason : str             — human-readable explanation of all violations
     """
+
     def __init__(self, task_id: str, policies: list[Policy], reason: str):
         self.task_id = task_id
         self.policies = policies
@@ -57,6 +60,7 @@ class PolicyViolationError(Exception):
 # PolicyCheckResult
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class PolicyCheckResult:
     """
@@ -68,10 +72,11 @@ class PolicyCheckResult:
     raw_passed reflects whether violations were found before EnforcementMode
     override. passed is the effective result after the mode is applied.
     """
+
     passed: bool
     violations: list[str] = field(default_factory=list)
     model: Model = None  # type: ignore[assignment]  # populated by check()
-    raw_passed: bool = True   # before EnforcementMode override
+    raw_passed: bool = True  # before EnforcementMode override
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -100,6 +105,7 @@ def _is_hard_violation(violation: str) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # PolicyEngine
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class PolicyEngine:
     """
@@ -157,12 +163,12 @@ class PolicyEngine:
             # A permissive MONITOR policy from one rule must never override a
             # HARD compliance rule from another (e.g. GDPR region constraint).
             _MODE_RANK = {
-                EnforcementMode.HARD:    0,  # most restrictive → wins
-                EnforcementMode.SOFT:    1,
+                EnforcementMode.HARD: 0,  # most restrictive → wins
+                EnforcementMode.SOFT: 1,
                 EnforcementMode.MONITOR: 2,  # most permissive
-                None:                    0,  # None → HARD
+                None: 0,  # None → HARD
             }
-            effective_mode_rank = 2          # start at most-permissive, tighten downward
+            effective_mode_rank = 2  # start at most-permissive, tighten downward
             effective_mode = EnforcementMode.MONITOR
 
             for policy in policies:
@@ -203,13 +209,8 @@ class PolicyEngine:
                     )
 
                 # 4. Blocked models (specific model-level block)
-                if (
-                    policy.blocked_models is not None
-                    and model in policy.blocked_models
-                ):
-                    violations.append(
-                        f"[{policy.name}] model '{model.value}' is in blocked_models"
-                    )
+                if policy.blocked_models is not None and model in policy.blocked_models:
+                    violations.append(f"[{policy.name}] model '{model.value}' is in blocked_models")
 
                 # 5. Latency SLA
                 if (
@@ -238,12 +239,12 @@ class PolicyEngine:
                             f"compliance tag; model has: {profile.compliance_tags}"
                         )
 
-            raw_passed = (len(violations) == 0)
+            raw_passed = len(violations) == 0
 
             # Apply enforcement mode to determine effective result
             if not raw_passed:
                 if effective_mode == EnforcementMode.MONITOR:
-                    effective_passed = True   # log but allow
+                    effective_passed = True  # log but allow
                 elif effective_mode == EnforcementMode.SOFT:
                     # Block only if any hard violation exists
                     has_hard = any(_is_hard_violation(v) for v in violations)

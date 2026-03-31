@@ -32,9 +32,11 @@ logger = logging.getLogger("orchestrator.advanced_query")
 # LLM Query Expander
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class ExpandedQuery:
     """An expanded query variant."""
+
     original: str
     expanded: str
     expansion_type: str  # synonym, rephrase, broaden, narrow
@@ -117,6 +119,7 @@ Return JSON array:
 
             # Parse JSON response
             import json
+
             data = json.loads(response.text)
 
             expansions = []
@@ -168,12 +171,14 @@ Return JSON array:
             if word in synonyms:
                 for synonym in synonyms[word][:2]:  # Limit to 2 synonyms per word
                     expanded = query.replace(word, synonym)
-                    expansions.append(ExpandedQuery(
-                        original=query,
-                        expanded=expanded,
-                        expansion_type="synonym",
-                        confidence=0.8,
-                    ))
+                    expansions.append(
+                        ExpandedQuery(
+                            original=query,
+                            expanded=expanded,
+                            expansion_type="synonym",
+                            confidence=0.8,
+                        )
+                    )
 
         logger.info(f"Generated {len(expansions)} synonym expansions")
         return expansions
@@ -183,9 +188,11 @@ Return JSON array:
 # Learning Classifier
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class QueryClassification:
     """Result of query classification."""
+
     query: str
     category: str
     confidence: float
@@ -215,24 +222,68 @@ class LearningClassifier:
     # Initial keyword patterns for each category
     CATEGORY_KEYWORDS = {
         "factual": [
-            "what is", "who is", "when", "where", "define", "meaning",
-            "how many", "how much", "year", "date", "born", "capital",
+            "what is",
+            "who is",
+            "when",
+            "where",
+            "define",
+            "meaning",
+            "how many",
+            "how much",
+            "year",
+            "date",
+            "born",
+            "capital",
         ],
         "research": [
-            "best practices", "guide", "tutorial", "how to", "comparison",
-            "vs", "versus", "review", "overview", "trends", "patterns",
+            "best practices",
+            "guide",
+            "tutorial",
+            "how to",
+            "comparison",
+            "vs",
+            "versus",
+            "review",
+            "overview",
+            "trends",
+            "patterns",
         ],
         "technical": [
-            "code", "example", "api", "library", "framework", "package",
-            "install", "dependency", "error", "bug", "debug", "fix",
+            "code",
+            "example",
+            "api",
+            "library",
+            "framework",
+            "package",
+            "install",
+            "dependency",
+            "error",
+            "bug",
+            "debug",
+            "fix",
         ],
         "academic": [
-            "paper", "study", "research", "journal", "citation",
-            "doi", "arxiv", "pubmed", "scholar", "thesis",
+            "paper",
+            "study",
+            "research",
+            "journal",
+            "citation",
+            "doi",
+            "arxiv",
+            "pubmed",
+            "scholar",
+            "thesis",
         ],
         "creative": [
-            "ideas", "inspiration", "creative", "innovative", "unique",
-            "brainstorm", "suggest", "recommend", "explore",
+            "ideas",
+            "inspiration",
+            "creative",
+            "innovative",
+            "unique",
+            "brainstorm",
+            "suggest",
+            "recommend",
+            "explore",
         ],
     }
 
@@ -323,7 +374,9 @@ class LearningClassifier:
         if not feedback["correct"]:
             self._learn_from_mistake(query, predicted_category, actual_category)
 
-        logger.info(f"Recorded feedback: {predicted_category} → {actual_category} (correct: {feedback['correct']})")
+        logger.info(
+            f"Recorded feedback: {predicted_category} → {actual_category} (correct: {feedback['correct']})"
+        )
 
     def _learn_from_mistake(
         self,
@@ -385,9 +438,11 @@ class LearningClassifier:
 # Result Summarizer
 # ─────────────────────────────────────────────
 
+
 @dataclass
 class SearchResultSummary:
     """Summary of search results."""
+
     query: str
     summary: str
     key_findings: list[str] = field(default_factory=list)
@@ -458,10 +513,12 @@ Return JSON:
             )
 
         # Prepare results text
-        results_text = "\n\n".join([
-            f"Title: {r.title}\nContent: {r.content[:200]}..."
-            for r in results[:5]  # Summarize top 5 results
-        ])
+        results_text = "\n\n".join(
+            [
+                f"Title: {r.title}\nContent: {r.content[:200]}..."
+                for r in results[:5]  # Summarize top 5 results
+            ]
+        )
 
         prompt = self.SUMMARIZE_PROMPT.format(
             query=query,
@@ -479,6 +536,7 @@ Return JSON:
 
             # Parse JSON response
             import json
+
             data = json.loads(response.text)
 
             summary = SearchResultSummary(
@@ -508,6 +566,7 @@ Return JSON:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def expand_query(
     query: str,

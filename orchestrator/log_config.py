@@ -25,6 +25,7 @@ Usage:
      "logger": "orchestrator.engine", "message": "Processing started",
      "correlation_id": "req-12345", "task_id": "task_001"}
 """
+
 from __future__ import annotations
 
 import json
@@ -49,14 +50,11 @@ class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
         log_obj: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(
-                record.created, tz=timezone.utc
-            ).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
-            "correlation_id": getattr(record, "correlation_id", "")
-            or _correlation_id.get(),
+            "correlation_id": getattr(record, "correlation_id", "") or _correlation_id.get(),
         }
 
         # Add source location in debug mode
@@ -74,11 +72,29 @@ class JSONFormatter(logging.Formatter):
         # Add extra fields from the record
         for key, value in record.__dict__.items():
             if key not in (
-                "name", "msg", "args", "levelname", "levelno", "pathname",
-                "filename", "module", "exc_info", "exc_text", "stack_info",
-                "lineno", "funcName", "created", "msecs", "relativeCreated",
-                "thread", "threadName", "processName", "process", "message",
-                "asctime", "correlation_id",
+                "name",
+                "msg",
+                "args",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "lineno",
+                "funcName",
+                "created",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+                "message",
+                "asctime",
+                "correlation_id",
             ):
                 log_obj[key] = value
 
@@ -97,9 +113,9 @@ class TextFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as text."""
-        timestamp = datetime.fromtimestamp(
-            record.created, tz=timezone.utc
-        ).strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
 
         correlation = getattr(record, "correlation_id", "") or _correlation_id.get()
         correlation_str = f" | {correlation:.8}" if self.include_correlation and correlation else ""
@@ -219,6 +235,7 @@ def get_log_level_from_env(default: str = "INFO") -> str:
         Log level string
     """
     import os
+
     return os.environ.get("LOG_LEVEL", default)
 
 

@@ -3,6 +3,7 @@ Unified Dashboard v5.2 - Simple Version (Vanilla JS)
 =====================================================
 Χρησιμοποιεί vanilla JavaScript αντί για React - πιο αξιόπιστο.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,6 +20,7 @@ logger = get_logger(__name__)
 @dataclass
 class GamificationState:
     """Gamification state."""
+
     xp: int = 0
     level: int = 1
     streak: int = 0
@@ -38,6 +40,7 @@ class GamificationState:
 @dataclass
 class ApiConnectionStatus:
     """API connection status."""
+
     provider: str
     status: str = "disconnected"
     last_error: str = ""
@@ -48,6 +51,7 @@ class ApiConnectionStatus:
 @dataclass
 class UnifiedDashboardState:
     """Complete dashboard state."""
+
     status: str = "idle"
     version: str = "5.2.0"
     project_name: str = ""
@@ -73,15 +77,25 @@ class UnifiedDashboardState:
             "version": self.version,
             "project": {
                 "name": self.project_name,
-                "description": self.project_description[:200] + "..." if len(self.project_description) > 200 else self.project_description,
+                "description": (
+                    self.project_description[:200] + "..."
+                    if len(self.project_description) > 200
+                    else self.project_description
+                ),
                 "budget_usd": round(self.budget_usd, 2),
                 "spent_usd": round(self.spent_usd, 2),
-                "budget_percent": round(self.spent_usd / self.budget_usd * 100, 1) if self.budget_usd > 0 else 0,
+                "budget_percent": (
+                    round(self.spent_usd / self.budget_usd * 100, 1) if self.budget_usd > 0 else 0
+                ),
             },
             "progress": {
                 "total_tasks": self.total_tasks,
                 "completed_tasks": self.completed_tasks,
-                "percent": round(self.completed_tasks / self.total_tasks * 100, 1) if self.total_tasks > 0 else 0,
+                "percent": (
+                    round(self.completed_tasks / self.total_tasks * 100, 1)
+                    if self.total_tasks > 0
+                    else 0
+                ),
             },
             "time": {
                 "elapsed": self._format_time(self.elapsed_seconds),
@@ -188,9 +202,11 @@ class UnifiedDashboardServer:
 
         @self.app.get("/api/connections")
         async def get_connections():
-            return JSONResponse(content={
-                "connections": [asdict(c) for c in self.state.api_connections],
-            })
+            return JSONResponse(
+                content={
+                    "connections": [asdict(c) for c in self.state.api_connections],
+                }
+            )
 
         @self.app.post("/api/connect")
         async def reconnect_apis():
@@ -244,7 +260,7 @@ class UnifiedDashboardServer:
         await server.serve()
 
     def _get_html(self) -> str:
-        return '''<!DOCTYPE html>
+        return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -503,7 +519,7 @@ class UnifiedDashboardServer:
     </script>
 </body>
 </html>
-'''
+"""
 
 
 def run_unified_dashboard(host: str = "127.0.0.1", port: int = 8888, open_browser: bool = True):

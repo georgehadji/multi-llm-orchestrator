@@ -99,8 +99,7 @@ class AsyncIOManager:
         """Create and initialize a new instance."""
         instance = object.__new__(cls)
         instance._executor = ThreadPoolExecutor(
-            max_workers=max_workers,
-            thread_name_prefix="nash_io_"
+            max_workers=max_workers, thread_name_prefix="nash_io_"
         )
         instance._loop: asyncio.AbstractEventLoop | None = None
         instance._shutdown = False
@@ -120,10 +119,9 @@ class AsyncIOManager:
         Kept for backward compatibility but creates non-singleton instances.
         """
         # Only initialize if not created via get_instance
-        if not hasattr(self, '_executor'):
+        if not hasattr(self, "_executor"):
             self._executor = ThreadPoolExecutor(
-                max_workers=max_workers,
-                thread_name_prefix="nash_io_"
+                max_workers=max_workers, thread_name_prefix="nash_io_"
             )
             self._loop: asyncio.AbstractEventLoop | None = None
             self._shutdown = False
@@ -274,7 +272,7 @@ class AsyncIOManager:
 
         REFINED (Round 3 - TD-012): Enhanced shutdown with proper state tracking
         """
-        if not self._shutdown and hasattr(self, '_executor') and self._executor is not None:
+        if not self._shutdown and hasattr(self, "_executor") and self._executor is not None:
             try:
                 self._shutdown = True
                 self._executor.shutdown(wait=wait)
@@ -289,8 +287,10 @@ class AsyncIOManager:
 # ROUND 1: DEV - Write-Ahead Logging (WAL)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class WALEntryStatus(Enum):
     """Status of a WAL entry."""
+
     PENDING = "pending"
     COMMITTED = "committed"
     ROLLED_BACK = "rolled_back"
@@ -305,6 +305,7 @@ class WALEntry:
     Finding #6 Fix: Don't store full data for large files to prevent disk explosion
     FIX-002d: Two-phase commit with temp file for large files
     """
+
     entry_id: str
     timestamp: datetime
     operation: str  # "write", "delete", "append"
@@ -347,7 +348,8 @@ class WALEntry:
         if self.data is not None:
             if isinstance(self.data, bytes):
                 import base64
-                result["data"] = base64.b64encode(self.data).decode('ascii')
+
+                result["data"] = base64.b64encode(self.data).decode("ascii")
                 result["is_binary"] = True
             else:
                 result["data"] = self.data
@@ -363,6 +365,7 @@ class WALEntry:
         if data.get("has_data", False):
             if data.get("is_binary", False):
                 import base64
+
                 raw_data = base64.b64decode(data["data"])
             else:
                 raw_data = data["data"]
@@ -480,9 +483,9 @@ class WriteAheadLog:
             f"{datetime.utcnow().isoformat()}:{target_path}".encode()
         ).hexdigest()[:16]
 
-        data_hash = hashlib.sha256(
-            data.encode() if isinstance(data, str) else data
-        ).hexdigest()[:16]
+        data_hash = hashlib.sha256(data.encode() if isinstance(data, str) else data).hexdigest()[
+            :16
+        ]
 
         # REFINED (Round 2): Conditionally store data based on size
         should_store = WALEntry.should_store_data(data)
@@ -494,15 +497,14 @@ class WriteAheadLog:
             # Large file: write to temp file in SAME directory as target (for atomic rename)
             # Use UUID-based name to avoid collisions and ensure unpredictability
             import uuid
+
             temp_path = str(target_path.with_suffix(f".tmp.{uuid.uuid4().hex}"))
 
             try:
                 # Write data to temp file
                 async with self._get_io() as io:
                     await io.write_file(
-                        Path(temp_path),
-                        data,
-                        mode="wb" if isinstance(data, bytes) else "w"
+                        Path(temp_path), data, mode="wb" if isinstance(data, bytes) else "w"
                     )
                 logger.debug(f"WAL entry {entry_id}: wrote temp file {temp_path}")
             except Exception as e:
@@ -565,6 +567,7 @@ class WriteAheadLog:
                 # Fallback: copy content and delete temp
                 try:
                     import shutil
+
                     shutil.copy2(temp_path, target_path)
                     Path(temp_path).unlink()
                     logger.debug(f"WAL entry {entry_id}: copy+delete fallback succeeded")
@@ -573,7 +576,9 @@ class WriteAheadLog:
                     raise
 
         if not should_store:
-            logger.debug(f"WAL entry {entry_id}: data too large to store ({data_size} bytes), used two-phase commit")
+            logger.debug(
+                f"WAL entry {entry_id}: data too large to store ({data_size} bytes), used two-phase commit"
+            )
 
         return entry
 
@@ -610,7 +615,7 @@ class WriteAheadLog:
 
                 if found:
                     # Rewrite file with updated entry
-                    with open(wal_file, 'w') as f:
+                    with open(wal_file, "w") as f:
                         for entry_data in entries:
                             f.write(json.dumps(entry_data) + "\n")
                     return True
@@ -644,7 +649,9 @@ class WriteAheadLog:
                             if entry.target_path.exists():
                                 # Rename already completed, just commit WAL entry
                                 await self.commit(entry.entry_id)
-                                logger.debug(f"Recovered two-phase commit: {entry.entry_id} (rename already done)")
+                                logger.debug(
+                                    f"Recovered two-phase commit: {entry.entry_id} (rename already done)"
+                                )
                             else:
                                 # Temp file exists but rename didn't complete
                                 pending.append(entry)
@@ -699,17 +706,24 @@ class WriteAheadLog:
                         try:
                             os.rename(temp_path, entry.target_path)
                             await self.commit(entry.entry_id)
-                            logger.info(f"Completed two-phase commit for {entry.entry_id}: {temp_path} → {entry.target_path}")
+                            logger.info(
+                                f"Completed two-phase commit for {entry.entry_id}: {temp_path} → {entry.target_path}"
+                            )
                             return True
                         except OSError as e:
-                            logger.error(f"Two-phase commit rename failed for {entry.entry_id}: {e}")
+                            logger.error(
+                                f"Two-phase commit rename failed for {entry.entry_id}: {e}"
+                            )
                             # Fallback: copy and delete
                             try:
                                 import shutil
+
                                 shutil.copy2(temp_path, entry.target_path)
                                 temp_path.unlink()
                                 await self.commit(entry.entry_id)
-                                logger.info(f"Two-phase commit fallback succeeded for {entry.entry_id}")
+                                logger.info(
+                                    f"Two-phase commit fallback succeeded for {entry.entry_id}"
+                                )
                                 return True
                             except Exception as fallback_e:
                                 logger.error(f"Two-phase commit fallback also failed: {fallback_e}")
@@ -720,13 +734,19 @@ class WriteAheadLog:
                         existing_hash = hashlib.sha256(existing_data).hexdigest()[:16]
                         if existing_hash == entry.data_hash:
                             await self.commit(entry.entry_id)
-                            logger.info(f"WAL entry {entry.entry_id}: verified (two-phase commit already complete)")
+                            logger.info(
+                                f"WAL entry {entry.entry_id}: verified (two-phase commit already complete)"
+                            )
                             return True
                         else:
-                            logger.error(f"WAL entry {entry.entry_id}: file corrupted (hash mismatch)")
+                            logger.error(
+                                f"WAL entry {entry.entry_id}: file corrupted (hash mismatch)"
+                            )
                             return False
                     else:
-                        logger.error(f"WAL entry {entry.entry_id}: temp file and target both missing")
+                        logger.error(
+                            f"WAL entry {entry.entry_id}: temp file and target both missing"
+                        )
                         return False
 
                 # TD-001/TD-005 Fix: Check if we have data to replay (small files)
@@ -738,20 +758,26 @@ class WriteAheadLog:
                         existing_hash = hashlib.sha256(existing_data).hexdigest()[:16]
                         if existing_hash == entry.data_hash:
                             await self.commit(entry.entry_id)
-                            logger.info(f"WAL entry {entry.entry_id}: large file verified (hash match)")
+                            logger.info(
+                                f"WAL entry {entry.entry_id}: large file verified (hash match)"
+                            )
                             return True
                         else:
-                            logger.error(f"WAL entry {entry.entry_id}: large file corrupted and cannot recover (data not in WAL)")
+                            logger.error(
+                                f"WAL entry {entry.entry_id}: large file corrupted and cannot recover (data not in WAL)"
+                            )
                             return False
                     else:
-                        logger.error(f"WAL entry {entry.entry_id}: large file missing and cannot recover (data not in WAL)")
+                        logger.error(
+                            f"WAL entry {entry.entry_id}: large file missing and cannot recover (data not in WAL)"
+                        )
                         return False
 
                 # Small file - data is in WAL, replay it
                 await io_manager.write_file(
                     entry.target_path,
                     entry.data,
-                    mode="wb" if isinstance(entry.data, bytes) else "w"
+                    mode="wb" if isinstance(entry.data, bytes) else "w",
                 )
                 await self.commit(entry.entry_id)
                 logger.info(f"Replayed WAL entry {entry.entry_id}")
@@ -799,9 +825,11 @@ class WriteAheadLog:
 # ROUND 1: DEV - Event Normalization Layer
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class NormalizedEvent:
     """Standardized event format for all event systems."""
+
     event_id: str
     event_type: str
     source: str
@@ -847,28 +875,41 @@ class EventNormalizer:
     def _auto_normalize(self, event: Any) -> NormalizedEvent:
         """Auto-normalize based on event attributes."""
         # Extract common fields
-        event_id = getattr(event, "event_id", None) or \
-                   getattr(event, "id", None) or \
-                   hashlib.sha256(str(datetime.utcnow()).encode()).hexdigest()[:16]
+        event_id = (
+            getattr(event, "event_id", None)
+            or getattr(event, "id", None)
+            or hashlib.sha256(str(datetime.utcnow()).encode()).hexdigest()[:16]
+        )
 
-        event_type_name = getattr(event, "event_type", None) or \
-                         getattr(event, "type", None) or \
-                         type(event).__name__
+        event_type_name = (
+            getattr(event, "event_type", None)
+            or getattr(event, "type", None)
+            or type(event).__name__
+        )
 
         source = getattr(event, "source", "unknown")
 
         timestamp = getattr(event, "timestamp", None) or datetime.utcnow()
 
-        aggregate_id = getattr(event, "aggregate_id", None) or \
-                      getattr(event, "project_id", None) or \
-                      getattr(event, "task_id", None) or ""
+        aggregate_id = (
+            getattr(event, "aggregate_id", None)
+            or getattr(event, "project_id", None)
+            or getattr(event, "task_id", None)
+            or ""
+        )
 
         # Extract payload
         payload = {}
         if hasattr(event, "__dataclass_fields__"):
             # Dataclass
             for field_name in event.__dataclass_fields__:
-                if field_name not in ["event_id", "event_type", "source", "timestamp", "aggregate_id"]:
+                if field_name not in [
+                    "event_id",
+                    "event_type",
+                    "source",
+                    "timestamp",
+                    "aggregate_id",
+                ]:
                     payload[field_name] = getattr(event, field_name)
         elif hasattr(event, "data"):
             # Has data dict
@@ -987,6 +1028,7 @@ class UnifiedEventBus:
 # ROUND 1: DEV - Transactional Storage
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class TransactionalStorage:
     """
     Storage with WAL-backed transaction safety.
@@ -1044,11 +1086,14 @@ class TransactionalStorage:
                 await self._wal.commit(entry.entry_id)
 
             # Step 4: Emit event
-            await self._event_bus.publish({
-                "event_type": "storage.write",
-                "path": str(path),
-                "size": len(data) if isinstance(data, bytes) else len(data.encode()),
-            }, source="transactional_storage")
+            await self._event_bus.publish(
+                {
+                    "event_type": "storage.write",
+                    "path": str(path),
+                    "size": len(data) if isinstance(data, bytes) else len(data.encode()),
+                },
+                source="transactional_storage",
+            )
 
             return True
 
@@ -1128,6 +1173,7 @@ class TransactionalStorage:
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROUND 1: DEV - Integration Helpers
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def create_production_nash_orchestrator(**kwargs):
     """

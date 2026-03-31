@@ -110,6 +110,7 @@ class HybridRouter:
 
         # Weighted random selection
         import random
+
         if random.random() < self.legacy_weight:
             logger.debug(f"Hybrid router: selected legacy choice {legacy_model.value}")
             return legacy_model
@@ -216,12 +217,10 @@ class SmartRouter:
             "outcome_router": self.outcome.get_nash_stability_report(),
             "adaptive_router": {
                 "degraded_models": [
-                    m.value for m in Model
-                    if self.adaptive.get_state(m).value == "degraded"
+                    m.value for m in Model if self.adaptive.get_state(m).value == "degraded"
                 ],
                 "disabled_models": [
-                    m.value for m in Model
-                    if self.adaptive.get_state(m).value == "disabled"
+                    m.value for m in Model if self.adaptive.get_state(m).value == "disabled"
                 ],
             },
         }

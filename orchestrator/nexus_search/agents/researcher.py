@@ -98,9 +98,7 @@ class ResearchAgent:
 
             # Generate follow-up queries (if not last iteration)
             if iteration < depth - 1 and results.results:
-                follow_ups = await self._generate_follow_up_queries(
-                    query, results, iteration
-                )
+                follow_ups = await self._generate_follow_up_queries(query, results, iteration)
                 follow_up_queries.extend(follow_ups)
 
         # Synthesize findings

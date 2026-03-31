@@ -44,6 +44,7 @@ logger = get_logger(__name__)
 @dataclass
 class StreamingMetrics:
     """Metrics for streaming validation."""
+
     total_streams: int = 0
     early_aborts: int = 0
     successful_streams: int = 0
@@ -74,6 +75,7 @@ class StreamingMetrics:
 @dataclass
 class StreamingResult:
     """Result of streaming validation."""
+
     response: str
     chunks: list[str]
     total_tokens: int
@@ -101,18 +103,15 @@ class StreamingValidator:
         r"i am unable",
         r"as an ai",
         r"as a language model",
-
         # Off-topic
         r"this is not related",
         r"without more context",
         r"i need more information",
-
         # Errors in code
         r"# error:",
         r"# todo:",
         r"# fixme:",
         r"raise NotImplementedError",
-
         # Incomplete code
         r"pass  # TODO",
         r"pass  # FIXME",
@@ -145,8 +144,7 @@ class StreamingValidator:
         self.client = client
         self.metrics = StreamingMetrics()
         self._compiled_patterns = [
-            re.compile(pattern, re.IGNORECASE)
-            for pattern in self.EARLY_ABORT_PATTERNS
+            re.compile(pattern, re.IGNORECASE) for pattern in self.EARLY_ABORT_PATTERNS
         ]
 
     async def stream_and_validate(
@@ -206,9 +204,7 @@ class StreamingValidator:
                         failure = self._detect_early_failure(partial, task_type)
 
                         if failure:
-                            logger.warning(
-                                f"Early abort at {total_tokens:.0f} tokens: {failure}"
-                            )
+                            logger.warning(f"Early abort at {total_tokens:.0f} tokens: {failure}")
 
                             early_aborted = True
                             abort_reason = failure
@@ -292,10 +288,10 @@ class StreamingValidator:
             raise RuntimeError("No client available")
 
         # Check if client supports streaming
-        if hasattr(self.client, 'stream'):
+        if hasattr(self.client, "stream"):
             async for chunk in self.client.stream(model, prompt, **kwargs):
                 yield chunk
-        elif hasattr(self.client, 'stream_create'):
+        elif hasattr(self.client, "stream_create"):
             stream = await self.client.stream_create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
@@ -303,9 +299,9 @@ class StreamingValidator:
                 **kwargs,
             )
             async for chunk in stream:
-                if hasattr(chunk, 'choices') and chunk.choices:
+                if hasattr(chunk, "choices") and chunk.choices:
                     delta = chunk.choices[0].delta
-                    if hasattr(delta, 'content') and delta.content:
+                    if hasattr(delta, "content") and delta.content:
                         yield delta.content
         else:
             # Fallback: simulate streaming with regular call
@@ -317,12 +313,12 @@ class StreamingValidator:
                 **kwargs,
             )
 
-            text = response.text if hasattr(response, 'text') else str(response)
+            text = response.text if hasattr(response, "text") else str(response)
 
             # Yield in chunks
             chunk_size = 100
             for i in range(0, len(text), chunk_size):
-                yield text[i:i + chunk_size]
+                yield text[i : i + chunk_size]
                 await asyncio.sleep(0.01)  # Simulate streaming delay
 
     def _detect_early_failure(
@@ -400,6 +396,7 @@ class StreamingValidator:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def stream_and_validate(
     client,

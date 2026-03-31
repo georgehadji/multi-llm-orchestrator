@@ -40,6 +40,7 @@ logger = get_logger(__name__)
 @dataclass
 class UIComponent:
     """Extracted UI component from design."""
+
     type: str  # button, form, list, card, nav, etc.
     name: str
     properties: dict[str, Any] = field(default_factory=dict)
@@ -61,6 +62,7 @@ class UIComponent:
 @dataclass
 class DesignSpec:
     """Complete design specification from image analysis."""
+
     components: list[UIComponent]
     layout_structure: str  # grid, flexbox, etc.
     color_palette: dict[str, str]
@@ -107,7 +109,9 @@ class DesignSpec:
         if self.interactive_elements:
             spec_text += "## Interactive Elements\n"
             for elem in self.interactive_elements:
-                spec_text += f"- {elem.get('name', 'Element')}: {elem.get('behavior', 'Click action')}\n"
+                spec_text += (
+                    f"- {elem.get('name', 'Element')}: {elem.get('behavior', 'Click action')}\n"
+                )
 
         if self.notes:
             spec_text += f"\n## Notes\n{self.notes}\n"
@@ -118,6 +122,7 @@ class DesignSpec:
 @dataclass
 class GeneratedCode:
     """Generated code from design spec."""
+
     files: dict[str, str]
     framework: str
     dependencies: list[str]
@@ -217,8 +222,8 @@ class DesignToCodePipeline:
             model=self.default_model,
             prompt=prompt,
             system=f"You are an expert {framework} developer. "
-                   f"Generate clean, production-ready code from design specifications. "
-                   f"Output complete, runnable code files.",
+            f"Generate clean, production-ready code from design specifications. "
+            f"Output complete, runnable code files.",
             max_tokens=8000,
             temperature=0.2,
             timeout=300,
@@ -292,23 +297,25 @@ class DesignToCodePipeline:
             # Anthropic format
             response = await self.client.call(
                 model=self.default_model,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_data,
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": prompt,
-                        },
-                    ],
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": image_data,
+                                },
+                            },
+                            {
+                                "type": "text",
+                                "text": prompt,
+                            },
+                        ],
+                    }
+                ],
                 max_tokens=4000,
                 temperature=0.2,
                 timeout=300,
@@ -317,21 +324,21 @@ class DesignToCodePipeline:
             # OpenAI format
             response = await self.client.call(
                 model=self.default_model,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{media_type};base64,{image_data}"
-                            }
-                        },
-                        {
-                            "type": "text",
-                            "text": prompt,
-                        },
-                    ],
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{media_type};base64,{image_data}"},
+                            },
+                            {
+                                "type": "text",
+                                "text": prompt,
+                            },
+                        ],
+                    }
+                ],
                 max_tokens=4000,
                 temperature=0.2,
                 timeout=300,
@@ -428,14 +435,16 @@ class DesignToCodePipeline:
                 # Parse components
                 components = []
                 for comp_data in data.get("components", []):
-                    components.append(UIComponent(
-                        type=comp_data.get("type", "unknown"),
-                        name=comp_data.get("name", "unnamed"),
-                        properties=comp_data.get("properties", {}),
-                        children=[],
-                        position=comp_data.get("position", {}),
-                        styles=comp_data.get("styles", {}),
-                    ))
+                    components.append(
+                        UIComponent(
+                            type=comp_data.get("type", "unknown"),
+                            name=comp_data.get("name", "unnamed"),
+                            properties=comp_data.get("properties", {}),
+                            children=[],
+                            position=comp_data.get("position", {}),
+                            styles=comp_data.get("styles", {}),
+                        )
+                    )
 
                 return DesignSpec(
                     components=components,
@@ -473,6 +482,7 @@ class DesignToCodePipeline:
 
         # Look for file markers: ### filename.ext
         import re
+
         pattern = r"###\s+(\S+)\n(.*?)(?=###\s+\S+|$)"
         matches = re.findall(pattern, code_text, re.DOTALL)
 

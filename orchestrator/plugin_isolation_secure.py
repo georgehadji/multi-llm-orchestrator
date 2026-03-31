@@ -53,16 +53,18 @@ logger = get_logger(__name__)
 
 class SecurityLayer(Enum):
     """Available security isolation layers."""
-    PROCESS = auto()      # Process isolation
-    SECCOMP = auto()      # System call filtering
-    LANDLOCK = auto()     # Filesystem sandboxing
+
+    PROCESS = auto()  # Process isolation
+    SECCOMP = auto()  # System call filtering
+    LANDLOCK = auto()  # Filesystem sandboxing
     CAPABILITIES = auto()  # Linux capabilities
-    RESOURCES = auto()    # Resource limits
+    RESOURCES = auto()  # Resource limits
 
 
 @dataclass
 class SecureIsolationConfig(IsolationConfig):
     """Extended config with security options."""
+
     enable_seccomp: bool = True
     enable_landlock: bool = True
     enable_capabilities: bool = True
@@ -104,6 +106,7 @@ class SecureIsolatedRuntime:
         """Check if seccomp is available."""
         try:
             import seccomp
+
             return True
         except ImportError:
             logger.warning("seccomp not available - install python-seccomp")
@@ -114,7 +117,7 @@ class SecureIsolatedRuntime:
         try:
             # Check kernel version
             version = os.uname().release
-            major, minor = map(int, version.split('.')[:2])
+            major, minor = map(int, version.split(".")[:2])
             return (major, minor) >= (5, 13)
         except Exception:
             return False
@@ -123,6 +126,7 @@ class SecureIsolatedRuntime:
         """Check if prctl/capabilities available."""
         try:
             import prctl
+
             return True
         except ImportError:
             logger.warning("prctl not available - install python-prctl")
@@ -279,43 +283,49 @@ class SecureIsolatedRuntime:
 
             execution_time = time.time() - start_time
 
-            result_queue.put({
-                "success": True,
-                "result": result,
-                "execution_time": execution_time,
-                "logs": logs,
-            })
+            result_queue.put(
+                {
+                    "success": True,
+                    "result": result,
+                    "execution_time": execution_time,
+                    "logs": logs,
+                }
+            )
 
         except Exception as e:
             execution_time = time.time() - start_time
-            result_queue.put({
-                "success": False,
-                "error": f"{type(e).__name__}: {str(e)}",
-                "execution_time": execution_time,
-                "logs": logs,
-            })
+            result_queue.put(
+                {
+                    "success": False,
+                    "error": f"{type(e).__name__}: {str(e)}",
+                    "execution_time": execution_time,
+                    "logs": logs,
+                }
+            )
 
     def _apply_landlock(self, sandbox: Path) -> None:
         """Apply Landlock filesystem sandboxing."""
         try:
             import landlock
 
-            ruleset = landlock.create_ruleset({
-                landlock.Access.FS_READ_FILE,
-                landlock.Access.FS_WRITE_FILE,
-                landlock.Access.FS_READ_DIR,
-            })
+            ruleset = landlock.create_ruleset(
+                {
+                    landlock.Access.FS_READ_FILE,
+                    landlock.Access.FS_WRITE_FILE,
+                    landlock.Access.FS_READ_DIR,
+                }
+            )
 
             # Allow workspace
             ruleset.add_rule(
                 landlock.PathFd(str(sandbox / "workspace")),
-                landlock.Access.FS_READ_FILE | landlock.Access.FS_WRITE_FILE
+                landlock.Access.FS_READ_FILE | landlock.Access.FS_WRITE_FILE,
             )
 
             # Allow temp
             ruleset.add_rule(
                 landlock.PathFd(str(sandbox / "temp")),
-                landlock.Access.FS_READ_FILE | landlock.Access.FS_WRITE_FILE
+                landlock.Access.FS_READ_FILE | landlock.Access.FS_WRITE_FILE,
             )
 
             # Restrict
@@ -373,18 +383,18 @@ class SecureIsolatedRuntime:
 
             # Block dangerous syscalls
             dangerous = [
-                "ptrace",              # No debugging other processes
-                "process_vm_writev",   # No writing to other processes' memory
-                "process_vm_readv",    # No reading other processes' memory
-                "execve",              # No executing new programs
+                "ptrace",  # No debugging other processes
+                "process_vm_writev",  # No writing to other processes' memory
+                "process_vm_readv",  # No reading other processes' memory
+                "execve",  # No executing new programs
                 "execveat",
-                "fork",                # No forking
+                "fork",  # No forking
                 "vfork",
                 "clone",
-                "unshare",             # No namespace manipulation
+                "unshare",  # No namespace manipulation
                 "setns",
-                "pivot_root",          # No chroot escape
-                "chroot",              # No additional chroots
+                "pivot_root",  # No chroot escape
+                "chroot",  # No additional chroots
             ]
 
             for syscall in dangerous:
@@ -429,18 +439,12 @@ class SecureIsolatedRuntime:
         # Memory limit
         if config.memory_limit_mb > 0:
             max_bytes = config.memory_limit_mb * 1024 * 1024
-            resource.setrlimit(
-                resource.RLIMIT_AS,
-                (max_bytes, max_bytes)
-            )
+            resource.setrlimit(resource.RLIMIT_AS, (max_bytes, max_bytes))
 
         # CPU limit (soft only)
         if config.cpu_limit_percent > 0:
             cpu_seconds = config.timeout_seconds * (config.cpu_limit_percent / 100)
-            resource.setrlimit(
-                resource.RLIMIT_CPU,
-                (int(cpu_seconds), int(cpu_seconds * 2))
-            )
+            resource.setrlimit(resource.RLIMIT_CPU, (int(cpu_seconds), int(cpu_seconds * 2)))
 
         # File descriptor limit
         resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
@@ -478,8 +482,8 @@ class TrustedPluginRegistry:
 
         # Calculate file hash
         sha256 = hashlib.sha256()
-        with open(plugin_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
+        with open(plugin_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
                 sha256.update(chunk)
 
         file_hash = sha256.hexdigest()

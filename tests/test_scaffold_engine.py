@@ -2,6 +2,7 @@
 Tests for ScaffoldEngine and scaffold templates (Task 3).
 No filesystem side effects — uses tmp_path fixture.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,10 +12,10 @@ import pytest
 from orchestrator.app_detector import AppProfile
 from orchestrator.scaffold import ScaffoldEngine
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # ScaffoldEngine — basic interface
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_scaffold_returns_dict(tmp_path):
     """scaffold() must return a dict mapping relative paths to file content strings."""

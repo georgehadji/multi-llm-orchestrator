@@ -26,6 +26,7 @@ Three concrete backends ship with the orchestrator:
 All backends share the same interface so ConstraintPlanner can swap them
 at construction time or at runtime via set_backend().
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -38,10 +39,11 @@ if TYPE_CHECKING:
     from .policy import ModelProfile
 
 # ── Shared constant ────────────────────────────────────────────────────────────
-_EPSILON: float = 1e-6   # prevents division by zero when cost rounds to 0
+_EPSILON: float = 1e-6  # prevents division by zero when cost rounds to 0
 
 
 # ── Abstract base ─────────────────────────────────────────────────────────────
+
 
 class OptimizationBackend(ABC):
     """
@@ -74,6 +76,7 @@ class OptimizationBackend(ABC):
 
 # ── GreedyBackend ─────────────────────────────────────────────────────────────
 
+
 class GreedyBackend(OptimizationBackend):
     """
     Current default scoring: quality × trust / (cost + ε).
@@ -104,6 +107,7 @@ class GreedyBackend(OptimizationBackend):
 
 
 # ── WeightedSumBackend ────────────────────────────────────────────────────────
+
 
 class WeightedSumBackend(OptimizationBackend):
     """
@@ -169,6 +173,7 @@ class WeightedSumBackend(OptimizationBackend):
 
 # ── ParetoBackend ─────────────────────────────────────────────────────────────
 
+
 class ParetoBackend(OptimizationBackend):
     """
     Two-step Pareto-optimal selection (Lan et al., ANIT 2023).
@@ -211,11 +216,12 @@ class ParetoBackend(OptimizationBackend):
 
         # Step 1: compute objectives for each candidate
         costs = {m: typical_cost_fn(profiles[m], task_type) for m in candidates}
-        lats  = {m: profiles[m].avg_latency_ms for m in candidates}
+        lats = {m: profiles[m].avg_latency_ms for m in candidates}
 
         # Pareto dominance filter
         pareto: list[Model] = [
-            m for m in candidates
+            m
+            for m in candidates
             if not any(
                 costs[o] <= costs[m]
                 and lats[o] <= lats[m]

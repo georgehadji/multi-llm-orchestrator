@@ -51,6 +51,7 @@ try:
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
     from mcp.types import TextContent, Tool
+
     HAS_MCP = True
 except ImportError:
     HAS_MCP = False
@@ -66,6 +67,7 @@ from .token_optimizer import TokenOptimizer
 @dataclass
 class MCPConfig:
     """MCP Server configuration."""
+
     http_mode: bool = False
     port: int = 8181
     host: str = "0.0.0.0"
@@ -116,8 +118,15 @@ class MCPServer:
                         "properties": {
                             "query": {"type": "string", "description": "Search query"},
                             "project_id": {"type": "string", "description": "Filter by project"},
-                            "limit": {"type": "integer", "default": 10, "description": "Max results"},
-                            "memory_type": {"type": "string", "description": "Filter by type (task, conversation, knowledge)"},
+                            "limit": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Max results",
+                            },
+                            "memory_type": {
+                                "type": "string",
+                                "description": "Filter by type (task, conversation, knowledge)",
+                            },
                         },
                         "required": ["query"],
                     },
@@ -189,7 +198,10 @@ class MCPServer:
                         "type": "object",
                         "properties": {
                             "project_id": {"type": "string"},
-                            "mode": {"type": "string", "enum": ["strict", "creative", "balanced", "custom"]},
+                            "mode": {
+                                "type": "string",
+                                "enum": ["strict", "creative", "balanced", "custom"],
+                            },
                         },
                         "required": ["project_id", "mode"],
                     },
@@ -476,27 +488,27 @@ class MCPServer:
                 super().__init__(*args, **kwargs)
 
             def do_POST(self):
-                content_length = int(self.headers.get('Content-Length', 0))
-                body = self.rfile.read(content_length).decode('utf-8')
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
 
                 try:
                     request = json.loads(body)
                     # Handle MCP JSON-RPC request
                     response = {"jsonrpc": "2.0", "id": request.get("id"), "result": {}}
                     self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
+                    self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     self.wfile.write(json.dumps(response).encode())
                 except Exception as e:
                     self.send_response(500)
-                    self.send_header('Content-Type', 'application/json')
+                    self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode())
 
             def do_GET(self):
-                if self.path == '/health':
+                if self.path == "/health":
                     self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
+                    self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     status = self.mcp_server._tool_status()
                     self.wfile.write(json.dumps(status).encode())

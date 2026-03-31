@@ -76,7 +76,9 @@ class Tier1OptimizationMixin:
         self._optimization_enabled = True
         logger.info("Tier 1 optimizations enabled — expected 60-75% cost reduction")
 
-    async def warm_cache_for_parallel(self: Orchestrator, system_prompt: str, project_context: str) -> None:
+    async def warm_cache_for_parallel(
+        self: Orchestrator, system_prompt: str, project_context: str
+    ) -> None:
         """
         Warm prompt cache before parallel execution.
 
@@ -86,7 +88,7 @@ class Tier1OptimizationMixin:
             system_prompt: System prompt to cache
             project_context: Project-specific context
         """
-        if not hasattr(self, '_optimization_enabled') or not self._optimization_enabled:
+        if not hasattr(self, "_optimization_enabled") or not self._optimization_enabled:
             return
 
         try:
@@ -119,7 +121,7 @@ class Tier1OptimizationMixin:
         Returns:
             Dictionary with response, tokens, cost
         """
-        if not hasattr(self, '_optimization_enabled') or not self._optimization_enabled:
+        if not hasattr(self, "_optimization_enabled") or not self._optimization_enabled:
             # Fallback to direct call
             return await self._direct_generate(task, model, full_prompt, **kwargs)
 
@@ -133,7 +135,7 @@ class Tier1OptimizationMixin:
                 model=model.value,
                 messages=[{"role": "user", "content": full_prompt}],
                 system_prompt=self._get_system_prompt(),  # Orchestrator method
-                project_context=getattr(self, '_project_context', ""),
+                project_context=getattr(self, "_project_context", ""),
                 max_tokens=max_tokens,
                 **kwargs,
             )
@@ -141,8 +143,8 @@ class Tier1OptimizationMixin:
             # Extract response data
             result = {
                 "response": self._extract_response_text(response),
-                "tokens_input": getattr(response.usage, 'input_tokens', 0),
-                "tokens_output": getattr(response.usage, 'output_tokens', 0),
+                "tokens_input": getattr(response.usage, "input_tokens", 0),
+                "tokens_output": getattr(response.usage, "output_tokens", 0),
                 "cost": self._estimate_cost(model, response),
                 "cached": True,
             }
@@ -193,10 +195,10 @@ class Tier1OptimizationMixin:
         )
 
         return {
-            "response": response.text if hasattr(response, 'text') else str(response),
-            "tokens_input": getattr(response, 'input_tokens', 0),
-            "tokens_output": getattr(response, 'output_tokens', 0),
-            "cost": getattr(response, 'cost_usd', 0.0),
+            "response": response.text if hasattr(response, "text") else str(response),
+            "tokens_input": getattr(response, "input_tokens", 0),
+            "tokens_output": getattr(response, "output_tokens", 0),
+            "cost": getattr(response, "cost_usd", 0.0),
             "cached": False,
         }
 
@@ -221,7 +223,7 @@ class Tier1OptimizationMixin:
         Returns:
             Evaluation result dictionary
         """
-        if not hasattr(self, '_optimization_enabled') or not self._optimization_enabled:
+        if not hasattr(self, "_optimization_enabled") or not self._optimization_enabled:
             # Fallback to realtime
             return await self._direct_evaluate(task, prompt, model, **kwargs)
 
@@ -273,7 +275,7 @@ class Tier1OptimizationMixin:
         )
 
         return {
-            "response": response.text if hasattr(response, 'text') else str(response),
+            "response": response.text if hasattr(response, "text") else str(response),
             "batch": False,
             "savings": 0.0,
         }
@@ -285,7 +287,7 @@ class Tier1OptimizationMixin:
         Returns:
             Dictionary with all optimization metrics
         """
-        if not hasattr(self, '_optimization_enabled') or not self._optimization_enabled:
+        if not hasattr(self, "_optimization_enabled") or not self._optimization_enabled:
             return {"enabled": False}
 
         return {
@@ -308,9 +310,9 @@ class Tier1OptimizationMixin:
         budget_metrics = self.token_budget.get_metrics()
 
         # Calculate savings from each optimization
-        caching_savings = caching_metrics.get('estimated_savings_percent', 0) / 100
-        batch_savings = batch_metrics.get('total_savings', 0)
-        budget_savings = budget_metrics.get('estimated_savings', 0)
+        caching_savings = caching_metrics.get("estimated_savings_percent", 0) / 100
+        batch_savings = batch_metrics.get("total_savings", 0)
+        budget_savings = budget_metrics.get("estimated_savings", 0)
 
         return caching_savings + batch_savings + budget_savings
 
@@ -322,7 +324,7 @@ class Tier1OptimizationMixin:
             System prompt string
         """
         # This should be implemented in Orchestrator to return the actual system prompt
-        return getattr(self, '_system_prompt', "You are an expert software developer.")
+        return getattr(self, "_system_prompt", "You are an expert software developer.")
 
     def _extract_response_text(self: Orchestrator, response: Any) -> str:
         """
@@ -334,9 +336,9 @@ class Tier1OptimizationMixin:
         Returns:
             Response text
         """
-        if hasattr(response, 'text'):
+        if hasattr(response, "text"):
             return response.text
-        if hasattr(response, 'content'):
+        if hasattr(response, "content"):
             return response.content
         return str(response)
 
@@ -351,16 +353,16 @@ class Tier1OptimizationMixin:
         Returns:
             Estimated cost in USD
         """
-        if hasattr(response, 'cost_usd'):
+        if hasattr(response, "cost_usd"):
             return response.cost_usd
 
         # Estimate from tokens
-        usage = getattr(response, 'usage', None)
+        usage = getattr(response, "usage", None)
         if not usage:
             return 0.0
 
-        input_tokens = getattr(usage, 'input_tokens', 0)
-        output_tokens = getattr(usage, 'output_tokens', 0)
+        input_tokens = getattr(usage, "input_tokens", 0)
+        output_tokens = getattr(usage, "output_tokens", 0)
 
         # Rough cost estimates (per 1M tokens)
         COST_PER_1M = {
@@ -370,7 +372,7 @@ class Tier1OptimizationMixin:
             "deepseek": {"input": 1.0, "output": 4.0},
         }
 
-        model_key = model.value.lower() if hasattr(model, 'value') else str(model).lower()
+        model_key = model.value.lower() if hasattr(model, "value") else str(model).lower()
         costs = COST_PER_1M.get(model_key, {"input": 3.0, "output": 15.0})
 
         input_cost = (input_tokens / 1_000_000) * costs["input"]

@@ -54,6 +54,7 @@ class AppStoreAssets:
         age_rating: Age rating (4+, 9+, 12+, 17+)
         export_compliance: Export compliance info
     """
+
     app_name: str
     subtitle: str
     description: str
@@ -130,18 +131,14 @@ class AppStoreAssetGenerator:
             keywords=self._generate_keywords(project),
             privacy_policy_url=self._generate_privacy_policy_url(project),
             support_url=self._generate_support_url(project),
-
             # Privacy labels
             privacy_labels=self._generate_privacy_labels(project),
-
             # Visual assets
             screenshots=self._generate_screenshot_specs(project),
             app_icon_spec=self._generate_icon_spec(project),
-
             # Review notes
             review_notes=self._generate_review_notes(project),
             demo_credentials=self._generate_demo_account(project),
-
             # Compliance
             age_rating=self._calculate_age_rating(project),
             export_compliance=self._check_export_compliance(project),
@@ -158,24 +155,24 @@ class AppStoreAssetGenerator:
             App name
         """
         # FIX-003a: Validate project name before generating app name
-        raw_name = getattr(project, 'name', '').strip()
+        raw_name = getattr(project, "name", "").strip()
 
         # Handle empty or whitespace-only names
         if not raw_name or len(raw_name) < self.MIN_NAME_LENGTH:
             # Generate fallback name from description or use generic
-            if hasattr(project, 'description') and project.description:
+            if hasattr(project, "description") and project.description:
                 # Extract first few meaningful words from description
                 words = project.description.split()[:3]
-                raw_name = ' '.join(words) if words else 'MyApp'
+                raw_name = " ".join(words) if words else "MyApp"
             else:
-                raw_name = 'MyApp'
+                raw_name = "MyApp"
 
         # Use project name, truncated if needed
-        name = raw_name[:self.MAX_NAME_LENGTH].strip()
+        name = raw_name[: self.MAX_NAME_LENGTH].strip()
 
         # Ensure it doesn't end with space
         if len(name) < len(raw_name):
-            name = name.rsplit(' ', 1)[0]
+            name = name.rsplit(" ", 1)[0]
 
         logger.debug(f"Generated app name: {name}")
         return name
@@ -191,15 +188,15 @@ class AppStoreAssetGenerator:
             App subtitle
         """
         # Extract key value proposition from description
-        if hasattr(project, 'description') and project.description:
+        if hasattr(project, "description") and project.description:
             # Take first sentence, truncate if needed
-            first_sentence = project.description.split('.')[0]
-            subtitle = first_sentence[:self.MAX_SUBTITLE_LENGTH].strip()
+            first_sentence = project.description.split(".")[0]
+            subtitle = first_sentence[: self.MAX_SUBTITLE_LENGTH].strip()
         else:
             # Generic subtitle based on project type
             subtitle = f"Professional {project.name} App"
 
-        subtitle = subtitle[:self.MAX_SUBTITLE_LENGTH].strip()
+        subtitle = subtitle[: self.MAX_SUBTITLE_LENGTH].strip()
         logger.debug(f"Generated subtitle: {subtitle}")
         return subtitle
 
@@ -217,7 +214,9 @@ class AppStoreAssetGenerator:
         description_parts = []
 
         # Opening hook
-        description_parts.append(f"Welcome to {project.name} - your ultimate solution for {self._extract_category(project)}.")
+        description_parts.append(
+            f"Welcome to {project.name} - your ultimate solution for {self._extract_category(project)}."
+        )
         description_parts.append("")
 
         # Key features
@@ -226,7 +225,7 @@ class AppStoreAssetGenerator:
         description_parts.append("")
 
         # Description from project
-        if hasattr(project, 'description') and project.description:
+        if hasattr(project, "description") and project.description:
             description_parts.append("📖 ABOUT:")
             description_parts.append(project.description)
             description_parts.append("")
@@ -245,7 +244,7 @@ class AppStoreAssetGenerator:
 
         # Truncate if needed
         if len(description) > self.MAX_DESCRIPTION_LENGTH:
-            description = description[:self.MAX_DESCRIPTION_LENGTH - 3] + "..."
+            description = description[: self.MAX_DESCRIPTION_LENGTH - 3] + "..."
 
         logger.debug(f"Generated description ({len(description)} chars)")
         return description
@@ -280,9 +279,9 @@ class AppStoreAssetGenerator:
 
         # Truncate if needed
         if len(keywords) > self.MAX_KEYWORDS_LENGTH:
-            keywords = keywords[:self.MAX_KEYWORDS_LENGTH]
+            keywords = keywords[: self.MAX_KEYWORDS_LENGTH]
             # Ensure we don't cut in middle of word
-            keywords = keywords.rsplit(',', 1)[0]
+            keywords = keywords.rsplit(",", 1)[0]
 
         logger.debug(f"Generated keywords: {keywords}")
         return keywords
@@ -359,34 +358,40 @@ class AppStoreAssetGenerator:
         specs = []
 
         # iPhone 6.5" display (required)
-        specs.append({
-            "device": "iPhone 6.5\"",
-            "resolution": "1284x2778",
-            "orientation": "portrait",
-            "required": True,
-            "min_count": 1,
-            "description": "Main screen showing primary functionality",
-        })
+        specs.append(
+            {
+                "device": 'iPhone 6.5"',
+                "resolution": "1284x2778",
+                "orientation": "portrait",
+                "required": True,
+                "min_count": 1,
+                "description": "Main screen showing primary functionality",
+            }
+        )
 
         # iPhone 5.5" display (required)
-        specs.append({
-            "device": "iPhone 5.5\"",
-            "resolution": "1242x2208",
-            "orientation": "portrait",
-            "required": True,
-            "min_count": 1,
-            "description": "Main screen showing primary functionality",
-        })
+        specs.append(
+            {
+                "device": 'iPhone 5.5"',
+                "resolution": "1242x2208",
+                "orientation": "portrait",
+                "required": True,
+                "min_count": 1,
+                "description": "Main screen showing primary functionality",
+            }
+        )
 
         # iPad Pro 12.9" (optional but recommended)
-        specs.append({
-            "device": "iPad Pro 12.9\"",
-            "resolution": "2048x2732",
-            "orientation": "portrait",
-            "required": False,
-            "min_count": 0,
-            "description": "iPad optimized interface",
-        })
+        specs.append(
+            {
+                "device": 'iPad Pro 12.9"',
+                "resolution": "2048x2732",
+                "orientation": "portrait",
+                "required": False,
+                "min_count": 0,
+                "description": "iPad optimized interface",
+            }
+        )
 
         logger.debug(f"Generated screenshot specs for {len(specs)} devices")
         return specs
@@ -597,6 +602,7 @@ class AppStoreAssetGenerator:
 # ─────────────────────────────────────────────
 # Convenience Function
 # ─────────────────────────────────────────────
+
 
 async def generate_app_store_assets(project: ProjectSpec) -> AppStoreAssets:
     """

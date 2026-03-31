@@ -50,6 +50,7 @@ logger = get_logger(__name__)
 # Optional NetworkX import with fallback
 try:
     import networkx as nx
+
     HAS_NETWORKX = True
 except ImportError:
     HAS_NETWORKX = False
@@ -58,6 +59,7 @@ except ImportError:
 
 class NodeType(Enum):
     """Types of nodes in the knowledge graph."""
+
     MODEL = "model"
     TASK_TYPE = "task_type"
     PATTERN = "pattern"
@@ -70,20 +72,22 @@ class NodeType(Enum):
 
 class EdgeType(Enum):
     """Types of relationships in the graph."""
-    EXCELS_AT = "excels_at"           # Model -> Pattern/Task
+
+    EXCELS_AT = "excels_at"  # Model -> Pattern/Task
     STRUGGLES_WITH = "struggles_with"  # Model -> Pattern/Task
-    USED_FOR = "used_for"             # Model -> TaskType
-    PRODUCES = "produces"             # Model -> Outcome
-    HAS_PATTERN = "has_pattern"       # Project -> Pattern
-    USES_FRAMEWORK = "uses_framework" # Project -> Framework
-    USES_LANGUAGE = "uses_language"   # Project -> Language
-    DEPENDS_ON = "depends_on"         # Pattern -> Dependency
-    SIMILAR_TO = "similar_to"         # Pattern -> Pattern
+    USED_FOR = "used_for"  # Model -> TaskType
+    PRODUCES = "produces"  # Model -> Outcome
+    HAS_PATTERN = "has_pattern"  # Project -> Pattern
+    USES_FRAMEWORK = "uses_framework"  # Project -> Framework
+    USES_LANGUAGE = "uses_language"  # Project -> Language
+    DEPENDS_ON = "depends_on"  # Pattern -> Dependency
+    SIMILAR_TO = "similar_to"  # Pattern -> Pattern
 
 
 @dataclass
 class Node:
     """A node in the knowledge graph."""
+
     id: str
     type: NodeType
     properties: dict[str, Any] = field(default_factory=dict)
@@ -103,6 +107,7 @@ class Node:
 @dataclass
 class Edge:
     """An edge in the knowledge graph."""
+
     source: str
     target: str
     type: EdgeType
@@ -128,6 +133,7 @@ class Edge:
 @dataclass
 class PathResult:
     """Result of a path query."""
+
     nodes: list[Node]
     edges: list[Edge]
     total_weight: float
@@ -138,6 +144,7 @@ class PathResult:
 @dataclass
 class SimilarityMatch:
     """A similarity match result."""
+
     node: Node
     similarity: float
     matching_patterns: list[str]
@@ -264,15 +271,17 @@ class PerformanceKnowledgeGraph:
         if HAS_NETWORKX and self._graph is not None:
             edges = []
             for u, v, data in self._graph.edges(data=True):
-                edges.append(Edge(
-                    source=u,
-                    target=v,
-                    type=EdgeType(data.get("type", EdgeType.EXCELS_AT.value)),
-                    weight=data.get("weight", 1.0),
-                    confidence=data.get("confidence", 1.0),
-                    sample_size=data.get("sample_size", 1),
-                    properties=data.get("properties", {}),
-                ))
+                edges.append(
+                    Edge(
+                        source=u,
+                        target=v,
+                        type=EdgeType(data.get("type", EdgeType.EXCELS_AT.value)),
+                        weight=data.get("weight", 1.0),
+                        confidence=data.get("confidence", 1.0),
+                        sample_size=data.get("sample_size", 1),
+                        properties=data.get("properties", {}),
+                    )
+                )
             return edges
         else:
             return [e for edges in self._edges.values() for e in edges]
@@ -329,15 +338,17 @@ class PerformanceKnowledgeGraph:
         if HAS_NETWORKX and self._graph is not None:
             edges = []
             for _, target, data in self._graph.out_edges(node_id, data=True):
-                edges.append(Edge(
-                    source=node_id,
-                    target=target,
-                    type=EdgeType(data.get("type", EdgeType.EXCELS_AT.value)),
-                    weight=data.get("weight", 1.0),
-                    confidence=data.get("confidence", 1.0),
-                    sample_size=data.get("sample_size", 1),
-                    properties=data.get("properties", {}),
-                ))
+                edges.append(
+                    Edge(
+                        source=node_id,
+                        target=target,
+                        type=EdgeType(data.get("type", EdgeType.EXCELS_AT.value)),
+                        weight=data.get("weight", 1.0),
+                        confidence=data.get("confidence", 1.0),
+                        sample_size=data.get("sample_size", 1),
+                        properties=data.get("properties", {}),
+                    )
+                )
             return edges
         else:
             return self._edges.get(node_id, [])
@@ -347,15 +358,17 @@ class PerformanceKnowledgeGraph:
         if HAS_NETWORKX and self._graph is not None:
             edges = []
             for source, _, data in self._graph.in_edges(node_id, data=True):
-                edges.append(Edge(
-                    source=source,
-                    target=node_id,
-                    type=EdgeType(data.get("type", EdgeType.EXCELS_AT.value)),
-                    weight=data.get("weight", 1.0),
-                    confidence=data.get("confidence", 1.0),
-                    sample_size=data.get("sample_size", 1),
-                    properties=data.get("properties", {}),
-                ))
+                edges.append(
+                    Edge(
+                        source=source,
+                        target=node_id,
+                        type=EdgeType(data.get("type", EdgeType.EXCELS_AT.value)),
+                        weight=data.get("weight", 1.0),
+                        confidence=data.get("confidence", 1.0),
+                        sample_size=data.get("sample_size", 1),
+                        properties=data.get("properties", {}),
+                    )
+                )
             return edges
         else:
             return self._reverse_edges.get(node_id, [])
@@ -516,10 +529,7 @@ class PerformanceKnowledgeGraph:
         matches = []
 
         # Get all pattern nodes
-        pattern_nodes = [
-            n for n in self._get_all_nodes()
-            if n.type == NodeType.PATTERN
-        ]
+        pattern_nodes = [n for n in self._get_all_nodes() if n.type == NodeType.PATTERN]
 
         for pattern_node in pattern_nodes:
             # Calculate structural similarity
@@ -535,23 +545,20 @@ class PerformanceKnowledgeGraph:
                 # Find matching patterns
                 matching = self._find_matching_patterns(fingerprint, pattern_node)
 
-                matches.append(SimilarityMatch(
-                    node=pattern_node,
-                    similarity=similarity,
-                    matching_patterns=matching,
-                    explanation=self._generate_explanation(
-                        fingerprint, pattern_node, matching
-                    ),
-                ))
+                matches.append(
+                    SimilarityMatch(
+                        node=pattern_node,
+                        similarity=similarity,
+                        matching_patterns=matching,
+                        explanation=self._generate_explanation(fingerprint, pattern_node, matching),
+                    )
+                )
 
         # Sort by similarity and return top_k
         matches.sort(key=lambda x: x.similarity, reverse=True)
         return matches[:top_k]
 
-    def _fingerprint_to_embedding(
-        self,
-        fingerprint: CodebaseFingerprint
-    ) -> dict[str, float]:
+    def _fingerprint_to_embedding(self, fingerprint: CodebaseFingerprint) -> dict[str, float]:
         """Convert fingerprint to embedding vector representation."""
         embedding = {}
 
@@ -630,8 +637,8 @@ class PerformanceKnowledgeGraph:
             for k in set(query_embedding) | set(pattern_embedding)
         )
 
-        norm_query = sum(v ** 2 for v in query_embedding.values()) ** 0.5
-        norm_pattern = sum(v ** 2 for v in pattern_embedding.values()) ** 0.5
+        norm_query = sum(v**2 for v in query_embedding.values()) ** 0.5
+        norm_pattern = sum(v**2 for v in pattern_embedding.values()) ** 0.5
 
         if norm_query == 0 or norm_pattern == 0:
             return 0.0
@@ -648,7 +655,11 @@ class PerformanceKnowledgeGraph:
 
         matching = []
         for fp_pattern in fingerprint.patterns:
-            if fp_pattern.lower() == node_pattern or node_pattern in fp_pattern.lower() or fp_pattern.lower() in node_pattern:
+            if (
+                fp_pattern.lower() == node_pattern
+                or node_pattern in fp_pattern.lower()
+                or fp_pattern.lower() in node_pattern
+            ):
                 matching.append(fp_pattern)
 
         return matching
@@ -729,14 +740,16 @@ class PerformanceKnowledgeGraph:
                 if len(scores) < 5:
                     avg_score *= 1.3
 
-            recommendations.append({
-                "model_id": model_id,
-                "model_name": node.properties.get("name", model_id),
-                "score": avg_score,
-                "confidence": avg_confidence,
-                "evidence_count": len(scores),
-                "strategy": strategy,
-            })
+            recommendations.append(
+                {
+                    "model_id": model_id,
+                    "model_name": node.properties.get("name", model_id),
+                    "score": avg_score,
+                    "confidence": avg_confidence,
+                    "evidence_count": len(scores),
+                    "strategy": strategy,
+                }
+            )
 
         # Sort by score
         recommendations.sort(key=lambda x: x["score"], reverse=True)
@@ -779,13 +792,15 @@ class PerformanceKnowledgeGraph:
                 node_objs = [self._get_node(n) for n in path_nodes if self._get_node(n)]
                 edge_objs = []  # Would need to reconstruct from IDs
 
-                paths.append(PathResult(
-                    nodes=node_objs,
-                    edges=edge_objs,
-                    total_weight=weight,
-                    confidence=confidence,
-                    path_type="success" if weight > 0.5 else "caution",
-                ))
+                paths.append(
+                    PathResult(
+                        nodes=node_objs,
+                        edges=edge_objs,
+                        total_weight=weight,
+                        confidence=confidence,
+                        path_type="success" if weight > 0.5 else "caution",
+                    )
+                )
                 continue
 
             if current in visited:
@@ -800,13 +815,15 @@ class PerformanceKnowledgeGraph:
 
                     # Pruning: drop low-confidence paths
                     if new_confidence > 0.1:
-                        queue.append((
-                            edge.target,
-                            path_nodes + [edge.target],
-                            path_edges + [edge.source + "->" + edge.target],
-                            new_weight,
-                            new_confidence,
-                        ))
+                        queue.append(
+                            (
+                                edge.target,
+                                path_nodes + [edge.target],
+                                path_edges + [edge.source + "->" + edge.target],
+                                new_weight,
+                                new_confidence,
+                            )
+                        )
 
         # Sort by weight (descending)
         paths.sort(key=lambda x: x.total_weight, reverse=True)

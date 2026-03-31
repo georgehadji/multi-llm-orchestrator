@@ -3,8 +3,10 @@
 Test Mission Control Dashboard with Real Orchestrator
 ======================================================
 """
+
 import sys
-sys.path.insert(0, r'E:\Documents\Vibe-Coding\Ai Orchestrator')
+
+sys.path.insert(0, r"E:\Documents\Vibe-Coding\Ai Orchestrator")
 
 print("=" * 70)
 print("🚀 Testing Mission Control v6.0 with REAL Orchestrator")
@@ -19,10 +21,12 @@ try:
         ProjectRunner,
         DashboardHookRegistry,
     )
+
     print("   ✅ All imports successful")
 except Exception as e:
     print(f"   ❌ Import failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -35,6 +39,7 @@ try:
 except Exception as e:
     print(f"   ❌ Failed: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -52,19 +57,20 @@ except Exception as e:
 print("\n4️⃣ Testing ProjectRunner with hooks...")
 try:
     from orchestrator.hooks import EventType
-    
+
     # Create a mock hook registry
     hooks = DashboardHookRegistry(server)
-    
+
     # Register a test hook
     @hooks.add(EventType.TASK_STARTED)
     def test_hook(task_id, task, **kwargs):
         print(f"   🎯 Hook fired for task: {task_id}")
-    
+
     print("   ✅ Hook registry works")
 except Exception as e:
     print(f"   ❌ Failed: {e}")
     import traceback
+
     traceback.print_exc()
 
 # Test HTML generation
@@ -72,7 +78,7 @@ print("\n5️⃣ Testing HTML generation...")
 try:
     html = server._get_html()
     print(f"   ✅ HTML generated: {len(html):,} characters")
-    
+
     # Check key features
     checks = [
         ("Project Form", "project-type" in html),
@@ -84,11 +90,11 @@ try:
         ("WebSocket", "websocket" in html.lower()),
         ("Toast Notifications", "toast" in html.lower()),
     ]
-    
+
     for name, present in checks:
         status = "✅" if present else "❌"
         print(f"   {status} {name}")
-        
+
 except Exception as e:
     print(f"   ❌ Failed: {e}")
 

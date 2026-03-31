@@ -7,11 +7,13 @@ orchestrator run lifecycle.
 
 Author: Georgios-Chrysovalantis Chatzivantsidis
 """
+
 from __future__ import annotations
 
 # ============================================================================
 # EXAMPLE 1: Basic Integration in Orchestrator.run_project()
 # ============================================================================
+
 
 async def run_project_with_git_integration(
     self,
@@ -81,7 +83,7 @@ async def run_project_with_git_integration(
 # EXAMPLE 2: CI/CD Integration (GitHub Actions)
 # ============================================================================
 
-'''
+"""
 # .github/workflows/ai-orchestrator.yml
 
 name: AI Orchestrator
@@ -134,14 +136,14 @@ jobs:
           --git-commit ${{ github.sha }} \
           --git-branch ${{ github.ref_name }} \
           --git-pr ${{ github.event.number }}
-'''
+"""
 
 
 # ============================================================================
 # EXAMPLE 3: Policy Configuration
 # ============================================================================
 
-'''
+"""
 # policies.yaml - Example policy configuration for Git integration
 
 global:
@@ -161,7 +163,7 @@ team:
 
     - name: pr_comments
       enable_pr_comments: true
-'''
+"""
 
 
 # ============================================================================
@@ -189,8 +191,9 @@ git_hooks = GitIntegrationHooks.from_config(config)
 # EXAMPLE 5: Testing Git Integration Locally
 # ============================================================================
 
+
 async def test_git_integration():
-    '''Test the Git integration locally.'''
+    """Test the Git integration locally."""
 
     # Mock context for testing
     context = GitHookContext(
@@ -212,10 +215,12 @@ async def test_git_integration():
 
     # Simulate work...
     import asyncio
+
     await asyncio.sleep(2)
 
     # Complete
     from orchestrator.models import Budget, ProjectState
+
     state = ProjectState(
         project_description="Test",
         success_criteria="Pass",
@@ -233,7 +238,7 @@ async def test_git_integration():
 # USAGE SUMMARY
 # ============================================================================
 
-'''
+"""
 Environment Variables:
 ---------------------
 GIT_INTEGRATION_ENABLED=true      # Enable Git integration
@@ -258,4 +263,4 @@ Integration Points:
 3. post_code_review_comments() -> Post PR review comments
 4. on_run_complete()     -> Finalize check run (success/failure)
 5. auto_commit_or_create_pr() -> Commit changes or open PR
-'''
+"""

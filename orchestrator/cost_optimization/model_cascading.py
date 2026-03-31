@@ -42,6 +42,7 @@ logger = get_logger(__name__)
 @dataclass
 class CascadeMetrics:
     """Metrics for model cascading."""
+
     total_attempts: int = 0
     cascade_exits_early: int = 0  # Exited at cheap/mid tier
     cascade_exits_premium: int = 0  # Required premium model
@@ -72,6 +73,7 @@ class CascadeMetrics:
 @dataclass
 class CascadeResult:
     """Result of cascading generation."""
+
     response: str
     model_used: str
     score: float
@@ -93,9 +95,9 @@ class ModelCascader:
     # Default cascade chains per task type
     DEFAULT_CASCADE_CHAINS = {
         "code_generation": [
-            ("deepseek/deepseek-chat", 0.80),      # Try cheapest first
-            ("claude-sonnet-4.6", 0.75),   # Mid-tier
-            ("claude-opus-4.6", 0.0),      # Premium (always accept)
+            ("deepseek/deepseek-chat", 0.80),  # Try cheapest first
+            ("claude-sonnet-4.6", 0.75),  # Mid-tier
+            ("claude-opus-4.6", 0.0),  # Premium (always accept)
         ],
         "code_review": [
             ("deepseek/deepseek-chat", 0.75),
@@ -247,9 +249,8 @@ class ModelCascader:
 
                     self.metrics.cascade_exits_early += 1
                     self.metrics.avg_score = (
-                        (self.metrics.avg_score * (self.metrics.total_attempts - 1) + score)
-                        / self.metrics.total_attempts
-                    )
+                        self.metrics.avg_score * (self.metrics.total_attempts - 1) + score
+                    ) / self.metrics.total_attempts
                     self.metrics.total_cost += total_cost
 
                     # Estimate savings vs always using premium
@@ -270,10 +271,7 @@ class ModelCascader:
                     )
 
                 else:
-                    logger.info(
-                        f"Score {score:.3f} < {min_score}, "
-                        f"continuing to next tier"
-                    )
+                    logger.info(f"Score {score:.3f} < {min_score}, " f"continuing to next tier")
 
             except Exception as e:
                 logger.warning(f"Tier {tier_idx + 1} ({model}) failed: {e}")
@@ -288,9 +286,8 @@ class ModelCascader:
 
         self.metrics.cascade_exits_premium += 1
         self.metrics.avg_score = (
-            (self.metrics.avg_score * (self.metrics.total_attempts - 1) + all_scores[-1])
-            / self.metrics.total_attempts
-        )
+            self.metrics.avg_score * (self.metrics.total_attempts - 1) + all_scores[-1]
+        ) / self.metrics.total_attempts
         self.metrics.total_cost += total_cost
 
         return CascadeResult(
@@ -334,9 +331,9 @@ class ModelCascader:
         )
 
         # Extract text from response
-        if hasattr(response, 'text'):
+        if hasattr(response, "text"):
             return response.text
-        elif hasattr(response, 'content'):
+        elif hasattr(response, "content"):
             return response.content
         else:
             return str(response)
@@ -510,6 +507,7 @@ class ModelCascader:
 # ─────────────────────────────────────────────
 # Convenience Functions
 # ─────────────────────────────────────────────
+
 
 async def cascading_generate(
     client,

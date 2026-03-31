@@ -5,6 +5,7 @@ BUG-001  engine.py   Budget reservation leaked on run_project() failure
 BUG-002  engine.py   asyncio.gather without return_exceptions left orphan tasks
 BUG-003  hybrid_search_pipeline.py  SearchResult mutated in-place during reranking
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -219,17 +220,17 @@ class TestSearchResultNotMutatedDuringReranking:
             ]
 
         bm25 = MagicMock()
-        bm25.bm25_search = AsyncMock(return_value=[
-            _make_sr("d1", score=0.5, rank=1),
-            _make_sr("d2", score=0.4, rank=2),
-        ])
+        bm25.bm25_search = AsyncMock(
+            return_value=[
+                _make_sr("d1", score=0.5, rank=1),
+                _make_sr("d2", score=0.4, rank=2),
+            ]
+        )
         reranker = MagicMock()
         reranker.rerank = fake_rerank
 
         pipeline = HybridSearchPipeline(bm25_search=bm25, reranker=reranker)
-        results = await pipeline.search(
-            "query", use_query_expansion=False, use_reranking=True
-        )
+        results = await pipeline.search("query", use_query_expansion=False, use_reranking=True)
 
         # Results must reflect reranker scores
         assert results[0].doc_id == "d1"
@@ -302,9 +303,7 @@ class TestSearchResultNotMutatedDuringReranking:
         reranker.rerank = fake_rerank
 
         pipeline = HybridSearchPipeline(bm25_search=bm25, reranker=reranker)
-        results = await pipeline.search(
-            "q", use_query_expansion=False, use_reranking=True
-        )
+        results = await pipeline.search("q", use_query_expansion=False, use_reranking=True)
 
         assert results[0] is not original, "reranked result must be a new object"
         assert original.score == pytest.approx(0.5), "original must be unmodified"

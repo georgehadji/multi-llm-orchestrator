@@ -4,6 +4,7 @@ Test P1-1: Profile Caching Optimization
 Tests that active profiles are cached to avoid repeated iteration
 over all 50+ models in _profiles.
 """
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -34,10 +35,10 @@ class TestProfileCaching:
         """
         # Arrange: Set cache to some value
         orchestrator._active_profiles_cache = [("dummy", "data")]
-        
+
         # Act: Invalidate
         orchestrator._invalidate_profile_cache()
-        
+
         # Assert: Cache should be None
         assert orchestrator._active_profiles_cache is None
 
@@ -48,10 +49,10 @@ class TestProfileCaching:
         # Arrange: Set some profiles as active
         test_model = list(orchestrator._profiles.keys())[0]
         orchestrator._profiles[test_model].call_count = 5
-        
+
         # Act: Get active profiles
         active = orchestrator._get_active_profiles()
-        
+
         # Assert: Cache should be built
         assert orchestrator._active_profiles_cache is not None
         assert len(active) >= 1
@@ -66,15 +67,15 @@ class TestProfileCaching:
         # Arrange: Set some profiles as active
         test_model = list(orchestrator._profiles.keys())[0]
         orchestrator._profiles[test_model].call_count = 5
-        
+
         # Act: First call (builds cache)
         active1 = orchestrator._get_active_profiles()
         cache_id1 = id(orchestrator._active_profiles_cache)
-        
+
         # Act: Second call (should use cache)
         active2 = orchestrator._get_active_profiles()
         cache_id2 = id(orchestrator._active_profiles_cache)
-        
+
         # Assert: Same cache object returned
         assert cache_id1 == cache_id2
         assert active1 is active2
@@ -90,19 +91,16 @@ class TestProfileCaching:
                 orchestrator._profiles[model].call_count = 5  # Active
             else:
                 orchestrator._profiles[model].call_count = 0  # Inactive
-        
+
         # Act: Get active profiles
         active = orchestrator._get_active_profiles()
-        
+
         # Assert: Only active profiles returned
         for model, profile in active:
             assert profile.call_count > 0
-        
+
         # Count should match
-        expected_count = sum(
-            1 for m in models
-            if orchestrator._profiles[m].call_count > 0
-        )
+        expected_count = sum(1 for m in models if orchestrator._profiles[m].call_count > 0)
         assert len(active) == expected_count
 
     def test_record_success_invalidates_cache(self, orchestrator):
@@ -114,9 +112,10 @@ class TestProfileCaching:
         orchestrator._profiles[test_model].call_count = 5
         orchestrator._get_active_profiles()  # Build cache
         assert orchestrator._active_profiles_cache is not None
-        
+
         # Act: Record success (should invalidate cache)
         from orchestrator.api_clients import APIResponse
+
         response = APIResponse(
             text="test",
             input_tokens=10,
@@ -124,7 +123,7 @@ class TestProfileCaching:
             model=test_model,
         )
         orchestrator._record_success(test_model, response)
-        
+
         # Assert: Cache should be invalidated
         assert orchestrator._active_profiles_cache is None
 
@@ -136,25 +135,26 @@ class TestProfileCaching:
         # Arrange: Set some profiles as active
         test_model = list(orchestrator._profiles.keys())[0]
         orchestrator._profiles[test_model].call_count = 5
-        
+
         # Build cache
         orchestrator._get_active_profiles()
         assert orchestrator._active_profiles_cache is not None
-        
+
         # Mock the batch method to verify it's called
         original_batch = orchestrator._telemetry_store.record_snapshots_batch
         orchestrator._telemetry_store.record_snapshots_batch = AsyncMock()
-        
+
         # Act: Flush telemetry
         await orchestrator._flush_telemetry_snapshots("test_project")
-        
+
         # Small delay for async task
         import asyncio
+
         await asyncio.sleep(0.05)
-        
+
         # Assert: Batch method should be called
         assert orchestrator._telemetry_store.record_snapshots_batch.called
-        
+
         # Restore
         orchestrator._telemetry_store.record_snapshots_batch = original_batch
 
@@ -167,14 +167,14 @@ class TestProfileCaching:
         orchestrator._profiles[test_model].call_count = 5
         orchestrator._get_active_profiles()
         original_cache = orchestrator._active_profiles_cache
-        
+
         # Act: Invalidate and rebuild
         orchestrator._invalidate_profile_cache()
         assert orchestrator._active_profiles_cache is None
-        
+
         # Rebuild
         orchestrator._get_active_profiles()
-        
+
         # Assert: New cache built
         assert orchestrator._active_profiles_cache is not None
         assert orchestrator._active_profiles_cache is not original_cache
@@ -184,28 +184,28 @@ class TestProfileCaching:
         Benchmark-style test: Verify caching improves performance.
         """
         import time
-        
+
         # Arrange: Set many profiles as active
         for model in list(orchestrator._profiles.keys())[:20]:
             orchestrator._profiles[model].call_count = 5
-        
+
         # Warm up cache
         orchestrator._get_active_profiles()
-        
+
         # Measure cached access
         iterations = 1000
         start = time.time()
         for _ in range(iterations):
             orchestrator._get_active_profiles()
         cached_time = time.time() - start
-        
+
         # Invalidate and measure uncached access
         orchestrator._invalidate_profile_cache()
         start = time.time()
         for _ in range(iterations):
             orchestrator._get_active_profiles()
         uncached_time = time.time() - start
-        
+
         # Assert: Cached should be faster (allowing for variance)
         # This is a soft assertion - caching should help but may vary
         assert cached_time <= uncached_time * 1.5  # Allow 50% variance

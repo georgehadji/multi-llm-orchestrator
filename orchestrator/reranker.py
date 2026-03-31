@@ -40,6 +40,7 @@ logger = get_logger(__name__)
 @dataclass
 class RerankResult:
     """Re-ranking result for a single document."""
+
     doc_id: str
     original_rank: int
     new_rank: int
@@ -118,10 +119,7 @@ Respond with ONLY a JSON object:
             return []
 
         # Score all results
-        tasks = [
-            self._score_result(query, result, i)
-            for i, result in enumerate(results)
-        ]
+        tasks = [self._score_result(query, result, i) for i, result in enumerate(results)]
 
         # Run with concurrency limit
         scored = await asyncio.gather(*tasks)
@@ -209,7 +207,10 @@ Respond with ONLY a JSON object:
             response = await client.chat_completion(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "You are a relevance scoring assistant. Respond ONLY with valid JSON."},
+                    {
+                        "role": "system",
+                        "content": "You are a relevance scoring assistant. Respond ONLY with valid JSON.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.1,  # Low temperature for consistency
@@ -218,6 +219,7 @@ Respond with ONLY a JSON object:
 
             # Parse JSON response
             import json
+
             content = response.choices[0].message.content.strip()
 
             # Remove markdown code fences if present
