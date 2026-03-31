@@ -24,7 +24,11 @@ from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from .models import Budget, Model, TaskType
+    from .budget import Budget
+    from .models import Model, TaskType
+
+VALID_QUALITY_MODES = ("standard", "production")
+
 
 VALID_QUALITY_MODES = ("standard", "production")
 

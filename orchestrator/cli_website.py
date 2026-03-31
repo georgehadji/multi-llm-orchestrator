@@ -140,7 +140,7 @@ def setup_website_parser(subparsers):
 
 async def run_website_generation(args: argparse.Namespace) -> int:
     """Execute website generation."""
-    from .models import Budget
+    from .budget import Budget
 
     # Setup logging
     logging.basicConfig(

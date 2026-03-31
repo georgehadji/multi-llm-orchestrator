@@ -13,13 +13,14 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .budget import Budget
 from .component_registry import get_registry
 from .design_system import (
     ContentBrief,
     DesignSystem,
     QualityReport,
 )
-from .models import Budget, ProjectState, Task, TaskType
+from .models import ProjectState, Task, TaskType
 
 logger = logging.getLogger(__name__)
 

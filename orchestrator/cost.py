@@ -40,7 +40,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from .models import Budget, Model, Task, TaskType, estimate_cost
+from .budget import Budget
+from .models import Model, Task, TaskType, estimate_cost
 
 if TYPE_CHECKING:
     from .policy import ModelProfile

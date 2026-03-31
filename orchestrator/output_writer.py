@@ -54,14 +54,12 @@ from pathlib import Path
 from .models import ProjectState, TaskType
 
 # Code validation for clean code generation
-try:
-    from .code_validator import extract_code_from_llm_response, validate_code
-
-    HAS_CODE_VALIDATOR = True
-except ImportError:
-    HAS_CODE_VALIDATOR = False
-    validate_code = None
-    extract_code_from_llm_response = None
+# FIXME: Circular import detected - temporarily disabling code_validator
+# The code_validator module causes an infinite import loop that hangs the entire CLI
+# TODO: Resolve circular dependency and re-enable validation
+HAS_CODE_VALIDATOR = False
+validate_code = None
+extract_code_from_llm_response = None
 
 logger = logging.getLogger("orchestrator.output_writer")
 
@@ -225,7 +223,8 @@ def write_output_dir(
         content = _render_content(task.type, result.output, ext)
 
         # NEW: Code validation before saving (prevent LLM commentary)
-        if task.type == TaskType.CODE_GEN and HAS_CODE_VALIDATOR:
+        # FIXME: Code validation temporarily disabled due to circular import
+        if False and task.type == TaskType.CODE_GEN and HAS_CODE_VALIDATOR:
             validation_result = validate_code(content, filename=filename)
             if not validation_result.is_valid:
                 error_msg = (

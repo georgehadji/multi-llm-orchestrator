@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .api_clients import UnifiedClient
-from .models import Budget
+from .budget import Budget
 from .tracing import get_tracer
 
 
