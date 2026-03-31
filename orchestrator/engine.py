@@ -32,13 +32,13 @@ from collections import defaultdict, deque
 from typing import TYPE_CHECKING
 
 from .api_clients import APIResponse, UnifiedClient
+from .budget import Budget
 from .cache import DiskCache
 from .models import (
     FALLBACK_CHAIN,
     MODEL_MAX_TOKENS,
     ROUTING_TABLE,
     AttemptRecord,
-    Budget,
     Model,
     ProjectState,
     ProjectStatus,
@@ -76,14 +76,12 @@ except ImportError as _e:
     validate_and_generate_test = None
 
 # Code validation for clean code generation (no LLM commentary)
-try:
-    from .code_validator import extract_code_from_llm_response, validate_code
-
-    HAS_CODE_VALIDATOR = True
-except ImportError as _e:
-    HAS_CODE_VALIDATOR = False
-    validate_code = None
-    extract_code_from_llm_response = None
+# FIXME: Circular import detected - temporarily disabling code_validator
+# The code_validator module causes an infinite import loop that hangs the entire CLI
+# TODO: Resolve circular dependency and re-enable validation
+HAS_CODE_VALIDATOR = False
+validate_code = None
+extract_code_from_llm_response = None
 from .a2a_protocol import A2AManager, AgentCard
 from .accountability import AccountabilityTracker, ActionType, ActorType
 from .agent_safety import AgentSafetyMonitor, SafetyEventType
