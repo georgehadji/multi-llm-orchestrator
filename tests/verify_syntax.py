@@ -13,9 +13,9 @@ all_ok = True
 for filepath in files_to_check:
     try:
         py_compile.compile(filepath, doraise=True)
-        print(f"✅ {filepath.split('\\')[-1]} - Syntax OK")
+        print(f"\u2705 {filepath.split(chr(92))[-1]} - Syntax OK")
     except py_compile.PyCompileError as e:
-        print(f"❌ {filepath.split('\\')[-1]} - Syntax Error: {e}")
+        print(f"\u274c {filepath.split(chr(92))[-1]} - Syntax Error: {e}")
         all_ok = False
 
 if all_ok:
