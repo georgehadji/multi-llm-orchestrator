@@ -1275,6 +1275,7 @@ class Orchestrator:
         """
         self.budget = spec.budget
         self._active_policies = spec.policy_set
+        self._quality_mode: str = getattr(spec, "quality_mode", "standard")
         # JobSpec may override the per-task parallelism limit
         if spec.max_parallel_tasks > 0:
             self._max_parallel_tasks = spec.max_parallel_tasks
@@ -1993,14 +1994,41 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         except Exception as e:
             logger.warning(f"Cache warming failed (non-critical): {e}")
 
-    def _build_system_prompt(self) -> str:
-        """Build standard system prompt for cache warming."""
+    def _build_system_prompt(self, task_type: str = "") -> str:
+        """Build system prompt based on current quality_mode."""
+        mode = getattr(self, "_quality_mode", "standard")
+        if mode == "production":
+            return self._build_production_system_prompt(task_type)
+        return self._build_standard_system_prompt(task_type)
+
+    def _build_standard_system_prompt(self, task_type: str = "") -> str:
+        """Standard quality system prompt."""
         return (
             "You are an expert software engineer executing a task. "
-            "Produce high-quality, complete, production-ready code. "
-            "Follow best practices, include comprehensive comments, "
-            "and ensure all code is valid and runnable."
+            "Produce high-quality, complete output. "
+            "Follow best practices and ensure all code is valid and runnable."
         )
+
+    def _build_production_system_prompt(self, task_type: str = "") -> str:
+        """Production-grade system prompt with strict quality requirements."""
+        base = (
+            "You are a senior software engineer delivering production-grade output. "
+            "Requirements:\n"
+            "1. Full type annotations on every function and class.\n"
+            "2. Comprehensive error handling and input validation.\n"
+            "3. Unit tests for every public function (pytest style).\n"
+            "4. Docstrings on every module, class, and public function.\n"
+            "5. Logging via the standard library logger (not print).\n"
+            "6. No TODOs, no placeholder implementations.\n"
+            "7. Follow SOLID principles and keep cyclomatic complexity ≤ 10.\n"
+            "8. Include a brief inline comment for any non-obvious logic.\n"
+        )
+        if task_type in ("code_gen", "code_generation"):
+            base += (
+                "9. Return ONLY raw code — no markdown fences, no prose outside code.\n"
+                "10. Code must pass mypy --strict.\n"
+            )
+        return base
 
     def _build_project_context(self) -> str:
         """Build project context from existing results."""
@@ -2400,10 +2428,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     effective_max_tokens = min(effective_max_tokens, model_limit)
                 
                 try:
-                    # Build system prompt with explicit instructions for code tasks
-                    system_prompt = f"You are an expert executing a {task.type.value} task. " \
-                                   f"Produce high-quality, complete output."
-                    if task.type == TaskType.CODE_GEN:
+                    # Build system prompt — production mode enriches with strict requirements
+                    _mode = getattr(self, "_quality_mode", "standard")
+                    if _mode == "production":
+                        system_prompt = self._build_production_system_prompt(task.type.value)
+                    else:
+                        system_prompt = (
+                            f"You are an expert executing a {task.type.value} task. "
+                            f"Produce high-quality, complete output."
+                        )
+                    if task.type == TaskType.CODE_GEN and _mode != "production":
                         system_prompt += (
                             "\n\nCRITICAL REQUIREMENTS:\n"
                             "1. Return ONLY raw code - NO markdown fences (```), NO explanations outside code\n"

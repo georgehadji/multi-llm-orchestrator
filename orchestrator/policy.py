@@ -20,9 +20,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from .models import Model, TaskType, Budget
+
+VALID_QUALITY_MODES = ("standard", "production")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -231,6 +233,13 @@ class JobSpec:
     quality_targets: dict[TaskType, float] = field(default_factory=dict)
     preferred_regions: list[str] = field(default_factory=list)
     max_parallel_tasks: int = 3
+    quality_mode: Literal["standard", "production"] = "standard"
+
+    def __post_init__(self) -> None:
+        if self.quality_mode not in VALID_QUALITY_MODES:
+            raise ValueError(
+                f"quality_mode must be one of {VALID_QUALITY_MODES}, got {self.quality_mode!r}"
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
