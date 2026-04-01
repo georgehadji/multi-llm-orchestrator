@@ -2736,7 +2736,12 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     primary.value.startswith("deepseek/")
                     and primary.value == "deepseek/deepseek-reasoner"
                 )
-                _is_deepseek_chat = primary.value == "deepseek/deepseek-chat"
+                # deepseek-v3.x are large instruct/chat models — match by prefix
+                _is_deepseek_chat = primary.value in (
+                    "deepseek/deepseek-chat",
+                    "deepseek/deepseek-v3",
+                    "deepseek/deepseek-v3.2",
+                )
                 if _is_reasoning_model:
                     gen_timeout = 240
                     if task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
@@ -2745,7 +2750,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     else:
                         effective_max_tokens = task.max_output_tokens
                 elif _is_deepseek_chat:
-                    # DeepSeek-Coder is slow but good - give it more time
+                    # DeepSeek chat/v3.x models are large and slow — give more time and full tokens
                     gen_timeout = 180
                     effective_max_tokens = task.max_output_tokens
                 elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
