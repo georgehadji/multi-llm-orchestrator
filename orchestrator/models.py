@@ -463,6 +463,7 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.DEEPSEEK_CHAT: 8192,
     Model.DEEPSEEK_REASONER: 8192,
     Model.DEEPSEEK_V3: 8192,
+    Model.DEEPSEEK_V3_2: 8192,
     Model.DEEPSEEK_R1: 8192,
     # Meta LLaMA models
     Model.LLAMA_4_MAVERICK: 8192,

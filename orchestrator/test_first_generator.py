@@ -348,7 +348,9 @@ class TestFirstGenerator:
         Returns:
             TDDResult with implementation, tests, and test results
         """
-        target_model = model or task.model_used
+        # Use caller-supplied model, or fall back to the TDD config's implementation model.
+        # Note: Task has no model_used attribute — routing is handled by the TDD config.
+        target_model = model or self._get_model("implementation")
 
         logger.info(f"Starting TDD generation for task {task.id}")
 
