@@ -2847,6 +2847,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         # Use temperature 0.0 for code generation (deterministic output)
                         gen_temperature = 0.0 if task.type == TaskType.CODE_GEN else 0.3
 
+                    # Initialise _rl_tenant early so the outer except block can always
+                    # reference it, even if an exception fires before the first assignment.
+                    _rl_tenant = getattr(task, "tenant", "default")
+
                     # ═══════════════════════════════════════════════════════
                     # OPTIMIZATION: Speculative generation (parallel cheap+premium)
                     # ═══════════════════════════════════════════════════════
@@ -3893,14 +3897,24 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             r"得分\s*[:=]\s*([0-9]*\.?[0-9]+)",  # Chinese: 得分：0.85
             r"([0-9]\.[0-9]{1,2})\s*/\s*1",  # 0.85/1
             r"([0-9]{1,2})\s*%",  # 85%
+            r"([0-9]+(?:\.[0-9]+)?)\s*/\s*10\b",  # 7/10 or 8.5/10
+            r"([0-9]+(?:\.[0-9]+)?)\s*/\s*100\b",  # 70/100
+            r"\bout\s+of\s+10[,.\s]*([0-9]+(?:\.[0-9]+)?)",  # "out of 10: 7"
+            r"([0-9]+(?:\.[0-9]+)?)\s+out\s+of\s+10",  # "7 out of 10"
+            r"rating\s*[:=]\s*([0-9]*\.?[0-9]+)",  # rating: 0.7
         ]
 
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 score = float(match.group(1))
-                # Convert percentage to 0-1 scale
-                if "%" in text or score > 1.0:
+                # Normalise N/10 and N/100 to 0–1
+                if re.search(r"/\s*100\b", pattern) or score > 10:
+                    score = score / 100.0
+                elif re.search(r"/\s*10\b|out\s+of\s+10", pattern) or 1 < score <= 10:
+                    score = score / 10.0
+                # Percentage
+                if "%" in pattern and score > 1.0:
                     score = score / 100.0
                 logger.debug(f"_parse_score: regex pattern '{pattern}' matched score={score}")
                 return max(0.0, min(1.0, score))
