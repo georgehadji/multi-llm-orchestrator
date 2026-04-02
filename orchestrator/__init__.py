@@ -56,6 +56,8 @@ def __getattr__(name: str):
         "ProgressWriter": "progress_writer",
         "ProgressEntry": "progress_writer",
         "CodebaseUnderstanding": "codebase_understanding",
+        "ImprovementSuggester": "improvement_suggester",
+        "CodebaseProfile": "codebase_profile",
     }
 
     if name in common_modules:
