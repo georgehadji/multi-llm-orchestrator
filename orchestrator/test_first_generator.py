@@ -632,7 +632,9 @@ class TestFirstGenerator:
 
         # Guard: sandbox is required for test execution
         if self.sandbox is None:
-            logger.warning("No sandbox configured — skipping test execution, returning neutral result")
+            logger.warning(
+                "No sandbox configured — skipping test execution, returning neutral result"
+            )
             return TestExecutionResult(
                 passed=True,
                 tests_run=0,

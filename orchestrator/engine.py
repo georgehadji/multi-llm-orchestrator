@@ -1687,7 +1687,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 )
 
             decomposer = TaskDecomposer(api_client=self.client)
-            decomp_model = "nvidia/nemotron-3-super-120b-a12b:free" if "free" in model.value.lower() else model.value
+            decomp_model = (
+                "nvidia/nemotron-3-super-120b-a12b:free"
+                if "free" in model.value.lower()
+                else model.value
+            )
             logger.info(f"Using Instructor for structured decomposition with {decomp_model}")
             result = await decomposer.decompose(
                 project_description=project,

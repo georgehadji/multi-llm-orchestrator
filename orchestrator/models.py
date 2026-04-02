@@ -13,6 +13,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+# Re-export Budget so tests can do `from orchestrator.models import Budget`
+# budget.py has no imports from models.py, so no circular import risk.
+from .budget import Budget as Budget  # noqa: F401
+
 # ─────────────────────────────────────────────
 # Enums
 # ─────────────────────────────────────────────

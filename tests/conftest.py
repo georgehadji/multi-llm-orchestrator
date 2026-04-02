@@ -65,21 +65,21 @@ collect_ignore = [
     "test_startup - Copy.py",
     # ── Pre-existing broken imports (symbols removed/renamed upstream) ────────
     "test_architecture_improvements.py",  # InMemoryCache removed from streaming
-    "test_constraint_planner.py",         # Budget moved from policy to models
-    "test_control_plane.py",              # Budget moved from policy to models
-    "test_federated_learning.py",         # FeedbackPayload missing from plugins
-    "test_feedback_loop.py",              # FeedbackPayload missing from plugins
-    "test_integration_complete.py",       # OutputTarget missing from models
-    "test_knowledge_graph.py",            # FeedbackPayload missing from plugins
-    "test_nash_stable_orchestrator.py",   # FeedbackPayload missing from plugins
-    "test_orchestration_agent.py",        # Budget moved from policy to models
-    "test_outcome_router.py",             # FeedbackPayload missing from plugins
-    "test_pareto_frontier.py",            # FeedbackPayload missing from plugins
-    "test_reference_monitor.py",          # FeedbackPayload missing from plugins
-    "test_resilient_improvements.py",     # pre-existing import error
-    "test_specs.py",                      # Budget moved from policy to models
-    "test_tracing.py",                    # opentelemetry.environment_variables missing
-    "test_plugins.py",                    # ValidatorPlugin missing from plugins
+    "test_constraint_planner.py",  # Budget moved from policy to models
+    "test_control_plane.py",  # Budget moved from policy to models
+    "test_federated_learning.py",  # FeedbackPayload missing from plugins
+    "test_feedback_loop.py",  # FeedbackPayload missing from plugins
+    "test_integration_complete.py",  # OutputTarget missing from models
+    "test_knowledge_graph.py",  # FeedbackPayload missing from plugins
+    "test_nash_stable_orchestrator.py",  # FeedbackPayload missing from plugins
+    "test_orchestration_agent.py",  # Budget moved from policy to models
+    "test_outcome_router.py",  # FeedbackPayload missing from plugins
+    "test_pareto_frontier.py",  # FeedbackPayload missing from plugins
+    "test_reference_monitor.py",  # FeedbackPayload missing from plugins
+    "test_resilient_improvements.py",  # pre-existing import error
+    "test_specs.py",  # Budget moved from policy to models
+    "test_tracing.py",  # opentelemetry.environment_variables missing
+    "test_plugins.py",  # ValidatorPlugin missing from plugins
     # ── Non-test utility scripts ──────────────────────────────────────────────
     "check_frontend.py",
     "delete_old_dashboards.py",

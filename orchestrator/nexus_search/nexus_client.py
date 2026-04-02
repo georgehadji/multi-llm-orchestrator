@@ -55,6 +55,7 @@ class NexusClient:
         """Get or create aiohttp session (lazy-loads aiohttp to avoid import hang)."""
         if self.session is None or self.session.closed:
             import aiohttp as _aiohttp  # Lazy import to avoid hang at module load time
+
             timeout = _aiohttp.ClientTimeout(total=self.config.timeout)
             self.session = _aiohttp.ClientSession(timeout=timeout)
         return self.session

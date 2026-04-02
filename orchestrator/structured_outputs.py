@@ -8,7 +8,7 @@ Automatically validates, retries on failure, and ensures schema compliance.
 
 Usage:
     from orchestrator.structured_outputs import TaskDecomposer, StructuredResponse
-    
+
     decomposer = TaskDecomposer()
     result = await decomposer.decompose(project_desc, criteria)
     # result is validated TaskDecomposition object, no JSON parsing needed
@@ -25,55 +25,52 @@ from datetime import datetime, timezone
 # Import orchestrator models for type compatibility
 from .models import TaskType, Task
 
-
 # ═══════════════════════════════════════════════════════════════════
 # PYDANTIC MODELS FOR STRUCTURED OUTPUTS
 # ═══════════════════════════════════════════════════════════════════
 
+
 class TaskInput(BaseModel):
     """Input task structure for validation"""
+
     id: str = Field(description="Unique task identifier (e.g., task_001)")
     type: Literal[
         "code_generation",
-        "code_review", 
+        "code_review",
         "complex_reasoning",
         "creative_writing",
         "data_extraction",
-        "evaluation"
+        "evaluation",
     ]
     prompt: str = Field(description="Task prompt/instructions")
     context: str = Field(default="", description="Additional context")
     dependencies: list[str] = Field(
-        default_factory=list,
-        description="List of task IDs this task depends on"
+        default_factory=list, description="List of task IDs this task depends on"
     )
     acceptance_threshold: float = Field(
-        default=0.85,
-        ge=0.0,
-        le=1.0,
-        description="Minimum acceptance score"
+        default=0.85, ge=0.0, le=1.0, description="Minimum acceptance score"
     )
-    
-    @field_validator('id')
+
+    @field_validator("id")
     @classmethod
     def validate_id(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError('Task ID cannot be empty')
+            raise ValueError("Task ID cannot be empty")
         return v.strip()
-    
-    @field_validator('prompt')
+
+    @field_validator("prompt")
     @classmethod
     def validate_prompt(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError('Task prompt cannot be empty')
+            raise ValueError("Task prompt cannot be empty")
         return v.strip()
-    
-    @field_validator('acceptance_threshold')
+
+    @field_validator("acceptance_threshold")
     @classmethod
     def validate_threshold(cls, v: float) -> float:
         # Ensure reasonable threshold
         return max(0.5, min(0.95, v))
-    
+
     def to_task(self) -> Task:
         """Convert to orchestrator Task object"""
         return Task(
@@ -82,32 +79,28 @@ class TaskInput(BaseModel):
             prompt=self.prompt,
             context=self.context,
             dependencies=self.dependencies,
-            acceptance_threshold=self.acceptance_threshold
+            acceptance_threshold=self.acceptance_threshold,
         )
 
 
 class TaskDecomposition(BaseModel):
     """Structured decomposition output with validation"""
-    tasks: list[TaskInput] = Field(
-        min_length=1,
-        description="List of decomposed tasks"
-    )
-    execution_order: list[str] = Field(
-        description="Ordered list of task IDs for execution"
-    )
-    
-    @field_validator('execution_order')
+
+    tasks: list[TaskInput] = Field(min_length=1, description="List of decomposed tasks")
+    execution_order: list[str] = Field(description="Ordered list of task IDs for execution")
+
+    @field_validator("execution_order")
     @classmethod
     def validate_execution_order(cls, v: list[str], info) -> list[str]:
         if not v:
-            raise ValueError('Execution order cannot be empty')
+            raise ValueError("Execution order cannot be empty")
         return v
-    
+
     def validate_consistency(self) -> bool:
         """Validate that execution_order matches task IDs"""
         task_ids = {task.id for task in self.tasks}
         order_ids = set(self.execution_order)
-        
+
         # All tasks must be in execution order
         if task_ids != order_ids:
             missing = task_ids - order_ids
@@ -116,9 +109,9 @@ class TaskDecomposition(BaseModel):
                 raise ValueError(f"Tasks missing from execution order: {missing}")
             if extra:
                 raise ValueError(f"Extra IDs in execution order: {extra}")
-        
+
         return True
-    
+
     def to_tasks(self) -> list[Task]:
         """Convert all tasks to orchestrator Task objects"""
         self.validate_consistency()
@@ -127,28 +120,18 @@ class TaskDecomposition(BaseModel):
 
 class CodeReview(BaseModel):
     """Structured code review output"""
-    score: float = Field(
-        ge=0.0,
-        le=1.0,
-        description="Overall code quality score (0-1)"
-    )
-    issues: list[str] = Field(
-        default_factory=list,
-        description="List of identified issues"
-    )
+
+    score: float = Field(ge=0.0, le=1.0, description="Overall code quality score (0-1)")
+    issues: list[str] = Field(default_factory=list, description="List of identified issues")
     suggestions: list[str] = Field(
-        default_factory=list,
-        description="List of improvement suggestions"
+        default_factory=list, description="List of improvement suggestions"
     )
     critical_issues: list[str] = Field(
-        default_factory=list,
-        description="Critical issues that must be fixed"
+        default_factory=list, description="Critical issues that must be fixed"
     )
-    passed: bool = Field(
-        description="Whether code passes review (score >= threshold)"
-    )
-    
-    @field_validator('score')
+    passed: bool = Field(description="Whether code passes review (score >= threshold)")
+
+    @field_validator("score")
     @classmethod
     def validate_score(cls, v: float) -> float:
         return max(0.0, min(1.0, v))
@@ -156,20 +139,23 @@ class CodeReview(BaseModel):
 
 class ArchitectureDecision(BaseModel):
     """Structured architecture decision output"""
-    architecture: Literal["monolithic", "modular_monolith", "microservices", "serverless", "jamstack", "headless_cms"]
-    paradigm: Literal["procedural", "object_oriented", "functional", "event_driven", "reactive", "declarative"]
+
+    architecture: Literal[
+        "monolithic", "modular_monolith", "microservices", "serverless", "jamstack", "headless_cms"
+    ]
+    paradigm: Literal[
+        "procedural", "object_oriented", "functional", "event_driven", "reactive", "declarative"
+    ]
     api_style: Literal["rest", "graphql", "grpc", "websocket", "rpc"]
     database: Literal["relational", "document", "key_value", "graph", "time_series", "none"]
     technology_stack: dict[str, list[str]] = Field(
         description="Technology choices by category (e.g., {'frontend': ['React'], 'backend': ['FastAPI']})"
     )
     key_constraints: list[str] = Field(
-        default_factory=list,
-        description="Key architectural constraints"
+        default_factory=list, description="Key architectural constraints"
     )
     recommended_patterns: list[str] = Field(
-        default_factory=list,
-        description="Recommended design patterns"
+        default_factory=list, description="Recommended design patterns"
     )
     rationale: str = Field(description="Rationale for architectural decisions")
 
@@ -178,38 +164,40 @@ class ArchitectureDecision(BaseModel):
 # INSTRUCTOR CLIENTS WITH RETRY LOGIC
 # ═══════════════════════════════════════════════════════════════════
 
+
 class StructuredClient:
     """Base class for Instructor clients with retry logic"""
-    
+
     def __init__(self, api_client=None):
         """
         Initialize structured client.
-        
+
         Args:
             api_client: Existing API client to wrap (optional)
         """
         self._client = None
         self._api_client = api_client
         self._mode = instructor.Mode.MD_JSON  # MD_JSON handles markdown-fenced responses
-    
+
     def get_client(self, model: str):
         """
         Get Instructor client for specific model.
-        
+
         Args:
             model: Model ID (e.g., "qwen/qwen3-coder-30b-a3b-instruct:free")
-        
+
         Returns:
             Instructor client configured for the model
         """
         # Determine provider from model ID
-        provider = model.split('/')[0] if '/' in model else 'openai'
-        
+        provider = model.split("/")[0] if "/" in model else "openai"
+
         # Create Instructor client based on provider
         if self._api_client:
             # UnifiedClient wraps OpenRouter internally; build a direct AsyncOpenAI
             # for instructor since UnifiedClient doesn't expose a .client attribute.
             import openai
+
             self._client = instructor.from_openai(
                 openai.AsyncOpenAI(
                     base_url="https://openrouter.ai/api/v1",
@@ -219,75 +207,69 @@ class StructuredClient:
             )
         else:
             # Create new client from environment
-            if provider in ['anthropic', 'claude']:
+            if provider in ["anthropic", "claude"]:
                 import anthropic
-                self._client = instructor.from_anthropic(
-                    anthropic.Anthropic(),
-                    mode=self._mode
-                )
-            elif provider in ['google', 'gemini']:
+
+                self._client = instructor.from_anthropic(anthropic.Anthropic(), mode=self._mode)
+            elif provider in ["google", "gemini"]:
                 import google.generativeai as genai
-                self._client = instructor.from_gemini(
-                    genai,
-                    mode=self._mode
-                )
+
+                self._client = instructor.from_gemini(genai, mode=self._mode)
             else:
                 # Default to OpenAI-compatible (includes OpenRouter)
                 import openai
+
                 self._client = instructor.from_openai(
                     openai.AsyncOpenAI(
-                        base_url="https://openrouter.ai/api/v1",
-                        api_key=self._get_api_key()
+                        base_url="https://openrouter.ai/api/v1", api_key=self._get_api_key()
                     ),
-                    mode=self._mode
+                    mode=self._mode,
                 )
-        
+
         return self._client
-    
+
     def _get_api_key(self) -> str:
         """Get API key from environment"""
         import os
+
         return os.getenv("OPENROUTER_API_KEY", "")
 
 
 class TaskDecomposer(StructuredClient):
     """
     Task decomposition with structured outputs.
-    
+
     Usage:
         decomposer = TaskDecomposer()
         result = await decomposer.decompose(project_desc, criteria)
         tasks = result.to_tasks()
         execution_order = result.execution_order
     """
-    
+
     async def decompose(
         self,
         project_description: str,
         success_criteria: str,
         model: str = "nvidia/nemotron-3-super-120b-a12b:free",
-        max_retries: int = 3
+        max_retries: int = 3,
     ) -> TaskDecomposition:
         """
         Decompose project into structured tasks.
-        
+
         Args:
             project_description: Project description
             success_criteria: Success criteria
             model: Model to use (default: FREE Nemotron for SEO/agents)
             max_retries: Maximum retry attempts (default: 3)
-        
+
         Returns:
             Validated TaskDecomposition object
         """
         client = self.get_client(model)
-        
+
         # Create decomposition prompt
-        prompt = self._create_decomposition_prompt(
-            project_description,
-            success_criteria
-        )
-        
+        prompt = self._create_decomposition_prompt(project_description, success_criteria)
+
         # Call with Instructor (automatic validation + retries)
         result = await client.chat.completions.create(
             model=model,
@@ -295,25 +277,18 @@ class TaskDecomposer(StructuredClient):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an expert software architect. Decompose projects into clear, actionable tasks with proper dependencies. Output MUST be valid JSON matching the schema."
+                    "content": "You are an expert software architect. Decompose projects into clear, actionable tasks with proper dependencies. Output MUST be valid JSON matching the schema.",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             max_tokens=2048,
-            max_retries=max_retries
+            max_retries=max_retries,
         )
-        
+
         # Result is already validated TaskDecomposition object
         return result
-    
-    def _create_decomposition_prompt(
-        self,
-        project_desc: str,
-        criteria: str
-    ) -> str:
+
+    def _create_decomposition_prompt(self, project_desc: str, criteria: str) -> str:
         """Create structured decomposition prompt"""
         return f"""
 PROJECT DESCRIPTION:
@@ -357,7 +332,7 @@ DECOMPOSE THE PROJECT NOW:
 class CodeReviewer(StructuredClient):
     """
     Code review with structured outputs.
-    
+
     Usage:
         reviewer = CodeReviewer()
         review = await reviewer.review(code, criteria)
@@ -366,58 +341,55 @@ class CodeReviewer(StructuredClient):
         else:
             # Fix critical_issues first
     """
-    
+
     async def review(
         self,
         code: str,
         criteria: list[str],
         model: str = "x-ai/grok-4.1-fast",
         threshold: float = 0.80,
-        max_retries: int = 2
+        max_retries: int = 2,
     ) -> CodeReview:
         """
         Review code with structured output.
-        
+
         Args:
             code: Code to review
             criteria: Review criteria
             model: Model to use
             threshold: Passing threshold
             max_retries: Maximum retry attempts
-        
+
         Returns:
             Validated CodeReview object
         """
         client = self.get_client(model)
-        
+
         prompt = self._create_review_prompt(code, criteria)
-        
+
         result = await client.chat.completions.create(
             model=model,
             response_model=CodeReview,
             messages=[
                 {
                     "role": "system",
-                    "content": f"You are a senior code reviewer. Review code against criteria. Score objectively (0-1). List specific issues and suggestions. Code passes if score >= {threshold}."
+                    "content": f"You are a senior code reviewer. Review code against criteria. Score objectively (0-1). List specific issues and suggestions. Code passes if score >= {threshold}.",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             max_tokens=2048,
-            max_retries=max_retries
+            max_retries=max_retries,
         )
-        
+
         # Set passed based on threshold
         result.passed = result.score >= threshold
-        
+
         return result
-    
+
     def _create_review_prompt(self, code: str, criteria: list[str]) -> str:
         """Create review prompt"""
         criteria_text = "\n".join(f"- {c}" for c in criteria)
-        
+
         return f"""
 CODE TO REVIEW:
 ```
@@ -441,63 +413,56 @@ OUTPUT:
 class ArchitecturePlanner(StructuredClient):
     """
     Architecture planning with structured outputs.
-    
+
     Usage:
         planner = ArchitecturePlanner()
         decision = await planner.plan(project_desc, requirements)
         # decision.architecture, decision.paradigm, etc.
     """
-    
+
     async def plan(
         self,
         project_description: str,
         requirements: list[str],
         model: str = "xiaomi/mimo-v2-pro",
-        max_retries: int = 2
+        max_retries: int = 2,
     ) -> ArchitectureDecision:
         """
         Create architecture decision with structured output.
-        
+
         Args:
             project_description: Project description
             requirements: Technical requirements
             model: Model to use
             max_retries: Maximum retry attempts
-        
+
         Returns:
             Validated ArchitectureDecision object
         """
         client = self.get_client(model)
-        
+
         prompt = self._create_planning_prompt(project_description, requirements)
-        
+
         result = await client.chat.completions.create(
             model=model,
             response_model=ArchitectureDecision,
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a principal software architect. Choose optimal architecture, paradigm, and technology stack based on project requirements. Provide clear rationale."
+                    "content": "You are a principal software architect. Choose optimal architecture, paradigm, and technology stack based on project requirements. Provide clear rationale.",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             max_tokens=2048,
-            max_retries=max_retries
+            max_retries=max_retries,
         )
-        
+
         return result
-    
-    def _create_planning_prompt(
-        self,
-        project_desc: str,
-        requirements: list[str]
-    ) -> str:
+
+    def _create_planning_prompt(self, project_desc: str, requirements: list[str]) -> str:
         """Create planning prompt"""
         req_text = "\n".join(f"- {r}" for r in requirements)
-        
+
         return f"""
 PROJECT:
 {project_desc}
@@ -522,19 +487,18 @@ Provide clear rationale for each decision based on project requirements.
 # CONVENIENCE FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════
 
+
 async def decompose_project(
-    project_desc: str,
-    criteria: str,
-    model: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    project_desc: str, criteria: str, model: str = "nvidia/nemotron-3-super-120b-a12b:free"
 ) -> tuple[list[Task], list[str]]:
     """
     Convenience function to decompose project.
-    
+
     Args:
         project_desc: Project description
         criteria: Success criteria
         model: Model to use (default: FREE Nemotron)
-    
+
     Returns:
         Tuple of (tasks, execution_order)
     """
@@ -544,20 +508,17 @@ async def decompose_project(
 
 
 async def review_code(
-    code: str,
-    criteria: list[str],
-    model: str = "x-ai/grok-4.1-fast",
-    threshold: float = 0.80
+    code: str, criteria: list[str], model: str = "x-ai/grok-4.1-fast", threshold: float = 0.80
 ) -> CodeReview:
     """
     Convenience function to review code.
-    
+
     Args:
         code: Code to review
         criteria: Review criteria
         model: Model to use
         threshold: Passing threshold
-    
+
     Returns:
         CodeReview object
     """
@@ -566,18 +527,16 @@ async def review_code(
 
 
 async def plan_architecture(
-    project_desc: str,
-    requirements: list[str],
-    model: str = "xiaomi/mimo-v2-pro"
+    project_desc: str, requirements: list[str], model: str = "xiaomi/mimo-v2-pro"
 ) -> ArchitectureDecision:
     """
     Convenience function to plan architecture.
-    
+
     Args:
         project_desc: Project description
         requirements: Technical requirements
         model: Model to use
-    
+
     Returns:
         ArchitectureDecision object
     """
