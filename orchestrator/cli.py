@@ -1191,6 +1191,8 @@ def _cmd_nash_status(args):
                 os.system("cls" if os.name == "nt" else "clear")
                 asyncio.run(show())
                 print("\n[Press Ctrl+C to exit]")
+                # Sync poll loop — asyncio.sleep() cannot be used outside an async
+                # function. time.sleep() between asyncio.run() calls is correct here.
                 time.sleep(5)
         except KeyboardInterrupt:
             print("\nExiting...")

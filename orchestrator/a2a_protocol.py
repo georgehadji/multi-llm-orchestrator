@@ -569,7 +569,7 @@ class A2ACoordinator:
             try:
                 if await client.health_check():
                     connected_agents += 1
-            except:
+            except Exception:
                 continue
 
         return {

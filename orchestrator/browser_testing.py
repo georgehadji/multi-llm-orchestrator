@@ -342,7 +342,7 @@ class BrowserTester:
             try:
                 fcp = await self.page.evaluate(fcp_js)
                 perf_metrics["FCP"] = fcp
-            except:
+            except Exception:
                 perf_metrics["FCP"] = -1
 
         if "LCP" in metrics:
@@ -371,7 +371,7 @@ class BrowserTester:
             try:
                 lcp = await self.page.evaluate(lcp_js)
                 perf_metrics["LCP"] = lcp
-            except:
+            except Exception:
                 perf_metrics["LCP"] = -1
 
         if "CLS" in metrics:
@@ -397,7 +397,7 @@ class BrowserTester:
             try:
                 cls = await self.page.evaluate(cls_js)
                 perf_metrics["CLS"] = cls
-            except:
+            except Exception:
                 perf_metrics["CLS"] = -1
 
         # Time to First Byte (TTFB)
