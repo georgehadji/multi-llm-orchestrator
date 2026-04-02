@@ -316,14 +316,45 @@ class ModelRegistry:
         GROK_4_20,
     }
 
-    # Models with 1M+ context capability
+    # Models with 200K+ context capability
     LONG_CONTEXT_MODELS = {
         GEMINI_2_5_FLASH,  # 1M+
         MIMO_V2_PRO,  # 1M+
         CLAUDE_SONNET_4_6,  # 200K
+        CLAUDE_OPUS_4_6,  # 200K
+        CLAUDE_HAIKU_3_5,  # 200K
         GPT_5,  # 400K
         GPT_5_CODEX,  # 400K
         GROK_4_20,  # 2M!
+        STEP_3_5_FLASH,  # 262K
+        STEP_3_5,  # 262K
+        MIMO_V2_FLASH,  # 256K
+        GLM_4_7_FLASH,  # 202K
+        GLM_4_7,  # 202K
+        GLM_5_TURBO,  # 262K
+        MINIMAX_M2_7,  # 205K
+        MINIMAX_M2_5,  # 205K
+        DEEPSEEK_V3_2,  # 164K
+        DEEPSEEK_CHAT,  # 164K
+    }
+
+    # Multimodal models — support image + text input (vision-capable)
+    MULTIMODAL_MODELS = {
+        # Google Gemini — natively multimodal
+        GEMINI_2_5_FLASH,
+        GEMINI_PRO,
+        GEMINI_FLASH,
+        # Anthropic Claude 3.x+ — all vision-capable
+        CLAUDE_SONNET_4_6,
+        CLAUDE_OPUS_4_6,
+        CLAUDE_HAIKU_3_5,
+        # OpenAI — GPT-4o and GPT-5 family are multimodal
+        GPT_4O,
+        GPT_4O_MINI,
+        GPT_5,
+        GPT_5_4,
+        # Moonshot Kimi-K2.5 — described as visual coding SOTA
+        KIMI_K2_5,
     }
 
     # ═══════════════════════════════════════════════════════
@@ -381,30 +412,30 @@ class ModelRegistry:
     @classmethod
     def is_valid_model(cls, model_id: str) -> bool:
         """
-        Check if a model ID is valid (not deprecated).
+        Check if a model ID is valid (not unavailable/deprecated).
 
         Args:
             model_id: Full model ID
 
         Returns:
-            True if valid, False if deprecated/invalid
+            True if valid, False if unavailable/invalid
         """
-        if model_id in cls.DEPRECATED_MODELS:
+        if model_id in cls.UNAVAILABLE_MODELS:
             return False
         return model_id in cls.COST_TABLE
 
     @classmethod
     def get_replacement_model(cls, deprecated_model_id: str) -> Optional[str]:
         """
-        Get replacement model for a deprecated model.
+        Get replacement model for an unavailable/deprecated model.
 
         Args:
-            deprecated_model_id: Deprecated model ID
+            deprecated_model_id: Unavailable model ID
 
         Returns:
             Replacement model ID or None if no replacement
         """
-        return cls.DEPRECATED_MODELS.get(deprecated_model_id)
+        return cls.UNAVAILABLE_MODELS.get(deprecated_model_id)
 
     @classmethod
     def is_coding_specialist(cls, model_id: str) -> bool:
@@ -425,6 +456,16 @@ class ModelRegistry:
     def is_premium_model(cls, model_id: str) -> bool:
         """Check if model is in premium tier."""
         return model_id in cls.PREMIUM_MODELS
+
+    @classmethod
+    def is_long_context(cls, model_id: str) -> bool:
+        """Check if model supports 200K+ context."""
+        return model_id in cls.LONG_CONTEXT_MODELS
+
+    @classmethod
+    def is_multimodal(cls, model_id: str) -> bool:
+        """Check if model supports image + text input (vision-capable)."""
+        return model_id in cls.MULTIMODAL_MODELS
 
     @classmethod
     def get_all_valid_models(cls) -> list[str]:
@@ -477,10 +518,10 @@ class ModelRegistry:
             if attr_name.isupper() and not attr_name.startswith("_"):
                 value = getattr(cls, attr_name)
                 if isinstance(value, str) and "/" in value:
-                    if value in cls.DEPRECATED_MODELS:
+                    if value in cls.UNAVAILABLE_MODELS:
                         results["deprecated"].append(f"{attr_name}={value}")
                     elif value in cls.COST_TABLE or attr_name not in [
-                        "DEPRECATED_MODELS",
+                        "UNAVAILABLE_MODELS",
                         "TIMEOUT_CONFIG",
                         "COST_TABLE",
                         "MODEL_MAX_TOKENS",
@@ -545,8 +586,8 @@ def migrate_deprecated_models(config: dict) -> dict:
     updated = config.copy()
 
     for key, value in config.items():
-        if isinstance(value, str) and value in ModelRegistry.DEPRECATED_MODELS:
-            replacement = ModelRegistry.DEPRECATED_MODELS[value]
+        if isinstance(value, str) and value in ModelRegistry.UNAVAILABLE_MODELS:
+            replacement = ModelRegistry.UNAVAILABLE_MODELS[value]
             updated[key] = replacement
             print(f"Migrated {key}: {value} → {replacement}")
 
