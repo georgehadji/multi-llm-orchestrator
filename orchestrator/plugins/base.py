@@ -43,6 +43,20 @@ class PluginPriority(Enum):
 
 
 @dataclass
+class FeedbackPayload:
+    """Payload passed to feedback-processing plugins."""
+
+    project_id: str = ""
+    deployment_id: str = ""
+    task_type: str = ""
+    model_used: str = ""
+    generated_code: str = ""
+    runtime_errors: list[dict[str, Any]] = field(default_factory=list)
+    performance_metrics: dict[str, Any] = field(default_factory=dict)
+    user_rating: Optional[float] = None
+
+
+@dataclass
 class PluginContext:
     """Context passed to plugin hooks."""
 

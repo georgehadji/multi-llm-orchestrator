@@ -47,24 +47,24 @@ def _is_rate_limit_error(error: Exception) -> bool:
 def validate_model_available(model: Model) -> tuple[bool, str | None]:
     """
     Validate that a model is available on OpenRouter.
-    
+
     Args:
         model: Model to validate
-        
+
     Returns:
         Tuple of (is_available, replacement_model_if_any)
     """
     model_id = model.value
-    
+
     # Check if model is in unavailable list
     if model_id in ModelRegistry.UNAVAILABLE_MODELS:
         replacement = ModelRegistry.UNAVAILABLE_MODELS[model_id]
         return False, replacement
-    
+
     # Check if model is in cost table (indicates it's valid)
     if model_id in ModelRegistry.COST_TABLE:
         return True, None
-    
+
     # Unknown model - allow it through (might be new)
     logger.warning(f"Unknown model {model_id} - allowing through")
     return True, None
@@ -196,7 +196,7 @@ class UnifiedClient:
     ) -> APIResponse:
         """
         Unified call with model validation → cache check → semaphore → retry → OpenRouter dispatch.
-        
+
         Note: Validates model availability before making API call.
         If model is unavailable, suggests replacement and raises error.
         """
@@ -208,7 +208,7 @@ class UnifiedClient:
                 error_msg += f". Use {replacement} instead"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         if not bypass_cache:
             cached = await self.cache.get(model.value, prompt, max_tokens, system, temperature)
             if cached:
@@ -251,7 +251,7 @@ class UnifiedClient:
                 RateLimitError,
                 ServiceUnavailableError,
             )
-            
+
             # Create retry decorator with custom settings
             @llm_retry
             async def _call_with_tenacity() -> APIResponse:
@@ -272,15 +272,15 @@ class UnifiedClient:
                     temperature,
                 )
                 return response
-            
+
             # Execute with Tenacity retry logic
             return await _call_with_tenacity()
-            
+
         except ImportError:
             logger.warning("Tenacity not available, using manual retry logic")
         except Exception as e:
             logger.warning(f"Tenacity retry failed: {e}, using manual retry logic")
-        
+
         # FALLBACK: Original manual retry logic
         last_error = None
         for attempt in range(retries + 1):

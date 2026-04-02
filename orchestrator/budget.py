@@ -25,6 +25,7 @@ def _get_budget_partitions():
     global _budget_partitions_cache
     if _budget_partitions_cache is None:
         from .models import BUDGET_PARTITIONS  # noqa: PLC0415
+
         _budget_partitions_cache = BUDGET_PARTITIONS
     return _budget_partitions_cache
 

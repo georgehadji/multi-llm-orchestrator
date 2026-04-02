@@ -116,6 +116,7 @@ class A2AClient:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         import aiohttp as _aiohttp  # Lazy import to avoid hang at module load time
+
         timeout_config = _aiohttp.ClientTimeout(total=self.timeout)
         self.session = _aiohttp.ClientSession(timeout=timeout_config, headers=headers)
         logger.info(f"A2A client connected to {self.agent_endpoint}")

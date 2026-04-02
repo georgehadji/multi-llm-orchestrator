@@ -13,6 +13,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+# Re-export Budget so tests can do `from orchestrator.models import Budget`
+# budget.py has no imports from models.py, so no circular import risk.
+from .budget import Budget as Budget  # noqa: F401
+
 # ─────────────────────────────────────────────
 # Enums
 # ─────────────────────────────────────────────
@@ -559,6 +563,11 @@ class TaskResult:
     attempt_history: list[AttemptRecord] = field(default_factory=list)
     preflight_result: PreflightResult | None = None
     preflight_passed: bool = True
+    # TDD artifacts (populated when TDD-first generation is used)
+    test_files: dict = field(default_factory=dict)
+    tests_passed: int = 0
+    tests_total: int = 0
+    metadata: dict = field(default_factory=dict)
 
     @property
     def success(self) -> bool:

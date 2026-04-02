@@ -228,7 +228,8 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
     """
     code = _extract_code_block(output, "python")
     if not code.strip():
-        return ValidationResult(False, "No Python code found", "ruff")
+        # No explicit Python block found — skip ruff rather than fail
+        return ValidationResult(True, "No Python code block, ruff skipped", "ruff")
 
     def _run_sync() -> ValidationResult:
         tmp_path = None

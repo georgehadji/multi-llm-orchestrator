@@ -1675,34 +1675,38 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # P1-2 OPTIMIZATION: Use adaptive model selection based on project complexity
         model = self._select_decomposition_model(project)
 
-        # NEW: Use Instructor for structured decomposition output (automatic validation + retries)
+        # Try Instructor for structured decomposition (skip for large projects — Instructor
+        # adds ~27K tokens of schema overhead, which overflows 32K-context models).
+        _INSTRUCTOR_MAX_CHARS = 8_000  # ~2K tokens; leaves headroom for schema overhead
         try:
             from .structured_outputs import TaskDecomposer
-            
+
+            if len(project) > _INSTRUCTOR_MAX_CHARS:
+                raise ValueError(
+                    f"Project description too large for Instructor ({len(project)} chars)"
+                )
+
             decomposer = TaskDecomposer(api_client=self.client)
-            
-            # Use FREE Nemotron model for decomposition (optimized for SEO + agents)
-            decomp_model = "nvidia/nemotron-3-super-120b-a12b:free" if "free" in str(model).lower() else str(model)
-            
+            decomp_model = (
+                "nvidia/nemotron-3-super-120b-a12b:free"
+                if "free" in model.value.lower()
+                else model.value
+            )
             logger.info(f"Using Instructor for structured decomposition with {decomp_model}")
-            
             result = await decomposer.decompose(
                 project_description=project,
                 success_criteria=criteria,
                 model=decomp_model,
-                max_retries=3  # Instructor handles retries automatically
+                max_retries=1,  # fail fast; manual parsing is the reliable fallback
             )
-            
-            # Convert to orchestrator Task objects
             tasks = {task.id: task for task in result.to_tasks()}
             logger.info(f"Instructor decomposition succeeded: {len(tasks)} tasks")
             return tasks
-            
         except ImportError:
             logger.warning("Instructor not available, falling back to manual JSON parsing")
         except Exception as e:
             logger.warning(f"Instructor decomposition failed: {e}, falling back to manual parsing")
-        
+
         # FALLBACK: Original decomposition logic
         async def _try_decompose(m: Model) -> dict[str, Task]:
             resp = await self.client.call(
@@ -1724,9 +1728,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # v3.0 FIX: If JSON parsing fails, try with a model known for structured output
         models_to_try = [model, self._get_fallback(model)]
 
-        # Add Qwen 2.5 Coder 32B as final fallback for JSON structure issues
-        if Model.QWEN_2_5_CODER_32B not in models_to_try:
-            models_to_try.append(Model.QWEN_2_5_CODER_32B)
+        # Add Qwen3 Coder Next as final fallback for JSON structure issues
+        if Model.QWEN_3_CODER_NEXT not in models_to_try:
+            models_to_try.append(Model.QWEN_3_CODER_NEXT)
 
         for attempt, m in enumerate(models_to_try):
             if m is None:
@@ -2754,20 +2758,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     break
 
                 # ── GENERATE ──
-                output = ""  # initialise early so except blocks can reference it safely
                 # DeepSeek-R1 is a chain-of-thought reasoning model whose
                 # internal reasoning tokens count against max_tokens but don't appear in
                 # content output. For code tasks on these models, double the token budget
                 # (cap at 16384) to ensure complete output. Both also need longer timeouts.
-                # Use ModelRegistry for centralized timeout configuration (updated 2026-04-01)
-                from .model_registry import ModelRegistry
-                
                 _provider = get_provider(primary)
                 _is_reasoning_model = primary.value.startswith(
                     "anthropic/"
                 ) or (  # Claude models can be reasoning-heavy
                     primary.value.startswith("deepseek/")
-                    and primary.value == "deepseek/deepseek-r1"
+                    and primary.value == "deepseek/deepseek-reasoner"
                 )
                 # deepseek-v3.x are large instruct/chat models — match by prefix
                 _is_deepseek_chat = primary.value in (
@@ -2776,7 +2776,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     "deepseek/deepseek-v3.2",
                 )
                 if _is_reasoning_model:
-                    gen_timeout = ModelRegistry.get_timeout(primary.value)
+                    gen_timeout = 240
                     if task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
                         # Double token budget: reasoning tokens eat into output budget
                         effective_max_tokens = min(task.max_output_tokens * 2, 16384)
@@ -2784,13 +2784,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         effective_max_tokens = task.max_output_tokens
                 elif _is_deepseek_chat:
                     # DeepSeek chat/v3.x models are large and slow — give more time and full tokens
-                    gen_timeout = ModelRegistry.get_timeout(primary.value)
+                    gen_timeout = 180
                     effective_max_tokens = task.max_output_tokens
                 elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
-                    gen_timeout = ModelRegistry.get_timeout(primary.value)
+                    gen_timeout = 120
                     effective_max_tokens = task.max_output_tokens
                 else:
-                    gen_timeout = ModelRegistry.get_timeout(primary.value)
+                    gen_timeout = 60
                     effective_max_tokens = task.max_output_tokens
 
                 # Apply model-specific token limits (e.g., Claude Haiku max 4096)
@@ -2846,6 +2846,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     else:
                         # Use temperature 0.0 for code generation (deterministic output)
                         gen_temperature = 0.0 if task.type == TaskType.CODE_GEN else 0.3
+
+                    # Initialise _rl_tenant early so the outer except block can always
+                    # reference it, even if an exception fires before the first assignment.
+                    _rl_tenant = getattr(task, "tenant", "default")
 
                     # ═══════════════════════════════════════════════════════
                     # OPTIMIZATION: Speculative generation (parallel cheap+premium)
@@ -3605,12 +3609,10 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         logger.debug(f"  {task.id}: Generated code syntax OK")
                     except SyntaxError as e:
                         logger.warning(f"  {task.id}: Generated code has syntax error: {e}")
-                        # Don't proceed with test validation if code is invalid.
-                        # Do NOT reset best_score here — preserve the best score from
-                        # any earlier iteration so the task can still deliver the best
-                        # output seen so far instead of regressing to 0.
+                        # Don't proceed with test validation if code is invalid
                         best_output = None  # Mark as invalid
                         status = TaskStatus.FAILED
+                        best_score = 0.0
 
                     # Find the generated source file
                     source_file = None
@@ -3827,9 +3829,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                     temperature=0.1,
                     timeout=60,
                 )
+                logger.debug(
+                    f"  {task.id}: eval run {run + 1}/2 complete, score={self._parse_score(response.text):.3f}"
+                )
                 await self.budget.charge(response.cost_usd, "evaluation")
                 score = self._parse_score(response.text)
-                logger.debug(f"  {task.id}: eval run {run + 1}/2 complete, score={score:.3f}")
                 scores.append(score)
             except (Exception, asyncio.CancelledError) as e:
                 logger.warning(f"Evaluation run {run + 1} failed: {e}")
@@ -3893,20 +3897,24 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             r"得分\s*[:=]\s*([0-9]*\.?[0-9]+)",  # Chinese: 得分：0.85
             r"([0-9]\.[0-9]{1,2})\s*/\s*1",  # 0.85/1
             r"([0-9]{1,2})\s*%",  # 85%
-            r"\b([0-9]|10)\s*/\s*10\b",  # 8/10 or 10/10 integer scale
-            r"\b([0-9]{1,2})\s*/\s*100\b",  # 85/100 integer scale
+            r"([0-9]+(?:\.[0-9]+)?)\s*/\s*10\b",  # 7/10 or 8.5/10
+            r"([0-9]+(?:\.[0-9]+)?)\s*/\s*100\b",  # 70/100
+            r"\bout\s+of\s+10[,.\s]*([0-9]+(?:\.[0-9]+)?)",  # "out of 10: 7"
+            r"([0-9]+(?:\.[0-9]+)?)\s+out\s+of\s+10",  # "7 out of 10"
+            r"rating\s*[:=]\s*([0-9]*\.?[0-9]+)",  # rating: 0.7
         ]
 
-        for i, pattern in enumerate(patterns):
+        for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 score = float(match.group(1))
-                # Normalise to [0, 1] based on detected scale
-                if i == 6:  # N/100 pattern
+                # Normalise N/10 and N/100 to 0–1
+                if re.search(r"/\s*100\b", pattern) or score > 10:
                     score = score / 100.0
-                elif i == 5:  # N/10 pattern
+                elif re.search(r"/\s*10\b|out\s+of\s+10", pattern) or 1 < score <= 10:
                     score = score / 10.0
-                elif "%" in text or score > 1.0:
+                # Percentage
+                if "%" in pattern and score > 1.0:
                     score = score / 100.0
                 logger.debug(f"_parse_score: regex pattern '{pattern}' matched score={score}")
                 return max(0.0, min(1.0, score))
@@ -4086,13 +4094,14 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     # PRIORITY: Best value models first (Xiaomi, StepFun, GLM, Grok)
     # Updated: Use faster models for code gen to avoid timeouts
     _TIER_CHEAP = [
-        Model.QWEN_2_5_CODER_32B,  # $0.66/$1.00 - Fast coding specialist ⭐ BEST
+        Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75 - Fast coding specialist ⭐ BEST
         Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 - #1 SWE-bench, fast
         Model.ZHIPU_GLM_4_7,  # $0.39/$1.75 - Enhanced programming
         Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30 - 196B MoE reasoning
         Model.PHI_4,  # $0.07/$0.14 - Microsoft 14B
         Model.GEMMA_3_27B,  # $0.08/$0.20 - Google open-weights
         Model.LLAMA_3_3_70B,  # $0.12/$0.30 - Meta 70B reliable
+        Model.NVIDIA_NEMOTRON_3_SUPER,  # $0.10/$0.50 - 120B MoE efficient
     ]
     _TIER_BALANCED = [
         Model.DEEPSEEK_V3_2,  # $0.27/$1.10 - 1.24T tokens, faster than MiMo-Pro
@@ -4105,8 +4114,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         Model.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00 - 1T+ params (slow)
     ]
     _TIER_PREMIUM = [
-        Model.XAI_GROK_4_20,  # $2.00/$6.00 - Lowest hallucination ⭐
+        Model.XAI_GROK_4_20_BETA,  # $2.00/$6.00 - Lowest hallucination ⭐
         Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Best coding
+        Model.QWEN_3_5_397B_A17B,  # $0.39/$2.34 - 397B MoE SOTA ⭐
         Model.GPT_5_4_CODEX,  # $1.75/$14.00 - SWE-Bench Pro SOTA
         Model.GEMINI_PRO,  # $2.00/$12.00 - Gemini premium
         Model.O4_MINI,  # $1.50/$6.00 - OpenAI reasoning
@@ -4252,11 +4262,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # Combined complexity score
         total_complexity = complexity_score + (tech_score // 2)
 
-        # v3.0 FIX: ALWAYS use Qwen 2.5 Coder 32B for decomposition
+        # v3.0 FIX: ALWAYS use Qwen3 Coder Next for decomposition
         # It has the best JSON structure capability at great value
-        if self.api_health.get(M.QWEN_2_5_CODER_32B, True):
-            logger.debug(f"P1-2: Using Qwen 2.5 Coder 32B for decomposition (best JSON structure)")
-            return M.QWEN_2_5_CODER_32B
+        if self.api_health.get(M.QWEN_3_CODER_NEXT, True):
+            logger.debug(f"P1-2: Using Qwen3 Coder Next for decomposition (best JSON structure)")
+            return M.QWEN_3_CODER_NEXT
 
         # Fallback to other structured output models
         if self.api_health.get(M.XIAOMI_MIMO_V2_FLASH, True):
@@ -4286,7 +4296,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # NOTE: Decomposition requires structured JSON output, so we need models
         # with good instruction following, not just reasoning capability
         fast_models = [
-            Model.QWEN_2_5_CODER_32B,  # $0.66/$1.00 - Best JSON structure ⭐
+            Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75 - Best JSON structure ⭐
             Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 - #1 SWE-bench, good structure
             Model.ZHIPU_GLM_4_7,  # $0.39/$1.75 - Enhanced programming
             Model.GEMINI_FLASH,  # $0.15/$0.60 - Reliable JSON output
@@ -4459,29 +4469,42 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             return []
 
         # Detect if this is a Python task
+        # NOTE: "import " is intentionally excluded — JS/TS also use ES module imports
         is_python_task = (
             "python" in task.prompt.lower()
             or ".py" in task.target_path.lower()
             or "flask" in task.prompt.lower()
             or "django" in task.prompt.lower()
             or "fastapi" in task.prompt.lower()
-            or "def " in output[:500]  # Check output for Python function defs
-            or "import " in output[:500]  # Check output for Python imports
+            or "def " in output[:500]  # Python function defs
         )
 
-        # Detect if this is a web task (HTML/CSS/JS)
+        # Detect if this is a web/JS/TS task (HTML/CSS/JS/TS/React/Vue)
         is_web_task = (
             "html" in task.prompt.lower()
             or "css" in task.prompt.lower()
             or "javascript" in task.prompt.lower()
-            or "js" in task.prompt.lower()
+            or "typescript" in task.prompt.lower()
+            or "react" in task.prompt.lower()
+            or "vue" in task.prompt.lower()
+            or "angular" in task.prompt.lower()
+            or "next.js" in task.prompt.lower()
+            or " js " in task.prompt.lower()
+            or task.prompt.lower().endswith(" js")
             or ".html" in task.target_path.lower()
             or ".css" in task.target_path.lower()
             or ".js" in task.target_path.lower()
+            or ".ts" in task.target_path.lower()
+            or ".tsx" in task.target_path.lower()
+            or ".jsx" in task.target_path.lower()
             or "<!DOCTYPE" in output[:100]
             or "<html" in output[:100]
             or "function(" in output[:500]
             or "const " in output[:500]
+            or "export default" in output[:1000]  # JS/TS module export
+            or "export const" in output[:1000]  # JS/TS named export
+            or "from 'react'" in output[:500]  # React import (single quotes)
+            or 'from "react"' in output[:500]  # React import (double quotes)
         )
 
         if is_web_task or not is_python_task:
