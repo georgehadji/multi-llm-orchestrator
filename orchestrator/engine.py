@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 
 from .api_clients import APIResponse, UnifiedClient
 from .model_selector import ModelSelector
+from .task_factory import TaskFactory
 from .prompt_builder import (
     CritiquePrompt,
     DecompositionPrompt,
@@ -1879,9 +1880,9 @@ Each task JSON element MUST also include:
                 # NOTE: Don't remove validators for non-Python tasks here.
                 # Let _filter_validators_for_task() decide based on actual output content.
 
-                task = Task(
+                task = TaskFactory.create(
                     id=item["id"],
-                    type=task_type,
+                    task_type=task_type,
                     prompt=prompt,
                     dependencies=item.get("dependencies", []),
                     hard_validators=hard_validators,
