@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .log_config import get_logger
@@ -201,6 +202,45 @@ def get_framework_config(framework: TestingFramework) -> dict:
     return configs.get(framework, configs[TestingFramework.UNKNOWN])
 
 
+# ═══════════════════════════════════════════════════════
+# Module-level helpers
+# ═══════════════════════════════════════════════════════
+
+
+def _strip_code_fences(text: str) -> str:
+    """Remove leading/trailing markdown code fences from LLM output."""
+    import re
+
+    # Remove opening fence (```lang or ```) and closing fence (```)
+    text = re.sub(r"^```[a-zA-Z]*\n?", "", text.strip())
+    text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
+
+
+def _count_tests(test_code: str, framework_template: str) -> int:
+    """
+    Count the number of tests in generated test code.
+
+    Different frameworks use different patterns:
+    - pytest/unittest: ``def test_``
+    - jest/vitest/mocha: ``test(`` or ``it(``
+    - go_test: ``func Test``
+    - cargo_test: ``#[test]``
+    """
+    if framework_template in ("pytest", "unittest"):
+        return test_code.count("def test_")
+    elif framework_template in ("jest", "vitest", "mocha"):
+        import re
+
+        return len(re.findall(r"\b(?:test|it)\s*\(", test_code))
+    elif framework_template == "go_test":
+        return test_code.count("func Test")
+    elif framework_template == "cargo_test":
+        return test_code.count("#[test]")
+    # fallback
+    return test_code.count("def test_")
+
+
 @dataclass
 class TestSpec:
     """Specification for generated tests."""
@@ -357,10 +397,11 @@ class TestFirstGenerator:
         # ═══════════════════════════════════════════════════════
         # Detect Testing Framework (NEW v3.0)
         # ═══════════════════════════════════════════════════════
+        file_extension = Path(task.target_path).suffix if task.target_path else ""
         framework = detect_testing_framework(
             task_prompt=task.prompt,
             project_context=project_context,
-            file_extension="",  # Could extract from task if available
+            file_extension=file_extension,
         )
         framework_config = get_framework_config(framework)
 
@@ -378,6 +419,7 @@ class TestFirstGenerator:
             project_context=project_context,
             task_type=task.type,
             model=target_model,
+            framework_config=framework_config,
         )
 
         if not test_spec or not test_spec.test_code:
@@ -399,6 +441,7 @@ class TestFirstGenerator:
             project_context=project_context,
             task_type=task.type,
             model=target_model,
+            framework_config=framework_config,
         )
 
         if not implementation_code:
@@ -446,17 +489,25 @@ class TestFirstGenerator:
                 model=target_model,
             )
 
-        # Build final result
+        # Build final result with accumulated cost
         tdd_result = TDDResult(
             implementation_code=implementation_code,
             test_spec=test_spec,
             test_result=test_result,
             iterations=iterations,
             success=test_result.passed,
+            cost_usd=self._get_total_cost(),
+            test_generation_cost=self._cost_tracker["test_generation"],
+            implementation_cost=self._cost_tracker["implementation"],
+            review_cost=self._cost_tracker["review"],
         )
 
-        if tdd_result.success:
-            logger.info(f"  {task.id}: TDD complete - ALL TESTS PASSED")
+        if test_result.tests_run == 0:
+            # No tests actually executed — could be no sandbox, non-code task, or
+            # framework detection couldn't find test functions to run.
+            logger.info(f"  {task.id}: TDD complete — tests skipped (no runnable tests)")
+        elif tdd_result.success:
+            logger.info(f"  {task.id}: TDD complete — ALL TESTS PASSED")
         else:
             logger.warning(
                 f"  {task.id}: TDD complete - "
@@ -471,6 +522,7 @@ class TestFirstGenerator:
         project_context: str,
         task_type: TaskType,
         model: Model,
+        framework_config: dict | None = None,
     ) -> TestSpec | None:
         """
         Phase 1: Generate comprehensive test specification.
@@ -480,14 +532,62 @@ class TestFirstGenerator:
             project_context: Project context
             task_type: Type of task
             model: Model to use
+            framework_config: Framework configuration dict from get_framework_config()
 
         Returns:
             TestSpec with generated tests
         """
-        # Build test generation prompt
-        # Key insight: Don't say "do TDD" — just give tests as natural language spec
+        cfg = framework_config or get_framework_config(TestingFramework.PYTEST)
+        fw_template = cfg.get("prompt_template", "pytest")
+        code_lang = cfg.get("test_file_suffix", ".py").lstrip(".")
+
+        # Map framework template name to human-readable description for prompt
+        fw_descriptions = {
+            "pytest": "pytest (Python)",
+            "unittest": "unittest (Python)",
+            "jest": "Jest (JavaScript)",
+            "vitest": "Vitest (TypeScript/JavaScript)",
+            "mocha": "Mocha/Chai (JavaScript)",
+            "go_test": "Go testing package",
+            "cargo_test": "Rust/Cargo tests",
+        }
+        fw_label = fw_descriptions.get(fw_template, fw_template)
+
+        # Framework-specific test conventions for the prompt
+        fw_conventions = {
+            "pytest": (
+                "Use pytest. Name test functions `def test_<name>`. "
+                "Include all necessary imports."
+            ),
+            "unittest": (
+                "Use unittest. Subclass TestCase, name methods `def test_<name>`. "
+                "Include all necessary imports."
+            ),
+            "jest": (
+                "Use Jest. Use describe()/it() or test() blocks. "
+                "Include all necessary imports/requires."
+            ),
+            "vitest": (
+                "Use Vitest. Use describe()/it() or test() blocks with TypeScript types. "
+                "Import from 'vitest'."
+            ),
+            "mocha": (
+                "Use Mocha + Chai. Use describe()/it() blocks with expect() assertions. "
+                "Include all necessary imports."
+            ),
+            "go_test": (
+                "Use Go testing package. Name functions `func Test<Name>(t *testing.T)`. "
+                "Include package declaration."
+            ),
+            "cargo_test": (
+                "Use Rust #[cfg(test)] module with #[test] functions. "
+                "Include use super::*; inside test module."
+            ),
+        }
+        fw_convention = fw_conventions.get(fw_template, fw_conventions["pytest"])
+
         prompt = (
-            f"Write comprehensive pytest tests for the following requirement.\n\n"
+            f"Write comprehensive {fw_label} tests for the following requirement.\n\n"
             f"Requirement: {requirement}\n\n"
         )
 
@@ -500,40 +600,43 @@ class TestFirstGenerator:
             "2. Test error handling and exception cases\n"
             "3. Include type checking where applicable\n"
             "4. Cover happy path and at least 3 edge cases\n"
-            "5. Use descriptive test names (test_should_... pattern)\n"
+            "5. Use descriptive test names\n"
             "6. Include assertions for expected behavior\n\n"
-            "Output ONLY test code. Do NOT write implementation.\n"
-            "Use pytest framework. Include all necessary imports.\n\n"
-            "```python\n"
+            f"Output ONLY test code. Do NOT write implementation.\n"
+            f"{fw_convention}\n\n"
+            f"```{code_lang}\n"
         )
 
         try:
             response = await self.client.call(
                 model=model,
                 prompt=prompt,
-                system="You are an expert software tester writing comprehensive pytest tests. "
+                system=f"You are an expert software tester writing comprehensive {fw_label} tests. "
                 "Focus on edge cases, error handling, and clear assertions. "
                 "Output ONLY test code, no explanations.",
                 max_tokens=3000,
-                temperature=0.3,  # Slightly higher for test creativity
+                temperature=0.3,
                 timeout=120,
             )
 
+            # Track cost for this phase
+            self._track_cost("test_generation", response.cost_usd)
+
             test_code = response.text.strip()
 
-            # Clean up markdown fences if present
-            test_code = test_code.replace("```python\n", "").replace("```", "")
+            # Clean up markdown fences
+            test_code = _strip_code_fences(test_code)
 
-            # Count tests
-            test_count = test_code.count("def test_")
+            # Count tests — pattern depends on framework
+            test_count = _count_tests(test_code, fw_template)
 
             # Extract edge cases mentioned
             edge_cases = self._extract_edge_cases(test_code)
 
             return TestSpec(
-                test_file_name="test_main.py",
+                test_file_name=f"test_main{cfg['test_file_suffix']}",
                 test_code=test_code,
-                test_framework="pytest",
+                test_framework=fw_template,
                 test_count=test_count,
                 edge_cases_covered=edge_cases,
             )
@@ -549,6 +652,7 @@ class TestFirstGenerator:
         project_context: str,
         task_type: TaskType,
         model: Model,
+        framework_config: dict | None = None,
     ) -> str:
         """
         Phase 2: Generate implementation that passes all tests.
@@ -559,13 +663,17 @@ class TestFirstGenerator:
             project_context: Project context
             task_type: Type of task
             model: Model to use
+            framework_config: Framework configuration dict from get_framework_config()
 
         Returns:
             Implementation code
         """
+        cfg = framework_config or get_framework_config(TestingFramework.PYTEST)
+        code_lang = cfg.get("test_file_suffix", ".py").lstrip(".")
+
         prompt = (
             f"Write the implementation code that passes ALL of these tests.\n\n"
-            f"Tests:\n```python\n{tests}\n```\n\n"
+            f"Tests:\n```{code_lang}\n{tests}\n```\n\n"
             f"Original requirement: {requirement}\n\n"
         )
 
@@ -580,7 +688,7 @@ class TestFirstGenerator:
             f"4. Handle all edge cases covered in tests\n"
             f"5. Production-ready quality\n\n"
             f"Output ONLY implementation code. No explanations.\n\n"
-            f"```python\n"
+            f"```{code_lang}\n"
         )
 
         try:
@@ -591,12 +699,15 @@ class TestFirstGenerator:
                 "Write clean, production-ready code that passes all tests. "
                 "Output ONLY implementation code.",
                 max_tokens=4000,
-                temperature=0.0,  # Deterministic for code
+                temperature=0.0,
                 timeout=180,
             )
 
+            # Track cost for this phase
+            self._track_cost("implementation", response.cost_usd)
+
             code = response.text.strip()
-            code = code.replace("```python\n", "").replace("```", "")
+            code = _strip_code_fences(code)
 
             return code
 
@@ -784,7 +895,7 @@ class TestFirstGenerator:
         )
         return current_code, final_result, iterations
 
-    def _fallback_standard_generation(
+    async def _fallback_standard_generation(
         self,
         task: Task,
         project_context: str,
