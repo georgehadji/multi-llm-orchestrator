@@ -224,7 +224,7 @@ def write_output_dir(
 
         # NEW: Code validation before saving (prevent LLM commentary)
         # FIXME: Code validation temporarily disabled due to circular import
-        if False and task.type == TaskType.CODE_GEN and HAS_CODE_VALIDATOR:
+        if False:  # FIXME: Code validation temporarily disabled due to circular import
             validation_result = validate_code(content, filename=filename)
             if not validation_result.is_valid:
                 error_msg = (

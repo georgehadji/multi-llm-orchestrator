@@ -55,6 +55,7 @@ def __getattr__(name: str):
         "DryRunRenderer": "dry_run",
         "ProgressWriter": "progress_writer",
         "ProgressEntry": "progress_writer",
+        "CodebaseUnderstanding": "codebase_understanding",
     }
 
     if name in common_modules:
