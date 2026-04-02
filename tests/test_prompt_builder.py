@@ -1,4 +1,5 @@
 """Unit tests for orchestrator.prompt_builder — TDD RED phase."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,12 +13,14 @@ from orchestrator.prompt_builder import (
 )
 from orchestrator.models import AttemptRecord
 
-
 # ── DecompositionPrompt ───────────────────────────────────────────────────────
+
 
 class TestDecompositionPrompt:
     def test_contains_project(self):
-        result = DecompositionPrompt.build("My API project", "All tests pass", "", ["code_generation"])
+        result = DecompositionPrompt.build(
+            "My API project", "All tests pass", "", ["code_generation"]
+        )
         assert "My API project" in result
 
     def test_contains_criteria(self):
@@ -39,6 +42,7 @@ class TestDecompositionPrompt:
 
 
 # ── SystemPrompt ──────────────────────────────────────────────────────────────
+
 
 class TestSystemPrompt:
     def test_standard_mode_returns_string(self):
@@ -73,6 +77,7 @@ class TestSystemPrompt:
 
 
 # ── DeltaPrompt ───────────────────────────────────────────────────────────────
+
 
 def _make_record(**kwargs) -> AttemptRecord:
     defaults = dict(
@@ -147,6 +152,7 @@ class TestDeltaPrompt:
 
 # ── CritiquePrompt ────────────────────────────────────────────────────────────
 
+
 class TestCritiquePrompt:
     def test_build_returns_tuple(self):
         result = CritiquePrompt.build("task prompt", "some output")
@@ -181,6 +187,7 @@ class TestCritiquePrompt:
 
 # ── RevisionPrompt ────────────────────────────────────────────────────────────
 
+
 class TestRevisionPrompt:
     def test_returns_tuple(self):
         result = RevisionPrompt.build("original task", "fix the imports", "code_generation")
@@ -188,7 +195,9 @@ class TestRevisionPrompt:
         assert len(result) == 2
 
     def test_user_prompt_contains_original_task(self):
-        user_prompt, _ = RevisionPrompt.build("write tests", "missing assertions", "code_generation")
+        user_prompt, _ = RevisionPrompt.build(
+            "write tests", "missing assertions", "code_generation"
+        )
         assert "write tests" in user_prompt
 
     def test_user_prompt_contains_critique(self):

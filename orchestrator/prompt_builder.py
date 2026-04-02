@@ -8,6 +8,7 @@ Rules:
   - All public methods are static — no instance state.
   - Returns plain strings or (user_prompt, system_prompt) tuples.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -36,7 +37,7 @@ class DecompositionPrompt:
             f"{app_context_block}"
             f"Return ONLY a JSON array. Each element must have:\n"
             f'- "id": string (e.g., "task_001")\n'
-            f"- \"type\": one of {valid_types}\n"
+            f'- "type": one of {valid_types}\n'
             f'- "prompt": detailed instruction for the task executor. For code_generation tasks, MUST include:\n'
             f"  - Code must be THOROUGHLY COMMENTED\n"
             f"  - EVERY file MUST start with: /** Author: Georgios-Chrysovalantis Chatzivantsidis */\n"

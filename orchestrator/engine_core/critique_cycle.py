@@ -254,7 +254,9 @@ class CritiqueCycle:
         Returns:
             API response with critique and score
         """
-        critique_prompt = CritiquePrompt.build_score(original_prompt, generated_output, task_type.value)
+        critique_prompt = CritiquePrompt.build_score(
+            original_prompt, generated_output, task_type.value
+        )
 
         try:
             response = await self.client.call_with_retry(
@@ -267,7 +269,6 @@ class CritiqueCycle:
         except Exception as e:
             logger.error(f"Critique failed for {model.value}: {e}")
             return None
-
 
     def _extract_score(self, critique_text: str) -> float:
         """
@@ -302,7 +303,6 @@ class CritiqueCycle:
         # Default: moderate score
         logger.warning("Could not extract score from critique, using default 0.5")
         return 0.5
-
 
     def _clean_code_output(self, text: str) -> str:
         """

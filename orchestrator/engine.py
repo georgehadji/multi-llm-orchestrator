@@ -32,7 +32,13 @@ from collections import defaultdict, deque
 from typing import TYPE_CHECKING
 
 from .api_clients import APIResponse, UnifiedClient
-from .prompt_builder import CritiquePrompt, DecompositionPrompt, DeltaPrompt, RevisionPrompt, SystemPrompt
+from .prompt_builder import (
+    CritiquePrompt,
+    DecompositionPrompt,
+    DeltaPrompt,
+    RevisionPrompt,
+    SystemPrompt,
+)
 from .budget import Budget
 from .model_registry import ModelRegistry
 from .cache import DiskCache
@@ -3029,7 +3035,9 @@ Each task JSON element MUST also include:
                         # Use low temperature for focused, deterministic critique
                         critique_temperature = 0.2 if task.type == TaskType.CODE_GEN else 0.3
 
-                        _critique_prompt, _critique_system = CritiquePrompt.build(task.prompt, output)
+                        _critique_prompt, _critique_system = CritiquePrompt.build(
+                            task.prompt, output
+                        )
                         critique_response = await self.client.call(
                             reviewer,
                             _critique_prompt,
@@ -3580,7 +3588,9 @@ Each task JSON element MUST also include:
             critique_text[:100],
         )
         try:
-            revised_prompt, _rev_system = RevisionPrompt.build(task.prompt, critique_text, task.type.value)
+            revised_prompt, _rev_system = RevisionPrompt.build(
+                task.prompt, critique_text, task.type.value
+            )
             gen_response = await self.client.call(
                 primary,
                 revised_prompt,
