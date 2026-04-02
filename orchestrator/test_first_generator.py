@@ -350,7 +350,7 @@ class TestFirstGenerator:
         """
         # Use caller-supplied model, or fall back to the TDD config's implementation model.
         # Note: Task has no model_used attribute — routing is handled by the TDD config.
-        target_model = model or self._get_model("implementation")
+        target_model = model or self._get_model_for_phase("implementation")
 
         logger.info(f"Starting TDD generation for task {task.id}")
 
