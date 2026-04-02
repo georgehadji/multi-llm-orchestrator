@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 
 from .api_clients import APIResponse, UnifiedClient
 from .budget import Budget
+from .model_registry import ModelRegistry
 from .cache import DiskCache
 from .models import (
     FALLBACK_CHAIN,
@@ -2763,12 +2764,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 # content output. For code tasks on these models, double the token budget
                 # (cap at 16384) to ensure complete output. Both also need longer timeouts.
                 _provider = get_provider(primary)
-                _is_reasoning_model = primary.value.startswith(
-                    "anthropic/"
-                ) or (  # Claude models can be reasoning-heavy
-                    primary.value.startswith("deepseek/")
-                    and primary.value == "deepseek/deepseek-reasoner"
-                )
+                _is_reasoning_model = ModelRegistry.is_reasoning_model(primary.value)
                 # deepseek-v3.x are large instruct/chat models — match by prefix
                 _is_deepseek_chat = primary.value in (
                     "deepseek/deepseek-chat",

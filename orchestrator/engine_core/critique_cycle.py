@@ -18,6 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from ..model_registry import ModelRegistry
 from ..models import AttemptRecord, TaskType
 
 if TYPE_CHECKING:
@@ -430,9 +431,7 @@ class CritiqueCycle:
         provider = get_provider(model)
 
         # Reasoning models need more time and tokens
-        is_reasoning_model = model.value.startswith("anthropic/") or (
-            model.value.startswith("deepseek/") and model.value == "deepseek/deepseek-reasoner"
-        )
+        is_reasoning_model = ModelRegistry.is_reasoning_model(model.value)
 
         if is_reasoning_model:
             timeout = 240
