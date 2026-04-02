@@ -17,7 +17,13 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import instructor
+import warnings
+
+# instructor 1.14.x imports google.generativeai (deprecated); suppress until
+# instructor ships a release targeting google.genai.
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    import instructor
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from datetime import datetime, timezone
