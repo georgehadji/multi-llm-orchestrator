@@ -418,6 +418,11 @@ class Orchestrator:
         # and truncation causes code_review tasks to miss the tail of the source,
         # leading the LLM to claim "source code was not provided".
         self.context_truncation_limit: int = 40000
+        # T1-B: engine_core modules — engine.py delegates to these instead of
+        # reimplementing the same logic inline.
+        from .engine_core.dependency_resolver import DependencyResolver as _DepResolver
+
+        self._dep_resolver = _DepResolver(context_truncation_limit=self.context_truncation_limit)
         # Improvement 3: event hooks + metrics exporter
         self._hook_registry: HookRegistry = HookRegistry()
         self._metrics_exporter: MetricsExporter | None = None
@@ -4082,39 +4087,21 @@ Each task JSON element MUST also include:
     def _topological_sort(self, tasks: dict[str, Task]) -> list[str]:
         """
         Kahn's algorithm with cycle detection.
-        FIX #6: Uses deque for O(1) popleft instead of list.sort()+pop(0) O(n²).
+        FIX #6: Delegates to DependencyResolver (engine_core) — O(1) deque popleft.
+
+        Passes a key-sorted tasks dict so independent nodes are processed in
+        deterministic alphabetical order (preserving prior engine behaviour).
         """
-        in_degree = dict.fromkeys(tasks, 0)
-        graph = defaultdict(list)
-
-        for tid, task in tasks.items():
-            for dep in task.dependencies:
-                if dep in tasks:
-                    graph[dep].append(tid)
-                    in_degree[tid] += 1
-
-        # Sort initial zero-degree nodes for determinism, then use deque
-        queue = deque(sorted(tid for tid, deg in in_degree.items() if deg == 0))
-        result = []
-
-        while queue:
-            node = queue.popleft()
-            result.append(node)
-            # Sort neighbors for deterministic ordering before extending
-            newly_ready = []
-            for neighbor in graph[node]:
-                in_degree[neighbor] -= 1
-                if in_degree[neighbor] == 0:
-                    newly_ready.append(neighbor)
-            newly_ready.sort()
-            queue.extend(newly_ready)
-
-        if len(result) != len(tasks):
-            cycle_tasks = set(tasks.keys()) - set(result)
+        sorted_tasks = dict(sorted(tasks.items()))
+        self._dep_resolver.build_dependency_graph(sorted_tasks)
+        try:
+            return self._dep_resolver.topological_sort(sorted_tasks)
+        except ValueError:
+            # Cycle detected — DependencyResolver raises; we log and return
+            # the partial ordering it accumulated before detecting the cycle.
+            cycle_tasks = set(tasks.keys()) - set(self._dep_resolver.execution_order)
             logger.error(f"Dependency cycle detected involving: {cycle_tasks}")
-            return result
-
-        return result
+            return self._dep_resolver.execution_order
 
     def _topological_levels(self, tasks: dict[str, Task]) -> list[list[str]]:
         """
