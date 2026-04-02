@@ -556,7 +556,8 @@ class DiskCache(CacheBackend):
             with sqlite3.connect(str(self.db_path)) as conn:
                 cursor = conn.execute("SELECT COUNT(*), SUM(size_bytes) FROM cache")
                 count, size = cursor.fetchone()
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to read cache stats from %s: %s", self.db_path, e)
             count, size = 0, 0
 
         return {

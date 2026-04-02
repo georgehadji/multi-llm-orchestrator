@@ -32,6 +32,7 @@ from collections import defaultdict, deque
 from typing import TYPE_CHECKING
 
 from .api_clients import APIResponse, UnifiedClient
+from .prompt_builder import CritiquePrompt, DecompositionPrompt, DeltaPrompt, RevisionPrompt, SystemPrompt
 from .budget import Budget
 from .model_registry import ModelRegistry
 from .cache import DiskCache
@@ -1639,38 +1640,7 @@ Each task JSON element MUST also include:
 - "tech_context": brief note on the tech stack relevant to this specific file.
 """
 
-        prompt = f"""You are a project decomposition engine. Break this project into
-atomic, executable tasks.
-
-PROJECT: {project}
-
-SUCCESS CRITERIA: {criteria}
-{app_context_block}
-Return ONLY a JSON array. Each element must have:
-- "id": string (e.g., "task_001")
-- "type": one of {valid_types}
-- "prompt": detailed instruction for the task executor. For code_generation tasks, MUST include:\n"
-  "  - Code must be THOROUGHLY COMMENTED\n"
-  "  - EVERY file MUST start with: /** Author: Georgios-Chrysovalantis Chatzivantsidis */\n"
-- "dependencies": list of task id strings this depends on (empty if none)
-- "hard_validators": list of validator names — ONLY use these for code tasks:
-  - "python_syntax": only for code_generation tasks that produce Python code
-  - "json_schema": only for tasks that must return valid JSON
-  - "pytest": only for code_generation tasks with runnable tests
-  - "ruff": only for code_generation tasks requiring lint checks
-  - "latex": only for tasks producing LaTeX documents
-  - "length": for tasks requiring minimum/maximum output length
-  - Use [] (empty list) for non-code tasks (reasoning, writing, analysis, evaluation)
-
-RULES:
-- Tasks must be atomic (one clear deliverable each)
-- Dependencies must form a DAG (no cycles)
-- Include code_review tasks after code_generation tasks
-- Include at least one evaluation task at the end
-- 5-15 tasks total for a medium project
-- Do NOT add hard_validators to reasoning, writing, analysis, or evaluation tasks
-
-Return ONLY the JSON array, no markdown fences, no explanation."""
+        prompt = DecompositionPrompt.build(project, criteria, app_context_block, valid_types)
 
         decomp_system = "You are a precise project decomposition engine. Output only valid JSON."
         # P1-2 OPTIMIZATION: Use adaptive model selection based on project complexity
@@ -2270,38 +2240,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     def _build_system_prompt(self, task_type: str = "") -> str:
         """Build system prompt based on current quality_mode."""
         mode = getattr(self, "_quality_mode", "standard")
-        if mode == "production":
-            return self._build_production_system_prompt(task_type)
-        return self._build_standard_system_prompt(task_type)
-
-    def _build_standard_system_prompt(self, task_type: str = "") -> str:
-        """Standard quality system prompt."""
-        return (
-            "You are an expert software engineer executing a task. "
-            "Produce high-quality, complete output. "
-            "Follow best practices and ensure all code is valid and runnable."
-        )
-
-    def _build_production_system_prompt(self, task_type: str = "") -> str:
-        """Production-grade system prompt with strict quality requirements."""
-        base = (
-            "You are a senior software engineer delivering production-grade output. "
-            "Requirements:\n"
-            "1. Full type annotations on every function and class.\n"
-            "2. Comprehensive error handling and input validation.\n"
-            "3. Unit tests for every public function (pytest style).\n"
-            "4. Docstrings on every module, class, and public function.\n"
-            "5. Logging via the standard library logger (not print).\n"
-            "6. No TODOs, no placeholder implementations.\n"
-            "7. Follow SOLID principles and keep cyclomatic complexity ≤ 10.\n"
-            "8. Include a brief inline comment for any non-obvious logic.\n"
-        )
-        if task_type in ("code_gen", "code_generation"):
-            base += (
-                "9. Return ONLY raw code — no markdown fences, no prose outside code.\n"
-                "10. Code must pass mypy --strict.\n"
-            )
-        return base
+        return SystemPrompt.build(task_type, mode)
 
     def _build_project_context(self) -> str:
         """Build project context from existing results."""
@@ -2425,92 +2364,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         return None
 
     def _build_delta_prompt(self, original_prompt: str, record: AttemptRecord) -> str:
-        """
-        Build an enriched prompt for the next iteration after a failed attempt.
-
-        Uses XML-style tags to delimit the feedback block so that adversarial
-        LLM output cannot escape the block with injected plain-text sentinels
-        or tag sequences.  All user-controlled fields are sanitised before
-        embedding to prevent prompt-injection via failure_reason, validator
-        names, or output_snippet.
-        """
-
-        def _sanitize(text: str) -> str:
-            """Strip XML delimiters and the plain sentinel from user-supplied data."""
-            # Remove our own XML tags so injected copies cannot break the structure.
-            text = text.replace("<ORCHESTRATOR_FEEDBACK>", "")
-            text = text.replace("</ORCHESTRATOR_FEEDBACK>", "")
-            # Neutralise the plain sentinel so it cannot appear twice — once
-            # legitimate and once injected — which would confuse the next model.
-            text = text.replace("PREVIOUS ATTEMPT FAILED:", "[PREVIOUS ATTEMPT]:")
-            return text
-
-        safe_reason = _sanitize(record.failure_reason)
-        safe_validators = [_sanitize(v) for v in record.validators_failed]
-        validators_str = ", ".join(safe_validators) if safe_validators else "none"
-
-        snippet_section = ""
-        if record.output_snippet:
-            safe_snippet = _sanitize(record.output_snippet)
-            snippet_section = f"\n- Output snippet: {safe_snippet}"
-
-        # Add specific guidance for common ruff/python_syntax errors
-        additional_guidance = ""
-        if "F821" in record.failure_reason or "Undefined name" in record.failure_reason:
-            additional_guidance = (
-                "\n\n⚠️ IMPORT ERROR DETECTED: You used a name without importing it first.\n"
-                "FIX: Add the required import statement at the TOP of your code.\n"
-                "Example: 'from nba_api.stats.endpoints import playerdashboardbyyearoveryear'\n"
-                "Example: 'from requests import RequestException'\n"
-                "Check ALL function/class names used and ensure they are imported."
-            )
-        elif "F401" in record.failure_reason or "imported but unused" in record.failure_reason:
-            additional_guidance = (
-                "\n\n⚠️ UNUSED IMPORT DETECTED: Remove imports you don't use.\n"
-                "FIX: Either remove the unused import OR use the imported name in your code."
-            )
-        elif "E402" in record.failure_reason or "import not at top" in record.failure_reason:
-            additional_guidance = (
-                "\n\n⚠️ IMPORT POSITION ERROR: Move all imports to the TOP of the file.\n"
-                "FIX: Place all import statements before any code (functions, classes, etc.)."
-            )
-        elif (
-            "unterminated triple-quoted string" in record.failure_reason
-            or "Syntax error" in record.failure_reason
-        ):
-            additional_guidance = (
-                "\n\n⚠️ SYNTAX ERROR DETECTED: Unclosed string literal or code structure issue.\n"
-                "FIX:\n"
-                '1. Check ALL triple-quoted strings ("""...""") are properly CLOSED\n'
-                "2. Ensure all parentheses (), brackets [], and braces {} are matched\n"
-                "3. Verify all string literals have matching opening and closing quotes\n"
-                "4. Check that if/else/for/while blocks have proper indentation\n"
-                "5. Run your code through a Python syntax checker BEFORE submitting\n"
-                '\nCRITICAL: Every opening """ must have a closing """ on a later line!'
-            )
-        elif "invalid-syntax" in record.failure_reason:
-            additional_guidance = (
-                "\n\n⚠️ SYNTAX ERROR DETECTED: Invalid Python code structure.\n"
-                "FIX:\n"
-                "1. Check for missing colons after if/for/while/def/class statements\n"
-                "2. Ensure proper indentation (use spaces, not tabs)\n"
-                "3. Verify all parentheses, brackets, and braces are properly matched\n"
-                "4. Check that string literals are properly quoted and closed"
-            )
-
-        return (
-            f"{original_prompt}\n\n"
-            f"<ORCHESTRATOR_FEEDBACK>\n"
-            f"PREVIOUS ATTEMPT FAILED:\n"
-            f"- Attempt: {record.attempt_num}\n"
-            f"- Model: {record.model_used}\n"
-            f"- Reason: {safe_reason}\n"
-            f"- Validators failed: {validators_str}"
-            f"{snippet_section}"
-            f"{additional_guidance}\n\n"
-            f"Please correct specifically: {safe_reason}\n"
-            f"</ORCHESTRATOR_FEEDBACK>"
-        )
+        """Delegates to DeltaPrompt — see prompt_builder.py for full implementation."""
+        return DeltaPrompt.build(original_prompt, record)
 
     async def _execute_task(self, task: Task) -> TaskResult:
         """
@@ -2797,13 +2652,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 try:
                     # Build system prompt — production mode enriches with strict requirements
                     _mode = getattr(self, "_quality_mode", "standard")
-                    if _mode == "production":
-                        system_prompt = self._build_production_system_prompt(task.type.value)
-                    else:
-                        system_prompt = (
-                            f"You are an expert executing a {task.type.value} task. "
-                            f"Produce high-quality, complete output."
-                        )
+                    system_prompt = SystemPrompt.build(task.type.value, _mode)
                     if task.type == TaskType.CODE_GEN and _mode != "production":
                         system_prompt += (
                             "\n\nCRITICAL REQUIREMENTS:\n"
@@ -3180,13 +3029,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         # Use low temperature for focused, deterministic critique
                         critique_temperature = 0.2 if task.type == TaskType.CODE_GEN else 0.3
 
+                        _critique_prompt, _critique_system = CritiquePrompt.build(task.prompt, output)
                         critique_response = await self.client.call(
                             reviewer,
-                            f"Review this output for correctness, completeness, and quality. "
-                            f"Be specific about flaws and suggest concrete improvements.\n\n"
-                            f"ORIGINAL TASK: {task.prompt}\n\n"
-                            f"OUTPUT TO REVIEW:\n{output}",
-                            system="You are a critical reviewer. Find flaws, be specific.",
+                            _critique_prompt,
+                            system=_critique_system,
                             max_tokens=critique_max_tokens,
                             temperature=critique_temperature,
                             timeout=critique_timeout,
@@ -3733,15 +3580,11 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             critique_text[:100],
         )
         try:
-            revised_prompt = (
-                f"{task.prompt}\n\n"
-                f"[Revision required] {critique_text}\n"
-                f"Please revise your previous response to address the above."
-            )
+            revised_prompt, _rev_system = RevisionPrompt.build(task.prompt, critique_text, task.type.value)
             gen_response = await self.client.call(
                 primary,
                 revised_prompt,
-                system=f"You are an expert executing a {task.type.value} task. Produce high-quality, complete output.",
+                system=_rev_system,
                 max_tokens=task.max_output_tokens,
                 temperature=0.3,
                 timeout=120,

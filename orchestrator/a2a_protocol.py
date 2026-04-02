@@ -483,7 +483,8 @@ class A2AClient:
 
             async with self.session.get(url) as response:
                 return response.status == 200
-        except Exception:
+        except Exception as e:
+            logger.debug("Health check failed for %s: %s", self.agent_endpoint, e)
             return False
 
     def get_agent_info(self) -> dict[str, Any]:
@@ -569,7 +570,8 @@ class A2ACoordinator:
             try:
                 if await client.health_check():
                     connected_agents += 1
-            except Exception:
+            except Exception as e:
+                logger.debug("Health check failed for agent %s: %s", client.agent_endpoint, e)
                 continue
 
         return {
