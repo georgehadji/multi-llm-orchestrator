@@ -4469,29 +4469,42 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             return []
 
         # Detect if this is a Python task
+        # NOTE: "import " is intentionally excluded — JS/TS also use ES module imports
         is_python_task = (
             "python" in task.prompt.lower()
             or ".py" in task.target_path.lower()
             or "flask" in task.prompt.lower()
             or "django" in task.prompt.lower()
             or "fastapi" in task.prompt.lower()
-            or "def " in output[:500]  # Check output for Python function defs
-            or "import " in output[:500]  # Check output for Python imports
+            or "def " in output[:500]  # Python function defs
         )
 
-        # Detect if this is a web task (HTML/CSS/JS)
+        # Detect if this is a web/JS/TS task (HTML/CSS/JS/TS/React/Vue)
         is_web_task = (
             "html" in task.prompt.lower()
             or "css" in task.prompt.lower()
             or "javascript" in task.prompt.lower()
-            or "js" in task.prompt.lower()
+            or "typescript" in task.prompt.lower()
+            or "react" in task.prompt.lower()
+            or "vue" in task.prompt.lower()
+            or "angular" in task.prompt.lower()
+            or "next.js" in task.prompt.lower()
+            or " js " in task.prompt.lower()
+            or task.prompt.lower().endswith(" js")
             or ".html" in task.target_path.lower()
             or ".css" in task.target_path.lower()
             or ".js" in task.target_path.lower()
+            or ".ts" in task.target_path.lower()
+            or ".tsx" in task.target_path.lower()
+            or ".jsx" in task.target_path.lower()
             or "<!DOCTYPE" in output[:100]
             or "<html" in output[:100]
             or "function(" in output[:500]
             or "const " in output[:500]
+            or "export default" in output[:1000]  # JS/TS module export
+            or "export const" in output[:1000]  # JS/TS named export
+            or "from 'react'" in output[:500]  # React import (single quotes)
+            or 'from "react"' in output[:500]  # React import (double quotes)
         )
 
         if is_web_task or not is_python_task:
