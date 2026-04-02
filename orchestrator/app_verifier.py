@@ -173,7 +173,8 @@ class AppVerifier:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            # Wait briefly to see if it crashes immediately
+            # Wait briefly to see if it crashes immediately.
+            # verify_local() is a synchronous method; time.sleep() is intentional here.
             time.sleep(0.5)
             if proc.poll() is None:
                 # Still running → startup OK

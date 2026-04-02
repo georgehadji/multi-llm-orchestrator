@@ -190,8 +190,8 @@ class InMemoryCache(CacheBackend):
         # Calculate size
         try:
             size = len(pickle.dumps(value))
-        except:
-            size = 1024  # Estimate
+        except (TypeError, AttributeError, OverflowError):
+            size = 1024  # Estimate — not all objects are picklable
 
         async with self._lock:
             # Check if we need to evict
@@ -556,7 +556,8 @@ class DiskCache(CacheBackend):
             with sqlite3.connect(str(self.db_path)) as conn:
                 cursor = conn.execute("SELECT COUNT(*), SUM(size_bytes) FROM cache")
                 count, size = cursor.fetchone()
-        except:
+        except Exception as e:
+            logger.debug("Failed to read cache stats from %s: %s", self.db_path, e)
             count, size = 0, 0
 
         return {

@@ -255,7 +255,7 @@ class DockerSandbox:
                         pass
 
                     # FIX-OPT-003a: Use robust cleanup with retry logic
-                    self._cleanup_workspace(workspace)
+                    await self._cleanup_workspace(workspace)
 
             except Exception as e:
                 logger.error(f"Docker execution failed: {e}")
@@ -280,7 +280,7 @@ class DockerSandbox:
                 error="Docker not available. Code execution requires Docker for security isolation. Please install Docker.",
             )
 
-    def _cleanup_workspace(self, workspace: Path, max_retries: int = 3) -> None:
+    async def _cleanup_workspace(self, workspace: Path, max_retries: int = 3) -> None:
         """
         FIX-OPT-003a: Cleanup workspace with retry logic.
 
@@ -288,8 +288,8 @@ class DockerSandbox:
             workspace: Workspace path to cleanup
             max_retries: Maximum retry attempts
         """
+        import asyncio
         import shutil
-        import time
 
         for attempt in range(max_retries):
             try:
@@ -300,12 +300,13 @@ class DockerSandbox:
                 return
             except (OSError, PermissionError) as e:
                 if attempt < max_retries - 1:
-                    # Exponential backoff
+                    # Exponential backoff — use asyncio.sleep() since this runs inside
+                    # the async execute() method; time.sleep() would block the event loop.
                     wait_time = 0.1 * (2**attempt)
                     logger.warning(
                         f"Cleanup attempt {attempt + 1} failed, retrying in {wait_time}s: {e}"
                     )
-                    time.sleep(wait_time)
+                    await asyncio.sleep(wait_time)
                 else:
                     logger.error(
                         f"Failed to cleanup workspace after {max_retries} attempts: {workspace} - {e}"

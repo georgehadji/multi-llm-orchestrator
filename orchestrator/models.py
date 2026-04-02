@@ -263,7 +263,10 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # Note: Updated 2026-04-01 - Verified available
     # ═══════════════════════════════════════════════════════
-    Model.QWEN_2_5_CODER_32B: {"input": 0.66, "output": 1.00},  # 33K coding ⭐ (QWEN_3_CODER_NEXT aliases this)
+    Model.QWEN_2_5_CODER_32B: {
+        "input": 0.66,
+        "output": 1.00,
+    },  # 33K coding ⭐ (QWEN_3_CODER_NEXT aliases this)
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
@@ -545,10 +548,9 @@ class Task:
     module_name: str = ""  # e.g. "src.routes.auth"
     tech_context: str = ""  # brief note on tech stack for this file
 
-    def __post_init__(self):
-        self.acceptance_threshold = DEFAULT_THRESHOLDS.get(self.type, self.acceptance_threshold)
-        self.max_iterations = get_max_iterations(self.type)
-        self.max_output_tokens = MAX_OUTPUT_TOKENS.get(self.type, self.max_output_tokens)
+    # NOTE: type-specific defaults (thresholds, iterations, token limits) are
+    # set by TaskFactory.create() in orchestrator/task_factory.py — not here.
+    # models.py is pure data; no behavioral methods belong in dataclasses.
 
 
 @dataclass

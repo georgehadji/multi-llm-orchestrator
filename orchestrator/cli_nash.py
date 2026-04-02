@@ -128,6 +128,8 @@ def _watch_status(output_format: str):
             click.clear()
             asyncio.run(_show_status(output_format))
             click.echo("\n[Press Ctrl+C to exit]")
+            # Sync poll loop — asyncio.sleep() cannot be used outside an async
+            # function. time.sleep() between asyncio.run() calls is correct here.
             time.sleep(5)
     except KeyboardInterrupt:
         click.echo("\nExiting...")
@@ -544,6 +546,7 @@ def _follow_events(event_type: str | None):
                     time_str = event.timestamp.strftime("%H:%M:%S")
                     click.echo(f"[{time_str}] {event.event_type.value}")
 
+            # Sync poll loop — time.sleep() is correct in this non-async context.
             time.sleep(1)
 
     except KeyboardInterrupt:

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from ..model_registry import ModelRegistry
 from ..models import AttemptRecord, TaskType
+from ..prompt_builder import CritiquePrompt, DeltaPrompt
 
 if TYPE_CHECKING:
     from ..api_clients import APIResponse, UnifiedClient
@@ -195,7 +196,7 @@ class CritiqueCycle:
                     validators_failed=[],
                 )
 
-                revise_prompt = self._build_delta_prompt(full_prompt, attempt)
+                revise_prompt = DeltaPrompt.build(full_prompt, attempt)
                 full_prompt = revise_prompt  # Use revised prompt for next iteration
 
         return state
@@ -253,7 +254,9 @@ class CritiqueCycle:
         Returns:
             API response with critique and score
         """
-        critique_prompt = self._build_critique_prompt(original_prompt, generated_output, task_type)
+        critique_prompt = CritiquePrompt.build_score(
+            original_prompt, generated_output, task_type.value
+        )
 
         try:
             response = await self.client.call_with_retry(
@@ -266,38 +269,6 @@ class CritiqueCycle:
         except Exception as e:
             logger.error(f"Critique failed for {model.value}: {e}")
             return None
-
-    def _build_critique_prompt(
-        self,
-        original_prompt: str,
-        output: str,
-        task_type: TaskType,
-    ) -> str:
-        """
-        Build prompt for critique/review.
-
-        Args:
-            original_prompt: Original task prompt
-            output: Generated output to critique
-            task_type: Type of task
-
-        Returns:
-            Formatted critique prompt
-        """
-        if task_type == TaskType.CODE_REVIEW:
-            return (
-                f"Review the following code for quality, correctness, and best practices.\n"
-                f'Provide a score from 0.0 to 1.0 in JSON format: {{"score": 0.85, "reasoning": "..."}}\n\n'
-                f"Original requirement:\n{original_prompt}\n\n"
-                f"Code to review:\n```\n{output}\n```"
-            )
-
-        return (
-            f"Review the following output for quality and correctness.\n"
-            f'Provide a score from 0.0 to 1.0 in JSON format: {{"score": 0.85, "reasoning": "..."}}\n\n'
-            f"Original prompt:\n{original_prompt}\n\n"
-            f"Generated output:\n```\n{output}\n```"
-        )
 
     def _extract_score(self, critique_text: str) -> float:
         """
@@ -332,53 +303,6 @@ class CritiqueCycle:
         # Default: moderate score
         logger.warning("Could not extract score from critique, using default 0.5")
         return 0.5
-
-    def _build_delta_prompt(
-        self,
-        original_prompt: str,
-        record: AttemptRecord,
-    ) -> str:
-        """
-        Build enriched prompt for revision after failed attempt.
-
-        Uses XML-style tags to delimit feedback block to prevent prompt injection.
-
-        Args:
-            original_prompt: Original task prompt
-            record: Attempt record with failure info
-
-        Returns:
-            Revised prompt with feedback
-        """
-
-        def _sanitize(text: str) -> str:
-            """Strip XML delimiters from user-supplied data."""
-            text = text.replace("<ORCHESTRATOR_FEEDBACK>", "")
-            text = text.replace("</ORCHESTRATOR_FEEDBACK>", "")
-            text = text.replace("PREVIOUS ATTEMPT FAILED:", "[PREVIOUS ATTEMPT]:")
-            return text
-
-        safe_reason = _sanitize(record.failure_reason)
-        safe_validators = [_sanitize(v) for v in record.validators_failed]
-        validators_str = ", ".join(safe_validators) if safe_validators else "none"
-
-        snippet_section = ""
-        if record.output_snippet:
-            safe_snippet = _sanitize(record.output_snippet)
-            snippet_section = f"\n- Output snippet: {safe_snippet}"
-
-        return (
-            f"{original_prompt}\n\n"
-            f"<ORCHESTRATOR_FEEDBACK>\n"
-            f"PREVIOUS ATTEMPT FAILED:\n"
-            f"- Attempt: {record.attempt_num}\n"
-            f"- Model: {record.model_used.value}\n"
-            f"- Reason: {safe_reason}\n"
-            f"- Validators failed: {validators_str}"
-            f"{snippet_section}\n\n"
-            f"Please correct specifically: {safe_reason}\n"
-            f"</ORCHESTRATOR_FEEDBACK>"
-        )
 
     def _clean_code_output(self, text: str) -> str:
         """
