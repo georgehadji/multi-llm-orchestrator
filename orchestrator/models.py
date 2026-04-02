@@ -70,7 +70,7 @@ class Model(str, Enum):
 
     # DeepSeek Models
     DEEPSEEK_CHAT = "deepseek/deepseek-chat"
-    DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
+    DEEPSEEK_REASONER = "deepseek/deepseek-r1"
     DEEPSEEK_R1 = DEEPSEEK_REASONER
     DEEPSEEK_V3 = "deepseek/deepseek-v3"
     DEEPSEEK_V3_2 = "deepseek/deepseek-v3.2"
@@ -120,27 +120,28 @@ class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════
     # XAI GROK MODELS (NEW v3.0) - LOWEST HALLUCINATION
+    # Note: Updated 2026-04-01 - Use grok-4.20 (NOT grok-4.20-beta)
     # ═══════════════════════════════════════════════════════
-    XAI_GROK_4_20_BETA = "x-ai/grok-4.20-beta"  # $2.00/$6.00, lowest hallucination ⭐
-    XAI_GROK_4_20_MULTI_AGENT = "x-ai/grok-4.20-multi-agent"  # $2.00/$6.00, 4-16 agents
+    XAI_GROK_4_20 = "x-ai/grok-4.20"  # $2.00/$6.00, 2M context, lowest hallucination ⭐
     XAI_GROK_4_1_FAST = "x-ai/grok-4.1-fast"  # $0.20/$0.50, fast
 
     # ═══════════════════════════════════════════════════════
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
+    # Note: Updated 2026-04-01 - Verified available on OpenRouter
     # ═══════════════════════════════════════════════════════
-    QWEN_3_CODER_NEXT = "qwen/qwen-3-coder-next"  # $0.12/$0.75, 80B MoE coding ⭐
-    QWEN_3_5_397B_A17B = "qwen/qwen-3.5-397b-a17b"  # $0.39/$2.34, 397B MoE ⭐
-    QWEN_3_MAX_THINKING = "qwen/qwen-3-max-thinking"  # $0.78/$3.90, flagship reasoning
+    QWEN_2_5_CODER_32B = "qwen/qwen-2.5-coder-32b-instruct"  # $0.66/$1.00, 33K coding ⭐
 
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
+    # Note: Verified available 2026-04-01
     # ═══════════════════════════════════════════════════════
-    MINIMAX_M2_7 = "minimax/minimax-m2.7"  # $0.30/$1.20, 56.2% SWE-Pro
+    MINIMAX_M2_7 = "minimax/minimax-m2.7"  # $0.30/$1.20, 205K, multi-agent ⭐
+    MINIMAX_M2_5 = "minimax/minimax-m2.5"  # $0.30/$1.20
 
     # ═══════════════════════════════════════════════════════
-    # NVIDIA MODELS (NEW v3.0) - EFFICIENT MOE
+    # NVIDIA MODELS - REMOVED (NOT AVAILABLE on OpenRouter)
     # ═══════════════════════════════════════════════════════
-    NVIDIA_NEMOTRON_3_SUPER = "nvidia/nemotron-3-super"  # $0.10/$0.50, 120B MoE
+    # NVIDIA_NEMOTRON_3_SUPER - REMOVED (not available)
 
     # OpenRouter Auto-Router
     OPENROUTER_AUTO = "openrouter/auto"  # Dynamic routing
@@ -249,24 +250,24 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.ZHIPU_GLM_5_TURBO: {"input": 1.20, "output": 4.00},  # 202K, agents
     # ═══════════════════════════════════════════════════════
     # XAI GROK MODELS (NEW v3.0) - LOWEST HALLUCINATION
+    # Note: Updated 2026-04-01 - Use grok-4.20 (NOT grok-4.20-beta)
     # ═══════════════════════════════════════════════════════
-    Model.XAI_GROK_4_20_BETA: {"input": 2.00, "output": 6.00},  # lowest hallucination ⭐
-    Model.XAI_GROK_4_20_MULTI_AGENT: {"input": 2.00, "output": 6.00},  # 4-16 agents
+    Model.XAI_GROK_4_20: {"input": 2.00, "output": 6.00},  # 2M context ⭐
     Model.XAI_GROK_4_1_FAST: {"input": 0.20, "output": 0.50},  # fast
     # ═══════════════════════════════════════════════════════
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
+    # Note: Updated 2026-04-01 - Verified available
     # ═══════════════════════════════════════════════════════
-    Model.QWEN_3_CODER_NEXT: {"input": 0.12, "output": 0.75},  # 80B MoE coding ⭐
-    Model.QWEN_3_5_397B_A17B: {"input": 0.39, "output": 2.34},  # 397B MoE ⭐
-    Model.QWEN_3_MAX_THINKING: {"input": 0.78, "output": 3.90},  # flagship reasoning
+    Model.QWEN_2_5_CODER_32B: {"input": 0.66, "output": 1.00},  # 33K coding ⭐
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    Model.MINIMAX_M2_7: {"input": 0.30, "output": 1.20},  # 56.2% SWE-Pro
+    Model.MINIMAX_M2_7: {"input": 0.30, "output": 1.20},  # 205K ⭐
+    Model.MINIMAX_M2_5: {"input": 0.30, "output": 1.20},
     # ═══════════════════════════════════════════════════════
-    # NVIDIA MODELS (NEW v3.0) - EFFICIENT MOE
+    # NVIDIA MODELS - REMOVED (NOT AVAILABLE on OpenRouter)
     # ═══════════════════════════════════════════════════════
-    Model.NVIDIA_NEMOTRON_3_SUPER: {"input": 0.10, "output": 0.50},  # 120B MoE
+    # Model.NVIDIA_NEMOTRON_3_SUPER - REMOVED
     # GPT-5.4 Models (NEW v3.0)
     Model.GPT_5_4: {"input": 2.50, "output": 15.00},
     Model.GPT_5_4_MINI: {"input": 0.75, "output": 4.50},
@@ -288,11 +289,11 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # Best: Xiaomi MiMo-V2-Flash (#1 open-source SWE-bench at $0.09/1M!)
     TaskType.CODE_GEN: [
         Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29, 309B MoE, #1 SWE-bench open ⭐ BEST
-        Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75, 80B MoE coding agents
+        Model.QWEN_2_5_CODER_32B,  # $0.66/$1.00, 33K coding specialist
         Model.DEEPSEEK_V3_2,  # $0.27/$1.10, 1.24T tokens, battle-tested
         Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
         Model.ZHIPU_GLM_4_7,  # $0.39/$1.75, enhanced programming
-        Model.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
+        Model.MINIMAX_M2_7,  # $0.30/$1.20, multi-agent ⭐
         Model.PHI_4,  # $0.07/$0.14, Microsoft 14B
         Model.GEMMA_3_27B,  # $0.08/$0.20, Google open-weights
         Model.LLAMA_3_3_70B,  # $0.12/$0.30, Meta 70B
@@ -306,7 +307,7 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # CODE_REVIEW: Fast and accurate
     # Best: Grok 4.20 (lowest hallucination) + DeepSeek R1 (reasoning)
     TaskType.CODE_REVIEW: [
-        Model.XAI_GROK_4_20_BETA,  # $2.00/$6.00, lowest hallucination ⭐ BEST
+        Model.XAI_GROK_4_20,  # $2.00/$6.00, 2M context, lowest hallucination ⭐ BEST
         Model.DEEPSEEK_R1,  # $0.55/$2.19, reasoning specialist
         Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
         Model.PHI_4_REASONING,  # $0.07/$0.35, Microsoft CoT
@@ -359,7 +360,7 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # EVALUATE: Reliable evaluation
     # Best: Grok 4.20 (lowest hallucination)
     TaskType.EVALUATE: [
-        Model.XAI_GROK_4_20_BETA,  # $2.00/$6.00, lowest hallucination ⭐ BEST
+        Model.XAI_GROK_4_20,  # $2.00/$6.00, 2M context, lowest hallucination ⭐ BEST
         Model.DEEPSEEK_R1,  # $0.55/$2.19, fair scoring
         Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20, technical eval
         Model.LLAMA_4_MAVERICK,  # $0.17/$0.17, Meta 400B
