@@ -8,6 +8,7 @@ OpenRouter: https://openrouter.ai/api/v1
 Env var: OPENROUTER_API_KEY
 
 FIX #9: Rate-limit detection for all providers.
+Note: Updated 2026-04-01 with runtime model validation.
 
 """
 
@@ -20,6 +21,7 @@ import time
 
 from .cache import DiskCache
 from .models import Model, estimate_cost, get_provider
+from .model_registry import ModelRegistry
 from .tracing import traced_llm_call
 
 logger = logging.getLogger("orchestrator.api")
@@ -40,6 +42,32 @@ def _is_rate_limit_error(error: Exception) -> bool:
     """Detect rate-limit errors across all providers."""
     err_str = str(error).lower()
     return any(p in err_str for p in _RATE_LIMIT_PATTERNS)
+
+
+def validate_model_available(model: Model) -> tuple[bool, str | None]:
+    """
+    Validate that a model is available on OpenRouter.
+    
+    Args:
+        model: Model to validate
+        
+    Returns:
+        Tuple of (is_available, replacement_model_if_any)
+    """
+    model_id = model.value
+    
+    # Check if model is in unavailable list
+    if model_id in ModelRegistry.UNAVAILABLE_MODELS:
+        replacement = ModelRegistry.UNAVAILABLE_MODELS[model_id]
+        return False, replacement
+    
+    # Check if model is in cost table (indicates it's valid)
+    if model_id in ModelRegistry.COST_TABLE:
+        return True, None
+    
+    # Unknown model - allow it through (might be new)
+    logger.warning(f"Unknown model {model_id} - allowing through")
+    return True, None
 
 
 class APIResponse:
@@ -167,8 +195,20 @@ class UnifiedClient:
         bypass_cache: bool = False,
     ) -> APIResponse:
         """
-        Unified call with cache check → semaphore → retry → OpenRouter dispatch.
+        Unified call with model validation → cache check → semaphore → retry → OpenRouter dispatch.
+        
+        Note: Validates model availability before making API call.
+        If model is unavailable, suggests replacement and raises error.
         """
+        # Validate model availability
+        is_available, replacement = validate_model_available(model)
+        if not is_available:
+            error_msg = f"Model {model.value} is not available on OpenRouter"
+            if replacement:
+                error_msg += f". Use {replacement} instead"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
         if not bypass_cache:
             cached = await self.cache.get(model.value, prompt, max_tokens, system, temperature)
             if cached:
@@ -203,6 +243,45 @@ class UnifiedClient:
         timeout: int,
         retries: int,
     ) -> APIResponse:
+        # NEW: Use Tenacity for robust retry logic with exponential backoff
+        try:
+            from .retry_utils import (
+                llm_retry,
+                TimeoutError,
+                RateLimitError,
+                ServiceUnavailableError,
+            )
+            
+            # Create retry decorator with custom settings
+            @llm_retry
+            async def _call_with_tenacity() -> APIResponse:
+                t0 = time.monotonic()
+                response = await asyncio.wait_for(
+                    self._dispatch(model, prompt, system, max_tokens, temperature), timeout=timeout
+                )
+                response.latency_ms = (time.monotonic() - t0) * 1000
+
+                await self.cache.put(
+                    model.value,
+                    prompt,
+                    max_tokens,
+                    response.text,
+                    response.input_tokens,
+                    response.output_tokens,
+                    system,
+                    temperature,
+                )
+                return response
+            
+            # Execute with Tenacity retry logic
+            return await _call_with_tenacity()
+            
+        except ImportError:
+            logger.warning("Tenacity not available, using manual retry logic")
+        except Exception as e:
+            logger.warning(f"Tenacity retry failed: {e}, using manual retry logic")
+        
+        # FALLBACK: Original manual retry logic
         last_error = None
         for attempt in range(retries + 1):
             try:
@@ -223,7 +302,6 @@ class UnifiedClient:
                     temperature,
                 )
                 return response
-
             except asyncio.TimeoutError:
                 logger.warning(f"Timeout calling {model.value} (attempt {attempt + 1})")
                 last_error = TimeoutError(f"{model.value} timed out after {timeout}s")
@@ -290,8 +368,8 @@ class UnifiedClient:
             "o3",
             "o3-mini",
             "o4-mini",
-            "deepseek-reasoner",
             "deepseek-r1",
+            "deepseek/deepseek-r1",
             "grok-4",
             "grok-4-reasoning",
             "grok-4.20-reasoning",

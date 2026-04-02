@@ -1,0 +1,2052 @@
+# ──────────────────────────────────────────────────────
+# Hyperagent Website Factory - Multi-Agent Orchestration System
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/hyperagent_website_factory.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a Hyperagent Website Factory - a cost-efficient, modular, self-improving multi-agent orchestration system where a supervising Hyperagent coordinates 9 specialized senior-level agents to build complete websites.
+
+  DESIGN PRINCIPLES:
+  ==================
+  COST-EFFICIENCY FIRST:
+    - Model cascading: Try cheapest capable model first, escalate only on failure
+    - Task-model matching: Right model size for each task complexity
+    - Aggressive caching: 3-layer cache with 60%+ hit rate target
+    - Token optimization: Prompt compression, context pruning, structured outputs
+    - Dynamic routing: Route to cheapest available model meeting quality threshold
+    - Cost monitoring: Real-time cost tracking with budget alerts
+    - Fallback economics: Cheaper fallbacks preferred over premium models
+  
+  PARALLELIZATION FIRST:
+    - Task decomposition: Break work into independent units for parallel execution
+    - Agent concurrency: All 9 agents can work simultaneously on independent tasks
+    - Pipeline parallelism: Overlap stages (fetch → process → review → finalize)
+    - Data parallelism: Process multiple files/components in parallel batches
+    - Model parallelism: Multiple LLM calls in parallel (up to concurrency limit)
+    - I/O overlap: Async I/O for all network/disk operations
+    - Lock-free design: Minimize contention points, use lock-free data structures
+    - Work stealing: Idle agents can pick up tasks from busy agents' queues
+    - Batch processing: Group similar operations for vectorized execution
+    - Speculative execution: Run multiple model responses in parallel, take best
+  
+  MODULARITY FIRST:
+    - Loose coupling: Agents communicate via message queue only (no direct calls)
+    - Clear interfaces: Abstract base classes define agent contracts
+    - Plugin architecture: Agents are hot-swappable plugins
+    - Dependency injection: All dependencies injected, never hardcoded
+    - Configuration-driven: Behavior controlled via YAML config
+    - Microservices-ready: Each agent can run as separate process/service
+    - Single responsibility: Each module has one reason to change
+
+  USER INTERACTION MODEL:
+  =======================
+  - User interacts ONLY with the Hyperagent (single interface)
+  - Hyperagent gathers requirements through conversational dialogue
+  - User never directly communicates with specialized agents
+  - Hyperagent translates user intent into agent tasks
+  - Hyperagent presents unified progress updates to user
+  - User feedback goes to Hyperagent, which orchestrates revisions
+
+  AGENT PHILOSOPHY:
+  =================
+  - Each agent has ONE specialty only (focused expertise)
+  - All agents are SENIOR-level (10+ years equivalent expertise)
+  - Agents use cost-optimized model selection (cheapest capable model)
+  - No overlap in responsibilities between agents
+  - Clear handoff protocols between agents
+  - Agents are modular plugins (hot-swappable)
+  
+  ARCHITECTURE DECISION FRAMEWORK:
+  ==================================
+  Hyperagent selects optimal architecture and paradigm per module:
+  
+  ARCHITECTURE PATTERNS (Hyperagent evaluates and selects):
+    - Monolithic: Single deployable unit (simple projects, < 10 pages)
+    - Modular Monolith: Separated modules, single deployment (medium projects)
+    - Microservices: Independent services (complex, high-scale projects)
+    - Serverless: Function-based, event-driven (sporadic traffic, cost-sensitive)
+    - JAMstack: Static generation + APIs (content sites, marketing pages)
+    - Headless CMS: Decoupled content + frontend (multi-channel content)
+  
+  ARCHITECTURE SELECTION CRITERIA:
+    - Project complexity: Simple (monolith) vs Complex (microservices)
+    - Team size: Solo/small (monolith) vs Large (microservices)
+    - Scale expectations: Low (monolith) vs High (microservices/serverless)
+    - Budget constraints: Low (monolith/JAMstack) vs High (microservices)
+    - Time to market: Fast (JAMstack/serverless) vs Flexible (monolith)
+    - Maintenance capacity: Low (serverless/JAMstack) vs High (microservices)
+  
+  PROGRAMMING PARADIGMS (Per module selection):
+    - Procedural: Simple scripts, utilities, build tools
+    - Object-Oriented: Complex business logic, domain models, UI components
+    - Functional: Data transformations, pipelines, stateless operations
+    - Event-Driven: Real-time features, notifications, async workflows
+    - Reactive: User interfaces, streaming data, live updates
+    - Declarative: Configuration, UI layouts, database schemas
+  
+  PARADIGM SELECTION CRITERIA:
+    - Data flow: Linear (procedural) vs Transform (functional) vs Event (event-driven)
+    - State management: Mutable (OOP) vs Immutable (functional) vs External (reactive)
+    - Complexity: Simple (procedural) vs Medium (OOP) vs Complex (functional/reactive)
+    - Concurrency: Sequential (procedural/OOP) vs Parallel (functional) vs Async (reactive)
+  
+  MODULE-LEVEL DECISIONS:
+    For each module, Hyperagent decides:
+    1. Architecture pattern (from 6 options)
+    2. Programming paradigm (from 6 options)
+    3. Design patterns (Repository, Factory, Strategy, Observer, etc.)
+    4. Communication style (REST, GraphQL, gRPC, WebSocket, Events)
+    5. Data storage (SQL, NoSQL, In-Memory, File-based)
+    6. Caching strategy (None, LRU, TTL, Write-through, Write-back)
+  
+  ARCHITECTURE DOCUMENTATION:
+    - Architecture Decision Records (ADRs) for each significant decision
+    - C4 diagrams: Context, Container, Component, Code
+    - Data flow diagrams for critical paths
+    - Sequence diagrams for complex interactions
+    - Deployment diagrams for infrastructure
+    - API documentation (OpenAPI/Swagger for REST, GraphQL schema)
+
+  SYSTEM ARCHITECTURE:
+  ====================
+
+  1. HYPERAGENT (Supervisor + Learner)
+     
+     CORE RESPONSIBILITIES:
+     - Receives user requirements through natural conversation
+     - **SELECTS OPTIMAL ARCHITECTURE** for the project (monolith/microservices/etc.)
+     - **SELECTS OPTIMAL PARADIGM** for each module (OOP/functional/event-driven/etc.)
+     - Decomposes requirements into tasks for specialized agents
+     - Coordinates inter-agent communication and task dependencies
+     - Resolves conflicts and ensures consistency across deliverables
+     - Performs final quality gate before delivery
+     - Manages iteration cycles based on user feedback
+     - **CREATES ARCHITECTURE DECISION RECORDS (ADRs)** for all significant decisions
+     - **ENSURES PRODUCTION-GRADE QUALITY** across all components
+     
+     MEMORY SYSTEM:
+     - Short-term Memory (STM): Current conversation context, active project state, recent agent outputs (last 10 interactions)
+     - Long-term Memory (LTM): 
+       * Project history (all past projects with outcomes)
+       * User preferences (learned from feedback patterns)
+       * Agent performance metrics (which agents excel at what)
+       * Successful patterns (what workflows/combinations work best)
+       * Failure cases (what went wrong and how it was fixed)
+       * Domain knowledge (industry-specific best practices)
+     
+     LEARNING CAPABILITIES:
+     - Reinforcement Learning: Adjusts agent selection based on success/failure outcomes
+     - Pattern Recognition: Identifies successful task decomposition patterns
+     - User Preference Learning: Remembers and applies user's style preferences
+     - Agent Performance Tracking: Routes tasks to best-performing agents
+     - Error Pattern Learning: Anticipates and prevents common failure modes
+     - Workflow Optimization: Improves task ordering based on past efficiency
+     - Feedback Integration: Incorporates user corrections into future runs
+     
+     LEARNING MECHANISMS:
+     - After each project: Store what worked, what failed, final quality scores
+     - After each user correction: Update preference model
+     - After each agent completion: Update performance metrics
+     - Periodic consolidation: Compress STM to LTM, extract patterns
+     - Retrieval-augmented generation: Query LTM when planning new projects
+
+  2. FRONTEND AGENT (Senior UI Engineer - 10+ years)
+     - Specialty: React/Next.js component development ONLY
+     - Short-term: Current component being built
+     - Long-term: Reusable component library
+     - Builds responsive UI components (React 18, Next.js 14)
+     - Implements design tokens provided by Design Agent
+     - Creates page layouts and navigation structures
+     - Ensures accessibility (WCAG 2.1 AA)
+     - Integrates with backend APIs (consumes endpoints)
+     - Does NOT handle: security headers, OG tags, styling decisions
+     - Output: /frontend/ directory with React components
+
+  3. BACKEND AGENT (Senior API Architect - 10+ years)
+     - Specialty: API design and database architecture ONLY
+     - Short-term: Current API endpoint design
+     - Long-term: Architecture patterns library
+     - Designs RESTful and GraphQL API schemas
+     - Creates database schemas and migrations
+     - Implements business logic and data models
+     - Defines API contracts (OpenAPI/Swagger specs)
+     - Does NOT handle: security implementation, authentication code
+     - Output: /backend/ directory with API specs and data models
+
+  4. DESIGN AGENT (Senior Visual Designer - 10+ years)
+     - Specialty: Design systems and visual identity ONLY
+     - Short-term: Current color palette and typography
+     - Long-term: Design pattern library
+     - Creates complete design systems (colors, typography, spacing)
+     - Generates brand identity (logo concepts, visual style)
+     - Produces component specifications and style guides
+     - Provides design tokens for Frontend Agent
+     - Does NOT handle: image generation, content writing
+     - Output: /design/ directory with tokens and specifications
+
+  5. COPYWRITING AGENT (Senior Content Strategist - 10+ years)
+     - Specialty: Brand voice and website content ONLY
+     - Short-term: Current page content
+     - Long-term: Content templates library
+     - Writes all website content (headlines, body text, CTAs)
+     - Creates microcopy (buttons, labels, error messages)
+     - Develops brand voice and tone guidelines
+     - Writes content for all pages (Home, About, Services, Contact)
+     - Does NOT handle: SEO optimization, meta descriptions
+     - Output: /content/ directory with all copy organized by page
+
+  6. SECURITY AGENT (Senior Security Engineer - 10+ years)
+     - Specialty: Application security implementation ONLY
+     - Short-term: Current security control being implemented
+     - Long-term: Security patterns library, vulnerability database
+     - FRONTEND SECURITY:
+       * Content Security Policy (CSP) headers
+       * X-Frame-Options, X-Content-Type-Options, X-XSS-Protection
+       * Strict-Transport-Security (HSTS)
+       * Referrer-Policy, Permissions-Policy
+       * Input sanitization utilities
+       * XSS prevention (escaping, encoding)
+       * CSRF token implementation
+       * Clickjacking protection
+     - BACKEND SECURITY:
+       * SQL injection prevention (parameterized queries)
+       * Rate limiting implementation (token bucket)
+       * Authentication system (JWT with refresh tokens)
+       * Authorization middleware (RBAC)
+       * Input validation schemas (Zod/Joi)
+       * Password hashing (bcrypt/argon2)
+       * Session management with secure cookies
+       * CORS configuration
+       * Request size limiting
+       * Audit logging implementation
+       * Brute force protection
+     - SECURITY AUDIT:
+       * OWASP Top 10 implementation verification
+       * Dependency vulnerability scanning
+       * Secret detection in codebase
+       * Security header verification
+       * Authentication/authorization testing
+     - Output: /security/ directory with security middleware, configs, audit report
+
+  7. SEO AGENT (Senior SEO Specialist - 10+ years)
+     - Specialty: Search engine optimization ONLY
+     - Short-term: Current page being optimized
+     - Long-term: SEO patterns library, keyword database
+     - ON-PAGE SEO:
+       * Title tags (under 60 characters, keyword-optimized)
+       * Meta descriptions (under 160 characters, compelling)
+       * Header hierarchy (H1, H2, H3 structure)
+       * URL structure optimization (clean, descriptive)
+       * Internal linking strategy
+       * Image alt text optimization
+       * Schema.org structured data (JSON-LD)
+       * Canonical URLs
+       * robots.txt configuration
+       * sitemap.xml generation
+     - OPEN GRAPH / SOCIAL SEO:
+       * og:title, og:description, og:image, og:url, og:type
+       * twitter:card, twitter:title, twitter:description
+       * Pinterest rich pins
+       * LinkedIn article metadata
+     - TECHNICAL SEO:
+       * Core Web Vitals optimization guidance
+       * Mobile-first indexing compliance
+       * Page speed optimization recommendations
+       * Crawlability optimization
+       * Index coverage optimization
+     - CONTENT SEO:
+       * Keyword research and mapping
+       * Content gap analysis
+       * Competitor keyword analysis
+       * Long-tail keyword opportunities
+     - Output: /seo/ directory with meta tags, structured data, sitemap, SEO report
+
+  8. IMAGE AGENT (Senior Visual Artist - 10+ years)
+     - Specialty: AI image generation and optimization ONLY
+     - Short-term: Current image being generated
+     - Long-term: Image style library
+     - Generates all images using AI image models
+     - Creates hero images, product images, backgrounds
+     - Generates OG images (1200x630px) for social sharing
+     - Creates favicons and app icons in multiple sizes
+     - Produces image variants (light/dark, aspect ratios)
+     - Optimizes images (WebP/AVIF, compression)
+     - Does NOT handle: design decisions, content writing
+     - Output: /images/ directory with optimized assets + manifest
+
+  9. DEBUGGING AGENT (Senior QA Engineer - 10+ years)
+     - Specialty: Code review and quality assurance ONLY
+     - Short-term: Current file being analyzed
+     - Long-term: Bug pattern database, fix library
+     - Reviews all code from Frontend and Backend agents
+     - Runs static analysis (ESLint, Pylint, mypy)
+     - Identifies bugs and performance issues
+     - Suggests fixes and optimizations
+     - Creates test cases for critical functionality
+     - Validates security implementation (Security Agent output)
+     - Validates SEO implementation (SEO Agent output)
+     - Does NOT handle: security implementation, SEO implementation, git operations
+     - Output: /tests/ directory + bug reports with fixes
+
+  10. GIT AGENT (Senior DevOps Engineer - 10+ years)
+     - Specialty: Git version control and GitHub best practices ONLY
+     - Short-term: Current git operation being performed
+     - Long-term: Git workflows library, commit message patterns
+     - REPOSITORY SETUP:
+       * Initialize git repository with proper structure
+       * Create .gitignore (Node.js, Python, IDE, OS specific)
+       * Set up remote repository (GitHub/GitLab/Azure DevOps)
+       * Configure branch protection rules
+       * Set up required status checks
+     - BRANCHING STRATEGY:
+       * Implement Git Flow or GitHub Flow (based on project size)
+       * Create main/master branch (protected)
+       * Create develop branch (for Git Flow)
+       * Set up feature/, bugfix/, hotfix/, release/ branch conventions
+       * Configure branch naming validation
+     - COMMIT PRACTICES:
+       * Conventional Commits specification (feat:, fix:, chore:, etc.)
+       * Atomic commits (one logical change per commit)
+       * Descriptive commit messages (50 char title, 72 char body)
+       * Commit message templates (.gitmessage)
+       * Signed commits (GPG/SSH signing)
+     - GITHUB BEST PRACTICES:
+       * Pull Request templates (.github/PULL_REQUEST_TEMPLATE.md)
+       * Issue templates (.github/ISSUE_TEMPLATE/)
+       * CODEOWNERS file for automatic reviewer assignment
+       * CONTRIBUTING.md for contribution guidelines
+       * README.md with setup instructions, badges, documentation links
+       * LICENSE file (MIT, Apache 2.0, or project-appropriate)
+       * SECURITY.md for security policy
+       * .github/workflows/ for CI/CD pipelines
+     - CI/CD INTEGRATION:
+       * GitHub Actions workflows (build, test, deploy)
+       * Required status checks before merge
+       * Automatic branch deletion after merge
+       * Release automation with semantic versioning
+       * Changelog generation from commit messages
+     - CODE QUALITY GATES:
+       * Pre-commit hooks (pre-commit framework)
+       * Husky hooks for frontend projects
+       * Automated linting on commit
+       * Automated testing on PR
+       * Code coverage requirements
+     - DOCUMENTATION:
+       * Git workflow documentation for team
+       * Branch strategy guide
+       * Commit message guidelines
+       * Release process documentation
+     - Output: /git/ directory with configs, templates, workflows, documentation
+
+  CODE REVIEW WORKFLOW (Multi-Layer):
+  ===================================
+  LAYER 1 - AUTOMATED REVIEW (Debugging Agent):
+    - Static analysis: ESLint (frontend), Pylint (backend)
+    - Type checking: mypy (Python), TypeScript compiler
+    - Code style: Prettier, Black formatting
+    - Security scan: Bandit, npm audit
+    - Complexity analysis: cyclomatic complexity < 10
+    - Test coverage: minimum 80% on critical paths
+    - Output: Automated review report with fix suggestions
+
+  LAYER 2 - CROSS-AGENT REVIEW (Peer Review):
+    - Frontend code reviewed by Backend Agent (API contracts)
+    - Backend code reviewed by Frontend Agent (integration)
+    - Security code reviewed by Debugging Agent (implementation)
+    - Each agent reviews code outside their specialty (fresh perspective)
+    - Output: Cross-agent review comments in message queue
+
+  LAYER 3 - HYPERAGENT REVIEW (Final Gate):
+    - Hyperagent consolidates all review feedback
+    - Checks for consistency across all components
+    - Validates all critical issues are resolved
+    - Ensures coding standards compliance
+    - Output: Final approval or revision requests
+
+  LAYER 4 - HUMAN-IN-THE-LOOP (Optional, Configurable):
+    - GitHub PR created for human review
+    - Reviewers assigned via CODEOWNERS
+    - Human approval required before merge (configurable)
+    - Human feedback stored in LTM for learning
+    - Output: Human approval/rejection with comments
+
+  LAYER 5 - CI/CD GATE (Automated Final Check):
+    - Build must pass (no compile errors)
+    - All tests must pass (100% success)
+    - Linting must pass (zero errors)
+    - Security scan must pass (zero critical vulnerabilities)
+    - Performance budget must pass (Lighthouse scores)
+    - Output: CI/CD pass/fail status
+
+  REVIEW CHECKLIST (All Code):
+    - Code follows project style guide
+    - No hardcoded secrets or API keys
+    - Error handling implemented (try/catch, Result types)
+    - Logging implemented for debugging
+    - Input validation on all user inputs
+    - Output encoding to prevent XSS
+    - SQL parameterized queries (no injection)
+    - Authentication/authorization checks
+    - Rate limiting on API endpoints
+    - CORS properly configured
+    - Tests cover happy path + edge cases
+    - Documentation comments for public APIs
+    - No console.log in production code
+    - No TODO/FIXME without tracking issue
+
+  MEMORY INFRASTRUCTURE:
+  ======================
+  Multi-layer memory system using optimal Python data structures:
+  
+  SHORT-TERM MEMORY (Working Memory):
+    - collections.deque: Sliding window for last N messages (O(1) append/popleft)
+    - Bounded capacity with automatic eviction (maxlen parameter)
+    - Use: Conversation buffer, recent context, agent working state
+    - Implementation: memory/short_term.py with ConversationBuffer class
+  
+  EVENT LOG (Append-Only History):
+    - list: Dynamic array with amortized O(1) append, O(1) random access
+    - Max size with 10% cutoff eviction when full
+    - Timestamped events with type and data fields
+    - Use: Agent action history, decision trail, audit log
+    - Implementation: memory/event_log.py with EventLog class
+  
+  UNDO/BACKTRACKING:
+    - list as LIFO stack: O(1) push/pop for undo operations
+    - Type-safe with Generic[T] for different undoable actions
+    - Use: Revert agent decisions, rollback failed operations
+    - Implementation: memory/undo_stack.py with UndoStack class
+  
+  TASK PIPELINE:
+    - asyncio.Queue: Async-safe FIFO for multi-agent task processing
+    - Bounded maxsize for backpressure
+    - Use: Inter-agent task distribution, event loop scheduling
+    - Implementation: memory/task_queue.py with AsyncTaskQueue class
+  
+  PRIORITY SCHEDULING:
+    - heapq (min-heap): O(log n) insert/extract for priority-based scheduling
+    - dataclass with order=True for comparable tasks
+    - Use: Urgent task prioritization, weighted memory retrieval
+    - Implementation: memory/scheduler.py with AgentScheduler class
+  
+  KEYED STATE STORE:
+    - defaultdict[str, dict]: O(1) average lookup for entity state
+    - Nested dicts for user/session/topic metadata
+    - Use: Agent state, user preferences, session context
+    - Implementation: memory/state_store.py with EntityMemory class
+  
+  TTL MEMORY (Temporal Decay):
+    - list[TimestampedEvent] + TTL-based purge
+    - Automatic expiration with configurable time-to-live
+    - Use: Temporal reasoning, "last N minutes" queries, decay-based forgetting
+    - Implementation: memory/ttl_memory.py with TTLMemory class
+  
+  TAGGED MEMORY (Categorized):
+    - defaultdict[str, list]: Multi-index by tags/categories
+    - Use: Group memories by type (observations, decisions, errors)
+    - Implementation: memory/tagged_memory.py with TaggedMemory class
+  
+  LONG-TERM MEMORY (Persistent):
+    - SQLite: Structured storage survives restarts
+    - ChromaDB: Vector embeddings for semantic similarity search
+    - Use: Episodic memory, semantic knowledge, learned patterns
+    - Implementation: memory/long_term.py with LongTermMemory class
+  
+  MEMORY HIERARCHY:
+    L1 (Working): deque (maxlen=20) → Last 20 interactions
+    L2 (Active): dict state + tagged lists → Current session
+    L3 (Recent): SQLite (24h retention) → Last 24 hours
+    L4 (Semantic): ChromaDB embeddings → Permanent knowledge
+    L5 (Archival): SQLite summaries → Compressed history
+  
+  INTER-AGENT COMMUNICATION:
+  ==========================
+  Hybrid communication system for reliability and performance:
+  
+  PRIMARY: SQLite Message Queue (Recommended for Windows)
+    - No external dependencies (uses existing SQLite)
+    - Persistent messages (survives crashes)
+    - Transaction-based (no race conditions)
+    - Query-based routing (flexible filtering)
+    - Tables:
+      * messages (id, from_agent, to_agent, type, payload, status, created_at)
+      * subscriptions (agent_id, topic, filter_pattern)
+      * delivery_log (message_id, delivered_at, ack_status, retry_count)
+      * dead_letter_queue (message_id, error_reason, failed_at)
+    - Message Types:
+      * TASK_REQUEST - Agent requests work/data from another agent
+      * TASK_COMPLETE - Agent notifies task completion
+      * DATA_SHARE - Agent shares output data/artifacts
+      * BLOCKING_ISSUE - Urgent: requires immediate attention
+      * HANDOFF - Transfer work to next agent in pipeline
+      * BROADCAST - Message to all subscribed agents
+      * CONFLICT_RESOLUTION - Request Hyperagent mediation
+    - Delivery Guarantees:
+      * At-least-once delivery (automatic retry)
+      * Message acknowledgment (ACK/NACK responses)
+      * Dead letter queue (after 3 failed deliveries)
+      * Message TTL (expire after 1 hour if undelivered)
+    - Performance: 1000+ messages/second
+  
+  SECONDARY: Windows Named Pipes (Real-time urgent)
+    - Windows-native IPC (built-in OS support)
+    - Lowest latency (< 1ms for urgent messages)
+    - Full-duplex communication (bidirectional)
+    - Use cases:
+      * Emergency stop signals
+      * Health check pings
+      * Synchronous request/response
+    - Pipe naming: \\.\pipe\hyperagent\{agent_id}
+  
+  TERTIARY: JSON Files (Async, audit trail)
+    - File-based messaging for non-urgent communication
+    - Automatic cleanup after processing
+    - Human-readable (easy debugging)
+    - Use cases:
+      * Agent output artifacts
+      * Handoff documentation
+      * Audit trail logging
+    - Directory structure: /messages/{agent_id}/outbox/, /inbox/
+  
+  MESSAGE PATTERNS:
+    - Publish/Subscribe - Agents subscribe to topics
+    - Point-to-Point - Direct agent-to-agent messaging
+    - Request/Reply - Synchronous communication
+    - Broadcast - One-to-many announcements
+    - Pipeline - Sequential agent handoffs
+  
+  CONTENTION HANDLING:
+    - Database locking: Optimistic locking with retry
+    - Message ordering: FIFO per agent pair
+    - Duplicate detection: Message ID deduplication
+    - Backpressure: Queue depth monitoring + throttling
+  
+  CACHING INFRASTRUCTURE:
+  =======================
+  Multi-layer caching for maximum efficiency and cost reduction:
+  
+  L1 CACHE (In-Memory, Redis):
+    - Agent response cache: Hash(prompt) → response (TTL: 1 hour)
+    - Model output cache: Cache identical prompts across agents
+    - Session cache: Active conversation context (TTL: 30 minutes)
+    - Hit rate target: 40% for repeated patterns
+  
+  L2 CACHE (SQLite, Persistent):
+    - Component library: Reusable UI components with metadata
+    - Code snippet cache: Common patterns (auth, CRUD, forms)
+    - Design token cache: Brand colors, typography combinations
+    - Copy templates: Industry-specific content blocks
+    - Hit rate target: 60% for common patterns
+  
+  L3 CACHE (Vector Store, Semantic):
+    - Semantic similarity cache: Find similar past solutions
+    - Embedding cache: Pre-computed prompt embeddings
+    - Project pattern cache: Similar project structures
+    - Hit rate target: 30% for novel queries
+  
+  CACHE STRATEGIES:
+    - Write-through: Cache agent outputs immediately
+    - Read-through: Check cache before LLM call
+    - Cache invalidation: Invalidate on user feedback
+    - Warm-up: Pre-load common patterns on startup
+    - Eviction: LRU policy with priority for high-quality outputs
+
+  LEARNING INFRASTRUCTURE:
+  ========================
+  - Experience replay buffer: Store transitions (state, action, reward)
+  - Policy network: Learns optimal agent selection and task ordering
+  - Reward model: Quality scores, user satisfaction, efficiency metrics
+  - Pattern miner: Extracts frequent successful patterns from LTM
+  - Anomaly detector: Identifies unusual situations requiring human input
+  - Meta-learner: Improves learning rate and strategy over time
+  
+  TOKEN OPTIMIZATION:
+  ===================
+  Strategies for minimal token consumption without quality loss:
+  
+  PROMPT COMPRESSION:
+    - Context pruning: Remove irrelevant history (keep last 10 turns)
+    - Summary compression: Summarize old conversations (5:1 ratio)
+    - Template variables: Use placeholders for repeated content
+    - System prompt optimization: Minimal, focused instructions
+    - Target: 40% reduction in prompt tokens
+  
+  CONTEXT MANAGEMENT:
+    - Sliding window: Keep only relevant context (last N messages)
+    - Hierarchical context: Summary → Details (load on demand)
+    - Reference by ID: Store full content, reference by hash
+    - Lazy loading: Fetch full context only when needed
+    - Target: 50% reduction in context tokens
+  
+  RESPONSE OPTIMIZATION:
+    - Structured output: JSON schemas (no verbose explanations)
+    - Token limits: Enforce max tokens per task type
+    - Streaming: Process partial responses immediately
+    - Truncation detection: Alert if response cut off
+    - Target: 30% reduction in completion tokens
+  
+  MODEL SELECTION:
+    - Task-model matching: Right model for each task size
+    - Small tasks → Small models (Gemini Flash, Phi-4)
+    - Complex tasks → Large models (Claude, Grok 4.1 Fast)
+    - Fallback cascade: Try cheap first, escalate on failure
+    - Target: 35% cost reduction via optimal model selection
+  
+  CACHING BENEFITS:
+    - Cache hit = 100% token savings for that request
+    - Target overall: 45% token reduction via caching
+    - Combined target: 60% total token reduction
+  
+  TOKEN BUDGETS (per agent, per task):
+    - Hyperagent: 8K input / 4K output (coordination tasks)
+    - Frontend: 16K input / 8K output (code generation)
+    - Backend: 16K input / 8K output (API design)
+    - Design: 8K input / 4K output (design tokens)
+    - Copywriting: 8K input / 4K output (content creation)
+    - Security: 16K input / 8K output (security analysis + middleware)
+    - SEO: 8K input / 4K output (meta tags, structured data)
+    - Image: 4K input / 2K output (prompt + manifest generation)
+    - Debugging: 32K input / 8K output (code review)
+    - Git: 8K input / 4K output (configs, templates, workflows)
+    - Memory ops: 4K input / 2K output (embeddings)
+
+  LLM MODEL ASSIGNMENTS (Cost-Optimized via OpenRouter - Updated 2026-04-02):
+  =============================================================================
+  
+  TOP MODELS BY USAGE (OpenRouter Weekly Rankings):
+    1. Xiaomi MiMo V2 Pro - 4.65T tokens (57% share) - TOP OVERALL ⭐
+    2. StepFun Step 3.5 Flash - 1.39T tokens (12% share) - BEST VALUE
+    3. MiniMax M2.7 - 1.32T tokens (43% share) - BEST FOR AGENTS
+    4. DeepSeek V3.2 - 1.22T tokens (3% share) - BUDGET CODING
+    5. Qwen3.6 Plus Preview:FREE - 1.1T tokens - **FREE! 1M ctx** ⭐
+    6. Claude Sonnet 4.6 - 1.01T tokens (3% share) - PREMIUM ALL-ROUNDER
+    7. Claude Opus 4.6 - 1.01T tokens (1% share) - PREMIUM COMPLEX
+    8. Gemini 3 Flash Preview - 978B tokens (4% share) - FAST MULTIMODAL
+    9. GLM 5 Turbo - 939B tokens (13% share) - AGENT WORKFLOWS
+    10. Grok 4.1 Fast - 822B tokens (68% share) - FASTEST REASONING
+
+  FREE TIER MODELS (Use when available - $0 cost):
+    qwen/qwen3.6-plus-preview:free: 1M ctx, advanced reasoning, agentic coding - USE FOR: Frontend, Backend, Git, SEO, Copywriting
+    nvidia/nemotron-3-super-120b-a12b:free: 262K ctx, 120B MoE - BEST FOR SEO + AGENTS! ⭐
+    nvidia/nemotron-3-nano-30b-a3b:free: 256K ctx, 30B MoE - FAST AGENT TASKS
+    stepfun/step-3.5-flash:free: 262K ctx, 196B MoE - USE FOR: Simple tasks, consolidation
+    z-ai/glm-4.5-air:free: 131K ctx, 106B MoE (12B active) - BEST FOR AGENTIC REASONING! ⭐
+    qwen/qwen3-coder-30b-a3b-instruct:free: 30B MoE - BEST FOR AGENTIC CODING! ⭐
+    **STRATEGY**: Try FREE models first - Nemotron for SEO, GLM-4.5-Air for reasoning, Qwen3-Coder for coding
+
+  GLM-4.5-AIR FREE (Agentic Reasoning Specialist):
+    z-ai/glm-4.5-air:free: 106B total params (12B active), 131K ctx, MoE architecture
+    **OPTIMIZED FOR**: Tool use, web browsing, software development, front-end development
+    **INTEGRATIONS**: Claude Code, Roo Code, and other coding agents
+    **REASONING**: Hybrid reasoning (adapts to complex reasoning + everyday tasks)
+    **USE FOR**: Agent coordination, complex reasoning tasks, tool orchestration
+    **PRICING**: FREE on OpenRouter (SiliconFlow: $0.14/$0.86 per 1M tokens when paid)
+
+  QWEN3-CODER-30B FREE (Agentic Coding Specialist):
+    qwen/qwen3-coder-30b-a3b-instruct:free: 30B MoE, specialized code model
+    **OPTIMIZED FOR**: Agentic Coding, Agentic Browser-Use, complex coding tasks
+    **PERFORMANCE**: Best among open-source models for coding tasks
+    **USE FOR**: Frontend code generation, backend API development, code review
+    **PRICING**: FREE on OpenRouter
+
+  IMAGE GENERATION MODELS (OpenRouter - Verified Available 2026-04-02):
+  ======================================================================
+  
+  🏆 BEST VALUE (Per-image pricing):
+    black-forest-labs/flux.2-klein-4b: $0.014/MP - FASTEST & CHEAPEST! ⭐ BEST FOR WEB
+    sourceful/riverflow-v2-fast: $0.02 (1K), $0.04 (2K) - FASTEST VARIANT
+    black-forest-labs/flux.2-pro: $0.03/MP + $0.015/additional - PRODUCTION QUALITY
+    sourceful/riverflow-v2-fast-preview: $0.03/image - PROTOTYPING
+    sourceful/riverflow-v2-standard-preview: $0.035/image - STANDARD QUALITY
+    bytedance-seed/seedream-4.5: $0.04/image - EDITING CONSISTENCY
+  
+  🎨 PREMIUM (Per-image pricing):
+    sourceful/riverflow-v2-max-preview: $0.075/image - HIGHEST QUALITY
+    black-forest-labs/flux.2-max: $0.07/MP + $0.03/additional - MAXIMUM QUALITY
+    sourceful/riverflow-v2-pro: $0.15 (1K/2K), $0.33 (4K) - **4K RESOLUTION!** ⭐
+  
+  🤖 MULTIMODAL (Token-based pricing):
+    google/gemini-2.5-flash-image: $0.30/$2.50 per 1M tokens - FAST MULTIMODAL
+    google/gemini-3.1-flash-image-preview: $0.50/$3 per 1M tokens - FLASH SPEED
+    openai/gpt-5-image-mini: $2.50/$2 per 1M tokens, 400K ctx - INSTRUCTION FOLLOWING
+    google/gemini-3-pro-image-preview: $2/$12 per 1M tokens - 2K/4K OUTPUTS
+    openai/gpt-5-image: $10/$10 per 1M tokens, 400K ctx - PREMIUM QUALITY
+  
+  IMAGE AGENT STRATEGY:
+    - Use FLUX.2 Klein 4B for most web images ($0.014/MP = ~$0.02/image)
+    - Use Riverflow V2 Pro for 4K hero images ($0.33/image)
+    - Use Gemini Flash Image for multimodal understanding
+    - Estimated cost: ~$0.10 for 50 web images (FLUX.2 Klein)
+
+  COST-EFFICIENT MODEL CASCADING:
+  - Each task tries cheapest capable model first
+  - Escalate to premium only on failure or low quality
+  - 3-tier fallback: Budget → Balanced → Premium
+  - Dynamic routing based on task complexity score
+  - **TIMEOUT HANDLING**: Aggressive timeouts with automatic retry on different model
+
+  TIMEOUT CONFIGURATION (Per Model Tier):
+    TIER 0 - FREE MODELS (Patient timeouts - worth waiting, $0 cost):
+      nvidia/nemotron-3-super-120b-a12b:free: Timeout 60s, Max retries 3, then fallback (FREE! 262K ctx) ⭐ BEST FOR SEO
+      z-ai/glm-4.5-air:free: Timeout 60s, Max retries 3, then fallback (FREE! 131K ctx) ⭐ BEST FOR AGENTIC REASONING
+      qwen/qwen3-coder-30b-a3b-instruct:free: Timeout 45s, Max retries 2, then fallback (FREE! 30B MoE) ⭐ BEST FOR AGENTIC CODING
+      nvidia/nemotron-3-nano-30b-a3b:free: Timeout 45s, Max retries 2, then fallback (FREE! 256K ctx)
+      qwen/qwen3.6-plus-preview:free: Timeout 60s, Max retries 3, then fallback (FREE! 1M ctx)
+      stepfun/step-3.5-flash:free: Timeout 30s, Max retries 2, then fallback (FREE! 262K ctx)
+    
+    TIER 1 - BUDGET MODELS (Aggressive timeouts - cheap, replaceable):
+      x-ai/grok-4.1-fast: Timeout 20s, Max retries 1, then fallback ($0.20/$0.50)
+      deepseek/deepseek-v3.2: Timeout 30s, Max retries 1, then fallback ($0.26/$0.38)
+      stepfun/step-3.5-flash: Timeout 20s, Max retries 1, then fallback ($0.10/$0.30)
+      google/gemini-3-flash-preview: Timeout 20s, Max retries 1, then fallback ($0.50/$3.00)
+      black-forest-labs/flux.2-klein-4b: Timeout 15s, Max retries 2, then fallback ($0.014/MP) ⭐ BEST FOR WEB IMAGES
+      sourceful/riverflow-v2-fast: Timeout 15s, Max retries 2, then fallback ($0.02-0.04/image)
+    
+    TIER 2 - BALANCED MODELS (Moderate timeouts - reliable workhorses):
+      minimax/minimax-m2.7: Timeout 45s, Max retries 2, then fallback ($0.30/$1.20)
+      qwen/qwen-2.5-coder-32b-instruct: Timeout 30s, Max retries 1, then fallback ($0.66/$1.00)
+      openai/gpt-4o-mini: Timeout 30s, Max retries 2, then fallback ($0.15/$0.60)
+      xiaomi/mimo-v2-omni: Timeout 45s, Max retries 2, then fallback ($0.40/$2) - Multimodal!
+      z-ai/glm-5-turbo: Timeout 45s, Max retries 2, then fallback ($1.20/$4) - Agent workflows!
+      black-forest-labs/flux.2-pro: Timeout 20s, Max retries 2, then fallback ($0.03/MP) - PRODUCTION IMAGES
+      sourceful/riverflow-v2-pro: Timeout 30s, Max retries 2, then fallback ($0.15-0.33/image) - 4K IMAGES!
+      x-ai/grok-4: Timeout 60s, Max retries 2, then fallback ($3/$15)
+    
+    TIER 3 - PREMIUM MODELS (Patient timeouts - last resort, worth waiting):
+      xiaomi/mimo-v2-pro: Timeout 60s, Max retries 2, then fallback ($1/$3) - 1T params!
+      anthropic/claude-sonnet-4-6: Timeout 90s, Max retries 3, then fallback ($3/$15)
+      anthropic/claude-opus-4-6: Timeout 120s, Max retries 3, then human ($5/$25)
+      sourceful/riverflow-v2-max-preview: Timeout 30s, Max retries 2, then fallback ($0.075/image) - MAX QUALITY
+      black-forest-labs/flux.2-max: Timeout 30s, Max retries 2, then fallback ($0.07/MP) - MAXIMUM QUALITY
+
+  AGENT MODEL CONFIGURATIONS (with cascading + timeout handling):
+
+  HYPERAGENT (Supervisor):
+    Primary: x-ai/grok-4.1-fast ($0.20/$0.50, 2M ctx, 20s timeout) - Fast coordination
+    Fallback 1: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - Free reasoning
+    Fallback 2: minimax/minimax-m2.7 ($0.30/$1.20, 205K ctx, 45s timeout) - Agent orchestration
+    Fallback 3: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Complex decisions
+    Cascade: Grok 4.1 Fast → Qwen3.6 Free → MiniMax M2.7 → Claude Sonnet 4.6
+    Why: Grok 4.1 Fast is 68% of all usage, fastest reasoning at lowest cost
+
+  FRONTEND AGENT (Senior UI Engineer):
+    Primary: qwen/qwen3-coder-30b-a3b-instruct:free (FREE, 30B MoE, 45s timeout) - BEST FOR AGENTIC CODING! ⭐
+    Fallback 1: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - FREE coding!
+    Fallback 2: z-ai/glm-4.5-air:free (FREE, 131K ctx, 60s timeout) - Agentic reasoning for UI
+    Fallback 3: qwen/qwen-2.5-coder-32b-instruct ($0.66/$1.00, 33K ctx, 30s timeout) - Coding specialist
+    Fallback 4: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Complex patterns
+    Cascade: Qwen3-Coder 30B Free → Qwen3.6 Free → GLM-4.5-Air Free → Qwen Coder → Claude
+    Why: Qwen3-Coder-30B is best open-source model for Agentic Coding tasks!
+
+  BACKEND AGENT (Senior API Architect):
+    Primary: z-ai/glm-4.5-air:free (FREE, 131K ctx, 60s timeout) - BEST FOR AGENTIC REASONING! ⭐
+    Fallback 1: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - FREE agentic coding!
+    Fallback 2: minimax/minimax-m2.7 ($0.30/$1.20, 205K ctx, 45s timeout) - Best for agents/APIs
+    Fallback 3: deepseek/deepseek-v3.2 ($0.26/$0.38, 164K ctx, 30s timeout) - Database + API
+    Fallback 4: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Complex architecture
+    Cascade: GLM-4.5-Air Free → Qwen3.6 Free → MiniMax M2.7 → DeepSeek V3.2 → Claude
+    Why: GLM-4.5-Air is purpose-built for AI agent applications and tool use!
+
+  DESIGN AGENT (Senior Visual Designer):
+    Primary: xiaomi/mimo-v2-omni ($0.40/$2, 262K ctx, 45s timeout) - Native multimodal!
+    Fallback 1: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - FREE creative!
+    Fallback 2: xiaomi/mimo-v2-pro ($1/$3, 1M ctx, 60s timeout) - 1T params, complex design
+    Fallback 3: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Complex design systems
+    Cascade: MiMo V2 Omni → Qwen3.6 Free → MiMo V2 Pro → Claude Sonnet 4.6
+    Why: MiMo V2 Omni has native image/video/audio processing, perfect for design tasks
+
+  COPYWRITING AGENT (Senior Content Strategist):
+    Primary: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - FREE content!
+    Fallback 1: openai/gpt-4o-mini ($0.15/$0.60, 128K ctx, 30s timeout) - Best value content
+    Fallback 2: google/gemini-3-flash-preview ($0.50/$3.00, 1M ctx, 20s timeout) - Creative writing
+    Fallback 3: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Premium brand voice
+    Cascade: Qwen3.6 Free → GPT-4o Mini → Gemini 3 Flash → Claude Sonnet 4.6
+    Why: Try free Qwen first for content generation
+
+  SECURITY AGENT (Senior Security Engineer):
+    Primary: x-ai/grok-4.1-fast ($0.20/$0.50, 2M ctx, 20s timeout) - Lowest hallucination
+    Fallback 1: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - FREE security analysis
+    Fallback 2: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Security patterns
+    Fallback 3: anthropic/claude-opus-4-6 ($5/$25, 1M ctx, 120s timeout) - Complex threat modeling
+    Cascade: Grok 4.1 Fast → Qwen3.6 Free → Claude Sonnet 4.6 → Claude Opus 4.6
+    Why: Grok 4.1 Fast has lowest hallucination rate, critical for security
+
+  SEO AGENT (Senior SEO Specialist):
+    Primary: nvidia/nemotron-3-super-120b-a12b:free (FREE, 262K ctx, 60s timeout) - BEST FOR SEO! ⭐
+    Fallback 1: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - FREE SEO content!
+    Fallback 2: nvidia/nemotron-3-nano-30b-a3b:free (FREE, 256K ctx, 45s timeout) - Fast SEO tasks
+    Fallback 3: openai/gpt-4o-mini ($0.15/$0.60, 128K ctx, 30s timeout) - SEO best practices
+    Fallback 4: z-ai/glm-5-turbo ($1.20/$4, 203K ctx, 45s timeout) - Complex SEO workflows
+    Cascade: Nemotron Super 120B Free → Qwen3.6 Free → Nemotron Nano 30B Free → GPT-4o Mini → GLM-5 Turbo
+    Why: NVIDIA Nemotron FREE models are specifically optimized for SEO + multi-agent coherence!
+    Nemotron Advantages for SEO:
+      - Multi-agent coherence (perfect for multi-page SEO consistency)
+      - Multi-step planning (keyword research → content → optimization)
+      - Cross-document reasoning (analyze entire site structure)
+      - TerminalBench/SWE-Bench leader (proven agent capabilities)
+      - 120B params with 12B active (best free model for complex SEO)
+
+  IMAGE AGENT (Senior Visual Artist):
+    Specialty: Image generation via OpenRouter (native, no external API needed!)
+    Primary: black-forest-labs/flux.2-klein-4b ($0.014/MP, 15s timeout) - BEST VALUE! ~$0.02/image
+    Fallback 1: sourceful/riverflow-v2-fast ($0.02-0.04/image, 15s timeout) - FASTEST
+    Fallback 2: black-forest-labs/flux.2-pro ($0.03/MP, 20s timeout) - PRODUCTION QUALITY
+    Fallback 3: sourceful/riverflow-v2-pro ($0.15-0.33/image, 30s timeout) - 4K HERO IMAGES!
+    Fallback 4: sourceful/riverflow-v2-max-preview ($0.075/image, 30s timeout) - MAX QUALITY
+    Fallback 5: google/gemini-2.5-flash-image ($0.30/$2.50 per 1M tokens) - MULTIMODAL
+    Cascade: FLUX.2 Klein → Riverflow Fast → FLUX.2 Pro → Riverflow Pro (4K) → Riverflow Max → Gemini
+    Why: FLUX.2 Klein 4B is fastest & cheapest at $0.014/MP (~$0.02 per web image)
+    Image Types & Recommended Models:
+      - Web images (800x600): FLUX.2 Klein 4B (~$0.014/image)
+      - OG images (1200x630): FLUX.2 Pro (~$0.03/image)
+      - Hero images (1920x1080): Riverflow V2 Pro (~$0.15/image)
+      - 4K hero images: Riverflow V2 Pro 4K (~$0.33/image)
+      - Icons (512x512): FLUX.2 Klein 4B (~$0.004/image)
+    Estimated Cost: ~$0.50 for 50 web images (FLUX.2 Klein), ~$5 for 50 hero images (Riverflow Pro)
+
+  DEBUGGING AGENT (Senior QA Engineer):
+    Primary: x-ai/grok-4.1-fast ($0.20/$0.50, 2M ctx, 20s timeout) - Critical analysis
+    Fallback 1: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - FREE code review!
+    Fallback 2: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Code review excellence
+    Fallback 3: anthropic/claude-opus-4-6 ($5/$25, 1M ctx, 120s timeout) - Complex bugs
+    Cascade: Grok 4.1 Fast → Qwen3.6 Free → Claude Sonnet 4.6 → Claude Opus 4.6
+    Why: Grok 4.1 Fast most accurate for bug detection at lowest cost
+
+  GIT AGENT (Senior DevOps Engineer):
+    Primary: qwen/qwen3.6-plus-preview:free (FREE, 1M ctx, 60s timeout) - FREE DevOps!
+    Fallback 1: minimax/minimax-m2.7 ($0.30/$1.20, 205K ctx, 45s timeout) - Agent workflows
+    Fallback 2: z-ai/glm-5-turbo ($1.20/$4.00, 203K ctx, 45s timeout) - CI/CD configs
+    Fallback 3: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Complex workflows
+    Cascade: Qwen3.6 Free → MiniMax M2.7 → GLM 5 Turbo → Claude Sonnet 4.6
+    Why: Qwen3.6 Free has strong agentic coding for DevOps workflows
+
+  MEMORY/LEARNING OPERATIONS:
+    Embedding: google/gemini-3-flash-preview ($0.50/$3.00, 1M ctx, 20s timeout) - Best value
+    Consolidation: stepfun/step-3.5-flash:free (FREE, 262K ctx, 30s timeout) - FREE 196B MoE!
+    Escalation: anthropic/claude-sonnet-4-6 ($3/$15, 1M ctx, 90s timeout) - Complex patterns
+
+  COST OPTIMIZATION STRATEGIES:
+    - Complexity scoring: Each task scored 1-10, route by complexity
+    - Success tracking: Per-model success rate, avoid models with <80% success
+    - Budget caps: Per-agent daily budget limits
+    - Cache-first: Always check cache before LLM call
+    - Batch operations: Group similar prompts for batch discounts
+    - Token budgets: Strict input/output limits per task type
+    - Model warm-up: Keep budget models warm, premium models cold
+    - Cost alerts: Notify when approaching budget thresholds
+    - **FREE TIER PRIORITY** (NEW!):
+      * Qwen3.6 Plus Preview: FREE with 1M context - PRIMARY for Frontend, Backend, Git, SEO, Copywriting
+      * Step 3.5 Flash: FREE with 262K context - Use for memory consolidation
+      * Strategy: Try free models first (60s timeout), fallback to paid on failure
+    - **NEWEST MODELS PRIORITY**:
+      * Grok 4.1 Fast: 68% usage share, fastest at $0.20/$0.50 - USE FOR CRITICAL
+      * MiniMax M2.7: 43% usage, best for agents at $0.30/$1.20 - USE FOR API/DevOps
+      * **NVIDIA Nemotron 3 Super 120B: FREE! - BEST FOR SEO + MULTI-AGENT! ⭐**
+      * **NVIDIA Nemotron 3 Nano 30B: FREE! - FAST AGENT TASKS ⭐**
+      * **GLM-4.5-Air: FREE! 106B MoE (12B active) - BEST FOR AGENTIC REASONING! ⭐**
+      * **Qwen3-Coder-30B: FREE! 30B MoE - BEST FOR AGENTIC CODING! ⭐**
+      * Step 3.5 Flash: 196B MoE at $0.10/$0.30 - USE FOR consolidation
+      * **MiMo V2 Omni: Native multimodal at $0.40/$2 - USE FOR DESIGN**
+      * **MiMo V2 Pro: 1T params at $1/$3 - USE FOR complex reasoning**
+      * **FLUX.2 Klein 4B: $0.014/MP - BEST FOR WEB IMAGES! ⭐**
+      * **Riverflow V2 Pro: $0.15-0.33/image - 4K IMAGES! ⭐**
+      * Gemini 3 Flash: Multimodal at $0.50/$3.00 - USE FOR visual/design
+      * GPT-4o Mini: 128K context at $0.15/$0.60 - USE FOR content/SEO fallback
+      * **GLM-5 Turbo: $1.20/$4 - USE FOR complex agent workflows**
+      * Claude Sonnet 4.6: 1M context at $3/$15 - USE FOR complex tasks
+      * Claude Opus 4.6: Strongest at $5/$25 - USE FOR critical bugs only
+    - **AVOID DEEPSEEK FOR CRITICAL**: Use only for non-critical batch tasks
+    - **FALLBACK ECONOMICS**:
+      * Free model timeout → Budget model (not premium)
+      * Budget model timeout → Balanced model
+      * Balanced model timeout → Premium model
+      * Premium model timeout → Human review (don't waste more money)
+  
+  ESTIMATED COST PER WEBSITE (Updated with GLM-4.5-Air + Qwen3-Coder FREE):
+    - Hyperagent (Grok 4.1 Fast): ~$0.50
+    - Frontend (Qwen3-Coder-30B FREE): ~$0.00 ⭐ FREE!
+    - Backend (GLM-4.5-Air FREE): ~$0.00 ⭐ FREE!
+    - Design (MiMo V2 Omni): ~$0.30 ⭐ Native multimodal!
+    - Copywriting (Qwen3.6 Free → GPT-4o Mini): ~$0.20
+    - Security (Grok 4.1 Fast): ~$0.40
+    - SEO (NVIDIA Nemotron 3 Super 120B FREE): ~$0.00 ⭐ FREE!
+    - Image (FLUX.2 Klein 4B, ~50 web images): ~$0.50 ⭐ NATIVE OPENROUTER!
+    - Debugging (Grok 4.1 Fast): ~$0.40
+    - Git (Qwen3.6 Free): ~$0.00 ⭐ FREE!
+    - Memory/Learning (Step 3.5 Flash Free): ~$0.00 ⭐ FREE!
+    - **TOTAL: ~$2.30 per website** (with 6 FREE models + native FLUX.2 images)
+    - **SAVINGS**: 77% cheaper than premium-only approach ($10 → $2.30)
+  
+  FREE MODELS SUMMARY (6 FREE models available):
+    1. Qwen3.6 Plus Preview:FREE - 1M ctx, general coding/reasoning
+    2. NVIDIA Nemotron 3 Super 120B:FREE - 262K ctx, BEST FOR SEO
+    3. NVIDIA Nemotron 3 Nano 30B:FREE - 256K ctx, fast agent tasks
+    4. GLM-4.5-Air:FREE - 131K ctx, 106B MoE, BEST FOR AGENTIC REASONING
+    5. Qwen3-Coder-30B:FREE - 30B MoE, BEST FOR AGENTIC CODING
+    6. Step 3.5 Flash:FREE - 262K ctx, 196B MoE, consolidation
+    **STRATEGY**: Use FREE models for 80%+ of tasks, paid only for complex/specialized work
+  
+  NOTE ON IMAGE GENERATION:
+    OpenRouter NOW HAS native image generation models available!
+    - FLUX.2 Klein 4B: $0.014/MP (~$0.02/image) - BEST VALUE for web images
+    - Riverflow V2 Fast: $0.02-0.04/image - FASTEST generation
+    - FLUX.2 Pro: $0.03/MP - PRODUCTION QUALITY
+    - Riverflow V2 Pro: $0.15-0.33/image - 4K RESOLUTION available!
+    - Riverflow V2 Max: $0.075/image - MAXIMUM QUALITY
+    No external API needed! All image generation via OpenRouter.
+  
+  NOTE ON SEO WITH NEMOTRON:
+    NVIDIA Nemotron 3 Super 120B:FREE is specifically optimized for:
+    - Multi-agent coherence (SEO consistency across all pages)
+    - Multi-step planning (keyword research → content → optimization)
+    - Cross-document reasoning (analyze entire site structure)
+    - TerminalBench/SWE-Bench leader (proven agent capabilities)
+    This FREE model outperforms paid alternatives for SEO tasks!
+  
+  NOTE ON AGENTIC REASONING WITH GLM-4.5-AIR:
+    GLM-4.5-Air:FREE is purpose-built for AI agent applications:
+    - 106B total parameters, 12B active (MoE efficiency)
+    - 131K context window for complex workflows
+    - Optimized for: tool use, web browsing, software/front-end development
+    - Integrates with: Claude Code, Roo Code, and other coding agents
+    - Hybrid reasoning: adapts to complex reasoning + everyday tasks
+    Use for: Backend architecture, agent coordination, complex reasoning tasks
+  
+  NOTE ON AGENTIC CODING WITH QWEN3-CODER-30B:
+    Qwen3-Coder-30B:FREE is best open-source for coding:
+    - 30B MoE architecture, specialized code model
+    - Optimized for: Agentic Coding, Agentic Browser-Use
+    - Best performance among open-source models for coding tasks
+    Use for: Frontend components, backend APIs, code review, debugging
+
+  TECHNICAL REQUIREMENTS:
+  =======================
+  - Python 3.11+ for the orchestration layer
+  - YAML configuration for agent definitions and workflows
+  - SQLite for structured memory and task queue
+  - ChromaDB for vector-based semantic memory
+  - OpenRouter API for all LLM access (single API key)
+  - Model routing layer with automatic fallback chains
+  - Cost tracking per agent and per task
+  - WebSocket support for real-time agent communication
+  - REST API for external integrations
+  - Agent memory system with STM/LTM separation
+  - Conflict resolution mechanism for inter-agent disputes
+  - Iteration manager for revision cycles
+  - Learning loop: Experience collection → Training → Policy update
+  
+  PARALLELIZATION INFRASTRUCTURE:
+  ===============================
+  
+  EXECUTOR POOLS:
+    - ProcessPoolExecutor: CPU-bound tasks (code analysis, image processing)
+      * Workers: CPU count + 4 (default: 12 workers)
+      * Max tasks per worker: 100 (then recycle)
+    - ThreadPoolExecutor: I/O-bound tasks (API calls, file I/O)
+      * Workers: 32 (configurable)
+      * Queue size: 1000 pending tasks
+    - AsyncIO event loop: Network operations (LLM calls, webhooks)
+      * Max concurrent connections: 50
+      * Connection pooling: Enabled (reuse connections)
+  
+  TASK DECOMPOSITION STRATEGY:
+    - Level 0: Independent tasks (run all in parallel)
+    - Level 1: Tasks with dependencies (parallel within level)
+    - Level 2+: Sequential levels (wait for previous level)
+    - Critical path analysis: Identify and prioritize bottleneck tasks
+    - Work stealing: Idle workers steal from busy workers' queues
+  
+  PARALLEL PATTERNS:
+    - Map: Apply same operation to multiple items (parallel map)
+    - Reduce: Aggregate results from parallel operations
+    - Pipeline: Stage 1 → Stage 2 → Stage 3 (overlapped execution)
+    - Fork-Join: Split work, process in parallel, merge results
+    - Producer-Consumer: One agent produces, multiple consume
+    - Barrier: Synchronization point (all agents wait for all)
+  
+  LOCK-FREE DATA STRUCTURES:
+    - ConcurrentQueue: Lock-free message passing between agents
+    - Atomic counters: Thread-safe metrics without locks
+    - Copy-on-write: Immutable state snapshots for reading
+    - Ring buffers: Fixed-size circular buffers for streams
+  
+  BATCH PROCESSING:
+    - Batch size: Configurable per operation type (default: 10)
+    - Dynamic batching: Accumulate until batch full or timeout
+    - Vectorized operations: NumPy-style batch processing
+    - LLM batching: Group similar prompts for single API call
+  
+  SPECULATIVE EXECUTION:
+    - Run 2-3 model variants in parallel for critical tasks
+    - Take first completed result above quality threshold
+    - Cancel remaining variants when winner selected
+    - Cache all results for future reference
+  
+  ASYNC I/O OPTIMIZATIONS:
+    - All network calls are async (non-blocking)
+    - Connection pooling for HTTP (reuse connections)
+    - DNS caching (avoid repeated lookups)
+    - TCP keepalive (maintain connections)
+    - Request pipelining (multiple requests per connection)
+  
+  PARALLEL METRICS:
+    - Parallel efficiency: (speedup / workers) * 100%
+    - Target: ≥ 70% efficiency with 14 workers
+    - Load balance: stddev(worker_utilization) / mean
+    - Target: ≤ 10% imbalance
+    - Throughput: tasks completed per second
+    - Target: ≥ 5 tasks/second sustained
+
+  SYSTEM OPTIMIZATION REQUIREMENTS:
+  ==================================
+  
+  CPU OPTIMIZATION:
+    - Multi-processing: Utilize all CPU cores (multiprocessing.Pool)
+    - Thread pools: For I/O-bound tasks (concurrent.futures.ThreadPoolExecutor)
+    - Async I/O: asyncio for network calls (OpenRouter API)
+    - CPU affinity: Pin critical processes to specific cores
+    - Priority classes: Set appropriate process priorities (Windows)
+    - Batch processing: Group similar tasks for vectorization
+    - Lazy evaluation: Defer computation until needed
+    - Target: 80%+ CPU utilization during generation
+  
+  MEMORY OPTIMIZATION:
+    - Memory pooling: Reuse memory buffers for image/text generation
+    - Streaming: Process large outputs in chunks (no full load)
+    - Garbage collection: Aggressive GC after large operations
+    - Memory limits: Hard caps per agent (configurable)
+    - Swap prevention: Keep working set in RAM
+    - Object reuse: Cache and reuse large objects
+    - Memory mapping: Use mmap for large files
+    - Target: < 4GB peak memory usage
+  
+  ROBUSTNESS:
+    - Circuit breakers: Fail fast on repeated failures
+    - Retry logic: Exponential backoff with jitter (max 3 retries)
+    - Health checks: Monitor agent status every 30 seconds
+    - Graceful degradation: Continue with reduced capability on failures
+    - Checkpointing: Save state after every task completion
+    - Resume capability: Restart from last checkpoint on crash
+    - Redundancy: Critical components have backups
+    - Target: 99.9% task completion rate
+  
+  SCALABILITY:
+    - Horizontal scaling: Support multiple worker processes
+    - Queue-based: Task queue for load distribution
+    - Rate limiting: Respect API rate limits (token bucket)
+    - Auto-scaling: Add workers based on queue depth
+    - Sharding: Partition memory by project/workspace
+    - Microservices: Agents can run as separate processes
+    - Target: Handle 10 concurrent projects
+  
+  SPEED:
+    - Parallel execution: Run independent tasks concurrently
+    - Pipeline: Overlap agent stages (fetch → process → output)
+    - Caching: 3-layer cache (60% token reduction)
+    - Model selection: Fast models for simple tasks
+    - Streaming: Process responses as they arrive
+    - Pre-fetching: Load next context while processing current
+    - Target: Complete standard website in < 5 minutes
+  
+  ERROR HANDLING:
+    - Structured errors: Error codes + messages + context
+    - Error boundaries: Contain failures to single agent/task
+    - Fallback chains: Automatic retry with alternative models
+    - Error logging: Full stack traces + context preserved
+    - User-friendly messages: Clear, actionable error descriptions
+    - Recovery procedures: Documented steps for each error type
+    - Alert system: Notify on critical failures
+    - Target: Zero silent failures
+  
+  SAFETY:
+    - Input validation: Sanitize all user inputs
+    - Output filtering: Block harmful/inappropriate content
+    - Sandboxing: Run generated code in isolated environment
+    - Rate limiting: Prevent abuse (per-user, per-IP)
+    - Content policies: Enforce usage guidelines
+    - Audit trail: Log all actions for compliance
+    - Kill switches: Emergency stop for runaway processes
+    - Target: Zero safety incidents
+  
+  SECURITY:
+    - API key encryption: Store keys encrypted (cryptography library)
+    - Environment isolation: Separate env vars per project
+    - Secret scanning: Detect leaked credentials in outputs
+    - Access control: Role-based permissions for CLI/API
+    - Audit logging: All API calls logged with timestamps
+    - Dependency scanning: Check for vulnerable packages
+    - Secure defaults: Security-first configuration
+    - Target: Zero security vulnerabilities
+  
+  WINDOWS OPTIMIZATION:
+    - Native Windows paths: Use pathlib for cross-platform paths
+    - PowerShell integration: Support PowerShell scripts
+    - Windows services: Optional service mode for background running
+    - Task Scheduler: Integration for scheduled tasks
+    - Windows Event Log: Log to Windows Event Viewer
+    - Named pipes: IPC using Windows named pipes
+    - COM support: Optional COM automation
+    - Target: First-class Windows citizen
+  
+  HEARTBEAT MONITORING:
+  =====================
+  Real-time health monitoring for all agents and system components:
+  
+  AGENT HEARTBEATS:
+    - Each agent sends heartbeat every 10 seconds
+    - Heartbeat includes: agent_id, status, current_task, memory_usage, cpu_usage
+    - Missed heartbeat (30s): Warning logged, retry attempt
+    - Missed heartbeat (60s): Agent marked unhealthy, fallback activated
+    - Missed heartbeat (180s): Agent restarted automatically
+    - Heartbeat stored in SQLite with 24-hour retention
+  
+  SYSTEM HEARTBEATS:
+    - Memory subsystem: Check connection every 15 seconds
+    - Cache subsystem: Verify L1/L2/L3 connectivity every 15 seconds
+    - Task queue: Monitor queue depth and processing rate every 10 seconds
+    - Model router: Check OpenRouter API health every 30 seconds
+    - Database: Verify SQLite integrity every 60 seconds
+  
+  HEALTH DASHBOARD:
+    - Real-time status page (localhost:8080/health)
+    - Color-coded agent status (green/yellow/red)
+    - Response time metrics per agent
+    - Token usage rate (tokens/minute)
+    - Cost burn rate ($/hour)
+    - Queue depth visualization
+    - Alert history (last 100 events)
+  
+  ALERTING:
+    - Email alerts on critical failures (SMTP configuration)
+    - Windows toast notifications for errors
+    - Log file rotation with compression (daily)
+    - Alert thresholds: configurable per metric type
+  
+  CRON JOB CAPABILITIES:
+  ======================
+  Scheduled task execution for maintenance and automation:
+  
+  BUILT-IN CRON JOBS:
+    - Memory consolidation: Daily at 3:00 AM (STM → LTM transfer)
+    - Cache cleanup: Every 6 hours (remove expired entries)
+    - Model performance sync: Every hour (update performance metrics)
+    - Cost report generation: Daily at 11:59 PM (send email report)
+    - Log rotation: Daily at midnight (compress old logs)
+    - Checkpoint cleanup: Weekly on Sunday (remove old checkpoints)
+    - Learning model update: Weekly on Monday (retrain policy network)
+    - Security scan: Daily at 2:00 AM (dependency vulnerability check)
+    - Backup creation: Daily at 4:00 AM (SQLite + LTM backup)
+  
+  CUSTOM CRON JOBS:
+    - YAML-defined scheduled tasks
+    - Cron expression support (minute, hour, day, month, weekday)
+    - Task types: agent execution, data export, report generation, cleanup
+    - Job history: Track execution status, duration, output
+    - Job dependencies: Define job execution order
+    - Job notifications: Email/webhook on completion/failure
+  
+  WINDOWS TASK SCHEDULER INTEGRATION:
+    - Register hyperagent as scheduled task
+    - Run at system startup (optional)
+    - Run with highest privileges (admin mode)
+    - Wake computer to run scheduled tasks
+    - Missed task execution: Run as soon as possible
+  
+  CRON JOB CONFIGURATION:
+    - Enable/disable individual jobs via config
+    - Adjust schedules via YAML or CLI
+    - Job concurrency limits (max 3 simultaneous jobs)
+    - Job timeout enforcement (max 30 minutes per job)
+    - Job retry logic (3 retries with exponential backoff)
+  
+  DELIVERABLES:
+  =============
+  1. hyperagent/ - Core orchestration engine with learning
+     - hyperagent/supervisor.py - Hyperagent supervisor with memory
+     - hyperagent/learner.py - Reinforcement learning engine
+     - hyperagent/memory_stm.py - Short-term memory management
+     - hyperagent/memory_ltm.py - Long-term memory with vector search
+     - hyperagent/memory_consolidator.py - STM to LTM transfer
+     - hyperagent/agent_base.py - Abstract base class for all agents
+     - hyperagent/message_bus.py - Inter-agent communication
+     - hyperagent/task_queue.py - Task distribution and tracking
+     - hyperagent/conflict_resolver.py - Dispute resolution
+     - hyperagent/quality_gate.py - Final validation
+     - hyperagent/model_router.py - Cost-optimized model selection + cascading
+     - hyperagent/health_monitor.py - Agent health checks + status
+     - hyperagent/plugin_manager.py - Hot-swappable agent plugin system
+     - hyperagent/architecture_selector.py - Optimal architecture selection per project
+     - hyperagent/paradigm_selector.py - Optimal paradigm selection per module
+     - hyperagent/documentation_generator.py - Comprehensive doc generation
+
+  2. agents/ - Specialized senior-level agent implementations (9 agents)
+     - agents/frontend_agent.py - Senior React/Next.js UI engineer
+     - agents/backend_agent.py - Senior API architect
+     - agents/design_agent.py - Senior visual designer
+     - agents/copywriting_agent.py - Senior content strategist
+     - agents/security_agent.py - Senior security engineer
+     - agents/seo_agent.py - Senior SEO specialist
+     - agents/image_agent.py - Senior visual artist
+     - agents/debugging_agent.py - Senior QA engineer
+     - agents/git_agent.py - Senior DevOps engineer
+     - agents/agent_registry.py - Plugin registry + dependency injection
+     - agents/documentation_agent.py - Technical documentation specialist (NEW)
+
+  3. memory/ - Memory infrastructure with optimal Python data structures
+     - memory/short_term.py - deque sliding window (ConversationBuffer)
+     - memory/event_log.py - list append-only log (EventLog)
+     - memory/undo_stack.py - LIFO stack for undo (UndoStack)
+     - memory/task_queue.py - asyncio.Queue FIFO (AsyncTaskQueue)
+     - memory/scheduler.py - heapq priority queue (AgentScheduler)
+     - memory/state_store.py - defaultdict keyed state (EntityMemory)
+     - memory/ttl_memory.py - Timestamped events with TTL (TTLMemory)
+     - memory/tagged_memory.py - Categorized memories (TaggedMemory)
+     - memory/long_term.py - SQLite + ChromaDB persistence
+     - memory/vector_store.py - ChromaDB wrapper for semantic memory
+     - memory/episodic_store.py - SQLite storage for project episodes
+     - memory/retriever.py - Context-aware memory retrieval
+     - memory/compressor.py - Memory compression for consolidation
+     - memory/hierarchy.py - Unified 5-layer memory hierarchy manager
+
+  4. messaging/ - Inter-agent communication (NEW)
+     - messaging/sqlite_queue.py - SQLite message queue (primary)
+     - messaging/named_pipes.py - Windows Named Pipes (real-time)
+     - messaging/json_files.py - File-based messaging (async)
+     - messaging/router.py - Message routing + subscription management
+     - messaging/serializer.py - Message serialization + validation
+     - messaging/delivery.py - Delivery guarantees + retry logic
+     - messaging/dead_letter.py - Failed message handling
+
+  5. learning/ - Learning infrastructure
+     - learning/reward_model.py - Quality and satisfaction scoring
+     - learning/policy_network.py - Agent selection and task ordering
+     - learning/pattern_miner.py - Extract successful patterns
+     - learning/experience_buffer.py - Store training transitions
+
+  6. llm/ - LLM integration layer with cost optimization
+     - llm/openrouter_client.py - Unified OpenRouter API client
+     - llm/model_config.py - Cost-optimized model configurations per agent
+     - llm/fallback_chain.py - 3-tier cascading fallback logic
+     - llm/cost_tracker.py - Per-agent cost tracking + budget alerts
+     - llm/token_optimizer.py - Prompt compression and context management
+     - llm/token_budget.py - Enforce token limits per task
+     - llm/complexity_scorer.py - Task complexity analysis for routing
+     - llm/batch_processor.py - Batch operations for discounts
+
+  7. cache/ - Caching infrastructure
+     - cache/l1_memory.py - Redis in-memory cache (TTL-based)
+     - cache/l2_sqlite.py - Persistent component/code cache
+     - cache/l3_vector.py - Semantic similarity cache
+     - cache/manager.py - Unified cache interface + LRU eviction
+     - cache/warmer.py - Pre-load common patterns on startup
+     - cache/stats.py - Cache hit/miss metrics and analytics
+
+  8. optimization/ - System optimization modules
+     - optimization/cpu_manager.py - Multi-processing + thread pools
+     - optimization/memory_manager.py - Memory pooling + limits
+     - optimization/async_executor.py - Async I/O for network calls
+     - optimization/pipeline.py - Task pipelining + pre-fetching
+     - optimization/cost_optimizer.py - Cost-aware task routing
+
+  9. robustness/ - Reliability modules
+     - robustness/circuit_breaker.py - Fail-fast on repeated failures
+     - robustness/retry_handler.py - Exponential backoff + jitter
+     - robustness/checkpointer.py - State persistence + resume
+     - robustness/health_check.py - Agent status monitoring
+
+  10. heartbeat/ - Health monitoring modules (NEW)
+     - heartbeat/agent_monitor.py - Per-agent heartbeat tracking
+     - heartbeat/system_monitor.py - Subsystem health checks
+     - heartbeat/dashboard.py - Real-time health dashboard (web)
+     - heartbeat/alerter.py - Email/toast notifications
+     - heartbeat/metrics.py - Response time, usage metrics
+
+  11. cron/ - Scheduled job modules (NEW)
+     - cron/scheduler.py - Cron expression parser + scheduler
+     - cron/builtin_jobs.py - Built-in maintenance jobs
+     - cron/custom_jobs.py - User-defined scheduled tasks
+     - cron/windows_integration.py - Task Scheduler integration
+     - cron/job_store.py - Job history + status persistence
+
+  12. interfaces/ - Modular interfaces and contracts (NEW)
+     - interfaces/agent_interface.py - Abstract base class for all agents
+     - interfaces/memory_interface.py - Memory backend interface
+     - interfaces/cache_interface.py - Cache backend interface
+     - interfaces/model_interface.py - LLM provider interface
+     - interfaces/message_interface.py - Message queue interface
+     - interfaces/plugin_interface.py - Plugin lifecycle interface
+
+  13. safety/ - Safety and security modules
+     - safety/input_validator.py - Sanitize user inputs
+     - safety/output_filter.py - Block harmful content
+     - safety/sandbox.py - Isolated code execution
+     - safety/secret_scanner.py - Detect leaked credentials
+     - safety/audit_logger.py - Compliance audit trail
+
+  14. windows/ - Windows-specific integrations
+     - windows/service.py - Windows service mode
+     - windows/event_log.py - Windows Event Log integration
+     - windows/powershell.py - PowerShell script execution
+     - windows/named_pipes.py - Windows IPC via named pipes
+
+  15. workflows/ - Pre-built website templates
+     - workflows/ecommerce.yaml - E-commerce site workflow
+     - workflows/portfolio.yaml - Portfolio site workflow
+     - workflows/saas.yaml - SaaS landing page workflow
+     - workflows/blog.yaml - Blog/CMS workflow
+
+  16. config/ - Configuration management (NEW)
+     - config/settings.py - YAML configuration loader
+     - config/agent_configs.py - Per-agent configuration
+     - config/model_configs.py - Model routing configuration
+     - config/feature_flags.py - Feature toggle system
+
+  17. examples/ - Sample outputs
+     - examples/demo-site/ - Complete generated website
+
+  18. CLI interface (Hyperagent-only interaction)
+     - python -m hyperagent "Build me a portfolio site for a photographer"
+     - Conversational mode: Hyperagent asks clarifying questions
+     - Progress updates: Unified status from Hyperagent only
+     - Feedback: User tells Hyperagent, Hyperagent coordinates fixes
+     - Requires: OPENROUTER_API_KEY environment variable
+
+criteria: |
+  - Hyperagent successfully coordinates all 9 specialized agents without deadlocks
+  - User interacts ONLY with Hyperagent (no direct agent communication)
+  - Hyperagent asks at least 3 clarifying questions before task decomposition
+  - Short-term memory retains last 10 interactions with full context
+  - Long-term memory persists across process restarts (SQLite + ChromaDB)
+  - Memory retrieval returns relevant results in < 200ms
+  - STM → LTM consolidation occurs after each project completion
+  - Learning system records experience transitions (state, action, reward)
+  - Agent performance metrics updated after each task completion
+  - Hyperagent routes tasks to best-performing agents based on learned metrics
+  - Pattern miner extracts at least 3 successful patterns per project
+  - Conflict resolver handles at least 3 conflict types (style, API contract, content mismatch)
+  - Quality gate validates all outputs before marking project complete
+  - Complete website generated in < 10 minutes for standard templates
+  - All agents can operate concurrently on independent tasks
+  - Debugging agent catches at least 80% of introduced bugs in test scenarios
+  - Design tokens from Design Agent correctly applied by Frontend Agent
+  - API schema from Backend Agent correctly consumed by Frontend Agent
+  - Copywriting content properly integrated into all pages
+  - CLI provides conversational interface (Hyperagent asks follow-up questions)
+  - System handles agent failures gracefully with retry logic
+  - User feedback incorporated into next iteration within 1 task cycle
+  - Memory compression reduces STM size by 70% during consolidation
+  - Vector search retrieves semantically similar past projects
+  - Learning policy improves agent selection accuracy over 5+ projects
+  - All LLM calls go through OpenRouter API (single API key)
+  - Each agent uses its designated primary model from model config
+  - Automatic fallback to secondary model if primary fails/unavailable
+  - Cost tracking shows per-agent spending in real-time
+  - Model router enforces token budgets per agent
+  
+  SECURITY CRITERIA:
+  - All pages have security headers (CSP, X-Frame-Options, HSTS, etc.)
+  - Backend implements SQL injection prevention (parameterized queries)
+  - API has rate limiting (minimum 100 requests/minute per IP)
+  - Authentication uses JWT with refresh tokens (15min access, 7day refresh)
+  - Passwords hashed with bcrypt/argon2 (minimum cost factor 12)
+  - CORS configured with explicit whitelist (no wildcards)
+  - Input validation on all API endpoints (Zod/Joi schemas)
+  - CSRF tokens on all state-changing forms
+  - No secrets/keys exposed in frontend code
+  - Dependencies pass vulnerability scan (no critical CVEs)
+  - OWASP Top 10 scan passes with zero high-severity issues
+  
+  OPEN GRAPH CRITERIA:
+  - Every page has complete OG tags (title, description, image, url, type)
+  - OG images are 1200x630px minimum, under 300KB
+  - Twitter Card tags present on all pages
+  - OG titles under 60 characters, descriptions under 160 characters
+  - Facebook Sharing Debugger shows no warnings/errors
+  - Twitter Card preview renders correctly
+  - Sitemap.xml generated with all pages
+  - robots.txt configured correctly
+  - Favicon set includes 16x16, 32x32, 180x180 sizes
+  - OG images are brand-consistent across all pages
+  
+  CACHING CRITERIA:
+  - L1 cache (Redis) hit rate ≥ 40% for repeated patterns
+  - L2 cache (SQLite) hit rate ≥ 60% for common patterns
+  - L3 cache (Vector) hit rate ≥ 30% for semantic similarity
+  - Cache check before every LLM call (read-through strategy)
+  - Agent outputs cached immediately (write-through strategy)
+  - Cache invalidation on user feedback
+  - Cache warm-up completes in < 5 seconds on startup
+  - LRU eviction working correctly under memory pressure
+  - Overall token savings from caching ≥ 45%
+  
+  TOKEN OPTIMIZATION CRITERIA:
+  - Prompt compression achieves 40% token reduction
+  - Context management achieves 50% token reduction
+  - Response optimization achieves 30% token reduction
+  - Model selection achieves 35% cost reduction
+  - Combined token reduction ≥ 60% vs baseline
+  - Token budgets enforced per agent per task
+  - No task exceeds its token budget (hard limit)
+  - Token usage logged per task for analytics
+  - Cost per project tracked in real-time
+  - Average cost per website ≤ $5.00 (with optimizations)
+  
+  IMAGE AGENT CRITERIA:
+  - Image Generation Agent creates all required image types
+  - OG images are 1200x630px, under 300KB, WebP format
+  - Hero images generated in 3 sizes (1920x1080, 1600x900, 1200x630)
+  - Favicons generated in all required sizes (16x16, 32x32, 180x180)
+  - All images have alt text generated by Copywriting Agent
+  - Images optimized (WebP + AVIF, 80-85% quality)
+  - Lazy loading attributes on all non-critical images
+  - Srcset attributes for responsive images
+  - Image manifest generated with all assets listed
+  - Brand consistency across all generated images
+  - FLUX.2 Klein 4B model used for primary generation ($0.014/MP)
+  - Riverflow V2 Fast fallback when FLUX unavailable ($0.02-0.04/image)
+  
+  SYSTEM OPTIMIZATION CRITERIA:
+  - CPU utilization ≥ 80% during generation (all cores used)
+  - Peak memory usage < 4GB
+  - Multi-processing enabled for parallel tasks
+  - Thread pools used for I/O-bound operations
+  - Async I/O used for all OpenRouter API calls
+  - Garbage collection triggered after large operations
+  - Memory limits enforced per agent
+  
+  ROBUSTNESS CRITERIA:
+  - Circuit breakers trip after 3 consecutive failures
+  - Retry logic with exponential backoff (1s, 2s, 4s + jitter)
+  - Health checks run every 30 seconds
+  - Checkpoint saved after every task completion
+  - System resumes from last checkpoint after crash
+  - Graceful degradation when agents fail
+  - Task completion rate ≥ 99.9%
+  
+  SPEED CRITERIA:
+  - Standard website completed in < 5 minutes
+  - Cache hit rate ≥ 45% (combined L1+L2+L3)
+  - Independent tasks run in parallel
+  - Pipeline overlap: fetch → process → output
+  - Streaming responses processed immediately
+  
+  ERROR HANDLING CRITERIA:
+  - All errors have error codes + context
+  - Error boundaries contain failures to single task
+  - Fallback chains trigger automatically
+  - Full stack traces logged
+  - User-friendly error messages displayed
+  - Zero silent failures (all errors logged)
+  
+  SAFETY CRITERIA:
+  - All user inputs sanitized before processing
+  - Output filtering blocks harmful content
+  - Generated code runs in sandbox
+  - Rate limiting prevents abuse
+  - Audit trail logs all actions
+  - Kill switch stops runaway processes
+  - Zero safety incidents
+  
+  SECURITY CRITERIA:
+  - API keys stored encrypted (cryptography library)
+  - Environment variables isolated per project
+  - Secret scanner detects credentials in outputs
+  - All API calls logged with timestamps
+  - Dependencies scanned for vulnerabilities
+  - Zero security vulnerabilities
+  
+  WINDOWS CRITERIA:
+  - Runs natively on Windows 10/11
+  - Uses pathlib for cross-platform paths
+  - PowerShell scripts supported
+  - Optional Windows service mode
+  - Logs to Windows Event Viewer
+  - Named pipes for IPC
+  - No Linux-specific dependencies
+  
+  AGENT CRITERIA (Senior-Level Quality):
+  - All 9 specialized agents produce senior-level output (10+ years expertise)
+  - Each agent uses its designated cost-optimized model cascade (free → budget → balanced → premium)
+  - No overlap in agent responsibilities (clear specialty boundaries)
+  - Handoff protocols between agents are seamless
+  - Agent outputs are consistent in quality and style
+  
+  FRONTEND AGENT CRITERIA:
+  - React components follow best practices (hooks, functional components)
+  - Next.js 14 App Router patterns used correctly
+  - Accessibility (WCAG 2.1 AA) implemented on all components
+  - Components are reusable and well-structured
+  - Design tokens correctly applied from Design Agent
+  - API integration follows contracts from Backend Agent
+  
+  BACKEND AGENT CRITERIA:
+  - API schemas follow OpenAPI/Swagger specification
+  - Database schemas are normalized and optimized
+  - Business logic is well-organized and testable
+  - API contracts are clear and complete
+  
+  DESIGN AGENT CRITERIA:
+  - Design system is complete (colors, typography, spacing, components)
+  - Brand identity is cohesive and professional
+  - Design tokens are properly formatted for Frontend Agent
+  - Visual hierarchy is clear and effective
+  
+  COPYWRITING AGENT CRITERIA:
+  - Brand voice is consistent across all pages
+  - Content is engaging and conversion-focused
+  - Microcopy is clear and user-friendly
+  - Content structure supports scanning and readability
+  
+  SECURITY AGENT CRITERIA:
+  - All OWASP Top 10 vulnerabilities addressed
+  - CSP headers configured correctly
+  - Authentication system is secure (JWT + refresh tokens)
+  - Rate limiting implemented and effective
+  - Input validation on all endpoints
+  - Password hashing uses bcrypt/argon2 (cost ≥ 12)
+  - CORS configured with explicit whitelist
+  - Security audit report shows zero high-severity issues
+  - All security headers present and valid
+  - CSRF protection on all state-changing forms
+  
+  SEO AGENT CRITERIA:
+  - Title tags under 60 characters, keyword-optimized
+  - Meta descriptions under 160 characters, compelling
+  - Header hierarchy (H1 → H2 → H3) is logical
+  - URLs are clean and descriptive
+  - Schema.org structured data (JSON-LD) on all pages
+  - sitemap.xml includes all pages
+  - robots.txt configured correctly
+  - Open Graph tags complete on all pages
+  - Twitter Card tags present
+  - Canonical URLs set correctly
+  - Image alt text optimized for accessibility and SEO
+  - Core Web Vitals guidance implemented
+  - Mobile-first indexing compliance verified
+  
+  IMAGE AGENT CRITERIA:
+  - All images generated in required sizes
+  - OG images are 1200x630px, WebP format, under 300KB
+  - Favicons in all sizes (16x16, 32x32, 180x180)
+  - Images optimized (WebP + AVIF, 80-85% quality)
+  - Lazy loading on non-critical images
+  - Srcset for responsive images
+  - Brand consistency across all images
+  
+  DEBUGGING AGENT CRITERIA:
+  - All code reviewed for bugs and quality
+  - Static analysis passes (ESLint, Pylint, mypy)
+  - Test coverage ≥ 80% on critical functionality
+  - Security implementation validated
+  - SEO implementation validated
+  - Bug reports include clear fix recommendations
+  
+  GIT AGENT CRITERIA:
+  - Repository initialized with proper .gitignore (Node.js + Python + IDE)
+  - Branching strategy implemented (Git Flow or GitHub Flow)
+  - main/master branch is protected (no direct pushes)
+  - Conventional Commits specification enforced
+  - Commit message template created (.gitmessage)
+  - Pull Request template created (.github/PULL_REQUEST_TEMPLATE.md)
+  - Issue templates created (bug report, feature request)
+  - CODEOWNERS file configured for automatic reviewer assignment
+  - CONTRIBUTING.md with clear contribution guidelines
+  - README.md includes: setup instructions, scripts, badges, documentation links
+  - LICENSE file present (MIT, Apache 2.0, or appropriate)
+  - SECURITY.md with security policy and reporting process
+  - GitHub Actions workflows: build, test, lint (on PR and push)
+  - Required status checks configured for PR merge
+  - Pre-commit hooks configured (pre-commit framework or Husky)
+  - Automated linting runs on every commit
+  - Automated tests run on every PR
+  - Automatic branch deletion after merge enabled
+  - Release workflow with semantic versioning
+  - Changelog automatically generated from commit messages
+  - Git workflow documentation provided for team
+  - All git operations logged and auditable
+  
+  CODE REVIEW CRITERIA:
+  - LAYER 1 (Automated): Debugging Agent reviews ALL code
+  - Static analysis passes: ESLint (0 errors), Pylint (score ≥ 8/10)
+  - Type checking passes: mypy (0 errors), TypeScript (0 errors)
+  - Code formatting: Prettier/Black applied consistently
+  - Security scan: Bandit (0 high), npm audit (0 critical)
+  - Cyclomatic complexity < 10 for all functions
+  - Test coverage ≥ 80% on critical paths
+  - LAYER 2 (Cross-Agent): Frontend ↔ Backend review API contracts
+  - Cross-agent review comments recorded in message queue
+  - All cross-agent feedback addressed or documented
+  - LAYER 3 (Hyperagent): Final consistency check performed
+  - Hyperagent approves ALL components before delivery
+  - LAYER 4 (Human): GitHub PR created with review template
+  - CODEOWNERS reviewers assigned automatically
+  - Human approval workflow documented (optional gate)
+  - Human feedback stored in LTM for learning
+  - LAYER 5 (CI/CD): GitHub Actions workflows execute on PR
+  - Build passes with zero compile errors
+  - All tests pass (100% success rate)
+  - Linting passes (zero errors, warnings documented)
+  - Security scan passes (zero critical/high vulnerabilities)
+  - Lighthouse scores: Performance ≥ 90, Accessibility ≥ 90
+  - REVIEW CHECKLIST: All 15 items verified for all code
+  - No hardcoded secrets detected (secret scanner passes)
+  - No TODO/FIXME without linked issue (enforced)
+  - All public APIs have documentation comments
+  - Error handling implemented on all async operations
+  - Input validation on all user-facing endpoints
+  
+  CODE QUALITY CRITERIA (Created Code):
+  FRONTEND CODE QUALITY:
+    - React 18 with functional components + hooks only (no class components)
+    - Next.js 14 App Router patterns (Server Components where appropriate)
+    - TypeScript strict mode enabled (no `any` types without justification)
+    - Components are reusable (props interfaces defined, no hardcoded values)
+    - Accessibility: WCAG 2.1 AA compliant (aria-labels, keyboard navigation)
+    - Responsive design: Works at 375px, 768px, 1024px, 1440px breakpoints
+    - Performance: LCP < 2.5s, FID < 100ms, CLS < 0.1
+    - Bundle size: Initial JS < 200KB, total JS < 500KB
+    - No console.log/warn/error in production builds
+    - Error boundaries on all route segments
+  
+  BACKEND CODE QUALITY:
+    - RESTful API design (proper HTTP verbs, status codes)
+    - OpenAPI 3.0 specification generated and valid
+    - Database migrations are reversible (up/down methods)
+    - ORM/queries use parameterized statements (no string concatenation)
+    - Authentication: JWT with refresh tokens, 15min access / 7day refresh
+    - Authorization: RBAC middleware on protected routes
+    - Rate limiting: Token bucket algorithm, configurable per endpoint
+    - Input validation: Zod/Joi schemas on all endpoints
+    - Error responses: Standardized format {error, message, code, details}
+    - Logging: Structured JSON logs with correlation IDs
+  
+  SECURITY CODE QUALITY:
+    - CSP headers: default-src 'self', script-src 'self' 'unsafe-inline'
+    - All security headers present (X-Frame-Options, HSTS, X-Content-Type-Options)
+    - Password hashing: bcrypt with cost factor ≥ 12
+    - Session cookies: httpOnly, secure, sameSite=strict
+    - CORS: Explicit whitelist (no wildcards for credentials)
+    - CSRF tokens: On all state-changing forms
+    - SQL injection: 100% parameterized queries (verified by scanner)
+    - XSS prevention: Output encoding on all user-generated content
+    - Secrets: Zero secrets in code (all via environment variables)
+  
+  SEO CODE QUALITY:
+    - Title tags: Unique per page, < 60 characters, keyword-optimized
+    - Meta descriptions: Unique per page, < 160 characters, compelling
+    - Header hierarchy: One H1 per page, logical H2/H3 structure
+    - Schema.org JSON-LD: Organization, WebSite, BreadcrumbList
+    - Open Graph: Complete og:title, og:description, og:image, og:url
+    - Twitter Cards: twitter:card, twitter:title, twitter:description
+    - sitemap.xml: All pages included, valid XML, < 50MB
+    - robots.txt: Valid syntax, allows crawling of public pages
+    - Canonical URLs: Set on all pages (self-referencing)
+    - Image alt text: Descriptive alt on all images
+  
+  GIT/DEVOPS CODE QUALITY:
+    - .gitignore: Comprehensive (Node.js, Python, IDE, OS, env)
+    - Branch protection: main requires 1 reviewer, status checks pass
+    - CI/CD: Build, test, lint on every PR
+    - Pre-commit hooks: ESLint, Prettier, type-check on commit
+    - Conventional Commits: 100% compliance (feat:, fix:, chore:, etc.)
+    - Semantic versioning: Tags follow semver (vMAJOR.MINOR.PATCH)
+  
+  PRODUCTION-GRADE REQUIREMENTS:
+    - Zero hardcoded secrets (all via environment variables)
+    - Health check endpoints on all services (/health, /ready, /live)
+    - Structured logging (JSON format, correlation IDs, log levels)
+    - Metrics collection (Prometheus-compatible or OpenTelemetry)
+    - Distributed tracing enabled (trace IDs propagated across services)
+    - Graceful shutdown (SIGTERM handling, connection draining)
+    - Circuit breakers on external service calls
+    - Retry logic with exponential backoff and jitter
+    - Rate limiting on all public APIs
+    - Input validation on ALL user inputs (never trust client)
+    - Output encoding on ALL responses (prevent XSS, injection)
+    - Error messages: User-friendly, no stack traces exposed
+    - Database connection pooling configured
+    - Cache eviction policies defined
+    - Backup and recovery procedures documented
+    - Disaster recovery plan documented
+    - Runbooks for common operational tasks
+    - On-call escalation procedures defined
+  
+  COMPREHENSIVE DOCUMENTATION REQUIREMENTS:
+  =========================================
+  All projects MUST include thorough documentation:
+  
+  ROOT DOCUMENTATION:
+    - README.md (Minimum 500 words):
+      * Project overview and purpose
+      * Key features list
+      * Tech stack with versions
+      * Prerequisites and setup instructions
+      * Installation steps (step-by-step)
+      * Configuration guide (all environment variables)
+      * Usage examples with code snippets
+      * API endpoints overview
+      * Testing instructions
+      * Deployment guide
+      * Troubleshooting section
+      * Contributing guidelines
+      * License information
+      * Badges: Build status, coverage, version, license
+    
+    - LICENSE: Full license text (MIT, Apache 2.0, or appropriate)
+    
+    - CHANGELOG.md:
+      * Follow Keep a Changelog format
+      * Versions with dates
+      * Categories: Added, Changed, Deprecated, Removed, Fixed, Security
+      * Links to release tags
+  
+  ARCHITECTURE DOCUMENTATION:
+    - docs/architecture/README.md:
+      * System overview and goals
+      * Architecture diagram (C4 Context level)
+      * Key architectural decisions
+      * Technology choices rationale
+    
+    - docs/architecture/decisions/ (ADR folder):
+      * ADR-0001: Initial architecture choice
+      * ADR-0002: Database selection
+      * ADR-0003: Authentication approach
+      * ADR-0004: Caching strategy
+      * Each ADR follows template: Context, Decision, Consequences
+    
+    - docs/architecture/diagrams/:
+      * context.png (C4 Level 1 - System context)
+      * containers.png (C4 Level 2 - Containers)
+      * components.png (C4 Level 3 - Components per service)
+      * deployment.png (Infrastructure layout)
+      * data-flow.png (Critical data paths)
+  
+  API DOCUMENTATION:
+    - docs/api/README.md:
+      * API overview and authentication
+      * Rate limiting details
+      * Error response format
+      * Versioning strategy
+    
+    - docs/api/openapi.yaml (or .json):
+      * Complete OpenAPI 3.0 specification
+      * All endpoints documented
+      * Request/response schemas
+      * Authentication requirements
+      * Example requests/responses
+    
+    - docs/api/graphql-schema.graphql (if GraphQL):
+      * Complete schema definition
+      * Type definitions
+      * Query/Mutation definitions
+      * Resolver documentation
+  
+  DEVELOPER DOCUMENTATION:
+    - docs/development/README.md:
+      * Development environment setup
+      * IDE recommendations and extensions
+      * Code style guide (with examples)
+      * Git workflow (branching, committing, PR process)
+      * Running tests locally
+      * Debugging guide
+      * Common development tasks
+    
+    - docs/development/architecture.md:
+      * Module breakdown
+      * Dependencies between modules
+      * Key interfaces and contracts
+      * Extension points
+    
+    - docs/development/testing.md:
+      * Testing strategy (unit, integration, e2e)
+      * Test file naming conventions
+      * Mock/factory patterns used
+      * Running test suites
+      * Coverage requirements
+  
+  DEPLOYMENT DOCUMENTATION:
+    - docs/deployment/README.md:
+      * Deployment overview
+      * Environment requirements
+      * Infrastructure diagram
+      * Deployment steps (manual and automated)
+      * Rollback procedures
+      * Post-deployment verification
+    
+    - docs/deployment/environments.md:
+      * Development environment config
+      * Staging environment config
+      * Production environment config
+      * Environment-specific variables
+    
+    - docs/deployment/monitoring.md:
+      * Metrics collected and dashboards
+      * Alert thresholds and notifications
+      * Log aggregation setup
+      * Tracing configuration
+  
+  OPERATIONS DOCUMENTATION:
+    - docs/operations/README.md:
+      * System administration guide
+      * Routine maintenance tasks
+      * Backup procedures
+      * Recovery procedures
+    
+    - docs/operations/runbooks/:
+      * database-failure.md
+      * cache-failure.md
+      * service-outage.md
+      * security-incident.md
+      * performance-degradation.md
+    
+    - docs/operations/incident-response.md:
+      * Incident severity levels
+      * Escalation procedures
+      * Communication templates
+      * Post-incident review process
+  
+  USER DOCUMENTATION:
+    - docs/user-guide/README.md:
+      * Getting started guide
+      * Feature walkthrough
+      * Common tasks how-to
+      * FAQ section
+    
+    - docs/user-guide/tutorials/:
+      * Tutorial 1: Basic setup and first steps
+      * Tutorial 2: Common use case
+      * Tutorial 3: Advanced feature
+  
+  SECURITY DOCUMENTATION:
+    - SECURITY.md:
+      * Security policy
+      * Supported versions
+      * Reporting vulnerabilities
+      * Security best practices for users
+    
+    - docs/security/README.md:
+      * Security architecture
+      * Authentication flow
+      * Authorization model
+      * Data encryption (at rest and in transit)
+      * Compliance status (GDPR, SOC2, etc.)
+  
+  DOCUMENTATION QUALITY STANDARDS:
+    - All documentation in Markdown format
+    - Consistent heading hierarchy (H1 → H2 → H3)
+    - Code blocks with language specification
+    - Tables for structured data
+    - Links validated (no broken links)
+    - Screenshots/diagrams where helpful (with alt text)
+    - Version information on all docs
+    - Last updated date on all docs
+    - Table of contents for docs > 500 words
+    - Searchable (proper keywords, tags)
+  
+  ITERATION LIMITS:
+  - Maximum 3 iterations per code review cycle
+  - Iteration 1: Debugging Agent automated review + fix suggestions
+  - Iteration 2: Cross-agent review + targeted fixes
+  - Iteration 3: Hyperagent final review + critical fixes only
+  - After 3 iterations: Code accepted with documented known issues
+  - Known issues logged in LTM for future learning
+  - Escalation: If critical security issue after 3 iterations, human review required
+  
+  EVALUATION CRITERIA (Scored 0-100):
+  CODE_GENERATION (Weight: 35%):
+    - Functionality: Code implements all requirements (25 points)
+    - Correctness: No logic errors, edge cases handled (25 points)
+    - Completeness: All files created, no missing pieces (25 points)
+    - Integration: Components work together seamlessly (25 points)
+    - Threshold: ≥ 85/100 to pass
+  
+  CODE_REVIEW (Weight: 20%):
+    - Static analysis: ESLint/Pylint scores (20 points)
+    - Type safety: TypeScript/mypy strictness (20 points)
+    - Security: OWASP Top 10 compliance (30 points)
+    - Performance: No obvious bottlenecks (15 points)
+    - Maintainability: Code is readable, documented (15 points)
+    - Threshold: ≥ 80/100 to pass
+  
+  ARCHITECTURE (Weight: 20%):
+    - Architecture selection appropriate for requirements (25 points)
+    - Paradigm selection appropriate per module (25 points)
+    - Separation of concerns clearly defined (20 points)
+    - Design patterns appropriately applied (15 points)
+    - Scalability considerations addressed (15 points)
+    - Threshold: ≥ 85/100 to pass
+  
+  DOCUMENTATION (Weight: 15%):
+    - README.md complete (500+ words, all sections) (20 points)
+    - Architecture documentation with ADRs (20 points)
+    - API documentation (OpenAPI/GraphQL schema) (20 points)
+    - Development guide (setup, testing, debugging) (15 points)
+    - Deployment guide (environments, monitoring) (15 points)
+    - Operations runbooks (backup, recovery, incidents) (10 points)
+    - Threshold: ≥ 85/100 to pass
+  
+  PRODUCTION_READINESS (Weight: 10%):
+    - Health check endpoints implemented (20 points)
+    - Structured logging with correlation IDs (20 points)
+    - Metrics collection configured (15 points)
+    - Error handling and graceful degradation (20 points)
+    - Security hardening (secrets, headers, validation) (25 points)
+    - Threshold: ≥ 85/100 to pass
+  
+  OVERALL PASSING CRITERIA:
+    - Weighted average ≥ 85/100
+    - No individual category below threshold
+    - All critical security issues resolved
+    - All build/tests passing
+    - Maximum 3 iterations used
+    - All documentation files present and validated
+    - Architecture decisions documented in ADRs
+    - Production-grade requirements met
+  
+  HEARTBEAT CRITERIA:
+  - All 9 agents send heartbeat every 10 seconds
+  - Heartbeat includes: agent_id, status, current_task, memory_usage, cpu_usage
+  - Missed heartbeat detected within 30 seconds
+  - Unhealthy agent marked within 60 seconds
+  - Automatic agent restart within 180 seconds of failure
+  - Health dashboard accessible at localhost:8080/health
+  - Color-coded status (green/yellow/red) for all agents
+  - Response time metrics updated in real-time
+  - Token usage rate tracked (tokens/minute)
+  - Cost burn rate tracked ($/hour)
+  - Alert history retains last 100 events
+  - Email alerts sent on critical failures
+  - Windows toast notifications for errors
+  - Heartbeat data retained for 24 hours
+  
+  CRON JOB CRITERIA:
+  - Memory consolidation runs daily at 3:00 AM
+  - Cache cleanup runs every 6 hours
+  - Model performance sync runs hourly
+  - Cost report generated daily at 11:59 PM
+  - Log rotation runs daily at midnight
+  - Checkpoint cleanup runs weekly (Sunday)
+  - Learning model update runs weekly (Monday)
+  - Security scan runs daily at 2:00 AM
+  - Backup creation runs daily at 4:00 AM
+  - Custom cron jobs support standard cron expressions
+  - Job history tracks: status, duration, output
+  - Job dependencies enforced (execution order)
+  - Job notifications sent on completion/failure
+  - Windows Task Scheduler integration working
+  - Max 3 simultaneous jobs enforced
+  - Job timeout (30 minutes) enforced
+  - Job retry logic (3 retries, exponential backoff) working
+  
+  MEMORY CRITERIA:
+  - Short-term memory uses deque with maxlen=20 (O(1) append/popleft)
+  - Event log uses list with 10% cutoff eviction when max_size reached
+  - Undo stack supports push/pop/peek operations (LIFO, O(1))
+  - Task queue is async-safe with bounded maxsize for backpressure
+  - Priority scheduler uses heapq with O(log n) insert/extract
+  - State store provides O(1) average lookup for entity state
+  - TTL memory auto-purges expired entries based on configurable TTL
+  - Tagged memory supports multi-index categorization
+  - Long-term memory persists to SQLite (survives restarts)
+  - Vector store enables semantic similarity search (ChromaDB)
+  - Memory hierarchy manages 5 layers (L1-L5) with automatic promotion/demotion
+  - Memory consolidation transfers STM → LTM with compression
+  - Memory retrieval returns relevant results in < 200ms
+  - All memory classes are type-safe with proper generics
+  - Memory operations are thread-safe where required
+  - Memory eviction policies prevent unbounded growth
+  
+  COMMUNICATION CRITERIA:
+  - SQLite message queue handles 1000+ messages/second
+  - All 7 message types implemented (TASK_REQUEST, TASK_COMPLETE, DATA_SHARE, BLOCKING_ISSUE, HANDOFF, BROADCAST, CONFLICT_RESOLUTION)
+  - At-least-once delivery guaranteed (automatic retry on failure)
+  - Message acknowledgment (ACK/NACK) working
+  - Dead letter queue captures failed messages after 3 retries
+  - Message TTL enforced (1 hour expiration)
+  - Named Pipes provide < 1ms latency for urgent messages
+  - Named Pipes handle: emergency stop, health pings, sync request/response
+  - JSON file messaging works for async communication
+  - Message routing delivers to correct recipient agent
+  - Subscription system filters messages by topic
+  - FIFO ordering maintained per agent pair
+  - Duplicate detection prevents message reprocessing
+  - Backpressure throttling activates when queue depth > 1000
+  - Inter-agent handoffs complete within 5 seconds
+  - Broadcast messages reach all subscribed agents
+  - Conflict resolution messages routed to Hyperagent
+  - Message persistence survives process restart
+  
+  PARALLELIZATION CRITERIA:
+  - ProcessPoolExecutor created with CPU_count + 4 workers (minimum 8)
+  - ThreadPoolExecutor created with 32 workers for I/O operations
+  - AsyncIO event loop handles 50+ concurrent connections
+  - Task decomposition creates minimum 3 parallel levels
+  - Level 0 tasks (independent) run fully in parallel
+  - Work stealing enabled: idle workers pick up tasks from busy queues
+  - Lock-free ConcurrentQueue used for inter-agent messaging
+  - Batch processing groups operations (batch size 10 default)
+  - Speculative execution runs 2 model variants for critical tasks
+  - All network calls are async (non-blocking)
+  - Connection pooling enabled for HTTP (reuse connections)
+  - Parallel efficiency ≥ 70% with 14 workers
+  - Load balance imbalance ≤ 10% (stddev/mean)
+  - Throughput ≥ 5 tasks/second sustained
+  - Pipeline parallelism overlaps: generate → review → fix → validate
+  - All 9 agents can execute simultaneously on independent tasks
+  - Critical path identified and prioritized
+  - Barrier synchronization at quality gate checkpoints
+
+  COST-EFFICIENCY CRITERIA:
+  - Model cascading implemented (Free → Budget → Balanced → Premium tiers)
+  - Task complexity scoring routes to cheapest capable model
+  - FREE models (Qwen3.6, Nemotron, GLM-4.5-Air, Qwen3-Coder, Step-Flash) used for 80%+ of tasks
+  - Budget models (Grok 4.1 Fast $0.20/$0.50, DeepSeek V3.2 $0.26/$0.38) used for specialized critical tasks
+  - Claude Sonnet 4.6 ($3/$15) used for < 10% of tasks (complex only)
+  - Cache hit rate ≥ 60% (combined L1+L2+L3)
+  - Token optimization achieves 60% reduction vs baseline
+  - Cost per website ≤ $5.00 (with optimizations; target $2.30 with FREE tier)
+  - 77% cost reduction vs premium-only approach
+  - Per-agent budget caps enforced
+  - Cost alerts trigger at 80% of budget threshold
+  - Batch operations group similar prompts for discounts
+  - Model warm-up keeps budget models ready, premium cold
+  - Success rate tracked per model, avoid < 80% success models
+  
+  MODULARITY CRITERIA:
+  - All 9 agents implement AgentInterface abstract base class
+  - Agents communicate ONLY via message queue (no direct calls)
+  - Dependency injection used for all agent dependencies
+  - Plugin manager supports hot-swap of agents without restart
+  - Agent registry discovers and registers agents dynamically
+  - All interfaces defined in interfaces/ module
+  - Memory backends implement MemoryInterface (swappable)
+  - Cache backends implement CacheInterface (swappable)
+  - Model providers implement ModelInterface (swappable)
+  - Configuration-driven behavior (YAML controls all settings)
+  - Feature flags enable/disable functionality without code changes
+  - Each module has single responsibility (SRP compliance)
+  - Loose coupling: no module imports another module's internals
+  - Microservices-ready: each agent can run as separate process
+  - Plugin lifecycle: load, initialize, execute, shutdown hooks
+
+budget_usd: 25.0
+time_seconds: 14400
+concurrency: 14
+estimated_cost_per_site: 2.30  # FREE tier (Qwen3.6 + Nemotron SEO) + FLUX.2 Klein images + MiMo V2 Omni
+token_reduction_target: 0.60  # 60% reduction via caching + optimization
+cost_reduction_target: 0.77  # 77% cost reduction vs premium-only
+parallelization_target: 0.70  # 70% parallel efficiency with 14 workers
+estimated_speedup: 8.0  # 8x faster than sequential execution
+quality_targets:
+  code_generation:   0.93  # Senior-level code quality (cost-optimized)
+  code_review:       0.92  # Thorough QA + architecture review
+  complex_reasoning: 0.95  # Architecture/paradigm selection, production readiness
+  evaluation:        0.93  # Comprehensive evaluation including docs
+project_id: "hyperagent-website-factory-v2-fresh"
+output_dir: "./outputs/hyperagent_website_factory"
+
+policies:
+  - name: no_training
+    allow_training_on_output: false
