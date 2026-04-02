@@ -1675,9 +1675,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # P1-2 OPTIMIZATION: Use adaptive model selection based on project complexity
         model = self._select_decomposition_model(project)
 
-        # Try Instructor for structured decomposition output (automatic validation + retries)
+        # Try Instructor for structured decomposition (skip for large projects — Instructor
+        # adds ~27K tokens of schema overhead, which overflows 32K-context models).
+        _INSTRUCTOR_MAX_CHARS = 8_000  # ~2K tokens; leaves headroom for schema overhead
         try:
             from .structured_outputs import TaskDecomposer
+
+            if len(project) > _INSTRUCTOR_MAX_CHARS:
+                raise ValueError(
+                    f"Project description too large for Instructor ({len(project)} chars)"
+                )
 
             decomposer = TaskDecomposer(api_client=self.client)
             decomp_model = "nvidia/nemotron-3-super-120b-a12b:free" if "free" in model.value.lower() else model.value
@@ -1686,7 +1693,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 project_description=project,
                 success_criteria=criteria,
                 model=decomp_model,
-                max_retries=3,
+                max_retries=1,  # fail fast; manual parsing is the reliable fallback
             )
             tasks = {task.id: task for task in result.to_tasks()}
             logger.info(f"Instructor decomposition succeeded: {len(tasks)} tasks")

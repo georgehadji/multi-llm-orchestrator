@@ -190,7 +190,7 @@ class StructuredClient:
         """
         self._client = None
         self._api_client = api_client
-        self._mode = instructor.Mode.JSON  # Force JSON mode for structured outputs
+        self._mode = instructor.Mode.MD_JSON  # MD_JSON handles markdown-fenced responses
     
     def get_client(self, model: str):
         """
@@ -302,7 +302,7 @@ class TaskDecomposer(StructuredClient):
                     "content": prompt
                 }
             ],
-            max_tokens=4096,
+            max_tokens=2048,
             max_retries=max_retries
         )
         
