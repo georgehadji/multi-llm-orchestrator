@@ -130,7 +130,9 @@
       "Bash(jobs)",
       "Bash(fg)",
       "Bash(grep -rn 'from .models import.*Budget' orchestrator/ --include=*.py)",
-      "Bash(grep -rn 'from .models import' orchestrator/ --include=*.py)"
+      "Bash(grep -rn 'from .models import' orchestrator/ --include=*.py)",
+      "Bash(git -C \"E:/Documents/Vibe-Coding/Ai Orchestrator\" ls-files orchestrator/structured_outputs.py)",
+      "Bash(git -C \"E:/Documents/Vibe-Coding/Ai Orchestrator\" status orchestrator/structured_outputs.py)"
     ]
   },
   "enableAllProjectMcpServers": true,
