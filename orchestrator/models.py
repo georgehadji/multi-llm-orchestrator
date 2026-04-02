@@ -123,12 +123,15 @@ class Model(str, Enum):
     # Note: Updated 2026-04-01 - Use grok-4.20 (NOT grok-4.20-beta)
     # ═══════════════════════════════════════════════════════
     XAI_GROK_4_20 = "x-ai/grok-4.20"  # $2.00/$6.00, 2M context, lowest hallucination ⭐
+    XAI_GROK_4_20_BETA = "x-ai/grok-4.20"  # alias — -beta not available, maps to grok-4.20
     XAI_GROK_4_1_FAST = "x-ai/grok-4.1-fast"  # $0.20/$0.50, fast
 
     # ═══════════════════════════════════════════════════════
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # Note: Updated 2026-04-01 - Verified available on OpenRouter
     # ═══════════════════════════════════════════════════════
+    QWEN_3_CODER_NEXT = "qwen/qwen-3-coder-next"  # $0.12/$0.75 - Fast coding specialist ⭐ BEST
+    QWEN_3_5_397B_A17B = "qwen/qwen-3.5-397b-a17b"  # 397B MoE SOTA (redirects via registry)
     QWEN_2_5_CODER_32B = "qwen/qwen-2.5-coder-32b-instruct"  # $0.66/$1.00, 33K coding ⭐
 
     # ═══════════════════════════════════════════════════════
@@ -139,9 +142,9 @@ class Model(str, Enum):
     MINIMAX_M2_5 = "minimax/minimax-m2.5"  # $0.30/$1.20
 
     # ═══════════════════════════════════════════════════════
-    # NVIDIA MODELS - REMOVED (NOT AVAILABLE on OpenRouter)
+    # NVIDIA MODELS (redirected via model_registry to fallback)
     # ═══════════════════════════════════════════════════════
-    # NVIDIA_NEMOTRON_3_SUPER - REMOVED (not available)
+    NVIDIA_NEMOTRON_3_SUPER = "nvidia/nemotron-3-super"  # redirects → minimax-m2.7
 
     # OpenRouter Auto-Router
     OPENROUTER_AUTO = "openrouter/auto"  # Dynamic routing
@@ -253,11 +256,14 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # Note: Updated 2026-04-01 - Use grok-4.20 (NOT grok-4.20-beta)
     # ═══════════════════════════════════════════════════════
     Model.XAI_GROK_4_20: {"input": 2.00, "output": 6.00},  # 2M context ⭐
+    Model.XAI_GROK_4_20_BETA: {"input": 2.00, "output": 6.00},  # alias for grok-4.20
     Model.XAI_GROK_4_1_FAST: {"input": 0.20, "output": 0.50},  # fast
     # ═══════════════════════════════════════════════════════
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # Note: Updated 2026-04-01 - Verified available
     # ═══════════════════════════════════════════════════════
+    Model.QWEN_3_CODER_NEXT: {"input": 0.12, "output": 0.75},  # Fast coding specialist ⭐ BEST
+    Model.QWEN_3_5_397B_A17B: {"input": 0.39, "output": 2.34},  # 397B MoE SOTA
     Model.QWEN_2_5_CODER_32B: {"input": 0.66, "output": 1.00},  # 33K coding ⭐
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
@@ -265,9 +271,9 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.MINIMAX_M2_7: {"input": 0.30, "output": 1.20},  # 205K ⭐
     Model.MINIMAX_M2_5: {"input": 0.30, "output": 1.20},
     # ═══════════════════════════════════════════════════════
-    # NVIDIA MODELS - REMOVED (NOT AVAILABLE on OpenRouter)
+    # NVIDIA MODELS (redirected via model_registry to fallback)
     # ═══════════════════════════════════════════════════════
-    # Model.NVIDIA_NEMOTRON_3_SUPER - REMOVED
+    Model.NVIDIA_NEMOTRON_3_SUPER: {"input": 0.10, "output": 0.50},  # redirects → minimax-m2.7
     # GPT-5.4 Models (NEW v3.0)
     Model.GPT_5_4: {"input": 2.50, "output": 15.00},
     Model.GPT_5_4_MINI: {"input": 0.75, "output": 4.50},
