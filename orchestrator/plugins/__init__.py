@@ -28,6 +28,7 @@ Usage:
 """
 
 from .base import (
+    FeedbackPayload,
     Plugin,
     PluginRegistry,
     PluginContext,
@@ -50,6 +51,7 @@ from .nash_stability import (
 
 __all__ = [
     # Base
+    "FeedbackPayload",
     "Plugin",
     "PluginRegistry",
     "PluginContext",
