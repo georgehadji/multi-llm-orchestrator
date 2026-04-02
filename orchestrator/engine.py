@@ -1675,6 +1675,28 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         # P1-2 OPTIMIZATION: Use adaptive model selection based on project complexity
         model = self._select_decomposition_model(project)
 
+        # Try Instructor for structured decomposition output (automatic validation + retries)
+        try:
+            from .structured_outputs import TaskDecomposer
+
+            decomposer = TaskDecomposer(api_client=self.client)
+            decomp_model = "nvidia/nemotron-3-super-120b-a12b:free" if "free" in model.value.lower() else model.value
+            logger.info(f"Using Instructor for structured decomposition with {decomp_model}")
+            result = await decomposer.decompose(
+                project_description=project,
+                success_criteria=criteria,
+                model=decomp_model,
+                max_retries=3,
+            )
+            tasks = {task.id: task for task in result.to_tasks()}
+            logger.info(f"Instructor decomposition succeeded: {len(tasks)} tasks")
+            return tasks
+        except ImportError:
+            logger.warning("Instructor not available, falling back to manual JSON parsing")
+        except Exception as e:
+            logger.warning(f"Instructor decomposition failed: {e}, falling back to manual parsing")
+
+        # FALLBACK: Original decomposition logic
         async def _try_decompose(m: Model) -> dict[str, Task]:
             resp = await self.client.call(
                 m,
