@@ -4,17 +4,11 @@
 import warnings
 
 # Suppress FutureWarning from instructor's legacy google-generativeai import.
-# instructor 1.14.x still references google.generativeai internally; the warning
-# is noise until instructor ships a release that targets google.genai instead.
+# instructor 1.14.x still references google.generativeai internally.
+# The warning message starts with \n so we need (?s) (DOTALL) for . to match it.
 warnings.filterwarnings(
     "ignore",
-    category=FutureWarning,
-    module=r"instructor\..*",
-)
-# Also suppress the google package's own emission of this warning
-warnings.filterwarnings(
-    "ignore",
-    message=r".*google\.generativeai.*",
+    message=r"(?s).*google\.generativeai.*",
     category=FutureWarning,
 )
 

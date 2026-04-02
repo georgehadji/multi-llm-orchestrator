@@ -21,6 +21,14 @@ import warnings
 
 # instructor 1.14.x imports google.generativeai (deprecated); suppress until
 # instructor ships a release targeting google.genai.
+# Permanent filter covers the case where instructor is imported from elsewhere
+# before this module runs its catch_warnings block.
+# (?s) flag required: the warning message starts with \n so . must match newlines.
+warnings.filterwarnings(
+    "ignore",
+    message=r"(?s).*google\.generativeai.*",
+    category=FutureWarning,
+)
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
     import instructor

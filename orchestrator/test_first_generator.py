@@ -502,8 +502,10 @@ class TestFirstGenerator:
             review_cost=self._cost_tracker["review"],
         )
 
-        if test_result.tests_run == 0 and self.sandbox is None:
-            logger.info(f"  {task.id}: TDD complete — tests skipped (no sandbox)")
+        if test_result.tests_run == 0:
+            # No tests actually executed — could be no sandbox, non-code task, or
+            # framework detection couldn't find test functions to run.
+            logger.info(f"  {task.id}: TDD complete — tests skipped (no runnable tests)")
         elif tdd_result.success:
             logger.info(f"  {task.id}: TDD complete — ALL TESTS PASSED")
         else:
