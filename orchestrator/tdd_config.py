@@ -47,7 +47,9 @@ class TDDModelConfig:
     # instruction-following and test writing ability at low cost.
     # ═══════════════════════════════════════════════════════
 
-    budget_test_generation: str = "deepseek/deepseek-v3.2"  # $0.27/$1.10 — better at tests than qwen-coder
+    budget_test_generation: str = (
+        "deepseek/deepseek-v3.2"  # $0.27/$1.10 — better at tests than qwen-coder
+    )
     budget_implementation: str = "qwen/qwen-3-coder-next"  # $0.12/$0.75
     budget_test_review: str = "deepseek/deepseek-v3.2"  # $0.27/$1.10
     budget_refactoring: str = "qwen/qwen-3-coder-next"  # $0.12/$0.75
@@ -213,9 +215,9 @@ class TDDModelConfig:
 # Budget Profile: Best value — DeepSeek for tests (strong test-writing), Qwen for implementation
 TDD_BUDGET_PROFILE = TDDModelConfig(
     test_generation="deepseek/deepseek-v3.2",  # $0.27/$1.10 — strong test writer
-    implementation="qwen/qwen-3-coder-next",   # $0.12/$0.75 — fast coder
-    test_review="deepseek/deepseek-v3.2",      # $0.27/$1.10 — good analyser
-    refactoring="qwen/qwen-3-coder-next",      # $0.12/$0.75
+    implementation="qwen/qwen-3-coder-next",  # $0.12/$0.75 — fast coder
+    test_review="deepseek/deepseek-v3.2",  # $0.27/$1.10 — good analyser
+    refactoring="qwen/qwen-3-coder-next",  # $0.12/$0.75
 )
 
 # Balanced Profile: Best value (default)

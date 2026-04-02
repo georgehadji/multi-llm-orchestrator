@@ -169,6 +169,7 @@ class ProvisionedThroughputManager:
         """Get or create aiohttp session (lazy-loads aiohttp to avoid import hang)."""
         if self._session is None or self._session.closed:
             import aiohttp as _aiohttp  # Lazy import to avoid hang at module load time
+
             self._session = _aiohttp.ClientSession(
                 headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
             )

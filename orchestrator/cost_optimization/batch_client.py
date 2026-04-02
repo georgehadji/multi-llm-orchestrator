@@ -469,6 +469,11 @@ async def batch_call(
     prompt: str,
     phase: str,
     client=None,
+    system: str | None = None,
+    max_tokens: int = 4096,
+    temperature: float | None = None,
+    timeout: float = 60.0,
+    **kwargs,
 ) -> Any:
     """
     Convenience function for batch API calls.

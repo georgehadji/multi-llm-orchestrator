@@ -198,6 +198,7 @@ class GrokRateLimiter:
         if self._session is None or self._session.closed:
             # Lazy-import aiohttp only when actually needed
             import aiohttp as _aiohttp
+
             self._session = _aiohttp.ClientSession(
                 headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
             )

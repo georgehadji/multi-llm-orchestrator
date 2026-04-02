@@ -21,10 +21,11 @@ Quick Start:
 
 __version__ = "6.0.0"
 
+
 # Lazy-load everything to prevent circular imports
 def __getattr__(name: str):
     """Lazy-load modules on-demand to prevent circular imports."""
-    if name == '__all__':
+    if name == "__all__":
         return []
 
     # Import on first access
@@ -32,31 +33,40 @@ def __getattr__(name: str):
 
     # Try to find the attribute in submodules
     common_modules = {
-        'Orchestrator': 'engine',
-        'Budget': 'budget',
-        'DiskCache': 'cache',
-        'Model': 'models',
-        'ProjectState': 'models',
-        'Task': 'models',
-        'TaskResult': 'models',
-        'TaskType': 'models',
-        'TaskStatus': 'models',
-        'ProjectStatus': 'models',
-        'StateManager': 'state',
-        'APIResponse': 'api_clients',
-        'UnifiedClient': 'api_clients',
-        'COST_TABLE': 'models',
-        'ROUTING_TABLE': 'models',
-        'FALLBACK_CHAIN': 'models',
+        "Orchestrator": "engine",
+        "Budget": "budget",
+        "DiskCache": "cache",
+        "Model": "models",
+        "ProjectState": "models",
+        "Task": "models",
+        "TaskResult": "models",
+        "TaskType": "models",
+        "TaskStatus": "models",
+        "ProjectStatus": "models",
+        "StateManager": "state",
+        "APIResponse": "api_clients",
+        "UnifiedClient": "api_clients",
+        "COST_TABLE": "models",
+        "ROUTING_TABLE": "models",
+        "FALLBACK_CHAIN": "models",
+        "CodebaseAnalyzer": "codebase_analyzer",
+        "ExecutionPlan": "dry_run",
+        "TaskPlan": "dry_run",
+        "DryRunRenderer": "dry_run",
+        "ProgressWriter": "progress_writer",
+        "ProgressEntry": "progress_writer",
+        "CodebaseUnderstanding": "codebase_understanding",
+        "ImprovementSuggester": "improvement_suggester",
+        "CodebaseProfile": "codebase_profile",
     }
 
     if name in common_modules:
         module_name = common_modules[name]
-        module = import_module(f'.{module_name}', package=__name__)
+        module = import_module(f".{module_name}", package=__name__)
         return getattr(module, name, None)
 
     # Try importing the name as a module
     try:
-        return import_module(f'.{name}', package=__name__)
+        return import_module(f".{name}", package=__name__)
     except ImportError:
         raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
