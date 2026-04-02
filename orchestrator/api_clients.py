@@ -375,19 +375,7 @@ class UnifiedClient:
 
     def _is_reasoning_model(self, model: Model) -> bool:
         """Check if model is a reasoning model requiring special handling."""
-        reasoning_models = {
-            "o1",
-            "o1-preview",
-            "o3",
-            "o3-mini",
-            "o4-mini",
-            "deepseek-r1",
-            "deepseek/deepseek-r1",
-            "grok-4",
-            "grok-4-reasoning",
-            "grok-4.20-reasoning",
-        }
-        return model.value in reasoning_models
+        return ModelRegistry.is_reasoning_model(model.value)
 
     async def _call_reasoning_model(
         self, client, model: Model, prompt: str, system: str, max_tokens: int, temperature: float
