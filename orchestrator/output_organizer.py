@@ -248,6 +248,9 @@ class OutputOrganizer:
                 test_name = test_file.stem.replace("test_", "")
                 existing_tests.add(test_name)
 
+        # Ensure conftest.py exists in tests dir to add output_dir to sys.path
+        await self._ensure_conftest()
+
         # Generate tests for files without them
         generated = []
         for src_file in source_files:
@@ -276,6 +279,22 @@ class OutputOrganizer:
             logger.info(f"  ✅ Generated {len(generated)} test files")
         else:
             logger.info("  ✓ All source files already have tests")
+
+    async def _ensure_conftest(self) -> None:
+        """Create a conftest.py in tests/ that adds output_dir to sys.path."""
+        self.tests_dir.mkdir(exist_ok=True)
+        conftest_path = self.tests_dir / "conftest.py"
+        if not conftest_path.exists():
+            conftest_content = (
+                '"""Auto-generated conftest — adds project root to sys.path."""\n'
+                "import sys\n"
+                "from pathlib import Path\n"
+                "\n"
+                "# Add project root so generated test imports resolve correctly\n"
+                "sys.path.insert(0, str(Path(__file__).parent.parent))\n"
+            )
+            conftest_path.write_text(conftest_content, encoding="utf-8")
+            logger.debug("  Created conftest.py with sys.path fix")
 
     async def _generate_test_for_file(self, src_file: Path) -> str | None:
         """Generate a test file for a source file."""
@@ -342,15 +361,29 @@ class OutputOrganizer:
         """Get the Python import path for a source file."""
         # Try to find relative to src/ or app/
         for base in [self.src_dir, self.app_dir]:
-            if base.exists() and str(src_file).startswith(str(base)):
-                rel_path = src_file.relative_to(base)
-                parts = list(rel_path.parts[:-1])  # Exclude filename
-                module_name = src_file.stem
-                if parts:
-                    return ".".join(parts) + "." + module_name
-                return module_name
+            if base.exists():
+                try:
+                    rel_path = src_file.relative_to(base)
+                    parts = list(rel_path.parts[:-1])  # Exclude filename
+                    module_name = src_file.stem
+                    if parts:
+                        return ".".join(parts) + "." + module_name
+                    return module_name
+                except ValueError:
+                    continue
 
-        # Fallback: just use the module name
+        # Try relative to output_dir (most common case)
+        try:
+            rel_path = src_file.relative_to(self.output_dir)
+            parts = list(rel_path.parts[:-1])  # Exclude filename
+            module_name = src_file.stem
+            if parts:
+                return ".".join(parts) + "." + module_name
+            return module_name
+        except ValueError:
+            pass
+
+        # Last resort: bare module name
         return src_file.stem
 
     async def _run_all_tests(self):
@@ -380,6 +413,7 @@ class OutputOrganizer:
 
     async def _run_single_test(self, test_file: Path) -> TestResult:
         """Run a single test file."""
+        import os
         import time
 
         start_time = time.time()
@@ -399,11 +433,20 @@ class OutputOrganizer:
 
             # Try to add coverage if available
             try:
-                import pytest_cov
+                import pytest_cov  # noqa: F401
 
                 cmd.extend(["--cov=.", "--cov-report=term-missing"])
             except ImportError:
                 pass
+
+            # Ensure output_dir is on PYTHONPATH so generated imports resolve
+            env = os.environ.copy()
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            output_dir_str = str(self.output_dir)
+            if existing_pythonpath:
+                env["PYTHONPATH"] = output_dir_str + os.pathsep + existing_pythonpath
+            else:
+                env["PYTHONPATH"] = output_dir_str
 
             result = subprocess.run(
                 cmd,
@@ -411,6 +454,7 @@ class OutputOrganizer:
                 capture_output=True,
                 text=True,
                 timeout=60,
+                env=env,
             )
 
             duration = (time.time() - start_time) * 1000
