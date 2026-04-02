@@ -130,9 +130,10 @@ class Model(str, Enum):
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # Note: Updated 2026-04-01 - Verified available on OpenRouter
     # ═══════════════════════════════════════════════════════
-    QWEN_3_CODER_NEXT = "qwen/qwen-3-coder-next"  # $0.12/$0.75 - Fast coding specialist ⭐ BEST
-    QWEN_3_5_397B_A17B = "qwen/qwen-3.5-397b-a17b"  # 397B MoE SOTA (redirects via registry)
     QWEN_2_5_CODER_32B = "qwen/qwen-2.5-coder-32b-instruct"  # $0.66/$1.00, 33K coding ⭐
+    # Aliases for future models (not yet on OpenRouter — map to valid equivalents)
+    QWEN_3_CODER_NEXT = "qwen/qwen-2.5-coder-32b-instruct"  # alias until qwen-3-coder-next ships
+    QWEN_3_5_397B_A17B = "qwen/qwen-2.5-coder-32b-instruct"  # alias until qwen-3.5-397b ships
 
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
@@ -262,9 +263,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # Note: Updated 2026-04-01 - Verified available
     # ═══════════════════════════════════════════════════════
-    Model.QWEN_3_CODER_NEXT: {"input": 0.12, "output": 0.75},  # Fast coding specialist ⭐ BEST
-    Model.QWEN_3_5_397B_A17B: {"input": 0.39, "output": 2.34},  # 397B MoE SOTA
-    Model.QWEN_2_5_CODER_32B: {"input": 0.66, "output": 1.00},  # 33K coding ⭐
+    Model.QWEN_2_5_CODER_32B: {"input": 0.66, "output": 1.00},  # 33K coding ⭐ (QWEN_3_CODER_NEXT aliases this)
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════

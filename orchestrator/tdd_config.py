@@ -35,11 +35,11 @@ class TDDModelConfig:
     # Test Generation: Best test design capability
     test_generation: str = "anthropic/claude-sonnet-4-6"  # $3.00/$15.00
     # Implementation: Cost-effective coding
-    implementation: str = "qwen/qwen-3-coder-next"  # $0.12/$0.75
+    implementation: str = "qwen/qwen-2.5-coder-32b-instruct"  # $0.66/$1.00
     # Test Review: Best analysis capability
     test_review: str = "anthropic/claude-sonnet-4-6"  # $3.00/$15.00
     # Refactoring: Cost-effective improvements
-    refactoring: str = "qwen/qwen-3-coder-next"  # $0.12/$0.75
+    refactoring: str = "qwen/qwen-2.5-coder-32b-instruct"  # $0.66/$1.00
 
     # ═══════════════════════════════════════════════════════
     # Budget Tier - Best value with good test quality
@@ -50,9 +50,9 @@ class TDDModelConfig:
     budget_test_generation: str = (
         "deepseek/deepseek-v3.2"  # $0.27/$1.10 — better at tests than qwen-coder
     )
-    budget_implementation: str = "qwen/qwen-3-coder-next"  # $0.12/$0.75
+    budget_implementation: str = "qwen/qwen-2.5-coder-32b-instruct"  # $0.66/$1.00
     budget_test_review: str = "deepseek/deepseek-v3.2"  # $0.27/$1.10
-    budget_refactoring: str = "qwen/qwen-3-coder-next"  # $0.12/$0.75
+    budget_refactoring: str = "qwen/qwen-2.5-coder-32b-instruct"  # $0.66/$1.00
 
     # ═══════════════════════════════════════════════════════
     # Premium Tier - Maximum Quality
@@ -104,7 +104,7 @@ class TDDModelConfig:
             >>> config.get_model("test_generation", "balanced")
             'anthropic/claude-sonnet-4-6'
             >>> config.get_model("implementation", "budget")
-            'qwen/qwen-3-coder-next'
+            'qwen/qwen-2.5-coder-32b-instruct'
             >>> config.get_model("test_generation", "balanced", "python")
             'anthropic/claude-sonnet-4-6'  # or language-specific if configured
         """
@@ -126,7 +126,7 @@ class TDDModelConfig:
         model = getattr(self, key, None)
         if model is None:
             # Fallback to balanced tier default
-            model = getattr(self, phase, "qwen/qwen-3-coder-next")
+            model = getattr(self, phase, "qwen/qwen-2.5-coder-32b-instruct")
 
         return model
 
@@ -215,17 +215,17 @@ class TDDModelConfig:
 # Budget Profile: Best value — DeepSeek for tests (strong test-writing), Qwen for implementation
 TDD_BUDGET_PROFILE = TDDModelConfig(
     test_generation="deepseek/deepseek-v3.2",  # $0.27/$1.10 — strong test writer
-    implementation="qwen/qwen-3-coder-next",  # $0.12/$0.75 — fast coder
+    implementation="qwen/qwen-2.5-coder-32b-instruct",  # $0.66/$1.00 — fast coder
     test_review="deepseek/deepseek-v3.2",  # $0.27/$1.10 — good analyser
-    refactoring="qwen/qwen-3-coder-next",  # $0.12/$0.75
+    refactoring="qwen/qwen-2.5-coder-32b-instruct",  # $0.66/$1.00
 )
 
 # Balanced Profile: Best value (default)
 TDD_BALANCED_PROFILE = TDDModelConfig(
     test_generation="anthropic/claude-sonnet-4-6",  # $3.00/$15.00
-    implementation="qwen/qwen-3-coder-next",  # $0.12/$0.75
+    implementation="qwen/qwen-2.5-coder-32b-instruct",  # $0.66/$1.00
     test_review="anthropic/claude-sonnet-4-6",  # $3.00/$15.00
-    refactoring="qwen/qwen-3-coder-next",  # $0.12/$0.75
+    refactoring="qwen/qwen-2.5-coder-32b-instruct",  # $0.66/$1.00
 )
 
 # Premium Profile: Maximum quality
@@ -239,21 +239,21 @@ TDD_PREMIUM_PROFILE = TDDModelConfig(
 # Python-Specialized Profile (pytest)
 TDD_PYTHON_PROFILE = TDDModelConfig(
     test_generation="anthropic/claude-sonnet-4-6",  # Best pytest knowledge
-    implementation="qwen/qwen-3-coder-next",  # Cost-effective
+    implementation="qwen/qwen-2.5-coder-32b-instruct",  # Cost-effective
     test_review="anthropic/claude-sonnet-4-6",  # Best test analysis
-    refactoring="qwen/qwen-3-coder-next",
+    refactoring="qwen/qwen-2.5-coder-32b-instruct",
     python_test_generation="anthropic/claude-sonnet-4-6",
-    python_implementation="qwen/qwen-3-coder-next",
+    python_implementation="qwen/qwen-2.5-coder-32b-instruct",
 )
 
 # JavaScript-Specialized Profile (Jest)
 TDD_JAVASCRIPT_PROFILE = TDDModelConfig(
     test_generation="anthropic/claude-sonnet-4-6",  # Best Jest knowledge
-    implementation="qwen/qwen-3-coder-next",  # Cost-effective
+    implementation="qwen/qwen-2.5-coder-32b-instruct",  # Cost-effective
     test_review="anthropic/claude-sonnet-4-6",  # Best test analysis
-    refactoring="qwen/qwen-3-coder-next",
+    refactoring="qwen/qwen-2.5-coder-32b-instruct",
     javascript_test_generation="anthropic/claude-sonnet-4-6",
-    javascript_implementation="qwen/qwen-3-coder-next",
+    javascript_implementation="qwen/qwen-2.5-coder-32b-instruct",
 )
 
 

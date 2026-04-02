@@ -1688,7 +1688,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
 
             decomposer = TaskDecomposer(api_client=self.client)
             decomp_model = (
-                "nvidia/nemotron-3-super-120b-a12b:free"
+                "deepseek/deepseek-v3.2"  # cost-effective fallback for free-tier models
                 if "free" in model.value.lower()
                 else model.value
             )

@@ -250,7 +250,7 @@ class TaskDecomposer(StructuredClient):
         self,
         project_description: str,
         success_criteria: str,
-        model: str = "nvidia/nemotron-3-super-120b-a12b:free",
+        model: str = "deepseek/deepseek-v3.2",
         max_retries: int = 3,
     ) -> TaskDecomposition:
         """
@@ -489,7 +489,7 @@ Provide clear rationale for each decision based on project requirements.
 
 
 async def decompose_project(
-    project_desc: str, criteria: str, model: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    project_desc: str, criteria: str, model: str = "deepseek/deepseek-v3.2"
 ) -> tuple[list[Task], list[str]]:
     """
     Convenience function to decompose project.
