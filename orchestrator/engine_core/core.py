@@ -237,6 +237,7 @@ class OrchestratorCore:
             Dictionary of task_id → Task
         """
         from .models import Task, TaskType
+        from ..task_factory import TaskFactory
 
         logger.info("Decomposing project into tasks...")
 
@@ -268,9 +269,9 @@ class OrchestratorCore:
 
             tasks = {}
             for task_data in tasks_data:
-                task = Task(
+                task = TaskFactory.create(
                     id=task_data["id"],
-                    type=TaskType(task_data["type"]),
+                    task_type=TaskType(task_data["type"]),
                     prompt=task_data["prompt"],
                     dependencies=task_data.get("dependencies", []),
                 )
@@ -283,11 +284,10 @@ class OrchestratorCore:
             logger.error(f"Decomposition failed: {e}")
             # Fallback: create simple single task
             return {
-                "task_001": Task(
+                "task_001": TaskFactory.create(
                     id="task_001",
-                    type=TaskType.CODE_GEN,
+                    task_type=TaskType.CODE_GEN,
                     prompt=f"Implement: {project_description}",
-                    dependencies=[],
                 )
             }
 

@@ -32,6 +32,15 @@ from collections import defaultdict, deque
 from typing import TYPE_CHECKING
 
 from .api_clients import APIResponse, UnifiedClient
+from .model_selector import ModelSelector
+from .task_factory import TaskFactory
+from .prompt_builder import (
+    CritiquePrompt,
+    DecompositionPrompt,
+    DeltaPrompt,
+    RevisionPrompt,
+    SystemPrompt,
+)
 from .budget import Budget
 from .model_registry import ModelRegistry
 from .cache import DiskCache
@@ -400,6 +409,7 @@ class Orchestrator:
             policy_engine=self._policy_engine,
             api_health=self.api_health,
         )
+        self._selector = ModelSelector(self.api_health, self._get_available_models)
         self._telemetry = TelemetryCollector(self._profiles)
         # Active policy set — replaced by run_job(); empty = no restrictions
         self._active_policies: PolicySet = PolicySet()
@@ -408,6 +418,11 @@ class Orchestrator:
         # and truncation causes code_review tasks to miss the tail of the source,
         # leading the LLM to claim "source code was not provided".
         self.context_truncation_limit: int = 40000
+        # T1-B: engine_core modules — engine.py delegates to these instead of
+        # reimplementing the same logic inline.
+        from .engine_core.dependency_resolver import DependencyResolver as _DepResolver
+
+        self._dep_resolver = _DepResolver(context_truncation_limit=self.context_truncation_limit)
         # Improvement 3: event hooks + metrics exporter
         self._hook_registry: HookRegistry = HookRegistry()
         self._metrics_exporter: MetricsExporter | None = None
@@ -1639,38 +1654,7 @@ Each task JSON element MUST also include:
 - "tech_context": brief note on the tech stack relevant to this specific file.
 """
 
-        prompt = f"""You are a project decomposition engine. Break this project into
-atomic, executable tasks.
-
-PROJECT: {project}
-
-SUCCESS CRITERIA: {criteria}
-{app_context_block}
-Return ONLY a JSON array. Each element must have:
-- "id": string (e.g., "task_001")
-- "type": one of {valid_types}
-- "prompt": detailed instruction for the task executor. For code_generation tasks, MUST include:\n"
-  "  - Code must be THOROUGHLY COMMENTED\n"
-  "  - EVERY file MUST start with: /** Author: Georgios-Chrysovalantis Chatzivantsidis */\n"
-- "dependencies": list of task id strings this depends on (empty if none)
-- "hard_validators": list of validator names — ONLY use these for code tasks:
-  - "python_syntax": only for code_generation tasks that produce Python code
-  - "json_schema": only for tasks that must return valid JSON
-  - "pytest": only for code_generation tasks with runnable tests
-  - "ruff": only for code_generation tasks requiring lint checks
-  - "latex": only for tasks producing LaTeX documents
-  - "length": for tasks requiring minimum/maximum output length
-  - Use [] (empty list) for non-code tasks (reasoning, writing, analysis, evaluation)
-
-RULES:
-- Tasks must be atomic (one clear deliverable each)
-- Dependencies must form a DAG (no cycles)
-- Include code_review tasks after code_generation tasks
-- Include at least one evaluation task at the end
-- 5-15 tasks total for a medium project
-- Do NOT add hard_validators to reasoning, writing, analysis, or evaluation tasks
-
-Return ONLY the JSON array, no markdown fences, no explanation."""
+        prompt = DecompositionPrompt.build(project, criteria, app_context_block, valid_types)
 
         decomp_system = "You are a precise project decomposition engine. Output only valid JSON."
         # P1-2 OPTIMIZATION: Use adaptive model selection based on project complexity
@@ -1901,9 +1885,9 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 # NOTE: Don't remove validators for non-Python tasks here.
                 # Let _filter_validators_for_task() decide based on actual output content.
 
-                task = Task(
+                task = TaskFactory.create(
                     id=item["id"],
-                    type=task_type,
+                    task_type=task_type,
                     prompt=prompt,
                     dependencies=item.get("dependencies", []),
                     hard_validators=hard_validators,
@@ -2270,38 +2254,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     def _build_system_prompt(self, task_type: str = "") -> str:
         """Build system prompt based on current quality_mode."""
         mode = getattr(self, "_quality_mode", "standard")
-        if mode == "production":
-            return self._build_production_system_prompt(task_type)
-        return self._build_standard_system_prompt(task_type)
-
-    def _build_standard_system_prompt(self, task_type: str = "") -> str:
-        """Standard quality system prompt."""
-        return (
-            "You are an expert software engineer executing a task. "
-            "Produce high-quality, complete output. "
-            "Follow best practices and ensure all code is valid and runnable."
-        )
-
-    def _build_production_system_prompt(self, task_type: str = "") -> str:
-        """Production-grade system prompt with strict quality requirements."""
-        base = (
-            "You are a senior software engineer delivering production-grade output. "
-            "Requirements:\n"
-            "1. Full type annotations on every function and class.\n"
-            "2. Comprehensive error handling and input validation.\n"
-            "3. Unit tests for every public function (pytest style).\n"
-            "4. Docstrings on every module, class, and public function.\n"
-            "5. Logging via the standard library logger (not print).\n"
-            "6. No TODOs, no placeholder implementations.\n"
-            "7. Follow SOLID principles and keep cyclomatic complexity ≤ 10.\n"
-            "8. Include a brief inline comment for any non-obvious logic.\n"
-        )
-        if task_type in ("code_gen", "code_generation"):
-            base += (
-                "9. Return ONLY raw code — no markdown fences, no prose outside code.\n"
-                "10. Code must pass mypy --strict.\n"
-            )
-        return base
+        return SystemPrompt.build(task_type, mode)
 
     def _build_project_context(self) -> str:
         """Build project context from existing results."""
@@ -2425,92 +2378,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         return None
 
     def _build_delta_prompt(self, original_prompt: str, record: AttemptRecord) -> str:
-        """
-        Build an enriched prompt for the next iteration after a failed attempt.
-
-        Uses XML-style tags to delimit the feedback block so that adversarial
-        LLM output cannot escape the block with injected plain-text sentinels
-        or tag sequences.  All user-controlled fields are sanitised before
-        embedding to prevent prompt-injection via failure_reason, validator
-        names, or output_snippet.
-        """
-
-        def _sanitize(text: str) -> str:
-            """Strip XML delimiters and the plain sentinel from user-supplied data."""
-            # Remove our own XML tags so injected copies cannot break the structure.
-            text = text.replace("<ORCHESTRATOR_FEEDBACK>", "")
-            text = text.replace("</ORCHESTRATOR_FEEDBACK>", "")
-            # Neutralise the plain sentinel so it cannot appear twice — once
-            # legitimate and once injected — which would confuse the next model.
-            text = text.replace("PREVIOUS ATTEMPT FAILED:", "[PREVIOUS ATTEMPT]:")
-            return text
-
-        safe_reason = _sanitize(record.failure_reason)
-        safe_validators = [_sanitize(v) for v in record.validators_failed]
-        validators_str = ", ".join(safe_validators) if safe_validators else "none"
-
-        snippet_section = ""
-        if record.output_snippet:
-            safe_snippet = _sanitize(record.output_snippet)
-            snippet_section = f"\n- Output snippet: {safe_snippet}"
-
-        # Add specific guidance for common ruff/python_syntax errors
-        additional_guidance = ""
-        if "F821" in record.failure_reason or "Undefined name" in record.failure_reason:
-            additional_guidance = (
-                "\n\n⚠️ IMPORT ERROR DETECTED: You used a name without importing it first.\n"
-                "FIX: Add the required import statement at the TOP of your code.\n"
-                "Example: 'from nba_api.stats.endpoints import playerdashboardbyyearoveryear'\n"
-                "Example: 'from requests import RequestException'\n"
-                "Check ALL function/class names used and ensure they are imported."
-            )
-        elif "F401" in record.failure_reason or "imported but unused" in record.failure_reason:
-            additional_guidance = (
-                "\n\n⚠️ UNUSED IMPORT DETECTED: Remove imports you don't use.\n"
-                "FIX: Either remove the unused import OR use the imported name in your code."
-            )
-        elif "E402" in record.failure_reason or "import not at top" in record.failure_reason:
-            additional_guidance = (
-                "\n\n⚠️ IMPORT POSITION ERROR: Move all imports to the TOP of the file.\n"
-                "FIX: Place all import statements before any code (functions, classes, etc.)."
-            )
-        elif (
-            "unterminated triple-quoted string" in record.failure_reason
-            or "Syntax error" in record.failure_reason
-        ):
-            additional_guidance = (
-                "\n\n⚠️ SYNTAX ERROR DETECTED: Unclosed string literal or code structure issue.\n"
-                "FIX:\n"
-                '1. Check ALL triple-quoted strings ("""...""") are properly CLOSED\n'
-                "2. Ensure all parentheses (), brackets [], and braces {} are matched\n"
-                "3. Verify all string literals have matching opening and closing quotes\n"
-                "4. Check that if/else/for/while blocks have proper indentation\n"
-                "5. Run your code through a Python syntax checker BEFORE submitting\n"
-                '\nCRITICAL: Every opening """ must have a closing """ on a later line!'
-            )
-        elif "invalid-syntax" in record.failure_reason:
-            additional_guidance = (
-                "\n\n⚠️ SYNTAX ERROR DETECTED: Invalid Python code structure.\n"
-                "FIX:\n"
-                "1. Check for missing colons after if/for/while/def/class statements\n"
-                "2. Ensure proper indentation (use spaces, not tabs)\n"
-                "3. Verify all parentheses, brackets, and braces are properly matched\n"
-                "4. Check that string literals are properly quoted and closed"
-            )
-
-        return (
-            f"{original_prompt}\n\n"
-            f"<ORCHESTRATOR_FEEDBACK>\n"
-            f"PREVIOUS ATTEMPT FAILED:\n"
-            f"- Attempt: {record.attempt_num}\n"
-            f"- Model: {record.model_used}\n"
-            f"- Reason: {safe_reason}\n"
-            f"- Validators failed: {validators_str}"
-            f"{snippet_section}"
-            f"{additional_guidance}\n\n"
-            f"Please correct specifically: {safe_reason}\n"
-            f"</ORCHESTRATOR_FEEDBACK>"
-        )
+        """Delegates to DeltaPrompt — see prompt_builder.py for full implementation."""
+        return DeltaPrompt.build(original_prompt, record)
 
     async def _execute_task(self, task: Task) -> TaskResult:
         """
@@ -2797,13 +2666,7 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                 try:
                     # Build system prompt — production mode enriches with strict requirements
                     _mode = getattr(self, "_quality_mode", "standard")
-                    if _mode == "production":
-                        system_prompt = self._build_production_system_prompt(task.type.value)
-                    else:
-                        system_prompt = (
-                            f"You are an expert executing a {task.type.value} task. "
-                            f"Produce high-quality, complete output."
-                        )
+                    system_prompt = SystemPrompt.build(task.type.value, _mode)
                     if task.type == TaskType.CODE_GEN and _mode != "production":
                         system_prompt += (
                             "\n\nCRITICAL REQUIREMENTS:\n"
@@ -3180,13 +3043,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
                         # Use low temperature for focused, deterministic critique
                         critique_temperature = 0.2 if task.type == TaskType.CODE_GEN else 0.3
 
+                        _critique_prompt, _critique_system = CritiquePrompt.build(
+                            task.prompt, output
+                        )
                         critique_response = await self.client.call(
                             reviewer,
-                            f"Review this output for correctness, completeness, and quality. "
-                            f"Be specific about flaws and suggest concrete improvements.\n\n"
-                            f"ORIGINAL TASK: {task.prompt}\n\n"
-                            f"OUTPUT TO REVIEW:\n{output}",
-                            system="You are a critical reviewer. Find flaws, be specific.",
+                            _critique_prompt,
+                            system=_critique_system,
                             max_tokens=critique_max_tokens,
                             temperature=critique_temperature,
                             timeout=critique_timeout,
@@ -3733,15 +3596,13 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
             critique_text[:100],
         )
         try:
-            revised_prompt = (
-                f"{task.prompt}\n\n"
-                f"[Revision required] {critique_text}\n"
-                f"Please revise your previous response to address the above."
+            revised_prompt, _rev_system = RevisionPrompt.build(
+                task.prompt, critique_text, task.type.value
             )
             gen_response = await self.client.call(
                 primary,
                 revised_prompt,
-                system=f"You are an expert executing a {task.type.value} task. Produce high-quality, complete output.",
+                system=_rev_system,
                 max_tokens=task.max_output_tokens,
                 temperature=0.3,
                 timeout=120,
@@ -4166,116 +4027,8 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         )
 
     def _select_decomposition_model(self, project_description: str) -> Model:
-        """
-        P1-2 OPTIMIZATION: Select decomposition model based on project complexity.
-        Updated v3.0: Use Qwen3 Coder Next FIRST for reliable JSON output.
-
-        Decision matrix:
-        - Small (<500 tokens, <2 complexity keywords): Qwen3 Coder Next ($0.12)
-        - Medium (<2000 tokens, <5 keywords): Qwen3 Coder Next or MiMo-V2-Flash
-        - Large (>=2000 tokens, >=5 keywords): Qwen3.5-397B for complex reasoning
-
-        Args:
-            project_description: The project description to analyze
-
-        Returns:
-            Optimal Model for decomposition (prioritizes JSON structure capability)
-        """
-        from .models import Model as M
-
-        # Estimate complexity from description length (rough token estimate: 4 chars/token)
-        token_estimate = len(project_description) / 4
-
-        # Complexity keywords that indicate architectural complexity
-        complexity_keywords = [
-            # Architecture patterns
-            "microservice",
-            "distributed",
-            "kubernetes",
-            "cluster",
-            "scalable",
-            # Security
-            "authentication",
-            "authorization",
-            "OAuth",
-            "JWT",
-            "RBAC",
-            "permissions",
-            # Data
-            "database",
-            "migration",
-            "replication",
-            "sharding",
-            "caching",
-            "redis",
-            # Real-time
-            "real-time",
-            "websocket",
-            "streaming",
-            "queue",
-            "kafka",
-            "rabbitmq",
-            # Advanced features
-            "multi-tenant",
-            "SaaS",
-            "API gateway",
-            "load balancer",
-            "CDN",
-            # ML/AI
-            "machine learning",
-            "ML",
-            "AI",
-            "neural",
-            "embedding",
-            "vector",
-        ]
-
-        # Count complexity indicators
-        project_lower = project_description.lower()
-        complexity_score = sum(1 for kw in complexity_keywords if kw in project_lower)
-
-        # Also check for file/tech stack complexity
-        tech_stack_keywords = [
-            "react",
-            "next.js",
-            "vue",
-            "angular",  # Frontend frameworks
-            "fastapi",
-            "django",
-            "flask",
-            "express",  # Backend frameworks
-            "postgresql",
-            "mongodb",
-            "mysql",  # Databases
-            "docker",
-            "terraform",
-            "aws",
-            "azure",
-            "gcp",  # DevOps
-        ]
-        tech_score = sum(1 for kw in tech_stack_keywords if kw in project_lower)
-
-        # Combined complexity score
-        total_complexity = complexity_score + (tech_score // 2)
-
-        # v3.0 FIX: ALWAYS use Qwen3 Coder Next for decomposition
-        # It has the best JSON structure capability at great value
-        if self.api_health.get(M.QWEN_3_CODER_NEXT, True):
-            logger.debug(f"P1-2: Using Qwen3 Coder Next for decomposition (best JSON structure)")
-            return M.QWEN_3_CODER_NEXT
-
-        # Fallback to other structured output models
-        if self.api_health.get(M.XIAOMI_MIMO_V2_FLASH, True):
-            logger.debug(f"P1-2: Using MiMo-V2-Flash for decomposition")
-            return M.XIAOMI_MIMO_V2_FLASH
-
-        if self.api_health.get(M.GEMINI_FLASH, True):
-            logger.debug(f"P1-2: Using Gemini Flash for decomposition")
-            return M.GEMINI_FLASH
-
-        # Last resort: Step 3.5 Flash (but add JSON retry logic)
-        logger.warning(f"P1-2: Using Step 3.5 Flash as fallback (may have JSON issues)")
-        return M.STEPFUN_STEP_3_5_FLASH
+        """Delegates to ModelSelector — see model_selector.py for full logic."""
+        return self._selector.decomposition_model(project_description)
 
     def _get_fast_decomposition_model(self) -> Model:
         """Get a fast, reliable model for task decomposition.
@@ -4316,69 +4069,16 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
         return min(healthy, key=lambda m: COST_TABLE[m]["output"])
 
     def _select_reviewer(self, generator: Model, task_type: TaskType) -> Model | None:
-        gen_provider = get_provider(generator)
-        candidates = self._get_available_models(task_type)
-
-        # Only consider healthy models
-        for c in candidates:
-            if get_provider(c) != gen_provider and self.api_health.get(c, False):
-                return c
-
-        for c in candidates:
-            if c != generator and self.api_health.get(c, False):
-                return c
-
-        return None
+        """Delegates to ModelSelector — see model_selector.py for full logic."""
+        return self._selector.reviewer(generator, task_type)
 
     def _get_fallback(self, failed_model: Model) -> Model | None:
-        fb = FALLBACK_CHAIN.get(failed_model)
-        if fb and self.api_health.get(fb, False):
-            return fb
-        for m in Model:
-            if m != failed_model and self.api_health.get(m, False):
-                return m
-        return None
+        """Delegates to ModelSelector — see model_selector.py for full logic."""
+        return self._selector.fallback(failed_model)
 
     def _get_next_tier_model(self, current_model: Model, task_type: TaskType) -> Model | None:
-        """
-        Get a higher-tier model for escalation when plateau detected.
-
-        Tiers: CHEAP → BALANCED → PREMIUM
-        Returns next tier up, or None if already at premium or no healthy models.
-        """
-        from .models import COST_TABLE
-
-        # Define model tiers (higher index = better quality)
-        model_tiers: dict[Model, int] = {
-            # Cheap tier
-            Model.GEMINI_FLASH_LITE: 0,
-            Model.GPT_4O_MINI: 0,
-            # Balanced tier
-            Model.GEMINI_FLASH: 1,
-            Model.DEEPSEEK_CHAT: 1,
-            Model.CLAUDE_3_HAIKU: 1,
-            # Premium tier
-            Model.GPT_4O: 2,
-            Model.DEEPSEEK_REASONER: 2,
-            Model.GEMINI_PRO: 2,
-        }
-
-        current_tier = model_tiers.get(current_model, 1)
-
-        # Get all models one tier higher that are healthy
-        candidates = [
-            m
-            for m in Model
-            if model_tiers.get(m, 1) > current_tier
-            and self.api_health.get(m, False)
-            and m in self._get_available_models(task_type)  # Valid for this task type
-        ]
-
-        if not candidates:
-            return None
-
-        # Return the cheapest model from the next tier
-        return min(candidates, key=lambda m: COST_TABLE[m]["output"])
+        """Delegates to ModelSelector — see model_selector.py for full logic."""
+        return self._selector.next_tier(current_model, task_type)
 
     # ─────────────────────────────────────────
     # DAG & dependency management
@@ -4387,39 +4087,21 @@ Return ONLY the JSON array, no markdown fences, no explanation."""
     def _topological_sort(self, tasks: dict[str, Task]) -> list[str]:
         """
         Kahn's algorithm with cycle detection.
-        FIX #6: Uses deque for O(1) popleft instead of list.sort()+pop(0) O(n²).
+        FIX #6: Delegates to DependencyResolver (engine_core) — O(1) deque popleft.
+
+        Passes a key-sorted tasks dict so independent nodes are processed in
+        deterministic alphabetical order (preserving prior engine behaviour).
         """
-        in_degree = dict.fromkeys(tasks, 0)
-        graph = defaultdict(list)
-
-        for tid, task in tasks.items():
-            for dep in task.dependencies:
-                if dep in tasks:
-                    graph[dep].append(tid)
-                    in_degree[tid] += 1
-
-        # Sort initial zero-degree nodes for determinism, then use deque
-        queue = deque(sorted(tid for tid, deg in in_degree.items() if deg == 0))
-        result = []
-
-        while queue:
-            node = queue.popleft()
-            result.append(node)
-            # Sort neighbors for deterministic ordering before extending
-            newly_ready = []
-            for neighbor in graph[node]:
-                in_degree[neighbor] -= 1
-                if in_degree[neighbor] == 0:
-                    newly_ready.append(neighbor)
-            newly_ready.sort()
-            queue.extend(newly_ready)
-
-        if len(result) != len(tasks):
-            cycle_tasks = set(tasks.keys()) - set(result)
+        sorted_tasks = dict(sorted(tasks.items()))
+        self._dep_resolver.build_dependency_graph(sorted_tasks)
+        try:
+            return self._dep_resolver.topological_sort(sorted_tasks)
+        except ValueError:
+            # Cycle detected — DependencyResolver raises; we log and return
+            # the partial ordering it accumulated before detecting the cycle.
+            cycle_tasks = set(tasks.keys()) - set(self._dep_resolver.execution_order)
             logger.error(f"Dependency cycle detected involving: {cycle_tasks}")
-            return result
-
-        return result
+            return self._dep_resolver.execution_order
 
     def _topological_levels(self, tasks: dict[str, Task]) -> list[list[str]]:
         """
