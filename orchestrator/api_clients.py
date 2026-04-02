@@ -198,16 +198,29 @@ class UnifiedClient:
         Unified call with model validation → cache check → semaphore → retry → OpenRouter dispatch.
 
         Note: Validates model availability before making API call.
-        If model is unavailable, suggests replacement and raises error.
+        If model is unavailable and a replacement is configured, silently redirects
+        with a warning rather than raising, to keep the pipeline running.
         """
-        # Validate model availability
+        # Validate model availability; auto-redirect to replacement if configured
         is_available, replacement = validate_model_available(model)
         if not is_available:
-            error_msg = f"Model {model.value} is not available on OpenRouter"
             if replacement:
-                error_msg += f". Use {replacement} instead"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+                from .models import Model as _Model
+                try:
+                    original_id = model.value
+                    model = _Model(replacement)
+                    logger.warning(
+                        f"Model {original_id!r} is unavailable on OpenRouter, "
+                        f"redirecting to {replacement!r}"
+                    )
+                except ValueError:
+                    # replacement string not in Model enum — can't redirect, must fail
+                    raise ValueError(
+                        f"Model {model.value} is not available on OpenRouter and "
+                        f"replacement {replacement!r} is not in the Model enum"
+                    )
+            else:
+                raise ValueError(f"Model {model.value} is not available on OpenRouter")
 
         if not bypass_cache:
             cached = await self.cache.get(model.value, prompt, max_tokens, system, temperature)
