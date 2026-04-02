@@ -206,6 +206,7 @@ class UnifiedClient:
         if not is_available:
             if replacement:
                 from .models import Model as _Model
+
                 try:
                     original_id = model.value
                     model = _Model(replacement)

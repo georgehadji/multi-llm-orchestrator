@@ -263,7 +263,10 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # Note: Updated 2026-04-01 - Verified available
     # ═══════════════════════════════════════════════════════
-    Model.QWEN_2_5_CODER_32B: {"input": 0.66, "output": 1.00},  # 33K coding ⭐ (QWEN_3_CODER_NEXT aliases this)
+    Model.QWEN_2_5_CODER_32B: {
+        "input": 0.66,
+        "output": 1.00,
+    },  # 33K coding ⭐ (QWEN_3_CODER_NEXT aliases this)
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════

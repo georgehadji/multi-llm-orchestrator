@@ -80,13 +80,13 @@ class TestSystemPrompt:
 
 
 def _make_record(**kwargs) -> AttemptRecord:
-    defaults = dict(
-        attempt_num=1,
-        model_used="gpt-4o",
-        output_snippet="some output",
-        failure_reason="ruff check failed",
-        validators_failed=["ruff"],
-    )
+    defaults = {
+        "attempt_num": 1,
+        "model_used": "gpt-4o",
+        "output_snippet": "some output",
+        "failure_reason": "ruff check failed",
+        "validators_failed": ["ruff"],
+    }
     defaults.update(kwargs)
     return AttemptRecord(**defaults)
 
