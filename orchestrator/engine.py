@@ -32,6 +32,7 @@ from collections import defaultdict, deque
 from typing import TYPE_CHECKING
 
 from .api_clients import APIResponse, UnifiedClient
+from .model_selector import ModelSelector
 from .prompt_builder import (
     CritiquePrompt,
     DecompositionPrompt,
@@ -407,6 +408,7 @@ class Orchestrator:
             policy_engine=self._policy_engine,
             api_health=self.api_health,
         )
+        self._selector = ModelSelector(self.api_health, self._get_available_models)
         self._telemetry = TelemetryCollector(self._profiles)
         # Active policy set — replaced by run_job(); empty = no restrictions
         self._active_policies: PolicySet = PolicySet()
@@ -4019,116 +4021,8 @@ Each task JSON element MUST also include:
         )
 
     def _select_decomposition_model(self, project_description: str) -> Model:
-        """
-        P1-2 OPTIMIZATION: Select decomposition model based on project complexity.
-        Updated v3.0: Use Qwen3 Coder Next FIRST for reliable JSON output.
-
-        Decision matrix:
-        - Small (<500 tokens, <2 complexity keywords): Qwen3 Coder Next ($0.12)
-        - Medium (<2000 tokens, <5 keywords): Qwen3 Coder Next or MiMo-V2-Flash
-        - Large (>=2000 tokens, >=5 keywords): Qwen3.5-397B for complex reasoning
-
-        Args:
-            project_description: The project description to analyze
-
-        Returns:
-            Optimal Model for decomposition (prioritizes JSON structure capability)
-        """
-        from .models import Model as M
-
-        # Estimate complexity from description length (rough token estimate: 4 chars/token)
-        token_estimate = len(project_description) / 4
-
-        # Complexity keywords that indicate architectural complexity
-        complexity_keywords = [
-            # Architecture patterns
-            "microservice",
-            "distributed",
-            "kubernetes",
-            "cluster",
-            "scalable",
-            # Security
-            "authentication",
-            "authorization",
-            "OAuth",
-            "JWT",
-            "RBAC",
-            "permissions",
-            # Data
-            "database",
-            "migration",
-            "replication",
-            "sharding",
-            "caching",
-            "redis",
-            # Real-time
-            "real-time",
-            "websocket",
-            "streaming",
-            "queue",
-            "kafka",
-            "rabbitmq",
-            # Advanced features
-            "multi-tenant",
-            "SaaS",
-            "API gateway",
-            "load balancer",
-            "CDN",
-            # ML/AI
-            "machine learning",
-            "ML",
-            "AI",
-            "neural",
-            "embedding",
-            "vector",
-        ]
-
-        # Count complexity indicators
-        project_lower = project_description.lower()
-        complexity_score = sum(1 for kw in complexity_keywords if kw in project_lower)
-
-        # Also check for file/tech stack complexity
-        tech_stack_keywords = [
-            "react",
-            "next.js",
-            "vue",
-            "angular",  # Frontend frameworks
-            "fastapi",
-            "django",
-            "flask",
-            "express",  # Backend frameworks
-            "postgresql",
-            "mongodb",
-            "mysql",  # Databases
-            "docker",
-            "terraform",
-            "aws",
-            "azure",
-            "gcp",  # DevOps
-        ]
-        tech_score = sum(1 for kw in tech_stack_keywords if kw in project_lower)
-
-        # Combined complexity score
-        total_complexity = complexity_score + (tech_score // 2)
-
-        # v3.0 FIX: ALWAYS use Qwen3 Coder Next for decomposition
-        # It has the best JSON structure capability at great value
-        if self.api_health.get(M.QWEN_3_CODER_NEXT, True):
-            logger.debug(f"P1-2: Using Qwen3 Coder Next for decomposition (best JSON structure)")
-            return M.QWEN_3_CODER_NEXT
-
-        # Fallback to other structured output models
-        if self.api_health.get(M.XIAOMI_MIMO_V2_FLASH, True):
-            logger.debug(f"P1-2: Using MiMo-V2-Flash for decomposition")
-            return M.XIAOMI_MIMO_V2_FLASH
-
-        if self.api_health.get(M.GEMINI_FLASH, True):
-            logger.debug(f"P1-2: Using Gemini Flash for decomposition")
-            return M.GEMINI_FLASH
-
-        # Last resort: Step 3.5 Flash (but add JSON retry logic)
-        logger.warning(f"P1-2: Using Step 3.5 Flash as fallback (may have JSON issues)")
-        return M.STEPFUN_STEP_3_5_FLASH
+        """Delegates to ModelSelector — see model_selector.py for full logic."""
+        return self._selector.decomposition_model(project_description)
 
     def _get_fast_decomposition_model(self) -> Model:
         """Get a fast, reliable model for task decomposition.
@@ -4169,69 +4063,16 @@ Each task JSON element MUST also include:
         return min(healthy, key=lambda m: COST_TABLE[m]["output"])
 
     def _select_reviewer(self, generator: Model, task_type: TaskType) -> Model | None:
-        gen_provider = get_provider(generator)
-        candidates = self._get_available_models(task_type)
-
-        # Only consider healthy models
-        for c in candidates:
-            if get_provider(c) != gen_provider and self.api_health.get(c, False):
-                return c
-
-        for c in candidates:
-            if c != generator and self.api_health.get(c, False):
-                return c
-
-        return None
+        """Delegates to ModelSelector — see model_selector.py for full logic."""
+        return self._selector.reviewer(generator, task_type)
 
     def _get_fallback(self, failed_model: Model) -> Model | None:
-        fb = FALLBACK_CHAIN.get(failed_model)
-        if fb and self.api_health.get(fb, False):
-            return fb
-        for m in Model:
-            if m != failed_model and self.api_health.get(m, False):
-                return m
-        return None
+        """Delegates to ModelSelector — see model_selector.py for full logic."""
+        return self._selector.fallback(failed_model)
 
     def _get_next_tier_model(self, current_model: Model, task_type: TaskType) -> Model | None:
-        """
-        Get a higher-tier model for escalation when plateau detected.
-
-        Tiers: CHEAP → BALANCED → PREMIUM
-        Returns next tier up, or None if already at premium or no healthy models.
-        """
-        from .models import COST_TABLE
-
-        # Define model tiers (higher index = better quality)
-        model_tiers: dict[Model, int] = {
-            # Cheap tier
-            Model.GEMINI_FLASH_LITE: 0,
-            Model.GPT_4O_MINI: 0,
-            # Balanced tier
-            Model.GEMINI_FLASH: 1,
-            Model.DEEPSEEK_CHAT: 1,
-            Model.CLAUDE_3_HAIKU: 1,
-            # Premium tier
-            Model.GPT_4O: 2,
-            Model.DEEPSEEK_REASONER: 2,
-            Model.GEMINI_PRO: 2,
-        }
-
-        current_tier = model_tiers.get(current_model, 1)
-
-        # Get all models one tier higher that are healthy
-        candidates = [
-            m
-            for m in Model
-            if model_tiers.get(m, 1) > current_tier
-            and self.api_health.get(m, False)
-            and m in self._get_available_models(task_type)  # Valid for this task type
-        ]
-
-        if not candidates:
-            return None
-
-        # Return the cheapest model from the next tier
-        return min(candidates, key=lambda m: COST_TABLE[m]["output"])
+        """Delegates to ModelSelector — see model_selector.py for full logic."""
+        return self._selector.next_tier(current_model, task_type)
 
     # ─────────────────────────────────────────
     # DAG & dependency management
