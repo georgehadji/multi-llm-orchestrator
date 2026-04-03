@@ -190,10 +190,10 @@ class TestBudgetReserveEdgeCases:
         - May return False incorrectly
         """
         budget = Budget(max_usd=0.10)
-        budget.charge(0.05, "test")  # Spend $0.05
+        await budget.charge(0.05, "test")  # Spend $0.05
 
         # Act: Reserve exact remaining
-        result = budget.reserve(0.05)
+        result = await budget.reserve(0.05)
 
         # Assert
         assert result is True
