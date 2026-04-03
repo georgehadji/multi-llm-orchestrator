@@ -103,6 +103,9 @@ class Model(str, Enum):
     # ═══════════════════════════════════════════════════════
     MOONSHOT_KIMI_K2_5 = "moonshotai/kimi-k2.5"  # $0.42/$2.20, visual coding SOTA
     MOONSHOT_KIMI_K2 = "moonshotai/kimi-k2"  # $0.50/$1.50
+    # Backward compatibility aliases
+    KIMI_K2_5 = MOONSHOT_KIMI_K2_5
+    KIMI_K2 = MOONSHOT_KIMI_K2
 
     # ═══════════════════════════════════════════════════════
     # STEPFUN MODELS (NEW v3.0) - BEST VALUE!
@@ -141,6 +144,8 @@ class Model(str, Enum):
     # ═══════════════════════════════════════════════════════
     MINIMAX_M2_7 = "minimax/minimax-m2.7"  # $0.30/$1.20, 205K, multi-agent ⭐
     MINIMAX_M2_5 = "minimax/minimax-m2.5"  # $0.30/$1.20
+    # Backward compatibility alias
+    MINIMAX_TEXT_01 = MINIMAX_M2_7
 
     # ═══════════════════════════════════════════════════════
     # NVIDIA MODELS (redirected via model_registry to fallback)
