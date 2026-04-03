@@ -1693,7 +1693,10 @@ Each task JSON element MUST also include:
             logger.warning(f"Instructor decomposition failed: {e}, falling back to manual parsing")
 
         # FALLBACK: Original decomposition logic
+        last_response_text = ""
+
         async def _try_decompose(m: Model) -> dict[str, Task]:
+            nonlocal last_response_text
             resp = await self.client.call(
                 m,
                 prompt,
@@ -1702,6 +1705,7 @@ Each task JSON element MUST also include:
                 timeout=120,
                 bypass_cache=True,  # never reuse a cached decomposition response
             )
+            last_response_text = resp.text  # Capture for error logging
             await self.budget.charge(resp.cost_usd, "decomposition")
             await self._record_success(m, resp)
             result = self._parse_decomposition(resp.text)
@@ -1724,12 +1728,11 @@ Each task JSON element MUST also include:
                 return await _try_decompose(m)
             except (json.JSONDecodeError, ValueError) as e:
                 # JSON parsing failed - try next model
+                raw_preview = last_response_text[:300] if last_response_text else "N/A"
                 logger.warning(
                     f"Decomposition attempt {attempt + 1} with {m.value} failed (JSON parse error): {e}"
                 )
-                logger.warning(
-                    f"  Raw response (first 200 chars): {resp.text[:200] if 'resp' in locals() else 'N/A'}..."
-                )
+                logger.warning(f"  Raw response (first 300 chars): {raw_preview}...")
                 await self._record_failure(m, error=e)
             except (Exception, asyncio.CancelledError) as e:
                 logger.error(f"Decomposition attempt {attempt + 1} with {m.value} failed: {e}")
@@ -1737,6 +1740,130 @@ Each task JSON element MUST also include:
 
         logger.error("All decomposition attempts failed — returning empty task list")
         return {}
+
+    def _try_parse_partial_json_array(self, text: str) -> list | None:
+        """
+        Attempt to parse a potentially truncated JSON array.
+
+        When LLM responses get cut off mid-stream, we may have valid JSON objects
+        at the start but missing the closing brackets. This method tries multiple
+        strategies to recover as much data as possible.
+
+        Args:
+            text: Potentially truncated JSON array text
+
+        Returns:
+            List of parsed objects, or None if recovery fails
+        """
+        import re
+
+        # Strategy 1: Try to find complete {...} objects and parse them individually
+        # This handles cases where the array is truncated mid-object
+        objects = []
+        depth = 0
+        start_idx = None
+
+        for i, char in enumerate(text):
+            if char == "{":
+                if depth == 0:
+                    start_idx = i
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0 and start_idx is not None:
+                    # Found a complete object
+                    obj_text = text[start_idx : i + 1]
+                    try:
+                        obj = json.loads(obj_text)
+                        objects.append(obj)
+                    except json.JSONDecodeError:
+                        # Try with json5 if available
+                        try:
+                            import json5
+
+                            obj = json5.loads(obj_text)
+                            objects.append(obj)
+                        except Exception:
+                            pass  # Skip malformed objects
+                    start_idx = None
+
+        if objects:
+            logger.info(f"Recovered {len(objects)} complete task objects from truncated response")
+            return objects
+
+        # Strategy 2: Try line-by-line parsing (for line-delimited JSON)
+        # Some models output JSONL format instead of a JSON array
+        lines = text.strip().split('\n')
+        for line in lines:
+            line = line.strip()
+            if line and line.startswith('{') and line.endswith('}'):
+                try:
+                    obj = json.loads(line)
+                    if isinstance(obj, dict) and 'id' in obj:
+                        objects.append(obj)
+                except json.JSONDecodeError:
+                    try:
+                        import json5
+                        obj = json5.loads(line)
+                        if isinstance(obj, dict) and 'id' in obj:
+                            objects.append(obj)
+                    except Exception:
+                        pass
+
+        if objects:
+            logger.info(f"Recovered {len(objects)} task objects from line-delimited JSON")
+            return objects
+
+        # Strategy 3: Try aggressive cleanup and re-parse
+        # Remove trailing commas, incomplete final objects, etc.
+        cleaned_text = text.strip()
+        # Remove leading '[' if present
+        if cleaned_text.startswith('['):
+            cleaned_text = cleaned_text[1:]
+        # Try to find the last complete object
+        last_brace = cleaned_text.rfind('}')
+        if last_brace > 0:
+            # Truncate to last complete object
+            truncated = cleaned_text[:last_brace + 1]
+            # Try to wrap in array brackets
+            try:
+                wrapped = '[' + truncated + ']'
+                items = json.loads(wrapped)
+                if isinstance(items, list) and items:
+                    logger.info(f"Recovered {len(items)} task objects via aggressive cleanup")
+                    return items
+            except json.JSONDecodeError:
+                pass
+
+        # Strategy 4: Look for "id": "task_" patterns and try to extract objects around them
+        # This is a last resort for badly malformed responses
+        task_matches = list(re.finditer(r'"id"\s*:\s*"task_[^"]*"', text))
+        if task_matches:
+            logger.warning(
+                f"Found {len(task_matches)} task IDs but couldn't parse full objects. "
+                "Response may be too truncated to recover."
+            )
+            # Try to extract objects by looking backwards from each task ID
+            for match in task_matches:
+                # Look for opening brace before this id
+                start = text.rfind('{', 0, match.start())
+                if start >= 0:
+                    # Look for closing brace after the id
+                    end = text.find('}', match.end())
+                    if end > 0:
+                        obj_text = text[start:end+1]
+                        try:
+                            obj = json.loads(obj_text)
+                            if isinstance(obj, dict) and 'id' in obj:
+                                objects.append(obj)
+                        except json.JSONDecodeError:
+                            pass
+
+            if objects:
+                logger.info(f"Recovered {len(objects)} task objects via pattern extraction")
+                return objects
+
+        return None
 
     def _parse_decomposition(self, text: str) -> dict[str, Task]:
         """
@@ -1827,10 +1954,28 @@ Each task JSON element MUST also include:
                     items = None
 
         if not isinstance(items, list):
+            # Enhanced error logging and recovery
             logger.error(
                 "Could not parse decomposition output as JSON. "
                 f"Raw response (first 500 chars): {text[:500]!r}"
             )
+
+            # Check if response looks truncated (starts with [ but doesn't end with ])
+            text_stripped = text.strip()
+            if text_stripped.startswith("[") and not text_stripped.endswith("]"):
+                logger.warning(
+                    "Response appears truncated - starts with '[' but doesn't end with ']'"
+                )
+                # Try to extract and complete partial JSON array
+                items = self._try_parse_partial_json_array(text_stripped)
+                if items is None:
+                    logger.error("Partial JSON recovery also failed")
+                    return {}
+            else:
+                return {}
+
+        # If we got here with partial recovery, validate items
+        if items is None or not isinstance(items, list):
             return {}
 
         tasks = {}
@@ -2024,6 +2169,7 @@ Each task JSON element MUST also include:
                             score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
+                            task_type=task.type.value,
                         )
                     return
 
@@ -2039,6 +2185,7 @@ Each task JSON element MUST also include:
                             score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
+                            task_type=task.type.value,
                         )
                     return
 
@@ -2154,6 +2301,7 @@ Each task JSON element MUST also include:
                             score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
+                            task_type=task.type.value,
                         )
                 elif all_finished:
                     runnable.append(task_id)
@@ -2166,6 +2314,7 @@ Each task JSON element MUST also include:
                             score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
+                            task_type=task.type.value,
                         )
 
             if not runnable:
@@ -2396,6 +2545,7 @@ Each task JSON element MUST also include:
                     score=0.0,
                     model_used=Model.GPT_4O_MINI,
                     status=TaskStatus.FAILED,
+                    task_type=task.type.value,
                 )
 
             primary = models[0]
@@ -2467,6 +2617,7 @@ Each task JSON element MUST also include:
                     deterministic_check_passed=True,
                     degraded_fallback_count=0,
                     attempt_history=[],
+                    task_type=task.type.value,
                 )
 
             full_prompt = task.prompt
@@ -2606,6 +2757,7 @@ Each task JSON element MUST also include:
             attempt_history: list[AttemptRecord] = []
             _failed_validator_names: list[str] = []
             model_escalated = False  # Track if we've tried model escalation
+            output = ""  # FIX-EXEC-002: Initialize output before generation loop
 
             logger.info(
                 f"Executing {task.id} ({task.type.value}): "
@@ -3526,6 +3678,7 @@ Each task JSON element MUST also include:
                 attempt_history=attempt_history,
                 preflight_result=_preflight_result,
                 preflight_passed=(_preflight_result is None or _preflight_result.passed),
+                task_type=task.type.value,
             )
 
     async def _run_preflight_check(
@@ -3589,11 +3742,19 @@ Each task JSON element MUST also include:
 
         # ENRICH or BLOCK — attempt one extra revision
         critique_text = pf_result.reason or pf_result.enrichment or "Improve the response quality."
+
+        # FIX-EXEC-003: Calculate dynamic timeout based on context size
+        # Base timeout + 1 second per 1000 characters of context
+        context_size = len(revised_prompt) if "revised_prompt" in locals() else len(task.prompt)
+        dynamic_timeout = 120 + (context_size // 1000)  # Base 120s + 1s per 1000 chars
+        dynamic_timeout = min(dynamic_timeout, 300)  # Cap at 300s
+
         logger.info(
-            "[preflight] %s task=%s — attempting 1 revision: %s",
+            "[preflight] %s task=%s — attempting 1 revision: %s (timeout=%ds)",
             pf_result.action.value.upper(),
             task.id,
             critique_text[:100],
+            dynamic_timeout,
         )
         try:
             revised_prompt, _rev_system = RevisionPrompt.build(
@@ -3605,7 +3766,7 @@ Each task JSON element MUST also include:
                 system=_rev_system,
                 max_tokens=task.max_output_tokens,
                 temperature=0.3,
-                timeout=120,
+                timeout=dynamic_timeout,
             )
             await self.budget.charge(gen_response.cost_usd, "generation")
             revised_output = gen_response.text
@@ -4342,10 +4503,13 @@ Each task JSON element MUST also include:
         Resume from last checkpoint.
         FIX #7: Restore persisted budget (spent_usd, phase_spent) instead of
         creating a fresh Budget. Only reset start_time for the new session.
+        FIX-RESUME-001: Preserve original_start_time for correct elapsed time calculation.
         """
         # Restore budget state from checkpoint
         self.budget.spent_usd = state.budget.spent_usd
         self.budget.phase_spent = dict(state.budget.phase_spent)
+        # Preserve original_start_time for elapsed time calculation when resuming
+        self.budget.original_start_time = state.budget.original_start_time
         # Reset start_time so the new session gets fresh wall-clock tracking
         self.budget.start_time = time.time()
 

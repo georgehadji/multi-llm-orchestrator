@@ -29,6 +29,9 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
+import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -467,6 +470,7 @@ class TestFirstGenerator:
             test_code=test_spec.test_code,
             implementation_code=implementation_code,
             task_type=task.type,
+            framework=framework,
         )
 
         logger.info(
@@ -487,6 +491,7 @@ class TestFirstGenerator:
                 errors=test_result.errors,
                 requirement=task.prompt,
                 model=target_model,
+                framework=framework,
             )
 
         # Build final result with accumulated cost
@@ -715,70 +720,176 @@ class TestFirstGenerator:
             logger.error(f"Implementation generation failed: {e}")
             return ""
 
-    async def _run_tests_and_collect_results(
+    def _check_pytest_available(self) -> bool:
+        """Check if pytest is installed and available."""
+        try:
+            result = subprocess.run(
+                ["python", "-m", "pytest", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
+    def _fix_test_imports(self, test_code: str) -> str:
+        """
+        Fix test imports to use 'main' module instead of original module names.
+
+        This allows tests to import from the implementation file (main.py)
+        when running in the temporary test directory.
+
+        Args:
+            test_code: Original test code
+
+        Returns:
+            Modified test code with imports fixed
+        """
+        import re
+
+        # Pattern 1: Replace common import patterns
+        # from mymodule import something -> from main import something
+        fixed_code = re.sub(
+            r"^from\s+[\w\.]+\s+import",
+            "from main import",
+            test_code,
+            flags=re.MULTILINE,
+        )
+
+        # Pattern 2: Replace import module patterns
+        # import mymodule -> import main as mymodule
+        # This is trickier - we need to preserve the alias
+        lines = fixed_code.split("\n")
+        for i, line in enumerate(lines):
+            match = re.match(r"^import\s+([\w\.]+)(?:\s+as\s+(\w+))?", line)
+            if match and not line.strip().startswith("#"):
+                module = match.group(1)
+                alias = match.group(2)
+                if module != "main":
+                    if alias:
+                        lines[i] = f"import main as {alias}"
+                    else:
+                        # Try to extract the last part of dotted module name
+                        last_part = module.split(".")[-1]
+                        lines[i] = f"import main as {last_part}"
+
+        fixed_code = "\n".join(lines)
+
+        return fixed_code
+
+    async def _run_tests_locally(
         self,
         test_code: str,
         implementation_code: str,
-        task_type: TaskType,
+        framework: TestingFramework = TestingFramework.PYTEST,
     ) -> TestExecutionResult:
         """
-        Phase 3: Run tests against implementation.
+        Run tests locally using subprocess when no sandbox is available.
+
+        SECURITY WARNING: This runs AI-generated code on your local system.
+        Only use in development/trusted environments. For production, configure
+        a Docker sandbox.
 
         Args:
-            test_code: Test suite
-            implementation_code: Implementation to test
-            task_type: Type of task
+            test_code: Test suite code
+            implementation_code: Implementation code to test
+            framework: Testing framework to use
 
         Returns:
             TestExecutionResult with pass/fail info
         """
-        if task_type != TaskType.CODE_GEN:
-            # Non-code tasks don't have executable tests
-            return TestExecutionResult(
-                passed=True,
-                tests_run=0,
-                tests_passed=0,
-                tests_failed=0,
-            )
+        logger.info("Running tests locally (no sandbox configured)")
+        logger.warning(
+            "SECURITY: Running AI-generated code without sandbox isolation. "
+            "Configure Docker sandbox for production use."
+        )
 
-        # Guard: sandbox is required for test execution
-        if self.sandbox is None:
-            logger.warning(
-                "No sandbox configured — skipping test execution, returning neutral result"
-            )
-            return TestExecutionResult(
-                passed=True,
-                tests_run=0,
-                tests_passed=0,
-                tests_failed=0,
-            )
+        # Check framework availability
+        if framework == TestingFramework.PYTEST:
+            if not self._check_pytest_available():
+                return TestExecutionResult(
+                    passed=False,
+                    tests_run=0,
+                    tests_passed=0,
+                    tests_failed=0,
+                    errors=["pytest not installed. Install with: pip install pytest"],
+                    output="pytest not available",
+                )
+        elif framework in [TestingFramework.JEST, TestingFramework.VITEST, TestingFramework.MOCHA]:
+            if not self._check_npm_available():
+                return TestExecutionResult(
+                    passed=False,
+                    tests_run=0,
+                    tests_passed=0,
+                    tests_failed=0,
+                    errors=["npm not installed. Node.js required for JavaScript tests."],
+                    output="npm not available",
+                )
 
-        # Prepare files for test execution
-        code_files = {
-            "main.py": implementation_code,
-            "test_main.py": test_code,
-        }
+        # Create temporary directory for test files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
 
-        # Run pytest
-        command = "python -m pytest test_main.py -v --tb=short"
+            # Run tests based on framework
+            if framework == TestingFramework.PYTEST:
+                # Write implementation and test files
+                main_file = temp_path / "main.py"
+                test_file = temp_path / "test_main.py"
 
+                main_file.write_text(implementation_code)
+
+                # Fix imports in test code to use 'main' module
+                fixed_test_code = self._fix_test_imports(test_code)
+                test_file.write_text(fixed_test_code)
+
+                return await self._run_pytest_locally(
+                    temp_dir, implementation_code, fixed_test_code
+                )
+            elif framework in [TestingFramework.JEST, TestingFramework.VITEST, TestingFramework.MOCHA]:
+                return await self._run_npm_tests_locally(
+                    temp_dir, implementation_code, test_code, framework
+                )
+            elif framework == TestingFramework.GO_TEST:
+                return await self._run_go_tests_locally(
+                    temp_dir, implementation_code, test_code
+                )
+            elif framework == TestingFramework.CARGO_TEST:
+                return await self._run_cargo_tests_locally(
+                    temp_dir, implementation_code, test_code
+                )
+            else:
+                return TestExecutionResult(
+                    passed=True,
+                    tests_run=0,
+                    tests_passed=0,
+                    tests_failed=0,
+                    errors=[f"Framework {framework.value} not supported for local execution"],
+                    output=f"Unsupported framework: {framework.value}",
+                )
+
+    async def _run_pytest_locally(
+        self, temp_dir: str, implementation_code: str, test_code: str
+    ) -> TestExecutionResult:
+        """Run pytest tests locally."""
         try:
-            result = await self.sandbox.execute(
-                code_files=code_files,
-                command=command,
-                timeout=60,
+            result = subprocess.run(
+                ["python", "-m", "pytest", "test_main.py", "-v", "--tb=short"],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+                timeout=120,  # Increased timeout for complex tests
             )
 
-            # Parse pytest output
-            passed = result.return_code == 0
-            output = result.output + result.error
+            output = result.stdout + result.stderr
+            passed = result.returncode == 0
 
             # Extract test counts from pytest output
             tests_run, tests_passed = self._parse_pytest_output(output)
             tests_failed = tests_run - tests_passed
 
-            # Estimate coverage (simplified - would need coverage.py for real metrics)
-            coverage_percent = self._estimate_coverage(
+            # Calculate test quality score (not real coverage)
+            quality_score = self._calculate_test_quality(
                 implementation_code, test_code, tests_passed, tests_run
             )
 
@@ -793,12 +904,21 @@ class TestFirstGenerator:
                 tests_passed=tests_passed,
                 tests_failed=tests_failed,
                 errors=errors,
-                coverage_percent=coverage_percent,
+                coverage_percent=quality_score,
                 output=output,
             )
 
+        except subprocess.TimeoutExpired:
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=["Test execution timed out after 120 seconds"],
+                output="Test execution timed out",
+            )
         except Exception as e:
-            logger.error(f"Test execution failed: {e}")
+            logger.error(f"Local test execution failed: {e}")
             return TestExecutionResult(
                 passed=False,
                 tests_run=0,
@@ -807,6 +927,468 @@ class TestFirstGenerator:
                 errors=[str(e)],
             )
 
+    def _check_npm_available(self) -> bool:
+        """Check if npm is installed and available."""
+        try:
+            result = subprocess.run(
+                ["npm", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
+    async def _run_npm_tests_locally(
+        self,
+        temp_dir: str,
+        implementation_code: str,
+        test_code: str,
+        framework: TestingFramework,
+    ) -> TestExecutionResult:
+        """Run npm-based tests (Jest/Vitest/Mocha) locally."""
+        import json
+
+        try:
+            # Determine file extensions based on framework
+            if framework == TestingFramework.VITEST:
+                impl_ext = ".ts"
+                test_ext = ".test.ts"
+                test_runner = "vitest"
+                dev_deps = {"vitest": "^1.0.0", "typescript": "^5.0.0"}
+            elif framework == TestingFramework.MOCHA:
+                impl_ext = ".js"
+                test_ext = ".test.js"
+                test_runner = "mocha"
+                dev_deps = {"mocha": "^10.0.0", "chai": "^4.3.0"}
+            else:  # JEST
+                impl_ext = ".js"
+                test_ext = ".test.js"
+                test_runner = "jest"
+                dev_deps = {"jest": "^29.0.0"}
+
+            # Create package.json with test script and dependencies
+            package_json = {
+                "name": "test-project",
+                "version": "1.0.0",
+                "type": "module",
+                "scripts": {
+                    "test": f"{test_runner} --colors"
+                },
+                "devDependencies": dev_deps,
+            }
+
+            (Path(temp_dir) / "package.json").write_text(json.dumps(package_json, indent=2))
+
+            # Write implementation file
+            impl_file = Path(temp_dir) / f"main{impl_ext}"
+            impl_file.write_text(implementation_code)
+
+            # Write test file with proper extension
+            test_file = Path(temp_dir) / f"main{test_ext}"
+            test_file.write_text(test_code)
+
+            # Install dependencies first
+            install_result = subprocess.run(
+                ["npm", "install"],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+
+            if install_result.returncode != 0:
+                return TestExecutionResult(
+                    passed=False,
+                    tests_run=0,
+                    tests_passed=0,
+                    tests_failed=0,
+                    errors=[f"npm install failed: {install_result.stderr}"],
+                    output=install_result.stdout + install_result.stderr,
+                )
+
+            # Run npm test
+            result = subprocess.run(
+                ["npm", "test"],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+
+            output = result.stdout + result.stderr
+            passed = result.returncode == 0
+
+            # Parse npm test output
+            tests_run, tests_passed = self._parse_npm_test_output(output)
+            tests_failed = tests_run - tests_passed
+
+            # Calculate test quality score
+            quality_score = self._calculate_test_quality(
+                implementation_code, test_code, tests_passed, tests_run
+            )
+
+            # Extract errors
+            errors = []
+            if not passed:
+                errors = self._extract_test_errors(output)
+
+            return TestExecutionResult(
+                passed=passed,
+                tests_run=tests_run,
+                tests_passed=tests_passed,
+                tests_failed=tests_failed,
+                errors=errors,
+                coverage_percent=quality_score,
+                output=output,
+            )
+
+        except subprocess.TimeoutExpired:
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=["Test execution timed out after 120 seconds"],
+                output="Test execution timed out",
+            )
+        except Exception as e:
+            logger.error(f"Local npm test execution failed: {e}")
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=[str(e)],
+            )
+
+    def _parse_npm_test_output(self, output: str) -> tuple[int, int]:
+        """
+        Parse npm test output to extract test counts from Jest/Vitest/Mocha.
+
+        Handles various output formats:
+        - Jest: "Tests: 5 passed, 2 failed"
+        - Vitest: "Test Files  3 passed (3)"
+        - Mocha: "passing (5)" / "failing (2)"
+        """
+        import re
+
+        tests_passed = 0
+        tests_failed = 0
+
+        # Jest patterns
+        jest_passed = re.search(r"Tests:\s*(\d+)\s*passed", output)
+        jest_failed = re.search(r"Tests:\s*(\d+)\s*failed", output)
+        if jest_passed:
+            tests_passed = int(jest_passed.group(1))
+        if jest_failed:
+            tests_failed = int(jest_failed.group(1))
+
+        # Vitest patterns
+        if tests_passed == 0 and tests_failed == 0:
+            vitest_passed = re.search(r"Test Files\s+(\d+)\s+passed", output)
+            vitest_failed = re.search(r"Test Files\s+(\d+)\s+failed", output)
+            if vitest_passed:
+                tests_passed = int(vitest_passed.group(1))
+            if vitest_failed:
+                tests_failed = int(vitest_failed.group(1))
+
+        # Mocha patterns
+        if tests_passed == 0 and tests_failed == 0:
+            mocha_passing = re.search(r"passing\s*\((\d+)\)", output)
+            mocha_failing = re.search(r"failing\s*\((\d+)\)", output)
+            if mocha_passing:
+                tests_passed = int(mocha_passing.group(1))
+            if mocha_failing:
+                tests_failed = int(mocha_failing.group(1))
+
+        # Fallback: count PASS/FAIL lines for Jest
+        if tests_passed == 0 and tests_failed == 0:
+            tests_passed = output.count(" PASS ")
+            tests_failed = output.count(" FAIL ")
+
+        # Count individual test results from Jest/Vitest detail lines
+        if tests_passed == 0 and tests_failed == 0:
+            tests_passed = len(re.findall(r"\u2713\s+|\u2714\s+|PASS\s+|✓\s+|✔\s+", output))
+            tests_failed = len(re.findall(r"\u2717\s+|\u2718\s+|FAIL\s+|✗\s+|✘\s+", output))
+
+        tests_run = tests_passed + tests_failed
+        return tests_run, tests_passed
+
+    async def _run_go_tests_locally(
+        self, temp_dir: str, implementation_code: str, test_code: str
+    ) -> TestExecutionResult:
+        """Run Go tests locally."""
+        try:
+            # Check if Go is available
+            result = subprocess.run(
+                ["go", "version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return TestExecutionResult(
+                    passed=False,
+                    tests_run=0,
+                    tests_passed=0,
+                    tests_failed=0,
+                    errors=["Go not installed or not available"],
+                    output="Go not available",
+                )
+
+            # Write go.mod
+            (Path(temp_dir) / "go.mod").write_text("module test-project\n\ngo 1.21\n")
+
+            # Write implementation and test files
+            (Path(temp_dir) / "main.go").write_text(implementation_code)
+            (Path(temp_dir) / "main_test.go").write_text(test_code)
+
+            # Run tests
+            result = subprocess.run(
+                ["go", "test", "-v"],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+
+            output = result.stdout + result.stderr
+            passed = result.returncode == 0
+
+            # Parse Go test output
+            tests_passed = output.count("PASS:")
+            tests_failed = output.count("FAIL:")
+            tests_run = tests_passed + tests_failed
+
+            # Fallback: parse "--- PASS:" and "--- FAIL:" patterns
+            if tests_run == 0:
+                tests_passed = len(re.findall(r"---\s+PASS:", output))
+                tests_failed = len(re.findall(r"---\s+FAIL:", output))
+                tests_run = tests_passed + tests_failed
+
+            quality_score = self._calculate_test_quality(
+                implementation_code, test_code, tests_passed, tests_run
+            )
+
+            errors = []
+            if not passed:
+                errors = self._extract_test_errors(output)
+
+            return TestExecutionResult(
+                passed=passed,
+                tests_run=tests_run,
+                tests_passed=tests_passed,
+                tests_failed=tests_failed,
+                errors=errors,
+                coverage_percent=quality_score,
+                output=output,
+            )
+
+        except subprocess.TimeoutExpired:
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=["Go test execution timed out"],
+                output="Test execution timed out",
+            )
+        except Exception as e:
+            logger.error(f"Go test execution failed: {e}")
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=[str(e)],
+            )
+
+    async def _run_cargo_tests_locally(
+        self, temp_dir: str, implementation_code: str, test_code: str
+    ) -> TestExecutionResult:
+        """Run Rust/Cargo tests locally."""
+        try:
+            # Check if Cargo is available
+            result = subprocess.run(
+                ["cargo", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return TestExecutionResult(
+                    passed=False,
+                    tests_run=0,
+                    tests_passed=0,
+                    tests_failed=0,
+                    errors=["Cargo not installed or not available"],
+                    output="Cargo not available",
+                )
+
+            # Create Cargo.toml
+            cargo_toml = """[package]
+name = "test-project"
+version = "0.1.0"
+edition = "2021"
+"""
+            (Path(temp_dir) / "Cargo.toml").write_text(cargo_toml)
+
+            # Create src directory and write files
+            src_dir = Path(temp_dir) / "src"
+            src_dir.mkdir(exist_ok=True)
+
+            (src_dir / "lib.rs").write_text(implementation_code + "\n\n" + test_code)
+
+            # Run tests
+            result = subprocess.run(
+                ["cargo", "test"],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+
+            output = result.stdout + result.stderr
+            passed = result.returncode == 0
+
+            # Parse Cargo test output
+            # Pattern: "test result: ok. 5 passed; 2 failed;"
+            match = re.search(r"test result:\s+\w+\.\s+(\d+)\s+passed;\s+(\d+)\s+failed;", output)
+            if match:
+                tests_passed = int(match.group(1))
+                tests_failed = int(match.group(2))
+            else:
+                tests_passed = output.count("test ... ok") if passed else 0
+                tests_failed = output.count("test ... FAILED") if not passed else 0
+
+            tests_run = tests_passed + tests_failed
+
+            quality_score = self._calculate_test_quality(
+                implementation_code, test_code, tests_passed, tests_run
+            )
+
+            errors = []
+            if not passed:
+                errors = self._extract_test_errors(output)
+
+            return TestExecutionResult(
+                passed=passed,
+                tests_run=tests_run,
+                tests_passed=tests_passed,
+                tests_failed=tests_failed,
+                errors=errors,
+                coverage_percent=quality_score,
+                output=output,
+            )
+
+        except subprocess.TimeoutExpired:
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=["Cargo test execution timed out"],
+                output="Test execution timed out",
+            )
+        except Exception as e:
+            logger.error(f"Cargo test execution failed: {e}")
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=[str(e)],
+            )
+
+    async def _run_tests_and_collect_results(
+        self,
+        test_code: str,
+        implementation_code: str,
+        task_type: TaskType,
+        framework: TestingFramework = TestingFramework.PYTEST,
+    ) -> TestExecutionResult:
+        """
+        Phase 3: Run tests against implementation.
+
+        Args:
+            test_code: Test suite
+            implementation_code: Implementation to test
+            task_type: Type of task
+            framework: Testing framework to use
+
+        Returns:
+            TestExecutionResult with pass/fail info
+        """
+        if task_type != TaskType.CODE_GEN:
+            # Non-code tasks don't have executable tests
+            return TestExecutionResult(
+                passed=True,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+            )
+
+        # Try sandbox first if available, otherwise use local test runner
+        if self.sandbox is not None:
+            # Use sandbox for test execution
+            code_files = {
+                "main.py": implementation_code,
+                "test_main.py": test_code,
+            }
+
+            # Run pytest
+            command = "python -m pytest test_main.py -v --tb=short"
+
+            try:
+                result = await self.sandbox.execute(
+                    code_files=code_files,
+                    command=command,
+                    timeout=60,
+                )
+
+                # Parse pytest output
+                passed = result.return_code == 0
+                output = result.output + result.error
+
+                # Extract test counts from pytest output
+                tests_run, tests_passed = self._parse_pytest_output(output)
+                tests_failed = tests_run - tests_passed
+
+                # Calculate test quality score (simplified - would need coverage.py for real metrics)
+                quality_score = self._calculate_test_quality(
+                    implementation_code, test_code, tests_passed, tests_run
+                )
+
+                # Extract errors
+                errors = []
+                if not passed:
+                    errors = self._extract_test_errors(output)
+
+                return TestExecutionResult(
+                    passed=passed,
+                    tests_run=tests_run,
+                    tests_passed=tests_passed,
+                    tests_failed=tests_failed,
+                    errors=errors,
+                    coverage_percent=quality_score,
+                    output=output,
+                )
+
+            except Exception as e:
+                logger.error(f"Test execution failed: {e}")
+                return TestExecutionResult(
+                    passed=False,
+                    tests_run=0,
+                    tests_passed=0,
+                    tests_failed=0,
+                    errors=[str(e)],
+                )
+        else:
+            # No sandbox available - run tests locally
+            return await self._run_tests_locally(test_code, implementation_code, framework)
+
     async def _repair_to_pass_tests(
         self,
         tests: str,
@@ -814,6 +1396,7 @@ class TestFirstGenerator:
         errors: list[str],
         requirement: str,
         model: Model,
+        framework: TestingFramework = TestingFramework.PYTEST,
     ) -> tuple[str, TestExecutionResult, int]:
         """
         Phase 4: Self-heal implementation to pass tests.
@@ -824,6 +1407,7 @@ class TestFirstGenerator:
             errors: Test errors to fix
             requirement: Original requirement
             model: Model to use
+            framework: Testing framework to use
 
         Returns:
             Tuple of (fixed code, test result, iterations)
@@ -872,6 +1456,7 @@ class TestFirstGenerator:
                     test_code=tests,
                     implementation_code=current_code,
                     task_type=TaskType.CODE_GEN,
+                    framework=framework,
                 )
 
                 if test_result.passed:
@@ -892,6 +1477,7 @@ class TestFirstGenerator:
             test_code=tests,
             implementation_code=current_code,
             task_type=TaskType.CODE_GEN,
+            framework=framework,
         )
         return current_code, final_result, iterations
 
@@ -948,28 +1534,7 @@ class TestFirstGenerator:
 
         return edge_cases
 
-    def _parse_pytest_output(self, output: str) -> tuple[int, int]:
-        """Parse pytest output to extract test counts."""
-        import re
-
-        # Look for pattern: "X passed, Y failed" or "X passed"
-        passed_match = re.search(r"(\d+) passed", output)
-        failed_match = re.search(r"(\d+) failed", output)
-
-        tests_passed = int(passed_match.group(1)) if passed_match else 0
-        tests_failed = int(failed_match.group(1)) if failed_match else 0
-
-        tests_run = tests_passed + tests_failed
-
-        # If no summary found, try counting test functions
-        if tests_run == 0:
-            tests_passed = output.count("PASSED")
-            tests_failed = output.count("FAILED")
-            tests_run = tests_passed + tests_failed
-
-        return tests_run, tests_passed
-
-    def _estimate_coverage(
+    def _calculate_test_quality(
         self,
         implementation: str,
         tests: str,
@@ -977,27 +1542,101 @@ class TestFirstGenerator:
         total: int,
     ) -> float:
         """
-        Estimate test coverage (simplified).
+        Calculate test quality score (NOT real code coverage).
 
-        Real coverage would require coverage.py integration.
-        This is a rough estimate based on test pass rate.
+        This is a heuristic score based on:
+        - Test pass rate
+        - Test-to-code line ratio
+
+        Real code coverage requires coverage.py or similar tools.
+        This score is meant to give a rough indication of test quality.
+
+        Args:
+            implementation: Implementation code
+            tests: Test code
+            passed: Number of tests passed
+            total: Total number of tests
+
+        Returns:
+            Quality score from 0.0 to 100.0
         """
         if total == 0:
             return 0.0
 
-        # Base coverage on test pass rate
+        # Base score on test pass rate
         pass_rate = passed / total
 
         # Adjust based on test-to-code ratio
+        # Good ratio is ~1:2 to 1:1 (test:code)
         test_lines = len(tests.split("\n"))
         code_lines = len(implementation.split("\n"))
-
-        # Good ratio is ~1:2 to 1:1 (test:code)
         ratio = test_lines / max(1, code_lines)
         ratio_factor = min(1.0, ratio * 2)  # Cap at 1.0
 
-        coverage = pass_rate * ratio_factor * 100
-        return min(100.0, coverage)
+        # Quality score = pass rate * ratio factor * 100
+        quality = pass_rate * ratio_factor * 100
+        return min(100.0, quality)
+
+    def _parse_pytest_output(self, output: str) -> tuple[int, int]:
+        """
+        Parse pytest output to extract test counts.
+
+        Handles various pytest output formats:
+        - "1 passed, 2 failed"
+        - "1 passed, 1 warning"
+        - "1 failed, 1 error"
+        - "1 passed, 1 skipped"
+        - "no tests ran"
+        - Individual PASSED/FAILED lines
+
+        Args:
+            output: pytest output text
+
+        Returns:
+            Tuple of (tests_run, tests_passed)
+        """
+        import re
+
+        # Try to find the summary line first
+        # Pattern: "X passed, Y failed, Z skipped, W errors"
+        summary_patterns = [
+            r"(\d+)\s+passed,\s*(\d+)\s+failed",
+            r"(\d+)\s+passed\s+in",  # "1 passed in 0.1s"
+            r"(\d+)\s+failed\s+in",  # "1 failed in 0.1s"
+            r"(\d+)\s+passed,\s*(\d+)\s+warning",
+            r"(\d+)\s+passed,\s*(\d+)\s+skipped",
+            r"(\d+)\s+error",
+        ]
+
+        tests_passed = 0
+        tests_failed = 0
+
+        for pattern in summary_patterns:
+            match = re.search(pattern, output)
+            if match:
+                tests_passed = int(match.group(1))
+                if len(match.groups()) > 1:
+                    tests_failed = int(match.group(2))
+                break
+
+        tests_run = tests_passed + tests_failed
+
+        # If no summary found, try counting individual test results
+        if tests_run == 0:
+            # Count PASSED and FAILED lines (more reliable for some output formats)
+            passed_lines = re.findall(r"^.*\sPASSED\s*$", output, re.MULTILINE)
+            failed_lines = re.findall(r"^.*\sFAILED\s*$", output, re.MULTILINE)
+
+            tests_passed = len(passed_lines)
+            tests_failed = len(failed_lines)
+            tests_run = tests_passed + tests_failed
+
+        # Handle "no tests ran" or "collected 0 items"
+        if tests_run == 0:
+            if "no tests ran" in output.lower() or "collected 0 items" in output:
+                return 0, 0
+
+        return tests_run, tests_passed
 
     def _extract_test_errors(self, output: str) -> list[str]:
         """Extract error messages from pytest output."""
