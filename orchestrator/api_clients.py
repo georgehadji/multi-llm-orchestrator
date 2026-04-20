@@ -18,7 +18,7 @@ import asyncio
 import logging
 import time
 
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from openai import AsyncOpenAI
 
@@ -33,6 +33,7 @@ from .models import (
     get_provider
 )
 from .model_registry import ModelRegistry
+from .resilience import ResiliencePolicy, resolve_fallback_chain, run_with_resilience
 from .task_schemas import generate_openrouter_schema
 from .tracing import traced_llm_call
 
@@ -234,6 +235,7 @@ class UnifiedClient:
         task_type: TaskType | None = None,
         response_schema: bool = False,
         fallback_models: list[str] | None = None,
+        policy: ResiliencePolicy | None = None,
     ) -> APIResponse:
         """
         Unified call with model validation → cache check → semaphore → retry → OpenRouter dispatch.
@@ -250,6 +252,9 @@ class UnifiedClient:
             task_type: Task type for variant/strategy selection
             response_schema: Use JSON schema structured output (requires task_type)
             fallback_models: List of fallback model IDs for OpenRouter native fallbacks
+            policy: Optional ResiliencePolicy. When provided, retries and model-level
+                    fallback cascade are handled by the resilience layer instead of
+                    the legacy manual loop.
 
         Note: Validates model availability before making API call.
         If model is unavailable and a replacement is configured, silently redirects
@@ -298,12 +303,22 @@ class UnifiedClient:
         async with self.circuit_breaker.context():
             async with self.semaphore:
                 with traced_llm_call(model_id, "api_call") as span:
-                    response = await self._call_with_retry(
-                        model, prompt, system, max_tokens, temperature, timeout, retries,
-                        task_type=task_type,
-                        response_schema=response_schema,
-                        fallback_models=fallback_models,
-                    )
+                    if policy is not None:
+                        response = await self._call_with_policy(
+                            model, prompt, system, max_tokens, temperature,
+                            policy=policy,
+                            task_type=task_type,
+                            response_schema=response_schema,
+                            fallback_models=fallback_models,
+                        )
+                    else:
+                        # LEGACY: remove after full migration to ResiliencePolicy
+                        response = await self._call_with_retry(
+                            model, prompt, system, max_tokens, temperature, timeout, retries,
+                            task_type=task_type,
+                            response_schema=response_schema,
+                            fallback_models=fallback_models,
+                        )
                     span.set_attribute("llm.tokens_in", response.input_tokens)
                     span.set_attribute("llm.tokens_out", response.output_tokens)
                     span.set_attribute("llm.cost_usd", response.cost_usd)
@@ -401,12 +416,9 @@ class UnifiedClient:
                 logger.warning(f"Timeout calling {model_id} (attempt {attempt + 1})")
                 last_error = TimeoutError(f"{model_id} timed out after {timeout}s")
             except asyncio.CancelledError:
-                elapsed = time.monotonic() - t0
-                logger.warning(
-                    f"Timeout calling {model_id} (attempt {attempt + 1}) "
-                    f"[CancelledError after {elapsed:.1f}s]"
-                )
-                last_error = TimeoutError(f"{model_id} timed out after {timeout}s")
+                # Must re-raise — swallowing CancelledError breaks asyncio.wait_for
+                # callers and can hang the entire orchestration loop.
+                raise
             except Exception as e:
                 logger.warning(f"Error calling {model_id}: {e} (attempt {attempt + 1})")
                 last_error = e
@@ -424,6 +436,66 @@ class UnifiedClient:
                     continue
 
         raise last_error or RuntimeError(f"Failed to call {model_id}")
+
+    async def _call_with_policy(
+        self,
+        model: Model | str,
+        prompt: str,
+        system: str,
+        max_tokens: int,
+        temperature: float,
+        policy: ResiliencePolicy,
+        task_type: TaskType | None = None,
+        response_schema: bool = False,
+        fallback_models: list[str] | None = None,
+    ) -> APIResponse:
+        """Dispatch with ResiliencePolicy: tenacity retries + model cascade fallback."""
+
+        def _make_callable(m: Model | str) -> Callable[[], Awaitable[APIResponse]]:
+            async def _callable() -> APIResponse:
+                t0 = time.monotonic()
+                response = await asyncio.wait_for(
+                    self._dispatch(
+                        m, prompt, system, max_tokens, temperature,
+                        task_type=task_type,
+                        response_schema=response_schema,
+                        fallback_models=fallback_models,
+                    ),
+                    timeout=policy.timeout,
+                )
+                response.latency_ms = (time.monotonic() - t0) * 1000
+
+                mid = m.value if isinstance(m, Model) else m
+                await self.cache.put(
+                    mid,
+                    prompt,
+                    max_tokens,
+                    response.text,
+                    response.input_tokens,
+                    response.output_tokens,
+                    system,
+                    temperature,
+                )
+                return response
+
+            return _callable
+
+        # Primary model (already validated in call())
+        callables = [_make_callable(model)]
+
+        # Append fallback chain from policy or static FALLBACK_CHAIN
+        chain = policy.fallback_chain
+        if chain is None:
+            try:
+                from_model = model if isinstance(model, Model) else Model(model)
+                chain = tuple(resolve_fallback_chain(from_model))
+            except ValueError:
+                chain = ()
+
+        for fallback_model in chain:
+            callables.append(_make_callable(fallback_model))
+
+        return await run_with_resilience(callables, policy)
 
     async def _dispatch(
         self, 

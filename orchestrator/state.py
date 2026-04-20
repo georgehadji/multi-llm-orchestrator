@@ -135,6 +135,7 @@ def _attempt_from_dict(d: dict) -> AttemptRecord:
 def _result_to_dict(r: TaskResult) -> dict:
     return {
         "task_id": r.task_id,
+        "task_type": r.task_type if hasattr(r, "task_type") else "",
         "output": r.output,
         "score": r.score,
         "model_used": r.model_used.value,
@@ -163,6 +164,7 @@ def _result_from_dict(d: dict) -> TaskResult:
 
     return TaskResult(
         task_id=d["task_id"],
+        task_type=d.get("task_type", ""),
         output=d["output"],
         score=d["score"],
         model_used=_safe_model(d["model_used"]),

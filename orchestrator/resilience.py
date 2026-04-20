@@ -229,7 +229,10 @@ async def run_with_resilience(
         )
         breaker_callables: list[Callable[[], Awaitable[T]]] = []
         for fn, mid in zip(callables, model_ids):
-            cb = registry.get_sync(mid)
+            # Use the async-safe registry.get() to avoid the race condition in
+            # get_sync() where two concurrent callers create duplicate breakers
+            # for the same model_id, splitting failure counts across two objects.
+            cb = await registry.get(mid)
 
             async def _wrapped(fn=fn, cb=cb) -> T:  # type: ignore[return]
                 async with cb.context():

@@ -189,8 +189,12 @@ class CircuitBreaker:
             await self.record_success()
         except CircuitBreakerOpen:
             raise
-        except Exception as exc:
-            await self.record_failure(exc)
+        except BaseException as exc:
+            # Catches CancelledError (BaseException in Python ≥ 3.8) so that a
+            # cancelled probe doesn't leave probe_in_flight=True forever.
+            if not isinstance(exc, CircuitBreakerOpen):
+                err = exc if isinstance(exc, Exception) else None
+                await self.record_failure(err)
             raise
 
     def stats(self) -> dict[str, object]:

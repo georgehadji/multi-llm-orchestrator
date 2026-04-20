@@ -117,9 +117,13 @@ class ConcurrencyBudget:
         Raises:
             TimeoutError: If budget not available within timeout
         """
-        int(estimated_cost * 100)
+        # Cost is tracked in integer cents so the semaphore unit = 1 cent.
+        # We MUST save this value and acquire/release exactly cost_cents units —
+        # previously this line computed the value and immediately discarded it,
+        # so every job acquired exactly 1 cent regardless of estimated_cost.
+        cost_cents = max(1, int(estimated_cost * 100))
         job_acquired = False
-        cost_acquired = False
+        cost_acquired = 0          # tracks how many cent-units we hold (for safe release)
         start_time = time.monotonic()
 
         try:
@@ -134,13 +138,14 @@ class ConcurrencyBudget:
                     f"(max_concurrent_jobs={self.max_concurrent_jobs})"
                 )
 
-            # Acquire cost budget
+            # Acquire cost_cents units one-by-one (asyncio.Semaphore has no batch acquire)
             try:
-                await asyncio.wait_for(
-                    self._cost_semaphore.acquire(),
-                    timeout=max(0.1, timeout_seconds - (time.monotonic() - start_time)),
-                )
-                cost_acquired = True
+                for _ in range(cost_cents):
+                    await asyncio.wait_for(
+                        self._cost_semaphore.acquire(),
+                        timeout=max(0.1, timeout_seconds - (time.monotonic() - start_time)),
+                    )
+                    cost_acquired += 1
             except asyncio.TimeoutError:
                 self._jobs_rejected += 1
                 raise TimeoutError(
@@ -158,8 +163,8 @@ class ConcurrencyBudget:
             yield self
 
         finally:
-            # Release semaphores
-            if cost_acquired:
+            # Release exactly the units we acquired (handles partial acquisition on timeout)
+            for _ in range(cost_acquired):
                 self._cost_semaphore.release()
             if job_acquired:
                 self._job_semaphore.release()
