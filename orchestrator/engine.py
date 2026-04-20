@@ -59,6 +59,7 @@ from .models import (
     estimate_cost,
     get_provider,
 )
+from .resilience import ResiliencePolicy, RetryTemplate
 from .semantic_cache import SemanticCache
 from .validators import all_validators_pass, async_run_validators
 from .exceptions import OrchestratorError, TruncatedResponseError
@@ -370,27 +371,11 @@ class Orchestrator:
         self.state_mgr = state_manager or StateManager()
         self.client = UnifiedClient(cache=self.cache, max_concurrency=max_concurrency)
 
-        # ── Application-layer services ──────────────────────────────────────
-        # ExecutorService: wraps _execute_task; implementation migrates in Phase 2.
-        from .services.executor import ExecutorService as _ExecutorService
-        from .services.evaluator import EvaluatorService as _EvaluatorService
-        from .services.generator import GeneratorService as _GeneratorService
         from .concurrency_controller import TaskConcurrencyGuard as _TaskGuard
 
         self._task_guard = _TaskGuard(name="tasks", max_concurrent=max_concurrency)
-        self._executor = _ExecutorService(
-            execute_fn=self._execute_task,
-            guard=self._task_guard,
-        )
+        _tracer = get_tracer() if get_tracer is not None else None
 
-        self._evaluator = _EvaluatorService(
-            client=self.client,
-            budget=self.budget,
-            get_models_fn=self._get_available_models,
-        )
-
-        self._generator = _GeneratorService(decompose_fn=self._decompose)
-        
         # Initialize _project_id early for consistent canary assignment
         self._project_id: str = ""
 
@@ -448,6 +433,41 @@ class Orchestrator:
         )
         self._selector = ModelSelector(self.api_health, self._get_available_models)
         self._telemetry = TelemetryCollector(self._profiles)
+
+        # ── Application-layer services (wired AFTER telemetry init) ─────────
+        from .services.executor import ExecutorService as _ExecutorService
+        from .services.evaluator import EvaluatorService as _EvaluatorService
+        from .services.generator import GeneratorService as _GeneratorService
+        from .services.observability import ObservabilityService as _ObsService
+        from .circuit_breaker import CircuitBreakerRegistry as _CBRegistry
+
+        self.observability = _ObsService()
+        self._cb_registry = _CBRegistry(
+            failure_threshold=5,
+            reset_timeout=60.0,
+            success_threshold=2,
+        )
+
+        self._executor = _ExecutorService(
+            execute_fn=self._execute_task,
+            guard=self._task_guard,
+            tracer=_tracer,
+            telemetry=self._telemetry,
+        )
+
+        self._evaluator = _EvaluatorService(
+            client=self.client,
+            budget=self.budget,
+            get_models_fn=self._get_available_models,
+            tracer=_tracer,
+            telemetry=self._telemetry,
+        )
+
+        self._generator = _GeneratorService(
+            decompose_fn=self._decompose,
+            tracer=_tracer,
+        )
+
         # Active policy set — replaced by run_job(); empty = no restrictions
         self._active_policies: PolicySet = PolicySet()
         # Context truncation limit per dependency (chars) — configurable.
@@ -1481,7 +1501,8 @@ class Orchestrator:
 
                 # Phase 1: Decompose
                 gen_result = await self._generator.decompose(
-                    project_description, success_criteria, app_profile=app_profile
+                    project_description, success_criteria, app_profile=app_profile,
+                    policy=RetryTemplate.DECOMPOSE.to_policy(),
                 )
                 if not gen_result.succeeded:
                     logger.error("Decomposition failed: %s", gen_result.error)
@@ -1700,7 +1721,10 @@ class Orchestrator:
         )
         from .models import ROUTING_TABLE
 
-        gen_result = await self._generator.decompose(project_description, success_criteria)
+        gen_result = await self._generator.decompose(
+            project_description, success_criteria,
+            policy=RetryTemplate.DECOMPOSE.to_policy(),
+        )
         tasks = gen_result.tasks if gen_result.succeeded else {}
 
         # Validate budget sufficiency for task count
@@ -1771,7 +1795,7 @@ class Orchestrator:
     # ─────────────────────────────────────────
 
     async def _decompose(
-        self, project: str, criteria: str, app_profile: AppProfile | None = None
+        self, project: str, criteria: str, app_profile: AppProfile | None = None, policy: ResiliencePolicy | None = None
     ) -> dict[str, Task]:
         """Use cheapest capable model to break project into atomic tasks."""
         valid_types = [t.value for t in TaskType]
@@ -1896,6 +1920,9 @@ Each task JSON element MUST also include:
             if use_json_schema:
                 call_args["task_type"] = TaskType.REASONING
                 call_args["response_schema"] = True
+
+            if policy is not None:
+                call_args["policy"] = policy
             
             resp = await self.client.call(**call_args)
             last_response_text = resp.text  # Capture for error logging
@@ -2503,7 +2530,9 @@ Each task JSON element MUST also include:
                     primary_model = task_models[0] if task_models else None
                     self._notify_dashboard_task_start(task_id, task, primary_model)
 
-                    exec_result = await self._executor.execute(task)
+                    exec_result = await self._executor.execute(
+                        task, policy=RetryTemplate.for_task_type(task.type)
+                    )
                     result = exec_result.task_result
 
                     # FIX-001a: Commit reservation with actual cost
@@ -2547,7 +2576,9 @@ Each task JSON element MUST also include:
                     await asyncio.sleep(2)
                     # Retry once via executor service
                     try:
-                        retry_exec = await self._executor.execute(task)
+                        retry_exec = await self._executor.execute(
+                            task, policy=RetryTemplate.for_task_type(task.type)
+                        )
                         return retry_exec.task_result
                     except sqlite3.OperationalError as retry_e:
                         logger.error(
@@ -2842,7 +2873,7 @@ Each task JSON element MUST also include:
         """Delegates to DeltaPrompt — see prompt_builder.py for full implementation."""
         return DeltaPrompt.build(original_prompt, record)
 
-    async def _execute_task(self, task: Task) -> TaskResult:
+    async def _execute_task(self, task: Task, policy: ResiliencePolicy | None = None) -> TaskResult:
         """
         Core loop: generate → critique → revise → evaluate
         With plateau detection, deterministic validation, and mid-task budget checks.
@@ -3273,6 +3304,7 @@ Each task JSON element MUST also include:
                                     max_tokens=effective_max_tokens,
                                     temperature=gen_temperature,
                                     timeout=gen_timeout,
+                                    policy=policy,
                                     **or_params,  # OpenRouter optimizations (Phase 2)
                                 )
                             except Exception:
@@ -3338,6 +3370,7 @@ Each task JSON element MUST also include:
                                 max_tokens=effective_max_tokens,
                                 temperature=gen_temperature,
                                 timeout=gen_timeout,
+                                policy=policy,
                                 **or_params,  # OpenRouter optimizations (Phase 2)
                             )
                         except Exception:
@@ -3468,6 +3501,7 @@ Each task JSON element MUST also include:
                                     max_tokens=effective_max_tokens,
                                     temperature=fb_temperature,
                                     timeout=gen_timeout,
+                                    policy=policy,
                                 )
                             except Exception:
                                 # BUG-005 FIX: release the in-flight reservation on error
@@ -3547,6 +3581,7 @@ Each task JSON element MUST also include:
                             max_tokens=critique_max_tokens,
                             temperature=critique_temperature,
                             timeout=critique_timeout,
+                            policy=policy,
                         )
                         critique = critique_response.text
                         await self.budget.charge(critique_response.cost_usd, "cross_review")
@@ -3631,6 +3666,7 @@ Each task JSON element MUST also include:
                                 f"CRITIQUE:\n{critique}\n\n"
                                 f"Produce the complete improved version.",
                                 system=f"You are revising a {task.type.value} task based on peer review.",
+                                policy=policy,
                                 max_tokens=effective_max_tokens,
                                 timeout=gen_timeout,
                             )
@@ -3681,7 +3717,9 @@ Each task JSON element MUST also include:
                 # ── EVALUATE ──
                 if det_passed:
                     logger.info(f"  {task.id}: starting evaluation...")
-                    score = await self._evaluator.evaluate(task, output)
+                    score = await self._evaluator.evaluate(
+                        task, output, policy=RetryTemplate.EVALUATE.to_policy()
+                    )
                     logger.info(f"  {task.id}: evaluation complete, score={score:.3f}")
                 else:
                     score = 0.0
@@ -3843,6 +3881,7 @@ Each task JSON element MUST also include:
                     output=best_output,
                     score=best_score,
                     primary=primary,
+                    policy=policy,
                 )
                 total_cost += self.budget.spent_usd - _budget_before_preflight
                 # Re-derive status after preflight may have changed best_score
@@ -4029,6 +4068,7 @@ Each task JSON element MUST also include:
         output: str,
         score: float,
         primary: Model,
+        policy: ResiliencePolicy | None = None,
     ) -> tuple[str, float, PreflightResult]:
         """
         Post-loop preflight delivery gate.
@@ -4109,6 +4149,7 @@ Each task JSON element MUST also include:
                 max_tokens=task.max_output_tokens,
                 temperature=0.3,
                 timeout=dynamic_timeout,
+                policy=policy,
             )
             await self.budget.charge(gen_response.cost_usd, "generation")
             revised_output = gen_response.text
@@ -4868,7 +4909,9 @@ Each task JSON element MUST also include:
             logger.info(f"Resuming: {len(remaining)} tasks remaining")
             for task_id in remaining:
                 if task_id in state.tasks:
-                    result = await self._execute_task(state.tasks[task_id])
+                    result = await self._execute_task(
+                        state.tasks[task_id], policy=RetryTemplate.for_task_type(state.tasks[task_id].type)
+                    )
                     self.results[task_id] = result
                     state.results[task_id] = result
 

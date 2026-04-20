@@ -232,3 +232,82 @@ class CircuitBreaker:
         self._state.successes = 0
         self._state.probe_in_flight = False
         logger.info("Circuit breaker '%s' → CLOSED (recovered)", self.name)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Per-model registry
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class CircuitBreakerRegistry:
+    """
+    Thread-safe registry of per-model circuit breakers.
+
+    Each LLM model (identified by its string value) gets its own breaker so
+    that a single failing provider cannot trip the breaker for all models.
+
+    Usage:
+        registry = CircuitBreakerRegistry()
+
+        async with registry.get("openai/gpt-4o").context():
+            result = await call_openai(...)
+
+        # Check which models are currently open:
+        tripped = registry.tripped_models()
+    """
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        reset_timeout: float = 60.0,
+        success_threshold: int = 2,
+    ) -> None:
+        self._failure_threshold = failure_threshold
+        self._reset_timeout = reset_timeout
+        self._success_threshold = success_threshold
+        self._breakers: dict[str, CircuitBreaker] = {}
+        self._lock = asyncio.Lock()
+
+    async def get(self, model_id: str) -> CircuitBreaker:
+        """Return the breaker for *model_id*, creating it on first access."""
+        async with self._lock:
+            if model_id not in self._breakers:
+                self._breakers[model_id] = CircuitBreaker(
+                    name=f"model:{model_id}",
+                    failure_threshold=self._failure_threshold,
+                    reset_timeout=self._reset_timeout,
+                    success_threshold=self._success_threshold,
+                )
+            return self._breakers[model_id]
+
+    def get_sync(self, model_id: str) -> CircuitBreaker:
+        """
+        Synchronous accessor — safe only when called before any concurrent async
+        access (e.g. during engine __init__).  Prefer ``get()`` in async code.
+        """
+        if model_id not in self._breakers:
+            self._breakers[model_id] = CircuitBreaker(
+                name=f"model:{model_id}",
+                failure_threshold=self._failure_threshold,
+                reset_timeout=self._reset_timeout,
+                success_threshold=self._success_threshold,
+            )
+        return self._breakers[model_id]
+
+    def tripped_models(self) -> list[str]:
+        """Return model IDs whose circuit breaker is currently OPEN."""
+        return [
+            mid
+            for mid, cb in self._breakers.items()
+            if cb._state.state != CircuitState.CLOSED
+        ]
+
+    def all_stats(self) -> dict[str, dict[str, object]]:
+        """Return stats dict keyed by model_id."""
+        return {mid: cb.stats() for mid, cb in self._breakers.items()}
+
+    def reset_all(self) -> None:
+        """Force-close all breakers (for testing / manual recovery)."""
+        for cb in self._breakers.values():
+            cb._close()
+        logger.info("CircuitBreakerRegistry: all breakers reset")
