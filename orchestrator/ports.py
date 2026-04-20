@@ -87,12 +87,18 @@ class CachePort(Protocol):
         model_id: str,
         prompt: str,
         max_tokens: int,
+        response: Any,
+        tokens_input: int,
+        tokens_output: int,
         system: str | None,
         temperature: float,
-        response: Any,
     ) -> None:
         """
         Store *response* under the given key.
+
+        Parameter order matches all call sites in api_clients.py:
+            put(model_id, prompt, max_tokens, response.text,
+                response.input_tokens, response.output_tokens, system, temperature)
 
         Implementations may apply TTL, size limits, or compression; callers
         are not responsible for cache eviction policy.
@@ -202,9 +208,11 @@ class NullCache:
         model_id: str,
         prompt: str,
         max_tokens: int,
+        response: Any,
+        tokens_input: int,
+        tokens_output: int,
         system: str | None,
         temperature: float,
-        response: Any,
     ) -> None:
         pass
 

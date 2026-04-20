@@ -41,7 +41,7 @@ async def test_null_cache_get_returns_none():
 @pytest.mark.asyncio
 async def test_null_cache_put_is_noop():
     cache = NullCache()
-    await cache.put("gpt-4o", "hello", 100, None, 0.7, response={"text": "hi"})
+    await cache.put("gpt-4o", "hello", 100, "hi", 10, 5, None, 0.7)
     # No assertion — must not raise
 
 
