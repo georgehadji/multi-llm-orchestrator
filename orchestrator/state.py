@@ -51,6 +51,8 @@ def _budget_to_dict(b: Budget) -> dict:
         "max_time_seconds": b.max_time_seconds,
         "spent_usd": b.spent_usd,
         "start_time": b.start_time,
+        # FIX-RESUME-001: Include original_start_time for elapsed time calculation when resuming
+        "original_start_time": b.original_start_time,
         "phase_spent": b.phase_spent,
     }
 
@@ -62,6 +64,8 @@ def _budget_from_dict(d: dict) -> Budget:
         spent_usd=d["spent_usd"],
         start_time=d["start_time"],
     )
+    # FIX-RESUME-001: Restore original_start_time for elapsed time calculation
+    b.original_start_time = d.get("original_start_time", d["start_time"])
     b.phase_spent = d.get("phase_spent", b.phase_spent)
     return b
 
@@ -367,7 +371,7 @@ class StateManager:
         ) as cursor:
             row = await cursor.fetchone()
         if row:
-            return _state_from_dict(json.loads(row[0]))
+            return self._deserialize_state(row[0], context=f"project={project_id}")
         return None
 
     async def load_latest_checkpoint(self, project_id: str) -> Optional[ProjectState]:
@@ -379,8 +383,28 @@ class StateManager:
         ) as cursor:
             row = await cursor.fetchone()
         if row:
-            return _state_from_dict(json.loads(row[0]))
+            return self._deserialize_state(row[0], context=f"checkpoint project={project_id}")
         return None
+
+    def _deserialize_state(self, blob: str, context: str = "") -> Optional[ProjectState]:
+        """
+        Safely deserialize a persisted ProjectState blob.
+
+        Returns None (and logs a warning) instead of raising on corrupt data,
+        so callers can skip a damaged resume rather than crashing.
+        """
+        try:
+            data = json.loads(blob)
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.warning("Corrupt JSON in state store (%s): %s — skipping resume", context, exc)
+            return None
+        try:
+            return _state_from_dict(data)
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.warning(
+                "Schema mismatch in persisted state (%s): %s — skipping resume", context, exc
+            )
+            return None
 
     async def list_projects(self) -> list[dict]:
         db = await self._get_conn()
@@ -454,6 +478,18 @@ class StateManager:
                 }
             )
         return result
+
+    async def _has_resume_columns(self) -> bool:
+        """Check if resume columns exist in projects table.
+
+        Returns:
+            True if project_description and keywords_json columns exist
+        """
+        db = await self._get_conn()
+        async with db.execute("PRAGMA table_info(projects)") as cursor:
+            rows = await cursor.fetchall()
+            columns = {row[1] for row in rows}
+            return "project_description" in columns and "keywords_json" in columns
 
     async def close(self):
         """Close the aiosqlite connection gracefully before the event loop shuts down."""

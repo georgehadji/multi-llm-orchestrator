@@ -28,8 +28,8 @@ import logging
 import re
 import sqlite3
 import time
-from collections import defaultdict, deque
-from typing import TYPE_CHECKING
+from collections import defaultdict
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 from .api_clients import APIResponse, UnifiedClient
 from .model_selector import ModelSelector
@@ -45,7 +45,6 @@ from .budget import Budget
 from .model_registry import ModelRegistry
 from .cache import DiskCache
 from .models import (
-    FALLBACK_CHAIN,
     MODEL_MAX_TOKENS,
     ROUTING_TABLE,
     AttemptRecord,
@@ -62,6 +61,18 @@ from .models import (
 )
 from .semantic_cache import SemanticCache
 from .validators import all_validators_pass, async_run_validators
+from .exceptions import OrchestratorError, TruncatedResponseError
+
+# OpenRouter Optimization Features (Phase 1)
+try:
+    from .config import OPENROUTER_OPTS
+except ImportError:
+    OPENROUTER_OPTS = None
+try:
+    from .task_schemas import generate_openrouter_schema, get_schema_for_task_type
+except ImportError:
+    generate_openrouter_schema = None
+    get_schema_for_task_type = None
 
 try:
     from .cache_optimizer import CacheConfig, CacheOptimizer
@@ -86,12 +97,14 @@ except ImportError as _e:
     validate_and_generate_test = None
 
 # Code validation for clean code generation (no LLM commentary)
-# FIXME: Circular import detected - temporarily disabling code_validator
-# The code_validator module causes an infinite import loop that hangs the entire CLI
-# TODO: Resolve circular dependency and re-enable validation
-HAS_CODE_VALIDATOR = False
-validate_code = None
-extract_code_from_llm_response = None
+try:
+    from .code_validator import validate_code, extract_code_from_llm_response
+
+    HAS_CODE_VALIDATOR = True
+except ImportError:
+    HAS_CODE_VALIDATOR = False
+    validate_code = None
+    extract_code_from_llm_response = None
 
 # Optional advanced features - wrapped in try/except to allow CLI to load even if any fail
 # These modules may have external dependencies or circular import issues
@@ -345,7 +358,7 @@ class Orchestrator:
         cache: DiskCache | None = None,
         state_manager: StateManager | None = None,
         max_concurrency: int = 3,
-        max_parallel_tasks: int = 3,
+        max_parallel_tasks: int = 1,  # FIX: Serial execution to avoid SQLite lock
         budget_hierarchy: BudgetHierarchy | None = None,
         cost_predictor: CostPredictor | None = None,
         tracing_cfg: TracingConfig | None = None,
@@ -356,6 +369,30 @@ class Orchestrator:
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
         self.client = UnifiedClient(cache=self.cache, max_concurrency=max_concurrency)
+
+        # ── Application-layer services ──────────────────────────────────────
+        # ExecutorService: wraps _execute_task; implementation migrates in Phase 2.
+        from .services.executor import ExecutorService as _ExecutorService
+        from .services.evaluator import EvaluatorService as _EvaluatorService
+        from .services.generator import GeneratorService as _GeneratorService
+        from .concurrency_controller import TaskConcurrencyGuard as _TaskGuard
+
+        self._task_guard = _TaskGuard(name="tasks", max_concurrent=max_concurrency)
+        self._executor = _ExecutorService(
+            execute_fn=self._execute_task,
+            guard=self._task_guard,
+        )
+
+        self._evaluator = _EvaluatorService(
+            client=self.client,
+            budget=self.budget,
+            get_models_fn=self._get_available_models,
+        )
+
+        self._generator = _GeneratorService(decompose_fn=self._decompose)
+        
+        # Initialize _project_id early for consistent canary assignment
+        self._project_id: str = ""
 
         # NEW: Multi-level cache optimizer (L1/L2/L3)
         if HAS_CACHE_OPTIMIZER:
@@ -688,6 +725,111 @@ class Orchestrator:
         but can also be called explicitly for manual resource management.
         """
         await self.__aexit__(None, None, None)
+
+    # ─────────────────────────────────────────
+    # OpenRouter Optimization Helpers (Phase 2)
+    # ─────────────────────────────────────────
+
+    def _get_openrouter_call_params(
+        self,
+        task_type: TaskType,
+        primary_model: Model,
+        available_models: list[Model] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Build OpenRouter optimization parameters for API calls.
+        
+        Integrates native fallbacks and provider sorting based on
+        feature flags and canary deployment status.
+        
+        Args:
+            task_type: Type of task being executed
+            primary_model: Primary model for the task
+            available_models: List of available fallback models
+            
+        Returns:
+            Dictionary of extra parameters for client.call()
+        """
+        extra_params: dict[str, Any] = {}
+        
+        # Check if OpenRouter optimizations are available
+        if OPENROUTER_OPTS is None:
+            return extra_params
+        
+        # Check canary deployment status
+        try:
+            from .canary_deployment import get_canary_deployment
+            canary = get_canary_deployment()
+        except ImportError:
+            canary = None
+        
+        # Feature: Native fallback models (USE_NATIVE_FALLBACKS)
+        if (
+            OPENROUTER_OPTS.USE_NATIVE_FALLBACKS
+            and available_models
+            and len(available_models) > 1
+        ):
+            # Check if this optimization is enabled via canary
+            # Use stable project identifier for consistent hashing
+            canary_enabled = (
+                canary is None 
+                or canary.is_enabled_for(getattr(self, '_project_id', 'default'), "native_fallbacks")
+            )
+            
+            if canary_enabled:
+                # Build fallback list (exclude primary)
+                fallback_ids = []
+                for m in available_models[1:3]:  # Next 2 models
+                    if m != primary_model:
+                        # Apply variant if model variants enabled
+                        if OPENROUTER_OPTS.USE_MODEL_VARIANTS:
+                            from .models import TASK_VARIANT_STRATEGY, ModelVariant
+                            variant = TASK_VARIANT_STRATEGY.get(task_type, ModelVariant.NONE)
+                            if variant != ModelVariant.NONE:
+                                fallback_ids.append(m.with_variant(variant))
+                            else:
+                                fallback_ids.append(m.value)
+                        else:
+                            fallback_ids.append(m.value)
+                
+                if fallback_ids:
+                    extra_params["fallback_models"] = fallback_ids
+                    logger.debug(f"Using native fallbacks: {fallback_ids}")
+        
+        # Feature: Provider sorting (USE_PROVIDER_SORTING)
+        if OPENROUTER_OPTS.USE_PROVIDER_SORTING:
+            canary_enabled = (
+                canary is None
+                or canary.is_enabled_for(getattr(self, '_project_id', 'default'), "provider_sorting")
+            )
+            
+            if canary_enabled:
+                # Provider sorting is handled via task_type in api_clients
+                extra_params["task_type"] = task_type
+        
+        return extra_params
+
+    def _record_optimization_metrics(
+        self,
+        project_id: str,
+        optimization: str,
+        metrics: dict[str, Any],
+    ) -> None:
+        """
+        Record metrics for A/B testing OpenRouter optimizations.
+        
+        Args:
+            project_id: Project identifier
+            optimization: Type of optimization (e.g., "native_fallbacks")
+            metrics: Metrics dictionary
+        """
+        try:
+            from .openrouter_ab_testing import get_ab_tester
+            ab_tester = get_ab_tester()
+            ab_tester.record_metrics(project_id, optimization, metrics)
+        except Exception as e:
+            # Non-critical: log but don't fail
+            logger.debug(f"Failed to record optimization metrics: {e}")
 
     # ─────────────────────────────────────────
     # Persistent learning helpers
@@ -1338,9 +1480,15 @@ class Orchestrator:
                 self._architecture_rules = architecture_rules
 
                 # Phase 1: Decompose
-                tasks = await self._decompose(
+                gen_result = await self._generator.decompose(
                     project_description, success_criteria, app_profile=app_profile
                 )
+                if not gen_result.succeeded:
+                    logger.error("Decomposition failed: %s", gen_result.error)
+                    return self._make_state(
+                        project_description, success_criteria, {}, ProjectStatus.SYSTEM_FAILURE
+                    )
+                tasks = gen_result.tasks
                 if not tasks:
                     return self._make_state(
                         project_description, success_criteria, {}, ProjectStatus.SYSTEM_FAILURE
@@ -1444,10 +1592,17 @@ class Orchestrator:
                 return state
 
             finally:
-                # Always close both DB connections so aiosqlite background threads
-                # finish their callbacks before asyncio.run() closes the loop.
-                await self.state_mgr.close()
-                await self.cache.close()
+                # BUG-003 FIX: Only close connections when NOT inside an async context manager
+                # (`async with Orchestrator() as orch`).  When _entered=True, __aexit__ owns
+                # cleanup and runs AFTER run_job()'s post-run operations
+                # (_flush_telemetry_snapshots, charge_job).  Closing here while _entered=True
+                # caused those post-run operations to find dead connections, and __aexit__
+                # would then attempt a redundant second close on already-None handles.
+                # When _entered=False (bare asyncio.run() usage), we must still close here so
+                # aiosqlite background threads finish before the event loop shuts down.
+                if not self._entered:
+                    await self.state_mgr.close()
+                    await self.cache.close()
 
     async def run_job(self, spec: JobSpec) -> ProjectState:
         """
@@ -1545,7 +1700,17 @@ class Orchestrator:
         )
         from .models import ROUTING_TABLE
 
-        tasks = await self._decompose(project_description, success_criteria)
+        gen_result = await self._generator.decompose(project_description, success_criteria)
+        tasks = gen_result.tasks if gen_result.succeeded else {}
+
+        # Validate budget sufficiency for task count
+        if tasks and hasattr(self, 'budget') and self.budget:
+            is_sufficient, warning = self.budget.validate_sufficient_for_tasks(
+                len(tasks)
+            )
+            if not is_sufficient:
+                logger.warning(warning)
+
         if not tasks:
             return ExecutionPlan(
                 project_description=project_description,
@@ -1690,27 +1855,77 @@ Each task JSON element MUST also include:
         except ImportError:
             logger.warning("Instructor not available, falling back to manual JSON parsing")
         except Exception as e:
-            logger.warning(f"Instructor decomposition failed: {e}, falling back to manual parsing")
+            import traceback
+            # BUG-005: Enhanced logging for Instructor validation failures
+            error_msg = str(e).lower()
+            if any(keyword in error_msg for keyword in ['assert', 'validation', 'schema', 'parse']):
+                logger.warning(f"Instructor validation failed: {type(e).__name__}: {e}")
+                logger.debug(f"Instructor failed input preview: {project[:200]}...")
+            else:
+                logger.warning(f"Instructor decomposition failed: {type(e).__name__}: {e}")
+            logger.debug(f"Instructor traceback: {traceback.format_exc()}")
+            logger.warning("Falling back to manual JSON parsing")
 
         # FALLBACK: Original decomposition logic
         last_response_text = ""
 
-        async def _try_decompose(m: Model) -> dict[str, Task]:
+        # OpenRouter Optimization: Check if JSON schema responses are enabled
+        use_json_schema = (
+            OPENROUTER_OPTS is not None 
+            and OPENROUTER_OPTS.USE_JSON_SCHEMA_RESPONSES
+            and generate_openrouter_schema is not None
+        )
+        if use_json_schema:
+            logger.info("OpenRouter: Using JSON schema structured output for decomposition")
+
+        async def _try_decompose(m: Model | str, max_tokens: int = 8192) -> dict[str, Task]:
             nonlocal last_response_text
-            resp = await self.client.call(
-                m,
-                prompt,
-                system=decomp_system,
-                max_tokens=4096,
-                timeout=120,
-                bypass_cache=True,  # never reuse a cached decomposition response
-            )
+            
+            # Build call arguments
+            call_args = {
+                "model": m,
+                "prompt": prompt,
+                "system": decomp_system,
+                "max_tokens": max_tokens,
+                "timeout": 120,
+                "bypass_cache": True,  # never reuse a cached decomposition response
+            }
+            
+            # Add OpenRouter optimization parameters if enabled
+            # Use REASONING task type for decomposition (better structured output)
+            if use_json_schema:
+                call_args["task_type"] = TaskType.REASONING
+                call_args["response_schema"] = True
+            
+            resp = await self.client.call(**call_args)
             last_response_text = resp.text  # Capture for error logging
+            
+            # Check for truncation by examining response text
+            # If response ends abruptly without proper JSON closure, it's likely truncated
+            text_stripped = resp.text.strip()
+            is_truncated = (
+                text_stripped.startswith("[") and not text_stripped.endswith("]")
+            ) or (
+                len(text_stripped) > 100 and  # Has content
+                text_stripped.count("{") > text_stripped.count("}")  # Unclosed braces
+            )
+            
+            if is_truncated:
+                logger.warning(
+                    f"Detected truncated response ({len(resp.text)} chars, "
+                    f"max_tokens={max_tokens})"
+                )
+                raise TruncatedResponseError(
+                    tokens_used=max_tokens,  # We don't know exact usage, assume max
+                    max_tokens=max_tokens
+                )
+            
             await self.budget.charge(resp.cost_usd, "decomposition")
-            await self._record_success(m, resp)
+            await self._record_success(m if isinstance(m, Model) else model, resp)
             result = self._parse_decomposition(resp.text)
             if not result:
-                raise ValueError(f"Decomposition returned empty task list from {m.value}")
+                model_name = m.value if isinstance(m, Model) else m
+                raise ValueError(f"Decomposition returned empty task list from {model_name}")
             return result
 
         # Try primary model, then fallback, with one retry on empty/malformed output
@@ -1720,26 +1935,80 @@ Each task JSON element MUST also include:
         # Add Qwen3 Coder Next as final fallback for JSON structure issues
         if Model.QWEN_3_CODER_NEXT not in models_to_try:
             models_to_try.append(Model.QWEN_3_CODER_NEXT)
+        
+        # OpenRouter Optimization: Apply model variants if enabled
+        # Use REASONING variant (THINKING) for decomposition tasks
+        use_model_variants = (
+            OPENROUTER_OPTS is not None 
+            and OPENROUTER_OPTS.USE_MODEL_VARIANTS
+        )
+        if use_model_variants:
+            from .models import TASK_VARIANT_STRATEGY, ModelVariant
+            variant = TASK_VARIANT_STRATEGY.get(TaskType.REASONING, ModelVariant.NONE)
+            if variant != ModelVariant.NONE:
+                logger.info(f"OpenRouter: Using model variant '{variant.value}' for decomposition")
+                # Convert models to variant-suffixed strings
+                models_to_try_str = []
+                for m in models_to_try:
+                    if m is not None:
+                        models_to_try_str.append(m.with_variant(variant))
+                # Update the list for the loop (will be used in _try_decompose)
+                # Store original models for logging
+                original_models = models_to_try
+                models_to_try = models_to_try_str
 
+        # Track token escalation for truncation recovery
+        token_limits = [8192, 12288, 16384]  # Escalating token limits (16K max)
+        truncation_attempts = 0
+        
         for attempt, m in enumerate(models_to_try):
             if m is None:
                 break
+            # Get model name for logging (handle both Model enum and string variants)
+            model_name = m.value if isinstance(m, Model) else m
+            
+            # Select token limit (escalate on truncation retries)
+            current_max_tokens = token_limits[min(truncation_attempts, len(token_limits) - 1)]
+            
             try:
-                return await _try_decompose(m)
+                return await _try_decompose(m, max_tokens=current_max_tokens)
+            except TruncatedResponseError as e:
+                # Response was truncated - escalate tokens and retry
+                truncation_attempts += 1
+                if truncation_attempts < len(token_limits):
+                    logger.warning(
+                        f"Decomposition attempt {attempt + 1} with {model_name} "
+                        f"failed (truncated). Retrying with {token_limits[truncation_attempts]} tokens..."
+                    )
+                    # Retry same model with more tokens (don't count as model failure)
+                    try:
+                        return await _try_decompose(m, max_tokens=token_limits[truncation_attempts])
+                    except TruncatedResponseError:
+                        pass  # Continue to next model with even more tokens
+                else:
+                    logger.error(
+                        f"Decomposition with {model_name} still truncated even with "
+                        f"{token_limits[-1]} tokens"
+                    )
+                await self._record_failure(m if isinstance(m, Model) else model, error=e)
             except (json.JSONDecodeError, ValueError) as e:
                 # JSON parsing failed - try next model
                 raw_preview = last_response_text[:300] if last_response_text else "N/A"
                 logger.warning(
-                    f"Decomposition attempt {attempt + 1} with {m.value} failed (JSON parse error): {e}"
+                    f"Decomposition attempt {attempt + 1} with {model_name} failed (JSON parse error): {e}"
                 )
                 logger.warning(f"  Raw response (first 300 chars): {raw_preview}...")
-                await self._record_failure(m, error=e)
+                await self._record_failure(m if isinstance(m, Model) else model, error=e)
             except (Exception, asyncio.CancelledError) as e:
-                logger.error(f"Decomposition attempt {attempt + 1} with {m.value} failed: {e}")
-                await self._record_failure(m, error=e)
+                logger.error(f"Decomposition attempt {attempt + 1} with {model_name} failed: {e}")
+                await self._record_failure(m if isinstance(m, Model) else model, error=e)
 
-        logger.error("All decomposition attempts failed — returning empty task list")
-        return {}
+        logger.error("All decomposition attempts failed")
+        raise OrchestratorError(
+            "Project decomposition failed: unable to parse LLM response after multiple attempts. "
+            "The model may be experiencing issues or the project description may be too complex. "
+            "Try simplifying the project description or using a different model."
+        )
 
     def _try_parse_partial_json_array(self, text: str) -> list | None:
         """
@@ -1756,6 +2025,33 @@ Each task JSON element MUST also include:
             List of parsed objects, or None if recovery fails
         """
         import re
+
+        text_stripped = text.strip()
+
+        # Quick check: if text is empty or just '[', nothing to recover
+        if not text_stripped or text_stripped == '[':
+            logger.warning("Response is empty or just '[' - no recoverable content")
+            return None
+
+        # Strategy 0: Handle extreme truncation by detecting partial first object
+        # If text starts with '[{' but has no complete objects, try to extract
+        # whatever fields are present
+        if text_stripped.startswith('[{') and '}' not in text_stripped:
+            # Try to extract ID if present (minimum viable recovery)
+            id_match = re.search(r'"id"\s*:\s*"(task_[^"]*)"', text_stripped)
+            if id_match:
+                task_id = id_match.group(1)
+                logger.warning(f"Extreme truncation detected - only found ID: {task_id}")
+                # Create minimal viable task object
+                minimal_task = {
+                    "id": task_id,
+                    "type": "code_generation",
+                    "prompt": "Implement the project requirements (auto-generated due to truncation)",
+                    "dependencies": [],
+                    "acceptance_threshold": 0.8
+                }
+                logger.info("Created minimal recovery task from partial ID")
+                return [minimal_task]
 
         # Strategy 1: Try to find complete {...} objects and parse them individually
         # This handles cases where the array is truncated mid-object
@@ -1775,16 +2071,18 @@ Each task JSON element MUST also include:
                     obj_text = text[start_idx : i + 1]
                     try:
                         obj = json.loads(obj_text)
-                        objects.append(obj)
+                        if isinstance(obj, dict) and "id" in obj:
+                            objects.append(obj)
                     except json.JSONDecodeError:
                         # Try with json5 if available
                         try:
                             import json5
 
                             obj = json5.loads(obj_text)
-                            objects.append(obj)
+                            if isinstance(obj, dict) and "id" in obj:
+                                objects.append(obj)
                         except Exception:
-                            pass  # Skip malformed objects
+                            pass  # Skip malformed/incomplete objects
                     start_idx = None
 
         if objects:
@@ -1964,12 +2262,15 @@ Each task JSON element MUST also include:
             text_stripped = text.strip()
             if text_stripped.startswith("[") and not text_stripped.endswith("]"):
                 logger.warning(
-                    "Response appears truncated - starts with '[' but doesn't end with ']'"
+                    "Response appears truncated - attempting partial JSON recovery"
                 )
                 # Try to extract and complete partial JSON array
                 items = self._try_parse_partial_json_array(text_stripped)
-                if items is None:
-                    logger.error("Partial JSON recovery also failed")
+                if items and isinstance(items, list) and len(items) > 0:
+                    logger.info(f"Recovered {len(items)} tasks from truncated response")
+                    # Continue with recovered items - don't return here
+                else:
+                    logger.error("Partial JSON recovery failed")
                     return {}
             else:
                 return {}
@@ -2202,7 +2503,8 @@ Each task JSON element MUST also include:
                     primary_model = task_models[0] if task_models else None
                     self._notify_dashboard_task_start(task_id, task, primary_model)
 
-                    result = await self._execute_task(task)
+                    exec_result = await self._executor.execute(task)
+                    result = exec_result.task_result
 
                     # FIX-001a: Commit reservation with actual cost
                     await self.budget.commit_reservation(
@@ -2243,9 +2545,10 @@ Each task JSON element MUST also include:
                 if "database is locked" in str(e):
                     logger.warning(f"Task {task_id}: database locked, retrying in 2s...")
                     await asyncio.sleep(2)
-                    # Retry once
+                    # Retry once via executor service
                     try:
-                        return await self._execute_task(task)
+                        retry_exec = await self._executor.execute(task)
+                        return retry_exec.task_result
                     except sqlite3.OperationalError as retry_e:
                         logger.error(
                             f"Task {task_id}: database still locked after retry: {retry_e}"
@@ -2283,7 +2586,13 @@ Each task JSON element MUST also include:
                 # BUG-RACE-002 FIX: Protect results access with lock
                 async with self._results_lock:
                     dep_results = [
-                        self.results.get(dep, TaskResult(dep, "", 0.0, Model.GPT_4O_MINI))
+                        self.results.get(dep, TaskResult(
+                            task_id=dep,
+                            output="",
+                            score=0.0,
+                            model_used=Model.GPT_4O_MINI,
+                            task_type=tasks[dep].type.value if dep in tasks else "unknown"
+                        ))
                         for dep in tasks[task_id].dependencies
                     ]
                 any_failed = any(r.status == TaskStatus.FAILED for r in dep_results)
@@ -2301,7 +2610,9 @@ Each task JSON element MUST also include:
                             score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
-                            task_type=task.type.value,
+                            # BUG-001 FIX: `task` is not in scope here — `task_id` is the loop
+                            # variable; use `tasks[task_id]` to look up the current Task object.
+                            task_type=tasks[task_id].type.value,
                         )
                 elif all_finished:
                     runnable.append(task_id)
@@ -2314,7 +2625,8 @@ Each task JSON element MUST also include:
                             score=0.0,
                             model_used=Model.GPT_4O_MINI,
                             status=TaskStatus.FAILED,
-                            task_type=task.type.value,
+                            # BUG-001 FIX: same fix — `task` was never bound in this scope.
+                            task_type=tasks[task_id].type.value,
                         )
 
             if not runnable:
@@ -2717,6 +3029,7 @@ Each task JSON element MUST also include:
                             f"{tdd_result.test_result.tests_run} passed",
                             deterministic_check_passed=tdd_result.test_result.passed,
                             degraded_fallback_count=0,
+                            task_type=task.type.value,
                             attempt_history=[],
                             # NEW v3.0: Include test artifacts and metadata
                             test_files={"test_main.py": tdd_result.test_spec.test_code},
@@ -2814,6 +3127,9 @@ Each task JSON element MUST also include:
                 model_limit = MODEL_MAX_TOKENS.get(primary)
                 if model_limit:
                     effective_max_tokens = min(effective_max_tokens, model_limit)
+
+                # FIX-BUG-EXEC-002: Initialize output early so except block can reference it
+                output = ""
 
                 try:
                     # Build system prompt — production mode enriches with strict requirements
@@ -2941,6 +3257,14 @@ Each task JSON element MUST also include:
                             self._rate_limiter.check(
                                 _rl_tenant, primary.value, effective_max_tokens
                             )
+                            
+                            # Build OpenRouter optimization parameters
+                            or_params = self._get_openrouter_call_params(
+                                task_type=task.type,
+                                primary_model=primary,
+                                available_models=models,
+                            )
+                            
                             try:
                                 gen_response = await self.client.call(
                                     primary,
@@ -2949,6 +3273,7 @@ Each task JSON element MUST also include:
                                     max_tokens=effective_max_tokens,
                                     temperature=gen_temperature,
                                     timeout=gen_timeout,
+                                    **or_params,  # OpenRouter optimizations (Phase 2)
                                 )
                             except Exception:
                                 self._rate_limiter.release(
@@ -2997,6 +3322,14 @@ Each task JSON element MUST also include:
                         )
                         _rl_tenant = getattr(task, "tenant", "default")
                         self._rate_limiter.check(_rl_tenant, primary.value, effective_max_tokens)
+                        
+                        # Build OpenRouter optimization parameters
+                        or_params = self._get_openrouter_call_params(
+                            task_type=task.type,
+                            primary_model=primary,
+                            available_models=models,
+                        )
+                        
                         try:
                             gen_response = await self.client.call(
                                 primary,
@@ -3005,6 +3338,7 @@ Each task JSON element MUST also include:
                                 max_tokens=effective_max_tokens,
                                 temperature=gen_temperature,
                                 timeout=gen_timeout,
+                                **or_params,  # OpenRouter optimizations (Phase 2)
                             )
                         except Exception:
                             self._rate_limiter.release(
@@ -3176,8 +3510,16 @@ Each task JSON element MUST also include:
                     # need the same doubled budget as when generating. Standard models
                     # only need 800 tokens to produce a focused critique.
                     _rev_provider = get_provider(reviewer)
-                    _reviewer_is_reasoning = _rev_provider == "anthropic" or (  # Claude models
-                        _rev_provider == "deepseek" and reviewer.value == "deepseek-reasoner"
+                    # BUG-002 FIX: get_provider() always returns "openrouter" for every model
+                    # since the entire stack routes through OpenRouter exclusively (v3.0+).
+                    # The original provider-name checks (_rev_provider == "anthropic" / "deepseek")
+                    # therefore ALWAYS evaluated to False, silently stripping Claude and DeepSeek-R1
+                    # reviewers of their required token/timeout budgets and producing truncated
+                    # critiques.  Fix: detect reasoning models by their model-value string instead.
+                    _reviewer_is_reasoning = (
+                        ModelRegistry.is_reasoning_model(reviewer.value)  # DeepSeek-R1, o1, etc.
+                        or "anthropic/claude" in reviewer.value            # All Claude variants
+                        or reviewer.value.startswith("claude-")            # bare "claude-*" aliases
                     )
                     if _reviewer_is_reasoning:
                         critique_max_tokens = min(task.max_output_tokens * 2, 8192)
@@ -3339,7 +3681,7 @@ Each task JSON element MUST also include:
                 # ── EVALUATE ──
                 if det_passed:
                     logger.info(f"  {task.id}: starting evaluation...")
-                    score = await self._evaluate(task, output)
+                    score = await self._evaluator.evaluate(task, output)
                     logger.info(f"  {task.id}: evaluation complete, score={score:.3f}")
                 else:
                     score = 0.0
@@ -4194,27 +4536,24 @@ Each task JSON element MUST also include:
     def _get_fast_decomposition_model(self) -> Model:
         """Get a fast, reliable model for task decomposition.
 
-        Prioritizes speed and reliability over cost for decomposition,
+        Prioritizes reliability over cost for decomposition,
         since decomposition is a critical path and happens once per project.
 
-        P1-2 OPTIMIZATION: This is now a fallback for _select_decomposition_model.
-        Updated v3.0 with optimal models.
+        P1-2 OPTIMIZATION: Updated v3.1 - avoid models with truncation issues.
         """
         from .models import Model
 
-        # Fast, reliable models for decomposition (in priority order) v3.0
-        # NOTE: Decomposition requires structured JSON output, so we need models
-        # with good instruction following, not just reasoning capability
-        fast_models = [
-            Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75 - Best JSON structure ⭐
-            Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 - #1 SWE-bench, good structure
-            Model.ZHIPU_GLM_4_7,  # $0.39/$1.75 - Enhanced programming
+        # Reliable models for decomposition (in priority order) v3.1
+        # NOTE: Qwen/Xiaomi removed due to truncation issues with large outputs
+        reliable_models = [
+            Model.GPT_4O,  # $2.50/$10.00 - Reliable JSON, large context ⭐
+            Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Excellent structure
             Model.GEMINI_FLASH,  # $0.15/$0.60 - Reliable JSON output
-            Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30 - Good but less structured
+            Model.GPT_4O_MINI,  # $0.15/$0.60 - Cheap, reliable
         ]
 
-        for m in fast_models:
-            if self.api_health.get(m, True):  # Default True for new models
+        for m in reliable_models:
+            if self.api_health.get(m, True):
                 logger.debug(f"Using {m.value} for decomposition")
                 return m
 

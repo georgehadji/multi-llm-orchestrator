@@ -366,3 +366,83 @@ class RateLimitedConcurrencyBudget(ConcurrencyBudget):
 def get_concurrency_budget() -> ConcurrencyBudget:
     """Get global concurrency budget."""
     return GlobalConcurrencyController.get_instance_sync().budget
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Task-level concurrency guard
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TaskConcurrencyGuard:
+    """
+    Named, observable async semaphore for task-level execution control.
+
+    Formalises the anonymous ``asyncio.Semaphore`` that previously lived inside
+    ``engine._execute_all``.  Injected into ``ExecutorService`` so task
+    parallelism can be controlled, observed, and tested independently.
+
+    Args:
+        name:           Human-readable identifier used in logs.
+        max_concurrent: Slots available simultaneously.  Defaults to 1
+                        (serial execution) — the safe baseline until
+                        shared-state safety is fully proven.
+
+    Usage:
+        guard = TaskConcurrencyGuard(name="tasks", max_concurrent=1)
+        async with guard:
+            result = await executor.execute(task)
+    """
+
+    def __init__(self, name: str = "tasks", max_concurrent: int = 1) -> None:
+        self.name = name
+        self.max_concurrent = max_concurrent
+        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._active: int = 0
+        self._waiting: int = 0
+        self._total_acquired: int = 0
+        self._total_wait_ms: float = 0.0
+        self._stat_lock = asyncio.Lock()
+
+    @property
+    def active_count(self) -> int:
+        return self._active
+
+    @property
+    def waiting_count(self) -> int:
+        return self._waiting
+
+    async def __aenter__(self) -> "TaskConcurrencyGuard":
+        async with self._stat_lock:
+            self._waiting += 1
+        t0 = time.monotonic()
+        await self._semaphore.acquire()
+        wait_ms = (time.monotonic() - t0) * 1000
+        async with self._stat_lock:
+            self._waiting -= 1
+            self._active += 1
+            self._total_acquired += 1
+            self._total_wait_ms += wait_ms
+        if wait_ms > 100:
+            logger.debug(
+                "guard '%s': waited %.0fms (active=%d/%d waiting=%d)",
+                self.name, wait_ms, self._active, self.max_concurrent, self._waiting,
+            )
+        return self
+
+    async def __aexit__(self, *_: Any) -> None:
+        self._semaphore.release()
+        async with self._stat_lock:
+            self._active -= 1
+
+    def stats(self) -> dict[str, Any]:
+        avg_wait = (
+            self._total_wait_ms / self._total_acquired if self._total_acquired else 0.0
+        )
+        return {
+            "name": self.name,
+            "max_concurrent": self.max_concurrent,
+            "active": self._active,
+            "waiting": self._waiting,
+            "total_acquired": self._total_acquired,
+            "avg_wait_ms": round(avg_wait, 1),
+        }
