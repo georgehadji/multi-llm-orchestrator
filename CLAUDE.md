@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture & Design Patterns
 
-> **Master reference:** [`docs/ARCHITECTURE_ROADMAP.md`](docs/ARCHITECTURE_ROADMAP.md) — read this file **before any architectural decision or implementation**.
+> **Master reference:** [`docs/CODEBASE_MINDMAP.md`](docs/CODEBASE_MINDMAP.md) — read this file **before any architectural decision or implementation**.
 
 ### Hexagonal Architecture (Ports & Adapters)
 - **Driving adapters:** `cli.py`, `api_server.py`, webhooks, tests
@@ -80,6 +80,12 @@ A `BudgetHierarchy` instance is passed into `Orchestrator` alongside the per-run
 
 ---
 
+## Configuration
+
+**Environment variables:** Required API keys: `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`. Optional OpenRouter optimizations: `USE_JSON_SCHEMA_RESPONSES`, `USE_MODEL_VARIANTS`, `USE_NATIVE_FALLBACKS`, `USE_PROVIDER_SORTING`. Copy `.env.example` to `.env`.
+
+---
+
 ## Development Workflow
 
 ### Test-Driven Development (TDD)
@@ -122,33 +128,33 @@ Note: `.claude/worktrees/` is in `.gitignore` for safety.
 
 ### Setup
 ```bash
-make install-dev          # Install with development dependencies
-make install-all          # Install all optional dependencies (dev, security, tracing, docs)
-pre-commit install        # Set up pre-commit hooks
+pip install -e ".[dev,security,tracing]"          # Install with development dependencies
+pip install -e ".[dev,security,tracing,dashboard,docs]"   # Install all optional dependencies
+pre-commit install        # Set up pre-commit hooks (requires .pre-commit-config.yaml)
 ```
 
 ### Testing
 ```bash
-make test                 # Run all tests with coverage
-make test-unit            # Unit tests only
-make test-integration     # Integration tests only
-make test-fast            # Run tests in parallel (faster)
-pytest tests/ -v -m "not slow"           # All tests (skip slow markers)
+pytest tests/ -v --cov=orchestrator --cov-report=term-missing  # Run all tests with coverage
+pytest tests/ -m unit -v           # Unit tests only
+pytest tests/ -m integration -v    # Integration tests only
+pytest -n auto tests/              # Run tests in parallel (faster)
+pytest tests/ -v -m "not slow"     # All tests (skip slow markers)
 pytest tests/test_rate_limiter.py -v     # Single test module
 pytest tests/test_rate_limiter.py::test_check_within_limit  # Single test function
-pytest --tb=short -q                     # Summary output
+pytest --tb=short -q               # Summary output
 ```
 
 ### Code Quality
 ```bash
-make lint                 # Run ruff linter
-make lint-fix             # Run ruff with auto-fix
-make format               # Format code with black
-make format-check         # Check formatting without changes
-make type-check           # Run mypy type checker
-make security-check       # Run bandit + safety security scans
-make precommit            # Install and run pre-commit hooks
-make ci                   # Run all CI checks locally
+ruff check orchestrator/          # Run ruff linter
+ruff check orchestrator/ --fix    # Run ruff with auto-fix
+black orchestrator/               # Format code with black
+black orchestrator/ --check       # Check formatting without changes
+mypy orchestrator/                # Run mypy type checker
+bandit -r orchestrator/           # Run bandit security scan
+safety check                      # Check dependencies for vulnerabilities
+pre-commit run --all-files        # Run pre-commit hooks on all files
 ```
 
 ### CLI Usage
@@ -196,6 +202,7 @@ pytest -m integration     # Only integration tests
 
 ## Key References
 
-- **Architecture Roadmap:** [`docs/ARCHITECTURE_ROADMAP.md`](docs/ARCHITECTURE_ROADMAP.md)
+- **Architecture overview:** [`docs/CODEBASE_MINDMAP.md`](docs/CODEBASE_MINDMAP.md) — complete architecture mind map
 - **Usage Guide:** [`USAGE_GUIDE.md`](USAGE_GUIDE.md)
 - **Debugging Guide:** [`docs/debugging/DEBUGGING_GUIDE.md`](docs/debugging/DEBUGGING_GUIDE.md)
+- **Tool configuration:** [`pyproject.toml`](pyproject.toml) — pytest, ruff, black, mypy, coverage settings

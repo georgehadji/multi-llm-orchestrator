@@ -1,690 +1,1175 @@
-# AI Orchestrator — Codebase Mind Map
-> **Last updated:** 2026-04-01
-> **Purpose:** Single-source truth for understanding how every module connects. Read this before making any architectural change.
+# Multi-LLM Orchestrator — Complete Architecture Mindmap
+
+> **Version:** v6.3 (2026-04-04)  
+> **Author:** Georgios-Chrysovalantis Chatzivantsidis  
+> **Codebase Size:** ~43,000 lines (core) + ~5,400 lines (iOS Suite)  
+> **Total Files:** 4,673 Python files
 
 ---
 
-## 1. Core Philosophy
-
-**Multi-LLM Orchestrator** — coordinates OpenAI, Anthropic, Google, DeepSeek, etc. (all via OpenRouter) using a `generate → critique → revise → evaluate` pipeline. Key principles:
-
-- **Hexagonal Architecture**: `engine.py` = Mediator. `models.py` = pure data. `api_clients.py` = provider adapter.
-- **Policy-as-code**: Compliance rules are first-class `Policy` dataclasses — every routing decision is explainable.
-- **Adaptive routing**: `TelemetryCollector` updates `ModelProfile` (latency, quality, trust) after every call; `ConstraintPlanner` re-routes automatically.
-- **Cost pyramid**: 4 tiers of savings (80-90% → 40-60% → 30-50% → DevOps).
-
----
-
-## 2. Entry Points
+## 🎯 System Overview
 
 ```
-python -m orchestrator [args]
-         ↓
-orchestrator/__main__.py
-         ↓
-orchestrator/cli.py :: main()
-```
-
-### CLI Subcommands
-
-| Command | Handler | Purpose |
-|---------|---------|---------|
-| *(default)* | `_async_new_project()` / `_async_file_project()` | Run a project (inline args or `--file foo.yaml`) |
-| `--resume <id>` | `_async_resume()` | Resume from checkpoint |
-| `--list-projects` | `_async_list_projects()` | Enumerate saved projects |
-| `--dry-run` | `_async_dry_run()` | Pre-flight cost forecast |
-| `--visualize` | `_async_visualize()` | Print task DAG (mermaid/ascii) |
-| `analyze` | `_async_analyze()` | Codebase analysis report |
-| `build` | AppBuilder pipeline | Full app generation |
-| `agent` | Agent spec runner | NL intent → typed spec |
-| `dashboard` | dashboard_core | Mission Control UI |
-| `meta` | MetaOptimization | A/B testing, transfer learning |
-| `cache-stats` | DiskCache | Show/clear cache |
-
-### YAML Project File (`--file`)
-
-Parsed by `project_file.py::load_project_file()` → `ProjectFileResult`
-
-```yaml
-project: "Build X"          # required
-criteria: "Y passes"        # required
-budget_usd: 8.0             # default 8.0
-time_seconds: 3600          # default 5400
-concurrency: 3              # default 3
-tdd_first: true             # default true (TDD on by default)
-tdd_quality: balanced       # budget | balanced | premium
-output_dir: ./results       # optional
-assemble: false             # optional: assemble into project tree
-verify_cmd: pytest          # optional: run after assembly
-policies:
-  - name: no_openai
-    blocked_providers: [openai]
-  - name: eu_only
-    allowed_regions: [eu]
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Multi-LLM Orchestrator v6.3                          │
+│                    Autonomous Software Development Platform                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+         ┌──────────────────────────┼──────────────────────────┐
+         │                          │                          │
+    ┌────▼────┐               ┌────▼────┐               ┌────▼────┐
+    │  INPUT   │               │ ENGINE  │               │ OUTPUT  │
+    │ Layer    │◄─────────────►│  Core   │◄─────────────►│ Layer   │
+    └────┬────┘               └────┬────┘               └────┬────┘
+         │                          │                          │
+    Project Desc              Pipeline Execution          Generated Code
+    Success Criteria          Quality Assurance           Test Suite
+    Budget Constraints        Cost Optimization           Documentation
 ```
 
 ---
 
-## 3. The Engine (`orchestrator/engine.py`)
+## 🏗️ Core Architecture
 
-The single most important file. ~5000 lines. **Orchestrator** class is the Mediator.
-
-### Construction — what gets wired at `__init__`
+### 1. Main Pipeline Flow
 
 ```
-Orchestrator(budget, max_concurrency, tracing_cfg)
-    ├── Budget                    # per-run spend + phase allocation
-    ├── DiskCache                 # SQLite prompt dedup (default ~/.orchestrator_cache/cache.db)
-    ├── StateManager              # async SQLite project checkpointing
-    ├── UnifiedClient             # OpenRouter API client + retry
-    ├── SemanticCache             # L3 quality-threshold cache (threshold=0.85)
-    ├── CacheOptimizer (opt)      # Multi-level L1/L2/L3 cache
-    ├── PolicyEngine              # Compliance validation
-    ├── ConstraintPlanner         # Multi-objective model selection
-    ├── TelemetryCollector        # Adaptive profiling (EMA)
-    ├── AdaptiveRouter            # Circuit breaker + health tracking
-    ├── TelemetryStore            # Cross-run learning persistence
-    └── [optional, try/except]:
-        A2AManager, AccountabilityTracker, AgentSafetyMonitor,
-        TaskVerifier, RedTeamFramework, TokenOptimizer,
-        PreflightValidator, SessionWatcher, PersonaManager,
-        MemoryTierManager, HybridSearchPipeline,
-        SessionLifecycleManager, MetaOptimization
+Project Description
+       │
+       ▼
+┌─────────────────┐
+│ Auto-Resume     │◄──────────────────┐
+│ Detection       │                   │
+└────────┬────────┘                   │
+         │                            │
+         ▼                            │
+┌─────────────────┐                   │
+│ Project         │                   │
+│ Enhancer        │                   │
+└────────┬────────┘                   │
+         │                            │
+         ▼                            │
+┌─────────────────┐                   │
+│ Architecture    │                   │
+│ Advisor         │                   │
+└────────┬────────┘                   │
+         │                            │
+         ▼                            │
+┌─────────────────┐     ┌─────────────┴─────┐
+│ Decomposition   │────►│ Checkpoint/Resume │
+│ (Atomic Tasks)  │     │     (SQLite)      │
+└────────┬────────┘     └───────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────┐
+│              TASK EXECUTION LOOP                 │
+│  ┌─────────┐  ┌──────────┐  ┌─────────┐        │
+│  │ Route   │──► Generate │──► Critique │        │
+│  │ Task    │  │   Code   │  │ Output   │        │
+│  └────┬────┘  └────┬─────┘  └────┬────┘        │
+│       │            │             │              │
+│       │      ┌─────▼─────┐       │              │
+│       │      │  Revise   │◄──────┘              │
+│       │      │  (loop)   │                      │
+│       │      └─────┬─────┘                      │
+│       │            │                            │
+│       ▼            ▼                            │
+│  ┌─────────┐  ┌──────────┐                     │
+│  │Evaluate │  │Deterministic                     │
+│  │ Quality │  │Validation│                     │
+│  └────┬────┘  └────┬─────┘                     │
+│       │            │                            │
+│       └────────────┘                            │
+│              │                                  │
+│              ▼                                  │
+│  ┌─────────────────────────────────┐           │
+│  │   Cross-Provider Fallback Chain │           │
+│  │   (if quality < threshold)      │           │
+│  └─────────────────────────────────┘           │
+└─────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Store Results   │
+│ + Telemetry     │
+│ + State         │
+└─────────────────┘
 ```
 
-### Execution Pipeline
+### 2. Module Dependency Graph
 
 ```
-run_project(description, criteria, project_id, ...)
-    │
-    ├── [Phase 0] _generate_architecture_rules()
-    │       → calls LLM to decide: style, paradigm, stack, constraints
-    │       → writes .orchestrator-rules.yml
-    │
-    ├── [Phase 1] _decompose()
-    │       → calls LLM to split project into Task list (JSON)
-    │       → retries with different model on JSON parse failure
-    │       → StateManager.save_project() [first checkpoint]
-    │
-    ├── _topological_sort(tasks)
-    │       → DAG resolution via Kahn's algorithm (collections.deque)
-    │       → raises on cycle detection
-    │
-    └── [Phase 2-5] _execute_all(tasks, execution_order)
+                              ┌─────────────────┐
+                              │     CLI / API    │
+                              │  (Entry Points)  │
+                              └────────┬────────┘
+                                       │
+                    ┌──────────────────┼──────────────────┐
+                    │                  │                  │
+                    ▼                  ▼                  ▼
+           ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+           │   Engine    │    │  Dashboard  │    │   Policy    │
+           │   Core      │    │   System    │    │   Engine    │
+           └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
+                  │                  │                  │
+    ┌─────────────┼─────────────┐    │    ┌─────────────┼─────────────┐
+    │             │             │    │    │             │             │
+    ▼             ▼             ▼    │    ▼             ▼             ▼
+┌───────┐   ┌─────────┐   ┌────────┐│┌───┴────┐  ┌──────┴─────┐ ┌────┴────┐
+│Models │   │  API    │   │ State  │││ Events │  │ Knowledge  │ │ Project │
+│& Cost │   │ Clients │   │Manager │││ System │  │   Base     │ │ Manager │
+└───┬───┘   └────┬────┘   └───┬────┘│└───┬────┘  └────────────┘ └─────────┘
+    │            │            │     │    │
+    │     ┌──────┴──────┐     │     │    │         ┌─────────────┐
+    │     │             │     │     │    │         │   Product   │
+    │     ▼             ▼     │     │    │         │   Manager   │
+    │  ┌──────┐    ┌────────┐ │     │    │         └─────────────┘
+    └──►Routing│    │Semantic│ │     │    │
+       │Tables│    │ Cache  │ │     │    │         ┌─────────────┐
+       └──────┘    └────────┘ │     │    └────────►│   Quality   │
+                              │     │              │   Control   │
+                              │     │              └─────────────┘
+                              │     │
+                              │     │              ┌─────────────┐
+                              │     └─────────────►│   Nexus     │
+                              │                    │   Search    │
+                              │                    └─────────────┘
+                              │
+                              │     ┌───────────────────────────────┐
+                              │     │      ARA Pipeline             │
+                              │     │  (12 Reasoning Methods)       │
+                              └────►│  - Multi-Perspective          │
+                                    │  - Iterative                  │
+                                    │  - Debate                     │
+                                    │  - Jury                       │
+                                    │  - Scientific                 │
+                                    └───────────────────────────────┘
+```
+
+---
+
+## 📊 Data Models & Types
+
+### Core Data Structures
+
+```python
+# Task Types (ROUTING_TABLE keys)
+TaskType
+├── CODE_GEN          # Code generation tasks
+├── CODE_REVIEW       # Code review tasks
+├── REASONING         # Complex reasoning tasks
+├── WRITING           # Creative writing
+├── DATA_EXTRACT      # Data extraction
+├── SUMMARIZE         # Summarization
+└── EVALUATE          # Evaluation tasks
+
+# Project States
+ProjectStatus
+├── SUCCESS
+├── PARTIAL_SUCCESS
+├── COMPLETED_DEGRADED
+├── BUDGET_EXHAUSTED
+├── TIMEOUT
+└── SYSTEM_FAILURE
+
+# Task States
+TaskStatus
+├── PENDING
+├── RUNNING
+├── COMPLETED
+├── FAILED
+└── DEGRADED
+```
+
+### Model Routing Architecture
+
+```
+ROUTING_TABLE (TaskType → Model Priority List)
+═══════════════════════════════════════════════════════════════════
+
+CODE_GEN:
+  1. XIAOMI_MIMO_V2_FLASH  ($0.09/$0.29) ⭐ BEST
+  2. QWEN_2_5_CODER_32B    ($0.66/$1.00)
+  3. DEEPSEEK_V3_2         ($0.27/$1.10)
+  4. MOONSHOT_KIMI_K2_5    ($0.42/$2.20)
+  5. ZHIPU_GLM_4_7         ($0.39/$1.75)
+  6. CLAUDE_SONNET_4_6     ($3/$15)
+
+CODE_REVIEW:
+  1. XAI_GROK_4_20         ($2/$6) ⭐ BEST
+  2. DEEPSEEK_R1           ($0.55/$2.19)
+  3. MOONSHOT_KIMI_K2_5    ($0.42/$2.20)
+
+REASONING:
+  1. STEPFUN_STEP_3_5_FLASH ($0.10/$0.30) ⭐ BEST VALUE
+  2. DEEPSEEK_R1           ($0.55/$2.19)
+  3. O3_MINI               ($1.10/$4.40)
+
+EVALUATE:
+  1. XAI_GROK_4_20         ($2/$6) ⭐ BEST
+  2. DEEPSEEK_R1           ($0.55/$2.19)
+
+COST_TABLE: Dict[Model, Dict["input"|"output", USD_per_1M_tokens]]
+FALLBACK_CHAIN: Dict[Model, Model]  # Cross-provider resilience
+MODEL_MAX_TOKENS: Dict[Model, int]  # Context window limits
+```
+
+---
+
+## 🔄 Core Pipeline Workflows
+
+### 1. Generate → Critique → Revise → Evaluate Loop
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ITERATION WORKFLOW                           │
+│                    (max_iterations = 3)                         │
+└─────────────────────────────────────────────────────────────────┘
+
+Phase 1: GENERATE
+┌────────────────────────────────────────┐
+│ 1. Select optimal model via ROUTING    │
+│ 2. Build context + dependencies        │
+│ 3. Call LLM API                        │
+│ 4. Parse response (code extraction)    │
+│ 5. Validate JSON structure             │
+└──────────────┬─────────────────────────┘
+               │
+               ▼
+Phase 2: DETERMINISTIC VALIDATION
+┌────────────────────────────────────────┐
+│ • validate_python_syntax()             │
+│ • validate_pytest()                    │
+│ • validate_ruff()                      │
+│ • validate_json_schema()               │
+│ • Security checks (bandit)             │
+└──────────────┬─────────────────────────┘
+               │
+               ▼ (if passed)
+Phase 3: CRITIQUE
+┌────────────────────────────────────────┐
+│ 1. Cross-model review (different LLM)  │
+│ 2. Evaluate: correctness, style, tests │
+│ 3. Score: 0.0 - 1.0                    │
+│ 4. Generate critique feedback          │
+└──────────────┬─────────────────────────┘
+               │
+               ▼
+Phase 4: EVALUATE
+┌────────────────────────────────────────┐
+│ Score >= threshold (0.85)?             │
+│ ├── YES → Mark COMPLETED               │
+│ └── NO  → Continue to REVISE           │
+└──────────────┬─────────────────────────┘
+               │
+               ▼ (if below threshold)
+Phase 5: REVISE
+┌────────────────────────────────────────┐
+│ 1. Generate delta prompt               │
+│ 2. Include critique feedback           │
+│ 3. Loop back to GENERATE               │
+│ 4. Increment iteration counter         │
+└────────────────────────────────────────┘
+
+CIRCUIT BREAKER: Model marked unhealthy after 3 consecutive failures
+```
+
+### 2. Cross-Provider Fallback Chain
+
+```
+Task Failure / Low Quality
+           │
+           ▼
+┌──────────────────────────┐
+│ 1. Try next model in     │
+│    ROUTING_TABLE         │
+└───────────┬──────────────┘
             │
-            ├── [Per task, up to max_parallel_tasks concurrently]:
-            │       │
-            │       ├── [TDD path, if tdd_first=True and CODE_GEN]:
-            │       │       TestFirstGenerator.generate_with_tests(task)
-            │       │       → write tests first (claude-sonnet-4-6 balanced)
-            │       │       → implement to pass tests (qwen-3-coder-next balanced)
-            │       │       → run tests in sandbox
-            │       │       → return early if tests pass
-            │       │       → fallback to standard if TDD fails
-            │       │
-            │       ├── ConstraintPlanner.select_model(task_type, api_health, policies, budget)
-            │       │       → filter: health, policy, budget
-            │       │       → score: quality × trust / (cost + ε)
-            │       │
-            │       ├── [Optional] SpeculativeGenerator — early exit on cheap model
-            │       │
-            │       ├── UnifiedClient.call(model, prompt, system, max_tokens, temp, timeout)
-            │       │       → DiskCache check
-            │       │       → Semaphore (max_concurrency)
-            │       │       → Retry loop (exponential backoff on 429)
-            │       │       → OpenRouter POST
-            │       │       → APIResponse(text, input_tokens, output_tokens, cost_usd, cached)
-            │       │
-            │       ├── _critique_cycle(task, gen_response)
-            │       │       → cross-provider critique
-            │       │       → revise up to max_iterations
-            │       │       → plateau detection (stop if score stagnates)
-            │       │
-            │       ├── async_run_validators(output, task_type)
-            │       │       → python_syntax, json_schema, ruff, pytest, latex
-            │       │       → score=0 if any fail (deterministic override)
-            │       │
-            │       ├── Budget.commit_reservation(reserved, actual, phase)
-            │       │
-            │       ├── TelemetryCollector.record_call(model, latency, cost, success, quality)
-            │       │       → EMA update for ModelProfile
-            │       │       → trust_factor: ×0.95 on fail, ×1.001 on success
-            │       │
-            │       └── StateManager.save_project() [checkpoint per task]
+            ▼
+┌──────────────────────────┐
+│ 2. Check FALLBACK_CHAIN  │
+│    (cross-provider)      │
+└───────────┬──────────────┘
             │
-            └── _determine_final_status()
-                    → SUCCESS / PARTIAL / DEGRADED / BUDGET_EXHAUSTED / TIMEOUT
-```
-
-### Key Method Signatures
-
-```python
-await orch.run_project(
-    project_description: str,
-    success_criteria: str,
-    project_id: str | None = None,
-    app_profile: str | None = None,
-    analyze: bool = False,
-    output_dir: Path | None = None,
-) -> ProjectState
-
-await orch.run_job(spec: JobSpec) -> ProjectState   # policy-driven, uses BudgetHierarchy
-
-async for event in orch.run_project_streaming(...): # yields StreamingEvent
-    ...
-
-plan = await orch.dry_run(description, criteria)    # → ExecutionPlan (no API calls)
+            ▼
+┌──────────────────────────┐
+│ 3. Escalate tier:        │
+│    CHEAP → BALANCED →    │
+│    PREMIUM               │
+└───────────┬──────────────┘
+            │
+            ▼
+┌──────────────────────────┐
+│ 4. If all fail:          │
+│    Mark DEGRADED         │
+│    Record attempt history│
+└──────────────────────────┘
 ```
 
 ---
 
-## 4. Core Data Models (`orchestrator/models.py`)
+## 🧠 ARA Pipeline (Advanced Reasoning & Analysis)
 
-**Rule: Pure data only. No asyncio, no I/O, no behavior.**
-
-### Key Enums
-
-```python
-TaskType  = CODE_GEN | CODE_REVIEW | REASONING | WRITING | DATA_EXTRACT | SUMMARIZE | EVALUATE
-ProjectStatus = SUCCESS | PARTIAL_SUCCESS | COMPLETED_DEGRADED | BUDGET_EXHAUSTED | TIMEOUT | SYSTEM_FAILURE
-TaskStatus    = PENDING | RUNNING | COMPLETED | FAILED | DEGRADED
-```
-
-### `Model` enum — 70+ values, all OpenRouter format `provider/model-name`
-
-Selected examples:
-```
-openai/gpt-4o, openai/gpt-5.4-codex, openai/o4-mini
-anthropic/claude-sonnet-4-6, anthropic/claude-opus-4-6
-google/gemini-2.5-pro, google/gemini-2.5-flash
-deepseek/deepseek-v3.2, deepseek/deepseek-r1
-meta-llama/llama-4-maverick, meta-llama/llama-4-scout
-xai/grok-4-20-beta, qwen/qwen-3-coder-next
-moonshotai/kimi-k2.5, stepfun/step-3.5-flash
-zhipu/glm-4.7-flash  ← cheapest ($0.06/1M)
-xiaomi/mimo-vl-7b-rl ← cheapest SWE-bench (#1 $0.09/1M)
-```
-
-### ROUTING_TABLE — `dict[TaskType → list[Model]]` (priority order)
-
-| TaskType | Primary choice | Rationale |
-|----------|---------------|-----------|
-| CODE_GEN | xiaomi/mimo-vl-7b-rl | #1 SWE-bench, $0.09/1M |
-| CODE_REVIEW | xai/grok-4-20-beta | lowest hallucination |
-| REASONING | stepfun/step-3.5-flash | $0.10/1M 196B MoE |
-| WRITING | meta-llama/llama-4-maverick | $0.17/1M |
-| DATA_EXTRACT | zhipu/glm-4.7-flash | $0.06/1M ultra-cheap |
-| SUMMARIZE | zhipu/glm-4.7-flash | same |
-| EVALUATE | xai/grok-4-20-beta | lowest hallucination |
-
-### FALLBACK_CHAIN — `dict[Model → Model]` (always cross-provider)
+### 12 Reasoning Methods
 
 ```
-gpt-4o         → claude-sonnet-4-6
-o1             → claude-opus-4-6
-deepseek-r1    → phi-4-reasoning
-llama-4-mav    → llama-3.1-405b
-...50+ chains
-```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ARA PIPELINE v2.0                            │
+│         12 Cognitive Science-Based Reasoning Methods            │
+└─────────────────────────────────────────────────────────────────┘
 
-### COST_TABLE — `dict[Model → {input: float, output: float}]`
-Range: $0.06–$60 per 1M tokens
+STANDARD METHODS:
+┌────────────────────┬───────────────────────────────────────────┐
+│ Method             │ Strategy                                  │
+├────────────────────┼───────────────────────────────────────────┤
+│ Multi-Perspective  │ 4 perspectives: constructive, destructive,│
+│                    │ systemic, minimalist                      │
+├────────────────────┼───────────────────────────────────────────┤
+│ Iterative          │ Progressive refinement, step-by-step      │
+├────────────────────┼───────────────────────────────────────────┤
+│ Debate             │ 2+ agents argue, meta-evaluator decides   │
+├────────────────────┼───────────────────────────────────────────┤
+│ Research           │ Web discovery + LLM synthesis             │
+├────────────────────┼───────────────────────────────────────────┤
+│ Jury               │ 4 generators, 3 critics, meta-evaluation  │
+├────────────────────┼───────────────────────────────────────────┤
+│ Scientific         │ Hypothesis testing: formulate→test→refine │
+├────────────────────┼───────────────────────────────────────────┤
+│ Socratic           │ Probing questions uncover assumptions     │
+└────────────────────┴───────────────────────────────────────────┘
 
-### MAX_OUTPUT_TOKENS — `dict[TaskType → int]`
-```python
-CODE_GEN: 8192, CODE_REVIEW: 4096, REASONING: 4096,
-WRITING: 4096, DATA_EXTRACT: 2048, SUMMARIZE: 1024, EVALUATE: 2048
-```
+SPECIALIZED METHODS:
+┌────────────────────┬───────────────────────────────────────────┐
+│ Method             │ Strategy                                  │
+├────────────────────┼───────────────────────────────────────────┤
+│ Pre-Mortem         │ Imagine failure, work backward to prevent │
+├────────────────────┼───────────────────────────────────────────┤
+│ Bayesian           │ Prior→evidence→posterior probability      │
+├────────────────────┼───────────────────────────────────────────┤
+│ Dialectical        │ Thesis→antithesis→synthesis               │
+├────────────────────┼───────────────────────────────────────────┤
+│ Analogical         │ Map solutions from unrelated domains      │
+├────────────────────┼───────────────────────────────────────────┤
+│ Delphi             │ Iterative expert consensus with feedback  │
+└────────────────────┴───────────────────────────────────────────┘
 
-### Key Dataclasses
-
-```python
-@dataclass
-class Task:
-    id: str                          # task_001, task_002, ...
-    type: TaskType
-    prompt: str
-    context: str = ""
-    dependencies: list[str] = []     # ids of tasks that must complete first
-    hard_validators: list[str] = []  # e.g. ["python_syntax", "pytest"]
-    max_output_tokens: int = 1500    # set from MAX_OUTPUT_TOKENS in __post_init__
-    target_path: str = ""            # for app builder assembly
-    module_name: str = ""
-    tech_context: str = ""
-    status: TaskStatus = PENDING
-
-@dataclass
-class TaskResult:
-    task_id: str
-    output: str
-    score: float                     # 0.0 – 1.0
-    model_used: Model
-    reviewer_model: Model | None
-    tokens_used: dict                # {input, output}
-    iterations: int
-    cost_usd: float
-    status: TaskStatus
-    critique: str = ""
-    deterministic_check_passed: bool = True
-    attempt_history: list[AttemptRecord] = []
-    test_files: dict[str, str] = {}  # TDD artifacts
-    tests_passed: int = 0
-    tests_total: int = 0
-    metadata: dict = {}
-
-@dataclass
-class ProjectState:
-    project_description: str
-    success_criteria: str
-    tasks: list[Task]
-    results: dict[str, TaskResult]
-    status: ProjectStatus
-    start_time: float
-    end_time: float | None
-    total_cost_usd: float
-    budget: object                   # Budget instance (lazy type)
-    project_id: str = ""
+SELECTION LOGIC:
+┌─────────────────────────────────────────────────┐
+│ Task complexity + Risk + Budget + Language     │
+│                    │                            │
+│                    ▼                            │
+│            Route to Optimal                     │
+│            Reasoning Method                     │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Budget & Cost (`orchestrator/budget.py`, `orchestrator/cost.py`)
-
-### Budget (per-run, in `budget.py`)
-
-```python
-@dataclass
-class Budget:
-    max_usd: float = 8.0
-    max_time_seconds: float = 5400.0
-    spent_usd: float = 0.0
-    phase_spent: dict = {}           # {decomposition, generation, cross_review, evaluation, reserve}
-    _reserved_usd: float = 0.0      # atomic reservation
-    _lock: asyncio.Lock              # race-free updates
-
-# Key async methods:
-await budget.reserve(amount)                          # → bool
-await budget.commit_reservation(reserved, actual, phase)
-await budget.release_reservation(amount)
-await budget.charge(amount, phase)
-
-# Properties:
-budget.remaining_usd                                  # max_usd - spent_usd - _reserved_usd
-budget.phase_budget(phase)                            # BUDGET_PARTITIONS[phase] * max_usd
-budget.phase_remaining(phase)                         # phase_budget - phase_spent
-```
-
-### BUDGET_PARTITIONS (in `models.py`, used by `budget.py`)
-```python
-{"decomposition": 0.10, "generation": 0.60, "cross_review": 0.15,
- "evaluation": 0.10, "reserve": 0.05}
-```
-
-### BudgetHierarchy (cross-run, in `cost.py`)
-```python
-hier = BudgetHierarchy(org_max_usd=100.0, team_budgets={"eng": 30.0})
-orch = Orchestrator(budget=Budget(max_usd=10.0), budget_hierarchy=hier)
-# run_job() checks hierarchy before every task
-```
-
-### CostForecaster (pre-flight)
-```python
-report = CostForecaster.forecast(tasks, profiles, predictor, budget=Budget(...))
-# report.risk_level: LOW | MEDIUM | HIGH
-# report.estimated_total_usd
-```
-
----
-
-## 6. API Client (`orchestrator/api_clients.py`)
-
-**All LLM calls go through here. No direct SDK calls anywhere else.**
-
-```python
-class UnifiedClient:
-    async def call(
-        model: Model,
-        prompt: str,
-        system: str = "",
-        max_tokens: int = 1500,    # override this! default is too low for CODE_GEN
-        temperature: float = 0.3,
-        timeout: int = 60,
-        retries: int = 2,
-        bypass_cache: bool = False,
-    ) -> APIResponse
-```
-
-**Internal flow:**
-1. Hash(model + prompt + max_tokens) → DiskCache lookup
-2. Semaphore.acquire(max_concurrency)
-3. Retry loop: exponential backoff on 429 / rate-limit patterns
-4. POST to `https://openrouter.ai/api/v1/chat/completions`
-5. Special handling: reasoning models (o1, o3, deepseek-reasoner) → no system prompt
-6. Normalize → `APIResponse(text, input_tokens, output_tokens, model, cost_usd, cached, latency_ms)`
-
-**Rate limit detection patterns** (`_RATE_LIMIT_PATTERNS`):
-`"rate_limit", "rate limit", "429", "too many requests", "resource_exhausted", "quota", "overloaded"`
-
----
-
-## 7. Caching (`orchestrator/cache.py`)
+## 🔍 Nexus Search Architecture
 
 ```
-~/.orchestrator_cache/cache.db   ← SQLite WAL mode
-    TABLE cache:
-        hash TEXT PRIMARY KEY    ← sha256(model + prompt + max_tokens)
-        model TEXT
-        response TEXT
-        tokens_input INTEGER
-        tokens_output INTEGER
-        created_at REAL
-```
+┌─────────────────────────────────────────────────────────────────┐
+│                    NEXUS SEARCH SYSTEM                          │
+│              Self-Hosted Web Search Integration                 │
+└─────────────────────────────────────────────────────────────────┘
 
-- Connection TTL: 1 hour (prevents stale)
-- Connection timeout: 10s (prevents hang)
-- `DiskCache.get(model, prompt, max_tokens)` → cached dict or None
-- `DiskCache.put(model, prompt, max_tokens, response, tokens_in, tokens_out)`
+ARCHITECTURE:
+┌─────────────────┐
+│ Search Query    │
+└───────┬─────────┘
+        │
+        ▼
+┌─────────────────┐     ┌─────────────────┐
+│ Query           │────►│ Query Expansion │
+│ Classification  │     │ (LLM-based)     │
+└─────────────────┘     └─────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────┐
+│      HYBRID SEARCH (BM25 + Vector)      │
+│         Reciprocal Rank Fusion          │
+│              (k=60)                     │
+└─────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────┐
+│ Parallel Search Sources:                │
+│ • Web (General)                         │
+│ • Tech (Documentation)                  │
+│ • News (Current events)                 │
+│ • Social (Discussions)                  │
+└─────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────┐
+│ Optimization Layer:                     │
+│ • Result Deduplication                  │
+│ • Query Caching (TTL-based)             │
+│ • Adaptive Search Depth                 │
+│ • Circuit Breaker                       │
+└─────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────┐
+│ LLM Reranking                           │
+│ (Relevance Scoring)                     │
+└─────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────┐
+│ Research Report Generation              │
+└─────────────────────────────────────────┘
 
----
-
-## 8. State / Checkpointing (`orchestrator/state.py`)
-
-```
-~/.orchestrator_cache/state.db   ← SQLite, JSON serialization
-    TABLE projects:
-        project_id TEXT PRIMARY KEY
-        state_json TEXT           ← full ProjectState as JSON
-        updated_at REAL
-```
-
-- `await state_mgr.save_project(project_id, state)` — called after each task
-- `await state_mgr.load_project(project_id)` → ProjectState | None
-- `await state_mgr.list_projects()` → list[dict]
-
-**Resume logic:** `ResumeDetector` (resume_detector.py) checks `.orchestrator_cache/` for recent projects → suggests `--resume` if found within 24h.
-
----
-
-## 9. Policy & Compliance (`orchestrator/policy.py`, `policy_engine.py`)
-
-### Policy dataclass
-```python
-@dataclass
-class Policy:
-    name: str
-    blocked_providers: list[str] | None = None   # e.g. ["openai", "azure"]
-    allowed_providers: list[str] | None = None   # whitelist
-    allowed_regions: list[str] | None = None     # e.g. ["eu"]
-    blocked_models: list[Model] | None = None
-    allow_training_on_output: bool = True
-    pii_allowed: bool = True
-    max_cost_per_task_usd: float | None = None
-    max_latency_ms: float | None = None
-```
-
-### JobSpec (policy-driven job)
-```python
-@dataclass
-class JobSpec:
-    project_description: str
-    success_criteria: str
-    budget: Budget
-    policy_set: PolicySet
-    job_id: str = ""
-    team: str = ""
-    quality_mode: str = "standard"   # "standard" | "production"
-```
-
-### PolicyEngine.check()
-```python
-result = policy_engine.check(model, profile, policies)
-# result.passed: bool
-# result.violations: list[str]
-# EnforcementMode.HARD → fail on any violation (default)
-# EnforcementMode.SOFT → only fail on hard violations (provider/region/model/PII)
-# EnforcementMode.MONITOR → always pass, log violations
+AGENT COMPONENTS:
+┌─────────────────┐  ┌─────────────────┐
+│ QueryClassifier │  │ ResearchAgent   │
+│                 │  │                 │
+│ • classify()    │  │ • research()    │
+│ • get_recommended│  │ • synthesize()  │
+│   _sources()    │  │ • report()      │
+└─────────────────┘  └─────────────────┘
 ```
 
 ---
 
-## 10. Model Selection (`orchestrator/planner.py`)
+## 🏢 Management Systems
 
-```python
-class ConstraintPlanner:
-    def select_model(
-        task_type: TaskType,
-        api_health: dict[Model, bool],
-        policies: PolicySet,
-        budget_remaining: float,
-    ) -> Model | None
+### 1. Knowledge Management System
 
-# Selection algorithm:
-# 1. Filter: api_health[m] == True
-# 2. Filter: PolicyEngine.check(m, profile, policies).passed
-# 3. Filter: task_type in profile.capable_task_types
-# 4. Filter: estimated_cost(typical_tokens) <= budget_remaining
-# 5. Score:  quality_score * trust_factor / (cost_per_typical_call + 1e-9)
-# 6. Tiebreak: ROUTING_TABLE priority rank
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    KNOWLEDGE BASE                               │
+│              Centralized Learning Repository                    │
+└─────────────────────────────────────────────────────────────────┘
+
+Data Model:
+┌───────────────────┐
+│ KnowledgeArtifact │
+├───────────────────┤
+│ id: str           │
+│ type: KnowledgeType│
+│ title: str        │
+│ content: str      │
+│ context: dict     │
+│ tags: list[str]   │
+│ embedding: list   │
+│ similarity_score  │
+│ usage_count       │
+└───────────────────┘
+
+KnowledgeType Enum:
+├── CODE_SNIPPET
+├── SOLUTION
+├── BUGFIX
+├── PATTERN
+├── ARCHITECTURE
+├── DECISION
+└── LESSON_LEARNED
+
+Features:
+┌─────────────────────────────────────────┐
+│ • Vector storage (sentence-transformers)│
+│ • Knowledge graph (concept relations)  │
+│ • Pattern matching                      │
+│ • Auto-generated documentation         │
+│ • LRU cache for queries                │
+│ • Async indexing                        │
+└─────────────────────────────────────────┘
+```
+
+### 2. Project Management System
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PROJECT MANAGER                              │
+│          Task Scheduling & Resource Allocation                  │
+└─────────────────────────────────────────────────────────────────┘
+
+Core Classes:
+┌───────────────────┐  ┌───────────────────┐  ┌─────────────────┐
+│   TaskSchedule    │  │    Milestone      │  │      Risk       │
+├───────────────────┤  ├───────────────────┤  ├─────────────────┤
+│ task_id: str      │  │ id: str           │  │ id: str         │
+│ start_time: datetime│ name: str          │  │ probability: float
+│ end_time: datetime │  │ deadline: datetime│ impact: float    │
+│ resources: list   │  │ completed: bool   │  │ risk_score()    │
+│ is_critical: bool │  │ completion_date   │  │ mitigation: str │
+│ slack: timedelta  │  └───────────────────┘  └─────────────────┘
+└───────────────────┘
+
+Algorithms:
+┌─────────────────────────────────────────┐
+│ CriticalPathAnalyzer                    │
+│ • Forward/backward pass algorithm       │
+│ • Earliest/latest start calculation     │
+│ • Float time computation                │
+├─────────────────────────────────────────┤
+│ ResourceOptimizer                       │
+│ • Constraint-based allocation           │
+│ • Cost optimization                     │
+│ • Load balancing                        │
+└─────────────────────────────────────────┘
+```
+
+### 3. Product Management System
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PRODUCT MANAGER                              │
+│        Feature Prioritization & Release Planning                │
+└─────────────────────────────────────────────────────────────────┘
+
+Core Classes:
+┌───────────────────┐  ┌───────────────────┐  ┌─────────────────┐
+│     Feature       │  │    RICEScore      │  │     Release     │
+├───────────────────┤  ├───────────────────┤  ├─────────────────┤
+│ id: str           │  │ reach: int        │  │ id: str         │
+│ name: str         │  │ impact: int       │  │ version: str    │
+│ status: FeatureStatus│ confidence: int   │  │ target_date     │
+│ priority: P0-P3   │  │ effort: int       │  │ features: list  │
+│ rice_score        │  │ score()           │  │ status          │
+│ tags: list        │  └───────────────────┘  └─────────────────┘
+└───────────────────┘
+
+RICE Scoring:
+  score = (Reach × Impact × Confidence) / Effort
+
+FeatureStatus Lifecycle:
+  IDEA → RESEARCH → PLANNED → IN_PROGRESS → BETA → RELEASED → DEPRECATED
+```
+
+### 4. Quality Control System
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    QUALITY CONTROLLER                           │
+│          Automated Testing & Quality Analysis                   │
+└─────────────────────────────────────────────────────────────────┘
+
+Test Levels:
+├── UNIT           # Function/class tests
+├── INTEGRATION    # Multi-component tests
+├── E2E            # End-to-end tests
+├── PERFORMANCE    # Load/stress tests
+└── SECURITY       # Security scans
+
+Quality Gates:
+┌─────────────────────────────────────────┐
+│ CodeMetrics                             │
+│ • Cyclomatic complexity                 │
+│ • Maintainability index                 │
+│ • Duplication percentage                │
+│ • Documentation coverage                │
+│ • Type hint coverage                    │
+├─────────────────────────────────────────┤
+│ QualityIssue                            │
+│ • severity: CRITICAL/HIGH/MEDIUM/LOW   │
+│ • suggested_fix                         │
+│ • location (file:line:column)          │
+├─────────────────────────────────────────┤
+│ QualityReport                           │
+│ • passed: bool                          │
+│ • average_coverage                      │
+│ • test_results                          │
+│ • issues                                │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## 11. Validation (`orchestrator/validators.py`)
-
-All validators return `ValidationResult(passed: bool, message: str, validator_name: str)`
-
-| Validator | Trigger | What it checks |
-|-----------|---------|---------------|
-| `validate_python_syntax` | CODE_GEN | compile() + truncation detection |
-| `validate_json_schema` | DATA_EXTRACT | json.loads() + optional jsonschema |
-| `validate_ruff` | CODE_GEN | subprocess ruff --select E,F,W |
-| `validate_pytest` | CODE_GEN w/ hard_validators | subprocess pytest |
-| `validate_latex` | WRITING w/ latex | subprocess pdflatex |
-
-**Truncation detection** (in python_syntax validator):
-- Last line ends with `:` (incomplete annotation)
-- Last char not in `}`, `)`, `]`, `"`, `'`, `\`
-- AND output has ≥ 50 lines
-→ Returns failure: "Output appears truncated at token limit — retry with higher max_output_tokens"
-
-`async_run_validators()` → runs subprocess validators in thread pool (non-blocking)
-
----
-
-## 12. TDD System (`orchestrator/tdd_config.py`, `test_first_generator.py`)
+## 🍎 iOS App Store Compliance Suite
 
 ```
-TDD enabled by default (enable_tdd_first=True in OptimizationConfig)
+┌─────────────────────────────────────────────────────────────────┐
+│              iOS APP STORE COMPLIANCE SUITE (v6.3)              │
+│                    6 Major Enhancements                         │
+└─────────────────────────────────────────────────────────────────┘
 
-Triggered when: task.type == CODE_GEN AND enable_tdd_first AND HAS_TDD
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│Enhancement A│ │Enhancement B│ │Enhancement C│ │Enhancement D│
+│ Multi-Platform│ App Store   │ │ iOS HIG     │ │ App Store   │
+│ Generator   │ │ Validator   │ │ Prompts     │ │ Assets Gen  │
+│ (9 platforms)│ (30 checks) │ │ (HIG comp)  │ │ (Auto)      │
+└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+       │               │               │               │
+       └───────────────┴───────────────┴───────────────┘
+                           │
+       ┌───────────────────┼───────────────────┐
+       ▼                   ▼                   ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│Enhancement E│     │Enhancement F│     │   TOTAL     │
+│ Native      │     │ Pre-Submit  │     │             │
+│ Templates   │     │ Testing     │     │ 5,400+ lines│
+│ (10 types)  │     │ (10 checks) │     │ 135 tests   │
+└─────────────┘     └─────────────┘     └─────────────┘
 
-Flow:
-    1. detect_testing_framework(task.prompt) → pytest / jest / vitest / go / cargo
-    2. Generate tests:  model = tdd_config.test_generation (claude-sonnet-4-6 balanced)
-    3. Generate impl:   model = tdd_config.implementation  (qwen-3-coder-next balanced)
-    4. Run tests in sandbox
-    5. Self-heal loop (max_iterations=3) if tests fail
-    6. Return TDDResult → TaskResult (score=1.0 if all pass, 0.8 if partial)
-    On exception: fall back to standard generation pipeline
-```
-
-### Quality Tiers
-
-| Tier | Test Generation | Implementation | Test Review |
-|------|----------------|----------------|-------------|
-| budget | deepseek/deepseek-v3.2 | qwen/qwen-3-coder-next | deepseek/deepseek-v3.2 |
-| **balanced** | **anthropic/claude-sonnet-4-6** | **qwen/qwen-3-coder-next** | **anthropic/claude-sonnet-4-6** |
-| premium | openai/gpt-5.4-pro | openai/gpt-5.4-pro | openai/gpt-5.4-pro |
-
----
-
-## 13. Telemetry & Adaptive Learning (`orchestrator/telemetry.py`)
-
-```python
-class TelemetryCollector:
-    def record_call(model, latency_ms, cost_usd, success, quality_score)
-    # Updates ModelProfile (lives in policy.py) in-place:
-    #   latency_ema    → α=0.2 exponential moving average
-    #   quality_ema    → α=0.2
-    #   success_rate   → rolling window last 10 calls
-    #   p95_latency    → sorted buffer last 50 samples
-    #   cost_ema       → α=0.2
-    #   trust_factor   → ×0.95 on fail, ×1.001 on success (capped at 1.0)
-    # trust_factor directly feeds ConstraintPlanner scoring
+VALIDATION CHECKS:
+┌─────────────────────────────────────────┐
+│ Performance (IOS-2.1)                   │
+│ • Launch time < 20s                     │
+│ • Memory usage < 5x base                │
+│ • No memory leaks                       │
+│ • Efficient resource use                │
+├─────────────────────────────────────────┤
+│ Metadata (IOS-2.5.2)                    │
+│ • Accurate descriptions                 │
+│ • Appropriate keywords                  │
+│ • Proper categorization                 │
+├─────────────────────────────────────────┤
+│ Functionality (IOS-4.2)                 │
+│ • Beta testing compliance               │
+│ • Native iOS features (2+)              │
+│ • No placeholder content                │
+│ • Stable performance                    │
+├─────────────────────────────────────────┤
+│ Legal (IOS-5.1)                         │
+│ • Info.plist presence                   │
+│ • Required declarations                 │
+│ • Privacy policy                        │
+├─────────────────────────────────────────┤
+│ HIG Compliance                          │
+│ • iOS-standard controls                 │
+│ • Accessibility labels                  │
+│ • Dark mode support                     │
+├─────────────────────────────────────────┤
+│ AI Transparency                         │
+│ • AI-generated content disclosed        │
+│ • No misleading claims                  │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## 14. OptimizationConfig (`orchestrator/cost_optimization/__init__.py`)
+## 💰 Cost Optimization System
 
-```python
-@dataclass
-class OptimizationConfig:
-    enable_prompt_caching: bool = True
-    enable_batch_api: bool = True
-    enable_token_budget: bool = True
-    enable_cascading: bool = False        # speculative cascading
-    enable_speculative: bool = False
-    enable_streaming_validation: bool = True
-    enable_adaptive_temperature: bool = True
-    enable_dependency_context: bool = True
-    enable_auto_eval_dataset: bool = True
-    enable_tdd_first: bool = True         # ON by default
-    tdd_quality_tier: str = "balanced"
-    tdd_max_iterations: int = 3
-    tdd_min_test_coverage: float = 0.8
-    enable_diff_revisions: bool = True    # 60% token savings on revisions
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    COST OPTIMIZATION v6.1                       │
+│                     35% Cost Reduction                          │
+└─────────────────────────────────────────────────────────────────┘
 
-# Global singleton, updated by engine at startup:
-config = get_optimization_config()
-update_config(config)
+TIER 1: Provider-Level (80-90% input cost reduction)
+┌─────────────────────────────────────────┐
+│ • Prompt Caching (repeated patterns)    │
+│ • Batch API (parallel requests)         │
+│ • Token Budget Management               │
+└─────────────────────────────────────────┘
+
+TIER 2: Architectural (40-60% per-task reduction)
+┌─────────────────────────────────────────┐
+│ • Model Cascading (CHEAP→BALANCED→PREMIUM)│
+│ • Dependency Context Injection          │
+│ • Speculative Generation                │
+│ • Streaming Validation                  │
+└─────────────────────────────────────────┘
+
+TIER 3: Quality (30-50% fewer repair cycles)
+┌─────────────────────────────────────────┐
+│ • Tier-3 Quality Checks                 │
+│ • Confidence-Based Early Exit           │
+│ • Fast Regression Detection (EMA α=0.2) │
+│ • Semantic Sub-Result Caching           │
+└─────────────────────────────────────────┘
+
+TIER 4: DevOps (Security + DX)
+┌─────────────────────────────────────────┐
+│ • Docker Sandboxing                     │
+│ • GitHub Auto-Push                      │
+│ • Tool Safety Validation                │
+└─────────────────────────────────────────┘
+
+COST TRACKING:
+┌─────────────────────────────────────────┐
+│ EMA-based pricing (exponential moving)  │
+│ Budget hierarchy: org → team → job      │
+│ Real-time cost telemetry                │
+│ Budget alerts at 80% threshold          │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## 15. Module Dependency Map
+## 🛡️ Resilience & Fault Tolerance
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │           __init__.py               │
-                    │     (lazy __getattr__ facade)       │
-                    └────────────────┬────────────────────┘
-                                     │
-                    ┌────────────────▼────────────────────┐
-                    │            engine.py                │
-                    │         (Orchestrator)              │
-                    └──┬───┬───┬───┬───┬───┬───┬──────────┘
-                       │   │   │   │   │   │   │
-              ┌────────┘   │   │   │   │   │   └──────────────┐
-              ▼            ▼   │   ▼   ▼   ▼                  ▼
-         api_clients   budget  │ state planner telemetry  cost_optim/
-         (UnifiedClient)       │  (SM) (CPlan) (Telm)    (Tiers 1-4)
-              │                ▼                               │
-              ▼             policy.py ──► policy_engine.py    │
-           cache.py         (Policy,                          │
-           (DiskCache)       PolicySet,                       │
-                             JobSpec,                         │
-                             ModelProfile)                    │
-                                │                             │
-                    ┌───────────┴──────────────┐             │
-                    ▼                          ▼             │
-                models.py              tdd_config.py ◄───────┘
-           (Task, TaskResult,          test_first_generator.py
-            ProjectState,
-            ROUTING_TABLE,
-            COST_TABLE,
-            MAX_OUTPUT_TOKENS,
-            FALLBACK_CHAIN)
+┌─────────────────────────────────────────────────────────────────┐
+│              BLACK SWAN RESILIENCE v6.0                         │
+│                    99.85% Risk Reduction                        │
+└─────────────────────────────────────────────────────────────────┘
 
-        cli.py
-          ├► engine.py
-          ├► project_file.py ──► policy.py, budget.py, models.py
-          ├► assembler.py
-          ├► state.py
-          ├► output_writer.py
-          └► resume_detector.py
+┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐
+│ Resilient Event     │ │ Secure Plugin       │ │ Streaming           │
+│ Store               │ │ Runtime             │ │ Backpressure        │
+│                     │ │                     │ │                     │
+│ • WAL + Replication │ │ • seccomp           │ │ • Bounded queues    │
+│ • Checksums         │ │ • Landlock          │ │ • Circuit breaker   │
+│ • Async aiosqlite   │ │ • Capabilities      │ │ • Rate limiting     │
+└─────────────────────┘ └─────────────────────┘ └─────────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │   CIRCUIT BREAKER       │
+                    │   (3-strike rule)       │
+                    │                         │
+                    │ Model marked unhealthy  │
+                    │ after 3 failures        │
+                    │ Auto-recovery           │
+                    └─────────────────────────┘
+
+STATE PERSISTENCE:
+┌─────────────────────────────────────────┐
+│ SQLite-backed (aiosqlite)              │
+│ • Project state                         │
+│ • Budget tracking                       │
+│ • Task results                          │
+│ • Resume capability                     │
+│ JSON serialization (safe, readable)    │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## 16. Known Fixes & Gotchas
-
-| Issue | Fix location | Note |
-|-------|-------------|------|
-| Circular imports | `__init__.py` uses `__getattr__` lazy loading | `aiohttp` also lazy in `rate_limiter.py`, `a2a_protocol.py`, `provisioned_throughput.py`, `nexus_search/nexus_client.py` |
-| `Task.model_used` doesn't exist | `test_first_generator.py` line ~351 | Fixed: uses `self._get_model("implementation")` |
-| deepseek-v3.2 truncates at 1460 tokens | `engine.py` `_is_deepseek_chat` set, `models.py` MODEL_MAX_TOKENS | Now explicitly 8192 + 180s timeout |
-| Budget reservation leak | `budget.py` reserve/commit/release pattern | Atomic asyncio.Lock |
-| TDD fails immediately | `test_first_generator.py` `model or task.model_used` → AttributeError | Fixed to `self._get_model("implementation")` |
-| Output truncated → infinite retry loop | validators.py truncation detection + insufficient max_tokens | `MAX_OUTPUT_TOKENS[CODE_GEN]=8192` |
-| aiohttp hangs on import (Windows) | `TYPE_CHECKING` guard + lazy import in `_get_session()` | Affects 4 files |
-| Rate limiter class-var mutation | `rate_limiter.py` `self.TIER_LIMITS = dict(self.__class__.TIER_LIMITS)` | Copy to instance in `__init__` |
-| Tier downgrade bug | `rate_limiter.py` tier progression is one-way up only | `if new_tier > self.state.current_tier` |
-
----
-
-## 17. File Locations Cheat Sheet
+## 📡 Event System Architecture
 
 ```
-orchestrator/
-├── __init__.py            ← lazy package facade
-├── __main__.py            ← entry: calls cli.main()
-├── cli.py                 ← all subcommands + arg parsing
-├── engine.py              ← THE core loop (~5000 lines)
-├── models.py              ← PURE DATA: enums, dataclasses, tables
-├── budget.py              ← Budget (async methods, phase tracking)
-├── api_clients.py         ← UnifiedClient → OpenRouter
-├── cache.py               ← DiskCache (SQLite WAL)
-├── state.py               ← StateManager (SQLite, JSON)
-├── cost.py                ← BudgetHierarchy, CostForecaster
-├── planner.py             ← ConstraintPlanner (model selection)
-├── policy.py              ← Policy, PolicySet, JobSpec, ModelProfile
-├── policy_engine.py       ← PolicyEngine.check()
-├── validators.py          ← deterministic validators
-├── tdd_config.py          ← TDDModelConfig, tier profiles
-├── test_first_generator.py← TestFirstGenerator (TDD pipeline)
-├── telemetry.py           ← TelemetryCollector (EMA adaptive)
-├── tracing.py             ← OpenTelemetry integration
-├── preflight.py           ← PreflightValidator (quality gates)
-├── rate_limiter.py        ← GrokRateLimiter (TPM/RPM sliding window)
-├── model_routing.py       ← ModelTier, TIER_ROUTING, select_model
-├── semantic_cache.py      ← SemanticCache (quality-threshold L3)
-├── streaming.py           ← StreamingPipeline, ProjectEventBus
-├── project_file.py        ← load_project_file() YAML parser
-├── resume_detector.py     ← ResumeDetector (recent project detection)
-├── assembler.py           ← assemble_project() (write file tree)
-├── output_writer.py       ← write_output_dir() (structured output)
-├── progress.py            ← ProgressRenderer (terminal progress)
-├── analyzer.py            ← CodebaseAnalyzer
-├── events.py              ← EventBus, domain events
-├── hooks.py               ← HookRegistry, EventType
-├── unified_events.py      ← UnifiedEventBus (v6.0)
-├── cost_optimization/     ← Tier 1-4 optimizations
-│   ├── __init__.py        ← OptimizationConfig + exports
-│   ├── prompt_cache.py
-│   ├── batch_client.py
-│   ├── model_cascading.py
-│   ├── speculative_gen.py
-│   ├── streaming_validator.py
-│   ├── token_budget.py
-│   ├── dependency_context.py
-│   └── docker_sandbox.py
-├── engine_core/           ← Decomposed engine sub-components
-│   ├── core.py            ← OrchestratorCore facade
-│   ├── task_executor.py
-│   ├── critique_cycle.py
-│   ├── fallback_handler.py
-│   ├── budget_enforcer.py
-│   └── dependency_resolver.py
-└── nexus_search/          ← SearXNG-backed web search
-    ├── nexus_client.py    ← aiohttp lazy-loaded
-    └── ...
+┌─────────────────────────────────────────────────────────────────┐
+│                    UNIFIED EVENTS SYSTEM                        │
+│              Event Sourcing & Telemetry                         │
+└─────────────────────────────────────────────────────────────────┘
+
+Event Types:
+┌─────────────────────────────────────────┐
+│ Project Lifecycle                       │
+│ • PROJECT_STARTED                       │
+│ • PROJECT_COMPLETED                     │
+│ • PROJECT_FAILED                        │
+├─────────────────────────────────────────┤
+│ Task Lifecycle                          │
+│ • TASK_CREATED                          │
+│ • TASK_STARTED                          │
+│ • TASK_PROGRESS                         │
+│ • TASK_COMPLETED                        │
+│ • TASK_FAILED                           │
+│ • TASK_RETRY                            │
+├─────────────────────────────────────────┤
+│ Model/Routing                           │
+│ • MODEL_SELECTED                        │
+│ • MODEL_UNAVAILABLE                     │
+│ • FALLBACK_TRIGGERED                    │
+│ • CIRCUIT_BREAKER_OPEN                  │
+├─────────────────────────────────────────┤
+│ Quality & Validation                    │
+│ • VALIDATION_PASSED                     │
+│ • VALIDATION_FAILED                     │
+│ • QUALITY_GATE_PASSED                   │
+├─────────────────────────────────────────┤
+│ Budget & Cost                           │
+│ • BUDGET_WARNING                        │
+│ • BUDGET_EXHAUSTED                      │
+│ • COST_RECORDED                         │
+├─────────────────────────────────────────┤
+│ Capability Usage                        │
+│ • CAPABILITY_USED                       │
+│ • CAPABILITY_COMPLETED                  │
+│ • CAPABILITY_FAILED                     │
+└─────────────────────────────────────────┘
+
+Architecture:
+DomainEvent (base)
+├── ProjectStartedEvent
+├── ProjectCompletedEvent
+├── TaskStartedEvent
+├── TaskCompletedEvent
+└── ... (typed events)
+
+Features:
+┌─────────────────────────────────────────┐
+│ • Immutable, serializable              │
+│ • Automatic projections (read models)  │
+│ • Event persistence (SQLite)           │
+│ • ContextVar for current event         │
+│ • Async event bus                      │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## 18. 3 Unbreakable Architecture Rules
+## 🎮 Dashboard & Monitoring
 
-1. **`engine.py` = Mediator** — New business logic goes into a NEW service module. Engine only wires services together.
-2. **`models.py` = Pure data** — No `import asyncio`, no I/O, no behavior. Only dataclasses and enums.
-3. **TDD without exceptions** — RED (failing test) → GREEN (implementation) → commit.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LIVE DASHBOARD v4.0                          │
+│              Real-time WebSocket Streaming                      │
+└─────────────────────────────────────────────────────────────────┘
+
+Features:
+┌─────────────────────────────────────────┐
+│ • WebSocket (no polling!)              │
+│ • Toast notifications                  │
+│ • Gamification system                  │
+│ • Confetti celebrations                │
+│ • Sound notifications                  │
+│ • Live task progress                   │
+│ • Test execution monitoring            │
+└─────────────────────────────────────────┘
+
+Gamification:
+┌─────────────────────────────────────────┐
+│ DashboardState                          │
+│ • level: int                            │
+│ • xp: int                               │
+│ • xp_to_next_level: int                 │
+│ • streak: int                           │
+│ • achievements: list                    │
+├─────────────────────────────────────────┤
+│ Achievements                            │
+│ • first_task                            │
+│ • streak_7                              │
+│ • quality_master                        │
+│ • cost_optimizer                        │
+│ ...                                     │
+└─────────────────────────────────────────┘
+
+Dashboard Types:
+├── dashboard_live.py        # Gamified WebSocket
+├── dashboard_mission_control.py  # Professional telemetry
+├── dashboard_antd.py        # Ant Design UI
+└── cli_dashboard.py         # Terminal UI
+```
+
+---
+
+## ✅ Validation Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DETERMINISTIC VALIDATORS                     │
+│              Non-Negotiable Quality Gates                       │
+└─────────────────────────────────────────────────────────────────┘
+
+Validators:
+┌─────────────────────────────────────────┐
+│ validate_python_syntax()                │
+│ • Compilation check                     │
+│ • Indentation error handling            │
+│ • Truncation detection                  │
+├─────────────────────────────────────────┤
+│ validate_pytest()                       │
+│ • Test execution                        │
+│ • Coverage reporting                    │
+│ • Module availability check             │
+├─────────────────────────────────────────┤
+│ validate_ruff()                         │
+│ • Linting                               │
+│ • Style checking                        │
+│ • Auto-fix support                      │
+├─────────────────────────────────────────┤
+│ validate_json_schema()                  │
+│ • JSON validation                       │
+│ • Schema compliance                     │
+├─────────────────────────────────────────┤
+│ Security Scans                          │
+│ • Bandit (Python security)              │
+│ • Safety (dependency vulnerabilities)   │
+└─────────────────────────────────────────┘
+
+Execution:
+┌─────────────────────────────────────────┐
+│ async_run_validators()                  │
+│ • Offloads to threads                   │
+│ • Non-blocking I/O                      │
+│ • Parallel execution                    │
+└─────────────────────────────────────────┘
+
+Rule: If deterministic check fails → score = 0.0 (overrides LLM)
+```
+
+---
+
+## 📦 Project Structure
+
+```
+Ai Orchestrator/
+├── orchestrator/                 # Main package (~276 files)
+│   ├── __init__.py              # Lazy-loading entry point
+│   ├── cli.py                   # CLI entry point
+│   ├── engine.py                # Core orchestration (4,732 lines)
+│   ├── models.py                # Data models & routing (719 lines)
+│   ├── ara_pipelines.py         # 12 reasoning methods (2,974 lines)
+│   ├── api_clients.py           # Unified LLM client
+│   ├── budget.py                # Budget management
+│   ├── state.py                 # SQLite persistence
+│   ├── validators.py            # Deterministic validation
+│   ├── cache.py                 # Disk-based caching
+│   ├── semantic_cache.py        # Semantic similarity
+│   ├── model_selector.py        # Intelligent routing
+│   │
+│   ├── knowledge_base.py        # Knowledge Management
+│   ├── project_manager.py       # Project Management
+│   ├── product_manager.py       # Product Management
+│   ├── quality_control.py       # Quality Control
+│   │
+│   ├── nexus_search/            # Web Search (21 files)
+│   │   ├── core.py              # Search orchestrator
+│   │   ├── agents/              # Search agents
+│   │   ├── optimization/        # Query expansion, caching
+│   │   └── providers/           # Search providers
+│   │
+│   ├── cost_optimization/       # Cost optimization (13 files)
+│   │   ├── batch_client.py
+│   │   ├── model_cascading.py
+│   │   ├── prompt_cache.py
+│   │   └── ...
+│   │
+│   ├── engine_core/             # Core engine components
+│   │   ├── core.py
+│   │   ├── task_executor.py
+│   │   ├── critique_cycle.py
+│   │   └── fallback_handler.py
+│   │
+│   ├── dashboard_core/          # Dashboard infrastructure
+│   ├── unified_events/          # Event system
+│   ├── scaffold/                # Project templates
+│   ├── plugins/                 # Plugin system
+│   └── ide_backend/             # IDE integration
+│
+├── tests/                       # Test suite (232 files)
+│   ├── conftest.py             # pytest configuration
+│   ├── unit/                   # Unit tests
+│   └── integration/            # Integration tests
+│
+├── docs/                        # Documentation (75+ files)
+├── scripts/                     # Utility scripts
+├── pyproject.toml              # Package configuration
+└── requirements.txt            # Dependencies
+```
+
+---
+
+## 🔌 Provider Integration
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LLM PROVIDER SUPPORT                         │
+│                    6+ Providers via OpenRouter                  │
+└─────────────────────────────────────────────────────────────────┘
+
+UNIFIED API (OpenRouter):
+┌─────────────────────────────────────────┐
+│ api_clients.py                          │
+│ • UnifiedClient                         │
+│ • Async HTTP with aiohttp               │
+│ • Retry logic                           │
+│ • Rate limiting                         │
+└─────────────────────────────────────────┘
+
+Supported Providers:
+┌────────────────┬──────────────────────────────────────────┐
+│ Provider       │ Models                                   │
+├────────────────┼──────────────────────────────────────────┤
+│ OpenAI         │ GPT-4o, GPT-5, o1, o3-mini, o4-mini      │
+│ Google         │ Gemini Pro, Flash, Flash Lite            │
+│ Anthropic      │ Claude 3.5 Sonnet, Opus, Haiku           │
+│ DeepSeek       │ DeepSeek Chat, Reasoner (R1)             │
+│ Meta           │ LLaMA 4 Maverick/Scout, LLaMA 3.3        │
+│ xAI            │ Grok 4.20, Grok 4.1 Fast                 │
+│ Qwen           │ Qwen 2.5 Coder                           │
+│ MiniMax        │ MiniMax M2.7, M2.5                       │
+│ StepFun        │ Step 3.5 Flash                           │
+│ Z.AI           │ GLM 4.7 Flash                            │
+│ Moonshot       │ Kimi K2.5                                │
+│ Xiaomi         │ MiMo-V2 Flash/Pro/Omni                   │
+└────────────────┴──────────────────────────────────────────┘
+
+Cost Optimization:
+┌─────────────────────────────────────────┐
+│ • EMA-based price tracking              │
+│ • Cost-performance profiling            │
+│ • Budget hierarchy enforcement          │
+│ • Cross-provider fallback               │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 🧪 Testing Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TESTING FRAMEWORK                            │
+│                    159+ Tests, ~93% Coverage (iOS)              │
+└─────────────────────────────────────────────────────────────────┘
+
+Test Organization:
+┌─────────────────────────────────────────┐
+│ tests/                                  │
+│ ├── conftest.py                        │
+│ │   • Markers: unit, integration, slow │
+│ │   • Markers: requires_api, e2e       │
+│ │   • Parallel execution config        │
+│ │                                        │
+│ ├── unit/                              │
+│ │   • Component isolation              │
+│ │   • Mocked dependencies              │
+│ │                                        │
+│ ├── integration/                       │
+│ │   • Multi-component tests            │
+│ │   • Database interactions            │
+│ │                                        │
+│ └── orchestrator/                      │
+│     • Module-specific tests            │
+└─────────────────────────────────────────┘
+
+Test Markers:
+┌─────────────────────────────────────────┐
+│ @pytest.mark.unit                      │
+│ @pytest.mark.integration               │
+│ @pytest.mark.slow                      │
+│ @pytest.mark.requires_api              │
+│ @pytest.mark.e2e                       │
+│ @pytest.mark.load                      │
+│ @pytest.mark.stress                    │
+│ @pytest.mark.benchmark                 │
+└─────────────────────────────────────────┘
+
+Coverage:
+┌─────────────────────────────────────────┐
+│ Core: ~13% baseline                     │
+│ iOS Suite: ~93%                         │
+│ Target: Ratcheted (never decrease)     │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 🔄 Workflow Summary
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    COMPLETE WORKFLOW MAP                        │
+└─────────────────────────────────────────────────────────────────┘
+
+Phase 1: Input Processing
+┌─────────────────────────────────────────┐
+│ 1. Parse CLI arguments                  │
+│ 2. Load environment (.env)              │
+│ 3. Check for resume candidates          │
+│ 4. Initialize budget                    │
+│ 5. Create project state                 │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+Phase 2: Enhancement
+┌─────────────────────────────────────────┐
+│ 1. Project Enhancer (LLM)               │
+│ 2. Architecture Advisor                 │
+│ 3. Platform detection                   │
+│ 4. Template selection                   │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+Phase 3: Decomposition
+┌─────────────────────────────────────────┐
+│ 1. Break into atomic tasks              │
+│ 2. Detect dependencies                  │
+│ 3. Build dependency graph               │
+│ 4. Topological sort                     │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+Phase 4: Execution (per task)
+┌─────────────────────────────────────────┐
+│ While tasks remaining:                  │
+│   1. Get ready tasks (deps satisfied)  │
+│   2. Route to optimal model            │
+│   3. Execute generate→critique→revise  │
+│   4. Run deterministic validators      │
+│   5. Evaluate quality                  │
+│   6. If degraded, trigger fallback     │
+│   7. Store result                      │
+│   8. Emit events                       │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+Phase 5: Finalization
+┌─────────────────────────────────────────┐
+│ 1. Calculate final score                │
+│ 2. Generate quality report              │
+│ 3. Organize outputs                     │
+│ 4. Cleanup state                        │
+│ 5. Emit PROJECT_COMPLETED event        │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 📊 Key Metrics & Statistics
+
+| Metric | Value |
+|--------|-------|
+| **Version** | v6.3 (2026-03-25) |
+| **Core Code** | ~43,000 lines |
+| **iOS Suite** | ~5,400 lines |
+| **Total Files** | 4,673 Python files |
+| **Test Files** | 159+ |
+| **Test Coverage** | ~93% (iOS), 13% (core) |
+| **Cost Reduction** | 35% |
+| **Providers** | 6+ (via OpenRouter) |
+| **Reasoning Methods** | 12 (ARA Pipeline) |
+| **Validation Checks** | 30+ (iOS compliance) |
+| **Risk Reduction** | 99.85% |
+
+---
+
+## 🔗 Key Connections & Dependencies
+
+```
+External Dependencies:
+┌─────────────────────────────────────────┐
+│ LLM APIs                                │
+│ • OpenRouter (unified)                  │
+│ • Provider SDKs (openai, anthropic,    │
+│   google-genai)                         │
+├─────────────────────────────────────────┤
+│ Database                                │
+│ • aiosqlite (async SQLite)              │
+│ • Redis (optional, caching)             │
+├─────────────────────────────────────────┤
+│ Web Framework                           │
+│ • FastAPI (dashboard)                   │
+│ • WebSockets (real-time)                │
+│ • Uvicorn (ASGI server)                 │
+├─────────────────────────────────────────┤
+│ Testing                                 │
+│ • pytest + pytest-asyncio               │
+│ • pytest-cov (coverage)                 │
+│ • pytest-xdist (parallel)               │
+├─────────────────────────────────────────┤
+│ Code Quality                            │
+│ • ruff (linting)                        │
+│ • black (formatting)                    │
+│ • mypy (type checking)                  │
+│ • bandit (security)                     │
+├─────────────────────────────────────────┤
+│ Observability                           │
+│ • OpenTelemetry (tracing)               │
+│ • Structured logging                    │
+└─────────────────────────────────────────┘
+
+Internal Dependencies:
+┌─────────────────────────────────────────┐
+│ Engine → Models, API Clients, State     │
+│ ARA → Models, API Clients, Cache        │
+│ Nexus → Agents, Optimization, Providers │
+│ Management → Performance, Log Config    │
+│ Dashboard → Events, State               │
+│ Validators → Models, Cache              │
+└─────────────────────────────────────────┘
+```
+
+---
+
+*Last Updated: 2026-04-04*  
+*Maintainer: Georgios-Chrysovalantis Chatzivantsidis*  
+*License: MIT*

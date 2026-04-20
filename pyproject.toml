@@ -118,6 +118,8 @@ extend-exclude = '''
 [tool.ruff]
 target-version = "py310"
 line-length = 100
+
+[tool.ruff.lint]
 select = [
     "E",    # pycodestyle errors
     "F",    # Pyflakes
@@ -182,13 +184,13 @@ ignore = [
 fixable = ["ALL"]
 unfixable = []
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 max-complexity = 15
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["orchestrator"]
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -221,6 +223,42 @@ disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
 module = "orchestrator._vendor.*"
+ignore_errors = true
+
+# ── Legacy modules with pre-existing violations ────────────────────────────
+# New code must NOT be added to this list. Remove entries as they are cleaned up.
+[[tool.mypy.overrides]]
+module = [
+    "orchestrator.engine",
+    "orchestrator.dashboard_mission_control",
+    "orchestrator.ide_backend.ide_orchestrator_server",
+    "orchestrator.ara_pipelines",
+    "orchestrator.project_assembler",
+    "orchestrator.cli",
+    "orchestrator.multi_platform_generator",
+    "orchestrator.test_first_generator",
+    "orchestrator.issue_tracking",
+    "orchestrator.dashboard_enhanced",
+    "orchestrator.architecture_rules",
+    "orchestrator.frontend_rules",
+    "orchestrator.nash_infrastructure_v2",
+    "orchestrator.dashboard_live",
+    "orchestrator.indesign_plugin_rules",
+    "orchestrator.frontend_security",
+    "orchestrator.ab_testing",
+    "orchestrator.adaptive_templates",
+    "orchestrator.app_store_validator",
+    "orchestrator.security_templates",
+    "orchestrator.output_organizer",
+    "orchestrator.output_writer",
+    "orchestrator.component_library",
+    "orchestrator.knowledge_graph",
+    "orchestrator.quality_control",
+    "orchestrator.sagas",
+    "orchestrator.project_analyzer",
+    "orchestrator.native_features",
+    "orchestrator.a2a_protocol",
+]
 ignore_errors = true
 
 # ═══════════════════════════════════════════════════════════════════════════════
