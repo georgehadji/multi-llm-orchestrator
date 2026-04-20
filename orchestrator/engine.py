@@ -356,8 +356,8 @@ class Orchestrator:
     def __init__(
         self,
         budget: Budget | None = None,
-        cache: DiskCache | None = None,
-        state_manager: StateManager | None = None,
+        cache: "CachePort | DiskCache | None" = None,
+        state_manager: "StatePort | StateManager | None" = None,
         max_concurrency: int = 3,
         max_parallel_tasks: int = 1,  # FIX: Serial execution to avoid SQLite lock
         budget_hierarchy: BudgetHierarchy | None = None,
@@ -366,6 +366,8 @@ class Orchestrator:
         telemetry_store: TelemetryStore | None = None,
         profiles: dict | None = None,
     ):
+        from .ports import CachePort, StatePort  # noqa: F401 — used for type docs
+
         self.budget = budget or Budget()
         self.cache = cache or DiskCache()
         self.state_mgr = state_manager or StateManager()
