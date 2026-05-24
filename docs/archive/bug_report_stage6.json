@@ -1,0 +1,90 @@
+{
+  "protocol_version": "2.0",
+  "stage": "6",
+  "timestamp": "2026-03-25T23:30:00Z",
+  "regression_tests": [
+    {
+      "bug_id": "BUG-001",
+      "test_id": "TEST-BUG-001-REGRESSION",
+      "test_type": "regression",
+      "description": "Verify that malformed Info.plist files are detected and rejected",
+      "preconditions": [
+        "iOS app project directory exists",
+        "Info.plist file is present but malformed"
+      ],
+      "input": "Path to app directory with empty/invalid Info.plist",
+      "expected_behavior_with_patch": "Privacy audit returns passed=False with message 'Info.plist is malformed: Invalid file'",
+      "failure_behavior_without_patch": "Privacy audit returns passed=True (false positive) because string matching on empty text succeeds",
+      "test_code": "async def test_privacy_audit_malformed_plist():\n    tester = PreSubmissionTester()\n    with tempfile.TemporaryDirectory() as tmpdir:\n        app_path = Path(tmpdir)\n        (app_path / 'MyApp.xcodeproj').mkdir()\n        (app_path / 'MyApp').mkdir()\n        # Create empty Info.plist\n        (app_path / 'MyApp' / 'Info.plist').write_text('')\n        result = await tester._privacy_audit(app_path)\n        assert result.passed is False\n        assert 'malformed' in result.message"
+    },
+    {
+      "bug_id": "BUG-001",
+      "test_id": "TEST-BUG-001-VALID-PLIST",
+      "test_type": "regression",
+      "description": "Verify that valid Info.plist with all privacy keys passes",
+      "preconditions": [
+        "iOS app project directory exists",
+        "Info.plist file is valid XML with all required privacy keys"
+      ],
+      "input": "Path to app directory with valid Info.plist",
+      "expected_behavior_with_patch": "Privacy audit returns passed=True",
+      "failure_behavior_without_patch": "Would also pass (no change in behavior for valid case)",
+      "test_code": "async def test_privacy_audit_valid_plist():\n    tester = PreSubmissionTester()\n    with tempfile.TemporaryDirectory() as tmpdir:\n        app_path = Path(tmpdir)\n        (app_path / 'MyApp.xcodeproj').mkdir()\n        (app_path / 'MyApp').mkdir()\n        plist_data = {\n            'NSCameraUsageDescription': 'Camera access',\n            'NSPhotoLibraryUsageDescription': 'Photo library',\n        }\n        with open(app_path / 'MyApp' / 'Info.plist', 'wb') as f:\n            plistlib.dump(plist_data, f)\n        # Create Swift file using camera\n        (app_path / 'MyApp' / 'Camera.swift').write_text('import AVFoundation')\n        result = await tester._privacy_audit(app_path)\n        assert result.passed is True"
+    },
+    {
+      "bug_id": "BUG-002",
+      "test_id": "TEST-BUG-002-ENCODING",
+      "test_type": "edge_case",
+      "description": "Verify that non-UTF8 Swift files are skipped gracefully",
+      "preconditions": [
+        "iOS app project directory exists",
+        "At least one Swift file has invalid UTF-8 encoding"
+      ],
+      "input": "Path to app directory with mixed-encoding Swift files",
+      "expected_behavior_with_patch": "Crash test continues processing, reports unreadable files",
+      "failure_behavior_without_patch": "UnicodeDecodeError crashes entire test",
+      "test_code": "async def test_crash_test_mixed_encoding():\n    tester = PreSubmissionTester()\n    with tempfile.TemporaryDirectory() as tmpdir:\n        app_path = Path(tmpdir)\n        (app_path / 'MyApp.xcodeproj').mkdir()\n        (app_path / 'MyApp').mkdir()\n        # Create valid Swift file\n        (app_path / 'MyApp' / 'ValidView.swift').write_text('import SwiftUI')\n        # Create invalid UTF-8 file\n        with open(app_path / 'MyApp' / 'InvalidView.swift', 'wb') as f:\n            f.write(b'\\xff\\xfe invalid utf-8')\n        result = await tester._crash_test(app_path)\n        assert 'Unreadable file' in result.details or result.passed is True"
+    },
+    {
+      "bug_id": "BUG-003",
+      "test_id": "TEST-BUG-003-EMPTY-NAME",
+      "test_type": "edge_case",
+      "description": "Verify that empty project names generate valid fallback names",
+      "preconditions": [
+        "ProjectSpec with empty or whitespace-only name"
+      ],
+      "input": "ProjectSpec(name='', description='A fitness tracking app')",
+      "expected_behavior_with_patch": "Generates app name 'A fitness' from description",
+      "failure_behavior_without_patch": "Generates empty app name, App Store rejection",
+      "test_code": "def test_generate_name_empty_project():\n    generator = AppStoreAssetGenerator()\n    project = ProjectSpec(name='', description='A fitness tracking app')\n    name = generator._generate_name(project)\n    assert len(name) >= generator.MIN_NAME_LENGTH\n    assert name.strip() == name  # No leading/trailing whitespace"
+    },
+    {
+      "bug_id": "BUG-003",
+      "test_id": "TEST-BUG-003-LONG-NAME",
+      "test_type": "boundary",
+      "description": "Verify that long project names are truncated correctly",
+      "preconditions": [
+        "ProjectSpec with name longer than MAX_NAME_LENGTH"
+      ],
+      "input": "ProjectSpec(name='A' * 100)",
+      "expected_behavior_with_patch": "Truncates to 30 chars at word boundary",
+      "failure_behavior_without_patch": "Same behavior (no regression)",
+      "test_code": "def test_generate_name_truncation():\n    generator = AppStoreAssetGenerator()\n    project = ProjectSpec(name='A' * 100)\n    name = generator._generate_name(project)\n    assert len(name) <= generator.MAX_NAME_LENGTH"
+    },
+    {
+      "bug_id": "ALL",
+      "test_id": "TEST-INTEGRATION-SMOKE",
+      "test_type": "integration_smoke",
+      "description": "Verify that patched pre-submission tester works end-to-end",
+      "preconditions": [
+        "Valid iOS app project with proper structure",
+        "Valid Info.plist with privacy keys",
+        "UTF-8 encoded Swift files"
+      ],
+      "input": "Path to valid iOS app project",
+      "expected_behavior_with_patch": "Full review completes, returns ReviewResult with all checks",
+      "failure_behavior_without_patch": "May fail on encoding errors or malformed plist",
+      "test_code": "async def test_full_review_integration():\n    tester = PreSubmissionTester()\n    # Use existing temp_app_project fixture\n    result = await tester.run_full_review(temp_app_project)\n    assert isinstance(result, ReviewResult)\n    assert len(result.checks) == 10\n    # All checks should complete without exceptions"
+    }
+  ]
+}

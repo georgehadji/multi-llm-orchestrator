@@ -1,0 +1,181 @@
+{
+  "protocol_version": "2.0",
+  "stage": "1-2",
+  "timestamp": "2026-03-26T00:05:00Z",
+  "repository_map": {
+    "core_modules": [
+      {
+        "name": "cost_optimization/__init__.py",
+        "lines": 265,
+        "responsibility": "Module initialization and exports for all optimization tiers",
+        "entry_points": ["__all__ exports"],
+        "criticality": "high"
+      },
+      {
+        "name": "cost_optimization/prompt_cache.py",
+        "lines": 350,
+        "responsibility": "Prompt caching for 80-90% input cost reduction",
+        "entry_points": ["PromptCacher.warm_cache()", "PromptCacher.call_with_cache()"],
+        "criticality": "high"
+      },
+      {
+        "name": "cost_optimization/batch_client.py",
+        "lines": 400,
+        "responsibility": "Batch API processing for 50% discount",
+        "entry_points": ["BatchClient.call()", "BatchClient._batch_call()"],
+        "criticality": "high"
+      },
+      {
+        "name": "cost_optimization/token_budget.py",
+        "lines": 350,
+        "responsibility": "Output token budget enforcement",
+        "entry_points": ["TokenBudget.get_limit()", "TokenBudget.enforce_limit()"],
+        "criticality": "medium"
+      },
+      {
+        "name": "cost_optimization/docker_sandbox.py",
+        "lines": 440,
+        "responsibility": "Secure code execution in Docker containers",
+        "entry_points": ["DockerSandbox.execute()", "DockerSandbox._execute_subprocess()"],
+        "criticality": "critical"
+      },
+      {
+        "name": "cost_optimization/github_push.py",
+        "lines": 504,
+        "responsibility": "GitHub auto-push with conventional commits",
+        "entry_points": ["GitHubIntegration.push_results()", "GitHubIntegration._build_commit_message()"],
+        "criticality": "high"
+      }
+    ],
+    "critical_paths": [
+      {
+        "path": "DockerSandbox.execute() -> _execute_subprocess()",
+        "description": "Security-critical code execution path",
+        "risk": "critical"
+      },
+      {
+        "path": "GitHubIntegration.push_results() -> git operations",
+        "description": "Git operations with token authentication",
+        "risk": "high"
+      },
+      {
+        "path": "PromptCacher.call_with_cache() -> API calls",
+        "description": "Cached API calls with cost tracking",
+        "risk": "high"
+      }
+    ],
+    "stateful_components": [
+      "PromptCacher._cache_entries",
+      "BatchClient._request_queue",
+      "DockerSandbox._workspaces",
+      "EvalDatasetBuilder._cases"
+    ],
+    "external_dependencies": [
+      {"name": "docker", "version": "optional", "usage": "DockerSandbox"},
+      {"name": "pydantic", "version": "required", "usage": "StructuredOutput"},
+      {"name": "aiohttp", "version": "optional", "usage": "GitHubIntegration"},
+      {"name": "git", "version": "required", "usage": "GitHubIntegration"}
+    ],
+    "test_infrastructure": {
+      "framework": "pytest",
+      "coverage_estimate": "93%+",
+      "ci_pipeline": "pytest tests/test_optimizations_tier*.py -v",
+      "test_files": [
+        "test_optimizations_tier1.py (30 tests)",
+        "test_optimizations_tier2.py (32 tests)",
+        "test_optimizations_tier4.py (14 tests)"
+      ]
+    },
+    "coding_conventions": {
+      "language": "Python 3.10+",
+      "type_system": "typing module (strict)",
+      "linter": "ruff",
+      "style": "PEP 8",
+      "async": "asyncio/await",
+      "logging": "get_logger() from orchestrator.log_config"
+    }
+  },
+  "failure_scenarios": [
+    {
+      "id": "BUG-OPT-001",
+      "category": "security",
+      "trigger_condition": "Docker not available, fallback to subprocess with untrusted code",
+      "affected_module": "docker_sandbox.py",
+      "function": "execute(), _execute_subprocess()",
+      "severity": "critical",
+      "exploitability": "conditional",
+      "blast_radius": "system-wide",
+      "classification": "CONFIRMED",
+      "priority_score": 9.0,
+      "evidence": "Lines 175-200: When Docker unavailable, falls back to subprocess.run() with NO security isolation. Code executes directly on host with full permissions. Line 188: subprocess created without security limits (no sandboxing, no resource limits, no network isolation).",
+      "description": "SECURITY VULNERABILITY: When Docker is unavailable, DockerSandbox falls back to subprocess execution with ZERO security isolation. Malicious generated code (rm -rf /, network exfiltration, etc.) executes directly on host. This defeats the entire purpose of the sandbox."
+    },
+    {
+      "id": "BUG-OPT-002",
+      "category": "security",
+      "trigger_condition": "GitHub token logged or exposed in error messages",
+      "affected_module": "github_push.py",
+      "function": "push_results()",
+      "severity": "high",
+      "exploitability": "conditional",
+      "blast_radius": "system-wide",
+      "classification": "LIKELY",
+      "priority_score": 7.5,
+      "evidence": "Line 365: remote_url = f'https://{self.token}@{self.base_url}...' - Token embedded in URL. Line 372: subprocess.run with capture_output=True may capture token in stderr. Line 157: Commit metadata may include sensitive information. No token redaction in error handling.",
+      "description": "SECURITY RISK: GitHub token embedded in remote URL may be exposed in logs, error messages, or process listings. Token should be passed via environment variable or credential helper, not embedded in URL."
+    },
+    {
+      "id": "BUG-OPT-003",
+      "category": "resources",
+      "trigger_condition": "Workspace cleanup fails, temporary files accumulate",
+      "affected_module": "docker_sandbox.py",
+      "function": "execute(), cleanup()",
+      "severity": "medium",
+      "exploitability": "trivial",
+      "blast_radius": "module",
+      "classification": "CONFIRMED",
+      "priority_score": 6.0,
+      "evidence": "Line 145: workspace = Path(tempfile.mkdtemp()). Line 168-172: Cleanup in finally block but shutil.rmtree may fail silently. Line 208: _workspaces dict tracks workspaces but no periodic cleanup. No maximum workspace limit.",
+      "description": "RESOURCE LEAK: Temporary workspaces created for each execution may not be cleaned up if shutil.rmtree fails. Over time, this accumulates disk usage. No maximum limit on workspace count or size."
+    },
+    {
+      "id": "BUG-OPT-004",
+      "category": "error_handling",
+      "trigger_condition": "Pydantic not installed, structured output fails silently",
+      "affected_module": "structured_output.py",
+      "function": "__init__()",
+      "severity": "medium",
+      "exploitability": "trivial",
+      "blast_radius": "module",
+      "classification": "CONFIRMED",
+      "priority_score": 5.5,
+      "evidence": "Lines 25-30: HAS_PYDANTIC check with ImportError. Line 32: logger.warning but no exception raised. Lines 100-105: __init__ checks HAS_PYDANTIC but raises ImportError. Inconsistent error handling - sometimes warns, sometimes raises.",
+      "description": "INCONSISTENT ERROR HANDLING: Pydantic import failure handled inconsistently. Module-level check logs warning but doesn't prevent import. Class __init__ raises ImportError. Users may get confusing errors depending on when they instantiate."
+    },
+    {
+      "id": "BUG-OPT-005",
+      "category": "data_integrity",
+      "trigger_condition": "Concurrent writes to eval dataset JSONL file",
+      "affected_module": "tier3_quality.py",
+      "function": "EvalDatasetBuilder._persist_case()",
+      "severity": "medium",
+      "exploitability": "conditional",
+      "blast_radius": "function",
+      "classification": "LIKELY",
+      "priority_score": 5.0,
+      "evidence": "Line 230: Opens file with 'a' mode and writes JSON. No file locking. Line 215: _cases list modified without lock. Multiple concurrent failures could corrupt JSONL file with interleaved writes.",
+      "description": "RACE CONDITION: EvalDatasetBuilder._persist_case() appends to JSONL file without file locking. Concurrent test failures (parallel task execution) could cause interleaved writes, corrupting the dataset file."
+    }
+  ],
+  "summary": {
+    "total_findings": 5,
+    "confirmed": 4,
+    "likely": 1,
+    "uncertain": 0,
+    "critical": 1,
+    "high": 1,
+    "medium": 3,
+    "low": 0,
+    "selected_for_remediation": ["BUG-OPT-001", "BUG-OPT-002", "BUG-OPT-003"]
+  }
+}
