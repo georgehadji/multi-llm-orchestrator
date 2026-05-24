@@ -1,0 +1,98 @@
+{
+  "protocol_version": "2.0",
+  "stage": "3",
+  "timestamp": "2026-03-26T02:25:00Z",
+  "root_cause_analyses": [
+    {
+      "bug_id": "BUG-PS-002",
+      "file": "orchestrator/plugins.py",
+      "function": "load()",
+      "lines": "175-195",
+      "proximate_cause": "Plugin loaded via importlib.import_module() with no sandboxing",
+      "root_cause": "Architectural flaw: Plugin system designed for extensibility without security isolation. Plugins run in same process with full host privileges. No defense-in-depth (no seccomp, no namespaces, no capability dropping, no network isolation).",
+      "contributing_factors": [
+        "No plugin verification (no signatures, no hashes)",
+        "No allowlist of permitted imports",
+        "No resource limits (CPU, memory, network)",
+        "No plugin sandboxing (Docker, subprocess isolation)",
+        "Trust model assumes all plugins are benign"
+      ],
+      "execution_path": [
+        "1. Attacker creates malicious plugin with plugin.json",
+        "2. Plugin entry_point points to malicious module",
+        "3. PluginManager.load() calls importlib.import_module()",
+        "4. Malicious module imports os, subprocess, etc.",
+        "5. Plugin executes arbitrary code on host",
+        "6. Full system compromise possible"
+      ],
+      "blast_radius": {
+        "direct_callers": ["PluginManager.load()"],
+        "transitive_callers": ["any code using plugins"],
+        "shared_state_readers": ["all tenants (if multi-tenant)"],
+        "test_coverage": "uncovered"
+      },
+      "impact": "CRITICAL SECURITY VULNERABILITY: Arbitrary code execution on host. Attacker can steal API keys, access tenant data, deploy malicious code, pivot to other systems."
+    },
+    {
+      "bug_id": "BUG-PS-001",
+      "file": "orchestrator/tenancy.py",
+      "function": "get_tenant_by_api_key()",
+      "lines": "340-345",
+      "proximate_cause": "API key lookup via dict without constant-time comparison",
+      "root_cause": "Security anti-pattern: Using standard dict lookup for secret comparison. Python dict lookups have O(1) average but timing varies based on hash collisions and key presence. Attacker can measure response times to enumerate valid API keys.",
+      "contributing_factors": [
+        "No constant-time comparison (hmac.compare_digest not used)",
+        "No rate limiting on API key validation",
+        "No logging of failed auth attempts",
+        "No account lockout after repeated failures",
+        "API keys passed in headers (potential log exposure)"
+      ],
+      "execution_path": [
+        "1. Attacker sends request with guessed API key",
+        "2. get_tenant_by_api_key() does dict lookup",
+        "3. Measure response time (faster = key not in dict)",
+        "4. Repeat with many keys, build timing profile",
+        "5. Enumerate valid API keys",
+        "6. Use valid key to access tenant resources"
+      ],
+      "blast_radius": {
+        "direct_callers": ["API endpoints", "run_project()"],
+        "transitive_callers": ["all authenticated operations"],
+        "shared_state_readers": ["api_keys dict"],
+        "test_coverage": "uncovered"
+      },
+      "impact": "HIGH SECURITY VULNERABILITY: API key enumeration leads to tenant data access, quota bypass, resource theft."
+    },
+    {
+      "bug_id": "BUG-PS-004",
+      "file": "orchestrator/deployment_feedback.py",
+      "function": "_determine_escalation()",
+      "lines": "245-260",
+      "proximate_cause": "Auto-deploy allowed for high-confidence fixes without verification",
+      "root_cause": "Trust model flaw: LLM confidence score used as sole criterion for auto-deploy. LLMs can be overconfident in incorrect assessments. No code signing, no hash verification, no rollback testing, no human review for critical changes.",
+      "contributing_factors": [
+        "Confidence threshold (0.9) arbitrary, not empirically validated",
+        "No code signing or integrity verification",
+        "No rollback testing before deploy",
+        "No canary deployment (all-or-nothing)",
+        "No audit trail for auto-deploys",
+        "No human review for sensitive operations"
+      ],
+      "execution_path": [
+        "1. Attacker crafts issue that triggers high-confidence fix",
+        "2. LLM generates malicious fix with confidence >= 0.9",
+        "3. _determine_escalation() returns AUTO",
+        "4. _deploy_fix() deploys to production",
+        "5. Malicious code runs in production",
+        "6. Data exfiltration or service disruption"
+      ],
+      "blast_radius": {
+        "direct_callers": ["monitor_and_fix()"],
+        "transitive_callers": ["all deployed applications"],
+        "shared_state_readers": ["all tenants"],
+        "test_coverage": "uncovered"
+      },
+      "impact": "HIGH SECURITY VULNERABILITY: Unauthorized code deployment to production. Attacker can deploy backdoors, data exfiltration, ransomware."
+    }
+  ]
+}

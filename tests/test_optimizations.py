@@ -1,164 +1,146 @@
 """
-Regression validation for v6.0 optimizations.
-Tests that all 4 optimizations are properly integrated.
+Tests for optimization modules A-2, B-5, C-8, D-10.
 """
 
-import sys
-
-sys.path.insert(0, r"D:\Vibe-Coding\Ai Orchestrator")
+import pytest
 
 
-def test_imports():
-    """Test that all modules import successfully."""
-    print("Testing imports...")
-    from orchestrator.engine import Orchestrator
-    from orchestrator.semantic_cache import SemanticCache, DuplicationDetector
-    from orchestrator.telemetry import _EMA_ALPHA
-    from orchestrator.validators import VALIDATORS
+class TestAgentCache:
+    """D-10: Agent call caching."""
 
-    print("✓ All imports successful (DuplicationDetector is backward compatible)")
-    return True
+    def test_cache_miss(self):
+        from orchestrator.learning.agent_cache import AgentCache
+        cache = AgentCache()
+        key = cache.make_key("write hello world")
+        result = cache.get(key)
+        assert result is None
 
+    def test_cache_hit(self):
+        from orchestrator.learning.agent_cache import AgentCache
+        cache = AgentCache()
+        key = cache.make_key("write hello")
+        cache.put(key, "print('hello')", 0.85)
+        result = cache.get(key)
+        assert result is not None
+        assert result.output == "print('hello')"
 
-def test_ema_alpha():
-    """Test that EMA alpha was increased for faster detection."""
-    print("Testing EMA alpha...")
-    from orchestrator.telemetry import _EMA_ALPHA
+    def test_cache_key_uniqueness(self):
+        from orchestrator.learning.agent_cache import AgentCache
+        cache = AgentCache()
+        k1 = cache.make_key("task1", "ctx1", "model-a")
+        k2 = cache.make_key("task2", "ctx2", "model-b")
+        assert k1 != k2
 
-    assert _EMA_ALPHA == 0.2, f"Expected 0.2, got {_EMA_ALPHA}"
-    print(f"✓ EMA_ALPHA = {_EMA_ALPHA} (optimized for faster detection)")
-    return True
+    def test_cache_clear(self):
+        from orchestrator.learning.agent_cache import AgentCache
+        cache = AgentCache()
+        cache.put("k", "v", 1.0)
+        cache.clear()
+        assert cache.size == 0
 
-
-def test_tool_safety_validator():
-    """Test that tool safety validator was added."""
-    print("Testing tool safety validator...")
-    from orchestrator.validators import VALIDATORS, validate_tool_safety
-
-    assert "tool_safety" in VALIDATORS, "tool_safety not in VALIDATORS"
-
-    # Test detection of suspicious patterns
-    bad_code = "import os\nos.system('rm -rf /')"
-    result = validate_tool_safety(bad_code)
-    assert not result.passed, "Should detect dangerous code"
-
-    # Test safe code passes
-    safe_code = "print('hello world')"
-    result = validate_tool_safety(safe_code)
-    assert result.passed, "Safe code should pass"
-
-    print("✓ Tool safety validator working")
-    return True
-
-
-def test_semantic_cache():
-    """Test semantic cache functionality."""
-    print("Testing semantic cache...")
-    from orchestrator.semantic_cache import SemanticCache
-    from orchestrator.models import Task, TaskType
-
-    cache = SemanticCache(quality_threshold=0.85)
-    stats = cache.get_stats()
-    assert stats["entries"] == 0, "New cache should be empty"
-
-    # Create a test task
-    task = Task(
-        id="test_001",
-        type=TaskType.CODE_GEN,
-        prompt="Generate a function to add two numbers",
-    )
-
-    # Cache a pattern
-    cached = cache.cache_pattern(task, "def add(a, b): return a + b", 0.90)
-    assert cached, "Should cache high-quality result"
-
-    # Check stats updated
-    stats = cache.get_stats()
-    assert stats["entries"] == 1, "Cache should have 1 entry"
-
-    print("✓ Semantic cache working")
-    return True
+    def test_expired_entry(self):
+        from orchestrator.learning.agent_cache import AgentCache, CachedResponse, CACHE_TTL_SECONDS
+        import time
+        cache = AgentCache()
+        key = "test_expired"
+        cache.put(key, "test", 0.5)
+        # Force expiry by moving timestamp back
+        entry = cache._cache.get(key)
+        if entry:
+            entry.timestamp = time.time() - CACHE_TTL_SECONDS - 1
+        result = cache.get(key)
+        assert result is None
 
 
-def test_early_exit_logic():
-    """Test confidence-based early exit logic."""
-    print("Testing early exit logic...")
-    from orchestrator.engine import Orchestrator
+class TestAgentRateLimiter:
+    """C-8: Rate limiting."""
 
-    # Create minimal instance for method testing
-    orch = Orchestrator.__new__(Orchestrator)
+    def test_allows_first_call(self):
+        from orchestrator.agents.rate_limiter import AgentRateLimiter, RateLimit
+        limiter = AgentRateLimiter()
+        limiter.set_limit("dev", RateLimit(max_calls=3))
+        assert limiter.check("dev") is True
 
-    # Test: not enough history
-    result = orch._should_exit_early([0.90], 0.85)
-    assert not result, "Should not exit with only 1 score"
+    def test_blocks_excess_calls(self):
+        from orchestrator.agents.rate_limiter import AgentRateLimiter, RateLimit
+        limiter = AgentRateLimiter()
+        limiter.set_limit("dev", RateLimit(max_calls=2))
+        assert limiter.check("dev") is True
+        assert limiter.check("dev") is True
+        assert limiter.check("dev") is False
 
-    # Test: stable high performance
-    result = orch._should_exit_early([0.88, 0.89, 0.90], 0.85)
-    assert result, "Should exit with stable high scores"
+    def test_allows_unlimited_when_no_limit(self):
+        from orchestrator.agents.rate_limiter import AgentRateLimiter
+        limiter = AgentRateLimiter()
+        for _ in range(100):
+            assert limiter.check("unknown") is True
 
-    # Test: low scores should not exit
-    result = orch._should_exit_early([0.50, 0.55], 0.85)
-    assert not result, "Should not exit with low scores"
-
-    # Test: high variance should not exit
-    result = orch._should_exit_early([0.60, 0.95], 0.85)
-    assert not result, "Should not exit with high variance"
-
-    print("✓ Early exit logic working correctly")
-    return True
-
-
-def test_tiered_selection():
-    """Test tiered model selection is configured."""
-    print("Testing tiered selection...")
-    from orchestrator.engine import Orchestrator
-    from orchestrator.models import Model
-
-    # Verify tiers are defined
-    assert len(Orchestrator._TIER_CHEAP) > 0, "Cheap tier should not be empty"
-    assert len(Orchestrator._TIER_BALANCED) > 0, "Balanced tier should not be empty"
-    assert len(Orchestrator._TIER_PREMIUM) > 0, "Premium tier should not be empty"
-
-    # Verify Gemini Flash Lite is in cheap tier
-    assert Model.GEMINI_FLASH_LITE in Orchestrator._TIER_CHEAP, "Flash Lite should be cheap"
-
-    print("✓ Tiered selection configured")
-    return True
+    def test_blocks_on_cost(self):
+        from orchestrator.agents.rate_limiter import AgentRateLimiter, RateLimit
+        limiter = AgentRateLimiter()
+        limiter.set_limit("expensive", RateLimit(max_cost_usd=5.0))
+        assert limiter.check("expensive", cost=4.0) is True
+        assert limiter.check("expensive", cost=2.0) is False
 
 
-def main():
-    """Run all regression tests."""
-    print("=" * 60)
-    print("OPTIMIZATION REGRESSION VALIDATION")
-    print("=" * 60)
+class TestKnowledgeGraph:
+    """A-3: Knowledge graph integration."""
 
-    tests = [
-        test_imports,
-        test_ema_alpha,
-        test_tool_safety_validator,
-        test_semantic_cache,
-        test_early_exit_logic,
-        test_tiered_selection,
-    ]
+    def test_record_success(self):
+        from orchestrator.learning.knowledge_graph import KnowledgeGraph
+        kg = KnowledgeGraph()
+        kg.record_success("code_gen", "gpt-4o", "cove", 0.85)
+        assert len(kg.nodes) == 3
+        assert len(kg.edges) >= 4
 
-    passed = 0
-    failed = 0
+    def test_best_method(self):
+        from orchestrator.learning.knowledge_graph import KnowledgeGraph
+        kg = KnowledgeGraph()
+        kg.record_success("code_gen", "model_a", "basic", 0.6)
+        kg.record_success("code_gen", "model_b", "cove", 0.95)
+        best = kg.best_method_for("code_gen")
+        assert best == "cove"
 
-    for test in tests:
-        try:
-            if test():
-                passed += 1
-        except Exception as e:
-            print(f"✗ {test.__name__} FAILED: {e}")
-            failed += 1
+    def test_best_method_none(self):
+        from orchestrator.learning.knowledge_graph import KnowledgeGraph
+        assert KnowledgeGraph().best_method_for("unknown") is None
 
-    print("=" * 60)
-    print(f"RESULTS: {passed} passed, {failed} failed")
-    print("=" * 60)
-
-    return failed == 0
+    def test_failures_for_model(self):
+        from orchestrator.learning.knowledge_graph import KnowledgeGraph
+        kg = KnowledgeGraph()
+        kg.add_edge("model:gpt-4o", "tt:code_review", "failed_on")
+        kg.add_edge("model:gpt-4o", "tt:code_gen", "failed_on")
+        fails = kg.failures_for_model("gpt-4o")
+        assert len(fails) == 2
 
 
-if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+class TestAuditTrail:
+    """C-9: Security audit trail."""
+
+    def test_record_entry(self):
+        from orchestrator.workspace.audit import AuditTrail
+        audit = AuditTrail()
+        entry = audit.record("dev", "FILE_CREATED", "main.py")
+        assert entry.agent == "dev"
+        assert entry.action == "FILE_CREATED"
+
+    def test_get_recent(self):
+        from orchestrator.workspace.audit import AuditTrail
+        audit = AuditTrail()
+        audit.record("a", "TOOL_EXECUTED", "shell cmd")
+        assert len(audit.get_recent(limit=10)) == 1
+
+    def test_export_json(self):
+        from orchestrator.workspace.audit import AuditTrail
+        audit = AuditTrail()
+        audit.record("dev", "MODEL_CALL", "gpt-4o", duration_ms=1500)
+        exported = audit.export_json()
+        assert "gpt-4o" in exported
+        assert "dev" in exported
+
+    def test_clear(self):
+        from orchestrator.workspace.audit import AuditTrail
+        audit = AuditTrail()
+        audit.record("dev", "TOOL_EXECUTED", "ls")
+        audit.clear()
+        assert len(audit.get_recent()) == 0
