@@ -1,0 +1,53 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project: Immersive 3D Product Configurator
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_3d_product_configurator.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build an immersive 3D Product Configurator using React 18, TypeScript, Three.js, and React Three Fiber.
+
+  The application must include:
+  1. 3D Viewer Canvas: interactive 3D model viewer with orbit controls, zoom, and pan
+  2. Product Model: use geometric primitives (cube, sphere, cylinder) to represent a customizable product (e.g., sneaker, watch, or furniture)
+  3. Material Configurator: swap materials/colors for different product parts (minimum 5 customizable zones)
+  4. Color Palette UI: color picker with preset swatches and custom hex input
+  5. Real-time Rendering: material changes apply instantly with proper lighting (ambient + directional lights)
+  6. Environment Maps: 3 environment presets (studio, outdoor, showroom) affecting reflections
+  7. Animation System: smooth transitions (500ms) when changing materials
+  8. Camera Presets: saved camera angles (front, side, top, detail) with smooth interpolation
+  9. Configuration Summary: panel showing current selections with total price calculation
+  10. Export Configuration: save/load configurations as JSON, generate shareable URL with config params
+  11. Performance Mode: toggle for low-poly mode on slow devices (detect via FPS monitoring)
+  12. Screenshot Capture: capture current view as PNG with transparent background option
+
+  Use @react-three/drei for helpers and @react-three/postprocessing for effects.
+
+criteria: |
+  - 3D scene renders at 60 FPS on mid-range devices (test with Chrome DevTools throttling)
+  - Material changes apply with < 100ms latency
+  - Camera transitions are smooth (no jumps) using GSAP or spring animations
+  - Configuration state persists across page refresh (localStorage)
+  - Shareable URL correctly encodes all configuration options in query params
+  - Screenshot export produces PNG at 1920x1080 minimum resolution
+  - Performance mode automatically activates when FPS drops below 30 for 3 seconds
+  - All UI controls are accessible via keyboard
+  - Responsive layout works at 768px and 1440px viewport widths
+  - TypeScript strict mode passes with no errors
+
+budget_usd: 2.0
+time_seconds: 1800
+concurrency: 5
+project_id: "frontend-3d-product-configurator-v1"
+output_dir: "./outputs/frontend_3d_product_configurator"
+
+quality_targets:
+  code_generation:   0.92
+  code_review:       0.88
+  complex_reasoning: 0.90
+  evaluation:        0.93
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

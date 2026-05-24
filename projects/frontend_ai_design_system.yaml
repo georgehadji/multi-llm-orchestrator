@@ -1,0 +1,50 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project: AI-Powered Design System Generator
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_ai_design_system.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build an AI-powered Design System Generator web application using React 18, TypeScript, and Tailwind CSS.
+
+  The application must include:
+  1. Brand Input Panel: color picker, mood selector (professional/playful/bold/minimal), industry type dropdown
+  2. AI Generation Engine: generate cohesive color palettes (primary, secondary, accent, neutral) based on inputs
+  3. Typography Generator: suggest font pairings (heading + body) with scale ratios
+  4. Live Preview Panel: real-time component preview (buttons, cards, inputs) using generated design tokens
+  5. Design Token Export: export as CSS custom properties, Tailwind config, or JSON
+  6. Figma Integration: generate Figma Styles JSON for import
+  7. Accessibility Checker: WCAG 2.1 AA contrast ratio validation with warnings
+  8. History & Variations: save generated systems, generate variations of saved palettes
+  9. Responsive layout that works from 375px to 1920px
+  10. Dark/light mode toggle for the UI itself
+
+  Use mock AI generation logic (randomized but seeded) — no real API calls needed.
+
+criteria: |
+  - Color palette generation produces 5-7 harmonious colors with proper contrast
+  - Typography scale follows modular scale (1.25 or 1.333 ratio)
+  - Live preview updates within 100ms of any design token change
+  - Export downloads valid, properly formatted files
+  - Accessibility checker correctly flags contrast ratio failures (< 4.5:1 for normal text)
+  - At least 3 saved design systems can be stored in localStorage
+  - All interactive elements are keyboard accessible
+  - TypeScript strict mode passes with no errors
+  - Component code is well-documented with JSDoc comments
+
+budget_usd: 4.0
+time_seconds: 4200
+concurrency: 3
+project_id: "frontend-ai-design-system-v1"
+output_dir: "./outputs/frontend_ai_design_system"
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.88
+  complex_reasoning: 0.85
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

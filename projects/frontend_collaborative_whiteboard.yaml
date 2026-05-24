@@ -1,0 +1,54 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project: Real-Time Collaborative Whiteboard
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_collaborative_whiteboard.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a Real-Time Collaborative Whiteboard application using React 18, TypeScript, and HTML5 Canvas API.
+
+  The application must include:
+  1. Infinite Canvas: pan and zoom (mouse wheel + touch gestures), minimum zoom 0.1x to 5x
+  2. Drawing Tools: pen (freehand), highlighter (transparent), eraser with adjustable size
+  3. Shape Tools: rectangle, ellipse, line, arrow — with snap-to-grid option
+  4. Sticky Notes: add/edit/delete color-coded sticky notes (6 colors), draggable and resizable
+  5. Text Tool: add text boxes with font size and color options
+  6. Selection Tool: select, move, resize, delete multiple objects (shift+click for multi-select)
+  7. Undo/Redo: full history stack with keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z)
+  8. Layer Management: bring to front, send to back, layer panel showing all objects
+  9. Export Options: export as PNG (current viewport or full canvas), SVG, or JSON (for re-import)
+  10. Local Collaboration Simulation: simulate multiple users with colored cursors and real-time updates (mock WebSocket)
+  11. Toolbar: collapsible toolbar with tool icons, color picker, stroke width slider
+  12. Keyboard Shortcuts: comprehensive shortcut system (V=select, P=pen, T=text, R=rectangle, etc.)
+  13. Performance Optimization: render only visible objects, debounce canvas redraws, use requestAnimationFrame
+
+  Use mock WebSocket simulation for collaboration — no real backend needed.
+
+criteria: |
+  - Canvas renders smoothly at 60 FPS with 100+ objects visible
+  - Pan and zoom feel natural with momentum/inertia on touch devices
+  - Undo/redo correctly restores all object states and canvas view
+  - Export PNG produces image at 300 DPI for print quality
+  - JSON export/import is lossless (all object properties preserved)
+  - Simulated collaboration shows cursor positions updating at 10Hz
+  - All tools work correctly with touch input (not just mouse)
+  - Keyboard shortcuts are documented in a help modal (?)
+  - Application state auto-saves to localStorage every 30 seconds
+  - TypeScript strict mode passes with no errors
+
+budget_usd: 5.0
+time_seconds: 5400
+concurrency: 3
+project_id: "frontend-collaborative-whiteboard-v1"
+output_dir: "./outputs/frontend_collaborative_whiteboard"
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.90
+  complex_reasoning: 0.92
+  evaluation:        0.93
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

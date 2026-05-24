@@ -46,7 +46,6 @@ from .output_organizer import (
 from .output_writer import write_output_dir
 from .progress import ProgressRenderer
 from .project_file import load_project_file
-from .run_tests import run_project_tests
 from .state import StateManager
 from .tracing import TracingConfig
 
@@ -351,7 +350,14 @@ def cmd_agent(args) -> None:
     ]
     for pattern in dangerous_patterns:
         if re.search(pattern, intent):
-            print("WARNING: Intent contains potentially dangerous characters", file=sys.stderr)
+            print("WARNING: Intent contains potentially dangerous characters", file=sys.stderr)            # Post-build setup: create venv, install deps
+            print("  Setting up virtual environment...")
+            print(f"  cd {output_dir}")
+            print(f"  python -m venv venv")
+            print(f"  venv\\Scripts\\activate")
+            print(f"  pip install -e .")
+            print(f"  python main.py\n")
+
             # Don't block, just warn - natural language can contain backticks
 
     agent = OrchestrationAgent()
@@ -617,12 +623,12 @@ async def _async_resume(args):
     print(f"\nOutput written to: {path}")
 
     # Organize output: move tasks to tasks/, generate/run tests
-    print("\n📁 Organizing project output...")
+    print("\n[ORG] Organizing project output...")
     org_report = await organize_project_output(path, auto_generate_tests=True, run_tests=True)
-    print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
+    safe_print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
     if org_report.tests_run:
         passed = sum(1 for r in org_report.tests_run if r.passed)
-        print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
+        safe_print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
 
 
 async def _async_file_project(args):
@@ -693,7 +699,7 @@ async def _async_file_project(args):
             event_count += 1
             renderer.handle(event)
     except Exception as e:
-        print(f"\n❌ Error during execution: {e}")
+        safe_print(f"\n❌ Error during execution: {e}")
         import traceback
 
         traceback.print_exc()
@@ -716,7 +722,7 @@ async def _async_file_project(args):
         print(f"\nOutput written to: {path}")
 
         # Organize output: move tasks to tasks/, generate/run tests
-        print("\n📁 Organizing project output...")
+        print("\n[ORG] Organizing project output...")
         org_report = await organize_project_output(
             path,
             auto_generate_tests=True,
@@ -725,25 +731,25 @@ async def _async_file_project(args):
             max_fix_iterations=getattr(args, "max_fix_iterations", 3),
             min_pass_rate=getattr(args, "min_pass_rate", 0.7),
         )
-        print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
+        safe_print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
         if org_report.tests_run:
             passed = sum(1 for r in org_report.tests_run if r.passed)
-            print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
+            safe_print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
 
         # EXTRA: Run final test execution with detailed reporting
-        print("\n🧪 Running final test validation...")
+        print("\n[TEST] Running final test validation...")
         # Tests already ran in organize_project_output - just report results
         if org_report.tests_run:
             passed = sum(1 for r in org_report.tests_run if r.passed)
             total = len(org_report.tests_run)
             if passed == total:
-                print("\n✅ All tests passed!")
+                safe_print("\n✅ All tests passed!")
             else:
-                print(f"\n⚠️ {passed}/{total} tests passed - check output for details")
+                safe_print(f"\n[WARN] {passed}/{total} tests passed - check output for details")
         else:
-            print("\nℹ️ No tests were executed")
+            safe_print("\nℹ️ No tests were executed")
     else:
-        print("\n⚠️ No state available - skipping output writing")
+        print("\n[WARN] No state available - skipping output writing")
 
     # Assembly: place files into declared target_path locations
     if state and (result.assemble or result.task_paths):
@@ -1007,7 +1013,7 @@ async def _async_new_project(args):
                 print(f"Task files written to: {path}")
 
             # Organize output: move tasks to tasks/, generate/run tests
-            print("\n📁 Organizing project output...")
+            print("\n[ORG] Organizing project output...")
             org_report = await organize_project_output(
                 Path(output_dir),
                 auto_generate_tests=True,
@@ -1016,11 +1022,11 @@ async def _async_new_project(args):
                 max_fix_iterations=getattr(args, "max_fix_iterations", 3),
                 min_pass_rate=getattr(args, "min_pass_rate", 0.7),
             )
-            print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
+            safe_print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
             if org_report.tests_run:
                 passed = sum(1 for r in org_report.tests_run if r.passed)
-                print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
-            print(f"\n📂 Output directory: {output_dir}")
+                safe_print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
+            print(f"\n[DIR] Output directory: {output_dir}")
         else:
             errors = ", ".join(result.errors) if result.errors else "unknown error"
             print(f"Build failed: {errors}")
@@ -1052,12 +1058,12 @@ async def _async_new_project(args):
     print(f"\nOutput written to: {path}")
 
     # Organize output: move tasks to tasks/, generate/run tests
-    print("\n📁 Organizing project output...")
+    print("\n[ORG] Organizing project output...")
     org_report = await organize_project_output(path, auto_generate_tests=True, run_tests=True)
-    print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
+    safe_print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
     if org_report.tests_run:
         passed = sum(1 for r in org_report.tests_run if r.passed)
-        print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
+        safe_print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
 
     if getattr(args, "dependency_report", False) and state:
         renderer = DagRenderer(state.tasks, results=state.results)
@@ -1401,7 +1407,7 @@ def cmd_cache_stats(args: argparse.Namespace) -> int:
         if args.clear:
             level = args.level
             if level:
-                print(f"🗑️  Clearing {level.upper()} cache...")
+                print(f"[CLEAR]  Clearing {level.upper()} cache...")
                 if level == "l1":
                     optimizer.l1_cache.clear()
                 elif level == "l2":
@@ -1410,7 +1416,7 @@ def cmd_cache_stats(args: argparse.Namespace) -> int:
                     optimizer.l3_cache.clear()
                 print(f"✅ {level.upper()} cache cleared")
             else:
-                print("🗑️  Clearing all cache levels...")
+                print("[CLEAR]  Clearing all cache levels...")
                 optimizer.l1_cache.clear()
                 await optimizer.l2_cache.clear()
                 optimizer.l3_cache.clear()
@@ -1418,7 +1424,7 @@ def cmd_cache_stats(args: argparse.Namespace) -> int:
             return 0
 
         if args.cleanup:
-            print("🧹 Cleaning up expired entries...")
+            print("[CLEAN] Cleaning up expired entries...")
             optimizer.l1_cache.cleanup()
             await optimizer.l2_cache.cleanup()
             optimizer.l3_cache.cleanup()
@@ -1752,6 +1758,37 @@ def main():
     asyncio.run(_async_new_project(args))
 
 
+def safe_print(msg: str, **kwargs) -> None:
+    """Print message with UTF-8 to ASCII fallback for restricted terminals."""
+
+    try:
+        print(msg, **kwargs)
+    except UnicodeEncodeError:
+        # Fallback for Windows consoles (cp1252, cp1253, etc.)
+        replacements = {
+            "✅": "[OK]",
+            "❌": "[FAIL]",
+            "⚠️": "[WARN]",
+            "ℹ️": "[INFO]",
+            "🚀": "[START]",
+            "📁": "[DIR]",
+            "📊": "[STATS]",
+            "✓": "v",
+            "✗": "x",
+            "█": "#",
+            "░": ".",
+        }
+        safe_msg = msg
+        for char, repl in replacements.items():
+            safe_msg = safe_msg.replace(char, repl)
+        # Final safety pass: encode/decode as ASCII ignoring errors
+        safe_msg = safe_msg.encode("ascii", "ignore").decode("ascii")
+        try:
+            print(safe_msg, **kwargs)
+        except Exception:
+            pass  # Silent failure if even this fails
+
+
 def _print_results(state, orch=None):
     print("\n" + "=" * 60)
     print(f"STATUS: {state.status.value}")
@@ -1765,7 +1802,7 @@ def _print_results(state, orch=None):
             if result.status.value == "completed"
             else "FAIL" if result.status.value == "failed" else "~"
         )
-        print(
+        safe_print(
             f"  {emoji} {tid}: score={result.score:.3f} "
             f"[{result.model_used.value}] "
             f"iters={result.iterations} "
@@ -1879,6 +1916,48 @@ def cmd_meta(args) -> None:
             await orch.__aexit__(None, None, None)
 
     asyncio.run(run())
+
+
+def _codebase_subparsers(subparsers) -> None:
+    # Register the modify subcommand for codebase-aware operations.
+    mp = subparsers.add_parser(
+        "modify",
+        help="Modify an existing codebase using AI reasoning",
+    )
+    mp.add_argument("--repo", required=True, help="Path to codebase root")
+    mp.add_argument("--objective", required=True, help="What to do")
+    mp.add_argument("--budget", type=float, default=10.0, help="Max LLM budget USD")
+    mp.add_argument("--dry-run", action="store_true", help="Plan only")
+    mp.set_defaults(func=_handle_modify_command)
+
+
+def _handle_modify_command(args):
+    # Handle the modify subcommand.
+    import asyncio
+    from pathlib import Path
+    result = asyncio.run(_run_modify(
+        repo=Path(args.repo).resolve(),
+        objective=args.objective,
+        dry_run=getattr(args, "dry_run", False),
+    ))
+    print(result)
+
+
+async def _run_modify(repo, objective: str, dry_run: bool) -> str:
+    # Execute the codebase modification flow.
+    from orchestrator.engine import Orchestrator
+    from orchestrator.budget import Budget
+    try:
+        orch = Orchestrator(budget=Budget(max_usd=10.0))
+        state = await orch.modify_codebase(
+            repo_path=repo,
+            objective=objective,
+            dry_run=dry_run,
+        )
+        return f"Modification complete.\nState keys: {list(state.keys()) if state else 'none'}"
+    except Exception as exc:
+        import traceback
+        return f"Modification failed: {exc}\n{traceback.format_exc()}"
 
 
 def _setup_meta_parser(subparsers):

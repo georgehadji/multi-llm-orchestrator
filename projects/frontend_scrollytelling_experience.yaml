@@ -1,0 +1,61 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project: Interactive Scrollytelling Experience
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_scrollytelling_experience.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build an Interactive Scrollytelling Website using React 18, TypeScript, Framer Motion, and GSAP.
+
+  The application must include:
+  1. Narrative Structure: 8 scroll sections telling a cohesive story (e.g., "The History of Coffee" or "Journey to Mars")
+  2. Scroll-Triggered Animations: elements fade, slide, scale, and rotate based on scroll position
+  3. Parallax Effects: minimum 3 layers with different scroll speeds for depth illusion
+  4. Sticky Sections: 2 sections where content stays fixed while text scrolls over it
+  5. Video Backgrounds: 2 sections with looping muted video backgrounds (use placeholder videos from Pexels/Pixabay)
+  6. Image Galleries: horizontal scroll galleries within sections (snap to each image)
+  7. Typography Animations: text reveal animations (word-by-word or character-by-character)
+  8. Progress Indicator: fixed sidebar or top bar showing scroll progress through sections
+  9. Navigation Dots: clickable dots to jump to specific sections with smooth scroll
+  10. Mobile Optimizations: simplified animations on mobile, touch-friendly scroll, reduced motion option
+  11. Audio Narration: optional audio toggle with synchronized highlighting of current section
+  12. Share Cards: generate shareable images with quotes from the story (using html2canvas)
+  13. Performance: lazy-load images/videos, use Intersection Observer for trigger detection
+  14. Reduced Motion: respect prefers-reduced-motion media query with static fallbacks
+
+  Use Framer Motion for React component animations and GSAP for ScrollTrigger effects.
+
+criteria: |
+  - Scroll animations trigger at correct positions (within ±50px of section boundaries)
+  - Parallax effect is smooth with no jank on scroll (maintain 60 FPS)
+  - Video backgrounds autoplay on desktop, muted by default with unmute button
+  - Horizontal galleries snap to each image with proper touch inertia
+  - Text reveal animations are readable (not too fast/slow, 30-50ms per character)
+  - Progress indicator accurately reflects scroll position (within ±2%)
+  - Navigation dots highlight current section correctly
+  - Reduced motion mode disables all animations except essential transitions
+  - Share card images export at 1200x630px (Open Graph optimal size)
+  - Page loads fully interactive in < 3 seconds on 4G
+  - All content is accessible with JavaScript disabled (progressive enhancement)
+  - TypeScript strict mode passes with no errors
+
+budget_usd: 4.5
+time_seconds: 4800
+concurrency: 3
+project_id: "frontend-scrollytelling-experience-v1"
+output_dir: "./outputs/frontend_scrollytelling_experience"
+
+quality_targets:
+  code_generation:   0.92
+  code_review:       0.88
+  complex_reasoning: 0.85
+  evaluation:        0.93
+tdd_first: true
+tdd_quality: "balanced"  # budget | balanced | premium
+tdd_max_iterations: 3
+tdd_min_coverage: 0.8
+
+policies:
+  - name: no_training
+    allow_training_on_output: false
