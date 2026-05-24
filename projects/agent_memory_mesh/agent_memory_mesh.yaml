@@ -1,0 +1,54 @@
+# ──────────────────────────────────────────────────────
+# Agent Project 2: Agent Memory Mesh (CortexMesh)
+# Author: AI Assistant
+# Run with:
+#   python -m orchestrator --file projects/agent_memory_mesh/agent_memory_mesh.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a distributed, semantic memory system (CortexMesh) for agents that enables 
+  long-term knowledge retention, cross-agent learning, and collective intelligence.
+
+  The system must include:
+  1. Three-tier memory system: Episodic (experiences), Semantic (knowledge), Procedural (skills)
+  2. Vector database integration for semantic storage and retrieval
+  3. Natural language memory queries with context awareness
+  4. Memory operations: remember(), recall(), consolidate(), forget(), share()
+  5. Cross-agent learning: success propagation, failure prevention, pattern recognition
+  6. Memory lifecycle: capture → process → store → consolidate → archive → share
+  7. Semantic retrieval with recency and relevance weighting
+  8. Knowledge graph for relationship mapping between memories
+  9. Memory compression to reduce storage by 60%+
+  10. Agent base class with automatic memory capture hooks
+
+criteria: |
+  - Memory retrieval latency <50ms for common queries
+  - 90%+ relevance accuracy for memory queries
+  - Agents show measurable improvement over time (learning curve)
+  - Cross-project knowledge transfer demonstrated
+  - Memory compression achieves 60%+ reduction
+  - Episodic memories auto-archive after project completion
+  - Semantic memories persist and accumulate across projects
+  - Procedural memories codify step-by-step processes
+  - Natural language queries return contextually relevant results
+  - Cross-agent sharing propagates learnings within 1 second
+  - Memory consolidation merges similar memories without data loss
+  - Unit tests for all memory operations
+  - Integration test: agent recalls relevant past experiences for new task
+  - All tests pass with >90% coverage
+
+budget_usd: 7.0
+time_seconds: 7200
+concurrency: 4
+project_id: "agent-memory-mesh-v1"
+output_dir: "./outputs/agent_memory_mesh"
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.88
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

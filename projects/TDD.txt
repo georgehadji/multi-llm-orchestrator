@@ -1,0 +1,20 @@
+# TDD Commands Quick Reference
+# Basic TDD (balanced quality - recommended)
+python -m orchestrator \
+  --project "Build a Python calculator" \
+  --criteria "All operations tested with pytest" \
+  --tdd-first
+
+# Budget TDD
+python -m orchestrator \
+  --project "Build a REST API" \
+  --tdd-first \
+  --tdd-quality budget
+
+# Premium TDD with custom settings
+python -m orchestrator \
+  --project "Build a payment processor" \
+  --tdd-first \
+  --tdd-quality premium \
+  --tdd-max-iterations 5 \
+  --tdd-min-coverage 0.9

@@ -1,0 +1,57 @@
+# ──────────────────────────────────────────────────────
+# Agent Project 3: Multi-Agent Consensus Engine (Deliberate)
+# Author: AI Assistant
+# Run with:
+#   python -m orchestrator --file projects/agent_consensus_engine/agent_consensus.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a deliberation and consensus-building system (Deliberate) where multiple 
+  specialized agents debate solutions, critique proposals, and converge on optimal 
+  decisions through structured argumentation.
+
+  The system must include:
+  1. Four agent roles: Proposer (generates solutions), Critic (identifies flaws), 
+     Validator (checks feasibility), Synthesizer (combines best elements)
+  2. Debate protocol with structured rounds: proposal → critique → defense → revision → consensus
+  3. Multiple voting schemes: simple majority, weighted by expertise, Borda count, quadratic voting
+  4. Agreement levels: unanimous, strong (>80%), simple (>50%), partial (document disagreements)
+  5. Quality metrics: coherence, coverage, robustness, feasibility, impact
+  6. Multi-round deliberation with counterfactual reasoning
+  7. Uncertainty quantification for each proposal
+  8. Early termination heuristics when consensus is clear
+  9. Parallel deliberation tracks for different aspects
+  10. Clear rationale generation for all decisions
+
+criteria: |
+  - Achieve consensus on 90% of decisions submitted
+  - Average 3-5 rounds to reach consensus
+  - Final decisions score higher than any individual proposal
+  - Handle conflicting requirements gracefully (document tradeoffs)
+  - Provide clear rationale for every decision
+  - Proposer agents generate 2-3 diverse solution candidates
+  - Critic agents identify genuine flaws with >80% accuracy
+  - Validator agents catch infeasible proposals before implementation
+  - Synthesizer creates coherent combined proposals
+  - Quality metrics accurately predict real-world performance
+  - System terminates early when strong consensus detected
+  - Parallel tracks complete without interference
+  - Unit tests for each agent role
+  - Integration test: full deliberation on complex architecture decision
+  - All tests pass with >90% coverage
+
+budget_usd: 6.0
+time_seconds: 5400
+concurrency: 4
+project_id: "agent-consensus-engine-v1"
+output_dir: "./outputs/agent_consensus_engine"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.88
+  complex_reasoning: 0.92
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

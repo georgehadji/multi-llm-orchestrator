@@ -1,0 +1,56 @@
+# ──────────────────────────────────────────────────────
+# Agent Project 4: Agent Skill Marketplace (SkillForge)
+# Author: AI Assistant
+# Run with:
+#   python -m orchestrator --file projects/agent_skill_marketplace/agent_skill_marketplace.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a decentralized skill marketplace (SkillForge) where agents can advertise 
+  capabilities, trade specialized skills, bid on tasks, and form ad-hoc teams 
+  through economic incentives and reputation.
+
+  The system must include:
+  1. Skill registry with capability descriptions, confidence scores, and examples
+  2. Task auction system with sealed bids, reverse auctions, and VCG pricing
+  3. Reputation system based on task completion, quality ratings, and reliability
+  4. Smart contracts for skill commitments, payment, and escrow
+  5. Agent wallet with virtual currency for bidding and payments
+  6. Skill discovery via semantic matching and collaborative filtering
+  7. Team formation algorithm for complex multi-skill tasks
+  8. Dispute resolution mechanism for task disagreements
+  9. Skill composition: agents combine capabilities for novel solutions
+  10. Economic efficiency: minimize costs while maximizing quality
+
+criteria: |
+  - Skill registration includes confidence scores and validation examples
+  - Semantic matching finds relevant skills with >85% accuracy
+  - Task auctions complete within 30 seconds for simple tasks
+  - Reputation scores correlate with actual performance (r > 0.8)
+  - Smart contracts execute automatically on task completion
+  - Agent wallets support deposits, escrow, and instant settlement
+  - Team formation optimizes skill coverage and cost
+  - Dispute resolution handles edge cases fairly
+  - Skill composition creates emergent capabilities
+  - Economic efficiency achieves near-optimal allocation
+  - Marketplace scales to 100+ agents without degradation
+  - Agents self-optimize based on market signals
+  - Unit tests for all marketplace mechanics
+  - Integration test: complex task with multi-agent team formation
+  - All tests pass with >90% coverage
+
+budget_usd: 8.0
+time_seconds: 9000
+concurrency: 4
+project_id: "agent-skill-marketplace-v1"
+output_dir: "./outputs/agent_skill_marketplace"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.88
+  complex_reasoning: 0.90
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

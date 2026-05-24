@@ -1,0 +1,52 @@
+# ──────────────────────────────────────────────────────
+# Agent Project 1: Agent Hierarchy & Delegation System (AgentOS)
+# Author: AI Assistant
+# Run with:
+#   python -m orchestrator --file projects/agent_hierarchy_system/agent_hierarchy.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a hierarchical multi-agent system (AgentOS) where a Meta-Agent orchestrates 
+  specialized Sub-Agents with specific capabilities, tools, and domains.
+
+  The system must include:
+  1. Meta-Agent that analyzes projects and creates sub-agent hierarchies dynamically
+  2. Specialized agent types: PlanningAgent, ImplementationAgent, QualityAgent, DocumentationAgent
+  3. Sub-agents under each type (e.g., FrontendSubAgent, BackendSubAgent under ImplementationAgent)
+  4. Inter-agent communication protocol with message types: task, question, response, delegation
+  5. Capability registry where agents register their skills (frontend, backend, database, testing)
+  6. Delegation chain: parent can delegate to children, children can escalate to parent
+  7. Hierarchical memory system: parent sees aggregated outputs, children access relevant context
+  8. Dynamic role assignment based on project complexity and domain
+  9. Load balancing across sub-agents
+  10. Cross-agent collaboration for complex tasks requiring multiple domains
+
+criteria: |
+  - Meta-Agent successfully decomposes complex projects into sub-tasks
+  - Sub-agents complete tasks with <5% error rate
+  - Inter-agent communication latency <100ms
+  - Automatic escalation when sub-agent fails
+  - Parent agent maintains coherent project vision across all sub-agents
+  - Capability registry correctly matches tasks to qualified agents
+  - Message protocol handles all communication patterns without loss
+  - Hierarchical memory allows context sharing without duplication
+  - Dynamic role assignment creates appropriate teams for different project types
+  - Unit tests for Agent base class and all specialized agents
+  - Integration test: full project execution with multiple sub-agents
+  - npm run build completes without TypeScript errors (if using frontend dashboard)
+
+budget_usd: 8.0
+time_seconds: 7200
+concurrency: 5
+project_id: "agent-hierarchy-system-v1"
+output_dir: "./outputs/agent_hierarchy_system"
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.88
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

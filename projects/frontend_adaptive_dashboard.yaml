@@ -1,0 +1,55 @@
+# ──────────────────────────────────────────────────────
+# Frontend Project: Adaptive Performance Dashboard
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+# Τρέξε με:
+#   python -m orchestrator --file projects/frontend_adaptive_dashboard.yaml
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build an Adaptive Analytics Dashboard using React 18, TypeScript, Recharts, and Tailwind CSS.
+
+  The application must include:
+  1. Device Capability Detection: automatically detect screen size, pixel density, CPU cores, and connection speed
+  2. Adaptive Layout Engine: dynamically adjust grid columns (1-4), card density, and chart complexity based on device tier
+  3. Performance Tiers: implement 3 tiers (low/medium/high) with different rendering strategies
+  4. Data Visualization: 6 chart types (line, bar, area, pie, donut, radar) showing mock analytics data
+  5. Real-Time Updates: simulate live data streaming with WebSocket (mock), update charts every 5 seconds
+  6. Theme System: 4 color themes (light, dark, blue, purple) with CSS custom properties
+  7. Customization Panel: drag-and-drop widget reordering, show/hide widgets, resize widgets
+  8. Data Controls: time range selector (24h/7d/30d/90d), data refresh toggle, export data as CSV
+  9. Accessibility: full keyboard navigation, screen reader announcements for chart data, high contrast mode
+  10. Performance Monitor: FPS counter, render time display, memory usage indicator (dev-only overlay)
+  11. Responsive Breakpoints: optimized layouts for 375px, 768px, 1024px, 1440px, 1920px
+  12. Skeleton Loading: show skeleton screens while data loads, gradual content reveal
+  13. Error Boundaries: graceful error handling with retry buttons for failed widgets
+
+  Use mock data generation with realistic patterns (trends, seasonality, anomalies).
+
+criteria: |
+  - Dashboard loads initial paint in < 1.5 seconds on slow 3G simulation
+  - Low-tier devices automatically reduce chart point density by 75%
+  - Widget drag-and-drop works smoothly with visual feedback
+  - Real-time updates don't cause layout shift or flickering
+  - All charts are readable in high contrast mode
+  - Keyboard navigation reaches all interactive elements in logical order
+  - CSV export includes all visible data with proper formatting
+  - Performance overlay shows accurate FPS (within ±5 of Chrome DevTools)
+  - Layout correctly adapts when resizing browser window (no overflow)
+  - TypeScript strict mode passes with no errors
+  - Lighthouse accessibility score ≥ 95
+
+budget_usd: 4.5
+time_seconds: 4800
+concurrency: 3
+project_id: "frontend-adaptive-dashboard-v1"
+output_dir: "./outputs/frontend_adaptive_dashboard"
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.88
+  complex_reasoning: 0.88
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false
