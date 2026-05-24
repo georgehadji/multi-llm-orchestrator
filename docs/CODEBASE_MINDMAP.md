@@ -1,9 +1,9 @@
 # Multi-LLM Orchestrator — Complete Architecture Mindmap
 
-> **Version:** v6.0.0 (2026-04-20)  
+> **Version:** v6.0.0 (2026-05-25)  
 > **Author:** Georgios-Chrysovalantis Chatzivantsidis  
-> **Codebase Size:** ~142,000 lines (orchestrator/) + ~1,700 lines (tests)  
-> **Total Files:** ~350 Python files (orchestrator/), ~30 test files
+> **Codebase Size:** ~147,000 lines (orchestrator/) + ~3,200 lines (tests)  
+> **Total Files:** ~351 Python files (orchestrator/), ~25 test files
 
 ---
 
@@ -11,8 +11,8 @@
 
 ```
 +-----------------------------------------------------------------------------+
-|                         Multi-LLM Orchestrator v6.0                          |
-|                    Autonomous Software Development Platform                    |
+|                  Multi-LLM Orchestrator v6.0                                |
+|           Autonomous Multi-Agent Software Development Platform              |
 +-----------------------------------------------------------------------------+
                                     |
          +--------------------------+--------------------------+
@@ -22,1046 +22,323 @@
     | Layer    |<------------->|  Core   |<------------->| Layer   |
     +----|----+               +----|----+               +----|----+
          |                          |                          |
-    Project Desc              Pipeline Execution          Generated Code
-    Success Criteria          Quality Assurance           Test Suite
-    Budget Constraints        Cost Optimization           Documentation
+    Natural Language           Agent Coordination         Generated Code
+    Project Specs              ARA Reasoning              Test Suite
+    Codebase Paths             Pipeline Stages            Documentation
 ```
 
 ---
 
-## Architectural Audit V5 (Phases 0–9, 2026-04-20)
-
-**Executive Summary:** Complete architectural refactor using Strategy B
-(Strategic). Delivered all 7 MVOS invariants verified at runtime (141 tests,
-100% passing).
+## Current Architecture (May 2026)
 
 ```
-Phase 0: Setup           mypy strict-mode, dead import cleanup (122 fixes)
-Phase 1: Circuit Breaker AsyncCircuitBreaker + registry per-model isolation
-Phase 2: State Safety    Pydantic validation on StateManager.load_project()
-Phase 3: Service Extr.   ExecutorService, EvaluatorService, GeneratorService
-Phase 4: Dead Code       ruff F401 auto-fix; 31 manual removals (safe)
-Phase 5: Circular Import 6 cycles audited + TaskConcurrencyGuard added
-Phase 6: Resilience      CircuitBreakerRegistry, ObservabilityService,
-                        CascadePolicy, run_with_resilience (CB-aware)
-Phase 7: Ports           CachePort, StatePort, EventPort + NullAdapters
-Phase 8: MVOS Tests      24 tests for all 7 invariants (100% pass)
-Phase 9: Audit Closure   Health grades updated, CHANGE_COST re-calculated
-```
-
-**Delivered Modules:**
-- `circuit_breaker.py`: CircuitBreaker + CircuitBreakerRegistry
-- `resilience.py`: CascadePolicy, ResiliencePolicy, run_with_resilience
-- `ports.py`: CachePort, StatePort, EventPort, NullCache, NullState, NullEventBus
-- `concurrency_controller.py`: TaskConcurrencyGuard
-- `services/observability.py`: ObservabilityService with 20-call sliding window
-- `services/executor.py`, `evaluator.py`, `generator.py`: Extracted services
-- `tests/test_phase6_resilience.py`: 24 resilience + cascade tests
-- `tests/test_phase7_ports.py`: 16 port protocol + DI tests
-- `tests/test_phase8_mvos.py`: 24 MVOS invariant regression tests
-
-**Key Metrics:**
-- Total tests: 124 → 141 (+17)
-- MVOS score: 0/7 → 7/7 (100%)
-- Health grades: C+ → B (layering), F → B+ (resilience), F → B (observability)
-- CHANGE_COST: 16.82 (under 17.73 estimate)
-
----
-
-## Core Architecture
-
-### 1. Main Pipeline Flow
-
-```
-Project Description
-       |
-       v
-+-----------------+
-| Auto-Resume     |<------------------+
-| Detection       |                   |
-+--------|--------+                   |
-         |                            |
-         v                            |
-+-----------------+                   |
-| Project         |                   |
-| Enhancer        |                   |
-+--------|--------+                   |
-         |                            |
-         v                            |
-+-----------------+                   |
-| Architecture    |                   |
-| Advisor         |                   |
-+--------|--------+                   |
-         |                            |
-         v                            |
-+-----------------+     +-------------|-----+
-| Decomposition   |---->| Checkpoint/Resume |
-| (Atomic Tasks)  |     |     (SQLite)      |
-+--------|--------+     +-------------------+
-         |
-         v
-+-------------------------------------------------+
-|              TASK EXECUTION LOOP                 |
-|  +---------+  +----------+  +---------+        |
-|  | Route   |->| Generate |->| Critique |        |
-|  | Task    |  |   Code   |  | Output   |        |
-|  +----|----+  +-----|----+  +----|----+        |
-|       |            |             |              |
-|       |      +-----v-----+       |              |
-|       |      |  Revise   |<------+              |
-|       |      |  (loop)   |                      |
-|       |      +-----|-----+                      |
-|       |            |                            |
-|       v            v                            |
-|  +---------+  +----------+                     |
-|  |Evaluate |  |Deterministic                     |
-|  | Quality |  |Validation|                     |
-|  +----|----+  +----|-----+                     |
-|       |            |                            |
-|       +------------+                            |
-|              |                                  |
-|              v                                  |
-|  +---------------------------------+           |
-|  |   Cross-Provider Fallback Chain |           |
-|  |   (if quality < threshold)      |           |
-|  +---------------------------------+           |
-+-------------------------------------------------+
-         |
-         v
-+-----------------+
-| Store Results   |
-| + Telemetry     |
-| + State         |
-+-----------------+
-```
-
-### 2. Module Dependency Graph
-
-```
-                              +-----------------+
-                              |     CLI / API    |
-                              |  (Entry Points)  |
-                              +--------|--------+
-                                       |
-                    +------------------|------------------+
-                    |                  |                  |
-                    v                  v                  v
-           +-------------+    +-------------+    +-------------+
-           |   Engine    |    |  Dashboard  |    |   Policy    |
-           |   Core      |    |   System    |    |   Engine    |
-           +------|------+    +------|------+    +------|------+
-                  |                  |                  |
-    +-------------|-------------+    |    +-------------|-------------+
-    |             |             |    |    |             |             |
-    v             v             v    |    v             v             v
-+-------+   +---------+   +--------+||+---|----+  +------|-----+ +----|----+
-|Models |   |  API    |   | State  ||| Events |  | Knowledge  | | Project |
-|& Cost |   | Clients |   |Manager ||| System |  |   Base     | | Manager |
-+---|---+   +----|----+   +---|----||+---|----+  +------------+ +---------+
-    |            |            |     |    |
-    |     +------|------+     |     |    |         +-------------+
-    |     |             |     |     |    |         |   Product   |
-    |     v             v     |     |    |         |   Manager   |
-    |  +------+    +--------+ |     |    |         +-------------+
-    +->|Routing|    |Semantic| |     |    |
-       |Tables|    | Cache  | |     |    |         +-------------+
-       +------+    +--------+ |     |    +-------->|   Quality   |
-                              |     |              |   Control   |
-                              |     |
-                              |     |              +-------------+
-                              |     +------------->|   Nexus     |
-                              |                    |   Search    |
-                              |                    +-------------+
-                              |
-                              |     +-------------------------------+
-                              |     |      ARA Pipeline             |
-                              +---->|  (12 Reasoning Methods)       |
-                                    |  - Multi-Perspective          |
-                                    |  - Iterative                  |
-                                    |  - Debate                     |
-                                    |  - Jury                       |
-                                    |  - Scientific                 |
-                                    +-------------------------------+
+User says: "Build a todo app"
+       │
+       ▼
+CommandCenter ──→ AgentOrchestrator ──→ GoalDecomposer (HTN recursive)
+       │                                        │
+       │                                  ┌─────┴─────────┐
+       │                                  ▼               ▼
+       │                           ProductManager   ArchitectAgent
+       │                           (generates        (designs system)
+       │                            user stories)
+       │                                  │               │
+       │                                  ▼               ▼
+       └──────────────────────────→  AgentOrchestrator dispatches
+                                              │
+                ┌────────────┬──────┬─────────┴──┬──────┬──────────┐
+                ▼            ▼      ▼            ▼      ▼          ▼
+          Developer    Reviewer   Tester      DevOps  Researcher  QCAgent
+          (write)      (audit)    (test)      (build) (search)    (gate)
+                │            │      │            │                    │
+                └────────────┴──────┴────────────┴────────────────────┘
+                                              │
+                                              ▼
+                                     ProjectWorkspace
+                                     (shared blackboard)
+                                              │
+                                              ▼
+                              ┌───────────────┼────────────────┐
+                              ▼               ▼                ▼
+                        Security Rules  UX Standards      OpenGraph Tags
+                        (22 OWASP)      (20 WCAG)         (og:image 1200x630)
+                              │               │                │
+                              └───────────────┴────────────────┘
+                                              │
+                                              ▼
+                                     Delivery: tested, secure, deployed
+                                     GitIntegration (branch→commit→push→PR)
 ```
 
 ---
 
-## Services Architecture (Phase 6)
-
-The engine has been refactored to use a service-oriented architecture with
-injected callbacks, observability, and resilience policies.
+## 9 Specialized Agents
 
 ```
-+------------------------------------------------------------------+
-|                     APPLICATION SERVICES                          |
-+------------------------------------------------------------------+
-
-  +-------------------+  +-------------------+  +------------------+
-  |  ExecutorService  |  | EvaluatorService  |  | GeneratorService |
-  +-------------------+  +-------------------+  +------------------+
-  | execute_fn        |  | client            |  | decompose_fn     |
-  | task_guard        |  | budget            |  | tracer           |
-  | tracer            |  | get_models_fn     |  |                  |
-  | telemetry         |  | tracer            |  |                  |
-  +-------------------+  | telemetry         |  +------------------+
-                         +-------------------+
-
-  Responsibilities:
-  +-------------------+  +-------------------+  +------------------+
-  | Timing metrics    |  | 2-pass eval       |  | Decomposition    |
-  | Error normalizing |  | Score parsing     |  | timing           |
-  | Tracer spans      |  | Quality gates     |  | Guard wrapping   |
-  | Telemetry events  |  | Telemetry events  |  | Tracer spans     |
-  +-------------------+  +-------------------+  +------------------+
+AgentOrchestrator (coordinator)
+  │
+  ├── UserAgent ──── Talks to the user: explains plans, asks questions
+  ├── ProductManager ── Generates user stories, maps to modules, P0-P3 priorities
+  ├── ArchitectAgent ── System design, framework selection, trade-off analysis
+  ├── DeveloperAgent ── Code generation with 3-attempt self-correcting loop
+  ├── ReviewerAgent ─── Security audit, cross-model code review
+  ├── TesterAgent ───── Test generation with coverage tracking
+  ├── DevOpsAgent ───── Docker, CI/CD, infra-as-code
+  ├── QCAgent ───────── CI pipeline runner, quality reports, regression detection
+  └── ResearcherAgent ── Web search, library research, best practices
 ```
 
-### Service Wiring in Engine
-
-```python
-# orchestrator/engine.py
-self._task_guard = _TaskGuard(name="tasks", max_concurrent=max_concurrency)
-self._telemetry = TelemetryCollector(self._profiles)
-
-# Services wired AFTER telemetry (prevents AttributeError)
-self._executor = _ExecutorService(
-    execute_fn=self._execute_task,
-    guard=self._task_guard,
-    tracer=_tracer,
-    telemetry=self._telemetry,
-)
-self._evaluator = _EvaluatorService(
-    client=self.client,
-    budget=self.budget,
-    get_models_fn=self._get_available_models,
-    tracer=_tracer,
-    telemetry=self._telemetry,
-)
-self._generator = _GeneratorService(
-    decompose_fn=self._decompose,
-    tracer=_tracer,
-)
+**Agent Memory:**
 ```
-
-### Resilience Policy Forwarding
-
-All service entry points accept an optional `_ResiliencePolicy`:
-
-```python
-async def execute(self, task: Task, policy: _ResiliencePolicy | None = None)
-async def evaluate(self, task: Task, result: TaskResult, policy=None)
-async def decompose(self, project: str, criteria: str, policy=None)
-```
-
-The `policy` is forwarded as a **keyword argument** to preserve backward
-compatibility with existing callbacks that only accept positional args.
-
----
-
-## Data Models & Types
-
-### Core Data Structures
-
-```python
-# Task Types (ROUTING_TABLE keys)
-TaskType
-|-- CODE_GEN          # Code generation tasks
-|-- CODE_REVIEW       # Code review tasks
-|-- REASONING         # Complex reasoning tasks
-|-- WRITING           # Creative writing
-|-- DATA_EXTRACT      # Data extraction
-|-- SUMMARIZE         # Summarization
-|-- EVALUATE          # Evaluation tasks
-
-# Project States
-ProjectStatus
-|-- SUCCESS
-|-- PARTIAL_SUCCESS
-|-- COMPLETED_DEGRADED
-|-- BUDGET_EXHAUSTED
-|-- TIMEOUT
-|-- SYSTEM_FAILURE
-
-# Task States
-TaskStatus
-|-- PENDING
-|-- RUNNING
-|-- COMPLETED
-|-- FAILED
-|-- DEGRADED
-```
-
-### Model Routing Architecture
-
-```
-ROUTING_TABLE (TaskType -> Model Priority List)
-===================================================================
-
-CODE_GEN:
-  1. XIAOMI_MIMO_V2_FLASH  ($0.09/$0.29) * BEST
-  2. QWEN_2_5_CODER_32B    ($0.66/$1.00)
-  3. DEEPSEEK_V3_2         ($0.27/$1.10)
-  4. MOONSHOT_KIMI_K2_5    ($0.42/$2.20)
-  5. ZHIPU_GLM_4_7         ($0.39/$1.75)
-  6. CLAUDE_SONNET_4_6     ($3/$15)
-
-CODE_REVIEW:
-  1. XAI_GROK_4_20         ($2/$6) * BEST
-  2. DEEPSEEK_R1           ($0.55/$2.19)
-  3. MOONSHOT_KIMI_K2_5    ($0.42/$2.20)
-
-REASONING:
-  1. STEPFUN_STEP_3_5_FLASH ($0.10/$0.30) * BEST VALUE
-  2. DEEPSEEK_R1           ($0.55/$2.19)
-  3. O3_MINI               ($1.10/$4.40)
-
-EVALUATE:
-  1. XAI_GROK_4_20         ($2/$6) * BEST
-  2. DEEPSEEK_R1           ($0.55/$2.19)
-
-COST_TABLE: Dict[Model, Dict["input"|"output", USD_per_1M_tokens]]
-FALLBACK_CHAIN: Dict[Model, Model]  # Cross-provider resilience
-MODEL_MAX_TOKENS: Dict[Model, int]  # Context window limits
+AgentBase.memory: AgentMemory
+  ├── successes[50]     # Pattern → score records
+  ├── failures[50]      # Pattern → error records
+  ├── success_rate()    # Historical accuracy per agent
+  └── lesson()          # "I have 12 successes, avg score 0.89"
 ```
 
 ---
 
-## Core Pipeline Workflows
-
-### 1. Generate -> Critique -> Revise -> Evaluate Loop
+## Pipeline Stages (7 Layers)
 
 ```
-+------------------------------------------------------------------+
-|                    ITERATION WORKFLOW                             |
-|                    (max_iterations = 3)                          |
-+------------------------------------------------------------------+
+Every CODE_GEN task goes through this pipeline:
 
-Phase 1: GENERATE
-+----------------------------------------+
-| 1. Select optimal model via ROUTING    |
-| 2. Build context + dependencies        |
-| 3. Call LLM API                        |
-| 4. Parse response (code extraction)    |
-| 5. Validate JSON structure             |
-+--------------|-------------------------+
-               |
-               v
-Phase 2: DETERMINISTIC VALIDATION
-+----------------------------------------+
-| * validate_python_syntax()             |
-| * validate_pytest()                    |
-| * validate_ruff()                      |
-| * validate_json_schema()               |
-| * Security checks (bandit)             |
-+--------------|-------------------------+
-               |
-               v (if passed)
-Phase 3: CRITIQUE
-+----------------------------------------+
-| 1. Cross-model review (different LLM)  |
-| 2. Evaluate: correctness, style, tests |
-| 3. Score: 0.0 - 1.0                    |
-| 4. Generate critique feedback          |
-+--------------|-------------------------+
-               |
-               v
-Phase 4: EVALUATE
-+----------------------------------------+
-| Score >= threshold (0.85)?             |
-| |-- YES -> Mark COMPLETED               |
-| |-- NO  -> Continue to REVISE           |
-+--------------|-------------------------+
-               |
-               v (if below threshold)
-Phase 5: REVISE
-+----------------------------------------+
-| 1. Generate delta prompt               |
-| 2. Include critique feedback           |
-| 3. Loop back to GENERATE               |
-| 4. Increment iteration counter         |
-+----------------------------------------+
-
-CIRCUIT BREAKER: Model marked unhealthy after 3 consecutive failures
+GenerateStage → PersuasionDefenseStage → CritiqueStage → EvaluateStage
+    │                                                              │
+    ▼                                                              ▼
+ValidateStage ←────── PreflightStage ←────── SelfConsistencyStage ←──┘
+    │
+    ▼
+Delivery or Retry (with fallback model)
 ```
 
-### 2. Cross-Provider Fallback Chain
+| Stage | What It Checks | Cost |
+|-------|---------------|------|
+| Generate | Single LLM call for initial code | $0.01-0.05 |
+| PersuasionDefense | Claim extraction → NLI verification → conflict detection | $0.05-0.10 |
+| Critique | Cross-model review (different provider) | $0.02-0.08 |
+| Evaluate | 2-pass self-consistency scoring | $0.02-0.06 |
+| Validate | Syntax, bracket balance, ruff lint | $0.00 |
+| Preflight | PASS/WARN/ENRICH/BLOCK quality gate | $0.00-0.03 |
+| SelfConsistency | Score < 0.7 → retry with fallback model | $0.01-0.05 |
 
+**Hallucination Defense (8 layers):**
 ```
-Task Failure / Low Quality
-           |
-           v
-+--------------------------+
-| 1. Try next model in     |
-|    ROUTING_TABLE         |
-+-----------|--------------+
-            |
-            v
-+--------------------------+
-| 2. Check FALLBACK_CHAIN  |
-|    (cross-provider)      |
-+-----------|--------------+
-            |
-            v
-+--------------------------+
-| 3. Escalate tier:        |
-|    CHEAP -> BALANCED ->  |
-|    PREMIUM               |
-+-----------|--------------+
-            |
-            v
-+--------------------------+
-| 4. If all fail:          |
-|    Mark DEGRADED         |
-|    Record attempt history|
-+--------------------------+
+Layer 1: PersuasionDefense     (claim extraction + NLI)
+Layer 2: CoVE                  (factored verification, cross-check)
+Layer 3: Cross-Model Critique  (different provider)
+Layer 4: Self-Consistency      (retry with fallback)
+Layer 5: Preflight Gate        (PASS/WARN/ENRICH/BLOCK)
+Layer 6: Syntax Validation     (ast.parse, bracket balance)
+Layer 7: Developer Self-Correct (3-attempt retry)
+Layer 8: Knowledge Graph       (historical confidence scoring)
 ```
 
 ---
 
-## ARA Pipeline (Advanced Reasoning & Analysis)
-
-### 12 Reasoning Methods
+## 20+ ARA Reasoning Methods
 
 ```
-+------------------------------------------------------------------+
-|                    ARA PIPELINE v2.0                             |
-|         12 Cognitive Science-Based Reasoning Methods            |
-+------------------------------------------------------------------+
+ARA METHODS (ara_pipelines.py)
+═══════════════════════════════════════════════════════════════
 
 STANDARD METHODS:
-+--------------------+-------------------------------------------+
-| Method             | Strategy                                  |
-+--------------------+-------------------------------------------+
-| Multi-Perspective  | 4 perspectives: constructive, destructive,|
-|                    | systemic, minimalist                      |
-+--------------------+-------------------------------------------+
-| Iterative          | Progressive refinement, step-by-step      |
-+--------------------+-------------------------------------------+
-| Debate             | 2+ agents argue, meta-evaluator decides   |
-+--------------------+-------------------------------------------+
-| Research           | Web discovery + LLM synthesis             |
-+--------------------+-------------------------------------------+
-| Jury               | 4 generators, 3 critics, meta-evaluation  |
-+--------------------+-------------------------------------------+
-| Scientific         | Hypothesis testing: formulate->test->refine|
-+--------------------+-------------------------------------------+
-| Socratic           | Probing questions uncover assumptions     |
-+--------------------+-------------------------------------------+
+  Multi-Perspective  — 4 angles: constructive, destructive, systemic, minimalist
+  Iterative          — Progressive refinement
+  Debate             — 2 agents argue, meta-evaluator decides
+  Research           — Web discovery + LLM synthesis
+  Jury               — 4 generators, 3 critics, meta-evaluation
+  Scientific         — Hypothesis: formulate → test → refine
+  Socratic           — Probing questions uncover assumptions
 
 SPECIALIZED METHODS:
-+--------------------+-------------------------------------------+
-| Method             | Strategy                                  |
-+--------------------+-------------------------------------------+
-| Pre-Mortem         | Imagine failure, work backward to prevent |
-+--------------------+-------------------------------------------+
-| Bayesian           | Prior->evidence->posterior probability     |
-+--------------------+-------------------------------------------+
-| Dialectical        | Thesis->antithesis->synthesis             |
-+--------------------+-------------------------------------------+
-| Analogical         | Map solutions from unrelated domains      |
-+--------------------+-------------------------------------------+
-| Delphi             | Iterative expert consensus with feedback  |
-+--------------------+-------------------------------------------+
+  Pre-Mortem         — "Assume it failed — why?"
+  Bayesian           — Prior → evidence → posterior
+  Dialectical        — Thesis → antithesis → synthesis
+  Analogical         — Cross-domain solution mapping
+  Delphi             — 4 experts → aggregate → revise → converge
+  Brainstorming      — Divergent idea generation → cluster → develop
+  VerbalizedSampling — Probability calibration, uncertainty quantification
+  PersuasionDefense  — Claim extraction + NLI verification
 
-SELECTION LOGIC:
-+-------------------------------------------------+
-| Task complexity + Risk + Budget + Language      |
-|                    |                            |
-|                    v                            |
-|            Route to Optimal                     |
-|            Reasoning Method                     |
-+-------------------------------------------------+
+COGNITIVE METHODS (v2.0):
+  CoVE (Chain-of-Verification)
+    1. Draft → extract claims
+    2. Verify: generate independent questions per claim
+    3. Answer: factorial execution (parallel LLM calls)
+    4. Cross-check: Factor+Revise inconsistency detection
+    5. Revise: correct errors, add caveats
+
+  SoT (Skeleton-of-Thought)
+    1. Skeleton: decompose into 3-5 sub-problems
+    2. Solve: parallel execution per sub-problem
+    3. Assemble: synthesize into coherent answer
+
+  ToT (Tree-of-Thoughts)
+    1. Decompose into decision points
+    2. Generate: N candidate actions per point
+    3. Evaluate: score candidates
+    4. Backtrack: decide to proceed/backtrack/terminate
+
+  Self-Discover
+    1. Select: choose 3-5 reasoning modules from inventory
+    2. Adapt: convert modules to concrete instructions
+    3. Implement: execute modules in sequence → synthesize
+
+  MAP-Elites (ARA #21)
+    1. Initialize: 9 variants in 3x3 grid (complexity × performance)
+    2. Place: best variant per grid cell
+    3. Select: 20% elite + 30% diverse + 50% exploratory
+    4. Mutate: LLM-powered diff-based mutation
+    5. Repeat: 3 generations → Pareto frontier
 ```
 
 ---
 
-## Nexus Search Architecture
+## 52 Models / 15 Providers
 
 ```
-+------------------------------------------------------------------+
-|                    NEXUS SEARCH SYSTEM                           |
-|              Self-Hosted Web Search Integration                  |
-+------------------------------------------------------------------+
+COST TIERS:
+   FREE:       owl-alpha, deepseek-v4-flash:free, nemotron-3-nano-omni:free,
+               poolside/laguna-m.1:free, poolside/laguna-xs.2:free
+   ULTRA-LOW ($0.01-0.09):    ling-2.6-flash ($0.01), granite-4.1-8b ($0.05),
+                               deepseek-v4-flash ($0.10/$0.20)
+   BUDGET ($0.10-0.50):       qwen3.5-flash, qwen3-coder-next, codestral-2508,
+                               qwen3.6-flash, gemini-2.5-flash ($0.075)
+   STANDARD ($0.50-2.00):     deepseek-reasoner, qwen3.6-plus, kimi-k2.6,
+                               gpt-5.4-nano, gemini-2.5-pro, grok-4.20
+   PREMIUM ($2.00+):          gpt-5, claude-sonnet-4.6, qwen3.7-max, o3,
+                               gpt-5.4, sonar-pro, grok-4
+```
 
-ARCHITECTURE:
-+-----------------+
-| Search Query    |
-+-------|---------+
-        |
-        v
-+-----------------+     +-----------------+
-| Query           |---->| Query Expansion |
-| Classification  |     | (LLM-based)     |
-+-----------------+     +-----------------+
-        |
-        v
-+-----------------------------------------+
-|      HYBRID SEARCH (BM25 + Vector)      |
-|         Reciprocal Rank Fusion          |
-|              (k=60)                     |
-+-----------------------------------------+
-        |
-        v
-+-----------------------------------------+
-| Parallel Search Sources:                |
-| * Web (General)                         |
-| * Tech (Documentation)                  |
-| * News (Current events)                 |
-| * Social (Discussions)                  |
-+-----------------------------------------+
-        |
-        v
-+-----------------------------------------+
-| Optimization Layer:                     |
-| * Result Deduplication                  |
-| * Query Caching (TTL-based)             |
-| * Adaptive Search Depth                 |
-| * Circuit Breaker                       |
-+-----------------------------------------+
-        |
-        v
-+-----------------------------------------+
-| LLM Reranking                           |
-| (Relevance Scoring)                     |
-+-----------------------------------------+
-        |
-        v
-+-----------------------------------------+
-| Research Report Generation              |
-+-----------------------------------------+
+**Routing Architecture:**
+```
+ROUTING_TABLE (TaskType → Model Priority List)
+═══════════════════════════════════════════════════════════════
 
-AGENT COMPONENTS:
-+-----------------+  +-----------------+
-| QueryClassifier |  | ResearchAgent   |
-|                 |  |                 |
-| * classify()    |  | * research()    |
-| * get_recommended| | * synthesize()  |
-|   _sources()    |  | * report()      |
-+-----------------+  +-----------------+
+CODE_GEN:
+  1. DEEPSEEK_V4_FLASH      ($0.10/$0.20)
+  2. CODESTRAL_2508         ($0.30/$0.90)
+  3. QWEN_3_CODER_NEXT      ($0.11/$0.88)
+  4. GPT_5                  ($1.25/$10.00)  * premium
+
+CODE_REVIEW:
+  1. QWEN_3_6_PLUS          ($0.33/$1.95)
+  2. CLAUDE_SONNET_4_6      ($3.00/$15.00)
+  3. GEMINI_2_5_PRO         ($1.25/$5.00)
+  4. GROK_4_20              ($1.25/$2.50)
+
+REASONING:
+  1. DEEPSEEK_REASONER      ($0.70/$1.26)
+  2. O3                     ($2.00/$8.00)
+  3. QWEN_3_7_MAX           ($2.50/$7.50)
+
+FALLBACK_CHAIN (for each model → cross-provider fallback):
+  DEEPSEEK_V4_FLASH  → QWEN_3_6_FLASH
+  CODESTRAL_2508      → QWEN_3_CODER_NEXT
+  GPT_5              → CLAUDE_SONNET_4_6 → GEMINI_2_5_PRO
 ```
 
 ---
 
-## Management Systems
-
-### 1. Knowledge Management System
+## Agent Model Assignments
 
 ```
-+------------------------------------------------------------------+
-|                    KNOWLEDGE BASE                                |
-|              Centralized Learning Repository                     |
-+------------------------------------------------------------------+
-
-Data Model:
-+-------------------+
-| KnowledgeArtifact |
-+-------------------+
-| id: str           |
-| type: KnowledgeType|
-| title: str        |
-| content: str      |
-| context: dict     |
-| tags: list[str]   |
-| embedding: list   |
-| similarity_score  |
-| usage_count       |
-+-------------------+
-
-KnowledgeType Enum:
-|-- CODE_SNIPPET
-|-- SOLUTION
-|-- BUGFIX
-|-- PATTERN
-|-- ARCHITECTURE
-|-- DECISION
-|-- LESSON_LEARNED
-
-Features:
-+-----------------------------------------+
-| * Vector storage (sentence-transformers)|
-| * Knowledge graph (concept relations)   |
-| * Pattern matching                      |
-| * Auto-generated documentation          |
-| * LRU cache for queries                 |
-| * Async indexing                        |
-+-----------------------------------------+
-```
-
-### 2. Project Management System
-
-```
-+------------------------------------------------------------------+
-|                    PROJECT MANAGER                               |
-|          Task Scheduling & Resource Allocation                   |
-+------------------------------------------------------------------+
-
-Core Classes:
-+-------------------+  +-------------------+  +-----------------+
-|   TaskSchedule    |  |    Milestone      |  |      Risk       |
-+-------------------+  +-------------------+  +-----------------+
-| task_id: str      |  | id: str           |  | id: str         |
-| start_time: datetime| name: str          |  | probability: float
-| end_time: datetime |  | deadline: datetime| impact: float    |
-| resources: list   |  | completed: bool   |  | risk_score()    |
-| is_critical: bool |  | completion_date   |  | mitigation: str |
-| slack: timedelta  |  +-------------------+  +-----------------+
-+-------------------+
-
-Algorithms:
-+-----------------------------------------+
-| CriticalPathAnalyzer                    |
-| * Forward/backward pass algorithm       |
-| * Earliest/latest start calculation     |
-| * Float time computation                |
-+-----------------------------------------+
-| ResourceOptimizer                       |
-| * Constraint-based allocation           |
-| * Cost optimization                     |
-| * Load balancing                        |
-+-----------------------------------------+
-```
-
-### 3. Product Management System
-
-```
-+------------------------------------------------------------------+
-|                    PRODUCT MANAGER                               |
-|        Feature Prioritization & Release Planning                 |
-+------------------------------------------------------------------+
-
-Core Classes:
-+-------------------+  +-------------------+  +-----------------+
-|     Feature       |  |    RICEScore      |  |     Release     |
-+-------------------+  +-------------------+  +-----------------+
-| id: str           |  | reach: int        |  | id: str         |
-| name: str         |  | impact: int       |  | version: str    |
-| status: FeatureStatus| confidence: int   |  | target_date     |
-| priority: P0-P3   |  | effort: int       |  | features: list  |
-| rice_score        |  | score()           |  | status          |
-| tags: list        |  +-------------------+  +-----------------+
-+-------------------+
-
-RICE Scoring:
-  score = (Reach x Impact x Confidence) / Effort
-
-FeatureStatus Lifecycle:
-  IDEA -> RESEARCH -> PLANNED -> IN_PROGRESS -> BETA -> RELEASED -> DEPRECATED
-```
-
-### 4. Quality Control System
-
-```
-+------------------------------------------------------------------+
-|                    QUALITY CONTROLLER                            |
-|          Automated Testing & Quality Analysis                    |
-+------------------------------------------------------------------+
-
-Test Levels:
-|-- UNIT           # Function/class tests
-|-- INTEGRATION    # Multi-component tests
-|-- E2E            # End-to-end tests
-|-- PERFORMANCE    # Load/stress tests
-|-- SECURITY       # Security scans
-
-Quality Gates:
-+-----------------------------------------+
-| CodeMetrics                             |
-| * Cyclomatic complexity                 |
-| * Maintainability index                 |
-| * Duplication percentage                |
-| * Documentation coverage                |
-| * Type hint coverage                    |
-+-----------------------------------------+
-| QualityIssue                            |
-| * severity: CRITICAL/HIGH/MEDIUM/LOW    |
-| * suggested_fix                         |
-| * location (file:line:column)           |
-+-----------------------------------------+
-| QualityReport                           |
-| * passed: bool                          |
-| * average_coverage                      |
-| * test_results                          |
-| * issues                                |
-+-----------------------------------------+
+Agent              Budget Model              Premium Model
+──────             ────────────              ─────────────
+Architect          DEEPSEEK_REASONER($0.70)  GPT_5 ($1.25)
+Developer          CODESTRAL_2508  ($0.30)   GPT_5 ($1.25)
+Reviewer           QWEN_3_6_PLUS   ($0.33)   CLAUDE_SONNET_4_6 ($3.00)
+Tester             QWEN_3_CODER_NEXT($0.11)  GPT_5 ($1.25)
+DevOps             DEEPSEEK_V4_FLASH($0.10)  GPT_5_2_CODEX ($1.75)
+Researcher         SONAR_PRO       ($3.00)   SONAR_DEEP_RESEARCH ($2.00)
+Product Manager    DEEPSEEK_REASONER($0.70)  GPT_5 ($1.25)
+QA                 CODESTRAL_2508  ($0.30)   CLAUDE_SONNET_4_6 ($3.00)
+User               OWL_ALPHA       (FREE)    CLAUDE_SONNET_4_6 ($3.00)
 ```
 
 ---
 
-## iOS App Store Compliance Suite
+## 4 Pillars Management
 
 ```
-+------------------------------------------------------------------+
-|              iOS APP STORE COMPLIANCE SUITE (v6.0)               |
-|                    6 Major Enhancements                          |
-+------------------------------------------------------------------+
-
-+-------------+ +-------------+ +-------------+ +-------------+
-|Enhancement A| |Enhancement B| |Enhancement C| |Enhancement D|
-| Multi-Platform| App Store   | | iOS HIG     | | App Store   |
-| Generator   | | Validator   | | Prompts     | | Assets Gen  |
-| (9 platforms)| (30 checks) | | (HIG comp)  | | (Auto)      |
-+-------------+ +-------------+ +-------------+ +-------------+
-       |               |               |               |
-       +---------------+---------------+---------------+
-                           |
-       +-------------------|-------------------+
-       v                   v                   v
-+-------------+     +-------------+     +-------------+
-|Enhancement E|     |Enhancement F|     |   TOTAL     |
-| Native      |     | Pre-Submit  |     |             |
-| Templates   |     | Testing     |     | 5,400+ lines|
-| (10 types)  |     | (10 checks) |     | 135 tests   |
-+-------------+     +-------------+     +-------------+
-
-VALIDATION CHECKS:
-+-----------------------------------------+
-| Performance (IOS-2.1)                   |
-| * Launch time < 20s                     |
-| * Memory usage < 5x base                |
-| * No memory leaks                       |
-| * Efficient resource use                |
-+-----------------------------------------+
-| Metadata (IOS-2.5.2)                    |
-| * Accurate descriptions                 |
-| * Appropriate keywords                  |
-| * Proper categorization                 |
-+-----------------------------------------+
-| Functionality (IOS-4.2)                 |
-| * Beta testing compliance               |
-| * Native iOS features (2+)              |
-| * No placeholder content                |
-| * Stable performance                    |
-+-----------------------------------------+
-| Legal (IOS-5.1)                         |
-| * Info.plist presence                   |
-| * Required declarations                 |
-| * Privacy policy                        |
-+-----------------------------------------+
-| HIG Compliance                          |
-| * iOS-standard controls                 |
-| * Accessibility labels                  |
-| * Dark mode support                     |
-+-----------------------------------------+
-| AI Transparency                         |
-| * AI-generated content disclosed        |
-| * No misleading claims                  |
-+-----------------------------------------+
+┌─────────────────────────────────────────────────────────────┐
+│                    FOUR PILLARS                              │
+├─────────────────┬─────────────────┬─────────────────────────┤
+│ Project Mgmt     │ Product Mgmt     │ Knowledge Mgmt         │
+│ SprintPlanner    │ ProductBacklog   │ KnowledgeBase          │
+│ ProgressReporter │ UserStory        │ DocsGenerator          │
+│ MilestoneTracker │ P0-P3 Priorities │ Searchable Decisions   │
+├─────────────────┴─────────────────┼─────────────────────────┤
+│ Quality Control                    │                         │
+│ QualityReport (0-10 score)        │                         │
+│ RegressionDetector                │                         │
+│ PASS/REVISE/BLOCK recommendation  │                         │
+└───────────────────────────────────┴─────────────────────────┘
 ```
 
 ---
 
-## Cost Optimization System
+## Security & UX
 
 ```
-+------------------------------------------------------------------+
-|                    COST OPTIMIZATION v6.0                        |
-|                     35% Cost Reduction                           |
-+------------------------------------------------------------------+
+SECURITY (22 OWASP Rules)              UX STANDARDS (20 WCAG Rules)
+══════════════════════════════════     ══════════════════════════════
+                                     | 
+Web:                                   Layout:
+  CSP, HSTS, X-Frame-Options           Responsive, mobile-first
+  X-Content-Type-Options               Spacing scale (4px/8px)
+  Referrer-Policy                      Visual hierarchy
+                                     |
+API:                                   Accessibility:
+  SQL injection prevention              WCAG AA (4.5:1 contrast)
+  Rate limiting (100/min)               Keyboard navigation
+  Strict CORS (whitelist origins)       ARIA labels + landmarks
+  HTTPS enforcement                     Touch targets (44×44px)
+                                     |
+Auth:                                  Typography:
+  bcrypt (cost 12+)                     Font pairing (2 max)
+  HttpOnly + Secure + SameSite          Line length (60-80 chars)
+  JWT RS256, short expiry (15m)         Type scale (1.25 ratio)
+  CSRF tokens for state changes
+                                     |  
+Data:                                  Color + Interaction:
+  Env vars (no .env in git)             CSS custom properties
+  AES-256 at rest                       Dark mode support
+  TLS 1.3 in transit                    Micro-interactions (150-300ms)
+                                        Loading + error states
 
-TIER 1: Provider-Level (80-90% input cost reduction)
-+-----------------------------------------+
-| * Prompt Caching (repeated patterns)    |
-| * Batch API (parallel requests)         |
-| * Token Budget Management               |
-+-----------------------------------------+
-
-TIER 2: Architectural (40-60% per-task reduction)
-+-----------------------------------------+
-| * Model Cascading (CHEAP->BALANCED->PREMIUM)|
-| * Dependency Context Injection          |
-| * Speculative Generation                |
-| * Streaming Validation                  |
-+-----------------------------------------+
-
-TIER 3: Quality (30-50% fewer repair cycles)
-+-----------------------------------------+
-| * Tier-3 Quality Checks                 |
-| * Confidence-Based Early Exit           |
-| * Fast Regression Detection (EMA a=0.2) |
-| * Semantic Sub-Result Caching           |
-+-----------------------------------------+
-
-TIER 4: DevOps (Security + DX)
-+-----------------------------------------+
-| * Docker Sandboxing                     |
-| * GitHub Auto-Push                      |
-| * Tool Safety Validation                |
-+-----------------------------------------+
-
-COST TRACKING:
-+-----------------------------------------+
-| EMA-based pricing (exponential moving)  |
-| Budget hierarchy: org -> team -> job      |
-| Real-time cost telemetry                |
-| Budget alerts at 80% threshold          |
-+-----------------------------------------+
+OPENTRAPH (Every generated page):
+  og:title (60-70 chars)           twitter:card = summary_large_image
+  og:description (150-160 chars)   JSON-LD structured data
+  og:image  (1200×630 PNG)         All output HTML-escaped
 ```
 
 ---
 
-## Resilience, Fault Tolerance & Observability
-
-### Circuit Breaker
-
-```python
-# orchestrator/circuit_breaker.py
-class CircuitBreaker:
-    """Async per-key circuit breaker with CLOSED/OPEN/HALF_OPEN states."""
-
-    def __init__(
-        self,
-        name: str = "default",
-        failure_threshold: int = 5,
-        reset_timeout: float = 60.0,
-        success_threshold: int = 2,
-        half_open_timeout: float = 30.0,
-    )
-
-# Usage:
-async with cb.context("openai/gpt-4o"):
-    response = await client.call(...)
-```
-
-| Property | Value |
-|----------|-------|
-| Failure threshold | 3-5 consecutive failures |
-| Reset timeout | 60s (OPEN -> HALF_OPEN) |
-| Success threshold | 2 consecutive successes to close |
-| Coverage | 95% (121 statements, 6 misses) |
-
-### Resilience Layer
+## 5-Layer Memory Architecture
 
 ```
-+------------------------------------------------------------------+
-|                    RESILIENCE MODULE                              |
-|          (orchestrator/resilience.py)                            |
-+------------------------------------------------------------------+
-
-+-----------------------------------------+
-| ResiliencePolicy                        |
-|-----------------------------------------|
-| retry_attempts: int = 3                 |
-| base_delay: float = 1.0                 |
-| max_delay: float = 60.0                 |
-| timeout_seconds: float = 300.0          |
-| fallback_enabled: bool = True           |
-| circuit_breaker_enabled: bool = True    |
-| jitter: JitterStrategy = FULL           |
-+-----------------------------------------+
-
-Components:
-|-- ResilienceOrchestrator   # Coordinates retry + fallback + CB
-|-- with_resilience()        # Decorator / context manager
-|-- JitterStrategy           # NONE | EQUAL | FULL
-```
-
-### Service Observability
-
-```
-+------------------------------------------------------------------+
-|                 OBSERVABILITY INJECTION                           |
-|          (orchestrator/services/ + tracing.py)                   |
-+------------------------------------------------------------------+
-
-ExecutorService:
-  +-- trace span: "executor.task"
-  +-- attributes: task_id, task_type, wall_time_ms
-  +-- error events: exception.message
-  +-- telemetry: timing, result
-
-EvaluatorService:
-  +-- trace span: "evaluator.evaluate"
-  +-- attributes: score, model_used, wall_time_ms
-  +-- telemetry: evaluation results
-
-GeneratorService:
-  +-- trace span: "generator.decompose"
-  +-- attributes: project_hash, wall_time_ms
-
-TelemetryCollector:
-  +-- events: budget, timing, quality
-  +-- metrics: EMA-based tracking
-```
-
-### State Persistence & Resume
-
-```
-+-----------------------------------------+
-| SQLite-backed (aiosqlite)               |
-| * Project state                         |
-| * Budget tracking                       |
-| * Task results                          |
-| * Resume capability                     |
-| * JSON serialization (safe, readable)   |
-+-----------------------------------------+
-
-Budget Serialization (FIX-RESUME-001):
-+-----------------------------------------+
-| _budget_to_dict() includes:             |
-|   max_usd, max_time_seconds,            |
-|   spent_usd, start_time,                |
-|   original_start_time                   |
-+-----------------------------------------+
-| _budget_from_dict() restores:           |
-|   original_start_time for elapsed time  |
-|   calculation when resuming             |
-+-----------------------------------------+
-```
-
----
-
-## Event System Architecture
-
-```
-+------------------------------------------------------------------+
-|                    UNIFIED EVENTS SYSTEM                         |
-|              Event Sourcing & Telemetry                          |
-+------------------------------------------------------------------+
-
-Event Types:
-+-----------------------------------------+
-| Project Lifecycle                       |
-| * PROJECT_STARTED                       |
-| * PROJECT_COMPLETED                     |
-| * PROJECT_FAILED                        |
-+-----------------------------------------+
-| Task Lifecycle                          |
-| * TASK_CREATED                          |
-| * TASK_STARTED                          |
-| * TASK_PROGRESS                         |
-| * TASK_COMPLETED                        |
-| * TASK_FAILED                           |
-| * TASK_RETRY                            |
-+-----------------------------------------+
-| Model/Routing                           |
-| * MODEL_SELECTED                        |
-| * MODEL_UNAVAILABLE                     |
-| * FALLBACK_TRIGGERED                    |
-| * CIRCUIT_BREAKER_OPEN                  |
-+-----------------------------------------+
-| Quality & Validation                    |
-| * VALIDATION_PASSED                     |
-| * VALIDATION_FAILED                     |
-| * QUALITY_GATE_PASSED                   |
-+-----------------------------------------+
-| Budget & Cost                           |
-| * BUDGET_WARNING                        |
-| * BUDGET_EXHAUSTED                      |
-| * COST_RECORDED                         |
-+-----------------------------------------+
-| Capability Usage                        |
-| * CAPABILITY_USED                       |
-| * CAPABILITY_COMPLETED                  |
-| * CAPABILITY_FAILED                     |
-+-----------------------------------------+
-
-Architecture:
-DomainEvent (base)
-|-- ProjectStartedEvent
-|-- ProjectCompletedEvent
-|-- TaskStartedEvent
-|-- TaskCompletedEvent
-|-- ... (typed events)
-
-Features:
-+-----------------------------------------+
-| * Immutable, serializable               |
-| * Automatic projections (read models)   |
-| * Event persistence (SQLite)            |
-| * ContextVar for current event          |
-| * Async event bus                       |
-+-----------------------------------------+
-```
-
----
-
-## Dashboard & Monitoring
-
-```
-+------------------------------------------------------------------+
-|                    LIVE DASHBOARD v4.0                           |
-|              Real-time WebSocket Streaming                       |
-+------------------------------------------------------------------+
-
-Features:
-+-----------------------------------------+
-| * WebSocket (no polling!)               |
-| * Toast notifications                   |
-| * Gamification system                   |
-| * Confetti celebrations                 |
-| * Sound notifications                   |
-| * Live task progress                    |
-| * Test execution monitoring             |
-+-----------------------------------------+
-
-Gamification:
-+-----------------------------------------+
-| DashboardState                          |
-| * level: int                            |
-| * xp: int                               |
-| * xp_to_next_level: int                 |
-| * streak: int                           |
-| * achievements: list                    |
-+-----------------------------------------+
-| Achievements                            |
-| * first_task                            |
-| * streak_7                              |
-| * quality_master                        |
-| * cost_optimizer                        |
-| ...                                     |
-+-----------------------------------------+
-
-Dashboard Types:
-|-- dashboard_live.py        # Gamified WebSocket
-|-- dashboard_mission_control.py  # Professional telemetry
-|-- dashboard_antd.py        # Ant Design UI
-|-- cli_dashboard.py         # Terminal UI
-```
-
----
-
-## Validation Architecture
-
-```
-+------------------------------------------------------------------+
-|                    DETERMINISTIC VALIDATORS                      |
-|              Non-Negotiable Quality Gates                        |
-+------------------------------------------------------------------+
-
-Validators:
-+-----------------------------------------+
-| validate_python_syntax()                |
-| * Compilation check                     |
-| * Indentation error handling            |
-| * Truncation detection                  |
-+-----------------------------------------+
-| validate_pytest()                       |
-| * Test execution                        |
-| * Coverage reporting                    |
-| * Module availability check             |
-+-----------------------------------------+
-| validate_ruff()                         |
-| * Linting                               |
-| * Style checking                        |
-| * Auto-fix support                      |
-+-----------------------------------------+
-| validate_json_schema()                  |
-| * JSON validation                       |
-| * Schema compliance                     |
-+-----------------------------------------+
-| Security Scans                          |
-| * Bandit (Python security)              |
-| * Safety (dependency vulnerabilities)   |
-+-----------------------------------------+
-
-Execution:
-+-----------------------------------------+
-| async_run_validators()                  |
-| * Offloads to threads                   |
-| * Non-blocking I/O                      |
-| * Parallel execution                    |
-+-----------------------------------------+
-
-Rule: If deterministic check fails -> score = 0.0 (overrides LLM)
+┌─────────────────────────────────────────────────────────────┐
+│                    MEMORY LAYERS                            │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 1: ProjectWorkspace (in-memory, per-project)          │
+│   File versions, architecture decisions, agent messages     │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 2: PersistentWorkspace (SQLite, crash recovery)       │
+│   Auto-saves on every write_file() + record_decision()      │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 3: ExperienceBuffer (cross-task learning)             │
+│   success_patterns[200], model_scores, method_effectiveness │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 4: KnowledgeGraph (relational, networkx)             │
+│   Nodes: (TaskType, Model, Method, Score)                  │
+│   Edges: used_with, produced_score, failed_on              │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 5: AgentCache (SHA-256 hash, TTL 1h)                 │
+│   Cached LLM responses per (goal + context) hash           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -1069,331 +346,114 @@ Rule: If deterministic check fails -> score = 0.0 (overrides LLM)
 ## Project Structure
 
 ```
-Ai Orchestrator/
-|-- orchestrator/                 # Main package (~349 files)
-|   |-- __init__.py              # Lazy-loading entry point (v6.0.0)
-|   |-- cli.py                   # CLI entry point
-|   |-- engine.py                # Core orchestration (~2,000 lines)
-|   |-- models.py                # Data models & routing (~222 lines)
-|   |-- ara_pipelines.py         # 12 reasoning methods
-|   |-- api_clients.py           # Unified LLM client
-|   |-- budget.py                # Budget management
-|   |-- state.py                 # SQLite persistence
-|   |-- validators.py            # Deterministic validation
-|   |-- cache.py                 # Disk-based caching
-|   |-- semantic_cache.py        # Semantic similarity
-|   |-- model_selector.py        # Intelligent routing
-|   |-- circuit_breaker.py       # Async circuit breaker + registry (Phase 6)
-|   |-- resilience.py            # Resilience policies, cascade, CB-aware flow (Phase 6)
-|   |-- ports.py                 # CachePort, StatePort, EventPort + NullAdapters (Phase 7)
-|   |-- concurrency_controller.py# TaskConcurrencyGuard (Phase 5)
-|   |-- tracing.py               # OpenTelemetry tracing
-|   |-- telemetry.py             # Telemetry collection
-|   |
-|   |-- services/                # Application services (Phase 6)
-|   |   |-- __init__.py
-|   |   |-- executor.py          # Task execution service
-|   |   |-- evaluator.py         # LLM evaluation service
-|   |   |-- generator.py         # Project decomposition service
-|   |   |-- observability.py     # Per-model telemetry (Phase 6)
-|   |
-|   |-- knowledge_base.py        # Knowledge Management
-|   |-- project_manager.py       # Project Management
-|   |-- product_manager.py       # Product Management
-|   |-- quality_control.py       # Quality Control
-|   |
-|   |-- nexus_search/            # Web Search (21 files)
-|   |   |-- core.py              # Search orchestrator
-|   |   |-- agents/              # Search agents
-|   |   |-- optimization/        # Query expansion, caching
-|   |   |-- providers/           # Search providers
-|   |
-|   |-- cost_optimization/       # Cost optimization (13 files)
-|   |   |-- batch_client.py
-|   |   |-- model_cascading.py
-|   |   |-- prompt_cache.py
-|   |   |-- ...
-|   |
-|   |-- engine_core/             # Core engine components
-|   |   |-- core.py
-|   |   |-- task_executor.py
-|   |   |-- critique_cycle.py
-|   |   |-- fallback_handler.py
-|   |   |-- budget_enforcer.py
-|   |   |-- dependency_resolver.py
-|   |
-|   |-- dashboard_core/          # Dashboard infrastructure
-|   |-- unified_events/          # Event system
-|   |-- scaffold/                # Project templates
-|   |-- plugins/                 # Plugin system
-|   |-- ide_backend/             # IDE integration
-|
-|-- tests/                       # Test suite (~30 files)
-|   |-- conftest.py             # pytest configuration
-|   |-- integration/            # Integration & E2E tests
-|   |   |-- conftest.py
-|   |   |-- test_full_run.py
-|   |   |-- test_resume_after_crash.py
-|   |   |-- test_circuit_breaker_fail_fast.py
-|   |-- smoke/                  # Smoke tests
-|   |   |-- test_api_contracts.py
-|   |   |-- test_cli.py
-|   |-- test_circuit_breaker.py
-|   |-- test_concurrency_controller.py
-|   |-- test_evaluator_service.py
-|   |-- test_executor_service.py
-|   |-- test_generator_service.py
-|   |-- test_resilience.py
-|   |-- test_service_observability.py
-|   |-- test_state_validation.py
-|
-|-- docs/                        # Documentation
-|   |-- CODEBASE_MINDMAP.md     # This file
-|   |-- MVOS_CHECKLIST.md       # MVOS audit runbook
-|-- scripts/                     # Utility scripts
-|   |-- mvos_audit.py           # Automated MVOS checker
-|-- pyproject.toml              # Package configuration
-|-- requirements.txt            # Dependencies
-```
+orchestrator/                         # Main package (~351 files)
+├── agents/                           # 9 specialized agents
+│   ├── base.py                       # AgentBase ABC, AgentRole, AgentTask
+│   ├── coordinator.py                # AgentOrchestrator (parallel DAG dispatch)
+│   ├── developer.py                  # DeveloperAgent, ArchitectAgent, TesterAgent
+│   ├── reviewer.py                   # ReviewerAgent
+│   ├── devops.py                     # DevOpsAgent
+│   ├── researcher.py                 # ResearcherAgent
+│   ├── user.py                       # UserAgent (talks to user)
+│   ├── product_manager.py            # ProductManagerAgent
+│   ├── qc.py                         # QCAgent (CI pipeline)
+│   ├── metrics.py                    # AgentMetrics, MetricsRegistry
+│   └── rate_limiter.py               # Sliding window per-agent limits
+│
+├── workspace/                        # Shared blackboard
+│   ├── workspace.py                  # ProjectWorkspace (file versions, decisions)
+│   ├── message_bus.py                # AgentMessageBus (publish/subscribe)
+│   ├── persistent_workspace.py       # SQLite-backed workspace
+│   └── audit.py                      # Append-only audit trail
+│
+├── planning/                         # Goal decomposition
+│   ├── goal.py                       # Goal, SubGoal, Plan datatypes
+│   └── decomposer.py                 # GoalDecomposer (HTN recursive)
+│
+├── tools/                            # Agent tool layer
+│   ├── base.py                       # Tool ABC, ToolResult, ToolRegistry
+│   └── shell_tool.py                 # ShellTool (subprocess)
+│
+├── runtime/                          # Code execution
+│   └── sandbox.py                    # SandboxExecutor, TestRunner
+│
+├── learning/                         # Memory & adaptation
+│   ├── agent_memory.py               # Per-agent private memory
+│   ├── agent_cache.py                # SHA-256 hash + TTL caching
+│   ├── experience_buffer.py           # Cross-task success/failure patterns
+│   ├── knowledge_graph.py            # Relational pattern learning (networkx)
+│   ├── memory_compressor.py          # Summarize many patterns into lessons
+│   └── prompt_enricher.py            # Unified memory query → prompt injection
+│
+├── engine_core/                      # Core pipeline
+│   ├── pipeline.py                   # TaskPipeline + PipelineContext
+│   ├── protocols.py                  # 7 Protocol interfaces (ModelProvider, etc.)
+│   ├── container.py                  # ServiceContainer.build() factory
+│   ├── utilities.py                  # _clean_code_output, _get_available_models
+│   ├── stages/                       # 7 pluggable pipeline stages
+│   │   ├── generate.py, critique.py, evaluate.py
+│   │   ├── validate.py, preflight.py
+│   │   ├── self_consistency.py       # Enhanced with ARA retry
+│   │   └── persuasion_defense.py     # Hallucination verification
+│   ├── validator.py                  # TaskValidator
+│   ├── decomposer.py                 # Decomposer
+│   └── architect.py                  # ArchitectureRules
+│
+├── security/                         # OWASP security enforcement
+│   └── enhancer.py                   # SecurityEnhancer, OpenGraphGenerator
+│
+├── ux/                               # UX quality standards
+│   └── design_enhancer.py            # UXDesignReviewer, 20 standards
+│
+├── ci/                               # Continuous integration
+│   └── pipeline.py                   # CIPipeline, CIStep, LintStep
+│
+├── hitl/                             # Human-in-the-loop
+│   └── gate.py                       # DecisionGate, DecisionResult
+│
+├── project/                          # Project management
+│   ├── sprint_planner.py             # Sprint, Milestone, SprintPlanner
+│   └── progress_reporter.py          # Formatted progress tables
+│
+├── product/                          # Product management
+│   └── backlog.py                    # ProductBacklog, UserStory
+│
+├── knowledge/                        # Knowledge management
+│   ├── knowledge_base.py             # KnowledgeBase, KnowledgeEntry
+│   └── docs_generator.py             # ARCHITECTURE.md, DECISIONS.md
+│
+├── quality/                          # Quality control
+│   ├── quality_report.py             # Score 0-10, PASS/REVISE/BLOCK
+│   └── regression.py                 # RegressionDetector
+│
+├── scaffold/                         # Project templates
+│   └── dynamic.py                    # DynamicScaffoldGenerator
+│
+├── ara_pipelines.py                  # 20+ ARA reasoning methods
+├── ara_execution_strategy.py         # ARA method selection + dispatch
+├── codebase_reader.py                # FileSystemWalker, ASTIndexer, DependencyGraph
+├── codebase_context.py               # RelevanceRanker, QualityAnalyzer
+├── codebase_decomposer.py            # LLM-powered modification planner
+├── codebase_writer.py                # Safe file ops + diff engine + safety gates
+├── git_integration.py                # Branch→commit→push→PR per milestone
+├── command_center.py                 # Interactive REPL
+├── config.py                         # Centralized RuntimeConfig
+├── engine.py                         # Main Orchestrator (~2,000 lines)
+├── models.py                         # 52 models, routing, cost tables
+├── engine_deps.py                    # All optional/try-except imports
+└── __init__.py                       # Lazy-loading entry point (v6.0.0)
 
----
-
-## Provider Integration
-
-```
-+------------------------------------------------------------------+
-|                    LLM PROVIDER SUPPORT                          |
-|                    12+ Providers via OpenRouter                  |
-+------------------------------------------------------------------+
-
-UNIFIED API (OpenRouter):
-+-----------------------------------------+
-| api_clients.py                          |
-| * UnifiedClient                         |
-| * Async HTTP with aiohttp               |
-| * Retry logic                           |
-| * Rate limiting                         |
-+-----------------------------------------+
-
-Supported Providers:
-+----------------+------------------------------------------+
-| Provider       | Models                                   |
-+----------------+------------------------------------------+
-| OpenAI         | GPT-4o, GPT-5, o1, o3-mini, o4-mini      |
-| Google         | Gemini Pro, Flash, Flash Lite            |
-| Anthropic      | Claude 3.5 Sonnet, Opus, Haiku           |
-| DeepSeek       | DeepSeek Chat, Reasoner (R1)             |
-| Meta           | LLaMA 4 Maverick/Scout, LLaMA 3.3        |
-| xAI            | Grok 4.20, Grok 4.1 Fast                 |
-| Qwen           | Qwen 2.5 Coder                           |
-| MiniMax        | MiniMax M2.7, M2.5                       |
-| StepFun        | Step 3.5 Flash                           |
-| Z.AI           | GLM 4.7 Flash                            |
-| Moonshot       | Kimi K2.5                                |
-| Xiaomi         | MiMo-V2 Flash/Pro/Omni                   |
-+----------------+------------------------------------------+
-
-Cost Optimization:
-+-----------------------------------------+
-| * EMA-based price tracking              |
-| * Cost-performance profiling            |
-| * Budget hierarchy enforcement          |
-| * Cross-provider fallback               |
-+-----------------------------------------+
-```
-
----
-
-## Testing Architecture
-
-```
-+------------------------------------------------------------------+
-|                    TESTING FRAMEWORK                              |
-|                    124 Tests, 11 Modules                          |
-+------------------------------------------------------------------+
-
-Test Organization:
-+-----------------------------------------+
-| tests/                                  |
-| |-- conftest.py                         |
-| |   * Markers: unit, integration, slow  |
-| |   * Markers: requires_api, e2e        |
-| |   * collect_ignore for standalone     |
-| |                                         |
-| |-- integration/                        |
-| |   * conftest.py (mocked fixtures)     |
-| |   * test_full_run.py (3 e2e tests)    |
-| |   * test_resume_after_crash.py (2)    |
-| |   * test_circuit_breaker_fail_fast.py |
-| |                                         |
-| |-- smoke/                              |
-| |   * test_api_contracts.py (9 HTTP)    |
-| |   * test_cli.py (6 subprocess)        |
-| |                                         |
-| |-- test_circuit_breaker.py (12)        |
-| |-- test_state_validation.py (8)        |
-| |-- test_executor_service.py (12)       |
-| |-- test_evaluator_service.py (14)      |
-| |-- test_generator_service.py (12)      |
-| |-- test_concurrency_controller.py (8)  |
-| |-- test_phase6_resilience.py (24)      |
-| |   * Registry, Observability, Cascade  |
-| |-- test_phase7_ports.py (16)           |
-| |   * Protocol validation, NullAdapters |
-| |-- test_phase8_mvos.py (24)            |
-| |   * MVOS invariant verification       |
-+-----------------------------------------+
-
-Coverage by Module (tested modules):
-+-------------------------------+----------+
-| Module                        | Coverage |
-+-------------------------------+----------+
-| circuit_breaker.py            | 95.0%    |
-| services/evaluator.py         | 94.5%    |
-| services/executor.py          | 94.2%    |
-| services/generator.py         | 100.0%   |
-| resilience.py                 | 89.6%    |
-| budget.py                     | 86.5%    |
-| policy.py                     | 85.2%    |
-| exceptions.py                 | 84.6%    |
-| models.py                     | 96.4%    |
-+-------------------------------+----------+
-| Baseline (all orchestrator/)  | 12.2%    |
-+-------------------------------+----------+
-
-Test Markers:
-+-----------------------------------------+
-| @pytest.mark.unit                       |
-| @pytest.mark.integration                |
-| @pytest.mark.slow                       |
-| @pytest.mark.requires_api               |
-| @pytest.mark.e2e                        |
-| @pytest.mark.load                       |
-| @pytest.mark.stress                     |
-| @pytest.mark.benchmark                  |
-+-----------------------------------------+
-```
-
----
-
-## MVOS Audit System (Phase 8–9)
-
-```
-+------------------------------------------------------------------+
-|        MINIMUM VIABLE OPERATIONAL STATE (MVOS) AUDIT             |
-|                   tests/test_phase8_mvos.py                      |
-|                  (24 automated unit tests)                        |
-+------------------------------------------------------------------+
-
-Purpose: Runtime verification that all critical architectural invariants
-         hold after deployment or refactor. Phase 8 tests added 24
-         regression guards covering all 7 invariants.
-
-Invariants Verified (Phase 8–9 Status: ✅ 7/7 PASS):
-+-------+------------------------------------------+-----+
-| ID    | Invariant                              |Status|
-+-------+------------------------------------------+-----+
-| MVOS-1| Orchestrator instantiates cleanly      | ✅   |
-|       | (NullAdapters, no SQLite)              |      |
-| MVOS-2| UnifiedClient.circuit_breaker starts   | ✅   |
-|       | CLOSED with correct thresholds         |      |
-| MVOS-3| CircuitBreakerRegistry wired & per-    | ✅   |
-|       | model isolated                         |      |
-| MVOS-4| ObservabilityService accumulates       | ✅   |
-|       | call metrics (latency, error rate,cost)|      |
-| MVOS-5| All app-layer services present         | ✅   |
-|       | (executor, evaluator, generator, guard)|      |
-| MVOS-6| Concrete adapters satisfy Port         | ✅   |
-|       | protocols (structural subtyping)       |      |
-| MVOS-7| CascadePolicy builds cost-tier-sorted  | ✅   |
-|       | ResiliencePolicy                       |      |
-+-------+------------------------------------------+-----+
-
-Health Grades (Pre→Post Refactor):
-+-------+--------+----------+-------+
-| Aspect| Before | After    | Delta |
-+-------+--------+----------+-------+
-| Layer | C+     | B        | ↑ 0.5 |
-| Coupl | C      | B-       | ↑ 0.3 |
-| Cmplx | D+     | C+       | ↑ 0.7 |
-| State | C      | B-       | ↑ 0.3 |
-| Error | B-     | B        | ↑ 0.2 |
-| Types | B      | B        | →     |
-| Resil | F      | B+       | ↑ 1.7 |
-| Observ| F      | B        | ↑ 1.0 |
-+-------+--------+----------+-------+
-
-Usage (pytest):
-    pytest tests/test_phase8_mvos.py -v
-    # 24 tests verify all 7 invariants with full coverage
-
-Legacy Script (manual verification):
-    python scripts/mvos_audit.py [--verbose]
-
-Exit Codes:
-    0 -- All invariants pass (deployment ready)
-    1 -- One or more invariants failed
-```
-
----
-
-## Workflow Summary
-
-```
-+------------------------------------------------------------------+
-|                    COMPLETE WORKFLOW MAP                         |
-+------------------------------------------------------------------+
-
-Phase 1: Input Processing
-+-----------------------------------------+
-| 1. Parse CLI arguments                  |
-| 2. Load environment (.env)              |
-| 3. Check for resume candidates          |
-| 4. Initialize budget                    |
-| 5. Create project state                 |
-+--------------|--------------------------+
-               |
-               v
-Phase 2: Enhancement
-+-----------------------------------------+
-| 1. Project Enhancer (LLM)               |
-| 2. Architecture Advisor                 |
-| 3. Platform detection                   |
-| 4. Template selection                   |
-+--------------|--------------------------+
-               |
-               v
-Phase 3: Decomposition
-+-----------------------------------------+
-| 1. Break into atomic tasks              |
-| 2. Detect dependencies                  |
-| 3. Build dependency graph               |
-| 4. Topological sort                     |
-+--------------|--------------------------+
-               |
-               v
-Phase 4: Execution (per task)
-+-----------------------------------------+
-| While tasks remaining:                  |
-|   1. Get ready tasks (deps satisfied)   |
-|   2. Route to optimal model             |
-|   3. Execute generate->critique->revise |
-|   4. Run deterministic validators       |
-|   5. Evaluate quality                   |
-|   6. If degraded, trigger fallback      |
-|   7. Store result                       |
-|   8. Emit events                        |
-+--------------|--------------------------+
-               |
-               v
-Phase 5: Finalization
-+-----------------------------------------+
-| 1. Calculate final score                |
-| 2. Generate quality report              |
-| 3. Organize outputs                     |
-| 4. Cleanup state                        |
-| 5. Emit PROJECT_COMPLETED event         |
-+-----------------------------------------+
+tests/
+├── test_god_file_refactoring.py      # 40 tests: engine_core extraction
+├── test_decomposer.py                # 8 tests: decomposition
+├── test_validator.py                 # 10 tests: validation pipeline
+├── test_pipeline.py                  # 14 tests: TaskPipeline + stages
+├── test_agentic_system.py            # 22 tests: agents, tools, workspace
+├── test_capabilities_5_10.py         # 21 tests: message bus, learning, CI, HITL
+├── test_planning.py                  # 9 tests: goal decomposition
+├── test_optimizations.py             # 22 tests: rate limiter, cache, knowledge graph
+├── test_phase6_10_comprehensive.py   # 41 tests: engin_core, ARA, protocols
+├── test_e2e_full_suite.py            # 38 tests: end-to-end lifecycle
 ```
 
 ---
@@ -1402,71 +462,20 @@ Phase 5: Finalization
 
 | Metric | Value |
 |--------|-------|
-| **Version** | v6.0.0 (2026-04-20) |
-| **Core Code** | ~142,000 lines (orchestrator/) |
-| **Test Code** | ~1,700 lines (tests/) |
-| **Total Files** | ~350 Python files (orchestrator/) |
-| **Test Files** | 11 active pytest modules |
-| **Test Count** | 141 tests (all passing, +17 from Phases 6–8) |
-| **Test Coverage** | 12.2% baseline (legacy), 90%+ for tested modules |
-| **Cost Reduction** | 35% |
-| **Providers** | 12+ (via OpenRouter) |
-| **Reasoning Methods** | 12 (ARA Pipeline) |
-| **Validation Checks** | 30+ (iOS compliance) |
-| **MVOS Invariants** | 6 (all automated) |
+| **Version** | v6.0.0 (2026-05-25) |
+| **Core Code** | ~147,000 lines (orchestrator/) |
+| **Test Code** | ~3,200 lines (tests/) |
+| **Total Files** | ~351 Python files (orchestrator/) |
+| **Test Count** | ~225 tests (72 core + 154 new) |
+| **Agent Roles** | 9 (architect, developer, reviewer, tester, devops, researcher, user, pm, qa) |
+| **ARA Methods** | 20+ (including CoVE, SoT, ToT, MAP-Elites) |
+| **Pipeline Stages** | 7 (generate, persuasion, critique, evaluate, validate, preflight, consistency) |
+| **Models** | 52 from 15 providers |
+| **Free Models** | 5 (owl, deepseek, nemotron, poolside m, poolside xs) |
+| **Providers** | 15 (openai, anthropic, google, deepseek, meta, xai, moonshot, minimax, zhipu, baidu, xiaomi, inclusionai, perplexity, nvidia, ibm, poolside) |
 
 ---
 
-## Key Connections & Dependencies
-
-```
-External Dependencies:
-+-----------------------------------------+
-| LLM APIs                                |
-| * OpenRouter (unified)                  |
-| * Provider SDKs (openai, anthropic,    |
-|   google-genai)                         |
-+-----------------------------------------+
-| Database                                |
-| * aiosqlite (async SQLite)              |
-| * Redis (optional, caching)             |
-+-----------------------------------------+
-| Web Framework                           |
-| * FastAPI (dashboard)                   |
-| * WebSockets (real-time)                |
-| * Uvicorn (ASGI server)                 |
-+-----------------------------------------+
-| Testing                                 |
-| * pytest + pytest-asyncio               |
-| * pytest-cov (coverage)                 |
-| * pytest-xdist (parallel)               |
-| * anyio                                 |
-+-----------------------------------------+
-| Code Quality                            |
-| * ruff (linting)                        |
-| * black (formatting)                    |
-| * mypy (type checking)                  |
-| * bandit (security)                     |
-+-----------------------------------------+
-| Observability                           |
-| * OpenTelemetry (tracing)               |
-| * Structured logging                    |
-+-----------------------------------------+
-
-Internal Dependencies:
-+-----------------------------------------+
-| Engine -> Models, API Clients, State    |
-| ARA -> Models, API Clients, Cache       |
-| Nexus -> Agents, Optimization, Providers|
-| Management -> Performance, Log Config   |
-| Dashboard -> Events, State              |
-| Validators -> Models, Cache             |
-| Services -> Engine callbacks, Tracing   |
-+-----------------------------------------+
-```
-
----
-
-*Last Updated: 2026-04-20*  
+*Last Updated: 2026-05-25*  
 *Maintainer: Georgios-Chrysovalantis Chatzivantsidis*  
 *License: MIT*
