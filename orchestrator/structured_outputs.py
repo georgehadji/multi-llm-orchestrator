@@ -16,11 +16,9 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import instructor
 from pydantic import BaseModel, Field, field_validator
-from typing import Literal, Optional
-from datetime import datetime, timezone
+from typing import Literal
 
 # Import orchestrator models for type compatibility
 from .models import TaskType, Task
@@ -246,6 +244,54 @@ class TaskDecomposer(StructuredClient):
         execution_order = result.execution_order
     """
 
+    def _calculate_decomposition_tokens(self, project_desc: str) -> int:
+        """Calculate required tokens based on project complexity."""
+        import math
+
+        # Base tokens for JSON structure overhead
+        base_tokens = 500
+
+        # Estimate based on project description length
+        # Each word in description roughly correlates to task complexity
+        word_count = len(project_desc.split())
+
+        # Estimate number of tasks (rough heuristic: 1 task per 50 words, min 3)
+        estimated_tasks = max(3, math.ceil(word_count / 50))
+
+        # Each task needs ~300 tokens for complete JSON representation
+        tokens_per_task = 300
+
+        # Calculate total with 30% buffer for safety
+        total_tokens = int((base_tokens + (estimated_tasks * tokens_per_task)) * 1.3)
+
+        # Cap at reasonable maximum (8K for most models)
+        return min(total_tokens, 8192)
+
+    def _assess_complexity(self, project_desc: str) -> float:
+        """Score project complexity 0.0-1.0 based on heuristics."""
+        score = 0.0
+
+        # Length-based scoring
+        words = len(project_desc.split())
+        if words > 500:
+            score += 0.3
+        elif words > 200:
+            score += 0.15
+
+        # Feature count indicators
+        feature_indicators = [
+            'must include', 'required', 'feature', 'module', 'component',
+            'system', 'service', 'api', 'endpoint', 'implement'
+        ]
+        feature_count = sum(1 for ind in feature_indicators if ind in project_desc.lower())
+        score += min(0.3, feature_count * 0.05)
+
+        # Architecture complexity
+        complex_patterns = ['microservice', 'distributed', 'real-time', 'async', 'websocket']
+        score += min(0.2, sum(0.05 for p in complex_patterns if p in project_desc.lower()))
+
+        return min(1.0, score)
+
     async def decompose(
         self,
         project_description: str,
@@ -265,28 +311,55 @@ class TaskDecomposer(StructuredClient):
         Returns:
             Validated TaskDecomposition object
         """
+        from .log_config import get_logger
+        logger = get_logger(__name__)
+
+        # Check complexity and potentially upgrade model
+        complexity_score = self._assess_complexity(project_description)
+        if complexity_score > 0.7:
+            # Use larger model for complex projects
+            original_model = model
+            model = "anthropic/claude-3.5-sonnet"
+            logger.info(
+                f"High complexity project detected ({complexity_score:.2f}), "
+                f"upgrading model from {original_model} to {model}"
+            )
+
         client = self.get_client(model)
 
         # Create decomposition prompt
         prompt = self._create_decomposition_prompt(project_description, success_criteria)
 
-        # Call with Instructor (automatic validation + retries)
-        result = await client.chat.completions.create(
-            model=model,
-            response_model=TaskDecomposition,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an expert software architect. Decompose projects into clear, actionable tasks with proper dependencies. Output MUST be valid JSON matching the schema.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=2048,
-            max_retries=max_retries,
-        )
+        # Calculate required tokens based on project size
+        required_tokens = self._calculate_decomposition_tokens(project_description)
+        logger.info(f"Decomposition token budget: {required_tokens} (complexity: {complexity_score:.2f})")
 
-        # Result is already validated TaskDecomposition object
-        return result
+        try:
+            # Call with Instructor (automatic validation + retries)
+            result = await client.chat.completions.create(
+                model=model,
+                response_model=TaskDecomposition,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert software architect. Decompose projects into clear, actionable tasks with proper dependencies. Output MUST be valid JSON matching the schema.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=required_tokens,
+                max_retries=max_retries,
+            )
+            return result
+        except AssertionError as e:
+            # Instructor raises AssertionError on validation failure (often truncation)
+            logger.warning(f"Instructor validation failed (likely truncation): {e}")
+            raise  # Re-raise to trigger manual parsing fallback in engine.py
+        except instructor.exceptions.InstructorRetryException as e:
+            logger.warning(f"Instructor retry exhausted for {model}: {e}")
+            raise  # Re-raise to trigger fallback
+        except Exception as e:
+            logger.error(f"Unexpected error in decomposition: {type(e).__name__}: {e}")
+            raise
 
     def _create_decomposition_prompt(self, project_desc: str, criteria: str) -> str:
         """Create structured decomposition prompt"""
@@ -377,7 +450,7 @@ class CodeReviewer(StructuredClient):
                 },
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=2048,
+            max_tokens=4096,
             max_retries=max_retries,
         )
 
@@ -453,7 +526,7 @@ class ArchitecturePlanner(StructuredClient):
                 },
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=2048,
+            max_tokens=4096,
             max_retries=max_retries,
         )
 

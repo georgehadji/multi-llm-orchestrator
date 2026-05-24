@@ -76,9 +76,12 @@ class Enhancement:
 def _select_enhance_model(description: str) -> Model:
     """Select the LLM model for enhancement suggestions based on description length.
 
-    Uses DEEPSEEK_REASONER (o1-class) for longer descriptions (>50 words)
-    that may require deeper reasoning, and DEEPSEEK_CHAT for shorter
+    Uses STEP_FUN_STEP_3_5_FLASH (reliable reasoning model) for longer descriptions (>50 words)
+    that may require deeper reasoning, and XIAOMI_MIMO_V2_FLASH for shorter
     descriptions that are simpler to enhance.
+
+    NOTE: Previously used DeepSeek models, switched to reliable alternatives
+    (StepFun, Xiaomi) due to timeout issues.
 
     Parameters
     ----------
@@ -88,12 +91,12 @@ def _select_enhance_model(description: str) -> Model:
     Returns
     -------
     Model
-        DEEPSEEK_REASONER if description has >50 words, DEEPSEEK_CHAT otherwise
+        STEPFUN_STEP_3_5_FLASH if description has >50 words, XIAOMI_MIMO_V2_FLASH otherwise
     """
     word_count = len(description.split())
     if word_count > 50:
-        return Model.DEEPSEEK_REASONER
-    return Model.DEEPSEEK_CHAT
+        return Model.STEPFUN_STEP_3_5_FLASH  # Reliable reasoning alternative to DeepSeek
+    return Model.XIAOMI_MIMO_V2_FLASH  # Reliable alternative to DeepSeek Chat
 
 
 def _parse_enhancements(llm_output: str) -> list[Enhancement]:

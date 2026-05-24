@@ -26,6 +26,8 @@ from typing import Any, Awaitable, Callable
 from ..concurrency_controller import TaskConcurrencyGuard
 from ..exceptions import TaskError, TaskTimeoutError
 from ..models import Task, TaskResult, TaskStatus
+from ..telemetry import TelemetryCollector
+from ..tracing import Tracer
 
 logger = logging.getLogger("orchestrator.services.executor")
 
@@ -98,6 +100,9 @@ class ExecutorMetrics:
 
 
 # Type alias for the injected implementation callback.
+# Phase 6: forwards optional ResiliencePolicy to the underlying client calls.
+from ..resilience import ResiliencePolicy as _ResiliencePolicy
+
 ExecuteFn = Callable[[Task], Awaitable[TaskResult]]
 
 
@@ -132,16 +137,20 @@ class ExecutorService:
         execute_fn: ExecuteFn,
         task_timeout: float | None = None,
         guard: TaskConcurrencyGuard | None = None,
+        tracer: Tracer | None = None,
+        telemetry: TelemetryCollector | None = None,
     ) -> None:
         self._execute_fn = execute_fn
         self._task_timeout = task_timeout
         self._guard = guard
+        self._tracer = tracer
+        self._telemetry = telemetry
         self.metrics = ExecutorMetrics()
         self._lock = asyncio.Lock()  # guards metrics update
 
     # ── Public interface ──────────────────────────────────────────────────────
 
-    async def execute(self, task: Task) -> ExecutorResult:
+    async def execute(self, task: Task, policy: _ResiliencePolicy | None = None) -> ExecutorResult:
         """
         Execute ``task`` and return a structured ``ExecutorResult``.
 
@@ -155,7 +164,19 @@ class ExecutorService:
         should check ``result.error``.
         """
         t0 = time.monotonic()
-        task_result, error = await self._run_with_guard(task)
+
+        if self._tracer is not None:
+            with self._tracer.trace(
+                "executor.task",
+                {"task_id": task.id, "task_type": task.type.value},
+            ) as span:
+                task_result, error = await self._run_with_guard(task, policy)
+                if error:
+                    span.set_status("ERROR")
+                    span.add_event("exception", {"exception.message": str(error)})
+        else:
+            task_result, error = await self._run_with_guard(task, policy)
+
         wall_ms = (time.monotonic() - t0) * 1000
 
         result = ExecutorResult(
@@ -166,6 +187,24 @@ class ExecutorService:
 
         async with self._lock:
             self.metrics.record(result)
+
+        if self._telemetry is not None and result.task_result.model_used is not None:
+            try:
+                from ..models import Model
+                model = (
+                    result.task_result.model_used
+                    if isinstance(result.task_result.model_used, Model)
+                    else Model(result.task_result.model_used)
+                )
+                self._telemetry.record_call(
+                    model=model,
+                    latency_ms=wall_ms,
+                    cost_usd=result.task_result.cost_usd or 0.0,
+                    success=result.succeeded,
+                    quality_score=result.task_result.score if result.succeeded else None,
+                )
+            except Exception:
+                logger.debug("Telemetry recording failed for task %s", task.id, exc_info=True)
 
         if error:
             logger.warning(
@@ -192,7 +231,7 @@ class ExecutorService:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     async def _run_with_guard(
-        self, task: Task
+        self, task: Task, policy: _ResiliencePolicy | None = None
     ) -> tuple[TaskResult, Exception | None]:
         """
         Call ``_execute_fn`` with optional hard timeout.
@@ -204,18 +243,18 @@ class ExecutorService:
                 async with self._guard:
                     if self._task_timeout is not None:
                         raw = await asyncio.wait_for(
-                            self._execute_fn(task),
+                            self._execute_fn(task, policy=policy),
                             timeout=self._task_timeout,
                         )
                     else:
-                        raw = await self._execute_fn(task)
+                        raw = await self._execute_fn(task, policy=policy)
             elif self._task_timeout is not None:
                 raw = await asyncio.wait_for(
-                    self._execute_fn(task),
+                    self._execute_fn(task, policy=policy),
                     timeout=self._task_timeout,
                 )
             else:
-                raw = await self._execute_fn(task)
+                raw = await self._execute_fn(task, policy=policy)
             return raw, None
 
         except asyncio.TimeoutError as exc:

@@ -127,7 +127,7 @@ Return as JSON:
                 model=Model.DEEPSEEK_CHAT,
                 prompt=prompt,
                 system="You are a code analysis expert. Analyze the codebase and return only valid JSON.",
-                max_tokens=2048,
+                max_tokens=4096,
                 temperature=0.2,
                 timeout=60,
             )

@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .models import ProjectState, TaskType
+from .code_post_processor import post_process_code
 
 logger = logging.getLogger("orchestrator.project_assembler")
 
@@ -274,6 +275,9 @@ class ProjectAssembler:
             init_path.write_text('"""Auto-generated module."""\n', encoding="utf-8")
             created.append(str(init_path.relative_to(self.output_dir)))
 
+        # Build a map of available exports across all modules
+        available_exports = self._build_export_map()
+
         # Distribute modules across layers based on content analysis
         for module in self.modules:
             # Simple heuristic: place in application layer by default
@@ -291,12 +295,95 @@ class ProjectAssembler:
             ):
                 target_dir = base_dir / "domain"
 
+            # CRITICAL FIX: Apply post-processing to fix LLM mistakes before writing
+            # This ensures JS comments, fake imports, and syntax errors are fixed
+            post_processed_content = post_process_code(module.content, f"{module.name}.py")
+            
+            # Fix imports before writing
+            fixed_content = self._fix_module_imports(
+                post_processed_content, 
+                module.name, 
+                target_dir.relative_to(self.output_dir),
+                available_exports
+            )
+
             file_path = target_dir / f"{module.name}.py"
-            file_path.write_text(module.content, encoding="utf-8")
+            file_path.write_text(fixed_content, encoding="utf-8")
             created.append(str(file_path.relative_to(self.output_dir)))
 
         logger.info("Generated %d module files across layers", len(self.modules))
         return created
+
+    def _build_export_map(self) -> dict[str, str]:
+        """
+        Build a map of exported symbols to their module paths.
+        
+        Returns:
+            Dict mapping symbol name to module path (e.g., "MyClass" -> "domain.task_001")
+        """
+        export_map = {}
+        for module in self.modules:
+            for export in module.exports:
+                # export format is "class:Name" or "func:Name"
+                if ":" in export:
+                    symbol_type, symbol_name = export.split(":", 1)
+                    export_map[symbol_name] = module.name
+        return export_map
+
+    def _fix_module_imports(
+        self, 
+        content: str, 
+        current_module: str,
+        target_path: Path,
+        available_exports: dict[str, str]
+    ) -> str:
+        """
+        Fix imports in module content to use proper relative imports.
+        
+        Fixes:
+        - from task_001 import X → from .task_001 import X (if in same layer)
+        - from memory_system import X → (remove or replace with actual module)
+        - import task_001 → (convert to relative import)
+        """
+        import re
+        
+        lines = content.split("\n")
+        fixed_lines = []
+        
+        for line in lines:
+            original_line = line
+            
+            # Fix: from task_XXX import ...
+            task_import_match = re.match(
+                r"^(from\s+)(task_\w+)(\s+import\s+.+)$", 
+                line.strip()
+            )
+            if task_import_match:
+                _, imported_module, import_clause = task_import_match.groups()
+                if imported_module in available_exports:
+                    # Convert to relative import
+                    line = f"from .{imported_module}{import_clause}"
+                else:
+                    # Module doesn't exist, comment it out
+                    line = f"# FIXME: Module not found - {line.strip()}"
+                
+            # Fix: import task_XXX
+            task_module_match = re.match(r"^(import\s+)(task_\w+)$", line.strip())
+            if task_module_match:
+                _, imported_module = task_module_match.groups()
+                if imported_module not in available_exports:
+                    # Module doesn't exist, comment it out
+                    line = f"# FIXME: Module not found - {line.strip()}"
+            
+            # Fix: from memory_system import ... (fake module)
+            if re.match(r"^from\s+memory_system\s+import", line.strip()):
+                line = f"# FIXME: Fake module 'memory_system' - {line.strip()}"
+            if re.match(r"^import\s+memory_system\s*$", line.strip()):
+                line = f"# FIXME: Fake module 'memory_system' - {line.strip()}"
+            
+            fixed_lines.append(line)
+        
+        return "\n".join(fixed_lines)
 
     def _generate_config_layer(self) -> list[str]:
         """Generate configuration layer with Pydantic Settings."""
@@ -545,7 +632,7 @@ def health_check() -> dict[str, any]:
     # Check disk space
     try:
         import shutil
-        stat = shutil.disk_stat(".")
+        stat = shutil.disk_usage(".")  # FIXED: disk_stat doesn't exist, use disk_usage
         free_gb = stat.free / (1024**3)
         status["checks"]["disk_space"] = f"{{free_gb:.1f}}GB free"
         if free_gb < 1:
@@ -755,6 +842,10 @@ if __name__ == "__main__":
     def _generate_pyproject_toml(self) -> list[str]:
         """Generate comprehensive pyproject.toml with all tools configured."""
         dependencies = self._extract_dependencies()
+        
+        # Sanitize description for TOML - remove newlines and quotes
+        description = self.state.project_description[:100].replace('"', '').replace("'", "")
+        description = description.replace('\n', ' ').replace('\r', ' ').strip()
 
         toml_content = f"""[build-system]
 requires = ["hatchling>=1.18.0"]
@@ -763,7 +854,7 @@ build-backend = "hatchling.build"
 [project]
 name = "{self.project_name}"
 dynamic = ["version"]
-description = "{self.state.project_description[:100]}"
+description = "{description}"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {{text = "MIT"}}
@@ -1017,69 +1108,439 @@ filename = "src/{self.project_name}/__init__.py"
             "ast",
             "asyncio",
             "base64",
+            "binascii",
+            "bisect",
+            "bz2",  # Added
+            "calendar",
             "collections",
+            "concurrent",
             "contextlib",
+            "contextvars",
             "copy",
             "csv",
+            "ctypes",
             "dataclasses",
             "datetime",
             "decimal",
+            "difflib",
+            "dis",
             "enum",
+            "errno",
+            "faulthandler",
+            "fcntl",
+            "filecmp",
+            "fileinput",
             "fnmatch",
+            "fractions",
+            "ftplib",
             "functools",
+            "gc",
+            "getopt",
+            "getpass",
+            "gettext",
             "glob",
+            "graphlib",
+            "grp",
+            "gzip",  # Added
             "hashlib",
+            "heapq",  # Added
+            "hmac",
             "html",
             "http",
+            "idlelib",
+            "imaplib",
+            "imghdr",
+            "imp",
             "importlib",
             "inspect",
             "io",
+            "ipaddress",
             "itertools",
             "json",
+            "keyword",
+            "lib2to3",
+            "linecache",
+            "locale",
             "logging",
+            "lzma",  # Added
+            "mailbox",
+            "mailcap",
+            "marshal",
             "math",
             "mimetypes",
+            "mmap",
+            "modulefinder",
             "multiprocessing",
+            "netrc",
+            "nis",
+            "nntplib",
+            "numbers",
             "operator",
+            "optparse",
             "os",
+            "ossaudiodev",
             "pathlib",
+            "pdb",
             "pickle",
+            "pickletools",
+            "pipes",
+            "pkgutil",
             "platform",
+            "plistlib",
+            "poplib",
+            "posix",
+            "posixpath",
             "pprint",
+            "profile",
+            "pstats",
+            "pty",
+            "pwd",
+            "py_compile",
+            "pyclbr",
+            "pydoc",
+            "queue",
+            "quopri",
             "random",
             "re",
+            "readline",
+            "reprlib",
+            "resource",
+            "rlcompleter",
+            "runpy",
+            "sched",
+            "secrets",
+            "select",
+            "selectors",
+            "shelve",
+            "shlex",
             "shutil",
             "signal",
+            "site",
+            "smtpd",
+            "smtplib",
+            "sndhdr",
             "socket",
+            "socketserver",
+            "spwd",
             "sqlite3",
+            "ssl",
+            "stat",
             "statistics",
             "string",
+            "stringprep",
+            "struct",  # Added
             "subprocess",
+            "sunau",
+            "symtable",
             "sys",
+            "sysconfig",
+            "syslog",
+            "tabnanny",
+            "tarfile",
+            "telnetlib",
             "tempfile",
+            "termios",
+            "test",
             "textwrap",
             "threading",
             "time",
+            "timeit",
+            "tkinter",
+            "token",
+            "tokenize",
+            "trace",
             "traceback",
+            "tracemalloc",
+            "tty",
+            "turtle",
+            "turtledemo",
+            "types",
             "typing",
+            "unicodedata",
             "unittest",
             "urllib",
+            "uu",
             "uuid",
+            "venv",
             "warnings",
+            "wave",
+            "weakref",
+            "webbrowser",
+            "winreg",
+            "winsound",
+            "wsgiref",
+            "xdrlib",
             "xml",
+            "xmlrpc",
+            "zipapp",
             "zipfile",
+            "zipimport",
+            "zlib",  # Added
+            "zoneinfo",
             "builtins",
             "__future__",
             "typing_extensions",
-            "zoneinfo",
-            "graphlib",
         }
 
+        # Placeholder names that LLMs hallucinate
+        # NOTE: Also includes frontend/React component names that get mistakenly
+        # extracted as Python dependencies when project type detection fails
+        placeholder_names = {
+            # Generic placeholders
+            "existing_module",
+            "your_module",
+            "my_module",
+            "some_module",
+            "placeholder",
+            "example_module",
+            "sample_module",
+            "test_module",
+            "mock_module",
+            # React/Frontend components (NOT Python packages)
+            "react",
+            "react-dom",
+            "react-dom-server",
+            "brandinputpanel",
+            "colorpicker",
+            "livepreviewpanel",
+            "typographygenerator",
+            "designtokenexporter",
+            "accessibility_checker",
+            "figmaintegration",
+            "historyvariations",
+            "aicolorpalette",
+            "fontpairing",
+            "exportpanel",
+            "previewpanel",
+            "control_panel",
+            "stylespanel",
+            "componentspanel",
+            "modetoggle",
+            "slider",
+            "button",
+            "card",
+            "modal",
+            "input",
+            "select",
+            "checkbox",
+            "radio",
+            "tabs",
+            "accordion",
+            "dropdown",
+            "tooltip",
+            "popover",
+            "dialog",
+            "drawer",
+            "navbar",
+            "sidebar",
+            "footer",
+            "header",
+            "layout",
+            "grid",
+            "flex",
+            "container",
+            "box",
+            "stack",
+            "text",
+            "heading",
+            "paragraph",
+            "link",
+            "image",
+            "icon",
+            "avatar",
+            "badge",
+            "tag",
+            "chip",
+            "pill",
+            "banner",
+            "alert",
+            "notification",
+            "toast",
+            "snackbar",
+            "message",
+            "progress",
+            "spinner",
+            "loader",
+            "skeleton",
+            "shimmer",
+            "ripple",
+            "wave",
+            "pulse",
+            "bounce",
+            "fade",
+            "slide",
+            "zoom",
+            "flip",
+            "rotate",
+            "shake",
+            "wobble",
+            "swing",
+            "tada",
+            "jello",
+            "heartBeat",
+            "flash",
+            "headShake",
+            "rubberBand",
+            "vibrate",
+            "press",
+            "hover",
+            "focus",
+            "active",
+            "disabled",
+            "readonly",
+            "required",
+            "invalid",
+            "valid",
+            "loading",
+            "pending",
+            "success",
+            "error",
+            "warning",
+            "info",
+            "primary",
+            "secondary",
+            "tertiary",
+            "accent",
+            "neutral",
+            "muted",
+            "subtle",
+            "emphasis",
+            "high emphasis",
+            "medium emphasis",
+            "low emphasis",
+            "disabled emphasis",
+            "surface",
+            "background",
+            "foreground",
+            "border",
+            "divider",
+            "outline",
+            "shadow",
+            "elevation",
+            "overlay",
+            "backdrop",
+            "scrim",
+            "mask",
+            "gradient",
+            "pattern",
+            "texture",
+            "video",
+            "audio",
+            "svg",
+            "canvas",
+            "webgl",
+            "threejs",
+            "d3",
+            "chart",
+            "graph",
+            "diagram",
+            "map",
+            "calendar",
+            "datepicker",
+            "timepicker",
+            "datetimepicker",
+            "rangepicker",
+            "filepicker",
+            "imagepicker",
+            "videopicker",
+            "audiopicker",
+            "documentpicker",
+            "folderpicker",
+            "pathpicker",
+            "searchinput",
+            "searchbox",
+            "searchfield",
+            "filterinput",
+            "filterpanel",
+            "sortpanel",
+            "pagination",
+            "pager",
+            "pageinator",
+            "navigator",
+            "breadcrumb",
+            "steps",
+            "timeline",
+            "carousel",
+            "slideshow",
+            "gallery",
+            "lightbox",
+            "masonry",
+            "waterfall",
+            "virtual_list",
+            "infinite_scroll",
+            "lazy_load",
+            "code_block",
+            "syntax_highlighter",
+            "markdown_renderer",
+            "rich_text_editor",
+            "wysiwyg_editor",
+            "form_builder",
+            "schema_builder",
+            "query_builder",
+            "report_builder",
+            "dashboard_builder",
+            "page_builder",
+            "site_builder",
+            "app_builder",
+            "workflow_builder",
+            "process_builder",
+            "flow_builder",
+            "diagram_builder",
+            "chart_builder",
+            "table_builder",
+            "data_grid",
+            "spreadsheet",
+            "pivot_table",
+            "tree_view",
+            "list_view",
+            "detail_view",
+            "card_view",
+            "grid_view",
+            "calendar_view",
+            "kanban_view",
+            "gantt_view",
+            "map_view",
+            "graph_view",
+            "network_view",
+            "topology_view",
+            "hierarchy_view",
+            "org_chart",
+            "mind_map",
+            "decision_tree",
+            "flowchart",
+            "uml_diagram",
+            "er_diagram",
+            "class_diagram",
+            "sequence_diagram",
+            "state_diagram",
+            "activity_diagram",
+            "component_diagram",
+            "deployment_diagram",
+            "network_diagram",
+            "architectural_diagram",
+            "system_diagram",
+            "context_diagram",
+            "data_flow_diagram",
+            "entity_relationship_diagram",
+            "object_diagram",
+            "package_diagram",
+            "profile_diagram",
+            "composite_structure_diagram",
+            "interaction_overview_diagram",
+            "timing_diagram",
+            "communication_diagram",
+            "collaboration_diagram",
+        }
+        
         external = set()
         for module in self.modules:
             for imp in module.imports:
                 pkg = imp.split(".")[0]
                 if pkg not in stdlib_modules and not pkg.startswith("_"):
+                    # Skip placeholder names
+                    if pkg.lower() in placeholder_names:
+                        logger.warning(f"  Skipping placeholder dependency: {pkg}")
+                        continue
                     external.add(pkg)
 
         # Map common package names to PyPI names
@@ -1648,8 +2109,19 @@ Shared fixtures for all tests.
 from __future__ import annotations
 
 import os
+import sys
 import pytest
 from pathlib import Path
+
+# CRITICAL: Add src/ and tasks/ to Python path for imports to work
+project_root = Path(__file__).parent.parent
+src_path = project_root / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+tasks_path = project_root / "tasks"
+if str(tasks_path) not in sys.path:
+    sys.path.insert(0, str(tasks_path))
 
 # Ensure tests don't interfere with real environment
 os.environ.setdefault("ENVIRONMENT", "testing")

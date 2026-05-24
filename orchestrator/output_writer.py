@@ -54,12 +54,33 @@ from pathlib import Path
 from .models import ProjectState, TaskType
 
 # Code validation for clean code generation
-# FIXME: Circular import detected - temporarily disabling code_validator
-# The code_validator module causes an infinite import loop that hangs the entire CLI
-# TODO: Resolve circular dependency and re-enable validation
-HAS_CODE_VALIDATOR = False
-validate_code = None
-extract_code_from_llm_response = None
+# Import post-processor for fixing common LLM mistakes
+from .code_post_processor import post_process_code
+
+# Try to import code_validator, but don't fail if circular import exists
+try:
+    from .code_validator import validate_code as _original_validate_code, extract_code_from_llm_response
+    HAS_CODE_VALIDATOR = True
+    
+    def validate_code(code: str, filename: str = "") -> tuple[bool, list[str]]:
+        """Wrapper to normalize ValidationResult to tuple."""
+        result = _original_validate_code(code, filename=filename)
+        return result.is_valid, result.errors
+        
+except ImportError:
+    # Fallback: use syntax validation via ast module
+    HAS_CODE_VALIDATOR = False
+    validate_code = None
+    extract_code_from_llm_response = None
+    
+    def validate_code(code: str, filename: str = "") -> tuple[bool, list[str]]:
+        """Fallback validation using ast module."""
+        import ast
+        try:
+            ast.parse(code)
+            return True, []
+        except SyntaxError as e:
+            return False, [f"Syntax error at line {e.lineno}: {e.msg}"]
 
 logger = logging.getLogger("orchestrator.output_writer")
 
@@ -220,35 +241,40 @@ def write_output_dir(
         filename = f"{task_id}_{task.type.value}{ext}"
         dest = out / filename
 
-        content = _render_content(task.type, result.output, ext)
+        content = _render_content(task.type, result.output, ext, filename)
 
-        # NEW: Code validation before saving (prevent LLM commentary)
-        # FIXME: Code validation temporarily disabled due to circular import
-        if False:  # FIXME: Code validation temporarily disabled due to circular import
-            validation_result = validate_code(content, filename=filename)
-            if not validation_result.is_valid:
-                error_msg = (
-                    "; ".join(validation_result.errors)
-                    if validation_result.errors
-                    else "Unknown error"
-                )
-                logger.warning(f"⚠️ Code validation failed for {filename}: {error_msg}")
-                # Try to extract clean code
-                extracted = extract_code_from_llm_response(content, ext)
-                if extracted and extracted != content:
-                    re_validation = validate_code(extracted, filename=filename)
-                    if re_validation.is_valid:
-                        content = extracted
-                        logger.info(f"✅ Code cleaned and validated for {filename}")
-                    else:
-                        re_error_msg = (
-                            "; ".join(re_validation.errors)
-                            if re_validation.errors
-                            else "Unknown error"
-                        )
-                        logger.error(f"❌ Code still invalid after cleaning: {re_error_msg}")
-                else:
-                    logger.error(f"❌ Could not clean code for {filename}")
+        # CRITICAL: Code validation before saving (prevent invalid code)
+        if ext == ".py" and validate_code:
+            is_valid, errors = validate_code(content, filename=filename)
+            if not is_valid:
+                error_msg = "; ".join(errors) if errors else "Unknown error"
+                logger.error(f"❌ Code validation failed for {filename}: {error_msg}")
+                
+                # CRITICAL FIX: Don't write invalid code - create error placeholder instead
+                content = f'''# CODE GENERATION FAILED - SYNTAX ERROR
+# File: {filename}
+# Task: {task_id}
+# Validation Errors: {error_msg}
+
+"""
+ERROR: The generated code failed validation and cannot be executed.
+Original output had {len(content)} characters.
+
+Validation Errors:
+{error_msg}
+
+Please regenerate this file.
+"""
+
+raise RuntimeError(
+    f"Code generation failed for {filename}: {error_msg}"
+)
+'''
+                # Mark task as failed in the file map
+                file_map[task_id] = f"FAILED_{filename}"
+                dest.write_text(content, encoding="utf-8")
+                logger.error(f"  → Wrote error placeholder: FAILED_{filename}")
+                continue  # Skip to next task - don't process this invalid code further
 
         dest.write_text(content, encoding="utf-8")
         file_map[task_id] = filename
@@ -337,7 +363,7 @@ def _ext_for(task_type: TaskType, output: str) -> str:
     return ext
 
 
-def _render_content(task_type: TaskType, raw_output: str, ext: str) -> str:
+def _render_content(task_type: TaskType, raw_output: str, ext: str, filename: str = "") -> str:
     """
     Render the file content for a task output.
 
@@ -350,7 +376,7 @@ def _render_content(task_type: TaskType, raw_output: str, ext: str) -> str:
     than running the Python extractor which would truncate to a few chars.
     """
     if ext == ".py":
-        return _extract_code_for_py_task(raw_output)
+        return _extract_code_for_py_task(raw_output, filename)
     if ext == ".json":
         try:
             text = _strip_fences(raw_output).strip()
@@ -380,12 +406,12 @@ _NON_PYTHON_FENCE_LANGS = (
 )
 
 
-def _extract_python(text: str) -> str:
+def _extract_python(text: str, filename: str = "") -> str:
     """Alias kept for backward compatibility with existing tests."""
-    return _extract_code_for_py_task(text)
+    return _extract_code_for_py_task(text, filename)
 
 
-def _extract_code_for_py_task(text: str) -> str:
+def _extract_code_for_py_task(text: str, filename: str = "") -> str:
     """
     Extract the best code block from a code_generation task output.
 
@@ -394,34 +420,44 @@ def _extract_code_for_py_task(text: str) -> str:
     2. Explicit non-Python fenced block (Dockerfile, YAML, proto…) → return as-is
     3. Generic ``` block → return contents
     4. Heuristic: first top-level Python statement at column 0
-    5. Fallback: return full text unchanged
+    5. Apply post-processing to fix common LLM mistakes
+    6. Fallback: return full text unchanged
 
     This prevents Dockerfile/YAML content from being discarded because the
     Python extractor finds no Python imports/defs and returns only a few chars.
     """
+    code = None
+    
     # 1. Explicit python block
     match = re.search(r"```python\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
     if match:
-        return match.group(1)
+        code = match.group(1)
 
     # 2. Named non-Python block
-    for lang in _NON_PYTHON_FENCE_LANGS:
-        match = re.search(rf"```{lang}\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
-        if match:
-            return match.group(1)
+    if code is None:
+        for lang in _NON_PYTHON_FENCE_LANGS:
+            match = re.search(rf"```{lang}\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
+            if match:
+                return match.group(1)  # Return non-Python blocks as-is
 
     # 3. Generic fenced block
-    match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
-    if match:
-        return match.group(1)
+    if code is None:
+        match = re.search(r"```\s*\n(.*?)```", text, re.DOTALL)
+        if match:
+            code = match.group(1)
 
     # 4. Heuristic: first top-level Python statement at column 0
-    m = re.search(r"^(import |from \w|def |class |@\w|if __name__|async def )", text, re.MULTILINE)
-    if m:
-        return text[m.start() :]
-
-    # 5. Fallback: return as-is
-    return text
+    if code is None:
+        m = re.search(r"^(import |from \w|def |class |@\w|if __name__|async def )", text, re.MULTILINE)
+        if m:
+            code = text[m.start() :]
+        else:
+            code = text
+    
+    # 5. Apply post-processing to fix common LLM mistakes (JS comments, fake imports, etc.)
+    code = post_process_code(code, filename)
+    
+    return code
 
 
 def _strip_fences(text: str) -> str:

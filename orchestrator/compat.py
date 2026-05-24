@@ -18,18 +18,12 @@ try:
 except ImportError:
     StreamEvent = None
 
-# Event aliases
+# Event aliases — consolidated into unified_events.core
 try:
-    from .events import (
+    from .unified_events.core import (
         ProjectCompletedEvent as ProjectCompleted,
-    )
-    from .events import (
         ProjectStartedEvent as ProjectStarted,
-    )
-    from .events import (
         TaskCompletedEvent as TaskCompleted,
-    )
-    from .events import (
         TaskStartedEvent as TaskStarted,
     )
 except ImportError:
@@ -38,21 +32,11 @@ except ImportError:
     TaskCompleted = None
     ProjectCompleted = None
 
-# Dashboard aliases
-try:
-    from .dashboard_live import run_live_dashboard
-except ImportError:
-    run_live_dashboard = None
-
-try:
-    from .dashboard_mission_control import run_mission_control
-except ImportError:
-    run_mission_control = None
-
-try:
-    from .dashboard_antd import run_ant_design_dashboard
-except ImportError:
-    run_ant_design_dashboard = None
+# Dashboard aliases — all consolidated into dashboard_core/mission_control.py
+from .dashboard_core.mission_control import (
+    MissionControlView as DashboardView,
+    create_view as run_dashboard,
+)
 
 
 def print_migration_guide():
@@ -62,16 +46,12 @@ def print_migration_guide():
     ============================
 
     1. Event System
-       Old: from orchestrator.streaming import ProjectEventBus
-       New: from orchestrator import get_event_bus
+       Old: from orchestrator.events import DomainEvent
+       New: from orchestrator.unified_events.core import DomainEvent
 
     2. Dashboard
-       Old: from orchestrator import run_live_dashboard
-       New: from orchestrator import run_dashboard
-
-    3. Events
-       Old: from orchestrator.streaming import ProjectStarted
-       New: from orchestrator.events import ProjectStartedEvent
+       Old: from orchestrator.dashboard_live import run_live_dashboard
+       New: from orchestrator.dashboard_core.mission_control import create_view
 
     See: MIGRATION_GUIDE_v6.md for details.
     """)
@@ -84,8 +64,7 @@ __all__ = [
     "TaskStarted",
     "TaskCompleted",
     "ProjectCompleted",
-    "run_live_dashboard",
-    "run_mission_control",
-    "run_ant_design_dashboard",
+    "DashboardView",
+    "run_dashboard",
     "print_migration_guide",
 ]

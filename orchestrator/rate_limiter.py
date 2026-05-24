@@ -38,7 +38,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    import aiohttp
+    pass
 
 logger = logging.getLogger("orchestrator.rate_limiter")
 

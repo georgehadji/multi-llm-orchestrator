@@ -123,9 +123,25 @@ class DiffGenerator:
                 )
 
             # Validate patched code
-            validation_error = self._validate_patched_code(patched_code, task.type)
+            validation_error, validated_code = self._validate_patched_code(patched_code, task.type)
             if validation_error:
                 logger.warning(f"  {task.id}: Patched code validation warning: {validation_error}")
+                
+                # Try to use cleaned code
+                if validated_code and validated_code != patched_code:
+                    patched_code = validated_code
+                    # Re-validate after cleaning
+                    validation_error, _ = self._validate_patched_code(patched_code, task.type)
+                    if not validation_error:
+                        logger.info(f"  {task.id}: Code cleaned and validated successfully")
+                    else:
+                        # Still invalid after cleaning - fall back to original
+                        logger.error(f"  {task.id}: Patched code still invalid after cleaning, using original code")
+                        patched_code = current_code
+                else:
+                    # No cleaning possible or cleaning didn't help - fall back to original
+                    logger.error(f"  {task.id}: Diff produced invalid code, using original code")
+                    patched_code = current_code
 
             # Calculate diff stats
             lines_added, lines_removed = self._count_diff_changes(diff_text)
@@ -271,7 +287,7 @@ class DiffGenerator:
 
         return "\n".join(cleaned_lines)
 
-    def _validate_patched_code(self, code: str, task_type: TaskType) -> str | None:
+    def _validate_patched_code(self, code: str, task_type: TaskType) -> tuple[str | None, str]:
         """
         Validate patched code for basic correctness.
 
@@ -280,19 +296,60 @@ class DiffGenerator:
             task_type: Type of task
 
         Returns:
-            Error message if invalid, None if valid
+            Tuple of (error_message if invalid, None if valid, code_to_use)
+            If validation fails, returns the cleaned code or None
         """
         if not code or not code.strip():
-            return "Patched code is empty"
+            return "Patched code is empty", ""
 
         if task_type == TaskType.CODE_GEN:
+            # Clean up common issues before validation
+            cleaned_code = self._clean_patched_code(code)
+            
             # Basic Python syntax check
             try:
-                compile(code, "<string>", "exec")
+                compile(cleaned_code, "<string>", "exec")
+                return None, cleaned_code  # Success - return cleaned code
             except SyntaxError as e:
-                return f"Syntax error in patched code: {e}"
+                error_msg = f"Syntax error in patched code: {e}"
+                logger.warning(f"  {task_type}: {error_msg}")
+                logger.debug(f"  Problematic code:\n{cleaned_code[:500]}")
+                # Try to extract valid code from the error
+                return error_msg, cleaned_code
 
-        return None
+        return None, code
+    
+    def _clean_patched_code(self, code: str) -> str:
+        """
+        Clean up common issues in patched code.
+        
+        Args:
+            code: Raw patched code
+            
+        Returns:
+            Cleaned code
+        """
+        lines = code.split("\n")
+        cleaned_lines = []
+        
+        for line in lines:
+            # Skip diff markers that might have been left in
+            if line.startswith("--- ") or line.startswith("+++ "):
+                continue
+            if line.startswith("@@ ") and line.endswith(" @@"):
+                continue
+            if line.startswith("diff --"):
+                continue
+            if line.startswith("index "):
+                continue
+            
+            # Remove line number prefixes that LLMs sometimes add
+            # e.g., "    1: def foo()" -> "def foo()"
+            cleaned_line = re.sub(r"^\s*\d+[:\.]\s*", "", line)
+            
+            cleaned_lines.append(cleaned_line)
+        
+        return "\n".join(cleaned_lines)
 
     def _count_diff_changes(self, diff_text: str) -> tuple[int, int]:
         """
@@ -427,7 +484,7 @@ def _apply_hunk(code: str, hunk: dict) -> str:
     """
     code_lines = code.split("\n")
     hunk_lines = hunk["lines"]
-    hunk["header"]["old_start"] - 1  # 0-indexed
+    old_start = hunk["header"]["old_start"] - 1  # 0-indexed (NOTE: currently unused but calculated correctly)
 
     # Find matching context in code
     context_before = []

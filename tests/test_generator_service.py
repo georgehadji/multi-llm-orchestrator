@@ -72,7 +72,7 @@ async def test_decompose_returns_tasks_on_success():
     assert result.task_count == 3
     assert result.error is None
     assert result.wall_time_ms >= 0
-    fn.assert_called_once_with("Build an API", "All endpoints tested")
+    fn.assert_called_once_with("Build an API", "All endpoints tested", policy=None)
 
 
 @pytest.mark.asyncio
@@ -82,7 +82,7 @@ async def test_decompose_forwards_kwargs():
 
     await svc.decompose("proj", "crit", app_profile="some_profile")
 
-    fn.assert_called_once_with("proj", "crit", app_profile="some_profile")
+    fn.assert_called_once_with("proj", "crit", policy=None, app_profile="some_profile")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

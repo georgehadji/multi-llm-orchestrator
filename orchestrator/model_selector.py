@@ -24,19 +24,24 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Model tier definitions (used by next_tier)
 # Higher index = higher quality / cost
+# NOTE: DeepSeek models removed due to timeout issues
+#       Replaced with Xiaomi, Zhipu, StepFun (reliable alternatives)
 # ---------------------------------------------------------------------------
 _MODEL_TIERS: dict[Model, int] = {
-    # Cheap tier (0)
+    # Cheap tier (0) - Reliable, fast models
     Model.GEMINI_FLASH_LITE: 0,
     Model.GPT_4O_MINI: 0,
-    # Balanced tier (1)
+    Model.ZHIPU_GLM_4_7_FLASH: 0,  # $0.06/$0.40, ultra-cheap, reliable
+    Model.PHI_4: 0,  # $0.07/$0.14, very fast
+    # Balanced tier (1) - Good quality/price ratio
     Model.GEMINI_FLASH: 1,
-    Model.DEEPSEEK_CHAT: 1,
+    Model.XIAOMI_MIMO_V2_FLASH: 1,  # $0.09/$0.29, #1 SWE-bench, reliable
+    Model.STEPFUN_STEP_3_5_FLASH: 1,  # $0.10/$0.30, 196B MoE, reliable
     Model.CLAUDE_3_HAIKU: 1,
-    # Premium tier (2)
+    # Premium tier (2) - High quality
     Model.GPT_4O: 2,
-    Model.DEEPSEEK_REASONER: 2,
     Model.GEMINI_PRO: 2,
+    Model.CLAUDE_SONNET_4_6: 2,  # $3/$15, excellent coding
 }
 
 # ---------------------------------------------------------------------------
@@ -133,32 +138,43 @@ class ModelSelector:
         Select the best model for project decomposition based on project
         complexity and model health.
 
-        Decision priority (v3.0):
-          1. QWEN_3_CODER_NEXT  — best JSON structure capability
-          2. XIAOMI_MIMO_V2_FLASH
-          3. GEMINI_FLASH
-          4. STEPFUN_STEP_3_5_FLASH  (last resort)
+        Decision priority (v3.1 - FIXED for truncation issues):
+          1. GPT_4O — reliable JSON, large context
+          2. CLAUDE_SONNET_4_6 — excellent structure
+          3. GEMINI_FLASH — reliable fallback
+          4. QWEN_3_CODER_NEXT — last resort (truncation issues)
         """
-        # Complexity scoring kept for logging/observability (not yet used for
-        # routing since v3.0 always prefers Qwen3 Coder Next).
+        # Complexity scoring kept for logging/observability
         project_lower = project_description.lower()
         complexity_score = sum(1 for kw in _COMPLEXITY_KEYWORDS if kw in project_lower)
         tech_score = sum(1 for kw in _TECH_STACK_KEYWORDS if kw in project_lower)
-        total_complexity = complexity_score + (tech_score // 2)  # noqa: F841
+        total_complexity = complexity_score + (tech_score // 2)
+        
+        # Log complexity for observability
+        logger.debug(f"Project complexity score: {total_complexity}")
 
-        if self._health.get(Model.QWEN_3_CODER_NEXT, True):
-            logger.debug("P1-2: Using Qwen3 Coder Next for decomposition (best JSON structure)")
-            return Model.QWEN_3_CODER_NEXT
+        # Use reliable models first (avoiding truncation issues)
+        if self._health.get(Model.GPT_4O, True):
+            logger.debug("P1-2: Using GPT-4o for decomposition (reliable JSON)")
+            return Model.GPT_4O
 
-        if self._health.get(Model.XIAOMI_MIMO_V2_FLASH, True):
-            logger.debug("P1-2: Using MiMo-V2-Flash for decomposition")
-            return Model.XIAOMI_MIMO_V2_FLASH
+        if self._health.get(Model.CLAUDE_SONNET_4_6, True):
+            logger.debug("P1-2: Using Claude Sonnet 4.6 for decomposition")
+            return Model.CLAUDE_SONNET_4_6
 
         if self._health.get(Model.GEMINI_FLASH, True):
             logger.debug("P1-2: Using Gemini Flash for decomposition")
             return Model.GEMINI_FLASH
 
-        logger.warning("P1-2: Using Step 3.5 Flash as fallback (may have JSON issues)")
+        # Last resort - models with known issues
+        logger.warning("P1-2: Using Qwen/Xiaomi as fallback (may have truncation issues)")
+        if self._health.get(Model.QWEN_3_CODER_NEXT, True):
+            return Model.QWEN_3_CODER_NEXT
+        
+        if self._health.get(Model.XIAOMI_MIMO_V2_FLASH, True):
+            return Model.XIAOMI_MIMO_V2_FLASH
+            
+        logger.error("P1-2: No healthy models available for decomposition")
         return Model.STEPFUN_STEP_3_5_FLASH
 
     def reviewer(self, generator: Model, task_type: TaskType) -> Model | None:

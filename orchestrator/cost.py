@@ -396,7 +396,12 @@ class CostPredictor:
         """Return the candidate model with the lowest predicted cost for task_type."""
         if not candidates:
             return None
-        return min(candidates, key=lambda m: self.predict(m, task_type))
+        # Filter out models with zero cost (e.g., OPENROUTER_AUTO which is dynamic)
+        non_zero_candidates = [m for m in candidates if self.predict(m, task_type) > 0]
+        if not non_zero_candidates:
+            # Fallback to any candidate if all have zero cost
+            return candidates[0] if candidates else None
+        return min(non_zero_candidates, key=lambda m: self.predict(m, task_type))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -34,25 +34,25 @@ try:
     )
 except ImportError:
     # Fallback to standard events
-    from .events import (
+    from .unified_events.core import (
         BudgetWarningEvent as BudgetWarning,
     )
-    from .events import (
+    from .unified_events.core import (
         ProjectCompletedEvent as ProjectCompleted,
     )
-    from .events import (
+    from .unified_events.core import (
         ProjectStartedEvent as ProjectStarted,
     )
-    from .events import (
+    from .unified_events.core import (
         TaskCompletedEvent as TaskCompleted,
     )
-    from .events import (
+    from .unified_events.core import (
         TaskFailedEvent as TaskFailed,
     )
-    from .events import (
+    from .unified_events.core import (
         TaskProgressEvent as TaskProgressUpdate,
     )
-    from .events import (
+    from .unified_events.core import (
         TaskStartedEvent as TaskStarted,
     )
 from .models import TaskStatus

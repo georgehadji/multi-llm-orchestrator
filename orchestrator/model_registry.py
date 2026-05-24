@@ -71,9 +71,10 @@ class ModelRegistry:
     DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"  # $0.55/$2.19, reasoning specialist
 
     # Anthropic Claude Models - Balanced Quality
-    CLAUDE_SONNET_4_6 = "anthropic/claude-3-5-sonnet"  # $6.00/$30.00, 200K ⭐ VERIFIED
+    CLAUDE_SONNET_4_6 = "anthropic/claude-sonnet-4.6"  # Updated to verified 4.6 endpoint ⭐ VERIFIED
     CLAUDE_OPUS_4_6 = "anthropic/claude-opus-4-6"  # $5.00/$25.00, complex analysis
     CLAUDE_HAIKU_3_5 = "anthropic/claude-3-5-haiku"  # $0.25/$1.25, fast
+    CLAUDE_3_5_SONNET = "anthropic/claude-sonnet-4.6"  # Backward compatibility alias for the old endpoint ID
 
     # OpenAI Models - Premium Tier
     GPT_5 = "openai/gpt-5"  # $1.25/$10.00, 400K ⭐ VERIFIED
@@ -125,6 +126,8 @@ class ModelRegistry:
     # ═══════════════════════════════════════════════════════
 
     UNAVAILABLE_MODELS = {
+        # Anthropic models - Standardize on 4.6
+        "anthropic/claude-3.5-sonnet": "anthropic/claude-sonnet-4.6",
         # Qwen models - NOT AVAILABLE
         "qwen/qwen-3-coder-next": "qwen/qwen-2.5-coder-32b-instruct",
         "qwen/qwen-3.5-397b-a17b": "openai/gpt-5",

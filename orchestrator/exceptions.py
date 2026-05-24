@@ -159,6 +159,27 @@ class TimeoutError(OrchestratorError):
         )
 
 
+class TruncatedResponseError(OrchestratorError):
+    """LLM response was truncated due to token limits."""
+
+    code = "TRUNCATED_RESPONSE"
+    retriable = True
+
+    def __init__(self, tokens_used: int | None = None, max_tokens: int | None = None, **kwargs):
+        message = "LLM response was truncated"
+        if tokens_used and max_tokens:
+            message += f" ({tokens_used}/{max_tokens} tokens)"
+        super().__init__(
+            message,
+            details={
+                "tokens_used": tokens_used,
+                "max_tokens": max_tokens,
+                **kwargs.get("details", {}),
+            },
+            **kwargs,
+        )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Model Errors
 # ═══════════════════════════════════════════════════════════════════════════════

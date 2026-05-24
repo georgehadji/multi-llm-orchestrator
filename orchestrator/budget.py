@@ -43,6 +43,8 @@ class Budget:
     max_time_seconds: float = 5400.0  # 90 min
     spent_usd: float = 0.0
     start_time: float = field(default_factory=time.time)
+    # FIX-RESUME-001: Track original start time for elapsed time calculation when resuming
+    original_start_time: float = field(default_factory=time.time)
     phase_spent: dict[str, float] = field(
         default_factory=lambda: {
             "decomposition": 0.0,
@@ -70,15 +72,42 @@ class Budget:
 
     @property
     def elapsed_seconds(self) -> float:
-        return time.time() - self.start_time
+        # FIX-RESUME-001: Use original_start_time for elapsed time when resuming
+        return time.time() - self.original_start_time
 
     @property
     def remaining_seconds(self) -> float:
         return max(0.0, self.max_time_seconds - self.elapsed_seconds)
 
+    @property
+    def phase_limits(self) -> dict[str, float]:
+        """Return phase budget limits (compatibility with BudgetEnforcer)."""
+        return _get_budget_partitions()
+
     def can_afford(self, estimated_cost: float) -> bool:
         """Check if budget can afford estimated cost (non-atomic, for non-concurrent use)."""
         return self.remaining_usd >= estimated_cost
+
+    def validate_sufficient_for_tasks(
+        self, task_count: int, min_cost_per_task: float = 0.15
+    ) -> tuple[bool, str]:
+        """Validate if budget is sufficient for estimated task count.
+
+        Args:
+            task_count: Number of tasks to execute
+            min_cost_per_task: Minimum cost per task (default $0.15 for cheap models)
+
+        Returns:
+            (is_sufficient, warning_message)
+        """
+        min_required = task_count * min_cost_per_task
+        if self.max_usd < min_required:
+            return (
+                False,
+                f"Budget ${self.max_usd:.2f} insufficient for {task_count} tasks. "
+                f"Minimum required: ${min_required:.2f} (${min_cost_per_task:.2f}/task)",
+            )
+        return True, ""
 
     def time_remaining(self) -> bool:
         return self.elapsed_seconds < self.max_time_seconds
@@ -137,10 +166,13 @@ class Budget:
         Also fixes a leak where actual_amount == 0 (cached) left the reservation
         permanently held.
         """
+        # BUG-002: Hold lock across both reservation release and charge to prevent
+        # transient budget inflation visible to concurrent reserve() calls.
         async with self._get_lock():
             self._reserved_usd = max(0.0, self._reserved_usd - reserved_amount)
-        # Charge the actual amount (not the reserved amount)
-        await self.charge(actual_amount, phase)
+            self.spent_usd += actual_amount
+            if phase in self.phase_spent:
+                self.phase_spent[phase] += actual_amount
 
     async def release_reservation(self, amount: float):
         """

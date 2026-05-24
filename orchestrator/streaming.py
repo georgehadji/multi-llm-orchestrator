@@ -30,7 +30,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
 from .budget import Budget
-from .events import (
+from .unified_events.core import (
     BudgetWarningEvent,
     DomainEvent,
     EventBus,

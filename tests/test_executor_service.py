@@ -102,7 +102,7 @@ async def test_execute_returns_result_on_success():
 
 @pytest.mark.asyncio
 async def test_execute_measures_wall_time():
-    async def slow_fn(_task):
+    async def slow_fn(_task, policy=None):
         await asyncio.sleep(0.05)
         return _ok_result()
 
@@ -118,7 +118,7 @@ async def test_execute_measures_wall_time():
 
 @pytest.mark.asyncio
 async def test_execute_normalizes_generic_exception():
-    async def boom(_task):
+    async def boom(_task, policy=None):
         raise ValueError("unexpected boom")
 
     svc = ExecutorService(execute_fn=boom)
@@ -132,7 +132,7 @@ async def test_execute_normalizes_generic_exception():
 
 @pytest.mark.asyncio
 async def test_execute_normalizes_task_error():
-    async def boom(_task):
+    async def boom(_task, policy=None):
         raise TaskError("explicit task failure")
 
     svc = ExecutorService(execute_fn=boom)
@@ -144,7 +144,7 @@ async def test_execute_normalizes_task_error():
 
 @pytest.mark.asyncio
 async def test_execute_normalizes_timeout():
-    async def slow(_task):
+    async def slow(_task, policy=None):
         await asyncio.sleep(10)
         return _ok_result()
 
@@ -176,7 +176,7 @@ async def test_metrics_increment_on_success():
 
 @pytest.mark.asyncio
 async def test_metrics_increment_on_failure():
-    async def boom(_task):
+    async def boom(_task, policy=None):
         raise RuntimeError("fail")
 
     svc = ExecutorService(execute_fn=boom)
@@ -209,7 +209,7 @@ async def test_metrics_avg_wall_ms_computed():
 async def test_concurrent_executions_all_recorded():
     call_count = 0
 
-    async def counted(_task):
+    async def counted(_task, policy=None):
         nonlocal call_count
         call_count += 1
         await asyncio.sleep(0.01)

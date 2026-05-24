@@ -26,7 +26,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    import aiohttp
+    pass
 
 logger = logging.getLogger("orchestrator.a2a_protocol")
 
@@ -689,6 +689,7 @@ class TaskResult:
     output: str = ""
     score: float = 0.0
     model_used: Any = None
+    task_type: Any = None  # For meta_integration compatibility
 
 
 class A2AQueueManager:
@@ -728,6 +729,7 @@ class A2AQueueManager:
                 task_id=request.task_id,
                 status=TaskStatus.FAILED,
                 error=f"queue is full for agent {agent_id!r}",
+                task_type="agent_task",
             )
 
         # Agent-registration check
@@ -736,11 +738,16 @@ class A2AQueueManager:
                 task_id=request.task_id,
                 status=TaskStatus.FAILED,
                 error=f"agent {agent_id!r} not found",
+                task_type="agent_task",
             )
 
         handler = self._handlers.get(agent_id)
         if handler is None:
-            return TaskResult(task_id=request.task_id, status=TaskStatus.SUBMITTED)
+            return TaskResult(
+                task_id=request.task_id,
+                status=TaskStatus.SUBMITTED,
+                task_type="agent_task",
+            )
 
         # Reserve tracking state before yielding the event loop
         loop = asyncio.get_event_loop()
@@ -770,6 +777,7 @@ class A2AQueueManager:
                 status=TaskStatus.COMPLETED,
                 result=result_value,
                 execution_time=_time.monotonic() - t0,
+                task_type="agent_task",
             )
         except asyncio.TimeoutError:
             handler_task.cancel()
@@ -783,6 +791,7 @@ class A2AQueueManager:
                 status=TaskStatus.FAILED,
                 error="task timed out",
                 execution_time=_time.monotonic() - t0,
+                task_type="agent_task",
             )
         except Exception as exc:
             return TaskResult(
@@ -790,6 +799,7 @@ class A2AQueueManager:
                 status=TaskStatus.FAILED,
                 error=str(exc),
                 execution_time=_time.monotonic() - t0,
+                task_type="agent_task",
             )
         finally:
             self._pending_responses.pop(request.task_id, None)

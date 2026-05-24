@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from orchestrator.log_config import get_logger
+from orchestrator.models import Model
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -118,20 +119,20 @@ class StreamingValidator:
         r"\\.\\.\\.",  # Ellipsis in code
     ]
 
-    # Model fallback chain
+    # Model fallback chain (using Model enum for consistency)
     FALLBACK_CHAIN = [
-        "claude-sonnet-4.6",
-        "claude-opus-4.6",
-        "gpt-4o",
-        "deepseek/deepseek-chat",
+        Model.CLAUDE_SONNET_4_6,
+        Model.CLAUDE_OPUS_4_6,
+        Model.GPT_4O,
+        Model.DEEPSEEK_CHAT,
     ]
 
-    # Cost per 1M tokens
+    # Cost per 1M tokens (using Model enum keys for consistency)
     MODEL_COSTS = {
-        "deepseek/deepseek-chat": {"input": 1.0, "output": 4.0},
-        "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
-        "claude-opus-4.6": {"input": 15.0, "output": 75.0},
-        "gpt-4o": {"input": 5.0, "output": 15.0},
+        Model.DEEPSEEK_CHAT: {"input": 1.0, "output": 4.0},
+        Model.CLAUDE_SONNET_4_6: {"input": 3.0, "output": 15.0},
+        Model.CLAUDE_OPUS_4_6: {"input": 15.0, "output": 75.0},
+        Model.GPT_4O: {"input": 5.0, "output": 15.0},
     }
 
     def __init__(self, client=None):
@@ -149,7 +150,7 @@ class StreamingValidator:
 
     async def stream_and_validate(
         self,
-        model: str,
+        model: Model,
         prompt: str,
         task_type: str = "code_generation",
         max_tokens: int = 4000,
@@ -267,7 +268,7 @@ class StreamingValidator:
 
     async def _stream_with_model(
         self,
-        model: str,
+        model: Model,
         prompt: str,
         max_tokens: int,
         **kwargs,
@@ -365,7 +366,7 @@ class StreamingValidator:
 
     def _estimate_cost(
         self,
-        model: str,
+        model: Model,
         tokens: int,
     ) -> float:
         """
@@ -378,8 +379,7 @@ class StreamingValidator:
         Returns:
             Estimated cost in USD
         """
-        model_key = model.lower()
-        costs = self.MODEL_COSTS.get(model_key, {"input": 3.0, "output": 15.0})
+        costs = self.MODEL_COSTS.get(model, {"input": 3.0, "output": 15.0})
 
         output_cost = (tokens / 1_000_000) * costs["output"]
         return output_cost

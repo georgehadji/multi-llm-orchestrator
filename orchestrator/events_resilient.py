@@ -30,7 +30,7 @@ import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .events import DomainEvent, EventStore
+from .unified_events.core import DomainEvent, EventStore
 from .log_config import get_logger
 
 if TYPE_CHECKING:
@@ -76,7 +76,7 @@ class ResilientEventStore(EventStore):
 
     def _create_store(self, path: str) -> SQLiteEventStore:
         """Create a SQLite event store."""
-        from .events import SQLiteEventStore
+        from .unified_events.core import EventStore as SQLiteEventStore
 
         return SQLiteEventStore(path)
 

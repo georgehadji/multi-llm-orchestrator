@@ -36,7 +36,7 @@ from datetime import datetime
 
 # Import original engine components
 from .engine import Orchestrator as BaseOrchestrator
-from .events import (
+from .unified_events.core import (
     BudgetWarningEvent,
     DomainEvent,
     EventBus,

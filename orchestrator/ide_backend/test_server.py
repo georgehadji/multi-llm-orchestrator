@@ -314,6 +314,6 @@ if __name__ == "__main__":
     print("  AI Orchestrator IDE - Test Server")
     print("=" * 60)
     print("  🌐 http://localhost:8765")
-    print("  📁 Frontend:", "Yes" if frontend_dist.exists() else "No")
+    print("  [FE] Frontend:", "Yes" if frontend_dist.exists() else "No")
     print("=" * 60 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")

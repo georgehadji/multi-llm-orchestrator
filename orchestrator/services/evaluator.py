@@ -21,7 +21,11 @@ from typing import Callable
 
 from ..api_clients import UnifiedClient
 from ..budget import Budget
+from ..feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
+from ..resilience import ResiliencePolicy as _ResiliencePolicy
+from ..telemetry import TelemetryCollector
+from ..tracing import Tracer
 
 logger = logging.getLogger("orchestrator.services.evaluator")
 
@@ -48,40 +52,63 @@ class EvaluatorService:
         get_models_fn: Callable[[TaskType], list[Model]],
         consistency_runs: int = 2,
         consistency_delta: float = 0.05,
+        tracer: Tracer | None = None,
+        telemetry: TelemetryCollector | None = None,
     ) -> None:
         self._client = client
         self._budget = budget
         self._get_models = get_models_fn
         self._consistency_runs = consistency_runs
         self._consistency_delta = consistency_delta
+        self._tracer = tracer
+        self._telemetry = telemetry
 
     # ── Public interface ──────────────────────────────────────────────────────
 
-    async def evaluate(self, task: Task, output: str) -> float:
+    async def evaluate(self, task: Task, output: str, policy: _ResiliencePolicy | None = None) -> CritiqueReport:
         """
         Score ``output`` against ``task`` using self-consistency evaluation.
 
-        Returns a float in [0.0, 1.0].
-        Falls back to 0.5 if no evaluation models are available or all runs fail.
+        Returns a CritiqueReport with score (0.0-1.0) and structured critique items.
+        Falls back to score 0.5 if no evaluation models are available or all runs fail.
         """
+        if self._tracer is not None:
+            with self._tracer.trace(
+                "evaluator.evaluate",
+                {"task_id": task.id, "task_type": task.type.value},
+            ) as span:
+                report = await self._evaluate_inner(task, output, policy)
+                span.set_attribute("eval.score", report.score)
+                return report
+        return await self._evaluate_inner(task, output, policy)
+
+    async def _evaluate_inner(self, task: Task, output: str, policy: _ResiliencePolicy | None = None) -> CritiqueReport:
         eval_models = self._get_models(TaskType.EVALUATE)
         if not eval_models:
             logger.debug("  %s: no eval models available, returning 0.5", task.id)
-            return 0.5
+            return CritiqueReport(task_id=task.id, score=0.5)
 
         eval_model = eval_models[0]
         logger.debug("  %s: evaluating with %s", task.id, eval_model.value)
 
         eval_prompt = (
             f"Score this output on a scale of 0.0 to 1.0.\n"
-            f"Evaluate: correctness, completeness, quality, adherence to task.\n\n"
+            f"Evaluate: correctness, completeness, quality, adherence to task.\n"
+            f"Identify specific issues as BLOCKER (must fix), MAJOR (should fix), "
+            f"MINOR (nice to fix), or SUGGESTION (optional).\n\n"
             f"TASK: {task.prompt}\n"
             f"ACCEPTANCE THRESHOLD: {task.acceptance_threshold}\n\n"
             f"OUTPUT:\n{output}\n\n"
-            f'Return ONLY JSON: {{"score": <float>, "reasoning": "<brief>"}}'
+            f'Return ONLY JSON: {{"score": <float>, '
+            f'"issues": [{{"severity": "blocker|major|minor|suggestion", '
+            f'"category": "security|architecture|style|correctness|performance|completeness", '
+            f'"description": "...", '
+            f'"location": "<optional>", '
+            f'"suggestion": "<optional>"}}]}}'
         )
 
         scores: list[float] = []
+        total_cost = 0.0
         for run in range(self._consistency_runs):
             try:
                 logger.debug("  %s: eval run %d/%d starting…", task.id, run + 1, self._consistency_runs)
@@ -92,6 +119,7 @@ class EvaluatorService:
                     max_tokens=300,
                     temperature=0.1,
                     timeout=60,
+                    policy=policy,
                 )
                 parsed = self.parse_score(response.text)
                 logger.debug(
@@ -99,12 +127,57 @@ class EvaluatorService:
                     task.id, run + 1, self._consistency_runs, parsed,
                 )
                 await self._budget.charge(response.cost_usd, "evaluation")
+                total_cost += response.cost_usd
                 scores.append(parsed)
-            except (Exception, asyncio.CancelledError) as exc:
+            except Exception as exc:
                 logger.warning("Evaluation run %d/%d failed: %s", run + 1, self._consistency_runs, exc)
                 scores.append(0.5)
+            # BUG-003: asyncio.CancelledError is intentionally NOT caught here.
+            # Catching it would swallow task cancellation and return a fake 0.5 score,
+            # preventing asyncio.gather() / wait_for() from terminating promptly.
 
-        return self._aggregate(scores, task.id)
+        final_score = self._aggregate(scores, task.id)
+
+        if self._telemetry is not None:
+            try:
+                self._telemetry.record_call(
+                    model=eval_model,
+                    latency_ms=0.0,  # aggregated; not per-call in evaluator
+                    cost_usd=total_cost,
+                    success=True,
+                    quality_score=final_score,
+                )
+            except Exception:
+                logger.debug("Telemetry recording failed for eval %s", task.id, exc_info=True)
+
+        # Build CritiqueReport with parsed items from the first run
+        items: list[CritiqueItem] = []
+        last_response = response if 'response' in dir() else None
+        if scores and last_response:
+            try:
+                json_data = json.loads(last_response.text)
+                for issue in json_data.get("issues", []):
+                    try:
+                        severity = CritiqueSeverity(issue.get("severity", "minor"))
+                    except ValueError:
+                        severity = CritiqueSeverity.MINOR
+                    items.append(CritiqueItem(
+                        severity=severity,
+                        category=issue.get("category", "correctness"),
+                        description=issue.get("description", ""),
+                        location=issue.get("location"),
+                        suggestion=issue.get("suggestion"),
+                    ))
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pass
+
+        return CritiqueReport(
+            task_id=task.id,
+            score=final_score,
+            items=items,
+            model_used=eval_model.value if eval_model else None,
+            tokens_used=last_response.input_tokens + last_response.output_tokens if last_response else 0,
+        )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

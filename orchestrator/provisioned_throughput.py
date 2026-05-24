@@ -36,7 +36,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    import aiohttp
+    pass
 
 logger = logging.getLogger("orchestrator.provisioned_throughput")
 
