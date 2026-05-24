@@ -236,7 +236,7 @@ class OrchestrationAgent:
             model=model,
             prompt=prompt,
             system=_SYSTEM_PROMPT,
-            max_tokens=2048,
+            max_tokens=4096,
             temperature=0.1,
             timeout=60,
         )

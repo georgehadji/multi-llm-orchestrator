@@ -135,7 +135,7 @@ class PersonaModeManager:
                     presence_penalty=0.6,
                     frequency_penalty=0.6,
                     stop_sequences=[],
-                    model_override=Model.DEEPSEEK_REASONER,  # Use reasoning model
+                    model_override=Model.STEPFUN_STEP_3_5_FLASH,  # Reliable reasoning (was DeepSeek)
                     validation_level="thorough",
                     creativity_boost=0.4,
                 ),
@@ -173,7 +173,7 @@ class PersonaModeManager:
                     presence_penalty=0.7,
                     frequency_penalty=0.7,
                     stop_sequences=[],
-                    model_override=Model.DEEPSEEK_REASONER,  # Use reasoning model
+                    model_override=Model.STEPFUN_STEP_3_5_FLASH,  # Reliable reasoning (was DeepSeek)
                     validation_level="thorough",
                     creativity_boost=0.3,
                 ),
@@ -211,7 +211,7 @@ class PersonaModeManager:
                     presence_penalty=0.8,
                     frequency_penalty=0.8,
                     stop_sequences=[],
-                    model_override=Model.DEEPSEEK_REASONER,  # Use reasoning model
+                    model_override=Model.STEPFUN_STEP_3_5_FLASH,  # Reliable reasoning (was DeepSeek)
                     validation_level="thorough",
                     creativity_boost=0.3,
                 ),
@@ -230,7 +230,7 @@ class PersonaModeManager:
                     presence_penalty=0.9,
                     frequency_penalty=0.9,
                     stop_sequences=[],
-                    model_override=Model.DEEPSEEK_REASONER,  # Use reasoning model
+                    model_override=Model.STEPFUN_STEP_3_5_FLASH,  # Reliable reasoning (was DeepSeek)
                     validation_level="thorough",
                     creativity_boost=0.1,
                 ),
@@ -318,7 +318,8 @@ class PersonaModeManager:
         config = self.get_config_for_persona(target_persona).mode_config
 
         # Return overridden model if specified, otherwise default
-        return config.model_override or Model.DEEPSEEK_CHAT
+        # NOTE: Default changed from DeepSeek to Xiaomi (reliable alternative)
+        return config.model_override or Model.XIAOMI_MIMO_V2_FLASH
 
     def adjust_validation_level(self, persona: Persona | None = None) -> str:
         """

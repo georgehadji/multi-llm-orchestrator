@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -70,7 +71,7 @@ def _make_service(responses: list[str] | None = None) -> EvaluatorService:
 async def test_evaluate_returns_score():
     svc = _make_service(['{"score": 0.9}', '{"score": 0.88}'])
     score = await svc.evaluate(_task(), "good output")
-    assert 0.88 <= score <= 0.90
+    assert 0.88 <= score.score <= 0.90
 
 
 @pytest.mark.asyncio
@@ -90,7 +91,7 @@ async def test_evaluate_returns_05_when_no_models():
         get_models_fn=lambda _: [],  # no models
     )
     score = await svc.evaluate(_task(), "output")
-    assert score == 0.5
+    assert score.score == 0.5
 
 
 @pytest.mark.asyncio
@@ -105,7 +106,7 @@ async def test_evaluate_falls_back_on_api_error():
         get_models_fn=lambda _: [Model.GPT_4O_MINI],
     )
     score = await svc.evaluate(_task(), "output")
-    assert score == 0.5  # fallback from all-failed runs
+    assert score.score == 0.5  # fallback from all-failed runs
 
 
 @pytest.mark.asyncio
@@ -113,14 +114,14 @@ async def test_evaluate_uses_lower_score_on_inconsistency():
     # scores differ by more than 0.05 → use min
     svc = _make_service(['{"score": 0.9}', '{"score": 0.7}'])
     score = await svc.evaluate(_task(), "output")
-    assert score == pytest.approx(0.7)
+    assert score.score == pytest.approx(0.7)
 
 
 @pytest.mark.asyncio
 async def test_evaluate_averages_consistent_scores():
     svc = _make_service(['{"score": 0.8}', '{"score": 0.82}'])
     score = await svc.evaluate(_task(), "output")
-    assert score == pytest.approx(0.81, abs=0.01)
+    assert score.score == pytest.approx(0.81, abs=0.01)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -165,3 +166,43 @@ def test_parse_score_bare_float():
 def test_parse_score_clamps_to_zero_one():
     assert EvaluatorService.parse_score('{"score": 99}') == 1.0
     assert EvaluatorService.parse_score('{"score": -5}') == 0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUG-003 regression: CancelledError must propagate
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_evaluate_propagates_cancellation():
+    """
+    BUG-003 regression: asyncio.CancelledError during an evaluation run must
+    propagate to the caller, not be swallowed and converted to a fake 0.5 score.
+
+    Before the fix, the except clause caught CancelledError, logged a warning,
+    and appended 0.5 to scores.  This prevented asyncio.gather() or
+    asyncio.wait_for() from terminating promptly and silently masked
+    cancellation signals.
+    """
+    client = MagicMock()
+
+    async def _slow_call(*args, **kwargs):
+        await asyncio.sleep(10)
+        return _api_response('{"score": 0.9}')
+
+    client.call = _slow_call
+    budget = MagicMock()
+    budget.charge = AsyncMock()
+
+    svc = EvaluatorService(
+        client=client,
+        budget=budget,
+        get_models_fn=lambda _: [Model.GPT_4O_MINI],
+    )
+
+    task = asyncio.create_task(svc.evaluate(_task(), "output"))
+    await asyncio.sleep(0.05)
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task

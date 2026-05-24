@@ -188,6 +188,132 @@ async def test_context_trips_after_threshold_failures():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# BUG-001 regression: HALF_OPEN probe lock
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_half_open_allows_multiple_probes_for_success_threshold():
+    """
+    BUG-001 regression: After a successful probe in HALF_OPEN that does not
+    yet meet success_threshold, probe_in_flight must be cleared so the next
+    probe can be attempted.
+
+    Before the fix, record_success() left probe_in_flight=True when
+    successes < success_threshold, causing check() to reject all subsequent
+    probes and permanently locking the breaker in HALF_OPEN.
+    """
+    cb = CircuitBreaker(
+        name="test",
+        failure_threshold=2,
+        reset_timeout=0.01,
+        success_threshold=2,
+    )
+    await _fail(cb, 2)
+    assert cb.state == CircuitState.OPEN
+
+    await asyncio.sleep(0.05)
+
+    # First probe through context() — 1 success, need 2 total
+    async with cb.context():
+        pass
+    assert cb.state == CircuitState.HALF_OPEN
+    assert cb._state.probe_in_flight is False
+
+    # Second probe must be allowed
+    async with cb.context():
+        pass
+    assert cb.state == CircuitState.CLOSED
+
+
+@pytest.mark.asyncio
+async def test_cancelled_probe_clears_half_open():
+    """
+    BUG-001 regression: A CancelledError during a HALF_OPEN probe must not
+    leave probe_in_flight=True forever.
+
+    Before the fix, context() caught CancelledError (a BaseException) and
+    passed err=None to record_failure().  When failures < threshold in
+    HALF_OPEN, the breaker stayed in HALF_OPEN with probe_in_flight=True,
+    blocking all future probes.
+
+    We simulate the < threshold condition by resetting failures after the
+    trip (as a manual recovery or reset_all would do).
+    """
+    cb = CircuitBreaker(
+        name="test",
+        failure_threshold=5,
+        reset_timeout=0.01,
+        success_threshold=2,
+    )
+    await _fail(cb, 5)
+    assert cb.state == CircuitState.OPEN
+
+    # Simulate post-reset state where failures have been cleared
+    cb._state.failures = 0
+    await asyncio.sleep(0.05)
+
+    async def _probe():
+        async with cb.context():
+            await asyncio.sleep(10)  # Will be cancelled mid-probe
+
+    task = asyncio.create_task(_probe())
+    await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # Without the fix, probe_in_flight would stay True and state HALF_OPEN
+    assert cb._state.probe_in_flight is False
+    assert cb.state == CircuitState.HALF_OPEN
+    assert cb._state.failures == 1  # Below threshold, so did not re-trip
+
+    # A new probe should now be allowed
+    async with cb.context():
+        pass
+    assert cb._state.probe_in_flight is False
+
+
+@pytest.mark.asyncio
+async def test_half_open_failure_below_threshold_allows_retry():
+    """
+    BUG-001 regression: A single failure in HALF_OPEN with failures <
+    failure_threshold must clear probe_in_flight so another probe can be
+    attempted.
+
+    We simulate the < threshold condition by resetting failures after the
+    trip (as a manual recovery or reset_all would do).
+    """
+    cb = CircuitBreaker(
+        name="test",
+        failure_threshold=5,
+        reset_timeout=0.01,
+        success_threshold=2,
+    )
+    await _fail(cb, 5)
+    assert cb.state == CircuitState.OPEN
+
+    # Simulate post-reset state where failures have been cleared
+    cb._state.failures = 0
+    await asyncio.sleep(0.05)
+
+    # First probe fails but below threshold
+    with pytest.raises(RuntimeError):
+        async with cb.context():
+            raise RuntimeError("transient")
+
+    assert cb.state == CircuitState.HALF_OPEN
+    assert cb._state.probe_in_flight is False
+    assert cb._state.failures == 1
+
+    # Retry should be allowed
+    async with cb.context():
+        pass
+    assert cb._state.probe_in_flight is False
+    assert cb._state.successes == 1
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Metrics
 # ─────────────────────────────────────────────────────────────────────────────
 

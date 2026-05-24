@@ -216,7 +216,7 @@ async def run_website_generation(args: argparse.Namespace) -> int:
                 logger.info(f"  WCAG level: {result.quality_report.wcag_level}")
                 logger.info(f"  SEO score: {result.quality_report.seo_score}/100")
 
-            logger.info(f"\n📁 Output directory: {output_dir.absolute()}")
+            logger.info(f"\n[DIR] Output directory: {output_dir.absolute()}")
             logger.info("  Generated files:")
             for file_path in output_dir.rglob("*"):
                 if file_path.is_file():

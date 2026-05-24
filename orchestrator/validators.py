@@ -18,6 +18,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -230,6 +231,35 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
     if not code.strip():
         # No explicit Python block found — skip ruff rather than fail
         return ValidationResult(True, "No Python code block, ruff skipped", "ruff")
+    
+    # FIX: Detect JavaScript/TypeScript content and skip Python validation
+    js_indicators = [
+        "export default",
+        "export const",
+        "export function",
+        "import {",
+        "import *",
+        "from '",
+        'from "',
+        "const ",
+        "let ",
+        "var ",
+        "function ",
+        "=> {",
+        "React.",
+        "react",
+        "jsx",
+        "</div>",
+        "</span>",
+        "</p>",
+        "className=",
+        "useState(",
+        "useEffect(",
+    ]
+    code_sample = code[:1500]  # Check first 1500 chars
+    if any(indicator in code_sample for indicator in js_indicators):
+        logger.debug("JavaScript/TypeScript detected, skipping ruff validation")
+        return ValidationResult(True, "JavaScript/TypeScript detected, ruff skipped", "ruff")
 
     def _run_sync() -> ValidationResult:
         tmp_path = None
@@ -388,21 +418,6 @@ def validate_tool_safety(output: str) -> ValidationResult:
     return ValidationResult(True, "No unsafe patterns detected", "tool_safety")
 
 
-# ─────────────────────────────────────────────
-# Validator registry
-# ─────────────────────────────────────────────
-
-VALIDATORS = {
-    "json_schema": validate_json_schema,
-    "python_syntax": validate_python_syntax,
-    "pytest": validate_pytest,
-    "ruff": validate_ruff,
-    "latex": validate_latex,
-    "length": validate_length_bounds,
-    "tool_safety": validate_tool_safety,  # HARDEN: Prevent hallucinated tool calls
-}
-
-
 def _filter_kwargs_for(fn, kwargs: dict) -> dict:
     """
     FIX #8: Only pass kwargs that the validator function actually accepts.
@@ -538,3 +553,120 @@ def _extract_code_block(text: str, language: str = "python") -> str:
 
     # 4. Fallback: return as-is
     return text
+
+
+def validate_file_has_content(output: str, min_lines: int = 5, min_code_lines: int = 3) -> ValidationResult:
+    """Validate that generated file has actual implementation content.
+    
+    Checks:
+    - File is not empty
+    - Has minimum number of lines
+    - Has actual code (not just comments/imports)
+    - Has function or class definitions
+    
+    This prevents empty files or files with only imports from passing validation.
+    """
+    code = _extract_code_block(output, "python")
+    lines = code.split("\n")
+    
+    # Check 1: Not empty
+    if not code.strip():
+        return ValidationResult(False, "File is empty - no code generated", "file_content")
+    
+    # Check 2: Minimum lines
+    non_empty_lines = [l for l in lines if l.strip()]
+    if len(non_empty_lines) < min_lines:
+        return ValidationResult(
+            False, 
+            f"File too short ({len(non_empty_lines)} lines, min {min_lines}) - incomplete implementation", 
+            "file_content"
+        )
+    
+    # Check 3: Has actual code (not just comments)
+    code_lines = []
+    in_multiline_string = False
+    for line in lines:
+        stripped = line.strip()
+        # Track multiline strings
+        if '"""' in stripped or "'''" in stripped:
+            if stripped.count('"""') % 2 == 1 or stripped.count("'''") % 2 == 1:
+                in_multiline_string = not in_multiline_string
+            continue
+        # Skip comments and docstrings
+        if in_multiline_string or stripped.startswith("#"):
+            continue
+        if stripped:
+            code_lines.append(stripped)
+    
+    if len(code_lines) < min_code_lines:
+        return ValidationResult(
+            False,
+            f"Too little actual code ({len(code_lines)} code lines, min {min_code_lines}) - needs implementation",
+            "file_content"
+        )
+    
+    # Check 4: Has function or class definitions
+    has_implementation = any(
+        re.match(r"^(def |class |async def )", line)
+        for line in code_lines
+    )
+    
+    if not has_implementation:
+        return ValidationResult(
+            False,
+            "No function or class definitions found - file lacks implementation",
+            "file_content"
+        )
+    
+    return ValidationResult(
+        True,
+        f"Content OK: {len(non_empty_lines)} lines, {len(code_lines)} code lines, has implementation",
+        "file_content"
+    )
+
+
+def validate_no_error_placeholders(output: str) -> ValidationResult:
+    """Validate that output is not an error placeholder.
+    
+    Detects patterns like:
+    - "CODE GENERATION FAILED"
+    - "Syntax error:"
+    - "ERROR: The generated code failed"
+    - raise RuntimeError(...)
+    
+    These indicate the code generation failed and should be retried.
+    """
+    error_patterns = [
+        r"CODE GENERATION FAILED",
+        r"ERROR:.*generated code failed",
+        r"Syntax error:",
+        r"raise RuntimeError\(.*Code generation failed",
+        r"# .*?ERROR.*?\nraise ",
+    ]
+    
+    for pattern in error_patterns:
+        if re.search(pattern, output, re.IGNORECASE):
+            return ValidationResult(
+                False,
+                f"Output is an error placeholder - code generation failed: {pattern}",
+                "error_placeholder"
+            )
+    
+    return ValidationResult(True, "No error placeholders detected", "error_placeholder")
+
+
+# ─────────────────────────────────────────────
+# Validator registry - MUST be at end after all functions defined
+# ─────────────────────────────────────────────
+
+VALIDATORS = {
+    "json_schema": validate_json_schema,
+    "python_syntax": validate_python_syntax,
+    "file_content": validate_file_has_content,  # NEW: Check for empty/implementations
+    "error_placeholder": validate_no_error_placeholders,  # NEW: Detect failed generation
+    "pytest": validate_pytest,
+    "ruff": validate_ruff,
+    "latex": validate_latex,
+    "length": validate_length_bounds,
+    "tool_safety": validate_tool_safety,  # HARDEN: Prevent hallucinated tool calls
+}

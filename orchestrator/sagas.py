@@ -36,7 +36,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import uuid4
 
-from .events import (
+from .unified_events.core import (
     DomainEvent,
     EventBus,
     get_event_bus,

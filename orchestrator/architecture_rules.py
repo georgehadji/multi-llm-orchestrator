@@ -701,6 +701,61 @@ class ArchitectureRulesEngine:
         self.generator = RulesGenerator()
         self.client = client
 
+    def _try_recover_truncated_json(self, text: str) -> str | None:
+        """
+        Attempt to recover a truncated JSON response.
+        
+        Tries to close open strings, arrays, and objects.
+        Returns recovered text or None if recovery fails.
+        """
+        import re
+        
+        text = text.strip()
+        
+        # Count unclosed structures
+        open_braces = text.count('{') - text.count('}')
+        open_brackets = text.count('[') - text.count(']')
+        
+        # Check for unclosed string
+        quote_count = text.count('"') - text.count('\\"')
+        in_string = (quote_count % 2) == 1
+        
+        # If in middle of string, try to close it
+        if in_string:
+            # Find last unescaped quote
+            last_quote = -1
+            for i, c in enumerate(text):
+                if c == '"' and (i == 0 or text[i-1] != '\\'):
+                    last_quote = i
+            
+            if last_quote > 0:
+                # Truncate to last complete key-value pair
+                # Look for pattern: "key": "value" or "key": value
+                last_complete = -1
+                for match in re.finditer(r'"\w+":\s*("[^"]*"|\w+|\{[^}]*\}|\[[^\]]*\])', text):
+                    last_complete = match.end()
+                
+                if last_complete > 0:
+                    text = text[:last_complete]
+        
+        # Close open structures
+        text = text.rstrip(',')
+        
+        # Close any open arrays/objects
+        while open_brackets > 0:
+            text += ']'
+            open_brackets -= 1
+        while open_braces > 0:
+            text += '}'
+            open_braces -= 1
+        
+        # Try to parse to verify
+        try:
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            return None
+
     async def generate_rules(
         self, description: str, criteria: str, project_type: str = ""
     ) -> ProjectRules:
@@ -744,7 +799,6 @@ class ArchitectureRulesEngine:
         self, description: str, criteria: str, project_type: str = ""
     ) -> ProjectRules:
         """Generate architecture rules using LLM."""
-        from .models import Model
 
         # Build the prompt
         prompt = f"""You are an expert software architect. Analyze this project and recommend the optimal architecture.
@@ -779,11 +833,11 @@ Choose the best options based on the project requirements. Be specific and pract
         from .models import Model as M
 
         architecture_models = [
-            M.QWEN_3_5_397B_A17B,  # $0.39/$2.34, 397B MoE ⭐ BEST VALUE
+            M.CLAUDE_SONNET_4_6,  # $3.00/$15.00, premium quality, reliable JSON
+            M.GPT_5_4,  # $2.50/$10.00, reliable
             M.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
             M.XAI_GROK_4_20_BETA,  # $2.00/$6.00, lowest hallucination
-            M.CLAUDE_SONNET_4_6,  # $3.00/$15.00, premium quality
-            M.GPT_5_4,  # $2.50/$10.00, reliable
+            M.QWEN_3_5_397B_A17B,  # $0.39/$2.34, 397B MoE (fallback)
         ]
 
         # Use first available model
@@ -803,7 +857,7 @@ Choose the best options based on the project requirements. Be specific and pract
             model,
             prompt,
             system="You are a principal software architect with 20 years of experience.",
-            max_tokens=2000,
+            max_tokens=8192,
             temperature=0.3,
             timeout=60,
         )
@@ -841,7 +895,23 @@ Choose the best options based on the project requirements. Be specific and pract
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM architecture response: {e}")
             logger.error(f"Response text: {resp.text[:500]}...")
-            raise
+            
+            # Check if truncated and try to recover
+            if response_text.rstrip()[:-3].count('"') % 2 != 0:
+                # Odd number of quotes - likely truncated mid-string
+                logger.warning("Response appears truncated, attempting recovery...")
+                # Try to complete the JSON by closing open strings and braces
+                recovered_text = self._try_recover_truncated_json(response_text)
+                if recovered_text:
+                    try:
+                        arch_data = json.loads(recovered_text)
+                        logger.info("Successfully recovered truncated JSON")
+                    except json.JSONDecodeError:
+                        raise
+                else:
+                    raise
+            else:
+                raise
 
         # Build the ArchitectureDecision
         stack = TechnologyStack(
@@ -978,7 +1048,7 @@ Be conservative - only suggest changes if they provide clear benefits."""
                 model,
                 prompt,
                 system="You are a principal software architect. Be conservative - only suggest changes if they provide clear architectural benefits.",
-                max_tokens=2500,
+                max_tokens=8192,
                 temperature=0.2,
                 timeout=60,
             )

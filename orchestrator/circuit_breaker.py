@@ -131,6 +131,9 @@ class CircuitBreaker:
             if self._state.state == CircuitState.HALF_OPEN:
                 if self._state.successes >= self.success_threshold:
                     self._close()
+                else:
+                    # BUG-001: Allow next probe when success threshold not yet met.
+                    self._state.probe_in_flight = False
             elif self._state.state == CircuitState.OPEN:
                 # Shouldn't happen; close anyway
                 self._close()
@@ -144,6 +147,9 @@ class CircuitBreaker:
             if self._state.state in (CircuitState.CLOSED, CircuitState.HALF_OPEN):
                 if self._state.failures >= self.failure_threshold:
                     self._open(exc)
+                elif self._state.state == CircuitState.HALF_OPEN:
+                    # BUG-001: Clear probe flag so another probe can be attempted.
+                    self._state.probe_in_flight = False
 
     async def check(self) -> None:
         """
@@ -310,8 +316,9 @@ class CircuitBreakerRegistry:
         """Return stats dict keyed by model_id."""
         return {mid: cb.stats() for mid, cb in self._breakers.items()}
 
-    def reset_all(self) -> None:
+    async def reset_all(self) -> None:
         """Force-close all breakers (for testing / manual recovery)."""
         for cb in self._breakers.values():
-            cb._close()
+            async with cb._lock:
+                cb._close()
         logger.info("CircuitBreakerRegistry: all breakers reset")

@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    import aiohttp
+    pass
 
 from .config import get_config
 from .models import (

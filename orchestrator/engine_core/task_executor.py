@@ -136,7 +136,26 @@ class TaskExecutor:
         # Build full prompt with context
         context.full_prompt = self._build_full_prompt(task, context)
 
-        # Get models for execution
+        # Try typed TaskHandler first (Phase 3: typed dispatch)
+        from ..task_handlers import get_handler
+        try:
+            handler_cls = get_handler(task.type)
+            handler = handler_cls()
+            result = await handler.execute(
+                task=task,
+                client=self.client,
+                budget=self.budget_enforcer,
+                dependency_context=context.dependency_context,
+            )
+            if result and result.output:
+                logger.info(f"  {task.id}: handler {handler_cls.__name__} produced output")
+                return result
+        except KeyError:
+            logger.debug(f"  {task.id}: no typed handler for {task.type.value}, using fallback")
+        except Exception as _h_err:
+            logger.warning(f"  {task.id}: typed handler failed: {_h_err}, using fallback")
+
+        # Fallback: Get models and run critique cycle (original behavior)
         models = self.fallback_handler.get_available_models(task.type)
         if not models:
             return self._build_failure_result(task, "No models available for task type")
@@ -318,6 +337,7 @@ class TaskExecutor:
                     test_files={"test_main.py": tdd_result.test_spec.test_code},
                     tests_passed=tdd_result.test_result.tests_passed,
                     tests_total=tdd_result.test_result.tests_run,
+                    task_type=task.type.value,
                 )
 
         except Exception as e:
@@ -361,6 +381,7 @@ class TaskExecutor:
             deterministic_check_passed=True,
             degraded_fallback_count=0,
             attempt_history=[],
+            task_type=task.type.value,
         )
 
     def _build_result_from_cycle(
@@ -407,6 +428,7 @@ class TaskExecutor:
             deterministic_check_passed=len(state.failed_validators) == 0,
             degraded_fallback_count=state.degraded_count,
             attempt_history=state.attempt_history,
+            task_type=task.type.value,
         )
 
     def _build_failure_result(
@@ -440,4 +462,5 @@ class TaskExecutor:
             deterministic_check_passed=False,
             degraded_fallback_count=0,
             attempt_history=[],
+            task_type=task.type.value,
         )

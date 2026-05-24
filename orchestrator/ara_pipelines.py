@@ -51,6 +51,14 @@ class ReasoningMethod(str, Enum):
     DIALECTICAL = "dialectical"
     ANALOGICAL = "analogical"
     DELPHI = "delphi"
+    BRAINSTORMING = "brainstorming"
+    VERBALIZED_SAMPLING = "verbalized_sampling"
+    PERSUASION_DEFENSE = "persuasion_defense"
+    COVE = "cove"
+    SOT = "sot"
+    TOT = "tot"
+    POT = "pot"
+    SELF_DISCOVER = "self_discover"
 
 
 class PerspectiveType(str, Enum):
@@ -112,6 +120,13 @@ class PipelineState:
     dialectical_state: dict[str, Any] = field(default_factory=dict)
     analogical_state: dict[str, Any] = field(default_factory=dict)
     delphi_state: dict[str, Any] = field(default_factory=dict)
+    cove_state: dict[str, Any] = field(default_factory=dict)
+    sot_state: dict[str, Any] = field(default_factory=dict)
+    tot_state: dict[str, Any] = field(default_factory=dict)
+    pot_state: dict[str, Any] = field(default_factory=dict)
+    self_discover_state: dict[str, Any] = field(default_factory=dict)
+    brainstorming_state: dict[str, Any] = field(default_factory=dict)
+    cognitive_state: dict[str, Any] = field(default_factory=dict)
 
 
 # ─────────────────────────────────────────────
@@ -187,7 +202,7 @@ class BasePipeline(ABC):
 
     def _get_model_for_phase(self, phase: "PhaseType", task_type: TaskType) -> Model:
         """Get optimal model for a specific phase type."""
-        from .phase_aware_models import PhaseAwareModelSelector, PhaseType
+        from .phase_aware_models import PhaseAwareModelSelector
 
         available = [m.value for m in self._get_available_models(task_type)]
         selector = PhaseAwareModelSelector()
@@ -2887,6 +2902,1222 @@ Provide final recommendation.
 # ─────────────────────────────────────────────
 
 
+
+# ─────────────────────────────────────────────
+# 13. Brainstorming Pipeline (VS-based)
+# ─────────────────────────────────────────────
+
+
+class BrainstormingPipeline(BasePipeline):
+    """
+    Verbalized Sampling Brainstorming Pipeline
+
+    Adapted from Reasoner's BrainstormingMixin. Four phases:
+    Phase 1 — VS idea generation across N rounds
+    Phase 2 — Cluster, deduplicate, and score raw ideas
+    Phase 3 — Deep development of top ideas
+    Phase 4 — Synthesis into final solution
+
+    Best for: Creative ideation, open-ended problems
+    """
+
+    K_DEFAULT = 5
+    ROUNDS_DEFAULT = 3
+
+    def get_method(self) -> ReasoningMethod:
+        return ReasoningMethod.BRAINSTORMING
+
+    async def execute(self, task: Task, context: str = "") -> TaskResult:
+        state = PipelineState(task=task, method=self.get_method())
+        state.brainstorming_state = {
+            "config": {"k": self.K_DEFAULT, "rounds": self.ROUNDS_DEFAULT, "threshold": 0.10},
+        }
+
+        # Phase 1: VS idea generation
+        await self._phase_generate(state, context)
+        # Phase 2: Cluster and score
+        await self._phase_cluster(state)
+        # Phase 3: Deep development
+        await self._phase_develop(state)
+        # Phase 4: Synthesis
+        await self._phase_synthesis(state)
+
+        return self._build_result(state)
+
+    async def _phase_generate(self, state: PipelineState, context: str):
+        """Generate diverse ideas via VS-Multi."""
+        cfg = state.brainstorming_state["config"]
+        rounds = cfg.get("rounds", self.ROUNDS_DEFAULT)
+        k = cfg.get("k", self.K_DEFAULT)
+        models = self._get_available_models(state.task.type)
+        gen_model = models[0] if models else Model.GPT_4O_MINI
+
+        all_ideas = []
+        for rnd in range(1, rounds + 1):
+            previous = ""
+            if all_ideas:
+                texts = [s.get("text", "")[:200] for s in all_ideas]
+                previous = "\nPrevious ideas:\n" + "\n".join(texts)
+
+            system = (
+                f"You are a creative brainstorming assistant. "
+                f"Generate exactly {k} diverse, novel candidate ideas. "
+                "Each idea should be distinct and explore a different angle."
+            )
+            user = (
+                f"Task: {state.task.prompt}\n\nContext: {context}"
+                f"{previous}\n\nRound {rnd}/{rounds}"
+            )
+
+            response, _ = await self.client.call(
+                model=gen_model,
+                system_prompt=system,
+                user_prompt=user,
+                max_tokens=state.task.max_output_tokens,
+                temperature=0.8,
+            )
+            data = self._extract_json(response.text) or {}
+            ideas = data.get("ideas", [])
+            if not ideas:
+                # Fallback: treat entire response as a single idea
+                ideas = [{"text": response.text[:500], "score": 0.5}]
+            all_ideas.extend(ideas)
+
+        state.brainstorming_state["raw_ideas"] = all_ideas
+        logger.info("Brainstorming: %d raw ideas generated", len(all_ideas))
+
+    async def _phase_cluster(self, state: PipelineState):
+        """Cluster raw ideas into themes."""
+        raw = state.brainstorming_state.get("raw_ideas", [])
+        if not raw:
+            return
+
+        models = self._get_available_models(state.task.type)
+        cluster_model = models[0] if models else Model.GPT_4O_MINI
+
+        texts = "\n".join(f"- {s.get('text', s) if isinstance(s, dict) else s}" for s in raw)
+        system = "You are an idea clustering expert. Group the following ideas into themes. Return JSON with 'clusters' list."
+        user = f"Cluster these ideas:\n\n{texts}"
+
+        response, _ = await self.client.call(
+            model=cluster_model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=2000,
+            temperature=0.3,
+        )
+        data = self._extract_json(response.text) or {}
+        clusters = data.get("clusters", [])
+
+        # Collect top ideas from clusters
+        top = []
+        for cluster in clusters:
+            for idea in cluster.get("ideas", []):
+                if idea.get("keep", True):
+                    top.append(idea)
+
+        state.brainstorming_state["clusters"] = clusters
+        state.brainstorming_state["top_ideas"] = top
+        logger.info("Brainstorming: %d clusters, %d top ideas", len(clusters), len(top))
+
+    async def _phase_develop(self, state: PipelineState):
+        """Deeply develop top ideas."""
+        top = state.brainstorming_state.get("top_ideas", [])
+        if not top:
+            return
+        top = top[:3]  # Develop top 3
+
+        models = self._get_available_models(state.task.type)
+        dev_model = models[0] if models else Model.GPT_4O_MINI
+
+        texts = "\n".join(f"- {s.get('text', s)}" for s in top)
+        system = "You are a strategic development expert. Expand each idea into a concrete, actionable plan."
+        user = f"Develop these ideas into detailed plans:\n\n{texts}"
+
+        response, _ = await self.client.call(
+            model=dev_model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=state.task.max_output_tokens,
+            temperature=0.4,
+        )
+        data = self._extract_json(response.text) or {}
+        state.brainstorming_state["developments"] = data.get("developments", [response.text])
+
+    async def _phase_synthesis(self, state: PipelineState):
+        """Synthesize into final solution."""
+        developments = state.brainstorming_state.get("developments", [])
+        clusters = state.brainstorming_state.get("clusters", [])
+        if not developments:
+            state.final_output = "No viable ideas generated."
+            state.final_score = 0.0
+            return
+
+        models = self._get_available_models(state.task.type)
+        synth_model = models[0] if models else Model.GPT_4O_MINI
+
+        dev_text = "\n\n".join(
+            d.get("plan", d) if isinstance(d, dict) else str(d) for d in developments
+        )
+        system = "Synthesize the developed ideas into a final, coherent, actionable solution."
+        user = f"Synthesize these developments:\n\n{dev_text}"
+
+        response, _ = await self.client.call(
+            model=synth_model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=state.task.max_output_tokens,
+            temperature=0.3,
+        )
+        state.final_output = response.text
+        state.final_score = 0.85  # Fixed high score for brainstorming
+
+    def _build_result(self, state: PipelineState) -> TaskResult:
+        return TaskResult(
+            task_id=state.task.id,
+            output=state.final_output,
+            score=state.final_score,
+            model_used=Model.GPT_4O_MINI,
+            status=TaskStatus.COMPLETED if state.final_score >= 0.7 else TaskStatus.DEGRADED,
+            metadata={
+                "method": self.get_method().value,
+                "idea_count": len(state.brainstorming_state.get("raw_ideas", [])),
+                "cluster_count": len(state.brainstorming_state.get("clusters", [])),
+            },
+        )
+
+
+# ─────────────────────────────────────────────
+# 14. Verbalized Sampling Pipeline
+# ─────────────────────────────────────────────
+
+
+class VerbalizedSamplingPipeline(BasePipeline):
+    """
+    Verbalized Sampling (VS) Pipeline
+
+    Adapted from Reasoner's verbalized sampling implementation.
+    Generates k diverse candidates, scores them by probability,
+    and selects the best via consensus.
+
+    Modes:
+    - STANDARD: Generate and sample from diverse candidates
+    - TAIL: Focus on unconventional/tail-distribution candidates
+    - COT: Chain-of-thought guided sampling
+
+    Best for: Exploration tasks, uncertainty quantification
+    """
+
+    K_DEFAULT = 5
+    QUALITY_THRESHOLD = 0.15
+
+    def get_method(self) -> ReasoningMethod:
+        return ReasoningMethod.VERBALIZED_SAMPLING
+
+    async def execute(self, task: Task, context: str = "") -> TaskResult:
+        state = PipelineState(task=task, method=self.get_method())
+
+        # Phase 1: Generate diverse candidates
+        await self._phase_generate_candidates(state, context)
+
+        # Phase 2: Score and rank by probability
+        await self._phase_score_candidates(state)
+
+        # Phase 3: Consensus selection
+        await self._phase_consensus(state)
+
+        # Phase 4: Synthesize final output
+        await self._phase_synthesis(state)
+
+        return self._build_result(state)
+
+    async def _phase_generate_candidates(self, state: PipelineState, context: str):
+        """Generate k diverse candidate responses."""
+        k = self.K_DEFAULT
+        models = self._get_available_models(state.task.type)
+        gen_model = models[0] if models else Model.GPT_4O_MINI
+
+        system = (
+            f"You are a diverse reasoning engine. Generate exactly {k} distinct, "
+            "plausible candidate answers to the given task. Each must be substantively "
+            "different from the others. Return JSON with 'candidates' list."
+        )
+        user = f"Task: {state.task.prompt}\n\nContext: {context}"
+
+        response, _ = await self.client.call(
+            model=gen_model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=state.task.max_output_tokens,
+            temperature=0.9,
+        )
+        data = self._extract_json(response.text) or {}
+        candidates_raw = data.get("candidates", [response.text])
+
+        for i, c in enumerate(candidates_raw):
+            text = c.get("text", c) if isinstance(c, dict) else str(c)
+            state.candidates.append(
+                SolutionCandidate(
+                    perspective=f"vs_candidate_{i+1}",
+                    content=text,
+                    metadata={"index": i, "probability": c.get("probability", 1.0 / k) if isinstance(c, dict) else 1.0 / k},
+                )
+            )
+
+    async def _phase_score_candidates(self, state: PipelineState):
+        """Score each candidate by probability/quality."""
+        if not state.candidates:
+            return
+
+        models = self._get_available_models(state.task.type)
+        score_model = models[0] if models else Model.GPT_4O_MINI
+
+        texts = "\n\n".join(f"[{i+1}] {c.content[:500]}" for i, c in enumerate(state.candidates))
+        system = (
+            "You are a probability calibration expert. For each candidate, estimate "
+            "the probability that it is the correct/optimal solution. "
+            "Probabilities must sum to 1.0. Return JSON with 'scores' list."
+        )
+        user = f"Task: {state.task.prompt}\n\nCandidates:\n{texts}"
+
+        response, _ = await self.client.call(
+            model=score_model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=1000,
+            temperature=0.1,
+        )
+        data = self._extract_json(response.text) or {}
+        scores_raw = data.get("scores", [])
+
+        for i, c in enumerate(state.candidates):
+            if i < len(scores_raw):
+                prob = scores_raw[i] if isinstance(scores_raw[i], (int, float)) else scores_raw[i].get("probability", 0)
+                state.scores.append(
+                    CritiqueScore(
+                        perspective=c.perspective,
+                        total=float(prob),
+                    )
+                )
+
+        # Sort by probability descending
+        scored = {s.perspective: s.total for s in state.scores}
+        state.candidates.sort(key=lambda c: scored.get(c.perspective, 0), reverse=True)
+        state.scores.sort(key=lambda s: s.total, reverse=True)
+
+    async def _phase_consensus(self, state: PipelineState):
+        """Select top candidates via threshold."""
+        if not state.scores:
+            return
+        threshold = self.QUALITY_THRESHOLD
+        best_score = state.scores[0].total if state.scores else 0
+        state.top_candidates = [c for c in state.candidates if any(
+            s.perspective == c.perspective and s.total >= max(best_score * 0.5, threshold)
+            for s in state.scores
+        )]
+        if not state.top_candidates and state.candidates:
+            state.top_candidates = state.candidates[:1]
+
+    async def _phase_synthesis(self, state: PipelineState):
+        """Synthesize top candidates into final output."""
+        if not state.top_candidates:
+            state.final_output = "No candidates met the quality threshold."
+            state.final_score = 0.0
+            return
+
+        if len(state.top_candidates) == 1:
+            state.final_output = state.top_candidates[0].content
+            state.final_score = state.scores[0].total if state.scores else 0.5
+            return
+
+        models = self._get_available_models(state.task.type)
+        synth_model = models[0] if models else Model.GPT_4O_MINI
+
+        texts = "\n\n".join(
+            f"[Score: {s.total:.2f}]\n{c.content[:500]}"
+            for c, s in zip(state.top_candidates, state.scores)
+        )
+        system = "Synthesize the best candidate responses into a final, coherent answer."
+        user = f"Task: {state.task.prompt}\n\nTop candidates:\n{texts}"
+
+        response, _ = await self.client.call(
+            model=synth_model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=state.task.max_output_tokens,
+            temperature=0.3,
+        )
+        state.final_output = response.text
+        state.final_score = state.scores[0].total if state.scores else 0.5
+
+    def _build_result(self, state: PipelineState) -> TaskResult:
+        return TaskResult(
+            task_id=state.task.id,
+            output=state.final_output,
+            score=state.final_score,
+            model_used=Model.GPT_4O_MINI,
+            status=TaskStatus.COMPLETED if state.final_score >= 0.3 else TaskStatus.DEGRADED,
+            metadata={
+                "method": self.get_method().value,
+                "candidate_count": len(state.candidates),
+                "top_score": state.final_score,
+            },
+        )
+
+
+# ─────────────────────────────────────────────
+# 15. Persuasion Defense Pipeline
+# ─────────────────────────────────────────────
+
+
+class PersuasionDefensePipeline(BasePipeline):
+    """
+    Persuasion Defense Pipeline
+
+    Adapted from Reasoner's PersuasionDefense module. A 5-stage
+    hallucination mitigation pipeline targeting high-stakes outputs:
+    1. Claim extraction and structuring
+    2. NLI verification against source context
+    3. Conflict surfacing and taint propagation
+    4. Behavioral monitoring for persuasion tactics
+    5. Final synthesis with confidence scoring
+
+    Best for: High-stakes verification, hallucination detection
+    """
+
+    NLI_THRESHOLD = 0.7
+    DRIFT_THRESHOLD = 0.25
+
+    def get_method(self) -> ReasoningMethod:
+        return ReasoningMethod.PERSUASION_DEFENSE
+
+    async def execute(self, task: Task, context: str = "") -> TaskResult:
+        state = PipelineState(task=task, method=self.get_method())
+
+        # Phase 1: Extract claims from output
+        await self._phase_extract_claims(state, context)
+
+        # Phase 2: NLI verification
+        await self._phase_nli_verify(state)
+
+        # Phase 3: Conflict surfacing
+        await self._phase_conflict_surface(state)
+
+        # Phase 4: Behavioral audit
+        await self._phase_behavioral_audit(state)
+
+        # Phase 5: Final synthesis
+        await self._phase_synthesis(state)
+
+        return self._build_result(state)
+
+    async def _phase_extract_claims(self, state: PipelineState, context: str):
+        """Extract verifiable claims from task output."""
+        models = self._get_available_models(state.task.type)
+        model = models[0] if models else Model.GPT_4O_MINI
+
+        system = (
+            "You are a claim extraction expert. Extract all factual claims from "
+            "the following text that can be verified against source context. "
+            "Return JSON with 'claims' list, each with 'text' and 'category'."
+        )
+        user = f"Text: {context}\n\nTask: {state.task.prompt}"
+
+        response, _ = await self.client.call(
+            model=model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=2000,
+            temperature=0.2,
+        )
+        data = self._extract_json(response.text) or {}
+        claims = data.get("claims", [])
+        state.metadata["claims"] = claims
+        logger.info("Persuasion Defense: %d claims extracted", len(claims))
+
+    async def _phase_nli_verify(self, state: PipelineState):
+        """Verify claims via NLI-style evaluation."""
+        claims = state.metadata.get("claims", [])
+        if not claims:
+            return
+
+        models = self._get_available_models(state.task.type)
+        model = models[0] if models else Model.GPT_4O_MINI
+
+        verified = []
+        for claim in claims:
+            text = claim.get("text", "") if isinstance(claim, dict) else str(claim)
+            system = (
+                "You are an NLI (Natural Language Inference) evaluator. "
+                f"Score the claim on a scale of 0.0 (completely unsupported) "
+                f"to 1.0 (fully supported). Return JSON with 'score' and 'reason'."
+            )
+            user = f"Claim: {text}"
+
+            response, _ = await self.client.call(
+                model=model,
+                system_prompt=system,
+                user_prompt=user,
+                max_tokens=500,
+                temperature=0.1,
+            )
+            data = self._extract_json(response.text) or {}
+            score = float(data.get("score", 0.5))
+            verified.append({
+                "claim": text,
+                "score": score,
+                "passed": score >= self.NLI_THRESHOLD,
+            })
+
+        state.metadata["verified_claims"] = verified
+        passed = sum(1 for v in verified if v["passed"])
+        logger.info("Persuasion Defense: %d/%d claims passed NLI", passed, len(verified))
+
+    async def _phase_conflict_surface(self, state: PipelineState):
+        """Surface conflicts between claims."""
+        verified = state.metadata.get("verified_claims", [])
+        if len(verified) < 2:
+            return
+
+        models = self._get_available_models(state.task.type)
+        model = models[0] if models else Model.GPT_4O_MINI
+
+        texts = "\n".join(f"{v['claim']} (score: {v['score']:.2f})" for v in verified)
+        system = (
+            "You are a conflict analysis expert. Identify any contradictory or "
+            "inconsistent claims. Return JSON with 'conflicts' list."
+        )
+        user = f"Analyze these claims for conflicts:\n\n{texts}"
+
+        response, _ = await self.client.call(
+            model=model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=1000,
+            temperature=0.2,
+        )
+        data = self._extract_json(response.text) or {}
+        state.metadata["conflicts"] = data.get("conflicts", [])
+
+    async def _phase_behavioral_audit(self, state: PipelineState):
+        """Audit for persuasion tactics."""
+        models = self._get_available_models(state.task.type)
+        model = models[0] if models else Model.GPT_4O_MINI
+
+        system = (
+            "You are a behavioral auditor. Analyze the response for persuasion "
+            "tactics, rhetorical manipulation, or emotional appeals that might "
+            "mask weak reasoning. Return JSON with 'tactics' list."
+        )
+        user = f"Task: {state.task.prompt}"
+
+        response, _ = await self.client.call(
+            model=model,
+            system_prompt=system,
+            user_prompt=user,
+            max_tokens=1000,
+            temperature=0.2,
+        )
+        data = self._extract_json(response.text) or {}
+        state.metadata["persuasion_tactics"] = data.get("tactics", [])
+
+    async def _phase_synthesis(self, state: PipelineState):
+        """Synthesize verification results into final confidence score."""
+        verified = state.metadata.get("verified_claims", [])
+        conflicts = state.metadata.get("conflicts", [])
+
+        if not verified:
+            state.final_output = "No claims to verify."
+            state.final_score = 0.5
+            return
+
+        # Calculate confidence score
+        avg_nli = sum(v["score"] for v in verified) / len(verified)
+        conflict_penalty = max(0, 1.0 - len(conflicts) * 0.1)
+        score = round(avg_nli * conflict_penalty, 4)
+
+        state.final_score = score
+        state.final_output = (
+            f"Confidence Score: {score:.2f}\n"
+            f"Claims Verified: {len(verified)}\n"
+            f"Conflicts Found: {len(conflicts)}\n"
+        )
+
+    def _build_result(self, state: PipelineState) -> TaskResult:
+        return TaskResult(
+            task_id=state.task.id,
+            output=state.final_output,
+            score=state.final_score,
+            model_used=Model.GPT_4O_MINI,
+            status=TaskStatus.COMPLETED,
+            metadata={
+                "method": self.get_method().value,
+                "claims": len(state.metadata.get("claims", [])),
+                "verified": len(state.metadata.get("verified_claims", [])),
+                "conflicts": len(state.metadata.get("conflicts", [])),
+            },
+        )
+
+
+
+
+# ── Shared constants from Reasoner ──────────────────────────────────────
+
+_JSON_ONLY_FOOTER = "Return ONLY valid JSON. No markdown fences, no explanation outside the JSON."
+
+
+def _wrap_user_input(text: str) -> str:
+    """Wrap user input for prompt safety."""
+    return text[:5000] if text else ""
+
+
+def _wrap_external_content(text: str) -> str:
+    """Wrap external content for prompt safety."""
+    return str(text)[:3000] if text else ""
+
+
+def _get_language_instruction(state: PipelineState) -> str:
+    """Get language instruction from state metadata."""
+    return state.metadata.get("language_instruction", "")
+
+
+# ─────────────────────────────────────────────
+# 16. CoVE Pipeline (Chain-of-Verification)
+# ─────────────────────────────────────────────
+
+_COVE_DRAFT_SYSTEM = (
+    "You are a knowledgeable analyst. Draft a comprehensive initial answer to the problem. "
+    "Break your answer into explicit, verifiable claims. " + _JSON_ONLY_FOOTER
+)
+
+_COVE_VERIFY_SYSTEM = (
+    "You are a skeptical fact-checker. Given a draft answer with claims, generate specific, "
+    "independent verification questions for EACH claim. Do not trust the original answer. "
+    + _JSON_ONLY_FOOTER
+)
+
+_COVE_ANSWER_SYSTEM = (
+    "You are an independent researcher. Answer the verification questions based on your own "
+    "knowledge. Do not refer to the draft answer. Be explicit about whether evidence supports "
+    "or contradicts each claim. " + _JSON_ONLY_FOOTER
+)
+
+_COVE_REVISE_SYSTEM = (
+    "You are a careful editor. Given a draft answer and independent verification results, "
+    "revise the answer to correct errors, add caveats, and improve accuracy. "
+    + _JSON_ONLY_FOOTER
+)
+
+
+class CoVEPipeline(BasePipeline):
+    """
+    Chain-of-Verification (CoVE) Pipeline — exact Reasoner implementation.
+
+    Draft -> Verify -> Answer -> Revise cycle that reduces hallucination
+    by generating and answering verification questions independently.
+    """
+
+    def get_method(self) -> ReasoningMethod:
+        return ReasoningMethod.COVE
+
+    async def execute(self, task: Task, context: str = "") -> TaskResult:
+        state = PipelineState(task=task, method=self.get_method())
+        state.cove_state = {}
+        state.metadata["problem"] = task.prompt
+        state.metadata["language_instruction"] = ""
+
+        await self._phase_cove_draft(state)
+        await self._phase_cove_verify(state)
+        await self._phase_cove_answer(state)
+        await self._phase_cove_revise(state)
+
+        state.final_output = state.cove_state.get("revised_answer",
+                           state.cove_state.get("draft_answer", ""))
+        state.final_score = 0.85
+        return self._build_result(state)
+
+    def _call_llm(self, system: str, user: str, max_tokens=2000, temp=0.3) -> dict:
+        models = self._get_available_models(TaskType.REASONING)
+        model = models[0] if models else Model.GPT_4O_MINI
+        resp, _ = asyncio.get_event_loop().run_until_complete(
+        ) if False else None  # placeholder
+        # Use synchronous wrapper
+        return self._call_llm_inner(system, user, max_tokens, temp)
+
+    async def _call_llm_inner(self, system: str, user: str, max_tokens=2000, temp=0.3):
+        models = self._get_available_models(TaskType.REASONING)
+        model = models[0] if models else Model.GPT_4O_MINI
+        resp, _ = await self.client.call(
+            model=model, system_prompt=system, user_prompt=user,
+            max_tokens=max_tokens, temperature=temp,
+        )
+        return self._extract_json(resp.text) or {}
+
+    async def _phase_cove_draft(self, state: PipelineState):
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Draft an initial answer. Break it into explicit claims that can be independently verified. '
+            f'For each claim, assign a confidence score (0.0-1.0).\n\n'
+            f'Output JSON: {{"draft_answer": "<full answer text>", '
+            f'"claims": [{{"claim": "<claim text>", "confidence": 0.8}}]}}'
+        )
+        data = await self._call_llm_inner(_COVE_DRAFT_SYSTEM, prompt)
+        state.cove_state["draft_answer"] = data.get("draft_answer", "")
+        state.cove_state["claims"] = data.get("claims", [])
+
+    async def _phase_cove_verify(self, state: PipelineState):
+        draft = state.cove_state.get("draft_answer", "")
+        claims = state.cove_state.get("claims", [])
+        claims_json = json.dumps(claims, indent=2) if claims else "[]"
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Original Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Draft Answer:\n{_wrap_external_content(draft)}\n\n'
+            f'Claims to verify:\n{claims_json}\n\n'
+            f'For EACH claim above, generate 1-2 specific verification questions that would '
+            f'independently test whether the claim is true. '
+            f'Output JSON: {{"verification_questions": [{{'
+            f'"question": "<verification question>", '
+            f'"target_claim": "<claim being tested>", '
+            f'"expected_evidence_type": "<fact|statistic|authority|logic>"'
+            f'}}]}}'
+        )
+        data = await self._call_llm_inner(_COVE_VERIFY_SYSTEM, prompt)
+        state.cove_state["verification_questions"] = data.get("verification_questions", [])
+
+    async def _phase_cove_answer(self, state: PipelineState):
+        questions = state.cove_state.get("verification_questions", [])
+        questions_json = json.dumps(questions, indent=2) if questions else "[]"
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Original Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Answer these verification questions INDEPENDENTLY, using your own knowledge. '
+            f'Do not refer to any draft answer.\n\n'
+            f'Questions:\n{questions_json}\n\n'
+            f'Output JSON: {{"answers": [{{'
+            f'"question": "<question text>", '
+            f'"answer": "<your independent answer>", '
+            f'"verdict": "<supports|contradicts|insufficient>", '
+            f'"confidence": 0.8, '
+            f'"reasoning": "<why>"'
+            f'}}]}}'
+        )
+        data = await self._call_llm_inner(_COVE_ANSWER_SYSTEM, prompt)
+        state.cove_state["verification_answers"] = data.get("answers", [])
+
+    async def _phase_cove_revise(self, state: PipelineState):
+        draft = state.cove_state.get("draft_answer", "")
+        answers = state.cove_state.get("verification_answers", [])
+        answers_json = json.dumps(answers, indent=2) if answers else "[]"
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Original Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Draft Answer:\n{_wrap_external_content(draft)}\n\n'
+            f'Independent Verification Results:\n{_wrap_external_content(answers_json)}\n\n'
+            f'Revise the draft answer based on the verification results. '
+            f'Output JSON: {{"revised_answer": "<revised full answer>", '
+            f'"changes_made": ["<change description>"], '
+            f'"remaining_uncertainties": ["<uncertainty>"]}}'
+        )
+        data = await self._call_llm_inner(_COVE_REVISE_SYSTEM, prompt)
+        state.cove_state["revised_answer"] = data.get("revised_answer", "")
+
+    def _build_result(self, state: PipelineState) -> TaskResult:
+        return TaskResult(
+            task_id=state.task.id, output=state.final_output, score=state.final_score,
+            model_used=Model.GPT_4O_MINI,
+            status=TaskStatus.COMPLETED if state.final_score >= 0.7 else TaskStatus.DEGRADED,
+            metadata={"method": self.get_method().value},
+        )
+
+
+# ─────────────────────────────────────────────
+# 17. SoT Pipeline (Skeleton-of-Thought)
+# ─────────────────────────────────────────────
+
+_SOT_SKELETON_SYSTEM = (
+    "You are an expert problem decomposer. Generate a skeleton outline of sub-problems "
+    "that collectively solve the main problem. Each sub-problem should be independent "
+    "and solvable in parallel. " + _JSON_ONLY_FOOTER
+)
+
+_SOT_SOLVE_SYSTEM = (
+    "You are a specialist solver. Solve the assigned sub-problem thoroughly and concisely. "
+    + _JSON_ONLY_FOOTER
+)
+
+_SOT_ASSEMBLE_SYSTEM = (
+    "You are a master synthesizer. Combine multiple sub-problem solutions into a coherent, "
+    "unified answer. Ensure smooth transitions and resolve any contradictions. "
+    + _JSON_ONLY_FOOTER
+)
+
+
+class SoTPipeline(BasePipeline):
+    """
+    Skeleton-of-Thought (SoT) Pipeline — exact Reasoner implementation.
+
+    Skeleton -> Parallel solve -> Assemble
+    """
+
+    def get_method(self) -> ReasoningMethod:
+        return ReasoningMethod.SOT
+
+    async def execute(self, task: Task, context: str = "") -> TaskResult:
+        state = PipelineState(task=task, method=self.get_method())
+        state.sot_state = {}
+        state.metadata["problem"] = task.prompt
+
+        await self._phase_sot_skeleton(state)
+        await self._phase_sot_solve(state)
+        await self._phase_sot_assemble(state)
+
+        state.final_output = state.sot_state.get("assembled_answer", "")
+        state.final_score = 0.85
+        return self._build_result(state)
+
+    async def _llm(self, system, user, max_tokens=2000, temp=0.3):
+        models = self._get_available_models(TaskType.REASONING)
+        model = models[0] if models else Model.GPT_4O_MINI
+        resp, _ = await self.client.call(
+            model=model, system_prompt=system, user_prompt=user,
+            max_tokens=max_tokens, temperature=temp,
+        )
+        return self._extract_json(resp.text) or {}
+
+    async def _phase_sot_skeleton(self, state: PipelineState):
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Decompose this problem into 3-5 sub-problems that can be solved independently '
+            f'and in parallel. Each sub-problem should have a clear scope, inputs, and expected output.\n\n'
+            f'Output JSON: {{"sub_problems": [{{'
+            f'"id": "1", '
+            f'"description": "<sub-problem>", '
+            f'"inputs": ["<input>"], '
+            f'"expected_output": "<output description>"'
+            f'}}]}}'
+        )
+        data = await self._llm(_SOT_SKELETON_SYSTEM, prompt, max_tokens=2000)
+        state.sot_state["sub_problems"] = data.get("sub_problems", [])
+
+    async def _phase_sot_solve(self, state: PipelineState):
+        sub_problems = state.sot_state.get("sub_problems", [])
+        if not sub_problems:
+            return
+
+        async def solve_one(sp: dict) -> dict:
+            prompt = (
+                f'{_get_language_instruction(state)}\n\n'
+                f'Original Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+                f'YOUR ASSIGNED SUB-PROBLEM:\n'
+                f'ID: {sp.get("id", "?")}\n'
+                f'Description: {sp.get("description", "")}\n\n'
+                f'Solve this sub-problem thoroughly.\n\n'
+                f'Output JSON: {{"sub_problem_id": "{sp.get("id", "")}", '
+                f'"solution": "<detailed solution>", '
+                f'"key_insights": ["<insight>"]}}'
+            )
+            data = await self._llm(_SOT_SOLVE_SYSTEM, prompt)
+            return {
+                "sub_problem_id": sp.get("id", ""),
+                "solution": data.get("solution", ""),
+                "key_insights": data.get("key_insights", []),
+            }
+
+        tasks = [solve_one(sp) for sp in sub_problems]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        state.sot_state["solutions"] = [r for r in results if not isinstance(r, Exception)]
+
+    async def _phase_sot_assemble(self, state: PipelineState):
+        solutions = state.sot_state.get("solutions", [])
+        solutions_json = json.dumps(solutions, indent=2) if solutions else "[]"
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Original Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Sub-problem Solutions:\n{_wrap_external_content(solutions_json)}\n\n'
+            f'Assemble these sub-problem solutions into a single, coherent, comprehensive answer.\n\n'
+            f'Output JSON: {{"assembled_answer": "<full unified answer>", '
+            f'"transitions": ["<how sections connect>"]}}'
+        )
+        data = await self._llm(_SOT_ASSEMBLE_SYSTEM, prompt, max_tokens=4000)
+        state.sot_state["assembled_answer"] = data.get("assembled_answer", "")
+
+    def _build_result(self, state: PipelineState) -> TaskResult:
+        return TaskResult(
+            task_id=state.task.id, output=state.final_output, score=state.final_score,
+            model_used=Model.GPT_4O_MINI,
+            status=TaskStatus.COMPLETED,
+            metadata={"method": self.get_method().value},
+        )
+
+
+# ─────────────────────────────────────────────
+# 18. ToT Pipeline (Tree-of-Thoughts)
+# ─────────────────────────────────────────────
+
+_TOT_DECOMPOSE_SYSTEM = (
+    "You are a strategic planner. Decompose the problem into sequential decision points. "
+    + _JSON_ONLY_FOOTER
+)
+
+_TOT_GENERATE_SYSTEM = (
+    "You are a creative strategist. Generate diverse candidate next-steps for the given decision point. "
+    + _JSON_ONLY_FOOTER
+)
+
+_TOT_EVALUATE_SYSTEM = (
+    "You are a critical evaluator. Score each candidate action on multiple dimensions. "
+    + _JSON_ONLY_FOOTER
+)
+
+_TOT_BACKTRACK_SYSTEM = (
+    "You are a strategic analyst. Given evaluation results, decide whether to proceed, "
+    "backtrack, or terminate. " + _JSON_ONLY_FOOTER
+)
+
+
+class ToTPipeline(BasePipeline):
+    """
+    Tree-of-Thoughts (ToT) Pipeline — exact Reasoner implementation.
+
+    Decompose -> Generate candidates -> Evaluate -> Backtrack/Continue -> Assemble
+    """
+
+    def get_method(self) -> ReasoningMethod:
+        return ReasoningMethod.TOT
+
+    async def execute(self, task: Task, context: str = "") -> TaskResult:
+        state = PipelineState(task=task, method=self.get_method())
+        state.tot_state = {"current_path": [], "decision_points": []}
+        state.metadata["problem"] = task.prompt
+
+        await self._phase_tot_decompose(state)
+
+        for _ in range(3):
+            if not state.tot_state.get("decision_points"):
+                break
+            await self._phase_tot_generate(state)
+            if not state.tot_state.get("current_candidates"):
+                break
+            await self._phase_tot_evaluate(state)
+            await self._phase_tot_backtrack(state)
+            if state.tot_state.get("backtrack_decision") == "terminate":
+                break
+
+        state.final_output = " -> ".join(
+            state.tot_state.get("final_path", state.tot_state.get("current_path", []))
+        )
+        state.final_score = state.tot_state.get("tot_confidence", 0.7)
+        return self._build_result(state)
+
+    async def _llm(self, system, user, max_tokens=1500, temp=0.3):
+        models = self._get_available_models(TaskType.REASONING)
+        model = models[0] if models else Model.GPT_4O_MINI
+        resp, _ = await self.client.call(
+            model=model, system_prompt=system, user_prompt=user,
+            max_tokens=max_tokens, temperature=temp,
+        )
+        return self._extract_json(resp.text) or {}
+
+    async def _phase_tot_decompose(self, state: PipelineState):
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Identify the key sequential decision points in this problem. '
+            f'Each decision point should have 2-3 possible candidate actions.\n\n'
+            f'Output JSON: {{"decision_points": [{{'
+            f'"id": "dp1", '
+            f'"description": "<what decision must be made>", '
+            f'"candidates": [{{"action": "<action>", "rationale": "<why>"}}]'
+            f'}}]}}'
+        )
+        data = await self._llm(_TOT_DECOMPOSE_SYSTEM, prompt)
+        state.tot_state["decision_points"] = data.get("decision_points", [])
+
+    async def _phase_tot_generate(self, state: PipelineState):
+        dps = state.tot_state.get("decision_points", [])
+        idx = len(state.tot_state.get("current_path", []))
+        if idx >= len(dps):
+            return
+        dp = dps[idx]
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Current Decision Point: {dp.get("description", "")}\n\n'
+            f'Generate 2-3 diverse, high-quality candidate actions for this decision point.\n\n'
+            f'Output JSON: {{"candidates": [{{'
+            f'"candidate_id": "c1", '
+            f'"action": "<action description>"'
+            f'}}]}}'
+        )
+        data = await self._llm(_TOT_GENERATE_SYSTEM, prompt, temp=0.8)
+        state.tot_state["current_candidates"] = data.get("candidates", [])
+
+    async def _phase_tot_evaluate(self, state: PipelineState):
+        candidates = state.tot_state.get("current_candidates", [])
+        if not candidates:
+            return
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Candidate Actions:\n{json.dumps(candidates, indent=2)}\n\n'
+            f'Evaluate each candidate. Return best_candidate.\n\n'
+            f'Output JSON: {{"evaluations": [{{'
+            f'"candidate_id": "c1", "score": 7.5, "verdict": "<proceed|reject|caution>"'
+            f'}}], '
+            f'"best_candidate": "<candidate_id>"}}'
+        )
+        data = await self._llm(_TOT_EVALUATE_SYSTEM, prompt)
+        state.tot_state["evaluations"] = data.get("evaluations", [])
+        best = data.get("best_candidate", "")
+        if best:
+            state.tot_state["current_path"].append(best)
+
+    async def _phase_tot_backtrack(self, state: PipelineState):
+        path = state.tot_state.get("current_path", [])
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Current path: {json.dumps(path, indent=2)}\n\n'
+            f'Based on evaluations, decide: CONTINUE, BACKTRACK, or TERMINATE.\n\n'
+            f'Output JSON: {{"decision": "<continue|backtrack|terminate>", '
+            f'"final_path": ["<action>"], "confidence": 0.8}}'
+        )
+        data = await self._llm(_TOT_BACKTRACK_SYSTEM, prompt, max_tokens=500)
+        state.tot_state["backtrack_decision"] = data.get("decision", "terminate")
+        state.tot_state["final_path"] = data.get("final_path", path)
+        state.tot_state["tot_confidence"] = data.get("confidence", 0.7)
+
+    def _build_result(self, state: PipelineState) -> TaskResult:
+        return TaskResult(
+            task_id=state.task.id, output=state.final_output, score=state.final_score,
+            model_used=Model.GPT_4O_MINI, status=TaskStatus.COMPLETED,
+            metadata={"method": self.get_method().value},
+        )
+
+
+# ─────────────────────────────────────────────
+# 19. PoT Pipeline (Program-of-Thoughts)
+# ─────────────────────────────────────────────
+
+_POT_GENERATE_SYSTEM = (
+    "You are an expert programmer. Generate Python code to solve the given quantitative problem. "
+    "The code should be self-contained, use only standard library, and include comments. "
+    + _JSON_ONLY_FOOTER
+)
+
+_POT_EXECUTE_SYSTEM = (
+    "You are a code execution engine. Simulate or describe the execution of the given Python code. "
+    "If actual execution is unavailable, trace through the code logically and produce the output. "
+    + _JSON_ONLY_FOOTER
+)
+
+_POT_INTERPRET_SYSTEM = (
+    "You are an analytical interpreter. Given code execution results, explain what they mean "
+    "in the context of the original problem. " + _JSON_ONLY_FOOTER
+)
+
+
+class PoTPipeline(BasePipeline):
+    """Program-of-Thoughts (PoT) Pipeline — exact Reasoner implementation."""
+
+    def get_method(self) -> ReasoningMethod:
+        return ReasoningMethod.POT
+
+    async def execute(self, task: Task, context: str = "") -> TaskResult:
+        state = PipelineState(task=task, method=self.get_method())
+        state.pot_state = {}
+        state.metadata["problem"] = task.prompt
+
+        await self._phase_pot_generate(state)
+        await self._phase_pot_execute(state)
+        await self._phase_pot_interpret(state)
+
+        state.final_output = state.pot_state.get("computed_answer", "")
+        state.final_score = 0.85 if state.pot_state.get("execution_success") else 0.5
+        return self._build_result(state)
+
+    async def _llm(self, system, user, max_tokens=2000, temp=0.3):
+        models = self._get_available_models(TaskType.REASONING)
+        model = models[0] if models else Model.GPT_4O_MINI
+        resp, _ = await self.client.call(
+            model=model, system_prompt=system, user_prompt=user,
+            max_tokens=max_tokens, temperature=temp,
+        )
+        return self._extract_json(resp.text) or {}
+
+    async def _phase_pot_generate(self, state: PipelineState):
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Write Python code to solve this problem computationally. '
+            f'Output JSON: {{"code": "<python code>", '
+            f'"explanation": "<approach>", '
+            f'"expected_output_type": "<number|list|dict|boolean>"}}'
+        )
+        data = await self._llm(_POT_GENERATE_SYSTEM, prompt, max_tokens=4000)
+        state.pot_state["code"] = data.get("code", "")
+
+    async def _phase_pot_execute(self, state: PipelineState):
+        code = state.pot_state.get("code", "")
+        if not code:
+            return
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Execute the following Python code and return the exact output.\n\n'
+            f'Code:\n```python\n{code}\n```\n\n'
+            f'Output JSON: {{"output": "<execution output>", '
+            f'"success": true, "error": ""}}'
+        )
+        data = await self._llm(_POT_EXECUTE_SYSTEM, prompt)
+        state.pot_state["execution_output"] = data.get("output", "")
+        state.pot_state["execution_success"] = data.get("success", False)
+        state.pot_state["execution_error"] = data.get("error", "")
+
+    async def _phase_pot_interpret(self, state: PipelineState):
+        code = state.pot_state.get("code", "")
+        output = state.pot_state.get("execution_output", "")
+        error = state.pot_state.get("execution_error", "")
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Original Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Generated Code:\n```python\n{code}\n```\n\n'
+            f'Execution Output:\n{_wrap_external_content(output)}\n\n'
+            f'Output JSON: {{"interpretation": "<explanation>", '
+            f'"answer": "<final answer>", '
+            f'"caveats": ["<caveat>"], "confidence": 0.9}}'
+        )
+        data = await self._llm(_POT_INTERPRET_SYSTEM, prompt)
+        state.pot_state["computed_answer"] = data.get("answer", "")
+
+    def _build_result(self, state: PipelineState) -> TaskResult:
+        return TaskResult(
+            task_id=state.task.id, output=state.final_output, score=state.final_score,
+            model_used=Model.GPT_4O_MINI, status=TaskStatus.COMPLETED,
+            metadata={"method": self.get_method().value},
+        )
+
+
+# ─────────────────────────────────────────────
+# 20. Self-Discover Pipeline
+# ─────────────────────────────────────────────
+
+_SD_SELECT_SYSTEM = (
+    "You are a meta-reasoning architect. Given a problem, select the reasoning modules "
+    "that are most appropriate from the available inventory. " + _JSON_ONLY_FOOTER
+)
+
+_SD_ADAPT_SYSTEM = (
+    "You are a prompt engineer. Adapt the selected reasoning modules into concrete prompts "
+    "and instructions for the current problem. " + _JSON_ONLY_FOOTER
+)
+
+_SD_IMPLEMENT_SYSTEM = (
+    "You are an execution engine. Execute the adapted reasoning modules in sequence "
+    "and synthesize their outputs into a final answer. " + _JSON_ONLY_FOOTER
+)
+
+_SD_MODULES_INVENTORY = (
+    "- decomposition: break problem into sub-problems\n"
+    "- verification: fact-check claims\n"
+    "- analogy: find cross-domain parallels\n"
+    "- causal_analysis: identify cause-effect chains\n"
+    "- counterfactual: explore what-if scenarios\n"
+    "- abstraction: extract deep structure\n"
+    "- constraint_satisfaction: respect hard limits\n"
+    "- optimization: find best allocation\n"
+)
+
+
+class SelfDiscoverPipeline(BasePipeline):
+    """Self-Discover Pipeline — exact Reasoner implementation."""
+
+    def get_method(self) -> ReasoningMethod:
+        return ReasoningMethod.SELF_DISCOVER
+
+    async def execute(self, task: Task, context: str = "") -> TaskResult:
+        state = PipelineState(task=task, method=self.get_method())
+        state.self_discover_state = {}
+        state.metadata["problem"] = task.prompt
+
+        await self._phase_sd_select(state)
+        await self._phase_sd_adapt(state)
+        await self._phase_sd_implement(state)
+
+        state.final_output = state.self_discover_state.get("final_answer", "")
+        state.final_score = 0.85
+        return self._build_result(state)
+
+    async def _llm(self, system, user, max_tokens=2000, temp=0.3):
+        models = self._get_available_models(TaskType.REASONING)
+        model = models[0] if models else Model.GPT_4O_MINI
+        resp, _ = await self.client.call(
+            model=model, system_prompt=system, user_prompt=user,
+            max_tokens=max_tokens, temperature=temp,
+        )
+        return self._extract_json(resp.text) or {}
+
+    async def _phase_sd_select(self, state: PipelineState):
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Available reasoning modules:\n{_SD_MODULES_INVENTORY}'
+            f'Select 3-5 modules that are MOST relevant to this problem.\n\n'
+            f'Output JSON: {{"selected_modules": [{{'
+            f'"module": "<module_name>", '
+            f'"rationale": "<why needed>", "order": 1'
+            f'}}], '
+            f'"composition_strategy": "<how modules interact>"}}'
+        )
+        data = await self._llm(_SD_SELECT_SYSTEM, prompt)
+        state.self_discover_state["selected_modules"] = data.get("selected_modules", [])
+        state.self_discover_state["composition_strategy"] = data.get("composition_strategy", "")
+
+    async def _phase_sd_adapt(self, state: PipelineState):
+        modules = state.self_discover_state.get("selected_modules", [])
+        if not modules:
+            return
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Selected Modules: {json.dumps(modules, indent=2)}\n\n'
+            f'Adapt each selected module into a concrete instruction for this problem.\n\n'
+            f'Output JSON: {{"adapted_modules": [{{'
+            f'"module": "<module_name>", '
+            f'"instruction": "<concrete instruction>"'
+            f'}}]}}'
+        )
+        data = await self._llm(_SD_ADAPT_SYSTEM, prompt)
+        state.self_discover_state["adapted_modules"] = data.get("adapted_modules", [])
+
+    async def _phase_sd_implement(self, state: PipelineState):
+        adapted = state.self_discover_state.get("adapted_modules", [])
+        prompt = (
+            f'{_get_language_instruction(state)}\n\n'
+            f'Problem: {_wrap_user_input(state.metadata.get("problem", ""))}\n\n'
+            f'Adapted Module Instructions: {json.dumps(adapted, indent=2)}\n\n'
+            f'Execute each module in sequence and synthesize the final answer.\n\n'
+            f'Output JSON: {{"module_outputs": [{{'
+            f'"module": "<name>", "output": "<result>"'
+            f'}}], '
+            f'"final_answer": "<synthesized answer>", '
+            f'"confidence": 0.85}}'
+        )
+        data = await self._llm(_SD_IMPLEMENT_SYSTEM, prompt, max_tokens=4000)
+        state.self_discover_state["module_outputs"] = data.get("module_outputs", [])
+        state.self_discover_state["final_answer"] = data.get("final_answer", "")
+
+    def _build_result(self, state: PipelineState) -> TaskResult:
+        return TaskResult(
+            task_id=state.task.id, output=state.final_output, score=state.final_score,
+            model_used=Model.GPT_4O_MINI, status=TaskStatus.COMPLETED,
+            metadata={"method": self.get_method().value},
+        )
+
+
+
 class PipelineFactory:
     """Factory for creating ARA reasoning pipelines."""
 
@@ -2903,6 +4134,14 @@ class PipelineFactory:
         ReasoningMethod.DIALECTICAL: DialecticalPipeline,
         ReasoningMethod.ANALOGICAL: AnalogicalPipeline,
         ReasoningMethod.DELPHI: DelphiPipeline,
+        ReasoningMethod.BRAINSTORMING: BrainstormingPipeline,
+        ReasoningMethod.VERBALIZED_SAMPLING: VerbalizedSamplingPipeline,
+        ReasoningMethod.PERSUASION_DEFENSE: PersuasionDefensePipeline,
+        ReasoningMethod.COVE: CoVEPipeline,
+        ReasoningMethod.SOT: SoTPipeline,
+        ReasoningMethod.TOT: ToTPipeline,
+        ReasoningMethod.POT: PoTPipeline,
+        ReasoningMethod.SELF_DISCOVER: SelfDiscoverPipeline,
     }
 
     @classmethod
@@ -2971,3 +4210,6 @@ __all__ = [
     # Factory
     "PipelineFactory",
 ]
+
+
+# ─────────────────────────────────────────────

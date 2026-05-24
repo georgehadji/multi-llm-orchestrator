@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 
-from .models import Model
+from .models import Model, ProjectType, Language
 
 logger = logging.getLogger("orchestrator.architecture_advisor")
 
@@ -35,6 +35,9 @@ class ArchitectureDecision:
     data_paradigm: str = "none"
     api_paradigm: str = "none"
     rationale: str = ""
+    # NEW: Project type and language for proper routing
+    project_type: ProjectType = ProjectType.BACKEND
+    language: Language = Language.PYTHON
 
 
 _TYPE_DEFAULTS = {
@@ -94,6 +97,35 @@ _TYPE_DEFAULTS = {
         "run_command": "python main.py",
         "requires_docker": False,
     },
+    # FRONTEND TYPES - Added for proper frontend project support
+    "react-ts": {
+        "tech_stack": ["typescript", "react", "vite"],
+        "entry_point": "src/main.tsx",
+        "test_command": "npm test",
+        "run_command": "npm run dev",
+        "requires_docker": False,
+    },
+    "react-js": {
+        "tech_stack": ["javascript", "react", "vite"],
+        "entry_point": "src/main.jsx",
+        "test_command": "npm test",
+        "run_command": "npm run dev",
+        "requires_docker": False,
+    },
+    "vue-ts": {
+        "tech_stack": ["typescript", "vue", "vite"],
+        "entry_point": "src/main.ts",
+        "test_command": "npm test",
+        "run_command": "npm run dev",
+        "requires_docker": False,
+    },
+    "threejs": {
+        "tech_stack": ["typescript", "react", "three.js", "react-three-fiber"],
+        "entry_point": "src/main.tsx",
+        "test_command": "npm test",
+        "run_command": "npm run dev",
+        "requires_docker": False,
+    },
 }
 
 _ARCH_DEFAULTS = {
@@ -145,10 +177,135 @@ _ARCH_DEFAULTS = {
         "data_paradigm": "relational",
         "api_paradigm": "rest",
     },
+    # FRONTEND ARCHITECTURE DEFAULTS
+    "react-ts": {
+        "structural_pattern": "component-based",
+        "topology": "spa",
+        "data_paradigm": "none",
+        "api_paradigm": "client",
+    },
+    "react-js": {
+        "structural_pattern": "component-based",
+        "topology": "spa",
+        "data_paradigm": "none",
+        "api_paradigm": "client",
+    },
+    "vue-ts": {
+        "structural_pattern": "component-based",
+        "topology": "spa",
+        "data_paradigm": "none",
+        "api_paradigm": "client",
+    },
+    "threejs": {
+        "structural_pattern": "component-based",
+        "topology": "spa",
+        "data_paradigm": "none",
+        "api_paradigm": "webgl",
+    },
 }
 
 _FALLBACK_TYPE = "script"
 _FALLBACK_ARCH = _ARCH_DEFAULTS["script"]
+
+
+def detect_project_type(description: str) -> tuple[ProjectType, Language]:
+    """
+    Detect project type and programming language from description.
+    
+    Uses keyword-based detection for reliable classification before LLM analysis.
+    This ensures frontend projects don't get processed as Python backend.
+    
+    Args:
+        description: Project description
+        
+    Returns:
+        Tuple of (ProjectType, Language)
+    """
+    desc_lower = description.lower()
+    
+    # FRONTEND DETECTION - Check first (more specific than backend)
+    frontend_keywords = [
+        'react', 'vue', 'angular', 'svelte', 'solid', 'preact',
+        'next.js', 'nuxt', 'gatsby', 'remix', 'astro',
+        'frontend', 'front-end', 'web app', 'spa ', 'single page',
+        'typescript', 'javascript', 'jsx', 'tsx', '.tsx', '.jsx',
+        'three.js', 'webgl', 'canvas', 'dom manipulation',
+        'tailwind', 'bootstrap', 'material-ui', 'chakra',
+        'webpack', 'vite', 'parcel', 'esbuild',
+        'css-in-js', 'styled-components', 'emotion',
+    ]
+    
+    if any(kw in desc_lower for kw in frontend_keywords):
+        # Determine if TypeScript or JavaScript
+        if any(kw in desc_lower for kw in ['typescript', '.tsx', 'ts ', 'type script']):
+            logger.info("Detected FRONTEND project with TypeScript")
+            return ProjectType.FRONTEND, Language.TYPESCRIPT
+        else:
+            logger.info("Detected FRONTEND project with JavaScript")
+            return ProjectType.FRONTEND, Language.JAVASCRIPT
+    
+    # MOBILE DETECTION
+    mobile_keywords = [
+        'ios', 'android', 'react native', 'flutter', 'mobile app',
+        'swift', 'kotlin', 'xamarin', 'cordova', 'ionic',
+    ]
+    
+    if any(kw in desc_lower for kw in mobile_keywords):
+        if 'flutter' in desc_lower or 'dart' in desc_lower:
+            logger.info("Detected MOBILE project with Dart/Flutter")
+            return ProjectType.MOBILE, Language.DART
+        else:
+            logger.info("Detected MOBILE project with TypeScript")
+            return ProjectType.MOBILE, Language.TYPESCRIPT
+    
+    # CLI TOOLS
+    cli_keywords = [
+        'cli ', 'command line', 'command-line', 'terminal app',
+        'console app', 'shell tool', 'bash script',
+    ]
+    
+    if any(kw in desc_lower for kw in cli_keywords):
+        # CLI can be Python, Go, or Rust - default to Python
+        if 'go ' in desc_lower or 'golang' in desc_lower:
+            logger.info("Detected CLI project with Go")
+            return ProjectType.CLI, Language.GO
+        elif 'rust' in desc_lower:
+            logger.info("Detected CLI project with Rust")
+            return ProjectType.CLI, Language.RUST
+        else:
+            logger.info("Detected CLI project with Python")
+            return ProjectType.CLI, Language.PYTHON
+    
+    # FULLSTACK (has both frontend and backend)
+    fullstack_keywords = [
+        'fullstack', 'full-stack', 'full stack',
+        'mern', 'mean', 'pern', 'nextjs fullstack',
+    ]
+    
+    if any(kw in desc_lower for kw in fullstack_keywords):
+        logger.info("Detected FULLSTACK project")
+        if 'typescript' in desc_lower:
+            return ProjectType.FULLSTACK, Language.TYPESCRIPT
+        else:
+            return ProjectType.FULLSTACK, Language.JAVASCRIPT
+    
+    # LIBRARY/PACKAGE
+    library_keywords = [
+        'library', 'package', 'sdk', 'npm package', 'pip package',
+        'reusable component', 'open source library',
+    ]
+    
+    if any(kw in desc_lower for kw in library_keywords):
+        if any(kw in desc_lower for kw in ['typescript', 'javascript', 'react']):
+            logger.info("Detected LIBRARY project with TypeScript")
+            return ProjectType.LIBRARY, Language.TYPESCRIPT
+        else:
+            logger.info("Detected LIBRARY project with Python")
+            return ProjectType.LIBRARY, Language.PYTHON
+    
+    # DEFAULT: Python backend
+    logger.info("Detected BACKEND project with Python (default)")
+    return ProjectType.BACKEND, Language.PYTHON
 
 
 def _select_model(description: str) -> Model:
@@ -376,8 +533,28 @@ class ArchitectureAdvisor:
         use_web_context : bool
             Use Nexus Search for architecture context (default: True)
         """
+        # STEP 1: Detect project type and language (critical for routing)
+        project_type, language = detect_project_type(description)
+
+        # BUG-007: Warn if frontend project detected (TypeScript/JS not fully supported)
+        if project_type.value in ("frontend", "mobile") and language.value in (
+            "typescript",
+            "javascript",
+            "dart",
+        ):
+            logger.warning(
+                f"Detected {project_type.value}/{language.value} project. "
+                f"Note: TypeScript/JavaScript/Dart generation is not fully supported; "
+                f"Python generator will be used. "
+                f"Consider using --frontend flag for frontend-specific scaffolding."
+            )
+
         if app_type_override:
-            return self.detect_from_yaml(app_type_override)
+            decision = self.detect_from_yaml(app_type_override)
+            # Preserve detected project type even with override
+            decision.project_type = project_type
+            decision.language = language
+            return decision
 
         # Get architecture context from Nexus Search
         arch_context = ""
@@ -422,6 +599,18 @@ class ArchitectureAdvisor:
             logger.warning("ArchitectureAdvisor LLM call failed (%s), using fallback", exc)
             decision = _parse_response("")
 
+        # STEP 2: Ensure project type and language are set (critical for routing)
+        decision.project_type = project_type
+        decision.language = language
+        
+        # Update commands based on language
+        if language == Language.TYPESCRIPT or language == Language.JAVASCRIPT:
+            decision.test_command = "npm test"
+            decision.run_command = "npm run dev"
+        elif language == Language.DART:
+            decision.test_command = "flutter test"
+            decision.run_command = "flutter run"
+
         _print_summary(decision, model_label)
         return decision
 
@@ -434,6 +623,17 @@ class ArchitectureAdvisor:
         type_d = _TYPE_DEFAULTS[app_type]
         arch_d = _ARCH_DEFAULTS.get(app_type, _FALLBACK_ARCH)
 
+        # Detect project type from the app_type string
+        if app_type in ["react-ts", "react-js", "vue-ts", "threejs", "nextjs"]:
+            project_type = ProjectType.FRONTEND
+            language = Language.TYPESCRIPT if "-ts" in app_type or app_type == "nextjs" else Language.JAVASCRIPT
+        elif app_type == "react-fastapi":
+            project_type = ProjectType.FULLSTACK
+            language = Language.TYPESCRIPT
+        else:
+            project_type = ProjectType.BACKEND
+            language = Language.PYTHON
+        
         return ArchitectureDecision(
             app_type=app_type,
             tech_stack=list(type_d["tech_stack"]),
@@ -447,6 +647,8 @@ class ArchitectureAdvisor:
             data_paradigm=arch_d["data_paradigm"],
             api_paradigm=arch_d["api_paradigm"],
             rationale="",
+            project_type=project_type,
+            language=language,
         )
 
 

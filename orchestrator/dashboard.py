@@ -1,12 +1,10 @@
-# DEPRECATED: Replaced by unified_dashboard.py
-# This file is kept for backward compatibility
-# Please use: from orchestrator import run_unified_dashboard
+# DEPRECATED: Dashboard variants consolidated into dashboard_core/mission_control.py
+# This file is kept for backward compatibility.
+# Please use: from orchestrator.dashboard_core.mission_control import MissionControlView
 
-from .unified_dashboard import (
-    UnifiedDashboardServer as DashboardServer,
-)
-from .unified_dashboard import (
-    run_unified_dashboard as run_dashboard,
+from .dashboard_core.mission_control import (
+    MissionControlView as DashboardServer,
+    create_view as run_dashboard,
 )
 
 __all__ = ["DashboardServer", "run_dashboard"]

@@ -236,7 +236,7 @@ class OrchestratorCore:
         Returns:
             Dictionary of task_id → Task
         """
-        from .models import Task, TaskType
+        from .models import TaskType
         from ..task_factory import TaskFactory
 
         logger.info("Decomposing project into tasks...")
@@ -258,7 +258,7 @@ class OrchestratorCore:
                 model=self._fallback_handler.select_model(TaskType.DECOMPOSITION)
                 or Model.GPT_4O_MINI,
                 prompt=decomposition_prompt,
-                max_tokens=4000,
+                max_tokens=8192,
                 timeout=120,
             )
 

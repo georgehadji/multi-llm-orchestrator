@@ -106,7 +106,7 @@ class ModeManager:
                 presence_penalty=0.1,
                 frequency_penalty=0.1,
                 stop_sequences=[],
-                model_override=Model.DEEPSEEK_CHAT,  # Use faster model
+                model_override=Model.XIAOMI_MIMO_V2_FLASH,  # Fast & reliable (was DeepSeek)
                 validation_level="none",
                 creativity_boost=0.7,
             ),
@@ -117,7 +117,7 @@ class ModeManager:
                 presence_penalty=0.8,
                 frequency_penalty=0.8,
                 stop_sequences=[],
-                model_override=Model.DEEPSEEK_REASONER,  # Use reasoning model
+                model_override=Model.STEPFUN_STEP_3_5_FLASH,  # Reliable reasoning (was DeepSeek)
                 validation_level="thorough",
                 creativity_boost=0.3,
             ),
@@ -128,7 +128,7 @@ class ModeManager:
                 presence_penalty=0.2,
                 frequency_penalty=0.2,
                 stop_sequences=[],
-                model_override=Model.DEEPSEEK_CHAT,  # Use cheaper model
+                model_override=Model.ZHIPU_GLM_4_7_FLASH,  # Cheapest reliable (was DeepSeek)
                 validation_level="none",
                 creativity_boost=0.6,
             ),
@@ -238,7 +238,8 @@ class ModeManager:
         config = self.get_config_for_mode(target_mode)
 
         # Return overridden model if specified, otherwise default
-        return config.model_override or Model.DEEPSEEK_CHAT
+        # NOTE: Default changed from DeepSeek to Xiaomi (reliable alternative)
+        return config.model_override or Model.XIAOMI_MIMO_V2_FLASH
 
     def adjust_validation_level(self, mode: OperationMode | None = None) -> str:
         """

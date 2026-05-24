@@ -53,7 +53,7 @@ def main():
     print("=" * 60)
     print(f"  🌐 Server: http://{args.host}:{args.port}")
     if frontend_path:
-        print(f"  📁 Frontend: {frontend_path}")
+        print(f"  [FE] Frontend: {frontend_path}")
     print(f"  🔄 Reload: {'Enabled' if args.reload else 'Disabled'}")
     print("=" * 60 + "\n")
 

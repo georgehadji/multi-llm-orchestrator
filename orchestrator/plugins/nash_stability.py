@@ -134,7 +134,6 @@ class NashStabilityPlugin(Plugin):
         Returns:
             Optimal model or None
         """
-        from .models import Model
 
         if not self._model_scores:
             return None

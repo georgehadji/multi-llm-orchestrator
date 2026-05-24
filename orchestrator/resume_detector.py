@@ -17,11 +17,6 @@ import time
 from dataclasses import dataclass
 
 # Optional import of StateManager for type hints
-try:
-    from .state import StateManager
-except ImportError:
-    StateManager = None
-
 
 @dataclass(frozen=True)
 class ResumeCandidate:

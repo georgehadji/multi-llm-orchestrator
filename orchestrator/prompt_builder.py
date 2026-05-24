@@ -258,3 +258,38 @@ class RevisionPrompt:
         else:
             system_prompt = "You are an expert. Produce high-quality, complete output."
         return user_prompt, system_prompt
+
+    @staticmethod
+    def with_critique_context(
+        task_prompt: str,
+        critique_report: "CritiqueReport",
+        task_type_value: str = "",
+    ) -> tuple[str, str]:
+        """
+        Build revision prompt from a typed CritiqueReport.
+
+        Unlike build() which receives raw text, this method receives a
+        structured CritiqueReport with severity levels, categories, and
+        suggestions.
+
+        Returns:
+            (user_prompt, system_prompt) tuple.
+        """
+        user_prompt = (
+            f"{task_prompt}\n\n"
+            f"[Revision required] Score: {critique_report.score:.1f}/10\n"
+            f"{critique_report.to_prompt_context()}\n\n"
+            f"Focus on fixing BLOCKER and MAJOR items first."
+        )
+        if task_type_value:
+            system_prompt = (
+                f"You are an expert executing a {task_type_value} task. "
+                f"Address each critique item by severity. "
+                f"BLOCKER items must be fixed. MAJOR items should be fixed or explained."
+            )
+        else:
+            system_prompt = (
+                "You are an expert. Address each critique item by severity. "
+                "BLOCKER items must be fixed. MAJOR items should be fixed or explained."
+            )
+        return user_prompt, system_prompt

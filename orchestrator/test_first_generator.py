@@ -29,7 +29,7 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
+import re
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
@@ -312,7 +312,7 @@ class TestFirstGenerator:
         self,
         client,  # UnifiedClient
         sandbox,  # DockerSandbox
-        max_test_iterations: int = 3,
+        max_test_iterations: int = 5,
         model_config: TDDModelConfig | None = None,
         quality_tier: str = "balanced",
         language: str | None = None,
@@ -345,6 +345,9 @@ class TestFirstGenerator:
             "implementation": 0.0,
             "review": 0.0,
         }
+
+        # Track if sandbox warning has been shown (deduplicate logs)
+        self._sandbox_warning_shown = False
 
     def _get_model_for_phase(self, phase: str) -> Model:
         """
@@ -473,11 +476,18 @@ class TestFirstGenerator:
             framework=framework,
         )
 
-        logger.info(
-            f"  {task.id}: Tests complete - "
-            f"{test_result.tests_passed}/{test_result.tests_run} passed "
-            f"({test_result.coverage_percent:.0f}% coverage)"
-        )
+        # Log test results with clear distinction between generated and executed
+        if test_result.tests_run == 0:
+            logger.warning(
+                f"  {task.id}: No tests executed (generated: {test_spec.test_count}, "
+                f"check for import/collection errors)"
+            )
+        else:
+            logger.info(
+                f"  {task.id}: Tests complete - "
+                f"{test_result.tests_passed}/{test_result.tests_run} passed "
+                f"({test_spec.test_count} generated, {test_result.coverage_percent:.0f}% quality)"
+            )
 
         # ═══════════════════════════════════════════════════════
         # Phase 4: Self-Heal if Tests Fail
@@ -619,7 +629,7 @@ class TestFirstGenerator:
                 system=f"You are an expert software tester writing comprehensive {fw_label} tests. "
                 "Focus on edge cases, error handling, and clear assertions. "
                 "Output ONLY test code, no explanations.",
-                max_tokens=3000,
+                max_tokens=4000,
                 temperature=0.3,
                 timeout=120,
             )
@@ -631,6 +641,22 @@ class TestFirstGenerator:
 
             # Clean up markdown fences
             test_code = _strip_code_fences(test_code)
+
+            # Check for truncated test code (starts with pattern but no closing)
+            if self._is_test_code_truncated(test_code, fw_template):
+                logger.warning("Test code appears truncated, retrying with higher token limit")
+                # Retry once with more tokens
+                response = await self.client.call(
+                    model=model,
+                    prompt=prompt + "\n\nIMPORTANT: Generate COMPLETE test code. Previous attempt was truncated.",
+                    system=f"You are an expert software tester writing comprehensive {fw_label} tests. "
+                    "Focus on edge cases, error handling, and clear assertions. "
+                    "Output ONLY complete test code, no explanations.",
+                    max_tokens=6000,
+                    temperature=0.3,
+                    timeout=120,
+                )
+                test_code = _strip_code_fences(response.text.strip())
 
             # Count tests — pattern depends on framework
             test_count = _count_tests(test_code, fw_template)
@@ -748,35 +774,60 @@ class TestFirstGenerator:
         """
         import re
 
-        # Pattern 1: Replace common import patterns
-        # from mymodule import something -> from main import something
-        fixed_code = re.sub(
-            r"^from\s+[\w\.]+\s+import",
-            "from main import",
-            test_code,
-            flags=re.MULTILINE,
-        )
+        lines = test_code.split("\n")
+        fixed_lines = []
 
-        # Pattern 2: Replace import module patterns
-        # import mymodule -> import main as mymodule
-        # This is trickier - we need to preserve the alias
-        lines = fixed_code.split("\n")
-        for i, line in enumerate(lines):
-            match = re.match(r"^import\s+([\w\.]+)(?:\s+as\s+(\w+))?", line)
-            if match and not line.strip().startswith("#"):
-                module = match.group(1)
-                alias = match.group(2)
-                if module != "main":
-                    if alias:
-                        lines[i] = f"import main as {alias}"
-                    else:
-                        # Try to extract the last part of dotted module name
-                        last_part = module.split(".")[-1]
-                        lines[i] = f"import main as {last_part}"
+        for line in lines:
+            stripped = line.strip()
 
-        fixed_code = "\n".join(lines)
+            # Skip comments and empty lines
+            if not stripped or stripped.startswith("#"):
+                fixed_lines.append(line)
+                continue
 
-        return fixed_code
+            # Pattern 1: from module import something -> from main import something
+            # But preserve "from __future__" and stdlib imports
+            if re.match(r"^from\s+[\w.]+\s+import", stripped):
+                # Don't modify __future__ imports or common stdlib modules
+                stdlib_modules = (
+                    "os", "sys", "typing", "json", "re", "collections",
+                    "pathlib", "datetime", "itertools", "functools"
+                )
+                match = re.match(r"^from\s+([\w.]+)\s+import", stripped)
+                if match:
+                    module = match.group(1).split(".")[0]  # Get base module
+                    if module.startswith("__") or module in stdlib_modules:
+                        fixed_lines.append(line)
+                        continue
+                # Replace with main import
+                line = re.sub(r"^from\s+[\w.]+\s+import", "from main import", line)
+                fixed_lines.append(line)
+                continue
+
+            # Pattern 2: import module -> import main as module
+            match = re.match(r"^(import\s+)([\w.]+)((?:\s+as\s+\w+)?)", stripped)
+            if match:
+                module = match.group(2)
+                alias = match.group(3).strip() if match.group(3) else None
+                # Don't modify main itself or stdlib modules
+                if module == "main" or module.split(".")[0] in (
+                    "os", "sys", "typing", "json", "re"
+                ):
+                    fixed_lines.append(line)
+                    continue
+                if alias:
+                    # Keep existing alias: import main as alias
+                    line = f"import main {alias}"
+                else:
+                    # Create alias from last part: import main as module
+                    last_part = module.split(".")[-1]
+                    line = f"import main as {last_part}"
+                fixed_lines.append(line)
+                continue
+
+            fixed_lines.append(line)
+
+        return "\n".join(fixed_lines)
 
     async def _run_tests_locally(
         self,
@@ -800,10 +851,12 @@ class TestFirstGenerator:
             TestExecutionResult with pass/fail info
         """
         logger.info("Running tests locally (no sandbox configured)")
-        logger.warning(
-            "SECURITY: Running AI-generated code without sandbox isolation. "
-            "Configure Docker sandbox for production use."
-        )
+        if not self._sandbox_warning_shown:
+            logger.warning(
+                "SECURITY: Running AI-generated code without sandbox isolation. "
+                "Configure Docker sandbox for production use."
+            )
+            self._sandbox_warning_shown = True
 
         # Check framework availability
         if framework == TestingFramework.PYTEST:
@@ -882,11 +935,26 @@ class TestFirstGenerator:
             )
 
             output = result.stdout + result.stderr
-            passed = result.returncode == 0
+            returncode_passed = result.returncode == 0
 
             # Extract test counts from pytest output
             tests_run, tests_passed = self._parse_pytest_output(output)
             tests_failed = tests_run - tests_passed
+
+            # Ensure consistency between return code and parsed results
+            # If pytest returned non-zero but we parsed all tests as passed,
+            # there might be collection errors or other issues
+            if not returncode_passed and tests_passed == tests_run and tests_run > 0:
+                # Trust the return code - something failed that parsing didn't catch
+                # (e.g., collection errors, fixture failures)
+                passed = False
+                tests_failed = tests_run
+                tests_passed = 0
+            elif returncode_passed and tests_failed > 0:
+                # Exit code says passed but parsing found failures - trust parsing
+                passed = False
+            else:
+                passed = returncode_passed and tests_failed == 0 and tests_run > 0
 
             # Calculate test quality score (not real coverage)
             quality_score = self._calculate_test_quality(
@@ -981,6 +1049,25 @@ class TestFirstGenerator:
 
             (Path(temp_dir) / "package.json").write_text(json.dumps(package_json, indent=2))
 
+            # Create tsconfig.json for TypeScript projects (Vitest)
+            if framework == TestingFramework.VITEST:
+                tsconfig = {
+                    "compilerOptions": {
+                        "target": "ES2020",
+                        "module": "ESNext",
+                        "moduleResolution": "node",
+                        "strict": True,
+                        "esModuleInterop": True,
+                        "skipLibCheck": True,
+                        "forceConsistentCasingInFileNames": True,
+                        "outDir": "./dist",
+                        "rootDir": ".",
+                    },
+                    "include": ["*.ts"],
+                    "exclude": ["node_modules"],
+                }
+                (Path(temp_dir) / "tsconfig.json").write_text(json.dumps(tsconfig, indent=2))
+
             # Write implementation file
             impl_file = Path(temp_dir) / f"main{impl_ext}"
             impl_file.write_text(implementation_code)
@@ -999,12 +1086,13 @@ class TestFirstGenerator:
             )
 
             if install_result.returncode != 0:
+                logger.error(f"npm install failed: {install_result.stderr}")
                 return TestExecutionResult(
                     passed=False,
                     tests_run=0,
                     tests_passed=0,
                     tests_failed=0,
-                    errors=[f"npm install failed: {install_result.stderr}"],
+                    errors=[f"npm install failed: {install_result.stderr[:500]}"],
                     output=install_result.stdout + install_result.stderr,
                 )
 
@@ -1437,15 +1525,23 @@ edition = "2021"
                 "```python\n"
             )
 
+            # CRITICAL FIX: Increase token limit with each iteration
+            # This fixes truncated code that couldn't be repaired
+            base_tokens = 4000
+            max_tokens = base_tokens + (iteration * 2000)  # 4000, 6000, 8000...
+            timeout_seconds = 180 + (iteration * 60)  # 180s, 240s, 300s...
+            
+            logger.info(f"  Using max_tokens={max_tokens}, timeout={timeout_seconds}s")
+
             try:
                 response = await self.client.call(
                     model=model,
                     prompt=prompt,
                     system="You are debugging code to make all tests pass. "
                     "Fix the specific errors mentioned. Output ONLY fixed code.",
-                    max_tokens=4000,
+                    max_tokens=max_tokens,  # Now increases with each iteration
                     temperature=0.1,  # Low temp for focused fixes
-                    timeout=180,
+                    timeout=timeout_seconds,
                 )
 
                 current_code = response.text.strip()
@@ -1533,6 +1629,69 @@ edition = "2021"
                 edge_cases.append(description)
 
         return edge_cases
+
+    def _is_test_code_truncated(self, test_code: str, framework_template: str) -> bool:
+        """
+        Check if test code appears to be truncated.
+
+        Args:
+            test_code: Generated test code
+            framework_template: Framework type (pytest, vitest, etc.)
+
+        Returns:
+            True if code appears truncated
+        """
+        test_code = test_code.strip()
+
+        if not test_code:
+            return True
+
+        # Check for unclosed braces/parentheses
+        open_braces = test_code.count("{")
+        close_braces = test_code.count("}")
+        if open_braces > close_braces:
+            return True
+
+        open_parens = test_code.count("(")
+        close_parens = test_code.count(")")
+        if open_parens > close_parens:
+            return True
+
+        # Check for incomplete function definitions
+        if framework_template in ("pytest", "unittest"):
+            # Check for "def test_" without body
+            lines = test_code.split("\n")
+            for i, line in enumerate(lines):
+                if line.strip().startswith("def test_") and ":" in line:
+                    # Check if next line is indented or pass/return/raise
+                    if i + 1 < len(lines):
+                        next_line = lines[i + 1]
+                        if not next_line.strip() or not (
+                            next_line.startswith(" ") or
+                            next_line.startswith("\t") or
+                            next_line.strip().startswith(("pass", "return", "raise", "assert"))
+                        ):
+                            return True
+
+        elif framework_template in ("jest", "vitest", "mocha"):
+            # Check for test/it blocks without closing
+            test_starts = len(re.findall(r"\b(?:test|it)\s*\(", test_code))
+            # Rough heuristic: look for closing braces at root level
+            # This is imperfect but catches obvious truncation
+            if test_code.count("{") > test_code.count("}") + 2:  # Allow some nesting
+                return True
+
+        # Check for lines ending with backslash (line continuation)
+        if test_code.rstrip().endswith("\\"):
+            return True
+
+        # Check for incomplete strings
+        single_quotes = test_code.count("'") - test_code.count("\\'")
+        double_quotes = test_code.count('"') - test_code.count('\\"')
+        if single_quotes % 2 != 0 or double_quotes % 2 != 0:
+            return True
+
+        return False
 
     def _calculate_test_quality(
         self,

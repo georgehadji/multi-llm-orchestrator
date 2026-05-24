@@ -93,7 +93,7 @@ async def test_registry_reset_all_closes_all():
     except RuntimeError:
         pass
     assert len(reg.tripped_models()) > 0
-    reg.reset_all()
+    await reg.reset_all()
     assert reg.tripped_models() == []
 
 

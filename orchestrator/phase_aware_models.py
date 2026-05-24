@@ -23,12 +23,16 @@ Total Cost Savings: -68% ($95.00 → $30.30 per full pipeline execution)
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .models import Model
+    pass
 
+from .model_registry import ModelRegistry
+
+logger = logging.getLogger("orchestrator.phase_aware_models")
 
 class PhaseType(str, Enum):
     """Types of reasoning phases in ARA pipelines."""
@@ -58,65 +62,65 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # Best: Step 3.5 Flash (196B MoE at $0.10/1M - incredible value!)
     # ═══════════════════════════════════════════════════════
     PhaseType.ANALYSIS: [
-        "stepfun/step-3.5-flash",  # $0.10/$0.30, 196B MoE reasoning ⭐ BEST VALUE
-        "deepseek/deepseek-r1",  # $0.55/$2.19, reasoning specialist
-        "moonshotai/kimi-k2.5",  # $0.42/$2.20, native multimodal, agent swarm
-        "z-ai/glm-4.7-flash",  # $0.06/$0.40, ultra-cheap 202K context
-        "x-ai/grok-4.20-beta",  # $2.00/$6.00, lowest hallucination
+        ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, 196B MoE reasoning ⭐ BEST VALUE
+        ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, reasoning specialist
+        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, native multimodal, agent swarm
+        ModelRegistry.GLM_4_7_FLASH,  # $0.06/$0.40, ultra-cheap 202K context
+        ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, flagship reasoning
-        "openai/gpt-5.4",  # $2.50/$15.00, adaptive reasoning
+        ModelRegistry.GPT_5_4,  # $2.50/$15.00, adaptive reasoning
     ],
     # ═══════════════════════════════════════════════════════
     # GENERATION: Needs creativity + technical accuracy
     # Best: Xiaomi MiMo-V2-Flash (#1 open-source SWE-bench at $0.09/1M!)
     # ═══════════════════════════════════════════════════════
     PhaseType.GENERATION: [
-        "xiaomi/mimo-v2-flash",  # $0.09/$0.29, 309B MoE, #1 SWE-bench open ⭐ NEW!
+        ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, 309B MoE, #1 SWE-bench open ⭐ NEW!
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, 80B MoE coding agents
-        "deepseek/deepseek-v3.2",  # $0.27/$1.10, 1.24T tokens, battle-tested
-        "moonshotai/kimi-k2.5",  # $0.42/$2.20, visual coding SOTA
-        "z-ai/glm-4.7",  # $0.39/$1.75, enhanced programming, stable
-        "minimax/minimax-m2.7",  # $0.30/$1.20, 56.2% SWE-Pro
-        "anthropic/claude-sonnet-4-6",  # $3.00/$15.00, iterative development
-        "openai/gpt-5.4-codex",  # $1.75/$14.00, SWE-Bench Pro SOTA
+        ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, 1.24T tokens, battle-tested
+        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
+        ModelRegistry.GLM_4_7,  # $0.39/$1.75, enhanced programming, stable
+        ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
+        ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative development
+        ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, SWE-Bench Pro SOTA
     ],
     # ═══════════════════════════════════════════════════════
     # CRITIQUE: Needs critical thinking + attention to detail
     # Best: Grok 4.20 (lowest hallucination rate - critical for evaluation!)
     # ═══════════════════════════════════════════════════════
     PhaseType.CRITIQUE: [
-        "x-ai/grok-4.20-beta",  # $2.00/$6.00, lowest hallucination ⭐ BEST
-        "deepseek/deepseek-r1",  # $0.55/$2.19, reasoning specialist, critical
-        "moonshotai/kimi-k2.5",  # $0.42/$2.20, visual coding SOTA
+        ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination ⭐ BEST
+        ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, reasoning specialist, critical
+        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
-        "anthropic/claude-opus-4-6",  # $5.00/$25.00, complex analysis
-        "z-ai/glm-5",  # $0.72/$2.30, complex systems design
-        "openai/gpt-5.4-pro",  # $30.00/$180.00, most advanced (use sparingly)
+        ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex analysis
+        ModelRegistry.GLM_5,  # $0.72/$2.30, complex systems design
+        ModelRegistry.GPT_5_4_PRO,  # $30.00/$180.00, most advanced (use sparingly)
     ],
     # ═══════════════════════════════════════════════════════
     # SYNTHESIS: Needs integration + coherence
     # Best: Xiaomi MiMo-V2-Pro (1T+ params, 1M+ context at $1.00/1M!)
     # ═══════════════════════════════════════════════════════
     PhaseType.SYNTHESIS: [
-        "xiaomi/mimo-v2-pro",  # $1.00/$3.00, 1T+ params, 1M+ ctx, agent ⭐ NEW!
+        ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx, agent ⭐ NEW!
         "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34, 397B MoE SOTA
-        "anthropic/claude-sonnet-4-6",  # $3.00/$15.00, 1M context, codebase nav
-        "moonshotai/kimi-k2.5",  # $0.42/$2.20, agent swarm, multimodal
-        "openai/gpt-5.4",  # $2.50/$15.00, unified Codex+GPT, 1M
+        ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, 1M context, codebase nav
+        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, agent swarm, multimodal
+        ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified Codex+GPT, 1M
         "google/gemini-3.1-pro",  # $2.00/$12.00, 1M context, agentic
-        "deepseek/deepseek-v3.2",  # $0.27/$1.10, integration
-        "z-ai/glm-5-turbo",  # $1.20/$4.00, 202K, long-horizon agents
+        ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, integration
+        ModelRegistry.GLM_5_TURBO,  # $1.20/$4.00, 202K, long-horizon agents
     ],
     # ═══════════════════════════════════════════════════════
     # DEBATE: Needs argumentation + rhetoric
     # Best: Grok 4.20 (strict prompt adherence, low hallucination)
     # ═══════════════════════════════════════════════════════
     PhaseType.DEBATE: [
-        "x-ai/grok-4.20-beta",  # $2.00/$6.00, strict adherence ⭐ BEST
-        "anthropic/claude-sonnet-4-6",  # $3.00/$15.00, balanced, nuanced
-        "openai/gpt-5.4",  # $2.50/$15.00, strong argumentation
+        ModelRegistry.GROK_4_20,  # $2.00/$6.00, strict adherence ⭐ BEST
+        ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, balanced, nuanced
+        ModelRegistry.GPT_5_4,  # $2.50/$15.00, strong argumentation
         "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34, SOTA reasoning
-        "deepseek/deepseek-v3.2",  # $0.27/$1.10, broad knowledge
+        ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, broad knowledge
         "aionlabs/aion-2.0",  # $0.80/$1.60, roleplay capability
     ],
     # ═══════════════════════════════════════════════════════
@@ -125,52 +129,52 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.RESEARCH: [
         "google/gemini-3.1-pro",  # $2.00/$12.00, 1M context, enhanced SE ⭐ BEST
-        "moonshotai/kimi-k2.5",  # $0.42/$2.20, agent swarm paradigm, multimodal
-        "deepseek/deepseek-v3.2",  # $0.27/$1.10, 1.24T tokens, broad knowledge
-        "xiaomi/mimo-v2-pro",  # $1.00/$3.00, 1T+ params, agent orchestration
-        "z-ai/glm-5-turbo",  # $1.20/$4.00, 202K, agent-driven
-        "openai/gpt-5.4",  # $2.50/$15.00, unified knowledge, 1M
+        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, agent swarm paradigm, multimodal
+        ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, 1.24T tokens, broad knowledge
+        ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, agent orchestration
+        ModelRegistry.GLM_5_TURBO,  # $1.20/$4.00, 202K, agent-driven
+        ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified knowledge, 1M
         "x-ai/grok-4.20-multi-agent",  # $2.00/$6.00, 4-16 parallel agents
-        "stepfun/step-3.5-flash",  # $0.10/$0.30, fast iterations
+        ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast iterations
     ],
     # ═══════════════════════════════════════════════════════
     # EVALUATION: Needs scoring accuracy + fairness
-    # Best: Grok 4.20 (lowest hallucination - critical for fair eval!)
+    # Best: Grok 4.20 (lowest hallucination - critical for evaluation!)
     # ═══════════════════════════════════════════════════════
     PhaseType.EVALUATION: [
-        "x-ai/grok-4.20-beta",  # $2.00/$6.00, lowest hallucination ⭐ BEST
-        "deepseek/deepseek-r1",  # $0.55/$2.19, high-stakes cognitive, fair
-        "moonshotai/kimi-k2.5",  # $0.42/$2.20, visual coding SOTA, technical
+        ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination ⭐ BEST
+        ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, high-stakes cognitive, fair
+        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA, technical
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
-        "anthropic/claude-opus-4-6",  # $5.00/$25.00, complex evaluation
-        "z-ai/glm-5",  # $0.72/$2.30, complex systems
-        "openai/gpt-5.4-pro",  # $30.00/$180.00, most advanced (critical)
-        "stepfun/step-3.5-flash",  # $0.10/$0.30, fast, reliable scoring
+        ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex evaluation
+        ModelRegistry.GLM_5,  # $0.72/$2.30, complex systems
+        ModelRegistry.GPT_5_4_PRO,  # $30.00/$180.00, most advanced (critical)
+        ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast, reliable scoring
     ],
     # ═══════════════════════════════════════════════════════
     # REFINEMENT: Needs iterative improvement
     # Best: Claude Sonnet 4.6 (iterative development specialist)
     # ═══════════════════════════════════════════════════════
     PhaseType.REFINEMENT: [
-        "anthropic/claude-sonnet-4-6",  # $3.00/$15.00, iterative dev specialist ⭐ BEST
-        "openai/gpt-5.4-codex",  # $1.75/$14.00, code reviews, 25% faster
-        "xiaomi/mimo-v2-flash",  # $0.09/$0.29, #1 SWE-bench, fast iterations
-        "minimax/minimax-m2.7",  # $0.30/$1.20, 56.2% SWE-Pro
+        ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative dev specialist ⭐ BEST
+        ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, code reviews, 25% faster
+        ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench, fast iterations
+        ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, coding agents, iterative
-        "z-ai/glm-4.7",  # $0.39/$1.75, enhanced programming, stable
+        ModelRegistry.GLM_4_7,  # $0.39/$1.75, enhanced programming, stable
     ],
     # ═══════════════════════════════════════════════════════
     # VERIFICATION: Needs accuracy + validation
     # Best: Grok 4.20 (lowest hallucination) or GPT-5.4 Codex (verified)
     # ═══════════════════════════════════════════════════════
     PhaseType.VERIFICATION: [
-        "x-ai/grok-4.20-beta",  # $2.00/$6.00, lowest hallucination ⭐ BEST
-        "openai/gpt-5.4-codex",  # $1.75/$14.00, SWE-Bench verified
-        "deepseek/deepseek-r1",  # $0.55/$2.19, reasoning, validation
-        "stepfun/step-3.5-flash",  # $0.10/$0.30, fast verification cycles
+        ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination ⭐ BEST
+        ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, SWE-Bench verified
+        ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, reasoning, validation
+        ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast verification cycles
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, coding verification
         "nvidia/nemotron-3-super",  # $0.10/$0.50, 120B MoE, multi-env
-        "moonshotai/kimi-k2.5",  # $0.42/$2.20, visual coding SOTA
+        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
     ],
 }
 
@@ -606,7 +610,7 @@ class PhaseAwareModelSelector:
                 # For now, filter based on known expensive models
                 expensive_models = [
                     "openai/gpt-5.4-pro",
-                    "anthropic/claude-opus-4.6",
+                    "anthropic/claude-opus-4-6",
                 ]
                 if model in expensive_models and budget_constraint < 5.0:
                     composite_score *= 0.5
@@ -633,7 +637,7 @@ class PhaseAwareModelSelector:
             PhaseType.ANALYSIS: "z-ai/glm-4.7-flash",  # $0.06/$0.40
             PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29
             PhaseType.CRITIQUE: "deepseek/deepseek-r1",  # $0.55/$2.19
-            PhaseType.SYNTHESIS: "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34
+            PhaseType.SYNTHESIS: "qwen/qwen-3-697b-a17b",  # $0.39/$2.34
             PhaseType.RESEARCH: "deepseek/deepseek-v3.2",  # $0.27/$1.10
             PhaseType.EVALUATION: "deepseek/deepseek-r1",  # $0.55/$2.19
             PhaseType.VERIFICATION: "nvidia/nemotron-3-super",  # $0.10/$0.50

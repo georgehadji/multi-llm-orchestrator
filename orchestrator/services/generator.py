@@ -21,10 +21,17 @@ from typing import Any, Awaitable, Callable
 
 from ..exceptions import OrchestratorError, TaskError
 from ..models import Task
+from ..tracing import Tracer
 
 logger = logging.getLogger("orchestrator.services.generator")
 
 # Type alias for the injected decompose implementation.
+# Phase 6: forwards optional ResiliencePolicy to the underlying client calls.
+from ..resilience import ResiliencePolicy as _ResiliencePolicy
+
+# Phase 5: Optional project context for cross-phase knowledge sharing
+from ..project_context import ProjectContext as _ProjectContext
+
 DecomposeFn = Callable[..., Awaitable[dict[str, Task]]]
 
 
@@ -119,9 +126,11 @@ class GeneratorService:
         self,
         decompose_fn: DecomposeFn,
         decompose_timeout: float | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         self._decompose_fn = decompose_fn
         self._decompose_timeout = decompose_timeout
+        self._tracer = tracer
         self.metrics = GeneratorMetrics()
         self._lock = asyncio.Lock()
 
@@ -131,6 +140,8 @@ class GeneratorService:
         self,
         project: str,
         criteria: str,
+        policy: _ResiliencePolicy | None = None,
+        project_context: "ProjectContext | None" = None,
         **kwargs: Any,
     ) -> GeneratorResult:
         """
@@ -144,7 +155,19 @@ class GeneratorService:
         Extra keyword args (e.g. ``app_profile``) are forwarded to ``decompose_fn``.
         """
         t0 = time.monotonic()
-        tasks, error = await self._run_with_guard(project, criteria, **kwargs)
+
+        if self._tracer is not None:
+            with self._tracer.trace(
+                "generator.decompose",
+                {"project": project[:50], "criteria": criteria[:50]},
+            ) as span:
+                tasks, error = await self._run_with_guard(project, criteria, policy, project_context=project_context, **kwargs)
+                if error:
+                    span.set_status("ERROR")
+                    span.add_event("exception", {"exception.message": str(error)})
+        else:
+            tasks, error = await self._run_with_guard(project, criteria, policy, project_context=project_context, **kwargs)
+
         wall_ms = (time.monotonic() - t0) * 1000
 
         result = GeneratorResult(tasks=tasks or {}, wall_time_ms=wall_ms, error=error)
@@ -169,16 +192,23 @@ class GeneratorService:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     async def _run_with_guard(
-        self, project: str, criteria: str, **kwargs: Any
+        self, project: str, criteria: str, policy: _ResiliencePolicy | None = None,
+        project_context: _ProjectContext | None = None, **kwargs: Any
     ) -> tuple[dict[str, Task] | None, Exception | None]:
         try:
+            # Build decompose kwargs with optional project context
+            decompose_kwargs = dict(kwargs)
+            decompose_kwargs["policy"] = policy
+            if project_context is not None:
+                decompose_kwargs["project_context"] = project_context
+
             if self._decompose_timeout is not None:
                 raw = await asyncio.wait_for(
-                    self._decompose_fn(project, criteria, **kwargs),
+                    self._decompose_fn(project, criteria, **decompose_kwargs),
                     timeout=self._decompose_timeout,
                 )
             else:
-                raw = await self._decompose_fn(project, criteria, **kwargs)
+                raw = await self._decompose_fn(project, criteria, **decompose_kwargs)
             return raw, None
 
         except asyncio.TimeoutError as exc:

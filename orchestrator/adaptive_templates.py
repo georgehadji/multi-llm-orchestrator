@@ -29,7 +29,7 @@ Usage:
     # Get best template (automatically handles exploration)
     template = await ats.select_template(
         task_type=TaskType.CODE_GEN,
-        model=Model.DEEPSEEK_CHAT,
+        model=Model.XIAOMI_MIMO_V2_FLASH,  # Reliable alternative to DeepSeek
         context={"language": "python", "complexity": "high"}
     )
 """
@@ -741,7 +741,7 @@ Provide your analysis.""",
 
         for variant in variants:
             score = self._calculate_variant_score(
-                variant, task_type, Model.DEEPSEEK_CHAT, context_profile
+                variant, task_type, Model.XIAOMI_MIMO_V2_FLASH, context_profile  # Reliable alternative
             )
             if score["composite"] > best_score:
                 best_score = score["composite"]

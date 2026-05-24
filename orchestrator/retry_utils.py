@@ -19,11 +19,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from typing import Any, Callable, Optional, Type, TypeVar
+from typing import Any, Callable, Type, TypeVar
 from functools import wraps
 
 from tenacity import (
-    retry,
     retry_if_exception_type,
     stop_after_attempt,
     stop_after_delay,

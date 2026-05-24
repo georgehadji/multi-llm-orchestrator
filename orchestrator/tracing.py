@@ -107,9 +107,11 @@ class Tracer:
 
         try:
             yield span
-            span.set_status("OK")
+            if span.status == "UNSET":
+                span.set_status("OK")
         except Exception as e:
-            span.set_status("ERROR")
+            if span.status == "UNSET":
+                span.set_status("ERROR")
             span.add_event("exception", {"exception.message": str(e)})
             raise
         finally:

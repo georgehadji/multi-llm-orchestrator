@@ -184,13 +184,17 @@ class MetaOptimizationV2Wrapper:
         # Extract task records from results
         task_records = []
         for task_id, result in state.results.items():
+            # Handle missing task_type attribute gracefully
+            task_type_value = "unknown"
+            if hasattr(result, "task_type"):
+                if hasattr(result.task_type, "value"):
+                    task_type_value = result.task_type.value
+                else:
+                    task_type_value = str(result.task_type)
+
             record = ExecutionRecord(
                 task_id=task_id,
-                task_type=(
-                    result.task_type.value
-                    if hasattr(result.task_type, "value")
-                    else str(result.task_type)
-                ),
+                task_type=task_type_value,
                 model_used=result.model_used if hasattr(result, "model_used") else "unknown",
                 success=result.success if hasattr(result, "success") else True,
                 cost_usd=getattr(result, "cost_usd", 0.0),

@@ -19,6 +19,18 @@ if TYPE_CHECKING:
     from ..cost import BudgetHierarchy, CostPredictor
     from ..models import Task, TaskResult
 
+# Import BUDGET_PARTITIONS at module level for runtime use
+try:
+    from ..models import BUDGET_PARTITIONS
+except ImportError:
+    BUDGET_PARTITIONS = {
+        "decomposition": 0.05,
+        "generation": 0.45,
+        "cross_review": 0.25,
+        "evaluation": 0.15,
+        "reserve": 0.10,
+    }
+
 logger = logging.getLogger(__name__)
 
 
@@ -165,7 +177,8 @@ class BudgetEnforcer:
             True if allowed, False if would exceed hard limit
         """
         if phase not in self.budget.phase_limits:
-            # No limit for this phase
+            # Unknown phase - allow but warn
+            logger.warning(f"Unknown phase: {phase}. No budget limit enforced.")
             return True
 
         phase_limit = self.budget.phase_limits[phase]

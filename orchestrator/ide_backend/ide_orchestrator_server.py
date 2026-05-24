@@ -2822,7 +2822,7 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
 **Complexity:** {'⭐' * stack_info['complexity']}
 **Deploy:** {stack_info['deploy']}
 
-**📁 Files Created:** {len(created_files)}
+**[FILES] Files Created:** {len(created_files)}
 {chr(10).join(f"• `{f}`" for f in created_files)}
 
 **🚀 Next Steps:**
@@ -2998,7 +2998,7 @@ if __name__ == "__main__":
     print("  AI Orchestrator IDE - Full Integration")
     print("=" * 70)
     print("  🌐 Server: http://localhost:8765")
-    print(f"  📁 Frontend: {'Yes' if frontend_dist.exists() else 'No'}")
+    print(f"  [FE] Frontend: {'Yes' if frontend_dist.exists() else 'No'}")
     print("  🤖 Tech Stacks: HTML/CSS/JS, React, Next.js, FastAPI")
     print("=" * 70 + "\n")
 

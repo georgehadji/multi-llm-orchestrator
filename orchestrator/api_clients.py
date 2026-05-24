@@ -24,7 +24,10 @@ from openai import AsyncOpenAI
 
 from .cache import DiskCache
 from .circuit_breaker import CircuitBreaker
-from .config import OPENROUTER_OPTS
+try:
+    from .config import OPENROUTER_OPTS
+except ImportError:
+    OPENROUTER_OPTS = None  # type: ignore
 from .models import (
     Model, 
     TaskType,
@@ -153,6 +156,7 @@ class UnifiedClient:
         connect_timeout: float | None = None,
         read_timeout: float | None = None,
         circuit_breaker: CircuitBreaker | None = None,
+        observability: "ObservabilityService | None" = None,
     ):
         """
         Initialize UnifiedClient.
@@ -163,8 +167,10 @@ class UnifiedClient:
             connect_timeout: Connection timeout in seconds
             read_timeout: Read timeout in seconds
             circuit_breaker: Optional pre-configured CircuitBreaker; a default one is created if None
+            observability: Optional ObservabilityService for per-model metrics recording
         """
         self.cache = cache or DiskCache()
+        self._observability = observability
         self.semaphore = asyncio.Semaphore(max_concurrency)
         self._clients: dict[str, object] = {}
         self.circuit_breaker = circuit_breaker or CircuitBreaker(
@@ -291,6 +297,14 @@ class UnifiedClient:
                 logger.debug(f"Cache hit for {model_id}")
                 # Create model instance for response (handle string IDs)
                 model_for_response = model if isinstance(model, Model) else Model(model_id.split(":")[0])
+                # Record observability: cache hit = success with no latency/cost
+                if self._observability:
+                    await self._observability.record_call(
+                        model_id=model_id,
+                        latency_ms=0.0,
+                        cost_usd=0.0,
+                        success=True,
+                    )
                 return APIResponse(
                     text=cached["response"],
                     input_tokens=cached["tokens_input"],
@@ -303,28 +317,48 @@ class UnifiedClient:
         async with self.circuit_breaker.context():
             async with self.semaphore:
                 with traced_llm_call(model_id, "api_call") as span:
-                    if policy is not None:
-                        response = await self._call_with_policy(
-                            model, prompt, system, max_tokens, temperature,
-                            policy=policy,
-                            task_type=task_type,
-                            response_schema=response_schema,
-                            fallback_models=fallback_models,
-                        )
-                    else:
-                        # LEGACY: remove after full migration to ResiliencePolicy
-                        response = await self._call_with_retry(
-                            model, prompt, system, max_tokens, temperature, timeout, retries,
-                            task_type=task_type,
-                            response_schema=response_schema,
-                            fallback_models=fallback_models,
-                        )
-                    span.set_attribute("llm.tokens_in", response.input_tokens)
-                    span.set_attribute("llm.tokens_out", response.output_tokens)
-                    span.set_attribute("llm.cost_usd", response.cost_usd)
-                    span.set_attribute("llm.latency_ms", response.latency_ms)
-                    span.set_attribute("llm.cached", False)
-                    return response
+                    try:
+                        if policy is not None:
+                            response = await self._call_with_policy(
+                                model, prompt, system, max_tokens, temperature,
+                                policy=policy,
+                                task_type=task_type,
+                                response_schema=response_schema,
+                                fallback_models=fallback_models,
+                            )
+                        else:
+                            # LEGACY: remove after full migration to ResiliencePolicy
+                            response = await self._call_with_retry(
+                                model, prompt, system, max_tokens, temperature, timeout, retries,
+                                task_type=task_type,
+                                response_schema=response_schema,
+                                fallback_models=fallback_models,
+                            )
+                        span.set_attribute("llm.tokens_in", response.input_tokens)
+                        span.set_attribute("llm.tokens_out", response.output_tokens)
+                        span.set_attribute("llm.cost_usd", response.cost_usd)
+                        span.set_attribute("llm.latency_ms", response.latency_ms)
+                        span.set_attribute("llm.cached", False)
+                        # Record observability: successful API call
+                        if self._observability:
+                            await self._observability.record_call(
+                                model_id=model_id,
+                                latency_ms=response.latency_ms,
+                                cost_usd=response.cost_usd,
+                                success=True,
+                            )
+                        return response
+                    except Exception as _obs_err:
+                        # Record observability on error
+                        if self._observability:
+                            await self._observability.record_call(
+                                model_id=model_id,
+                                latency_ms=0.0,
+                                cost_usd=0.0,
+                                success=False,
+                                error=type(_obs_err).__name__,
+                            )
+                        raise
 
     async def _call_with_retry(
         self,
