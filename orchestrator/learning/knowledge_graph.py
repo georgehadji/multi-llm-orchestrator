@@ -10,6 +10,7 @@ Enables queries like "best method for this task type" and
 """
 
 from __future__ import annotations
+import os
 
 import logging
 from dataclasses import dataclass, field
@@ -79,3 +80,60 @@ class KnowledgeGraph:
             if edge.relation == "failed_on" and edge.source == f"model:{model}":
                 failed.append(edge.target.replace("tt:", ""))
         return failed
+
+
+    def save(self, path: str | None = None) -> None:
+        import json
+        p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "knowledge_graph.json")
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        data = {
+            "nodes": {k: v.__dict__ for k, v in self.nodes.items()},
+            "edges": [e.__dict__ for e in self.edges],
+        }
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
+
+    @classmethod
+    def load(cls, path: str | None = None) -> "KnowledgeGraph":
+        import json, os
+        p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "knowledge_graph.json")
+        if not os.path.exists(p):
+            return cls()
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            kg = cls()
+            for nid, ndata in data.get("nodes", {}).items():
+                kg.nodes[nid] = KnowledgeNode(**ndata)
+            for edata in data.get("edges", []):
+                kg.edges.append(KnowledgeEdge(**edata))
+            return kg
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return cls()
+
+    def find_similar_projects(self, goal: str, limit: int = 3) -> list[dict]:
+        """Find past projects with similar goals. Level 3: cross-project transfer."""
+        results = []
+        goal_lower = goal.lower()
+        goal_words = set(goal_lower.split())
+        for nid, node in self.nodes.items():
+            if node.type == "task_type" and node.label in ("code_gen", "reasoning"):
+                overlap = goal_words & set(node.label.split("_"))
+                if overlap:
+                    # All edges in the graph have task_type as TARGET (not source),
+                    # because record_success() adds edges as model→tt:X and method→tt:X.
+                    # Collect the average produced_score across all models/methods that
+                    # have been used for this task_type.
+                    score_weights = [
+                        e.weight for e in self.edges
+                        if e.target == nid and e.relation == "produced_score"
+                    ]
+                    if score_weights:
+                        avg_score = sum(score_weights) / len(score_weights)
+                        results.append({
+                            "name": node.label,
+                            "architecture": [e.source for e in self.edges if e.target == nid],
+                            "score": avg_score,
+                        })
+        results.sort(key=lambda r: r["score"], reverse=True)
+        return results[:limit]
