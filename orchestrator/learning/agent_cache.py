@@ -67,3 +67,42 @@ class AgentCache:
     @property
     def size(self) -> int:
         return len(self._cache)
+
+    def save(self, path=None):
+        import json as _json
+        import os
+        p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "agent_cache.json")
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        data = {}
+        for k, v in self._cache.items():
+            # timestamp must be persisted so TTL is measured from original creation,
+            # not from the time the cache file is next loaded.
+            data[k] = {"key": v.key, "output": v.output, "score": v.score, "timestamp": v.timestamp}
+        with open(p, "w", encoding="utf-8") as f:
+            _json.dump(data, f, indent=2)
+
+    @classmethod
+    def load(cls, path=None):
+        import json as _json
+        import os
+        import time as _time
+        p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "agent_cache.json")
+        if not os.path.exists(p):
+            return cls()
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+            cache = cls()
+            for k, v in data.items():
+                # Restore original timestamp so entries that were already old on disk
+                # remain expired rather than getting a fresh 1-hour TTL.
+                ts = v.get("timestamp", _time.time())
+                cache._cache[k] = CachedResponse(
+                    key=v.get("key", k),
+                    output=v.get("output", ""),
+                    score=v.get("score", 0.0),
+                    timestamp=ts,
+                )
+            return cache
+        except Exception:
+            return cls()
