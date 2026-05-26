@@ -9,6 +9,7 @@ execution strategy based on experience.
 """
 
 from __future__ import annotations
+import os
 
 import hashlib
 import json
@@ -89,3 +90,38 @@ class ExperienceBuffer:
 
     def _hash_pattern(self, task_type: str, method: str, model: str) -> str:
         return hashlib.md5(f"{task_type}:{method}:{model}".encode()).hexdigest()[:12]
+
+
+    def save(self, path: str | None = None) -> None:
+        import json
+        p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "experience.json")
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        data = {
+            "successes": [s.__dict__ for s in self.successes],
+            "failures": [f.__dict__ for f in self.failures],
+            "model_scores": dict(self.model_scores),
+            "method_scores": dict(self.method_scores),
+        }
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
+
+    @classmethod
+    def load(cls, path: str | None = None) -> "ExperienceBuffer":
+        import json, os
+        p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "experience.json")
+        if not os.path.exists(p):
+            return cls()
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            buf = cls()
+            for s in data.get("successes", []):
+                buf.successes.append(SuccessPattern(**s))
+            for f_ in data.get("failures", []):
+                buf.failures.append(SuccessPattern(**f_))
+            from collections import defaultdict
+            buf.model_scores = defaultdict(list, data.get("model_scores", {}))
+            buf.method_scores = defaultdict(list, data.get("method_scores", {}))
+            return buf
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return cls()

@@ -22,8 +22,9 @@ logger = logging.getLogger("orchestrator.agents.reviewer")
 class ReviewerAgent(AgentBase):
     """Reviews code for bugs, security issues, and quality.
 
-    Budget:  QWEN_3_6_PLUS ($0.325/M) — thorough review, large context
-    Premium: XAI_GROK_4_3 ($1.25/M) — strong security analysis
+    Models (from orchestrator/agent_model_registry.py):
+      Budget:  DEEPSEEK_R1        ($0.55/M in, $2.19/M out) — reasoning specialist
+      Premium: XAI_GROK_BUILD_0_1 ($2.00/M in, $6.00/M out) — build-specialised review
     """
 
     def __init__(self, **kwargs: Any) -> None:

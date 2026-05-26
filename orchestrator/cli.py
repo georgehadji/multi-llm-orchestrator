@@ -53,6 +53,7 @@ try:
     from .unified_events import ProjectCompletedEvent as _ProjectCompleted
 except ImportError:
     pass
+from .command_registry import commands_by_category, resolve_command as resolve_slash_command
 from .resume_detector import (
     ResumeCandidate,
     _extract_keywords,
@@ -492,6 +493,7 @@ def cmd_slash(args) -> None:
         print("║     Multi-LLM Orchestrator - Slash Command Mode          ║")
         print("╚══════════════════════════════════════════════════════════╝")
         print("\nType /help for available commands, or /quit to exit\n")
+        print_help()
 
         while True:
             try:
@@ -1528,6 +1530,114 @@ def _nexus_classify_cmd(args) -> int:
     return asyncio.run(cmd_classify(args))
 
 
+
+def print_help() -> None:
+    """Print categorized help using the CommandRegistry."""
+    from .command_registry import commands_by_category as _cmds_by_cat,         resolve_command as _resolve
+    by_cat = _cmds_by_cat()
+    print("Available commands:")
+    print()
+    for category in ("Project", "Configuration", "Tools & Skills", "Info", "Exit"):
+        cmds = by_cat.get(category, [])
+        if not cmds:
+            continue
+        print(f"  {category}:")
+        for cmd in cmds:
+            args = f" {cmd.args_hint}" if cmd.args_hint else ""
+            aliases = f" ({', '.join(cmd.aliases)})" if cmd.aliases else ""
+            print(f"    {cmd.name}{args}{aliases}  — {cmd.description}")
+        print()
+    print("Type /help <command> for details on a specific command.")
+
+
+
+def cmd_gateway(args) -> None:
+    """Handle the 'gateway' subcommand: start/stop the messaging gateway."""
+    import asyncio
+    from .gateway.run import OrchestratorGateway, GatewayConfig
+
+    async def _run():
+        config = GatewayConfig()
+        if args.platforms:
+            for pair in args.platforms:
+                if ":" in pair:
+                    name, val = pair.split(":", 1)
+                    config.platforms[name.strip()] = {"port": int(val.strip())}
+                else:
+                    config.platforms[pair.strip()] = {}
+
+        if args.command == "start":
+            gw = OrchestratorGateway(config)
+            try:
+                await gw.start()
+                print("Gateway running. Press Ctrl+C to stop.")
+                while True:
+                    await asyncio.sleep(1)
+            except KeyboardInterrupt:
+                print("\nShutting down gateway...")
+                await gw.shutdown()
+        elif args.command == "status":
+            gw = OrchestratorGateway(config)
+            await gw.start()
+            print(f"Gateway running: {gw.is_running}")
+            print(f"Platforms: {list(config.platforms.keys())}")
+            await gw.shutdown()
+
+    asyncio.run(_run())
+
+
+def cmd_kanban(args) -> None:
+    """Handle the 'kanban' subcommand: manage the work queue."""
+    import asyncio
+    from .kanban.board import KanbanBoard
+
+    async def _run():
+        board = KanbanBoard()
+        if args.command == "enqueue":
+            tid = await board.enqueue({"description": args.description or "auto"})
+            print(f"Enqueued: {tid}")
+        elif args.command == "list":
+            tasks = await board.list_tasks(status=args.status)
+            if not tasks:
+                print("No tasks found.")
+            else:
+                for t in tasks:
+                    print(f"  [{t.status:>8}] {t.task_id}: {t.project_spec[:50]}")
+        elif args.command == "stats":
+            stats = await board.get_stats()
+            for k, v in stats.items():
+                print(f"  {k}: {v}")
+        elif args.command == "start":
+            from .kanban.dispatcher import KanbanDispatcher
+            dispatcher = KanbanDispatcher(board)
+            try:
+                await dispatcher.start()
+            except KeyboardInterrupt:
+                await dispatcher.shutdown()
+                print("\nDispatcher stopped.")
+
+    asyncio.run(_run())
+
+
+def _gateway_subparsers(subparsers) -> None:
+    """Register the 'gateway' subcommand."""
+    gp = subparsers.add_parser("gateway", help="Multi-platform messaging gateway")
+    gp.add_argument("command", choices=["start", "status"], help="Gateway command")
+    gp.add_argument("--platforms", "-p", nargs="*", default=[],
+                    help="Platforms to enable (e.g. echo webhook:8080)")
+    gp.set_defaults(func=cmd_gateway)
+
+
+def _kanban_subparsers(subparsers) -> None:
+    """Register the 'kanban' subcommand."""
+    kp = subparsers.add_parser("kanban", help="Multi-project work queue")
+    kp.add_argument("command", choices=["enqueue", "list", "stats", "start"],
+                    help="Kanban command")
+    kp.add_argument("--description", "-d", default="", help="Project description")
+    kp.add_argument("--status", "-s", default=None, help="Filter by status (list only)")
+    kp.set_defaults(func=cmd_kanban)
+
+
 def main():
     # ── Suppress specific warnings ───────────────────────────────────────────
     import warnings
@@ -1552,6 +1662,8 @@ def main():
     _cache_stats_subparsers(subparsers)
     _nexus_subparsers(subparsers)  # Nexus Search commands
     _setup_meta_parser(subparsers)  # NEW: Meta-optimization commands
+    _gateway_subparsers(subparsers)  # NEW: Gateway commands
+    _kanban_subparsers(subparsers)  # NEW: Kanban commands
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")

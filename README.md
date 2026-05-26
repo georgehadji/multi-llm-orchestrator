@@ -12,24 +12,113 @@
 
 ## Quick Start
 
-### One Command
+> **Γρήγορη εκκίνηση** / Quick Start
+
+### Εγκατάσταση (Installation)
 
 ```bash
-pip install -e .
+# Ανάπτυξη (development install)
+pip install -e ".[dev,security,tracing]"
+
+# Ή απλά με requirements
+pip install -r requirements-dev.txt
+```
+
+### Ρύθμιση (Setup)
+
+Αντέγραψε το `.env.example` → `.env` και πρόσθεσε τουλάχιστον ένα API key:
+
+```bash
+cp .env.example .env
+# Έπειτα άνοιξε το .env και βάλε: OPENAI_API_KEY=sk-...  ή  DEEPSEEK_API_KEY=sk-...  κλπ.
+```
+
+### Εκτέλεση (Run)
+
+```bash
+# 🚀 Νέο project — περιγράφεις τι θες, το χτίζει
 python -m orchestrator --project "Build a FastAPI todo app" --budget 2.0
+
+# 📋 Μόνο πλάνο (χωρίς εκτέλεση) — dry-run
+python -m orchestrator --project "Build a REST API" --criteria "All tests pass" --dry-run
+
+# 🔄 Συνέχιση προηγούμενου project
+python -m orchestrator --resume <project_id>
+
+# 📄 Φόρτωση από YAML αρχείο
+python -m orchestrator --file project.yml
+
+# 📊 Λίστα όλων των projects
+python -m orchestrator --list-projects
 ```
 
-### Command Center (Interactive REPL)
+### Άλλες εντολές (Other Commands)
 
 ```bash
-python -m orchestrator command_center
-You > build a landing page for a coffee shop in Thessaloniki
-```
+# 🔍 Ανάλυση υπάρχοντος codebase
+python -m orchestrator analyze --path ./my-project --focus "architecture,security"
 
-### Modify Existing Codebase
+# 🏗️ Build με AppBuilder pipeline
+python -m orchestrator build --description "Build a web app" --criteria "Works correctly"
 
-```bash
+# 🤖 NL → προδιαγραφές → ControlPlane
+python -m orchestrator agent --intent "Build a user auth service" --interactive
+
+# 💬 Interactive slash commands (/architect, /implement, /help)
+python -m orchestrator slash
+
+# 📈 Dashboard με cross-run metrics
+python -m orchestrator dashboard --days 30
+
+# 📦 Στατιστικά cache
+python -m orchestrator cache-stats
+
+# 🌐 Web search (Nexus)
+python -m orchestrator nexus search "latest FastAPI patterns"
+
+# ⚖️ Nash stability status
+python -m orchestrator nash status
+
+# 🔧 Τροποποίηση codebase
 python -m orchestrator modify --repo ./my-project --objective "Add JWT authentication"
+
+# 🎮 IDE Backend (WebSocket + API)
+python -m orchestrator.ide_backend.server
+```
+
+### Βασικά flags
+
+| Flag | Default | Περιγραφή |
+|------|---------|-----------|
+| `--budget 5.0` | 8.0 | Μέγιστο budget σε USD |
+| `--time 5400` | 5400 | Μέγιστος χρόνος σε δευτερόλεπτα |
+| `--concurrency 3` | 3 | Παράλληλα API calls |
+| `--tdd-first` | off | Test-Driven Development mode |
+| `--dry-run` | off | Μόνο πλάνο, χωρίς εκτέλεση |
+| `--output-dir ./my-app` | auto | Φάκελος εξόδου |
+| `--verbose` | off | Λεπτομερές logging |
+| `--tracing` | off | OpenTelemetry tracing |
+| `--new-project` | off | Πάντα νέο project (skip resume) |
+
+### Pipeline εκτέλεσης
+
+```
+Περιγραφή Project → Resume Detection → Project Enhancer → Architecture Advisor
+       │
+       ▼
+Decompose into Tasks (ProductManager + Architect agents)
+       │
+       ▼
+Route (model selection) → Generate → Critique → Revise → Evaluate (cross-provider)
+       │
+       ▼
+Deterministic Validation (python_syntax, pytest, ruff, json_schema)
+       │
+       ▼
+Store Results + Telemetry + State Checkpoint (SQLite)
+       │
+       ▼
+Output: structured files στο outputs/<project_id>/
 ```
 
 ---

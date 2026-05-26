@@ -177,3 +177,12 @@ class OpenRouterOptimizations:
         )
 
 OPENROUTER_OPTS = OpenRouterOptimizations.from_env()
+
+
+@dataclass(frozen=True)
+class MemoryConfig:
+    """Cross-session memory persistence configuration."""
+    memory_dir: str = os.path.join(os.path.expanduser("~"), ".orchestrator") if hasattr(os, "path") else ".orchestrator"
+    auto_save_interval: int = 50  # tasks between auto-saves
+    max_patterns: int = 200
+    cache_ttl_hours: int = 1

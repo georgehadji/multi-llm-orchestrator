@@ -271,6 +271,32 @@ class PluginRegistry:
         """
         return list(self._plugins.keys())
 
+    async def discover_and_register(self, kind: str) -> list[str]:
+        """Discover and register all plugins of a given kind.
+
+        Uses the discovery module to scan bundled + user + pip sources.
+        Already-registered plugins are skipped (not overwritten).
+
+        Args:
+            kind: Plugin kind to discover (e.g. ``"memory"``, ``"context"``).
+
+        Returns:
+            List of newly registered plugin names.
+        """
+        from .discovery import load_all_plugins
+
+        instances = await load_all_plugins(kind)
+        registered: list[str] = []
+        for inst in instances:
+            name = getattr(inst, "metadata", None)
+            plugin_name = name.name if name else type(inst).__name__
+            if plugin_name in self._plugins:
+                logger.debug("Skipping %s: already registered", plugin_name)
+                continue
+            self.register(inst)  # type: ignore[arg-type]
+            registered.append(plugin_name)
+        return registered
+
     async def initialize_all(self) -> None:
         """Initialize all registered plugins."""
         if self._initialized:

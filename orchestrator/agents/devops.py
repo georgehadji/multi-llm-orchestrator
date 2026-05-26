@@ -20,8 +20,9 @@ logger = logging.getLogger("orchestrator.agents.devops")
 class DevOpsAgent(AgentBase):
     """Handles infrastructure, Docker, CI/CD, and deployment.
 
-    Budget:  DEEPSEEK_V4_FLASH ($0.10/M) — huge context for config files
-    Premium: GPT_5_2_CODEX ($1.75/M) — best infra-as-code generation
+    Models (from orchestrator/agent_model_registry.py):
+      Budget:  DEEPSEEK_V3_2   ($0.27/M in, $1.10/M out) — large context for configs
+      Premium: GPT_5_4_CODEX   ($1.75/M in, $14.00/M out) — best infra-as-code
     """
 
     def __init__(self, **kwargs: Any) -> None:

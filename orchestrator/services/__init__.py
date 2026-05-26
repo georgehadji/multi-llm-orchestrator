@@ -1,27 +1,31 @@
 """
-orchestrator.services — application-layer service modules.
-
-Each service encapsulates a single responsibility extracted from the
-engine.py God Object. New business logic MUST go here, not in engine.py.
-
-Extraction status:
-  ExecutorService      — interface established; implementation in engine._execute_task (Phase 1)
-  EvaluatorService     — fully extracted from engine._evaluate / _parse_score (Phase 2)
-  GeneratorService     — interface established; implementation in engine._decompose (Phase 2)
-  ObservabilityService — per-model latency/cost/error-rate tracker (Phase 6)
+Services Package — Backward-compatibility shim.
+================================================
+The canonical implementations now live in orchestrator/application/.
+All imports are re-exported from there.
 """
 
-from .evaluator import EvaluatorService
-from .executor import ExecutorResult, ExecutorService
-from .generator import GeneratorResult, GeneratorService
-from .observability import ModelSummary, ObservabilityService
+from ..application.evaluator import EvaluatorService
+from ..application.executor import ExecutorMetrics, ExecutorResult, ExecutorService
+from ..application.decomposer import DecomposerMetrics, DecomposerResult, DecomposerService
+from ..application.observability import ModelSummary, ObservabilityService
+
+# Backward-compat alias: GeneratorService was renamed to DecomposerService
+GeneratorService = DecomposerService
+GeneratorResult = DecomposerResult
+GeneratorMetrics = DecomposerMetrics
 
 __all__ = [
-    "ExecutorService",
-    "ExecutorResult",
     "EvaluatorService",
-    "GeneratorService",
-    "GeneratorResult",
-    "ObservabilityService",
+    "ExecutorMetrics",
+    "ExecutorResult",
+    "ExecutorService",
+    "DecomposerMetrics",
+    "DecomposerResult",
+    "DecomposerService",
+    "GeneratorService",  # backward-compat alias
+    "GeneratorResult",   # backward-compat alias
+    "GeneratorMetrics",  # backward-compat alias
     "ModelSummary",
+    "ObservabilityService",
 ]

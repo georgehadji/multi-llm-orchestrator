@@ -73,6 +73,18 @@ class AgentOrchestrator:
 
         return self.results
 
+    async def _enrich_task(self, task: AgentTask) -> None:
+        """Level 2: inject best-known strategy from experience memory."""
+        if not hasattr(self, 'experience') or self.experience is None:
+            return
+        try:
+            best_method = self.experience.best_method_for(getattr(task, "goal", "")[:50])
+            if best_method:
+                ctx = getattr(task, "context", "") or ""
+                task.context = ctx + f" [Memory: {best_method} works best for this]" if ctx else f"[Memory: {best_method} works best for this]"
+        except Exception:
+            pass
+
     def _decompose_goal(self, goal: str) -> list[AgentTask]:
         """Decompose a goal into agent tasks."""
         tasks: list[AgentTask] = []

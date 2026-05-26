@@ -23,8 +23,9 @@ logger = logging.getLogger("orchestrator.agents.user")
 class UserAgent(AgentBase):
     """Talks to the user. Explains plans, asks questions, reports progress.
 
-    Budget/Free:  OWL_ALPHA ($0.00/M) — free, never costs anything
-    Premium:      CLAUDE_SONNET_4_6 ($3.00/M) — best conversational quality
+    Models (from orchestrator/agent_model_registry.py):
+      Budget:  QWEN_3_7_MAX       ($0.78/M in, $3.90/M out) — flagship reasoning + coding
+      Premium: CLAUDE_SONNET_4_6  ($3.00/M in, $15.00/M out) — best conversational
     """
 
     def __init__(self, **kwargs: Any) -> None:

@@ -14,7 +14,7 @@ Key Discoveries:
 - StepFun Step 3.5 Flash ($0.10/$0.30): 196B MoE reasoning, incredible value
 - DeepSeek R1 ($0.55/$2.19): Reasoning specialist
 - DeepSeek V3.2 ($0.27/$1.10): 1.24T weekly tokens, battle-tested
-- GLM-4.7-Flash ($0.06/$0.40): Ultra-cheap, 202K context
+- GLM-5.1: Canonical GLM model, 202K context
 - Qwen3.5-397B ($0.39/$2.34): 397B MoE SOTA synthesis
 - Grok 4.20 ($2.00/$6.00): Lowest hallucination rate
 
@@ -65,7 +65,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, 196B MoE reasoning ⭐ BEST VALUE
         ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, reasoning specialist
         ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, native multimodal, agent swarm
-        ModelRegistry.GLM_4_7_FLASH,  # $0.06/$0.40, ultra-cheap 202K context
+        ModelRegistry.GLM_5_1_1,  # $0.06/$0.40, ultra-cheap 202K context
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, flagship reasoning
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, adaptive reasoning
@@ -79,7 +79,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, 80B MoE coding agents
         ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, 1.24T tokens, battle-tested
         ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
-        ModelRegistry.GLM_4_7,  # $0.39/$1.75, enhanced programming, stable
+        ModelRegistry.GLM_5_1_1,  # $0.39/$1.75, enhanced programming, stable
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative development
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, SWE-Bench Pro SOTA
@@ -94,7 +94,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
         ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex analysis
-        ModelRegistry.GLM_5,  # $0.72/$2.30, complex systems design
+        ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems design
         ModelRegistry.GPT_5_4_PRO,  # $30.00/$180.00, most advanced (use sparingly)
     ],
     # ═══════════════════════════════════════════════════════
@@ -109,7 +109,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified Codex+GPT, 1M
         "google/gemini-3.1-pro",  # $2.00/$12.00, 1M context, agentic
         ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, integration
-        ModelRegistry.GLM_5_TURBO,  # $1.20/$4.00, 202K, long-horizon agents
+        ModelRegistry.GLM_5_1_TURBO,  # $1.20/$4.00, 202K, long-horizon agents
     ],
     # ═══════════════════════════════════════════════════════
     # DEBATE: Needs argumentation + rhetoric
@@ -132,7 +132,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, agent swarm paradigm, multimodal
         ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, 1.24T tokens, broad knowledge
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, agent orchestration
-        ModelRegistry.GLM_5_TURBO,  # $1.20/$4.00, 202K, agent-driven
+        ModelRegistry.GLM_5_1_TURBO,  # $1.20/$4.00, 202K, agent-driven
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified knowledge, 1M
         "x-ai/grok-4.20-multi-agent",  # $2.00/$6.00, 4-16 parallel agents
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast iterations
@@ -147,7 +147,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA, technical
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
         ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex evaluation
-        ModelRegistry.GLM_5,  # $0.72/$2.30, complex systems
+        ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems
         ModelRegistry.GPT_5_4_PRO,  # $30.00/$180.00, most advanced (critical)
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast, reliable scoring
     ],
@@ -161,7 +161,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench, fast iterations
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, coding agents, iterative
-        ModelRegistry.GLM_4_7,  # $0.39/$1.75, enhanced programming, stable
+        ModelRegistry.GLM_5_1_1,  # $0.39/$1.75, enhanced programming, stable
     ],
     # ═══════════════════════════════════════════════════════
     # VERIFICATION: Needs accuracy + validation
@@ -297,7 +297,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # Z.AI GLM MODELS - CHINESE POWERHOUSES
         # ═══════════════════════════════════════════════════════
-        "z-ai/glm-4.7-flash": {
+        "z-ai/glm-5.1.1": {
             "reasoning": 8.0,
             "coding": 8.5,  # Agentic coding
             "creativity": 7.5,
@@ -306,7 +306,7 @@ class ModelCapabilities:
             "speed": 9.5,  # Very fast
             "cost_efficiency": 10.0,  # ⭐ Ultra-cheap $0.06/1M
         },
-        "z-ai/glm-4.7": {
+        "z-ai/glm-5.1.1": {
             "reasoning": 8.5,
             "coding": 9.0,  # ⭐ Enhanced programming
             "creativity": 8.0,
@@ -315,7 +315,7 @@ class ModelCapabilities:
             "speed": 8.5,
             "cost_efficiency": 9.0,
         },
-        "z-ai/glm-5": {
+        "z-ai/glm-5.1": {
             "reasoning": 9.0,
             "coding": 9.0,
             "creativity": 8.5,
@@ -324,7 +324,7 @@ class ModelCapabilities:
             "speed": 8.0,
             "cost_efficiency": 8.5,
         },
-        "z-ai/glm-5-turbo": {
+        "z-ai/glm-5.1-turbo": {
             "reasoning": 9.0,
             "coding": 8.5,
             "creativity": 8.5,
@@ -524,7 +524,7 @@ class PhaseAwareModelSelector:
     - Xiaomi MiMo-V2-Flash/Pro (game changers for coding/synthesis)
     - Moonshot Kimi K2.5 (visual coding SOTA, agent swarm)
     - DeepSeek R1/V3.2 (reasoning specialists)
-    - GLM-4.7-Flash (ultra-cheap at $0.06/1M)
+    - GLM-5.1 (canonical GLM model)
     - StepFun Step 3.5 Flash (196B MoE at $0.10/1M)
 
     Usage:
@@ -634,7 +634,7 @@ class PhaseAwareModelSelector:
     def get_budget_config(self) -> dict[PhaseType, str]:
         """Get ultra-budget configuration (cheapest capable models)."""
         return {
-            PhaseType.ANALYSIS: "z-ai/glm-4.7-flash",  # $0.06/$0.40
+            PhaseType.ANALYSIS: "z-ai/glm-5.1.1",  # $0.06/$0.40
             PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29
             PhaseType.CRITIQUE: "deepseek/deepseek-r1",  # $0.55/$2.19
             PhaseType.SYNTHESIS: "qwen/qwen-3-697b-a17b",  # $0.39/$2.34
@@ -689,10 +689,10 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "deepseek/deepseek-v3.2": {"input": 0.27, "output": 1.10},
     "deepseek/deepseek-chat": {"input": 0.28, "output": 0.42},
     # Z.ai GLM
-    "z-ai/glm-4.7-flash": {"input": 0.06, "output": 0.40},
-    "z-ai/glm-4.7": {"input": 0.39, "output": 1.75},
-    "z-ai/glm-5": {"input": 0.72, "output": 2.30},
-    "z-ai/glm-5-turbo": {"input": 1.20, "output": 4.00},
+    "z-ai/glm-5.1.1": {"input": 0.06, "output": 0.40},
+    "z-ai/glm-5.1.1": {"input": 0.39, "output": 1.75},
+    "z-ai/glm-5.1": {"input": 0.72, "output": 2.30},
+    "z-ai/glm-5.1-turbo": {"input": 1.20, "output": 4.00},
     # Qwen
     "qwen/qwen-3-coder-next": {"input": 0.12, "output": 0.75},
     "qwen/qwen-3.5-397b-a17b": {"input": 0.39, "output": 2.34},
@@ -776,7 +776,7 @@ def example():
     print("  2. Xiaomi MiMo-V2-Pro ($1.00/$3.00): 1T+ params, 1M+ context")
     print("  3. Moonshot Kimi K2.5 ($0.42/$2.20): Visual coding SOTA")
     print("  4. StepFun Step 3.5 Flash ($0.10/$0.30): 196B MoE reasoning")
-    print("  5. GLM-4.7-Flash ($0.06/$0.40): Ultra-cheap, 202K context")
+    print("  5. GLM-5.1: Canonical GLM model, 202K context")
     print("  6. Grok 4.20 ($2.00/$6.00): Lowest hallucination rate")
     print("\n  Total Savings: -68% ($95.00 → $30.30 per full pipeline)")
     print("=" * 70)

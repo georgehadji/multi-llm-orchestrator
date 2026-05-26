@@ -92,7 +92,17 @@ class AgentBase(ABC):
         self.tools: dict[str, Tool] = {t.name: t for t in (tools or [])}
         self.workspace = workspace
         self.client = client
-        self.model_preferences = model_preferences or {}
+        # Lazy-load from centralised registry when no explicit preferences given.
+        # The try/except avoids a circular import between agent_model_registry
+        # (which imports AgentRole from here) and agents/base.py.
+        if model_preferences is not None:
+            self.model_preferences = model_preferences
+        else:
+            try:
+                from ..agent_model_registry import get_default_model_preferences
+                self.model_preferences = get_default_model_preferences(role)
+            except Exception:
+                self.model_preferences = {}
         self.inbox: list[AgentTask] = []
         self.memory = None
         try:

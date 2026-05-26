@@ -22,8 +22,9 @@ logger = logging.getLogger("orchestrator.agents.qa")
 class QCAgent(AgentBase):
     """Runs quality checks and generates reports.
 
-    Budget:  CODESTRAL_2508 ($0.30/M) — fast code review
-    Premium: CLAUDE_SONNET_4_6 ($3.00/M) — thorough quality analysis
+    Models (from orchestrator/agent_model_registry.py):
+      Budget:  XIAOMI_MIMO_V2_FLASH  ($0.09/M in, $0.29/M out) — fast code analysis
+      Premium: CLAUDE_SONNET_4_6     ($3.00/M in, $15.00/M out) — thorough quality analysis
     """
 
     def __init__(self, **kwargs: Any) -> None:
