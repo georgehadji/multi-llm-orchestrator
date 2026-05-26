@@ -31,7 +31,7 @@ _MODEL_TIERS: dict[Model, int] = {
     # Cheap tier (0) - Reliable, fast models
     Model.GEMINI_FLASH_LITE: 0,
     Model.GPT_4O_MINI: 0,
-    Model.ZHIPU_GLM_4_7_FLASH: 0,  # $0.06/$0.40, ultra-cheap, reliable
+    Model.ZHIPU_GLM_5_1: 0,  # z-ai/glm-5.1, canonical GLM model
     Model.PHI_4: 0,  # $0.07/$0.14, very fast
     # Balanced tier (1) - Good quality/price ratio
     Model.GEMINI_FLASH: 1,
@@ -108,6 +108,128 @@ _TECH_STACK_KEYWORDS = [
     "azure",
     "gcp",  # DevOps
 ]
+
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Tier-aware model routing (PHASE 2 of ENGINE_OPTIMIZATION_PLAN)
+# ─────────────────────────────────────────────────────────────────────────
+
+# Updated tier definitions (v3.0) — consolidated from engine.py
+_TIER_MODELS_CHEAP: list[Model] = [
+    Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75 - Fast coding specialist
+    Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 - #1 SWE-bench, fast
+    Model.ZHIPU_GLM_5_1,
+    Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30 - 196B MoE reasoning
+    Model.PHI_4,  # $0.07/$0.14 - Microsoft 14B
+    Model.GEMMA_3_27B,  # $0.08/$0.20 - Google open-weights
+    Model.LLAMA_3_3_70B,  # $0.12/$0.30 - Meta 70B reliable
+    Model.NVIDIA_NEMOTRON_3_SUPER,  # $0.10/$0.50 - 120B MoE efficient
+]
+
+_TIER_MODELS_BALANCED: list[Model] = [
+    Model.DEEPSEEK_V3_2,  # $0.27/$1.10 - 1.24T tokens
+    Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20 - Visual coding SOTA
+    Model.MINIMAX_M2_7,  # $0.30/$1.20 - 56.2% SWE-Pro
+    Model.GEMINI_FLASH,  # $0.15/$0.60 - 1M context, fast
+    Model.CLAUDE_3_HAIKU,  # $0.25/$1.25 - Claude budget tier
+    Model.DEEPSEEK_CHAT,  # $0.28/$0.42 - Cost effective
+    Model.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00 - 1T+ params (slow)
+]
+
+_TIER_MODELS_PREMIUM: list[Model] = [
+    Model.XAI_GROK_4_20_BETA,  # $2.00/$6.00 - Lowest hallucination
+    Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Best coding
+    Model.QWEN_3_5_397B_A17B,  # $0.39/$2.34 - 397B MoE SOTA
+    Model.GPT_5_4_CODEX,  # $1.75/$14.00 - SWE-Bench Pro SOTA
+    Model.GEMINI_PRO,  # $2.00/$12.00 - Gemini premium
+    Model.O4_MINI,  # $1.50/$6.00 - OpenAI reasoning
+]
+
+# Reliable decomposition models (v3.1)
+_RELIABLE_DECOMPOSITION_MODELS: list[Model] = [
+    Model.GPT_4O,  # $2.50/$10.00 - Reliable JSON, large context
+    Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Excellent structure
+    Model.GEMINI_FLASH,  # $0.15/$0.60 - Reliable JSON output
+    Model.GPT_4O_MINI,  # $0.15/$0.60 - Cheap, reliable
+]
+
+
+class TieredModelRouter:
+    """Tier-aware model routing with escalation tracking.
+
+    Extracted from engine.py per PHASE 2 of the ENGINE_OPTIMIZATION_PLAN.
+    Handles three-tier routing (CHEAP -> BALANCED -> PREMIUM), escalation
+    tracking, and health-aware candidate filtering.
+    """
+
+    def __init__(
+        self,
+        api_health: dict[Model, bool],
+        adaptive_router: object | None = None,
+    ) -> None:
+        self._health = api_health
+        self._adaptive = adaptive_router
+        self._escalation_count: dict[str, int] = {}
+
+    def available_models(self, task_type: TaskType) -> list[Model]:
+        """Get available models with tiered selection for cost optimization.
+
+        Uses three-tier routing: CHEAP -> BALANCED -> PREMIUM.
+        Starts with cheaper models and escalates if needed based on
+        task complexity and previous failures.
+        """
+        tier_key = f"{task_type.value}"
+        escalation = self._escalation_count.get(tier_key, 0)
+
+        if escalation == 0:
+            if task_type in (TaskType.DATA_EXTRACT, TaskType.SUMMARIZE):
+                candidates = list(_TIER_MODELS_CHEAP + _TIER_MODELS_BALANCED)
+            else:
+                candidates = list(_TIER_MODELS_BALANCED + _TIER_MODELS_CHEAP)
+        elif escalation == 1:
+            candidates = list(_TIER_MODELS_BALANCED + _TIER_MODELS_PREMIUM)
+        else:
+            candidates = list(ROUTING_TABLE.get(task_type, []))
+
+        available = [m for m in candidates if self._health.get(m, True)]
+        if not available:
+            available = [m for m in Model if self._health.get(m, True)]
+
+        if self._adaptive and hasattr(self._adaptive, "is_available"):
+            available = [m for m in available if self._adaptive.is_available(m)]
+
+        return available
+
+    def escalate_tier(self, task_type: TaskType) -> None:
+        """Escalate to higher tier after cheap tier failure."""
+        tier_key = f"{task_type.value}"
+        self._escalation_count[tier_key] = self._escalation_count.get(tier_key, 0) + 1
+        logger.info(
+            f"Tier escalation for {task_type.value}: level {self._escalation_count[tier_key]}"
+        )
+
+    def fast_decomposition_model(self) -> Model:
+        """Get a fast, reliable model for task decomposition.
+
+        Prioritizes reliability over cost for decomposition,
+        since decomposition is a critical path and happens once per project.
+        """
+        for m in _RELIABLE_DECOMPOSITION_MODELS:
+            if self._health.get(m, True):
+                logger.debug(f"Using {m.value} for decomposition")
+                return m
+
+        # Fallback to cheapest available
+        return self._cheapest_available()
+
+    def cheapest_available(self) -> Model:
+        """Return the cheapest healthy model by output cost."""
+        healthy = [m for m in Model if self._health.get(m, False)]
+        if not healthy:
+            raise RuntimeError("No healthy models available")
+        return min(healthy, key=lambda m: COST_TABLE[m]["output"])
+
 
 
 class ModelSelector:

@@ -47,9 +47,11 @@ class TestValidator:
     4. Repeat until pass or max iterations
     """
 
-    def __init__(self, max_iterations: int = 3):
+    def __init__(self, max_iterations: int = 3, client: UnifiedClient | None = None):
         self.max_iterations = max_iterations
-        self.client = UnifiedClient()
+        # Accept injected client (matching ExecutorService / EvaluatorService pattern).
+        # Falls back to a new instance for backward compatibility.
+        self.client = client or UnifiedClient()
 
     async def validate_test_generation(
         self,

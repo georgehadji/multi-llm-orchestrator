@@ -9,18 +9,25 @@ from __future__ import annotations
 
 import hashlib
 import time
+import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-# Re-export Budget so tests can do `from orchestrator.models import Budget`
-# budget.py has no imports from models.py, so no circular import risk.
-from .budget import Budget as Budget  # noqa: F401
 
 # ─────────────────────────────────────────────
 # Enums
 # ─────────────────────────────────────────────
 
+
+
+
+@dataclass
+class ProviderStrategy:
+    """Provider sorting strategy for OpenRouter model selection."""
+    sort: str = "price"
+    preferred_min_throughput: float | None = None
+    preferred_max_latency: float | None = None
 
 class TaskType(str, Enum):
     CODE_GEN = "code_generation"
@@ -74,6 +81,7 @@ class Model(str, Enum):
     DEEPSEEK_R1 = DEEPSEEK_REASONER
     DEEPSEEK_V3 = "deepseek/deepseek-v3"
     DEEPSEEK_V3_2 = "deepseek/deepseek-v3.2"
+    DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"  # next-gen reasoning + coding
 
     # Meta LLaMA Models (OpenRouter)
     LLAMA_4_MAVERICK = "meta-llama/llama-4-maverick"  # 400B MoE
@@ -116,16 +124,19 @@ class Model(str, Enum):
     # ═══════════════════════════════════════════════════════
     # Z.AI GLM MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    ZHIPU_GLM_4_7_FLASH = "z-ai/glm-4.7-flash"  # $0.06/$0.40, ultra-cheap ⭐
-    ZHIPU_GLM_4_7 = "z-ai/glm-4.7"  # $0.39/$1.75, enhanced programming
-    ZHIPU_GLM_5 = "z-ai/glm-5"  # $0.72/$2.30, complex systems
-    ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"  # $1.20/$4.00, 202K, agents
+    ZHIPU_GLM_5_1 = "z-ai/glm-5.1"  # canonical GLM model
+    # Backward-compat aliases (all GLM variants remap to glm-5.1)
+    ZHIPU_GLM_4_7_FLASH = ZHIPU_GLM_5_1
+    ZHIPU_GLM_4_7 = ZHIPU_GLM_5_1
+    ZHIPU_GLM_5 = ZHIPU_GLM_5_1
+    ZHIPU_GLM_5_TURBO = ZHIPU_GLM_5_1
 
     # ═══════════════════════════════════════════════════════
     # XAI GROK MODELS (NEW v3.0) - LOWEST HALLUCINATION
     # Note: Updated 2026-04-01 - Use grok-4.20 (NOT grok-4.20-beta)
     # ═══════════════════════════════════════════════════════
     XAI_GROK_4_20 = "x-ai/grok-4.20"  # $2.00/$6.00, 2M context, lowest hallucination ⭐
+    XAI_GROK_BUILD_0_1 = "x-ai/grok-build-0.1"  # build-specialised
     XAI_GROK_4_20_BETA = "x-ai/grok-4.20"  # alias — -beta not available, maps to grok-4.20
     XAI_GROK_4_1_FAST = "x-ai/grok-4.1-fast"  # $0.20/$0.50, fast
 
@@ -137,6 +148,7 @@ class Model(str, Enum):
     # Aliases for future models (not yet on OpenRouter — map to valid equivalents)
     QWEN_3_CODER_NEXT = "qwen/qwen-2.5-coder-32b-instruct"  # alias until qwen-3-coder-next ships
     QWEN_3_5_397B_A17B = "qwen/qwen-2.5-coder-32b-instruct"  # alias until qwen-3.5-397b ships
+    QWEN_3_7_MAX = "qwen/qwen3.7-max"  # flagship reasoning + coding
 
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
@@ -151,6 +163,9 @@ class Model(str, Enum):
     # NVIDIA MODELS (redirected via model_registry to fallback)
     # ═══════════════════════════════════════════════════════
     NVIDIA_NEMOTRON_3_SUPER = "nvidia/nemotron-3-super"  # redirects → minimax-m2.7
+
+    # InclusionAI Ring Models
+    INCLUSION_RING_2_6_1T = "inclusionai/ring-2.6-1t"  # 1T params, strong reasoning
 
     # OpenRouter Auto-Router
     OPENROUTER_AUTO = "openrouter/auto"  # Dynamic routing
@@ -222,6 +237,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.DEEPSEEK_REASONER: {"input": 0.28, "output": 0.42},
     Model.DEEPSEEK_V3: {"input": 0.27, "output": 1.10},
     Model.DEEPSEEK_R1: {"input": 0.55, "output": 2.19},
+    Model.DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},  # next-gen reasoning
     # Meta LLaMA Models (OpenRouter)
     Model.LLAMA_4_MAVERICK: {"input": 0.17, "output": 0.17},  # 400B MoE
     Model.LLAMA_4_SCOUT: {"input": 0.11, "output": 0.34},  # 109B MoE
@@ -253,10 +269,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # ═══════════════════════════════════════════════════════
     # Z.AI GLM MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    Model.ZHIPU_GLM_4_7_FLASH: {"input": 0.06, "output": 0.40},  # ultra-cheap ⭐
-    Model.ZHIPU_GLM_4_7: {"input": 0.39, "output": 1.75},  # enhanced programming
-    Model.ZHIPU_GLM_5: {"input": 0.72, "output": 2.30},  # complex systems
-    Model.ZHIPU_GLM_5_TURBO: {"input": 1.20, "output": 4.00},  # 202K, agents
+    Model.ZHIPU_GLM_5_1: {"input": 0.10, "output": 0.40},  # z-ai/glm-5.1 (canonical GLM)
     # ═══════════════════════════════════════════════════════
     # XAI GROK MODELS (NEW v3.0) - LOWEST HALLUCINATION
     # Note: Updated 2026-04-01 - Use grok-4.20 (NOT grok-4.20-beta)
@@ -264,6 +277,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.XAI_GROK_4_20: {"input": 2.00, "output": 6.00},  # 2M context ⭐
     Model.XAI_GROK_4_20_BETA: {"input": 2.00, "output": 6.00},  # alias for grok-4.20
     Model.XAI_GROK_4_1_FAST: {"input": 0.20, "output": 0.50},  # fast
+    Model.XAI_GROK_BUILD_0_1: {"input": 2.00, "output": 6.00},  # build-specialised
     # ═══════════════════════════════════════════════════════
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # Note: Updated 2026-04-01 - Verified available
@@ -271,7 +285,8 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.QWEN_2_5_CODER_32B: {
         "input": 0.66,
         "output": 1.00,
-    },  # 33K coding ⭐ (QWEN_3_CODER_NEXT aliases this)
+    },  # 33K coding
+    Model.QWEN_3_7_MAX: {"input": 0.78, "output": 3.90},  # flagship reasoning + coding ⭐ (QWEN_3_CODER_NEXT aliases this)
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
@@ -285,6 +300,8 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.GPT_5_4: {"input": 2.50, "output": 15.00},
     Model.GPT_5_4_MINI: {"input": 0.75, "output": 4.50},
     Model.GPT_5_4_CODEX: {"input": 1.75, "output": 14.00},  # SWE-Bench SOTA
+    # InclusionAI Ring
+    Model.INCLUSION_RING_2_6_1T: {"input": 0.50, "output": 2.00},  # 1T params
     # OpenRouter Auto
     Model.OPENROUTER_AUTO: {"input": 0.00, "output": 0.00},  # Dynamic
 }
@@ -305,7 +322,7 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
         Model.QWEN_2_5_CODER_32B,  # $0.66/$1.00, 33K coding specialist
         Model.DEEPSEEK_V3_2,  # $0.27/$1.10, 1.24T tokens, battle-tested
         Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
-        Model.ZHIPU_GLM_4_7,  # $0.39/$1.75, enhanced programming
+        Model.ZHIPU_GLM_5_1,  # $0.39/$1.75, enhanced programming
         Model.MINIMAX_M2_7,  # $0.30/$1.20, multi-agent ⭐
         Model.PHI_4,  # $0.07/$0.14, Microsoft 14B
         Model.GEMMA_3_27B,  # $0.08/$0.20, Google open-weights
@@ -337,7 +354,7 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
         Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30, 196B MoE ⭐ BEST VALUE
         Model.DEEPSEEK_R1,  # $0.55/$2.19, reasoning specialist
         Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20, native multimodal
-        Model.ZHIPU_GLM_4_7_FLASH,  # $0.06/$0.40, ultra-cheap 202K
+        Model.ZHIPU_GLM_5_1,  # $0.06/$0.40, ultra-cheap 202K
         Model.LLAMA_4_MAVERICK,  # $0.17/$0.17, Meta 400B
         Model.LLAMA_3_1_405B,  # $2.00/$2.00, Meta frontier
         Model.O3_MINI,  # $1.10/$4.40, OpenAI
@@ -354,7 +371,7 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     ],
     # DATA_EXTRACT: Cheapest first
     TaskType.DATA_EXTRACT: [
-        Model.ZHIPU_GLM_4_7_FLASH,  # $0.06/$0.40, ultra-cheap ⭐ BEST
+        Model.ZHIPU_GLM_5_1,  # $0.06/$0.40, ultra-cheap ⭐ BEST
         Model.PHI_4,  # $0.07/$0.14, Microsoft
         Model.GEMMA_3_27B,  # $0.08/$0.20, Google
         Model.LLAMA_3_3_70B,  # $0.12/$0.30, Meta 70B
@@ -364,7 +381,7 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     ],
     # SUMMARIZE: Cheap with good context
     TaskType.SUMMARIZE: [
-        Model.ZHIPU_GLM_4_7_FLASH,  # $0.06/$0.40, ultra-cheap ⭐ BEST
+        Model.ZHIPU_GLM_5_1,  # $0.06/$0.40, ultra-cheap ⭐ BEST
         Model.PHI_4,  # $0.07/$0.14, fast
         Model.GEMMA_3_27B,  # $0.08/$0.20, concise
         Model.LLAMA_3_3_70B,  # $0.12/$0.30, accurate
@@ -388,6 +405,8 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
 # ─────────────────────────────────────────────
 # Fallback chains (always cross-provider)
 # ─────────────────────────────────────────────
+
+TASK_PROVIDER_STRATEGIES: dict[TaskType, ProviderStrategy] = {}
 
 FALLBACK_CHAIN: dict[Model, Model] = {
     # OpenRouter fallbacks (cheaper/faster → more capable)
@@ -531,6 +550,140 @@ BUDGET_PARTITIONS: dict[str, float] = {
 }
 
 
+
+# ─────────────────────────────────────────────
+# Budget — async budget tracker
+# ─────────────────────────────────────────────
+
+
+@dataclass
+class Budget:
+    """
+    Budget tracking with atomic reserve pattern for concurrent execution.
+
+    FIX-001a: Added reserve/commit/release pattern to prevent race conditions
+    when multiple concurrent tasks check budget simultaneously.
+    """
+
+    max_usd: float = 8.0
+    max_time_seconds: float = 5400.0  # 90 min
+    spent_usd: float = 0.0
+    start_time: float = field(default_factory=time.time)
+    # FIX-RESUME-001: Track original start time for elapsed time calculation when resuming
+    original_start_time: float = field(default_factory=time.time)
+    phase_spent: dict[str, float] = field(
+        default_factory=lambda: {
+            "decomposition": 0.0,
+            "generation": 0.0,
+            "cross_review": 0.0,
+            "evaluation": 0.0,
+            "reserve": 0.0,
+        }
+    )
+    # FIX-001a: Track reserved but not-yet-charged budget
+    _reserved_usd: float = field(default=0.0, repr=False)
+    # FIX-001a: Async lock for atomic operations (lazy initialized)
+    # BUG-001 FIX: Eagerly initialized async lock prevents TOCTOU race
+    _lock: asyncio.Lock = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """BUG-001 FIX: Initialize eagerly to prevent TOCTOU race on lock creation."""
+        self._lock = asyncio.Lock()
+
+    @property
+    def remaining_usd(self) -> float:
+        """Get remaining budget excluding reserved amounts."""
+        return max(0.0, self.max_usd - self.spent_usd - self._reserved_usd)
+
+    @property
+    def elapsed_seconds(self) -> float:
+        # FIX-RESUME-001: Use original_start_time for elapsed time when resuming
+        return time.time() - self.original_start_time
+
+    @property
+    def remaining_seconds(self) -> float:
+        return max(0.0, self.max_time_seconds - self.elapsed_seconds)
+
+    @property
+    def phase_limits(self) -> dict[str, float]:
+        """Return phase budget limits (compatibility with BudgetEnforcer)."""
+        return BUDGET_PARTITIONS
+
+    def can_afford(self, estimated_cost: float) -> bool:
+        """Check if budget can afford estimated cost (non-atomic, for non-concurrent use)."""
+        return self.remaining_usd >= estimated_cost
+
+    def validate_sufficient_for_tasks(
+        self, task_count: int, min_cost_per_task: float = 0.15
+    ) -> tuple[bool, str]:
+        """Validate if budget is sufficient for estimated task count."""
+        min_required = task_count * min_cost_per_task
+        if self.max_usd < min_required:
+            return (
+                False,
+                f"Budget ${self.max_usd:.2f} insufficient for {task_count} tasks. "
+                f"Minimum required: ${min_required:.2f} (${min_cost_per_task:.2f}/task)",
+            )
+        return True, ""
+
+    def time_remaining(self) -> bool:
+        return self.elapsed_seconds < self.max_time_seconds
+
+    def phase_budget(self, phase: str) -> float:
+        return self.max_usd * BUDGET_PARTITIONS.get(phase, 0.0)
+
+    def phase_remaining(self, phase: str) -> float:
+        return max(0.0, self.phase_budget(phase) - self.phase_spent.get(phase, 0.0))
+
+    async def charge(self, amount: float, phase: str = "generation"):
+        """Charge actual spend to budget (thread-safe)."""
+        async with self._lock:
+            self.spent_usd += amount
+            if phase in self.phase_spent:
+                self.phase_spent[phase] += amount
+
+    async def reserve(self, amount: float) -> bool:
+        """Atomically reserve budget amount. Returns True if succeeded."""
+        if amount < 0:
+            raise ValueError("Reservation amount must be non-negative")
+        async with self._lock:
+            available = self.max_usd - self.spent_usd - self._reserved_usd
+            if available >= amount:
+                self._reserved_usd += amount
+                return True
+            return False
+
+    async def commit_reservation(
+        self, reserved_amount: float, actual_amount: float, phase: str = "generation"
+    ):
+        """Convert reservation to actual charge."""
+        async with self._lock:
+            self._reserved_usd = max(0.0, self._reserved_usd - reserved_amount)
+            self.spent_usd += actual_amount
+            if phase in self.phase_spent:
+                self.phase_spent[phase] += actual_amount
+
+    async def release_reservation(self, amount: float):
+        """Release unused reservation."""
+        async with self._lock:
+            self._reserved_usd = max(0.0, self._reserved_usd - amount)
+
+    def to_dict(self) -> dict:
+        return {
+            "max_usd": self.max_usd,
+            "spent_usd": round(self.spent_usd, 4),
+            "remaining_usd": round(self.remaining_usd, 4),
+            "reserved_usd": round(self._reserved_usd, 4),
+            "elapsed_seconds": round(self.elapsed_seconds, 1),
+            "remaining_seconds": round(self.remaining_seconds, 1),
+            "phase_spent": {k: round(v, 4) for k, v in self.phase_spent.items()},
+        }
+
+
+__all__ = ["Budget"]
+
+
+
 # ─────────────────────────────────────────────
 # Data classes
 # ─────────────────────────────────────────────
@@ -552,6 +705,9 @@ class Task:
     target_path: str = ""  # e.g. "src/routes/auth.py"
     module_name: str = ""  # e.g. "src.routes.auth"
     tech_context: str = ""  # brief note on tech stack for this file
+    preferred_model: object | None = None  # Model | None
+    revision_context: str = ""
+    mode: str = ""  # "" means STANDARD
 
     # NOTE: type-specific defaults (thresholds, iterations, token limits) are
     # set by TaskFactory.create() in orchestrator/task_factory.py — not here.
@@ -575,6 +731,7 @@ class TaskResult:
     attempt_history: list[AttemptRecord] = field(default_factory=list)
     preflight_result: PreflightResult | None = None
     preflight_passed: bool = True
+    task_type: str = ""
     # TDD artifacts (populated when TDD-first generation is used)
     test_files: dict = field(default_factory=dict)
     tests_passed: int = 0
@@ -604,7 +761,7 @@ class ProjectState:
 
     project_description: str
     success_criteria: str
-    budget: object  # Budget type - avoid circular import by using object
+    budget: Budget | None  # Budget object or None
     tasks: dict[str, Task] = field(default_factory=dict)
     results: dict[str, TaskResult] = field(default_factory=dict)
     api_health: dict[str, bool] = field(default_factory=dict)

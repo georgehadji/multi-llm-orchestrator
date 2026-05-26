@@ -28,6 +28,7 @@ import logging
 import re
 import sqlite3
 import time
+import os
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, List, Tuple
 
@@ -63,6 +64,8 @@ from .resilience import ResiliencePolicy, RetryTemplate
 from .semantic_cache import SemanticCache
 from .validators import all_validators_pass, async_run_validators
 from .exceptions import OrchestratorError, TruncatedResponseError
+from .tool_guardrails import ToolCallGuardrailController
+from .crosscutting.config import flags
 
 # OpenRouter Optimization Features (Phase 1)
 try:
@@ -253,8 +256,22 @@ except (ImportError, TimeoutError):
 
 try:
     from .telemetry_store import TelemetryStore
+    from .memory.memory_manager import MemoryManager
+    from .pattern_learner.pattern_store import PatternStore
+    from .pattern_learner.injector import PatternInjector
+    from .pattern_learner.extractor import PatternExtractor
+    from .pattern_learner.curator import PatternCurator
+    from .context_compressor import ContextCompressor
+    from .delegation.batch_runner import BatchRunner
 except (ImportError, TimeoutError):
     TelemetryStore = None
+    MemoryManager = None
+    PatternStore = None
+    PatternInjector = None
+    PatternExtractor = None
+    PatternCurator = None
+    ContextCompressor = None
+    BatchRunner = None
 
 # NEW: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
 try:
@@ -297,7 +314,6 @@ except ImportError:
 
 logger = logging.getLogger("orchestrator")
 
-
 def _clean_code_output(text: str, task_type: TaskType) -> str:
     """
     Post-process code output to remove common LLM artifacts:
@@ -336,7 +352,6 @@ def _clean_code_output(text: str, task_type: TaskType) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
-
 
 class Orchestrator:
     """
@@ -437,10 +452,10 @@ class Orchestrator:
         self._telemetry = TelemetryCollector(self._profiles)
 
         # ── Application-layer services (wired AFTER telemetry init) ─────────
-        from .services.executor import ExecutorService as _ExecutorService
-        from .services.evaluator import EvaluatorService as _EvaluatorService
-        from .services.generator import GeneratorService as _GeneratorService
-        from .services.observability import ObservabilityService as _ObsService
+        from .application.executor import ExecutorService as _ExecutorService
+        from .application.evaluator import EvaluatorService as _EvaluatorService
+        from .application.decomposer import DecomposerService as _GeneratorService
+        from .application.observability import ObservabilityService as _ObsService
         from .circuit_breaker import CircuitBreakerRegistry as _CBRegistry
 
         self.observability = _ObsService()
@@ -479,9 +494,18 @@ class Orchestrator:
         self.context_truncation_limit: int = 40000
         # T1-B: engine_core modules — engine.py delegates to these instead of
         # reimplementing the same logic inline.
-        from .engine_core.dependency_resolver import DependencyResolver as _DepResolver
+        from .application.dependency_resolver import DependencyResolver as _DepResolver
 
-        self._dep_resolver = _DepResolver(context_truncation_limit=self.context_truncation_limit)
+        # ── Phase 3: Context Compressor (opt-in via ORCH_CONTEXT_COMPRESSION=true) ──
+        self._context_compressor = ContextCompressor(
+            client=self.client,
+            enabled=flags.context_compression,
+        ) if ContextCompressor is not None else None
+
+        self._dep_resolver = _DepResolver(
+            context_truncation_limit=self.context_truncation_limit,
+            context_compressor=self._context_compressor,
+        )
         # Improvement 3: event hooks + metrics exporter
         self._hook_registry: HookRegistry = HookRegistry()
         self._metrics_exporter: MetricsExporter | None = None
@@ -496,16 +520,41 @@ class Orchestrator:
         from .adaptive_router import AdaptiveRouter
 
         self._adaptive_router = AdaptiveRouter()
+        # PHASE-2: TieredModelRouter for CHEAP/BALANCED/PREMIUM routing
+        from .model_selector import TieredModelRouter
+        self._tiered_router = TieredModelRouter(self.api_health, self._adaptive_router)
+        # PHASE 6: PipelineRunner delegates context, cache, and execute_all
+        from .pipeline_runner import PipelineRunner
+        self._pipeline = PipelineRunner(self)
         # Task 7: configure OpenTelemetry tracing if a config was provided
         if tracing_cfg is not None:
             configure_tracing(tracing_cfg)
         # Persistent cross-run learning store (Learn & Show feature)
-        self._telemetry_store: TelemetryStore = (
-            telemetry_store if telemetry_store is not None else TelemetryStore()
+        self._telemetry_store: TelemetryStore | None = (
+            telemetry_store if telemetry_store is not None else
+            (TelemetryStore() if TelemetryStore is not None else None)
         )
         # OPTIMIZATION: Semantic cache for high-level pattern reuse
         # Note: Now integrated into CacheOptimizer (L3 cache)
         self._semantic_cache = SemanticCache(quality_threshold=0.85)
+
+        # PHASE 5-D: LearningServices (pattern learning, telemetry, batch execution)
+        from .service_collection import LearningServices
+        _learning = LearningServices.build(
+            telemetry_store=self._telemetry_store,
+            client=self.client,
+            flags=flags,
+            task_guard_cls=_TaskGuard,
+        )
+        self._telemetry_store = _learning.telemetry_store
+        self._memory_provider_mgr = _learning.memory_provider_mgr
+        self._pattern_store = _learning.pattern_store
+        self._pattern_extractor = _learning.pattern_extractor
+        self._pattern_injector = _learning.pattern_injector
+        self._pattern_curator = _learning.pattern_curator
+        self._batch_guard = _learning.batch_guard
+        self._batch_runner = _learning.batch_runner
+
         # Track if we've been entered as a context manager
         self._entered: bool = False
 
@@ -517,25 +566,23 @@ class Orchestrator:
         self._git_integration: Any | None = None
         self._output_dir: Path | None = None
 
-        # NEW: Security & Accountability modules (arXiv:2602.20021)
-        # Task Verification - prevents task completion misrepresentation
-        self._task_verifier: TaskVerifier = TaskVerifier()
-        # Accountability - tracks action attribution and downstream impacts
-        self._accountability: AccountabilityTracker = AccountabilityTracker()
-        # Agent Safety - prevents cross-agent unsafe practice propagation
-        self._agent_safety: AgentSafetyMonitor = AgentSafetyMonitor()
-        # Red-Team Framework - stress testing methodology
-        self._red_team: RedTeamFramework = RedTeamFramework()
+        # PHASE 5-A: Safety & Accountability modules (arXiv:2602.20021)
+        from .service_collection import SafetyServices
+        _safety = SafetyServices.build()
+        self._task_verifier: TaskVerifier = _safety.task_verifier
+        self._accountability: AccountabilityTracker = _safety.accountability
+        self._agent_safety: AgentSafetyMonitor = _safety.agent_safety
+        self._red_team: RedTeamFramework = _safety.red_team
+        self._tool_guardrails = _safety.tool_guardrails
 
         # NEW: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
-        # Token Optimizer - CLI output filtering (60-90% token savings)
-        self._token_optimizer: TokenOptimizer = TokenOptimizer()
-        # Preflight Validator - response quality control (PASS/ENRICH/WARN/BLOCK)
-        self._preflight_validator: PreflightValidator = PreflightValidator()
-        # Session Watcher - auto-capture conversations
-        self._session_watcher: SessionWatcher = SessionWatcher()
-        # Persona Manager - behavior customization
-        self._persona_manager: PersonaManager = PersonaManager()
+        # PHASE 5-B: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
+        from .service_collection import IntegrationServices
+        _integration = IntegrationServices.build()
+        self._token_optimizer: TokenOptimizer = _integration.token_optimizer
+        self._preflight_validator: PreflightValidator = _integration.preflight_validator
+        self._session_watcher: SessionWatcher = _integration.session_watcher
+        self._persona_manager: PersonaManager = _integration.persona_manager
         # Memory Tier Manager - HOT/WARM/COLD memory hierarchy with BM25
         self._memory_manager: MemoryTierManager = MemoryTierManager(enable_bm25=True)
         # BM25 Search - SQLite FTS5 full-text search
@@ -731,7 +778,8 @@ class Orchestrator:
 
         # 5. Flush telemetry store
         try:
-            await self._telemetry_store.flush()
+            if self._telemetry_store is not None:
+                await self._telemetry_store.flush()
             logger.debug("Telemetry store flushed")
         except Exception as e:
             logger.warning(f"Failed to flush telemetry store: {e}")
@@ -1502,6 +1550,19 @@ class Orchestrator:
                 self._architecture_rules = architecture_rules
 
                 # Phase 1: Decompose
+                # Karpathy: Surface hidden assumptions before generating the plan
+                try:
+                    from .assumption_gate import surface_assumptions
+                    report = await surface_assumptions(project_description, self.client)
+                    if report.has_ambiguity:
+                        logger.info(
+                            "Assumptions surfaced: %d assumptions, %d questions",
+                            len(report.assumptions), len(report.clarification_questions)
+                        )
+                        project_description = f"{project_description}\n\n{report.to_prompt_context()}"
+                except ImportError:
+                    pass
+
                 gen_result = await self._generator.decompose(
                     project_description, success_criteria, app_profile=app_profile,
                     policy=RetryTemplate.DECOMPOSE.to_policy(),
@@ -1533,16 +1594,15 @@ class Orchestrator:
 
                 # Emit ProjectStarted streaming event
                 if self._event_bus:
-                    from .events import ProjectStartedEvent
+                    from .unified_events.core import ProjectStartedEvent
 
                     logger.debug("Publishing ProjectStarted event...")
                     await self._event_bus.publish(
                         ProjectStartedEvent(
+                            aggregate_id=self._project_id,
                             project_id=self._project_id,
                             description=project_description[:200],
                             budget=self.budget.max_usd,
-                            budget_usd=self.budget.max_usd,
-                            total_tasks=len(tasks),
                         )
                     )
                     logger.debug("ProjectStarted event published")
@@ -1587,7 +1647,7 @@ class Orchestrator:
 
                 # Emit ProjectCompleted streaming event
                 if self._event_bus:
-                    from .events import ProjectCompletedEvent
+                    from .unified_events.core import ProjectCompletedEvent
 
                     completed_count = sum(
                         1 for r in self.results.values() if r.status != TaskStatus.FAILED
@@ -1597,12 +1657,10 @@ class Orchestrator:
                     )
                     await self._event_bus.publish(
                         ProjectCompletedEvent(
+                            aggregate_id=self._project_id,
                             project_id=self._project_id,
                             status=state.status.value,
                             total_cost=self.budget.spent_usd,
-                            total_cost_usd=self.budget.spent_usd,
-                            duration_seconds=self.budget.elapsed_seconds,
-                            elapsed_seconds=self.budget.elapsed_seconds,
                             tasks_completed=completed_count,
                             tasks_failed=failed_count,
                         )
@@ -1722,6 +1780,19 @@ class Orchestrator:
             TaskPlan,
         )
         from .models import ROUTING_TABLE
+
+        # Karpathy: Surface hidden assumptions before generating the plan
+        try:
+            from .assumption_gate import surface_assumptions
+            report = await surface_assumptions(project_description, self.client)
+            if report.has_ambiguity:
+                logger.info(
+                    "Assumptions surfaced: %d assumptions, %d questions",
+                    len(report.assumptions), len(report.clarification_questions)
+                )
+                project_description = f"{project_description}\n\n{report.to_prompt_context()}"
+        except ImportError:
+            pass
 
         gen_result = await self._generator.decompose(
             project_description, success_criteria,
@@ -2668,14 +2739,34 @@ Each task JSON element MUST also include:
             parallel_count = len(runnable)
             if parallel_count > 1:
                 logger.info(
-                    "Executing level %d: %d tasks in parallel (max=%d): %s",
+                    "Executing level %d: %d tasks (batch=%s, max_parallel=%d): %s",
                     level_idx,
                     parallel_count,
+                    "yes" if self._batch_runner is not None else "no",
                     self._max_parallel_tasks,
                     runnable,
                 )
             else:
                 logger.info("Executing level %d: %s", level_idx, runnable)
+
+            # ── BATCH RUNNER (Phase 4: parallel level execution) ──
+            if self._batch_runner is not None and len(runnable) > 1:
+                dep_contexts: dict[str, str] = {}
+                for _tid in runnable:
+                    dep_contexts[_tid] = getattr(tasks[_tid], "context", "")
+                try:
+                    batch_results = await self._batch_runner.run_batch(
+                        [tasks[tid] for tid in runnable],
+                        dependency_contexts=dep_contexts,
+                        parent_budget=self.budget,
+                        execute_fn=self._execute_task,
+                    )
+                    async with self._results_lock:
+                        for _tid, _res in batch_results.items():
+                            self.results[_tid] = _res
+                    continue
+                except Exception as _batch_err:
+                    logger.warning("Batch execution failed for level %d: %s - falling back", level_idx, _batch_err)
 
             # ═══════════════════════════════════════════════════════
             # OPTIMIZATION: Cache warming before parallel execution
@@ -2763,113 +2854,19 @@ Each task JSON element MUST also include:
         return ""
 
     def _validate_syntax_streaming(self, partial_output: str) -> bool:
-        """
-        OPTIMIZATION: Streaming syntax validator for early abort.
-
-        Checks partial code output for obvious syntax errors:
-        - Unclosed brackets/parentheses
-        - Invalid Python syntax (early detection)
-        - Missing imports for common modules
-
-        Args:
-            partial_output: Partial code output (first ~500 tokens)
-
-        Returns:
-            True if syntax looks valid, False if obvious errors detected
-        """
-        import ast
-
-        # Quick bracket balance check
-        brackets = {"(": ")", "[": "]", "{": "}"}
-        stack = []
-        for char in partial_output:
-            if char in brackets:
-                stack.append(char)
-            elif char in brackets.values():
-                if not stack:
-                    return False  # Unmatched closing bracket
-                if brackets[stack.pop()] != char:
-                    return False  # Mismatched brackets
-
-        # Try parsing as Python (may fail on incomplete code)
-        try:
-            # Only validate if we have a complete statement (ends with newline)
-            if partial_output.strip().endswith(":") or partial_output.count("\n") < 2:
-                return True  # Incomplete statement, can't validate yet
-
-            ast.parse(partial_output)
-            return True  # Valid syntax
-        except SyntaxError as e:
-            # Check if error is likely due to incompleteness vs actual error
-            error_msg = str(e).lower()
-            if "eof" in error_msg or "unexpected eof" in error_msg:
-                return True  # Incomplete code, not necessarily wrong
-            elif "invalid syntax" in error_msg:
-                # Check if it's a common incomplete pattern
-                if partial_output.rstrip().endswith((",", "\\", "...")):
-                    return True  # Likely continuation
-                return False  # Actual syntax error
-            return True  # Other errors, be lenient
+        """PHASE-4: Delegates to orchestrator.validators.validate_syntax_streaming."""
+        from .validators import validate_syntax_streaming
+        return validate_syntax_streaming(partial_output)
 
     async def _validate_syntax_batch(self, output: str) -> bool:
-        """
-        Batch syntax validator for post-generation validation.
-
-        Args:
-            output: Complete code output
-
-        Returns:
-            True if syntax valid, False otherwise
-        """
-        import ast
-
-        try:
-            ast.parse(output)
-            return True
-        except SyntaxError:
-            return False
+        """PHASE-4: Delegates to orchestrator.validators.validate_syntax_batch."""
+        from .validators import validate_syntax_batch
+        return await validate_syntax_batch(output)
 
     def _extract_function_name(self, code: str) -> str | None:
-        """
-        Extract the main function name from generated code.
-
-        Args:
-            code: Python source code
-
-        Returns:
-            Function name or None
-        """
-        import ast
-        import re
-
-        try:
-            # Try AST parsing first
-            tree = ast.parse(code)
-
-            # Look for the first function definition
-            for node in ast.walk(tree):
-                if isinstance(node, ast.FunctionDef):
-                    # Skip dunder methods
-                    if not node.name.startswith("__"):
-                        return node.name
-
-            # Fallback: Look for class __init__
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ClassDef):
-                    return node.name
-
-        except SyntaxError:
-            # AST parsing failed, try regex
-            match = re.search(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", code)
-            if match:
-                return match.group(1)
-
-            # Try class name
-            class_match = re.search(r"class\s+([a-zA-Z_][a-zA-Z0-9_]*)", code)
-            if class_match:
-                return class_match.group(1)
-
-        return None
+        """PHASE-4: Delegates to orchestrator.validators.extract_function_name."""
+        from .validators import extract_function_name
+        return extract_function_name(code)
 
     def _build_delta_prompt(self, original_prompt: str, record: AttemptRecord) -> str:
         """Delegates to DeltaPrompt — see prompt_builder.py for full implementation."""
@@ -2898,7 +2895,7 @@ Each task JSON element MUST also include:
 
             # Emit TaskStarted streaming event
             if self._event_bus:
-                from .events import TaskStartedEvent
+                from .unified_events.core import TaskStartedEvent
 
                 await self._event_bus.publish(
                     TaskStartedEvent(
@@ -3688,10 +3685,52 @@ Each task JSON element MUST also include:
                     )
                     if context:
                         full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
+
+                    # ── PATTERN INJECTION (Phase 5: opt-in) ──
+                    if hasattr(self, '_pattern_injector') and self._pattern_injector is not None:
+                        enriched, added = await self._pattern_injector.inject(
+                            task.type.value, full_prompt,
+                        )
+                        if added:
+                            full_prompt = enriched
+
+                    # ── CONTEXT PROVIDER ENRICHMENT (Phase 2: opt-in) ──
+                    if hasattr(self, '_context_providers') and self._context_providers:
+                        for _cp in self._context_providers:
+                            try:
+                                _er = await _cp.enrich(full_prompt, task.type.value, context)
+                                if _er.enrichment_added:
+                                    full_prompt = _er.enriched_prompt
+                            except Exception as _cp_err:
+                                logger.debug("ContextProvider enrich failed: %s", _cp_err)
                     logger.debug(
                         f"{primary.value}: critique embedded into next iteration "
                         f"prompt for {task.id}"
                     )
+
+                # ── TOOL CALL GUARDRAIL (runtime safety check) ──
+                guardrail_result = self._tool_guardrails.check(
+                    output, task_type=task.type.value if task.type else None
+                )
+                if guardrail_result.is_blocked:
+                    logger.warning(
+                        "Guardrail BLOCKED iteration for %s: %s",
+                        task.id, guardrail_result.reason,
+                    )
+                    # Fire guardrail hook event
+                    try:
+                        self._hook_registry.fire(
+                            EventType.VALIDATION_FAILED,
+                            task_id=task.id,
+                            model=getattr(task, "preferred_model", ""),
+                            validators=[f"guardrail_{guardrail_result.decision.value}"],
+                        )
+                    except Exception:
+                        pass
+                    det_passed = False
+                    best_effective_output = guardrail_result.synthetic_output or ""
+                    status = TaskStatus.FAILED
+                    break
 
                 # ── DETERMINISTIC VALIDATION ──
                 det_passed = True
@@ -3719,9 +3758,10 @@ Each task JSON element MUST also include:
                 # ── EVALUATE ──
                 if det_passed:
                     logger.info(f"  {task.id}: starting evaluation...")
-                    score = await self._evaluator.evaluate(
+                    eval_report = await self._evaluator.evaluate(
                         task, output, policy=RetryTemplate.EVALUATE.to_policy()
                     )
+                    score = eval_report.score
                     logger.info(f"  {task.id}: evaluation complete, score={score:.3f}")
                 else:
                     score = 0.0
@@ -3751,15 +3791,14 @@ Each task JSON element MUST also include:
                         )
                     except ImportError:
                         # Fallback to standard events
-                        from .events import TaskProgressEvent
+                        from .unified_events.core import TaskProgressEvent
 
                         await self._event_bus.publish(
                             TaskProgressEvent(
+                                aggregate_id=task.id,
                                 task_id=task.id,
                                 iteration=iteration + 1,
                                 score=score,
-                                best_score=best_score,
-                                model=primary.value,
                             )
                         )
 
@@ -3909,6 +3948,27 @@ Each task JSON element MUST also include:
                 # L3: Semantic cache
                 self._semantic_cache.cache_pattern(task, best_output, best_score)
 
+                # ── MEMORY SYNC (Phase 3+: persist to memory providers) ──
+                if hasattr(self, '_memory_provider_mgr') and self._memory_provider_mgr is not None:
+                    asyncio.create_task(
+                        self._memory_manager.sync_turn(
+                            task.id, task.type.value, result,
+                        )
+                    )
+
+                # ── PATTERN EXTRACTION (Phase 5: closed learning loop) ──
+                if hasattr(self, '_pattern_extractor') and self._pattern_extractor is not None:
+                    pattern = await self._pattern_extractor.extract(
+                        task.type.value, result, task.prompt,
+                    )
+                    if pattern is not None and hasattr(self, '_pattern_store'):
+                        await self._pattern_store.insert(
+                            pattern,
+                            prompt_text=task.prompt,
+                            generated_code=result.output,
+                            critique_text=result.critique,
+                        )
+
                 # L1/L2: Cache optimizer (with compression and TTL)
                 if self._cache_optimizer:
                     await self._cache_optimizer.put(
@@ -3925,7 +3985,7 @@ Each task JSON element MUST also include:
 
             # Emit TaskCompleted or TaskFailed streaming event
             if self._event_bus:
-                from .events import TaskCompletedEvent, TaskFailedEvent
+                from .unified_events.core import TaskCompletedEvent, TaskFailedEvent
 
                 if status == TaskStatus.FAILED:
                     await self._event_bus.publish(
@@ -3941,10 +4001,7 @@ Each task JSON element MUST also include:
                             aggregate_id=task.id,
                             task_id=task.id,
                             score=best_score,
-                            model=primary.value,
-                            cost_usd=total_cost,
-                            iterations=len(scores_history),
-                            status=status.value,
+                            cost=total_cost,
                         )
                     )
 
@@ -4021,7 +4078,7 @@ Each task JSON element MUST also include:
                         func_name = self._extract_function_name(best_output)
 
                         # Validate test generation
-                        validator = TestValidator(max_iterations=2)
+                        validator = TestValidator(max_iterations=2, client=self.client)
                         test_result = await validator.validate_test_generation(
                             source_file=source_file,
                             function_name=func_name or "main",
@@ -4495,121 +4552,27 @@ Each task JSON element MUST also include:
 
     # OPTIMIZATION: Tiered model selection for cost efficiency v3.0
     # PRIORITY: Best value models first (Xiaomi, StepFun, GLM, Grok)
-    # Updated: Use faster models for code gen to avoid timeouts
-    _TIER_CHEAP = [
-        Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75 - Fast coding specialist ⭐ BEST
-        Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 - #1 SWE-bench, fast
-        Model.ZHIPU_GLM_4_7,  # $0.39/$1.75 - Enhanced programming
-        Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30 - 196B MoE reasoning
-        Model.PHI_4,  # $0.07/$0.14 - Microsoft 14B
-        Model.GEMMA_3_27B,  # $0.08/$0.20 - Google open-weights
-        Model.LLAMA_3_3_70B,  # $0.12/$0.30 - Meta 70B reliable
-        Model.NVIDIA_NEMOTRON_3_SUPER,  # $0.10/$0.50 - 120B MoE efficient
-    ]
-    _TIER_BALANCED = [
-        Model.DEEPSEEK_V3_2,  # $0.27/$1.10 - 1.24T tokens, faster than MiMo-Pro
-        Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20 - Visual coding SOTA
-        Model.MINIMAX_M2_7,  # $0.30/$1.20 - 56.2% SWE-Pro
-        Model.GEMINI_FLASH,  # $0.15/$0.60 - 1M context, fast
-        Model.CLAUDE_3_HAIKU,  # $0.25/$1.25 - Claude budget tier
-        Model.DEEPSEEK_CHAT,  # $0.28/$0.42 - Cost effective
-        # MiMo-V2-Pro moved to end - too slow for iterative work
-        Model.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00 - 1T+ params (slow)
-    ]
-    _TIER_PREMIUM = [
-        Model.XAI_GROK_4_20_BETA,  # $2.00/$6.00 - Lowest hallucination ⭐
-        Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Best coding
-        Model.QWEN_3_5_397B_A17B,  # $0.39/$2.34 - 397B MoE SOTA ⭐
-        Model.GPT_5_4_CODEX,  # $1.75/$14.00 - SWE-Bench Pro SOTA
-        Model.GEMINI_PRO,  # $2.00/$12.00 - Gemini premium
-        Model.O4_MINI,  # $1.50/$6.00 - OpenAI reasoning
-    ]
-
-    # Track tier escalation per task type to prevent loops
-    _tier_escalation_count: dict[str, int] = {}
+    # PHASE-2: Tier constants and escalation count moved to model_selector.TieredModelRouter
 
     def _get_available_models(self, task_type: TaskType) -> list[Model]:
-        """
-        Get available models with tiered selection for cost optimization.
-
-        Uses three-tier routing: CHEAP → BALANCED → PREMIUM
-        Starts with cheaper models and escalates if needed based on
-        task complexity and previous failures.
-        """
-        # Check if we should try cheap tier first
-        tier_key = f"{task_type.value}"
-        escalation_count = self._tier_escalation_count.get(tier_key, 0)
-
-        # Determine which tier to use based on escalation history
-        if escalation_count == 0:
-            # Start with cheap tier for simple tasks
-            if task_type in (TaskType.DATA_EXTRACT, TaskType.SUMMARIZE):
-                candidates = self._TIER_CHEAP + self._TIER_BALANCED
-            else:
-                candidates = self._TIER_BALANCED + self._TIER_CHEAP
-        elif escalation_count == 1:
-            # Escalate to balanced/premium
-            candidates = self._TIER_BALANCED + self._TIER_PREMIUM
-        else:
-            # Full escalation - use premium models
-            candidates = ROUTING_TABLE.get(task_type, [])
-
-        # Filter to only healthy models
-        # Use default True for models not yet in api_health (new models added after startup)
-        available = [m for m in candidates if self.api_health.get(m, True)]
-        if not available:
-            available = [m for m in Model if self.api_health.get(m, True)]
-        # Task 6: also filter out models the adaptive router has degraded/disabled
-        available = [m for m in available if self._adaptive_router.is_available(m)]
-
-        return available
+        """PHASE-2: Delegates to TieredModelRouter.available_models."""
+        return self._tiered_router.available_models(task_type)
 
     def _escalate_tier(self, task_type: TaskType) -> None:
-        """Escalate to higher tier after cheap tier failure."""
-        tier_key = f"{task_type.value}"
-        self._tier_escalation_count[tier_key] = self._tier_escalation_count.get(tier_key, 0) + 1
-        logger.info(
-            f"Tier escalation for {task_type.value}: level {self._tier_escalation_count[tier_key]}"
-        )
+        """PHASE-2: Delegates to TieredModelRouter.escalate_tier."""
+        self._tiered_router.escalate_tier(task_type)
 
     def _select_decomposition_model(self, project_description: str) -> Model:
         """Delegates to ModelSelector — see model_selector.py for full logic."""
         return self._selector.decomposition_model(project_description)
 
     def _get_fast_decomposition_model(self) -> Model:
-        """Get a fast, reliable model for task decomposition.
-
-        Prioritizes reliability over cost for decomposition,
-        since decomposition is a critical path and happens once per project.
-
-        P1-2 OPTIMIZATION: Updated v3.1 - avoid models with truncation issues.
-        """
-        from .models import Model
-
-        # Reliable models for decomposition (in priority order) v3.1
-        # NOTE: Qwen/Xiaomi removed due to truncation issues with large outputs
-        reliable_models = [
-            Model.GPT_4O,  # $2.50/$10.00 - Reliable JSON, large context ⭐
-            Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Excellent structure
-            Model.GEMINI_FLASH,  # $0.15/$0.60 - Reliable JSON output
-            Model.GPT_4O_MINI,  # $0.15/$0.60 - Cheap, reliable
-        ]
-
-        for m in reliable_models:
-            if self.api_health.get(m, True):
-                logger.debug(f"Using {m.value} for decomposition")
-                return m
-
-        # Fallback to cheapest available
-        return self._get_cheapest_available()
+        """PHASE-2: Delegates to TieredModelRouter.fast_decomposition_model."""
+        return self._tiered_router.fast_decomposition_model()
 
     def _get_cheapest_available(self) -> Model:
-        from .models import COST_TABLE
-
-        healthy = [m for m in Model if self.api_health.get(m, False)]
-        if not healthy:
-            raise RuntimeError("No healthy models available")
-        return min(healthy, key=lambda m: COST_TABLE[m]["output"])
+        """PHASE-2: Delegates to TieredModelRouter.cheapest_available."""
+        return self._tiered_router.cheapest_available()
 
     def _select_reviewer(self, generator: Model, task_type: TaskType) -> Model | None:
         """Delegates to ModelSelector — see model_selector.py for full logic."""
@@ -4682,66 +4645,9 @@ Each task JSON element MUST also include:
         return levels
 
     def _filter_validators_for_task(self, task: Task, output: str) -> list[str]:
-        """
-        Filter validators based on task type and content.
-        Removes Python-specific validators for non-Python tasks.
-        """
-        if not task.hard_validators:
-            return []
-
-        # Detect if this is a Python task
-        # NOTE: "import " is intentionally excluded — JS/TS also use ES module imports
-        is_python_task = (
-            "python" in task.prompt.lower()
-            or ".py" in task.target_path.lower()
-            or "flask" in task.prompt.lower()
-            or "django" in task.prompt.lower()
-            or "fastapi" in task.prompt.lower()
-            or "def " in output[:500]  # Python function defs
-        )
-
-        # Detect if this is a web/JS/TS task (HTML/CSS/JS/TS/React/Vue)
-        is_web_task = (
-            "html" in task.prompt.lower()
-            or "css" in task.prompt.lower()
-            or "javascript" in task.prompt.lower()
-            or "typescript" in task.prompt.lower()
-            or "react" in task.prompt.lower()
-            or "vue" in task.prompt.lower()
-            or "angular" in task.prompt.lower()
-            or "next.js" in task.prompt.lower()
-            or " js " in task.prompt.lower()
-            or task.prompt.lower().endswith(" js")
-            or ".html" in task.target_path.lower()
-            or ".css" in task.target_path.lower()
-            or ".js" in task.target_path.lower()
-            or ".ts" in task.target_path.lower()
-            or ".tsx" in task.target_path.lower()
-            or ".jsx" in task.target_path.lower()
-            or "<!DOCTYPE" in output[:100]
-            or "<html" in output[:100]
-            or "function(" in output[:500]
-            or "const " in output[:500]
-            or "export default" in output[:1000]  # JS/TS module export
-            or "export const" in output[:1000]  # JS/TS named export
-            or "from 'react'" in output[:500]  # React import (single quotes)
-            or 'from "react"' in output[:500]  # React import (double quotes)
-        )
-
-        if is_web_task or not is_python_task:
-            # Remove Python-specific validators
-            original = set(task.hard_validators)
-            filtered = [
-                v for v in task.hard_validators if v not in ("python_syntax", "ruff", "pytest")
-            ]
-            removed = original - set(filtered)
-            if removed:
-                logger.info(
-                    f"Task {task.id}: skipped Python validators {removed} (non-Python content detected)"
-                )
-            return filtered
-
-        return task.hard_validators
+        """PHASE-4: Delegates to orchestrator.validators.filter_validators_for_task."""
+        from .validators import filter_validators_for_task
+        return filter_validators_for_task(task, output)
 
     async def _gather_dependency_context(self, task: Task) -> str:
         """
@@ -4858,6 +4764,10 @@ Each task JSON element MUST also include:
             for r in state.results.values()
             if r.iterations > 0
         )
+
+        # ── MEMORY CONSOLIDATION (Phase 3+: cross-project insights) ──
+        if hasattr(self, '_memory_provider_mgr') and self._memory_provider_mgr is not None:
+            asyncio.create_task(self._memory_manager.maybe_consolidate())
 
         det_ok = all(r.deterministic_check_passed for r in state.results.values())
 

@@ -625,6 +625,155 @@ def validate_file_has_content(output: str, min_lines: int = 5, min_code_lines: i
     )
 
 
+def validate_simplicity(output: str, task_description: str = "") -> ValidationResult:
+    """Karpathy Principle 2: Simplicity First — detect over-engineering.
+
+    Detects:
+    1. Abstract base classes with fewer than 2 concrete subclasses.
+    2. Comments mentioning speculative flexibility (configurable, extensible).
+    3. Lines-to-features ratio warnings (>200 lines for a single feature).
+    4. Empty error handlers (bare 'except: pass').
+
+    This is a soft check — flags issues but does not block execution.
+    """
+    code = _extract_code_block(output, "python") if output else output
+    issues = []
+
+    # Check 1: Single-implementation abstractions
+    class_pattern = re.compile(r"class (\w+)\((?:ABC|metaclass=ABCMeta)\)", re.MULTILINE)
+    for m in class_pattern.finditer(code):
+        base = m.group(1)
+        sub_pat = re.compile(rf"class \w+\({base}\)")
+        subclass_count = len(sub_pat.findall(code))
+        if subclass_count <= 1:
+            issues.append(
+                f"Abstract class '{base}' has only {subclass_count} concrete subclass(es) — "
+                "consider simplifying into a single class"
+            )
+
+    # Check 2: Speculative flexibility comments
+    speculative_patterns = [
+        (r"#.*?\b(configurable|extensible|flexible)\b", "speculative flexibility comment"),
+        (r"#.*?\b(might|could|may)\s+need\b", "speculative future-need comment"),
+    ]
+    for pattern, desc in speculative_patterns:
+        matches = re.findall(pattern, code, re.IGNORECASE)
+        if matches:
+            issues.append(f"{desc}: found {len(matches)} instance(s)")
+
+    # Check 3: Lines-to-features ratio
+    code_lines = [l for l in code.split("\n") if l.strip() and not l.strip().startswith("#")]
+    if len(code_lines) > 200 and task_description:
+        multi_file_signals = ["multiple", "several", "database", "migration", "full-stack"]
+        if not any(s in task_description.lower() for s in multi_file_signals):
+            issues.append(
+                f"Output is {len(code_lines)} lines for a single feature — "
+                "consider if this could be simplified to under 100 lines"
+            )
+
+    # Check 4: Empty error handlers
+    empty_handler = re.compile(
+        r"except[^:]*:\s*\n\s*(pass|logger\.(info|debug)\(['\"].*?['\"]\))"
+    )
+    if empty_handler.search(code):
+        issues.append(
+            "Empty error handler detected (bare 'pass' or silent log). "
+            "Either handle the error properly or let it propagate."
+        )
+
+    if issues:
+        return ValidationResult(
+            False,
+            f"Simplicity concerns ({len(issues)}):\n" + "\n".join(f"  - {i}" for i in issues),
+            "simplicity",
+        )
+
+    return ValidationResult(True, "Simplicity check passed", "simplicity")
+
+
+def validate_surgical_changes(
+    output: str = "",
+    diff: str = "",
+    task_description: str = "",
+    locked_files: list[str] | None = None,
+) -> ValidationResult:
+    """Karpathy Principle 3: Surgical Changes — detect scope creep.
+
+    Detects:
+    1. Changes to locked files.
+    2. Style/formatting-only changes in untouched code sections.
+    3. Removal of pre-existing code unrelated to the task.
+    4. New imports not used in the added code.
+
+    This is a soft check — flags issues but does not block execution.
+    """
+    if not diff:
+        return ValidationResult(True, "No diff provided, skipping", "surgical_changes")
+
+    issues: list[str] = []
+    locked = set(locked_files or [])
+
+    # Check 1: Locked files modified
+    if locked:
+        file_pattern = re.compile(r"^diff --git a/(.+) b/(.+)", re.MULTILINE)
+        changed_files: set[str] = set()
+        for m in file_pattern.finditer(diff):
+            changed_files.add(m.group(1))
+            changed_files.add(m.group(2))
+
+        for locked_file in locked:
+            if any(locked_file in f for f in changed_files):
+                issues.append(f"Modified locked file: {locked_file}")
+
+    # Check 2: Style-only changes
+    diff_lines = diff.split("\n")
+    style_change_count = 0
+    for line in diff_lines:
+        if not line.startswith(("+", "-")):
+            continue
+        # Skip actual code changes
+        if line[1:].lstrip().startswith(("import ", "from ", "def ", "class ", "return ", "if ", "for ")):
+            continue
+        if line.startswith("+") and line[1:].lstrip().startswith(("#", "'''", '"""')):
+            style_change_count += 1
+        if line.startswith("-") and line[1:].lstrip().startswith(("#", "'''", '"""')):
+            style_change_count += 1
+
+    if style_change_count > 3:
+        issues.append(
+            f"Detected {style_change_count} style-only changes (comments, formatting) — "
+            "remove style changes unrelated to the task"
+        )
+
+    # Check 3: Pre-existing code removed
+    removed_defs = re.findall(r"^-\s*(?:def |class )(\w+)", diff, re.MULTILINE)
+    if removed_defs and task_description:
+        for removed in removed_defs:
+            if removed.lower() not in task_description.lower():
+                issues.append(
+                    f"Removed pre-existing definition '{removed}' — "
+                    "not mentioned in task description"
+                )
+
+    # Check 4: New imports not used
+    new_imports = re.findall(r"^\+import (\w+)", diff, re.MULTILINE)
+    if new_imports:
+        added_lines = [l for l in diff_lines if l.startswith("+") and not l.startswith("+++")]
+        added_code = "\n".join(l[1:] for l in added_lines)
+        for imp in new_imports:
+            if imp not in added_code:
+                issues.append(f"New import '{imp}' not used in added code — remove")
+
+    if issues:
+        return ValidationResult(
+            False,
+            f"Surgical change violations ({len(issues)}):\n" + "\n".join(f"  - {i}" for i in issues),
+            "surgical_changes",
+        )
+
+    return ValidationResult(True, "Surgical change check passed", "surgical_changes")
+
+
 def validate_no_error_placeholders(output: str) -> ValidationResult:
     """Validate that output is not an error placeholder.
     
@@ -662,11 +811,199 @@ def validate_no_error_placeholders(output: str) -> ValidationResult:
 VALIDATORS = {
     "json_schema": validate_json_schema,
     "python_syntax": validate_python_syntax,
-    "file_content": validate_file_has_content,  # NEW: Check for empty/implementations
-    "error_placeholder": validate_no_error_placeholders,  # NEW: Detect failed generation
+    "file_content": validate_file_has_content,  # Check for empty/implementations
+    "error_placeholder": validate_no_error_placeholders,  # Detect failed generation
     "pytest": validate_pytest,
     "ruff": validate_ruff,
     "latex": validate_latex,
     "length": validate_length_bounds,
-    "tool_safety": validate_tool_safety,  # HARDEN: Prevent hallucinated tool calls
+    "tool_safety": validate_tool_safety,  # Prevent hallucinated tool calls
+    "simplicity": validate_simplicity,  # Karpathy Principle 2: over-engineering detection
+    "surgical_changes": validate_surgical_changes,  # Karpathy Principle 3: scope creep detection
 }
+
+
+
+# ─────────────────────────────────────────────
+# Engine extraction helpers (Phase 4 of ENGINE_OPTIMIZATION_PLAN.md)
+# ─────────────────────────────────────────────
+
+
+def validate_syntax_streaming(partial_output: str) -> bool:
+    """OPTIMIZATION: Streaming syntax validator for early abort.
+
+    Checks partial code output for obvious syntax errors:
+    - Unclosed brackets/parentheses
+    - Invalid Python syntax (early detection)
+    - Missing imports for common modules
+
+    Args:
+        partial_output: Partial code output (first ~500 tokens)
+
+    Returns:
+        True if syntax looks valid, False if obvious errors detected
+    """
+    import ast
+
+    # Quick bracket balance check
+    brackets = {"(": ")", "[": "]", "{": "}"}
+    stack = []
+    for char in partial_output:
+        if char in brackets:
+            stack.append(char)
+        elif char in brackets.values():
+            if not stack:
+                return False  # Unmatched closing bracket
+            if brackets[stack.pop()] != char:
+                return False  # Mismatched brackets
+
+    # Try parsing as Python (may fail on incomplete code)
+    try:
+        # Only validate if we have a complete statement (ends with newline)
+        if partial_output.strip().endswith(":") or partial_output.count("\n") < 2:
+            return True  # Incomplete statement, can't validate yet
+
+        ast.parse(partial_output)
+        return True  # Valid syntax
+    except SyntaxError as e:
+        # Check if error is likely due to incompleteness vs actual error
+        error_msg = str(e).lower()
+        if "eof" in error_msg or "unexpected eof" in error_msg:
+            return True  # Incomplete code, not necessarily wrong
+        elif "invalid syntax" in error_msg:
+            # Check if it's a common incomplete pattern
+            if partial_output.rstrip().endswith((",", "\\", "...")):
+                return True  # Likely continuation
+            return False  # Actual syntax error
+        return True  # Other errors, be lenient
+
+
+async def validate_syntax_batch(output: str) -> bool:
+    """Batch syntax validator for post-generation validation.
+
+    Args:
+        output: Complete code output
+
+    Returns:
+        True if syntax valid, False otherwise
+    """
+    import ast
+    try:
+        ast.parse(output)
+        return True
+    except SyntaxError:
+        return False
+
+
+def extract_function_name(code: str) -> str | None:
+    """Extract the main function name from generated code.
+
+    Args:
+        code: Python source code
+
+    Returns:
+        Function name or None
+    """
+    import ast
+    import re
+
+    try:
+        # Try AST parsing first
+        tree = ast.parse(code)
+
+        # Look for the first function definition
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                # Skip dunder methods
+                if not node.name.startswith("__"):
+                    return node.name
+
+        # Fallback: Look for class __init__
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                return node.name
+
+    except SyntaxError:
+        # AST parsing failed, try regex
+        match = re.search(r"def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", code)
+        if match:
+            return match.group(1)
+
+        # Try class name
+        class_match = re.search(r"class\s+([a-zA-Z_][a-zA-Z0-9_]*)", code)
+        if class_match:
+            return class_match.group(1)
+
+    return None
+
+
+def filter_validators_for_task(task: object, output: str) -> list[str]:
+    """Filter validators based on task type and content.
+
+    Removes Python-specific validators for non-Python tasks.
+
+    Args:
+        task: Task object with .hard_validators, .prompt, .target_path attributes
+        output: Task output string
+
+    Returns:
+        Filtered list of validator names
+    """
+    if not task.hard_validators:
+        return []
+
+    # Detect if this is a Python task
+    # NOTE: "import " is intentionally excluded -- JS/TS also use ES module imports
+    is_python_task = (
+        "python" in task.prompt.lower()
+        or ".py" in task.target_path.lower()
+        or "flask" in task.prompt.lower()
+        or "django" in task.prompt.lower()
+        or "fastapi" in task.prompt.lower()
+        or "def " in output[:500]  # Python function defs
+    )
+
+    # Detect if this is a web/JS/TS task (HTML/CSS/JS/TS/React/Vue)
+    is_web_task = (
+        "html" in task.prompt.lower()
+        or "css" in task.prompt.lower()
+        or "javascript" in task.prompt.lower()
+        or "typescript" in task.prompt.lower()
+        or "react" in task.prompt.lower()
+        or "vue" in task.prompt.lower()
+        or "angular" in task.prompt.lower()
+        or "next.js" in task.prompt.lower()
+        or " js " in task.prompt.lower()
+        or task.prompt.lower().endswith(" js")
+        or ".html" in task.target_path.lower()
+        or ".css" in task.target_path.lower()
+        or ".js" in task.target_path.lower()
+        or ".ts" in task.target_path.lower()
+        or ".tsx" in task.target_path.lower()
+        or ".jsx" in task.target_path.lower()
+        or "<!DOCTYPE" in output[:100]
+        or "<html" in output[:100]
+        or "function(" in output[:500]
+        or "const " in output[:500]
+        or "export default" in output[:1000]  # JS/TS module export
+        or "export const" in output[:1000]  # JS/TS named export
+        or "from 'react'" in output[:500]  # React import (single quotes)
+        or 'from "react"' in output[:500]  # React import (double quotes)
+    )
+
+    if is_web_task or not is_python_task:
+        # Remove Python-specific validators
+        original = set(task.hard_validators)
+        filtered = [
+            v for v in task.hard_validators if v not in ("python_syntax", "ruff", "pytest")
+        ]
+        removed = original - set(filtered)
+        if removed:
+            import logging
+            logger = logging.getLogger("orchestrator.validators")
+            logger.info(
+                f"Task {task.id}: skipped Python validators {removed} (non-Python content detected)"
+            )
+        return filtered
+
+    return task.hard_validators
