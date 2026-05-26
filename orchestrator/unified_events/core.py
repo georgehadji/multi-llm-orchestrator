@@ -759,6 +759,12 @@ def get_current_project() -> str | None:
     return _current_project.get()
 
 
+
+
+# Alias for backward compatibility -- streaming.py imports EventBus
+EventBus = UnifiedEventBus
+
+
 # Decorator for automatic capability logging
 def log_capability_use(capability_name: str):
     """Decorator to automatically log capability usage."""

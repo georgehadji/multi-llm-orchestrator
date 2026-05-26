@@ -20,8 +20,9 @@ logger = logging.getLogger("orchestrator.agents.product_manager")
 class ProductManagerAgent(AgentBase):
     """Generates user stories, maps to modules, prioritizes.
 
-    Budget:  DEEPSEEK_REASONER ($0.70/M) — good reasoning for priorities
-    Premium: GPT_5 ($1.25/M) — best requirement analysis
+    Models (from orchestrator/agent_model_registry.py):
+      Budget:  QWEN_3_7_MAX       ($0.78/M in, $3.90/M out) — flagship reasoning + coding
+      Premium: CLAUDE_SONNET_4_6  ($3.00/M in, $15.00/M out) — best requirement analysis
     """
 
     def __init__(self, **kwargs: Any) -> None:

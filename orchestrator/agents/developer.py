@@ -20,7 +20,12 @@ logger = logging.getLogger("orchestrator.agents.developer")
 
 
 class DeveloperAgent(AgentBase):
-    """Agent responsible for writing and modifying code with self-correction."""
+    """Agent responsible for writing and modifying code with self-correction.
+
+    Models (from orchestrator/agent_model_registry.py):
+      Budget:  XIAOMI_MIMO_V2_FLASH  ($0.09/M in, $0.29/M out) — #1 SWE-bench open
+      Premium: GPT_5_4_CODEX         ($1.75/M in, $14.00/M out) — SWE-Bench Pro SOTA
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(role=AgentRole.DEVELOPER, **kwargs)
@@ -85,6 +90,10 @@ class ArchitectAgent(AgentBase):
     Optimization A-2: dispatches complex architecture decisions through
     multi-model reasoning (Jury pipeline) for consensus-based decisions.
     Simple decisions use a single model call.
+
+    Models (from orchestrator/agent_model_registry.py):
+      Budget:  DEEPSEEK_V4_PRO   ($1.50/M in, $6.00/M out) — next-gen reasoning
+      Premium: CLAUDE_SONNET_4_6 ($3.00/M in, $15.00/M out) — best system design
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -128,7 +137,12 @@ class ArchitectAgent(AgentBase):
 
 
 class TesterAgent(AgentBase):
-    """Agent responsible for writing and running tests."""
+    """Agent responsible for writing and running tests.
+
+    Models (from orchestrator/agent_model_registry.py):
+      Budget:  QWEN_2_5_CODER_32B  ($0.66/M in, $1.00/M out) — 33K coding specialist
+      Premium: GPT_5               ($1.25/M in, $10.00/M out) — comprehensive test gen
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(role=AgentRole.TESTER, **kwargs)

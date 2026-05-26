@@ -73,11 +73,41 @@ class SystemPrompt:
         return SystemPrompt._standard()
 
     @staticmethod
+    def karpathy_guidelines() -> str:
+        """Karpathy behavioral principles — injected into every agent system prompt."""
+        return (
+            "\n\n## Behavioral Guidelines\n\n"
+            "### 1. Think Before Coding\n"
+            "- State assumptions explicitly. If uncertain, ASK before implementing.\n"
+            "- If multiple interpretations exist, present ALL of them.\n"
+            "- If a simpler approach exists, say so. Push back when warranted.\n"
+            "- If something is unclear, STOP. Name what is confusing. Ask.\n\n"
+            "### 2. Simplicity First\n"
+            "- Minimum code that solves the problem. Nothing speculative.\n"
+            "- No features beyond what was asked. No abstractions for single-use code.\n"
+            '- No "flexibility" or "configurability" that was not requested.\n'
+            "- If 200 lines could be 50, rewrite it.\n"
+            '- Ask: "Would a senior engineer say this is overcomplicated?"\n\n'
+            "### 3. Surgical Changes\n"
+            "- Touch only what you must. Clean up only your own mess.\n"
+            '- Do not "improve" adjacent code, comments, or formatting.\n'
+            "- Do not refactor things that are not broken.\n"
+            "- Match existing style, even if you would do it differently.\n"
+            "- The test: Every changed line traces directly to the user request.\n\n"
+            "### 4. Goal-Driven Execution\n"
+            "- Define success criteria. Loop until verified.\n"
+            '- "Add validation" -> "Write tests for invalid inputs, then make them pass"\n'
+            '- "Fix the bug" -> "Write a test that reproduces it, then make it pass"\n'
+            "- For multi-step tasks, state a brief plan with verification per step."
+        )
+
+    @staticmethod
     def _standard() -> str:
         return (
             "You are an expert software engineer executing a task. "
             "Produce high-quality, complete output. "
             "Follow best practices and ensure all code is valid and runnable."
+            + SystemPrompt.karpathy_guidelines()
         )
 
     @staticmethod
@@ -91,15 +121,15 @@ class SystemPrompt:
             "4. Docstrings on every module, class, and public function.\n"
             "5. Logging via the standard library logger (not print).\n"
             "6. No TODOs, no placeholder implementations.\n"
-            "7. Follow SOLID principles and keep cyclomatic complexity \u2264 10.\n"
+            "7. Follow SOLID principles and keep cyclomatic complexity <= 10.\n"
             "8. Include a brief inline comment for any non-obvious logic.\n"
         )
         if task_type in ("code_gen", "code_generation"):
             base += (
-                "9. Return ONLY raw code \u2014 no markdown fences, no prose outside code.\n"
+                "9. Return ONLY raw code -- no markdown fences, no prose outside code.\n"
                 "10. Code must pass mypy --strict.\n"
             )
-        return base
+        return base + SystemPrompt.karpathy_guidelines()
 
 
 class DeltaPrompt:
@@ -132,7 +162,7 @@ class DeltaPrompt:
         additional_guidance = ""
         if "F821" in record.failure_reason or "Undefined name" in record.failure_reason:
             additional_guidance = (
-                "\n\n\u26a0\ufe0f IMPORT ERROR DETECTED: You used a name without importing it first.\n"
+                "\n\nIMPORT ERROR DETECTED: You used a name without importing it first.\n"
                 "FIX: Add the required import statement at the TOP of your code.\n"
                 "Example: 'from nba_api.stats.endpoints import playerdashboardbyyearoveryear'\n"
                 "Example: 'from requests import RequestException'\n"
@@ -140,12 +170,12 @@ class DeltaPrompt:
             )
         elif "F401" in record.failure_reason or "imported but unused" in record.failure_reason:
             additional_guidance = (
-                "\n\n\u26a0\ufe0f UNUSED IMPORT DETECTED: Remove imports you don't use.\n"
+                "\n\nUNUSED IMPORT DETECTED: Remove imports you do not use.\n"
                 "FIX: Either remove the unused import OR use the imported name in your code."
             )
         elif "E402" in record.failure_reason or "import not at top" in record.failure_reason:
             additional_guidance = (
-                "\n\n\u26a0\ufe0f IMPORT POSITION ERROR: Move all imports to the TOP of the file.\n"
+                "\n\nIMPORT POSITION ERROR: Move all imports to the TOP of the file.\n"
                 "FIX: Place all import statements before any code (functions, classes, etc.)."
             )
         elif (
@@ -153,9 +183,9 @@ class DeltaPrompt:
             or "Syntax error" in record.failure_reason
         ):
             additional_guidance = (
-                "\n\n\u26a0\ufe0f SYNTAX ERROR DETECTED: Unclosed string literal or code structure issue.\n"
+                "\n\nSYNTAX ERROR DETECTED: Unclosed string literal or code structure issue.\n"
                 "FIX:\n"
-                '1. Check ALL triple-quoted strings ("""...""") are properly CLOSED\n'
+                '1. Check ALL triple-quoted strings (""") are properly CLOSED\n'
                 "2. Ensure all parentheses (), brackets [], and braces {} are matched\n"
                 "3. Verify all string literals have matching opening and closing quotes\n"
                 "4. Check that if/else/for/while blocks have proper indentation\n"
@@ -164,7 +194,7 @@ class DeltaPrompt:
             )
         elif "invalid-syntax" in record.failure_reason:
             additional_guidance = (
-                "\n\n\u26a0\ufe0f SYNTAX ERROR DETECTED: Invalid Python code structure.\n"
+                "\n\nSYNTAX ERROR DETECTED: Invalid Python code structure.\n"
                 "FIX:\n"
                 "1. Check for missing colons after if/for/while/def/class statements\n"
                 "2. Ensure proper indentation (use spaces, not tabs)\n"
@@ -204,7 +234,10 @@ class CritiquePrompt:
             f"ORIGINAL TASK: {task_prompt}\n\n"
             f"OUTPUT TO REVIEW:\n{output}"
         )
-        system_prompt = "You are a critical reviewer. Find flaws, be specific."
+        system_prompt = (
+            "You are a critical reviewer. Find flaws, be specific. "
+            "Apply the Simplicity First principle -- flag over-complication."
+        )
         return user_prompt, system_prompt
 
     @staticmethod
