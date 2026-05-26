@@ -28,14 +28,14 @@ async def test_commit_reservation_never_releases_lock_mid_operation(monkeypatch)
     budget = Budget(max_usd=1.0)
 
     lock_acquisitions = 0
-    original_acquire = budget._get_lock().acquire
+    original_acquire = budget._lock.acquire
 
     async def counting_acquire():
         nonlocal lock_acquisitions
         lock_acquisitions += 1
         return await original_acquire()
 
-    monkeypatch.setattr(budget._get_lock(), "acquire", counting_acquire)
+    monkeypatch.setattr(budget._lock, "acquire", counting_acquire)
 
     await budget.reserve(0.5)
     lock_acquisitions = 0

@@ -132,8 +132,14 @@ class CircuitBreaker:
                 if self._state.successes >= self.success_threshold:
                     self._close()
                 else:
-                    # BUG-001: Allow next probe when success threshold not yet met.
-                    self._state.probe_in_flight = False
+                    # BUG-002 FIX: Do NOT clear probe_in_flight before the
+                    # success threshold is met.  Keeping it True ensures
+                    # exactly one probe is active per reset window; subsequent
+                    # callers through check() will be blocked (raise
+                    # CircuitBreakerOpen).  When the probe eventually fails,
+                    # record_failure clears the flag so another probe can
+                    # be attempted.
+                    pass
             elif self._state.state == CircuitState.OPEN:
                 # Shouldn't happen; close anyway
                 self._close()
