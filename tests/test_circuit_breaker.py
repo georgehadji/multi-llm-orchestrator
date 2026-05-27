@@ -41,10 +41,14 @@ class TestCircuitBreaker:
 
     @pytest.mark.asyncio
     async def test_context_manager_raises(self, circuit_breaker):
-        """Check that context manager reraises errors."""
+        """Context manager reraises and trips the breaker after failure_threshold=2."""
         with pytest.raises(ConnectionError):
             async with circuit_breaker.context():
-                raise ConnectionError("fail")
+                raise ConnectionError("fail 1")
+        # Need a second failure to reach failure_threshold=2
+        with pytest.raises(ConnectionError):
+            async with circuit_breaker.context():
+                raise ConnectionError("fail 2")
         await asyncio.sleep(0.01)
         with pytest.raises(CircuitBreakerOpen):
             await circuit_breaker.check()

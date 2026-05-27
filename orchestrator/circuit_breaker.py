@@ -147,6 +147,9 @@ class CircuitBreaker:
     async def record_failure(self, exc: Exception | None = None) -> None:
         async with self._lock:
             self.total_failures += 1
+            if self._state.state == CircuitState.OPEN:
+                # Breaker is already OPEN — recording more failures has no effect
+                return
             self._state.failures += 1
             self._state.successes = 0
             self._state.last_failure_at = time.monotonic()

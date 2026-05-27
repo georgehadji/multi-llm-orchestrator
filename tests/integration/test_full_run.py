@@ -24,6 +24,7 @@ from orchestrator.services.generator import GeneratorResult
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_api  # engine makes LLM calls beyond the mocked executor path
 async def test_run_project_completes_with_two_tasks(
     orchestrator_fixture,
     mock_tasks,
@@ -75,6 +76,7 @@ async def test_run_project_completes_with_two_tasks(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_api  # engine makes LLM calls beyond the mocked executor path
 async def test_run_project_degradation_on_partial_failure(
     orchestrator_fixture,
     mock_tasks,
