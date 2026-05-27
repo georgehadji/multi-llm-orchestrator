@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .models import Task, TaskResult, TaskStatus
+from .models import Task, TaskResult, TaskStatus, TaskType
 
 logger = logging.getLogger("orchestrator.codebase_writer")
 
@@ -278,8 +278,10 @@ class CodebaseWriter:
                 self._files.create_file(target, content)
             logger.info("[dry-run] Would create: %s" if self._dry_run else "Created: %s", target)
 
-        elif task.type == TaskType.MODIFY_FILE:
-            target = Path(task.target_path) if task.target_path else Path(f"{task.id}.py")
+        elif task.target_path:
+            # Treat any task with a target_path as a file modification
+            # (covers historical MODIFY_FILE, DELETE_FILE, etc. task types)
+            target = Path(task.target_path)
 
             # Safety gate
             if not self._dry_run:
@@ -301,20 +303,6 @@ class CodebaseWriter:
                 self._files.modify_file(target, content, strategy)
             else:
                 logger.info("[dry-run] Would modify: %s", target)
-
-        elif task.type == TaskType.DELETE_FILE:
-            target = Path(task.target_path) if task.target_path else None
-            if target and not self._dry_run:
-                self._files.delete_file(target)
-            logger.info("[dry-run] Would delete: %s" if self._dry_run else "Deleted: %s", target)
-
-        elif task.type == TaskType.INSTALL_DEP:
-            for dep in task.dependencies_to_install:
-                success = self._files.install_dependency(dep) if not self._dry_run else True
-                logger.info(
-                    "[dry-run] Would install: %s" if self._dry_run else "Installed: %s",
-                    dep,
-                )
 
         return True
 
