@@ -1142,10 +1142,13 @@ async def _async_visualize(args):
         project_description = spec.project_description
         success_criteria = spec.success_criteria
         budget = spec.budget
+    else:
+        budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
+        project_description = args.project
+        success_criteria = getattr(args, "criteria", "") or ""
+
     # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
     if getattr(args, "agent_profile", None):
-        from .models import build_default_profiles
-
         profile_map = {
             "standard": {"quality_mode": "standard", "iteration_cap": 3},
             "max": {"quality_mode": "production", "iteration_cap": 5},
@@ -1154,10 +1157,6 @@ async def _async_visualize(args):
             "research": {"quality_mode": "standard", "iteration_cap": 6},
         }
         cfg = profile_map.get(args.agent_profile, {})
-    else:
-        budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
-        project_description = args.project
-        success_criteria = getattr(args, "criteria", "") or ""
 
     orch = Orchestrator(
         budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
