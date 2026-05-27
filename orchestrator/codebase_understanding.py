@@ -12,7 +12,7 @@ from orchestrator.codebase_profile import CodebaseProfile
 class CodebaseUnderstanding:
     """Analyze codebase semantically using LLM"""
 
-    def __init__(self, llm_provider: str = "deepseek/deepseek-chat"):
+    def __init__(self, llm_provider: str = "deepseek/deepseek-v4-flash"):
         self.analyzer = CodebaseAnalyzer()
         self.llm_provider = llm_provider
 
@@ -124,7 +124,7 @@ Return as JSON:
 
             client = UnifiedClient()
             response = await client.call(
-                model=Model.DEEPSEEK_CHAT,
+                model=Model.DEEPSEEK_V4_FLASH,
                 prompt=prompt,
                 system="You are a code analysis expert. Analyze the codebase and return only valid JSON.",
                 max_tokens=4096,

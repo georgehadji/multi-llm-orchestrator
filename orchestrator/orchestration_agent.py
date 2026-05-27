@@ -222,7 +222,7 @@ class OrchestrationAgent:
         _PREFERENCE = [
             Model.GEMINI_FLASH,
             Model.GPT_4O_MINI,
-            Model.DEEPSEEK_CHAT,
+            Model.DEEPSEEK_V4_FLASH,
         ]
         model = next((m for m in _PREFERENCE if client.is_available(m)), None)
         if model is None:

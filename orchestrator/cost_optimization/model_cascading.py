@@ -95,29 +95,29 @@ class ModelCascader:
     # Default cascade chains per task type
     DEFAULT_CASCADE_CHAINS = {
         "code_generation": [
-            ("deepseek/deepseek-chat", 0.80),  # Try cheapest first
+            ("deepseek/deepseek-v4-flash", 0.80),  # Try cheapest first
             ("claude-sonnet-4.6", 0.75),  # Mid-tier
             ("claude-opus-4.6", 0.0),  # Premium (always accept)
         ],
         "code_review": [
-            ("deepseek/deepseek-chat", 0.75),
+            ("deepseek/deepseek-v4-flash", 0.75),
             ("claude-sonnet-4.6", 0.70),
             ("claude-opus-4.6", 0.0),
         ],
         "decomposition": [
-            ("deepseek/deepseek-chat", 0.85),
+            ("deepseek/deepseek-v4-flash", 0.85),
             ("claude-sonnet-4.6", 0.80),
             ("claude-opus-4.6", 0.0),
         ],
         "evaluation": [
-            ("deepseek/deepseek-chat", 0.70),
+            ("deepseek/deepseek-v4-flash", 0.70),
             ("claude-sonnet-4.6", 0.0),
         ],
     }
 
     # Cost per 1M tokens (for savings estimation)
     MODEL_COSTS = {
-        "deepseek/deepseek-chat": {"input": 1.0, "output": 4.0},
+        "deepseek/deepseek-v4-flash": {"input": 1.0, "output": 4.0},
         "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
         "claude-opus-4.6": {"input": 15.0, "output": 75.0},
         "gpt-4o": {"input": 5.0, "output": 15.0},

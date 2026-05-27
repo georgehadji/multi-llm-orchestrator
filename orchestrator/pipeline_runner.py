@@ -145,3 +145,65 @@ class PipelineRunner:
             if level:
                 levels.append(level)
         return levels
+
+
+    async def execute_all_with_retry(
+        self, tasks, execution_order, policy=None
+    ):
+        """PHASE D4: Execute with auto-retry on better models (Undo+Retry pattern).
+
+        When a task fails, retries it once with a higher-tier model before
+        marking it as failed. Uses the existing RetryTemplate from resilience.py.
+        """
+        orch = self._orch
+        guard = getattr(orch, "_task_guard", None)
+
+        levels = self._topological_levels(execution_order, tasks)
+
+        for level_idx, level in enumerate(levels):
+            await self.warm_cache_for_level(tasks, level)
+
+            if guard:
+                async with guard:
+                    coros = [self._execute_with_retry(tasks[tid], policy) for tid in level]
+                    results = await asyncio.gather(*coros, return_exceptions=True)
+            else:
+                coros = [self._execute_with_retry(tasks[tid], policy) for tid in level]
+                results = await asyncio.gather(*coros, return_exceptions=True)
+
+            for tid, r in zip(level, results):
+                if isinstance(r, Exception):
+                    logger.error(f"Task {tid} failed after retry: {r}")
+                    continue
+                orch.results[tid] = r
+
+    async def _execute_with_retry(self, task, policy=None):
+        """Execute a task with one retry on a higher-tier model if it fails."""
+        orch = self._orch
+
+        # First attempt
+        result = await orch._execute_task(task, policy)
+        if getattr(result, "score", 0) >= 0.5:
+            return result
+
+        # Try retry on a better model
+        from .resilience import RetryTemplate
+
+        retry = RetryTemplate(max_attempts=1, base_delay=0.5)
+        for attempt in retry:
+            try:
+                with attempt:
+                    # Escalate tier before retry
+                    if hasattr(orch, "_escalate_tier") and hasattr(task, "type"):
+                        orch._escalate_tier(task.type)
+                    result = await orch._execute_task(task, policy)
+                    if getattr(result, "score", 0) > 0:
+                        logger.info(
+                            f"Retry success for {getattr(task, 'id', '?')}: "
+                            f"score={getattr(result, 'score', 0):.3f}"
+                        )
+                        return result
+            except Exception as exc:
+                logger.warning(f"Retry attempt failed for {getattr(task, 'id', '?')}: {exc}")
+
+        return result  # Return original (failed) result

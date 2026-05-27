@@ -8,7 +8,7 @@ Detection logic:
 - Fallback on any error → AppProfile(app_type="script", detected_from="auto")
 
 FIX: _call_llm() is now wired to UnifiedClient using the cheapest available model
-     (gemini-flash or gpt-4o-mini) for a single low-cost classification call.
+     (gemini-3.5-flash or gpt-4o-mini) for a single low-cost classification call.
 """
 
 from __future__ import annotations
@@ -189,7 +189,7 @@ class AppDetector:
         Make a single LLM classification call using the cheapest available model.
 
         Preference order (cheapest first):
-          gemini-2.5-flash → gpt-4o-mini → deepseek-chat → any
+          gemini-3.5-flash → gpt-4o-mini → deepseek-chat → any
 
         The response must be a JSON object matching the detection schema.
         Isolated into its own method so tests can patch it cleanly.
@@ -202,7 +202,7 @@ class AppDetector:
         _PREFERENCE = [
             Model.GEMINI_FLASH,
             Model.GPT_4O_MINI,
-            Model.DEEPSEEK_CHAT,
+            Model.DEEPSEEK_V4_FLASH,
         ]
         model = next((m for m in _PREFERENCE if client.is_available(m)), None)
         if model is None:

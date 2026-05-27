@@ -67,6 +67,47 @@ class ImpactLevel(str, Enum):
     STRUCTURAL = "structural"  # Core system changes, high risk
 
 
+class AgentPermissionLevel(str, Enum):
+    """Permission levels for autonomous agent tool execution.
+    
+    ASK:  Human must approve every tool call.
+    AUTO: Non-destructive tools run automatically; destructive ones ask.
+    FULL: All tools run without human intervention (autonomous).
+    """
+    ASK = "ask"
+    AUTO = "auto"
+    FULL = "full"
+
+
+# Map agent permission levels to tool categories
+AGENT_PERMISSION_DEFAULTS: dict[AgentPermissionLevel, dict[str, bool]] = {
+    AgentPermissionLevel.ASK: {
+        "read_file": True,   # always allowed
+        "search": True,       # always allowed
+        "write_file": False,  # needs approval
+        "execute": False,     # needs approval
+        "delete": False,      # needs approval
+        "network": False,     # needs approval
+    },
+    AgentPermissionLevel.AUTO: {
+        "read_file": True,
+        "search": True,
+        "write_file": True,   # auto
+        "execute": False,     # still asks
+        "delete": False,      # still asks
+        "network": True,      # auto
+    },
+    AgentPermissionLevel.FULL: {
+        "read_file": True,
+        "search": True,
+        "write_file": True,
+        "execute": True,
+        "delete": True,
+        "network": True,
+    },
+}
+
+
 class ApprovalStatus(str, Enum):
     """Status of an approval request."""
 

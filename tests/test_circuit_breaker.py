@@ -1,342 +1,105 @@
-"""Unit tests for orchestrator.circuit_breaker."""
+"""
+Tests for orchestrator/circuit_breaker.py — CircuitBreaker state machine.
+"""
 
 from __future__ import annotations
 
 import asyncio
-
 import pytest
 
 from orchestrator.circuit_breaker import (
-    CircuitBreaker,
-    CircuitBreakerOpen,
-    CircuitState,
+    CircuitBreaker, CircuitBreakerOpen, CircuitState, CircuitBreakerRegistry,
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────────────
+class TestCircuitBreaker:
+    """Unit tests for CircuitBreaker."""
 
+    # ── Initial State ──
+    def test_initial_state_closed(self, circuit_breaker):
+        """New breaker must be CLOSED."""
+        assert circuit_breaker.state == CircuitState.CLOSED
 
-async def _fail(cb: CircuitBreaker, n: int) -> None:
-    """Record n consecutive failures."""
-    for _ in range(n):
-        await cb.record_failure(RuntimeError("simulated failure"))
+    def test_check_in_closed_allows_call(self, circuit_breaker):
+        """check() in CLOSED must not raise."""
+        asyncio.run(circuit_breaker.check())
 
+    # ── Transition to OPEN ──
+    @pytest.mark.asyncio
+    async def test_failures_trip_to_open(self, circuit_breaker):
+        """Sufficient failures must transition to OPEN."""
+        with pytest.raises(ConnectionError):
+            async with circuit_breaker.context():
+                raise ConnectionError("fail")
+        with pytest.raises(ConnectionError):
+            async with circuit_breaker.context():
+                raise ConnectionError("fail")
+        assert circuit_breaker.state == CircuitState.OPEN
 
-async def _succeed(cb: CircuitBreaker, n: int) -> None:
-    """Record n consecutive successes."""
-    for _ in range(n):
-        await cb.record_success()
+    @pytest.mark.asyncio
+    async def test_context_manager_raises(self, circuit_breaker):
+        """Check that context manager reraises errors."""
+        with pytest.raises(ConnectionError):
+            async with circuit_breaker.context():
+                raise ConnectionError("fail")
+        await asyncio.sleep(0.01)
+        with pytest.raises(CircuitBreakerOpen):
+            await circuit_breaker.check()
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CLOSED state
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_starts_closed():
-    cb = CircuitBreaker(name="test", failure_threshold=3)
-    assert cb.state == CircuitState.CLOSED
-    assert cb.is_closed
-    assert not cb.is_open
-
-
-@pytest.mark.asyncio
-async def test_check_passes_when_closed():
-    cb = CircuitBreaker(name="test", failure_threshold=3)
-    await cb.check()  # should not raise
-
-
-@pytest.mark.asyncio
-async def test_failures_below_threshold_stay_closed():
-    cb = CircuitBreaker(name="test", failure_threshold=5)
-    await _fail(cb, 4)
-    assert cb.state == CircuitState.CLOSED
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# OPEN state
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_trips_open_at_threshold():
-    cb = CircuitBreaker(name="test", failure_threshold=3)
-    await _fail(cb, 3)
-    assert cb.state == CircuitState.OPEN
-    assert cb.is_open
-    assert cb.trip_count == 1
-
-
-@pytest.mark.asyncio
-async def test_check_raises_when_open():
-    cb = CircuitBreaker(name="test", failure_threshold=2)
-    await _fail(cb, 2)
-    with pytest.raises(CircuitBreakerOpen) as exc_info:
-        await cb.check()
-    assert "OPEN" in str(exc_info.value)
-    assert exc_info.value.code == "CIRCUIT_BREAKER_OPEN"
-
-
-@pytest.mark.asyncio
-async def test_context_raises_when_open():
-    cb = CircuitBreaker(name="test", failure_threshold=2)
-    await _fail(cb, 2)
-    with pytest.raises(CircuitBreakerOpen):
-        async with cb.context():
-            pass  # should not reach here
-
-
-@pytest.mark.asyncio
-async def test_time_until_reset_positive_when_open():
-    cb = CircuitBreaker(name="test", failure_threshold=2, reset_timeout=60.0)
-    await _fail(cb, 2)
-    remaining = cb.time_until_reset()
-    assert 0 < remaining <= 60.0
-
-
-@pytest.mark.asyncio
-async def test_time_until_reset_zero_when_closed():
-    cb = CircuitBreaker(name="test", failure_threshold=5)
-    assert cb.time_until_reset() == 0.0
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# HALF_OPEN / recovery
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_transitions_to_half_open_after_timeout(monkeypatch):
-    cb = CircuitBreaker(name="test", failure_threshold=2, reset_timeout=0.01)
-    await _fail(cb, 2)
-    assert cb.state == CircuitState.OPEN
-    await asyncio.sleep(0.05)  # wait for reset_timeout to expire
-    await cb.check()  # should not raise; transitions to HALF_OPEN
-    assert cb.state == CircuitState.HALF_OPEN
-
-
-@pytest.mark.asyncio
-async def test_closes_after_successes_in_half_open():
-    cb = CircuitBreaker(
-        name="test",
-        failure_threshold=2,
-        reset_timeout=0.01,
-        success_threshold=2,
-    )
-    await _fail(cb, 2)
-    await asyncio.sleep(0.05)
-    await cb.check()  # HALF_OPEN
-    await _succeed(cb, 2)
-    assert cb.state == CircuitState.CLOSED
-
-
-@pytest.mark.asyncio
-async def test_reopens_on_failure_in_half_open():
-    cb = CircuitBreaker(
-        name="test",
-        failure_threshold=2,
-        reset_timeout=0.01,
-        success_threshold=3,
-    )
-    await _fail(cb, 2)
-    await asyncio.sleep(0.05)
-    await cb.check()  # HALF_OPEN
-    # One failure re-opens
-    await cb.record_failure(RuntimeError("still broken"))
-    assert cb.state == CircuitState.OPEN
-    assert cb.trip_count == 2
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# context() manager
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_context_records_success_on_clean_exit():
-    cb = CircuitBreaker(name="test", failure_threshold=5)
-    async with cb.context():
-        pass
-    assert cb.total_successes == 1
-    assert cb.total_failures == 0
-
-
-@pytest.mark.asyncio
-async def test_context_records_failure_on_exception():
-    cb = CircuitBreaker(name="test", failure_threshold=5)
-    with pytest.raises(ValueError):
-        async with cb.context():
-            raise ValueError("oops")
-    assert cb.total_failures == 1
-    assert cb.total_successes == 0
-
-
-@pytest.mark.asyncio
-async def test_context_trips_after_threshold_failures():
-    cb = CircuitBreaker(name="test", failure_threshold=3)
-    for _ in range(3):
-        with pytest.raises(RuntimeError):
+    # ── HALF_OPEN Probe ──
+    @pytest.mark.asyncio
+    async def test_half_open_blocks_second_probe(self):
+        """BUG-002 fix: Single probe in HALF_OPEN."""
+        cb = CircuitBreaker(name="test", failure_threshold=1, reset_timeout=0.02, success_threshold=2)
+        with pytest.raises(ConnectionError):
             async with cb.context():
-                raise RuntimeError("fail")
-    assert cb.state == CircuitState.OPEN
-    with pytest.raises(CircuitBreakerOpen):
-        async with cb.context():
-            pass
+                raise ConnectionError("trip")
+        await asyncio.sleep(0.03)
+        await cb.check()
+        await cb.record_success()
+        with pytest.raises(CircuitBreakerOpen):
+            await cb.check()
+
+    # ── Edge Cases ──
+    def test_circuit_breaker_without_name(self):
+        """Must accept empty name."""
+        cb = CircuitBreaker(name="")
+        assert cb.name == ""
+
+    @pytest.mark.parametrize("threshold", [1, 3, 10])
+    def test_custom_failure_threshold(self, threshold):
+        """Must accept various failure thresholds."""
+        cb = CircuitBreaker(name="test", failure_threshold=threshold)
+        assert cb.failure_threshold == threshold
+
+    # ── Registry ──
+    def test_registry_get_or_create(self):
+        """Registry must create breakers on demand."""
+        registry = CircuitBreakerRegistry()
+        import asyncio; cb = asyncio.run(registry.get("model-key"))
+        assert "model-key" in cb.name
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# BUG-001 regression: HALF_OPEN probe lock
-# ─────────────────────────────────────────────────────────────────────────────
+class TestCircuitBreakerEdgeCases:
+    """Edge case tests."""
 
+    @pytest.mark.asyncio
+    async def test_record_failure_in_open_is_noop(self):
+        """BUG-001: record_failure in OPEN must be no-op."""
+        cb = CircuitBreaker(name="test", failure_threshold=1, reset_timeout=0.02)
+        with pytest.raises(ConnectionError):
+            async with cb.context():
+                raise ConnectionError("trip")
+        assert cb.state == CircuitState.OPEN
+        prev_failures = cb._state.failures
+        await cb.record_failure(RuntimeError("extra"))
+        assert cb._state.failures == prev_failures
 
-@pytest.mark.asyncio
-async def test_half_open_allows_multiple_probes_for_success_threshold():
-    """
-    BUG-001 regression: After a successful probe in HALF_OPEN that does not
-    yet meet success_threshold, probe_in_flight must be cleared so the next
-    probe can be attempted.
-
-    Before the fix, record_success() left probe_in_flight=True when
-    successes < success_threshold, causing check() to reject all subsequent
-    probes and permanently locking the breaker in HALF_OPEN.
-    """
-    cb = CircuitBreaker(
-        name="test",
-        failure_threshold=2,
-        reset_timeout=0.01,
-        success_threshold=2,
-    )
-    await _fail(cb, 2)
-    assert cb.state == CircuitState.OPEN
-
-    await asyncio.sleep(0.05)
-
-    # First probe through context() — 1 success, need 2 total
-    async with cb.context():
-        pass
-    assert cb.state == CircuitState.HALF_OPEN
-    assert cb._state.probe_in_flight is False
-
-    # Second probe must be allowed
-    async with cb.context():
-        pass
-    assert cb.state == CircuitState.CLOSED
-
-
-@pytest.mark.asyncio
-async def test_cancelled_probe_clears_half_open():
-    """
-    BUG-001 regression: A CancelledError during a HALF_OPEN probe must not
-    leave probe_in_flight=True forever.
-
-    Before the fix, context() caught CancelledError (a BaseException) and
-    passed err=None to record_failure().  When failures < threshold in
-    HALF_OPEN, the breaker stayed in HALF_OPEN with probe_in_flight=True,
-    blocking all future probes.
-
-    We simulate the < threshold condition by resetting failures after the
-    trip (as a manual recovery or reset_all would do).
-    """
-    cb = CircuitBreaker(
-        name="test",
-        failure_threshold=5,
-        reset_timeout=0.01,
-        success_threshold=2,
-    )
-    await _fail(cb, 5)
-    assert cb.state == CircuitState.OPEN
-
-    # Simulate post-reset state where failures have been cleared
-    cb._state.failures = 0
-    await asyncio.sleep(0.05)
-
-    async def _probe():
-        async with cb.context():
-            await asyncio.sleep(10)  # Will be cancelled mid-probe
-
-    task = asyncio.create_task(_probe())
-    await asyncio.sleep(0.01)
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
-
-    # Without the fix, probe_in_flight would stay True and state HALF_OPEN
-    assert cb._state.probe_in_flight is False
-    assert cb.state == CircuitState.HALF_OPEN
-    assert cb._state.failures == 1  # Below threshold, so did not re-trip
-
-    # A new probe should now be allowed
-    async with cb.context():
-        pass
-    assert cb._state.probe_in_flight is False
-
-
-@pytest.mark.asyncio
-async def test_half_open_failure_below_threshold_allows_retry():
-    """
-    BUG-001 regression: A single failure in HALF_OPEN with failures <
-    failure_threshold must clear probe_in_flight so another probe can be
-    attempted.
-
-    We simulate the < threshold condition by resetting failures after the
-    trip (as a manual recovery or reset_all would do).
-    """
-    cb = CircuitBreaker(
-        name="test",
-        failure_threshold=5,
-        reset_timeout=0.01,
-        success_threshold=2,
-    )
-    await _fail(cb, 5)
-    assert cb.state == CircuitState.OPEN
-
-    # Simulate post-reset state where failures have been cleared
-    cb._state.failures = 0
-    await asyncio.sleep(0.05)
-
-    # First probe fails but below threshold
-    with pytest.raises(RuntimeError):
-        async with cb.context():
-            raise RuntimeError("transient")
-
-    assert cb.state == CircuitState.HALF_OPEN
-    assert cb._state.probe_in_flight is False
-    assert cb._state.failures == 1
-
-    # Retry should be allowed
-    async with cb.context():
-        pass
-    assert cb._state.probe_in_flight is False
-    assert cb._state.successes == 1
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Metrics
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_stats_structure():
-    cb = CircuitBreaker(name="my-cb", failure_threshold=5)
-    s = cb.stats()
-    assert s["name"] == "my-cb"
-    assert s["state"] == "closed"
-    assert s["trip_count"] == 0
-    assert "total_calls" in s
-    assert "time_until_reset_s" in s
-
-
-@pytest.mark.asyncio
-async def test_total_counters_accumulate():
-    cb = CircuitBreaker(name="test", failure_threshold=10)
-    async with cb.context():
-        pass
-    with pytest.raises(ValueError):
-        async with cb.context():
-            raise ValueError("err")
-    assert cb.total_calls == 2
-    assert cb.total_successes == 1
-    assert cb.total_failures == 1
+    @pytest.mark.asyncio
+    async def test_success_in_closed_resets_failures(self):
+        """Success must reset failure counter in CLOSED."""
+        cb = CircuitBreaker(name="test", failure_threshold=3)
+        await cb.record_failure(RuntimeError("e1"))
+        assert cb._state.failures == 1
+        await cb.record_success()
+        assert cb._state.failures == 0

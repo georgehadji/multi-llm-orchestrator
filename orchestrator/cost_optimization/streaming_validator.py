@@ -124,12 +124,12 @@ class StreamingValidator:
         Model.CLAUDE_SONNET_4_6,
         Model.CLAUDE_OPUS_4_6,
         Model.GPT_4O,
-        Model.DEEPSEEK_CHAT,
+        Model.DEEPSEEK_V4_FLASH,
     ]
 
     # Cost per 1M tokens (using Model enum keys for consistency)
     MODEL_COSTS = {
-        Model.DEEPSEEK_CHAT: {"input": 1.0, "output": 4.0},
+        Model.DEEPSEEK_V4_FLASH: {"input": 1.0, "output": 4.0},
         Model.CLAUDE_SONNET_4_6: {"input": 3.0, "output": 15.0},
         Model.CLAUDE_OPUS_4_6: {"input": 15.0, "output": 75.0},
         Model.GPT_4O: {"input": 5.0, "output": 15.0},

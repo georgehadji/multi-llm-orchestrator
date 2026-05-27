@@ -412,7 +412,7 @@ class APIGateway:
                 status_code=200,
                 headers={"Content-Type": "application/json"},
                 body=json.dumps(
-                    {"models": ["gpt-4", "claude-3", "gemini-pro"], "service": target_service}
+                    {"models": ["gpt-4", "claude-3", "gemini-3.5-flash"], "service": target_service}
                 ),
             )
         else:

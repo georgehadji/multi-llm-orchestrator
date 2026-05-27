@@ -21,7 +21,7 @@ Usage:
 
     result = await gen.speculative_generate(
         prompt="Generate Python code...",
-        cheap_model="deepseek/deepseek-chat",
+        cheap_model="deepseek/deepseek-v4-flash",
         premium_model="claude-opus-4.6",
         threshold=0.85,
     )
@@ -115,7 +115,7 @@ class SpeculativeGenerator:
 
     # Cost per 1M tokens
     MODEL_COSTS = {
-        "deepseek/deepseek-chat": {"input": 1.0, "output": 4.0},
+        "deepseek/deepseek-v4-flash": {"input": 1.0, "output": 4.0},
         "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
         "claude-opus-4.6": {"input": 15.0, "output": 75.0},
         "gpt-4o": {"input": 5.0, "output": 15.0},
@@ -203,7 +203,7 @@ class SpeculativeGenerator:
 
         # Get model pair
         model_pair = self.get_model_pair(task_type)
-        cheap = cheap_model or model_pair.get("cheap", "deepseek/deepseek-chat")
+        cheap = cheap_model or model_pair.get("cheap", "deepseek/deepseek-v4-flash")
         premium = premium_model or model_pair.get("premium", "claude-opus-4.6")
         score_threshold = threshold or model_pair.get("threshold", 0.85)
 

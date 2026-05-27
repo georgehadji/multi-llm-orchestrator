@@ -609,6 +609,23 @@ async def _async_resume(args):
     orch = Orchestrator(
         budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
     )
+    # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
+    if getattr(args, "agent_profile", None):
+        from .models import build_default_profiles
+        profile_map = {
+            "standard": {"quality_mode": "standard", "iteration_cap": 3},
+            "max": {"quality_mode": "production", "iteration_cap": 5},
+            "creative": {"quality_mode": "standard", "iteration_cap": 4, "temperature": 0.8},
+            "conservative": {"quality_mode": "production", "iteration_cap": 2, "temperature": 0.3},
+            "research": {"quality_mode": "standard", "iteration_cap": 6},
+        }
+        cfg = profile_map.get(args.agent_profile, {})
+        for profile_name, profile in orch._profiles.items():
+            if hasattr(profile, "quality_mode") and "quality_mode" in cfg:
+                profile.quality_mode = cfg["quality_mode"]
+            if hasattr(profile, "temperature") and "temperature" in cfg:
+                profile.temperature = cfg.get("temperature", 0.7)
+        logger.info(f"Agent profile '{args.agent_profile}': quality_mode={cfg.get('quality_mode')}, iteration_cap={cfg.get('iteration_cap')}")
     existing = await orch.state_mgr.load_project(args.resume)
     if not existing:
         print(f"Project {args.resume} not found.")
@@ -675,6 +692,17 @@ async def _async_file_project(args):
     # Re-apply logging with file's verbose setting merged with CLI flag
     setup_logging(args.verbose or result.verbose)
     budget = spec.budget
+    # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
+    if getattr(args, "agent_profile", None):
+        from .models import build_default_profiles
+        profile_map = {
+            "standard": {"quality_mode": "standard", "iteration_cap": 3},
+            "max": {"quality_mode": "production", "iteration_cap": 5},
+            "creative": {"quality_mode": "standard", "iteration_cap": 4, "temperature": 0.8},
+            "conservative": {"quality_mode": "production", "iteration_cap": 2, "temperature": 0.3},
+            "research": {"quality_mode": "standard", "iteration_cap": 6},
+        }
+        cfg = profile_map.get(args.agent_profile, {})
 
     # Print banner BEFORE Orchestrator init so it appears before WARNING logs
     print(f"Loading project from: {args.file}")
@@ -1039,6 +1067,23 @@ async def _async_new_project(args):
     orch = Orchestrator(
         budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
     )
+    # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
+    if getattr(args, "agent_profile", None):
+        from .models import build_default_profiles
+        profile_map = {
+            "standard": {"quality_mode": "standard", "iteration_cap": 3},
+            "max": {"quality_mode": "production", "iteration_cap": 5},
+            "creative": {"quality_mode": "standard", "iteration_cap": 4, "temperature": 0.8},
+            "conservative": {"quality_mode": "production", "iteration_cap": 2, "temperature": 0.3},
+            "research": {"quality_mode": "standard", "iteration_cap": 6},
+        }
+        cfg = profile_map.get(args.agent_profile, {})
+        for profile_name, profile in orch._profiles.items():
+            if hasattr(profile, "quality_mode") and "quality_mode" in cfg:
+                profile.quality_mode = cfg["quality_mode"]
+            if hasattr(profile, "temperature") and "temperature" in cfg:
+                profile.temperature = cfg.get("temperature", 0.7)
+        logger.info(f"Agent profile '{args.agent_profile}': quality_mode={cfg.get('quality_mode')}, iteration_cap={cfg.get('iteration_cap')}")
 
     print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
     print(f"Project: {description}")
@@ -1088,6 +1133,17 @@ async def _async_visualize(args):
         project_description = spec.project_description
         success_criteria = spec.success_criteria
         budget = spec.budget
+    # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
+    if getattr(args, "agent_profile", None):
+        from .models import build_default_profiles
+        profile_map = {
+            "standard": {"quality_mode": "standard", "iteration_cap": 3},
+            "max": {"quality_mode": "production", "iteration_cap": 5},
+            "creative": {"quality_mode": "standard", "iteration_cap": 4, "temperature": 0.8},
+            "conservative": {"quality_mode": "production", "iteration_cap": 2, "temperature": 0.3},
+            "research": {"quality_mode": "standard", "iteration_cap": 6},
+        }
+        cfg = profile_map.get(args.agent_profile, {})
     else:
         budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
         project_description = args.project
@@ -1817,6 +1873,24 @@ def main():
         default=False,
         help="Show execution plan without running any tasks",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["query", "build"],
+        default=None,
+        help="Execution mode: query (no code gen, plan only) or build (full project)",
+    )
+    parser.add_argument(
+        "--agent-profile",
+        choices=["standard", "max", "creative", "conservative", "research"],
+        default=None,
+        help="Agent profile strategy: standard/max/creative/conservative/research",
+    )
+    parser.add_argument(
+        "--autonomy",
+        choices=["lite", "standard", "auto", "max"],
+        default=None,
+        help="Autonomy level: lite/standard/auto/max (controls iterations, repairs, model tier)",
+    )
 
     # ── Nash Stability commands ───────────────────────────────────────────────
     _nash_subparsers(subparsers)
@@ -1863,7 +1937,8 @@ def main():
     if not args.criteria:
         parser.error("--criteria is required for new projects (or use --file <yaml>)")
 
-    if args.dry_run:
+    # --mode query is the same as --dry-run (Ask Mode equivalent)
+    if args.dry_run or args.mode == "query":
         asyncio.run(_async_dry_run(args))
         return
 

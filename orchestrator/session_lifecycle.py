@@ -43,7 +43,7 @@ class SessionLifecycleManager:
         self,
         memory_tier_manager: MemoryTierManager,
         migration_interval_seconds: int = _DEFAULT_INTERVAL_SECONDS,
-        llm_model: str = "deepseek/deepseek-chat",
+        llm_model: str = "deepseek/deepseek-v4-flash",
     ) -> None:
         self._mem = memory_tier_manager
         self._interval = migration_interval_seconds

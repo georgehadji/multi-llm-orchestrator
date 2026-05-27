@@ -43,6 +43,14 @@ class ExperienceBuffer:
         self.model_scores: dict[str, list[float]] = defaultdict(list)
         self.method_scores: dict[str, list[float]] = defaultdict(list)
 
+    # Maximum entries to retain in the successes/failures audit lists.
+    # model_scores and method_scores (dicts of lists) are bounded naturally
+    # by the finite set of (model × task_type) and (method × task_type) keys.
+    # The raw audit lists have no such natural bound — cap them explicitly.
+    # Architecture spec (CLAUDE.md) documents 200; mindmap documents 50.
+    # 200 chosen to retain enough recent history without unbounded growth.
+    _MAX_AUDIT_SIZE: int = 200
+
     def record_success(self, task_type: str, method: str, model: str, score: float) -> None:
         """Record a successful execution."""
         pattern = self._hash_pattern(task_type, method, model)
@@ -50,6 +58,10 @@ class ExperienceBuffer:
             pattern_hash=pattern, task_type=task_type,
             method=method, model=model, score=score,
         ))
+        # BUG-008 FIX: cap the audit list to prevent unbounded memory/disk growth.
+        # AgentMemory.record() applies the same pattern with [-50:].
+        if len(self.successes) > self._MAX_AUDIT_SIZE:
+            self.successes = self.successes[-self._MAX_AUDIT_SIZE:]
         self.model_scores[f"{model}:{task_type}"].append(score)
         self.method_scores[f"{method}:{task_type}"].append(score)
 
@@ -60,6 +72,9 @@ class ExperienceBuffer:
             pattern_hash=pattern, task_type=task_type,
             method=method, model=model, score=score,
         ))
+        # BUG-008 FIX: same cap as record_success.
+        if len(self.failures) > self._MAX_AUDIT_SIZE:
+            self.failures = self.failures[-self._MAX_AUDIT_SIZE:]
 
     def best_method_for(self, task_type: str) -> str | None:
         """Get the best-performing method for a task type."""

@@ -77,6 +77,8 @@ class AppBuilder:
         output_dir: Path,
         app_type_override: str | None = None,
         docker: bool = False,
+        budget: "Budget | None" = None,
+        max_concurrency: int = 3,
     ) -> AppBuildResult:
         """
         Run the full app build pipeline.
@@ -112,7 +114,10 @@ class AppBuilder:
 
             # -- Step 3: Run orchestrator to generate code --
             logger.info("AppBuilder: running orchestrator...")
-            project_state = await self._run_orchestrator(description, criteria, output_dir, profile)
+            project_state = await self._run_orchestrator(
+                description, criteria, output_dir, profile, budget=budget,
+                max_concurrency=max_concurrency,
+            )
 
             # -- Step 4: Assemble --
             logger.info("AppBuilder: assembling...")
@@ -166,19 +171,25 @@ class AppBuilder:
         criteria: str,
         output_dir: Path,
         profile: AppProfile,
+        budget: "Budget | None" = None,
+        max_concurrency: int = 3,
     ):
         """
         Isolated method to run the Orchestrator — allows test mocking.
 
-        In production, this initializes and runs the existing Orchestrator.
-        The Orchestrator class lives in orchestrator.engine and its main entry
-        point is run_project(project_description, success_criteria).
-        Returns the ProjectState.
+        BUG-API-001 FIX: Accept budget and max_concurrency from the CLI
+        so user-specified limits are NOT silently ignored. Previously,
+        Orchestrator() was created without any budget argument, causing
+        the CLI's --budget flag to be silently replaced by the default
+        $8.00 Budget().
         """
-        # Import here to avoid circular imports at module load time.
+        from orchestrator.budget import Budget  # noqa: PLC0415
         from orchestrator.engine import Orchestrator  # noqa: PLC0415
 
-        orchestrator = Orchestrator()
+        orchestrator = Orchestrator(
+            budget=budget,
+            max_concurrency=max_concurrency,
+        )
         state = await orchestrator.run_project(
             project_description=description,
             success_criteria=criteria,

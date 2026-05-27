@@ -1,208 +1,167 @@
 """
-GitIntegration — Git best practices for agentic development
-=============================================================
+GitIntegration — Auto-commit messages per task execution.
+===========================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis
 
-Ensures every stage of development follows Git best practices:
-- Feature branches per milestone
-- Atomic commits with conventional commit messages
-- Pull request creation per completed feature
-- Push to GitHub after every successful stage
+Part of Category 2, Phase N5 (Newly-inspired): Auto-generates descriptive
+git commit messages after each task completes. Two modes: fast (template-based)
+and full (LLM-generated summary of the task's changes).
 """
 
 from __future__ import annotations
 
-import asyncio
-import logging
 import subprocess
-from dataclasses import dataclass, field
-from datetime import datetime
-from pathlib import Path
-from typing import Any
-
-logger = logging.getLogger("orchestrator.git_integration")
+import time
+from dataclasses import dataclass
 
 
 @dataclass
-class CommitResult:
-    success: bool
-    hash: str = ""
-    message: str = ""
-    error: str = ""
+class CommitMessage:
+    """Generated commit message for a task."""
+
+    summary: str        # 50-char first line
+    body: str = ""      # Detailed description
+    task_id: str = ""
+    co_authored_by: str = "AI Orchestrator <orchestrator@local>"
 
     @property
-    def short_hash(self) -> str:
-        return self.hash[:8] if self.hash else ""
-
-
-@dataclass
-class BranchInfo:
-    name: str
-    base_branch: str = "main"
-    created_at: str = ""
-    url: str = ""
+    def full_message(self) -> str:
+        msg = self.summary
+        if self.body:
+            msg += f"\n\n{self.body}"
+        if self.co_authored_by:
+            msg += f"\n\nCo-Authored-By: {self.co_authored_by}"
+        return msg
 
 
 class GitIntegration:
-    """Git operations for the agentic pipeline.
+    """Auto-commits with descriptive messages after task execution."""
 
-    Each milestone creates a feature branch. After each completed task,
-    changes are committed with conventional commit messages. After each
-    milestone, a PR is created and pushed.
-    """
+    def __init__(self, repo_dir: str = "."):
+        self.repo_dir = repo_dir
 
-    def __init__(self, repo_path: Path, remote: str = "origin") -> None:
-        self.repo = repo_path
-        self.remote = remote
-        self._current_branch: str = "main"
-
-    async def init(self) -> bool:
-        """Initialize git repo if not already initialized."""
-        if not (self.repo / ".git").exists():
-            return await self._run("git init")[0]
-        return True
-
-    async def create_branch(self, name: str, base: str = "main") -> bool:
-        """Create a feature branch from base."""
-        await self._run(f"git checkout {base}")
-        ok, _ = await self._run(f"git checkout -b {name}")
-        if ok:
-            self._current_branch = name
-            logger.info("Created branch: %s (from %s)", name, base)
-        return ok
-
-    async def commit(self, message: str, files: list[str] | None = None) -> CommitResult:
-        """Stage and commit changes with conventional commit message."""
-        # Stage specified files or all
-        if files:
-            for f in files:
-                await self._run(f"git add {f}")
-        else:
-            await self._run("git add -A")
-
-        # Check if there's anything to commit
-        ok, status = await self._run("git status --porcelain")
-        if not status.strip():
-            return CommitResult(success=True, hash="", message="Nothing to commit")
-
-        # Commit with conventional message format
-        ok, output = await self._run(f'git commit -m "{message}"')
-        if ok:
-            h, _ = await self._run("git rev-parse HEAD")
-            return CommitResult(
-                success=True,
-                hash=h.strip(),
-                message=message,
-            )
-        return CommitResult(success=False, error=output)
-
-    async def commit_task(self, task_id: str, task_type: str, description: str) -> CommitResult:
-        """Commit with conventional commit message for a task.
-
-        Format: type(scope): description
-        Examples:
-            feat(auth): add JWT authentication middleware
-            fix(api): correct pagination offset
-            test(models): add unit tests for User model
-        """
-        type_map = {
-            "code_generation": "feat",
-            "code_review": "review",
-            "modify_file": "feat",
-            "delete_file": "refactor",
-            "install_dependency": "chore",
-            "evaluation": "test",
-            "reasoning": "docs",
-        }
-        prefix = type_map.get(task_type, "chore")
-        message = f"{prefix}({task_id}): {description[:80]}"
-        return await self.commit(message)
-
-    async def push(self, branch: str = "") -> bool:
-        """Push current branch to remote."""
-        target = branch or self._current_branch
-        ok, output = await self._run(f"git push {self.remote} {target}")
-        if ok:
-            logger.info("Pushed %s to %s", target, self.remote)
-        else:
-            logger.warning("Push failed for %s: %s", target, output[:200])
-        return ok
-
-    async def create_pr(self, title: str, body: str = "") -> str:
-        """Create a GitHub PR using gh CLI."""
-        body_text = body or "Automated PR from AI Orchestrator"
-        ok, output = await self._run(
-            f'gh pr create --title "{title[:80]}" --body "{body_text[:500]}"'
-        )
-        if ok:
-            logger.info("Created PR: %s", output.strip()[:80])
-            return output.strip()
-        logger.warning("PR creation failed: %s", output[:200])
-        return ""
-
-    async def stage_commit_push(self, message: str, branch: str = "") -> CommitResult:
-        """Convenience: stage all -> commit -> push in one call."""
-        result = await self.commit(message)
-        if result.success:
-            await self.push(branch)
-        return result
-
-    async def _run(self, cmd: str) -> tuple[bool, str]:
-        """Run a git command in the repo directory."""
-        try:
-            proc = await asyncio.create_subprocess_shell(
-                cmd, cwd=str(self.repo),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
-            success = proc.returncode == 0
-            output = stdout.decode().strip() or stderr.decode().strip()
-            return success, output
-        except asyncio.TimeoutError:
-            return False, "Command timed out"
-        except Exception as exc:
-            return False, str(exc)
-
-    async def status(self) -> str:
-        """Get repo status."""
-        _, output = await self._run("git status")
-        return output
-
-    async def log(self, n: int = 10) -> str:
-        """Get recent commit log."""
-        _, output = await self._run(f"git log --oneline -{n}")
-        return output
-
-    async def milestone_flow(
-        self, milestone_name: str, task_results: list[tuple[str, str, str]]
-    ) -> list[CommitResult]:
-        """Execute a complete milestone flow: branch -> commits -> push -> PR.
+    def generate_message_fast(self, task_id: str, task_prompt: str, score: float = 0.0) -> CommitMessage:
+        """Generate a template-based commit message (fast, no LLM).
 
         Args:
-            milestone_name: Name for the branch and milestone (e.g. "auth-system")
-            task_results: List of (task_id, task_type, description) tuples
+            task_id: Task identifier
+            task_prompt: Original task description
+            score: Quality score
 
         Returns:
-            List of CommitResult for each task committed.
+            CommitMessage with summary and body
         """
-        results: list[CommitResult] = []
+        # Extract first meaningful line from prompt
+        prompt_short = task_prompt[:80].strip()
+        if len(prompt_short) == 80:
+            prompt_short = prompt_short[:77] + "..."
 
-        # 1. Create feature branch
-        branch_ok = await self.create_branch(f"feature/{milestone_name}")
-        if not branch_ok:
-            logger.error("Failed to create branch for milestone: %s", milestone_name)
-            return results
+        summary = f"feat({task_id}): {prompt_short}"[:72]
 
-        # 2. Commit each task
-        for task_id, task_type, description in task_results:
-            result = await self.commit_task(task_id, task_type, description)
-            results.append(result)
+        body = f"Task: {task_id}\nScore: {score:.2f}\nPrompt: {task_prompt[:500]}"
 
-        # 3. Push branch
-        await self.push()
+        return CommitMessage(
+            summary=summary,
+            body=body,
+            task_id=task_id,
+        )
 
-        # 4. Create PR
-        await self.create_pr(f"Milestone: {milestone_name.replace('-', ' ').title()}")
+    async def generate_message_llm(
+        self, task_id: str, task_prompt: str, diff: str, client=None
+    ) -> CommitMessage:
+        """Generate an LLM-based commit message (requires API call).
 
-        return results
+        Args:
+            task_id: Task identifier
+            task_prompt: Original task description
+            diff: Git diff of changes
+            client: Optional LLM client for message generation
+
+        Returns:
+            CommitMessage with LLM-generated summary
+        """
+        if not client:
+            # Fall back to fast mode
+            msg = self.generate_message_fast(task_id, task_prompt)
+            msg.body += f"\nDiff length: {len(diff)} chars"
+            return msg
+
+        prompt = f"""Write a conventional commit message for this code change.
+
+Task: {task_prompt[:200]}
+
+Diff (first 3000 chars):
+{diff[:3000]}
+
+Format:
+First line: type(scope): short description (max 72 chars)
+Then blank line, then body explaining what was changed and why.
+
+Return only the exact commit message, no JSON."""
+
+        try:
+            response = await client.call(
+                model=None,
+                prompt=prompt,
+                system="You are a precise git commit message writer. Follow conventional commits format.",
+                max_tokens=200,
+                temperature=0.3,
+                timeout=20,
+            )
+            text = response.text.strip()
+            lines = text.split("\n")
+            summary = lines[0][:72] if lines else f"feat({task_id}): code update"
+            body = "\n".join(lines[1:]) if len(lines) > 1 else ""
+            return CommitMessage(
+                summary=summary,
+                body=body,
+                task_id=task_id,
+            )
+        except Exception:
+            return self.generate_message_fast(task_id, task_prompt)
+
+    def commit(self, message: CommitMessage, files: list[str] | None = None) -> bool:
+        """Execute git commit with the generated message.
+
+        Args:
+            message: Commit message to use
+            files: Specific files to commit (None = all)
+
+        Returns:
+            True if commit succeeded
+        """
+        try:
+            if files:
+                subprocess.run(
+                    ["git", "add"] + files, cwd=self.repo_dir, capture_output=True, check=True
+                )
+            else:
+                subprocess.run(
+                    ["git", "add", "-A"], cwd=self.repo_dir, capture_output=True, check=True
+                )
+
+            subprocess.run(
+                ["git", "commit", "-m", message.full_message],
+                cwd=self.repo_dir, capture_output=True, check=True,
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            return False
+
+    def get_diff(self, files: list[str] | None = None) -> str:
+        """Get the current git diff for message generation.
+
+        Args:
+            files: Specific files (None = all)
+
+        Returns:
+            Git diff output
+        """
+        try:
+            cmd = ["git", "diff"]
+            if files:
+                cmd += ["--"] + files
+            result = subprocess.run(cmd, cwd=self.repo_dir, capture_output=True, text=True)
+            return result.stdout
+        except Exception:
+            return ""

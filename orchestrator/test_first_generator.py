@@ -494,15 +494,24 @@ class TestFirstGenerator:
         # ═══════════════════════════════════════════════════════
         iterations = 1
         if not test_result.passed:
-            logger.info(f"  {task.id}: Tests failed, attempting self-heal...")
-            implementation_code, test_result, iterations = await self._repair_to_pass_tests(
-                tests=test_spec.test_code,
-                implementation=implementation_code,
-                errors=test_result.errors,
-                requirement=task.prompt,
-                model=target_model,
-                framework=framework,
-            )
+            if test_result.tests_run == 0:
+                # No tests ran at all — infra error (npm/pytest not installed, sandbox missing).
+                # An LLM cannot fix a missing runtime; skip self-heal to avoid burning tokens.
+                logger.warning(
+                    f"  {task.id}: Tests failed but 0 tests ran — "
+                    f"infrastructure issue (missing runtime/sandbox), skipping self-heal. "
+                    f"Error: {test_result.errors[0] if test_result.errors else 'unknown'}"
+                )
+            else:
+                logger.info(f"  {task.id}: Tests failed, attempting self-heal...")
+                implementation_code, test_result, iterations = await self._repair_to_pass_tests(
+                    tests=test_spec.test_code,
+                    implementation=implementation_code,
+                    errors=test_result.errors,
+                    requirement=task.prompt,
+                    model=target_model,
+                    framework=framework,
+                )
 
         # Build final result with accumulated cost
         tdd_result = TDDResult(
@@ -1506,11 +1515,22 @@ edition = "2021"
         for iteration in range(self.max_test_iterations):
             logger.info(f"  Repair iteration {iteration + 1}/{self.max_test_iterations}")
 
+            # Determine correct code fence language for this framework
+            _fence_lang = {
+                TestingFramework.PYTEST: "python",
+                TestingFramework.UNITTEST: "python",
+                TestingFramework.JEST: "typescript",
+                TestingFramework.VITEST: "typescript",
+                TestingFramework.MOCHA: "javascript",
+                TestingFramework.GO_TEST: "go",
+                TestingFramework.CARGO_TEST: "rust",
+            }.get(framework, "python")
+
             # Build repair prompt with error context
             prompt = (
                 f"Fix this code so all tests pass.\n\n"
-                f"Tests:\n```python\n{tests}\n```\n\n"
-                f"Current implementation:\n```python\n{current_code}\n```\n\n"
+                f"Tests:\n```{_fence_lang}\n{tests}\n```\n\n"
+                f"Current implementation:\n```{_fence_lang}\n{current_code}\n```\n\n"
                 f"Test errors:\n"
             )
 
@@ -1522,7 +1542,7 @@ edition = "2021"
                 "1. Fix ALL test errors\n"
                 "2. Preserve working functionality\n"
                 "3. Output ONLY the fixed implementation code\n\n"
-                "```python\n"
+                f"```{_fence_lang}\n"
             )
 
             # CRITICAL FIX: Increase token limit with each iteration
@@ -1544,8 +1564,7 @@ edition = "2021"
                     timeout=timeout_seconds,
                 )
 
-                current_code = response.text.strip()
-                current_code = current_code.replace("```python\n", "").replace("```", "")
+                current_code = _strip_code_fences(response.text.strip())
 
                 # Re-run tests
                 test_result = await self._run_tests_and_collect_results(

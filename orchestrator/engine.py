@@ -42,6 +42,7 @@ from .prompt_builder import (
     RevisionPrompt,
     SystemPrompt,
 )
+from .autonomy_config import AutonomyConfig, AutonomyLevel
 from .budget import Budget
 from .model_registry import ModelRegistry
 from .cache import DiskCache
@@ -642,6 +643,9 @@ class Orchestrator:
         self._dependency_injector: DependencyContextInjector | None = None
         self._adaptive_temp: AdaptiveTemperatureController | None = None
         self._eval_dataset: EvalDatasetBuilder = EvalDatasetBuilder()
+
+        # ── Wave 2: Multi-Mode Autonomy Selector (X4) ──
+        self._autonomy = AutonomyConfig.for_level(AutonomyLevel.STANDARD)
 
         # PARADIGM SHIFT: TDD-First and Diff-Based Generation
         self._tdd_generator: TestFirstGenerator | None = None
@@ -1317,7 +1321,7 @@ class Orchestrator:
     def configure_session_lifecycle(
         self,
         migration_interval_hours: int = 1,
-        llm_model: str = "deepseek/deepseek-chat",
+        llm_model: str = "deepseek/deepseek-v4-flash",
     ) -> None:
         """
         Configure automatic session lifecycle migration.
@@ -1935,7 +1939,7 @@ Each task JSON element MUST also include:
 
             decomposer = TaskDecomposer(api_client=self.client)
             decomp_model = (
-                "deepseek/deepseek-v3.2"  # cost-effective fallback for free-tier models
+                "deepseek/deepseek-v4-flash"  # cost-effective fallback for free-tier models
                 if "free" in model.value.lower()
                 else model.value
             )
@@ -2033,8 +2037,8 @@ Each task JSON element MUST also include:
         models_to_try = [model, self._get_fallback(model)]
 
         # Add Qwen3 Coder Next as final fallback for JSON structure issues
-        if Model.QWEN_3_CODER_NEXT not in models_to_try:
-            models_to_try.append(Model.QWEN_3_CODER_NEXT)
+        if Model.QWEN_3_6_FLASH not in models_to_try:
+            models_to_try.append(Model.QWEN_3_6_FLASH)
         
         # OpenRouter Optimization: Apply model variants if enabled
         # Use REASONING variant (THINKING) for decomposition tasks
@@ -2099,15 +2103,25 @@ Each task JSON element MUST also include:
                 )
                 logger.warning(f"  Raw response (first 300 chars): {raw_preview}...")
                 await self._record_failure(m if isinstance(m, Model) else model, error=e)
+                if attempt < len(models_to_try) - 1:
+                    await asyncio.sleep(1)
             except (Exception, asyncio.CancelledError) as e:
-                logger.error(f"Decomposition attempt {attempt + 1} with {model_name} failed: {e}")
+                error_type = type(e).__name__
+                logger.error(
+                    f"Decomposition attempt {attempt + 1} with {model_name} failed "
+                    f"({error_type}): {e}"
+                )
                 await self._record_failure(m if isinstance(m, Model) else model, error=e)
+                # Brief pause before the next model — avoids hammering all fallbacks
+                # simultaneously during transient network failures (DNS blips, etc.)
+                if attempt < len(models_to_try) - 1:
+                    await asyncio.sleep(2)
 
         logger.error("All decomposition attempts failed")
         raise OrchestratorError(
-            "Project decomposition failed: unable to parse LLM response after multiple attempts. "
-            "The model may be experiencing issues or the project description may be too complex. "
-            "Try simplifying the project description or using a different model."
+            "Project decomposition failed after exhausting all model fallbacks. "
+            "Check network connectivity and API key validity, then retry. "
+            "If the issue persists, simplify the project description or use --resume to continue."
         )
 
     def _try_parse_partial_json_array(self, text: str) -> list | None:
@@ -3131,9 +3145,9 @@ Each task JSON element MUST also include:
                 _is_reasoning_model = ModelRegistry.is_reasoning_model(primary.value)
                 # deepseek-v3.x are large instruct/chat models — match by prefix
                 _is_deepseek_chat = primary.value in (
-                    "deepseek/deepseek-chat",
-                    "deepseek/deepseek-v3",
-                    "deepseek/deepseek-v3.2",
+                    "deepseek/deepseek-v4-flash",
+                    "deepseek/deepseek-v4-flash",
+                    "deepseek/deepseek-v4-flash",
                 )
                 if _is_reasoning_model:
                     gen_timeout = 240

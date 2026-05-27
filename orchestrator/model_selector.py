@@ -22,26 +22,34 @@ from .models import COST_TABLE, FALLBACK_CHAIN, Model, TaskType, get_provider
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Model tier definitions (used by next_tier)
-# Higher index = higher quality / cost
-# NOTE: DeepSeek models removed due to timeout issues
-#       Replaced with Xiaomi, Zhipu, StepFun (reliable alternatives)
+# Single tier — most capable models only (May 2026 optimization)
+# All models at same priority; ordering determines selection preference
 # ---------------------------------------------------------------------------
+# Single tier — most capable models only
+# All models at same priority; ordering in _TIER_MODELS determines selection
 _MODEL_TIERS: dict[Model, int] = {
-    # Cheap tier (0) - Reliable, fast models
-    Model.GEMINI_FLASH_LITE: 0,
+    Model.DEEPSEEK_V4_FLASH: 0,
+    Model.DEEPSEEK_V4_PRO: 0,
+    Model.QWEN_3_7_MAX: 0,
+    Model.QWEN_3_6_FLASH: 0,
+    Model.XAI_GROK_4_20: 0,
+    Model.CLAUDE_SONNET_4_6: 0,
+    Model.CLAUDE_OPUS_4_6: 0,
+    Model.GPT_4O: 0,
+    Model.GPT_5_4: 0,
+    Model.GPT_5_4_CODEX: 0,
     Model.GPT_4O_MINI: 0,
-    Model.ZHIPU_GLM_5_1: 0,  # z-ai/glm-5.1, canonical GLM model
-    Model.PHI_4: 0,  # $0.07/$0.14, very fast
-    # Balanced tier (1) - Good quality/price ratio
-    Model.GEMINI_FLASH: 1,
-    Model.XIAOMI_MIMO_V2_FLASH: 1,  # $0.09/$0.29, #1 SWE-bench, reliable
-    Model.STEPFUN_STEP_3_5_FLASH: 1,  # $0.10/$0.30, 196B MoE, reliable
-    Model.CLAUDE_3_HAIKU: 1,
-    # Premium tier (2) - High quality
-    Model.GPT_4O: 2,
-    Model.GEMINI_PRO: 2,
-    Model.CLAUDE_SONNET_4_6: 2,  # $3/$15, excellent coding
+    Model.GEMINI_FLASH: 0,
+    Model.GEMINI_FLASH_LITE: 0,
+    Model.MOONSHOT_KIMI_K2_6: 0,
+    Model.XIAOMI_MIMO_V2_FLASH: 0,
+    Model.MINIMAX_M2_7: 0,
+    Model.ZHIPU_GLM_5_1: 0,
+    Model.ZHIPU_GLM_5_TURBO: 0,
+    Model.STEPFUN_STEP_3_5_FLASH: 0,
+    Model.LLAMA_4_MAVERICK: 0,
+    Model.PHI_4: 0,
+    Model.CLAUDE_3_HAIKU: 0,
 }
 
 # ---------------------------------------------------------------------------
@@ -116,42 +124,33 @@ _TECH_STACK_KEYWORDS = [
 # ─────────────────────────────────────────────────────────────────────────
 
 # Updated tier definitions (v3.0) — consolidated from engine.py
-_TIER_MODELS_CHEAP: list[Model] = [
-    Model.QWEN_3_CODER_NEXT,  # $0.12/$0.75 - Fast coding specialist
-    Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 - #1 SWE-bench, fast
-    Model.ZHIPU_GLM_5_1,
-    Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30 - 196B MoE reasoning
-    Model.PHI_4,  # $0.07/$0.14 - Microsoft 14B
-    Model.GEMMA_3_27B,  # $0.08/$0.20 - Google open-weights
-    Model.LLAMA_3_3_70B,  # $0.12/$0.30 - Meta 70B reliable
-    Model.NVIDIA_NEMOTRON_3_SUPER,  # $0.10/$0.50 - 120B MoE efficient
-]
-
-_TIER_MODELS_BALANCED: list[Model] = [
-    Model.DEEPSEEK_V3_2,  # $0.27/$1.10 - 1.24T tokens
-    Model.MOONSHOT_KIMI_K2_5,  # $0.42/$2.20 - Visual coding SOTA
-    Model.MINIMAX_M2_7,  # $0.30/$1.20 - 56.2% SWE-Pro
-    Model.GEMINI_FLASH,  # $0.15/$0.60 - 1M context, fast
-    Model.CLAUDE_3_HAIKU,  # $0.25/$1.25 - Claude budget tier
-    Model.DEEPSEEK_CHAT,  # $0.28/$0.42 - Cost effective
-    Model.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00 - 1T+ params (slow)
-]
-
-_TIER_MODELS_PREMIUM: list[Model] = [
-    Model.XAI_GROK_4_20_BETA,  # $2.00/$6.00 - Lowest hallucination
-    Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Best coding
-    Model.QWEN_3_5_397B_A17B,  # $0.39/$2.34 - 397B MoE SOTA
-    Model.GPT_5_4_CODEX,  # $1.75/$14.00 - SWE-Bench Pro SOTA
-    Model.GEMINI_PRO,  # $2.00/$12.00 - Gemini premium
-    Model.O4_MINI,  # $1.50/$6.00 - OpenAI reasoning
+# Single tier — most capable models, ordered by benchlm.ai coding score
+_TIER_MODELS: list[Model] = [
+    Model.QWEN_3_7_MAX,            # 92.2 benchlm, #4 globally
+    Model.DEEPSEEK_V4_PRO,         # 90.1 benchlm, $1.50/$6.00
+    Model.MOONSHOT_KIMI_K2_6,      # 89.2 benchlm, $0.95/$4.00
+    Model.GPT_5_4_CODEX,           # 87.8 benchlm, $1.75/$14.00
+    Model.GPT_5_4,                 # 87.8 benchlm, $2.50/$15.00
+    Model.DEEPSEEK_V4_FLASH,       # 83.5 benchlm, $0.27/$1.10
+    Model.ZHIPU_GLM_5_1,           # 83.4 benchlm, $0.10/$0.40
+    Model.CLAUDE_SONNET_4_6,       # 82.2 benchlm, $3.00/$15.00
+    Model.XAI_GROK_4_20,           # lowest hallucination
+    Model.QWEN_3_6_FLASH,          # 79.1 benchlm, $0.12/$0.50
+    Model.GEMINI_FLASH,            # 78.3 benchlm, $0.15/$0.60
+    Model.XIAOMI_MIMO_V2_FLASH,    # $0.09/$0.29 -- ultra-cheap backup
+    Model.MINIMAX_M2_7,            # $0.30/$1.20
+    Model.CLAUDE_OPUS_4_6,         # 86.0 benchlm, most capable
+    Model.GPT_4O,                  # $2.50/$10.00 -- reliable
 ]
 
 # Reliable decomposition models (v3.1)
 _RELIABLE_DECOMPOSITION_MODELS: list[Model] = [
-    Model.GPT_4O,  # $2.50/$10.00 - Reliable JSON, large context
-    Model.CLAUDE_SONNET_4_6,  # $3.00/$15.00 - Excellent structure
-    Model.GEMINI_FLASH,  # $0.15/$0.60 - Reliable JSON output
-    Model.GPT_4O_MINI,  # $0.15/$0.60 - Cheap, reliable
+    Model.QWEN_3_7_MAX,            # 92.2 benchlm, #4 globally -- BEST
+    Model.CLAUDE_SONNET_4_6,       # 82.2 benchlm, excellent structured output
+    Model.GPT_4O,                  # $2.50/$10.00, reliable JSON, large context
+    Model.DEEPSEEK_V4_FLASH,       # 83.5 benchlm, $0.27/$1.10, fast + reliable
+    Model.GEMINI_FLASH,            # $0.15/$0.60, cheap reliable backup
+    Model.GPT_4O_MINI,             # $0.15/$0.60, cheapest reliable
 ]
 
 
@@ -173,32 +172,17 @@ class TieredModelRouter:
         self._escalation_count: dict[str, int] = {}
 
     def available_models(self, task_type: TaskType) -> list[Model]:
-        """Get available models with tiered selection for cost optimization.
+        """Get available models from the single premium tier.
 
-        Uses three-tier routing: CHEAP -> BALANCED -> PREMIUM.
-        Starts with cheaper models and escalates if needed based on
-        task complexity and previous failures.
+        Uses ROUTING_TABLE as priority order, filtered by health.
+        Falls back to the global _TIER_MODELS list if ROUTING_TABLE is empty.
         """
-        tier_key = f"{task_type.value}"
-        escalation = self._escalation_count.get(tier_key, 0)
-
-        if escalation == 0:
-            if task_type in (TaskType.DATA_EXTRACT, TaskType.SUMMARIZE):
-                candidates = list(_TIER_MODELS_CHEAP + _TIER_MODELS_BALANCED)
-            else:
-                candidates = list(_TIER_MODELS_BALANCED + _TIER_MODELS_CHEAP)
-        elif escalation == 1:
-            candidates = list(_TIER_MODELS_BALANCED + _TIER_MODELS_PREMIUM)
-        else:
-            candidates = list(ROUTING_TABLE.get(task_type, []))
-
+        candidates = ROUTING_TABLE.get(task_type, []) or list(_TIER_MODELS)
         available = [m for m in candidates if self._health.get(m, True)]
         if not available:
-            available = [m for m in Model if self._health.get(m, True)]
-
+            available = [m for m in _TIER_MODELS if self._health.get(m, True)]
         if self._adaptive and hasattr(self._adaptive, "is_available"):
             available = [m for m in available if self._adaptive.is_available(m)]
-
         return available
 
     def escalate_tier(self, task_type: TaskType) -> None:
@@ -264,7 +248,7 @@ class ModelSelector:
           1. GPT_4O — reliable JSON, large context
           2. CLAUDE_SONNET_4_6 — excellent structure
           3. GEMINI_FLASH — reliable fallback
-          4. QWEN_3_CODER_NEXT — last resort (truncation issues)
+          4. QWEN_3_6_FLASH — last resort (truncation issues)
         """
         # Complexity scoring kept for logging/observability
         project_lower = project_description.lower()
@@ -288,13 +272,13 @@ class ModelSelector:
             logger.debug("P1-2: Using Gemini Flash for decomposition")
             return Model.GEMINI_FLASH
 
-        # Last resort - models with known issues
-        logger.warning("P1-2: Using Qwen/Xiaomi as fallback (may have truncation issues)")
-        if self._health.get(Model.QWEN_3_CODER_NEXT, True):
-            return Model.QWEN_3_CODER_NEXT
+        # Last resort - any healthy model
+        logger.warning("P1-2: Using fallback model for decomposition")
+        if self._health.get(Model.DEEPSEEK_V4_FLASH, True):
+            return Model.DEEPSEEK_V4_FLASH
         
-        if self._health.get(Model.XIAOMI_MIMO_V2_FLASH, True):
-            return Model.XIAOMI_MIMO_V2_FLASH
+        if self._health.get(Model.QWEN_3_6_FLASH, True):
+            return Model.QWEN_3_6_FLASH
             
         logger.error("P1-2: No healthy models available for decomposition")
         return Model.STEPFUN_STEP_3_5_FLASH

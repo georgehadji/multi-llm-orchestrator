@@ -379,7 +379,7 @@ class APIServer:
                 "cost_per_mil_tokens": 12.0,
             },
             {
-                "id": "gemini-pro",
+                "id": "gemini-3.5-flash",
                 "name": "Gemini Pro",
                 "capabilities": ["text", "multimodal"],
                 "cost_per_mil_tokens": 15.0,

@@ -120,11 +120,23 @@ class PersistentWorkspace(ProjectWorkspace):
     def write_file(self, path: str, content: str, author: str = "unknown",
                    message: str = "") -> FileVersion:
         result = super().write_file(path, content, author, message)
-        asyncio.ensure_future(self.save())
+        # BUG-007 FIX: asyncio.ensure_future() requires a running event loop and
+        # is deprecated without one (Python 3.10+; error in 3.12+). Use
+        # get_running_loop() instead — silently skip the background save when
+        # called from a synchronous context (tests, init) rather than crashing
+        # or silently discarding the coroutine without awaiting it.
+        try:
+            asyncio.get_running_loop().create_task(self.save())
+        except RuntimeError:
+            pass  # No running event loop; save will happen on next async call
         return result
 
     def record_decision(self, title: str, decision: str, rationale: str,
                         author: str = "") -> ArchitectureDecision:
         result = super().record_decision(title, decision, rationale, author)
-        asyncio.ensure_future(self.save())
+        # BUG-007 FIX: same guard as write_file() — see comment above.
+        try:
+            asyncio.get_running_loop().create_task(self.save())
+        except RuntimeError:
+            pass  # No running event loop; save will happen on next async call
         return result

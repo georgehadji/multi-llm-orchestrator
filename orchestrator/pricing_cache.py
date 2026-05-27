@@ -80,15 +80,15 @@ class PricingCache:
     # Fallback prices - updated quarterly via release
     FALLBACK_PRICES: dict[str, ModelPricing] = {
         # Economy tier
-        "gemini-flash-lite": ModelPricing(
-            model_id="gemini-flash-lite",
+        "gemini-3.1-flash-lite": ModelPricing(
+            model_id="gemini-3.1-flash-lite",
             tier=PricingTier.ECONOMY,
             input_price_per_1m=0.075,
             output_price_per_1m=0.30,
             source="fallback",
         ),
-        "deepseek/deepseek-chat": ModelPricing(
-            model_id="deepseek/deepseek-chat",
+        "deepseek/deepseek-v4-flash": ModelPricing(
+            model_id="deepseek/deepseek-v4-flash",
             tier=PricingTier.ECONOMY,
             input_price_per_1m=0.28,
             output_price_per_1m=0.42,
@@ -131,8 +131,8 @@ class PricingCache:
             output_price_per_1m=4.40,
             source="fallback",
         ),
-        "gemini-pro": ModelPricing(
-            model_id="gemini-pro",
+        "gemini-3.5-flash": ModelPricing(
+            model_id="gemini-3.5-flash",
             tier=PricingTier.PREMIUM,
             input_price_per_1m=3.50,
             output_price_per_1m=10.50,

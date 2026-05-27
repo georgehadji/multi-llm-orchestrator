@@ -175,7 +175,7 @@ class StructuredClient:
         """
         self._client = None
         self._api_client = api_client
-        self._mode = instructor.Mode.MD_JSON  # MD_JSON handles markdown-fenced responses
+        self._mode = instructor.Mode.JSON  # MD_JSON is Anthropic-only; JSON works for all OpenAI-compatible APIs incl. OpenRouter
 
     def get_client(self, model: str):
         """
@@ -296,7 +296,7 @@ class TaskDecomposer(StructuredClient):
         self,
         project_description: str,
         success_criteria: str,
-        model: str = "deepseek/deepseek-v3.2",
+        model: str = "deepseek/deepseek-v4-flash",
         max_retries: int = 3,
     ) -> TaskDecomposition:
         """
@@ -419,7 +419,7 @@ class CodeReviewer(StructuredClient):
         self,
         code: str,
         criteria: list[str],
-        model: str = "x-ai/grok-4.1-fast",
+        model: str = "x-ai/grok-4.20",
         threshold: float = 0.80,
         max_retries: int = 2,
     ) -> CodeReview:
@@ -562,7 +562,7 @@ Provide clear rationale for each decision based on project requirements.
 
 
 async def decompose_project(
-    project_desc: str, criteria: str, model: str = "deepseek/deepseek-v3.2"
+    project_desc: str, criteria: str, model: str = "deepseek/deepseek-v4-flash"
 ) -> tuple[list[Task], list[str]]:
     """
     Convenience function to decompose project.
@@ -581,7 +581,7 @@ async def decompose_project(
 
 
 async def review_code(
-    code: str, criteria: list[str], model: str = "x-ai/grok-4.1-fast", threshold: float = 0.80
+    code: str, criteria: list[str], model: str = "x-ai/grok-4.20", threshold: float = 0.80
 ) -> CodeReview:
     """
     Convenience function to review code.

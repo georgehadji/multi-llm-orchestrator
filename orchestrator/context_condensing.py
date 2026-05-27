@@ -26,7 +26,7 @@ logger = logging.getLogger("orchestrator.context_condensing")
 class ContextCondenser:
     """Compresses and condenses context to manage token usage in long-running processes."""
 
-    def __init__(self, model: Model = Model.DEEPSEEK_REASONER):
+    def __init__(self, model: Model = Model.DEEPSEEK_V4_PRO):
         """Initialize the context condenser."""
         self.model = model
 

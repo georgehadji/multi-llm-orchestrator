@@ -25,7 +25,7 @@ logger = logging.getLogger("orchestrator.prompt_enhancer")
 class PromptEnhancer:
     """Enhances and optimizes prompts to improve model performance."""
 
-    def __init__(self, model: Model = Model.DEEPSEEK_REASONER):
+    def __init__(self, model: Model = Model.DEEPSEEK_V4_PRO):
         """Initialize the prompt enhancer."""
         self.model = model
         self.enhancement_templates = self._load_enhancement_templates()
