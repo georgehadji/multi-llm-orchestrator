@@ -175,24 +175,18 @@ class PipelineRunner:
         if getattr(result, "score", 0) >= 0.5:
             return result
 
-        # Try retry on a better model
-        from .resilience import RetryTemplate
-
-        retry = RetryTemplate(max_attempts=1, base_delay=0.5)
-        for attempt in retry:
-            try:
-                with attempt:
-                    # Escalate tier before retry
-                    if hasattr(orch, "_escalate_tier") and hasattr(task, "type"):
-                        orch._escalate_tier(task.type)
-                    result = await orch._execute_task(task, policy)
-                    if getattr(result, "score", 0) > 0:
-                        logger.info(
-                            f"Retry success for {getattr(task, 'id', '?')}: "
-                            f"score={getattr(result, 'score', 0):.3f}"
-                        )
-                        return result
-            except Exception as exc:
-                logger.warning(f"Retry attempt failed for {getattr(task, 'id', '?')}: {exc}")
+        # Try retry on a better model (single escalated attempt)
+        try:
+            if hasattr(orch, "_escalate_tier") and hasattr(task, "type"):
+                orch._escalate_tier(task.type)
+            retry_result = await orch._execute_task(task, policy)
+            if getattr(retry_result, "score", 0) > 0:
+                logger.info(
+                    f"Retry success for {getattr(task, 'id', '?')}: "
+                    f"score={getattr(retry_result, 'score', 0):.3f}"
+                )
+                return retry_result
+        except Exception as exc:
+            logger.warning(f"Retry attempt failed for {getattr(task, 'id', '?')}: {exc}")
 
         return result  # Return original (failed) result
