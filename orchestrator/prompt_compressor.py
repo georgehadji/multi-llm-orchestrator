@@ -105,7 +105,7 @@ class PromptCompressor:
 
     def __init__(
         self,
-        model: Model = Model.DEEPSEEK_CHAT,
+        model: Model = Model.DEEPSEEK_V4_FLASH,
         llm_compression_enabled: bool = True,
         min_tokens_for_llm: int = 1000,  # Only use LLM for prompts > 1000 tokens
     ):

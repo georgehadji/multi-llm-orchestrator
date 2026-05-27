@@ -460,13 +460,13 @@ class CostQualityFrontier:
         """Estimate latency in milliseconds."""
         # Default estimates based on model characteristics
         latency_table = {
-            Model.DEEPSEEK_CHAT: 1200,
+            Model.DEEPSEEK_V4_FLASH: 1200,
             Model.GEMINI_FLASH_LITE: 600,
             Model.GPT_4O_MINI: 1000,
             Model.LLAMA_3_3_70B: 1500,
             Model.PHI_4: 1800,
             Model.GPT_4O: 2500,
-            Model.GEMINI_PRO: 3000,
+            Model.GEMINI_FLASH: 3000,
         }
 
         # Check if we have actual measurements

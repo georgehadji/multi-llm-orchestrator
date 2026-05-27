@@ -36,7 +36,7 @@ class EvaluationResult:
 class Evaluator:
     """LLM-based evaluation scorer for content quality assessment."""
 
-    def __init__(self, model: Model = Model.DEEPSEEK_REASONER):
+    def __init__(self, model: Model = Model.DEEPSEEK_V4_PRO):
         """Initialize the evaluator with a reasoning model."""
         self.model = model
 

@@ -30,7 +30,7 @@ class QueryExpander:
 
     def __init__(
         self,
-        model: str = "deepseek/deepseek-chat",
+        model: str = "deepseek/deepseek-v4-flash",
         max_variants: int = 3,
     ) -> None:
         self.model = model

@@ -31,22 +31,22 @@ TIER_ROUTING: dict[ModelTier, list[str]] = {
     ModelTier.PREMIUM: [
         "openai/gpt-4o",
         "anthropic/claude-3.5-sonnet",
-        "google/gemini-2.5-pro",
+        "google/gemini-3.5-flash",
         "meta-llama/llama-3.1-405b-instruct",  # OR: 405B open-source near-frontier
     ],
     # STANDARD: strong models at moderate cost
     ModelTier.STANDARD: [
         "openai/gpt-4o-mini",
         "anthropic/claude-3-haiku",
-        "deepseek/deepseek-chat",
+        "deepseek/deepseek-v4-flash",
         "meta-llama/llama-4-maverick",  # OR: 400B MoE, $0.17 flat
         "meta-llama/llama-3.3-70b-instruct",  # OR: 70B battle-tested
         "nousresearch/hermes-3-llama-3.1-70b",  # OR: tool-use fine-tune
     ],
     # ECONOMY: cheapest capable models — fast and low-cost
     ModelTier.ECONOMY: [
-        "deepseek/deepseek-chat",
-        "google/gemini-2.5-flash",
+        "deepseek/deepseek-v4-flash",
+        "google/gemini-3.5-flash",
         "meta-llama/llama-4-scout",  # OR: 109B MoE, $0.11/$0.34
         "meta-llama/llama-3.3-70b-instruct",  # OR: reliable 70B
         "microsoft/phi-4",  # OR: 14B, excellent $/quality

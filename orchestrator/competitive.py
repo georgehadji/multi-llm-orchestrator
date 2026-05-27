@@ -70,7 +70,7 @@ class CompetitiveIntelligence:
         # Generate simulated market data
         new_data_points = [
             MarketDataPoint(
-                model=Model.OPENAI_GPT4,
+                model=Model.GPT_4O,
                 price_per_mil_tokens=30.0,
                 latency_ms=800.0,
                 availability=0.98,
@@ -78,7 +78,7 @@ class CompetitiveIntelligence:
                 timestamp=datetime.now(),
             ),
             MarketDataPoint(
-                model=Model.DEEPSEEK_REASONER,
+                model=Model.DEEPSEEK_V4_PRO,
                 price_per_mil_tokens=12.0,
                 latency_ms=1200.0,
                 availability=0.95,
@@ -86,7 +86,7 @@ class CompetitiveIntelligence:
                 timestamp=datetime.now(),
             ),
             MarketDataPoint(
-                model=Model.DEEPSEEK_CHAT,
+                model=Model.DEEPSEEK_V4_FLASH,
                 price_per_mil_tokens=2.0,
                 latency_ms=600.0,
                 availability=0.97,
@@ -94,7 +94,7 @@ class CompetitiveIntelligence:
                 timestamp=datetime.now(),
             ),
             MarketDataPoint(
-                model=Model.GOOGLE_GEMINI_PRO,
+                model=Model.GEMINI_FLASH,
                 price_per_mil_tokens=15.0,
                 latency_ms=900.0,
                 availability=0.96,
@@ -150,10 +150,10 @@ class CompetitiveIntelligence:
         if not self.market_data:
             # If no market data, return default ranking
             return [
-                (Model.DEEPSEEK_CHAT, 0.8),
-                (Model.DEEPSEEK_REASONER, 0.7),
-                (Model.OPENAI_GPT4, 0.6),
-                (Model.GOOGLE_GEMINI_PRO, 0.5),
+                (Model.DEEPSEEK_V4_FLASH, 0.8),
+                (Model.DEEPSEEK_V4_PRO, 0.7),
+                (Model.GPT_4O, 0.6),
+                (Model.GEMINI_FLASH, 0.5),
                 (Model.CLAUDE_3_5_SONNET, 0.4),
             ]
 
@@ -199,36 +199,36 @@ class CompetitiveIntelligence:
         # Different models excel at different tasks
         task_multipliers = {
             TaskType.CODE_GEN: {
-                Model.DEEPSEEK_CHAT: 1.1,  # Good at coding
-                Model.DEEPSEEK_REASONER: 1.05,
+                Model.DEEPSEEK_V4_FLASH: 1.1,  # Good at coding
+                Model.DEEPSEEK_V4_PRO: 1.05,
                 Model.CLAUDE_3_5_SONNET: 1.15,  # Excellent at coding
-                Model.OPENAI_GPT4: 1.0,
-                Model.GOOGLE_GEMINI_PRO: 0.95,
+                Model.GPT_4O: 1.0,
+                Model.GEMINI_FLASH: 0.95,
             },
             TaskType.REASONING: {
-                Model.DEEPSEEK_REASONER: 1.15,  # Optimized for reasoning
+                Model.DEEPSEEK_V4_PRO: 1.15,  # Optimized for reasoning
                 Model.CLAUDE_3_OPUS: 1.2,  # Excellent reasoning
                 Model.CLAUDE_3_5_SONNET: 1.1,
-                Model.OPENAI_GPT4: 1.0,
-                Model.GOOGLE_GEMINI_PRO: 1.05,
+                Model.GPT_4O: 1.0,
+                Model.GEMINI_FLASH: 1.05,
             },
             TaskType.TEXT_GEN: {
                 Model.CLAUDE_3_OPUS: 1.1,  # Great for text generation
                 Model.CLAUDE_3_5_SONNET: 1.05,
-                Model.OPENAI_GPT4: 1.0,
-                Model.DEEPSEEK_CHAT: 0.95,
-                Model.GOOGLE_GEMINI_PRO: 1.0,
+                Model.GPT_4O: 1.0,
+                Model.DEEPSEEK_V4_FLASH: 0.95,
+                Model.GEMINI_FLASH: 1.0,
             },
             TaskType.OTHER: {
-                Model.DEEPSEEK_CHAT: 1.05,  # Versatile
+                Model.DEEPSEEK_V4_FLASH: 1.05,  # Versatile
                 Model.CLAUDE_3_5_SONNET: 1.0,
-                Model.OPENAI_GPT4: 1.0,
-                Model.GOOGLE_GEMINI_PRO: 1.0,
-                Model.DEEPSEEK_REASONER: 0.95,
+                Model.GPT_4O: 1.0,
+                Model.GEMINI_FLASH: 1.0,
+                Model.DEEPSEEK_V4_PRO: 0.95,
             },
         }
 
-        multiplier = task_multipliers.get(task_type, {}).get(Model.DEEPSEEK_CHAT, 1.0)
+        multiplier = task_multipliers.get(task_type, {}).get(Model.DEEPSEEK_V4_FLASH, 1.0)
         return min(base_quality * multiplier, 1.0)  # Cap at 1.0
 
     async def get_routing_recommendation(self, task_type: TaskType) -> CompetitiveRecommendation:
@@ -251,7 +251,7 @@ class CompetitiveIntelligence:
         if not rankings:
             # Fallback to default model
             return CompetitiveRecommendation(
-                recommended_model=Model.DEEPSEEK_CHAT,
+                recommended_model=Model.DEEPSEEK_V4_FLASH,
                 cost_savings=0.0,
                 performance_gains=0.0,
                 risk_assessment="low",
@@ -263,7 +263,7 @@ class CompetitiveIntelligence:
         recommended_model, recommended_score = rankings[0]
 
         # Calculate potential benefits compared to default model
-        default_model = Model.DEEPSEEK_CHAT
+        default_model = Model.DEEPSEEK_V4_FLASH
         default_score = next((score for model, score in rankings if model == default_model), 0.5)
 
         cost_savings = self._calculate_cost_savings(recommended_model, default_model)

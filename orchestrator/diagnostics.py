@@ -184,7 +184,7 @@ class SystemDiagnostic:
 
         test_models = [
             (Model.GPT_4O_MINI, "OpenAI"),
-            (Model.DEEPSEEK_CHAT, "DeepSeek"),
+            (Model.DEEPSEEK_V4_FLASH, "DeepSeek"),
             (Model.GEMINI_FLASH, "Google"),
         ]
 

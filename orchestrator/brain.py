@@ -10,7 +10,7 @@ Layer: L3 Agents
 
 Usage:
     from orchestrator.brain import Brain
-    brain = Brain(model="deepseek/deepseek-chat")
+    brain = Brain(model="deepseek/deepseek-v4-flash")
     decision = await brain.reason(context="...")
 """
 
@@ -47,7 +47,7 @@ class CognitiveState:
 class Brain:
     """AI reasoning and cognitive layer for the orchestrator."""
 
-    def __init__(self, model: Model = Model.DEEPSEEK_CHAT):
+    def __init__(self, model: Model = Model.DEEPSEEK_V4_FLASH):
         """Initialize the brain with a reasoning model."""
         self.model = model
         self._cognitive_state: CognitiveState | None = None

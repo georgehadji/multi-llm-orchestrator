@@ -17,7 +17,10 @@ Usage:
 from __future__ import annotations
 
 import hashlib
+import time
+from dataclasses import dataclass, field
 import json
+import re
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -276,3 +279,172 @@ class CheckpointManager:
         else:
             logger.info(f"No checkpoint found for {task_id}, returning default data")
             return default_data or {}
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Category 2, Phase 1 (Replit): Named checkpoints + rollback + artifacts
+# ─────────────────────────────────────────────────────────────────────
+
+@dataclass
+class NamedCheckpoint:
+    """A named snapshot with file artifacts, budget tracking, and rollback."""
+
+    name: str
+    description: str = ""
+    timestamp: float = field(default_factory=time.time)
+    task_states: dict[str, Any] = field(default_factory=dict)
+    artifacts: dict[str, str] = field(default_factory=dict)  # filename -> sha256
+    budget_spent: float = 0.0
+    conversation_context: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "timestamp": self.timestamp,
+            "task_states": self.task_states,
+            "artifacts": self.artifacts,
+            "budget_spent": self.budget_spent,
+            "conversation_context": self.conversation_context,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "NamedCheckpoint":
+        return cls(
+            name=d["name"],
+            description=d.get("description", ""),
+            timestamp=d.get("timestamp", time.time()),
+            task_states=d.get("task_states", {}),
+            artifacts=d.get("artifacts", {}),
+            budget_spent=d.get("budget_spent", 0.0),
+            conversation_context=d.get("conversation_context", ""),
+        )
+
+
+class NamedCheckpointManager(CheckpointManager):
+    """CheckpointManager extended with named snapshots and rollback."""
+
+    def __init__(self, checkpoint_dir: str = "./checkpoints"):
+        super().__init__(checkpoint_dir)
+        self._snapshots_dir = self.checkpoint_dir / "snapshots"
+        self._snapshots_dir.mkdir(parents=True, exist_ok=True)
+
+    async def create_snapshot(
+        self,
+        name: str,
+        description: str = "",
+        output_dir: str | None = None,
+        conversation_summary: str = "",
+    ) -> NamedCheckpoint:
+        """Create a named snapshot of the current project state.
+
+        Args:
+            name: Human-readable snapshot name (e.g., "before-refactor")
+            description: What this snapshot captures
+            output_dir: Path to copy artifacts from
+            conversation_summary: Condensed conversation context
+
+        Returns:
+            NamedCheckpoint with metadata and artifact hashes
+        """
+        import hashlib
+
+        cp = NamedCheckpoint(
+            name=name,
+            description=description,
+            conversation_context=conversation_summary,
+        )
+
+        # Hash artifacts if output_dir provided
+        if output_dir:
+            import os
+            out = Path(output_dir)
+            if out.exists():
+                for f in out.rglob("*"):
+                    if f.is_file() and f.stat().st_size < 10_000_000:  # 10MB max
+                        with open(f, "rb") as fh:
+                            cp.artifacts[str(f.relative_to(out))] = hashlib.sha256(
+                                fh.read()
+                            ).hexdigest()
+
+        # Save snapshot
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
+        filepath = self._snapshots_dir / f"snapshot_{safe_name}.json"
+        filepath.write_text(json.dumps(cp.to_dict(), indent=2, default=str), encoding="utf-8")
+        logger.info(f"Snapshot '{name}' saved: {filepath}")
+        return cp
+
+    async def rollback(
+        self, snapshot_name: str, output_dir: str
+    ) -> NamedCheckpoint | None:
+        """Restore project to a named snapshot.
+
+        Does NOT modify files — returns the snapshot data so the caller
+        can restore state. File restoration is caller's responsibility.
+
+        Args:
+            snapshot_name: Name of the snapshot to rollback to
+            output_dir: Directory to compare against (for diff)
+
+        Returns:
+            NamedCheckpoint if found, None otherwise
+        """
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", snapshot_name)
+        filepath = self._snapshots_dir / f"snapshot_{safe_name}.json"
+        if not filepath.exists():
+            logger.warning(f"Snapshot '{snapshot_name}' not found")
+            return None
+
+        data = json.loads(filepath.read_text(encoding="utf-8"))
+        cp = NamedCheckpoint.from_dict(data)
+        logger.info(f"Rolled back to snapshot '{snapshot_name}'")
+        return cp
+
+    async def list_snapshots(self) -> list[NamedCheckpoint]:
+        """List all named snapshots, most recent first."""
+        snapshots = []
+        for f in sorted(
+            self._snapshots_dir.glob("snapshot_*.json"),
+            key=lambda x: x.stat().st_mtime,
+            reverse=True,
+        ):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                snapshots.append(NamedCheckpoint.from_dict(data))
+            except Exception as e:
+                logger.warning(f"Failed to load snapshot {f}: {e}")
+        return snapshots
+
+    async def compare_snapshots(
+        self, name_a: str, name_b: str
+    ) -> dict[str, Any]:
+        """Compare two named snapshots and return diff.
+
+        Returns a dict with added_files, removed_files, modified_files,
+        and budget_delta.
+        """
+        safe_a = re.sub(r"[^a-zA-Z0-9_-]", "_", name_a)
+        safe_b = re.sub(r"[^a-zA-Z0-9_-]", "_", name_b)
+        fp_a = self._snapshots_dir / f"snapshot_{safe_a}.json"
+        fp_b = self._snapshots_dir / f"snapshot_{safe_b}.json"
+
+        if not fp_a.exists() or not fp_b.exists():
+            return {"error": "One or both snapshots not found"}
+
+        cp_a = NamedCheckpoint.from_dict(json.loads(fp_a.read_text(encoding="utf-8")))
+        cp_b = NamedCheckpoint.from_dict(json.loads(fp_b.read_text(encoding="utf-8")))
+
+        files_a = set(cp_a.artifacts.keys())
+        files_b = set(cp_b.artifacts.keys())
+
+        return {
+            "added_files": sorted(files_b - files_a),
+            "removed_files": sorted(files_a - files_b),
+            "modified_files": sorted(
+                f for f in files_a & files_b
+                if cp_a.artifacts[f] != cp_b.artifacts[f]
+            ),
+            "budget_delta": cp_b.budget_spent - cp_a.budget_spent,
+            "snapshot_a": name_a,
+            "snapshot_b": name_b,
+        }

@@ -63,8 +63,8 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.ANALYSIS: [
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, 196B MoE reasoning ⭐ BEST VALUE
-        ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, reasoning specialist
-        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, native multimodal, agent swarm
+        ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, reasoning specialist
+        ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, native multimodal, agent swarm
         ModelRegistry.GLM_5_1_1,  # $0.06/$0.40, ultra-cheap 202K context
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, flagship reasoning
@@ -77,8 +77,8 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     PhaseType.GENERATION: [
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, 309B MoE, #1 SWE-bench open ⭐ NEW!
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, 80B MoE coding agents
-        ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, 1.24T tokens, battle-tested
-        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
+        ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, 1.24T tokens, battle-tested
+        ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
         ModelRegistry.GLM_5_1_1,  # $0.39/$1.75, enhanced programming, stable
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative development
@@ -90,8 +90,8 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.CRITIQUE: [
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination ⭐ BEST
-        ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, reasoning specialist, critical
-        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
+        ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, reasoning specialist, critical
+        ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
         ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex analysis
         ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems design
@@ -105,10 +105,10 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx, agent ⭐ NEW!
         "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34, 397B MoE SOTA
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, 1M context, codebase nav
-        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, agent swarm, multimodal
+        ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, agent swarm, multimodal
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified Codex+GPT, 1M
-        "google/gemini-3.1-pro",  # $2.00/$12.00, 1M context, agentic
-        ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, integration
+        "google/gemini-3.5-flash",  # $2.00/$12.00, 1M context, agentic
+        ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, integration
         ModelRegistry.GLM_5_1_TURBO,  # $1.20/$4.00, 202K, long-horizon agents
     ],
     # ═══════════════════════════════════════════════════════
@@ -120,7 +120,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, balanced, nuanced
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, strong argumentation
         "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34, SOTA reasoning
-        ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, broad knowledge
+        ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, broad knowledge
         "aionlabs/aion-2.0",  # $0.80/$1.60, roleplay capability
     ],
     # ═══════════════════════════════════════════════════════
@@ -128,13 +128,13 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # Best: Gemini 3.1 Pro (1M context, enhanced SE) + Kimi K2.5 (agent swarm)
     # ═══════════════════════════════════════════════════════
     PhaseType.RESEARCH: [
-        "google/gemini-3.1-pro",  # $2.00/$12.00, 1M context, enhanced SE ⭐ BEST
-        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, agent swarm paradigm, multimodal
-        ModelRegistry.DEEPSEEK_V3_2,  # $0.27/$1.10, 1.24T tokens, broad knowledge
+        "google/gemini-3.5-flash",  # $2.00/$12.00, 1M context, enhanced SE ⭐ BEST
+        ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, agent swarm paradigm, multimodal
+        ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, 1.24T tokens, broad knowledge
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, agent orchestration
         ModelRegistry.GLM_5_1_TURBO,  # $1.20/$4.00, 202K, agent-driven
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified knowledge, 1M
-        "x-ai/grok-4.20-multi-agent",  # $2.00/$6.00, 4-16 parallel agents
+        "x-ai/grok-4.20",  # $2.00/$6.00, 4-16 parallel agents
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast iterations
     ],
     # ═══════════════════════════════════════════════════════
@@ -143,8 +143,8 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.EVALUATION: [
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination ⭐ BEST
-        ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, high-stakes cognitive, fair
-        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA, technical
+        ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, high-stakes cognitive, fair
+        ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA, technical
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
         ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex evaluation
         ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems
@@ -170,11 +170,11 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     PhaseType.VERIFICATION: [
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination ⭐ BEST
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, SWE-Bench verified
-        ModelRegistry.DEEPSEEK_REASONER,  # $0.55/$2.19, reasoning, validation
+        ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, reasoning, validation
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast verification cycles
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, coding verification
         "nvidia/nemotron-3-super",  # $0.10/$0.50, 120B MoE, multi-env
-        ModelRegistry.KIMI_K2_5,  # $0.42/$2.20, visual coding SOTA
+        ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
     ],
 }
 
@@ -225,7 +225,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # MOONSHOT KIMI MODELS (NEW v3.0)
         # ═══════════════════════════════════════════════════════
-        "moonshotai/kimi-k2.5": {
+        "moonshotai/kimi-k2.6": {
             "reasoning": 9.0,
             "coding": 9.5,  # ⭐ Visual coding SOTA
             "creativity": 8.5,
@@ -267,7 +267,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # DEEPSEEK MODELS - REASONING SPECIALISTS
         # ═══════════════════════════════════════════════════════
-        "deepseek/deepseek-r1": {
+        "deepseek/deepseek-v4-pro": {
             "reasoning": 9.5,  # ⭐ Reasoning specialist
             "coding": 8.5,
             "creativity": 7.5,
@@ -276,7 +276,7 @@ class ModelCapabilities:
             "speed": 7.5,
             "cost_efficiency": 9.0,
         },
-        "deepseek/deepseek-v3.2": {
+        "deepseek/deepseek-v4-flash": {
             "reasoning": 9.0,
             "coding": 9.0,  # ⭐ 1.24T tokens, battle-tested
             "creativity": 8.0,
@@ -285,7 +285,7 @@ class ModelCapabilities:
             "speed": 8.5,
             "cost_efficiency": 9.5,  # Great value at $0.27/1M
         },
-        "deepseek/deepseek-chat": {
+        "deepseek/deepseek-v4-flash": {
             "reasoning": 8.5,
             "coding": 8.5,
             "creativity": 7.5,
@@ -366,7 +366,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # XAI GROK MODELS - LOWEST HALLUCINATION
         # ═══════════════════════════════════════════════════════
-        "x-ai/grok-4.20-beta": {
+        "x-ai/grok-4.20": {
             "reasoning": 9.0,
             "coding": 8.5,
             "creativity": 8.0,
@@ -375,7 +375,7 @@ class ModelCapabilities:
             "speed": 8.5,
             "cost_efficiency": 8.5,
         },
-        "x-ai/grok-4.20-multi-agent": {
+        "x-ai/grok-4.20": {
             "reasoning": 9.0,
             "coding": 8.5,
             "creativity": 8.5,
@@ -384,7 +384,7 @@ class ModelCapabilities:
             "speed": 9.0,  # ⭐ 4-16 parallel agents
             "cost_efficiency": 9.0,
         },
-        "x-ai/grok-4.1-fast": {
+        "x-ai/grok-4.20": {
             "reasoning": 8.5,
             "coding": 8.5,
             "creativity": 8.0,
@@ -447,7 +447,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # GOOGLE GEMINI MODELS - LONG CONTEXT
         # ═══════════════════════════════════════════════════════
-        "google/gemini-3.1-pro": {
+        "google/gemini-3.5-flash": {
             "reasoning": 9.0,
             "coding": 8.5,
             "creativity": 8.5,
@@ -456,7 +456,7 @@ class ModelCapabilities:
             "speed": 8.0,
             "cost_efficiency": 7.5,
         },
-        "google/gemini-3.1-flash": {
+        "google/gemini-3.1-flash-lite": {
             "reasoning": 8.5,
             "coding": 8.0,
             "creativity": 8.0,
@@ -636,10 +636,10 @@ class PhaseAwareModelSelector:
         return {
             PhaseType.ANALYSIS: "z-ai/glm-5.1.1",  # $0.06/$0.40
             PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29
-            PhaseType.CRITIQUE: "deepseek/deepseek-r1",  # $0.55/$2.19
+            PhaseType.CRITIQUE: "deepseek/deepseek-v4-pro",  # $0.55/$2.19
             PhaseType.SYNTHESIS: "qwen/qwen-3-697b-a17b",  # $0.39/$2.34
-            PhaseType.RESEARCH: "deepseek/deepseek-v3.2",  # $0.27/$1.10
-            PhaseType.EVALUATION: "deepseek/deepseek-r1",  # $0.55/$2.19
+            PhaseType.RESEARCH: "deepseek/deepseek-v4-flash",  # $0.27/$1.10
+            PhaseType.EVALUATION: "deepseek/deepseek-v4-pro",  # $0.55/$2.19
             PhaseType.VERIFICATION: "nvidia/nemotron-3-super",  # $0.10/$0.50
         }
 
@@ -648,11 +648,11 @@ class PhaseAwareModelSelector:
         return {
             PhaseType.ANALYSIS: "stepfun/step-3.5-flash",  # $0.10/$0.30
             PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29
-            PhaseType.CRITIQUE: "x-ai/grok-4.20-beta",  # $2.00/$6.00
+            PhaseType.CRITIQUE: "x-ai/grok-4.20",  # $2.00/$6.00
             PhaseType.SYNTHESIS: "xiaomi/mimo-v2-pro",  # $1.00/$3.00
-            PhaseType.RESEARCH: "moonshotai/kimi-k2.5",  # $0.42/$2.20
-            PhaseType.EVALUATION: "x-ai/grok-4.20-beta",  # $2.00/$6.00
-            PhaseType.VERIFICATION: "x-ai/grok-4.20-beta",  # $2.00/$6.00
+            PhaseType.RESEARCH: "moonshotai/kimi-k2.6",  # $0.42/$2.20
+            PhaseType.EVALUATION: "x-ai/grok-4.20",  # $2.00/$6.00
+            PhaseType.VERIFICATION: "x-ai/grok-4.20",  # $2.00/$6.00
         }
 
     def get_premium_config(self) -> dict[PhaseType, str]:
@@ -660,11 +660,11 @@ class PhaseAwareModelSelector:
         return {
             PhaseType.ANALYSIS: "stepfun/step-3.5-flash",  # $0.10/$0.30 (already best)
             PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29 (already best)
-            PhaseType.CRITIQUE: "x-ai/grok-4.20-beta",  # $2.00/$6.00 (lowest hallucination)
+            PhaseType.CRITIQUE: "x-ai/grok-4.20",  # $2.00/$6.00 (lowest hallucination)
             PhaseType.SYNTHESIS: "xiaomi/mimo-v2-pro",  # $1.00/$3.00 (1T+ params)
-            PhaseType.RESEARCH: "google/gemini-3.1-pro",  # $2.00/$12.00 (1M context)
-            PhaseType.EVALUATION: "x-ai/grok-4.20-beta",  # $2.00/$6.00 (lowest hallucination)
-            PhaseType.VERIFICATION: "x-ai/grok-4.20-beta",  # $2.00/$6.00 (lowest hallucination)
+            PhaseType.RESEARCH: "google/gemini-3.5-flash",  # $2.00/$12.00 (1M context)
+            PhaseType.EVALUATION: "x-ai/grok-4.20",  # $2.00/$6.00 (lowest hallucination)
+            PhaseType.VERIFICATION: "x-ai/grok-4.20",  # $2.00/$6.00 (lowest hallucination)
         }
 
 
@@ -679,15 +679,15 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "xiaomi/mimo-v2-pro": {"input": 1.00, "output": 3.00},
     "xiaomi/mimo-v2-omni": {"input": 0.40, "output": 2.00},
     # Moonshot Kimi
-    "moonshotai/kimi-k2.5": {"input": 0.42, "output": 2.20},
+    "moonshotai/kimi-k2.6": {"input": 0.42, "output": 2.20},
     "moonshotai/kimi-k2": {"input": 0.50, "output": 1.50},
     # StepFun (Best Value!)
     "stepfun/step-3.5-flash": {"input": 0.10, "output": 0.30},
     "stepfun/step-3.5": {"input": 0.15, "output": 0.45},
     # DeepSeek
-    "deepseek/deepseek-r1": {"input": 0.55, "output": 2.19},
-    "deepseek/deepseek-v3.2": {"input": 0.27, "output": 1.10},
-    "deepseek/deepseek-chat": {"input": 0.28, "output": 0.42},
+    "deepseek/deepseek-v4-pro": {"input": 0.55, "output": 2.19},
+    "deepseek/deepseek-v4-flash": {"input": 0.27, "output": 1.10},
+    "deepseek/deepseek-v4-flash": {"input": 0.28, "output": 0.42},
     # Z.ai GLM
     "z-ai/glm-5.1.1": {"input": 0.06, "output": 0.40},
     "z-ai/glm-5.1.1": {"input": 0.39, "output": 1.75},
@@ -698,9 +698,9 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "qwen/qwen-3.5-397b-a17b": {"input": 0.39, "output": 2.34},
     "qwen/qwen-3-max-thinking": {"input": 0.78, "output": 3.90},
     # xAI Grok
-    "x-ai/grok-4.20-beta": {"input": 2.00, "output": 6.00},
-    "x-ai/grok-4.20-multi-agent": {"input": 2.00, "output": 6.00},
-    "x-ai/grok-4.1-fast": {"input": 0.20, "output": 0.50},
+    "x-ai/grok-4.20": {"input": 2.00, "output": 6.00},
+    "x-ai/grok-4.20": {"input": 2.00, "output": 6.00},
+    "x-ai/grok-4.20": {"input": 0.20, "output": 0.50},
     # Anthropic Claude
     "anthropic/claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
     "anthropic/claude-opus-4-6": {"input": 5.00, "output": 25.00},
@@ -709,8 +709,8 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "openai/gpt-5.4-codex": {"input": 1.75, "output": 14.00},
     "openai/gpt-5.4-pro": {"input": 30.00, "output": 180.00},
     # Google Gemini
-    "google/gemini-3.1-pro": {"input": 2.00, "output": 12.00},
-    "google/gemini-3.1-flash": {"input": 0.50, "output": 3.00},
+    "google/gemini-3.5-flash": {"input": 2.00, "output": 12.00},
+    "google/gemini-3.1-flash-lite": {"input": 0.50, "output": 3.00},
     # MiniMax
     "minimax/minimax-m2.7": {"input": 0.30, "output": 1.20},
     # NVIDIA

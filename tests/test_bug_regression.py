@@ -266,3 +266,180 @@ class TestAssumptionGateModelReference:
             "surface_assumptions() still calls client.get_cheapest_model() "
             "which does not exist on UnifiedClient"
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUG-006: self_consistency.py used FALLBACK_CHAIN.get(model, model) — the
+#          default is the model itself, so for all v3.0 primary routing models
+#          not yet in FALLBACK_CHAIN the retry reused the same model (useless).
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestFallbackChainV3Models:
+    """BUG-006 — every ROUTING_TABLE primary model must have a distinct
+    FALLBACK_CHAIN entry so self-consistency retries actually switch models."""
+
+    def test_all_routing_table_primaries_have_fallback(self):
+        """Primary model of each task type must appear in FALLBACK_CHAIN."""
+        from orchestrator.models import FALLBACK_CHAIN, ROUTING_TABLE
+
+        missing = []
+        for task_type, models in ROUTING_TABLE.items():
+            primary = models[0]
+            if primary not in FALLBACK_CHAIN:
+                missing.append(f"{task_type.value}: {primary.value}")
+
+        assert not missing, (
+            "ROUTING_TABLE primary models with no FALLBACK_CHAIN entry "
+            "(self-consistency retry would reuse same model):\n  "
+            + "\n  ".join(missing)
+        )
+
+    def test_fallback_is_different_from_primary(self):
+        """Each ROUTING_TABLE primary's fallback must differ from itself."""
+        from orchestrator.models import FALLBACK_CHAIN, ROUTING_TABLE
+
+        same_model_fallbacks = []
+        for task_type, models in ROUTING_TABLE.items():
+            primary = models[0]
+            fb = FALLBACK_CHAIN.get(primary)
+            if fb is not None and fb == primary:
+                same_model_fallbacks.append(f"{task_type.value}: {primary.value}")
+
+        assert not same_model_fallbacks, (
+            "These primary models fall back to themselves "
+            "(self-consistency retry is a no-op):\n  "
+            + "\n  ".join(same_model_fallbacks)
+        )
+
+    def test_new_v3_models_specifically_have_fallback(self):
+        """The four v3.0 models that were specifically missing must be present."""
+        from orchestrator.models import FALLBACK_CHAIN, Model
+
+        v3_primaries = [
+            Model.XIAOMI_MIMO_V2_FLASH,
+            Model.XAI_GROK_4_20,
+            Model.STEPFUN_STEP_3_5_FLASH,
+            Model.ZHIPU_GLM_5_1,
+        ]
+        for model in v3_primaries:
+            assert model in FALLBACK_CHAIN, (
+                f"{model.value} missing from FALLBACK_CHAIN; "
+                "self_consistency retry would reuse same model"
+            )
+            assert FALLBACK_CHAIN[model] != model, (
+                f"{model.value} falls back to itself in FALLBACK_CHAIN"
+            )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUG-007: persistent_workspace.py called asyncio.ensure_future() from sync
+#          write_file() / record_decision() — without a running event loop
+#          this emits DeprecationWarning (Python 3.10+) and the coroutine is
+#          never awaited, silently losing the persistence call.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestPersistentWorkspaceSyncSafe:
+    """BUG-007 — write_file() and record_decision() must not raise or emit
+    DeprecationWarning when called from a synchronous (non-async) context."""
+
+    def _make_workspace(self):
+        import tempfile
+        from pathlib import Path
+        from orchestrator.workspace.persistent_workspace import PersistentWorkspace
+
+        tmp = tempfile.mkdtemp()
+        return PersistentWorkspace(root=Path(tmp))
+
+    def test_write_file_no_deprecation_warning_in_sync_context(self):
+        """write_file() must not emit DeprecationWarning about missing event loop."""
+        import warnings
+        ws = self._make_workspace()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            # Must not raise DeprecationWarning: "There is no current event loop"
+            try:
+                ws.write_file("a.py", "x=1", author="test")
+            except DeprecationWarning as exc:
+                pytest.fail(f"write_file() emitted DeprecationWarning: {exc}")
+
+    def test_record_decision_no_deprecation_warning_in_sync_context(self):
+        """record_decision() must not emit DeprecationWarning about missing event loop."""
+        import warnings
+        ws = self._make_workspace()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            try:
+                ws.record_decision("title", "decision", "rationale")
+            except DeprecationWarning as exc:
+                pytest.fail(f"record_decision() emitted DeprecationWarning: {exc}")
+
+    def test_write_file_returns_file_version_in_sync_context(self):
+        """write_file() must succeed (return FileVersion) even without event loop."""
+        from orchestrator.workspace.workspace import FileVersion
+        ws = self._make_workspace()
+        result = ws.write_file("b.py", "y=2", author="bot")
+        assert isinstance(result, FileVersion)
+        assert result.content == "y=2"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUG-008: ExperienceBuffer.successes / .failures grew without bound —
+#          no cap applied, unlike AgentMemory which caps at 50.
+#          Architecture spec documents 200 entries as the target limit.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestExperienceBufferBoundedLists:
+    """BUG-008 — successes and failures lists must not grow without bound."""
+
+    def test_successes_capped_at_max_audit_size(self):
+        """After _MAX_AUDIT_SIZE+N records, len(successes) == _MAX_AUDIT_SIZE."""
+        from orchestrator.learning.experience_buffer import ExperienceBuffer
+
+        buf = ExperienceBuffer()
+        limit = buf._MAX_AUDIT_SIZE
+        for i in range(limit + 50):
+            buf.record_success("code_gen", "cove", f"model-{i}", 0.9)
+
+        assert len(buf.successes) == limit, (
+            f"successes list not capped: len={len(buf.successes)}, expected {limit}"
+        )
+
+    def test_failures_capped_at_max_audit_size(self):
+        """After _MAX_AUDIT_SIZE+N records, len(failures) == _MAX_AUDIT_SIZE."""
+        from orchestrator.learning.experience_buffer import ExperienceBuffer
+
+        buf = ExperienceBuffer()
+        limit = buf._MAX_AUDIT_SIZE
+        for i in range(limit + 50):
+            buf.record_failure("reasoning", "debate", f"model-{i}", 0.1)
+
+        assert len(buf.failures) == limit, (
+            f"failures list not capped: len={len(buf.failures)}, expected {limit}"
+        )
+
+    def test_best_model_unaffected_by_cap(self):
+        """Capping the audit list must not affect best_model_for() accuracy."""
+        from orchestrator.learning.experience_buffer import ExperienceBuffer
+
+        buf = ExperienceBuffer()
+        # Record 250 entries for model-a at score 0.5
+        for i in range(250):
+            buf.record_success("code_gen", "cove", "model-a", 0.5)
+        # Record 50 entries for model-b at score 0.9 (recent wins)
+        for i in range(50):
+            buf.record_success("code_gen", "cove", "model-b", 0.9)
+
+        # model_scores dict is NOT capped, so it still has all data
+        best = buf.best_model_for("code_gen")
+        assert best == "model-b", (
+            f"best_model_for() should return model-b (score 0.9), got {best!r}"
+        )
+
+    def test_max_audit_size_is_at_least_50(self):
+        """_MAX_AUDIT_SIZE must be >= 50 (documented minimum in architecture)."""
+        from orchestrator.learning.experience_buffer import ExperienceBuffer
+
+        assert ExperienceBuffer._MAX_AUDIT_SIZE >= 50

@@ -220,7 +220,7 @@ async def get_models():
             {"id": "sonnet", "name": "Claude Sonnet 4.6", "desc": "Balanced", "icon": "◇"},
             {"id": "deepseek", "name": "DeepSeek V3.2", "desc": "Budget", "icon": "●"},
             {"id": "gpt54", "name": "GPT-5.4", "desc": "Tools", "icon": "○"},
-            {"id": "gemini", "name": "Gemini 3.1 Pro", "desc": "Long context", "icon": "◈"},
+            {"id": "gemini-3.5-flash", "name": "Gemini 3.1 Pro", "desc": "Long context", "icon": "◈"},
         ]
     }
 

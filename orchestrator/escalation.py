@@ -210,10 +210,10 @@ class EscalationHandler:
 
         if complexity_score > complexity_threshold:
             # Use a more capable model for complex content
-            target_model = Model.DEEPSEEK_REASONER  # Assuming this is a high-capability model
+            target_model = Model.DEEPSEEK_V4_PRO  # Assuming this is a high-capability model
         else:
             # Use the default model for simpler content
-            target_model = Model.DEEPSEEK_CHAT
+            target_model = Model.DEEPSEEK_V4_FLASH
 
         try:
             processed_content = await self._process_with_model(content, target_model)
@@ -231,15 +231,15 @@ class EscalationHandler:
         except Exception as e:
             logger.error(f"Complexity-based escalation failed: {e}")
             # Fallback to initial model
-            fallback_content = await self._process_with_model(content, Model.DEEPSEEK_CHAT)
+            fallback_content = await self._process_with_model(content, Model.DEEPSEEK_V4_FLASH)
             evaluation_result = await self.evaluator.evaluate(
                 fallback_content, "relevance and accuracy"
             )
 
             return EscalationResult(
                 final_content=fallback_content,
-                final_model=Model.DEEPSEEK_CHAT,
-                escalation_path=[Model.DEEPSEEK_CHAT],
+                final_model=Model.DEEPSEEK_V4_FLASH,
+                escalation_path=[Model.DEEPSEEK_V4_FLASH],
                 evaluation_result=evaluation_result,
                 was_escalated=False,
             )

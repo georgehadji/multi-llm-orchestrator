@@ -836,8 +836,8 @@ Choose the best options based on the project requirements. Be specific and pract
             M.CLAUDE_SONNET_4_6,  # $3.00/$15.00, premium quality, reliable JSON
             M.GPT_5_4,  # $2.50/$10.00, reliable
             M.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
-            M.XAI_GROK_4_20_BETA,  # $2.00/$6.00, lowest hallucination
-            M.QWEN_3_5_397B_A17B,  # $0.39/$2.34, 397B MoE (fallback)
+            M.XAI_GROK_4_20,  # $2.00/$6.00, lowest hallucination
+            M.QWEN_3_7_MAX,  # $0.39/$2.34, 397B MoE (fallback)
         ]
 
         # Use first available model

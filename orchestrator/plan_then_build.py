@@ -54,8 +54,8 @@ class PlanThenBuilder:
 
     def __init__(
         self,
-        planner_model: Model = Model.DEEPSEEK_REASONER,
-        executor_model: Model = Model.DEEPSEEK_CHAT,
+        planner_model: Model = Model.DEEPSEEK_V4_PRO,
+        executor_model: Model = Model.DEEPSEEK_V4_FLASH,
     ):
         """Initialize the plan-then-builder."""
         self.planner_model = planner_model

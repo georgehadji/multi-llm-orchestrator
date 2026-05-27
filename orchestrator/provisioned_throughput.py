@@ -99,7 +99,7 @@ class ProvisionedThroughputConfig:
 
     enabled: bool = False
     units: int = 0
-    models: list[str] = field(default_factory=lambda: ["grok-4.20", "grok-4.20-reasoning"])
+    models: list[str] = field(default_factory=lambda: ["grok-4.20", "grok-4.20"])
     max_daily_cost: float = 100.0  # $10 × units
     auto_scale: bool = False  # Auto-scale based on demand
     min_units: int = 1

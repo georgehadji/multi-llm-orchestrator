@@ -156,7 +156,7 @@ No explanation, no quotes, just the category name.
             # Default to FREE models for classification
             from orchestrator.models import Model
 
-            model = Model.QWEN_2_5_CODER_32B  # FREE tier, good for classification
+            model = Model.QWEN_3_6_FLASH  # FREE tier, good for classification
 
         client = get_client()
 
