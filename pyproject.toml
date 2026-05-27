@@ -327,6 +327,7 @@ filterwarnings = [
     "ignore::UserWarning",
 ]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Coverage - Code Coverage Reporting
@@ -354,7 +355,7 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
     "typing.TYPE_CHECKING",
 ]
-fail_under = 12  # ratchet: current baseline; raise as more tests are added (target: 50)
+fail_under = 12  # ratchet: current baseline; raise as more tests are added (target: 80%)
 precision = 2
 
 [tool.coverage.html]

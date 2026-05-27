@@ -191,14 +191,9 @@ def default_profiles() -> dict[Model, Any]:
 # ═══════════════════════════════════════════════════════════════════════════
 # Async Helpers
 # ═══════════════════════════════════════════════════════════════════════════
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create a session-scoped event loop for async tests."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+# NOTE: Do NOT override the event_loop fixture here.
+# pytest-asyncio >= 0.23 removed support for custom event_loop overrides.
+# Loop scope is configured via asyncio_default_fixture_loop_scope in pyproject.toml.
 
 
 def pytest_configure(config):
