@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .models import Task, TaskResult, TaskStatus, TaskType
+from .models import Task, TaskResult, TaskStatus
 
 logger = logging.getLogger("orchestrator.codebase_writer")
 
@@ -191,7 +191,7 @@ class ModificationGate:
         """
         result_ver = VerificationResult()
 
-        if task.type == TaskType.MODIFY_FILE and task.target_path:
+        if task.target_path:
             target = repo_root / task.target_path
             if target.suffix == ".py":
                 self._check_syntax(target, result_ver)
