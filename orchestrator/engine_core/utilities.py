@@ -22,9 +22,6 @@ from typing import TYPE_CHECKING, Any
 from ..exceptions import TruncatedResponseError
 from ..models import FALLBACK_CHAIN, ROUTING_TABLE, Model, TaskType, get_provider
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger("orchestrator.engine_core.utilities")
 
 

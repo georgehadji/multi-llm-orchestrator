@@ -66,7 +66,7 @@ class PersuasionDefenseStage:
                 "verified": result.metadata.get("verified", 0),
                 "conflicts": result.metadata.get("conflicts", 0),
             }
-            setattr(ctx, "metadata", ctx_meta)
+            ctx.metadata = ctx_meta
 
             # Block delivery if verification score is critically low
             if result.score < 0.5:

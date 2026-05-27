@@ -175,11 +175,9 @@ async def _create_backup(name: str | None, encrypt: bool, compress: bool):
             backup_mgr = get_backup_manager()
             bar.update(1)
 
-            manifest = asyncio.run(
-                backup_mgr.create_backup(
-                    backup_name=name,
-                    compress=compress,
-                )
+            manifest = await backup_mgr.create_backup(
+                backup_name=name,
+                compress=compress,
             )
             bar.update(4)
 
@@ -235,7 +233,7 @@ async def _restore_backup(path: str):
         click.confirm("This will overwrite current data. Continue?", abort=True)
 
         backup_mgr = get_backup_manager()
-        result = asyncio.run(backup_mgr.restore_backup(backup_path))
+        result = await backup_mgr.restore_backup(backup_path)
 
         if result.success:
             click.echo(f"\n✓ Restore successful: {result.backup_id}")

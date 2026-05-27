@@ -4,7 +4,9 @@ Integration tests — Multi-module workflows.
 
 from __future__ import annotations
 
-import asyncio, tempfile, json
+import asyncio
+import tempfile
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 

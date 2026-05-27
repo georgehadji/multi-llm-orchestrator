@@ -6,7 +6,9 @@ Part of Category 10, Phase B6 (Base44-inspired).
 """
 
 from __future__ import annotations
-import subprocess, os, logging
+import subprocess
+import os
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 

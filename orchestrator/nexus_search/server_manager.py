@@ -31,9 +31,6 @@ from typing import TYPE_CHECKING, Optional
 
 logger = logging.getLogger("orchestrator.nexus_server")
 
-if TYPE_CHECKING:
-    pass
-
 
 class NexusServerManager:
     """

@@ -32,9 +32,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger(__name__)
 
 

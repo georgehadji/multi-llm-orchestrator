@@ -8,7 +8,8 @@ Part of Category 4, Phase V1 (v0-inspired).
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
-import json, logging
+import json
+import logging
 
 logger = logging.getLogger(__name__)
 

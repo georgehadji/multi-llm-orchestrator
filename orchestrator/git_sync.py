@@ -6,7 +6,10 @@ Part of Category 8, Phase N6 (Newly-inspired).
 """
 
 from __future__ import annotations
-import subprocess, logging, json, time
+import subprocess
+import logging
+import json
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 

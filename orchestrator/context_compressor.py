@@ -7,7 +7,9 @@ Part of Category 3, Phase D3 (Dyad-inspired).
 
 from __future__ import annotations
 from dataclasses import dataclass
-import json, logging, re
+import json
+import logging
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

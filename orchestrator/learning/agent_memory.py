@@ -48,7 +48,8 @@ class AgentMemory:
 
     @classmethod
     def load(cls, agent_id: str, path: str | None = None) -> "AgentMemory":
-        import json, os
+        import json
+        import os
 
         p = path or os.path.join(
             os.path.expanduser("~"), ".orchestrator", "agent_memories", f"{agent_id}.json"

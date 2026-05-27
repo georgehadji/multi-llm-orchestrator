@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 # Import BUDGET_PARTITIONS at module level for runtime use
 try:
-    from ..models import BUDGET_PARTITIONS
+    from ..budget import BUDGET_PARTITIONS
 except ImportError:
     BUDGET_PARTITIONS = {
         "decomposition": 0.05,

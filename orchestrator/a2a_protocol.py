@@ -25,9 +25,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger("orchestrator.a2a_protocol")
 
 

@@ -18,9 +18,8 @@ import asyncio
 import logging
 import time
 
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, TYPE_CHECKING
 
-from openai import AsyncOpenAI
 
 from ..cache import DiskCache
 from ..circuit_breaker import CircuitBreaker
@@ -34,6 +33,9 @@ from ..model_registry import ModelRegistry
 from ..resilience import ResiliencePolicy, resolve_fallback_chain, run_with_resilience
 from ..task_schemas import generate_openrouter_schema
 from ..tracing import traced_llm_call
+
+if TYPE_CHECKING:
+    from openai import AsyncOpenAI
 
 logger = logging.getLogger("orchestrator.api")
 

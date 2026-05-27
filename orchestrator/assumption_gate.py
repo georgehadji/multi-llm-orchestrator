@@ -158,9 +158,4 @@ def _is_unambiguous(description: str) -> bool:
         r"\bwrite a test\b",  # test-first
         r"\badd a \w+\.\w+\b",  # "add a Button.tsx"
     ]
-    for pattern in specific_patterns:
-        if re.search(pattern, description, re.IGNORECASE):
-            return True
-
-    # Default: assume ambiguous for safety
-    return False
+    return any(re.search(pattern, description, re.IGNORECASE) for pattern in specific_patterns)

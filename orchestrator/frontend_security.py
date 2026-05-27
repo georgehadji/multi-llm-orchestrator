@@ -902,7 +902,7 @@ class PasswordStrengthMeterComponent(SecurityComponent):
   });
 })();
 </script>
-""" % (self.target_element, self.min_length)
+""" % (self.target_element, self.min_length)  # noqa: UP031
 
         html += "</div>"
 

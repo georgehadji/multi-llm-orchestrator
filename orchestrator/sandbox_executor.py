@@ -6,7 +6,13 @@ Part of Category 10, Phase 4 (Replit-inspired).
 """
 
 from __future__ import annotations
-import asyncio, difflib, logging, os, shutil, tempfile, time
+import asyncio
+import difflib
+import logging
+import os
+import shutil
+import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 

@@ -191,8 +191,7 @@ class ModelRegistry:
         # Qwen Models (VERIFIED)
         QWEN_3_6_FLASH: {"input": 0.66, "output": 1.00},
         # DeepSeek Models (VERIFIED)
-        DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},
-        DEEPSEEK_V4_FLASH: {"input": 0.32, "output": 0.89},  # Updated price
+        DEEPSEEK_V4_FLASH: {"input": 0.32, "output": 0.89},
         DEEPSEEK_V4_PRO: {"input": 0.55, "output": 2.19},
         # Anthropic Models (VERIFIED)
         CLAUDE_SONNET_4_6: {"input": 6.00, "output": 30.00},  # Updated price
@@ -208,8 +207,6 @@ class ModelRegistry:
         GPT_4O: {"input": 2.50, "output": 10.00},
         GPT_4O_MINI: {"input": 0.15, "output": 0.60},
         # Google Gemini Models (VERIFIED)
-        GEMINI_FLASH: {"input": 0.30, "output": 2.50},
-        GEMINI_FLASH: {"input": 1.25, "output": 10.00},
         GEMINI_FLASH: {"input": 0.15, "output": 0.60},
         # xAI Grok Models (VERIFIED)
         GROK_4_20: {"input": 2.00, "output": 6.00},
@@ -227,7 +224,6 @@ class ModelRegistry:
         GLM_5_1: {"input": 0.10, "output": 0.40},  # z-ai/glm-5.1
         # Minimax Models (VERIFIED)
         MINIMAX_M2_7: {"input": 0.30, "output": 1.20},
-        MINIMAX_M2_7: {"input": 0.30, "output": 1.20},
     }
 
     # ═══════════════════════════════════════════════════════
@@ -239,7 +235,6 @@ class ModelRegistry:
         # Qwen Models (VERIFIED)
         QWEN_3_6_FLASH: 32768,
         # DeepSeek Models (VERIFIED)
-        DEEPSEEK_V4_FLASH: 163840,
         DEEPSEEK_V4_FLASH: 163840,
         DEEPSEEK_V4_PRO: 16384,
         # Anthropic Models (VERIFIED)
@@ -257,8 +252,6 @@ class ModelRegistry:
         GPT_4O_MINI: 128000,
         # Google Gemini Models (VERIFIED)
         GEMINI_FLASH: 1048576,  # 1M+ context
-        GEMINI_FLASH: 32768,
-        GEMINI_FLASH: 16384,
         # xAI Grok Models (VERIFIED)
         GROK_4_20: 2000000,  # 2M context!
         GROK_4_1_FAST: 131072,
@@ -274,7 +267,6 @@ class ModelRegistry:
         # Z-AI GLM Models (VERIFIED)
         GLM_5_1: 202752,  # z-ai/glm-5.1
         # Minimax Models (VERIFIED)
-        MINIMAX_M2_7: 204800,
         MINIMAX_M2_7: 204800,
     }
 

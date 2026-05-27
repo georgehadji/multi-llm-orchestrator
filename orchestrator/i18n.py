@@ -6,7 +6,9 @@ Part of Category 5, Phase R6 (Retool-inspired).
 """
 
 from __future__ import annotations
-import json, logging, re
+import json
+import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
