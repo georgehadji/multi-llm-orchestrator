@@ -1062,7 +1062,7 @@ class TestDesignSystemManager:
         assert "--font-sans: Arial" in css
 
     def test_generate_tailwind(self):
-        from orchestrator.design_system import DesignSystem
+        from orchestrator.design_system import DesignSystem, ColorTokens
 
         ds = DesignSystem(name="Brand", colors=ColorTokens(primary="#818cf8"))
         tw = ds.to_tailwind()

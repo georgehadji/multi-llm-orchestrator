@@ -18,6 +18,7 @@ from orchestrator.services.generator import GeneratorResult
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_api  # engine makes LLM calls; dict vs object issue in state deserialization
 async def test_resume_continues_from_partial_state(
     orchestrator_fixture,
     mock_tasks,

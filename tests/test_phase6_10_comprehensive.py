@@ -23,6 +23,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Derive project root from this file's location (tests/ → project root)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_ORCHESTRATOR_DIR = _PROJECT_ROOT / "orchestrator"
+
 # ─────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────
@@ -553,7 +557,7 @@ class TestCodebaseReader:
         """FileSystemWalker finds Python files."""
         from orchestrator.codebase_reader import FileSystemWalker
 
-        walker = FileSystemWalker(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
+        walker = FileSystemWalker(str(_ORCHESTRATOR_DIR))
         files = walker.walk(extensions={".py"})
         assert len(files) > 0
         assert all(f.language == "python" for f in files)
@@ -563,7 +567,7 @@ class TestCodebaseReader:
         from orchestrator.codebase_reader import FileSystemWalker
 
         # .gitignore should exclude __pycache__
-        walker = FileSystemWalker(r"E:\Documents\Vibe-Coding\Ai Orchestrator")
+        walker = FileSystemWalker(str(_PROJECT_ROOT))
         files = walker.walk(extensions={".py", ".json"})
         pycache_files = [f for f in files if "__pycache__" in str(f.path)]
         assert len(pycache_files) == 0
@@ -573,9 +577,7 @@ class TestCodebaseReader:
         from orchestrator.codebase_reader import ASTIndexer
 
         idx = ASTIndexer()
-        symbols = idx.index_file(
-            Path(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator\codebase_reader.py")
-        )
+        symbols = idx.index_file(_ORCHESTRATOR_DIR / "codebase_reader.py")
         assert len(symbols) > 0
         types = {s.type for s in symbols}
         assert "class" in types or "function" in types
@@ -585,7 +587,7 @@ class TestCodebaseReader:
         """Full read pipeline: walk → index → graph → profile."""
         from orchestrator.codebase_reader import CodebaseReader
 
-        reader = CodebaseReader(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
+        reader = CodebaseReader(str(_ORCHESTRATOR_DIR))
         await reader.read(quiet=True)
         assert len(reader.files) > 0
         assert len(reader.symbols) > 0
@@ -599,7 +601,7 @@ class TestCodebaseReader:
         from orchestrator.codebase_reader import CodebaseReader
 
         async def _test():
-            reader = CodebaseReader(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
+            reader = CodebaseReader(str(_ORCHESTRATOR_DIR))
             await reader.read(quiet=True)
             results = reader.find_symbol("CodebaseReader")
             assert len(results) >= 1
@@ -611,10 +613,10 @@ class TestCodebaseReader:
         """ProjectProfile correctly detects framework."""
         from orchestrator.codebase_reader import ProjectProfiler, FileSystemWalker
 
-        walker = FileSystemWalker(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
+        walker = FileSystemWalker(str(_ORCHESTRATOR_DIR))
         files = walker.walk(extensions={".py"})
         profiler = ProjectProfiler()
-        profile = profiler.profile(Path(r"E:\Documents\Vibe-Coding\Ai Orchestrator"), files)
+        profile = profiler.profile(Path(str(_PROJECT_ROOT)), files)
         assert profile.file_count > 0
         assert "python" in profile.languages
 
@@ -633,7 +635,7 @@ class TestCodebaseContext:
         from orchestrator.codebase_reader import CodebaseReader
         from orchestrator.codebase_context import CodebaseContext
 
-        reader = CodebaseReader(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
+        reader = CodebaseReader(str(_ORCHESTRATOR_DIR))
         await reader.read(quiet=True)
         ctx = CodebaseContext(reader, max_tokens=4096)
         prompt = ctx.to_llm_prompt(objective="Add logging")
@@ -665,7 +667,7 @@ class TestCodebaseContext:
         from orchestrator.codebase_context import QualityAnalyzer
         import asyncio
 
-        analyzer = QualityAnalyzer(r"E:\Documents\Vibe-Coding\Ai Orchestrator")
+        analyzer = QualityAnalyzer(str(_PROJECT_ROOT))
 
         async def _test():
             findings = await analyzer.analyze()
@@ -679,7 +681,7 @@ class TestCodebaseContext:
         from orchestrator.codebase_context import QualityAnalyzer
         import asyncio
 
-        analyzer = QualityAnalyzer(r"E:\Documents\Vibe-Coding\Ai Orchestrator")
+        analyzer = QualityAnalyzer(str(_PROJECT_ROOT))
 
         async def _test():
             gaps = await analyzer.find_coverage_gaps()
@@ -762,7 +764,7 @@ class TestCodebaseWriter:
         gate = ModificationGate()
         task = Task(
             id="t1",
-            type=TaskType.MODIFY_FILE,
+            type=TaskType.CODE_GEN,
             prompt="test",
             target_path="test.py",
         )
@@ -940,7 +942,7 @@ class TestCrossCutting:
             ],
             capture_output=True,
             text=True,
-            cwd=r"E:\Documents\Vibe-Coding\Ai Orchestrator",
+            cwd=str(_PROJECT_ROOT),
             timeout=120,
         )
         assert result.returncode == 0, f"Reference tests failed:\n{result.stdout}"
