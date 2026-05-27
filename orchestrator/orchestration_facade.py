@@ -108,5 +108,7 @@ class OrchestratorFacade:
         """Return subsystem by name, or raise AttributeError if not available."""
         val = getattr(self, name, None)
         if val is None:
-            raise AttributeError(f"Subsystem '{name}' is not available (optional module not imported)")
+            raise AttributeError(
+                f"Subsystem '{name}' is not available (optional module not imported)"
+            )
         return val

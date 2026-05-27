@@ -38,21 +38,25 @@ class ARAStrategyConfig:
     budget_fraction_ara: float = 0.3
     complexity_threshold: float = 0.7
 
-    default_methods: dict[TaskType, ReasoningMethod] = field(default_factory=lambda: {
-        TaskType.CODE_GEN: ReasoningMethod.PERSUASION_DEFENSE,
-        TaskType.REASONING: ReasoningMethod.SOT,
-        TaskType.EVALUATE: ReasoningMethod.JURY,
-        TaskType.CODE_REVIEW: ReasoningMethod.MULTI_PERSPECTIVE,
-    })
+    default_methods: dict[TaskType, ReasoningMethod] = field(
+        default_factory=lambda: {
+            TaskType.CODE_GEN: ReasoningMethod.PERSUASION_DEFENSE,
+            TaskType.REASONING: ReasoningMethod.SOT,
+            TaskType.EVALUATE: ReasoningMethod.JURY,
+            TaskType.CODE_REVIEW: ReasoningMethod.MULTI_PERSPECTIVE,
+        }
+    )
 
     excluded_task_types: set[TaskType] = field(default_factory=set)
 
     # Self-consistency retry escalation mapping
-    retry_methods: dict[TaskType, ReasoningMethod] = field(default_factory=lambda: {
-        TaskType.CODE_REVIEW: ReasoningMethod.DEBATE,
-        TaskType.CODE_GEN: ReasoningMethod.COVE,
-        TaskType.REASONING: ReasoningMethod.COVE,
-    })
+    retry_methods: dict[TaskType, ReasoningMethod] = field(
+        default_factory=lambda: {
+            TaskType.CODE_REVIEW: ReasoningMethod.DEBATE,
+            TaskType.CODE_GEN: ReasoningMethod.COVE,
+            TaskType.REASONING: ReasoningMethod.COVE,
+        }
+    )
 
 
 class ARAExecutionStrategy:
@@ -152,31 +156,53 @@ class ARAReasoningDispatcher:
         prompt = task.prompt.lower()
 
         # Multi-part problems -> SoT (skeleton-of-thought)
-        if any(kw in prompt for kw in ["multiple", "several", "complex", "multi-part",
-                                         "sub-problem", "decompose", "break down"]):
+        if any(
+            kw in prompt
+            for kw in [
+                "multiple",
+                "several",
+                "complex",
+                "multi-part",
+                "sub-problem",
+                "decompose",
+                "break down",
+            ]
+        ):
             return ReasoningMethod.SOT
 
         # Decision / choose problems -> ToT (tree-of-thoughts)
-        if any(kw in prompt for kw in ["choose", "decide", "select", "best option",
-                                         "trade-off", "tradeoff", "compare"]):
+        if any(
+            kw in prompt
+            for kw in [
+                "choose",
+                "decide",
+                "select",
+                "best option",
+                "trade-off",
+                "tradeoff",
+                "compare",
+            ]
+        ):
             return ReasoningMethod.TOT
 
         # Novel / open-ended discovery -> Self-Discover
-        if any(kw in prompt for kw in ["novel", "innovative", "discover", "custom",
-                                         "unique", "new approach"]):
+        if any(
+            kw in prompt
+            for kw in ["novel", "innovative", "discover", "custom", "unique", "new approach"]
+        ):
             return ReasoningMethod.SELF_DISCOVER
 
         # Factual / verification tasks -> CoVE
-        if any(kw in prompt for kw in ["fact", "verify", "check", "accurate",
-                                         "true", "false", "validate"]):
+        if any(
+            kw in prompt
+            for kw in ["fact", "verify", "check", "accurate", "true", "false", "validate"]
+        ):
             return ReasoningMethod.COVE
 
         # Default: Multi-Perspective for general reasoning
         return ReasoningMethod.MULTI_PERSPECTIVE
 
-    async def execute(
-        self, task: "Task", ara_integration: object
-    ) -> "TaskResult":
+    async def execute(self, task: "Task", ara_integration: object) -> "TaskResult":
         """Execute a REASONING task through the selected ARA method.
 
         Args:
@@ -188,7 +214,8 @@ class ARAReasoningDispatcher:
         """
         method = self.select_method(task)
         return await ara_integration.execute_task_with_pipeline(
-            task=task, method=method,
+            task=task,
+            method=method,
         )
 
 

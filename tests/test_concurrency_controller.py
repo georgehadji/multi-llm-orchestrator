@@ -8,7 +8,6 @@ import pytest
 
 from orchestrator.concurrency_controller import TaskConcurrencyGuard
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Basic functionality
 # ─────────────────────────────────────────────────────────────────────────────
@@ -79,7 +78,9 @@ async def test_guard_serializes_tasks():
     await asyncio.gather(task("A"), task("B"))
 
     # Each task must fully complete before the next starts
-    assert order.index("end:A") < order.index("start:B") or order.index("end:B") < order.index("start:A")
+    assert order.index("end:A") < order.index("start:B") or order.index("end:B") < order.index(
+        "start:A"
+    )
 
 
 @pytest.mark.asyncio

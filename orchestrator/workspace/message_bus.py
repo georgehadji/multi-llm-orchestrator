@@ -21,6 +21,7 @@ logger = logging.getLogger("orchestrator.workspace.message_bus")
 
 class MessageType(str, Enum):
     """Types of messages agents can exchange."""
+
     TASK_REQUEST = "task_request"
     TASK_RESPONSE = "task_response"
     QUERY = "query"
@@ -33,6 +34,7 @@ class MessageType(str, Enum):
 @dataclass
 class AgentMessage:
     """A structured message between agents."""
+
     id: str
     sender: str
     content: str

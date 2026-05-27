@@ -34,6 +34,7 @@ from .model_registry import ModelRegistry
 
 logger = logging.getLogger("orchestrator.phase_aware_models")
 
+
 class PhaseType(str, Enum):
     """Types of reasoning phases in ARA pipelines."""
 

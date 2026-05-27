@@ -8,7 +8,6 @@ import pytest
 
 from orchestrator.budget import Budget
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # BUG-002 regression: commit_reservation atomicity
 # ─────────────────────────────────────────────────────────────────────────────

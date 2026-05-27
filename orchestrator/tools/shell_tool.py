@@ -33,12 +33,14 @@ class ShellTool(Tool):
 
         try:
             process = await asyncio.create_subprocess_shell(
-                cmd, cwd=cwd,
+                cmd,
+                cwd=cwd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=timeout,
+                process.communicate(),
+                timeout=timeout,
             )
             return ToolResult(
                 success=process.returncode == 0,

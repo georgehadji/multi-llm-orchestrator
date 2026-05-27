@@ -84,9 +84,7 @@ class GeneratorMetrics:
             self.total_failed += 1
 
     def to_dict(self) -> dict[str, Any]:
-        avg_ms = (
-            self.cumulative_wall_ms / self.total_calls if self.total_calls else 0.0
-        )
+        avg_ms = self.cumulative_wall_ms / self.total_calls if self.total_calls else 0.0
         return {
             "total_calls": self.total_calls,
             "total_succeeded": self.total_succeeded,
@@ -161,12 +159,16 @@ class GeneratorService:
                 "generator.decompose",
                 {"project": project[:50], "criteria": criteria[:50]},
             ) as span:
-                tasks, error = await self._run_with_guard(project, criteria, policy, project_context=project_context, **kwargs)
+                tasks, error = await self._run_with_guard(
+                    project, criteria, policy, project_context=project_context, **kwargs
+                )
                 if error:
                     span.set_status("ERROR")
                     span.add_event("exception", {"exception.message": str(error)})
         else:
-            tasks, error = await self._run_with_guard(project, criteria, policy, project_context=project_context, **kwargs)
+            tasks, error = await self._run_with_guard(
+                project, criteria, policy, project_context=project_context, **kwargs
+            )
 
         wall_ms = (time.monotonic() - t0) * 1000
 
@@ -176,13 +178,9 @@ class GeneratorService:
             self.metrics.record(result)
 
         if error:
-            logger.warning(
-                "decompose FAILED in %.0fms: %s", wall_ms, error
-            )
+            logger.warning("decompose FAILED in %.0fms: %s", wall_ms, error)
         else:
-            logger.debug(
-                "decompose succeeded in %.0fms — %d tasks", wall_ms, result.task_count
-            )
+            logger.debug("decompose succeeded in %.0fms — %d tasks", wall_ms, result.task_count)
 
         return result
 
@@ -192,8 +190,12 @@ class GeneratorService:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     async def _run_with_guard(
-        self, project: str, criteria: str, policy: _ResiliencePolicy | None = None,
-        project_context: _ProjectContext | None = None, **kwargs: Any
+        self,
+        project: str,
+        criteria: str,
+        policy: _ResiliencePolicy | None = None,
+        project_context: _ProjectContext | None = None,
+        **kwargs: Any,
     ) -> tuple[dict[str, Task] | None, Exception | None]:
         try:
             # Build decompose kwargs with optional project context
@@ -222,7 +224,5 @@ class GeneratorService:
             return None, exc
 
         except Exception as exc:
-            wrapped = OrchestratorError(
-                f"Unexpected decomposition error: {exc}", cause=exc
-            )
+            wrapped = OrchestratorError(f"Unexpected decomposition error: {exc}", cause=exc)
             return None, wrapped

@@ -33,6 +33,7 @@ logger = logging.getLogger("orchestrator.agents.base")
 
 class AgentRole(str, Enum):
     """Specialized agent roles."""
+
     ARCHITECT = "architect"
     DEVELOPER = "developer"
     REVIEWER = "reviewer"
@@ -47,6 +48,7 @@ class AgentRole(str, Enum):
 @dataclass
 class AgentTask:
     """A task assigned to an agent."""
+
     id: str
     goal: str
     context: str = ""
@@ -61,6 +63,7 @@ class AgentTask:
 @dataclass
 class AgentTaskResult:
     """Result of an agent executing a task."""
+
     task_id: str
     success: bool
     output: str = ""
@@ -100,6 +103,7 @@ class AgentBase(ABC):
         else:
             try:
                 from ..agent_model_registry import get_default_model_preferences
+
                 self.model_preferences = get_default_model_preferences(role)
             except Exception:
                 self.model_preferences = {}
@@ -107,6 +111,7 @@ class AgentBase(ABC):
         self.memory = None
         try:
             from ..learning.agent_memory import AgentMemory
+
             self.memory = AgentMemory(agent_id=role.value)
         except ImportError:
             pass

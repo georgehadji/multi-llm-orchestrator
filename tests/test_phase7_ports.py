@@ -21,7 +21,6 @@ from orchestrator.ports import (
     StatePort,
 )
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # NullCache satisfies CachePort
 # ─────────────────────────────────────────────────────────────────────────────
@@ -119,12 +118,14 @@ async def test_null_event_bus_publish_discards_events():
 def test_disk_cache_satisfies_cache_port():
     """DiskCache must satisfy CachePort without any changes."""
     from orchestrator.cache import DiskCache
+
     assert isinstance(DiskCache(), CachePort)
 
 
 def test_state_manager_satisfies_state_port():
     """StateManager must satisfy StatePort without any changes."""
     from orchestrator.state import StateManager
+
     assert isinstance(StateManager(), StatePort)
 
 
@@ -136,6 +137,7 @@ def test_state_manager_satisfies_state_port():
 def test_engine_accepts_null_cache():
     """Engine __init__ must accept a NullCache without raising."""
     from orchestrator.engine import Orchestrator
+
     orch = Orchestrator(cache=NullCache())
     assert orch.cache is not None
 
@@ -143,6 +145,7 @@ def test_engine_accepts_null_cache():
 def test_engine_accepts_null_state():
     """Engine __init__ must accept a NullState without raising."""
     from orchestrator.engine import Orchestrator
+
     orch = Orchestrator(state_manager=NullState())
     assert orch.state_mgr is not None
 
@@ -150,6 +153,7 @@ def test_engine_accepts_null_state():
 def test_engine_accepts_both_null_adapters():
     """Engine __init__ must accept both NullCache and NullState together."""
     from orchestrator.engine import Orchestrator
+
     orch = Orchestrator(cache=NullCache(), state_manager=NullState())
     assert orch.cache is not None
     assert orch.state_mgr is not None

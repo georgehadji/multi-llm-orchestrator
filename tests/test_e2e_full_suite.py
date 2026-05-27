@@ -34,10 +34,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def mock_client():
     """Mock LLM client that returns valid Python code."""
     client = MagicMock()
-    client.call = AsyncMock(return_value=(
-        MagicMock(text="def hello():\n    return 'world'\n"),
-        {"tokens": 50, "cost": 0.001},
-    ))
+    client.call = AsyncMock(
+        return_value=(
+            MagicMock(text="def hello():\n    return 'world'\n"),
+            {"tokens": 50, "cost": 0.001},
+        )
+    )
     return client
 
 
@@ -116,15 +118,25 @@ class TestAgentCoordination:
     def test_all_agent_roles_defined(self):
         """All 9 agent roles are properly defined."""
         from orchestrator.agents.base import AgentRole
+
         roles = {r.value for r in AgentRole}
-        expected = {"architect", "developer", "reviewer", "tester",
-                    "devops", "researcher", "user",
-                    "product_manager", "qa"}
+        expected = {
+            "architect",
+            "developer",
+            "reviewer",
+            "tester",
+            "devops",
+            "researcher",
+            "user",
+            "product_manager",
+            "qa",
+        }
         assert expected.issubset(roles), f"Missing: {expected - roles}"
 
     def test_agent_role_count(self):
         """Verify total agent roles."""
         from orchestrator.agents.base import AgentRole
+
         assert len(AgentRole) >= 7
 
     @pytest.mark.asyncio
@@ -133,9 +145,12 @@ class TestAgentCoordination:
         from orchestrator.agents.base import AgentTask
 
         mock_client = MagicMock()
-        mock_client.call = AsyncMock(return_value=(
-            MagicMock(text="def valid_code(): pass\n"), {"tokens": 10, "cost": 0.01},
-        ))
+        mock_client.call = AsyncMock(
+            return_value=(
+                MagicMock(text="def valid_code(): pass\n"),
+                {"tokens": 10, "cost": 0.01},
+            )
+        )
 
         agent = DeveloperAgent(client=mock_client)
         result = await agent.handle_task(AgentTask(id="t1", goal="Write function"))
@@ -163,9 +178,12 @@ class TestAgentCoordination:
 
         agent = UserAgent()
         mock_client = MagicMock()
-        mock_client.call = AsyncMock(return_value=(
-            MagicMock(text="ok"), {},
-        ))
+        mock_client.call = AsyncMock(
+            return_value=(
+                MagicMock(text="ok"),
+                {},
+            )
+        )
         agent.client = mock_client
 
         result = await agent.handle_task(AgentTask(id="u1", goal="inform: Build started"))
@@ -182,6 +200,7 @@ class TestMemoryLayers:
 
     def test_experience_buffer_records_and_queries(self):
         from orchestrator.learning.experience_buffer import ExperienceBuffer
+
         buf = ExperienceBuffer()
         buf.record_success("code_gen", "cove", "gpt-4o", 0.85)
         buf.record_success("code_gen", "basic", "gpt-4o-mini", 0.6)
@@ -191,6 +210,7 @@ class TestMemoryLayers:
 
     def test_knowledge_graph_persistence_roundtrip(self):
         from orchestrator.learning.knowledge_graph import KnowledgeGraph
+
         kg = KnowledgeGraph()
         kg.record_success("code_gen", "gpt-4o", "cove", 0.9)
         kg.record_success("code_gen", "gpt-4o-mini", "basic", 0.5)
@@ -201,6 +221,7 @@ class TestMemoryLayers:
 
     def test_agent_cache_hash_consistency(self):
         from orchestrator.learning.agent_cache import AgentCache
+
         cache = AgentCache()
         cache.put("k1", "hello world", 0.85)
         assert cache.get("k1").output == "hello world"
@@ -209,6 +230,7 @@ class TestMemoryLayers:
 
     def test_agent_memory_lesson_generation(self):
         from orchestrator.learning.agent_memory import AgentMemory
+
         mem = AgentMemory(agent_id="dev")
         mem.record("Write function", success=True, score=0.9)
         mem.record("Write function", success=True, score=0.85)
@@ -243,6 +265,7 @@ class TestWorkspace:
 
     def test_workspace_versioning(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         v1 = ws.write_file("main.py", "v1", author="dev")
         v2 = ws.write_file("main.py", "v2", author="dev")
@@ -253,6 +276,7 @@ class TestWorkspace:
 
     def test_workspace_conflict_detection(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         ws.write_file("auth.py", "v1", author="architect")
         ws.write_file("auth.py", "v2", author="developer")
@@ -262,6 +286,7 @@ class TestWorkspace:
 
     def test_workspace_decision_log(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         ad = ws.record_decision("Use FastAPI", "FastAPI chosen", "Best for APIs")
 
@@ -270,6 +295,7 @@ class TestWorkspace:
 
     def test_workspace_summary(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         summary = ws.get_summary()
 
@@ -278,6 +304,7 @@ class TestWorkspace:
 
     def test_workspace_missing_file(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         assert ws.read_file("nonexistent.py") is None
 
@@ -292,10 +319,12 @@ class TestModelRouting:
 
     def test_all_models_importable(self):
         from orchestrator.models import Model
+
         assert len(Model) >= 59
 
     def test_task_type_enum_values(self):
         from orchestrator.models import TaskType
+
         types = {t.value for t in TaskType}
         assert "code_generation" in types
         assert "code_review" in types
@@ -303,20 +332,24 @@ class TestModelRouting:
 
     def test_model_cost_table(self):
         from orchestrator.models import Model, COST_TABLE
+
         assert len(COST_TABLE) > 0
         assert Model.GPT_4O in COST_TABLE
 
     def test_model_context_limits(self):
         from orchestrator.models import Model, MODEL_MAX_TOKENS
+
         assert Model.GPT_4O in MODEL_MAX_TOKENS
 
     def test_fallback_chain_defined(self):
         from orchestrator.models import FALLBACK_CHAIN
+
         assert len(FALLBACK_CHAIN) > 0
 
     def test_routing_table_coverage(self):
         from orchestrator.models import ROUTING_TABLE
-        assert len(ROUTING_TABLE) >= 4  
+
+        assert len(ROUTING_TABLE) >= 4
 
 
 # ═════════════════════════════════════════════
@@ -330,6 +363,7 @@ class TestSafetyGates:
     def test_syntax_validation_catches_error(self):
         from orchestrator.engine_core.utilities import _clean_code_output
         from orchestrator.models import TaskType
+
         code = "def valid(): pass"
         result = _clean_code_output(code, TaskType.CODE_GEN)
         assert "def valid" in result
@@ -337,12 +371,14 @@ class TestSafetyGates:
     def test_markdown_fence_removal(self):
         from orchestrator.engine_core.utilities import _clean_code_output
         from orchestrator.models import TaskType
+
         code = "```python\nprint('hi')\n```"
         result = _clean_code_output(code, TaskType.CODE_GEN)
         assert "```" not in result
 
     def test_secret_detection(self):
         from orchestrator.codebase_writer import ModificationGate, VerificationResult
+
         gate = ModificationGate()
         vr = VerificationResult()
         gate._check_secrets("password = 'secret123'", vr)
@@ -350,6 +386,7 @@ class TestSafetyGates:
 
     def test_secret_detection_clean_code(self):
         from orchestrator.codebase_writer import ModificationGate, VerificationResult
+
         gate = ModificationGate()
         vr = VerificationResult()
         gate._check_secrets("import os\nx = 1", vr)
@@ -367,12 +404,14 @@ class TestBudget:
     @pytest.mark.asyncio
     async def test_budget_creation(self):
         from orchestrator.budget import Budget
+
         budget = Budget(max_usd=10.0)
         assert budget.remaining_usd == 10.0
 
     @pytest.mark.asyncio
     async def test_budget_charge(self):
         from orchestrator.budget import Budget
+
         budget = Budget(max_usd=10.0)
         initial = budget.remaining_usd
         await budget.charge(1.0)
@@ -381,6 +420,7 @@ class TestBudget:
     @pytest.mark.asyncio
     async def test_budget_exceeded(self):
         from orchestrator.budget import Budget
+
         budget = Budget(max_usd=1.0)
         await budget.charge(0.5)
         await budget.charge(1.0)
@@ -399,6 +439,7 @@ class TestErrorRecovery:
     async def test_agent_no_client(self):
         from orchestrator.agents.developer import DeveloperAgent
         from orchestrator.agents.base import AgentTask
+
         agent = DeveloperAgent()
         result = await agent.handle_task(AgentTask(id="t1", goal="test"))
         assert result.success is False
@@ -408,6 +449,7 @@ class TestErrorRecovery:
     async def test_agent_hadle_exception(self):
         from orchestrator.agents.developer import DeveloperAgent
         from orchestrator.agents.base import AgentTask
+
         mock = MagicMock()
         mock.call = AsyncMock(side_effect=RuntimeError("API down"))
         agent = DeveloperAgent(client=mock)
@@ -416,6 +458,7 @@ class TestErrorRecovery:
 
     def test_experience_buffer_full_eviction(self):
         from orchestrator.learning.experience_buffer import ExperienceBuffer
+
         buf = ExperienceBuffer()
         for i in range(250):
             buf.record_success("code_gen", "basic", f"model_{i}", 0.5)
@@ -425,6 +468,7 @@ class TestErrorRecovery:
 
     def test_knowledge_graph_save_load_roundtrip(self):
         from orchestrator.learning.knowledge_graph import KnowledgeGraph
+
         # Direct test: graph retains data after multiple operations
         kg = KnowledgeGraph()
         kg.record_success("code_gen", "gpt-4o", "cove", 0.9)
@@ -440,16 +484,16 @@ class TestEndToEnd:
     def test_full_pipeline_imports(self):
         """Every module in the pipeline imports cleanly."""
         modules = [
-            'orchestrator.models',
-            'orchestrator.budget',
-            'orchestrator.engine_core.stages',
-            'orchestrator.engine_core.validator',
-            'orchestrator.engine_core.decomposer',
-            'orchestrator.engine_core.architect',
-            'orchestrator.ara_pipelines',
-            'orchestrator.codebase_reader',
-            'orchestrator.codebase_context',
-            'orchestrator.codebase_writer',
+            "orchestrator.models",
+            "orchestrator.budget",
+            "orchestrator.engine_core.stages",
+            "orchestrator.engine_core.validator",
+            "orchestrator.engine_core.decomposer",
+            "orchestrator.engine_core.architect",
+            "orchestrator.ara_pipelines",
+            "orchestrator.codebase_reader",
+            "orchestrator.codebase_context",
+            "orchestrator.codebase_writer",
         ]
         for mod in modules:
             try:
@@ -460,13 +504,13 @@ class TestEndToEnd:
     def test_all_agents_importable(self):
         """Every agent module imports cleanly."""
         agents = [
-            'orchestrator.agents.developer',
-            'orchestrator.agents.reviewer',
-            'orchestrator.agents.devops',
-            'orchestrator.agents.researcher',
-            'orchestrator.agents.user',
-            'orchestrator.agents.product_manager',
-            'orchestrator.agents.qc',
+            "orchestrator.agents.developer",
+            "orchestrator.agents.reviewer",
+            "orchestrator.agents.devops",
+            "orchestrator.agents.researcher",
+            "orchestrator.agents.user",
+            "orchestrator.agents.product_manager",
+            "orchestrator.agents.qc",
         ]
         for agent_mod in agents:
             try:
@@ -478,9 +522,12 @@ class TestEndToEnd:
     async def test_orchestrator_cli_help(self):
         """CLI help works without error."""
         import subprocess
+
         result = subprocess.run(
             [sys.executable, "-m", "orchestrator", "--help"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=str(Path(__file__).parent.parent),
         )
         assert result.returncode == 0

@@ -1,16 +1,19 @@
 """Summarizes many similar patterns into lessons."""
+
 from __future__ import annotations
 from typing import Any
+
 
 class MemoryCompressor:
     THRESHOLD = 10
 
     def compress(self, buffer: Any) -> list[str]:
         lessons = []
-        if not hasattr(buffer, 'successes'):
+        if not hasattr(buffer, "successes"):
             return lessons
 
         from collections import defaultdict
+
         by_type = defaultdict(list)
         for p in buffer.successes:
             by_type[p.task_type].append(p)

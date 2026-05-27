@@ -310,7 +310,9 @@ class OutputOrganizer:
 
         # Generate test content
         module_path = self._get_module_import_path(src_file)
-        imports = list(set([cls["name"] for cls in classes] + [f["name"] for f in public_functions[:5]]))
+        imports = list(
+            set([cls["name"] for cls in classes] + [f["name"] for f in public_functions[:5]])
+        )
 
         test_lines = [
             '"""',
@@ -340,6 +342,7 @@ class OutputOrganizer:
     def _extract_classes(self, content: str) -> list[dict]:
         """Extract class definitions from source code."""
         import ast
+
         try:
             tree = ast.parse(content)
             classes = []
@@ -347,72 +350,80 @@ class OutputOrganizer:
                 if isinstance(node, ast.ClassDef):
                     # Get method names
                     methods = [
-                        n.name for n in node.body 
+                        n.name
+                        for n in node.body
                         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
                         and not n.name.startswith("_")
                     ]
-                    classes.append({
-                        "name": node.name,
-                        "methods": methods,
-                        "bases": [base.id if isinstance(base, ast.Name) else str(base) for base in node.bases],
-                    })
+                    classes.append(
+                        {
+                            "name": node.name,
+                            "methods": methods,
+                            "bases": [
+                                base.id if isinstance(base, ast.Name) else str(base)
+                                for base in node.bases
+                            ],
+                        }
+                    )
             return classes
         except SyntaxError:
             # Fallback to regex
-            return [{"name": name, "methods": [], "bases": []} 
-                    for name in re.findall(r"^class\s+(\w+)", content, re.MULTILINE)]
+            return [
+                {"name": name, "methods": [], "bases": []}
+                for name in re.findall(r"^class\s+(\w+)", content, re.MULTILINE)
+            ]
 
     def _extract_functions(self, content: str) -> list[dict]:
         """Extract module-level function definitions from source code (excludes class methods)."""
         import ast
+
         try:
             tree = ast.parse(content)
-            
+
             # Find all class definitions to exclude their methods
             class_line_ranges = []
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
                     start_line = node.lineno
-                    end_line = getattr(node, 'end_lineno', start_line + 1000)
+                    end_line = getattr(node, "end_lineno", start_line + 1000)
                     class_line_ranges.append((start_line, end_line))
-            
+
             def is_inside_class(node) -> bool:
                 """Check if a function node is inside a class definition."""
-                node_line = getattr(node, 'lineno', 0)
+                node_line = getattr(node, "lineno", 0)
                 for start, end in class_line_ranges:
                     if start < node_line <= end:
                         # Check if this is a method (first arg is 'self' or 'cls')
-                        if node.args.args and node.args.args[0].arg in ('self', 'cls'):
+                        if node.args.args and node.args.args[0].arg in ("self", "cls"):
                             return True
                 return False
-            
+
             functions = []
             for node in ast.walk(tree):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     # SKIP methods inside classes - only get module-level functions
                     if is_inside_class(node):
                         continue
-                    
+
                     # Get argument names (exclude 'self' if present)
                     args = [arg.arg for arg in node.args.args if arg.arg != "self"]
                     defaults = len(node.args.defaults)
                     required_args = args[:-defaults] if defaults > 0 else args
-                    
-                    functions.append({
-                        "name": node.name,
-                        "args": args,
-                        "required_args": required_args,
-                        "is_async": isinstance(node, ast.AsyncFunctionDef),
-                    })
+
+                    functions.append(
+                        {
+                            "name": node.name,
+                            "args": args,
+                            "required_args": required_args,
+                            "is_async": isinstance(node, ast.AsyncFunctionDef),
+                        }
+                    )
             return functions
         except SyntaxError:
             # Fallback to regex - only match functions at column 0 (not indented methods)
             import re
-            module_level_funcs = re.findall(
-                r"^(def|async def)\s+(\w+)\s*\(", 
-                content, 
-                re.MULTILINE
-            )
+
+            module_level_funcs = re.findall(r"^(def|async def)\s+(\w+)\s*\(", content, re.MULTILINE)
             return [
                 {"name": name, "args": [], "required_args": [], "is_async": is_async == "async def"}
                 for is_async, name in module_level_funcs
@@ -420,40 +431,44 @@ class OutputOrganizer:
 
     def _generate_class_tests(self, cls: dict) -> list[str]:
         """Generate actual test cases for a class."""
-        class_name = cls['name']
+        class_name = cls["name"]
         lines = [
             f"class Test{class_name}:",
             f'    """Tests for {class_name} class."""',
             "",
         ]
-        
+
         # Test initialization - with proper assertions
-        lines.extend([
-            f"    def test_{class_name.lower()}_can_be_instantiated(self):",
-            f'        """Test that {class_name} can be created."""',
-            f"        try:",
-            f"            instance = {class_name}()",
-            f"            assert instance is not None",
-            f"            assert isinstance(instance, {class_name})",
-            f"        except TypeError as e:",
-            f'            pytest.skip(f"Cannot instantiate without args: {{e}}")',
-            "",
-        ])
-        
-        # Test each public method with meaningful assertions
-        for method in cls["methods"][:3]:  # Limit to 3 methods
-            lines.extend([
-                f"    def test_{method}_exists_and_callable(self):",
-                f'        """Test {method} exists and is callable."""',
+        lines.extend(
+            [
+                f"    def test_{class_name.lower()}_can_be_instantiated(self):",
+                f'        """Test that {class_name} can be created."""',
                 f"        try:",
                 f"            instance = {class_name}()",
-                f"            assert hasattr(instance, '{method}')",
-                f"            assert callable(getattr(instance, '{method}'))",
-                f"        except TypeError:",
-                f'            pytest.skip("Cannot instantiate class without args")',
+                f"            assert instance is not None",
+                f"            assert isinstance(instance, {class_name})",
+                f"        except TypeError as e:",
+                f'            pytest.skip(f"Cannot instantiate without args: {{e}}")',
                 "",
-            ])
-        
+            ]
+        )
+
+        # Test each public method with meaningful assertions
+        for method in cls["methods"][:3]:  # Limit to 3 methods
+            lines.extend(
+                [
+                    f"    def test_{method}_exists_and_callable(self):",
+                    f'        """Test {method} exists and is callable."""',
+                    f"        try:",
+                    f"            instance = {class_name}()",
+                    f"            assert hasattr(instance, '{method}')",
+                    f"            assert callable(getattr(instance, '{method}'))",
+                    f"        except TypeError:",
+                    f'            pytest.skip("Cannot instantiate class without args")',
+                    "",
+                ]
+            )
+
         return lines
 
     def _generate_function_tests(self, func: dict) -> list[str]:
@@ -461,14 +476,14 @@ class OutputOrganizer:
         func_name = func["name"]
         required_args = func["required_args"]
         is_async = func["is_async"]
-        
+
         lines = [
             f"def test_{func_name}_exists():",
             f'    """Test that {func_name} function exists and is callable."""',
             f"    assert callable({func_name})",
             "",
         ]
-        
+
         # Only generate call test if function takes no required args
         if not required_args:
             test_lines = [
@@ -476,35 +491,43 @@ class OutputOrganizer:
                 f'    """Test {func_name} can be called and returns expected type."""',
             ]
             if is_async:
-                test_lines.extend([
-                    f"    import asyncio",
-                    f"    result = asyncio.run({func_name}())",
-                ])
+                test_lines.extend(
+                    [
+                        f"    import asyncio",
+                        f"    result = asyncio.run({func_name}())",
+                    ]
+                )
             else:
-                test_lines.extend([
-                    f"    result = {func_name}()",
-                ])
-            test_lines.extend([
-                f"    # Function should return something (not None) or explicitly None",
-                f"    # This test documents the actual return behavior",
-                f"    assert result is not None or result is None  # noqa: B011 - documenting behavior",
-                "",
-            ])
+                test_lines.extend(
+                    [
+                        f"    result = {func_name}()",
+                    ]
+                )
+            test_lines.extend(
+                [
+                    f"    # Function should return something (not None) or explicitly None",
+                    f"    # This test documents the actual return behavior",
+                    f"    assert result is not None or result is None  # noqa: B011 - documenting behavior",
+                    "",
+                ]
+            )
             lines.extend(test_lines)
         else:
             # Generate test that checks the function signature
-            lines.extend([
-                f"def test_{func_name}_signature():",
-                f'    """Test {func_name} has correct signature with required args."""',
-                f"    import inspect",
-                f"    sig = inspect.signature({func_name})",
-                f"    params = list(sig.parameters.keys())",
-                f"    required = {required_args}",
-                f"    for arg in required:",
-                f"        assert arg in params, f'Missing required arg: {{arg}}'",
-                "",
-            ])
-        
+            lines.extend(
+                [
+                    f"def test_{func_name}_signature():",
+                    f'    """Test {func_name} has correct signature with required args."""',
+                    f"    import inspect",
+                    f"    sig = inspect.signature({func_name})",
+                    f"    params = list(sig.parameters.keys())",
+                    f"    required = {required_args}",
+                    f"    for arg in required:",
+                    f"        assert arg in params, f'Missing required arg: {{arg}}'",
+                    "",
+                ]
+            )
+
         return lines
 
     def _get_module_import_path(self, src_file: Path) -> str:
@@ -591,41 +614,41 @@ class OutputOrganizer:
 
             # Parse pytest output for pass/skip/fail counts
             output = result.stdout + result.stderr
-            
+
             # Parse actual test counts from output
             passed_count = 0
             failed_count = 0
             skipped_count = 0
             error_count = 0
-            
+
             # Look for "X passed" in output
             passed_match = re.search(r"(\d+) passed", output)
             if passed_match:
                 passed_count = int(passed_match.group(1))
-            
+
             # Look for "X failed" in output
             failed_match = re.search(r"(\d+) failed", output)
             if failed_match:
                 failed_count = int(failed_match.group(1))
-            
+
             # Look for "X skipped" in output
             skipped_match = re.search(r"(\d+) skipped", output)
             if skipped_match:
                 skipped_count = int(skipped_match.group(1))
-            
+
             # Look for errors during collection
             error_match = re.search(r"(\d+) error", output)
             if error_match:
                 error_count = int(error_match.group(1))
-            
+
             # Determine if the test file "passed" (has some passing tests, no failures/errors)
             total_executed = passed_count + failed_count + skipped_count
             has_passing = passed_count > 0
             has_failures = failed_count > 0 or error_count > 0
-            
+
             # A test file is "passed" if it has passing tests and no failures
             passed = has_passing and not has_failures
-            
+
             # If no tests were executed but there are errors, it's a collection failure
             if total_executed == 0 and error_count > 0:
                 passed = False
@@ -659,7 +682,7 @@ class OutputOrganizer:
     async def _fix_failing_tests(self):
         """
         Iteratively fix failing tests using AutonomousDebugger.
-        
+
         The autonomous debugger will:
         1. Analyze test failures to find root causes
         2. Evaluate the failures
@@ -694,16 +717,16 @@ class OutputOrganizer:
                     max_iterations=self.max_fix_iterations,
                     min_pass_rate=self.min_pass_rate,
                 )
-                
+
                 debug_report = await debugger.debug_and_fix(self.report.tests_run)
-                
+
                 # Store debug report
                 self.report.debug_report = debug_report.to_dict()
-                
+
                 # Update our report with debug results
                 self.report.tests_run = []  # Clear for re-run
                 await self._run_all_tests_no_fix()
-                
+
                 # Log results
                 if debug_report.final_success:
                     logger.info("\n" + "=" * 70)
@@ -712,28 +735,29 @@ class OutputOrganizer:
                     logger.info(f"Iterations: {len(debug_report.iterations)}")
                     logger.info(f"Total fixes applied: {debug_report.total_fixes_applied}")
                     if debug_report.summary:
-                        logger.info(f"Success rate: {debug_report.summary.get('success_rate', 0):.1f}%")
+                        logger.info(
+                            f"Success rate: {debug_report.summary.get('success_rate', 0):.1f}%"
+                        )
                 else:
                     logger.warning("\n" + "=" * 70)
                     logger.warning("⚠️ AUTONOMOUS DEBUGGING PARTIAL SUCCESS")
                     logger.warning("=" * 70)
                     logger.warning(f"Completed {len(debug_report.iterations)} iterations")
                     logger.warning(f"Final pass rate may be below target")
-                    
+
                 if debug_report.error:
                     logger.error(f"Debug error: {debug_report.error}")
-                    
+
                 # Save debug report
                 try:
                     report_path = self.output_dir / "autonomous_debug_report.json"
                     report_path.write_text(
-                        json.dumps(debug_report.to_dict(), indent=2),
-                        encoding="utf-8"
+                        json.dumps(debug_report.to_dict(), indent=2), encoding="utf-8"
                     )
                     logger.info(f"Debug report saved: {report_path}")
                 except Exception as e:
                     logger.warning(f"Could not save debug report: {e}")
-                    
+
             else:
                 # Fall back to legacy TestFixer if available
                 logger.info("AutonomousDebugger not available, using legacy TestFixer")
@@ -744,7 +768,7 @@ class OutputOrganizer:
                         max_iterations=self.max_fix_iterations,
                         min_pass_rate=self.min_pass_rate,
                     )
-                    
+
                     # Re-run tests after fixing
                     logger.info("🔄 Re-running tests after fixes...")
                     self.report.tests_run = []

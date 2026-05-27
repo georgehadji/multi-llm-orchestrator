@@ -123,7 +123,7 @@ class ConcurrencyBudget:
         # so every job acquired exactly 1 cent regardless of estimated_cost.
         cost_cents = max(1, int(estimated_cost * 100))
         job_acquired = False
-        cost_acquired = 0          # tracks how many cent-units we hold (for safe release)
+        cost_acquired = 0  # tracks how many cent-units we hold (for safe release)
         start_time = time.monotonic()
 
         try:
@@ -430,7 +430,11 @@ class TaskConcurrencyGuard:
         if wait_ms > 100:
             logger.debug(
                 "guard '%s': waited %.0fms (active=%d/%d waiting=%d)",
-                self.name, wait_ms, self._active, self.max_concurrent, self._waiting,
+                self.name,
+                wait_ms,
+                self._active,
+                self.max_concurrent,
+                self._waiting,
             )
         return self
 
@@ -440,9 +444,7 @@ class TaskConcurrencyGuard:
             self._active -= 1
 
     def stats(self) -> dict[str, Any]:
-        avg_wait = (
-            self._total_wait_ms / self._total_acquired if self._total_acquired else 0.0
-        )
+        avg_wait = self._total_wait_ms / self._total_acquired if self._total_acquired else 0.0
         return {
             "name": self.name,
             "max_concurrent": self.max_concurrent,

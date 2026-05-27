@@ -102,15 +102,23 @@ class CritiqueReport:
         ]
 
         if self.has_blockers:
-            lines.append(f"BLOCKERS: {sum(1 for i in self.items if i.severity == CritiqueSeverity.BLOCKER)}")
+            lines.append(
+                f"BLOCKERS: {sum(1 for i in self.items if i.severity == CritiqueSeverity.BLOCKER)}"
+            )
         if self.has_major:
-            lines.append(f"MAJOR issues: {sum(1 for i in self.items if i.severity == CritiqueSeverity.MAJOR)}")
+            lines.append(
+                f"MAJOR issues: {sum(1 for i in self.items if i.severity == CritiqueSeverity.MAJOR)}"
+            )
 
         lines.append("")
 
         # Sort by severity: BLOCKER first, then MAJOR, MINOR, SUGGESTION
-        severity_order = {CritiqueSeverity.BLOCKER: 0, CritiqueSeverity.MAJOR: 1,
-                          CritiqueSeverity.MINOR: 2, CritiqueSeverity.SUGGESTION: 3}
+        severity_order = {
+            CritiqueSeverity.BLOCKER: 0,
+            CritiqueSeverity.MAJOR: 1,
+            CritiqueSeverity.MINOR: 2,
+            CritiqueSeverity.SUGGESTION: 3,
+        }
         sorted_items = sorted(self.items, key=lambda i: severity_order.get(i.severity, 99))
 
         for item in sorted_items[:max_items]:

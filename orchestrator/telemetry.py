@@ -177,7 +177,9 @@ class TelemetryCollector:
 
         # Use numpy for O(n) performance
         if _HAS_NUMPY:
-            return float(np.percentile(values, 95, method="linear"))  # FIXED: interpolation -> method for NumPy 1.22+
+            return float(
+                np.percentile(values, 95, method="linear")
+            )  # FIXED: interpolation -> method for NumPy 1.22+
 
         # Fallback to statistics.quantiles (uses partial sort, O(n) average)
         try:

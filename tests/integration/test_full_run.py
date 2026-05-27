@@ -41,11 +41,13 @@ async def test_run_project_completes_with_two_tasks(
     orch._generator.decompose = AsyncMock(
         return_value=GeneratorResult(tasks=mock_tasks, wall_time_ms=100.0, error=None)
     )
-    orch._executor.execute = AsyncMock(side_effect=[
-        # ExecutorResult wrapping each TaskResult
-        type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
-        type("R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None})(),
-    ])
+    orch._executor.execute = AsyncMock(
+        side_effect=[
+            # ExecutorResult wrapping each TaskResult
+            type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
+            type("R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None})(),
+        ]
+    )
     orch._evaluator.evaluate = AsyncMock(return_value=0.90)
 
     # ── Execute ───────────────────────────────────────────────────────────
@@ -85,6 +87,7 @@ async def test_run_project_degradation_on_partial_failure(
     orch = orchestrator_fixture
 
     from orchestrator.models import TaskResult, TaskStatus, Model
+
     failed_task_result = TaskResult(
         task_id="t2",
         output="",
@@ -95,19 +98,25 @@ async def test_run_project_degradation_on_partial_failure(
         cost_usd=0.0,
         tokens_used={"input": 0, "output": 0},
     )
-    failed_result = type("R", (), {
-        "task_result": failed_task_result,
-        "succeeded": False,
-        "error": RuntimeError("mock failure"),
-    })()
+    failed_result = type(
+        "R",
+        (),
+        {
+            "task_result": failed_task_result,
+            "succeeded": False,
+            "error": RuntimeError("mock failure"),
+        },
+    )()
 
     orch._generator.decompose = AsyncMock(
         return_value=GeneratorResult(tasks=mock_tasks, wall_time_ms=100.0, error=None)
     )
-    orch._executor.execute = AsyncMock(side_effect=[
-        type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
-        failed_result,
-    ])
+    orch._executor.execute = AsyncMock(
+        side_effect=[
+            type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
+            failed_result,
+        ]
+    )
 
     state = await orch.run_project(
         project_description="Build a flaky app",
@@ -142,10 +151,12 @@ async def test_run_project_persists_state(
     orch._generator.decompose = AsyncMock(
         return_value=GeneratorResult(tasks=mock_tasks, wall_time_ms=100.0, error=None)
     )
-    orch._executor.execute = AsyncMock(side_effect=[
-        type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
-        type("R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None})(),
-    ])
+    orch._executor.execute = AsyncMock(
+        side_effect=[
+            type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
+            type("R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None})(),
+        ]
+    )
 
     await orch.run_project(
         project_description="Persistent state test",

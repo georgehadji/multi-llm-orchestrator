@@ -90,7 +90,7 @@ class MAPElitesPipeline(BasePipeline):
                 f"Generate {count} diverse code implementations. "
                 f"Each should differ in complexity (simple/medium/advanced) "
                 f"and performance (slow/fast/optimal).\n\n"
-                f"Return JSON: {{\"variants\": [\"<code1>\", \"<code2>\", ...]}}"
+                f'Return JSON: {{"variants": ["<code1>", "<code2>", ...]}}'
             ),
             max_tokens=4096,
             temperature=0.8,
@@ -117,10 +117,13 @@ class MAPElitesPipeline(BasePipeline):
 
         complexity = min(line_count / 50, 1.0)  # 0-50 lines maps to 0-1
         performance = 1.0 - min(avg_line_len / 80, 1.0)  # shorter avg line = faster
-        score = (complexity * 0.3 + performance * 0.7)
+        score = complexity * 0.3 + performance * 0.7
 
-        return {"complexity": round(complexity, 2), "performance": round(performance, 2),
-                "score": round(score, 2)}
+        return {
+            "complexity": round(complexity, 2),
+            "performance": round(performance, 2),
+            "score": round(score, 2),
+        }
 
     def _place_in_grid(self, code: str, features: dict) -> None:
         """Place a variant into the grid based on its feature dimensions."""
@@ -146,13 +149,16 @@ class MAPElitesPipeline(BasePipeline):
         # 30% diverse (furthest feature distance)
         remaining = [c for c in cells if c not in elite]
         diverse_count = max(1, len(remaining) // 3)
-        diverse = sorted(remaining, key=lambda c: abs(c["complexity"] - c["performance"]),
-                         reverse=True)[:diverse_count]
+        diverse = sorted(
+            remaining, key=lambda c: abs(c["complexity"] - c["performance"]), reverse=True
+        )[:diverse_count]
 
         # 50% exploratory (random)
         exploratory_remaining = [c for c in remaining if c not in diverse]
         exp_count = min(len(exploratory_remaining), max(1, len(cells) // 2))
-        exploratory = random.sample(exploratory_remaining, exp_count) if exploratory_remaining else []
+        exploratory = (
+            random.sample(exploratory_remaining, exp_count) if exploratory_remaining else []
+        )
 
         return [c["code"] for c in elite + diverse + exploratory]
 
@@ -169,7 +175,7 @@ class MAPElitesPipeline(BasePipeline):
                 f"Parent code:\n{elites[0][:2000]}\n\n"
                 f"Generate {len(elites) * 3} mutated variants. "
                 f"Some should be small mutations, some should explore new approaches. "
-                f"Return JSON: {{\"mutations\": [\"<code1>\", \"<code2>\", ...]}}"
+                f'Return JSON: {{"mutations": ["<code1>", "<code2>", ...]}}'
             ),
             max_tokens=4096,
             temperature=0.9,
@@ -190,10 +196,12 @@ class MAPElitesPipeline(BasePipeline):
     def _get_model(self, prompt: str) -> Model | None:
         """Select model for MAP-Elites operations."""
         from ...models import Model as M
+
         return M.GPT_4O_MINI
 
     def _extract_json(self, text: str) -> dict:
         import re
+
         text = text.strip()
         if text.startswith("```"):
             lines = text.splitlines()

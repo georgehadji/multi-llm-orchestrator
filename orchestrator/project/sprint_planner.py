@@ -1,9 +1,11 @@
 """SprintPlanner — Sprint creation, milestone tracking, progress."""
+
 from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
 logger = logging.getLogger("orchestrator.project.sprint_planner")
+
 
 @dataclass
 class TaskInfo:
@@ -11,6 +13,7 @@ class TaskInfo:
     description: str
     status: str = "pending"
     effort_hours: float = 1.0
+
 
 @dataclass
 class Milestone:
@@ -21,12 +24,14 @@ class Milestone:
     deadline: str = ""
     completed: bool = False
 
+
 @dataclass
 class Sprint:
     id: str
     goal: str
     milestones: list[Milestone] = field(default_factory=list)
     tasks: dict[str, TaskInfo] = field(default_factory=dict)
+
 
 class SprintPlanner:
     def create_sprint(self, goal, task_ids):

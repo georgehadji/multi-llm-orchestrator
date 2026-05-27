@@ -25,6 +25,7 @@ logger = logging.getLogger("orchestrator.tools.base")
 
 class ToolPermission(str, Enum):
     """Permissions that a tool may require."""
+
     FILE_READ = "file_read"
     FILE_WRITE = "file_write"
     FILE_DELETE = "file_delete"
@@ -38,6 +39,7 @@ class ToolPermission(str, Enum):
 @dataclass
 class ToolResult:
     """Structured result from a tool execution."""
+
     success: bool
     output: str = ""
     artifacts: list[Path] = field(default_factory=list)

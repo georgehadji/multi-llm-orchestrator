@@ -34,6 +34,7 @@ def _make_task(
     prompt: str = "Write code",
 ) -> object:
     from orchestrator.models import Task, TaskType
+
     return Task(
         id=task_id,
         type=TaskType(type_str),
@@ -59,6 +60,7 @@ class TestArchitect:
     async def test_generate_rules_no_crash(self, mock_client):
         """Architect handles missing ArchitectureRulesEngine gracefully."""
         from orchestrator.engine_core.architect import Architect
+
         a = Architect(client=mock_client)
         result = await a.generate_rules(
             project_description="Build a web app",
@@ -70,6 +72,7 @@ class TestArchitect:
     def test_build_architecture_md_basic(self):
         """_build_architecture_md produces markdown."""
         from orchestrator.engine_core.architect import _build_architecture_md
+
         try:
             # Create a minimal mock object with the expected attributes
             class MockRules:
@@ -78,15 +81,18 @@ class TestArchitect:
                     test_coverage_min = 80
                     max_complexity = 10
                     max_line_length = 100
+
                 coding_standards = CodingStandards()
 
                 class Architecture:
                     class Style:
                         value = "layered"
+
                     style = Style()
 
                     class Paradigm:
                         value = "object_oriented"
+
                     paradigm = Paradigm()
 
                     class Stack:
@@ -94,11 +100,13 @@ class TestArchitect:
                         frameworks = ["FastAPI"]
                         libraries = ["pydantic", "sqlalchemy"]
                         databases = ["postgresql"]
+
                     stack = Stack()
                     rationale = "Best for this project"
                     constraints = ["Keep it simple"]
                     patterns = ["Repository pattern"]
                     tradeoffs = ["More code, easier testing"]
+
                 architecture = Architecture()
 
                 project_type = "web_app"
@@ -129,14 +137,15 @@ class TestPersuasionDefenseStage:
     @pytest.fixture
     def stage(self, mock_ara):
         from orchestrator.engine_core.stages.persuasion_defense import PersuasionDefenseStage
+
         return PersuasionDefenseStage(ara_integration=mock_ara)
 
     @pytest.fixture
     def ctx(self):
         from orchestrator.engine_core.pipeline import PipelineContext
         from orchestrator.models import Task, TaskType
-        task = Task(id="test", type=TaskType.CODE_GEN, prompt="Write code",
-                     max_output_tokens=500)
+
+        task = Task(id="test", type=TaskType.CODE_GEN, prompt="Write code", max_output_tokens=500)
         ctx = PipelineContext(task=task)
         ctx.output = "def hello(): pass"
         return ctx
@@ -146,6 +155,7 @@ class TestPersuasionDefenseStage:
         """Non-CODE_GEN tasks pass through without verification."""
         from orchestrator.engine_core.pipeline import PipelineContext
         from orchestrator.models import Task, TaskType
+
         task = Task(id="t1", type=TaskType.REASONING, prompt="reason")
         ctx = PipelineContext(task=task)
         result = await stage.process(ctx)
@@ -156,8 +166,10 @@ class TestPersuasionDefenseStage:
         """Stage fails open when ARA is None."""
         from orchestrator.engine_core.stages.persuasion_defense import PersuasionDefenseStage
         from orchestrator.engine_core.pipeline import PipelineContext
+
         s = PersuasionDefenseStage(ara_integration=None)
         from orchestrator.models import Task, TaskType
+
         task = Task(id="t1", type=TaskType.CODE_GEN, prompt="test")
         ctx = PipelineContext(task=task)
         ctx.output = "def f(): pass"
@@ -180,6 +192,7 @@ class TestPersuasionDefenseStage:
         )
         from orchestrator.engine_core.pipeline import PipelineContext
         from orchestrator.models import Task, TaskType
+
         task = Task(id="t1", type=TaskType.CODE_GEN, prompt="test")
         ctx = PipelineContext(task=task)
         ctx.output = "def hello(): print('hi')"
@@ -196,6 +209,7 @@ class TestPersuasionDefenseStage:
         )
         from orchestrator.engine_core.pipeline import PipelineContext
         from orchestrator.models import Task, TaskType
+
         task = Task(id="t1", type=TaskType.CODE_GEN, prompt="test")
         ctx = PipelineContext(task=task)
         ctx.output = "def hello(): print('hi')"
@@ -208,6 +222,7 @@ class TestPersuasionDefenseStage:
         mock_ara.execute_task_with_pipeline.side_effect = RuntimeError("API down")
         from orchestrator.engine_core.pipeline import PipelineContext
         from orchestrator.models import Task, TaskType
+
         task = Task(id="t1", type=TaskType.CODE_GEN, prompt="test")
         ctx = PipelineContext(task=task)
         ctx.output = "def f(): pass"
@@ -226,12 +241,14 @@ class TestEnhancedSelfConsistencyStage:
     @pytest.fixture
     def stage(self):
         from orchestrator.engine_core.stages import SelfConsistencyStage
+
         return SelfConsistencyStage(max_attempts=2, quality_threshold=0.7)
 
     @pytest.fixture
     def ctx(self):
         from orchestrator.engine_core.pipeline import PipelineContext
         from orchestrator.models import Task, TaskType
+
         task = Task(id="t1", type=TaskType.CODE_GEN, prompt="test")
         return PipelineContext(task=task)
 
@@ -304,6 +321,7 @@ class TestUtilities:
     def test_clean_code_output_removes_fences(self):
         from orchestrator.engine_core.utilities import _clean_code_output
         from orchestrator.models import TaskType
+
         text = "```python\nprint('hello')\n```"
         result = _clean_code_output(text, TaskType.CODE_GEN)
         assert "```" not in result
@@ -312,6 +330,7 @@ class TestUtilities:
     def test_clean_code_output_skips_non_code(self):
         from orchestrator.engine_core.utilities import _clean_code_output
         from orchestrator.models import TaskType
+
         text = "Some explanation text"
         result = _clean_code_output(text, TaskType.REASONING)
         assert result == text  # Unchanged
@@ -319,18 +338,21 @@ class TestUtilities:
     def test_clean_code_output_removes_todos(self):
         from orchestrator.engine_core.utilities import _clean_code_output
         from orchestrator.models import TaskType
+
         text = "def foo():\n    pass\n# TODO: implement bar"
         result = _clean_code_output(text, TaskType.CODE_GEN)
         assert "TODO" not in result
 
     def test_get_available_models_returns_list(self):
         from orchestrator.engine_core.utilities import _get_available_models
+
         result = _get_available_models()
         assert isinstance(result, list)
 
     def test_get_available_models_filters_health(self):
         from orchestrator.engine_core.utilities import _get_available_models
         from orchestrator.models import Model
+
         health = dict.fromkeys(Model, False)
         result = _get_available_models(api_health=health)
         assert result == []  # All unhealthy
@@ -338,12 +360,14 @@ class TestUtilities:
     def test_select_reviewer_returns_none_on_no_routing(self):
         from orchestrator.engine_core.utilities import _select_reviewer
         from orchestrator.models import Model
+
         result = _select_reviewer(Model.GPT_4O_MINI)
         assert result is None or isinstance(result, Model)
 
     def test_select_reviewer_handles_no_health(self):
         from orchestrator.engine_core.utilities import _select_reviewer
         from orchestrator.models import Model
+
         result = _select_reviewer(Model.GPT_4O_MINI, api_health={})
         assert result is None or isinstance(result, Model)
 
@@ -359,34 +383,52 @@ class TestARAReasoningDispatcher:
     @pytest.fixture
     def dispatcher(self):
         from orchestrator.ara_execution_strategy import ARAReasoningDispatcher
+
         return ARAReasoningDispatcher()
 
     def test_selects_sot_for_multi_part(self, dispatcher):
         from orchestrator.ara_pipelines import ReasoningMethod
-        task = _make_task(task_id="t1", type_str="complex_reasoning", prompt="Solve the multiple parts of this complex problem")
+
+        task = _make_task(
+            task_id="t1",
+            type_str="complex_reasoning",
+            prompt="Solve the multiple parts of this complex problem",
+        )
         method = dispatcher.select_method(task)
         assert method == ReasoningMethod.SOT
 
     def test_selects_tot_for_decisions(self, dispatcher):
         from orchestrator.ara_pipelines import ReasoningMethod
-        task = _make_task(task_id="t2", type_str="complex_reasoning", prompt="Choose the best framework for this app")
+
+        task = _make_task(
+            task_id="t2",
+            type_str="complex_reasoning",
+            prompt="Choose the best framework for this app",
+        )
         method = dispatcher.select_method(task)
         assert method == ReasoningMethod.TOT
 
     def test_selects_self_discover_for_novel(self, dispatcher):
         from orchestrator.ara_pipelines import ReasoningMethod
-        task = _make_task(task_id="t3", type_str="complex_reasoning", prompt="Design a novel algorithm for this unique problem")
+
+        task = _make_task(
+            task_id="t3",
+            type_str="complex_reasoning",
+            prompt="Design a novel algorithm for this unique problem",
+        )
         method = dispatcher.select_method(task)
         assert method == ReasoningMethod.SELF_DISCOVER
 
     def test_selects_cove_for_verification(self, dispatcher):
         from orchestrator.ara_pipelines import ReasoningMethod
+
         task = _make_task(task_id="t4", prompt="Verify that these claims are factually accurate")
         method = dispatcher.select_method(task)
         assert method == ReasoningMethod.COVE
 
     def test_default_non_reasoning_task(self, dispatcher):
         from orchestrator.ara_pipelines import ReasoningMethod
+
         task = _make_task(task_id="t5", prompt="General reasoning task")
         method = dispatcher.select_method(task)
         assert method == ReasoningMethod.COVE
@@ -404,6 +446,7 @@ class TestProtocols:
         """Can check runtime viability."""
         from orchestrator.engine_core.protocols import ModelProvider
         from unittest.mock import MagicMock
+
         mock = MagicMock()
         mock.get_available_models = MagicMock(return_value=[])
         mock.api_health = {}
@@ -413,6 +456,7 @@ class TestProtocols:
         """BudgetTracker checks out via structural typing."""
         from orchestrator.engine_core.protocols import BudgetTracker
         from unittest.mock import AsyncMock, MagicMock, PropertyMock
+
         mock = MagicMock()
         mock.reserve = AsyncMock()
         mock.commit_reservation = AsyncMock()
@@ -425,6 +469,7 @@ class TestProtocols:
         """TaskRunner structural check."""
         from orchestrator.engine_core.protocols import TaskRunner
         from unittest.mock import AsyncMock, MagicMock
+
         mock = MagicMock()
         mock.execute_task = AsyncMock()
         assert isinstance(mock, TaskRunner)
@@ -433,6 +478,7 @@ class TestProtocols:
         """EventEmitter structural check."""
         from orchestrator.engine_core.protocols import EventEmitter
         from unittest.mock import MagicMock
+
         mock = MagicMock()
         mock.fire = MagicMock()
         assert isinstance(mock, EventEmitter)
@@ -451,6 +497,7 @@ class TestServiceContainer:
         """ServiceContainer.build() creates a complete wireup."""
         from orchestrator.engine_core.container import ServiceContainer
         from orchestrator.budget import Budget
+
         container = ServiceContainer.build(budget=Budget(max_usd=10.0))
         assert container.client is not None
         assert container.selector is not None
@@ -466,6 +513,7 @@ class TestServiceContainer:
         from orchestrator.engine_core.container import ServiceContainer
         from orchestrator.budget import Budget
         from orchestrator.ports import NullCache
+
         container = ServiceContainer.build(
             budget=Budget(max_usd=10.0),
             cache=NullCache(),
@@ -477,15 +525,17 @@ class TestServiceContainer:
         """ARA integration is optional — missing import doesn't crash."""
         from orchestrator.engine_core.container import ServiceContainer
         from orchestrator.budget import Budget
+
         container = ServiceContainer.build(budget=Budget(max_usd=10.0))
         # ARA might be None if import fails, that's OK
-        assert container.ara is None or hasattr(container.ara, 'execute_task_with_pipeline')
+        assert container.ara is None or hasattr(container.ara, "execute_task_with_pipeline")
 
     @pytest.mark.skip(reason="Relies on container.py imports")
     def test_budget_tracked(self):
         """Budget is the same instance as passed."""
         from orchestrator.engine_core.container import ServiceContainer
         from orchestrator.budget import Budget
+
         budget = Budget(max_usd=5.0)
         container = ServiceContainer.build(budget=budget)
         assert container.budget is budget
@@ -502,6 +552,7 @@ class TestCodebaseReader:
     def test_walker_finds_files(self):
         """FileSystemWalker finds Python files."""
         from orchestrator.codebase_reader import FileSystemWalker
+
         walker = FileSystemWalker(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
         files = walker.walk(extensions={".py"})
         assert len(files) > 0
@@ -510,6 +561,7 @@ class TestCodebaseReader:
     def test_walker_ignores_gitignore(self):
         """FileSystemWalker respects .gitignore."""
         from orchestrator.codebase_reader import FileSystemWalker
+
         # .gitignore should exclude __pycache__
         walker = FileSystemWalker(r"E:\Documents\Vibe-Coding\Ai Orchestrator")
         files = walker.walk(extensions={".py", ".json"})
@@ -519,8 +571,11 @@ class TestCodebaseReader:
     def test_ast_indexer_finds_symbols(self):
         """ASTIndexer extracts classes and functions."""
         from orchestrator.codebase_reader import ASTIndexer
+
         idx = ASTIndexer()
-        symbols = idx.index_file(Path(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator\codebase_reader.py"))
+        symbols = idx.index_file(
+            Path(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator\codebase_reader.py")
+        )
         assert len(symbols) > 0
         types = {s.type for s in symbols}
         assert "class" in types or "function" in types
@@ -529,6 +584,7 @@ class TestCodebaseReader:
     async def test_full_read_pipeline(self):
         """Full read pipeline: walk → index → graph → profile."""
         from orchestrator.codebase_reader import CodebaseReader
+
         reader = CodebaseReader(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
         await reader.read(quiet=True)
         assert len(reader.files) > 0
@@ -554,6 +610,7 @@ class TestCodebaseReader:
     def test_project_profile(self):
         """ProjectProfile correctly detects framework."""
         from orchestrator.codebase_reader import ProjectProfiler, FileSystemWalker
+
         walker = FileSystemWalker(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
         files = walker.walk(extensions={".py"})
         profiler = ProjectProfiler()
@@ -575,6 +632,7 @@ class TestCodebaseContext:
         """to_llm_prompt produces structured context string."""
         from orchestrator.codebase_reader import CodebaseReader
         from orchestrator.codebase_context import CodebaseContext
+
         reader = CodebaseReader(r"E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator")
         await reader.read(quiet=True)
         ctx = CodebaseContext(reader, max_tokens=4096)
@@ -585,6 +643,7 @@ class TestCodebaseContext:
     def test_relevance_ranker_keywords(self):
         """RelevanceRanker extracts keywords from objective."""
         from orchestrator.codebase_context import RelevanceRanker
+
         ranker = RelevanceRanker()
         keywords = ranker._extract_keywords("Add JWT authentication middleware")
         assert "jwt" in keywords
@@ -594,6 +653,7 @@ class TestCodebaseContext:
     def test_relevance_ranker_strips_stop_words(self):
         """Common stop words are filtered."""
         from orchestrator.codebase_context import RelevanceRanker
+
         ranker = RelevanceRanker()
         keywords = ranker._extract_keywords("Add a new feature for the user")
         assert "a" not in keywords
@@ -604,6 +664,7 @@ class TestCodebaseContext:
         """QualityAnalyzer runs without exception even with missing tools."""
         from orchestrator.codebase_context import QualityAnalyzer
         import asyncio
+
         analyzer = QualityAnalyzer(r"E:\Documents\Vibe-Coding\Ai Orchestrator")
 
         async def _test():
@@ -617,6 +678,7 @@ class TestCodebaseContext:
         """find_coverage_gaps detects untested modules."""
         from orchestrator.codebase_context import QualityAnalyzer
         import asyncio
+
         analyzer = QualityAnalyzer(r"E:\Documents\Vibe-Coding\Ai Orchestrator")
 
         async def _test():
@@ -637,6 +699,7 @@ class TestCodebaseWriter:
     def test_diff_engine_generates_diff(self):
         """DiffEngine generates unified diffs correctly."""
         from orchestrator.codebase_writer import DiffEngine
+
         de = DiffEngine()
         original = "hello world\n"
         modified = "hello python world\n"
@@ -647,6 +710,7 @@ class TestCodebaseWriter:
     def test_diff_engine_empty_input(self):
         """DiffEngine handles empty input."""
         from orchestrator.codebase_writer import DiffEngine
+
         de = DiffEngine()
         diff = de.generate_diff("", "", "empty.txt")
         assert isinstance(diff, str)
@@ -654,6 +718,7 @@ class TestCodebaseWriter:
     def test_verification_result_defaults(self):
         """VerificationResult has correct defaults."""
         from orchestrator.codebase_writer import VerificationResult
+
         vr = VerificationResult()
         assert vr.passed is False
         assert vr.errors == []
@@ -671,12 +736,16 @@ class TestCodebaseWriter:
             root = Path(tmp)
             writer = CodebaseWriter(root, dry_run=True)
             task = Task(
-                id="t1", type=TaskType.CODE_GEN, prompt="test",
+                id="t1",
+                type=TaskType.CODE_GEN,
+                prompt="test",
                 target_path="test_output.py",
             )
             result = TaskResult(
-                task_id="t1", output="print('hello')",
-                score=1.0, model_used=None,
+                task_id="t1",
+                output="print('hello')",
+                score=1.0,
+                model_used=None,
                 status=TaskStatus.COMPLETED,
             )
             ok = await writer.apply(task, result)
@@ -689,19 +758,25 @@ class TestCodebaseWriter:
         """ModificationGate checks syntax."""
         from orchestrator.codebase_writer import ModificationGate
         from orchestrator.models import Task, TaskType, TaskResult, TaskStatus
+
         gate = ModificationGate()
         task = Task(
-            id="t1", type=TaskType.MODIFY_FILE, prompt="test",
+            id="t1",
+            type=TaskType.MODIFY_FILE,
+            prompt="test",
             target_path="test.py",
         )
         result = TaskResult(
-            task_id="t1", output="invalid python syntax{{{",
-            score=0.5, model_used=None,
+            task_id="t1",
+            output="invalid python syntax{{{",
+            score=0.5,
+            model_used=None,
             status=TaskStatus.COMPLETED,
         )
         # Gate only checks if the TARGET file exists
         # Without a real file, it shouldn't fail on syntax
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             target = root / "test.py"
@@ -713,6 +788,7 @@ class TestCodebaseWriter:
     def test_secret_detection(self):
         """Possible hardcoded secrets are flagged."""
         from orchestrator.codebase_writer import ModificationGate, VerificationResult
+
         gate = ModificationGate()
         vr = VerificationResult()
         gate._check_secrets('password = "my_secret_key"\n', vr)
@@ -722,6 +798,7 @@ class TestCodebaseWriter:
     def test_secret_detection_clean(self):
         """No secrets in clean code."""
         from orchestrator.codebase_writer import ModificationGate, VerificationResult
+
         gate = ModificationGate()
         vr = VerificationResult()
         gate._check_secrets('import os\nprint("hello")\n', vr)
@@ -741,25 +818,28 @@ class TestARAExecutionWiring:
         """Orchestrator has _ara attribute after init."""
         from orchestrator.engine import Orchestrator
         from orchestrator.budget import Budget
+
         orch = Orchestrator(budget=Budget(max_usd=10.0))
-        assert hasattr(orch, '_ara')
+        assert hasattr(orch, "_ara")
 
     @pytest.mark.skip(reason="Importing Orchestrator from engine.py has circular imports")
     def test_engine_has_ara_strategy(self):
         """Orchestrator has _ara_strategy."""
         from orchestrator.engine import Orchestrator
         from orchestrator.budget import Budget
+
         orch = Orchestrator(budget=Budget(max_usd=10.0))
-        assert hasattr(orch, '_ara_strategy')
+        assert hasattr(orch, "_ara_strategy")
 
     @pytest.mark.skip(reason="Importing Orchestrator from engine.py has circular imports")
     def test_engine_has_execute_task_ara(self):
         """Orchestrator has _execute_task_ara method."""
         from orchestrator.engine import Orchestrator
         from orchestrator.budget import Budget
+
         orch = Orchestrator(budget=Budget(max_usd=10.0))
-        assert hasattr(orch, '_execute_task_ara')
-        assert callable(getattr(orch, '_execute_task_ara'))
+        assert hasattr(orch, "_execute_task_ara")
+        assert callable(getattr(orch, "_execute_task_ara"))
 
 
 # ═════════════════════════════════════════════
@@ -775,6 +855,7 @@ class TestContainerIntegration:
         """Orchestrator can be constructed with container class."""
         from orchestrator.engine import Orchestrator
         from orchestrator.budget import Budget
+
         # The real __init__ uses ServiceContainer internally
         orch = Orchestrator(budget=Budget(max_usd=10.0))
         assert orch.client is not None
@@ -784,8 +865,9 @@ class TestContainerIntegration:
         """Pipeline is initialized with all stages."""
         from orchestrator.engine import Orchestrator
         from orchestrator.budget import Budget
+
         orch = Orchestrator(budget=Budget(max_usd=10.0))
-        assert hasattr(orch, '_pipeline')
+        assert hasattr(orch, "_pipeline")
         assert len(orch._pipeline._stages) >= 5
 
     @pytest.mark.skip(reason="Importing Orchestrator from engine.py has circular imports")
@@ -793,6 +875,7 @@ class TestContainerIntegration:
         """Pipeline includes validation stages."""
         from orchestrator.engine import Orchestrator
         from orchestrator.budget import Budget
+
         orch = Orchestrator(budget=Budget(max_usd=10.0))
         stage_names = [type(s).__name__ for s in orch._pipeline._stages]
         assert "ValidateStage" in stage_names
@@ -810,6 +893,7 @@ class TestCrossCutting:
         """_clean_code_output doesn't modify valid code."""
         from orchestrator.engine_core.utilities import _clean_code_output
         from orchestrator.models import TaskType
+
         valid_code = "def hello():\n    return 'world'\n"
         result = _clean_code_output(valid_code, TaskType.CODE_GEN)
         # Should keep the valid code largely intact
@@ -819,7 +903,10 @@ class TestCrossCutting:
         """Dispatcher doesn't crash on unknown task type."""
         from orchestrator.ara_execution_strategy import ARAReasoningDispatcher
         from orchestrator.ara_pipelines import ReasoningMethod
-        task = _make_task(task_id="unknown", type_str="complex_reasoning", prompt="Random text without keywords")
+
+        task = _make_task(
+            task_id="unknown", type_str="complex_reasoning", prompt="Random text without keywords"
+        )
         dispatcher = ARAReasoningDispatcher()
         method = dispatcher.select_method(task)
         # Should return a valid method, not crash
@@ -828,6 +915,7 @@ class TestCrossCutting:
     def test_project_workspace_importable(self):
         """ProjectWorkspace module imports cleanly."""
         import importlib
+
         try:
             mod = importlib.import_module("orchestrator.codebase_writer")
             assert mod is not None
@@ -837,14 +925,21 @@ class TestCrossCutting:
     def test_all_tests_pass_reference(self):
         """Meta-test: the reference tests still pass."""
         import subprocess
+
         result = subprocess.run(
-            [sys.executable, "-m", "pytest",
-             "tests/test_god_file_refactoring.py",
-             "tests/test_decomposer.py",
-             "tests/test_validator.py",
-             "tests/test_pipeline.py",
-             "-q", "--no-cov"],
-            capture_output=True, text=True,
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/test_god_file_refactoring.py",
+                "tests/test_decomposer.py",
+                "tests/test_validator.py",
+                "tests/test_pipeline.py",
+                "-q",
+                "--no-cov",
+            ],
+            capture_output=True,
+            text=True,
             cwd=r"E:\Documents\Vibe-Coding\Ai Orchestrator",
             timeout=120,
         )

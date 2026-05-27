@@ -759,8 +759,6 @@ def get_current_project() -> str | None:
     return _current_project.get()
 
 
-
-
 # Alias for backward compatibility -- streaming.py imports EventBus
 EventBus = UnifiedEventBus
 

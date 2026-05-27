@@ -36,10 +36,22 @@ def decomposer(mock_client, mock_selector):
 class TestParseDecomposition:
     """Test _parse_decomposition — JSON parsing."""
 
-    VALID_TASKS_JSON = json.dumps([
-        {"id": "task_001", "type": "code_generation", "prompt": "Build a CLI", "dependencies": []},
-        {"id": "task_002", "type": "code_review", "prompt": "Review CLI code", "dependencies": ["task_001"]},
-    ])
+    VALID_TASKS_JSON = json.dumps(
+        [
+            {
+                "id": "task_001",
+                "type": "code_generation",
+                "prompt": "Build a CLI",
+                "dependencies": [],
+            },
+            {
+                "id": "task_002",
+                "type": "code_review",
+                "prompt": "Review CLI code",
+                "dependencies": ["task_001"],
+            },
+        ]
+    )
 
     def test_parse_valid_json(self, decomposer):
         tasks = decomposer._parse_decomposition(self.VALID_TASKS_JSON)
@@ -63,7 +75,9 @@ class TestParseDecomposition:
 
     def test_parse_partial_recovery(self, decomposer):
         """Test _try_parse_partial_json_array with truncated content."""
-        partial = '[{"id": "task_001", "type": "code_generation", "prompt": "test"}\n, {"id": "task_002"'
+        partial = (
+            '[{"id": "task_001", "type": "code_generation", "prompt": "test"}\n, {"id": "task_002"'
+        )
         result = decomposer._try_parse_partial_json_array(partial)
         assert result is not None
         # Should at least recover the first object
@@ -98,7 +112,7 @@ class TestGetDecompositionModels:
     def test_returns_models(self, decomposer):
         models = decomposer._get_decomposition_models("Build a web app")
         assert len(models) > 0
-        assert all(hasattr(m, 'value') or isinstance(m, str) for m in models)
+        assert all(hasattr(m, "value") or isinstance(m, str) for m in models)
 
     def test_with_api_health(self, decomposer):
         models = decomposer._get_decomposition_models("Build a web app", api_health={})
@@ -111,10 +125,17 @@ class TestDecompose:
     @pytest.mark.asyncio
     async def test_decompose_success(self, decomposer, mock_client):
         mock_client.call.return_value = MagicMock(
-            text=json.dumps([
-                {"id": "t1", "type": "code_generation", "prompt": "Create models"},
-                {"id": "t2", "type": "code_generation", "prompt": "Create views", "dependencies": ["t1"]},
-            ])
+            text=json.dumps(
+                [
+                    {"id": "t1", "type": "code_generation", "prompt": "Create models"},
+                    {
+                        "id": "t2",
+                        "type": "code_generation",
+                        "prompt": "Create views",
+                        "dependencies": ["t1"],
+                    },
+                ]
+            )
         )
         tasks = await decomposer.decompose("Build a web app", "Must work")
         assert len(tasks) == 2
@@ -131,8 +152,11 @@ class TestDecompose:
             text=json.dumps([{"id": "t1", "type": "code_generation", "prompt": "test"}])
         )
         from orchestrator.project_context import ProjectContext
+
         ctx = ProjectContext()
         tasks = await decomposer.decompose(
-            "Build a web app", "Must work", project_context=ctx,
+            "Build a web app",
+            "Must work",
+            project_context=ctx,
         )
         assert len(tasks) == 1

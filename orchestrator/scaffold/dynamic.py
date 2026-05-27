@@ -21,6 +21,7 @@ logger = logging.getLogger("orchestrator.scaffold.dynamic")
 @dataclass
 class TechStack:
     """Software technology stack."""
+
     language: str = ""
     framework: str = ""
     frontend: str = ""
@@ -49,6 +50,7 @@ class DynamicScaffoldGenerator:
         # Check for existing template
         try:
             from ..scaffold import ScaffoldTemplate
+
             template = self._find_template(stack)
             if template:
                 return self._apply_template(template, output_dir)
@@ -93,6 +95,7 @@ class DynamicScaffoldGenerator:
     def _find_template(self, stack: TechStack) -> Any:
         """Find a matching scaffold template."""
         from ..scaffold import _TEMPLATE_MAP
+
         key = stack.framework or stack.frontend or stack.language
         return _TEMPLATE_MAP.get(key)
 
@@ -100,6 +103,7 @@ class DynamicScaffoldGenerator:
         """Apply a scaffold template."""
         try:
             from ..scaffold import ScaffoldTemplate
+
             if hasattr(template, "apply"):
                 result = template.apply(output_dir)
                 logger.info("Applied scaffold template: %s", type(template).__name__)

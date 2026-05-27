@@ -21,6 +21,7 @@ logger = logging.getLogger("orchestrator.hitl.gate")
 
 class DecisionResult(str, Enum):
     """Result of a human decision request."""
+
     APPROVED = "approved"
     REJECTED = "rejected"
     TIMEOUT = "timeout"
@@ -30,6 +31,7 @@ class DecisionResult(str, Enum):
 @dataclass
 class Decision:
     """A decision that may require human approval."""
+
     category: str
     title: str
     description: str
@@ -45,7 +47,9 @@ class HumanInTheLoop:
     def __init__(self) -> None:
         self._pending_decisions: list[Decision] = []
 
-    async def request_decision(self, decision: Decision, timeout: int = DEFAULT_TIMEOUT) -> DecisionResult:
+    async def request_decision(
+        self, decision: Decision, timeout: int = DEFAULT_TIMEOUT
+    ) -> DecisionResult:
         """Request a human decision.
 
         In CLI mode, this prompts the user. In IDE mode, it sends

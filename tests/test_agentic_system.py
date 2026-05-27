@@ -19,18 +19,21 @@ class TestAgentBase:
 
     def test_agent_role_enum(self):
         from orchestrator.agents.base import AgentRole
+
         assert AgentRole.DEVELOPER.value == "developer"
         assert len(AgentRole) >= 7
 
     def test_agent_task_dataclass(self):
         from orchestrator.agents.base import AgentTask
         from orchestrator.models import TaskStatus
+
         t = AgentTask(id="t1", goal="Build login")
         assert t.id == "t1"
         assert t.status == TaskStatus.PENDING
 
     def test_agent_task_result_dataclass(self):
         from orchestrator.agents.base import AgentTaskResult
+
         r = AgentTaskResult(task_id="t1", success=True, output="done")
         assert r.success is True
 
@@ -42,6 +45,7 @@ class TestDeveloperAgent:
     async def test_handle_task_no_client(self):
         from orchestrator.agents.developer import DeveloperAgent
         from orchestrator.agents.base import AgentTask
+
         agent = DeveloperAgent()
         result = await agent.handle_task(AgentTask(id="t1", goal="test"))
         assert result.success is False
@@ -50,6 +54,7 @@ class TestDeveloperAgent:
     @pytest.mark.asyncio
     async def test_system_prompt(self):
         from orchestrator.agents.developer import DeveloperAgent
+
         agent = DeveloperAgent()
         assert "senior software engineer" in agent.system_prompt
 
@@ -71,6 +76,7 @@ class TestArchitectAgent:
     @pytest.mark.asyncio
     async def test_system_prompt(self):
         from orchestrator.agents.developer import ArchitectAgent
+
         agent = ArchitectAgent()
         assert "software architect" in agent.system_prompt
 
@@ -79,6 +85,7 @@ class TestTesterAgent:
     @pytest.mark.asyncio
     async def test_system_prompt(self):
         from orchestrator.agents.developer import TesterAgent
+
         agent = TesterAgent()
         assert "QA engineer" in agent.system_prompt
 
@@ -97,7 +104,6 @@ class TestAgentOrchestrator:
         from orchestrator.agents.developer import DeveloperAgent
         from orchestrator.agents.base import AgentRole
 
-
         mock_client = MagicMock()
         mock_client.call = AsyncMock(return_value=(MagicMock(text="output"), {}))
 
@@ -109,6 +115,7 @@ class TestAgentOrchestrator:
     def test_decompose_goal_architecture(self):
         from orchestrator.agents.coordinator import AgentOrchestrator
         from orchestrator.agents.base import AgentRole
+
         orch = AgentOrchestrator(agents={})
         tasks = orch._decompose_goal("Design architecture for web app")
         roles = {t.target_role for t in tasks if t.target_role}
@@ -118,6 +125,7 @@ class TestAgentOrchestrator:
     def test_decompose_goal_basic(self):
         from orchestrator.agents.coordinator import AgentOrchestrator
         from orchestrator.agents.base import AgentRole
+
         orch = AgentOrchestrator(agents={})
         tasks = orch._decompose_goal("Write a function")
         roles = {t.target_role for t in tasks if t.target_role}
@@ -134,11 +142,13 @@ class TestToolBase:
 
     def test_permission_enum(self):
         from orchestrator.tools.base import ToolPermission
+
         assert ToolPermission.FILE_READ.value == "file_read"
 
     def test_registry_register(self):
         from orchestrator.tools.base import ToolRegistry
         from unittest.mock import MagicMock
+
         tool = MagicMock()
         tool.name = "test"
         registry = ToolRegistry()
@@ -148,6 +158,7 @@ class TestToolBase:
     def test_registry_permissions(self):
         from orchestrator.tools.base import ToolRegistry, ToolPermission
         from unittest.mock import MagicMock
+
         tool = MagicMock()
         tool.name = "safe"
         tool.required_permissions = [ToolPermission.FILE_WRITE]
@@ -159,6 +170,7 @@ class TestToolBase:
     def test_registry_denies(self):
         from orchestrator.tools.base import ToolRegistry, ToolPermission
         from unittest.mock import MagicMock
+
         tool = MagicMock()
         tool.name = "danger"
         tool.required_permissions = [ToolPermission.SHELL_EXECUTE]
@@ -169,6 +181,7 @@ class TestToolBase:
     @pytest.mark.asyncio
     async def test_shell_tool_no_command(self):
         from orchestrator.tools.shell_tool import ShellTool
+
         tool = ShellTool()
         result = await tool.execute({})
         assert result.success is False
@@ -176,14 +189,15 @@ class TestToolBase:
 
     def test_shell_tool_validate(self):
         from orchestrator.tools.shell_tool import ShellTool
+
         assert ShellTool().validate_params({"command": "ls"}) is True
         assert ShellTool().validate_params({}) is False
-
 
 
 class TestReviewerAgent:
     def test_system_prompt(self):
         from orchestrator.agents.reviewer import ReviewerAgent
+
         agent = ReviewerAgent()
         assert "security" in agent.system_prompt
 
@@ -191,6 +205,7 @@ class TestReviewerAgent:
     async def test_handle_task_no_client(self):
         from orchestrator.agents.reviewer import ReviewerAgent
         from orchestrator.agents.base import AgentTask
+
         agent = ReviewerAgent()
         result = await agent.handle_task(AgentTask(id="r1", goal="review"))
         assert result.success is False
@@ -199,6 +214,7 @@ class TestReviewerAgent:
 class TestDevOpsAgent:
     def test_system_prompt(self):
         from orchestrator.agents.devops import DevOpsAgent
+
         agent = DevOpsAgent()
         assert "Docker" in agent.system_prompt
 
@@ -206,10 +222,13 @@ class TestDevOpsAgent:
 class TestResearcherAgent:
     def test_system_prompt(self):
         from orchestrator.agents.researcher import ResearcherAgent
+
         agent = ResearcherAgent()
         assert "research" in agent.system_prompt
+
     def test_tool_result_dataclass(self):
         from orchestrator.tools.base import ToolResult
+
         r = ToolResult(success=True, output="ok")
         assert r.success is True
         assert r.metrics == {}
@@ -225,12 +244,14 @@ class TestWorkspace:
 
     def test_write_and_read(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         ws.write_file("main.py", "content", author="dev")
         assert ws.read_file("main.py") == "content"
 
     def test_versioning(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         v1 = ws.write_file("f.py", "v1")
         assert v1.version == 1
@@ -239,6 +260,7 @@ class TestWorkspace:
 
     def test_decision_record(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         ad = ws.record_decision("Use FastAPI", "Use FastAPI", "Best")
         assert ad.title == "Use FastAPI"
@@ -246,9 +268,11 @@ class TestWorkspace:
 
     def test_summary(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         ws = ProjectWorkspace()
         assert "Files modified: 0" in ws.get_summary()
 
     def test_read_missing(self):
         from orchestrator.workspace.workspace import ProjectWorkspace
+
         assert ProjectWorkspace().read_file("missing.py") is None

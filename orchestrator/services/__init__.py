@@ -24,7 +24,7 @@ __all__ = [
     "DecomposerResult",
     "DecomposerService",
     "GeneratorService",  # backward-compat alias
-    "GeneratorResult",   # backward-compat alias
+    "GeneratorResult",  # backward-compat alias
     "GeneratorMetrics",  # backward-compat alias
     "ModelSummary",
     "ObservabilityService",

@@ -31,7 +31,6 @@ from orchestrator.resilience import (
 )
 from orchestrator.services.observability import ObservabilityService
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # CircuitBreakerRegistry
 # ─────────────────────────────────────────────────────────────────────────────
@@ -135,8 +134,9 @@ async def test_obs_error_rate_reflects_failures():
     for _ in range(8):
         await obs.record_call("m", latency_ms=100.0, cost_usd=0.0, success=True)
     for _ in range(2):
-        await obs.record_call("m", latency_ms=50.0, cost_usd=0.0, success=False,
-                              error="TimeoutError")
+        await obs.record_call(
+            "m", latency_ms=50.0, cost_usd=0.0, success=False, error="TimeoutError"
+        )
     summary = obs.model_summary("m")
     assert summary.error_rate == pytest.approx(0.2, abs=0.05)
 
@@ -153,8 +153,7 @@ async def test_obs_is_degraded_below_threshold():
 async def test_obs_is_degraded_above_threshold():
     obs = ObservabilityService(error_rate_threshold=0.5)
     for _ in range(4):
-        await obs.record_call("m", latency_ms=100.0, cost_usd=0.0, success=False,
-                              error="err")
+        await obs.record_call("m", latency_ms=100.0, cost_usd=0.0, success=False, error="err")
     assert obs.is_degraded("m") is True
 
 

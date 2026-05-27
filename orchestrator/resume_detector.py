@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 # Optional import of StateManager for type hints
 
+
 @dataclass(frozen=True)
 class ResumeCandidate:
     """A project that could potentially be resumed.

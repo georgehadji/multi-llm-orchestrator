@@ -315,6 +315,7 @@ except ImportError:
 
 logger = logging.getLogger("orchestrator")
 
+
 def _clean_code_output(text: str, task_type: TaskType) -> str:
     """
     Post-process code output to remove common LLM artifacts:
@@ -353,6 +354,7 @@ def _clean_code_output(text: str, task_type: TaskType) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
+
 
 class Orchestrator:
     """
@@ -498,10 +500,14 @@ class Orchestrator:
         from .application.dependency_resolver import DependencyResolver as _DepResolver
 
         # ── Phase 3: Context Compressor (opt-in via ORCH_CONTEXT_COMPRESSION=true) ──
-        self._context_compressor = ContextCompressor(
-            client=self.client,
-            enabled=flags.context_compression,
-        ) if ContextCompressor is not None else None
+        self._context_compressor = (
+            ContextCompressor(
+                client=self.client,
+                enabled=flags.context_compression,
+            )
+            if ContextCompressor is not None
+            else None
+        )
 
         self._dep_resolver = _DepResolver(
             context_truncation_limit=self.context_truncation_limit,
@@ -523,17 +529,20 @@ class Orchestrator:
         self._adaptive_router = AdaptiveRouter()
         # PHASE-2: TieredModelRouter for CHEAP/BALANCED/PREMIUM routing
         from .model_selector import TieredModelRouter
+
         self._tiered_router = TieredModelRouter(self.api_health, self._adaptive_router)
         # PHASE 6: PipelineRunner delegates context, cache, and execute_all
         from .pipeline_runner import PipelineRunner
+
         self._pipeline = PipelineRunner(self)
         # Task 7: configure OpenTelemetry tracing if a config was provided
         if tracing_cfg is not None:
             configure_tracing(tracing_cfg)
         # Persistent cross-run learning store (Learn & Show feature)
         self._telemetry_store: TelemetryStore | None = (
-            telemetry_store if telemetry_store is not None else
-            (TelemetryStore() if TelemetryStore is not None else None)
+            telemetry_store
+            if telemetry_store is not None
+            else (TelemetryStore() if TelemetryStore is not None else None)
         )
         # OPTIMIZATION: Semantic cache for high-level pattern reuse
         # Note: Now integrated into CacheOptimizer (L3 cache)
@@ -541,6 +550,7 @@ class Orchestrator:
 
         # PHASE 5-D: LearningServices (pattern learning, telemetry, batch execution)
         from .service_collection import LearningServices
+
         _learning = LearningServices.build(
             telemetry_store=self._telemetry_store,
             client=self.client,
@@ -569,6 +579,7 @@ class Orchestrator:
 
         # PHASE 5-A: Safety & Accountability modules (arXiv:2602.20021)
         from .service_collection import SafetyServices
+
         _safety = SafetyServices.build()
         self._task_verifier: TaskVerifier = _safety.task_verifier
         self._accountability: AccountabilityTracker = _safety.accountability
@@ -579,6 +590,7 @@ class Orchestrator:
         # NEW: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
         # PHASE 5-B: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
         from .service_collection import IntegrationServices
+
         _integration = IntegrationServices.build()
         self._token_optimizer: TokenOptimizer = _integration.token_optimizer
         self._preflight_validator: PreflightValidator = _integration.preflight_validator
@@ -812,44 +824,40 @@ class Orchestrator:
     ) -> dict[str, Any]:
         """
         Build OpenRouter optimization parameters for API calls.
-        
+
         Integrates native fallbacks and provider sorting based on
         feature flags and canary deployment status.
-        
+
         Args:
             task_type: Type of task being executed
             primary_model: Primary model for the task
             available_models: List of available fallback models
-            
+
         Returns:
             Dictionary of extra parameters for client.call()
         """
         extra_params: dict[str, Any] = {}
-        
+
         # Check if OpenRouter optimizations are available
         if OPENROUTER_OPTS is None:
             return extra_params
-        
+
         # Check canary deployment status
         try:
             from .canary_deployment import get_canary_deployment
+
             canary = get_canary_deployment()
         except ImportError:
             canary = None
-        
+
         # Feature: Native fallback models (USE_NATIVE_FALLBACKS)
-        if (
-            OPENROUTER_OPTS.USE_NATIVE_FALLBACKS
-            and available_models
-            and len(available_models) > 1
-        ):
+        if OPENROUTER_OPTS.USE_NATIVE_FALLBACKS and available_models and len(available_models) > 1:
             # Check if this optimization is enabled via canary
             # Use stable project identifier for consistent hashing
-            canary_enabled = (
-                canary is None 
-                or canary.is_enabled_for(getattr(self, '_project_id', 'default'), "native_fallbacks")
+            canary_enabled = canary is None or canary.is_enabled_for(
+                getattr(self, "_project_id", "default"), "native_fallbacks"
             )
-            
+
             if canary_enabled:
                 # Build fallback list (exclude primary)
                 fallback_ids = []
@@ -858,6 +866,7 @@ class Orchestrator:
                         # Apply variant if model variants enabled
                         if OPENROUTER_OPTS.USE_MODEL_VARIANTS:
                             from .models import TASK_VARIANT_STRATEGY, ModelVariant
+
                             variant = TASK_VARIANT_STRATEGY.get(task_type, ModelVariant.NONE)
                             if variant != ModelVariant.NONE:
                                 fallback_ids.append(m.with_variant(variant))
@@ -865,22 +874,21 @@ class Orchestrator:
                                 fallback_ids.append(m.value)
                         else:
                             fallback_ids.append(m.value)
-                
+
                 if fallback_ids:
                     extra_params["fallback_models"] = fallback_ids
                     logger.debug(f"Using native fallbacks: {fallback_ids}")
-        
+
         # Feature: Provider sorting (USE_PROVIDER_SORTING)
         if OPENROUTER_OPTS.USE_PROVIDER_SORTING:
-            canary_enabled = (
-                canary is None
-                or canary.is_enabled_for(getattr(self, '_project_id', 'default'), "provider_sorting")
+            canary_enabled = canary is None or canary.is_enabled_for(
+                getattr(self, "_project_id", "default"), "provider_sorting"
             )
-            
+
             if canary_enabled:
                 # Provider sorting is handled via task_type in api_clients
                 extra_params["task_type"] = task_type
-        
+
         return extra_params
 
     def _record_optimization_metrics(
@@ -891,7 +899,7 @@ class Orchestrator:
     ) -> None:
         """
         Record metrics for A/B testing OpenRouter optimizations.
-        
+
         Args:
             project_id: Project identifier
             optimization: Type of optimization (e.g., "native_fallbacks")
@@ -899,6 +907,7 @@ class Orchestrator:
         """
         try:
             from .openrouter_ab_testing import get_ab_tester
+
             ab_tester = get_ab_tester()
             ab_tester.record_metrics(project_id, optimization, metrics)
         except Exception as e:
@@ -1557,18 +1566,24 @@ class Orchestrator:
                 # Karpathy: Surface hidden assumptions before generating the plan
                 try:
                     from .assumption_gate import surface_assumptions
+
                     report = await surface_assumptions(project_description, self.client)
                     if report.has_ambiguity:
                         logger.info(
                             "Assumptions surfaced: %d assumptions, %d questions",
-                            len(report.assumptions), len(report.clarification_questions)
+                            len(report.assumptions),
+                            len(report.clarification_questions),
                         )
-                        project_description = f"{project_description}\n\n{report.to_prompt_context()}"
+                        project_description = (
+                            f"{project_description}\n\n{report.to_prompt_context()}"
+                        )
                 except ImportError:
                     pass
 
                 gen_result = await self._generator.decompose(
-                    project_description, success_criteria, app_profile=app_profile,
+                    project_description,
+                    success_criteria,
+                    app_profile=app_profile,
                     policy=RetryTemplate.DECOMPOSE.to_policy(),
                 )
                 if not gen_result.succeeded:
@@ -1788,27 +1803,28 @@ class Orchestrator:
         # Karpathy: Surface hidden assumptions before generating the plan
         try:
             from .assumption_gate import surface_assumptions
+
             report = await surface_assumptions(project_description, self.client)
             if report.has_ambiguity:
                 logger.info(
                     "Assumptions surfaced: %d assumptions, %d questions",
-                    len(report.assumptions), len(report.clarification_questions)
+                    len(report.assumptions),
+                    len(report.clarification_questions),
                 )
                 project_description = f"{project_description}\n\n{report.to_prompt_context()}"
         except ImportError:
             pass
 
         gen_result = await self._generator.decompose(
-            project_description, success_criteria,
+            project_description,
+            success_criteria,
             policy=RetryTemplate.DECOMPOSE.to_policy(),
         )
         tasks = gen_result.tasks if gen_result.succeeded else {}
 
         # Validate budget sufficiency for task count
-        if tasks and hasattr(self, 'budget') and self.budget:
-            is_sufficient, warning = self.budget.validate_sufficient_for_tasks(
-                len(tasks)
-            )
+        if tasks and hasattr(self, "budget") and self.budget:
+            is_sufficient, warning = self.budget.validate_sufficient_for_tasks(len(tasks))
             if not is_sufficient:
                 logger.warning(warning)
 
@@ -1872,7 +1888,11 @@ class Orchestrator:
     # ─────────────────────────────────────────
 
     async def _decompose(
-        self, project: str, criteria: str, app_profile: AppProfile | None = None, policy: ResiliencePolicy | None = None
+        self,
+        project: str,
+        criteria: str,
+        app_profile: AppProfile | None = None,
+        policy: ResiliencePolicy | None = None,
     ) -> dict[str, Task]:
         """Use cheapest capable model to break project into atomic tasks."""
         valid_types = [t.value for t in TaskType]
@@ -1957,9 +1977,10 @@ Each task JSON element MUST also include:
             logger.warning("Instructor not available, falling back to manual JSON parsing")
         except Exception as e:
             import traceback
+
             # BUG-005: Enhanced logging for Instructor validation failures
             error_msg = str(e).lower()
-            if any(keyword in error_msg for keyword in ['assert', 'validation', 'schema', 'parse']):
+            if any(keyword in error_msg for keyword in ["assert", "validation", "schema", "parse"]):
                 logger.warning(f"Instructor validation failed: {type(e).__name__}: {e}")
                 logger.debug(f"Instructor failed input preview: {project[:200]}...")
             else:
@@ -1972,7 +1993,7 @@ Each task JSON element MUST also include:
 
         # OpenRouter Optimization: Check if JSON schema responses are enabled
         use_json_schema = (
-            OPENROUTER_OPTS is not None 
+            OPENROUTER_OPTS is not None
             and OPENROUTER_OPTS.USE_JSON_SCHEMA_RESPONSES
             and generate_openrouter_schema is not None
         )
@@ -1981,7 +2002,7 @@ Each task JSON element MUST also include:
 
         async def _try_decompose(m: Model | str, max_tokens: int = 8192) -> dict[str, Task]:
             nonlocal last_response_text
-            
+
             # Build call arguments
             call_args = {
                 "model": m,
@@ -1991,7 +2012,7 @@ Each task JSON element MUST also include:
                 "timeout": 120,
                 "bypass_cache": True,  # never reuse a cached decomposition response
             }
-            
+
             # Add OpenRouter optimization parameters if enabled
             # Use REASONING task type for decomposition (better structured output)
             if use_json_schema:
@@ -2000,20 +2021,18 @@ Each task JSON element MUST also include:
 
             if policy is not None:
                 call_args["policy"] = policy
-            
+
             resp = await self.client.call(**call_args)
             last_response_text = resp.text  # Capture for error logging
-            
+
             # Check for truncation by examining response text
             # If response ends abruptly without proper JSON closure, it's likely truncated
             text_stripped = resp.text.strip()
-            is_truncated = (
-                text_stripped.startswith("[") and not text_stripped.endswith("]")
-            ) or (
-                len(text_stripped) > 100 and  # Has content
-                text_stripped.count("{") > text_stripped.count("}")  # Unclosed braces
+            is_truncated = (text_stripped.startswith("[") and not text_stripped.endswith("]")) or (
+                len(text_stripped) > 100  # Has content
+                and text_stripped.count("{") > text_stripped.count("}")  # Unclosed braces
             )
-            
+
             if is_truncated:
                 logger.warning(
                     f"Detected truncated response ({len(resp.text)} chars, "
@@ -2021,9 +2040,9 @@ Each task JSON element MUST also include:
                 )
                 raise TruncatedResponseError(
                     tokens_used=max_tokens,  # We don't know exact usage, assume max
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
                 )
-            
+
             await self.budget.charge(resp.cost_usd, "decomposition")
             await self._record_success(m if isinstance(m, Model) else model, resp)
             result = self._parse_decomposition(resp.text)
@@ -2039,15 +2058,13 @@ Each task JSON element MUST also include:
         # Add Qwen3 Coder Next as final fallback for JSON structure issues
         if Model.QWEN_3_6_FLASH not in models_to_try:
             models_to_try.append(Model.QWEN_3_6_FLASH)
-        
+
         # OpenRouter Optimization: Apply model variants if enabled
         # Use REASONING variant (THINKING) for decomposition tasks
-        use_model_variants = (
-            OPENROUTER_OPTS is not None 
-            and OPENROUTER_OPTS.USE_MODEL_VARIANTS
-        )
+        use_model_variants = OPENROUTER_OPTS is not None and OPENROUTER_OPTS.USE_MODEL_VARIANTS
         if use_model_variants:
             from .models import TASK_VARIANT_STRATEGY, ModelVariant
+
             variant = TASK_VARIANT_STRATEGY.get(TaskType.REASONING, ModelVariant.NONE)
             if variant != ModelVariant.NONE:
                 logger.info(f"OpenRouter: Using model variant '{variant.value}' for decomposition")
@@ -2064,16 +2081,16 @@ Each task JSON element MUST also include:
         # Track token escalation for truncation recovery
         token_limits = [8192, 12288, 16384]  # Escalating token limits (16K max)
         truncation_attempts = 0
-        
+
         for attempt, m in enumerate(models_to_try):
             if m is None:
                 break
             # Get model name for logging (handle both Model enum and string variants)
             model_name = m.value if isinstance(m, Model) else m
-            
+
             # Select token limit (escalate on truncation retries)
             current_max_tokens = token_limits[min(truncation_attempts, len(token_limits) - 1)]
-            
+
             try:
                 return await _try_decompose(m, max_tokens=current_max_tokens)
             except TruncatedResponseError as e:
@@ -2143,14 +2160,14 @@ Each task JSON element MUST also include:
         text_stripped = text.strip()
 
         # Quick check: if text is empty or just '[', nothing to recover
-        if not text_stripped or text_stripped == '[':
+        if not text_stripped or text_stripped == "[":
             logger.warning("Response is empty or just '[' - no recoverable content")
             return None
 
         # Strategy 0: Handle extreme truncation by detecting partial first object
         # If text starts with '[{' but has no complete objects, try to extract
         # whatever fields are present
-        if text_stripped.startswith('[{') and '}' not in text_stripped:
+        if text_stripped.startswith("[{") and "}" not in text_stripped:
             # Try to extract ID if present (minimum viable recovery)
             id_match = re.search(r'"id"\s*:\s*"(task_[^"]*)"', text_stripped)
             if id_match:
@@ -2162,7 +2179,7 @@ Each task JSON element MUST also include:
                     "type": "code_generation",
                     "prompt": "Implement the project requirements (auto-generated due to truncation)",
                     "dependencies": [],
-                    "acceptance_threshold": 0.8
+                    "acceptance_threshold": 0.8,
                 }
                 logger.info("Created minimal recovery task from partial ID")
                 return [minimal_task]
@@ -2205,19 +2222,20 @@ Each task JSON element MUST also include:
 
         # Strategy 2: Try line-by-line parsing (for line-delimited JSON)
         # Some models output JSONL format instead of a JSON array
-        lines = text.strip().split('\n')
+        lines = text.strip().split("\n")
         for line in lines:
             line = line.strip()
-            if line and line.startswith('{') and line.endswith('}'):
+            if line and line.startswith("{") and line.endswith("}"):
                 try:
                     obj = json.loads(line)
-                    if isinstance(obj, dict) and 'id' in obj:
+                    if isinstance(obj, dict) and "id" in obj:
                         objects.append(obj)
                 except json.JSONDecodeError:
                     try:
                         import json5
+
                         obj = json5.loads(line)
-                        if isinstance(obj, dict) and 'id' in obj:
+                        if isinstance(obj, dict) and "id" in obj:
                             objects.append(obj)
                     except Exception:
                         pass
@@ -2230,16 +2248,16 @@ Each task JSON element MUST also include:
         # Remove trailing commas, incomplete final objects, etc.
         cleaned_text = text.strip()
         # Remove leading '[' if present
-        if cleaned_text.startswith('['):
+        if cleaned_text.startswith("["):
             cleaned_text = cleaned_text[1:]
         # Try to find the last complete object
-        last_brace = cleaned_text.rfind('}')
+        last_brace = cleaned_text.rfind("}")
         if last_brace > 0:
             # Truncate to last complete object
-            truncated = cleaned_text[:last_brace + 1]
+            truncated = cleaned_text[: last_brace + 1]
             # Try to wrap in array brackets
             try:
-                wrapped = '[' + truncated + ']'
+                wrapped = "[" + truncated + "]"
                 items = json.loads(wrapped)
                 if isinstance(items, list) and items:
                     logger.info(f"Recovered {len(items)} task objects via aggressive cleanup")
@@ -2258,15 +2276,15 @@ Each task JSON element MUST also include:
             # Try to extract objects by looking backwards from each task ID
             for match in task_matches:
                 # Look for opening brace before this id
-                start = text.rfind('{', 0, match.start())
+                start = text.rfind("{", 0, match.start())
                 if start >= 0:
                     # Look for closing brace after the id
-                    end = text.find('}', match.end())
+                    end = text.find("}", match.end())
                     if end > 0:
-                        obj_text = text[start:end+1]
+                        obj_text = text[start : end + 1]
                         try:
                             obj = json.loads(obj_text)
-                            if isinstance(obj, dict) and 'id' in obj:
+                            if isinstance(obj, dict) and "id" in obj:
                                 objects.append(obj)
                         except json.JSONDecodeError:
                             pass
@@ -2375,9 +2393,7 @@ Each task JSON element MUST also include:
             # Check if response looks truncated (starts with [ but doesn't end with ])
             text_stripped = text.strip()
             if text_stripped.startswith("[") and not text_stripped.endswith("]"):
-                logger.warning(
-                    "Response appears truncated - attempting partial JSON recovery"
-                )
+                logger.warning("Response appears truncated - attempting partial JSON recovery")
                 # Try to extract and complete partial JSON array
                 items = self._try_parse_partial_json_array(text_stripped)
                 if items and isinstance(items, list) and len(items) > 0:
@@ -2704,13 +2720,16 @@ Each task JSON element MUST also include:
                 # BUG-RACE-002 FIX: Protect results access with lock
                 async with self._results_lock:
                     dep_results = [
-                        self.results.get(dep, TaskResult(
-                            task_id=dep,
-                            output="",
-                            score=0.0,
-                            model_used=Model.GPT_4O_MINI,
-                            task_type=tasks[dep].type.value if dep in tasks else "unknown"
-                        ))
+                        self.results.get(
+                            dep,
+                            TaskResult(
+                                task_id=dep,
+                                output="",
+                                score=0.0,
+                                model_used=Model.GPT_4O_MINI,
+                                task_type=tasks[dep].type.value if dep in tasks else "unknown",
+                            ),
+                        )
                         for dep in tasks[task_id].dependencies
                     ]
                 any_failed = any(r.status == TaskStatus.FAILED for r in dep_results)
@@ -2780,7 +2799,11 @@ Each task JSON element MUST also include:
                             self.results[_tid] = _res
                     continue
                 except Exception as _batch_err:
-                    logger.warning("Batch execution failed for level %d: %s - falling back", level_idx, _batch_err)
+                    logger.warning(
+                        "Batch execution failed for level %d: %s - falling back",
+                        level_idx,
+                        _batch_err,
+                    )
 
             # ═══════════════════════════════════════════════════════
             # OPTIMIZATION: Cache warming before parallel execution
@@ -2870,16 +2893,19 @@ Each task JSON element MUST also include:
     def _validate_syntax_streaming(self, partial_output: str) -> bool:
         """PHASE-4: Delegates to orchestrator.validators.validate_syntax_streaming."""
         from .validators import validate_syntax_streaming
+
         return validate_syntax_streaming(partial_output)
 
     async def _validate_syntax_batch(self, output: str) -> bool:
         """PHASE-4: Delegates to orchestrator.validators.validate_syntax_batch."""
         from .validators import validate_syntax_batch
+
         return await validate_syntax_batch(output)
 
     def _extract_function_name(self, code: str) -> str | None:
         """PHASE-4: Delegates to orchestrator.validators.extract_function_name."""
         from .validators import extract_function_name
+
         return extract_function_name(code)
 
     def _build_delta_prompt(self, original_prompt: str, record: AttemptRecord) -> str:
@@ -3301,14 +3327,14 @@ Each task JSON element MUST also include:
                             self._rate_limiter.check(
                                 _rl_tenant, primary.value, effective_max_tokens
                             )
-                            
+
                             # Build OpenRouter optimization parameters
                             or_params = self._get_openrouter_call_params(
                                 task_type=task.type,
                                 primary_model=primary,
                                 available_models=models,
                             )
-                            
+
                             try:
                                 gen_response = await self.client.call(
                                     primary,
@@ -3367,14 +3393,14 @@ Each task JSON element MUST also include:
                         )
                         _rl_tenant = getattr(task, "tenant", "default")
                         self._rate_limiter.check(_rl_tenant, primary.value, effective_max_tokens)
-                        
+
                         # Build OpenRouter optimization parameters
                         or_params = self._get_openrouter_call_params(
                             task_type=task.type,
                             primary_model=primary,
                             available_models=models,
                         )
-                        
+
                         try:
                             gen_response = await self.client.call(
                                 primary,
@@ -3565,8 +3591,8 @@ Each task JSON element MUST also include:
                     # critiques.  Fix: detect reasoning models by their model-value string instead.
                     _reviewer_is_reasoning = (
                         ModelRegistry.is_reasoning_model(reviewer.value)  # DeepSeek-R1, o1, etc.
-                        or "anthropic/claude" in reviewer.value            # All Claude variants
-                        or reviewer.value.startswith("claude-")            # bare "claude-*" aliases
+                        or "anthropic/claude" in reviewer.value  # All Claude variants
+                        or reviewer.value.startswith("claude-")  # bare "claude-*" aliases
                     )
                     if _reviewer_is_reasoning:
                         critique_max_tokens = min(task.max_output_tokens * 2, 8192)
@@ -3701,15 +3727,16 @@ Each task JSON element MUST also include:
                         full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
 
                     # ── PATTERN INJECTION (Phase 5: opt-in) ──
-                    if hasattr(self, '_pattern_injector') and self._pattern_injector is not None:
+                    if hasattr(self, "_pattern_injector") and self._pattern_injector is not None:
                         enriched, added = await self._pattern_injector.inject(
-                            task.type.value, full_prompt,
+                            task.type.value,
+                            full_prompt,
                         )
                         if added:
                             full_prompt = enriched
 
                     # ── CONTEXT PROVIDER ENRICHMENT (Phase 2: opt-in) ──
-                    if hasattr(self, '_context_providers') and self._context_providers:
+                    if hasattr(self, "_context_providers") and self._context_providers:
                         for _cp in self._context_providers:
                             try:
                                 _er = await _cp.enrich(full_prompt, task.type.value, context)
@@ -3729,7 +3756,8 @@ Each task JSON element MUST also include:
                 if guardrail_result.is_blocked:
                     logger.warning(
                         "Guardrail BLOCKED iteration for %s: %s",
-                        task.id, guardrail_result.reason,
+                        task.id,
+                        guardrail_result.reason,
                     )
                     # Fire guardrail hook event
                     try:
@@ -3963,19 +3991,23 @@ Each task JSON element MUST also include:
                 self._semantic_cache.cache_pattern(task, best_output, best_score)
 
                 # ── MEMORY SYNC (Phase 3+: persist to memory providers) ──
-                if hasattr(self, '_memory_provider_mgr') and self._memory_provider_mgr is not None:
+                if hasattr(self, "_memory_provider_mgr") and self._memory_provider_mgr is not None:
                     asyncio.create_task(
                         self._memory_manager.sync_turn(
-                            task.id, task.type.value, result,
+                            task.id,
+                            task.type.value,
+                            result,
                         )
                     )
 
                 # ── PATTERN EXTRACTION (Phase 5: closed learning loop) ──
-                if hasattr(self, '_pattern_extractor') and self._pattern_extractor is not None:
+                if hasattr(self, "_pattern_extractor") and self._pattern_extractor is not None:
                     pattern = await self._pattern_extractor.extract(
-                        task.type.value, result, task.prompt,
+                        task.type.value,
+                        result,
+                        task.prompt,
                     )
-                    if pattern is not None and hasattr(self, '_pattern_store'):
+                    if pattern is not None and hasattr(self, "_pattern_store"):
                         await self._pattern_store.insert(
                             pattern,
                             prompt_text=task.prompt,
@@ -4661,6 +4693,7 @@ Each task JSON element MUST also include:
     def _filter_validators_for_task(self, task: Task, output: str) -> list[str]:
         """PHASE-4: Delegates to orchestrator.validators.filter_validators_for_task."""
         from .validators import filter_validators_for_task
+
         return filter_validators_for_task(task, output)
 
     async def _gather_dependency_context(self, task: Task) -> str:
@@ -4780,7 +4813,7 @@ Each task JSON element MUST also include:
         )
 
         # ── MEMORY CONSOLIDATION (Phase 3+: cross-project insights) ──
-        if hasattr(self, '_memory_provider_mgr') and self._memory_provider_mgr is not None:
+        if hasattr(self, "_memory_provider_mgr") and self._memory_provider_mgr is not None:
             asyncio.create_task(self._memory_manager.maybe_consolidate())
 
         det_ok = all(r.deterministic_check_passed for r in state.results.values())
@@ -4836,7 +4869,8 @@ Each task JSON element MUST also include:
             for task_id in remaining:
                 if task_id in state.tasks:
                     result = await self._execute_task(
-                        state.tasks[task_id], policy=RetryTemplate.for_task_type(state.tasks[task_id].type)
+                        state.tasks[task_id],
+                        policy=RetryTemplate.for_task_type(state.tasks[task_id].type),
                     )
                     self.results[task_id] = result
                     state.results[task_id] = result

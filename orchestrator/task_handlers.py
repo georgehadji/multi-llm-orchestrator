@@ -64,8 +64,7 @@ class TaskHandler(Protocol):
         client: Any,
         budget: Any,
         **kwargs: Any,
-    ) -> TaskResult:
-        ...
+    ) -> TaskResult: ...
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -195,6 +194,7 @@ class CodeGenerationHandler(_BaseHandler):
 
         # Clean code output
         from .engine_core.utilities import _clean_code_output
+
         output = _clean_code_output(text, task.type)
 
         return TaskResult(
@@ -206,7 +206,11 @@ class CodeGenerationHandler(_BaseHandler):
             tokens_used={"input": 0, "output": 0},
             iterations=1,
             cost_usd=0.0,
-            status=TaskResult.TaskStatus.PENDING.value if hasattr(TaskResult, 'TaskStatus') else "completed",
+            status=(
+                TaskResult.TaskStatus.PENDING.value
+                if hasattr(TaskResult, "TaskStatus")
+                else "completed"
+            ),
             critique="",
             deterministic_check_passed=False,
             degraded_fallback_count=0,
@@ -260,7 +264,11 @@ class CodeReviewHandler(_BaseHandler):
             tokens_used={"input": 0, "output": 0},
             iterations=1,
             cost_usd=0.0,
-            status=TaskResult.TaskStatus.PENDING.value if hasattr(TaskResult, 'TaskStatus') else "completed",
+            status=(
+                TaskResult.TaskStatus.PENDING.value
+                if hasattr(TaskResult, "TaskStatus")
+                else "completed"
+            ),
             critique="",
             deterministic_check_passed=False,
             degraded_fallback_count=0,
@@ -304,7 +312,11 @@ class EvaluationHandler(_BaseHandler):
             tokens_used={"input": 0, "output": 0},
             iterations=1,
             cost_usd=0.0,
-            status=TaskResult.TaskStatus.PENDING.value if hasattr(TaskResult, 'TaskStatus') else "completed",
+            status=(
+                TaskResult.TaskStatus.PENDING.value
+                if hasattr(TaskResult, "TaskStatus")
+                else "completed"
+            ),
             critique="",
             deterministic_check_passed=False,
             degraded_fallback_count=0,
@@ -352,7 +364,11 @@ class ReasoningHandler(_BaseHandler):
             tokens_used={"input": 0, "output": 0},
             iterations=1,
             cost_usd=0.0,
-            status=TaskResult.TaskStatus.PENDING.value if hasattr(TaskResult, 'TaskStatus') else "completed",
+            status=(
+                TaskResult.TaskStatus.PENDING.value
+                if hasattr(TaskResult, "TaskStatus")
+                else "completed"
+            ),
             critique="",
             deterministic_check_passed=False,
             degraded_fallback_count=0,
@@ -394,7 +410,11 @@ class ArchitectureHandler(_BaseHandler):
             tokens_used={"input": 0, "output": 0},
             iterations=1,
             cost_usd=0.0,
-            status=TaskResult.TaskStatus.PENDING.value if hasattr(TaskResult, 'TaskStatus') else "completed",
+            status=(
+                TaskResult.TaskStatus.PENDING.value
+                if hasattr(TaskResult, "TaskStatus")
+                else "completed"
+            ),
             critique="",
             deterministic_check_passed=False,
             degraded_fallback_count=0,

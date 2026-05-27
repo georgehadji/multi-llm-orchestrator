@@ -26,6 +26,7 @@ logger = logging.getLogger("orchestrator.learning.experience_buffer")
 @dataclass
 class SuccessPattern:
     """Record of a successful execution pattern."""
+
     pattern_hash: str
     task_type: str
     method: str
@@ -54,27 +55,37 @@ class ExperienceBuffer:
     def record_success(self, task_type: str, method: str, model: str, score: float) -> None:
         """Record a successful execution."""
         pattern = self._hash_pattern(task_type, method, model)
-        self.successes.append(SuccessPattern(
-            pattern_hash=pattern, task_type=task_type,
-            method=method, model=model, score=score,
-        ))
+        self.successes.append(
+            SuccessPattern(
+                pattern_hash=pattern,
+                task_type=task_type,
+                method=method,
+                model=model,
+                score=score,
+            )
+        )
         # BUG-008 FIX: cap the audit list to prevent unbounded memory/disk growth.
         # AgentMemory.record() applies the same pattern with [-50:].
         if len(self.successes) > self._MAX_AUDIT_SIZE:
-            self.successes = self.successes[-self._MAX_AUDIT_SIZE:]
+            self.successes = self.successes[-self._MAX_AUDIT_SIZE :]
         self.model_scores[f"{model}:{task_type}"].append(score)
         self.method_scores[f"{method}:{task_type}"].append(score)
 
     def record_failure(self, task_type: str, method: str, model: str, score: float = 0.0) -> None:
         """Record a failed execution."""
         pattern = self._hash_pattern(task_type, method, model)
-        self.failures.append(SuccessPattern(
-            pattern_hash=pattern, task_type=task_type,
-            method=method, model=model, score=score,
-        ))
+        self.failures.append(
+            SuccessPattern(
+                pattern_hash=pattern,
+                task_type=task_type,
+                method=method,
+                model=model,
+                score=score,
+            )
+        )
         # BUG-008 FIX: same cap as record_success.
         if len(self.failures) > self._MAX_AUDIT_SIZE:
-            self.failures = self.failures[-self._MAX_AUDIT_SIZE:]
+            self.failures = self.failures[-self._MAX_AUDIT_SIZE :]
 
     def best_method_for(self, task_type: str) -> str | None:
         """Get the best-performing method for a task type."""
@@ -106,9 +117,9 @@ class ExperienceBuffer:
     def _hash_pattern(self, task_type: str, method: str, model: str) -> str:
         return hashlib.md5(f"{task_type}:{method}:{model}".encode()).hexdigest()[:12]
 
-
     def save(self, path: str | None = None) -> None:
         import json
+
         p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "experience.json")
         os.makedirs(os.path.dirname(p), exist_ok=True)
         data = {
@@ -123,6 +134,7 @@ class ExperienceBuffer:
     @classmethod
     def load(cls, path: str | None = None) -> "ExperienceBuffer":
         import json, os
+
         p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "experience.json")
         if not os.path.exists(p):
             return cls()
@@ -135,6 +147,7 @@ class ExperienceBuffer:
             for f_ in data.get("failures", []):
                 buf.failures.append(SuccessPattern(**f_))
             from collections import defaultdict
+
             buf.model_scores = defaultdict(list, data.get("model_scores", {}))
             buf.method_scores = defaultdict(list, data.get("method_scores", {}))
             return buf

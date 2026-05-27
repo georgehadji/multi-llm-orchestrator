@@ -57,7 +57,9 @@ class CommandCenter:
     def run(self):
         print(BANNER)
         print(HELP)
-        print(f"  Budget: ${self.state.budget:.2f} | {'Premium' if self.state.premium else 'Budget'}")
+        print(
+            f"  Budget: ${self.state.budget:.2f} | {'Premium' if self.state.premium else 'Budget'}"
+        )
         while True:
             try:
                 text = input("\nYou > ").strip()
@@ -116,7 +118,7 @@ class CommandCenter:
         parts = rest.split(" ", 1)
         if len(parts) < 2:
             return "Usage: modify <repo_path> <objective>"
-        return f"Command: python -m orchestrator modify --repo {parts[0]} --objective \"{parts[1]}\""
+        return f'Command: python -m orchestrator modify --repo {parts[0]} --objective "{parts[1]}"'
 
     def _analyze(self, path: str) -> str:
         return f"Command: python -m orchestrator analyze --path {path} --budget {self.state.budget}"

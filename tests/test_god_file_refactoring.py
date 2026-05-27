@@ -52,9 +52,7 @@ def mock_evaluator():
     from orchestrator.feedback import CritiqueReport
 
     evaluator = MagicMock()
-    evaluator.evaluate = AsyncMock(
-        return_value=CritiqueReport(task_id="t1", score=8.5)
-    )
+    evaluator.evaluate = AsyncMock(return_value=CritiqueReport(task_id="t1", score=8.5))
     return evaluator
 
 
@@ -79,23 +77,25 @@ def sample_task():
 @pytest.fixture
 def valid_json_response():
     """Valid decomposition JSON response."""
-    return json.dumps([
-        {
-            "id": "task_001",
-            "type": "code_generation",
-            "prompt": "Write authentication module",
-            "dependencies": [],
-            "target_path": "src/auth.py",
-            "module_name": "src.auth",
-            "tech_context": "fastapi, jwt",
-        },
-        {
-            "id": "task_002",
-            "type": "code_review",
-            "prompt": "Review task_001 output",
-            "dependencies": ["task_001"],
-        },
-    ])
+    return json.dumps(
+        [
+            {
+                "id": "task_001",
+                "type": "code_generation",
+                "prompt": "Write authentication module",
+                "dependencies": [],
+                "target_path": "src/auth.py",
+                "module_name": "src.auth",
+                "tech_context": "fastapi, jwt",
+            },
+            {
+                "id": "task_002",
+                "type": "code_review",
+                "prompt": "Review task_001 output",
+                "dependencies": ["task_001"],
+            },
+        ]
+    )
 
 
 @pytest.fixture
@@ -113,36 +113,43 @@ class TestEngineDeps:
     def test_engine_deps_imports_without_error(self):
         """engine_deps.py should import without any errors."""
         import orchestrator.engine_deps as ed
+
         assert ed is not None
 
     def test_has_test_validator_flag(self):
         """HAS_TEST_VALIDATOR should be defined."""
         import orchestrator.engine_deps as ed
+
         assert hasattr(ed, "HAS_TEST_VALIDATOR")
 
     def test_has_tdd_flag(self):
         """HAS_TDD should be defined."""
         import orchestrator.engine_deps as ed
+
         assert hasattr(ed, "HAS_TDD")
 
     def test_has_context_management_flag(self):
         """HAS_CONTEXT_MANAGEMENT should be defined."""
         import orchestrator.engine_deps as ed
+
         assert hasattr(ed, "HAS_CONTEXT_MANAGEMENT")
 
     def test_has_test_fixer_flag(self):
         """HAS_TEST_FIXER should be defined."""
         import orchestrator.engine_deps as ed
+
         assert hasattr(ed, "HAS_TEST_FIXER")
 
     def test_has_pre_submission_flag(self):
         """HAS_PRE_SUBMISSION should be defined."""
         import orchestrator.engine_deps as ed
+
         assert hasattr(ed, "HAS_PRE_SUBMISSION")
 
     def test_all_has_flags_are_boolean(self):
         """All HAS_* flags should be booleans."""
         import orchestrator.engine_deps as ed
+
         for name in dir(ed):
             if name.startswith("HAS_"):
                 assert isinstance(getattr(ed, name), bool), f"{name} should be bool"
@@ -191,8 +198,7 @@ class TestDecomposer:
         tasks = d._parse_decomposition("{bad}")
         assert tasks == {}
 
-    def test_try_parse_partial_recovery(self, mock_client, mock_selector,
-                                        truncated_json_response):
+    def test_try_parse_partial_recovery(self, mock_client, mock_selector, truncated_json_response):
         """Truncated JSON should attempt partial recovery."""
         from orchestrator.engine_core.decomposer import Decomposer
 
@@ -216,8 +222,7 @@ class TestDecomposer:
         d = Decomposer(client=mock_client, selector=mock_selector)
         partial = [
             {"id": "t1", "type": "code_generation", "prompt": "Write foo"},
-            {"id": "t2", "type": "code_review", "prompt": "Review foo",
-             "dependencies": ["t1"]},
+            {"id": "t2", "type": "code_review", "prompt": "Review foo", "dependencies": ["t1"]},
         ]
         tasks = d._repair_partial_tasks(partial)
         assert tasks is not None
@@ -234,8 +239,9 @@ class TestDecomposer:
         assert len(models) >= 2
 
     @pytest.mark.asyncio
-    async def test_decompose_with_mock_client(self, mock_client, mock_selector,
-                                              valid_json_response):
+    async def test_decompose_with_mock_client(
+        self, mock_client, mock_selector, valid_json_response
+    ):
         """Full decomposition with mocked client."""
         from orchestrator.engine_core.decomposer import Decomposer
 
@@ -304,8 +310,10 @@ class TestTaskValidator:
         from orchestrator.models import Task, TaskStatus, TaskType
 
         task = Task(
-            id="t1", type=TaskType.WRITING,
-            prompt="Write a poem", context="",
+            id="t1",
+            type=TaskType.WRITING,
+            prompt="Write a poem",
+            context="",
             hard_validators=["python_syntax", "pytest", "json_schema"],
         )
         v = TaskValidator(client=mock_client, budget=mock_budget)
@@ -324,17 +332,17 @@ class TestTaskValidator:
         assert not v.validate_syntax_streaming("a + b)")  # unmatched close
 
     @pytest.mark.asyncio
-    async def test_run_preflight_without_validator(self, mock_client, mock_budget,
-                                                    sample_task):
+    async def test_run_preflight_without_validator(self, mock_client, mock_budget, sample_task):
         """Preflight should pass when no preflight_validator is configured."""
         from orchestrator.engine_core.validator import TaskValidator
         from orchestrator.models import Model
 
-        v = TaskValidator(client=mock_client, budget=mock_budget,
-                          preflight_validator=None)
+        v = TaskValidator(client=mock_client, budget=mock_budget, preflight_validator=None)
         result, score, pf = await v.run_preflight_check(
-            task=sample_task, output="def foo(): pass",
-            score=0.9, primary=Model.GPT_4O_MINI,
+            task=sample_task,
+            output="def foo(): pass",
+            score=0.9,
+            primary=Model.GPT_4O_MINI,
         )
         assert result == "def foo(): pass"
         assert score == 0.9
@@ -416,15 +424,18 @@ class TestPipeline:
         assert "def add" in result.output
 
     @pytest.mark.asyncio
-    async def test_task_pipeline_runs_all_stages(self, mock_client, mock_budget,
-                                                  mock_selector, mock_evaluator,
-                                                  sample_task):
+    async def test_task_pipeline_runs_all_stages(
+        self, mock_client, mock_budget, mock_selector, mock_evaluator, sample_task
+    ):
         """Pipeline should run all stages in order."""
         from orchestrator.engine_core.pipeline import (
-            PipelineContext, TaskPipeline,
+            PipelineContext,
+            TaskPipeline,
         )
         from orchestrator.engine_core.stages import (
-            GenerateStage, CritiqueStage, EvaluateStage,
+            GenerateStage,
+            CritiqueStage,
+            EvaluateStage,
             ValidateStage,
         )
 
@@ -434,13 +445,14 @@ class TestPipeline:
         mock_response.cost_usd = 0.01
         mock_client.call = AsyncMock(return_value=mock_response)
 
-        pipeline = TaskPipeline([
-            GenerateStage(client=mock_client, budget=mock_budget,
-                          selector=mock_selector),
-            CritiqueStage(client=mock_client),
-            EvaluateStage(evaluator=mock_evaluator),
-            ValidateStage(),
-        ])
+        pipeline = TaskPipeline(
+            [
+                GenerateStage(client=mock_client, budget=mock_budget, selector=mock_selector),
+                CritiqueStage(client=mock_client),
+                EvaluateStage(evaluator=mock_evaluator),
+                ValidateStage(),
+            ]
+        )
 
         ctx = PipelineContext(task=sample_task)
         ctx = await pipeline.run(ctx)
@@ -450,11 +462,13 @@ class TestPipeline:
         assert not ctx.should_abort
 
     @pytest.mark.asyncio
-    async def test_pipeline_stops_on_abort(self, mock_client, mock_budget,
-                                            mock_selector, sample_task):
+    async def test_pipeline_stops_on_abort(
+        self, mock_client, mock_budget, mock_selector, sample_task
+    ):
         """Pipeline should stop when should_abort is set."""
         from orchestrator.engine_core.pipeline import (
-            PipelineContext, TaskPipeline,
+            PipelineContext,
+            TaskPipeline,
         )
         from orchestrator.engine_core.stages import GenerateStage
 
@@ -465,11 +479,12 @@ class TestPipeline:
                 ctx.abort_reason = "test_abort"
                 return ctx
 
-        pipeline = TaskPipeline([
-            AbortStage(),
-            GenerateStage(client=mock_client, budget=mock_budget,
-                          selector=mock_selector),
-        ])
+        pipeline = TaskPipeline(
+            [
+                AbortStage(),
+                GenerateStage(client=mock_client, budget=mock_budget, selector=mock_selector),
+            ]
+        )
 
         ctx = PipelineContext(task=sample_task)
         ctx = await pipeline.run(ctx)
@@ -551,6 +566,7 @@ class TestEngineDelegation:
     def test_engine_deps_available(self):
         """engine_deps should export to engine.py namespace."""
         from orchestrator.engine_deps import HAS_TEST_VALIDATOR
+
         assert HAS_TEST_VALIDATOR in (True, False)
 
     @pytest.mark.asyncio
@@ -580,12 +596,18 @@ class TestEngineDelegation:
     def test_pipeline_method_accessible(self):
         """TaskPipeline and stages should be importable."""
         from orchestrator.engine_core.pipeline import (
-            PipelineContext, TaskPipeline,
+            PipelineContext,
+            TaskPipeline,
         )
         from orchestrator.engine_core.stages import (
-            GenerateStage, CritiqueStage, EvaluateStage,
-            ValidateStage, PreflightStage, SelfConsistencyStage,
+            GenerateStage,
+            CritiqueStage,
+            EvaluateStage,
+            ValidateStage,
+            PreflightStage,
+            SelfConsistencyStage,
         )
+
         assert PipelineContext is not None
         assert TaskPipeline is not None
         assert GenerateStage is not None

@@ -93,12 +93,12 @@ class Decomposer:
                 from orchestrator.scaffold import _TEMPLATE_MAP
                 from orchestrator.scaffold.templates import generic
 
-                app_type = app_profile.app_type if hasattr(app_profile, 'app_type') else "script"
+                app_type = app_profile.app_type if hasattr(app_profile, "app_type") else "script"
                 template_files = _TEMPLATE_MAP.get(app_type, generic.FILES)
                 scaffold_list = "\n".join(f"  - {p}" for p in sorted(template_files))
                 tech_stack_str = (
                     ", ".join(app_profile.tech_stack)
-                    if hasattr(app_profile, 'tech_stack') and app_profile.tech_stack
+                    if hasattr(app_profile, "tech_stack") and app_profile.tech_stack
                     else "unknown"
                 )
 
@@ -148,9 +148,7 @@ Each task JSON element MUST also include:
         )
 
         prompt = (
-            "PROJECT: {project}\n"
-            "SUCCESS CRITERIA: {criteria}\n\n"
-            "{app_context_block}"
+            "PROJECT: {project}\n" "SUCCESS CRITERIA: {criteria}\n\n" "{app_context_block}"
         ).format(project=project, criteria=criteria, app_context_block=app_context_block)
 
         # Determine models to try
@@ -159,7 +157,7 @@ Each task JSON element MUST also include:
         last_response_text: str | None = None
 
         for attempt, model in enumerate(models_to_try):
-            model_name = model.value if hasattr(model, 'value') else str(model)
+            model_name = model.value if hasattr(model, "value") else str(model)
             try:
                 response = await self._client.call(
                     model=model,
@@ -176,7 +174,9 @@ Each task JSON element MUST also include:
                 if parsed:
                     logger.info(
                         "Decomposition succeeded on attempt %d with %s (%d tasks)",
-                        attempt + 1, model_name, len(parsed),
+                        attempt + 1,
+                        model_name,
+                        len(parsed),
                     )
                     return parsed
 
@@ -187,20 +187,24 @@ Each task JSON element MUST also include:
                     if recovered:
                         logger.info(
                             "Partial recovery succeeded with %s (%d tasks)",
-                            model_name, len(recovered),
+                            model_name,
+                            len(recovered),
                         )
                         return recovered
 
                 logger.warning(
                     "Decomposition attempt %d with %s produced unparseable JSON",
-                    attempt + 1, model_name,
+                    attempt + 1,
+                    model_name,
                 )
 
             except (json.JSONDecodeError, ValueError) as e:
                 raw_preview = (last_response_text or "N/A")[:300]
                 logger.warning(
                     "Decomposition attempt %d with %s failed (JSON parse): %s",
-                    attempt + 1, model_name, e,
+                    attempt + 1,
+                    model_name,
+                    e,
                 )
                 logger.warning(f"  Raw response (first 300 chars): {raw_preview}...")
                 if record_failure_fn:
@@ -208,7 +212,9 @@ Each task JSON element MUST also include:
             except (Exception, asyncio.CancelledError) as e:
                 logger.error(
                     "Decomposition attempt %d with %s failed: %s",
-                    attempt + 1, model_name, e,
+                    attempt + 1,
+                    model_name,
+                    e,
                 )
                 if record_failure_fn:
                     await record_failure_fn(model, error=e)
@@ -248,14 +254,17 @@ Each task JSON element MUST also include:
                 try:
                     result = json.loads(fixed)
                     if isinstance(result, list):
-                        logger.debug("Partial recovery: added %d closing bracket(s)", open_count - close_count)
+                        logger.debug(
+                            "Partial recovery: added %d closing bracket(s)",
+                            open_count - close_count,
+                        )
                         return result
                 except json.JSONDecodeError:
                     pass
 
         # Strategy 2: Extract individual JSON objects using regex
         objects = []
-        pattern = r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}'
+        pattern = r"\{(?:[^{}]|(?:\{[^{}]*\}))*\}"
         matches = re.findall(pattern, text)
         for match in matches:
             try:

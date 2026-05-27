@@ -126,7 +126,7 @@ class DiffGenerator:
             validation_error, validated_code = self._validate_patched_code(patched_code, task.type)
             if validation_error:
                 logger.warning(f"  {task.id}: Patched code validation warning: {validation_error}")
-                
+
                 # Try to use cleaned code
                 if validated_code and validated_code != patched_code:
                     patched_code = validated_code
@@ -136,7 +136,9 @@ class DiffGenerator:
                         logger.info(f"  {task.id}: Code cleaned and validated successfully")
                     else:
                         # Still invalid after cleaning - fall back to original
-                        logger.error(f"  {task.id}: Patched code still invalid after cleaning, using original code")
+                        logger.error(
+                            f"  {task.id}: Patched code still invalid after cleaning, using original code"
+                        )
                         patched_code = current_code
                 else:
                     # No cleaning possible or cleaning didn't help - fall back to original
@@ -305,7 +307,7 @@ class DiffGenerator:
         if task_type == TaskType.CODE_GEN:
             # Clean up common issues before validation
             cleaned_code = self._clean_patched_code(code)
-            
+
             # Basic Python syntax check
             try:
                 compile(cleaned_code, "<string>", "exec")
@@ -318,20 +320,20 @@ class DiffGenerator:
                 return error_msg, cleaned_code
 
         return None, code
-    
+
     def _clean_patched_code(self, code: str) -> str:
         """
         Clean up common issues in patched code.
-        
+
         Args:
             code: Raw patched code
-            
+
         Returns:
             Cleaned code
         """
         lines = code.split("\n")
         cleaned_lines = []
-        
+
         for line in lines:
             # Skip diff markers that might have been left in
             if line.startswith("--- ") or line.startswith("+++ "):
@@ -342,13 +344,13 @@ class DiffGenerator:
                 continue
             if line.startswith("index "):
                 continue
-            
+
             # Remove line number prefixes that LLMs sometimes add
             # e.g., "    1: def foo()" -> "def foo()"
             cleaned_line = re.sub(r"^\s*\d+[:\.]\s*", "", line)
-            
+
             cleaned_lines.append(cleaned_line)
-        
+
         return "\n".join(cleaned_lines)
 
     def _count_diff_changes(self, diff_text: str) -> tuple[int, int]:
@@ -484,7 +486,9 @@ def _apply_hunk(code: str, hunk: dict) -> str:
     """
     code_lines = code.split("\n")
     hunk_lines = hunk["lines"]
-    old_start = hunk["header"]["old_start"] - 1  # 0-indexed (NOTE: currently unused but calculated correctly)
+    old_start = (
+        hunk["header"]["old_start"] - 1
+    )  # 0-indexed (NOTE: currently unused but calculated correctly)
 
     # Find matching context in code
     context_before = []

@@ -11,7 +11,6 @@ from orchestrator.api_clients import APIResponse
 from orchestrator.models import Model, Task, TaskStatus, TaskType
 from orchestrator.services.evaluator import EvaluatorService
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
@@ -43,9 +42,7 @@ def _make_service(responses: list[str] | None = None) -> EvaluatorService:
     """Build an EvaluatorService with mocked client, budget, and model list."""
     client = MagicMock()
     if responses:
-        client.call = AsyncMock(
-            side_effect=[_api_response(r) for r in responses]
-        )
+        client.call = AsyncMock(side_effect=[_api_response(r) for r in responses])
     else:
         client.call = AsyncMock(return_value=_api_response('{"score": 0.85}'))
 
@@ -146,7 +143,7 @@ async def test_evaluate_averages_consistent_scores():
         ("rating: 0.8", 0.8),
         ("评分: 0.9", 0.9),
         # Markdown fences
-        ("```json\n{\"score\": 0.95}\n```", 0.95),
+        ('```json\n{"score": 0.95}\n```', 0.95),
         # Clamping
         ('{"score": 1.5}', 1.0),
         ('{"score": -0.1}', 0.0),

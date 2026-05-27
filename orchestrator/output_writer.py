@@ -59,28 +59,34 @@ from .code_post_processor import post_process_code
 
 # Try to import code_validator, but don't fail if circular import exists
 try:
-    from .code_validator import validate_code as _original_validate_code, extract_code_from_llm_response
+    from .code_validator import (
+        validate_code as _original_validate_code,
+        extract_code_from_llm_response,
+    )
+
     HAS_CODE_VALIDATOR = True
-    
+
     def validate_code(code: str, filename: str = "") -> tuple[bool, list[str]]:
         """Wrapper to normalize ValidationResult to tuple."""
         result = _original_validate_code(code, filename=filename)
         return result.is_valid, result.errors
-        
+
 except ImportError:
     # Fallback: use syntax validation via ast module
     HAS_CODE_VALIDATOR = False
     validate_code = None
     extract_code_from_llm_response = None
-    
+
     def validate_code(code: str, filename: str = "") -> tuple[bool, list[str]]:
         """Fallback validation using ast module."""
         import ast
+
         try:
             ast.parse(code)
             return True, []
         except SyntaxError as e:
             return False, [f"Syntax error at line {e.lineno}: {e.msg}"]
+
 
 logger = logging.getLogger("orchestrator.output_writer")
 
@@ -249,7 +255,7 @@ def write_output_dir(
             if not is_valid:
                 error_msg = "; ".join(errors) if errors else "Unknown error"
                 logger.error(f"❌ Code validation failed for {filename}: {error_msg}")
-                
+
                 # CRITICAL FIX: Don't write invalid code - create error placeholder instead
                 content = f'''# CODE GENERATION FAILED - SYNTAX ERROR
 # File: {filename}
@@ -427,7 +433,7 @@ def _extract_code_for_py_task(text: str, filename: str = "") -> str:
     Python extractor finds no Python imports/defs and returns only a few chars.
     """
     code = None
-    
+
     # 1. Explicit python block
     match = re.search(r"```python\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
     if match:
@@ -448,15 +454,17 @@ def _extract_code_for_py_task(text: str, filename: str = "") -> str:
 
     # 4. Heuristic: first top-level Python statement at column 0
     if code is None:
-        m = re.search(r"^(import |from \w|def |class |@\w|if __name__|async def )", text, re.MULTILINE)
+        m = re.search(
+            r"^(import |from \w|def |class |@\w|if __name__|async def )", text, re.MULTILINE
+        )
         if m:
             code = text[m.start() :]
         else:
             code = text
-    
+
     # 5. Apply post-processing to fix common LLM mistakes (JS comments, fake imports, etc.)
     code = post_process_code(code, filename)
-    
+
     return code
 
 

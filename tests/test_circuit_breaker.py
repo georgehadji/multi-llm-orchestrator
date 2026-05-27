@@ -8,7 +8,10 @@ import asyncio
 import pytest
 
 from orchestrator.circuit_breaker import (
-    CircuitBreaker, CircuitBreakerOpen, CircuitState, CircuitBreakerRegistry,
+    CircuitBreaker,
+    CircuitBreakerOpen,
+    CircuitState,
+    CircuitBreakerRegistry,
 )
 
 
@@ -50,7 +53,9 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_half_open_blocks_second_probe(self):
         """BUG-002 fix: Single probe in HALF_OPEN."""
-        cb = CircuitBreaker(name="test", failure_threshold=1, reset_timeout=0.02, success_threshold=2)
+        cb = CircuitBreaker(
+            name="test", failure_threshold=1, reset_timeout=0.02, success_threshold=2
+        )
         with pytest.raises(ConnectionError):
             async with cb.context():
                 raise ConnectionError("trip")
@@ -76,7 +81,9 @@ class TestCircuitBreaker:
     def test_registry_get_or_create(self):
         """Registry must create breakers on demand."""
         registry = CircuitBreakerRegistry()
-        import asyncio; cb = asyncio.run(registry.get("model-key"))
+        import asyncio
+
+        cb = asyncio.run(registry.get("model-key"))
         assert "model-key" in cb.name
 
 

@@ -84,11 +84,7 @@ class ExecutorMetrics:
             self.total_failed += 1
 
     def to_dict(self) -> dict[str, Any]:
-        avg_ms = (
-            self.cumulative_wall_ms / self.total_submitted
-            if self.total_submitted
-            else 0.0
-        )
+        avg_ms = self.cumulative_wall_ms / self.total_submitted if self.total_submitted else 0.0
         return {
             "total_submitted": self.total_submitted,
             "total_completed": self.total_completed,
@@ -191,6 +187,7 @@ class ExecutorService:
         if self._telemetry is not None and result.task_result.model_used is not None:
             try:
                 from ..models import Model
+
                 model = (
                     result.task_result.model_used
                     if isinstance(result.task_result.model_used, Model)

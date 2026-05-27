@@ -65,7 +65,9 @@ class EvaluatorService:
 
     # ── Public interface ──────────────────────────────────────────────────────
 
-    async def evaluate(self, task: Task, output: str, policy: _ResiliencePolicy | None = None) -> CritiqueReport:
+    async def evaluate(
+        self, task: Task, output: str, policy: _ResiliencePolicy | None = None
+    ) -> CritiqueReport:
         """
         Score ``output`` against ``task`` using self-consistency evaluation.
 
@@ -82,7 +84,9 @@ class EvaluatorService:
                 return report
         return await self._evaluate_inner(task, output, policy)
 
-    async def _evaluate_inner(self, task: Task, output: str, policy: _ResiliencePolicy | None = None) -> CritiqueReport:
+    async def _evaluate_inner(
+        self, task: Task, output: str, policy: _ResiliencePolicy | None = None
+    ) -> CritiqueReport:
         eval_models = self._get_models(TaskType.EVALUATE)
         if not eval_models:
             logger.debug("  %s: no eval models available, returning 0.5", task.id)
@@ -111,7 +115,9 @@ class EvaluatorService:
         total_cost = 0.0
         for run in range(self._consistency_runs):
             try:
-                logger.debug("  %s: eval run %d/%d starting…", task.id, run + 1, self._consistency_runs)
+                logger.debug(
+                    "  %s: eval run %d/%d starting…", task.id, run + 1, self._consistency_runs
+                )
                 response = await self._client.call(
                     eval_model,
                     eval_prompt,
@@ -124,13 +130,18 @@ class EvaluatorService:
                 parsed = self.parse_score(response.text)
                 logger.debug(
                     "  %s: eval run %d/%d complete, score=%.3f",
-                    task.id, run + 1, self._consistency_runs, parsed,
+                    task.id,
+                    run + 1,
+                    self._consistency_runs,
+                    parsed,
                 )
                 await self._budget.charge(response.cost_usd, "evaluation")
                 total_cost += response.cost_usd
                 scores.append(parsed)
             except Exception as exc:
-                logger.warning("Evaluation run %d/%d failed: %s", run + 1, self._consistency_runs, exc)
+                logger.warning(
+                    "Evaluation run %d/%d failed: %s", run + 1, self._consistency_runs, exc
+                )
                 scores.append(0.5)
             # BUG-003: asyncio.CancelledError is intentionally NOT caught here.
             # Catching it would swallow task cancellation and return a fake 0.5 score,
@@ -152,7 +163,7 @@ class EvaluatorService:
 
         # Build CritiqueReport with parsed items from the first run
         items: list[CritiqueItem] = []
-        last_response = response if 'response' in dir() else None
+        last_response = response if "response" in dir() else None
         if scores and last_response:
             try:
                 json_data = json.loads(last_response.text)
@@ -161,13 +172,15 @@ class EvaluatorService:
                         severity = CritiqueSeverity(issue.get("severity", "minor"))
                     except ValueError:
                         severity = CritiqueSeverity.MINOR
-                    items.append(CritiqueItem(
-                        severity=severity,
-                        category=issue.get("category", "correctness"),
-                        description=issue.get("description", ""),
-                        location=issue.get("location"),
-                        suggestion=issue.get("suggestion"),
-                    ))
+                    items.append(
+                        CritiqueItem(
+                            severity=severity,
+                            category=issue.get("category", "correctness"),
+                            description=issue.get("description", ""),
+                            location=issue.get("location"),
+                            suggestion=issue.get("suggestion"),
+                        )
+                    )
             except (json.JSONDecodeError, KeyError, TypeError):
                 pass
 
@@ -176,7 +189,9 @@ class EvaluatorService:
             score=final_score,
             items=items,
             model_used=eval_model.value if eval_model else None,
-            tokens_used=last_response.input_tokens + last_response.output_tokens if last_response else 0,
+            tokens_used=(
+                last_response.input_tokens + last_response.output_tokens if last_response else 0
+            ),
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -189,7 +204,11 @@ class EvaluatorService:
                 logger.warning(
                     "Evaluation inconsistency for %s: %.3f vs %.3f (Δ=%.3f > %.2f). "
                     "Using lower score.",
-                    task_id, scores[0], scores[1], delta, self._consistency_delta,
+                    task_id,
+                    scores[0],
+                    scores[1],
+                    delta,
+                    self._consistency_delta,
                 )
                 return min(scores)
             return sum(scores) / len(scores)
@@ -218,6 +237,7 @@ class EvaluatorService:
 
             try:
                 import json5  # type: ignore[import]
+
                 data = json5.loads(text)
             except (ImportError, Exception):
                 data = json.loads(text)

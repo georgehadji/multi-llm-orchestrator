@@ -1,6 +1,8 @@
 """QualityReport — Quality assessment with score."""
+
 from __future__ import annotations
 from dataclasses import dataclass
+
 
 @dataclass
 class QualityReport:

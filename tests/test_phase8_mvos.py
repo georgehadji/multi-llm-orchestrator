@@ -34,7 +34,6 @@ from orchestrator.services import (
     ObservabilityService,
 )
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Shared fixture
 # ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +79,7 @@ def test_mvos2_client_circuit_breaker_closed(orchestrator):
 def test_mvos2_circuit_breaker_has_expected_thresholds(orchestrator):
     cb = orchestrator.client.circuit_breaker
     assert cb.failure_threshold >= 3  # at least 3 failures before tripping
-    assert cb.reset_timeout >= 30.0   # at least 30s before probe
+    assert cb.reset_timeout >= 30.0  # at least 30s before probe
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -129,8 +128,9 @@ async def test_mvos4_observability_accumulates_calls(orchestrator):
 @pytest.mark.asyncio
 async def test_mvos4_observability_tracks_failures(orchestrator):
     obs = orchestrator.observability
-    await obs.record_call("gpt-4o", latency_ms=5000.0, cost_usd=0.0,
-                          success=False, error="TimeoutError")
+    await obs.record_call(
+        "gpt-4o", latency_ms=5000.0, cost_usd=0.0, success=False, error="TimeoutError"
+    )
     summary = obs.model_summary("gpt-4o")
     assert summary.errors == 1
 
@@ -155,6 +155,7 @@ def test_mvos5_generator_service_present(orchestrator):
 
 def test_mvos5_task_guard_present(orchestrator):
     from orchestrator.concurrency_controller import TaskConcurrencyGuard
+
     assert isinstance(orchestrator._task_guard, TaskConcurrencyGuard)
 
 
@@ -170,11 +171,13 @@ def test_mvos5_executor_has_guard(orchestrator):
 
 def test_mvos6_disk_cache_satisfies_cache_port():
     from orchestrator.cache import DiskCache
+
     assert isinstance(DiskCache(), CachePort)
 
 
 def test_mvos6_state_manager_satisfies_state_port():
     from orchestrator.state import StateManager
+
     assert isinstance(StateManager(), StatePort)
 
 

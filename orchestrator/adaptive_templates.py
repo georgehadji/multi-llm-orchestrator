@@ -741,7 +741,10 @@ Provide your analysis.""",
 
         for variant in variants:
             score = self._calculate_variant_score(
-                variant, task_type, Model.XIAOMI_MIMO_V2_FLASH, context_profile  # Reliable alternative
+                variant,
+                task_type,
+                Model.XIAOMI_MIMO_V2_FLASH,
+                context_profile,  # Reliable alternative
             )
             if score["composite"] > best_score:
                 best_score = score["composite"]

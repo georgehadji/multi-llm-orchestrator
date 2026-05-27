@@ -72,7 +72,8 @@ class PersuasionDefenseStage:
             if result.score < 0.5:
                 logger.warning(
                     "PersuasionDefense BLOCKED task %s: score=%.3f, claims=%d, verified=%d, conflicts=%d",
-                    ctx.task.id, result.score,
+                    ctx.task.id,
+                    result.score,
                     result.metadata.get("claims", 0),
                     result.metadata.get("verified", 0),
                     result.metadata.get("conflicts", 0),

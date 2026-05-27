@@ -251,6 +251,7 @@ try:
     from .context_condensing import ContextCondenser
     from .context_dedup import ContextDeduplicator
     from .context_truncator import SmartContextTruncator
+
     HAS_CONTEXT_MANAGEMENT = True
 except ImportError:
     HAS_CONTEXT_MANAGEMENT = False
@@ -264,6 +265,7 @@ from .project_context import ProjectContext
 # Phase 6: Test infrastructure — automatically repair failing tests
 try:
     from .test_fixer import FixResult, TestFixer
+
     HAS_TEST_FIXER = True
 except ImportError:
     HAS_TEST_FIXER = False
@@ -273,6 +275,7 @@ except ImportError:
 # Phase 6: Pre-submission testing gates
 try:
     from .pre_submission_testing import PreSubmissionTester, SubmissionResult
+
     HAS_PRE_SUBMISSION = True
 except ImportError:
     HAS_PRE_SUBMISSION = False
@@ -280,10 +283,10 @@ except ImportError:
     SubmissionResult = None
 
 
-
 # Phase 6+: ARA reasoning pipeline integration
 try:
     from .ara_integration import create_ara_integration, ARAPipelineIntegration
+
     HAS_ARA = True
 except ImportError:
     HAS_ARA = False

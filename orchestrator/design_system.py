@@ -53,20 +53,30 @@ class DesignSystem:
     dark_mode: bool = True
 
     def to_dict(self):
-        return {"name": self.name, "version": self.version, "colors": self.colors.to_dict(),
-                "typography": self.typography.to_dict(), "border_radius": self.border_radius,
-                "spacing_unit": self.spacing_unit, "dark_mode": self.dark_mode}
+        return {
+            "name": self.name,
+            "version": self.version,
+            "colors": self.colors.to_dict(),
+            "typography": self.typography.to_dict(),
+            "border_radius": self.border_radius,
+            "spacing_unit": self.spacing_unit,
+            "dark_mode": self.dark_mode,
+        }
 
     @classmethod
     def from_dict(cls, d):
-        return cls(name=d.get("name", ""), version=d.get("version", "1.0.0"),
-                   colors=ColorTokens(**d.get("colors", {})),
-                   typography=TypographyTokens(**d.get("typography", {})),
-                   border_radius=d.get("border_radius", 8), spacing_unit=d.get("spacing_unit", 4),
-                   dark_mode=d.get("dark_mode", True))
+        return cls(
+            name=d.get("name", ""),
+            version=d.get("version", "1.0.0"),
+            colors=ColorTokens(**d.get("colors", {})),
+            typography=TypographyTokens(**d.get("typography", {})),
+            border_radius=d.get("border_radius", 8),
+            spacing_unit=d.get("spacing_unit", 4),
+            dark_mode=d.get("dark_mode", True),
+        )
 
     def to_css(self):
-        return f'''/* Generated from {self.name} v{self.version} */
+        return f"""/* Generated from {self.name} v{self.version} */
 :root {{
   --color-primary: {self.colors.primary};
   --color-secondary: {self.colors.secondary};
@@ -81,10 +91,10 @@ class DesignSystem:
   --font-mono: {self.typography.font_mono};
   --border-radius: {self.border_radius}px;
   --spacing-unit: {self.spacing_unit}px;
-}}'''
+}}"""
 
     def to_tailwind(self):
-        return f'''// Generated from {self.name} v{self.version}
+        return f"""// Generated from {self.name} v{self.version}
 module.exports = {{
   theme: {{
     extend: {{
@@ -99,7 +109,7 @@ module.exports = {{
       }}
     }}
   }}
-}};'''
+}};"""
 
     def to_prompt_injection(self):
         nl = chr(10)
@@ -122,6 +132,7 @@ class DesignSystemManager:
                         self.design_system = DesignSystem.from_dict(json.loads(text))
                     else:
                         import yaml
+
                         self.design_system = DesignSystem.from_dict(yaml.safe_load(text) or {})
                     return
                 except Exception:
@@ -129,7 +140,10 @@ class DesignSystemManager:
 
     def save(self, path=".design-system.yml"):
         import yaml
-        (self._dir / path).write_text(yaml.dump(self.design_system.to_dict(), default_flow_style=False), encoding="utf-8")
+
+        (self._dir / path).write_text(
+            yaml.dump(self.design_system.to_dict(), default_flow_style=False), encoding="utf-8"
+        )
 
     def get_prompt(self):
         return self.design_system.to_prompt_injection()

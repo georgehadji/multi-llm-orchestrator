@@ -118,7 +118,6 @@ _TECH_STACK_KEYWORDS = [
 ]
 
 
-
 # ─────────────────────────────────────────────────────────────────────────
 # Tier-aware model routing (PHASE 2 of ENGINE_OPTIMIZATION_PLAN)
 # ─────────────────────────────────────────────────────────────────────────
@@ -126,31 +125,31 @@ _TECH_STACK_KEYWORDS = [
 # Updated tier definitions (v3.0) — consolidated from engine.py
 # Single tier — most capable models, ordered by benchlm.ai coding score
 _TIER_MODELS: list[Model] = [
-    Model.QWEN_3_7_MAX,            # 92.2 benchlm, #4 globally
-    Model.DEEPSEEK_V4_PRO,         # 90.1 benchlm, $1.50/$6.00
-    Model.MOONSHOT_KIMI_K2_6,      # 89.2 benchlm, $0.95/$4.00
-    Model.GPT_5_4_CODEX,           # 87.8 benchlm, $1.75/$14.00
-    Model.GPT_5_4,                 # 87.8 benchlm, $2.50/$15.00
-    Model.DEEPSEEK_V4_FLASH,       # 83.5 benchlm, $0.27/$1.10
-    Model.ZHIPU_GLM_5_1,           # 83.4 benchlm, $0.10/$0.40
-    Model.CLAUDE_SONNET_4_6,       # 82.2 benchlm, $3.00/$15.00
-    Model.XAI_GROK_4_20,           # lowest hallucination
-    Model.QWEN_3_6_FLASH,          # 79.1 benchlm, $0.12/$0.50
-    Model.GEMINI_FLASH,            # 78.3 benchlm, $0.15/$0.60
-    Model.XIAOMI_MIMO_V2_FLASH,    # $0.09/$0.29 -- ultra-cheap backup
-    Model.MINIMAX_M2_7,            # $0.30/$1.20
-    Model.CLAUDE_OPUS_4_6,         # 86.0 benchlm, most capable
-    Model.GPT_4O,                  # $2.50/$10.00 -- reliable
+    Model.QWEN_3_7_MAX,  # 92.2 benchlm, #4 globally
+    Model.DEEPSEEK_V4_PRO,  # 90.1 benchlm, $1.50/$6.00
+    Model.MOONSHOT_KIMI_K2_6,  # 89.2 benchlm, $0.95/$4.00
+    Model.GPT_5_4_CODEX,  # 87.8 benchlm, $1.75/$14.00
+    Model.GPT_5_4,  # 87.8 benchlm, $2.50/$15.00
+    Model.DEEPSEEK_V4_FLASH,  # 83.5 benchlm, $0.27/$1.10
+    Model.ZHIPU_GLM_5_1,  # 83.4 benchlm, $0.10/$0.40
+    Model.CLAUDE_SONNET_4_6,  # 82.2 benchlm, $3.00/$15.00
+    Model.XAI_GROK_4_20,  # lowest hallucination
+    Model.QWEN_3_6_FLASH,  # 79.1 benchlm, $0.12/$0.50
+    Model.GEMINI_FLASH,  # 78.3 benchlm, $0.15/$0.60
+    Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 -- ultra-cheap backup
+    Model.MINIMAX_M2_7,  # $0.30/$1.20
+    Model.CLAUDE_OPUS_4_6,  # 86.0 benchlm, most capable
+    Model.GPT_4O,  # $2.50/$10.00 -- reliable
 ]
 
 # Reliable decomposition models (v3.1)
 _RELIABLE_DECOMPOSITION_MODELS: list[Model] = [
-    Model.QWEN_3_7_MAX,            # 92.2 benchlm, #4 globally -- BEST
-    Model.CLAUDE_SONNET_4_6,       # 82.2 benchlm, excellent structured output
-    Model.GPT_4O,                  # $2.50/$10.00, reliable JSON, large context
-    Model.DEEPSEEK_V4_FLASH,       # 83.5 benchlm, $0.27/$1.10, fast + reliable
-    Model.GEMINI_FLASH,            # $0.15/$0.60, cheap reliable backup
-    Model.GPT_4O_MINI,             # $0.15/$0.60, cheapest reliable
+    Model.QWEN_3_7_MAX,  # 92.2 benchlm, #4 globally -- BEST
+    Model.CLAUDE_SONNET_4_6,  # 82.2 benchlm, excellent structured output
+    Model.GPT_4O,  # $2.50/$10.00, reliable JSON, large context
+    Model.DEEPSEEK_V4_FLASH,  # 83.5 benchlm, $0.27/$1.10, fast + reliable
+    Model.GEMINI_FLASH,  # $0.15/$0.60, cheap reliable backup
+    Model.GPT_4O_MINI,  # $0.15/$0.60, cheapest reliable
 ]
 
 
@@ -215,7 +214,6 @@ class TieredModelRouter:
         return min(healthy, key=lambda m: COST_TABLE[m]["output"])
 
 
-
 class ModelSelector:
     """
     Health-aware model selection service.
@@ -255,7 +253,7 @@ class ModelSelector:
         complexity_score = sum(1 for kw in _COMPLEXITY_KEYWORDS if kw in project_lower)
         tech_score = sum(1 for kw in _TECH_STACK_KEYWORDS if kw in project_lower)
         total_complexity = complexity_score + (tech_score // 2)
-        
+
         # Log complexity for observability
         logger.debug(f"Project complexity score: {total_complexity}")
 
@@ -276,10 +274,10 @@ class ModelSelector:
         logger.warning("P1-2: Using fallback model for decomposition")
         if self._health.get(Model.DEEPSEEK_V4_FLASH, True):
             return Model.DEEPSEEK_V4_FLASH
-        
+
         if self._health.get(Model.QWEN_3_6_FLASH, True):
             return Model.QWEN_3_6_FLASH
-            
+
         logger.error("P1-2: No healthy models available for decomposition")
         return Model.STEPFUN_STEP_3_5_FLASH
 

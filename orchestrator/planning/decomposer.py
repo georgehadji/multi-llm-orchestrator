@@ -43,12 +43,16 @@ class GoalDecomposer:
             Plan with ordered sub-goals.
         """
         if depth >= MAX_DEPTH:
-            return Plan(tasks=[SubGoal(id=f"sg_{hash(goal) % 10000}", description=goal, is_atomic=True)])
+            return Plan(
+                tasks=[SubGoal(id=f"sg_{hash(goal) % 10000}", description=goal, is_atomic=True)]
+            )
 
         # Check if this is a compound goal
         sub_goals = self._split_goal(goal)
         if len(sub_goals) <= 1:
-            return Plan(tasks=[SubGoal(id=f"sg_{hash(goal) % 10000}", description=goal, is_atomic=True)])
+            return Plan(
+                tasks=[SubGoal(id=f"sg_{hash(goal) % 10000}", description=goal, is_atomic=True)]
+            )
 
         # Recurse on each sub-goal
         sub_plans = []
@@ -67,16 +71,20 @@ class GoalDecomposer:
         results: list[str] = []
 
         # Check for bullet points or numbered lists
-        lines = goal.split('\n')
-        items = [l.strip() for l in lines if l.strip().startswith(('- ', '* ', '1. ', '2. ', '3. ', '4. ', '5. '))]
+        lines = goal.split("\n")
+        items = [
+            l.strip()
+            for l in lines
+            if l.strip().startswith(("- ", "* ", "1. ", "2. ", "3. ", "4. ", "5. "))
+        ]
         if len(items) >= 2:
             return items
 
         # Split on " and " (top-level)
-        parts = goal.split(' and ')
+        parts = goal.split(" and ")
         if len(parts) >= 2:
             for p in parts:
-                p = p.strip().strip('.,').strip()
+                p = p.strip().strip(".,").strip()
                 if p:
                     results.append(p)
             return results
@@ -86,8 +94,15 @@ class GoalDecomposer:
 
 class SubGoal:
     """A single sub-goal within a plan."""
-    def __init__(self, id: str, description: str, is_atomic: bool = False,
-                 agent_role: str = "", depends_on: list[str] = None):
+
+    def __init__(
+        self,
+        id: str,
+        description: str,
+        is_atomic: bool = False,
+        agent_role: str = "",
+        depends_on: list[str] = None,
+    ):
         self.id = id
         self.description = description
         self.is_atomic = is_atomic
@@ -97,6 +112,7 @@ class SubGoal:
 
 class Goal:
     """A high-level goal that can be decomposed."""
+
     def __init__(self, description: str, context: str = ""):
         self.description = description
         self.context = context

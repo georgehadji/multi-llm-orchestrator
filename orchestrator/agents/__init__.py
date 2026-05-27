@@ -7,6 +7,12 @@ from .coordinator import AgentOrchestrator
 from .developer import DeveloperAgent, ArchitectAgent, TesterAgent
 
 __all__ = [
-    "AgentBase", "AgentRole", "AgentTask", "AgentTaskResult",
-    "AgentOrchestrator", "DeveloperAgent", "ArchitectAgent", "TesterAgent",
+    "AgentBase",
+    "AgentRole",
+    "AgentTask",
+    "AgentTaskResult",
+    "AgentOrchestrator",
+    "DeveloperAgent",
+    "ArchitectAgent",
+    "TesterAgent",
 ]

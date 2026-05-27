@@ -9,14 +9,22 @@ from typing import Any
 @dataclass
 class Goal:
     """A high-level goal that can be decomposed."""
+
     description: str
     context: str = ""
 
 
 class SubGoal:
     """A single sub-goal within a plan."""
-    def __init__(self, id: str, description: str, is_atomic: bool = False,
-                 agent_role: str = "", depends_on: list[str] = None):
+
+    def __init__(
+        self,
+        id: str,
+        description: str,
+        is_atomic: bool = False,
+        agent_role: str = "",
+        depends_on: list[str] = None,
+    ):
         self.id = id
         self.description = description
         self.is_atomic = is_atomic
@@ -27,6 +35,7 @@ class SubGoal:
 @dataclass
 class Plan:
     """A full plan with ordered tasks."""
+
     tasks: list[SubGoal] = field(default_factory=list)
 
     @classmethod

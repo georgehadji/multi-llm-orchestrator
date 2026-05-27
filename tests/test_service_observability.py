@@ -12,7 +12,6 @@ from orchestrator.services.evaluator import EvaluatorService
 from orchestrator.services.generator import GeneratorResult, GeneratorService
 from orchestrator.tracing import InMemoryExporter, Tracer
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -85,8 +84,7 @@ async def test_executor_trace_on_error():
     spans = exporter.get_spans()
     assert spans[0].status == "ERROR"
     assert any(
-        "boom" in str(e.get("attributes", {}).get("exception.message", ""))
-        for e in spans[0].events
+        "boom" in str(e.get("attributes", {}).get("exception.message", "")) for e in spans[0].events
     )
 
 

@@ -81,7 +81,9 @@ def _clean_code_output(text: str, task_type: TaskType) -> str:
     return text.strip()
 
 
-def _get_available_models(task_type: Any = None, api_health: dict[Model, bool] | None = None) -> list[Model]:
+def _get_available_models(
+    task_type: Any = None, api_health: dict[Model, bool] | None = None
+) -> list[Model]:
     """Get available models for a task type, filtered by health.
 
     Args:

@@ -209,15 +209,19 @@ class TaskValidator:
             penalized = round(score * 0.85, 4)
             logger.warning(
                 "[preflight] WARN task=%s score %.3f->%.3f: %s",
-                task.id, score, penalized,
+                task.id,
+                score,
+                penalized,
                 "; ".join(pf_result.warnings),
             )
             if self._hook_registry is not None:
                 self._hook_registry.fire(
                     "preflight_check",
-                    task_id=task.id, action="warn",
+                    task_id=task.id,
+                    action="warn",
                     reason="; ".join(pf_result.warnings),
-                    score_before=score, score_after=penalized,
+                    score_before=score,
+                    score_after=penalized,
                 )
             return output, penalized, pf_result
 
@@ -230,14 +234,16 @@ class TaskValidator:
 
         logger.info(
             "[preflight] %s task=%s - attempting 1 revision: %s (timeout=%ds)",
-            pf_result.action.value.upper(), task.id,
-            critique_text[:100], dynamic_timeout,
+            pf_result.action.value.upper(),
+            task.id,
+            critique_text[:100],
+            dynamic_timeout,
         )
 
         try:
-            rev_prompt, rev_system = (
-                revision_prompt_builder or RevisionPrompt
-            ).build(task.prompt, critique_text, task.type.value)
+            rev_prompt, rev_system = (revision_prompt_builder or RevisionPrompt).build(
+                task.prompt, critique_text, task.type.value
+            )
 
             gen_response = await self._client.call(
                 primary,
@@ -280,6 +286,7 @@ class TaskValidator:
         """Create a PASS preflight result."""
         try:
             from ..preflight import PreflightAction, PreflightResult
+
             return PreflightResult(action=PreflightAction.PASS, passed=True)
         except ImportError:
             return None
