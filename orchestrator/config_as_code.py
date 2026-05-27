@@ -110,20 +110,20 @@ class EntitySchema:
         lines.append(f"class {self.name}(BaseModel):")
         if self.description:
             lines.append(f'    """{self.description}"""')
-        for field in self.fields:
-            py_type = self._py_type(field.type)
-            if not field.required:
+        for fld in self.fields:
+            py_type = self._py_type(fld.type)
+            if not fld.required:
                 py_type = f"Optional[{py_type}]"
                 default = "None"
             else:
                 default = ""
             extra = ""
-            if field.description:
-                extra += f', description="{field.description}"'
+            if fld.description:
+                extra += f', description="{fld.description}"'
             if default:
-                lines.append(f"    {field.name}: {py_type} = {default}{extra}")
+                lines.append(f"    {fld.name}: {py_type} = {default}{extra}")
             else:
-                lines.append(f"    {field.name}: {py_type}{extra}")
+                lines.append(f"    {fld.name}: {py_type}{extra}")
         return "\n".join(lines)
 
     def to_typescript(self) -> str:
@@ -132,13 +132,13 @@ class EntitySchema:
         if self.description:
             lines.append(f"// {self.description}")
         lines.append(f"export interface {self.name} {{")
-        for field in self.fields:
-            ts_type = self._ts_type(field.type)
-            optional = "?" if not field.required else ""
-            jsdoc = f"/** {field.description} */" if field.description else ""
+        for fld in self.fields:
+            ts_type = self._ts_type(fld.type)
+            optional = "?" if not fld.required else ""
+            jsdoc = f"/** {fld.description} */" if fld.description else ""
             if jsdoc:
                 lines.append(f"  {jsdoc}")
-            lines.append(f"  {field.name}{optional}: {ts_type};")
+            lines.append(f"  {fld.name}{optional}: {ts_type};")
         lines.append("}")
         return "\n".join(lines)
 

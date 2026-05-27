@@ -9,7 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
-import json, re, logging
+import json
+import re
+import logging
 
 if TYPE_CHECKING:
     from .infrastructure.llm_client import UnifiedClient

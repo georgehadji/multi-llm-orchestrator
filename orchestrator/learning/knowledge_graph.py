@@ -99,7 +99,8 @@ class KnowledgeGraph:
 
     @classmethod
     def load(cls, path: str | None = None) -> "KnowledgeGraph":
-        import json, os
+        import json
+        import os
 
         p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "knowledge_graph.json")
         if not os.path.exists(p):

@@ -37,9 +37,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger("orchestrator.rate_limiter")
 
 

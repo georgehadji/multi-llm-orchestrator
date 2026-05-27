@@ -39,9 +39,6 @@ from .rate_limiter import RateLimiter
 from .telemetry import TelemetryCollector
 from .tracing import Tracer
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger("orchestrator.container")
 
 

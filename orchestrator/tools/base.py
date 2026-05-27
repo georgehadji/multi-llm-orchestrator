@@ -79,7 +79,4 @@ class ToolRegistry:
         self.granted_permissions.add(permission.value)
 
     def can_execute(self, tool: Tool) -> bool:
-        for perm in tool.required_permissions:
-            if perm.value not in self.granted_permissions:
-                return False
-        return True
+        return all(perm.value in self.granted_permissions for perm in tool.required_permissions)

@@ -7,7 +7,8 @@ Part of Cat 7, Phase U6.
 
 from __future__ import annotations
 from dataclasses import dataclass
-import time, logging
+import time
+import logging
 
 logger = logging.getLogger(__name__)
 

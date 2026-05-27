@@ -8,7 +8,9 @@ Part of Category 12, Phase W2 (Bolt.new-inspired).
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
-import fnmatch, json, logging
+import fnmatch
+import json
+import logging
 
 logger = logging.getLogger(__name__)
 

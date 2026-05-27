@@ -4,7 +4,8 @@ Tests for config_as_code.py + type_generator.py — Entity schemas, type generat
 
 from __future__ import annotations
 
-import json, tempfile
+import json
+import tempfile
 from pathlib import Path
 
 import pytest

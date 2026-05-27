@@ -35,9 +35,6 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger("orchestrator.provisioned_throughput")
 
 

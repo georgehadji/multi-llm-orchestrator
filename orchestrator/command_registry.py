@@ -30,9 +30,6 @@ from typing import TYPE_CHECKING, Awaitable, Callable
 # Imports
 # ─────────────────────────────────────────────────────────────────────────────
 
-if TYPE_CHECKING:
-    pass
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Data types

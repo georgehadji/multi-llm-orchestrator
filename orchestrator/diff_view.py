@@ -8,7 +8,10 @@ Part of Category 7, Phase U3 (UI): Diff view data provider.
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
-import difflib, json, logging, time
+import difflib
+import json
+import logging
+import time
 
 logger = logging.getLogger(__name__)
 

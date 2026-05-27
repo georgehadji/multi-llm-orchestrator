@@ -4,7 +4,9 @@ Tests for checkpoints.py + version_manager.py — State snapshots.
 
 from __future__ import annotations
 
-import asyncio, json, tempfile
+import asyncio
+import json
+import tempfile
 from pathlib import Path
 
 import pytest

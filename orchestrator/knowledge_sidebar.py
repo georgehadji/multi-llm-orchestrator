@@ -8,7 +8,8 @@ Part of Category 7, Phase U5 (UI): Knowledge/Skills sidebar backend.
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
-import json, logging
+import json
+import logging
 
 logger = logging.getLogger(__name__)
 

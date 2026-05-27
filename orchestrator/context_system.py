@@ -74,7 +74,7 @@ class Skill:
             ## Instructions
             ... skill content ...
         """
-        if not path.exists() or not path.suffix == ".md":
+        if not path.exists() or path.suffix != ".md":
             return None
 
         content = path.read_text(encoding="utf-8")

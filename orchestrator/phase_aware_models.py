@@ -27,8 +27,6 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    pass
 
 from .model_registry import ModelRegistry
 
@@ -286,27 +284,9 @@ class ModelCapabilities:
             "speed": 8.5,
             "cost_efficiency": 9.5,  # Great value at $0.27/1M
         },
-        "deepseek/deepseek-v4-flash": {
-            "reasoning": 8.5,
-            "coding": 8.5,
-            "creativity": 7.5,
-            "critique": 8.0,
-            "synthesis": 8.0,
-            "speed": 8.5,
-            "cost_efficiency": 9.0,
-        },
         # ═══════════════════════════════════════════════════════
         # Z.AI GLM MODELS - CHINESE POWERHOUSES
         # ═══════════════════════════════════════════════════════
-        "z-ai/glm-5.1.1": {
-            "reasoning": 8.0,
-            "coding": 8.5,  # Agentic coding
-            "creativity": 7.5,
-            "critique": 7.5,
-            "synthesis": 8.0,
-            "speed": 9.5,  # Very fast
-            "cost_efficiency": 10.0,  # ⭐ Ultra-cheap $0.06/1M
-        },
         "z-ai/glm-5.1.1": {
             "reasoning": 8.5,
             "coding": 9.0,  # ⭐ Enhanced programming
@@ -370,28 +350,10 @@ class ModelCapabilities:
         "x-ai/grok-4.20": {
             "reasoning": 9.0,
             "coding": 8.5,
-            "creativity": 8.0,
-            "critique": 9.5,  # ⭐ Lowest hallucination
-            "synthesis": 8.5,
-            "speed": 8.5,
-            "cost_efficiency": 8.5,
-        },
-        "x-ai/grok-4.20": {
-            "reasoning": 9.0,
-            "coding": 8.5,
             "creativity": 8.5,
             "critique": 9.0,
             "synthesis": 9.0,
             "speed": 9.0,  # ⭐ 4-16 parallel agents
-            "cost_efficiency": 9.0,
-        },
-        "x-ai/grok-4.20": {
-            "reasoning": 8.5,
-            "coding": 8.5,
-            "creativity": 8.0,
-            "critique": 8.5,
-            "synthesis": 8.5,
-            "speed": 9.5,  # Very fast
             "cost_efficiency": 9.0,
         },
         # ═══════════════════════════════════════════════════════
@@ -687,11 +649,9 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "stepfun/step-3.5": {"input": 0.15, "output": 0.45},
     # DeepSeek
     "deepseek/deepseek-v4-pro": {"input": 0.55, "output": 2.19},
-    "deepseek/deepseek-v4-flash": {"input": 0.27, "output": 1.10},
     "deepseek/deepseek-v4-flash": {"input": 0.28, "output": 0.42},
     # Z.ai GLM
     "z-ai/glm-5.1.1": {"input": 0.06, "output": 0.40},
-    "z-ai/glm-5.1.1": {"input": 0.39, "output": 1.75},
     "z-ai/glm-5.1": {"input": 0.72, "output": 2.30},
     "z-ai/glm-5.1-turbo": {"input": 1.20, "output": 4.00},
     # Qwen
@@ -700,8 +660,6 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "qwen/qwen-3-max-thinking": {"input": 0.78, "output": 3.90},
     # xAI Grok
     "x-ai/grok-4.20": {"input": 2.00, "output": 6.00},
-    "x-ai/grok-4.20": {"input": 2.00, "output": 6.00},
-    "x-ai/grok-4.20": {"input": 0.20, "output": 0.50},
     # Anthropic Claude
     "anthropic/claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
     "anthropic/claude-opus-4-6": {"input": 5.00, "output": 25.00},

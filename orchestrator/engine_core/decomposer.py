@@ -147,9 +147,7 @@ Each task JSON element MUST also include:
             f"Valid task types: {valid_types}\n"
         )
 
-        prompt = (
-            "PROJECT: {project}\n" "SUCCESS CRITERIA: {criteria}\n\n" "{app_context_block}"
-        ).format(project=project, criteria=criteria, app_context_block=app_context_block)
+        prompt = f"PROJECT: {project}\n" f"SUCCESS CRITERIA: {criteria}\n\n" f"{app_context_block}"
 
         # Determine models to try
         models_to_try = self._get_decomposition_models(project, api_health)

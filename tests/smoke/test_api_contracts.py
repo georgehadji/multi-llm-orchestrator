@@ -65,7 +65,7 @@ async def test_list_models_returns_json(client):
     resp = await client.get("/models")
     assert resp.status == 200
     body = await resp.json()
-    assert isinstance(body, list) or isinstance(body, dict)
+    assert isinstance(body, (list, dict))
 
 
 @pytest.mark.asyncio

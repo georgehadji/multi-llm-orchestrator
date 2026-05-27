@@ -6,7 +6,10 @@ Part of Category 2, Phase D5 (Dyad-inspired).
 """
 
 from __future__ import annotations
-import shutil, time, logging, json
+import shutil
+import time
+import logging
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -90,7 +93,8 @@ class ProjectCopier:
         cp = next((c for c in self._copies if c.copy_id == copy_id), None)
         if not cp:
             return {}
-        import difflib, os
+        import difflib
+        import os
 
         diff = {}
         orig = Path(cp.original_dir)
