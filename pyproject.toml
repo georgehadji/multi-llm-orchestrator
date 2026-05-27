@@ -47,6 +47,7 @@ dev = [
     "pytest>=8.0,<9.0",
     "pytest-cov>=4.1,<5.0",
     "networkx>=3.0,<4.0",  # Required by codebase_reader.py (DependencyGraph)
+    "numpy>=1.24,<3.0",  # Required by networkx.pagerank() via scipy backend
     "pytest-asyncio>=0.21,<1.0",
     "pytest-xdist>=3.3,<4.0",
     "black>=23.7,<25.0",
