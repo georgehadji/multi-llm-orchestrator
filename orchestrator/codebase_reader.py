@@ -33,6 +33,7 @@ logger = logging.getLogger("orchestrator.codebase_reader")
 @dataclass
 class FileNode:
     """A single source file found during walk."""
+
     path: Path
     language: str = ""
     size: int = 0
@@ -42,6 +43,7 @@ class FileNode:
 @dataclass
 class Symbol:
     """A named symbol (class, function, method, variable) defined in source code."""
+
     name: str
     type: str  # "class", "function", "method", "variable"
     file: Path
@@ -54,6 +56,7 @@ class Symbol:
 @dataclass
 class ProjectProfile:
     """High-level project metadata."""
+
     languages: list[str] = field(default_factory=list)
     framework: str | None = None
     package_manager: str | None = None
@@ -183,12 +186,14 @@ class FileSystemWalker:
                 except (OSError, UnicodeDecodeError):
                     continue
 
-                results.append(FileNode(
-                    path=filepath,
-                    language=_LANGUAGE_MAP.get(ext, ext.lstrip(".")),
-                    size=stat.st_size,
-                    lines=line_count,
-                ))
+                results.append(
+                    FileNode(
+                        path=filepath,
+                        language=_LANGUAGE_MAP.get(ext, ext.lstrip(".")),
+                        size=stat.st_size,
+                        lines=line_count,
+                    )
+                )
 
         results.sort(key=lambda n: str(n.path))
         return results
@@ -271,41 +276,47 @@ class ASTIndexer:
             if isinstance(node, ast.ClassDef):
                 deps = self._extract_dependencies(node)
                 docstring = ast.get_docstring(node) or ""
-                symbols.append(Symbol(
-                    name=node.name,
-                    type="class",
-                    file=path,
-                    line_start=node.lineno,
-                    line_end=node.end_lineno or node.lineno,
-                    docstring=docstring,
-                    dependencies=deps,
-                ))
+                symbols.append(
+                    Symbol(
+                        name=node.name,
+                        type="class",
+                        file=path,
+                        line_start=node.lineno,
+                        line_end=node.end_lineno or node.lineno,
+                        docstring=docstring,
+                        dependencies=deps,
+                    )
+                )
 
             # Function definitions (top-level, not methods)
             if isinstance(node, ast.FunctionDef) and not self._is_method(node, tree):
                 deps = self._extract_dependencies(node)
                 docstring = ast.get_docstring(node) or ""
-                symbols.append(Symbol(
-                    name=node.name,
-                    type="function",
-                    file=path,
-                    line_start=node.lineno,
-                    line_end=node.end_lineno or node.lineno,
-                    docstring=docstring,
-                    dependencies=deps,
-                ))
+                symbols.append(
+                    Symbol(
+                        name=node.name,
+                        type="function",
+                        file=path,
+                        line_start=node.lineno,
+                        line_end=node.end_lineno or node.lineno,
+                        docstring=docstring,
+                        dependencies=deps,
+                    )
+                )
 
         # If no symbols found but there are imports, create a module-level symbol
         if not symbols and imports:
-            symbols.append(Symbol(
-                name=path.stem,
-                type="module",
-                file=path,
-                line_start=1,
-                line_end=1,
-                docstring="",
-                dependencies=imports,
-            ))
+            symbols.append(
+                Symbol(
+                    name=path.stem,
+                    type="module",
+                    file=path,
+                    line_start=1,
+                    line_end=1,
+                    docstring="",
+                    dependencies=imports,
+                )
+            )
 
         return symbols
 
@@ -342,26 +353,30 @@ class ASTIndexer:
             r"(?:class|struct|interface|trait|type)\s+(\w+)",
             source,
         ):
-            symbols.append(Symbol(
-                name=match.group(1),
-                type="class",
-                file=path,
-                line_start=source[:match.start()].count("\n") + 1,
-                line_end=source[:match.start()].count("\n") + 1,
-            ))
+            symbols.append(
+                Symbol(
+                    name=match.group(1),
+                    type="class",
+                    file=path,
+                    line_start=source[: match.start()].count("\n") + 1,
+                    line_end=source[: match.start()].count("\n") + 1,
+                )
+            )
 
         # Function-like patterns
         for match in re.finditer(
             r"(?:def|function|fn|func|async def)\s+(\w+)\s*\(",
             source,
         ):
-            symbols.append(Symbol(
-                name=match.group(1),
-                type="function",
-                file=path,
-                line_start=source[:match.start()].count("\n") + 1,
-                line_end=source[:match.start()].count("\n") + 1,
-            ))
+            symbols.append(
+                Symbol(
+                    name=match.group(1),
+                    type="function",
+                    file=path,
+                    line_start=source[: match.start()].count("\n") + 1,
+                    line_end=source[: match.start()].count("\n") + 1,
+                )
+            )
 
         return symbols
 
@@ -462,8 +477,7 @@ class DependencyGraph:
             "unused_modules": self.find_unused_modules(),
             "circular_deps": self.find_circular_dependencies(),
             "central_modules": [
-                {"module": m, "score": round(s, 4)}
-                for m, s in self.rank_by_centrality()[:10]
+                {"module": m, "score": round(s, 4)} for m, s in self.rank_by_centrality()[:10]
             ],
         }
 
@@ -549,8 +563,9 @@ class ProjectProfiler:
                 except OSError:
                     continue
                 for pattern, lang, fw in _FRAMEWORK_DETECTORS:
-                    if (lang in profile.languages or not profile.languages) \
-                            and fw not in framework_found:
+                    if (
+                        lang in profile.languages or not profile.languages
+                    ) and fw not in framework_found:
                         if pattern.search(content):
                             profile.framework = fw
                             framework_found.add(fw)
@@ -579,6 +594,7 @@ class ProjectProfiler:
             if pkg_json.exists():
                 try:
                     import json
+
                     pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
                     dev_deps = pkg.get("devDependencies", {})
                     if "jest" in dev_deps:
@@ -589,8 +605,9 @@ class ProjectProfiler:
                     pass
 
         # Check for Docker and CI
-        profile.has_docker = (root / "Dockerfile").exists() or \
-            (root / "docker-compose.yml").exists()
+        profile.has_docker = (root / "Dockerfile").exists() or (
+            root / "docker-compose.yml"
+        ).exists()
         profile.has_ci = (root / ".github" / "workflows").exists()
 
         # Count files and tests
@@ -614,8 +631,11 @@ class ProjectProfiler:
         """
         gaps: list[str] = []
         source_files = [f for f in files if f.language == "python"]
-        test_files = {f.path.stem for f in files if _TEST_FILE_PATTERNS.search(f.path.name)
-                      and f.language == "python"}
+        test_files = {
+            f.path.stem
+            for f in files
+            if _TEST_FILE_PATTERNS.search(f.path.name) and f.language == "python"
+        }
 
         for sf in source_files:
             try:
@@ -683,8 +703,11 @@ class CodebaseReader:
         self.symbols = indexer.index_files(self.files)
         total_symbols = sum(len(syms) for syms in self.symbols.values())
         if not quiet:
-            logger.info("CodebaseReader: indexed %d symbols across %d files",
-                        total_symbols, len(self.symbols))
+            logger.info(
+                "CodebaseReader: indexed %d symbols across %d files",
+                total_symbols,
+                len(self.symbols),
+            )
 
         # 3. Build dependency graph
         for sym_path, symbols in self.symbols.items():
@@ -692,18 +715,25 @@ class CodebaseReader:
                 self.graph.add_module(sym_path, sym.dependencies)
         if not quiet:
             stats = self.graph.to_dict()
-            logger.info("CodebaseReader: dependency graph has %d nodes, %d edges",
-                        stats["node_count"], stats["edge_count"])
+            logger.info(
+                "CodebaseReader: dependency graph has %d nodes, %d edges",
+                stats["node_count"],
+                stats["edge_count"],
+            )
             if stats["circular_deps"]:
-                logger.warning("CodebaseReader: found %d circular dependencies",
-                               len(stats["circular_deps"]))
+                logger.warning(
+                    "CodebaseReader: found %d circular dependencies", len(stats["circular_deps"])
+                )
 
         # 4. Profile
         profiler = ProjectProfiler()
         self.profile = profiler.profile(self.root, self.files)
         if not quiet:
-            logger.info("CodebaseReader: project profile — languages=%s, framework=%s",
-                        self.profile.languages, self.profile.framework)
+            logger.info(
+                "CodebaseReader: project profile — languages=%s, framework=%s",
+                self.profile.languages,
+                self.profile.framework,
+            )
             if self.profile.test_count == 0:
                 logger.warning("CodebaseReader: no test files detected")
 
@@ -735,5 +765,6 @@ class CodebaseReader:
             List of matching Path objects.
         """
         import re
+
         compiled = re.compile(pattern)
         return [f.path for f in self.files if compiled.search(str(f.path))]

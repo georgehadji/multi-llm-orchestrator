@@ -13,7 +13,6 @@ import sys
 
 import pytest
 
-
 PYTHON = sys.executable
 
 

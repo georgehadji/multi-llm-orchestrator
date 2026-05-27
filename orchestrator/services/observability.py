@@ -173,12 +173,13 @@ class ObservabilityService:
         """Record one completed LLM call (success or failure)."""
         async with self._lock:
             bucket = self._get_or_create(model_id)
-            bucket.record(latency_ms=latency_ms, cost_usd=cost_usd,
-                          success=success, error=error)
+            bucket.record(latency_ms=latency_ms, cost_usd=cost_usd, success=success, error=error)
         if not success:
             logger.debug(
                 "obs: model=%s FAILED latency=%.0fms error=%s",
-                model_id, latency_ms, error,
+                model_id,
+                latency_ms,
+                error,
             )
 
     async def record_fallback(self, primary_model_id: str) -> None:

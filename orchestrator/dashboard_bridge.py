@@ -66,9 +66,7 @@ class DashboardBridge:
             except Exception:
                 logger.debug("Dashboard task progress notification failed", exc_info=True)
 
-    def notify_task_complete(
-        self, task_id: str, result: TaskResult, quality_score: float
-    ) -> None:
+    def notify_task_complete(self, task_id: str, result: TaskResult, quality_score: float) -> None:
         """Notify dashboard of task completion."""
         dash = self._dashboard
         if dash and hasattr(dash, "on_task_complete"):

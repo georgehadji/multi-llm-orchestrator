@@ -20,6 +20,7 @@ logger = logging.getLogger("orchestrator.agents.metrics")
 @dataclass
 class AgentMetricsSnapshot:
     """Snapshot of agent metrics at a point in time."""
+
     agent_id: str
     tasks_completed: int = 0
     tasks_failed: int = 0
@@ -40,7 +41,9 @@ class AgentMetrics:
         self.latencies: list[float] = []
         self.total_cost: float = 0.0
 
-    def record_task(self, success: bool, score: float, latency_ms: float, cost_usd: float = 0.0) -> None:
+    def record_task(
+        self, success: bool, score: float, latency_ms: float, cost_usd: float = 0.0
+    ) -> None:
         """Record a task execution."""
         if success:
             self.tasks_completed += 1
@@ -84,6 +87,7 @@ class AgentMetrics:
 
 class MetricsRegistry:
     """Global registry of per-agent metrics."""
+
     _instance: "MetricsRegistry | None" = None
 
     def __new__(cls) -> "MetricsRegistry":

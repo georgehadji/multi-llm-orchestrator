@@ -22,6 +22,7 @@ logger = logging.getLogger("orchestrator.ux.design_enhancer")
 @dataclass
 class UXStandard:
     """A UX standard that generated code should follow."""
+
     name: str
     description: str
     category: str  # "layout", "accessibility", "typography", "color", "interaction"
@@ -33,34 +34,104 @@ class UXStandard:
 # Modern UX standards for generated interfaces
 UX_STANDARDS: list[UXStandard] = [
     # Layout & Responsiveness
-    UXStandard("Responsive Design", "Use CSS Grid and Flexbox. Support mobile (320px), tablet (768px), desktop (1024px+). Never use fixed widths.", "layout"),
-    UXStandard("Mobile-First", "Default to mobile layout, use min-width media queries for larger screens.", "layout"),
-    UXStandard("Consistent Spacing", "Use a 4px or 8px spacing scale. Consistent padding, margins, and gaps throughout.", "layout"),
-    UXStandard("Visual Hierarchy", "Clear heading hierarchy (h1→h6). Most important content is visually prominent.", "layout"),
-
+    UXStandard(
+        "Responsive Design",
+        "Use CSS Grid and Flexbox. Support mobile (320px), tablet (768px), desktop (1024px+). Never use fixed widths.",
+        "layout",
+    ),
+    UXStandard(
+        "Mobile-First",
+        "Default to mobile layout, use min-width media queries for larger screens.",
+        "layout",
+    ),
+    UXStandard(
+        "Consistent Spacing",
+        "Use a 4px or 8px spacing scale. Consistent padding, margins, and gaps throughout.",
+        "layout",
+    ),
+    UXStandard(
+        "Visual Hierarchy",
+        "Clear heading hierarchy (h1→h6). Most important content is visually prominent.",
+        "layout",
+    ),
     # Accessibility (WCAG 2.1 AA)
-    UXStandard("Color Contrast", "Text must meet 4.5:1 contrast ratio (3:1 for large text). Use tools to verify.", "accessibility"),
-    UXStandard("Keyboard Navigation", "All interactive elements reachable via Tab. Visible focus indicators. No keyboard traps.", "accessibility"),
-    UXStandard("ARIA Labels", "Interactive elements have aria-label or aria-labelledby. Landmarks: nav, main, complementary.", "accessibility"),
-    UXStandard("Screen Reader Support", "Images have alt text. Forms have associated labels. Use semantic HTML elements.", "accessibility"),
-    UXStandard("Touch Targets", "Interactive elements minimum 44×44px touch target size.", "accessibility"),
-
+    UXStandard(
+        "Color Contrast",
+        "Text must meet 4.5:1 contrast ratio (3:1 for large text). Use tools to verify.",
+        "accessibility",
+    ),
+    UXStandard(
+        "Keyboard Navigation",
+        "All interactive elements reachable via Tab. Visible focus indicators. No keyboard traps.",
+        "accessibility",
+    ),
+    UXStandard(
+        "ARIA Labels",
+        "Interactive elements have aria-label or aria-labelledby. Landmarks: nav, main, complementary.",
+        "accessibility",
+    ),
+    UXStandard(
+        "Screen Reader Support",
+        "Images have alt text. Forms have associated labels. Use semantic HTML elements.",
+        "accessibility",
+    ),
+    UXStandard(
+        "Touch Targets", "Interactive elements minimum 44×44px touch target size.", "accessibility"
+    ),
     # Typography
-    UXStandard("Font Pairing", "Use a maximum of 2 fonts: one for headings, one for body. System fonts or variable fonts preferred.", "typography"),
-    UXStandard("Readable Line Length", "Body text between 60-80 characters per line. Use max-width on text containers.", "typography"),
+    UXStandard(
+        "Font Pairing",
+        "Use a maximum of 2 fonts: one for headings, one for body. System fonts or variable fonts preferred.",
+        "typography",
+    ),
+    UXStandard(
+        "Readable Line Length",
+        "Body text between 60-80 characters per line. Use max-width on text containers.",
+        "typography",
+    ),
     UXStandard("Line Height", "Body text: 1.5-1.6 line height. Headings: 1.2-1.3.", "typography"),
-    UXStandard("Font Size Scale", "Use a consistent type scale. Default: 16px body, scale ratio of 1.25 or 1.333.", "typography"),
-
+    UXStandard(
+        "Font Size Scale",
+        "Use a consistent type scale. Default: 16px body, scale ratio of 1.25 or 1.333.",
+        "typography",
+    ),
     # Color & Theme
-    UXStandard("Design System", "Define CSS custom properties for colors, spacing, and typography. Use them consistently.", "color"),
-    UXStandard("Dark Mode", "Support prefers-color-scheme media query. Don't use pure black (#000) — use dark gray instead.", "color"),
-    UXStandard("Color Palette", "Define 3-6 colors maximum: primary, secondary, accent, background, text, error. Don't use raw colors inline.", "color"),
-
+    UXStandard(
+        "Design System",
+        "Define CSS custom properties for colors, spacing, and typography. Use them consistently.",
+        "color",
+    ),
+    UXStandard(
+        "Dark Mode",
+        "Support prefers-color-scheme media query. Don't use pure black (#000) — use dark gray instead.",
+        "color",
+    ),
+    UXStandard(
+        "Color Palette",
+        "Define 3-6 colors maximum: primary, secondary, accent, background, text, error. Don't use raw colors inline.",
+        "color",
+    ),
     # Interaction & Animation
-    UXStandard("Micro-interactions", "Subtle hover/focus states on buttons, links, and inputs. 150-300ms transitions.", "interaction"),
-    UXStandard("Loading States", "Show loading spinners or skeleton screens for async operations. Disable buttons during submission.", "interaction"),
-    UXStandard("Error Handling", "Inline form validation errors. Toast notifications for actions. Clear error messages.", "interaction"),
-    UXStandard("Empty States", "When no data exists, show a helpful illustration or message, not a blank page.", "interaction"),
+    UXStandard(
+        "Micro-interactions",
+        "Subtle hover/focus states on buttons, links, and inputs. 150-300ms transitions.",
+        "interaction",
+    ),
+    UXStandard(
+        "Loading States",
+        "Show loading spinners or skeleton screens for async operations. Disable buttons during submission.",
+        "interaction",
+    ),
+    UXStandard(
+        "Error Handling",
+        "Inline form validation errors. Toast notifications for actions. Clear error messages.",
+        "interaction",
+    ),
+    UXStandard(
+        "Empty States",
+        "When no data exists, show a helpful illustration or message, not a blank page.",
+        "interaction",
+    ),
 ]
 
 
@@ -121,19 +192,31 @@ class UXDesignReviewer:
             suggestion = ""
 
             if standard.name == "Responsive Design":
-                if "max-width" not in combined and "grid" not in combined and "flex" not in combined:
+                if (
+                    "max-width" not in combined
+                    and "grid" not in combined
+                    and "flex" not in combined
+                ):
                     passed = False
-                    suggestion = "Add responsive layout using CSS Grid or Flexbox with max-width containers."
+                    suggestion = (
+                        "Add responsive layout using CSS Grid or Flexbox with max-width containers."
+                    )
 
             elif standard.name == "Keyboard Navigation":
-                if "tabindex" not in combined and "focus" not in combined and ":focus" not in combined:
+                if (
+                    "tabindex" not in combined
+                    and "focus" not in combined
+                    and ":focus" not in combined
+                ):
                     passed = False
                     suggestion = "Add keyboard navigation support: tabindex attributes and visible :focus styles."
 
             elif standard.name == "Color Contrast":
                 if "color:" in combined and "contrast" not in combined:
                     passed = False
-                    suggestion = "Ensure text/background color combinations meet 4.5:1 contrast ratio."
+                    suggestion = (
+                        "Ensure text/background color combinations meet 4.5:1 contrast ratio."
+                    )
 
             elif standard.name == "Dark Mode":
                 if "prefers-color-scheme" not in combined:
@@ -150,12 +233,14 @@ class UXDesignReviewer:
                 if not passed:
                     suggestion = "Add media queries or use CSS Grid/Flexbox for responsive layout."
 
-            findings.append({
-                "standard": standard.name,
-                "category": standard.category,
-                "passed": passed,
-                "suggestion": suggestion,
-            })
+            findings.append(
+                {
+                    "standard": standard.name,
+                    "category": standard.category,
+                    "passed": passed,
+                    "suggestion": suggestion,
+                }
+            )
 
         return findings
 

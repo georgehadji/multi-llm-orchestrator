@@ -9,7 +9,6 @@ import pytest
 
 from orchestrator.state import StateManager
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # _deserialize_state — pure unit tests (no DB)
 # ─────────────────────────────────────────────────────────────────────────────

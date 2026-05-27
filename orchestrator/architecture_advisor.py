@@ -211,98 +211,150 @@ _FALLBACK_ARCH = _ARCH_DEFAULTS["script"]
 def detect_project_type(description: str) -> tuple[ProjectType, Language]:
     """
     Detect project type and programming language from description.
-    
+
     Uses keyword-based detection for reliable classification before LLM analysis.
     This ensures frontend projects don't get processed as Python backend.
-    
+
     Args:
         description: Project description
-        
+
     Returns:
         Tuple of (ProjectType, Language)
     """
     desc_lower = description.lower()
-    
+
     # FRONTEND DETECTION - Check first (more specific than backend)
     frontend_keywords = [
-        'react', 'vue', 'angular', 'svelte', 'solid', 'preact',
-        'next.js', 'nuxt', 'gatsby', 'remix', 'astro',
-        'frontend', 'front-end', 'web app', 'spa ', 'single page',
-        'typescript', 'javascript', 'jsx', 'tsx', '.tsx', '.jsx',
-        'three.js', 'webgl', 'canvas', 'dom manipulation',
-        'tailwind', 'bootstrap', 'material-ui', 'chakra',
-        'webpack', 'vite', 'parcel', 'esbuild',
-        'css-in-js', 'styled-components', 'emotion',
+        "react",
+        "vue",
+        "angular",
+        "svelte",
+        "solid",
+        "preact",
+        "next.js",
+        "nuxt",
+        "gatsby",
+        "remix",
+        "astro",
+        "frontend",
+        "front-end",
+        "web app",
+        "spa ",
+        "single page",
+        "typescript",
+        "javascript",
+        "jsx",
+        "tsx",
+        ".tsx",
+        ".jsx",
+        "three.js",
+        "webgl",
+        "canvas",
+        "dom manipulation",
+        "tailwind",
+        "bootstrap",
+        "material-ui",
+        "chakra",
+        "webpack",
+        "vite",
+        "parcel",
+        "esbuild",
+        "css-in-js",
+        "styled-components",
+        "emotion",
     ]
-    
+
     if any(kw in desc_lower for kw in frontend_keywords):
         # Determine if TypeScript or JavaScript
-        if any(kw in desc_lower for kw in ['typescript', '.tsx', 'ts ', 'type script']):
+        if any(kw in desc_lower for kw in ["typescript", ".tsx", "ts ", "type script"]):
             logger.info("Detected FRONTEND project with TypeScript")
             return ProjectType.FRONTEND, Language.TYPESCRIPT
         else:
             logger.info("Detected FRONTEND project with JavaScript")
             return ProjectType.FRONTEND, Language.JAVASCRIPT
-    
+
     # MOBILE DETECTION
     mobile_keywords = [
-        'ios', 'android', 'react native', 'flutter', 'mobile app',
-        'swift', 'kotlin', 'xamarin', 'cordova', 'ionic',
+        "ios",
+        "android",
+        "react native",
+        "flutter",
+        "mobile app",
+        "swift",
+        "kotlin",
+        "xamarin",
+        "cordova",
+        "ionic",
     ]
-    
+
     if any(kw in desc_lower for kw in mobile_keywords):
-        if 'flutter' in desc_lower or 'dart' in desc_lower:
+        if "flutter" in desc_lower or "dart" in desc_lower:
             logger.info("Detected MOBILE project with Dart/Flutter")
             return ProjectType.MOBILE, Language.DART
         else:
             logger.info("Detected MOBILE project with TypeScript")
             return ProjectType.MOBILE, Language.TYPESCRIPT
-    
+
     # CLI TOOLS
     cli_keywords = [
-        'cli ', 'command line', 'command-line', 'terminal app',
-        'console app', 'shell tool', 'bash script',
+        "cli ",
+        "command line",
+        "command-line",
+        "terminal app",
+        "console app",
+        "shell tool",
+        "bash script",
     ]
-    
+
     if any(kw in desc_lower for kw in cli_keywords):
         # CLI can be Python, Go, or Rust - default to Python
-        if 'go ' in desc_lower or 'golang' in desc_lower:
+        if "go " in desc_lower or "golang" in desc_lower:
             logger.info("Detected CLI project with Go")
             return ProjectType.CLI, Language.GO
-        elif 'rust' in desc_lower:
+        elif "rust" in desc_lower:
             logger.info("Detected CLI project with Rust")
             return ProjectType.CLI, Language.RUST
         else:
             logger.info("Detected CLI project with Python")
             return ProjectType.CLI, Language.PYTHON
-    
+
     # FULLSTACK (has both frontend and backend)
     fullstack_keywords = [
-        'fullstack', 'full-stack', 'full stack',
-        'mern', 'mean', 'pern', 'nextjs fullstack',
+        "fullstack",
+        "full-stack",
+        "full stack",
+        "mern",
+        "mean",
+        "pern",
+        "nextjs fullstack",
     ]
-    
+
     if any(kw in desc_lower for kw in fullstack_keywords):
         logger.info("Detected FULLSTACK project")
-        if 'typescript' in desc_lower:
+        if "typescript" in desc_lower:
             return ProjectType.FULLSTACK, Language.TYPESCRIPT
         else:
             return ProjectType.FULLSTACK, Language.JAVASCRIPT
-    
+
     # LIBRARY/PACKAGE
     library_keywords = [
-        'library', 'package', 'sdk', 'npm package', 'pip package',
-        'reusable component', 'open source library',
+        "library",
+        "package",
+        "sdk",
+        "npm package",
+        "pip package",
+        "reusable component",
+        "open source library",
     ]
-    
+
     if any(kw in desc_lower for kw in library_keywords):
-        if any(kw in desc_lower for kw in ['typescript', 'javascript', 'react']):
+        if any(kw in desc_lower for kw in ["typescript", "javascript", "react"]):
             logger.info("Detected LIBRARY project with TypeScript")
             return ProjectType.LIBRARY, Language.TYPESCRIPT
         else:
             logger.info("Detected LIBRARY project with Python")
             return ProjectType.LIBRARY, Language.PYTHON
-    
+
     # DEFAULT: Python backend
     logger.info("Detected BACKEND project with Python (default)")
     return ProjectType.BACKEND, Language.PYTHON
@@ -602,7 +654,7 @@ class ArchitectureAdvisor:
         # STEP 2: Ensure project type and language are set (critical for routing)
         decision.project_type = project_type
         decision.language = language
-        
+
         # Update commands based on language
         if language == Language.TYPESCRIPT or language == Language.JAVASCRIPT:
             decision.test_command = "npm test"
@@ -626,14 +678,18 @@ class ArchitectureAdvisor:
         # Detect project type from the app_type string
         if app_type in ["react-ts", "react-js", "vue-ts", "threejs", "nextjs"]:
             project_type = ProjectType.FRONTEND
-            language = Language.TYPESCRIPT if "-ts" in app_type or app_type == "nextjs" else Language.JAVASCRIPT
+            language = (
+                Language.TYPESCRIPT
+                if "-ts" in app_type or app_type == "nextjs"
+                else Language.JAVASCRIPT
+            )
         elif app_type == "react-fastapi":
             project_type = ProjectType.FULLSTACK
             language = Language.TYPESCRIPT
         else:
             project_type = ProjectType.BACKEND
             language = Language.PYTHON
-        
+
         return ArchitectureDecision(
             app_type=app_type,
             tech_stack=list(type_d["tech_stack"]),

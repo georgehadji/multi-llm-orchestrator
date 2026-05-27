@@ -20,6 +20,7 @@ logger = logging.getLogger("orchestrator.ci.pipeline")
 @dataclass
 class CIStepResult:
     """Result of a single CI step."""
+
     name: str
     passed: bool
     output: str = ""
@@ -28,11 +29,11 @@ class CIStepResult:
 
 class CIStep(ABC):
     """A single CI step (lint, test, build, etc.)."""
+
     name: str = ""
 
     @abstractmethod
-    async def execute(self, workspace: Any = None) -> CIStepResult:
-        ...
+    async def execute(self, workspace: Any = None) -> CIStepResult: ...
 
 
 class LintStep(CIStep):
@@ -41,9 +42,12 @@ class LintStep(CIStep):
     async def execute(self, workspace=None) -> CIStepResult:
         try:
             import subprocess
+
             result = subprocess.run(
                 ["python", "-m", "ruff", "check", ".", "--no-cache"],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             return CIStepResult(name="lint", passed=result.returncode == 0, output=result.stdout)
         except Exception as exc:
@@ -53,6 +57,7 @@ class LintStep(CIStep):
 @dataclass
 class CIReport:
     """Report from running the CI pipeline."""
+
     passed: bool = False
     steps: list[CIStepResult] = field(default_factory=list)
     all_pass: bool = False

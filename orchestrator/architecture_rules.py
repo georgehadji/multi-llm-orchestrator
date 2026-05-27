@@ -704,51 +704,51 @@ class ArchitectureRulesEngine:
     def _try_recover_truncated_json(self, text: str) -> str | None:
         """
         Attempt to recover a truncated JSON response.
-        
+
         Tries to close open strings, arrays, and objects.
         Returns recovered text or None if recovery fails.
         """
         import re
-        
+
         text = text.strip()
-        
+
         # Count unclosed structures
-        open_braces = text.count('{') - text.count('}')
-        open_brackets = text.count('[') - text.count(']')
-        
+        open_braces = text.count("{") - text.count("}")
+        open_brackets = text.count("[") - text.count("]")
+
         # Check for unclosed string
         quote_count = text.count('"') - text.count('\\"')
         in_string = (quote_count % 2) == 1
-        
+
         # If in middle of string, try to close it
         if in_string:
             # Find last unescaped quote
             last_quote = -1
             for i, c in enumerate(text):
-                if c == '"' and (i == 0 or text[i-1] != '\\'):
+                if c == '"' and (i == 0 or text[i - 1] != "\\"):
                     last_quote = i
-            
+
             if last_quote > 0:
                 # Truncate to last complete key-value pair
                 # Look for pattern: "key": "value" or "key": value
                 last_complete = -1
                 for match in re.finditer(r'"\w+":\s*("[^"]*"|\w+|\{[^}]*\}|\[[^\]]*\])', text):
                     last_complete = match.end()
-                
+
                 if last_complete > 0:
                     text = text[:last_complete]
-        
+
         # Close open structures
-        text = text.rstrip(',')
-        
+        text = text.rstrip(",")
+
         # Close any open arrays/objects
         while open_brackets > 0:
-            text += ']'
+            text += "]"
             open_brackets -= 1
         while open_braces > 0:
-            text += '}'
+            text += "}"
             open_braces -= 1
-        
+
         # Try to parse to verify
         try:
             json.loads(text)
@@ -895,7 +895,7 @@ Choose the best options based on the project requirements. Be specific and pract
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM architecture response: {e}")
             logger.error(f"Response text: {resp.text[:500]}...")
-            
+
             # Check if truncated and try to recover
             if response_text.rstrip()[:-3].count('"') % 2 != 0:
                 # Odd number of quotes - likely truncated mid-string

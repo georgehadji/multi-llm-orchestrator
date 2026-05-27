@@ -298,13 +298,13 @@ class ProjectAssembler:
             # CRITICAL FIX: Apply post-processing to fix LLM mistakes before writing
             # This ensures JS comments, fake imports, and syntax errors are fixed
             post_processed_content = post_process_code(module.content, f"{module.name}.py")
-            
+
             # Fix imports before writing
             fixed_content = self._fix_module_imports(
-                post_processed_content, 
-                module.name, 
+                post_processed_content,
+                module.name,
                 target_dir.relative_to(self.output_dir),
-                available_exports
+                available_exports,
             )
 
             file_path = target_dir / f"{module.name}.py"
@@ -317,7 +317,7 @@ class ProjectAssembler:
     def _build_export_map(self) -> dict[str, str]:
         """
         Build a map of exported symbols to their module paths.
-        
+
         Returns:
             Dict mapping symbol name to module path (e.g., "MyClass" -> "domain.task_001")
         """
@@ -331,33 +331,30 @@ class ProjectAssembler:
         return export_map
 
     def _fix_module_imports(
-        self, 
-        content: str, 
+        self,
+        content: str,
         current_module: str,
         target_path: Path,
-        available_exports: dict[str, str]
+        available_exports: dict[str, str],
     ) -> str:
         """
         Fix imports in module content to use proper relative imports.
-        
+
         Fixes:
         - from task_001 import X → from .task_001 import X (if in same layer)
         - from memory_system import X → (remove or replace with actual module)
         - import task_001 → (convert to relative import)
         """
         import re
-        
+
         lines = content.split("\n")
         fixed_lines = []
-        
+
         for line in lines:
             original_line = line
-            
+
             # Fix: from task_XXX import ...
-            task_import_match = re.match(
-                r"^(from\s+)(task_\w+)(\s+import\s+.+)$", 
-                line.strip()
-            )
+            task_import_match = re.match(r"^(from\s+)(task_\w+)(\s+import\s+.+)$", line.strip())
             if task_import_match:
                 _, imported_module, import_clause = task_import_match.groups()
                 if imported_module in available_exports:
@@ -366,7 +363,7 @@ class ProjectAssembler:
                 else:
                     # Module doesn't exist, comment it out
                     line = f"# FIXME: Module not found - {line.strip()}"
-                
+
             # Fix: import task_XXX
             task_module_match = re.match(r"^(import\s+)(task_\w+)$", line.strip())
             if task_module_match:
@@ -374,15 +371,15 @@ class ProjectAssembler:
                 if imported_module not in available_exports:
                     # Module doesn't exist, comment it out
                     line = f"# FIXME: Module not found - {line.strip()}"
-            
+
             # Fix: from memory_system import ... (fake module)
             if re.match(r"^from\s+memory_system\s+import", line.strip()):
                 line = f"# FIXME: Fake module 'memory_system' - {line.strip()}"
             if re.match(r"^import\s+memory_system\s*$", line.strip()):
                 line = f"# FIXME: Fake module 'memory_system' - {line.strip()}"
-            
+
             fixed_lines.append(line)
-        
+
         return "\n".join(fixed_lines)
 
     def _generate_config_layer(self) -> list[str]:
@@ -842,10 +839,10 @@ if __name__ == "__main__":
     def _generate_pyproject_toml(self) -> list[str]:
         """Generate comprehensive pyproject.toml with all tools configured."""
         dependencies = self._extract_dependencies()
-        
+
         # Sanitize description for TOML - remove newlines and quotes
-        description = self.state.project_description[:100].replace('"', '').replace("'", "")
-        description = description.replace('\n', ' ').replace('\r', ' ').strip()
+        description = self.state.project_description[:100].replace('"', "").replace("'", "")
+        description = description.replace("\n", " ").replace("\r", " ").strip()
 
         toml_content = f"""[build-system]
 requires = ["hatchling>=1.18.0"]
@@ -1531,7 +1528,7 @@ filename = "src/{self.project_name}/__init__.py"
             "communication_diagram",
             "collaboration_diagram",
         }
-        
+
         external = set()
         for module in self.modules:
             for imp in module.imports:

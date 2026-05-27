@@ -29,9 +29,7 @@ async def test_run_project_fails_fast_on_decomposition_error(orchestrator_fixtur
 
     # Patch generator to return an error immediately
     orch._generator.decompose = AsyncMock(
-        return_value=GeneratorResult(
-            tasks={}, wall_time_ms=0.0, error=RuntimeError("API down")
-        )
+        return_value=GeneratorResult(tasks={}, wall_time_ms=0.0, error=RuntimeError("API down"))
     )
 
     t0 = time.monotonic()

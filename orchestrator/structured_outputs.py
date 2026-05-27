@@ -175,7 +175,9 @@ class StructuredClient:
         """
         self._client = None
         self._api_client = api_client
-        self._mode = instructor.Mode.JSON  # MD_JSON is Anthropic-only; JSON works for all OpenAI-compatible APIs incl. OpenRouter
+        self._mode = (
+            instructor.Mode.JSON
+        )  # MD_JSON is Anthropic-only; JSON works for all OpenAI-compatible APIs incl. OpenRouter
 
     def get_client(self, model: str):
         """
@@ -280,14 +282,22 @@ class TaskDecomposer(StructuredClient):
 
         # Feature count indicators
         feature_indicators = [
-            'must include', 'required', 'feature', 'module', 'component',
-            'system', 'service', 'api', 'endpoint', 'implement'
+            "must include",
+            "required",
+            "feature",
+            "module",
+            "component",
+            "system",
+            "service",
+            "api",
+            "endpoint",
+            "implement",
         ]
         feature_count = sum(1 for ind in feature_indicators if ind in project_desc.lower())
         score += min(0.3, feature_count * 0.05)
 
         # Architecture complexity
-        complex_patterns = ['microservice', 'distributed', 'real-time', 'async', 'websocket']
+        complex_patterns = ["microservice", "distributed", "real-time", "async", "websocket"]
         score += min(0.2, sum(0.05 for p in complex_patterns if p in project_desc.lower()))
 
         return min(1.0, score)
@@ -312,6 +322,7 @@ class TaskDecomposer(StructuredClient):
             Validated TaskDecomposition object
         """
         from .log_config import get_logger
+
         logger = get_logger(__name__)
 
         # Check complexity and potentially upgrade model
@@ -332,7 +343,9 @@ class TaskDecomposer(StructuredClient):
 
         # Calculate required tokens based on project size
         required_tokens = self._calculate_decomposition_tokens(project_description)
-        logger.info(f"Decomposition token budget: {required_tokens} (complexity: {complexity_score:.2f})")
+        logger.info(
+            f"Decomposition token budget: {required_tokens} (complexity: {complexity_score:.2f})"
+        )
 
         try:
             # Call with Instructor (automatic validation + retries)

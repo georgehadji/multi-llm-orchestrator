@@ -36,8 +36,9 @@ class AgentOrchestrator:
     def get_agent(self, role: AgentRole) -> AgentBase | None:
         return self.agents.get(role)
 
-    async def execute_goal(self, goal: str, context: str = "",
-                           max_parallel: int = MAX_CONCURRENT) -> dict[str, AgentTaskResult]:
+    async def execute_goal(
+        self, goal: str, context: str = "", max_parallel: int = MAX_CONCURRENT
+    ) -> dict[str, AgentTaskResult]:
         """Execute a goal through agent coordination.
 
         Optimization B-6: tasks without dependencies run in parallel.
@@ -52,7 +53,9 @@ class AgentOrchestrator:
             async with semaphore:
                 agent = self.agents.get(task.target_role) if task.target_role else None
                 if agent is None:
-                    return task.id, AgentTaskResult(task_id=task.id, success=False, output="No agent")
+                    return task.id, AgentTaskResult(
+                        task_id=task.id, success=False, output="No agent"
+                    )
                 try:
                     result = await agent.handle_task(task)
                     return task.id, result
@@ -60,11 +63,14 @@ class AgentOrchestrator:
                     return task.id, AgentTaskResult(task_id=task.id, success=False, output=str(exc))
 
         # Dependency-aware parallel dispatch
-        dep_map = {t.id: getattr(t, 'dependencies', []) for t in tasks}
+        dep_map = {t.id: getattr(t, "dependencies", []) for t in tasks}
         executed: set[str] = set()
         while len(executed) < len(tasks):
-            ready = [t for t in tasks if t.id not in executed
-                     and all(d in executed for d in dep_map.get(t.id, []))]
+            ready = [
+                t
+                for t in tasks
+                if t.id not in executed and all(d in executed for d in dep_map.get(t.id, []))
+            ]
             if not ready:
                 break
             for tid, result in await asyncio.gather(*[_run_one(t) for t in ready]):
@@ -75,13 +81,17 @@ class AgentOrchestrator:
 
     async def _enrich_task(self, task: AgentTask) -> None:
         """Level 2: inject best-known strategy from experience memory."""
-        if not hasattr(self, 'experience') or self.experience is None:
+        if not hasattr(self, "experience") or self.experience is None:
             return
         try:
             best_method = self.experience.best_method_for(getattr(task, "goal", "")[:50])
             if best_method:
                 ctx = getattr(task, "context", "") or ""
-                task.context = ctx + f" [Memory: {best_method} works best for this]" if ctx else f"[Memory: {best_method} works best for this]"
+                task.context = (
+                    ctx + f" [Memory: {best_method} works best for this]"
+                    if ctx
+                    else f"[Memory: {best_method} works best for this]"
+                )
         except Exception:
             pass
 
@@ -91,22 +101,34 @@ class AgentOrchestrator:
         goal_lower = goal.lower()
 
         if any(kw in goal_lower for kw in ["design", "architecture", "choose framework", "plan"]):
-            tasks.append(AgentTask(
-                id="arch_001", goal=goal, target_role=AgentRole.ARCHITECT,
-                context="Design the architecture for this project",
-            ))
+            tasks.append(
+                AgentTask(
+                    id="arch_001",
+                    goal=goal,
+                    target_role=AgentRole.ARCHITECT,
+                    context="Design the architecture for this project",
+                )
+            )
 
-        tasks.append(AgentTask(
-            id="dev_001", goal=goal, target_role=AgentRole.DEVELOPER,
-            context="Implement the solution",
-            dependencies=[t.id for t in tasks],
-        ))
+        tasks.append(
+            AgentTask(
+                id="dev_001",
+                goal=goal,
+                target_role=AgentRole.DEVELOPER,
+                context="Implement the solution",
+                dependencies=[t.id for t in tasks],
+            )
+        )
 
         if any(kw in goal_lower for kw in ["test", "verify", "qa"]):
-            tasks.append(AgentTask(
-                id="test_001", goal=goal, target_role=AgentRole.TESTER,
-                context="Write and run tests",
-                dependencies=[t.id for t in tasks],
-            ))
+            tasks.append(
+                AgentTask(
+                    id="test_001",
+                    goal=goal,
+                    target_role=AgentRole.TESTER,
+                    context="Write and run tests",
+                    dependencies=[t.id for t in tasks],
+                )
+            )
 
         return tasks

@@ -14,23 +14,23 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-
 # ─────────────────────────────────────────────
 # Enums
 # ─────────────────────────────────────────────
 
 
-
-
 @dataclass
 class ProviderStrategy:
     """Provider sorting strategy for OpenRouter model selection."""
+
     sort: str = "price"
     preferred_min_throughput: float | None = None
     preferred_max_latency: float | None = None
 
+
 class ProjectType(str, Enum):
     """Project type classification for architecture routing."""
+
     BACKEND = "backend"
     FRONTEND = "frontend"
     FULLSTACK = "fullstack"
@@ -42,6 +42,7 @@ class ProjectType(str, Enum):
 
 class Language(str, Enum):
     """Programming language for architecture routing."""
+
     PYTHON = "python"
     TYPESCRIPT = "typescript"
     JAVASCRIPT = "javascript"
@@ -81,7 +82,7 @@ class Model(str, Enum):
     O4_MINI = "openai/o4-mini"
 
     # Google Gemini Models
-    GEMINI_FLASH = "google/gemini-3.5-flash"     # latest flash
+    GEMINI_FLASH = "google/gemini-3.5-flash"  # latest flash
     GEMINI_FLASH_LITE = "google/gemini-3.1-flash-lite"  # cost-effective lite
 
     # Anthropic Claude Models
@@ -96,8 +97,8 @@ class Model(str, Enum):
     CLAUDE_HAIKU_4_5 = "anthropic/claude-haiku-4-5"
 
     # DeepSeek Models — V4 series only
-    DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"       # flagship reasoning + coding
-    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"   # fast + cost-effective
+    DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"  # flagship reasoning + coding
+    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # fast + cost-effective
 
     # Meta LLaMA Models (OpenRouter)
     LLAMA_4_MAVERICK = "meta-llama/llama-4-maverick"  # 400B MoE
@@ -126,7 +127,7 @@ class Model(str, Enum):
     # MOONSHOT KIMI MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
     MOONSHOT_KIMI_K2_6 = "moonshotai/kimi-k2.6"  # $0.95/$4.00, 256K, reasoning SOTA
-    MOONSHOT_KIMI_K2 = "moonshotai/kimi-k2"      # $0.50/$1.50
+    MOONSHOT_KIMI_K2 = "moonshotai/kimi-k2"  # $0.50/$1.50
     # Backward compatibility aliases
     KIMI_K2_6 = MOONSHOT_KIMI_K2_6
     KIMI_K2 = MOONSHOT_KIMI_K2
@@ -140,7 +141,7 @@ class Model(str, Enum):
     # ═══════════════════════════════════════════════════════
     # Z.AI GLM MODELS — two canonical models only
     # ═══════════════════════════════════════════════════════
-    ZHIPU_GLM_5_1 = "z-ai/glm-5.1"         # balanced, 202K context
+    ZHIPU_GLM_5_1 = "z-ai/glm-5.1"  # balanced, 202K context
     ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"  # fast variant
 
     # ═══════════════════════════════════════════════════════
@@ -151,8 +152,8 @@ class Model(str, Enum):
     # ═══════════════════════════════════════════════════════
     # QWEN MODELS — two canonical models only
     # ═══════════════════════════════════════════════════════
-    QWEN_3_7_MAX = "qwen/qwen3.7-max"    # flagship reasoning + coding
-    QWEN_3_6_FLASH = "qwen/qwen3.6-flash" # fast + cost-effective
+    QWEN_3_7_MAX = "qwen/qwen3.7-max"  # flagship reasoning + coding
+    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # fast + cost-effective
 
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
@@ -235,8 +236,8 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     Model.CLAUDE_OPUS_4_6: {"input": 5.00, "output": 25.00},
     Model.CLAUDE_HAIKU_4_5: {"input": 1.00, "output": 5.00},
     # DeepSeek Models (via OpenRouter)
-    Model.DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},      # flagship reasoning
-    Model.DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},    # fast + cost-effective
+    Model.DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},  # flagship reasoning
+    Model.DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},  # fast + cost-effective
     # Meta LLaMA Models (OpenRouter)
     Model.LLAMA_4_MAVERICK: {"input": 0.17, "output": 0.17},  # 400B MoE
     Model.LLAMA_4_SCOUT: {"input": 0.11, "output": 0.34},  # 109B MoE
@@ -268,7 +269,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # ═══════════════════════════════════════════════════════
     # Z.AI GLM MODELS (NEW v3.0)
     # ═══════════════════════════════════════════════════════
-    Model.ZHIPU_GLM_5_1: {"input": 0.10, "output": 0.40},      # z-ai/glm-5.1 (balanced)
+    Model.ZHIPU_GLM_5_1: {"input": 0.10, "output": 0.40},  # z-ai/glm-5.1 (balanced)
     Model.ZHIPU_GLM_5_TURBO: {"input": 0.10, "output": 0.40},  # z-ai/glm-5-turbo (fast)
     # ═══════════════════════════════════════════════════════
     # XAI GROK MODELS (NEW v3.0) - LOWEST HALLUCINATION
@@ -279,7 +280,7 @@ COST_TABLE: dict[Model, dict[str, float]] = {
     # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
     # Note: Updated 2026-04-01 - Verified available
     # ═══════════════════════════════════════════════════════
-    Model.QWEN_3_7_MAX: {"input": 0.78, "output": 3.90},    # flagship reasoning + coding
+    Model.QWEN_3_7_MAX: {"input": 0.78, "output": 3.90},  # flagship reasoning + coding
     Model.QWEN_3_6_FLASH: {"input": 0.12, "output": 0.50},  # fast + cost-effective
     # ═══════════════════════════════════════════════════════
     # MINIMAX MODELS (NEW v3.0)
@@ -311,63 +312,62 @@ ROUTING_TABLE: dict[TaskType, list[Model]] = {
     # Optimized May 2026 -- benchlm.ai coding leaderboard evidence
     # Each primary model has 2 fallbacks (next 2 in list)
     # ======================================================================
-
     # CODE_GEN: DeepSeek V4 Flash leads (83.5 score @ $0.27/M)
     TaskType.CODE_GEN: [
-        Model.DEEPSEEK_V4_FLASH,       # 83.5 score, $0.27/$1.10 -- BEST VALUE
-        Model.MOONSHOT_KIMI_K2_6,      # 81.5 score, $0.42/$2.20 -- fallback 1
-        Model.QWEN_3_7_MAX,            # 92.2 score, $0.78/$3.90 -- fallback 2 (best quality)
-        Model.DEEPSEEK_V4_PRO,         # 90.1 score, $1.50/$6.00 -- reasoning premium
-        Model.XIAOMI_MIMO_V2_FLASH,    # $0.09/$0.29 -- ultra-cheap backup
-        Model.GPT_5_4_CODEX,           # 87.8 score, $1.75/$14.00 -- SWE-Bench specialist
-        Model.CLAUDE_SONNET_4_6,       # 82.2 score, $3/$15 -- premium quality
-        Model.GEMINI_FLASH,            # 78.3 score, $0.15/$0.60 -- cheap fallback
+        Model.DEEPSEEK_V4_FLASH,  # 83.5 score, $0.27/$1.10 -- BEST VALUE
+        Model.MOONSHOT_KIMI_K2_6,  # 81.5 score, $0.42/$2.20 -- fallback 1
+        Model.QWEN_3_7_MAX,  # 92.2 score, $0.78/$3.90 -- fallback 2 (best quality)
+        Model.DEEPSEEK_V4_PRO,  # 90.1 score, $1.50/$6.00 -- reasoning premium
+        Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 -- ultra-cheap backup
+        Model.GPT_5_4_CODEX,  # 87.8 score, $1.75/$14.00 -- SWE-Bench specialist
+        Model.CLAUDE_SONNET_4_6,  # 82.2 score, $3/$15 -- premium quality
+        Model.GEMINI_FLASH,  # 78.3 score, $0.15/$0.60 -- cheap fallback
     ],
     # CODE_REVIEW: DeepSeek V4 Pro (reasoning chains) + Grok 4.20 (low hallucination)
     TaskType.CODE_REVIEW: [
-        Model.DEEPSEEK_V4_PRO,         # 90.1 score, reasoning chains -- BEST
-        Model.XAI_GROK_4_20,           # lowest hallucination -- fallback 1
-        Model.CLAUDE_SONNET_4_6,       # 82.2, best quality prose -- fallback 2
-        Model.MOONSHOT_KIMI_K2_6,      # 81.5, strong coding understanding
+        Model.DEEPSEEK_V4_PRO,  # 90.1 score, reasoning chains -- BEST
+        Model.XAI_GROK_4_20,  # lowest hallucination -- fallback 1
+        Model.CLAUDE_SONNET_4_6,  # 82.2, best quality prose -- fallback 2
+        Model.MOONSHOT_KIMI_K2_6,  # 81.5, strong coding understanding
     ],
     # REASONING: Qwen 3.7 Max leads (92.2 score, #4 globally)
     TaskType.REASONING: [
-        Model.QWEN_3_7_MAX,            # 92.2 score, #4 globally -- BEST
-        Model.DEEPSEEK_V4_PRO,         # 90.1 score, dedicated reasoner -- fallback 1
-        Model.GPT_5_4,                 # 87.8 score -- fallback 2
-        Model.MOONSHOT_KIMI_K2_6,      # 81.5, moderate cost reasoning
-        Model.CLAUDE_OPUS_4_6,         # 86.0, most capable
+        Model.QWEN_3_7_MAX,  # 92.2 score, #4 globally -- BEST
+        Model.DEEPSEEK_V4_PRO,  # 90.1 score, dedicated reasoner -- fallback 1
+        Model.GPT_5_4,  # 87.8 score -- fallback 2
+        Model.MOONSHOT_KIMI_K2_6,  # 81.5, moderate cost reasoning
+        Model.CLAUDE_OPUS_4_6,  # 86.0, most capable
     ],
     # WRITING: Quality and creativity
     TaskType.WRITING: [
-        Model.CLAUDE_SONNET_4_6,       # best prose quality -- BEST
-        Model.GPT_5_4,                 # excellent writing -- fallback 1
-        Model.LLAMA_4_MAVERICK,        # $0.17/$0.17, creative -- fallback 2
-        Model.HERMES_3_70B,            # fine-tuned creative
-        Model.LLAMA_3_1_405B,          # Meta frontier
+        Model.CLAUDE_SONNET_4_6,  # best prose quality -- BEST
+        Model.GPT_5_4,  # excellent writing -- fallback 1
+        Model.LLAMA_4_MAVERICK,  # $0.17/$0.17, creative -- fallback 2
+        Model.HERMES_3_70B,  # fine-tuned creative
+        Model.LLAMA_3_1_405B,  # Meta frontier
     ],
     # DATA_EXTRACT: GLM-5.1 leads (83.4 score @ $0.10 -- beats Claude Sonnet!)
     TaskType.DATA_EXTRACT: [
-        Model.ZHIPU_GLM_5_1,           # 83.4 score, $0.10/$0.40 -- BEST VALUE
-        Model.DEEPSEEK_V4_FLASH,       # 83.5 score, $0.27/$1.10 -- fallback 1
-        Model.ZHIPU_GLM_5_TURBO,       # $0.10/$0.40, fast -- fallback 2
-        Model.PHI_4,                    # $0.07/$0.14, ultra-cheap
-        Model.GEMINI_FLASH,            # 78.3 score, cheap backup
+        Model.ZHIPU_GLM_5_1,  # 83.4 score, $0.10/$0.40 -- BEST VALUE
+        Model.DEEPSEEK_V4_FLASH,  # 83.5 score, $0.27/$1.10 -- fallback 1
+        Model.ZHIPU_GLM_5_TURBO,  # $0.10/$0.40, fast -- fallback 2
+        Model.PHI_4,  # $0.07/$0.14, ultra-cheap
+        Model.GEMINI_FLASH,  # 78.3 score, cheap backup
     ],
     # SUMMARIZE: GLM-5.1 leads (same reasoning as data extraction)
     TaskType.SUMMARIZE: [
-        Model.ZHIPU_GLM_5_1,           # 83.4 score, $0.10/$0.40 -- BEST VALUE
-        Model.DEEPSEEK_V4_FLASH,       # 83.5 score, $0.27/$1.10 -- fallback 1
-        Model.GEMINI_FLASH,            # 78.3 score, $0.15/$0.60 -- fallback 2
-        Model.PHI_4,                    # $0.07/$0.14, ultra-cheap
+        Model.ZHIPU_GLM_5_1,  # 83.4 score, $0.10/$0.40 -- BEST VALUE
+        Model.DEEPSEEK_V4_FLASH,  # 83.5 score, $0.27/$1.10 -- fallback 1
+        Model.GEMINI_FLASH,  # 78.3 score, $0.15/$0.60 -- fallback 2
+        Model.PHI_4,  # $0.07/$0.14, ultra-cheap
     ],
     # EVALUATE: Grok 4.20 leads (lowest hallucination = fairest scoring)
     TaskType.EVALUATE: [
-        Model.XAI_GROK_4_20,           # lowest hallucination -- BEST
-        Model.DEEPSEEK_V4_PRO,         # 90.1 score, nuanced evaluation -- fallback 1
-        Model.CLAUDE_SONNET_4_6,       # reliable structured output -- fallback 2
-        Model.GPT_5_4,                 # 87.8, consistent scoring
-        Model.MOONSHOT_KIMI_K2_6,      # 81.5, technical eval
+        Model.XAI_GROK_4_20,  # lowest hallucination -- BEST
+        Model.DEEPSEEK_V4_PRO,  # 90.1 score, nuanced evaluation -- fallback 1
+        Model.CLAUDE_SONNET_4_6,  # reliable structured output -- fallback 2
+        Model.GPT_5_4,  # 87.8, consistent scoring
+        Model.MOONSHOT_KIMI_K2_6,  # 81.5, technical eval
     ],
 }
 
@@ -401,7 +401,7 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     Model.CLAUDE_HAIKU_4_5: Model.LLAMA_3_3_70B,  # Haiku 4-5 → LLaMA 70B
     # DeepSeek fallbacks
     Model.DEEPSEEK_V4_FLASH: Model.LLAMA_4_SCOUT,  # v4-flash -> LLaMA Scout
-    Model.DEEPSEEK_V4_PRO: Model.O3_MINI,            # v4-pro -> o3-mini
+    Model.DEEPSEEK_V4_PRO: Model.O3_MINI,  # v4-pro -> o3-mini
     # Meta LLaMA fallbacks
     Model.LLAMA_4_MAVERICK: Model.LLAMA_3_1_405B,  # Maverick → LLaMA 405B
     Model.LLAMA_4_SCOUT: Model.LLAMA_3_3_70B,  # Scout → LLaMA 70B
@@ -419,11 +419,11 @@ FALLBACK_CHAIN: dict[Model, Model] = {
     # ── v3.0 models added to ROUTING_TABLE but missing from FALLBACK_CHAIN ──
     # Without these entries, self_consistency.py:FALLBACK_CHAIN.get(model, model)
     # returns the same model as default, making quality retries useless (BUG-006).
-    Model.XIAOMI_MIMO_V2_FLASH: Model.DEEPSEEK_V4_FLASH,     # CODE_GEN primary → proven alt
-    Model.XAI_GROK_4_20: Model.DEEPSEEK_V4_PRO,              # CODE_REVIEW/EVALUATE primary → reasoning
-    Model.STEPFUN_STEP_3_5_FLASH: Model.DEEPSEEK_V4_PRO,     # REASONING primary → reasoning specialist
-    Model.ZHIPU_GLM_5_1: Model.PHI_4,                    # DATA_EXTRACT/SUMMARIZE primary
-    Model.ZHIPU_GLM_5_TURBO: Model.ZHIPU_GLM_5_1,              # turbo -> glm-5.1 → cheap alt
+    Model.XIAOMI_MIMO_V2_FLASH: Model.DEEPSEEK_V4_FLASH,  # CODE_GEN primary → proven alt
+    Model.XAI_GROK_4_20: Model.DEEPSEEK_V4_PRO,  # CODE_REVIEW/EVALUATE primary → reasoning
+    Model.STEPFUN_STEP_3_5_FLASH: Model.DEEPSEEK_V4_PRO,  # REASONING primary → reasoning specialist
+    Model.ZHIPU_GLM_5_1: Model.PHI_4,  # DATA_EXTRACT/SUMMARIZE primary
+    Model.ZHIPU_GLM_5_TURBO: Model.ZHIPU_GLM_5_1,  # turbo -> glm-5.1 → cheap alt
 }
 
 
@@ -475,7 +475,7 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.DEEPSEEK_V4_FLASH: 8192,
     Model.DEEPSEEK_V4_PRO: 8192,
     # Z.AI GLM models
-    Model.ZHIPU_GLM_5_1: 16384,      # z-ai/glm-5.1 (balanced)
+    Model.ZHIPU_GLM_5_1: 16384,  # z-ai/glm-5.1 (balanced)
     Model.ZHIPU_GLM_5_TURBO: 16384,  # z-ai/glm-5-turbo (fast)
     # Meta LLaMA models
     Model.LLAMA_4_MAVERICK: 8192,
@@ -523,7 +523,6 @@ BUDGET_PARTITIONS: dict[str, float] = {
     "evaluation": 0.15,
     "reserve": 0.10,
 }
-
 
 
 # ─────────────────────────────────────────────
@@ -656,7 +655,6 @@ class Budget:
 
 
 __all__ = ["Budget"]
-
 
 
 # ─────────────────────────────────────────────

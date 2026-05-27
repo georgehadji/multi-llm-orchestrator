@@ -285,6 +285,7 @@ class CheckpointManager:
 # Category 2, Phase 1 (Replit): Named checkpoints + rollback + artifacts
 # ─────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class NamedCheckpoint:
     """A named snapshot with file artifacts, budget tracking, and rollback."""
@@ -358,6 +359,7 @@ class NamedCheckpointManager(CheckpointManager):
         # Hash artifacts if output_dir provided
         if output_dir:
             import os
+
             out = Path(output_dir)
             if out.exists():
                 for f in out.rglob("*"):
@@ -374,9 +376,7 @@ class NamedCheckpointManager(CheckpointManager):
         logger.info(f"Snapshot '{name}' saved: {filepath}")
         return cp
 
-    async def rollback(
-        self, snapshot_name: str, output_dir: str
-    ) -> NamedCheckpoint | None:
+    async def rollback(self, snapshot_name: str, output_dir: str) -> NamedCheckpoint | None:
         """Restore project to a named snapshot.
 
         Does NOT modify files — returns the snapshot data so the caller
@@ -415,9 +415,7 @@ class NamedCheckpointManager(CheckpointManager):
                 logger.warning(f"Failed to load snapshot {f}: {e}")
         return snapshots
 
-    async def compare_snapshots(
-        self, name_a: str, name_b: str
-    ) -> dict[str, Any]:
+    async def compare_snapshots(self, name_a: str, name_b: str) -> dict[str, Any]:
         """Compare two named snapshots and return diff.
 
         Returns a dict with added_files, removed_files, modified_files,
@@ -441,8 +439,7 @@ class NamedCheckpointManager(CheckpointManager):
             "added_files": sorted(files_b - files_a),
             "removed_files": sorted(files_a - files_b),
             "modified_files": sorted(
-                f for f in files_a & files_b
-                if cp_a.artifacts[f] != cp_b.artifacts[f]
+                f for f in files_a & files_b if cp_a.artifacts[f] != cp_b.artifacts[f]
             ),
             "budget_delta": cp_b.budget_spent - cp_a.budget_spent,
             "snapshot_a": name_a,

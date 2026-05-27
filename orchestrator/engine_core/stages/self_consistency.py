@@ -52,17 +52,21 @@ class EnhancedSelfConsistencyStage:
         if ctx.attempt >= self._max_attempts:
             logger.info(
                 "Max attempts (%d) reached for task %s, best score=%.3f",
-                self._max_attempts, ctx.task.id, ctx.score,
+                self._max_attempts,
+                ctx.task.id,
+                ctx.score,
             )
             return ctx
 
         # Record this attempt for diagnostics
-        ctx.attempt_history.append({
-            "attempt": ctx.attempt,
-            "score": ctx.score,
-            "model": ctx.model.value if ctx.model else "none",
-            "output_snippet": ctx.output[:200],
-        })
+        ctx.attempt_history.append(
+            {
+                "attempt": ctx.attempt,
+                "score": ctx.score,
+                "model": ctx.model.value if ctx.model else "none",
+                "output_snippet": ctx.output[:200],
+            }
+        )
 
         ctx.attempt += 1
 
@@ -71,9 +75,10 @@ class EnhancedSelfConsistencyStage:
             method = self._ara_strategy.get_retry_method(ctx.task)
             if method is not None:
                 logger.info(
-                    "Attempt %d score=%.3f below threshold=%.3f, "
-                    "retrying with ARA method %s",
-                    ctx.attempt, ctx.score, self._quality_threshold,
+                    "Attempt %d score=%.3f below threshold=%.3f, " "retrying with ARA method %s",
+                    ctx.attempt,
+                    ctx.score,
+                    self._quality_threshold,
                     method.value,
                 )
                 ctx.task.revision_context = ctx.critique
@@ -87,9 +92,10 @@ class EnhancedSelfConsistencyStage:
             fallback = FALLBACK_CHAIN.get(ctx.model, ctx.model)
             ctx.task.preferred_model = fallback
             logger.info(
-                "Attempt %d score=%.3f below threshold=%.3f, "
-                "retrying with fallback model %s",
-                ctx.attempt, ctx.score, self._quality_threshold,
+                "Attempt %d score=%.3f below threshold=%.3f, " "retrying with fallback model %s",
+                ctx.attempt,
+                ctx.score,
+                self._quality_threshold,
                 fallback.value,
             )
 

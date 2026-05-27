@@ -50,7 +50,7 @@ class TestPipelineContext:
         result = ctx.to_task_result()
         assert isinstance(result, TaskResult)
         assert result.task_id == "test_task"
-        assert hasattr(result, 'preflight_result')
+        assert hasattr(result, "preflight_result")
 
     def test_tokens_used_default(self, ctx):
         assert ctx.tokens_used == {"input": 0, "output": 0}
@@ -126,10 +126,12 @@ class TestTaskPipeline:
     async def test_generation_stage(self):
         """GenerateStage produces output."""
         mock_client = MagicMock()
-        mock_client.call = AsyncMock(return_value=MagicMock(
-            text="Generated output",
-            cost_usd=0.01,
-        ))
+        mock_client.call = AsyncMock(
+            return_value=MagicMock(
+                text="Generated output",
+                cost_usd=0.01,
+            )
+        )
         mock_budget = MagicMock()
         mock_selector = MagicMock()
         mock_selector.select = MagicMock(return_value=Model.GPT_4O_MINI)

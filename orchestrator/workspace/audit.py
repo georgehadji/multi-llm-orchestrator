@@ -21,6 +21,7 @@ logger = logging.getLogger("orchestrator.workspace.audit")
 @dataclass
 class AuditEntry:
     """A single audit log entry."""
+
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     agent: str = ""
     action: str = ""  # FILE_CREATED, FILE_MODIFIED, MODEL_CALL, TOOL_EXECUTED, DECISION_MADE
@@ -35,10 +36,17 @@ class AuditTrail:
     def __init__(self) -> None:
         self._entries: list[AuditEntry] = []
 
-    def record(self, agent: str, action: str, detail: str = "",
-               success: bool = True, duration_ms: float = 0.0) -> AuditEntry:
-        entry = AuditEntry(agent=agent, action=action, detail=detail,
-                          success=success, duration_ms=duration_ms)
+    def record(
+        self,
+        agent: str,
+        action: str,
+        detail: str = "",
+        success: bool = True,
+        duration_ms: float = 0.0,
+    ) -> AuditEntry:
+        entry = AuditEntry(
+            agent=agent, action=action, detail=detail, success=success, duration_ms=duration_ms
+        )
         self._entries.append(entry)
         return entry
 
@@ -46,10 +54,20 @@ class AuditTrail:
         return self._entries[-limit:]
 
     def export_json(self) -> str:
-        return json.dumps([{
-            "timestamp": e.timestamp, "agent": e.agent, "action": e.action,
-            "detail": e.detail, "success": e.success, "duration_ms": e.duration_ms,
-        } for e in self._entries], indent=2)
+        return json.dumps(
+            [
+                {
+                    "timestamp": e.timestamp,
+                    "agent": e.agent,
+                    "action": e.action,
+                    "detail": e.detail,
+                    "success": e.success,
+                    "duration_ms": e.duration_ms,
+                }
+                for e in self._entries
+            ],
+            indent=2,
+        )
 
     def clear(self) -> None:
         self._entries.clear()

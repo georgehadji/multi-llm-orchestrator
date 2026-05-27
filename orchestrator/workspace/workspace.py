@@ -22,6 +22,7 @@ logger = logging.getLogger("orchestrator.workspace.workspace")
 @dataclass
 class FileVersion:
     """A versioned file snapshot."""
+
     path: Path
     content: str
     version: int = 1
@@ -33,6 +34,7 @@ class FileVersion:
 @dataclass
 class ArchitectureDecision:
     """A recorded architecture decision."""
+
     id: str
     title: str
     decision: str
@@ -73,20 +75,28 @@ class ProjectWorkspace:
         fv = self.files.get(path)
         return fv.content if fv else None
 
-    def write_file(self, path: str, content: str, author: str = "unknown", message: str = "") -> FileVersion:
+    def write_file(
+        self, path: str, content: str, author: str = "unknown", message: str = ""
+    ) -> FileVersion:
         """Write a new version of a file."""
         existing = self.files.get(path)
         v = (existing.version + 1) if existing else 1
-        fv = FileVersion(path=Path(path), content=content, version=v,
-                         author=author, message=message)
+        fv = FileVersion(
+            path=Path(path), content=content, version=v, author=author, message=message
+        )
         self.files[path] = fv
         return fv
 
-    def record_decision(self, title: str, decision: str, rationale: str, author: str = "") -> ArchitectureDecision:
+    def record_decision(
+        self, title: str, decision: str, rationale: str, author: str = ""
+    ) -> ArchitectureDecision:
         """Record an architecture decision."""
         ad = ArchitectureDecision(
             id=f"ADR-{len(self.architectural_decisions) + 1:03d}",
-            title=title, decision=decision, rationale=rationale, author=author,
+            title=title,
+            decision=decision,
+            rationale=rationale,
+            author=author,
         )
         self.architectural_decisions.append(ad)
         return ad

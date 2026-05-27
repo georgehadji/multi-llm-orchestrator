@@ -54,9 +54,7 @@ class PipelineRunner:
         context_parts = []
         for task_id, result in results.items():
             if hasattr(result, "output") and result.output:
-                context_parts.append(
-                    f"## {task_id}\n```python\n{result.output[:2000]}\n```"
-                )
+                context_parts.append(f"## {task_id}\n```python\n{result.output[:2000]}\n```")
         if context_parts:
             return "## Existing Code Context\n\n" + "\n\n".join(context_parts)
         return ""
@@ -79,9 +77,7 @@ class PipelineRunner:
 
     # ── Execute all (Phase 6-C) ────────────────────────────────────────
 
-    async def execute_all(
-        self, tasks: dict, execution_order: list, policy=None
-    ) -> None:
+    async def execute_all(self, tasks: dict, execution_order: list, policy=None) -> None:
         """Execute all tasks respecting dependencies.
 
         Uses topological levels for parallel execution within each level.
@@ -100,14 +96,10 @@ class PipelineRunner:
 
             if guard:
                 async with guard:
-                    coros = [
-                        orch._execute_task(tasks[tid], policy) for tid in level
-                    ]
+                    coros = [orch._execute_task(tasks[tid], policy) for tid in level]
                     results = await asyncio.gather(*coros, return_exceptions=True)
             else:
-                coros = [
-                    orch._execute_task(tasks[tid], policy) for tid in level
-                ]
+                coros = [orch._execute_task(tasks[tid], policy) for tid in level]
                 results = await asyncio.gather(*coros, return_exceptions=True)
 
             # Store results and record telemetry
@@ -146,10 +138,7 @@ class PipelineRunner:
                 levels.append(level)
         return levels
 
-
-    async def execute_all_with_retry(
-        self, tasks, execution_order, policy=None
-    ):
+    async def execute_all_with_retry(self, tasks, execution_order, policy=None):
         """PHASE D4: Execute with auto-retry on better models (Undo+Retry pattern).
 
         When a task fails, retries it once with a higher-tier model before

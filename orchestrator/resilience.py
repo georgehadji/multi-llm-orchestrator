@@ -224,9 +224,7 @@ async def run_with_resilience(
 
     # Build circuit-breaker-aware wrappers when registry is supplied
     if registry is not None and model_ids is not None:
-        assert len(model_ids) == len(callables), (
-            "model_ids must be the same length as callables"
-        )
+        assert len(model_ids) == len(callables), "model_ids must be the same length as callables"
         breaker_callables: list[Callable[[], Awaitable[T]]] = []
         for fn, mid in zip(callables, model_ids):
             # Use the async-safe registry.get() to avoid the race condition in
@@ -267,9 +265,7 @@ async def run_with_resilience(
         multiplier=policy.backoff_base, min=1.0, max=policy.backoff_max
     )
     if policy.jitter:
-        wait_strategy = wait_strategy + wait_random(
-            min=1.0 * 0.2, max=policy.backoff_max * 0.2
-        )
+        wait_strategy = wait_strategy + wait_random(min=1.0 * 0.2, max=policy.backoff_max * 0.2)
 
     last_error: Exception | None = None
 
@@ -292,8 +288,7 @@ async def run_with_resilience(
             remaining = len(callables) - idx - 1
             if remaining > 0:
                 logger.info(
-                    "Callable %d/%d skipped (circuit OPEN: %s); "
-                    "trying fallback (%d remaining)",
+                    "Callable %d/%d skipped (circuit OPEN: %s); " "trying fallback (%d remaining)",
                     idx + 1,
                     len(callables),
                     exc,
@@ -305,8 +300,7 @@ async def run_with_resilience(
             remaining = len(callables) - idx - 1
             if remaining > 0:
                 logger.warning(
-                    "Callable %d/%d failed after retries (%s); "
-                    "trying fallback (%d remaining)",
+                    "Callable %d/%d failed after retries (%s); " "trying fallback (%d remaining)",
                     idx + 1,
                     len(callables),
                     type(exc).__name__,
@@ -356,9 +350,9 @@ class CostTier(Enum):
 
 # Cost thresholds (USD per 1M input tokens) that define tier boundaries.
 _TIER_THRESHOLDS: dict[CostTier, float] = {
-    CostTier.FREE: 0.0,      # $0 — free models
-    CostTier.BUDGET: 0.5,    # ≤ $0.50/1M tokens
-    CostTier.PREMIUM: 999.0, # > $0.50/1M tokens
+    CostTier.FREE: 0.0,  # $0 — free models
+    CostTier.BUDGET: 0.5,  # ≤ $0.50/1M tokens
+    CostTier.PREMIUM: 999.0,  # > $0.50/1M tokens
 }
 
 

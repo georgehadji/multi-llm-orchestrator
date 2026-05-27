@@ -45,8 +45,8 @@ class TestSyntaxValidation:
         assert validator.validate_syntax_streaming("print('hello'") is False
 
     def test_syntax_batch_valid(self, validator):
-        assert validator.validate_syntax_batch('''x = 1
-y = x + 2''') is True
+        assert validator.validate_syntax_batch("""x = 1
+y = x + 2""") is True
 
     def test_syntax_batch_invalid(self, validator):
         assert validator.validate_syntax_batch("x = ") is False
@@ -55,7 +55,7 @@ y = x + 2''') is True
         assert validator.validate_syntax_batch("") is False
 
     def test_syntax_batch_with_fences(self, validator):
-        fenced = '```python\nx = 1\n```'
+        fenced = "```python\nx = 1\n```"
         assert validator.validate_syntax_batch(fenced) is True
 
 

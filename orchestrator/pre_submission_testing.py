@@ -91,7 +91,9 @@ class PreSubmissionTester:
 
         # Check 3: Deterministic validators must have passed
         check_results["validators_passed"] = (
-            result.deterministic_check_passed if hasattr(result, "deterministic_check_passed") else True
+            result.deterministic_check_passed
+            if hasattr(result, "deterministic_check_passed")
+            else True
         )
         if not check_results["validators_passed"]:
             summary_parts.append("Deterministic validators failed")
@@ -111,8 +113,10 @@ class PreSubmissionTester:
 
         passed = all(check_results.values())
 
-        summary = "; ".join(summary_parts) if summary_parts else (
-            "All pre-submission checks passed" if passed else "Pre-submission checks failed"
+        summary = (
+            "; ".join(summary_parts)
+            if summary_parts
+            else ("All pre-submission checks passed" if passed else "Pre-submission checks failed")
         )
 
         logger.info(

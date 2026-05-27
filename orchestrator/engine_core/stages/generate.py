@@ -64,7 +64,11 @@ class GenerateStage:
 
         ctx.output = response.text
         ctx.cost_usd += response.cost_usd
-        ctx.tokens_used["input"] += getattr(response, "usage", None) and getattr(response.usage, "input_tokens", 0) or 0
-        ctx.tokens_used["output"] += getattr(response, "usage", None) and getattr(response.usage, "output_tokens", 0) or 0
+        ctx.tokens_used["input"] += (
+            getattr(response, "usage", None) and getattr(response.usage, "input_tokens", 0) or 0
+        )
+        ctx.tokens_used["output"] += (
+            getattr(response, "usage", None) and getattr(response.usage, "output_tokens", 0) or 0
+        )
 
         return ctx

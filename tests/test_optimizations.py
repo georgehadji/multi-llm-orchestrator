@@ -10,6 +10,7 @@ class TestAgentCache:
 
     def test_cache_miss(self):
         from orchestrator.learning.agent_cache import AgentCache
+
         cache = AgentCache()
         key = cache.make_key("write hello world")
         result = cache.get(key)
@@ -17,6 +18,7 @@ class TestAgentCache:
 
     def test_cache_hit(self):
         from orchestrator.learning.agent_cache import AgentCache
+
         cache = AgentCache()
         key = cache.make_key("write hello")
         cache.put(key, "print('hello')", 0.85)
@@ -26,6 +28,7 @@ class TestAgentCache:
 
     def test_cache_key_uniqueness(self):
         from orchestrator.learning.agent_cache import AgentCache
+
         cache = AgentCache()
         k1 = cache.make_key("task1", "ctx1", "model-a")
         k2 = cache.make_key("task2", "ctx2", "model-b")
@@ -33,6 +36,7 @@ class TestAgentCache:
 
     def test_cache_clear(self):
         from orchestrator.learning.agent_cache import AgentCache
+
         cache = AgentCache()
         cache.put("k", "v", 1.0)
         cache.clear()
@@ -41,6 +45,7 @@ class TestAgentCache:
     def test_expired_entry(self):
         from orchestrator.learning.agent_cache import AgentCache, CachedResponse, CACHE_TTL_SECONDS
         import time
+
         cache = AgentCache()
         key = "test_expired"
         cache.put(key, "test", 0.5)
@@ -57,12 +62,14 @@ class TestAgentRateLimiter:
 
     def test_allows_first_call(self):
         from orchestrator.agents.rate_limiter import AgentRateLimiter, RateLimit
+
         limiter = AgentRateLimiter()
         limiter.set_limit("dev", RateLimit(max_calls=3))
         assert limiter.check("dev") is True
 
     def test_blocks_excess_calls(self):
         from orchestrator.agents.rate_limiter import AgentRateLimiter, RateLimit
+
         limiter = AgentRateLimiter()
         limiter.set_limit("dev", RateLimit(max_calls=2))
         assert limiter.check("dev") is True
@@ -71,12 +78,14 @@ class TestAgentRateLimiter:
 
     def test_allows_unlimited_when_no_limit(self):
         from orchestrator.agents.rate_limiter import AgentRateLimiter
+
         limiter = AgentRateLimiter()
         for _ in range(100):
             assert limiter.check("unknown") is True
 
     def test_blocks_on_cost(self):
         from orchestrator.agents.rate_limiter import AgentRateLimiter, RateLimit
+
         limiter = AgentRateLimiter()
         limiter.set_limit("expensive", RateLimit(max_cost_usd=5.0))
         assert limiter.check("expensive", cost=4.0) is True
@@ -88,6 +97,7 @@ class TestKnowledgeGraph:
 
     def test_record_success(self):
         from orchestrator.learning.knowledge_graph import KnowledgeGraph
+
         kg = KnowledgeGraph()
         kg.record_success("code_gen", "gpt-4o", "cove", 0.85)
         assert len(kg.nodes) == 3
@@ -95,6 +105,7 @@ class TestKnowledgeGraph:
 
     def test_best_method(self):
         from orchestrator.learning.knowledge_graph import KnowledgeGraph
+
         kg = KnowledgeGraph()
         kg.record_success("code_gen", "model_a", "basic", 0.6)
         kg.record_success("code_gen", "model_b", "cove", 0.95)
@@ -103,10 +114,12 @@ class TestKnowledgeGraph:
 
     def test_best_method_none(self):
         from orchestrator.learning.knowledge_graph import KnowledgeGraph
+
         assert KnowledgeGraph().best_method_for("unknown") is None
 
     def test_failures_for_model(self):
         from orchestrator.learning.knowledge_graph import KnowledgeGraph
+
         kg = KnowledgeGraph()
         kg.add_edge("model:gpt-4o", "tt:code_review", "failed_on")
         kg.add_edge("model:gpt-4o", "tt:code_gen", "failed_on")
@@ -119,6 +132,7 @@ class TestAuditTrail:
 
     def test_record_entry(self):
         from orchestrator.workspace.audit import AuditTrail
+
         audit = AuditTrail()
         entry = audit.record("dev", "FILE_CREATED", "main.py")
         assert entry.agent == "dev"
@@ -126,12 +140,14 @@ class TestAuditTrail:
 
     def test_get_recent(self):
         from orchestrator.workspace.audit import AuditTrail
+
         audit = AuditTrail()
         audit.record("a", "TOOL_EXECUTED", "shell cmd")
         assert len(audit.get_recent(limit=10)) == 1
 
     def test_export_json(self):
         from orchestrator.workspace.audit import AuditTrail
+
         audit = AuditTrail()
         audit.record("dev", "MODEL_CALL", "gpt-4o", duration_ms=1500)
         exported = audit.export_json()
@@ -140,6 +156,7 @@ class TestAuditTrail:
 
     def test_clear(self):
         from orchestrator.workspace.audit import AuditTrail
+
         audit = AuditTrail()
         audit.record("dev", "TOOL_EXECUTED", "ls")
         audit.clear()

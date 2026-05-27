@@ -20,7 +20,6 @@ import time
 
 import pytest
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # BUG-001: AgentCache timestamp persistence
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,9 +46,9 @@ class TestAgentCacheTimestampPersistence:
             cache.save(path)
             loaded = AgentCache.load(path)
             # Without the fix, load() resets timestamp to now → hit instead of miss
-            assert loaded.get(key) is None, (
-                "Disk-loaded entry that was past TTL should remain expired"
-            )
+            assert (
+                loaded.get(key) is None
+            ), "Disk-loaded entry that was past TTL should remain expired"
         finally:
             os.unlink(path)
 
@@ -111,9 +110,9 @@ class TestKnowledgeGraphFindSimilarProjects:
 
         # "write code" overlaps with "code" from "code_gen"
         results = kg.find_similar_projects("write code for a todo app")
-        assert len(results) > 0, (
-            "find_similar_projects returned [] even though code_gen was recorded"
-        )
+        assert (
+            len(results) > 0
+        ), "find_similar_projects returned [] even though code_gen was recorded"
 
     def test_score_reflects_produced_score_not_used_with_weight(self):
         """Score must be the average produced_score, not the used_with edge weight (1.0)."""
@@ -244,13 +243,13 @@ class TestAssumptionGateModelReference:
         from orchestrator.models import Model
 
         assert isinstance(_ASSUMPTION_MODEL, Model), (
-            "_ASSUMPTION_MODEL must be a Model enum; got "
-            f"{type(_ASSUMPTION_MODEL).__name__}"
+            "_ASSUMPTION_MODEL must be a Model enum; got " f"{type(_ASSUMPTION_MODEL).__name__}"
         )
 
     def test_assumption_gate_imports_without_error(self):
         """assumption_gate module must import cleanly (no AttributeError at import time)."""
         import importlib
+
         try:
             importlib.import_module("orchestrator.assumption_gate")
         except AttributeError as exc:
@@ -291,8 +290,7 @@ class TestFallbackChainV3Models:
 
         assert not missing, (
             "ROUTING_TABLE primary models with no FALLBACK_CHAIN entry "
-            "(self-consistency retry would reuse same model):\n  "
-            + "\n  ".join(missing)
+            "(self-consistency retry would reuse same model):\n  " + "\n  ".join(missing)
         )
 
     def test_fallback_is_different_from_primary(self):
@@ -308,8 +306,7 @@ class TestFallbackChainV3Models:
 
         assert not same_model_fallbacks, (
             "These primary models fall back to themselves "
-            "(self-consistency retry is a no-op):\n  "
-            + "\n  ".join(same_model_fallbacks)
+            "(self-consistency retry is a no-op):\n  " + "\n  ".join(same_model_fallbacks)
         )
 
     def test_new_v3_models_specifically_have_fallback(self):
@@ -327,9 +324,9 @@ class TestFallbackChainV3Models:
                 f"{model.value} missing from FALLBACK_CHAIN; "
                 "self_consistency retry would reuse same model"
             )
-            assert FALLBACK_CHAIN[model] != model, (
-                f"{model.value} falls back to itself in FALLBACK_CHAIN"
-            )
+            assert (
+                FALLBACK_CHAIN[model] != model
+            ), f"{model.value} falls back to itself in FALLBACK_CHAIN"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -355,6 +352,7 @@ class TestPersistentWorkspaceSyncSafe:
     def test_write_file_no_deprecation_warning_in_sync_context(self):
         """write_file() must not emit DeprecationWarning about missing event loop."""
         import warnings
+
         ws = self._make_workspace()
         with warnings.catch_warnings():
             warnings.simplefilter("error")
@@ -367,6 +365,7 @@ class TestPersistentWorkspaceSyncSafe:
     def test_record_decision_no_deprecation_warning_in_sync_context(self):
         """record_decision() must not emit DeprecationWarning about missing event loop."""
         import warnings
+
         ws = self._make_workspace()
         with warnings.catch_warnings():
             warnings.simplefilter("error")
@@ -378,6 +377,7 @@ class TestPersistentWorkspaceSyncSafe:
     def test_write_file_returns_file_version_in_sync_context(self):
         """write_file() must succeed (return FileVersion) even without event loop."""
         from orchestrator.workspace.workspace import FileVersion
+
         ws = self._make_workspace()
         result = ws.write_file("b.py", "y=2", author="bot")
         assert isinstance(result, FileVersion)
@@ -403,9 +403,9 @@ class TestExperienceBufferBoundedLists:
         for i in range(limit + 50):
             buf.record_success("code_gen", "cove", f"model-{i}", 0.9)
 
-        assert len(buf.successes) == limit, (
-            f"successes list not capped: len={len(buf.successes)}, expected {limit}"
-        )
+        assert (
+            len(buf.successes) == limit
+        ), f"successes list not capped: len={len(buf.successes)}, expected {limit}"
 
     def test_failures_capped_at_max_audit_size(self):
         """After _MAX_AUDIT_SIZE+N records, len(failures) == _MAX_AUDIT_SIZE."""
@@ -416,9 +416,9 @@ class TestExperienceBufferBoundedLists:
         for i in range(limit + 50):
             buf.record_failure("reasoning", "debate", f"model-{i}", 0.1)
 
-        assert len(buf.failures) == limit, (
-            f"failures list not capped: len={len(buf.failures)}, expected {limit}"
-        )
+        assert (
+            len(buf.failures) == limit
+        ), f"failures list not capped: len={len(buf.failures)}, expected {limit}"
 
     def test_best_model_unaffected_by_cap(self):
         """Capping the audit list must not affect best_model_for() accuracy."""
@@ -434,9 +434,9 @@ class TestExperienceBufferBoundedLists:
 
         # model_scores dict is NOT capped, so it still has all data
         best = buf.best_model_for("code_gen")
-        assert best == "model-b", (
-            f"best_model_for() should return model-b (score 0.9), got {best!r}"
-        )
+        assert (
+            best == "model-b"
+        ), f"best_model_for() should return model-b (score 0.9), got {best!r}"
 
     def test_max_audit_size_is_at_least_50(self):
         """_MAX_AUDIT_SIZE must be >= 50 (documented minimum in architecture)."""

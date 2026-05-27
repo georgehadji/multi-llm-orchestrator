@@ -14,10 +14,10 @@ import pytest
 from orchestrator.models import Budget, Task, TaskType
 from orchestrator.circuit_breaker import CircuitBreaker, CircuitState
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # BUG-001: Budget._get_lock() TOCTOU race
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestBug001BudgetLockTOCTOU:
 
@@ -38,9 +38,9 @@ class TestBug001BudgetLockTOCTOU:
 
         # Bug scenario: if two different Lock objects were used, spent_usd
         # could be less than 10.0 due to unprotected concurrent writes.
-        assert budget.spent_usd == 10.0, (
-            f"Expected spent_usd=10.0 (5+5 charges of $1), got {budget.spent_usd}"
-        )
+        assert (
+            budget.spent_usd == 10.0
+        ), f"Expected spent_usd=10.0 (5+5 charges of $1), got {budget.spent_usd}"
 
     @pytest.mark.asyncio
     async def test_reserve_is_atomic(self):
@@ -58,9 +58,7 @@ class TestBug001BudgetLockTOCTOU:
         # Exactly one should succeed (3.0 < 5.0, but 3.0+3.0 > 5.0)
         successes = sum(results)
         assert successes == 1, f"Expected exactly 1 successful reserve, got {successes}"
-        assert budget._reserved_usd == 3.0, (
-            f"Expected 3.0 reserved, got {budget._reserved_usd}"
-        )
+        assert budget._reserved_usd == 3.0, f"Expected 3.0 reserved, got {budget._reserved_usd}"
 
     def test_lock_is_eagerly_initialized(self):
         """Budget should have its lock ready immediately after construction."""
@@ -72,6 +70,7 @@ class TestBug001BudgetLockTOCTOU:
 # ═══════════════════════════════════════════════════════════════════════════════
 # BUG-002: CircuitBreaker HALF_OPEN probe_in_flight race
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestBug002CircuitBreakerProbeRace:
 
@@ -106,6 +105,7 @@ class TestBug002CircuitBreakerProbeRace:
 
         # Second check — must be blocked (probe still in flight)
         from orchestrator.circuit_breaker import CircuitBreakerOpen
+
         with pytest.raises(CircuitBreakerOpen):
             await cb.check()
 
@@ -133,6 +133,7 @@ class TestBug002CircuitBreakerProbeRace:
         # Second probe — probe_in_flight was still True (BUG-002 fix),
         # so check() should block additional callers:
         from orchestrator.circuit_breaker import CircuitBreakerOpen
+
         with pytest.raises(CircuitBreakerOpen):
             await cb.check()
 
@@ -154,6 +155,7 @@ class TestBug002CircuitBreakerProbeRace:
 # ═══════════════════════════════════════════════════════════════════════════════
 # BUG-003: Evaluator hardcoded latency_ms=0.0
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestBug003EvaluatorLatency:
 
@@ -197,14 +199,13 @@ class TestBug003EvaluatorLatency:
         telemetry.record_call.assert_called_once()
         call_kwargs = telemetry.record_call.call_args[1]
         recorded_latency = call_kwargs.get("latency_ms", 0.0)
-        assert recorded_latency > 0.0, (
-            f"Expected non-zero latency, got {recorded_latency}"
-        )
+        assert recorded_latency > 0.0, f"Expected non-zero latency, got {recorded_latency}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BUG-004: __aexit__ null dereference on _telemetry_store
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestBug004NullTelemetryStore:
 
@@ -243,12 +244,9 @@ class TestBug004NullTelemetryStore:
 
             # Verify no "Failed to flush telemetry store" warning was emitted
             # when telemetry was never initialized
-            warning_messages = [
-                call.args[0] for call in mock_logger.warning.call_args_list
-            ]
+            warning_messages = [call.args[0] for call in mock_logger.warning.call_args_list]
             assert not any(
-                "Failed to flush telemetry store" in msg
-                for msg in warning_messages
+                "Failed to flush telemetry store" in msg for msg in warning_messages
             ), "Should not log 'failed to flush' when telemetry was never initialized"
 
     @pytest.mark.asyncio

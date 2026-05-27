@@ -190,6 +190,7 @@ class ServiceContainer:
         # Defaults
         if cache is None:
             from .cache import DiskCache
+
             cache = DiskCache()
         if state_manager is None:
             state_manager = StateManager()
@@ -206,6 +207,7 @@ class ServiceContainer:
         profiles: dict[Model, Any] = {}
         try:
             from .models import ModelProfile
+
             for m in Model:
                 profiles[m] = ModelProfile(model=m)
         except ImportError:
@@ -219,6 +221,7 @@ class ServiceContainer:
 
         def get_available_models(task_type: object = None) -> list[Model]:
             from .models import ROUTING_TABLE
+
             routing = ROUTING_TABLE.get(task_type, [])
             return [m for m in routing if api_health.get(m, True)]
 
@@ -244,7 +247,7 @@ class ServiceContainer:
 
         # Preflight + validator
         preflight_validator = PreflightValidator()
-        hook_registry = type('HookRegistry', (), {'fire': lambda *a, **kw: None})()
+        hook_registry = type("HookRegistry", (), {"fire": lambda *a, **kw: None})()
 
         validator = TaskValidator(
             client=client,
@@ -256,6 +259,7 @@ class ServiceContainer:
         # ARA integration
         try:
             from .ara_integration import create_ara_integration
+
             ara = create_ara_integration(
                 client=client,
                 cache=cache,
@@ -268,24 +272,27 @@ class ServiceContainer:
 
         try:
             from .ara_execution_strategy import ARAExecutionStrategy
+
             ara_strategy = ARAExecutionStrategy(ara_integration=ara)
         except ImportError:
             ara_strategy = None
 
         # Pipeline with all stages
-        pipeline = TaskPipeline([
-            GenerateStage(client=client, budget=budget, selector=selector),
-            CritiqueStage(client=client),
-            EvaluateStage(evaluator=evaluator),
-            ValidateStage(),
-            PersuasionDefenseStage(ara_integration=ara),
-            PreflightStage(validator=validator),
-            SelfConsistencyStage(
-                max_attempts=2,
-                quality_threshold=0.7,
-                ara_strategy=ara_strategy,
-            ),
-        ])
+        pipeline = TaskPipeline(
+            [
+                GenerateStage(client=client, budget=budget, selector=selector),
+                CritiqueStage(client=client),
+                EvaluateStage(evaluator=evaluator),
+                ValidateStage(),
+                PersuasionDefenseStage(ara_integration=ara),
+                PreflightStage(validator=validator),
+                SelfConsistencyStage(
+                    max_attempts=2,
+                    quality_threshold=0.7,
+                    ara_strategy=ara_strategy,
+                ),
+            ]
+        )
 
         # State management
         if telemetry_store is None:
@@ -295,16 +302,20 @@ class ServiceContainer:
         dep_resolver = DepResolver(context_truncation_limit=8192)
 
         # Event bus
-        event_bus = type('EventBus', (), {'publish': lambda *a, **kw: None})()
+        event_bus = type("EventBus", (), {"publish": lambda *a, **kw: None})()
 
         # Semantic cache
-        semantic_cache = type('SemanticCache', (), {
-            'get_cached_pattern': lambda *a: None,
-            'cache_pattern': lambda *a: None,
-        })()
+        semantic_cache = type(
+            "SemanticCache",
+            (),
+            {
+                "get_cached_pattern": lambda *a: None,
+                "cache_pattern": lambda *a: None,
+            },
+        )()
 
         # Adaptive router
-        adaptive_router = type('AdaptiveRouter', (), {})()
+        adaptive_router = type("AdaptiveRouter", (), {})()
 
         return cls(
             budget=budget,

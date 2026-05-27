@@ -24,6 +24,7 @@ logger = logging.getLogger("orchestrator.runtime.sandbox")
 @dataclass
 class ExecutionResult:
     """Result of code execution."""
+
     success: bool
     output: str = ""
     error: str = ""
@@ -33,8 +34,9 @@ class ExecutionResult:
 class SandboxExecutor:
     """Execute code in isolated temporary environments."""
 
-    async def execute(self, code: str, language: str = "python",
-                      timeout: int = 30) -> ExecutionResult:
+    async def execute(
+        self, code: str, language: str = "python", timeout: int = 30
+    ) -> ExecutionResult:
         """Execute code and return results.
 
         Args:
@@ -60,7 +62,8 @@ class SandboxExecutor:
                     stderr=asyncio.subprocess.PIPE,
                 )
                 stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=timeout,
+                    process.communicate(),
+                    timeout=timeout,
                 )
                 return ExecutionResult(
                     success=process.returncode == 0,
@@ -85,18 +88,25 @@ class TestRunner:
         """
         try:
             process = await asyncio.create_subprocess_exec(
-                sys.executable, "-m", "pytest", str(test_path), "-q", "--no-header",
+                sys.executable,
+                "-m",
+                "pytest",
+                str(test_path),
+                "-q",
+                "--no-header",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=timeout,
+                process.communicate(),
+                timeout=timeout,
             )
         except asyncio.TimeoutError:
             return {"success": False, "error": "Test execution timed out"}
 
         output = stdout.decode()
         import re
+
         match = re.search(r"(\d+) passed", output)
         passed = int(match.group(1)) if match else 0
         match = re.search(r"(\d+) failed", output)

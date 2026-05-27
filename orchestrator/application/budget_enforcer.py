@@ -273,7 +273,9 @@ class BudgetEnforcer:
             "spent_usd": self.budget.spent_usd,
             "remaining_usd": self.budget.remaining_usd,
             "max_usd": self.budget.max_usd,
-            "spent_percentage": (self.budget.spent_usd / self.budget.max_usd) if self.budget.max_usd > 0 else 0.0,
+            "spent_percentage": (
+                (self.budget.spent_usd / self.budget.max_usd) if self.budget.max_usd > 0 else 0.0
+            ),
             "elapsed_seconds": elapsed,
             "remaining_seconds": self.budget.max_time_seconds - elapsed,
             "phase_spending": dict(self.phase_spent),

@@ -70,6 +70,7 @@ class DeveloperAgent(AgentBase):
 
                 try:
                     from ..engine_core.utilities import _clean_code_output
+
                     cleaned = _clean_code_output(output, TaskType.CODE_GEN)
                     if cleaned:
                         output = cleaned
@@ -113,13 +114,16 @@ class ArchitectAgent(AgentBase):
             return AgentTaskResult(task_id=task.id, success=False, output="No LLM available")
 
         # A-2: Complex architecture decisions trigger multi-model deliberation
-        is_complex = any(kw in task.goal.lower() for kw in 
-            ["choose", "framework", "vs", "trade-off", "migrate", "architecture"])
+        is_complex = any(
+            kw in task.goal.lower()
+            for kw in ["choose", "framework", "vs", "trade-off", "migrate", "architecture"]
+        )
 
         if is_complex and len(task.goal) > 50:
             logger.info("ArchitectAgent: multi-model deliberation for complex decision")
             return AgentTaskResult(
-                task_id=task.id, success=True,
+                task_id=task.id,
+                success=True,
                 output=f"[Multi-Model Deliberation] Architecture decision for: {task.goal[:100]}",
             )
 

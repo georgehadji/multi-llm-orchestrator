@@ -19,8 +19,8 @@ from dataclasses import dataclass
 class CommitMessage:
     """Generated commit message for a task."""
 
-    summary: str        # 50-char first line
-    body: str = ""      # Detailed description
+    summary: str  # 50-char first line
+    body: str = ""  # Detailed description
     task_id: str = ""
     co_authored_by: str = "AI Orchestrator <orchestrator@local>"
 
@@ -40,7 +40,9 @@ class GitIntegration:
     def __init__(self, repo_dir: str = "."):
         self.repo_dir = repo_dir
 
-    def generate_message_fast(self, task_id: str, task_prompt: str, score: float = 0.0) -> CommitMessage:
+    def generate_message_fast(
+        self, task_id: str, task_prompt: str, score: float = 0.0
+    ) -> CommitMessage:
         """Generate a template-based commit message (fast, no LLM).
 
         Args:
@@ -142,7 +144,9 @@ Return only the exact commit message, no JSON."""
 
             subprocess.run(
                 ["git", "commit", "-m", message.full_message],
-                cwd=self.repo_dir, capture_output=True, check=True,
+                cwd=self.repo_dir,
+                capture_output=True,
+                check=True,
             )
             return True
         except subprocess.CalledProcessError as e:

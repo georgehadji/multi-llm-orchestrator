@@ -20,6 +20,7 @@ logger = logging.getLogger("orchestrator.agents.rate_limiter")
 @dataclass
 class RateLimit:
     """Rate limit configuration for an agent role."""
+
     max_calls: int = 60  # Max calls per window
     window_seconds: int = 60  # Window duration
     max_cost_usd: float = 5.0  # Max cost per window
@@ -27,6 +28,7 @@ class RateLimit:
 
 class WindowCounter:
     """Sliding window counter for rate limiting."""
+
     def __init__(self, window_seconds: int = 60) -> None:
         self.window = window_seconds
         self.entries: list[tuple[float, float]] = []  # (timestamp, cost)
@@ -66,10 +68,20 @@ class AgentRateLimiter:
         current_cost = counter.total_cost()
 
         if current_count >= limit.max_calls:
-            logger.warning("Rate limit reached for %s: %d calls in %ds window", role, current_count, limit.window_seconds)
+            logger.warning(
+                "Rate limit reached for %s: %d calls in %ds window",
+                role,
+                current_count,
+                limit.window_seconds,
+            )
             return False
         if current_cost + cost >= limit.max_cost_usd:
-            logger.warning("Cost limit reached for %s: $%.2f in %ds window", role, current_cost, limit.window_seconds)
+            logger.warning(
+                "Cost limit reached for %s: $%.2f in %ds window",
+                role,
+                current_cost,
+                limit.window_seconds,
+            )
             return False
 
         counter.add(cost)

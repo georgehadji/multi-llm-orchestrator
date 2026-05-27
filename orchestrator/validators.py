@@ -231,7 +231,7 @@ def validate_ruff(output: str, timeout: int = 15) -> ValidationResult:
     if not code.strip():
         # No explicit Python block found — skip ruff rather than fail
         return ValidationResult(True, "No Python code block, ruff skipped", "ruff")
-    
+
     # FIX: Detect JavaScript/TypeScript content and skip Python validation
     js_indicators = [
         "export default",
@@ -555,33 +555,35 @@ def _extract_code_block(text: str, language: str = "python") -> str:
     return text
 
 
-def validate_file_has_content(output: str, min_lines: int = 5, min_code_lines: int = 3) -> ValidationResult:
+def validate_file_has_content(
+    output: str, min_lines: int = 5, min_code_lines: int = 3
+) -> ValidationResult:
     """Validate that generated file has actual implementation content.
-    
+
     Checks:
     - File is not empty
     - Has minimum number of lines
     - Has actual code (not just comments/imports)
     - Has function or class definitions
-    
+
     This prevents empty files or files with only imports from passing validation.
     """
     code = _extract_code_block(output, "python")
     lines = code.split("\n")
-    
+
     # Check 1: Not empty
     if not code.strip():
         return ValidationResult(False, "File is empty - no code generated", "file_content")
-    
+
     # Check 2: Minimum lines
     non_empty_lines = [l for l in lines if l.strip()]
     if len(non_empty_lines) < min_lines:
         return ValidationResult(
-            False, 
-            f"File too short ({len(non_empty_lines)} lines, min {min_lines}) - incomplete implementation", 
-            "file_content"
+            False,
+            f"File too short ({len(non_empty_lines)} lines, min {min_lines}) - incomplete implementation",
+            "file_content",
         )
-    
+
     # Check 3: Has actual code (not just comments)
     code_lines = []
     in_multiline_string = False
@@ -597,31 +599,28 @@ def validate_file_has_content(output: str, min_lines: int = 5, min_code_lines: i
             continue
         if stripped:
             code_lines.append(stripped)
-    
+
     if len(code_lines) < min_code_lines:
         return ValidationResult(
             False,
             f"Too little actual code ({len(code_lines)} code lines, min {min_code_lines}) - needs implementation",
-            "file_content"
+            "file_content",
         )
-    
+
     # Check 4: Has function or class definitions
-    has_implementation = any(
-        re.match(r"^(def |class |async def )", line)
-        for line in code_lines
-    )
-    
+    has_implementation = any(re.match(r"^(def |class |async def )", line) for line in code_lines)
+
     if not has_implementation:
         return ValidationResult(
             False,
             "No function or class definitions found - file lacks implementation",
-            "file_content"
+            "file_content",
         )
-    
+
     return ValidationResult(
         True,
         f"Content OK: {len(non_empty_lines)} lines, {len(code_lines)} code lines, has implementation",
-        "file_content"
+        "file_content",
     )
 
 
@@ -672,9 +671,7 @@ def validate_simplicity(output: str, task_description: str = "") -> ValidationRe
             )
 
     # Check 4: Empty error handlers
-    empty_handler = re.compile(
-        r"except[^:]*:\s*\n\s*(pass|logger\.(info|debug)\(['\"].*?['\"]\))"
-    )
+    empty_handler = re.compile(r"except[^:]*:\s*\n\s*(pass|logger\.(info|debug)\(['\"].*?['\"]\))")
     if empty_handler.search(code):
         issues.append(
             "Empty error handler detected (bare 'pass' or silent log). "
@@ -732,7 +729,11 @@ def validate_surgical_changes(
         if not line.startswith(("+", "-")):
             continue
         # Skip actual code changes
-        if line[1:].lstrip().startswith(("import ", "from ", "def ", "class ", "return ", "if ", "for ")):
+        if (
+            line[1:]
+            .lstrip()
+            .startswith(("import ", "from ", "def ", "class ", "return ", "if ", "for "))
+        ):
             continue
         if line.startswith("+") and line[1:].lstrip().startswith(("#", "'''", '"""')):
             style_change_count += 1
@@ -767,7 +768,8 @@ def validate_surgical_changes(
     if issues:
         return ValidationResult(
             False,
-            f"Surgical change violations ({len(issues)}):\n" + "\n".join(f"  - {i}" for i in issues),
+            f"Surgical change violations ({len(issues)}):\n"
+            + "\n".join(f"  - {i}" for i in issues),
             "surgical_changes",
         )
 
@@ -776,13 +778,13 @@ def validate_surgical_changes(
 
 def validate_no_error_placeholders(output: str) -> ValidationResult:
     """Validate that output is not an error placeholder.
-    
+
     Detects patterns like:
     - "CODE GENERATION FAILED"
     - "Syntax error:"
     - "ERROR: The generated code failed"
     - raise RuntimeError(...)
-    
+
     These indicate the code generation failed and should be retried.
     """
     error_patterns = [
@@ -792,15 +794,15 @@ def validate_no_error_placeholders(output: str) -> ValidationResult:
         r"raise RuntimeError\(.*Code generation failed",
         r"# .*?ERROR.*?\nraise ",
     ]
-    
+
     for pattern in error_patterns:
         if re.search(pattern, output, re.IGNORECASE):
             return ValidationResult(
                 False,
                 f"Output is an error placeholder - code generation failed: {pattern}",
-                "error_placeholder"
+                "error_placeholder",
             )
-    
+
     return ValidationResult(True, "No error placeholders detected", "error_placeholder")
 
 
@@ -821,7 +823,6 @@ VALIDATORS = {
     "simplicity": validate_simplicity,  # Karpathy Principle 2: over-engineering detection
     "surgical_changes": validate_surgical_changes,  # Karpathy Principle 3: scope creep detection
 }
-
 
 
 # ─────────────────────────────────────────────
@@ -888,6 +889,7 @@ async def validate_syntax_batch(output: str) -> bool:
         True if syntax valid, False otherwise
     """
     import ast
+
     try:
         ast.parse(output)
         return True
@@ -994,12 +996,11 @@ def filter_validators_for_task(task: object, output: str) -> list[str]:
     if is_web_task or not is_python_task:
         # Remove Python-specific validators
         original = set(task.hard_validators)
-        filtered = [
-            v for v in task.hard_validators if v not in ("python_syntax", "ruff", "pytest")
-        ]
+        filtered = [v for v in task.hard_validators if v not in ("python_syntax", "ruff", "pytest")]
         removed = original - set(filtered)
         if removed:
             import logging
+
             logger = logging.getLogger("orchestrator.validators")
             logger.info(
                 f"Task {task.id}: skipped Python validators {removed} (non-Python content detected)"

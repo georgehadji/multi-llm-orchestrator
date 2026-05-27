@@ -657,7 +657,8 @@ class TestFirstGenerator:
                 # Retry once with more tokens
                 response = await self.client.call(
                     model=model,
-                    prompt=prompt + "\n\nIMPORTANT: Generate COMPLETE test code. Previous attempt was truncated.",
+                    prompt=prompt
+                    + "\n\nIMPORTANT: Generate COMPLETE test code. Previous attempt was truncated.",
                     system=f"You are an expert software tester writing comprehensive {fw_label} tests. "
                     "Focus on edge cases, error handling, and clear assertions. "
                     "Output ONLY complete test code, no explanations.",
@@ -799,8 +800,16 @@ class TestFirstGenerator:
             if re.match(r"^from\s+[\w.]+\s+import", stripped):
                 # Don't modify __future__ imports or common stdlib modules
                 stdlib_modules = (
-                    "os", "sys", "typing", "json", "re", "collections",
-                    "pathlib", "datetime", "itertools", "functools"
+                    "os",
+                    "sys",
+                    "typing",
+                    "json",
+                    "re",
+                    "collections",
+                    "pathlib",
+                    "datetime",
+                    "itertools",
+                    "functools",
                 )
                 match = re.match(r"^from\s+([\w.]+)\s+import", stripped)
                 if match:
@@ -820,7 +829,11 @@ class TestFirstGenerator:
                 alias = match.group(3).strip() if match.group(3) else None
                 # Don't modify main itself or stdlib modules
                 if module == "main" or module.split(".")[0] in (
-                    "os", "sys", "typing", "json", "re"
+                    "os",
+                    "sys",
+                    "typing",
+                    "json",
+                    "re",
                 ):
                     fixed_lines.append(line)
                     continue
@@ -908,18 +921,18 @@ class TestFirstGenerator:
                 return await self._run_pytest_locally(
                     temp_dir, implementation_code, fixed_test_code
                 )
-            elif framework in [TestingFramework.JEST, TestingFramework.VITEST, TestingFramework.MOCHA]:
+            elif framework in [
+                TestingFramework.JEST,
+                TestingFramework.VITEST,
+                TestingFramework.MOCHA,
+            ]:
                 return await self._run_npm_tests_locally(
                     temp_dir, implementation_code, test_code, framework
                 )
             elif framework == TestingFramework.GO_TEST:
-                return await self._run_go_tests_locally(
-                    temp_dir, implementation_code, test_code
-                )
+                return await self._run_go_tests_locally(temp_dir, implementation_code, test_code)
             elif framework == TestingFramework.CARGO_TEST:
-                return await self._run_cargo_tests_locally(
-                    temp_dir, implementation_code, test_code
-                )
+                return await self._run_cargo_tests_locally(temp_dir, implementation_code, test_code)
             else:
                 return TestExecutionResult(
                     passed=True,
@@ -1050,9 +1063,7 @@ class TestFirstGenerator:
                 "name": "test-project",
                 "version": "1.0.0",
                 "type": "module",
-                "scripts": {
-                    "test": f"{test_runner} --colors"
-                },
+                "scripts": {"test": f"{test_runner} --colors"},
                 "devDependencies": dev_deps,
             }
 
@@ -1550,7 +1561,7 @@ edition = "2021"
             base_tokens = 4000
             max_tokens = base_tokens + (iteration * 2000)  # 4000, 6000, 8000...
             timeout_seconds = 180 + (iteration * 60)  # 180s, 240s, 300s...
-            
+
             logger.info(f"  Using max_tokens={max_tokens}, timeout={timeout_seconds}s")
 
             try:
@@ -1686,9 +1697,9 @@ edition = "2021"
                     if i + 1 < len(lines):
                         next_line = lines[i + 1]
                         if not next_line.strip() or not (
-                            next_line.startswith(" ") or
-                            next_line.startswith("\t") or
-                            next_line.strip().startswith(("pass", "return", "raise", "assert"))
+                            next_line.startswith(" ")
+                            or next_line.startswith("\t")
+                            or next_line.strip().startswith(("pass", "return", "raise", "assert"))
                         ):
                             return True
 

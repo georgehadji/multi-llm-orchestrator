@@ -23,6 +23,7 @@ CACHE_TTL_SECONDS = 3600  # 1 hour
 @dataclass
 class CachedResponse:
     """A cached agent response with metadata."""
+
     key: str
     output: str
     score: float
@@ -71,6 +72,7 @@ class AgentCache:
     def save(self, path=None):
         import json as _json
         import os
+
         p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "agent_cache.json")
         os.makedirs(os.path.dirname(p), exist_ok=True)
         data = {}
@@ -86,6 +88,7 @@ class AgentCache:
         import json as _json
         import os
         import time as _time
+
         p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "agent_cache.json")
         if not os.path.exists(p):
             return cls()

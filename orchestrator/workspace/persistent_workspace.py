@@ -47,6 +47,7 @@ class PersistentWorkspace(ProjectWorkspace):
         self._loaded = True
         try:
             import aiosqlite
+
             async with aiosqlite.connect(str(self.db_path)) as db:
                 await db.execute("""
                     CREATE TABLE IF NOT EXISTS files (
@@ -72,20 +73,34 @@ class PersistentWorkspace(ProjectWorkspace):
                 cursor = await db.execute("SELECT * FROM files")
                 async for row in cursor:
                     self.files[row[0]] = FileVersion(
-                        path=Path(row[0]), content=row[1], version=row[2],
-                        author=row[3] or "", timestamp=datetime.fromisoformat(row[4]) if row[4] else datetime.now(),
+                        path=Path(row[0]),
+                        content=row[1],
+                        version=row[2],
+                        author=row[3] or "",
+                        timestamp=datetime.fromisoformat(row[4]) if row[4] else datetime.now(),
                         message=row[5] or "",
                     )
                 # Load decisions
                 cursor2 = await db.execute("SELECT * FROM decisions")
                 async for row2 in cursor2:
-                    self.architectural_decisions.append(ArchitectureDecision(
-                        id=row2[0], title=row2[1], decision=row2[2],
-                        rationale=row2[3], author=row2[4] or "",
-                        timestamp=datetime.fromisoformat(row2[5]) if row2[5] else datetime.now(),
-                    ))
-            logger.info("PersistentWorkspace: loaded %d files, %d decisions from %s",
-                        len(self.files), len(self.architectural_decisions), self.db_path)
+                    self.architectural_decisions.append(
+                        ArchitectureDecision(
+                            id=row2[0],
+                            title=row2[1],
+                            decision=row2[2],
+                            rationale=row2[3],
+                            author=row2[4] or "",
+                            timestamp=(
+                                datetime.fromisoformat(row2[5]) if row2[5] else datetime.now()
+                            ),
+                        )
+                    )
+            logger.info(
+                "PersistentWorkspace: loaded %d files, %d decisions from %s",
+                len(self.files),
+                len(self.architectural_decisions),
+                self.db_path,
+            )
         except ImportError:
             logger.warning("aiosqlite not available, running in-memory only")
         except Exception as exc:
@@ -97,19 +112,36 @@ class PersistentWorkspace(ProjectWorkspace):
             return
         try:
             import aiosqlite
+
             async with self._lock:
                 async with aiosqlite.connect(str(self.db_path)) as db:
                     await db.executemany(
                         "INSERT OR REPLACE INTO files VALUES (?, ?, ?, ?, ?, ?)",
-                        [(str(k), v.content, v.version, v.author,
-                          v.timestamp.isoformat(), v.message)
-                         for k, v in self.files.items()]
+                        [
+                            (
+                                str(k),
+                                v.content,
+                                v.version,
+                                v.author,
+                                v.timestamp.isoformat(),
+                                v.message,
+                            )
+                            for k, v in self.files.items()
+                        ],
                     )
                     await db.executemany(
                         "INSERT OR REPLACE INTO decisions VALUES (?, ?, ?, ?, ?, ?)",
-                        [(d.id, d.title, d.decision, d.rationale, d.author,
-                          d.timestamp.isoformat())
-                         for d in self.architectural_decisions]
+                        [
+                            (
+                                d.id,
+                                d.title,
+                                d.decision,
+                                d.rationale,
+                                d.author,
+                                d.timestamp.isoformat(),
+                            )
+                            for d in self.architectural_decisions
+                        ],
                     )
                     await db.commit()
         except ImportError:
@@ -117,8 +149,9 @@ class PersistentWorkspace(ProjectWorkspace):
         except Exception as exc:
             logger.warning("Failed to save workspace state: %s", exc)
 
-    def write_file(self, path: str, content: str, author: str = "unknown",
-                   message: str = "") -> FileVersion:
+    def write_file(
+        self, path: str, content: str, author: str = "unknown", message: str = ""
+    ) -> FileVersion:
         result = super().write_file(path, content, author, message)
         # BUG-007 FIX: asyncio.ensure_future() requires a running event loop and
         # is deprecated without one (Python 3.10+; error in 3.12+). Use
@@ -131,8 +164,9 @@ class PersistentWorkspace(ProjectWorkspace):
             pass  # No running event loop; save will happen on next async call
         return result
 
-    def record_decision(self, title: str, decision: str, rationale: str,
-                        author: str = "") -> ArchitectureDecision:
+    def record_decision(
+        self, title: str, decision: str, rationale: str, author: str = ""
+    ) -> ArchitectureDecision:
         result = super().record_decision(title, decision, rationale, author)
         # BUG-007 FIX: same guard as write_file() — see comment above.
         try:

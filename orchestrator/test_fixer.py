@@ -89,9 +89,7 @@ class TestFixer:
             FixResult with the outcome
         """
         effective_max = max_attempts if max_attempts is not None else self._max_attempts
-        logger.info(
-            "TestFixer: repairing %s (up to %d attempts)", source_file, effective_max
-        )
+        logger.info("TestFixer: repairing %s (up to %d attempts)", source_file, effective_max)
 
         for attempt in range(1, effective_max + 1):
             result = await self._attempt_fix(source_file, test_output)
@@ -166,9 +164,7 @@ class TestFixer:
             )
 
         except Exception as exc:
-            logger.warning(
-                "TestFixer: LLM call failed: %s", exc, exc_info=True
-            )
+            logger.warning("TestFixer: LLM call failed: %s", exc, exc_info=True)
             return FixResult(
                 fixed=False,
                 output=str(exc),

@@ -90,8 +90,9 @@ class PipelineContext:
                 for a in self.attempt_history
             ],
             preflight_result=self.preflight_result,
-            preflight_passed=(self.preflight_result is None
-                              or getattr(self.preflight_result, "passed", True)),
+            preflight_passed=(
+                self.preflight_result is None or getattr(self.preflight_result, "passed", True)
+            ),
             task_type=self.task.type.value,
         )
 
@@ -148,7 +149,9 @@ class TaskPipeline:
             except Exception as exc:
                 logger.error(
                     "pipeline stage %s failed for task %s: %s",
-                    name, ctx.task.id, exc,
+                    name,
+                    ctx.task.id,
+                    exc,
                 )
                 ctx.should_abort = True
                 ctx.abort_reason = f"stage_error:{name}:{exc}"

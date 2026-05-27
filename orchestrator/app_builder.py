@@ -115,7 +115,11 @@ class AppBuilder:
             # -- Step 3: Run orchestrator to generate code --
             logger.info("AppBuilder: running orchestrator...")
             project_state = await self._run_orchestrator(
-                description, criteria, output_dir, profile, budget=budget,
+                description,
+                criteria,
+                output_dir,
+                profile,
+                budget=budget,
                 max_concurrency=max_concurrency,
             )
 

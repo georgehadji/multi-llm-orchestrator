@@ -22,6 +22,7 @@ logger = logging.getLogger("orchestrator.learning.knowledge_graph")
 @dataclass
 class KnowledgeNode:
     """A node in the knowledge graph."""
+
     id: str
     type: str  # "task_type", "model", "method"
     label: str
@@ -30,6 +31,7 @@ class KnowledgeNode:
 @dataclass
 class KnowledgeEdge:
     """A relationship between two nodes."""
+
     source: str
     target: str
     relation: str  # "used_with", "produced_score", "failed_on"
@@ -49,7 +51,9 @@ class KnowledgeGraph:
         return self.nodes[node_id]
 
     def add_edge(self, source: str, target: str, relation: str, weight: float = 1.0) -> None:
-        self.edges.append(KnowledgeEdge(source=source, target=target, relation=relation, weight=weight))
+        self.edges.append(
+            KnowledgeEdge(source=source, target=target, relation=relation, weight=weight)
+        )
 
     def record_success(self, task_type: str, model: str, method: str, score: float) -> None:
         """Record a successful execution as graph edges."""
@@ -81,9 +85,9 @@ class KnowledgeGraph:
                 failed.append(edge.target.replace("tt:", ""))
         return failed
 
-
     def save(self, path: str | None = None) -> None:
         import json
+
         p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "knowledge_graph.json")
         os.makedirs(os.path.dirname(p), exist_ok=True)
         data = {
@@ -96,6 +100,7 @@ class KnowledgeGraph:
     @classmethod
     def load(cls, path: str | None = None) -> "KnowledgeGraph":
         import json, os
+
         p = path or os.path.join(os.path.expanduser("~"), ".orchestrator", "knowledge_graph.json")
         if not os.path.exists(p):
             return cls()
@@ -125,15 +130,18 @@ class KnowledgeGraph:
                     # Collect the average produced_score across all models/methods that
                     # have been used for this task_type.
                     score_weights = [
-                        e.weight for e in self.edges
+                        e.weight
+                        for e in self.edges
                         if e.target == nid and e.relation == "produced_score"
                     ]
                     if score_weights:
                         avg_score = sum(score_weights) / len(score_weights)
-                        results.append({
-                            "name": node.label,
-                            "architecture": [e.source for e in self.edges if e.target == nid],
-                            "score": avg_score,
-                        })
+                        results.append(
+                            {
+                                "name": node.label,
+                                "architecture": [e.source for e in self.edges if e.target == nid],
+                                "score": avg_score,
+                            }
+                        )
         results.sort(key=lambda r: r["score"], reverse=True)
         return results[:limit]

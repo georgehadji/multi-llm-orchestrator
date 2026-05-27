@@ -32,11 +32,10 @@ class ValidateStage:
             if not passed:
                 logger.warning(
                     "Deterministic validation failed for task %s: %s",
-                    ctx.task.id, failures,
+                    ctx.task.id,
+                    failures,
                 )
         except Exception as exc:
-            logger.warning(
-                "Validation error for task %s: %s", ctx.task.id, exc
-            )
+            logger.warning("Validation error for task %s: %s", ctx.task.id, exc)
 
         return ctx

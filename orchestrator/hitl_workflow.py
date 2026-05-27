@@ -69,11 +69,12 @@ class ImpactLevel(str, Enum):
 
 class AgentPermissionLevel(str, Enum):
     """Permission levels for autonomous agent tool execution.
-    
+
     ASK:  Human must approve every tool call.
     AUTO: Non-destructive tools run automatically; destructive ones ask.
     FULL: All tools run without human intervention (autonomous).
     """
+
     ASK = "ask"
     AUTO = "auto"
     FULL = "full"
@@ -82,20 +83,20 @@ class AgentPermissionLevel(str, Enum):
 # Map agent permission levels to tool categories
 AGENT_PERMISSION_DEFAULTS: dict[AgentPermissionLevel, dict[str, bool]] = {
     AgentPermissionLevel.ASK: {
-        "read_file": True,   # always allowed
-        "search": True,       # always allowed
+        "read_file": True,  # always allowed
+        "search": True,  # always allowed
         "write_file": False,  # needs approval
-        "execute": False,     # needs approval
-        "delete": False,      # needs approval
-        "network": False,     # needs approval
+        "execute": False,  # needs approval
+        "delete": False,  # needs approval
+        "network": False,  # needs approval
     },
     AgentPermissionLevel.AUTO: {
         "read_file": True,
         "search": True,
-        "write_file": True,   # auto
-        "execute": False,     # still asks
-        "delete": False,      # still asks
-        "network": True,      # auto
+        "write_file": True,  # auto
+        "execute": False,  # still asks
+        "delete": False,  # still asks
+        "network": True,  # auto
     },
     AgentPermissionLevel.FULL: {
         "read_file": True,

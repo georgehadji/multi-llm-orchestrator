@@ -67,11 +67,11 @@ class CodebaseDecomposer:
             f"- `type`: one of {[t.value for t in TaskType]}\\n"
             f"- `prompt`: detailed instructions for what to do\\n"
             f"- `target_path`: relative file path (for MODIFY_FILE, CODE_GEN, DELETE_FILE)\\n"
-            f"- `modification_strategy`: one of \"replace\", \"insert\", \"patch\" (for MODIFY_FILE)\\n"
+            f'- `modification_strategy`: one of "replace", "insert", "patch" (for MODIFY_FILE)\\n'
             f"- `dependencies_to_install`: list of pip package names (for INSTALL_DEP)\\n"
             f"- `dependencies`: list of task IDs this task depends on\\n"
             f"\\n"
-            f"Return ONLY valid JSON with a \"tasks\" key containing the list. "
+            f'Return ONLY valid JSON with a "tasks" key containing the list. '
             f"Priority: first install dependencies, then modify/create files, then add tests."
         )
 
@@ -93,9 +93,7 @@ class CodebaseDecomposer:
 
         return self._parse_response(response.text, objective)
 
-    def _parse_response(
-        self, text: str, objective: str
-    ) -> dict[str, Task]:
+    def _parse_response(self, text: str, objective: str) -> dict[str, Task]:
         """Parse LLM JSON response into Task objects."""
         import re
 
@@ -166,9 +164,7 @@ class CodebaseDecomposer:
 
         return tasks
 
-    def _fallback_plan(
-        self, objective: str, error: str | None = None
-    ) -> dict[str, Task]:
+    def _fallback_plan(self, objective: str, error: str | None = None) -> dict[str, Task]:
         """Fallback when LLM decomposition fails."""
         logger.warning("CodebaseDecomposer fallback: %s", error or "unknown error")
         return {

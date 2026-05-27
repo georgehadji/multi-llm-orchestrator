@@ -94,13 +94,13 @@ async def surface_assumptions(
         "Analyze this task description for hidden assumptions and ambiguity.\n\n"
         f"TASK: {task_description}\n\n"
         "Return JSON:\n"
-        '{\n'
+        "{\n"
         '  "has_ambiguity": true/false,\n'
         '  "assumptions": [{"statement": "...", "confidence": "high|medium|low"}],\n'
         '  "interpretations": ["interpretation 1", "interpretation 2"],\n'
         '  "clarification_questions": ["question 1", "question 2"],\n'
         '  "confidence": 0.0-1.0\n'
-        '}\n\n'
+        "}\n\n"
         "Only flag actual ambiguity. Do not fabricate issues for clear descriptions."
     )
 
@@ -140,8 +140,12 @@ def _is_unambiguous(description: str) -> bool:
     """
     # Ambiguous patterns — if any match, need LLM check
     vague_patterns = [
-        r"\bmake it\b", r"\bfix it\b", r"\bimprove\b",
-        r"\bthe system\b", r"\bthe thing\b", r"\bthe app\b",
+        r"\bmake it\b",
+        r"\bfix it\b",
+        r"\bimprove\b",
+        r"\bthe system\b",
+        r"\bthe thing\b",
+        r"\bthe app\b",
     ]
     for pattern in vague_patterns:
         if re.search(pattern, description, re.IGNORECASE):
@@ -149,10 +153,10 @@ def _is_unambiguous(description: str) -> bool:
 
     # Specific patterns — if any match, description is clear
     specific_patterns = [
-        r"\bin \w+\.\w+\b",         # "in auth.py"
-        r"\bset \w+ to \w+\b",      # "set timeout to 30s"
-        r"\bwrite a test\b",        # test-first
-        r"\badd a \w+\.\w+\b",      # "add a Button.tsx"
+        r"\bin \w+\.\w+\b",  # "in auth.py"
+        r"\bset \w+ to \w+\b",  # "set timeout to 30s"
+        r"\bwrite a test\b",  # test-first
+        r"\badd a \w+\.\w+\b",  # "add a Button.tsx"
     ]
     for pattern in specific_patterns:
         if re.search(pattern, description, re.IGNORECASE):

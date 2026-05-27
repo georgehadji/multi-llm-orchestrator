@@ -351,7 +351,9 @@ def cmd_agent(args) -> None:
     ]
     for pattern in dangerous_patterns:
         if re.search(pattern, intent):
-            print("WARNING: Intent contains potentially dangerous characters", file=sys.stderr)            # Post-build setup: create venv, install deps
+            print(
+                "WARNING: Intent contains potentially dangerous characters", file=sys.stderr
+            )  # Post-build setup: create venv, install deps
             print("  Setting up virtual environment...")
             print(f"  cd {output_dir}")
             print(f"  python -m venv venv")
@@ -612,6 +614,7 @@ async def _async_resume(args):
     # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
     if getattr(args, "agent_profile", None):
         from .models import build_default_profiles
+
         profile_map = {
             "standard": {"quality_mode": "standard", "iteration_cap": 3},
             "max": {"quality_mode": "production", "iteration_cap": 5},
@@ -625,7 +628,9 @@ async def _async_resume(args):
                 profile.quality_mode = cfg["quality_mode"]
             if hasattr(profile, "temperature") and "temperature" in cfg:
                 profile.temperature = cfg.get("temperature", 0.7)
-        logger.info(f"Agent profile '{args.agent_profile}': quality_mode={cfg.get('quality_mode')}, iteration_cap={cfg.get('iteration_cap')}")
+        logger.info(
+            f"Agent profile '{args.agent_profile}': quality_mode={cfg.get('quality_mode')}, iteration_cap={cfg.get('iteration_cap')}"
+        )
     existing = await orch.state_mgr.load_project(args.resume)
     if not existing:
         print(f"Project {args.resume} not found.")
@@ -695,6 +700,7 @@ async def _async_file_project(args):
     # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
     if getattr(args, "agent_profile", None):
         from .models import build_default_profiles
+
         profile_map = {
             "standard": {"quality_mode": "standard", "iteration_cap": 3},
             "max": {"quality_mode": "production", "iteration_cap": 5},
@@ -1070,6 +1076,7 @@ async def _async_new_project(args):
     # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
     if getattr(args, "agent_profile", None):
         from .models import build_default_profiles
+
         profile_map = {
             "standard": {"quality_mode": "standard", "iteration_cap": 3},
             "max": {"quality_mode": "production", "iteration_cap": 5},
@@ -1083,7 +1090,9 @@ async def _async_new_project(args):
                 profile.quality_mode = cfg["quality_mode"]
             if hasattr(profile, "temperature") and "temperature" in cfg:
                 profile.temperature = cfg.get("temperature", 0.7)
-        logger.info(f"Agent profile '{args.agent_profile}': quality_mode={cfg.get('quality_mode')}, iteration_cap={cfg.get('iteration_cap')}")
+        logger.info(
+            f"Agent profile '{args.agent_profile}': quality_mode={cfg.get('quality_mode')}, iteration_cap={cfg.get('iteration_cap')}"
+        )
 
     print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
     print(f"Project: {description}")
@@ -1136,6 +1145,7 @@ async def _async_visualize(args):
     # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
     if getattr(args, "agent_profile", None):
         from .models import build_default_profiles
+
         profile_map = {
             "standard": {"quality_mode": "standard", "iteration_cap": 3},
             "max": {"quality_mode": "production", "iteration_cap": 5},
@@ -1586,10 +1596,10 @@ def _nexus_classify_cmd(args) -> int:
     return asyncio.run(cmd_classify(args))
 
 
-
 def print_help() -> None:
     """Print categorized help using the CommandRegistry."""
-    from .command_registry import commands_by_category as _cmds_by_cat,         resolve_command as _resolve
+    from .command_registry import commands_by_category as _cmds_by_cat, resolve_command as _resolve
+
     by_cat = _cmds_by_cat()
     print("Available commands:")
     print()
@@ -1604,7 +1614,6 @@ def print_help() -> None:
             print(f"    {cmd.name}{args}{aliases}  — {cmd.description}")
         print()
     print("Type /help <command> for details on a specific command.")
-
 
 
 def cmd_gateway(args) -> None:
@@ -1665,6 +1674,7 @@ def cmd_kanban(args) -> None:
                 print(f"  {k}: {v}")
         elif args.command == "start":
             from .kanban.dispatcher import KanbanDispatcher
+
             dispatcher = KanbanDispatcher(board)
             try:
                 await dispatcher.start()
@@ -1679,16 +1689,20 @@ def _gateway_subparsers(subparsers) -> None:
     """Register the 'gateway' subcommand."""
     gp = subparsers.add_parser("gateway", help="Multi-platform messaging gateway")
     gp.add_argument("command", choices=["start", "status"], help="Gateway command")
-    gp.add_argument("--platforms", "-p", nargs="*", default=[],
-                    help="Platforms to enable (e.g. echo webhook:8080)")
+    gp.add_argument(
+        "--platforms",
+        "-p",
+        nargs="*",
+        default=[],
+        help="Platforms to enable (e.g. echo webhook:8080)",
+    )
     gp.set_defaults(func=cmd_gateway)
 
 
 def _kanban_subparsers(subparsers) -> None:
     """Register the 'kanban' subcommand."""
     kp = subparsers.add_parser("kanban", help="Multi-project work queue")
-    kp.add_argument("command", choices=["enqueue", "list", "stats", "start"],
-                    help="Kanban command")
+    kp.add_argument("command", choices=["enqueue", "list", "stats", "start"], help="Kanban command")
     kp.add_argument("--description", "-d", default="", help="Project description")
     kp.add_argument("--status", "-s", default=None, help="Filter by status (list only)")
     kp.set_defaults(func=cmd_kanban)
@@ -2122,11 +2136,14 @@ def _handle_modify_command(args):
     # Handle the modify subcommand.
     import asyncio
     from pathlib import Path
-    result = asyncio.run(_run_modify(
-        repo=Path(args.repo).resolve(),
-        objective=args.objective,
-        dry_run=getattr(args, "dry_run", False),
-    ))
+
+    result = asyncio.run(
+        _run_modify(
+            repo=Path(args.repo).resolve(),
+            objective=args.objective,
+            dry_run=getattr(args, "dry_run", False),
+        )
+    )
     print(result)
 
 
@@ -2134,6 +2151,7 @@ async def _run_modify(repo, objective: str, dry_run: bool) -> str:
     # Execute the codebase modification flow.
     from orchestrator.engine import Orchestrator
     from orchestrator.budget import Budget
+
     try:
         orch = Orchestrator(budget=Budget(max_usd=10.0))
         state = await orch.modify_codebase(
@@ -2144,6 +2162,7 @@ async def _run_modify(repo, objective: str, dry_run: bool) -> str:
         return f"Modification complete.\nState keys: {list(state.keys()) if state else 'none'}"
     except Exception as exc:
         import traceback
+
         return f"Modification failed: {exc}\n{traceback.format_exc()}"
 
 

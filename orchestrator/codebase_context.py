@@ -31,6 +31,7 @@ logger = logging.getLogger("orchestrator.codebase_context")
 @dataclass
 class RelevanceScore:
     """Relevance score for a file or symbol."""
+
     path: str
     score: float
     reason: str  # "keyword_match", "graph_centrality", "name_match"
@@ -167,11 +168,47 @@ class RelevanceRanker:
         Strips common stop words, splits on spaces/camelCase/snake_case.
         """
         stop_words = {
-            "a", "an", "the", "in", "on", "at", "to", "for", "of", "with",
-            "and", "or", "but", "is", "are", "was", "were", "be", "been",
-            "being", "have", "has", "had", "do", "does", "did", "will",
-            "would", "could", "should", "may", "might", "shall", "can",
-            "add", "new", "create", "make", "implement", "update", "fix",
+            "a",
+            "an",
+            "the",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "and",
+            "or",
+            "but",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "shall",
+            "can",
+            "add",
+            "new",
+            "create",
+            "make",
+            "implement",
+            "update",
+            "fix",
         }
 
         words: set[str] = set()
@@ -183,8 +220,6 @@ class RelevanceRanker:
 
         # Also add the full objective as a single phrase match
         return sorted(words)
-
-
 
 
 # ─────────────────────────────────────────────
@@ -261,9 +296,7 @@ class CodebaseContext:
 
         # 4. Test gaps
         if self._reader.profile:
-            gaps = ProjectProfiler().find_coverage_gaps(
-                self._reader.root, self._reader.files
-            )
+            gaps = ProjectProfiler().find_coverage_gaps(self._reader.root, self._reader.files)
             if gaps:
                 gap_section = self._build_gap_section(gaps)
                 remaining = char_budget - used - 200
@@ -314,11 +347,13 @@ class CodebaseContext:
             eps = ", ".join(str(p.relative_to(self._reader.root)) for p in profile.entry_points)
             lines.append(f"- **Entry Points:** {eps}")
 
-        lines.extend([
-            f"- **Has Docker:** {profile.has_docker}",
-            f"- **Has CI:** {profile.has_ci}",
-            "",
-        ])
+        lines.extend(
+            [
+                f"- **Has Docker:** {profile.has_docker}",
+                f"- **Has CI:** {profile.has_ci}",
+                "",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -405,8 +440,6 @@ class CodebaseContext:
 # ───────────────────────────────────────────────
 
 
-
-
 # ─────────────────────────────────────────────
 # 2.3 QualityAnalyzer
 # ─────────────────────────────────────────────
@@ -415,6 +448,7 @@ class CodebaseContext:
 @dataclass
 class AnalysisFinding:
     """A single quality analysis finding."""
+
     severity: str  # "error", "warning", "info"
     category: str  # "bug", "security", "performance", "style", "complexity", "type"
     file: Path
@@ -496,9 +530,11 @@ class QualityAnalyzer:
 
     def _run_mypy(self) -> list[AnalysisFinding]:
         """Run mypy type checker if pyproject.toml exists."""
-        if not (self.root / "pyproject.toml").exists() \
-                and not (self.root / "mypy.ini").exists() \
-                and not (self.root / ".mypy.ini").exists():
+        if (
+            not (self.root / "pyproject.toml").exists()
+            and not (self.root / "mypy.ini").exists()
+            and not (self.root / ".mypy.ini").exists()
+        ):
             return []
 
         return self._run_tool(
@@ -508,9 +544,11 @@ class QualityAnalyzer:
 
     def _run_ruff(self) -> list[AnalysisFinding]:
         """Run ruff linter if config exists."""
-        if not (self.root / "pyproject.toml").exists() \
-                and not (self.root / "ruff.toml").exists() \
-                and not (self.root / ".ruff.toml").exists():
+        if (
+            not (self.root / "pyproject.toml").exists()
+            and not (self.root / "ruff.toml").exists()
+            and not (self.root / ".ruff.toml").exists()
+        ):
             return []
 
         return self._run_tool(
@@ -533,6 +571,7 @@ class QualityAnalyzer:
             List of findings. Empty if tool unavailable or failed.
         """
         import subprocess
+
         try:
             result = subprocess.run(
                 cmd,
@@ -557,14 +596,16 @@ class QualityAnalyzer:
         try:
             data = json.loads(stdout)
             for result in data.get("results", []):
-                findings.append(AnalysisFinding(
-                    severity=result.get("issue_severity", "warning").lower(),
-                    category="security",
-                    file=Path(result.get("filename", "")),
-                    line=int(result.get("line_number", 0)),
-                    message=result.get("issue_text", ""),
-                    suggestion=result.get("code", ""),
-                ))
+                findings.append(
+                    AnalysisFinding(
+                        severity=result.get("issue_severity", "warning").lower(),
+                        category="security",
+                        file=Path(result.get("filename", "")),
+                        line=int(result.get("line_number", 0)),
+                        message=result.get("issue_text", ""),
+                        suggestion=result.get("code", ""),
+                    )
+                )
         except (json.JSONDecodeError, KeyError, ValueError):
             pass
         return findings
@@ -578,18 +619,20 @@ class QualityAnalyzer:
                 for block in blocks:
                     complexity = block.get("complexity", 0)
                     if isinstance(complexity, (int, float)) and complexity > 10:
-                        findings.append(AnalysisFinding(
-                            severity="warning" if complexity > 15 else "info",
-                            category="complexity",
-                            file=Path(filepath),
-                            line=int(block.get("lineno", 0)),
-                            message=(
-                                f"{block.get('name', 'unknown')} has "
-                                f"cyclomatic complexity {complexity} "
-                                f"(threshold: 10)"
-                            ),
-                            suggestion=f"Consider refactoring into smaller functions",
-                        ))
+                        findings.append(
+                            AnalysisFinding(
+                                severity="warning" if complexity > 15 else "info",
+                                category="complexity",
+                                file=Path(filepath),
+                                line=int(block.get("lineno", 0)),
+                                message=(
+                                    f"{block.get('name', 'unknown')} has "
+                                    f"cyclomatic complexity {complexity} "
+                                    f"(threshold: 10)"
+                                ),
+                                suggestion=f"Consider refactoring into smaller functions",
+                            )
+                        )
         except (json.JSONDecodeError, KeyError, ValueError):
             pass
         return findings
@@ -603,14 +646,16 @@ class QualityAnalyzer:
                 if isinstance(mi, dict):
                     score = mi.get("mi", 100)
                     if isinstance(score, (int, float)) and score < 65:
-                        findings.append(AnalysisFinding(
-                            severity="warning" if score < 40 else "info",
-                            category="complexity",
-                            file=Path(filepath),
-                            line=1,
-                            message=f"Maintainability index: {score:.1f} (threshold: 65)",
-                            suggestion="Consider refactoring to improve maintainability",
-                        ))
+                        findings.append(
+                            AnalysisFinding(
+                                severity="warning" if score < 40 else "info",
+                                category="complexity",
+                                file=Path(filepath),
+                                line=1,
+                                message=f"Maintainability index: {score:.1f} (threshold: 65)",
+                                suggestion="Consider refactoring to improve maintainability",
+                            )
+                        )
         except (json.JSONDecodeError, KeyError, ValueError):
             pass
         return findings
@@ -622,13 +667,15 @@ class QualityAnalyzer:
             # Format: file:line:error: message
             match = re.match(r"^(.+?):(\d+):\s*(error|warning|note):\s*(.+)$", line)
             if match:
-                findings.append(AnalysisFinding(
-                    severity=match.group(3).lower(),
-                    category="type",
-                    file=Path(match.group(1)),
-                    line=int(match.group(2)),
-                    message=match.group(4),
-                ))
+                findings.append(
+                    AnalysisFinding(
+                        severity=match.group(3).lower(),
+                        category="type",
+                        file=Path(match.group(1)),
+                        line=int(match.group(2)),
+                        message=match.group(4),
+                    )
+                )
         return findings
 
     def _parse_ruff_output(self, stdout: str) -> list[AnalysisFinding]:
@@ -637,14 +684,16 @@ class QualityAnalyzer:
         try:
             data = json.loads(stdout)
             for result in data:
-                findings.append(AnalysisFinding(
-                    severity="warning",
-                    category="style",
-                    file=Path(result.get("filename", "")),
-                    line=int(result.get("location", {}).get("row", 0)),
-                    message=result.get("message", ""),
-                    suggestion=result.get("code", ""),
-                ))
+                findings.append(
+                    AnalysisFinding(
+                        severity="warning",
+                        category="style",
+                        file=Path(result.get("filename", "")),
+                        line=int(result.get("location", {}).get("row", 0)),
+                        message=result.get("message", ""),
+                        suggestion=result.get("code", ""),
+                    )
+                )
         except (json.JSONDecodeError, KeyError, ValueError):
             pass
         return findings

@@ -24,6 +24,7 @@ logger = logging.getLogger("orchestrator.codebase_writer")
 @dataclass
 class VerificationResult:
     """Result of safety gate verification."""
+
     passed: bool = False
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -103,10 +104,13 @@ class FileOperations:
             True if installation succeeded.
         """
         import subprocess
+
         try:
             result = subprocess.run(
                 ["python", "-m", "pip", "install", package],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
             if result.returncode == 0:
                 logger.info("Installed dependency: %s", package)
@@ -150,8 +154,10 @@ class DiffEngine:
         original_lines = original.splitlines(keepends=True)
         modified_lines = modified.splitlines(keepends=True)
         diff = difflib.unified_diff(
-            original_lines, modified_lines,
-            fromfile=f"a/{filepath}", tofile=f"b/{filepath}",
+            original_lines,
+            modified_lines,
+            fromfile=f"a/{filepath}",
+            tofile=f"b/{filepath}",
         )
         return "".join(diff)
 
@@ -198,6 +204,7 @@ class ModificationGate:
         """Check Python syntax of a file."""
         try:
             import ast
+
             content = path.read_text(encoding="utf-8") if path.exists() else ""
             if content.strip():
                 ast.parse(content, filename=str(path))
@@ -221,6 +228,7 @@ class ModificationGate:
     def _check_secrets(self, content: str, result: VerificationResult) -> None:
         """Check for hardcoded secrets."""
         import re
+
         secret_patterns = [
             (r'password\s*=\s*["\']([^"\']+)["\']', "Hardcoded password"),
             (r'api_key\s*=\s*["\']([^"\']+)["\']', "Hardcoded API key"),

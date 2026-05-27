@@ -234,8 +234,7 @@ class CircuitBreaker:
         self.trip_count += 1
         cause_str = f": {cause}" if cause else ""
         logger.warning(
-            "Circuit breaker '%s' → OPEN after %d consecutive failures%s "
-            "(will probe in %.0fs)",
+            "Circuit breaker '%s' → OPEN after %d consecutive failures%s " "(will probe in %.0fs)",
             self.name,
             self._state.failures,
             cause_str,
@@ -312,11 +311,7 @@ class CircuitBreakerRegistry:
 
     def tripped_models(self) -> list[str]:
         """Return model IDs whose circuit breaker is currently OPEN."""
-        return [
-            mid
-            for mid, cb in self._breakers.items()
-            if cb._state.state != CircuitState.CLOSED
-        ]
+        return [mid for mid, cb in self._breakers.items() if cb._state.state != CircuitState.CLOSED]
 
     def all_stats(self) -> dict[str, dict[str, object]]:
         """Return stats dict keyed by model_id."""

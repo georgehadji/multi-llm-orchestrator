@@ -39,10 +39,12 @@ async def test_resume_continues_from_partial_state(
     orch._generator.decompose = AsyncMock(
         return_value=GeneratorResult(tasks=mock_tasks, wall_time_ms=100.0, error=None)
     )
-    orch._executor.execute = AsyncMock(side_effect=[
-        type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
-        RuntimeError("Simulated crash during t2"),
-    ])
+    orch._executor.execute = AsyncMock(
+        side_effect=[
+            type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
+            RuntimeError("Simulated crash during t2"),
+        ]
+    )
 
     partial_state = await orch.run_project(
         project_description="Resume test",
@@ -66,8 +68,10 @@ async def test_resume_continues_from_partial_state(
     )
     orch2.cache = orch.cache
     orch2._generator.decompose = AsyncMock(return_value=mock_tasks)
-    orch2._executor.execute = AsyncMock(return_value=
-        type("R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None})()
+    orch2._executor.execute = AsyncMock(
+        return_value=type(
+            "R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None}
+        )()
     )
 
     # Inject loaded results so engine knows t1 is done
@@ -96,6 +100,7 @@ async def test_load_project_corrupted_returns_none(orchestrator_fixture):
 
     # Save a valid state first
     from orchestrator.models import ProjectState
+
     fake_state = ProjectState(
         project_description="x",
         success_criteria="y",
