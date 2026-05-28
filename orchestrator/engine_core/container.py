@@ -21,23 +21,37 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .api_clients import UnifiedClient
-from .budget import Budget
-from .cost_optimization_integration import (
-    AdaptiveTemperatureController,
-    BatchClient,
-    DependencyContextInjector,
-    PromptCacher,
-    SpeculativeGenerator,
-    StreamingValidator,
-    TokenBudget,
-)
-from .model_registry import ModelRegistry, ModelCascader
-from .model_selector import ModelSelector
-from .policy_engine import PolicyEngine
-from .rate_limiter import RateLimiter
-from .telemetry import TelemetryCollector
-from .tracing import Tracer
+from ..api_clients import UnifiedClient
+from ..budget import Budget
+
+try:
+    from ..cost_optimization_integration import (
+        AdaptiveTemperatureController,
+        BatchClient,
+        DependencyContextInjector,
+        PromptCacher,
+        SpeculativeGenerator,
+        StreamingValidator,
+        TokenBudget,
+    )
+except ImportError:
+    AdaptiveTemperatureController = None  # type: ignore[assignment,misc]
+    BatchClient = None  # type: ignore[assignment,misc]
+    DependencyContextInjector = None  # type: ignore[assignment,misc]
+    PromptCacher = None  # type: ignore[assignment,misc]
+    SpeculativeGenerator = None  # type: ignore[assignment,misc]
+    StreamingValidator = None  # type: ignore[assignment,misc]
+    TokenBudget = None  # type: ignore[assignment,misc]
+from ..model_registry import ModelRegistry
+try:
+    from ..model_registry import ModelCascader
+except ImportError:
+    ModelCascader = None  # type: ignore[assignment,misc]
+from ..model_selector import ModelSelector, TieredModelRouter
+from ..policy_engine import PolicyEngine
+from ..rate_limiter import RateLimiter
+from ..telemetry import TelemetryCollector
+from ..tracing import Tracer
 
 logger = logging.getLogger("orchestrator.container")
 
@@ -62,26 +76,50 @@ class ServiceContainer:
     task_guard: Any
     results_lock: asyncio.Lock
     selector: ModelSelector
-    telemetry: TelemetryCollector
-    tracer: Tracer
-    policy_engine: PolicyEngine
-    planner: Any
-    preflight_validator: Any
-    hook_registry: Any
-    validator: Any
-    decomposer: Any
-    architect: Any
-    executor: Any
-    evaluator: Any
-    generator: Any
-    ara: Any
-    ara_strategy: Any
-    pipeline: Any
-    dep_resolver: Any
-    event_bus: Any
-    adaptive_router: Any
-    telemetry_store: Any
-    semantic_cache: Any
+    tiered_router: TieredModelRouter = None
+    telemetry: TelemetryCollector = None
+    tracer: Tracer = None
+    policy_engine: PolicyEngine = None
+    planner: Any = None
+    project_planner: Any = None
+    pipeline_runner: Any = None
+    preflight_validator: Any = None
+    hook_registry: Any = None
+    validator: Any = None
+    decomposer: Any = None
+    architect: Any = None
+    executor: Any = None
+    evaluator: Any = None
+    generator: Any = None
+    ara: Any = None
+    ara_strategy: Any = None
+    pipeline: Any = None
+    dep_resolver: Any = None
+    event_bus: Any = None
+    adaptive_router: Any = None
+    telemetry_store: Any = None
+    semantic_cache: Any = None
+    cb_registry: Any = None
+    observability: Any = None
+    context_compressor: Any = None
+    memory_provider_mgr: Any = None
+    pattern_store: Any = None
+    pattern_extractor: Any = None
+    pattern_injector: Any = None
+    pattern_curator: Any = None
+    batch_guard: Any = None
+    batch_runner: Any = None
+    tool_guardrails: Any = None
+    optim_config: Any = None
+    meta_v2: Any = None
+
+    # New Domain Services (Phase 2 refactor)
+    routing_service: Any = None
+    cost_service: Any = None
+    config_service: Any = None
+    state_coordinator: Any = None
+    context_service: Any = None
+
     git_integration: Any = None
     output_dir: Path | None = None
 
@@ -122,6 +160,13 @@ class ServiceContainer:
     accountability: Any = None
     agent_safety: Any = None
 
+    def wire_executor(self, execute_fn: Any, decompose_fn: Any = None) -> None:
+        """Late-bind execute_fn and decompose_fn after Orchestrator.__init__ creates them."""
+        if self.executor is not None and hasattr(self.executor, "execute_fn"):
+            self.executor.execute_fn = execute_fn
+        if self.generator is not None and decompose_fn is not None and hasattr(self.generator, "decompose_fn"):
+            self.generator.decompose_fn = decompose_fn
+
     @classmethod
     def build(
         cls,
@@ -135,6 +180,7 @@ class ServiceContainer:
         budget_hierarchy: Any | None = None,
         cost_predictor: Any | None = None,
         project_context: Any | None = None,
+        profiles: Any | None = None,
     ) -> ServiceContainer:
         """Factory: wire all services with their dependencies.
 
@@ -156,17 +202,13 @@ class ServiceContainer:
         Returns:
             Fully wired ServiceContainer.
         """
-        from .audit import AuditLog
-        from .engine_deps import (
-            _CBRegistry as CBRegistry,
-            _DepResolver as DepResolver,
-            _ExecutorService as ExecutorService,
-            _GeneratorService as GeneratorService,
-        )
-        from .engine_core.architect import Architect
-        from .engine_core.decomposer import Decomposer
-        from .engine_core.pipeline import TaskPipeline
-        from .engine_core.stages import (
+        from ..audit import AuditLog
+        from ..application.executor import ExecutorService
+        from ..application.evaluator import EvaluatorService
+        from .decomposer import Decomposer
+        from .architect import Architect
+        from .pipeline import TaskPipeline
+        from .stages import (
             CritiqueStage,
             EvaluateStage,
             GenerateStage,
@@ -175,14 +217,39 @@ class ServiceContainer:
             SelfConsistencyStage,
             ValidateStage,
         )
-        from .engine_core.validator import TaskValidator
-        from .evaluator_service import EvaluatorService
-        from .models import Model, TaskType
-        from .output_organizer import OutputOrganizer
-        from .planner import ConstraintPlanner
-        from .preflight import PreflightValidator
-        from .state import StateManager, TelemetryStore
-        from .task_guard import TaskGuard
+        from .validator import TaskValidator
+        from ..models import Model, TaskType
+        from ..output_organizer import OutputOrganizer
+        from ..planner import ConstraintPlanner
+        from ..preflight import PreflightValidator
+        from ..state import StateManager
+        from ..telemetry_store import TelemetryStore
+        try:
+            from ..task_guard import TaskGuard
+        except ImportError:
+            from ..concurrency_controller import TaskConcurrencyGuard as TaskGuard  # type: ignore[assignment]
+
+
+        # Import canonical GeneratorService from services layer
+        try:
+            from ..services import GeneratorService
+        except ImportError:
+            GeneratorService = None  # type: ignore[assignment,misc]
+
+        # Local shims for legacy deps if not found in application layer
+        try:
+            from .engine_deps import (
+                _CBRegistry as CBRegistry,
+                _DepResolver as DepResolver,
+                # GeneratorService imported from services layer above
+            )
+        except ImportError:
+            # Fallback for missing deps
+            class _DepResolver:
+                def __init__(self, **kwargs): pass
+            DepResolver = _DepResolver
+            # GeneratorService already imported from services layer above
+            CBRegistry = type("CBRegistry", (), {})
 
         # Defaults
         if cache is None:
@@ -213,16 +280,50 @@ class ServiceContainer:
         telemetry = TelemetryCollector(profiles)
         api_health: dict[Model, bool] = {}
 
+        # New Domain Services (Phase 2 refactor)
+        try:
+            from ..infrastructure.adapters.config_adapter import JsonConfigAdapter
+            from ..domain.services.config_services import (
+                RoutingService,
+                CostService,
+                ConfigurationService,
+            )
+
+            config_adapter = JsonConfigAdapter()
+            routing_service = RoutingService(config_adapter)
+            cost_service = CostService(config_adapter)
+            config_service = ConfigurationService(config_adapter)
+            
+            from .state_coordinator import StateCoordinator
+            from .context_service import ContextService
+            state_coordinator = StateCoordinator()
+            context_service = ContextService()
+        except ImportError:
+            logger.warning("Failed to load new domain services (Phase 2)")
+            routing_service = None
+            cost_service = None
+            config_service = None
+            state_coordinator = None
+            context_service = None
+
         # Wired helpers
-        planner = ConstraintPlanner(profiles=profiles, policy_engine=policy_engine)
+        planner = ConstraintPlanner(profiles=profiles, policy_engine=policy_engine, api_health=api_health)
+
+        selector = ModelSelector(
+            api_health=api_health,
+            routing_service=routing_service,
+            cost_service=cost_service,
+        )
+
+        tiered_router = TieredModelRouter(
+            api_health=api_health,
+            routing_service=routing_service,
+            cost_service=cost_service,
+            adaptive_router=None,  # wired later if needed
+        )
 
         def get_available_models(task_type: object = None) -> list[Model]:
-            from .models import ROUTING_TABLE
-
-            routing = ROUTING_TABLE.get(task_type, [])
-            return [m for m in routing if api_health.get(m, True)]
-
-        selector = ModelSelector(api_health, get_available_models)
+            return selector.available_models(task_type)
 
         # Services (wrapped in type: ignore for optional dependencies)
         executor = ExecutorService(
@@ -231,6 +332,8 @@ class ServiceContainer:
             telemetry=telemetry,
         )
         evaluator = EvaluatorService(
+            client=client,
+            budget=budget,
             get_models_fn=get_available_models,
             telemetry=telemetry,
         )
@@ -244,7 +347,19 @@ class ServiceContainer:
 
         # Preflight + validator
         preflight_validator = PreflightValidator()
-        hook_registry = type("HookRegistry", (), {"fire": lambda *a, **kw: None})()
+        
+        # Unified Event System integration
+        try:
+            from .unified_events.core import UnifiedEventBus, HookRegistry
+            
+            # Note: In the unified system, UnifiedEventBus acts as both 
+            # the async event bus and the synchronous hook registry.
+            event_bus = UnifiedEventBus()
+            hook_registry = event_bus 
+        except ImportError:
+            # Fallback to legacy/dummy if unified_events is not reachable
+            hook_registry = type("HookRegistry", (), {"fire": lambda *a, **kw: None})()
+            event_bus = type("EventBus", (), {"publish": lambda *a, **kw: None})()
 
         validator = TaskValidator(
             client=client,
@@ -298,8 +413,18 @@ class ServiceContainer:
         # Dependency resolver
         dep_resolver = DepResolver(context_truncation_limit=8192)
 
-        # Event bus
-        event_bus = type("EventBus", (), {"publish": lambda *a, **kw: None})()
+        # New Domain Services (Phase 3 refactor: Planning and Execution)
+        from .project_planner import ProjectPlanner
+        from .pipeline_runner import PipelineRunner
+
+        project_planner = ProjectPlanner(dep_resolver=dep_resolver)
+        pipeline_runner = PipelineRunner(
+            pipeline=pipeline,
+            planner=project_planner,
+            max_parallel_tasks=max_parallel_tasks,
+            event_bus=event_bus,
+            dashboard=None,  # wired later
+        )
 
         # Semantic cache
         semantic_cache = type(
@@ -314,6 +439,33 @@ class ServiceContainer:
         # Adaptive router
         adaptive_router = type("AdaptiveRouter", (), {})()
 
+        # NexusScope: wrap pipeline with profiling if enabled
+        import os as _os
+        if _os.getenv("ORCHESTRATOR_PROFILING", "0") == "1":
+            try:
+                from ..infrastructure.nexusscope.pipeline_hook import ProfilingTaskPipeline as _PTP
+                from ..infrastructure.nexusscope import get_profiler as _get_ns
+                pipeline = _PTP(pipeline._stages, profiler=_get_ns())
+            except ImportError:
+                pass
+
+
+        # Observability service
+        observability = None
+        try:
+            from ..services import ObservabilityService
+            observability = ObservabilityService()
+        except ImportError:
+            pass
+
+        # Circuit breaker registry
+        cb_registry = None
+        try:
+            from ..circuit_breaker import CircuitBreakerRegistry
+            cb_registry = CircuitBreakerRegistry()
+        except ImportError:
+            pass
+
         return cls(
             budget=budget,
             client=client,
@@ -322,6 +474,7 @@ class ServiceContainer:
             task_guard=task_guard,
             results_lock=results_lock,
             selector=selector,
+            tiered_router=tiered_router,
             telemetry=telemetry,
             tracer=tracer,
             policy_engine=policy_engine,
@@ -340,6 +493,13 @@ class ServiceContainer:
             dep_resolver=dep_resolver,
             event_bus=event_bus,
             adaptive_router=adaptive_router,
+            routing_service=routing_service,
+            cost_service=cost_service,
+            config_service=config_service,
+            state_coordinator=state_coordinator,
+            context_service=context_service,
+            project_planner=project_planner,
+            pipeline_runner=pipeline_runner,
             telemetry_store=telemetry_store,
             semantic_cache=semantic_cache,
             cache_optimizer=None,
@@ -347,6 +507,8 @@ class ServiceContainer:
             budget_hierarchy=budget_hierarchy,
             output_dir=output_dir,
             git_integration=None,
+            observability=observability,
+            cb_registry=cb_registry,
         )
 
 
