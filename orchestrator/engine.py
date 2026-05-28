@@ -444,6 +444,14 @@ class Orchestrator:
             state_mgr=self.state_mgr,
             circuit_breaker_threshold=self._CIRCUIT_BREAKER_THRESHOLD,
         )
+        # P3-3: ResumptionService wraps _resume_project logic.
+        from .application.resumption_service import ResumptionService as _ResumptionService
+        self._resumption_svc = _ResumptionService(
+            budget=self.budget,
+            results=self.results,
+            execute_task_fn=self._execute_task,
+            determine_final_status_fn=self._determine_final_status,
+        )
         if tracing_cfg is not None and configure_tracing is not None:
             configure_tracing(tracing_cfg)
         logger.info("Orchestrator initialized via ServiceContainer")
@@ -2836,45 +2844,8 @@ Each task JSON element MUST also include:
         return self._c.state_coordinator.determine_final_status(state)
 
     async def _resume_project(self, state: ProjectState) -> ProjectState:
-        """
-        Resume from last checkpoint.
-        FIX #7: Restore persisted budget (spent_usd, phase_spent) instead of
-        creating a fresh Budget. Only reset start_time for the new session.
-        FIX-RESUME-001: Preserve original_start_time for correct elapsed time calculation.
-        """
-        # Restore budget state from checkpoint
-        self.budget.spent_usd = state.budget.spent_usd
-        self.budget.phase_spent = dict(state.budget.phase_spent)
-        # Preserve original_start_time for elapsed time calculation when resuming
-        self.budget.original_start_time = state.budget.original_start_time
-        # Reset start_time so the new session gets fresh wall-clock tracking
-        self.budget.start_time = time.time()
-
-        logger.info(
-            f"Restored budget: ${self.budget.spent_usd:.4f} already spent, "
-            f"${self.budget.remaining_usd:.4f} remaining"
-        )
-
-        self.results = dict(state.results)
-        remaining = [
-            tid
-            for tid in state.execution_order
-            if tid not in self.results
-            or self.results[tid].status in (TaskStatus.PENDING, TaskStatus.FAILED)
-        ]
-        if remaining:
-            logger.info(f"Resuming: {len(remaining)} tasks remaining")
-            for task_id in remaining:
-                if task_id in state.tasks:
-                    result = await self._execute_task(
-                        state.tasks[task_id],
-                        policy=RetryTemplate.for_task_type(state.tasks[task_id].type),
-                    )
-                    self.results[task_id] = result
-                    state.results[task_id] = result
-
-        state.status = self._determine_final_status(state)
-        return state
+        """Resume from last checkpoint — delegates to ResumptionService (P3-3)."""
+        return await self._resumption_svc.resume(state)
 
     def _make_state(
         self,
