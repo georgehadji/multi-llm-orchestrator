@@ -1,0 +1,74 @@
+[importlinter]
+root_package = orchestrator
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Contract 1: Domain purity
+#
+# The domain layer (ports.py, value objects, models) must never import from
+# infrastructure or application layers.  It is the innermost ring; it depends
+# on nothing except the Python standard library and Pydantic.
+# ─────────────────────────────────────────────────────────────────────────────
+[importlinter:contract:domain-purity]
+name = Domain layer must not import application or infrastructure
+type = forbidden
+source_modules =
+    orchestrator.domain
+forbidden_modules =
+    orchestrator.infrastructure
+    orchestrator.application
+    orchestrator.engine_core
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Contract 2: Application layer uses ports, not concrete adapters
+#
+# The application layer (use-cases, extracted services) is allowed to import
+# from the root orchestrator package (models, exceptions, domain ports, budget,
+# resilience, etc.) but must NOT reach into the concrete infrastructure
+# adapters under orchestrator.infrastructure.
+# ─────────────────────────────────────────────────────────────────────────────
+[importlinter:contract:application-no-concrete-infra]
+name = Application layer must not import concrete infrastructure adapters
+type = forbidden
+source_modules =
+    orchestrator.application
+forbidden_modules =
+    orchestrator.infrastructure
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Contract 3: Extracted application services stay independent of each other
+#
+# The thin-bridge and tracker services (dashboard_bridge, git_bridge,
+# model_health_tracker, resumption_service) must not import from engine.py
+# to prevent re-entrant coupling.  They depend on domain ports and models only.
+# ─────────────────────────────────────────────────────────────────────────────
+[importlinter:contract:application-services-no-engine]
+name = Application services must not import from engine.py directly
+type = forbidden
+source_modules =
+    orchestrator.application.dashboard_bridge
+    orchestrator.application.git_bridge
+    orchestrator.application.model_health_tracker
+    orchestrator.application.resumption_service
+forbidden_modules =
+    orchestrator.engine
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Contract 4: engine_core pipeline modules must not import infrastructure
+#
+# The pipeline, runner, planner, and coordinator modules are pure orchestration
+# logic and must depend only on domain ports and models — NOT on concrete
+# infrastructure adapters.  orchestrator.engine_core.container is intentionally
+# excluded (it IS the composition root and is allowed to wire infrastructure).
+# orchestrator.engine_core.stages is excluded until M4 (Protocol switch) is
+# complete and stages no longer import api_clients.
+# ─────────────────────────────────────────────────────────────────────────────
+[importlinter:contract:engine-core-no-loose-infra]
+name = engine_core pipeline modules must not import infrastructure directly
+type = forbidden
+source_modules =
+    orchestrator.engine_core.pipeline
+    orchestrator.engine_core.pipeline_runner
+    orchestrator.engine_core.project_planner
+    orchestrator.engine_core.state_coordinator
+forbidden_modules =
+    orchestrator.infrastructure
