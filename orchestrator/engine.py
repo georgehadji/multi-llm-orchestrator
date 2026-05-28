@@ -316,44 +316,9 @@ except ImportError:
 logger = logging.getLogger("orchestrator")
 
 
-def _clean_code_output(text: str, task_type: TaskType) -> str:
-    """
-    Post-process code output to remove common LLM artifacts:
-    - Markdown fences (```language...```)
-    - Placeholder comments explaining what to add
-    - Explanatory text fragments that aren't code
-    """
-    if task_type != TaskType.CODE_GEN:
-        return text
-
-    # Remove markdown code fences
-    text = re.sub(r"^```\w*\n?", "", text, flags=re.MULTILINE)
-    text = re.sub(r"\n?```\s*$", "", text, flags=re.MULTILINE)
-
-    # Remove common placeholder/explanatory comment patterns
-    # Matches: // Add content that can be easily replaced...
-    #          /* Add your code here */
-    #          <!-- Placeholder for ... -->
-    placeholder_patterns = [
-        r"//\s*[Aa]dd\s+(?:content|code|your|more|placeholder).*?\n",
-        r"//\s*[Rr]eplace\s+this.*?(?:\n|$)",
-        r"//\s*[Tt]ODO:.*?(?:\n|$)",
-        r"//\s*[Ff]IXME:.*?(?:\n|$)",
-        r"/\*\s*[Aa]dd\s+(?:content|code|your).*?\*/",
-        r"/\*\s*[Rr]eplace\s+this.*?\*/",
-        r"<!--\s*[Aa]dd\s+(?:content|code|your).*?-->",
-        r"<!--\s*[Rr]eplace\s+this.*?-->",
-        r"#\s*[Aa]dd\s+(?:content|code|your|more).*?(?:\n|$)",
-        r"#\s*[Rr]eplace\s+this.*?(?:\n|$)",
-    ]
-
-    for pattern in placeholder_patterns:
-        text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
-
-    # Clean up multiple consecutive blank lines
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    return text.strip()
+# P3-7: _clean_code_output extracted to orchestrator/output/code_cleaner.py
+# This re-export keeps callers inside engine.py unchanged.
+from .output.code_cleaner import clean_code_output as _clean_code_output  # noqa: E402
 
 
 class Orchestrator:
