@@ -2370,9 +2370,11 @@ Each task JSON element MUST also include:
                     cost_usd=ctx.cost_usd,
                     recorded_at=_time.time(),
                 )
-                _asyncio.create_task(self._skill_manager.record_trajectory(_t))
-            except Exception:
-                pass  # trajectory loss is acceptable; must never raise
+                _task = _asyncio.create_task(self._skill_manager.record_trajectory(_t))
+                self._background_tasks.add(_task)
+                _task.add_done_callback(self._background_tasks.discard)
+            except Exception as _e:
+                logger.debug("SkillOpt trajectory skipped: %s", _e)
 
         return result
 
@@ -2395,8 +2397,8 @@ Each task JSON element MUST also include:
                 cost_usd=response.cost_usd,
                 tokens=response.input_tokens + response.output_tokens,
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("Rate-limiter record skipped: %s", _e)
 
     async def _record_failure(self, model: Model, error: Exception | None = None) -> None:
         """Record a failed API call — delegates to ModelHealthTracker (P3-2)."""
