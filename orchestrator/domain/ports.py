@@ -17,9 +17,12 @@ NullAdapters for testing:
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from ..models import ProjectState
+
+if TYPE_CHECKING:
+    from ..models import Model, TaskType
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CachePort
@@ -105,10 +108,62 @@ class LLMClient(Protocol):
     """Minimal async LLM call interface for application-layer services.
     Satisfied by: orchestrator.api_clients.UnifiedClient
     """
-    async def call(self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs): ...
+
+    async def call(
+        self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs
+    ): ...
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Application-layer service ports (P2-1)
+# These are satisfied by the concrete service classes wired in ServiceContainer.
+# ─────────────────────────────────────────────────────────────────────────────
 
+
+@runtime_checkable
+class PlannerPort(Protocol):
+    """Model selection service. Satisfied by ModelSelector."""
+
+    def available_models(self, task_type: TaskType) -> list[Model]: ...
+    def select(self, task_type: TaskType) -> Model | None: ...
+
+
+@runtime_checkable
+class TelemetryPort(Protocol):
+    """Metrics recorder. Satisfied by TelemetryCollector."""
+
+    def record_call(
+        self,
+        model: Model,
+        latency_ms: float,
+        cost_usd: float,
+        success: bool = True,
+    ) -> None: ...
+
+
+@runtime_checkable
+class PolicyEnginePort(Protocol):
+    """Policy evaluation. Satisfied by PolicyEngine."""
+
+    def evaluate(self, job_spec: Any, profile: Any) -> Any: ...
+
+
+@runtime_checkable
+class HookRegistryPort(Protocol):
+    """Synchronous lifecycle hook dispatch. Satisfied by HookRegistry."""
+
+    def fire(self, event_type: Any, **kwargs: Any) -> None: ...
+    def add(self, event: Any, callback: Any) -> None: ...
+
+
+@runtime_checkable
+class ValidatorPort(Protocol):
+    """Task output validation. Satisfied by TaskValidator."""
+
+    async def validate(self, task: Any, output: str) -> bool: ...
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # NullAdapters — lightweight no-op implementations for testing
 # ─────────────────────────────────────────────────────────────────────────────
 
