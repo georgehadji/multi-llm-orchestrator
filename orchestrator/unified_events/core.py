@@ -39,49 +39,74 @@ logger = logging.getLogger("orchestrator.unified_events")
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class EventType(Enum):
+class EventType(str, Enum):
     """All event types in the unified system."""
 
     # Project lifecycle
-    PROJECT_STARTED = auto()
-    PROJECT_COMPLETED = auto()
-    PROJECT_FAILED = auto()
+    PROJECT_STARTED = "project_started"
+    PROJECT_COMPLETED = "project_completed"
+    PROJECT_FAILED = "project_failed"
 
     # Task lifecycle
-    TASK_CREATED = auto()
-    TASK_STARTED = auto()
-    TASK_PROGRESS = auto()
-    TASK_COMPLETED = auto()
-    TASK_FAILED = auto()
-    TASK_RETRY = auto()
+    TASK_CREATED = "task_created"
+    TASK_STARTED = "task_started"
+    TASK_PROGRESS = "task_progress"
+    TASK_COMPLETED = "task_completed"
+    TASK_FAILED = "task_failed"
+    TASK_RETRY = "task_retry"
+    TASK_RETRY_WITH_HISTORY = "task_retry_with_history"
+    PREFLIGHT_CHECK = "preflight_check"
 
     # Model/Routing
-    MODEL_SELECTED = auto()
-    MODEL_UNAVAILABLE = auto()
-    FALLBACK_TRIGGERED = auto()
-    CIRCUIT_BREAKER_OPEN = auto()
+    MODEL_SELECTED = "model_selected"
+    MODEL_UNAVAILABLE = "model_unavailable"
+    FALLBACK_TRIGGERED = "fallback_triggered"
+    CIRCUIT_BREAKER_OPEN = "circuit_breaker_open"
 
     # Quality & Validation
-    VALIDATION_PASSED = auto()
-    VALIDATION_FAILED = auto()
-    QUALITY_GATE_PASSED = auto()
-    QUALITY_GATE_FAILED = auto()
+    VALIDATION_PASSED = "validation_passed"
+    VALIDATION_FAILED = "validation_failed"
+    QUALITY_GATE_PASSED = "quality_gate_passed"
+    QUALITY_GATE_FAILED = "quality_gate_failed"
 
     # Budget & Cost
-    BUDGET_WARNING = auto()
-    BUDGET_EXHAUSTED = auto()
-    COST_RECORDED = auto()
+    BUDGET_WARNING = "budget_warning"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    COST_RECORDED = "cost_recorded"
 
     # System
-    ERROR = auto()
-    WARNING = auto()
-    INFO = auto()
-    METRIC = auto()
+    ERROR = "error"
+    WARNING = "warning"
+    INFO = "info"
+    METRIC = "metric"
+    BACKUP_CREATED = "backup_created"
+    BACKUP_RESTORED = "backup_restore"
+    AUTO_TUNING_TRIGGERED = "auto_tuning_triggered"
 
     # Capability usage (from capability_logger.py)
-    CAPABILITY_USED = auto()
-    CAPABILITY_COMPLETED = auto()
-    CAPABILITY_FAILED = auto()
+    CAPABILITY_USED = "capability_used"
+    CAPABILITY_COMPLETED = "capability_completed"
+    CAPABILITY_FAILED = "capability_failed"
+
+    # Nash Stability (from nash/events.py)
+    KG_UPDATED = "kg_updated"
+    KG_NODE_ADDED = "kg_node_added"
+    KG_EDGE_ADDED = "kg_edge_added"
+    KG_SIMILARITY_MATCHED = "kg_similarity_matched"
+    TEMPLATE_SELECTED = "template_selected"
+    TEMPLATE_RESULT_REPORTED = "template_result_reported"
+    TEMPLATE_CONVERGED = "template_converged"
+    FRONTIER_COMPUTED = "frontier_computed"
+    PREDICTION_MADE = "prediction_made"
+    DRIFT_DETECTED = "drift_detected"
+    INSIGHT_CONTRIBUTED = "insight_contributed"
+    BASELINE_UPDATED = "baseline_updated"
+    AGGREGATION_COMPLETED = "aggregation_completed"
+    STABILITY_SCORE_UPDATED = "stability_score_updated"
+    SWITCHING_COST_CHANGED = "switching_cost_changed"
+
+    # Agent Messaging (from events/core.py)
+    AGENT_MESSAGE = "agent_message"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -352,6 +377,133 @@ class BudgetWarningEvent(DomainEvent):
         )
 
 
+@dataclass(frozen=True)
+class TaskRetryWithHistoryEvent(DomainEvent):
+    attempt_num: int = 0
+    record: dict[str, Any] = field(default_factory=dict)
+
+    def __init__(self, aggregate_id: str, task_id: str, attempt_num: int, record: Any):
+        super().__init__(
+            event_type=EventType.TASK_RETRY_WITH_HISTORY,
+            aggregate_id=aggregate_id,
+            metadata={
+                "task_id": task_id,
+                "attempt_num": attempt_num,
+                "record": str(record),  # AttemptRecord might not be serializable directly
+            },
+        )
+
+
+@dataclass(frozen=True)
+class PreflightCheckEvent(DomainEvent):
+    action: str = ""
+    reason: str = ""
+    score_before: float = 0.0
+    score_after: float = 0.0
+
+    def __init__(
+        self, aggregate_id: str, task_id: str, action: str, reason: str, score_before: float, score_after: float
+    ):
+        super().__init__(
+            event_type=EventType.PREFLIGHT_CHECK,
+            aggregate_id=aggregate_id,
+            metadata={
+                "task_id": task_id,
+                "action": action,
+                "reason": reason,
+                "score_before": score_before,
+                "score_after": score_after,
+            },
+        )
+
+
+# Agent Messaging events
+@dataclass(frozen=True)
+class AgentMessageEvent(DomainEvent):
+    sender: str = ""
+    recipient: str | None = None
+    msg_type: str = ""
+    content: str = ""
+
+    def __init__(
+        self, aggregate_id: str, sender: str, content: str, msg_type: str, recipient: str | None = None
+    ):
+        super().__init__(
+            event_type=EventType.AGENT_MESSAGE,
+            aggregate_id=aggregate_id,
+            metadata={
+                "sender": sender,
+                "recipient": recipient,
+                "msg_type": msg_type,
+                "content": content,
+            },
+        )
+
+
+# Nash Stability events
+@dataclass(frozen=True)
+class KnowledgeGraphUpdatedEvent(DomainEvent):
+    def __init__(self, aggregate_id: str, nodes_added: int, edges_added: int, nodes_total: int, edges_total: int):
+        super().__init__(
+            event_type=EventType.KG_UPDATED,
+            aggregate_id=aggregate_id,
+            metadata={
+                "nodes_added": nodes_added,
+                "edges_added": edges_added,
+                "nodes_total": nodes_total,
+                "edges_total": edges_total,
+            },
+        )
+
+
+@dataclass(frozen=True)
+class TemplateSelectedEvent(DomainEvent):
+    def __init__(self, aggregate_id: str, task_type: str, model: str, variant_name: str, strategy: str, confidence: float):
+        super().__init__(
+            event_type=EventType.TEMPLATE_SELECTED,
+            aggregate_id=aggregate_id,
+            metadata={
+                "task_type": task_type,
+                "model": model,
+                "variant_name": variant_name,
+                "strategy": strategy,
+                "confidence": confidence,
+            },
+        )
+
+
+@dataclass(frozen=True)
+class DriftDetectedEvent(DomainEvent):
+    def __init__(self, aggregate_id: str, model: str, metric: str, expected_value: float, observed_value: float, p_value: float, severity: str):
+        super().__init__(
+            event_type=EventType.DRIFT_DETECTED,
+            aggregate_id=aggregate_id,
+            metadata={
+                "model": model,
+                "metric": metric,
+                "expected_value": expected_value,
+                "observed_value": observed_value,
+                "p_value": p_value,
+                "severity": severity,
+            },
+        )
+
+
+@dataclass(frozen=True)
+class StabilityScoreUpdatedEvent(DomainEvent):
+    def __init__(self, aggregate_id: str, previous_score: float, new_score: float, score_change: float, interpretation: str):
+        super().__init__(
+            event_type=EventType.STABILITY_SCORE_UPDATED,
+            aggregate_id=aggregate_id,
+            metadata={
+                "previous_score": previous_score,
+                "new_score": new_score,
+                "score_change": score_change,
+                "interpretation": interpretation,
+            },
+        )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Event Store
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -569,11 +721,54 @@ class MetricsProjection(Projection):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Hook Registry (Synchronous Lifecycle Hooks)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class HookRegistry:
+    """
+    Synchronous fire-and-forget hook system for the orchestration lifecycle.
+    Integrated into the Unified Event System.
+
+    Provides only synchronous callbacks — no async event loop required.
+    Use ``UnifiedEventBus.publish()`` for async domain events.
+    """
+
+    def __init__(self) -> None:
+        self._hooks: dict[str, list[Callable]] = defaultdict(list)
+
+    def on(self, event: str | EventType, callback: Callable) -> None:
+        """Register a callback for the given event."""
+        key = event.value if isinstance(event, EventType) else str(event)
+        self._hooks[key].append(callback)
+
+    # Alias kept for callers that use .add() (e.g. Orchestrator.add_hook)
+    add = on
+
+    def fire(self, event: str | EventType, **kwargs: Any) -> None:
+        """Invoke all callbacks registered for the event (synchronously)."""
+        key = event.value if isinstance(event, EventType) else str(event)
+        for cb in self._hooks.get(key, []):
+            try:
+                cb(**kwargs)
+            except Exception as exc:
+                logger.warning("Hook callback %r raised for event %r: %s", cb, key, exc)
+
+    def clear(self, event: str | EventType | None = None) -> None:
+        """Remove callbacks for an event (or all if event is None)."""
+        if event is None:
+            self._hooks.clear()
+        else:
+            key = event.value if isinstance(event, EventType) else str(event)
+            self._hooks.pop(key, None)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Unified Event Bus
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class UnifiedEventBus:
+class UnifiedEventBus(HookRegistry):
     """
     Single event bus for all orchestrator events.
     Replaces: streaming.py, events.py, hooks.py, capability_logger.py
@@ -583,6 +778,7 @@ class UnifiedEventBus:
     _lock = asyncio.Lock()
 
     def __init__(self, store: EventStore | None = None):
+        super().__init__()
         self.store = store
         self.subscribers: list[Callable[[DomainEvent], Awaitable[None]]] = []
         self.projections: list[Projection] = []
@@ -604,6 +800,17 @@ class UnifiedEventBus:
                 if cls._instance is None:
                     cls._instance = cls()
         return cls._instance
+
+    @property
+    def sync_hooks(self) -> HookRegistry:
+        """Return the synchronous hook registry interface.
+
+        Using this property makes the calling code's intent explicit:
+        ``container.hook_registry = event_bus.sync_hooks`` makes it clear
+        that hook_registry is the *sync* face of the bus, while
+        ``container.event_bus`` is the *async* face.
+        """
+        return self  # UnifiedEventBus IS a HookRegistry (via inheritance)
 
     def add_projection(self, projection: Projection) -> None:
         """Add a read model projection."""

@@ -459,8 +459,7 @@ class Orchestrator:
         self._git_integration: Any | None = None
         self._autonomy = AutonomyConfig.for_level(AutonomyLevel.STANDARD)
         self._active_profiles_cache: list | None = None
-        import weakref
-        self._background_tasks: weakref.WeakSet = weakref.WeakSet()
+        self._background_tasks: set[asyncio.Task] = set()
         self._cleanup_timer: asyncio.Task | None = None
         self.api_health: dict[Model, bool] = dict.fromkeys(Model, True)
         for model in Model:
@@ -613,7 +612,10 @@ class Orchestrator:
         self._entered = True
         logger.debug("Orchestrator entered as context manager")
 
-        # P0-2 OPTIMIZATION: Start periodic cleanup timer
+        # Restore circuit breaker state from previous run (P1-4)
+        await self._load_circuit_breaker_state()
+
+        # Start periodic cleanup timer for background tasks
         await self._start_periodic_cleanup(interval_seconds=300)  # 5 minutes
 
         return self
@@ -638,7 +640,6 @@ class Orchestrator:
         BUG-EVENTLOOP-001 FIX: Properly wait for aiosqlite background threads
         to complete before event loop closes.
 
-        P0-2 OPTIMIZATION: WeakSet-based tracking prevents memory leaks.
         """
         logger.debug("Orchestrator exiting context manager, cleaning up resources...")
 
@@ -660,8 +661,6 @@ class Orchestrator:
         # BUG-MEMORY-002 FIX: Clean up completed background tasks first
         await self._cleanup_background_tasks()
 
-        # P0-2 OPTIMIZATION: WeakSet doesn't need waiting, but we log final count
-        # Convert WeakSet to list for asyncio.wait (WeakSet can't be directly waited)
         background_list = list(self._background_tasks)
         if background_list:
             logger.debug(f"Waiting for {len(background_list)} background tasks...")
@@ -910,82 +909,47 @@ class Orchestrator:
             else:
                 logger.debug("P2-2: No active profiles to flush")
 
-        # BUG-MEMORY-002 FIX: Wrap callback with exception handling
-        def _cleanup_task(task: asyncio.Task) -> None:
-            """Safely remove task from tracking set."""
-            # P0-2 OPTIMIZATION: With WeakSet, we don't need to manually remove tasks.
-            # The WeakSet will automatically remove the task when it's garbage collected.
-            # We just log completion for debugging.
-
-            # Log completion for debugging
-            if task.cancelled():
-                logger.debug("Background task was cancelled")
-            elif task.exception() is not None:
-                logger.warning(f"Background task completed with exception: {task.exception()}")
-            else:
-                logger.debug("Background task completed successfully")
-
-        # P0-2 OPTIMIZATION: Cleanup before creating new task to keep memory low
-        await self._cleanup_background_tasks()
-
-        # BUG-SHUTDOWN-001 FIX: Track background task
-        # P0-2 OPTIMIZATION: WeakSet automatically removes when task is garbage collected
         task = asyncio.create_task(_write_snapshots())
         self._background_tasks.add(task)
-        task.add_done_callback(_cleanup_task)
+        task.add_done_callback(self._cleanup_task_callback)
+
+    def _cleanup_task_callback(self, task: asyncio.Task) -> None:
+        """Done-callback: remove task from the strong-reference set and log failures."""
+        self._background_tasks.discard(task)
+        if task.cancelled():
+            logger.debug("Background task was cancelled")
+        elif task.exception() is not None:
+            logger.warning("Background task failed: %s", task.exception())
+        else:
+            logger.debug("Background task completed successfully")
 
     async def _cleanup_background_tasks(self) -> int:
-        """
-        BUG-MEMORY-002 FIX: Periodic cleanup of completed background tasks.
-
-        P0-2 OPTIMIZATION: With WeakSet, cleanup happens automatically via GC.
-        This method now only logs statistics and forces GC for immediate cleanup.
-
-        This method removes completed tasks from the tracking set to prevent
-        memory leaks. It should be called periodically or during shutdown.
+        """Remove completed tasks from the tracking set.
 
         Returns:
-            Number of tasks cleaned up (0 with WeakSet - automatic cleanup)
+            Number of tasks removed.
         """
-        # P0-2 OPTIMIZATION: WeakSet automatically removes tasks when they're
-        # no longer referenced elsewhere. We just force GC and log stats.
         if not self._background_tasks:
             return 0
-
-        # P0-2 OPTIMIZATION: With WeakSet, we can't check task.done() directly
-        # because WeakSet doesn't support iteration while being modified.
-        # Instead, we rely on GC to clean up completed tasks automatically.
-        import gc
-
-        gc.collect()  # Force GC to clean up completed tasks
-
-        logger.debug(f"Background tasks after GC: {len(self._background_tasks)}")
-        return 0  # WeakSet handles cleanup automatically
+        done = {t for t in self._background_tasks if t.done()}
+        self._background_tasks -= done
+        logger.debug("Background tasks cleaned up: %d done, %d still running", len(done), len(self._background_tasks))
+        return len(done)
 
     async def _start_periodic_cleanup(self, interval_seconds: int = 300) -> None:
-        """
-        P0-2 OPTIMIZATION: Start periodic cleanup timer for background tasks.
-
-        This runs in the background and forces garbage collection every
-        `interval_seconds` to ensure WeakSet-based tracking stays clean.
+        """Start periodic cleanup timer for completed background tasks.
 
         Args:
             interval_seconds: How often to run cleanup (default: 5 minutes)
         """
 
         async def _cleanup_loop():
-            """Background cleanup loop."""
             while True:
                 await asyncio.sleep(interval_seconds)
-                import gc
-
-                gc.collect()  # Force GC to collect weakrefs
-                logger.debug(
-                    f"Periodic cleanup: {len(self._background_tasks)} active background tasks"
-                )
+                await self._cleanup_background_tasks()
 
         self._cleanup_timer = asyncio.create_task(_cleanup_loop())
-        logger.info(f"Started periodic cleanup timer (interval={interval_seconds}s)")
+        logger.info("Started periodic cleanup timer (interval=%ds)", interval_seconds)
 
     async def _safe_record_routing_event(
         self,
@@ -999,6 +963,29 @@ class Orchestrator:
             await self._telemetry_store.record_routing_event(project_id, task_id, task_type, result)
         except Exception as exc:
             logger.warning("TelemetryStore.record_routing_event failed: %s", exc)
+
+    async def _load_circuit_breaker_state(self) -> None:
+        """Restore circuit breaker failure counts from the previous run (P1-4)."""
+        try:
+            persisted = await self.state_mgr.load_circuit_breaker_state()
+        except Exception as exc:
+            logger.debug("Could not load circuit breaker state: %s", exc)
+            return
+        for model_name, count in persisted.items():
+            # Map string name back to Model enum; skip unknown names gracefully
+            try:
+                model = next(m for m in Model if m.value == model_name)
+            except StopIteration:
+                continue
+            self._consecutive_failures[model] = count
+            if count >= self._CIRCUIT_BREAKER_THRESHOLD:
+                self.api_health[model] = False
+                logger.info(
+                    "Circuit breaker restored: %s open (%d failures from previous run)",
+                    model_name, count,
+                )
+        if persisted:
+            logger.debug("Loaded circuit breaker state for %d models", len(persisted))
 
     # ─────────────────────────────────────────
     # Public API
@@ -2658,6 +2645,11 @@ Each task JSON element MUST also include:
             return
 
         self._consecutive_failures[model] = self._consecutive_failures.get(model, 0) + 1
+        # Persist failure count so circuit breaker state survives restarts
+        try:
+            await self.state_mgr.save_circuit_breaker_state(model.value, self._consecutive_failures[model])
+        except Exception as _cb_err:
+            logger.debug("Could not persist circuit breaker state for %s: %s", model.value, _cb_err)
         # Task 6: record timeout in adaptive router for degradation tracking
         _is_timeout = (
             "timeout" in error_str.lower()
@@ -2672,8 +2664,8 @@ Each task JSON element MUST also include:
             if self.api_health.get(model, True):
                 self.api_health[model] = False
                 logger.warning(
-                    f"Circuit breaker tripped for {model.value} "
-                    f"after {self._consecutive_failures[model]} consecutive failures"
+                    "Circuit breaker tripped for %s after %d consecutive failures",
+                    model.value, self._consecutive_failures[model]
                 )
 
     def _get_active_policies(self, task_id: str = "") -> list[Policy]:

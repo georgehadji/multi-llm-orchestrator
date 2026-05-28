@@ -66,6 +66,8 @@ class StatePort(Protocol):
     async def save_project(self, project_id: str, state: ProjectState) -> None: ...
     async def load_project(self, project_id: str) -> ProjectState | None: ...
     async def save_checkpoint(self, project_id: str, task_id: str, state: ProjectState) -> None: ...
+    async def save_circuit_breaker_state(self, model_name: str, failure_count: int) -> None: ...
+    async def load_circuit_breaker_state(self) -> dict[str, int]: ...
     async def close(self) -> None: ...
 
 
@@ -82,6 +84,31 @@ class EventPort(Protocol):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ConfigPort
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class ConfigPort(Protocol):
+    """Architectural configuration store. Satisfied by ConfigAdapter."""
+
+    def get_costs(self) -> dict[str, dict[str, float]]: ...
+    def get_routing(self) -> dict[str, list[str]]: ...
+    def get_fallbacks(self) -> dict[str, str]: ...
+    def get_thresholds(self) -> dict[str, float]: ...
+    def get_limits(self) -> dict[str, int]: ...
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+@runtime_checkable
+class LLMClient(Protocol):
+    """Minimal async LLM call interface for application-layer services.
+    Satisfied by: orchestrator.api_clients.UnifiedClient
+    """
+    async def call(self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs): ...
+
+
+
 # NullAdapters — lightweight no-op implementations for testing
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -131,6 +158,12 @@ class NullState:
 
     async def save_checkpoint(self, project_id: str, task_id: str, state: ProjectState) -> None:
         self._checkpoints[f"{project_id}:{task_id}"] = state
+
+    async def save_circuit_breaker_state(self, model_name: str, failure_count: int) -> None:
+        pass  # NullState doesn't persist circuit breaker state
+
+    async def load_circuit_breaker_state(self) -> dict[str, int]:
+        return {}
 
     async def close(self) -> None:
         pass
