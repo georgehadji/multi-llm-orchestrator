@@ -591,6 +591,42 @@ class Orchestrator:
         return self._c.eval_dataset
 
     # ─────────────────────────────────────────
+    # Health Check (P2-3)
+    # ─────────────────────────────────────────
+
+    def assert_healthy(self) -> None:
+        """Raise RuntimeError if any required service is missing; log optional ones.
+
+        Called automatically in ``__aenter__``.  Can also be called by tests to
+        verify that a freshly-built container is wired correctly.
+        """
+        # Services that are unconditionally required for any task execution
+        required = [
+            ("budget", self.budget),
+            ("client", self.client),
+            ("cache", self.cache),
+            ("state_mgr", self.state_mgr),
+            ("selector", self._selector),
+            ("telemetry", self._telemetry),
+            ("pipeline", self._pipeline),
+            ("validator", self.validator),
+            ("task_guard", self._task_guard),
+        ]
+        # Optional services that are expected in production but degrade gracefully
+        optional = [
+            ("telemetry_store", self._telemetry_store),
+            ("event_bus", self._event_bus),
+            ("hook_registry", self._hook_registry),
+            ("decomposer", self._decomposer),
+        ]
+        missing = [name for name, val in required if val is None]
+        if missing:
+            raise RuntimeError(f"Orchestrator missing required services: {missing}")
+        none_optional = [name for name, val in optional if val is None]
+        if none_optional:
+            logger.info("Optional services not configured: %s", none_optional)
+
+    # ─────────────────────────────────────────
     # Async Context Manager
     # ─────────────────────────────────────────
 
@@ -611,6 +647,9 @@ class Orchestrator:
         """
         self._entered = True
         logger.debug("Orchestrator entered as context manager")
+
+        # Verify all required services are present (P2-3)
+        self.assert_healthy()
 
         # Restore circuit breaker state from previous run (P1-4)
         await self._load_circuit_breaker_state()

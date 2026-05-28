@@ -16,13 +16,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import weakref
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..api_clients import UnifiedClient
 from ..budget import Budget
+from ..domain.ports import (
+    CachePort,
+    EventPort,
+    HookRegistryPort,
+    PlannerPort,
+    StatePort,
+    ValidatorPort,
+)
 
 try:
     from ..cost_optimization_integration import (
@@ -69,13 +76,13 @@ class ServiceContainer:
 
     budget: Budget
     client: UnifiedClient
-    cache: Any
-    state_mgr: Any
+    cache: CachePort
+    state_mgr: StatePort
 
     # Core services
     task_guard: Any
     results_lock: asyncio.Lock
-    selector: ModelSelector
+    selector: ModelSelector  # also satisfies PlannerPort
     tiered_router: TieredModelRouter = None
     telemetry: TelemetryCollector = None
     tracer: Tracer = None
@@ -84,8 +91,8 @@ class ServiceContainer:
     project_planner: Any = None
     pipeline_runner: Any = None
     preflight_validator: Any = None
-    hook_registry: Any = None
-    validator: Any = None
+    hook_registry: HookRegistryPort = None
+    validator: ValidatorPort = None
     decomposer: Any = None
     architect: Any = None
     executor: Any = None
@@ -95,7 +102,7 @@ class ServiceContainer:
     ara_strategy: Any = None
     pipeline: Any = None
     dep_resolver: Any = None
-    event_bus: Any = None
+    event_bus: EventPort = None
     adaptive_router: Any = None
     telemetry_store: Any = None
     semantic_cache: Any = None
@@ -253,7 +260,7 @@ class ServiceContainer:
 
         # Defaults
         if cache is None:
-            from .cache import DiskCache
+            from ..infrastructure.cache import DiskCache
 
             cache = DiskCache()
         if state_manager is None:
