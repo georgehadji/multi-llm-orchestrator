@@ -434,12 +434,19 @@ class Orchestrator:
         # P3-2: ModelHealthTracker wraps circuit breaker + telemetry recording.
         # Dicts are shared by reference so engine.api_health and _consecutive_failures
         # stay in sync with what ModelHealthTracker writes.
+        # P3-5: Thin bridges for optional dashboard / git integrations.
+        # Created before health_tracker so the bridge can be passed in.
+        from .application.dashboard_bridge import DashboardBridge as _DashboardBridge
+        from .application.git_bridge import GitBridge as _GitBridge
+        self._dashboard_bridge = _DashboardBridge(self._dashboard_integration)
+        self._git_bridge = _GitBridge(self._git_integration)
+        # P3-2: ModelHealthTracker wraps circuit breaker + telemetry recording.
         from .application.model_health_tracker import ModelHealthTracker as _ModelHealthTracker
         self._health_tracker = _ModelHealthTracker(
             telemetry=self._telemetry,
             consecutive_failures=self._consecutive_failures,
             api_health=self.api_health,
-            dashboard=self._dashboard_integration,
+            dashboard=self._dashboard_bridge,
             adaptive_router=self._adaptive_router,
             state_mgr=self.state_mgr,
             circuit_breaker_threshold=self._CIRCUIT_BREAKER_THRESHOLD,
@@ -1394,38 +1401,20 @@ class Orchestrator:
         self._dashboard_integration = integration
 
     def _notify_dashboard_project_start(self, project_id: str, state: Any):
-        """Notify dashboard of project start."""
-        if self._dashboard_integration:
-            try:
-                self._dashboard_integration.on_project_start(
-                    project_id, state, self._architecture_rules
-                )
-            except Exception as e:
-                logger.debug(f"Dashboard notification failed: {e}")
+        """Delegates to DashboardBridge (P3-5)."""
+        self._dashboard_bridge.on_project_start(project_id, state, self._architecture_rules)
 
     def _notify_dashboard_task_start(self, task_id: str, task: Task, model: Model | None):
-        """Notify dashboard of task start."""
-        if self._dashboard_integration:
-            try:
-                self._dashboard_integration.on_task_start(task_id, task, model)
-            except Exception as e:
-                logger.debug(f"Dashboard notification failed: {e}")
+        """Delegates to DashboardBridge (P3-5)."""
+        self._dashboard_bridge.on_task_start(task_id, task, model)
 
     def _notify_dashboard_task_progress(self, iteration: int, score: float):
-        """Notify dashboard of task progress."""
-        if self._dashboard_integration:
-            try:
-                self._dashboard_integration.on_task_progress(iteration, score)
-            except Exception as e:
-                logger.debug(f"Dashboard notification failed: {e}")
+        """Delegates to DashboardBridge (P3-5)."""
+        self._dashboard_bridge.on_task_progress(iteration, score)
 
     def _notify_dashboard_task_complete(self, task_id: str, status: str):
-        """Notify dashboard of task completion."""
-        if self._dashboard_integration:
-            try:
-                self._dashboard_integration.on_task_complete(task_id, status)
-            except Exception as e:
-                logger.debug(f"Dashboard notification failed: {e}")
+        """Delegates to DashboardBridge (P3-5)."""
+        self._dashboard_bridge.on_task_complete(task_id, status)
 
     def _build_metrics_dict(self) -> dict:
         """Build a per-model metrics dict from live ModelProfile data."""
@@ -1577,23 +1566,13 @@ class Orchestrator:
 
                     await on_project_completed(self.meta_v2, state, run_optimization=True)
 
-                # Final Git commit for project completion
-                if self._git_integration is not None and self._git_integration.is_available():
-                    try:
-                        total_tasks = len(tasks)
-                        sum(1 for r in self.results.values() if r.status == TaskStatus.COMPLETED)
-                        commit_hash = self._git_integration.commit_project(
-                            project_name=project_description[:50],
-                            total_tasks=total_tasks,
-                            total_cost=self.budget.spent_usd,
-                            elapsed_time=self.budget.elapsed_seconds,
-                        )
-                        if commit_hash:
-                            logger.info(f"Final git commit: {commit_hash}")
-                            branch = self._git_integration.get_branch_name()
-                            logger.info(f"Branch: {branch}")
-                    except Exception as e:
-                        logger.warning(f"Final git commit failed: {e}")
+                # Final Git commit for project completion (P3-5: delegates to GitBridge)
+                self._git_bridge.commit_project(
+                    project_name=project_description[:50],
+                    total_tasks=len(tasks),
+                    total_cost=self.budget.spent_usd,
+                    elapsed_time=self.budget.elapsed_seconds,
+                )
 
                 # Emit ProjectCompleted streaming event
                 if self._event_bus:
