@@ -277,6 +277,11 @@ class StateManager:
                                 created_at REAL NOT NULL,
                                 FOREIGN KEY (project_id) REFERENCES projects(project_id)
                             );
+                            CREATE TABLE IF NOT EXISTS circuit_breaker_state (
+                                model_name    TEXT PRIMARY KEY,
+                                failure_count INTEGER NOT NULL DEFAULT 0,
+                                updated_at    REAL NOT NULL
+                            );
                         """)
                         await conn.commit()
                         # BUG-NEW-003 FIX: Run migration inline using the same async
@@ -389,6 +394,29 @@ class StateManager:
         if row:
             return self._deserialize_state(row[0], context=f"checkpoint project={project_id}")
         return None
+
+    async def save_circuit_breaker_state(self, model_name: str, failure_count: int) -> None:
+        """Persist circuit breaker failure count for a model across restarts."""
+        db = await self._get_conn()
+        await db.execute(
+            """INSERT OR REPLACE INTO circuit_breaker_state (model_name, failure_count, updated_at)
+               VALUES (?, ?, ?)""",
+            (model_name, failure_count, time.time()),
+        )
+        await db.commit()
+
+    async def load_circuit_breaker_state(self) -> dict[str, int]:
+        """Load all persisted circuit breaker failure counts.
+
+        Returns:
+            Mapping of model_name → failure_count.
+        """
+        db = await self._get_conn()
+        async with db.execute(
+            "SELECT model_name, failure_count FROM circuit_breaker_state"
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return {row[0]: row[1] for row in rows}
 
     def _deserialize_state(self, blob: str, context: str = "") -> Optional[ProjectState]:
         """

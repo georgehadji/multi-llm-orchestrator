@@ -350,15 +350,16 @@ class ServiceContainer:
         
         # Unified Event System integration
         try:
-            from .unified_events.core import UnifiedEventBus, HookRegistry
-            
-            # Note: In the unified system, UnifiedEventBus acts as both 
-            # the async event bus and the synchronous hook registry.
+            from .unified_events.core import UnifiedEventBus
+
+            # event_bus  → async face (publish DomainEvents)
+            # hook_registry → sync face (fire lifecycle hooks)
+            # They share the same underlying object; .sync_hooks just narrows the type.
             event_bus = UnifiedEventBus()
-            hook_registry = event_bus 
+            hook_registry = event_bus.sync_hooks
         except ImportError:
             # Fallback to legacy/dummy if unified_events is not reachable
-            hook_registry = type("HookRegistry", (), {"fire": lambda *a, **kw: None})()
+            hook_registry = type("HookRegistry", (), {"fire": lambda *a, **kw: None, "add": lambda *a, **kw: None})()
             event_bus = type("EventBus", (), {"publish": lambda *a, **kw: None})()
 
         validator = TaskValidator(
