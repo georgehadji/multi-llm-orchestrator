@@ -47,6 +47,9 @@ class GenerateStage:
         ctx.model = model
 
         system_prompt = SystemPrompt.build(task)
+        # SkillOpt: prepend the injected skill document when available
+        if ctx.skill_prefix:
+            system_prompt = f"<skill>\n{ctx.skill_prefix}\n</skill>\n\n{system_prompt}"
 
         prompt_text = task.prompt
         if task.revision_context:

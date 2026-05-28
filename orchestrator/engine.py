@@ -79,59 +79,93 @@ except ImportError:
     generate_openrouter_schema = None
     get_schema_for_task_type = None
 
-try:
-    from .cache_optimizer import CacheConfig, CacheOptimizer
+# P4-2: Optional imports are gated by FeatureFlags so the feature surface is
+# explicit and testable.  Each block checks its flag first; if the flag is
+# disabled the import is never attempted and the symbols are set to None.
+# All flags default to True to preserve existing behaviour; users can opt out
+# via environment variables (e.g. ORCH_A2A_ENABLED=false).
 
-    HAS_CACHE_OPTIMIZER = True
-except ImportError:
+if flags.cache_optimizer_enabled:
+    try:
+        from .cache_optimizer import CacheConfig, CacheOptimizer
+
+        HAS_CACHE_OPTIMIZER = True
+    except ImportError:
+        HAS_CACHE_OPTIMIZER = False
+        CacheOptimizer = None
+        CacheConfig = None
+else:
     HAS_CACHE_OPTIMIZER = False
     CacheOptimizer = None
     CacheConfig = None
+
 from .policy import JobSpec, ModelProfile, Policy, PolicySet
 from .policy_engine import PolicyEngine
 from .state import StateManager
 
 # Test validation for reliable test generation
-try:
-    from .test_validator import TestValidator, validate_and_generate_test
+if flags.test_validation_enabled:
+    try:
+        from .test_validator import TestValidator, validate_and_generate_test
 
-    HAS_TEST_VALIDATOR = True
-except ImportError as _e:
+        HAS_TEST_VALIDATOR = True
+    except ImportError:
+        HAS_TEST_VALIDATOR = False
+        TestValidator = None
+        validate_and_generate_test = None
+else:
     HAS_TEST_VALIDATOR = False
     TestValidator = None
     validate_and_generate_test = None
 
 # Code validation for clean code generation (no LLM commentary)
-try:
-    from .code_validator import validate_code, extract_code_from_llm_response
+if flags.code_validation_enabled:
+    try:
+        from .code_validator import validate_code, extract_code_from_llm_response
 
-    HAS_CODE_VALIDATOR = True
-except ImportError:
+        HAS_CODE_VALIDATOR = True
+    except ImportError:
+        HAS_CODE_VALIDATOR = False
+        validate_code = None
+        extract_code_from_llm_response = None
+else:
     HAS_CODE_VALIDATOR = False
     validate_code = None
     extract_code_from_llm_response = None
 
-# Optional advanced features - wrapped in try/except to allow CLI to load even if any fail
-# These modules may have external dependencies or circular import issues
+# Optional advanced features — gated by feature flags (P4-2)
 HAS_ADVANCED_FEATURES = True
 
-try:
-    from .a2a_protocol import A2AManager, AgentCard
-except (ImportError, TimeoutError):
+if flags.a2a_enabled:
+    try:
+        from .a2a_protocol import A2AManager, AgentCard
+    except (ImportError, TimeoutError):
+        A2AManager = None
+        AgentCard = None
+        HAS_ADVANCED_FEATURES = False
+else:
     A2AManager = None
     AgentCard = None
-    HAS_ADVANCED_FEATURES = False
 
-try:
-    from .accountability import AccountabilityTracker, ActionType, ActorType
-except (ImportError, TimeoutError):
+if flags.accountability_enabled:
+    try:
+        from .accountability import AccountabilityTracker, ActionType, ActorType
+    except (ImportError, TimeoutError):
+        AccountabilityTracker = None
+        ActionType = None
+        ActorType = None
+else:
     AccountabilityTracker = None
     ActionType = None
     ActorType = None
 
-try:
-    from .agent_safety import AgentSafetyMonitor, SafetyEventType
-except (ImportError, TimeoutError):
+if flags.agent_safety_enabled:
+    try:
+        from .agent_safety import AgentSafetyMonitor, SafetyEventType
+    except (ImportError, TimeoutError):
+        AgentSafetyMonitor = None
+        SafetyEventType = None
+else:
     AgentSafetyMonitor = None
     SafetyEventType = None
 
@@ -152,29 +186,46 @@ except (ImportError, TimeoutError):
     get_bm25_search = None
 
 # OPTIMIZATION: Cost & performance optimizations (Tiers 1-4)
-try:
-    from .cost_optimization import (
-        AdaptiveTemperatureController,
-        BatchClient,
-        DependencyContextInjector,
-        EvalDatasetBuilder,
-        ModelCascader,
-        OptimizationConfig,
-        PromptCacher,
-        SpeculativeGenerator,
-        StreamingValidator,
-        TokenBudget,
-        cascading_generate,
-        get_optimization_config,
-        inject_dependency_context,
-        speculative_generate,
-        stream_and_validate,
-        warm_prompt_cache,
-    )
-except (ImportError, TimeoutError):
+if flags.cost_optimization_enabled:
+    try:
+        from .cost_optimization import (
+            AdaptiveTemperatureController,
+            BatchClient,
+            DependencyContextInjector,
+            EvalDatasetBuilder,
+            ModelCascader,
+            OptimizationConfig,
+            PromptCacher,
+            SpeculativeGenerator,
+            StreamingValidator,
+            TokenBudget,
+            cascading_generate,
+            get_optimization_config,
+            inject_dependency_context,
+            speculative_generate,
+            stream_and_validate,
+            warm_prompt_cache,
+        )
+    except (ImportError, TimeoutError):
+        OptimizationConfig = None
+        get_optimization_config = None
+        AdaptiveTemperatureController = None
+        BatchClient = None
+        DependencyContextInjector = None
+        EvalDatasetBuilder = None
+        ModelCascader = None
+        PromptCacher = None
+        SpeculativeGenerator = None
+        StreamingValidator = None
+        TokenBudget = None
+        cascading_generate = None
+        inject_dependency_context = None
+        speculative_generate = None
+        stream_and_validate = None
+        warm_prompt_cache = None
+else:
     OptimizationConfig = None
     get_optimization_config = None
-    # Set all others to None too
     AdaptiveTemperatureController = None
     BatchClient = None
     DependencyContextInjector = None
@@ -223,9 +274,12 @@ try:
 except (ImportError, TimeoutError):
     RateLimiter = None
 
-try:
-    from .red_team import RedTeamFramework
-except (ImportError, TimeoutError):
+if flags.red_team_enabled:
+    try:
+        from .red_team import RedTeamFramework
+    except (ImportError, TimeoutError):
+        RedTeamFramework = None
+else:
     RedTeamFramework = None
 
 try:
@@ -244,7 +298,7 @@ try:
 except (ImportError, TimeoutError):
     SessionWatcher = None
 
-# NEW: Security & Accountability modules from "Agents of Chaos" paper (arXiv:2602.20021)
+# Security & Accountability modules from "Agents of Chaos" paper (arXiv:2602.20021)
 try:
     from .task_verifier import TaskVerifier
 except (ImportError, TimeoutError):
@@ -274,15 +328,21 @@ except (ImportError, TimeoutError):
     ContextCompressor = None
     BatchRunner = None
 
-# NEW: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
 try:
     from .token_optimizer import TokenOptimizer
 except (ImportError, TimeoutError):
     TokenOptimizer = None
 
-try:
-    from .tracing import TracingConfig, configure_tracing, get_tracer, traced_task
-except (ImportError, TimeoutError):
+# OpenTelemetry tracing — disabled by default (requires extra deps)
+if flags.tracing_enabled:
+    try:
+        from .tracing import TracingConfig, configure_tracing, get_tracer, traced_task
+    except (ImportError, TimeoutError):
+        TracingConfig = None
+        configure_tracing = None
+        get_tracer = None
+        traced_task = None
+else:
     TracingConfig = None
     configure_tracing = None
     get_tracer = None
@@ -293,21 +353,32 @@ if TYPE_CHECKING:
     from .metrics import MetricsExporter
     from .optimization import OptimizationBackend
 
-# PARADIGM SHIFT: TDD-First and Diff-Based Generation
-try:
-    from .test_first_generator import TDDResult, TestFirstGenerator
+# TDD-First and Diff-Based Generation
+if flags.tdd_enabled:
+    try:
+        from .test_first_generator import TDDResult, TestFirstGenerator
 
-    HAS_TDD = True
-except ImportError:
+        HAS_TDD = True
+    except ImportError:
+        HAS_TDD = False
+        TestFirstGenerator = None
+        TDDResult = None
+else:
     HAS_TDD = False
     TestFirstGenerator = None
     TDDResult = None
 
-try:
-    from .diff_generator import DiffGenerator, DiffResult, apply_unified_diff
+if flags.diff_generation_enabled:
+    try:
+        from .diff_generator import DiffGenerator, DiffResult, apply_unified_diff
 
-    HAS_DIFF = True
-except ImportError:
+        HAS_DIFF = True
+    except ImportError:
+        HAS_DIFF = False
+        DiffGenerator = None
+        DiffResult = None
+        apply_unified_diff = None
+else:
     HAS_DIFF = False
     DiffGenerator = None
     DiffResult = None
@@ -459,6 +530,35 @@ class Orchestrator:
             execute_task_fn=self._execute_task,
             determine_final_status_fn=self._determine_final_status,
         )
+        # P3-4: ProjectRunner owns run_project / dry_run coordination logic.
+        from .application.project_runner import ProjectRunner as _ProjectRunner
+        self._project_runner = _ProjectRunner(
+            host=self,
+            state_mgr=self.state_mgr,
+            budget=self.budget,
+            event_bus=self._event_bus,
+            resumption_svc=self._resumption_svc,
+            dashboard_bridge=self._dashboard_bridge,
+            git_bridge=self._git_bridge,
+            generator=self._generator,
+            meta_v2=self.meta_v2,
+            cache=self.cache,
+            api_health=self.api_health,
+        )
+        # SkillOpt: self-improving per-TaskType skill documents (P3-4 addendum)
+        from .crosscutting.config import flags as _flags
+        if _flags.skill_optimization_enabled:
+            from .application.skill_store import SkillStore as _SkillStore
+            from .application.skill_manager import SkillManager as _SkillManager
+            _skill_store = _SkillStore()
+            self._skill_manager: Any = _SkillManager(
+                optimizer_client=self._c.client,
+                skill_store=_skill_store,
+            )
+            logger.info("SkillOpt enabled — skill_manager initialized")
+        else:
+            self._skill_manager = None
+
         if tracing_cfg is not None and configure_tracing is not None:
             configure_tracing(tracing_cfg)
         logger.info("Orchestrator initialized via ServiceContainer")
@@ -542,6 +642,11 @@ class Orchestrator:
     @property
     def _prompt_cacher(self) -> Any:
         return self._c.prompt_cacher
+
+    @property
+    def _budget_hierarchy(self) -> Any:
+        """BudgetHierarchy from the container (used by run_job)."""
+        return self._c.budget_hierarchy
 
     @property
     def _batch_client(self) -> Any:
@@ -749,6 +854,13 @@ class Orchestrator:
             logger.debug("Telemetry store flushed")
         except Exception as e:
             logger.warning(f"Failed to flush telemetry store: {e}")
+
+        # 6. SkillOpt cleanup
+        try:
+            if self._skill_manager is not None:
+                await self._skill_manager.close()
+        except Exception as e:
+            logger.warning("Failed to close skill_manager: %s", e)
 
         self._entered = False
         logger.debug("Orchestrator cleanup complete")
@@ -1347,173 +1459,17 @@ class Orchestrator:
         """
         Main entry point. Decomposes project → executes tasks → returns state.
 
-        Args:
-            project_description: What to build
-            success_criteria: How to verify success
-            project_id: Optional project identifier
-            app_profile: Optional application profile
-            analyze_on_complete: If True, run post-project analysis
-            output_dir: Directory containing project output (for analysis)
+        P3-4: Delegates to ProjectRunner. All coordination logic lives there;
+        this shell preserves the public API signature and docstring.
         """
-        tracer = get_tracer()
-        with tracer.start_as_current_span("run_project") as span:
-            span.set_attribute("project.description", project_description[:200])
-            if not project_id:
-                project_id = hashlib.md5(
-                    f"{project_description[:100]}{time.time()}".encode()
-                ).hexdigest()[:12]
-            self._project_id = project_id
-
-            logger.info(f"Starting project {project_id}")
-            logger.info(f"Budget: ${self.budget.max_usd}, {self.budget.max_time_seconds}s")
-
-            try:
-                # Check if resumable
-                existing = await self.state_mgr.load_project(project_id)
-                if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
-                    logger.info(f"Resuming project {project_id} from checkpoint")
-                    state = await self._resume_project(existing)
-                    await self.state_mgr.save_project(project_id, state)
-                    self._log_summary(state)
-                    return state
-
-                # Phase 0: Architecture Decision & Rules Generation
-                architecture_rules = await self._generate_architecture_rules(
-                    project_description, success_criteria, output_dir
-                )
-                self._architecture_rules = architecture_rules
-
-                # Phase 1: Decompose
-                # Karpathy: Surface hidden assumptions before generating the plan
-                try:
-                    from .assumption_gate import surface_assumptions
-
-                    report = await surface_assumptions(project_description, self.client)
-                    if report.has_ambiguity:
-                        logger.info(
-                            "Assumptions surfaced: %d assumptions, %d questions",
-                            len(report.assumptions),
-                            len(report.clarification_questions),
-                        )
-                        project_description = (
-                            f"{project_description}\n\n{report.to_prompt_context()}"
-                        )
-                except ImportError:
-                    pass
-
-                gen_result = await self._generator.decompose(
-                    project_description,
-                    success_criteria,
-                    app_profile=app_profile,
-                    policy=RetryTemplate.DECOMPOSE.to_policy(),
-                )
-                if not gen_result.succeeded:
-                    logger.error("Decomposition failed: %s", gen_result.error)
-                    return self._make_state(
-                        project_description, success_criteria, {}, ProjectStatus.SYSTEM_FAILURE
-                    )
-                tasks = gen_result.tasks
-                if not tasks:
-                    return self._make_state(
-                        project_description, success_criteria, {}, ProjectStatus.SYSTEM_FAILURE
-                    )
-
-                # Topological sort
-                execution_order = self._topological_sort(tasks)
-                logger.info(f"Execution order: {execution_order}")
-
-                # Create initial state for dashboard
-                initial_state = self._make_state(
-                    project_description, success_criteria, tasks, execution_order=execution_order
-                )
-
-                # Notify dashboard of project start
-                logger.debug("Notifying dashboard of project start...")
-                self._notify_dashboard_project_start(project_id, initial_state)
-                logger.debug("Dashboard notification complete")
-
-                # Emit ProjectStarted streaming event
-                if self._event_bus:
-                    from .unified_events.core import ProjectStartedEvent
-
-                    logger.debug("Publishing ProjectStarted event...")
-                    await self._event_bus.publish(
-                        ProjectStartedEvent(
-                            aggregate_id=self._project_id,
-                            project_id=self._project_id,
-                            description=project_description[:200],
-                            budget=self.budget.max_usd,
-                        )
-                    )
-                    logger.debug("ProjectStarted event published")
-
-                # Phase 2-5: Execute
-                logger.info("Starting task execution...")
-                state = await self._execute_all(
-                    tasks, execution_order, project_description, success_criteria
-                )
-                logger.info("Task execution completed.")
-
-                # Final status determination
-                state.execution_order = execution_order
-                state.status = self._determine_final_status(state)
-                await self.state_mgr.save_project(project_id, state)
-
-                self._log_summary(state)
-
-                # NEW: Meta-optimization V2 - record completion and optimize
-                if self.meta_v2:
-                    from .meta_integration import on_project_completed
-
-                    await on_project_completed(self.meta_v2, state, run_optimization=True)
-
-                # Final Git commit for project completion (P3-5: delegates to GitBridge)
-                self._git_bridge.commit_project(
-                    project_name=project_description[:50],
-                    total_tasks=len(tasks),
-                    total_cost=self.budget.spent_usd,
-                    elapsed_time=self.budget.elapsed_seconds,
-                )
-
-                # Emit ProjectCompleted streaming event
-                if self._event_bus:
-                    from .unified_events.core import ProjectCompletedEvent
-
-                    completed_count = sum(
-                        1 for r in self.results.values() if r.status != TaskStatus.FAILED
-                    )
-                    failed_count = sum(
-                        1 for r in self.results.values() if r.status == TaskStatus.FAILED
-                    )
-                    await self._event_bus.publish(
-                        ProjectCompletedEvent(
-                            aggregate_id=self._project_id,
-                            project_id=self._project_id,
-                            status=state.status.value,
-                            total_cost=self.budget.spent_usd,
-                            tasks_completed=completed_count,
-                            tasks_failed=failed_count,
-                        )
-                    )
-
-                # Post-project analysis and improvement suggestions
-                if analyze_on_complete and output_dir:
-                    await self._analyze_completed_project(state, output_dir)
-
-                return state
-
-            finally:
-                # BUG-003 FIX: Only close connections when NOT inside an async context manager
-                # (`async with Orchestrator() as orch`).  When _entered=True, __aexit__ owns
-                # cleanup and runs AFTER run_job()'s post-run operations
-                # (_flush_telemetry_snapshots, charge_job).  Closing here while _entered=True
-                # caused those post-run operations to find dead connections, and __aexit__
-                # would then attempt a redundant second close on already-None handles.
-                # When _entered=False (bare asyncio.run() usage), we must still close here so
-                # aiosqlite background threads finish before the event loop shuts down.
-                if not self._entered:
-                    await self.state_mgr.close()
-                    await self.cache.close()
+        return await self._project_runner.run_project(
+            project_description=project_description,
+            success_criteria=success_criteria,
+            project_id=project_id,
+            app_profile=app_profile,
+            analyze_on_complete=analyze_on_complete,
+            output_dir=output_dir,
+        )
 
     async def run_job(self, spec: JobSpec) -> ProjectState:
         """
@@ -1598,100 +1554,11 @@ class Orchestrator:
         Dry-run: decompose the project, build an execution plan, and return it
         WITHOUT executing any tasks. (Improvement 12)
 
-        Makes one real API call (decomposition) then stops. No task execution
-        or state persistence happens.
-
-        Returns an ExecutionPlan that can be printed with plan.render().
+        P3-4: Delegates to ProjectRunner.
         """
-        from .dry_run import (
-            _DEFAULT_TOKENS,
-            _TOKEN_ESTIMATES,
-            ExecutionPlan,
-            TaskPlan,
-        )
-        from .models import ROUTING_TABLE
-
-        # Karpathy: Surface hidden assumptions before generating the plan
-        try:
-            from .assumption_gate import surface_assumptions
-
-            report = await surface_assumptions(project_description, self.client)
-            if report.has_ambiguity:
-                logger.info(
-                    "Assumptions surfaced: %d assumptions, %d questions",
-                    len(report.assumptions),
-                    len(report.clarification_questions),
-                )
-                project_description = f"{project_description}\n\n{report.to_prompt_context()}"
-        except ImportError:
-            pass
-
-        gen_result = await self._generator.decompose(
-            project_description,
-            success_criteria,
-            policy=RetryTemplate.DECOMPOSE.to_policy(),
-        )
-        tasks = gen_result.tasks if gen_result.succeeded else {}
-
-        # Validate budget sufficiency for task count
-        if tasks and hasattr(self, "budget") and self.budget:
-            is_sufficient, warning = self.budget.validate_sufficient_for_tasks(len(tasks))
-            if not is_sufficient:
-                logger.warning(warning)
-
-        if not tasks:
-            return ExecutionPlan(
-                project_description=project_description,
-                success_criteria=success_criteria,
-            )
-
-        levels = self._topological_levels(tasks)
-        # Build a level_index map: task_id → level
-        level_index: dict[str, int] = {}
-        for lvl_idx, lvl_tasks in enumerate(levels):
-            for tid in lvl_tasks:
-                level_index[tid] = lvl_idx
-
-        task_plans: list[TaskPlan] = []
-        total_cost = 0.0
-
-        for tid, task in tasks.items():
-            model_list = ROUTING_TABLE.get(task.type, [])
-            available = [m for m in model_list if self.api_health.get(m, True)]
-            primary = available[0] if available else (model_list[0] if model_list else None)
-
-            in_tokens, out_tokens = _TOKEN_ESTIMATES.get(task.type.value, _DEFAULT_TOKENS)
-            cost = estimate_cost(primary, in_tokens, out_tokens) if primary else 0.0
-            total_cost += cost
-
-            task_plans.append(
-                TaskPlan(
-                    task_id=tid,
-                    task_type=task.type.value,
-                    prompt_preview=(
-                        task.prompt[:80].replace("\n", " ") + "…"
-                        if len(task.prompt) > 80
-                        else task.prompt
-                    ),
-                    dependencies=list(task.dependencies),
-                    parallel_level=level_index.get(tid, 0),
-                    primary_model=primary.value if primary else "unknown",
-                    estimated_cost_usd=round(cost, 6),
-                    acceptance_threshold=task.acceptance_threshold,
-                    max_iterations=task.max_iterations,
-                )
-            )
-
-        # Sort by (level, task_id) so render is deterministic
-        task_plans.sort(key=lambda t: (t.parallel_level, t.task_id))
-
-        return ExecutionPlan(
+        return await self._project_runner.dry_run(
             project_description=project_description,
             success_criteria=success_criteria,
-            tasks=task_plans,
-            parallel_levels=levels,
-            estimated_total_cost=round(total_cost, 6),
-            num_parallel_levels=len(levels),
         )
 
     # ─────────────────────────────────────────
@@ -2454,10 +2321,19 @@ Each task JSON element MUST also include:
         if not model and hasattr(self, "_selector") and self._selector:
             model = self._selector.select(task.type)
 
+        # SkillOpt: fetch best skill doc for injection into system prompt
+        skill_prefix = ""
+        if self._skill_manager is not None:
+            try:
+                skill_prefix = await self._skill_manager.best_skill(task.type) or ""
+            except Exception:
+                pass
+
         ctx = PipelineContext(
             task=task,
             model=model,
             tokens_used={"input": 0, "output": 0},
+            skill_prefix=skill_prefix,
         )
 
         # Loop for self-consistency / ARA retries
@@ -2475,7 +2351,30 @@ Each task JSON element MUST also include:
         if ctx.abort_reason and ctx.abort_reason.startswith("stage_error"):
             status = TaskStatus.FAILED
 
-        return ctx.to_task_result(status=status)
+        result = ctx.to_task_result(status=status)
+
+        # SkillOpt: record trajectory for optimizer (fire-and-forget)
+        if self._skill_manager is not None:
+            try:
+                import asyncio as _asyncio
+                import time as _time
+                from .models_skill import Trajectory as _Trajectory
+                _t = _Trajectory(
+                    task_id=task.id,
+                    task_type=task.type,
+                    prompt=task.prompt[:2000],
+                    output=ctx.output[:4000],
+                    score=ctx.score,
+                    critique_text=ctx.critique[:1000] if ctx.critique else "",
+                    model_used=ctx.model.value if ctx.model else "",
+                    cost_usd=ctx.cost_usd,
+                    recorded_at=_time.time(),
+                )
+                _asyncio.create_task(self._skill_manager.record_trajectory(_t))
+            except Exception:
+                pass  # trajectory loss is acceptable; must never raise
+
+        return result
 
     async def _evaluate(self, task: Task, output: str) -> float:
         """Evaluate task quality via EvaluatorService (wired through container)."""

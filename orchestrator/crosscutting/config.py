@@ -17,6 +17,18 @@ Environment variables use the ORCH_ prefix by convention.
 from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+# Re-export static defaults from orchestrator/config.py (TASK 501)
+try:
+    from ..config import (
+        TIMEOUT_DEFAULT_SECONDS as TIMEOUT_SECONDS,
+        TOKENS_MAX_OUTPUT as MAX_TOKENS_OUTPUT,
+        BUDGET_DEFAULT_USD as DEFAULT_BUDGET_USD,
+    )
+except ImportError:
+    TIMEOUT_SECONDS = 120
+    MAX_TOKENS_OUTPUT = 4096
+    DEFAULT_BUDGET_USD = 10.0
+
 
 
 class FeatureFlags(BaseSettings):
@@ -40,6 +52,24 @@ class FeatureFlags(BaseSettings):
     use_provider_sorting: bool = False
     use_streaming: bool = False
     use_embedding_cache: bool = False
+
+    # ── Optional advanced feature gates (P4-2) ────────────────────────────
+    # Each flag controls whether engine.py attempts to import the corresponding
+    # optional module at startup.  Default True preserves existing behaviour;
+    # set to False (e.g. ORCH_A2A_ENABLED=false) to skip the import entirely.
+    # This makes the feature surface explicit and testable.
+    a2a_enabled: bool = True                # A2A multi-agent protocol
+    accountability_enabled: bool = True     # Accountability / audit trail
+    agent_safety_enabled: bool = True       # Agent safety monitor
+    red_team_enabled: bool = True           # Red-team adversarial testing
+    tdd_enabled: bool = True                # TDD-first generator
+    diff_generation_enabled: bool = True    # Diff-based generation
+    test_validation_enabled: bool = True    # Test validator (HAS_TEST_VALIDATOR)
+    code_validation_enabled: bool = True    # Code output validator (HAS_CODE_VALIDATOR)
+    cost_optimization_enabled: bool = True  # Cost-optimisation tier 1-4
+    cache_optimizer_enabled: bool = True    # Cache optimiser (HAS_CACHE_OPTIMIZER)
+    tracing_enabled: bool = False           # OpenTelemetry tracing (needs extra deps)
+    skill_optimization_enabled: bool = False  # SkillOpt: self-improving per-TaskType skill docs
 
     model_config = SettingsConfigDict(
         env_prefix="ORCH_",

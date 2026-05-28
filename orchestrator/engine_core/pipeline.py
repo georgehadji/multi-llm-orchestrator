@@ -59,6 +59,9 @@ class PipelineContext:
     abort_reason: str = ""
     attempt_history: Any = field(default_factory=list)
     preflight_result: Any = None
+    # SkillOpt: injected skill document prepended to the system prompt by GenerateStage.
+    # Set to "" (default) when skill_optimization is disabled or no skill exists yet.
+    skill_prefix: str = ""
 
     def reset_for_retry(self) -> None:
         """Reset mutable state for a retry attempt while preserving task context."""
