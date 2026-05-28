@@ -431,6 +431,19 @@ class Orchestrator:
             if not self.client.is_available(model):
                 self.api_health[model] = False
                 logger.warning(f"{model.value}: provider SDK/key not available")
+        # P3-2: ModelHealthTracker wraps circuit breaker + telemetry recording.
+        # Dicts are shared by reference so engine.api_health and _consecutive_failures
+        # stay in sync with what ModelHealthTracker writes.
+        from .application.model_health_tracker import ModelHealthTracker as _ModelHealthTracker
+        self._health_tracker = _ModelHealthTracker(
+            telemetry=self._telemetry,
+            consecutive_failures=self._consecutive_failures,
+            api_health=self.api_health,
+            dashboard=self._dashboard_integration,
+            adaptive_router=self._adaptive_router,
+            state_mgr=self.state_mgr,
+            circuit_breaker_threshold=self._CIRCUIT_BREAKER_THRESHOLD,
+        )
         if tracing_cfg is not None and configure_tracing is not None:
             configure_tracing(tracing_cfg)
         logger.info("Orchestrator initialized via ServiceContainer")
@@ -2585,92 +2598,22 @@ Each task JSON element MUST also include:
         )
 
     async def _record_success(self, model: Model, response: APIResponse) -> None:
-        """Record a successful API call; reset circuit breaker counter."""
-        self._consecutive_failures[model] = 0
-        await self._adaptive_router.record_success(model)
-        await self._adaptive_router.record_latency(model, response.latency_ms)
-
-        # Notify dashboard of model success
-        if self._dashboard_integration:
-            try:
-                self._dashboard_integration.on_model_success(model)
-            except Exception as e:
-                logger.debug(f"Dashboard notification failed: {e}")
-        self._telemetry.record_call(
-            model,
-            latency_ms=response.latency_ms,
-            cost_usd=response.cost_usd,
-            success=True,
-        )
-        # Feed rate-limit tracker so _apply_filters can enforce sliding-window caps
-        self._planner.rate_limit_tracker.record(
-            provider=get_provider(model),
-            cost_usd=response.cost_usd,
-            tokens=response.input_tokens + response.output_tokens,
-        )
+        """Record a successful API call — delegates to ModelHealthTracker (P3-2)."""
+        await self._health_tracker.record_success(model, response)
+        # Feed rate-limit tracker so _apply_filters can enforce sliding-window caps.
+        # Kept here because it requires self._planner which is engine-specific.
+        try:
+            self._planner.rate_limit_tracker.record(
+                provider=get_provider(model),
+                cost_usd=response.cost_usd,
+                tokens=response.input_tokens + response.output_tokens,
+            )
+        except Exception:
+            pass
 
     async def _record_failure(self, model: Model, error: Exception | None = None) -> None:
-        """
-        Record a failed API call. Increment circuit breaker counter.
-        If consecutive failures reach the threshold, mark the model unhealthy.
-        401 Unauthorized errors immediately mark the model unhealthy (permanent auth failure).
-        """
-        # Notify dashboard of model failure
-        if self._dashboard_integration:
-            try:
-                self._dashboard_integration.on_model_failure(model)
-            except Exception as e:
-                logger.debug(f"Dashboard notification failed: {e}")
-
-        # 401/404/400 = permanent failure — mark unhealthy immediately, no retries needed
-        # 401 = bad API key, 404 = wrong model name, 400 = bad request (e.g. invalid param)
-        error_str = str(error) if error else ""
-        is_permanent_error = (
-            "401" in error_str
-            or "invalid_authentication" in error_str.lower()
-            or "404" in error_str
-            or "not found" in error_str.lower()
-            or ("400" in error_str and "invalid_request_error" in error_str.lower())
-        )
-        if is_permanent_error:
-            if self.api_health.get(model, True):
-                self.api_health[model] = False
-                if "401" in error_str:
-                    reason = "auth error (401) — check your API key"
-                elif "404" in error_str:
-                    reason = "model not found (404) — check model name"
-                else:
-                    reason = f"invalid request (400) — {error_str[error_str.find('message'):error_str.find('message')+80]}"
-                logger.warning(f"Model {model.value} marked unhealthy immediately: {reason}.")
-            # Task 6: auth/permanent errors permanently disable in adaptive router
-            if "401" in error_str or "invalid_authentication" in error_str.lower():
-                await self._adaptive_router.record_auth_failure(model)
-            self._telemetry.record_call(model, latency_ms=0.0, cost_usd=0.0, success=False)
-            return
-
-        self._consecutive_failures[model] = self._consecutive_failures.get(model, 0) + 1
-        # Persist failure count so circuit breaker state survives restarts
-        try:
-            await self.state_mgr.save_circuit_breaker_state(model.value, self._consecutive_failures[model])
-        except Exception as _cb_err:
-            logger.debug("Could not persist circuit breaker state for %s: %s", model.value, _cb_err)
-        # Task 6: record timeout in adaptive router for degradation tracking
-        _is_timeout = (
-            "timeout" in error_str.lower()
-            or "timed out" in error_str.lower()
-            or "asyncio.timeouterror" in error_str.lower()
-            or "TimeoutError" in (type(error).__name__ if error else "")
-        )
-        if _is_timeout:
-            await self._adaptive_router.record_timeout(model)
-        self._telemetry.record_call(model, latency_ms=0.0, cost_usd=0.0, success=False)
-        if self._consecutive_failures[model] >= self._CIRCUIT_BREAKER_THRESHOLD:
-            if self.api_health.get(model, True):
-                self.api_health[model] = False
-                logger.warning(
-                    "Circuit breaker tripped for %s after %d consecutive failures",
-                    model.value, self._consecutive_failures[model]
-                )
+        """Record a failed API call — delegates to ModelHealthTracker (P3-2)."""
+        await self._health_tracker.record_failure(model, error)
 
     def _get_active_policies(self, task_id: str = "") -> list[Policy]:
         """Return merged global + node-level policies for the given task."""
