@@ -168,6 +168,55 @@ class ValidatorPort(Protocol):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SkillStorePort  (SkillOpt — self-improving skill system)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class SkillStorePort(Protocol):
+    """Persistence layer for skill documents and training trajectories.
+
+    Satisfied by: orchestrator.application.skill_store.SkillStore
+    """
+
+    async def save_trajectory(self, t: Any) -> None: ...
+    async def load_trajectories(self, task_type: Any, limit: int = 50) -> list[Any]: ...
+    async def save_skill(self, task_type: Any, skill_doc: str, score: float, epoch: int) -> None: ...
+    async def load_best_skill(self, task_type: Any) -> tuple[str, float, int] | None: ...
+    async def save_negative_feedback(self, task_type: Any, patches: list[Any], reason: str) -> None: ...
+    async def load_negative_feedback(self, task_type: Any, limit: int = 20) -> list[dict]: ...
+    async def close(self) -> None: ...
+
+
+class NullSkillStore:
+    """No-op SkillStore for testing. All writes are discarded."""
+
+    async def save_trajectory(self, t: Any) -> None:
+        pass
+
+    async def load_trajectories(self, task_type: Any, limit: int = 50) -> list[Any]:
+        return []
+
+    async def save_skill(self, task_type: Any, skill_doc: str, score: float, epoch: int) -> None:
+        pass
+
+    async def load_best_skill(self, task_type: Any) -> None:
+        return None
+
+    async def save_patches(self, task_type: Any, epoch: int, patches: list[Any], accepted: bool) -> None:
+        pass
+
+    async def save_negative_feedback(self, task_type: Any, patches: list[Any], reason: str) -> None:
+        pass
+
+    async def load_negative_feedback(self, task_type: Any, limit: int = 20) -> list[dict]:
+        return []
+
+    async def close(self) -> None:
+        pass
+
+
 class NullCache:
     """No-op cache. Every get() misses, put() is a no-op."""
 
