@@ -30,7 +30,7 @@ import sqlite3
 import time
 import os
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 from .api_clients import APIResponse, UnifiedClient
 from .model_selector import ModelSelector
@@ -377,300 +377,219 @@ class Orchestrator:
         cache: "CachePort | DiskCache | None" = None,
         state_manager: "StatePort | StateManager | None" = None,
         max_concurrency: int = 3,
-        max_parallel_tasks: int = 1,  # FIX: Serial execution to avoid SQLite lock
+        max_parallel_tasks: int = 3,
         budget_hierarchy: BudgetHierarchy | None = None,
         cost_predictor: CostPredictor | None = None,
         tracing_cfg: TracingConfig | None = None,
         telemetry_store: TelemetryStore | None = None,
         profiles: dict | None = None,
+        container: ServiceContainer | None = None,
     ):
-        from .ports import CachePort, StatePort  # noqa: F401 — used for type docs
+        from .engine_core.container import ServiceContainer
 
-        self.budget = budget or Budget()
-        self.cache = cache or DiskCache()
-        self.state_mgr = state_manager or StateManager()
-        self.client = UnifiedClient(cache=self.cache, max_concurrency=max_concurrency)
-
-        from .concurrency_controller import TaskConcurrencyGuard as _TaskGuard
-
-        self._task_guard = _TaskGuard(name="tasks", max_concurrent=max_concurrency)
-        _tracer = get_tracer() if get_tracer is not None else None
-
-        # Initialize _project_id early for consistent canary assignment
-        self._project_id: str = ""
-
-        # NEW: Multi-level cache optimizer (L1/L2/L3)
-        if HAS_CACHE_OPTIMIZER:
-            self._cache_optimizer = CacheOptimizer(
-                CacheConfig(
-                    l1_max_size=200,
-                    l1_ttl_seconds=3600,
-                    l2_ttl_hours=48,
-                    l3_quality_threshold=0.85,
-                    track_stats=True,
-                )
+        if container is None:
+            container = ServiceContainer.build(
+                budget=budget or Budget(),
+                cache=cache,
+                state_manager=state_manager,
+                max_concurrency=max_concurrency,
+                max_parallel_tasks=max_parallel_tasks,
+                budget_hierarchy=budget_hierarchy,
+                cost_predictor=cost_predictor,
+                telemetry_store=telemetry_store,
+                profiles=profiles,
             )
-        else:
-            self._cache_optimizer = None
-        self.api_health: dict[Model, bool] = dict.fromkeys(Model, True)
-        self.results: dict[str, TaskResult] = {}
-        self._results_lock = asyncio.Lock()  # Protects concurrent access to self.results
+
+        self._c = container
+        self.budget = container.budget
+        self.cache = container.cache
+        self.state_mgr = container.state_mgr
+        self.client = container.client
+        self._task_guard = container.task_guard
+        self._results_lock = container.results_lock
+        self._selector = container.selector
+        self._tiered_router = container.tiered_router
+        self._adaptive_router = container.adaptive_router
+        self._telemetry = container.telemetry
+        self._policy_engine = container.policy_engine
+        self._project_planner = container.project_planner
+        self._pipeline_runner = container.pipeline_runner
+        self._hook_registry = container.hook_registry
+        self.validator = container.validator
+        self._decomposer = container.decomposer
+        self._architect = container.architect
+        self._executor = container.executor
+        self._evaluator = container.evaluator
+        self._generator = container.generator
+        self._pipeline = container.pipeline
+        self._event_bus = container.event_bus
+        self._telemetry_store = container.telemetry_store
+        self._semantic_cache = container.semantic_cache
+        self.observability = getattr(container, "observability", None)
+        self._cb_registry = getattr(container, "cb_registry", None)
+
+        # Optimization & Metadata (wired via container or initialized below)
+        self.optim_config = getattr(container, 'optim_config', None)
+        self.meta_v2 = getattr(container, 'meta_v2', None)
+
+        container.wire_executor(
+            execute_fn=self._execute_task,
+            decompose_fn=self._decompose,
+        )
+
+        from .meta_integration import initialize_meta_optimization
+        self.meta_v2 = initialize_meta_optimization(
+            orchestrator=self, state_manager=self.state_mgr,
+            enable_transfer_learning=True, enable_ab_testing=True,
+            enable_hitl=True, enable_rollout=True,
+        )
+
         self._project_id: str = ""
-        # Max tasks executed concurrently within one dependency level.
-        # JobSpec.max_parallel_tasks overrides this via run_job().
+        self.results: dict[str, TaskResult] = {}
         self._max_parallel_tasks: int = max(1, max_parallel_tasks)
-
-        # Post-project analysis flag
         self._analyze_on_complete: bool = False
-
-        # Circuit breaker counters — consecutive failures per model
         self._consecutive_failures: dict[Model, int] = dict.fromkeys(Model, 0)
-
-        # BUG-SHUTDOWN-001 FIX: Track fire-and-forget background tasks for proper shutdown
-        # P0-2 OPTIMIZATION: Use WeakSet to prevent memory leaks in long-running sessions
+        self._active_policies: PolicySet = PolicySet()
+        self.context_truncation_limit: int = 40000
+        self._metrics_exporter: MetricsExporter | None = None
+        self._channels: dict[str, TaskChannel] = {}
+        self._entered: bool = False
+        self._dashboard_integration: Any | None = None
+        self._architecture_rules: Any | None = None
+        self._git_integration: Any | None = None
+        self._autonomy = AutonomyConfig.for_level(AutonomyLevel.STANDARD)
+        self._active_profiles_cache: list | None = None
         import weakref
-
         self._background_tasks: weakref.WeakSet = weakref.WeakSet()
         self._cleanup_timer: asyncio.Task | None = None
-
+        self.api_health: dict[Model, bool] = dict.fromkeys(Model, True)
         for model in Model:
             if not self.client.is_available(model):
                 self.api_health[model] = False
                 logger.warning(f"{model.value}: provider SDK/key not available")
-
-        # Policy-driven components (initialised with default profiles from static tables)
-        self._profiles: dict[Model, ModelProfile] = (
-            profiles if profiles is not None else build_default_profiles()
-        )
-        # P1-1 OPTIMIZATION: Cache for active profiles to avoid repeated iteration
-        self._active_profiles_cache: List[Tuple[Model, ModelProfile]] | None = None
-        self._audit_log = AuditLog()
-        self._policy_engine = PolicyEngine(audit_log=self._audit_log)
-        self._planner = ConstraintPlanner(
-            profiles=self._profiles,
-            policy_engine=self._policy_engine,
-            api_health=self.api_health,
-        )
-        self._selector = ModelSelector(self.api_health, self._get_available_models)
-        self._telemetry = TelemetryCollector(self._profiles)
-
-        # ── Application-layer services (wired AFTER telemetry init) ─────────
-        from .application.executor import ExecutorService as _ExecutorService
-        from .application.evaluator import EvaluatorService as _EvaluatorService
-        from .application.decomposer import DecomposerService as _GeneratorService
-        from .application.observability import ObservabilityService as _ObsService
-        from .circuit_breaker import CircuitBreakerRegistry as _CBRegistry
-
-        self.observability = _ObsService()
-        self._cb_registry = _CBRegistry(
-            failure_threshold=5,
-            reset_timeout=60.0,
-            success_threshold=2,
-        )
-
-        self._executor = _ExecutorService(
-            execute_fn=self._execute_task,
-            guard=self._task_guard,
-            tracer=_tracer,
-            telemetry=self._telemetry,
-        )
-
-        self._evaluator = _EvaluatorService(
-            client=self.client,
-            budget=self.budget,
-            get_models_fn=self._get_available_models,
-            tracer=_tracer,
-            telemetry=self._telemetry,
-        )
-
-        self._generator = _GeneratorService(
-            decompose_fn=self._decompose,
-            tracer=_tracer,
-        )
-
-        # Active policy set — replaced by run_job(); empty = no restrictions
-        self._active_policies: PolicySet = PolicySet()
-        # Context truncation limit per dependency (chars) — configurable.
-        # Raised from 20000: code_generation outputs routinely reach 25000+ chars
-        # and truncation causes code_review tasks to miss the tail of the source,
-        # leading the LLM to claim "source code was not provided".
-        self.context_truncation_limit: int = 40000
-        # T1-B: engine_core modules — engine.py delegates to these instead of
-        # reimplementing the same logic inline.
-        from .application.dependency_resolver import DependencyResolver as _DepResolver
-
-        # ── Phase 3: Context Compressor (opt-in via ORCH_CONTEXT_COMPRESSION=true) ──
-        self._context_compressor = (
-            ContextCompressor(
-                client=self.client,
-                enabled=flags.context_compression,
-            )
-            if ContextCompressor is not None
-            else None
-        )
-
-        self._dep_resolver = _DepResolver(
-            context_truncation_limit=self.context_truncation_limit,
-            context_compressor=self._context_compressor,
-        )
-        # Improvement 3: event hooks + metrics exporter
-        self._hook_registry: HookRegistry = HookRegistry()
-        self._metrics_exporter: MetricsExporter | None = None
-        # Improvement 5: named TaskChannels for inter-task messaging
-        self._channels: dict[str, TaskChannel] = {}
-        # Improvement 6: cross-run budget hierarchy + adaptive cost predictor
-        self._budget_hierarchy: BudgetHierarchy | None = budget_hierarchy
-        self._cost_predictor: CostPredictor | None = cost_predictor
-        # Task 2: streaming event bus (None unless run_project_streaming() is active)
-        self._event_bus: ProjectEventBus | None = None
-        # Task 6: adaptive router v2 — circuit breaker with degraded/disabled states
-        from .adaptive_router import AdaptiveRouter
-
-        self._adaptive_router = AdaptiveRouter()
-        # PHASE-2: TieredModelRouter for CHEAP/BALANCED/PREMIUM routing
-        from .model_selector import TieredModelRouter
-
-        self._tiered_router = TieredModelRouter(self.api_health, self._adaptive_router)
-        # PHASE 6: PipelineRunner delegates context, cache, and execute_all
-        from .pipeline_runner import PipelineRunner
-
-        self._pipeline = PipelineRunner(self)
-        # Task 7: configure OpenTelemetry tracing if a config was provided
-        if tracing_cfg is not None:
+        if tracing_cfg is not None and configure_tracing is not None:
             configure_tracing(tracing_cfg)
-        # Persistent cross-run learning store (Learn & Show feature)
-        self._telemetry_store: TelemetryStore | None = (
-            telemetry_store
-            if telemetry_store is not None
-            else (TelemetryStore() if TelemetryStore is not None else None)
-        )
-        # OPTIMIZATION: Semantic cache for high-level pattern reuse
-        # Note: Now integrated into CacheOptimizer (L3 cache)
-        self._semantic_cache = SemanticCache(quality_threshold=0.85)
+        logger.info("Orchestrator initialized via ServiceContainer")
 
-        # PHASE 5-D: LearningServices (pattern learning, telemetry, batch execution)
-        from .service_collection import LearningServices
+    # ─────────────────────────────────────────
+    # Accessory Services (Lazy Properties)
+    # ─────────────────────────────────────────
 
-        _learning = LearningServices.build(
-            telemetry_store=self._telemetry_store,
-            client=self.client,
-            flags=flags,
-            task_guard_cls=_TaskGuard,
-        )
-        self._telemetry_store = _learning.telemetry_store
-        self._memory_provider_mgr = _learning.memory_provider_mgr
-        self._pattern_store = _learning.pattern_store
-        self._pattern_extractor = _learning.pattern_extractor
-        self._pattern_injector = _learning.pattern_injector
-        self._pattern_curator = _learning.pattern_curator
-        self._batch_guard = _learning.batch_guard
-        self._batch_runner = _learning.batch_runner
+    @property
+    def _token_optimizer(self) -> Any:
+        return self._c.token_optimizer
 
-        # Track if we've been entered as a context manager
-        self._entered: bool = False
+    @property
+    def _session_watcher(self) -> Any:
+        return self._c.session_watcher
 
-        # Dashboard integration (v5.1)
-        self._dashboard_integration: Any | None = None
-        self._architecture_rules: Any | None = None
+    @property
+    def _persona_manager(self) -> Any:
+        return self._c.persona_manager
 
-        # Git integration (auto-commit after tasks)
-        self._git_integration: Any | None = None
-        self._output_dir: Path | None = None
+    @property
+    def _a2a_manager(self) -> Any:
+        return self._c.a2a_manager
 
-        # PHASE 5-A: Safety & Accountability modules (arXiv:2602.20021)
-        from .service_collection import SafetyServices
+    @property
+    def _red_team(self) -> Any:
+        return self._c.red_team
 
-        _safety = SafetyServices.build()
-        self._task_verifier: TaskVerifier = _safety.task_verifier
-        self._accountability: AccountabilityTracker = _safety.accountability
-        self._agent_safety: AgentSafetyMonitor = _safety.agent_safety
-        self._red_team: RedTeamFramework = _safety.red_team
-        self._tool_guardrails = _safety.tool_guardrails
+    @property
+    def _rate_limiter(self) -> Any:
+        return self._c.rate_limiter
 
-        # NEW: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
-        # PHASE 5-B: External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
-        from .service_collection import IntegrationServices
+    @property
+    def _lifecycle_manager(self) -> Any:
+        return self._c.lifecycle_manager
 
-        _integration = IntegrationServices.build()
-        self._token_optimizer: TokenOptimizer = _integration.token_optimizer
-        self._preflight_validator: PreflightValidator = _integration.preflight_validator
-        self._session_watcher: SessionWatcher = _integration.session_watcher
-        self._persona_manager: PersonaManager = _integration.persona_manager
-        # Memory Tier Manager - HOT/WARM/COLD memory hierarchy with BM25
-        self._memory_manager: MemoryTierManager = MemoryTierManager(enable_bm25=True)
-        # BM25 Search - SQLite FTS5 full-text search
-        self._bm25_search: BM25Search = get_bm25_search(
-            str(self._memory_manager.storage_path / "search.db")
-        )
-        # LLM Re-ranker - quality-based result re-ranking
-        self._reranker: LLMReranker = get_reranker()
-        # Hybrid Search Pipeline - BM25 + vector RRF fusion + query expansion
-        from .hybrid_search_pipeline import HybridSearchPipeline
-        from .knowledge_base import get_knowledge_base
-        from .query_expander import QueryExpander
+    @property
+    def _memory_manager(self) -> Any:
+        return self._c.memory_manager
 
-        self._knowledge_base = get_knowledge_base()
-        self._hybrid_pipeline = HybridSearchPipeline(
-            bm25_search=self._bm25_search,
-            knowledge_base=self._knowledge_base,
-            reranker=self._reranker,
-            query_expander=QueryExpander(),
-        )
-        # A2A Manager - agent-to-agent communication
-        self._a2a_manager: A2AManager = A2AManager()
-        # Rate Limiter - sliding-window TPM/RPM enforcement per tenant+model
-        self._rate_limiter: RateLimiter = RateLimiter()
-        # Session Lifecycle Manager - HOT/WARM/COLD tier migration
-        self._lifecycle_manager = SessionLifecycleManager(
-            memory_tier_manager=self._memory_manager,
-        )
+    @property
+    def _bm25_search(self) -> Any:
+        return self._c.bm25_search
 
-        # NEW: Meta-Optimization V2 Integration (Phase 3-5)
-        # Provides A/B testing, HITL approval, gradual rollout, and transfer learning
-        from .meta_integration import initialize_meta_optimization
+    @property
+    def _reranker(self) -> Any:
+        return self._c.reranker
 
-        self.meta_v2 = initialize_meta_optimization(
-            orchestrator=self,
-            state_manager=self.state_mgr,
-            enable_transfer_learning=True,
-            enable_ab_testing=True,
-            enable_hitl=True,
-            enable_rollout=True,
-        )
+    @property
+    def _knowledge_base(self) -> Any:
+        return self._c.knowledge_base
 
-        # ═══════════════════════════════════════════════════════
-        # OPTIMIZATION: Cost & Performance Optimizations (Tiers 1-4)
-        # ═══════════════════════════════════════════════════════
+    @property
+    def _hybrid_pipeline(self) -> Any:
+        return self._c.hybrid_pipeline
 
-        # Load optimization configuration
-        self.optim_config: OptimizationConfig = get_optimization_config()
+    @property
+    def _query_expander(self) -> Any:
+        return self._c.query_expander
 
-        # Initialize optimization components (lazy - created on first use)
-        self._prompt_cacher: PromptCacher | None = None
-        self._batch_client: BatchClient | None = None
-        self._token_budget: TokenBudget | None = None
-        self._model_cascader: ModelCascader | None = None
-        self._speculative_gen: SpeculativeGenerator | None = None
-        self._streaming_validator: StreamingValidator | None = None
-        self._dependency_injector: DependencyContextInjector | None = None
-        self._adaptive_temp: AdaptiveTemperatureController | None = None
-        self._eval_dataset: EvalDatasetBuilder = EvalDatasetBuilder()
+    @property
+    def _task_verifier(self) -> Any:
+        return self._c.task_verifier
 
-        # ── Wave 2: Multi-Mode Autonomy Selector (X4) ──
-        self._autonomy = AutonomyConfig.for_level(AutonomyLevel.STANDARD)
+    @property
+    def _accountability(self) -> Any:
+        return self._c.accountability
 
-        # PARADIGM SHIFT: TDD-First and Diff-Based Generation
-        self._tdd_generator: TestFirstGenerator | None = None
-        self._diff_generator: DiffGenerator | None = None
+    @property
+    def _agent_safety(self) -> Any:
+        return self._c.agent_safety
 
-        logger.info(
-            f"Optimizations initialized: caching={self.optim_config.enable_prompt_caching}, "
-            f"batch={self.optim_config.enable_batch_api}, "
-            f"cascading={self.optim_config.enable_cascading}, "
-            f"token_budget={self.optim_config.enable_token_budget}, "
-            f"tdd_first={self.optim_config.enable_tdd_first}, "
-            f"diff_revisions={self.optim_config.enable_diff_revisions}"
-        )
+    @property
+    def _tool_guardrails(self) -> Any:
+        return self._c.tool_guardrails
+
+    @property
+    def _cache_optimizer(self) -> Any:
+        return self._c.cache_optimizer
+
+    @property
+    def _prompt_cacher(self) -> Any:
+        return self._c.prompt_cacher
+
+    @property
+    def _batch_client(self) -> Any:
+        return self._c.batch_client
+
+    @property
+    def _token_budget(self) -> Any:
+        return self._c.token_budget
+
+    @property
+    def _model_cascader(self) -> Any:
+        return self._c.model_cascader
+
+    @property
+    def _speculative_gen(self) -> Any:
+        return self._c.speculative_gen
+
+    @property
+    def _streaming_validator(self) -> Any:
+        return self._c.streaming_validator
+
+    @property
+    def _dependency_injector(self) -> Any:
+        return self._c.dependency_injector
+
+    @property
+    def _adaptive_temp(self) -> Any:
+        return self._c.adaptive_temp
+
+    @property
+    def _tdd_generator(self) -> Any:
+        return self._c.tdd_generator
+
+    @property
+    def _diff_generator(self) -> Any:
+        return self._c.diff_generator
+
+    @property
+    def _eval_dataset(self) -> Any:
+        return self._c.eval_dataset
 
     # ─────────────────────────────────────────
     # Async Context Manager
@@ -2022,7 +1941,21 @@ Each task JSON element MUST also include:
             if policy is not None:
                 call_args["policy"] = policy
 
-            resp = await self.client.call(**call_args)
+            # TASK-301: routed through DecomposerService (last self.client.call in engine.py)
+            class _CompatResponse:
+                """Minimal response wrapper to satisfy downstream truncation checks."""
+                def __init__(self, text: str): self.text = text
+            try:
+                resp = await self._decomposer.decompose(
+                    description=str(call_args.get("prompt", "")),
+                    project_context=str(call_args.get("system", "")),
+                )
+                resp_text = resp if isinstance(resp, str) else getattr(resp, "text", str(resp))
+            except Exception as _decomp_err:
+                logger.warning(f"DecomposerService failed, using direct client: {_decomp_err}")
+                resp = await self.client.call(**call_args)
+                resp_text = resp.text
+            resp = _CompatResponse(resp_text)
             last_response_text = resp.text  # Capture for error logging
 
             # Check for truncation by examining response text
@@ -2522,323 +2455,16 @@ Each task JSON element MUST also include:
     ) -> ProjectState:
         """
         Execute all tasks respecting dependencies, with intra-level parallelism.
-
-        Tasks are grouped into dependency levels using _topological_levels().
-        All tasks in the same level have no inter-dependencies and are executed
-        concurrently up to self._max_parallel_tasks simultaneous coroutines.
-
-        A semaphore limits concurrency so that API rate limits and memory usage
-        remain manageable even when many tasks are eligible at once.
+        Delegates to PipelineRunner (engine_core).
         """
-        logger.info("Building task execution levels...")
-        levels = self._topological_levels(tasks)
-        logger.info(f"Built {len(levels)} execution levels")
-        semaphore = asyncio.Semaphore(self._max_parallel_tasks)
-
-        # Improvement 13: progressive output writer (writes after each task)
-        _progress_writer = None
-        _prog_output = None
-        if output_dir is not None:
-            from .git_integration import GitIntegration, get_default_git_config
-            from .progress_writer import ProgressWriter
-            from .progressive_output import ProgressiveOutputManager
-
-            logger.info(f"Initializing progress writer for output: {output_dir}")
-            # Build a temporary ProjectState reference for summary.json writes
-            _partial_state = self._make_state(
-                project_desc,
-                success_criteria,
-                tasks,
-                execution_order=execution_order,
-            )
-            # Share the live results dict so summary.json always reflects current state
-            _partial_state.results = self.results
-            _progress_writer = ProgressWriter(Path(output_dir), _partial_state)
-
-            # Initialize progressive output manager (bmalph-style)
-            _prog_output = ProgressiveOutputManager(
-                Path(output_dir), project_name=project_desc[:30].replace(" ", "_")
-            )
-            logger.info(f"Progressive output manager initialized in {output_dir}/outputs/")
-
-            # Initialize Git integration for auto-commits
-            git_config = get_default_git_config()
-            self._git_integration = GitIntegration(output_dir, git_config)
-            if self._git_integration.is_available():
-                branch = self._git_integration.setup_project_branch(
-                    self._project_id, project_desc[:40]
-                )
-                if branch:
-                    logger.info(f"Git integration active on branch: {branch}")
-
-            logger.info("Progress writer initialized")
-
-        async def _run_one(task_id: str) -> None:
-            """
-            Execute a single task under the concurrency semaphore.
-
-            OPTIMIZATION P0-1: Budget checks moved BEFORE semaphore acquisition
-            to prevent blocking other tasks during DB reads.
-
-            FIX-001a: Uses atomic reserve/commit/release pattern to prevent
-            budget overcommitment under concurrent execution.
-            """
-            # FIX-001a: Reserve budget BEFORE acquiring semaphore (atomic operation)
-            # This prevents race condition where multiple tasks pass budget check
-            # simultaneously and all execute, causing budget overcommitment.
-            reservation_made = False
-            reserved_amount = 0.02  # Minimum reservation for one API call cycle
-
-            try:
-                reserved_amount = 0.02  # Reserve minimum for generate+critique+revise
-                if not await self.budget.reserve(reserved_amount):
-                    logger.warning(f"Budget reservation failed, skipping {task_id}")
-                    async with self._results_lock:
-                        self.results[task_id] = TaskResult(
-                            task_id=task_id,
-                            output="",
-                            score=0.0,
-                            model_used=Model.GPT_4O_MINI,
-                            status=TaskStatus.FAILED,
-                            task_type=task.type.value,
-                        )
-                    return
-
-                reservation_made = True
-
-                # Also check time budget (non-atomic, but time is less critical)
-                if not self.budget.time_remaining():
-                    logger.warning(f"Time limit reached, skipping {task_id}")
-                    async with self._results_lock:
-                        self.results[task_id] = TaskResult(
-                            task_id=task_id,
-                            output="",
-                            score=0.0,
-                            model_used=Model.GPT_4O_MINI,
-                            status=TaskStatus.FAILED,
-                            task_type=task.type.value,
-                        )
-                    return
-
-                # Now acquire semaphore only for actual API execution
-                logger.debug(f"Acquiring semaphore for task {task_id}...")
-                async with semaphore:
-                    logger.debug(f"Executing task {task_id}")
-
-                    task = tasks[task_id]
-                    self._hook_registry.fire(EventType.TASK_STARTED, task_id=task_id, task=task)
-
-                    # Get the primary model for this task type for dashboard
-                    task_models = self._get_available_models(task.type)
-                    primary_model = task_models[0] if task_models else None
-                    self._notify_dashboard_task_start(task_id, task, primary_model)
-
-                    exec_result = await self._executor.execute(
-                        task, policy=RetryTemplate.for_task_type(task.type)
-                    )
-                    result = exec_result.task_result
-
-                    # FIX-001a: Commit reservation with actual cost
-                    await self.budget.commit_reservation(
-                        reserved_amount, result.cost_usd, "generation"
-                    )
-                    reservation_made = False  # Successfully committed, don't release
-
-                    # BUG-RACE-002 FIX: Protect results dict with lock
-                    async with self._results_lock:
-                        self.results[task_id] = result
-                    task.status = result.status
-
-                    # Notify dashboard of task completion
-                    self._notify_dashboard_task_complete(task_id, result.status.value)
-
-                    self._hook_registry.fire(
-                        EventType.TASK_COMPLETED, task_id=task_id, result=result
-                    )
-
-                    # BUG-SHUTDOWN-001 FIX: Track fire-and-forget task
-                    bg_task = asyncio.create_task(
-                        self._safe_record_routing_event(
-                            self._project_id, task_id, task.type, result
-                        )
-                    )
-                    self._background_tasks.add(bg_task)
-                    bg_task.add_done_callback(self._background_tasks.discard)
-
-                    # Improvement 13: write task output immediately after completion
-                    if _progress_writer is not None:
-                        await _progress_writer.task_completed(task_id, result, task)
-
-                    for phase in ("generation", "cross_review", "evaluation"):
-                        self._check_phase_budget(phase)
-
-            except sqlite3.OperationalError as e:
-                # FIX: Handle SQLite database locked errors with retry
-                if "database is locked" in str(e):
-                    logger.warning(f"Task {task_id}: database locked, retrying in 2s...")
-                    await asyncio.sleep(2)
-                    # Retry once via executor service
-                    try:
-                        retry_exec = await self._executor.execute(
-                            task, policy=RetryTemplate.for_task_type(task.type)
-                        )
-                        return retry_exec.task_result
-                    except sqlite3.OperationalError as retry_e:
-                        logger.error(
-                            f"Task {task_id}: database still locked after retry: {retry_e}"
-                        )
-                        raise
-                raise
-            except Exception as e:
-                # FIX-001a: Release reservation on any exception
-                logger.warning(f"Task {task_id} failed with exception: {e}")
-                if reservation_made:
-                    await self.budget.release_reservation(reserved_amount)
-                    reservation_made = False
-                # Re-raise to let caller handle
-                raise
-            finally:
-                # FIX-001a: Ensure reservation is released if task didn't complete successfully
-                if reservation_made:
-                    await self.budget.release_reservation(reserved_amount)
-
-        for level_idx, level in enumerate(levels):
-            logger.info(f"Processing level {level_idx}: {level}")
-            if not self.budget.can_afford(0.01):
-                logger.warning("Budget exhausted, halting before level %d", level_idx)
-                break
-            if not self.budget.time_remaining():
-                logger.warning("Time limit reached, halting before level %d", level_idx)
-                break
-
-            # Filter tasks with unmet or failed dependencies.
-            # A task is runnable only if ALL its dependencies completed or degraded.
-            # If any dependency FAILED, downstream tasks are skipped — executing
-            # them with missing/invalid context would propagate garbage output.
-            runnable = []
-            for task_id in level:
-                # BUG-RACE-002 FIX: Protect results access with lock
-                async with self._results_lock:
-                    dep_results = [
-                        self.results.get(
-                            dep,
-                            TaskResult(
-                                task_id=dep,
-                                output="",
-                                score=0.0,
-                                model_used=Model.GPT_4O_MINI,
-                                task_type=tasks[dep].type.value if dep in tasks else "unknown",
-                            ),
-                        )
-                        for dep in tasks[task_id].dependencies
-                    ]
-                any_failed = any(r.status == TaskStatus.FAILED for r in dep_results)
-                all_finished = all(
-                    r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED, TaskStatus.FAILED)
-                    for r in dep_results
-                )
-                if any_failed:
-                    failed_deps = [r.task_id for r in dep_results if r.status == TaskStatus.FAILED]
-                    logger.warning(f"Skipping {task_id}: dependencies failed: {failed_deps}")
-                    async with self._results_lock:
-                        self.results[task_id] = TaskResult(
-                            task_id=task_id,
-                            output="",
-                            score=0.0,
-                            model_used=Model.GPT_4O_MINI,
-                            status=TaskStatus.FAILED,
-                            # BUG-001 FIX: `task` is not in scope here — `task_id` is the loop
-                            # variable; use `tasks[task_id]` to look up the current Task object.
-                            task_type=tasks[task_id].type.value,
-                        )
-                elif all_finished:
-                    runnable.append(task_id)
-                else:
-                    logger.warning(f"Skipping {task_id}: unmet dependencies")
-                    async with self._results_lock:
-                        self.results[task_id] = TaskResult(
-                            task_id=task_id,
-                            output="",
-                            score=0.0,
-                            model_used=Model.GPT_4O_MINI,
-                            status=TaskStatus.FAILED,
-                            # BUG-001 FIX: same fix — `task` was never bound in this scope.
-                            task_type=tasks[task_id].type.value,
-                        )
-
-            if not runnable:
-                continue
-
-            parallel_count = len(runnable)
-            if parallel_count > 1:
-                logger.info(
-                    "Executing level %d: %d tasks (batch=%s, max_parallel=%d): %s",
-                    level_idx,
-                    parallel_count,
-                    "yes" if self._batch_runner is not None else "no",
-                    self._max_parallel_tasks,
-                    runnable,
-                )
-            else:
-                logger.info("Executing level %d: %s", level_idx, runnable)
-
-            # ── BATCH RUNNER (Phase 4: parallel level execution) ──
-            if self._batch_runner is not None and len(runnable) > 1:
-                dep_contexts: dict[str, str] = {}
-                for _tid in runnable:
-                    dep_contexts[_tid] = getattr(tasks[_tid], "context", "")
-                try:
-                    batch_results = await self._batch_runner.run_batch(
-                        [tasks[tid] for tid in runnable],
-                        dependency_contexts=dep_contexts,
-                        parent_budget=self.budget,
-                        execute_fn=self._execute_task,
-                    )
-                    async with self._results_lock:
-                        for _tid, _res in batch_results.items():
-                            self.results[_tid] = _res
-                    continue
-                except Exception as _batch_err:
-                    logger.warning(
-                        "Batch execution failed for level %d: %s - falling back",
-                        level_idx,
-                        _batch_err,
-                    )
-
-            # ═══════════════════════════════════════════════════════
-            # OPTIMIZATION: Cache warming before parallel execution
-            # ═══════════════════════════════════════════════════════
-            if (
-                self.optim_config.enable_prompt_caching
-                and self.optim_config.cache_warming_enabled
-                and len(runnable) > 1
-            ):
-                # Warm cache before firing parallel requests
-                # Prevents cache miss storm when multiple tasks start simultaneously
-                await self._warm_cache_for_level(tasks, runnable)
-
-            logger.debug(f"About to run tasks: {runnable}")
-            # BUG-002 FIX: return_exceptions=True ensures every coroutine in this
-            # level runs to completion before we take the checkpoint snapshot.
-            # Without it, a single failure propagates immediately and leaves sibling
-            # coroutines as orphans that later mutate self.results after the snapshot.
-            level_results = await asyncio.gather(
-                *(_run_one(tid) for tid in runnable),
-                return_exceptions=True,
-            )
-            for exc in level_results:
-                if isinstance(exc, BaseException):
-                    logger.error("Level %d: task raised %s", level_idx, exc)
-
-            # Checkpoint after each level completes
-            state = self._make_state(
-                project_desc, success_criteria, tasks, execution_order=execution_order
-            )
-            if runnable:
-                await self.state_mgr.save_checkpoint(self._project_id, runnable[-1], state)
-
-        return self._make_state(
-            project_desc, success_criteria, tasks, execution_order=execution_order
+        return await self._pipeline_runner.execute_all(
+            tasks=tasks,
+            execution_order=execution_order,
+            project_desc=project_desc,
+            success_criteria=success_criteria,
+            output_dir=output_dir,
+            execute_task_fn=self._execute_task,
+            make_state_fn=self._make_state,
         )
 
     async def _warm_cache_for_level(self, tasks: Dict[str, Task], runnable: List[str]) -> None:
@@ -2875,1297 +2501,25 @@ Each task JSON element MUST also include:
 
     def _build_system_prompt(self, task_type: str = "") -> str:
         """Build system prompt based on current quality_mode."""
-        mode = getattr(self, "_quality_mode", "standard")
-        return SystemPrompt.build(task_type, mode)
+        return self._c.context_service.build_system_prompt(task_type)
 
     def _build_project_context(self) -> str:
         """Build project context from existing results."""
-        # Get a sample of existing code for context
-        context_parts = []
-        for task_id, result in list(self.results.items())[:3]:  # Limit to first 3
-            if result.success and result.output:
-                context_parts.append(f"## {task_id}\n" f"```python\n{result.output[:2000]}\n```")
-
-        if context_parts:
-            return "## Existing Code Context\n\n" + "\n\n".join(context_parts)
-        return ""
+        return self._c.context_service.build_project_context(self.results)
 
     def _validate_syntax_streaming(self, partial_output: str) -> bool:
-        """PHASE-4: Delegates to orchestrator.validators.validate_syntax_streaming."""
-        from .validators import validate_syntax_streaming
-
-        return validate_syntax_streaming(partial_output)
+        """
+        Quick streaming syntax validator for early abort.
+        Delegates to TaskValidator (engine_core).
+        """
+        return self.validator.validate_syntax_streaming(partial_output)
 
     async def _validate_syntax_batch(self, output: str) -> bool:
-        """PHASE-4: Delegates to orchestrator.validators.validate_syntax_batch."""
-        from .validators import validate_syntax_batch
-
-        return await validate_syntax_batch(output)
-
-    def _extract_function_name(self, code: str) -> str | None:
-        """PHASE-4: Delegates to orchestrator.validators.extract_function_name."""
-        from .validators import extract_function_name
-
-        return extract_function_name(code)
-
-    def _build_delta_prompt(self, original_prompt: str, record: AttemptRecord) -> str:
-        """Delegates to DeltaPrompt — see prompt_builder.py for full implementation."""
-        return DeltaPrompt.build(original_prompt, record)
-
-    async def _execute_task(self, task: Task, policy: ResiliencePolicy | None = None) -> TaskResult:
         """
-        Core loop: generate → critique → revise → evaluate
-        With plateau detection, deterministic validation, and mid-task budget checks.
+        Batch syntax validator for post-generation.
+        Delegates to TaskValidator (engine_core).
         """
-        with traced_task(task.id, task.type.value) as span:
-            span.set_attribute("task.description", task.prompt[:200])
-            models = self._get_available_models(task.type)
-            if not models:
-                return TaskResult(
-                    task_id=task.id,
-                    output="",
-                    score=0.0,
-                    model_used=Model.GPT_4O_MINI,
-                    status=TaskStatus.FAILED,
-                    task_type=task.type.value,
-                )
-
-            primary = models[0]
-            reviewer = self._select_reviewer(primary, task.type)
-
-            # Emit TaskStarted streaming event
-            if self._event_bus:
-                from .unified_events.core import TaskStartedEvent
-
-                await self._event_bus.publish(
-                    TaskStartedEvent(
-                        aggregate_id=task.id,
-                        task_id=task.id,
-                        task_type=task.type.value,
-                    )
-                )
-
-            # Fire MODEL_SELECTED event so hooks can observe routing decisions
-            self._hook_registry.fire(
-                EventType.MODEL_SELECTED,
-                task_id=task.id,
-                model=primary.value,
-                backend=get_provider(primary),
-            )
-
-            # OPTIMIZATION: Gather dependency context (now async for intelligent injection)
-            context = await self._gather_dependency_context(task)
-
-            # OPTIMIZATION: Check multi-level cache (L1/L2/L3) for high-quality patterns
-            cached_result = None
-            if self._cache_optimizer and not context:
-                cached_result = await self._cache_optimizer.get(
-                    model=primary.value,
-                    prompt=task.prompt,
-                    max_tokens=task.max_output_tokens,
-                    task_type=task.type,
-                )
-
-            # Fallback to old semantic cache if CacheOptimizer not available
-            if cached_result is None and not context:
-                cached_output = self._semantic_cache.get_cached_pattern(task)
-                if cached_output:
-                    cached_result = {
-                        "response": cached_output,
-                        "tokens_input": 0,
-                        "tokens_output": 0,
-                        "cost": 0.0,
-                        "cached": True,
-                    }
-
-            if cached_result and not context:
-                # Only use cache if no dependency context (context would make it different)
-                cache_level = "L3" if cached_result.get("semantic") else "L1/L2"
-                logger.info(f"  {task.id}: cache hit ({cache_level}), skipping generation")
-                return TaskResult(
-                    task_id=task.id,
-                    output=cached_result["response"],
-                    score=0.85,  # Cached patterns meet quality threshold
-                    model_used=primary,
-                    reviewer_model=None,
-                    tokens_used={
-                        "input": cached_result.get("tokens_input", 0),
-                        "output": cached_result.get("tokens_output", 0),
-                    },
-                    iterations=0,
-                    cost_usd=cached_result.get("cost", 0.0),
-                    status=TaskStatus.COMPLETED,
-                    critique="",
-                    deterministic_check_passed=True,
-                    degraded_fallback_count=0,
-                    attempt_history=[],
-                    task_type=task.type.value,
-                )
-
-            full_prompt = task.prompt
-            if context:
-                # For code_review tasks, the dependency context IS the source code
-                # being reviewed. Make this explicit so the LLM doesn't claim
-                # "source code was not provided".
-                if task.type == TaskType.CODE_REVIEW:
-                    full_prompt += (
-                        f"\n\n--- SOURCE CODE TO REVIEW (from prior tasks) ---\n"
-                        f"The following is the actual generated source code you must "
-                        f"review. Do NOT claim the code was not provided.\n\n"
-                        f"{context}"
-                    )
-                else:
-                    full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
-
-            # ═══════════════════════════════════════════════════════
-            # PARADIGM SHIFT: TDD-First Generation
-            # ═══════════════════════════════════════════════════════
-            # If enabled and task is code generation, use TDD approach:
-            # Generate tests FIRST → Generate code to pass tests → Verify
-            if (
-                HAS_TDD
-                and self.optim_config.enable_tdd_first
-                and task.type == TaskType.CODE_GEN
-                and self._tdd_generator is None
-            ):
-
-                # Lazy initialize TDD generator with optimal model config (v3.0)
-                from .cost_optimization import get_tdd_profile
-
-                tdd_config = get_tdd_profile(
-                    tier=self.optim_config.tdd_quality_tier,
-                    language=None,  # Auto-detect from task/project
-                )
-
-                self._tdd_generator = TestFirstGenerator(
-                    client=self.client,
-                    sandbox=self.sandbox if hasattr(self, "sandbox") else None,
-                    max_test_iterations=self.optim_config.tdd_max_iterations,
-                    model_config=tdd_config,
-                    quality_tier=self.optim_config.tdd_quality_tier,
-                )
-
-            if (
-                HAS_TDD
-                and self.optim_config.enable_tdd_first
-                and task.type == TaskType.CODE_GEN
-                and self._tdd_generator is not None
-            ):
-
-                logger.info(
-                    f"  {task.id}: Using TDD-first generation "
-                    f"(quality={self.optim_config.tdd_quality_tier})"
-                )
-
-                try:
-                    tdd_result = await self._tdd_generator.generate_with_tests(
-                        task=task,
-                        project_context=context if context else "",
-                    )
-
-                    if tdd_result.success:
-                        logger.info(
-                            f"  {task.id}: TDD success - "
-                            f"{tdd_result.test_result.tests_passed}/"
-                            f"{tdd_result.test_result.tests_run} tests passed, "
-                            f"cost=${tdd_result.cost_usd:.4f}"
-                        )
-
-                        # Return TDD result as TaskResult with full cost tracking (v3.0)
-                        return TaskResult(
-                            task_id=task.id,
-                            output=tdd_result.implementation_code,
-                            score=1.0 if tdd_result.test_result.passed else 0.8,
-                            model_used=(
-                                Model(tdd_result.implementation_model_used)
-                                if tdd_result.implementation_model_used
-                                else primary
-                            ),
-                            reviewer_model=(
-                                Model(tdd_result.test_model_used)
-                                if tdd_result.test_model_used
-                                else None
-                            ),
-                            tokens_used={
-                                "input": 0,  # Would need to track from TDD
-                                "output": len(tdd_result.implementation_code.split()),
-                            },
-                            iterations=tdd_result.iterations,
-                            cost_usd=tdd_result.cost_usd,
-                            status=(
-                                TaskStatus.COMPLETED if tdd_result.success else TaskStatus.DEGRADED
-                            ),
-                            critique=f"Tests: {tdd_result.test_result.tests_passed}/"
-                            f"{tdd_result.test_result.tests_run} passed",
-                            deterministic_check_passed=tdd_result.test_result.passed,
-                            degraded_fallback_count=0,
-                            task_type=task.type.value,
-                            attempt_history=[],
-                            # NEW v3.0: Include test artifacts and metadata
-                            test_files={"test_main.py": tdd_result.test_spec.test_code},
-                            tests_passed=tdd_result.test_result.tests_passed,
-                            tests_total=tdd_result.test_result.tests_run,
-                            metadata={
-                                "tdd": True,
-                                "tdd_quality_tier": self.optim_config.tdd_quality_tier,
-                                "test_framework": tdd_result.test_spec.test_framework,
-                                "test_count": tdd_result.test_spec.test_count,
-                            },
-                        )
-                    else:
-                        logger.warning(
-                            f"  {task.id}: TDD failed ("
-                            f"{tdd_result.test_result.tests_passed}/"
-                            f"{tdd_result.test_result.tests_run} passed), "
-                            f"falling back to standard generation"
-                        )
-                        # Fall through to standard generation
-
-                except Exception as tdd_error:
-                    logger.warning(
-                        f"  {task.id}: TDD generation failed: {tdd_error}, "
-                        f"falling back to standard"
-                    )
-                    # Fall through to standard generation
-
-            best_output = ""
-            best_score = 0.0
-            best_critique = ""
-            total_cost = 0.0
-            total_input_tokens = 0
-            total_output_tokens = 0
-            degraded_count = 0
-            scores_history: list[float] = []
-            det_passed = True  # default: no validators = passed
-            attempt_history: list[AttemptRecord] = []
-            _failed_validator_names: list[str] = []
-            model_escalated = False  # Track if we've tried model escalation
-            output = ""  # FIX-EXEC-002: Initialize output before generation loop
-
-            logger.info(
-                f"Executing {task.id} ({task.type.value}): "
-                f"primary={primary.value}, reviewer={reviewer.value if reviewer else 'none'}"
-            )
-
-            for iteration in range(task.max_iterations):
-                # FIX #5: Mid-task budget check — estimate minimum cost for one
-                # generate+critique+revise+evaluate cycle (~0.02 USD min)
-                if not self.budget.can_afford(0.02):
-                    logger.warning(
-                        f"Budget insufficient mid-task for {task.id} "
-                        f"at iteration {iteration} "
-                        f"(remaining: ${self.budget.remaining_usd:.4f})"
-                    )
-                    break
-
-                if not self.budget.time_remaining():
-                    logger.warning(f"Time limit reached mid-task for {task.id}")
-                    break
-
-                # ── GENERATE ──
-                # DeepSeek-R1 is a chain-of-thought reasoning model whose
-                # internal reasoning tokens count against max_tokens but don't appear in
-                # content output. For code tasks on these models, double the token budget
-                # (cap at 16384) to ensure complete output. Both also need longer timeouts.
-                _provider = get_provider(primary)
-                _is_reasoning_model = ModelRegistry.is_reasoning_model(primary.value)
-                # deepseek-v3.x are large instruct/chat models — match by prefix
-                _is_deepseek_chat = primary.value in (
-                    "deepseek/deepseek-v4-flash",
-                    "deepseek/deepseek-v4-flash",
-                    "deepseek/deepseek-v4-flash",
-                )
-                if _is_reasoning_model:
-                    gen_timeout = 240
-                    if task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
-                        # Double token budget: reasoning tokens eat into output budget
-                        effective_max_tokens = min(task.max_output_tokens * 2, 16384)
-                    else:
-                        effective_max_tokens = task.max_output_tokens
-                elif _is_deepseek_chat:
-                    # DeepSeek chat/v3.x models are large and slow — give more time and full tokens
-                    gen_timeout = 180
-                    effective_max_tokens = task.max_output_tokens
-                elif task.type in (TaskType.CODE_GEN, TaskType.CODE_REVIEW):
-                    gen_timeout = 120
-                    effective_max_tokens = task.max_output_tokens
-                else:
-                    gen_timeout = 60
-                    effective_max_tokens = task.max_output_tokens
-
-                # Apply model-specific token limits (e.g., Claude Haiku max 4096)
-                model_limit = MODEL_MAX_TOKENS.get(primary)
-                if model_limit:
-                    effective_max_tokens = min(effective_max_tokens, model_limit)
-
-                # FIX-BUG-EXEC-002: Initialize output early so except block can reference it
-                output = ""
-
-                try:
-                    # Build system prompt — production mode enriches with strict requirements
-                    _mode = getattr(self, "_quality_mode", "standard")
-                    system_prompt = SystemPrompt.build(task.type.value, _mode)
-                    if task.type == TaskType.CODE_GEN and _mode != "production":
-                        system_prompt += (
-                            "\n\nCRITICAL REQUIREMENTS:\n"
-                            "1. Return ONLY raw code - NO markdown fences (```), NO explanations outside code\n"
-                            "2. Code must be THOROUGHLY COMMENTED - every function, class, and complex logic block\n"
-                            "3. EVERY file MUST include this header comment using Python docstrings:\n"
-                            '   """\n'
-                            "   Author: Georgios-Chrysovalantis Chatzivantsidis\n"
-                            "   Description: [Brief description of the file's purpose]\n"
-                            '   """\n'
-                            "4. Output must be valid, complete, production-ready code that passes syntax checks.\n"
-                            "5. Use Python-style comments (# or docstrings), NEVER C-style comments (/* */)"
-                        )
-
-                    # ═══════════════════════════════════════════════════════
-                    # OPTIMIZATION: Apply phase-specific output token limits
-                    # ═══════════════════════════════════════════════════════
-                    if self.optim_config.enable_token_budget:
-                        phase_limit = self.optim_config.output_token_limits.get(
-                            task.type.value, effective_max_tokens
-                        )
-                        effective_max_tokens = min(effective_max_tokens, phase_limit)
-                        logger.debug(
-                            f"  {task.id}: output token limit set to {effective_max_tokens}"
-                        )
-
-                    # ═══════════════════════════════════════════════════════
-                    # OPTIMIZATION: Adaptive temperature per retry
-                    # ═══════════════════════════════════════════════════════
-                    if self.optim_config.enable_adaptive_temperature and iteration > 0:
-                        temp_key = f"retry_{iteration}" if iteration > 0 else "initial"
-                        gen_temperature = self.optim_config.temperature_strategy.get(
-                            task.type.value, {"initial": 0.0, "retry_1": 0.2, "retry_2": 0.4}
-                        ).get(temp_key, 0.3)
-                        logger.debug(f"  {task.id}: adaptive temperature set to {gen_temperature}")
-                    else:
-                        # Use temperature 0.0 for code generation (deterministic output)
-                        gen_temperature = 0.0 if task.type == TaskType.CODE_GEN else 0.3
-
-                    # Initialise _rl_tenant early so the outer except block can always
-                    # reference it, even if an exception fires before the first assignment.
-                    _rl_tenant = getattr(task, "tenant", "default")
-
-                    # ═══════════════════════════════════════════════════════
-                    # OPTIMIZATION: Speculative generation (parallel cheap+premium)
-                    # ═══════════════════════════════════════════════════════
-                    # For CRITICAL tasks: run cheap and premium models in parallel.
-                    # If cheap model scores high enough, cancel premium (save cost).
-                    # If cheap fails, premium is already running (zero latency penalty).
-                    if (
-                        self.optim_config.enable_speculative
-                        and iteration == 0
-                        and getattr(task, "is_critical", False)
-                    ):
-
-                        logger.info(
-                            f"  {task.id}: using speculative generation (parallel cheap+premium)"
-                        )
-
-                        try:
-                            gen_response = await speculative_generate(
-                                client=self.client,
-                                prompt=full_prompt,
-                                system=system_prompt,
-                                task_type=task.type,
-                                cheap_model="deepseek-v3.2",
-                                premium_model="claude-sonnet-4.6",
-                                quality_threshold=self.optim_config.speculative_threshold,
-                                max_tokens=effective_max_tokens,
-                                temperature=gen_temperature,
-                                timeout=gen_timeout,
-                            )
-                            logger.info(
-                                f"  {task.id}: speculative gen complete - "
-                                f"used {gen_response.model_used} (cheap_win={gen_response.cheap_won})"
-                            )
-                        except Exception as spec_error:
-                            logger.warning(
-                                f"  {task.id}: speculative gen failed, falling back: {spec_error}"
-                            )
-                            # Fallback to standard single-model call below
-                            # Continue to standard generation path
-
-                    # ═══════════════════════════════════════════════════════
-                    # OPTIMIZATION: Model cascading (try cheap first, escalate)
-                    # ═══════════════════════════════════════════════════════
-                    elif (
-                        self.optim_config.enable_cascading
-                        and iteration == 0  # Only on first iteration
-                        and task.type.value in self.optim_config.cascade_chains
-                    ):
-
-                        cascade_chain = self.optim_config.cascade_chains[task.type.value]
-                        logger.info(
-                            f"  {task.id}: using model cascading with chain {cascade_chain}"
-                        )
-
-                        try:
-                            gen_response = await cascading_generate(
-                                client=self.client,
-                                prompt=full_prompt,
-                                system=system_prompt,
-                                task_type=task.type,
-                                cascade_chain=cascade_chain,
-                                max_tokens=effective_max_tokens,
-                                timeout=gen_timeout,
-                            )
-                            logger.info(
-                                f"  {task.id}: cascading exited at {gen_response.model_used} with score {gen_response.score:.2f}"
-                            )
-                        except Exception as cascade_error:
-                            logger.warning(
-                                f"  {task.id}: cascading failed, falling back to standard: {cascade_error}"
-                            )
-                            # Fallback to standard single-model call
-                            logger.info(
-                                f"  {task.id}: calling {primary.value} for generation (timeout={gen_timeout}s)"
-                            )
-                            _rl_tenant = getattr(task, "tenant", "default")
-                            self._rate_limiter.check(
-                                _rl_tenant, primary.value, effective_max_tokens
-                            )
-
-                            # Build OpenRouter optimization parameters
-                            or_params = self._get_openrouter_call_params(
-                                task_type=task.type,
-                                primary_model=primary,
-                                available_models=models,
-                            )
-
-                            try:
-                                gen_response = await self.client.call(
-                                    primary,
-                                    full_prompt,
-                                    system=system_prompt,
-                                    max_tokens=effective_max_tokens,
-                                    temperature=gen_temperature,
-                                    timeout=gen_timeout,
-                                    policy=policy,
-                                    **or_params,  # OpenRouter optimizations (Phase 2)
-                                )
-                            except Exception:
-                                self._rate_limiter.release(
-                                    _rl_tenant, primary.value, effective_max_tokens
-                                )
-                                raise
-                            self._rate_limiter.record(
-                                _rl_tenant,
-                                primary.value,
-                                gen_response.input_tokens + gen_response.output_tokens,
-                            )
-
-                    # ═══════════════════════════════════════════════════════
-                    # OPTIMIZATION: Batch API for non-critical phases
-                    # ═══════════════════════════════════════════════════════
-                    elif self.optim_config.enable_batch_api and task.type.value in [
-                        "evaluation",
-                        "critique",
-                        "condensing",
-                    ]:
-
-                        from orchestrator.cost_optimization import OptimizationPhase, batch_call
-
-                        phase = (
-                            OptimizationPhase(task.type.value)
-                            if task.type.value in [e.value for e in OptimizationPhase]
-                            else OptimizationPhase.GENERATION
-                        )
-
-                        logger.info(f"  {task.id}: using batch API for {phase.value}")
-                        gen_response = await batch_call(
-                            client=self.client,
-                            model=primary,
-                            prompt=full_prompt,
-                            system=system_prompt,
-                            phase=phase,
-                            max_tokens=effective_max_tokens,
-                            temperature=gen_temperature,
-                            timeout=gen_timeout,
-                        )
-
-                    # Standard single-model generation (fallback)
-                    else:
-                        logger.info(
-                            f"  {task.id}: calling {primary.value} for generation (timeout={gen_timeout}s)"
-                        )
-                        _rl_tenant = getattr(task, "tenant", "default")
-                        self._rate_limiter.check(_rl_tenant, primary.value, effective_max_tokens)
-
-                        # Build OpenRouter optimization parameters
-                        or_params = self._get_openrouter_call_params(
-                            task_type=task.type,
-                            primary_model=primary,
-                            available_models=models,
-                        )
-
-                        try:
-                            gen_response = await self.client.call(
-                                primary,
-                                full_prompt,
-                                system=system_prompt,
-                                max_tokens=effective_max_tokens,
-                                temperature=gen_temperature,
-                                timeout=gen_timeout,
-                                policy=policy,
-                                **or_params,  # OpenRouter optimizations (Phase 2)
-                            )
-                        except Exception:
-                            self._rate_limiter.release(
-                                _rl_tenant, primary.value, effective_max_tokens
-                            )
-                            raise
-                        self._rate_limiter.record(
-                            _rl_tenant,
-                            primary.value,
-                            gen_response.input_tokens + gen_response.output_tokens,
-                        )
-                    logger.info(
-                        f"  {task.id}: generation complete, tokens={gen_response.input_tokens}/{gen_response.output_tokens}"
-                    )
-                    output = _clean_code_output(gen_response.text, task.type)
-
-                    # ═══════════════════════════════════════════════════════
-                    # OPTIMIZATION: Streaming validation for long generations
-                    # ═══════════════════════════════════════════════════════
-                    # For long code outputs (>4000 tokens), validate as we receive
-                    # chunks. Early abort if obvious syntax errors detected.
-                    if (
-                        self.optim_config.enable_streaming_validation
-                        and task.type == TaskType.CODE_GEN
-                        and len(output) > 4000
-                    ):
-
-                        logger.info(f"  {task.id}: running streaming validation on long output")
-
-                        try:
-                            # Re-generate with streaming validation
-                            stream_result = await stream_and_validate(
-                                client=self.client,
-                                task=task,
-                                model=primary,
-                                prompt=full_prompt,
-                                system=system_prompt,
-                                max_tokens=effective_max_tokens,
-                                temperature=gen_temperature,
-                                timeout=gen_timeout,
-                                validator=self._validate_syntax_streaming,
-                            )
-
-                            if stream_result.early_aborted:
-                                logger.warning(
-                                    f"  {task.id}: streaming validation detected early failure, "
-                                    f"retrying with different approach"
-                                )
-                                # Use stream result (which may have retry logic)
-                                output = _clean_code_output(stream_result.content, task.type)
-                                gen_response.input_tokens = stream_result.input_tokens
-                                gen_response.output_tokens = stream_result.output_tokens
-                                gen_response.cost_usd = stream_result.cost_usd
-                            else:
-                                logger.info(f"  {task.id}: streaming validation passed")
-                        except Exception as stream_error:
-                            logger.warning(
-                                f"  {task.id}: streaming validation failed, using original: {stream_error}"
-                            )
-                            # Keep original output, continue normally
-
-                    gen_cost = gen_response.cost_usd
-                    await self.budget.charge(gen_cost, "generation")
-                    if self._cost_predictor is not None:
-                        self._cost_predictor.record(primary, task.type, gen_cost)
-                    total_cost += gen_cost
-                    total_input_tokens += gen_response.input_tokens
-                    total_output_tokens += gen_response.output_tokens
-                    await self._record_success(primary, gen_response)
-                except (Exception, asyncio.CancelledError) as e:
-                    logger.error(f"Generation failed for {task.id}: {e}")
-                    await self._record_failure(primary, error=e)
-                    degraded_count += 1
-
-                    # ═══════════════════════════════════════════════════════
-                    # OPTIMIZATION: Record failure for auto eval dataset
-                    # ═══════════════════════════════════════════════════════
-                    if self.optim_config.enable_auto_eval_dataset:
-                        try:
-                            await self._eval_dataset.record_failure(
-                                task_prompt=full_prompt[:10000],  # Truncate for storage
-                                generated_code=output if output else "NO_OUTPUT",
-                                errors=[str(e)],
-                                eval_scores={"generation": 0.0},
-                                model=primary.value,
-                                task_type=task.type.value,
-                            )
-                            logger.debug(f"  {task.id}: failure recorded to eval dataset")
-                        except Exception as eval_err:
-                            logger.warning(
-                                f"  {task.id}: failed to record to eval dataset: {eval_err}"
-                            )
-
-                    # OPTIMIZATION: Escalate tier on failure
-                    self._escalate_tier(task.type)
-
-                    fb = self._get_fallback(primary)
-                    if fb:
-                        try:
-                            # Reuse same system prompt as primary
-                            fb_system = (
-                                f"You are an expert executing a {task.type.value} task. "
-                                f"Produce high-quality, complete output."
-                            )
-                            if task.type == TaskType.CODE_GEN:
-                                fb_system += (
-                                    "\n\nCRITICAL REQUIREMENTS:\n"
-                                    "1. Return ONLY raw code - NO markdown fences (```), NO explanations outside code\n"
-                                    "2. Code must be THOROUGHLY COMMENTED - every function, class, and complex logic block\n"
-                                    "3. EVERY file MUST include this header comment using Python docstrings:\n"
-                                    '   """\n'
-                                    "   Author: Georgios-Chrysovalantis Chatzivantsidis\n"
-                                    "   Description: [Brief description of the file's purpose]\n"
-                                    '   """\n'
-                                    "4. Output must be valid, complete, production-ready code that passes syntax checks.\n"
-                                    "5. Use Python-style comments (# or docstrings), NEVER C-style comments (/* */)"
-                                )
-                            # Use temperature 0.0 for code generation (deterministic output)
-                            fb_temperature = 0.0 if task.type == TaskType.CODE_GEN else 0.3
-
-                            self._rate_limiter.check(_rl_tenant, fb.value, effective_max_tokens)
-                            try:
-                                gen_response = await self.client.call(
-                                    fb,
-                                    full_prompt,
-                                    system=fb_system,
-                                    max_tokens=effective_max_tokens,
-                                    temperature=fb_temperature,
-                                    timeout=gen_timeout,
-                                    policy=policy,
-                                )
-                            except Exception:
-                                # BUG-005 FIX: release the in-flight reservation on error
-                                self._rate_limiter.release(
-                                    _rl_tenant, fb.value, effective_max_tokens
-                                )
-                                raise
-                            self._rate_limiter.record(
-                                _rl_tenant,
-                                fb.value,
-                                gen_response.input_tokens + gen_response.output_tokens,
-                            )
-                            output = _clean_code_output(gen_response.text, task.type)
-                            await self.budget.charge(gen_response.cost_usd, "generation")
-                            total_cost += gen_response.cost_usd
-                            total_input_tokens += gen_response.input_tokens
-                            total_output_tokens += gen_response.output_tokens
-                            await self._record_success(fb, gen_response)
-                            primary = fb
-                        except (Exception, asyncio.CancelledError) as e2:
-                            logger.error(f"Fallback generation also failed: {e2}")
-                            await self._record_failure(fb, error=e2)
-                            break
-                    else:
-                        break
-
-                # FIX #5: Re-check budget after generation before critique
-                if not self.budget.can_afford(0.005):
-                    logger.warning(f"Budget depleted after generation for {task.id}")
-                    scores_history.append(0.0)
-                    if not best_output:
-                        best_output = output
-                    break
-
-                # ── CRITIQUE (cross-model) ──
-                critique = ""
-                if reviewer and reviewer != primary:
-                    # Reviewer token budget: reasoning models (Claude, DeepSeek-R1)
-                    # consume their token budget on internal chain-of-thought, so they
-                    # need the same doubled budget as when generating. Standard models
-                    # only need 800 tokens to produce a focused critique.
-                    _rev_provider = get_provider(reviewer)
-                    # BUG-002 FIX: get_provider() always returns "openrouter" for every model
-                    # since the entire stack routes through OpenRouter exclusively (v3.0+).
-                    # The original provider-name checks (_rev_provider == "anthropic" / "deepseek")
-                    # therefore ALWAYS evaluated to False, silently stripping Claude and DeepSeek-R1
-                    # reviewers of their required token/timeout budgets and producing truncated
-                    # critiques.  Fix: detect reasoning models by their model-value string instead.
-                    _reviewer_is_reasoning = (
-                        ModelRegistry.is_reasoning_model(reviewer.value)  # DeepSeek-R1, o1, etc.
-                        or "anthropic/claude" in reviewer.value  # All Claude variants
-                        or reviewer.value.startswith("claude-")  # bare "claude-*" aliases
-                    )
-                    if _reviewer_is_reasoning:
-                        critique_max_tokens = min(task.max_output_tokens * 2, 8192)
-                        critique_timeout = 240
-                    else:
-                        critique_max_tokens = 1200  # raised: 800 was too low for detailed reviews
-                        critique_timeout = 60
-
-                    # Apply model-specific token limits for reviewer
-                    reviewer_limit = MODEL_MAX_TOKENS.get(reviewer)
-                    if reviewer_limit:
-                        critique_max_tokens = min(critique_max_tokens, reviewer_limit)
-
-                    try:
-                        # Use low temperature for focused, deterministic critique
-                        critique_temperature = 0.2 if task.type == TaskType.CODE_GEN else 0.3
-
-                        _critique_prompt, _critique_system = CritiquePrompt.build(
-                            task.prompt, output
-                        )
-                        critique_response = await self.client.call(
-                            reviewer,
-                            _critique_prompt,
-                            system=_critique_system,
-                            max_tokens=critique_max_tokens,
-                            temperature=critique_temperature,
-                            timeout=critique_timeout,
-                            policy=policy,
-                        )
-                        critique = critique_response.text
-                        await self.budget.charge(critique_response.cost_usd, "cross_review")
-                        if self._cost_predictor is not None:
-                            self._cost_predictor.record(
-                                primary, task.type, critique_response.cost_usd
-                            )
-                        total_cost += critique_response.cost_usd
-                        # Record success to reset circuit breaker counter for reviewer.
-                        # This ensures counter only tracks consecutive failures, allowing recovery
-                        # from transient errors between successful critiques.
-                        await self._record_success(reviewer, critique_response)
-                    except (Exception, asyncio.CancelledError) as e:
-                        logger.warning(f"Critique failed for {task.id}: {e}")
-                        # Use _record_failure() for graduated circuit breaker instead of immediate kill.
-                        # This allows transient errors (429, timeout) to be retried; only permanent
-                        # errors (401, 404) or 3 consecutive failures disable the model.
-                        await self._record_failure(reviewer, error=e)
-                        degraded_count += 1
-
-                # ── REVISE (if critique exists) ──
-                # Skip revision for reasoning models (Claude, DeepSeek-R1): their
-                # chain-of-thought makes revision calls as slow/expensive as generation.
-                # Instead, embed the critique into the next iteration's prompt so the
-                # model can self-correct on re-generation.
-                if critique and not _is_reasoning_model:
-                    try:
-                        # ═══════════════════════════════════════════════════════
-                        # PARADIGM SHIFT: Diff-Based Revision
-                        # ═══════════════════════════════════════════════════════
-                        # Instead of rewriting entire file, generate minimal diff
-                        # Saves 60-80% output tokens, reduces hallucination risk
-                        if (
-                            HAS_DIFF
-                            and self.optim_config.enable_diff_revisions
-                            and self._diff_generator is None
-                        ):
-
-                            # Lazy initialize diff generator
-                            self._diff_generator = DiffGenerator(client=self.client)
-
-                        if (
-                            HAS_DIFF
-                            and self.optim_config.enable_diff_revisions
-                            and self._diff_generator is not None
-                        ):
-                            logger.info(f"  {task.id}: Using diff-based revision")
-
-                            diff_result = await self._diff_generator.generate_diff(
-                                current_code=output,
-                                critique=critique,
-                                task=task,
-                                model=primary,
-                            )
-
-                            if diff_result.success and diff_result.patched_code:
-                                output = diff_result.patched_code
-                                logger.info(
-                                    f"  {task.id}: Diff revision complete - "
-                                    f"+{diff_result.lines_added}/-{diff_result.lines_removed} lines"
-                                )
-                                # Note: Diff cost tracking would need to be added
-                                # For now, estimate based on diff size
-                                diff_cost = (
-                                    diff_result.lines_added + diff_result.lines_removed
-                                ) * 0.00001  # Rough estimate
-                                await self.budget.charge(diff_cost, "diff_revision")
-                                total_cost += diff_cost
-                            else:
-                                logger.warning(
-                                    f"  {task.id}: Diff revision failed, falling back to full rewrite"
-                                )
-                                # Fall through to standard full rewrite below
-                        else:
-                            # Standard full rewrite (original behavior)
-                            revise_response = await self.client.call(
-                                primary,
-                                f"Revise your output based on this critique. "
-                                f"Address every specific issue raised.\n\n"
-                                f"ORIGINAL TASK: {task.prompt}\n\n"
-                                f"YOUR OUTPUT:\n{output}\n\n"
-                                f"CRITIQUE:\n{critique}\n\n"
-                                f"Produce the complete improved version.",
-                                system=f"You are revising a {task.type.value} task based on peer review.",
-                                policy=policy,
-                                max_tokens=effective_max_tokens,
-                                timeout=gen_timeout,
-                            )
-                            output = revise_response.text
-                            await self.budget.charge(revise_response.cost_usd, "generation")
-                            total_cost += revise_response.cost_usd
-
-                    except (Exception, asyncio.CancelledError) as e:
-                        logger.warning(f"Revision failed for {task.id}: {e}")
-                elif critique and _is_reasoning_model:
-                    # Embed critique into the next iteration's prompt for self-correction.
-                    full_prompt = (
-                        f"{task.prompt}\n\n"
-                        f"--- PEER REVIEW FEEDBACK (incorporate in your response) ---\n"
-                        f"{critique}\n"
-                        f"--- END FEEDBACK ---"
-                    )
-                    if context:
-                        full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
-
-                    # ── PATTERN INJECTION (Phase 5: opt-in) ──
-                    if hasattr(self, "_pattern_injector") and self._pattern_injector is not None:
-                        enriched, added = await self._pattern_injector.inject(
-                            task.type.value,
-                            full_prompt,
-                        )
-                        if added:
-                            full_prompt = enriched
-
-                    # ── CONTEXT PROVIDER ENRICHMENT (Phase 2: opt-in) ──
-                    if hasattr(self, "_context_providers") and self._context_providers:
-                        for _cp in self._context_providers:
-                            try:
-                                _er = await _cp.enrich(full_prompt, task.type.value, context)
-                                if _er.enrichment_added:
-                                    full_prompt = _er.enriched_prompt
-                            except Exception as _cp_err:
-                                logger.debug("ContextProvider enrich failed: %s", _cp_err)
-                    logger.debug(
-                        f"{primary.value}: critique embedded into next iteration "
-                        f"prompt for {task.id}"
-                    )
-
-                # ── TOOL CALL GUARDRAIL (runtime safety check) ──
-                guardrail_result = self._tool_guardrails.check(
-                    output, task_type=task.type.value if task.type else None
-                )
-                if guardrail_result.is_blocked:
-                    logger.warning(
-                        "Guardrail BLOCKED iteration for %s: %s",
-                        task.id,
-                        guardrail_result.reason,
-                    )
-                    # Fire guardrail hook event
-                    try:
-                        self._hook_registry.fire(
-                            EventType.VALIDATION_FAILED,
-                            task_id=task.id,
-                            model=getattr(task, "preferred_model", ""),
-                            validators=[f"guardrail_{guardrail_result.decision.value}"],
-                        )
-                    except Exception:
-                        pass
-                    det_passed = False
-                    best_effective_output = guardrail_result.synthetic_output or ""
-                    status = TaskStatus.FAILED
-                    break
-
-                # ── DETERMINISTIC VALIDATION ──
-                det_passed = True
-                # Filter validators based on task content type
-                validators = self._filter_validators_for_task(task, output)
-                if validators:
-                    val_results = await async_run_validators(output, validators)
-                    det_passed = all_validators_pass(val_results)
-                    if not det_passed:
-                        failed = [v for v in val_results if not v.passed]
-                        _failed_validator_names = [v.validator_name for v in failed]
-                        logger.warning(
-                            f"Deterministic check failed for {task.id}: "
-                            f"{[f'{v.validator_name}: {v.details}' for v in failed]}"
-                        )
-                        # Record validator failure in telemetry + fire hook (Improvement 3)
-                        self._telemetry.record_validator_failure(primary)
-                        self._hook_registry.fire(
-                            EventType.VALIDATION_FAILED,
-                            task_id=task.id,
-                            model=primary.value,
-                            validators=validators,
-                        )
-
-                # ── EVALUATE ──
-                if det_passed:
-                    logger.info(f"  {task.id}: starting evaluation...")
-                    eval_report = await self._evaluator.evaluate(
-                        task, output, policy=RetryTemplate.EVALUATE.to_policy()
-                    )
-                    score = eval_report.score
-                    logger.info(f"  {task.id}: evaluation complete, score={score:.3f}")
-                else:
-                    score = 0.0
-                    logger.info(f"  {task.id}: skipped evaluation (det check failed)")
-
-                await self.budget.charge(0.0, "evaluation")
-                scores_history.append(score)
-
-                if score > best_score:
-                    best_output = output
-                    best_score = score
-                    best_critique = critique
-
-                # Emit TaskProgressUpdate streaming event
-                if self._event_bus:
-                    try:
-                        from .unified_events import TaskProgressEvent
-
-                        await self._event_bus.publish(
-                            TaskProgressEvent(
-                                aggregate_id=task.id,
-                                task_id=task.id,
-                                iteration=iteration + 1,
-                                score=score,
-                                message=f"Best score: {best_score:.3f}",
-                            )
-                        )
-                    except ImportError:
-                        # Fallback to standard events
-                        from .unified_events.core import TaskProgressEvent
-
-                        await self._event_bus.publish(
-                            TaskProgressEvent(
-                                aggregate_id=task.id,
-                                task_id=task.id,
-                                iteration=iteration + 1,
-                                score=score,
-                            )
-                        )
-
-                # Notify dashboard of task progress
-                self._notify_dashboard_task_progress(iteration + 1, best_score)
-
-                logger.info(
-                    f"  {task.id} iter {iteration + 1}: score={score:.3f} "
-                    f"(best={best_score:.3f}, threshold={task.acceptance_threshold})"
-                )
-
-                # ── FAILURE HISTORY + DELTA-PROMPT (Improvement 8) ──
-                _iteration_passed = score >= task.acceptance_threshold and det_passed
-                if not _iteration_passed:
-                    if not det_passed:
-                        _failure_reason = (
-                            f"Deterministic check failed: validators={_failed_validator_names}"
-                        )
-                    else:
-                        _failure_reason = (
-                            f"Score {score:.3f} below threshold {task.acceptance_threshold}"
-                        )
-                    _record = AttemptRecord(
-                        attempt_num=iteration + 1,
-                        model_used=primary.value,
-                        output_snippet=output[:200],
-                        failure_reason=_failure_reason,
-                        validators_failed=list(_failed_validator_names),
-                    )
-                    attempt_history.append(_record)
-                    self._hook_registry.fire(
-                        EventType.TASK_RETRY_WITH_HISTORY,
-                        task_id=task.id,
-                        attempt_num=iteration + 1,
-                        record=_record,
-                    )
-                    # Build delta-prompt for the next iteration (not the last)
-                    if iteration < task.max_iterations - 1:
-                        full_prompt = self._build_delta_prompt(task.prompt, _record)
-                        if context:
-                            full_prompt += f"\n\n--- CONTEXT FROM PRIOR TASKS ---\n{context}"
-
-                # Reset per-iteration validator names
-                _failed_validator_names = []
-
-                # ── CONVERGENCE CHECKS ──
-                if best_score >= task.acceptance_threshold:
-                    logger.info(f"  {task.id}: threshold met at iteration {iteration + 1}")
-                    break
-
-                # OPTIMIZATION: Confidence-based early exit
-                # Exit early if we've seen stable high performance across recent iterations
-                if self._should_exit_early(scores_history, task.acceptance_threshold):
-                    logger.info(
-                        f"  {task.id}: early exit due to stable high performance "
-                        f"(confidence window met)"
-                    )
-                    break
-
-                if len(scores_history) >= 2:
-                    delta = abs(scores_history[-1] - scores_history[-2])
-                    if delta < 0.02:
-                        # Only stop on plateau if we have a usable score.
-                        # If best_score is still below half the acceptance threshold,
-                        # keep trying — the critique/revision cycle may still help.
-                        if best_score >= task.acceptance_threshold * 0.5:
-                            logger.info(f"  {task.id}: plateau detected (Δ={delta:.4f})")
-                            break
-                        elif len(scores_history) >= 3:
-                            # After 3+ iterations with no improvement AND bad score,
-                            # try model escalation before giving up
-                            if (
-                                best_score >= task.acceptance_threshold * 0.3
-                                and not model_escalated
-                            ):
-                                # Try escalating to a better model
-                                next_model = self._get_next_tier_model(primary, task.type)
-                                if next_model and self.budget.can_afford(0.05):
-                                    logger.info(
-                                        f"  {task.id}: plateau at low score (best={best_score:.3f}), "
-                                        f"escalating from {primary.value} to {next_model.value}"
-                                    )
-                                    primary = next_model
-                                    model_escalated = True
-                                    # Keep best_output as context for warm start
-                                    full_prompt = (
-                                        f"{task.prompt}\n\n"
-                                        f"--- PREVIOUS ATTEMPT (score: {best_score:.2f}) ---\n"
-                                        f"This is a previous attempt that needs improvement:\n"
-                                        f"{best_output}\n\n"
-                                        f"--- YOUR TASK ---\n"
-                                        f"Improve upon the previous attempt to achieve a higher quality score. "
-                                        f"Focus on fixing issues and enhancing the solution."
-                                    )
-                                    continue  # Continue loop with new model
-
-                            # Give up to avoid wasting budget
-                            logger.info(
-                                f"  {task.id}: plateau at low score after "
-                                f"{len(scores_history)} iters (Δ={delta:.4f}, "
-                                f"best={best_score:.3f})"
-                            )
-                            break
-
-            status = (
-                TaskStatus.COMPLETED
-                if best_score >= task.acceptance_threshold
-                else TaskStatus.DEGRADED
-            )
-            if best_score == 0.0 and not det_passed:
-                status = TaskStatus.FAILED
-
-            # ── PREFLIGHT GATE ──
-            # Post-loop quality gate: validates best_output before delivery.
-            # WARN -> score penalty; ENRICH/BLOCK -> 1 revision attempt.
-            _preflight_result = None
-            try:
-                _budget_before_preflight = self.budget.spent_usd
-                best_output, best_score, _preflight_result = await self._run_preflight_check(
-                    task=task,
-                    output=best_output,
-                    score=best_score,
-                    primary=primary,
-                    policy=policy,
-                )
-                total_cost += self.budget.spent_usd - _budget_before_preflight
-                # Re-derive status after preflight may have changed best_score
-                if best_score == 0.0 and status != TaskStatus.FAILED:
-                    status = TaskStatus.DEGRADED
-                elif best_score >= task.acceptance_threshold and status == TaskStatus.DEGRADED:
-                    status = TaskStatus.COMPLETED  # revision recovered the task
-            except Exception as _pf_exc:
-                logger.warning("preflight gate raised: %s — skipping gate", _pf_exc)
-
-            # Feed final eval score back to telemetry so ConstraintPlanner re-ranks
-            if best_score > 0.0:
-                self._telemetry.record_call(
-                    primary,
-                    latency_ms=0.0,
-                    cost_usd=0.0,
-                    success=(status != TaskStatus.FAILED),
-                    quality_score=best_score,
-                )
-
-            # OPTIMIZATION: Cache successful patterns for reuse (L1/L2/L3)
-            if status == TaskStatus.COMPLETED and best_output:
-                # L3: Semantic cache
-                self._semantic_cache.cache_pattern(task, best_output, best_score)
-
-                # ── MEMORY SYNC (Phase 3+: persist to memory providers) ──
-                if hasattr(self, "_memory_provider_mgr") and self._memory_provider_mgr is not None:
-                    asyncio.create_task(
-                        self._memory_manager.sync_turn(
-                            task.id,
-                            task.type.value,
-                            result,
-                        )
-                    )
-
-                # ── PATTERN EXTRACTION (Phase 5: closed learning loop) ──
-                if hasattr(self, "_pattern_extractor") and self._pattern_extractor is not None:
-                    pattern = await self._pattern_extractor.extract(
-                        task.type.value,
-                        result,
-                        task.prompt,
-                    )
-                    if pattern is not None and hasattr(self, "_pattern_store"):
-                        await self._pattern_store.insert(
-                            pattern,
-                            prompt_text=task.prompt,
-                            generated_code=result.output,
-                            critique_text=result.critique,
-                        )
-
-                # L1/L2: Cache optimizer (with compression and TTL)
-                if self._cache_optimizer:
-                    await self._cache_optimizer.put(
-                        model=primary.value,
-                        prompt=task.prompt,
-                        max_tokens=task.max_output_tokens,
-                        response=best_output,
-                        tokens_input=total_input_tokens,
-                        tokens_output=total_output_tokens,
-                        cost=total_cost,
-                        task_type=task.type,
-                        quality_score=best_score,
-                    )
-
-            # Emit TaskCompleted or TaskFailed streaming event
-            if self._event_bus:
-                from .unified_events.core import TaskCompletedEvent, TaskFailedEvent
-
-                if status == TaskStatus.FAILED:
-                    await self._event_bus.publish(
-                        TaskFailedEvent(
-                            aggregate_id=task.id,
-                            task_id=task.id,
-                            error="all attempts failed",
-                        )
-                    )
-                else:
-                    await self._event_bus.publish(
-                        TaskCompletedEvent(
-                            aggregate_id=task.id,
-                            task_id=task.id,
-                            score=best_score,
-                            cost=total_cost,
-                        )
-                    )
-
-            span.set_attribute("task.status", status.value)
-            span.set_attribute("task.score", best_score or 0.0)
-
-            # Save to progressive output structure (bmalph-style)
-            saved_files = []
-            if "_prog_output" in locals() and _prog_output is not None:
-                saved_path = _prog_output.save_task_output(
-                    task=task,
-                    output=best_output,
-                    model=primary.value,
-                    cost_usd=total_cost,
-                    tokens_input=total_input_tokens,
-                    tokens_output=total_output_tokens,
-                    score=best_score or 0.0,
-                    status=status,
-                )
-                saved_files = [saved_path] if saved_path else []
-
-            # Git auto-commit after task (bmalph-style TDD commits)
-            if (
-                self._git_integration is not None
-                and self._git_integration.is_available()
-                and saved_files
-            ):
-                try:
-                    commit_hash = self._git_integration.commit_task_completion(
-                        task_id=task.id,
-                        status=status.value,
-                        model=primary.value,
-                        cost=total_cost,
-                        score=best_score or 0.0,
-                        files=saved_files,
-                    )
-                    if commit_hash:
-                        logger.info(f"  {task.id}: git commit {commit_hash}")
-                except Exception as e:
-                    logger.warning(f"  {task.id}: git commit failed: {e}")
-
-            # NEW: Test validation for code generation tasks
-            if (
-                HAS_TEST_VALIDATOR
-                and task.type == TaskType.CODE_GEN
-                and best_output
-                and hasattr(self, "_output_dir")
-                and self._output_dir
-            ):
-
-                logger.info(f"  {task.id}: Validating test generation...")
-                try:
-                    # FIRST: Validate syntax of generated code
-                    try:
-                        compile(best_output, "<generated>", "exec")
-                        logger.debug(f"  {task.id}: Generated code syntax OK")
-                    except SyntaxError as e:
-                        logger.warning(f"  {task.id}: Generated code has syntax error: {e}")
-                        # Don't proceed with test validation if code is invalid
-                        best_output = None  # Mark as invalid
-                        status = TaskStatus.FAILED
-                        best_score = 0.0
-
-                    # Find the generated source file
-                    source_file = None
-                    if self._output_dir.exists() and best_output:
-                        for f in self._output_dir.rglob("*.py"):
-                            if task.id.replace("_", "") in f.stem.replace("_", ""):
-                                source_file = f
-                                break
-
-                    if source_file and source_file.exists() and best_output:
-                        # Extract function name from output
-                        func_name = self._extract_function_name(best_output)
-
-                        # Validate test generation
-                        validator = TestValidator(max_iterations=2, client=self.client)
-                        test_result = await validator.validate_test_generation(
-                            source_file=source_file,
-                            function_name=func_name or "main",
-                            project_root=self._output_dir,
-                        )
-
-                        if test_result.passed:
-                            # Save the validated test
-                            test_file = source_file.parent / f"test_{source_file.name}"
-                            test_file.write_text(test_result.test_code, encoding="utf-8")
-                            logger.info(
-                                f"  {task.id}: ✅ Test validated and saved: {test_file.name}"
-                            )
-                        else:
-                            logger.warning(
-                                f"  {task.id}: ⚠️ Test validation failed: {test_result.error_message[:200]}"
-                            )
-                    else:
-                        logger.debug(f"  {task.id}: No source file found for test validation")
-
-                except Exception as e:
-                    logger.warning(f"  {task.id}: Test validation failed: {e}")
-
-            return TaskResult(
-                task_id=task.id,
-                output=best_output,
-                score=best_score,
-                model_used=primary,
-                reviewer_model=reviewer,
-                tokens_used={"input": total_input_tokens, "output": total_output_tokens},
-                iterations=len(scores_history),
-                cost_usd=total_cost,
-                status=status,
-                critique=best_critique,
-                deterministic_check_passed=det_passed,
-                degraded_fallback_count=degraded_count,
-                attempt_history=attempt_history,
-                preflight_result=_preflight_result,
-                preflight_passed=(_preflight_result is None or _preflight_result.passed),
-                task_type=task.type.value,
-            )
+        return self.validator.validate_syntax_batch(output)
 
     async def _run_preflight_check(
         self,
@@ -4174,297 +2528,70 @@ Each task JSON element MUST also include:
         score: float,
         primary: Model,
         policy: ResiliencePolicy | None = None,
-    ) -> tuple[str, float, PreflightResult]:
+    ) -> tuple[str, float, Any]:
         """
         Post-loop preflight delivery gate.
-
-        Checks best_output before finalizing TaskResult:
-        - PASS  : return unchanged
-        - WARN  : log + score * 0.85, fire PREFLIGHT_CHECK hook
-        - ENRICH: 1 extra LLM revision with enrich reason as critique
-        - BLOCK : 1 extra LLM revision with block reason as critique
-                     -> recovered: return revised output
-                     -> still BLOCK: return original output, score=0.0
-
-        Fail-open: any validator exception is caught and treated as PASS.
+        Delegates to TaskValidator (engine_core).
         """
-        from .preflight import PreflightAction, PreflightMode, PreflightResult
-
-        try:
-            pf_result = self._preflight_validator.validate(
-                response=output,
-                context={
-                    "task_type": task.type.value,
-                    "user_request": task.prompt[:200],
-                    "model": primary.value,
-                    "score": score,
-                },
-                mode=PreflightMode.AUTO,
-            )
-        except Exception as exc:
-            logger.warning("preflight validator raised: %s — treating as PASS", exc)
-            return output, score, PreflightResult(action=PreflightAction.PASS, passed=True)
-
-        if pf_result.action == PreflightAction.PASS:
-            return output, score, pf_result
-
-        if pf_result.action == PreflightAction.WARN:
-            penalized = round(score * 0.85, 4)
-            logger.warning(
-                "[preflight] WARN task=%s score %.3f->%.3f: %s",
-                task.id,
-                score,
-                penalized,
-                "; ".join(pf_result.warnings),
-            )
-            self._hook_registry.fire(
-                EventType.PREFLIGHT_CHECK,
-                task_id=task.id,
-                action="warn",
-                reason="; ".join(pf_result.warnings),
-                score_before=score,
-                score_after=penalized,
-            )
-            return output, penalized, pf_result
-
-        # ENRICH or BLOCK — attempt one extra revision
-        critique_text = pf_result.reason or pf_result.enrichment or "Improve the response quality."
-
-        # FIX-EXEC-003: Calculate dynamic timeout based on context size
-        # Base timeout + 1 second per 1000 characters of context
-        context_size = len(revised_prompt) if "revised_prompt" in locals() else len(task.prompt)
-        dynamic_timeout = 120 + (context_size // 1000)  # Base 120s + 1s per 1000 chars
-        dynamic_timeout = min(dynamic_timeout, 300)  # Cap at 300s
-
-        logger.info(
-            "[preflight] %s task=%s — attempting 1 revision: %s (timeout=%ds)",
-            pf_result.action.value.upper(),
-            task.id,
-            critique_text[:100],
-            dynamic_timeout,
+        return await self.validator.run_preflight_check(
+            task=task,
+            output=output,
+            score=score,
+            primary=primary,
+            revision_prompt_builder=RevisionPrompt,
+            policy=policy,
         )
-        try:
-            revised_prompt, _rev_system = RevisionPrompt.build(
-                task.prompt, critique_text, task.type.value
-            )
-            gen_response = await self.client.call(
-                primary,
-                revised_prompt,
-                system=_rev_system,
-                max_tokens=task.max_output_tokens,
-                temperature=0.3,
-                timeout=dynamic_timeout,
-                policy=policy,
-            )
-            await self.budget.charge(gen_response.cost_usd, "generation")
-            revised_output = gen_response.text
-        except Exception as exc:
-            logger.warning("[preflight] revision LLM call failed (%s) — using original", exc)
-            failed_score = 0.0 if pf_result.action == PreflightAction.BLOCK else score
-            self._hook_registry.fire(
-                EventType.PREFLIGHT_CHECK,
-                task_id=task.id,
-                action=pf_result.action.value + "_revision_failed",
-                reason=str(exc),
-                score_before=score,
-                score_after=failed_score,
-            )
-            return output, failed_score, pf_result
 
-        # Re-validate the revised output
-        try:
-            retry_result = self._preflight_validator.validate(
-                response=revised_output,
-                context={"task_type": task.type.value, "user_request": task.prompt[:200]},
-                mode=PreflightMode.AUTO,
-            )
-        except Exception:
-            retry_result = pf_result  # treat same as original if validator fails
+    def _filter_validators_for_task(self, task: Task, output: str) -> list[str]:
+        """
+        Filter validators based on task type and content.
+        Delegates to TaskValidator (engine_core).
+        """
+        return self.validator.filter_validators_for_task(task, output)
 
-        if retry_result.action == PreflightAction.BLOCK:
-            logger.warning("[preflight] BLOCK task=%s — revision still blocked, score->0", task.id)
-            self._hook_registry.fire(
-                EventType.PREFLIGHT_CHECK,
-                task_id=task.id,
-                action="block_degraded",
-                reason=retry_result.reason or "Still blocked after revision",
-                score_before=score,
-                score_after=0.0,
-            )
-            return output, 0.0, retry_result
+    async def _execute_task(self, task: Task, policy: ResiliencePolicy | None = None) -> TaskResult:
+        """
+        Execute a single task via the TaskPipeline.
+        Delegates to engine_core.pipeline stages (Generate, Critique, Evaluate, etc).
+        """
+        from .engine_core.pipeline import PipelineContext
+        from .models import TaskStatus
 
-        logger.info("[preflight] %s recovered task=%s", pf_result.action.value.upper(), task.id)
-        self._hook_registry.fire(
-            EventType.PREFLIGHT_CHECK,
-            task_id=task.id,
-            action=pf_result.action.value + "_recovered",
-            reason=critique_text[:100],
-            score_before=score,
-            score_after=score,
+        # Select initial model
+        model = task.preferred_model
+        if not model and hasattr(self, "_selector") and self._selector:
+            model = self._selector.select(task.type)
+
+        ctx = PipelineContext(
+            task=task,
+            model=model,
+            tokens_used={"input": 0, "output": 0},
         )
-        return revised_output, score, retry_result
+
+        # Loop for self-consistency / ARA retries
+        while True:
+            ctx = await self._pipeline.run(ctx)
+            if ctx.abort_reason not in ("retry_for_quality", "ara_retry"):
+                break
+            # Reset for next attempt
+            ctx.reset_for_retry()
+
+        # Determine final status
+        status = TaskStatus.COMPLETED
+        if ctx.score < task.acceptance_threshold:
+            status = TaskStatus.DEGRADED
+        if ctx.abort_reason and ctx.abort_reason.startswith("stage_error"):
+            status = TaskStatus.FAILED
+
+        return ctx.to_task_result(status=status)
 
     async def _evaluate(self, task: Task, output: str) -> float:
-        """LLM-based scoring with self-consistency (2 runs, Δ ≤ 0.05)."""
-        eval_models = self._get_available_models(TaskType.EVALUATE)
-        if not eval_models:
-            logger.debug(f"  {task.id}: no eval models available, returning 0.5")
-            return 0.5
-
-        eval_model = eval_models[0]
-        logger.debug(f"  {task.id}: evaluating with {eval_model.value}")
-
-        eval_prompt = (
-            f"Score this output on a scale of 0.0 to 1.0.\n"
-            f"Evaluate: correctness, completeness, quality, adherence to task.\n\n"
-            f"TASK: {task.prompt}\n"
-            f"ACCEPTANCE THRESHOLD: {task.acceptance_threshold}\n\n"
-            f"OUTPUT:\n{output}\n\n"
-            f'Return ONLY JSON: {{"score": <float>, "reasoning": "<brief>"}}'
+        """Evaluate task quality via EvaluatorService (wired through container)."""
+        return await self._evaluator.evaluate(
+            task_id=task.id,
+            result=output,
+            model=task.model if hasattr(task, 'model') else None,
         )
-
-        scores = []
-        for run in range(2):
-            try:
-                logger.debug(f"  {task.id}: eval run {run + 1}/2 starting...")
-                response = await self.client.call(
-                    eval_model,
-                    eval_prompt,
-                    system="You are a precise evaluator. Score exactly, return only JSON.",
-                    max_tokens=300,
-                    temperature=0.1,
-                    timeout=60,
-                )
-                logger.debug(
-                    f"  {task.id}: eval run {run + 1}/2 complete, score={self._parse_score(response.text):.3f}"
-                )
-                await self.budget.charge(response.cost_usd, "evaluation")
-                score = self._parse_score(response.text)
-                scores.append(score)
-            except (Exception, asyncio.CancelledError) as e:
-                logger.warning(f"Evaluation run {run + 1} failed: {e}")
-                scores.append(0.5)
-
-        if len(scores) == 2:
-            delta = abs(scores[0] - scores[1])
-            if delta > 0.05:
-                logger.warning(
-                    f"Evaluation inconsistency: {scores[0]:.3f} vs {scores[1]:.3f} "
-                    f"(Δ={delta:.3f} > 0.05). Using lower score."
-                )
-                return min(scores)
-            return sum(scores) / len(scores)
-
-        return scores[0] if scores else 0.5
-
-    def _parse_score(self, text: str) -> float:
-        """Parse score from LLM evaluation output with robust JSON handling."""
-        text = text.strip()
-        logger.debug(f"_parse_score: parsing text length={len(text)}")
-
-        # Try 1: Direct JSON parse
-        try:
-            # Strip markdown fences if present
-            if text.startswith("```"):
-                text = re.sub(r"^```\w*\n?", "", text)
-                text = re.sub(r"\n?```$", "", text)
-                text = text.strip()
-
-            # Try json5 first (handles trailing commas, comments, etc.)
-            try:
-                import json5
-
-                data = json5.loads(text)
-            except (ImportError, Exception):
-                data = json.loads(text)
-
-            # Handle nested JSON structures
-            if isinstance(data, dict):
-                score = float(data.get("score", data.get("Score", 0.5)))
-            elif isinstance(data, (int, float)):
-                score = float(data)
-            else:
-                # Try to extract score from any numeric value in the response
-                match = re.search(r"([0-9]*\.?[0-9]+)", str(data))
-                score = float(match.group(1)) if match else 0.5
-
-            logger.debug(f"_parse_score: JSON parsed score={score}")
-            return max(0.0, min(1.0, score))
-
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.debug(f"_parse_score: JSON parse failed: {e}")
-            pass
-
-        # Try 2: Regex extraction from text
-        # Look for patterns like "score": 0.85 or "score":0.85 or score=0.85
-        patterns = [
-            r'"?score"?\s*[:=]\s*([0-9]*\.?[0-9]+)',  # "score": 0.85 or score=0.85
-            r"评分\s*[:=]\s*([0-9]*\.?[0-9]+)",  # Chinese: 评分：0.85
-            r"得分\s*[:=]\s*([0-9]*\.?[0-9]+)",  # Chinese: 得分：0.85
-            r"([0-9]\.[0-9]{1,2})\s*/\s*1",  # 0.85/1
-            r"([0-9]{1,2})\s*%",  # 85%
-            r"([0-9]+(?:\.[0-9]+)?)\s*/\s*10\b",  # 7/10 or 8.5/10
-            r"([0-9]+(?:\.[0-9]+)?)\s*/\s*100\b",  # 70/100
-            r"\bout\s+of\s+10[,.\s]*([0-9]+(?:\.[0-9]+)?)",  # "out of 10: 7"
-            r"([0-9]+(?:\.[0-9]+)?)\s+out\s+of\s+10",  # "7 out of 10"
-            r"rating\s*[:=]\s*([0-9]*\.?[0-9]+)",  # rating: 0.7
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                score = float(match.group(1))
-                # Normalise N/10 and N/100 to 0–1
-                if re.search(r"/\s*100\b", pattern) or score > 10:
-                    score = score / 100.0
-                elif re.search(r"/\s*10\b|out\s+of\s+10", pattern) or 1 < score <= 10:
-                    score = score / 10.0
-                # Percentage
-                if "%" in pattern and score > 1.0:
-                    score = score / 100.0
-                logger.debug(f"_parse_score: regex pattern '{pattern}' matched score={score}")
-                return max(0.0, min(1.0, score))
-
-        # Try 3: Extract any number between 0 and 1
-        match = re.search(r"\b(0\.[0-9]+|1\.0+)\b", text)
-        if match:
-            score = float(match.group(1))
-            logger.debug(f"_parse_score: extracted number={score}")
-            return max(0.0, min(1.0, score))
-
-        # Fallback: return default score with warning
-        logger.warning(f"Could not parse score from: {text[:150]}...")
-        return 0.5  # Default fallback score
-
-    # ─────────────────────────────────────────
-    # Telemetry + circuit breaker helpers
-    # ─────────────────────────────────────────
-
-    def _invalidate_profile_cache(self) -> None:
-        """
-        P1-1 OPTIMIZATION: Invalidate the active profiles cache.
-
-        Call this when profiles are modified or when starting a new project.
-        """
-        self._active_profiles_cache = None
-        logger.debug("Profile cache invalidated")
-
-    def _get_active_profiles(self) -> List[Tuple[Model, ModelProfile]]:
-        """
-        P1-1 OPTIMIZATION: Get cached list of active profiles (call_count > 0).
-
-        This avoids iterating over all 50+ models in _profiles on every call.
-        Cache is invalidated when profiles are modified.
-
-        Returns:
-            List of (Model, ModelProfile) tuples for models with call_count > 0
-        """
-        if self._active_profiles_cache is None:
-            self._active_profiles_cache = [
-                (m, p) for m, p in self._profiles.items() if p.call_count > 0
-            ]
-            logger.debug(f"Profile cache built: {len(self._active_profiles_cache)} active models")
-        return self._active_profiles_cache
 
     async def _record_success(self, model: Model, response: APIResponse) -> None:
         """Record a successful API call; reset circuit breaker counter."""
@@ -4638,57 +2765,17 @@ Each task JSON element MUST also include:
 
     def _topological_sort(self, tasks: dict[str, Task]) -> list[str]:
         """
-        Kahn's algorithm with cycle detection.
-        FIX #6: Delegates to DependencyResolver (engine_core) — O(1) deque popleft.
-
-        Passes a key-sorted tasks dict so independent nodes are processed in
-        deterministic alphabetical order (preserving prior engine behaviour).
+        Deterministic topological sort.
+        Delegates to ProjectPlanner (engine_core).
         """
-        sorted_tasks = dict(sorted(tasks.items()))
-        self._dep_resolver.build_dependency_graph(sorted_tasks)
-        try:
-            return self._dep_resolver.topological_sort(sorted_tasks)
-        except ValueError:
-            # Cycle detected — DependencyResolver raises; we log and return
-            # the partial ordering it accumulated before detecting the cycle.
-            cycle_tasks = set(tasks.keys()) - set(self._dep_resolver.execution_order)
-            logger.error(f"Dependency cycle detected involving: {cycle_tasks}")
-            return self._dep_resolver.execution_order
+        return self._project_planner.get_execution_order(tasks)
 
     def _topological_levels(self, tasks: dict[str, Task]) -> list[list[str]]:
         """
-        Group tasks into execution levels using Kahn's algorithm.
-
-        Tasks at the same level have no dependencies on each other and can be
-        executed in parallel. Level 0 = tasks with no dependencies, Level 1 =
-        tasks whose only dependencies are in Level 0, and so on.
-
-        Returns a list of levels, each level being a sorted list of task IDs.
-        The union of all levels equals the full topological order.
+        Group tasks into execution levels.
+        Delegates to ProjectPlanner (engine_core).
         """
-        in_degree = dict.fromkeys(tasks, 0)
-        graph: dict[str, list[str]] = defaultdict(list)
-
-        for tid, task in tasks.items():
-            for dep in task.dependencies:
-                if dep in tasks:
-                    graph[dep].append(tid)
-                    in_degree[tid] += 1
-
-        levels: list[list[str]] = []
-        ready = sorted(tid for tid, deg in in_degree.items() if deg == 0)
-
-        while ready:
-            levels.append(ready)
-            next_ready: list[str] = []
-            for node in ready:
-                for neighbor in graph[node]:
-                    in_degree[neighbor] -= 1
-                    if in_degree[neighbor] == 0:
-                        next_ready.append(neighbor)
-            ready = sorted(next_ready)
-
-        return levels
+        return self._project_planner.get_execution_levels(tasks)
 
     def _filter_validators_for_task(self, task: Task, output: str) -> list[str]:
         """PHASE-4: Delegates to orchestrator.validators.filter_validators_for_task."""
@@ -4784,58 +2871,30 @@ Each task JSON element MUST also include:
         return task.prompt
 
     # ─────────────────────────────────────────
+    # Protocol Implementations
+    # ─────────────────────────────────────────
+
+    @property
+    def spent_usd(self) -> float:
+        return self.budget.spent_usd
+
+    @property
+    def max_usd(self) -> float:
+        return self.budget.max_usd
+
+    async def charge(self, amount: float, phase: str) -> None:
+        await self.budget.charge(amount, phase)
+
+    def get_available_models(self, task_type: TaskType) -> list[Model]:
+        return self._get_available_models(task_type)
+
+    # ─────────────────────────────────────────
     # Status & resume
     # ─────────────────────────────────────────
 
     def _determine_final_status(self, state: ProjectState) -> ProjectStatus:
-        # Check budget / time first — these override empty-results SYSTEM_FAILURE
-        # so that a run halted by budget exhaustion or timeout is correctly labelled.
-        budget_exhausted = state.budget.remaining_usd <= 0
-        time_ok = state.budget.time_remaining()
-
-        if budget_exhausted:
-            return ProjectStatus.BUDGET_EXHAUSTED
-        if not time_ok:
-            return ProjectStatus.TIMEOUT
-
-        if not state.results:
-            return ProjectStatus.SYSTEM_FAILURE
-
-        # COMPLETED or DEGRADED both count as "passed" for final status
-        all_passed = all(
-            r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED) for r in state.results.values()
-        )
-
-        degraded_heavy = any(
-            r.degraded_fallback_count > r.iterations * 0.5
-            for r in state.results.values()
-            if r.iterations > 0
-        )
-
-        # ── MEMORY CONSOLIDATION (Phase 3+: cross-project insights) ──
-        if hasattr(self, "_memory_provider_mgr") and self._memory_provider_mgr is not None:
-            asyncio.create_task(self._memory_manager.maybe_consolidate())
-
-        det_ok = all(r.deterministic_check_passed for r in state.results.values())
-
-        # Guard: ensure we actually executed ALL tasks before considering any terminal status.
-        # state.results is sparse; early termination (budget exhausted, timeout) leaves tasks unexecuted.
-        # If we don't check this, partial execution could be incorrectly labeled as terminal,
-        # causing next run to skip _resume_project and leave unfinished tasks permanently unexecuted.
-        all_tasks_executed = len(state.results) == len(state.tasks)
-
-        if all_tasks_executed and all_passed and det_ok and not degraded_heavy:
-            # All tasks executed, all passed execution, all passed validation, no degraded flag.
-            # This is terminal and successful.
-            return ProjectStatus.SUCCESS
-        elif all_tasks_executed and all_passed and not det_ok:
-            # All tasks executed and completed, but some failed deterministic validation.
-            # This is a terminal status (not resumable) — completed with degraded quality.
-            return ProjectStatus.COMPLETED_DEGRADED
-        else:
-            # Some tasks never executed (missing results), or degraded_heavy flag set, or partial execution.
-            # This is resumable (genuinely incomplete) regardless of validation results on executed tasks.
-            return ProjectStatus.PARTIAL_SUCCESS
+        """Delegates to StateCoordinator."""
+        return self._c.state_coordinator.determine_final_status(state)
 
     async def _resume_project(self, state: ProjectState) -> ProjectState:
         """
@@ -4885,30 +2944,23 @@ Each task JSON element MUST also include:
         tasks: dict[str, Task],
         status: ProjectStatus = ProjectStatus.PARTIAL_SUCCESS,
         execution_order: list[str] | None = None,
+        results: dict[str, TaskResult] | None = None,
     ) -> ProjectState:
-        return ProjectState(
-            project_description=project_desc,
-            success_criteria=criteria,
+        """Delegates to StateCoordinator."""
+        return self._c.state_coordinator.make_state(
+            project_desc=project_desc,
+            criteria=criteria,
             budget=self.budget,
             tasks=tasks,
-            results=dict(self.results),
+            results=results if results is not None else dict(self.results),
             api_health={m.value: h for m, h in self.api_health.items()},
             status=status,
-            execution_order=execution_order if execution_order is not None else list(tasks.keys()),
+            execution_order=execution_order,
         )
 
     def _log_summary(self, state: ProjectState):
-        logger.info("=" * 60)
-        logger.info(f"PROJECT STATUS: {state.status.value}")
-        logger.info(f"Budget: ${self.budget.spent_usd:.4f} / ${self.budget.max_usd}")
-        logger.info(f"Time: {self.budget.elapsed_seconds:.1f}s / {self.budget.max_time_seconds}s")
-        for tid, result in state.results.items():
-            logger.info(
-                f"  {tid}: score={result.score:.3f} status={result.status.value} "
-                f"model={result.model_used.value} iters={result.iterations} "
-                f"cost=${result.cost_usd:.4f}"
-            )
-        logger.info("=" * 60)
+        """Delegates to StateCoordinator."""
+        self._c.state_coordinator.log_summary(state)
 
     async def _analyze_completed_project(self, state: ProjectState, output_dir: Path):
         """
@@ -4974,97 +3026,13 @@ Each task JSON element MUST also include:
 
     async def _generate_architecture_rules(
         self, project_description: str, success_criteria: str, output_dir: Path | None
-    ) -> ProjectRules | None:
+    ) -> Any | None:
         """
         Generate architecture rules at project start.
-
-        Creates .orchestrator-rules.yml with:
-        - Architecture decisions
-        - Technology stack
-        - Constraints and patterns
-        - Quality gates
+        Delegates to Architect service (engine_core).
         """
-        try:
-            from .architecture_rules import (
-                ArchitectureRulesEngine,
-            )
-
-            logger.info("🏗️ Generating architecture rules...")
-
-            engine = ArchitectureRulesEngine(client=self.client)
-            rules = await engine.generate_rules(
-                description=project_description,
-                criteria=success_criteria,
-            )
-
-            # Print summary (decision method detected from metadata)
-            summary = engine.generate_summary(rules)
-            print("\n" + summary)
-
-            # Save to file if output_dir provided
-            if output_dir:
-                rules_file = engine.save_rules(rules, output_dir)
-                logger.info(f"📋 Architecture rules saved to: {rules_file}")
-
-                # Also save a human-readable summary
-                summary_file = output_dir / "ARCHITECTURE.md"
-                summary_content = f"""# Architecture Decision
-
-## Project Overview
-- **Type**: {rules.project_type}
-- **Generated**: {rules.created_at}
-- **Rules Version**: {rules.version}
-
-## Decisions
-
-### Architecture Style
-**{rules.architecture.style.value.replace('_', ' ').title()}**
-
-{rules.architecture.rationale}
-
-### Programming Paradigm
-{rules.architecture.paradigm.value.replace('_', ' ').title()}
-
-### Technology Stack
-
-**Primary Language**: {rules.architecture.stack.primary_language}
-
-**Frameworks**:
-{chr(10).join(['- ' + f for f in rules.architecture.stack.frameworks])}
-
-**Libraries**:
-{chr(10).join(['- ' + l for l in rules.architecture.stack.libraries[:5]])}
-
-**Databases**:
-{chr(10).join(['- ' + d for d in rules.architecture.stack.databases])}
-
-## Constraints
-
-{chr(10).join(['- ' + c for c in rules.architecture.constraints])}
-
-## Recommended Patterns
-
-{chr(10).join(['- ' + p for p in rules.architecture.patterns])}
-
-## Quality Gates
-
-- **Test Coverage**: Minimum {rules.coding_standards.test_coverage_min}%
-- **Max Complexity**: {rules.coding_standards.max_complexity}
-- **Max Line Length**: {rules.coding_standards.max_line_length} characters
-- **Type Hints**: {'Required' if rules.coding_standards.type_hints else 'Optional'}
-
-## Tradeoffs
-
-{chr(10).join(['- ' + t for t in rules.architecture.tradeoffs])}
-
----
-*Generated by Multi-LLM Orchestrator Architecture Rules Engine*
-"""
-                summary_file.write_text(summary_content, encoding="utf-8")
-                logger.info(f"📖 Architecture summary saved to: {summary_file}")
-
-            return rules
-
-        except Exception as e:
-            logger.warning(f"Architecture rules generation failed: {e}")
-            return None
+        return await self._architect.generate_rules(
+            project_description=project_description,
+            success_criteria=success_criteria,
+            output_dir=output_dir,
+        )
