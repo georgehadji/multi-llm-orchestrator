@@ -68,9 +68,16 @@ class ResumptionService:
                         policy = None  # type: ignore[assignment]
                     result = await self._execute_task(task, policy=policy)
                     self._results[task_id] = result
-                    state.results[task_id] = result
+                    # M7: build a new state instead of mutating in place
+                    import dataclasses as _dc
+                    state = _dc.replace(
+                        state, results={**state.results, task_id: result}
+                    )
 
-        state.status = self._determine_final_status(state)
+        # M7: return a new state with updated status
+        import dataclasses as _dc
+        final_status = self._determine_final_status(state)
+        state = _dc.replace(state, status=final_status)
         return state
 
     # ------------------------------------------------------------------ #

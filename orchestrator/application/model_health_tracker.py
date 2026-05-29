@@ -17,30 +17,59 @@ logger = logging.getLogger(__name__)
 class ModelHealthTracker:
     """Tracks per-model health via a circuit breaker and telemetry recording.
 
-    Owns:
-    - ``consecutive_failures``: mutable dict[Model, int] shared with the engine
-    - ``api_health``:  mutable dict[Model, bool] shared with the engine
+    Owns its own copies of ``consecutive_failures`` and ``api_health``.
+    Callers read back the current state via the read-only properties below.
 
-    Both dicts are passed in by reference so the engine's views stay in sync.
+    M6 change: dicts are no longer shared by reference with the engine.
+    Engine reads back through ``tracker.api_health`` / ``tracker.consecutive_failures``.
     """
 
     def __init__(
         self,
         telemetry: Any,
-        consecutive_failures: dict[Model, int],
-        api_health: dict[Model, bool],
         dashboard: Any,
         adaptive_router: Any,
         state_mgr: Any,
         circuit_breaker_threshold: int = 3,
+        initial_consecutive_failures: dict[Model, int] | None = None,
+        initial_api_health: dict[Model, bool] | None = None,
     ) -> None:
         self._telemetry = telemetry
-        self._consecutive_failures = consecutive_failures
-        self._api_health = api_health
+        self._consecutive_failures: dict[Model, int] = dict(
+            initial_consecutive_failures or {}
+        )
+        self._api_health: dict[Model, bool] = dict(initial_api_health or {})
         self._dashboard = dashboard
         self._adaptive_router = adaptive_router
         self._state_mgr = state_mgr
         self._threshold = circuit_breaker_threshold
+
+    # ------------------------------------------------------------------ #
+    # Read-only properties (defensive copies so callers can't mutate)
+    # ------------------------------------------------------------------ #
+
+    @property
+    def consecutive_failures(self) -> dict[Model, int]:
+        """Snapshot of current consecutive-failure counts."""
+        return dict(self._consecutive_failures)
+
+    @property
+    def api_health(self) -> dict[Model, bool]:
+        """Snapshot of current model health flags."""
+        return dict(self._api_health)
+
+    def update_from_persisted_state(
+        self,
+        consecutive_failures: dict[Model, int],
+        api_health: dict[Model, bool],
+    ) -> None:
+        """Merge persisted circuit-breaker state into the tracker's own dicts.
+
+        Called by the engine after ``_load_circuit_breaker_state()`` so the
+        tracker reflects crash-recovery values without needing a shared reference.
+        """
+        self._consecutive_failures.update(consecutive_failures)
+        self._api_health.update(api_health)
 
     # ------------------------------------------------------------------ #
     # Public API
