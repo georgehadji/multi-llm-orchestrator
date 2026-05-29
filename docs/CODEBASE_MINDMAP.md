@@ -109,6 +109,7 @@ ValidateStage            (syntax, bracket balance, ruff lint)
 | `Decomposer` | `decomposer.py` | Project → Task decomposition |
 | `ContextCompressor` | `context_compressor.py` | Context window management |
 | `BudgetEnforcer` | `budget_enforcer.py` | Per-run budget tracking |
+| `ConversationAgent` | `conversation_agent.py` | Interactive spec-gathering via CLI + dashboard chat |
 
 ---
 
@@ -318,12 +319,29 @@ Run `lint-imports` to verify. Checked in CI on every push (763 files, 4 contract
 
 ## Feature Flags (`crosscutting/config.py::FeatureFlags`)
 
+All optional module imports in `engine.py` are gated by feature flags (P4-2 complete).
+
 | Flag | Env Var | Default | Effect |
 |------|---------|---------|--------|
 | `skill_optimization_enabled` | `ORCH_SKILL_OPTIMIZATION_ENABLED` | `false` | SkillOpt trajectory collection + epoch optimization |
-| `a2a_enabled` | `ORCH_A2A_ENABLED` | `false` | Agent-to-Agent protocol |
-| `red_team_enabled` | `ORCH_RED_TEAM_ENABLED` | `false` | Adversarial quality checks |
-| `tdd_enabled` | `ORCH_TDD_ENABLED` | `false` | Test-first task execution |
+| `a2a_enabled` | `ORCH_A2A_ENABLED` | `true` | Agent-to-Agent protocol |
+| `accountability_enabled` | `ORCH_ACCOUNTABILITY_ENABLED` | `true` | Audit trail tracker |
+| `agent_safety_enabled` | `ORCH_AGENT_SAFETY_ENABLED` | `true` | Agent safety monitor |
+| `red_team_enabled` | `ORCH_RED_TEAM_ENABLED` | `true` | Adversarial quality checks |
+| `tdd_enabled` | `ORCH_TDD_ENABLED` | `true` | Test-first task execution |
+| `diff_generation_enabled` | `ORCH_DIFF_GENERATION_ENABLED` | `true` | Diff-based code generation |
+| `cost_optimization_enabled` | `ORCH_COST_OPTIMIZATION_ENABLED` | `true` | BatchClient / speculative gen / streaming validator |
+| `cache_optimizer_enabled` | `ORCH_CACHE_OPTIMIZER_ENABLED` | `true` | Cache optimizer |
+| `tracing_enabled` | `ORCH_TRACING_ENABLED` | `false` | OpenTelemetry tracing (needs extra deps) |
+| `audit_log` | `ORCH_AUDIT_LOG` | `true` | Audit log |
+| `bm25_search_enabled` | `ORCH_BM25_SEARCH_ENABLED` | `true` | BM25 keyword search index |
+| `memory_tier_enabled` | `ORCH_MEMORY_TIER_ENABLED` | `true` | Multi-tier memory manager |
+| `persona_enabled` | `ORCH_PERSONA_ENABLED` | `true` | Persona / role manager |
+| `session_watcher_enabled` | `ORCH_SESSION_WATCHER_ENABLED` | `true` | Session lifecycle watcher |
+| `session_lifecycle_enabled` | `ORCH_SESSION_LIFECYCLE_ENABLED` | `true` | Session lifecycle manager |
+| `task_verifier_enabled` | `ORCH_TASK_VERIFIER_ENABLED` | `true` | Task output verifier |
+| `reranker_enabled` | `ORCH_RERANKER_ENABLED` | `true` | LLM-based result reranker |
+| `token_optimizer_enabled` | `ORCH_TOKEN_OPTIMIZER_ENABLED` | `true` | Token usage optimizer |
 | `context_compression` | `ORCH_CONTEXT_COMPRESSION` | `true` | Token compression for long contexts |
 
 ---
@@ -340,6 +358,7 @@ Run `lint-imports` to verify. Checked in CI on every push (763 files, 4 contract
 | M5 — Deduplication | 8.6 | 10 duplicate root modules → backward-compat shims |
 | M6 — Tracker ownership | 8.9 | `ModelHealthTracker` owns its dicts; no shared mutable state |
 | M7 — Immutable state | **9.2** | `ResumptionService` returns new `ProjectState` via `dataclasses.replace` |
+| P4-2 — Feature flags | **9.4** | All optional imports in `engine.py` gated by `FeatureFlags` (19 flags total) |
 
 ---
 
@@ -348,7 +367,7 @@ Run `lint-imports` to verify. Checked in CI on every push (763 files, 4 contract
 | Metric | Value |
 |--------|-------|
 | **engine.py** | 2,672 lines (−49% from original) |
-| **Application services** | 16 extracted classes (+ ProjectRunnerCallables/ProjectRunState) |
+| **Application services** | 17 extracted classes (+ ConversationAgent) |
 | **Domain protocols** | 11 typed Protocols |
 | **Import contracts** | **4** (enforced in CI) |
 | **Null adapters** | **12** (NullHookRegistry added in M2) |
@@ -360,6 +379,6 @@ Run `lint-imports` to verify. Checked in CI on every push (763 files, 4 contract
 
 ---
 
-*Last updated: 2026-05-29*  
+*Last updated: 2026-05-29 (session 2)*  
 *Maintainer: Georgios-Chrysovalantis Chatzivantsidis*  
 *License: MIT*

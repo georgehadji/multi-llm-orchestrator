@@ -71,6 +71,16 @@ class FeatureFlags(BaseSettings):
     tracing_enabled: bool = False           # OpenTelemetry tracing (needs extra deps)
     skill_optimization_enabled: bool = False  # SkillOpt: self-improving per-TaskType skill docs
 
+    # ── Secondary optional modules ────────────────────────────────────────────
+    session_watcher_enabled: bool = True     # Session lifecycle watcher
+    persona_enabled: bool = True             # Persona / role manager
+    memory_tier_enabled: bool = True         # Multi-tier memory manager
+    bm25_search_enabled: bool = True         # BM25 keyword search index
+    reranker_enabled: bool = True            # LLM-based result reranker
+    session_lifecycle_enabled: bool = True   # Session lifecycle manager
+    task_verifier_enabled: bool = True       # Task output verifier
+    token_optimizer_enabled: bool = True     # Token usage optimizer
+
     model_config = SettingsConfigDict(
         env_prefix="ORCH_",
         env_file=".env",

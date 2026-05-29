@@ -174,14 +174,21 @@ try:
 except (ImportError, TimeoutError):
     TaskChannel = None
 
-try:
-    from .audit import AuditLog
-except (ImportError, TimeoutError):
+if flags.audit_log:
+    try:
+        from .audit import AuditLog
+    except (ImportError, TimeoutError):
+        AuditLog = None
+else:
     AuditLog = None
 
-try:
-    from .bm25_search import BM25Search, get_bm25_search
-except (ImportError, TimeoutError):
+if flags.bm25_search_enabled:
+    try:
+        from .bm25_search import BM25Search, get_bm25_search
+    except (ImportError, TimeoutError):
+        BM25Search = None
+        get_bm25_search = None
+else:
     BM25Search = None
     get_bm25_search = None
 
@@ -247,14 +254,21 @@ except (ImportError, TimeoutError):
     EventType = None
     HookRegistry = None
 
-try:
-    from .memory_tier import MemoryTierManager
-except (ImportError, TimeoutError):
+if flags.memory_tier_enabled:
+    try:
+        from .memory_tier import MemoryTierManager
+    except (ImportError, TimeoutError):
+        MemoryTierManager = None
+else:
     MemoryTierManager = None
 
-try:
-    from .persona import PersonaManager, PersonaMode
-except (ImportError, TimeoutError):
+if flags.persona_enabled:
+    try:
+        from .persona import PersonaManager, PersonaMode
+    except (ImportError, TimeoutError):
+        PersonaManager = None
+        PersonaMode = None
+else:
     PersonaManager = None
     PersonaMode = None
 
@@ -282,26 +296,39 @@ if flags.red_team_enabled:
 else:
     RedTeamFramework = None
 
-try:
-    from .reranker import LLMReranker, get_reranker
-except (ImportError, TimeoutError):
+if flags.reranker_enabled:
+    try:
+        from .reranker import LLMReranker, get_reranker
+    except (ImportError, TimeoutError):
+        LLMReranker = None
+        get_reranker = None
+else:
     LLMReranker = None
     get_reranker = None
 
-try:
-    from .session_lifecycle import SessionLifecycleManager
-except (ImportError, TimeoutError):
+if flags.session_lifecycle_enabled:
+    try:
+        from .session_lifecycle import SessionLifecycleManager
+    except (ImportError, TimeoutError):
+        SessionLifecycleManager = None
+else:
     SessionLifecycleManager = None
 
-try:
-    from .session_watcher import SessionWatcher
-except (ImportError, TimeoutError):
+if flags.session_watcher_enabled:
+    try:
+        from .session_watcher import SessionWatcher
+    except (ImportError, TimeoutError):
+        SessionWatcher = None
+else:
     SessionWatcher = None
 
 # Security & Accountability modules from "Agents of Chaos" paper (arXiv:2602.20021)
-try:
-    from .task_verifier import TaskVerifier
-except (ImportError, TimeoutError):
+if flags.task_verifier_enabled:
+    try:
+        from .task_verifier import TaskVerifier
+    except (ImportError, TimeoutError):
+        TaskVerifier = None
+else:
     TaskVerifier = None
 
 try:
@@ -328,9 +355,12 @@ except (ImportError, TimeoutError):
     ContextCompressor = None
     BatchRunner = None
 
-try:
-    from .token_optimizer import TokenOptimizer
-except (ImportError, TimeoutError):
+if flags.token_optimizer_enabled:
+    try:
+        from .token_optimizer import TokenOptimizer
+    except (ImportError, TimeoutError):
+        TokenOptimizer = None
+else:
     TokenOptimizer = None
 
 # OpenTelemetry tracing — disabled by default (requires extra deps)
