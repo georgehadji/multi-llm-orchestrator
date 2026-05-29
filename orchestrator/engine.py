@@ -530,10 +530,27 @@ class Orchestrator:
             execute_task_fn=self._execute_task,
             determine_final_status_fn=self._determine_final_status,
         )
-        # P3-4: ProjectRunner owns run_project / dry_run coordination logic.
+        # M3: ProjectRunner wired via callables + run_state (no host back-ref).
         from .application.project_runner import ProjectRunner as _ProjectRunner
+        from .application.project_runner_deps import (
+            ProjectRunnerCallables as _Callables,
+            ProjectRunState as _RunState,
+        )
+        self._run_state = _RunState(results=self.results)
+        _callables = _Callables(
+            topological_sort=self._topological_sort,
+            topological_levels=self._topological_levels,
+            make_state=self._make_state,
+            determine_final_status=self._determine_final_status,
+            log_summary=self._log_summary,
+            execute_all=self._execute_all,
+            generate_architecture_rules=self._generate_architecture_rules,
+            analyze_completed_project=self._analyze_completed_project,
+            client=self._c.client,
+        )
         self._project_runner = _ProjectRunner(
-            host=self,
+            callables=_callables,
+            run_state=self._run_state,
             state_mgr=self.state_mgr,
             budget=self.budget,
             event_bus=self._event_bus,
@@ -744,6 +761,8 @@ class Orchestrator:
         P0-2 OPTIMIZATION: Starts periodic cleanup timer for background tasks.
         """
         self._entered = True
+        if hasattr(self, "_run_state"):
+            self._run_state.entered = True
         logger.debug("Orchestrator entered as context manager")
 
         # Verify all required services are present (P2-3)
@@ -863,6 +882,8 @@ class Orchestrator:
             logger.warning("Failed to close skill_manager: %s", e)
 
         self._entered = False
+        if hasattr(self, "_run_state"):
+            self._run_state.entered = False
         logger.debug("Orchestrator cleanup complete")
 
     async def close(self) -> None:

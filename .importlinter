@@ -49,8 +49,12 @@ source_modules =
     orchestrator.application.git_bridge
     orchestrator.application.model_health_tracker
     orchestrator.application.resumption_service
+    orchestrator.application.project_runner
+    orchestrator.application.project_runner_deps
 forbidden_modules =
     orchestrator.engine
+ignore_imports =
+    orchestrator.meta_integration -> orchestrator.engine
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Contract 4: engine_core pipeline modules must not import infrastructure
