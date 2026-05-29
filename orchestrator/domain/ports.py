@@ -273,6 +273,16 @@ class NullState:
         pass
 
 
+class NullHookRegistry:
+    """No-op hook registry. fire() and add() are silent no-ops."""
+
+    def fire(self, event_type: Any, **kwargs: Any) -> None:
+        pass
+
+    def add(self, event: Any, callback: Any) -> None:
+        pass
+
+
 class NullEventBus:
     """No-op event bus. publish() discards all events."""
 

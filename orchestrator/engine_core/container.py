@@ -18,7 +18,14 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from .pipeline import TaskPipeline
+    from .pipeline_runner import PipelineRunner
+    from .project_planner import ProjectPlanner
+    from .state_coordinator import StateCoordinator
+    from .context_service import ContextService
 
 from ..api_clients import UnifiedClient
 from ..budget import Budget
@@ -26,6 +33,8 @@ from ..domain.ports import (
     CachePort,
     EventPort,
     HookRegistryPort,
+    NullEventBus,
+    NullHookRegistry,
     PlannerPort,
     StatePort,
     ValidatorPort,
@@ -88,11 +97,11 @@ class ServiceContainer:
     tracer: Tracer = None
     policy_engine: PolicyEngine = None
     planner: Any = None
-    project_planner: Any = None
-    pipeline_runner: Any = None
+    project_planner: Optional[ProjectPlanner] = None
+    pipeline_runner: Optional[PipelineRunner] = None
     preflight_validator: Any = None
-    hook_registry: HookRegistryPort = None
-    validator: ValidatorPort = None
+    hook_registry: Optional[HookRegistryPort] = None
+    validator: Optional[ValidatorPort] = None
     decomposer: Any = None
     architect: Any = None
     executor: Any = None
@@ -100,9 +109,9 @@ class ServiceContainer:
     generator: Any = None
     ara: Any = None
     ara_strategy: Any = None
-    pipeline: Any = None
+    pipeline: Optional[TaskPipeline] = None
     dep_resolver: Any = None
-    event_bus: EventPort = None
+    event_bus: Optional[EventPort] = None
     adaptive_router: Any = None
     telemetry_store: Any = None
     semantic_cache: Any = None
@@ -124,8 +133,8 @@ class ServiceContainer:
     routing_service: Any = None
     cost_service: Any = None
     config_service: Any = None
-    state_coordinator: Any = None
-    context_service: Any = None
+    state_coordinator: Optional[StateCoordinator] = None
+    context_service: Optional[ContextService] = None
 
     git_integration: Any = None
     output_dir: Path | None = None
@@ -255,8 +264,7 @@ class ServiceContainer:
             class _DepResolver:
                 def __init__(self, **kwargs): pass
             DepResolver = _DepResolver
-            # GeneratorService already imported from services layer above
-            CBRegistry = type("CBRegistry", (), {})
+            # CBRegistry is wired separately via try/except below; not needed here
 
         # Defaults
         if cache is None:
@@ -365,9 +373,9 @@ class ServiceContainer:
             event_bus = UnifiedEventBus()
             hook_registry = event_bus.sync_hooks
         except ImportError:
-            # Fallback to legacy/dummy if unified_events is not reachable
-            hook_registry = type("HookRegistry", (), {"fire": lambda *a, **kw: None, "add": lambda *a, **kw: None})()
-            event_bus = type("EventBus", (), {"publish": lambda *a, **kw: None})()
+            # Fallback to domain null-adapters if unified_events is not reachable
+            hook_registry = NullHookRegistry()
+            event_bus = NullEventBus()
 
         validator = TaskValidator(
             client=client,
@@ -434,18 +442,13 @@ class ServiceContainer:
             dashboard=None,  # wired later
         )
 
-        # Semantic cache
-        semantic_cache = type(
-            "SemanticCache",
-            (),
-            {
-                "get_cached_pattern": lambda *a: None,
-                "cache_pattern": lambda *a: None,
-            },
-        )()
+        # Semantic cache — real SemanticCache wired by Orchestrator if needed;
+        # None here so callers must guard with `if self._semantic_cache is not None`.
+        semantic_cache = None
 
-        # Adaptive router
-        adaptive_router = type("AdaptiveRouter", (), {})()
+        # Adaptive router — real AdaptiveRouter wired by Orchestrator if needed;
+        # None here so callers must guard with `if self._adaptive_router is not None`.
+        adaptive_router = None
 
         # NexusScope: wrap pipeline with profiling if enabled
         import os as _os
