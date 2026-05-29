@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from ..pipeline import PipelineContext
-from ...api_clients import UnifiedClient
+from ...domain.ports import LLMClient
 from ...budget import Budget
 from ...model_selector import ModelSelector
 from ...models import Model, TaskType
@@ -25,7 +25,7 @@ class GenerateStage:
 
     def __init__(
         self,
-        client: UnifiedClient,
+        client: LLMClient,
         budget: Budget,
         selector: ModelSelector,
         event_bus: object = None,
