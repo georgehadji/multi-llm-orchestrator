@@ -1732,7 +1732,9 @@ def main():
     _nexus_subparsers(subparsers)  # Nexus Search commands
     _setup_meta_parser(subparsers)  # NEW: Meta-optimization commands
     _gateway_subparsers(subparsers)  # NEW: Gateway commands
-    _kanban_subparsers(subparsers)  # NEW: Kanban commands
+    _kanban_subparsers(subparsers)
+    _nexusscope_subparsers(subparsers)
+    _chat_subparsers(subparsers)          # Interactive spec-gathering chat mode
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
@@ -1843,6 +1845,15 @@ def main():
         action="store_true",
         help="Seed routing from historical run profiles (future feature)",
     )
+    parser.add_argument(
+        "--profile", action="store_true", default=False,
+                   help="Enable NexusScope profiling for this run")
+    parser.add_argument(
+        "--profile-output", default=None, metavar="PATH",
+                   help="Write profile report to PATH on exit")
+    parser.add_argument(
+        "--profile-format", choices=["text", "html", "json", "speedscope"],
+                   default="text")
     parser.add_argument(
         "--tracing",
         action="store_true",
@@ -2238,6 +2249,104 @@ except ImportError:
     # Click not available, define a no-op cli function
     def cli(*args, **kwargs):
         print("Click not installed")
+
+
+
+
+def _nexusscope_subparsers(subparsers) -> None:
+    """Register the 'nexusscope' profiling subcommand."""
+    nsp = subparsers.add_parser("nexusscope", help="NexusScope statistical profiler")
+    nsp_sub = nsp.add_subparsers(dest="nexusscope_command", metavar="COMMAND")
+
+    sess_p = nsp_sub.add_parser("sessions", help="List recent profiling sessions")
+    sess_p.add_argument("--name", "-n", default=None, help="Filter by session name")
+    sess_p.add_argument("--last", "-l", type=int, default=20, help="Number to show")
+    sess_p.set_defaults(func=_cmd_nexusscope_sessions)
+
+    rep_p = nsp_sub.add_parser("report", help="Render profiling report")
+    rep_p.add_argument("--name", "-n", default=None, help="Session name filter")
+    rep_p.add_argument("--format", "-f", choices=["text", "html", "json", "speedscope"],
+                       default="text", help="Output format")
+    rep_p.add_argument("--output", "-o", default=None, help="Write to file")
+    rep_p.set_defaults(func=_cmd_nexusscope_report)
+
+
+def _cmd_nexusscope_sessions(args):
+    try:
+        from orchestrator.infrastructure.nexusscope import get_profiler
+        profiler = get_profiler()
+        sessions = profiler.get_sessions(name=getattr(args, 'name', None),
+                                         last_n=getattr(args, 'last', 20))
+        if not sessions:
+            print("No profiling sessions recorded.")
+            return
+        print(f"{'Name':<30} {'Duration (ms)':<15} {'Has Profile':<12}")
+        print("-" * 60)
+        for s in sessions:
+            has_p = "Yes" if s._profiler else "No"
+            print(f"{s.name:<30} {s.duration_ms:<15.2f} {has_p:<12}")
+    except ImportError:
+        print("NexusScope not available (install pyinstrument)")
+
+
+def _cmd_nexusscope_report(args):
+    try:
+        from orchestrator.infrastructure.nexusscope import get_profiler
+        profiler = get_profiler()
+        fmt = getattr(args, 'format', 'text')
+        rendered = profiler.render_last(name=getattr(args, 'name', None), fmt=fmt)
+        output = getattr(args, 'output', None)
+        if output:
+            Path(output).write_text(str(rendered))
+            print(f"Report written to: {output}")
+        else:
+            print(rendered)
+    except ImportError:
+        print("NexusScope not available (install pyinstrument)")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# chat — Interactive spec-gathering mode
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _chat_subparsers(subparsers) -> None:
+    """Register the 'chat' subcommand."""
+    p = subparsers.add_parser(
+        "chat",
+        help="Interactive mode — describe what you want to build in conversation",
+    )
+    p.add_argument(
+        "--budget", "-b",
+        type=float,
+        default=8.0,
+        help="Max LLM budget in USD for the build (default: 8.0)",
+    )
+    p.add_argument(
+        "--output-dir", "-o",
+        type=str,
+        default="",
+        help="Write generated files to this directory",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the final spec but do not start the build",
+    )
+    p.set_defaults(func=cmd_chat)
+
+
+def cmd_chat(args) -> int:
+    """Handle the 'chat' subcommand — launch the interactive session."""
+    from orchestrator.application.chat_cli import run_chat
+
+    asyncio.run(
+        run_chat(
+            budget=getattr(args, "budget", 8.0),
+            dry_run=getattr(args, "dry_run", False),
+            output_dir=getattr(args, "output_dir", ""),
+        )
+    )
+    return 0
 
 
 if __name__ == "__main__":

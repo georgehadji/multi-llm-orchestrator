@@ -327,6 +327,18 @@ class DashboardCore:
         async def websocket_endpoint(websocket: WebSocket):
             await self.handle_websocket(websocket)
 
+        @app.get("/chat")
+        async def chat_page():
+            """Interactive spec-gathering chat UI."""
+            from .chat_view import render_chat_page
+            return HTMLResponse(content=render_chat_page())
+
+        @app.websocket("/ws/chat")
+        async def chat_ws_endpoint(websocket: WebSocket):
+            """WebSocket endpoint for the conversation agent."""
+            from .chat_view import handle_chat_websocket
+            await handle_chat_websocket(websocket)
+
         self._app = app
         return app
 
