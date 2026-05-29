@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from ..models import Model, TaskResult, TaskType
 
 if TYPE_CHECKING:
-    from ..api_clients import UnifiedClient
+    from ..domain.ports import LLMClient
     from ..cache import DiskCache
     from ..cost_optimization import CacheOptimizer, OptimizationConfig
     from ..semantic_cache import SemanticCache
@@ -61,7 +61,7 @@ class TaskExecutor:
 
     def __init__(
         self,
-        client: UnifiedClient,
+        client: LLMClient,
         cache: DiskCache,
         semantic_cache: SemanticCache,
         cache_optimizer: CacheOptimizer | None,
@@ -206,7 +206,7 @@ class TaskExecutor:
             )
 
         # Fallback to semantic cache
-        if cached_result is None and not dependency_context:
+        if cached_result is None and not dependency_context and self.semantic_cache is not None:
             cached_output = self.semantic_cache.get_cached_pattern(task)
             if cached_output:
                 cached_result = {

@@ -50,8 +50,9 @@ class ModelHealthTracker:
         """Record a successful API call; reset the circuit breaker counter."""
         self._consecutive_failures[model] = 0
 
-        await self._adaptive_router.record_success(model)
-        await self._adaptive_router.record_latency(model, response.latency_ms)
+        if self._adaptive_router is not None:
+            await self._adaptive_router.record_success(model)
+            await self._adaptive_router.record_latency(model, response.latency_ms)
 
         if self._dashboard is not None:
             try:
@@ -91,7 +92,9 @@ class ModelHealthTracker:
                     self._permanent_reason(error_str),
                 )
             # Permanently disable in the adaptive router for auth failures
-            if "401" in error_str or "invalid_authentication" in error_str.lower():
+            if self._adaptive_router is not None and (
+                "401" in error_str or "invalid_authentication" in error_str.lower()
+            ):
                 await self._adaptive_router.record_auth_failure(model)
             self._telemetry.record_call(model, latency_ms=0.0, cost_usd=0.0, success=False)
             return
@@ -107,7 +110,7 @@ class ModelHealthTracker:
                 "Could not persist circuit breaker state for %s: %s", model.value, cb_err
             )
 
-        if self._is_timeout(error_str, error):
+        if self._adaptive_router is not None and self._is_timeout(error_str, error):
             await self._adaptive_router.record_timeout(model)
 
         self._telemetry.record_call(model, latency_ms=0.0, cost_usd=0.0, success=False)
