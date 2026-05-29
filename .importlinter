@@ -70,5 +70,6 @@ source_modules =
     orchestrator.engine_core.pipeline_runner
     orchestrator.engine_core.project_planner
     orchestrator.engine_core.state_coordinator
+    orchestrator.engine_core.stages
 forbidden_modules =
     orchestrator.infrastructure

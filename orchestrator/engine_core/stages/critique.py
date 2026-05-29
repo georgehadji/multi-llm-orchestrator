@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from ..pipeline import PipelineContext
-from ...api_clients import UnifiedClient
+from ...domain.ports import LLMClient
 from ...models import Model, TaskType
 
 logger = logging.getLogger("orchestrator.engine_core.stages.critique")
@@ -22,7 +22,7 @@ class CritiqueStage:
 
     def __init__(
         self,
-        client: UnifiedClient,
+        client: LLMClient,
         get_reviewer_fn: object = None,
     ) -> None:
         self._client = client
