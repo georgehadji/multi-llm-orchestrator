@@ -1,9 +1,8 @@
 """
 Unit tests for orchestrator.application.model_health_tracker.ModelHealthTracker
 
-P3-2 of REFACTORING_PLAN_V7.md — extracted from engine._record_success/_record_failure.
-
-Write tests FIRST (TDD RED phase), then implement the class.
+M6 update: constructor no longer accepts consecutive_failures/api_health by
+reference.  Tests now read state back through the tracker's own properties.
 """
 
 from __future__ import annotations
@@ -12,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from orchestrator.models import Model, TaskStatus
+from orchestrator.models import Model
 
 
 pytestmark = pytest.mark.asyncio
@@ -50,22 +49,15 @@ def _make_tracker(threshold: int = 3, initial_failures: dict | None = None):
     state_mgr = MagicMock()
     state_mgr.save_circuit_breaker_state = AsyncMock()
 
-    consecutive_failures = dict.fromkeys(Model, 0)
-    if initial_failures:
-        consecutive_failures.update(initial_failures)
-
-    api_health = dict.fromkeys(Model, True)
-
     tracker = ModelHealthTracker(
         telemetry=telemetry,
-        consecutive_failures=consecutive_failures,
-        api_health=api_health,
         dashboard=None,
         adaptive_router=adaptive_router,
         state_mgr=state_mgr,
         circuit_breaker_threshold=threshold,
+        initial_consecutive_failures=initial_failures,
     )
-    return tracker, consecutive_failures, api_health, telemetry, adaptive_router, state_mgr
+    return tracker, telemetry, adaptive_router, state_mgr
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -74,18 +66,17 @@ def _make_tracker(threshold: int = 3, initial_failures: dict | None = None):
 
 
 async def test_record_success_resets_failure_counter():
-    tracker, failures, _, _, _, _ = _make_tracker()
+    tracker, _, _, _ = _make_tracker(initial_failures={Model.GPT_4O_MINI: 2})
     model = Model.GPT_4O_MINI
-    failures[model] = 2  # Pre-existing failures
 
     resp = _make_response()
     await tracker.record_success(model, resp)
 
-    assert failures[model] == 0
+    assert tracker.consecutive_failures.get(model, 0) == 0
 
 
 async def test_record_success_calls_telemetry():
-    tracker, _, _, telemetry, _, _ = _make_tracker()
+    tracker, telemetry, _, _ = _make_tracker()
     model = Model.GPT_4O_MINI
     resp = _make_response(latency_ms=123.0, cost_usd=0.005)
 
@@ -100,7 +91,7 @@ async def test_record_success_calls_telemetry():
 
 
 async def test_record_success_calls_adaptive_router():
-    tracker, _, _, _, adaptive_router, _ = _make_tracker()
+    tracker, _, adaptive_router, _ = _make_tracker()
     model = Model.GPT_4O_MINI
     resp = _make_response(latency_ms=50.0)
 
@@ -116,47 +107,47 @@ async def test_record_success_calls_adaptive_router():
 
 
 async def test_record_failure_increments_counter():
-    tracker, failures, _, _, _, _ = _make_tracker()
+    tracker, _, _, _ = _make_tracker()
     model = Model.GPT_4O_MINI
 
     await tracker.record_failure(model, error=Exception("timeout"))
 
-    assert failures[model] == 1
+    assert tracker.consecutive_failures.get(model, 0) == 1
 
 
 async def test_record_failure_does_not_trip_below_threshold():
-    tracker, _, api_health, _, _, _ = _make_tracker(threshold=3)
+    tracker, _, _, _ = _make_tracker(threshold=3)
     model = Model.GPT_4O_MINI
 
     await tracker.record_failure(model, error=Exception("err"))
     await tracker.record_failure(model, error=Exception("err"))  # 2 failures
 
-    assert api_health[model] is True  # Not yet at threshold
+    assert tracker.api_health.get(model, True) is True  # Not yet at threshold
 
 
 async def test_record_failure_trips_circuit_breaker_at_threshold():
-    tracker, _, api_health, _, _, _ = _make_tracker(threshold=3)
+    tracker, _, _, _ = _make_tracker(threshold=3)
     model = Model.GPT_4O_MINI
 
     for _ in range(3):
         await tracker.record_failure(model, error=Exception("transient"))
 
-    assert api_health[model] is False
+    assert tracker.api_health.get(model, True) is False
 
 
 async def test_record_failure_401_marks_unhealthy_immediately():
-    tracker, failures, api_health, _, _, _ = _make_tracker(threshold=3)
+    tracker, _, _, _ = _make_tracker(threshold=3)
     model = Model.GPT_4O_MINI
 
     await tracker.record_failure(model, error=Exception("401 unauthorized"))
 
     # Should mark unhealthy immediately without incrementing counter
-    assert api_health[model] is False
-    assert failures[model] == 0  # Not incremented for permanent errors
+    assert tracker.api_health.get(model, True) is False
+    assert tracker.consecutive_failures.get(model, 0) == 0  # Not incremented for permanent
 
 
 async def test_record_failure_persists_circuit_breaker_state():
-    tracker, _, _, _, _, state_mgr = _make_tracker(threshold=3)
+    tracker, _, _, state_mgr = _make_tracker(threshold=3)
     model = Model.GPT_4O_MINI
 
     await tracker.record_failure(model, error=Exception("transient"))
@@ -165,9 +156,45 @@ async def test_record_failure_persists_circuit_breaker_state():
 
 
 async def test_record_failure_404_marks_unhealthy_immediately():
-    tracker, _, api_health, _, _, _ = _make_tracker(threshold=3)
+    tracker, _, _, _ = _make_tracker(threshold=3)
     model = Model.GPT_4O_MINI
 
     await tracker.record_failure(model, error=Exception("404 model not found"))
 
-    assert api_health[model] is False
+    assert tracker.api_health.get(model, True) is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# M6: state ownership
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+async def test_tracker_owns_its_dicts():
+    """M6: the tracker must not share its dicts with the caller."""
+    from orchestrator.application.model_health_tracker import ModelHealthTracker
+
+    init_failures = {Model.GPT_4O_MINI: 0}
+    tracker = ModelHealthTracker(
+        telemetry=MagicMock(),
+        dashboard=None,
+        adaptive_router=None,
+        state_mgr=MagicMock(save_circuit_breaker_state=AsyncMock()),
+        initial_consecutive_failures=init_failures,
+    )
+    # Mutating the original dict must NOT affect the tracker
+    init_failures[Model.GPT_4O_MINI] = 99
+    assert tracker.consecutive_failures.get(Model.GPT_4O_MINI, 0) == 0
+
+
+async def test_update_from_persisted_state():
+    """M6: update_from_persisted_state merges loaded state correctly."""
+    tracker, _, _, _ = _make_tracker(threshold=3)
+    model = Model.GPT_4O_MINI
+
+    tracker.update_from_persisted_state(
+        consecutive_failures={model: 2},
+        api_health={model: True},
+    )
+
+    assert tracker.consecutive_failures[model] == 2
+    assert tracker.api_health[model] is True

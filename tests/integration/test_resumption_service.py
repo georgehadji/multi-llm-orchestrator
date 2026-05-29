@@ -199,9 +199,10 @@ async def test_resume_updates_state_results():
     svc, _, _, _, _ = _make_service(execute_task_fn=execute_fn)
     state = _make_state(tasks={"t1": t1}, results={}, execution_order=["t1"])
 
-    await svc.resume(state)
+    # M7: resume returns a NEW state (immutable); original is unchanged
+    returned_state = await svc.resume(state)
 
-    assert state.results["t1"] is new_result
+    assert returned_state.results["t1"] is new_result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -221,10 +222,15 @@ async def test_resume_sets_final_status_from_callback():
     determine_fn.assert_called_once_with(state)
 
 
-async def test_resume_returns_updated_state():
+async def test_resume_returns_new_state():
+    """M7: resume must return a new ProjectState, not the input mutated in place."""
     svc, _, _, _, _ = _make_service()
     state = _make_state()
 
     returned = await svc.resume(state)
 
-    assert returned is state
+    # Should be a distinct object (immutable pattern)
+    assert returned is not state
+    # But should be a ProjectState with the correct type
+    from orchestrator.models import ProjectState
+    assert isinstance(returned, ProjectState)

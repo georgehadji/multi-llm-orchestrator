@@ -511,16 +511,17 @@ class Orchestrator:
         from .application.git_bridge import GitBridge as _GitBridge
         self._dashboard_bridge = _DashboardBridge(self._dashboard_integration)
         self._git_bridge = _GitBridge(self._git_integration)
-        # P3-2: ModelHealthTracker wraps circuit breaker + telemetry recording.
+        # M6: ModelHealthTracker now owns its dicts; pass existing state as
+        # initial values so persisted circuit-breaker counts are preserved.
         from .application.model_health_tracker import ModelHealthTracker as _ModelHealthTracker
         self._health_tracker = _ModelHealthTracker(
             telemetry=self._telemetry,
-            consecutive_failures=self._consecutive_failures,
-            api_health=self.api_health,
             dashboard=self._dashboard_bridge,
             adaptive_router=self._adaptive_router,
             state_mgr=self.state_mgr,
             circuit_breaker_threshold=self._CIRCUIT_BREAKER_THRESHOLD,
+            initial_consecutive_failures=self._consecutive_failures,
+            initial_api_health=self.api_health,
         )
         # P3-3: ResumptionService wraps _resume_project logic.
         from .application.resumption_service import ResumptionService as _ResumptionService
@@ -1052,6 +1053,11 @@ class Orchestrator:
                 )
         if persisted:
             logger.debug("Loaded circuit breaker state for %d models", len(persisted))
+        # M6: propagate loaded state into the tracker's own dicts
+        if hasattr(self, "_health_tracker") and self._health_tracker is not None:
+            self._health_tracker.update_from_persisted_state(
+                self._consecutive_failures, self.api_health
+            )
 
     # ─────────────────────────────────────────
     # Public API
