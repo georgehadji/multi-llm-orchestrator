@@ -1,293 +1,370 @@
-# Graph Report - E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator  (2026-05-26)
+# Graph Report - orchestrator  (2026-05-29)
 
 ## Corpus Check
-- 448 files · ~492,552 words
+- 810 files · ~500,000 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 14091 nodes · 54467 edges · 266 communities detected
-- Extraction: 36% EXTRACTED · 64% INFERRED · 0% AMBIGUOUS · INFERRED: 34882 edges (avg confidence: 0.54)
+- 19351 nodes · 82438 edges · 343 communities detected
+- Extraction: 34% EXTRACTED · 66% INFERRED · 0% AMBIGUOUS · INFERRED: 54552 edges (avg confidence: 0.54)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_ApplicationError|ApplicationError]]
-- [[_COMMUNITY_str|str]]
-- [[_COMMUNITY_StreamingPipeline|StreamingPipeline]]
-- [[_COMMUNITY_.add()|.add()]]
-- [[_COMMUNITY_Enum|Enum]]
-- [[_COMMUNITY_RuntimeError|RuntimeError]]
-- [[_COMMUNITY_cli.py|cli.py]]
-- [[_COMMUNITY_api_builder.py|api_builder.py]]
-- [[_COMMUNITY_BaseSearchProvider|BaseSearchProvider]]
-- [[_COMMUNITY_BaseModel|BaseModel]]
-- [[_COMMUNITY_IsolationConfig|IsolationConfig]]
-- [[_COMMUNITY_._extract_function_name()|._extract_function_name()]]
-- [[_COMMUNITY_ABC|ABC]]
-- [[_COMMUNITY_ValueError|ValueError]]
-- [[_COMMUNITY_StrEnum|StrEnum]]
-- [[_COMMUNITY_cli_nash.py|cli_nash.py]]
-- [[_COMMUNITY_health.py|health.py]]
-- [[_COMMUNITY_guardrails.py|guardrails.py]]
-- [[_COMMUNITY_gateway.py|gateway.py]]
-- [[_COMMUNITY_skills.py|skills.py]]
-- [[_COMMUNITY_nash_monitor.py|nash_monitor.py]]
-- [[_COMMUNITY_Exception|Exception]]
-- [[_COMMUNITY_.update()|.update()]]
-- [[_COMMUNITY_.qsize()|.qsize()]]
-- [[_COMMUNITY_.preflight_check()|.preflight_check()]]
-- [[_COMMUNITY_input_validation.py|input_validation.py]]
-- [[_COMMUNITY_multi_platform_generator.py|multi_platform_generator.py]]
-- [[_COMMUNITY_Plugin|Plugin]]
-- [[_COMMUNITY_DomainEvent|DomainEvent]]
-- [[_COMMUNITY_api_server.py|api_server.py]]
-- [[_COMMUNITY_image_generator.py|image_generator.py]]
-- [[_COMMUNITY_copy_generator.py|copy_generator.py]]
-- [[_COMMUNITY_frontend_security.py|frontend_security.py]]
-- [[_COMMUNITY_modes.py|modes.py]]
-- [[_COMMUNITY_context_sources.py|context_sources.py]]
-- [[_COMMUNITY_caching.py|caching.py]]
-- [[_COMMUNITY_breakpoints.py|breakpoints.py]]
-- [[_COMMUNITY_cicd_generator.py|cicd_generator.py]]
-- [[_COMMUNITY_ProjectSpec|ProjectSpec]]
-- [[_COMMUNITY_monitoring.py|monitoring.py]]
-- [[_COMMUNITY_dependency_scanner.py|dependency_scanner.py]]
-- [[_COMMUNITY_meta_config.py|meta_config.py]]
-- [[_COMMUNITY_rate_limiter.py|rate_limiter.py]]
-- [[_COMMUNITY_tenancy.py|tenancy.py]]
-- [[_COMMUNITY_provisioned_throughput.py|provisioned_throughput.py]]
-- [[_COMMUNITY_concurrency_controller.py|concurrency_controller.py]]
-- [[_COMMUNITY_cost_analytics.py|cost_analytics.py]]
-- [[_COMMUNITY_design_to_code.py|design_to_code.py]]
-- [[_COMMUNITY_metrics.py|metrics.py]]
-- [[_COMMUNITY_benchmark_suite.py|benchmark_suite.py]]
-- [[_COMMUNITY_PersonaSettings|PersonaSettings]]
-- [[_COMMUNITY_frontend_rules.py|frontend_rules.py]]
-- [[_COMMUNITY_indesign_plugin_rules.py|indesign_plugin_rules.py]]
-- [[_COMMUNITY_wordpress_plugin_rules.py|wordpress_plugin_rules.py]]
-- [[_COMMUNITY_agent_cache.py|agent_cache.py]]
-- [[_COMMUNITY_command_center.py|command_center.py]]
-- [[_COMMUNITY_command_registry.py|command_registry.py]]
-- [[_COMMUNITY_._session_file_path()|._session_file_path()]]
-- [[_COMMUNITY_DashboardHookRegistry|DashboardHookRegistry]]
-- [[_COMMUNITY_run_tests.py|run_tests.py]]
-- [[_COMMUNITY_log_capability_use()|log_capability_use()]]
-- [[_COMMUNITY_memory_compressor.py|memory_compressor.py]]
-- [[_COMMUNITY_constants.py|constants.py]]
-- [[_COMMUNITY_cli.py|cli.py]]
-- [[_COMMUNITY_fastapi.py|fastapi.py]]
-- [[_COMMUNITY_generic.py|generic.py]]
-- [[_COMMUNITY_html.py|html.py]]
-- [[_COMMUNITY_library.py|library.py]]
-- [[_COMMUNITY_nextjs.py|nextjs.py]]
-- [[_COMMUNITY_react_vite.py|react_vite.py]]
-- [[_COMMUNITY_Calculate risk score based on events and viol...|Calculate risk score based on events and viol...]]
-- [[_COMMUNITY_Create from dictionary.|Create from dictionary.]]
-- [[_COMMUNITY_Passed if no critical violations.|Passed if no critical violations.]]
-- [[_COMMUNITY_Human-readable summary.|Human-readable summary.]]
-- [[_COMMUNITY_Create mobile breakpoint specification.      ...|Create mobile breakpoint specification.      ...]]
-- [[_COMMUNITY_Create tablet breakpoint specification.      ...|Create tablet breakpoint specification.      ...]]
-- [[_COMMUNITY_Create desktop breakpoint specification.     ...|Create desktop breakpoint specification.     ...]]
-- [[_COMMUNITY_Create minimum width specification.          ...|Create minimum width specification.          ...]]
-- [[_COMMUNITY_Create maximum width specification.          ...|Create maximum width specification.          ...]]
-- [[_COMMUNITY_Get remaining budget excluding reserved amoun...|Get remaining budget excluding reserved amoun...]]
-- [[_COMMUNITY_Return phase budget limits (compatibility wit...|Return phase budget limits (compatibility wit...]]
-- [[_COMMUNITY_Check if this level is local (not requiring n...|Check if this level is local (not requiring n...]]
-- [[_COMMUNITY_Factory method to create an event with curren...|Factory method to create an event with curren...]]
-- [[_COMMUNITY_Create a checkpoint from a dictionary.|Create a checkpoint from a dictionary.]]
-- [[_COMMUNITY_Generate CICD configuration.          Args ...|Generate CI/CD configuration.          Args: ...]]
-- [[_COMMUNITY_Get provider name.          Returns         ...|Get provider name.          Returns:         ...]]
-- [[_COMMUNITY_Create from dictionary.|Create from dictionary.]]
-- [[_COMMUNITY_Render component as React code.|Render component as React code.]]
-- [[_COMMUNITY_Render form component.|Render form component.]]
-- [[_COMMUNITY_Render button component.|Render button component.]]
-- [[_COMMUNITY_Render input component.|Render input component.]]
-- [[_COMMUNITY_Render card component.|Render card component.]]
-- [[_COMMUNITY_Render table component.|Render table component.]]
-- [[_COMMUNITY_Render navigation component.|Render navigation component.]]
-- [[_COMMUNITY_Render generic component.|Render generic component.]]
-- [[_COMMUNITY_Render component as Vue code.|Render component as Vue code.]]
-- [[_COMMUNITY_Render form as Vue component.|Render form as Vue component.]]
-- [[_COMMUNITY_Render component as Svelte code.|Render component as Svelte code.]]
-- [[_COMMUNITY_Render form as Svelte component.|Render form as Svelte component.]]
-- [[_COMMUNITY_Get renderer for framework and component type...|Get renderer for framework and component type...]]
-- [[_COMMUNITY_Acquire budget slot for a job.          This ...|Acquire budget slot for a job.          This ...]]
-- [[_COMMUNITY_Number of available job slots.|Number of available job slots.]]
-- [[_COMMUNITY_Available cost budget in USD.|Available cost budget in USD.]]
-- [[_COMMUNITY_Currently active jobs and their reserved cost...|Currently active jobs and their reserved cost...]]
-- [[_COMMUNITY_Get singleton instance (async-safe).|Get singleton instance (async-safe).]]
-- [[_COMMUNITY_Get singleton instance (sync, for backward co...|Get singleton instance (sync, for backward co...]]
-- [[_COMMUNITY_Reset singleton (for testing).|Reset singleton (for testing).]]
-- [[_COMMUNITY_Load configuration from environment variables...|Load configuration from environment variables...]]
-- [[_COMMUNITY_Establish connection to the external system.|Establish connection to the external system.]]
-- [[_COMMUNITY_Close connection to the external system.|Close connection to the external system.]]
-- [[_COMMUNITY_Test if the connection is working.|Test if the connection is working.]]
-- [[_COMMUNITY_Estimate token count.|Estimate token count.]]
-- [[_COMMUNITY_Load context from the source.|Load context from the source.]]
-- [[_COMMUNITY_Search for relevant context chunks.|Search for relevant context chunks.]]
-- [[_COMMUNITY_Update the context source with new content.|Update the context source with new content.]]
-- [[_COMMUNITY_Estimate token count.|Estimate token count.]]
-- [[_COMMUNITY_Hook Define copy structure.          Subclas...|Hook: Define copy structure.          Subclas...]]
-- [[_COMMUNITY_Hook Generate content from structure.       ...|Hook: Generate content from structure.       ...]]
-- [[_COMMUNITY_Hook Validate generated content.          Su...|Hook: Validate generated content.          Su...]]
-- [[_COMMUNITY_Check if project is safe (no criticalhigh vu...|Check if project is safe (no critical/high vu...]]
-- [[_COMMUNITY_Scan project for vulnerabilities.          Ar...|Scan project for vulnerabilities.          Ar...]]
-- [[_COMMUNITY_Parse scanner output.          Args         ...|Parse scanner output.          Args:         ...]]
-- [[_COMMUNITY_Check if scanner is available (installed).   ...|Check if scanner is available (installed).   ...]]
-- [[_COMMUNITY_Set new scanner strategy.|Set new scanner strategy.]]
-- [[_COMMUNITY_Get deployment target.|Get deployment target.]]
-- [[_COMMUNITY_Get deployment status.|Get deployment status.]]
-- [[_COMMUNITY_Create a design system from a preset.|Create a design system from a preset.]]
-- [[_COMMUNITY_Load design system from YAML file.|Load design system from YAML file.]]
-- [[_COMMUNITY_Create DesignSystem from dictionary.|Create DesignSystem from dictionary.]]
-- [[_COMMUNITY_Calculate normalized distance between two hex...|Calculate normalized distance between two hex...]]
-- [[_COMMUNITY_Get base image for runtime.|Get base image for runtime.]]
-- [[_COMMUNITY_Get dependency installation command.|Get dependency installation command.]]
-- [[_COMMUNITY_Get health check configuration.|Get health check configuration.]]
-- [[_COMMUNITY_BaseOrchestrator|BaseOrchestrator]]
-- [[_COMMUNITY_Generate error handler.          Args       ...|Generate error handler.          Args:       ...]]
-- [[_COMMUNITY_Render component to HTML string.          Ret...|Render component to HTML string.          Ret...]]
-- [[_COMMUNITY_Get component props.          Returns       ...|Get component props.          Returns:       ...]]
-- [[_COMMUNITY_Create from dictionary.|Create from dictionary.]]
-- [[_COMMUNITY_Load configuration from environment variables...|Load configuration from environment variables...]]
-- [[_COMMUNITY_Create a new check run. Returns check run ID.|Create a new check run. Returns check run ID.]]
-- [[_COMMUNITY_Update an existing check run.|Update an existing check run.]]
-- [[_COMMUNITY_Post a PR comment. Returns comment ID.|Post a PR comment. Returns comment ID.]]
-- [[_COMMUNITY_Get existing PR comments for deduplication.|Get existing PR comments for deduplication.]]
-- [[_COMMUNITY_Create a new branch from base SHA.|Create a new branch from base SHA.]]
-- [[_COMMUNITY_Commit changes to a branch. Returns commit SH...|Commit changes to a branch. Returns commit SH...]]
-- [[_COMMUNITY_Create a new pull request. Returns PR number.|Create a new pull request. Returns PR number.]]
-- [[_COMMUNITY_Handle request, pass to next if can't handle....|Handle request, pass to next if can't handle....]]
-- [[_COMMUNITY_Create image generator.          Returns    ...|Create image generator.          Returns:    ...]]
-- [[_COMMUNITY_Get provider capabilities.          Returns ...|Get provider capabilities.          Returns: ...]]
-- [[_COMMUNITY_Check if provider is available.          Retu...|Check if provider is available.          Retu...]]
-- [[_COMMUNITY_Calculate compression ratio.|Calculate compression ratio.]]
-- [[_COMMUNITY_Calculate size reduction percentage.|Calculate size reduction percentage.]]
-- [[_COMMUNITY_Optimize image.          Args             im...|Optimize image.          Args:             im...]]
-- [[_COMMUNITY_Get output format.          Returns         ...|Get output format.          Returns:         ...]]
-- [[_COMMUNITY_Check if optimizer is available.          Ret...|Check if optimizer is available.          Ret...]]
-- [[_COMMUNITY_Process image data.          Args           ...|Process image data.          Args:           ...]]
-- [[_COMMUNITY_Format health status as GitHub Actions annota...|Format health status as GitHub Actions annota...]]
-- [[_COMMUNITY_Print a formatted health report.|Print a formatted health report.]]
-- [[_COMMUNITY_Load configuration from environment variables...|Load configuration from environment variables...]]
-- [[_COMMUNITY_Factory method to create appropriate service ...|Factory method to create appropriate service ...]]
-- [[_COMMUNITY_Create a new issue in the tracker.|Create a new issue in the tracker.]]
-- [[_COMMUNITY_Find an existing issue by signature (hash of ...|Find an existing issue by signature (hash of ...]]
-- [[_COMMUNITY_Add a comment linking an orchestrator run to ...|Add a comment linking an orchestrator run to ...]]
-- [[_COMMUNITY_Fetch backlog items for RICE scoring.        ...|Fetch backlog items for RICE scoring.        ...]]
-- [[_COMMUNITY_Update an issue with RICE score and priority....|Update an issue with RICE score and priority....]]
-- [[_COMMUNITY_Get issues resolved since a given time.      ...|Get issues resolved since a given time.      ...]]
-- [[_COMMUNITY_Calculate RICE score.          RICE = (Reach ...|Calculate RICE score.          RICE = (Reach ...]]
-- [[_COMMUNITY_Calculate RICE from a backlog item using mapp...|Calculate RICE from a backlog item using mapp...]]
-- [[_COMMUNITY_Infer impact score from issue labels.|Infer impact score from issue labels.]]
-- [[_COMMUNITY_Generate logging configuration.|Generate logging configuration.]]
-- [[_COMMUNITY_Create a memory entry from a dictionary.|Create a memory entry from a dictionary.]]
-- [[_COMMUNITY_Create configuration from dictionary.        ...|Create configuration from dictionary.        ...]]
-- [[_COMMUNITY_Load configuration from YAML file.          A...|Load configuration from YAML file.          A...]]
-- [[_COMMUNITY_Load configuration from environment variables...|Load configuration from environment variables...]]
-- [[_COMMUNITY_Create a gauge metric.|Create a gauge metric.]]
-- [[_COMMUNITY_Create a counter metric.|Create a counter metric.]]
-- [[_COMMUNITY_Get timeout for a specific model.          Ar...|Get timeout for a specific model.          Ar...]]
-- [[_COMMUNITY_Get cost information for a model.          Ar...|Get cost information for a model.          Ar...]]
-- [[_COMMUNITY_Get maximum tokens for a model.          Args...|Get maximum tokens for a model.          Args...]]
-- [[_COMMUNITY_Check if a model ID is valid (not unavailable...|Check if a model ID is valid (not unavailable...]]
-- [[_COMMUNITY_Get replacement model for an unavailabledepr...|Get replacement model for an unavailable/depr...]]
-- [[_COMMUNITY_Check if model is a coding specialist.|Check if model is a coding specialist.]]
-- [[_COMMUNITY_Check if model is a reasoning specialist.|Check if model is a reasoning specialist.]]
-- [[_COMMUNITY_Check if model is in budget tier.|Check if model is in budget tier.]]
-- [[_COMMUNITY_Check if model is in premium tier.|Check if model is in premium tier.]]
-- [[_COMMUNITY_Check if model supports 200K+ context.|Check if model supports 200K+ context.]]
-- [[_COMMUNITY_Check if model supports image + text input (v...|Check if model supports image + text input (v...]]
-- [[_COMMUNITY_Get list of all valid model IDs.|Get list of all valid model IDs.]]
-- [[_COMMUNITY_Get all models for a specific provider.      ...|Get all models for a specific provider.      ...]]
-- [[_COMMUNITY_Get the cheapest model by average cost.|Get the cheapest model by average cost.]]
-- [[_COMMUNITY_Validate all model IDs against the registry. ...|Validate all model IDs against the registry. ...]]
-- [[_COMMUNITY_REFINED (Round 2) Async-safe singleton gette...|REFINED (Round 2): Async-safe singleton gette...]]
-- [[_COMMUNITY_Create and initialize a new instance.|Create and initialize a new instance.]]
-- [[_COMMUNITY_Cleanup all instances on process exit.|Cleanup all instances on process exit.]]
-- [[_COMMUNITY_Deserialize from dict, handling conditional d...|Deserialize from dict, handling conditional d...]]
-- [[_COMMUNITY_Check if data should be stored in WAL based o...|Check if data should be stored in WAL based o...]]
-- [[_COMMUNITY_Acquire connection from pool.|Acquire connection from pool.]]
-- [[_COMMUNITY_Execute query with caching.|Execute query with caching.]]
-- [[_COMMUNITY_Create manifest from dictionary.|Create manifest from dictionary.]]
-- [[_COMMUNITY_Load manifest from plugin.json file.|Load manifest from plugin.json file.]]
-- [[_COMMUNITY_Calculate RICE score.|Calculate RICE score.]]
-- [[_COMMUNITY_Generate product roadmap visualization.|Generate product roadmap visualization.]]
-- [[_COMMUNITY_Calculate overall quality score (0-100).|Calculate overall quality score (0-100).]]
-- [[_COMMUNITY_Check if all quality gates passed.|Check if all quality gates passed.]]
-- [[_COMMUNITY_Calculate average test coverage.|Calculate average test coverage.]]
-- [[_COMMUNITY_Calculate overall quality score.|Calculate overall quality score.]]
-- [[_COMMUNITY_Run complete quality gate.          Pipeline...|Run complete quality gate.          Pipeline:...]]
-- [[_COMMUNITY_Get quality trends over time.|Get quality trends over time.]]
-- [[_COMMUNITY_Create uniform spacing.|Create uniform spacing.]]
-- [[_COMMUNITY_Create symmetric spacing.|Create symmetric spacing.]]
-- [[_COMMUNITY_Render component to HTMLCSS string.         ...|Render component to HTML/CSS string.         ...]]
-- [[_COMMUNITY_Add child component.          Args          ...|Add child component.          Args:          ...]]
-- [[_COMMUNITY_Get child components.          Returns      ...|Get child components.          Returns:      ...]]
-- [[_COMMUNITY_Aggressive retry strategy (more attempts, lon...|Aggressive retry strategy (more attempts, lon...]]
-- [[_COMMUNITY_Conservative retry strategy (fewer attempts, ...|Conservative retry strategy (fewer attempts, ...]]
-- [[_COMMUNITY_Fast-fail strategy (minimal retries for laten...|Fast-fail strategy (minimal retries for laten...]]
-- [[_COMMUNITY_Create from dictionary.|Create from dictionary.]]
-- [[_COMMUNITY_Run a command securely (no shell=True).      ...|Run a command securely (no shell=True).      ...]]
-- [[_COMMUNITY_Run a command asynchronously (no shell=True)....|Run a command asynchronously (no shell=True)....]]
-- [[_COMMUNITY_Sanitize a filename to prevent path traversal...|Sanitize a filename to prevent path traversal...]]
-- [[_COMMUNITY_Validate a Python identifier.          Args ...|Validate a Python identifier.          Args: ...]]
-- [[_COMMUNITY_Sanitize a git branch name.          Args   ...|Sanitize a git branch name.          Args:   ...]]
-- [[_COMMUNITY_Validate file has an allowed extension.      ...|Validate file has an allowed extension.      ...]]
-- [[_COMMUNITY_Hook Define the template structure.         ...|Hook: Define the template structure.         ...]]
-- [[_COMMUNITY_Hook Validate configuration (pure function)....|Hook: Validate configuration (pure function)....]]
-- [[_COMMUNITY_Determine memory tier based on age.|Determine memory tier based on age.]]
-- [[_COMMUNITY_Check if the client has a valid webhook URL.|Check if the client has a valid webhook URL.]]
-- [[_COMMUNITY_Format cost breakdown as a readable string.|Format cost breakdown as a readable string.]]
-- [[_COMMUNITY_Format top issues for display.|Format top issues for display.]]
-- [[_COMMUNITY_Build a complete Slack message from a run sum...|Build a complete Slack message from a run sum...]]
-- [[_COMMUNITY_Run a template and return the run ID.        ...|Run a template and return the run ID.        ...]]
-- [[_COMMUNITY_Get the dashboard URL for a run.|Get the dashboard URL for a run.]]
-- [[_COMMUNITY_Create test template.          Args         ...|Create test template.          Args:         ...]]
-- [[_COMMUNITY_Generate Jest configuration.|Generate Jest configuration.]]
-- [[_COMMUNITY_Generate Vitest configuration.|Generate Vitest configuration.]]
-- [[_COMMUNITY_Generate Pytest configuration.|Generate Pytest configuration.]]
-- [[_COMMUNITY_Generate Playwright configuration.|Generate Playwright configuration.]]
-- [[_COMMUNITY_Create workspace from dictionary.|Create workspace from dictionary.]]
-- [[_COMMUNITY_Calculate batch vs realtime ratio.|Calculate batch vs realtime ratio.]]
-- [[_COMMUNITY_Calculate early exit rate (exits at cheapmid...|Calculate early exit rate (exits at cheap/mid...]]
-- [[_COMMUNITY_Calculate cache hit rate.|Calculate cache hit rate.]]
-- [[_COMMUNITY_Calculate cheap model win rate.|Calculate cheap model win rate.]]
-- [[_COMMUNITY_Detect appropriate tech stack based on user r...|Detect appropriate tech stack based on user r...]]
-- [[_COMMUNITY_Calculate complexity score 1-4 based on keywo...|Calculate complexity score 1-4 based on keywo...]]
-- [[_COMMUNITY_Check if user wants a premium Awwwards-level ...|Check if user wants a premium Awwwards-level ...]]
-- [[_COMMUNITY_Check if user wants a static website.|Check if user wants a static website.]]
-- [[_COMMUNITY_Check if user wants a React application.|Check if user wants a React application.]]
-- [[_COMMUNITY_Check if user wants a full-stack application.|Check if user wants a full-stack application.]]
-- [[_COMMUNITY_Check if user wants a backend API.|Check if user wants a backend API.]]
-- [[_COMMUNITY_Generate premium Awwwards-level website with ...|Generate premium Awwwards-level website with ...]]
-- [[_COMMUNITY_Generate static HTMLCSSJS website.|Generate static HTML/CSS/JS website.]]
-- [[_COMMUNITY_Generate React + Vite application.|Generate React + Vite application.]]
-- [[_COMMUNITY_Generate FastAPI backend.|Generate FastAPI backend.]]
-- [[_COMMUNITY_Total number of unique sources.|Total number of unique sources.]]
-- [[_COMMUNITY_Create config from environment variables.|Create config from environment variables.]]
-- [[_COMMUNITY_Sliding-window error rate over last _window_s...|Sliding-window error rate over last _window_s...]]
-- [[_COMMUNITY_Deserialize from dictionary.|Deserialize from dictionary.]]
-- [[_COMMUNITY_Get or create singleton instance.|Get or create singleton instance.]]
-- [[_COMMUNITY_Deserialize from dictionary.|Deserialize from dictionary.]]
-- [[_COMMUNITY_Get remaining budget excluding reserved amoun...|Get remaining budget excluding reserved amoun...]]
-- [[_COMMUNITY_Return phase budget limits (compatibility wit...|Return phase budget limits (compatibility wit...]]
-- [[_COMMUNITY_Backward compatibility success = completed s...|Backward compatibility: success = completed s...]]
-- [[_COMMUNITY_Initialize provider resources.|Initialize provider resources.]]
-- [[_COMMUNITY_Release provider resources.|Release provider resources.]]
-- [[_COMMUNITY_Enrich a generation prompt with additional co...|Enrich a generation prompt with additional co...]]
-- [[_COMMUNITY_Execute the tool with the given parameters.|Execute the tool with the given parameters.]]
+- [[_COMMUNITY_A2A Protocol & Routing Core|A2A Protocol & Routing Core]]
+- [[_COMMUNITY_A2A Multi-Agent Communication|A2A Multi-Agent Communication]]
+- [[_COMMUNITY_API Builder & Integration Layer|API Builder & Integration Layer]]
+- [[_COMMUNITY_A2A Agent Card & Task Dispatch|A2A Agent Card & Task Dispatch]]
+- [[_COMMUNITY_Model Health & Agent Cache|Model Health & Agent Cache]]
+- [[_COMMUNITY_A2A Coordination & Messaging|A2A Coordination & Messaging]]
+- [[_COMMUNITY_Unified LLM Client|Unified LLM Client]]
+- [[_COMMUNITY_AB Testing & Accountability|A/B Testing & Accountability]]
+- [[_COMMUNITY_AB Testing Engine|A/B Testing Engine]]
+- [[_COMMUNITY_Event Store & Async Patterns|Event Store & Async Patterns]]
+- [[_COMMUNITY_Model Routing & Architecture Analysis|Model Routing & Architecture Analysis]]
+- [[_COMMUNITY_Application Assembly|Application Assembly]]
+- [[_COMMUNITY_Adaptive Query Depth Control|Adaptive Query Depth Control]]
+- [[_COMMUNITY_Plugin System & Tool Permissions|Plugin System & Tool Permissions]]
+- [[_COMMUNITY_Image Optimization Pipeline|Image Optimization Pipeline]]
+- [[_COMMUNITY_Codebase Analysis & Context Building|Codebase Analysis & Context Building]]
+- [[_COMMUNITY_Agent Model Registry|Agent Model Registry]]
+- [[_COMMUNITY_Web CLI  Site Generation|Web CLI / Site Generation]]
+- [[_COMMUNITY_Architecture Rules & NexusScope|Architecture Rules & NexusScope]]
+- [[_COMMUNITY_Caching Layer|Caching Layer]]
+- [[_COMMUNITY_Community 20|Community 20]]
+- [[_COMMUNITY_Community 21|Community 21]]
+- [[_COMMUNITY_Community 22|Community 22]]
+- [[_COMMUNITY_Community 23|Community 23]]
+- [[_COMMUNITY_Community 24|Community 24]]
+- [[_COMMUNITY_Community 25|Community 25]]
+- [[_COMMUNITY_Community 26|Community 26]]
+- [[_COMMUNITY_Community 27|Community 27]]
+- [[_COMMUNITY_Community 28|Community 28]]
+- [[_COMMUNITY_Community 29|Community 29]]
+- [[_COMMUNITY_Community 30|Community 30]]
+- [[_COMMUNITY_Community 31|Community 31]]
+- [[_COMMUNITY_Community 32|Community 32]]
+- [[_COMMUNITY_Community 33|Community 33]]
+- [[_COMMUNITY_Community 34|Community 34]]
+- [[_COMMUNITY_Community 35|Community 35]]
+- [[_COMMUNITY_Community 36|Community 36]]
+- [[_COMMUNITY_Community 37|Community 37]]
+- [[_COMMUNITY_Community 38|Community 38]]
+- [[_COMMUNITY_Community 39|Community 39]]
+- [[_COMMUNITY_Community 40|Community 40]]
+- [[_COMMUNITY_Community 41|Community 41]]
+- [[_COMMUNITY_Community 42|Community 42]]
+- [[_COMMUNITY_Community 43|Community 43]]
+- [[_COMMUNITY_Community 44|Community 44]]
+- [[_COMMUNITY_Community 45|Community 45]]
+- [[_COMMUNITY_Community 46|Community 46]]
+- [[_COMMUNITY_Community 47|Community 47]]
+- [[_COMMUNITY_Community 48|Community 48]]
+- [[_COMMUNITY_Community 49|Community 49]]
+- [[_COMMUNITY_Community 50|Community 50]]
+- [[_COMMUNITY_Community 51|Community 51]]
+- [[_COMMUNITY_Community 52|Community 52]]
+- [[_COMMUNITY_Community 53|Community 53]]
+- [[_COMMUNITY_Community 54|Community 54]]
+- [[_COMMUNITY_Community 55|Community 55]]
+- [[_COMMUNITY_Community 56|Community 56]]
+- [[_COMMUNITY_Community 57|Community 57]]
+- [[_COMMUNITY_Community 58|Community 58]]
+- [[_COMMUNITY_Community 59|Community 59]]
+- [[_COMMUNITY_Community 60|Community 60]]
+- [[_COMMUNITY_Community 61|Community 61]]
+- [[_COMMUNITY_Community 62|Community 62]]
+- [[_COMMUNITY_Community 63|Community 63]]
+- [[_COMMUNITY_Community 64|Community 64]]
+- [[_COMMUNITY_Community 65|Community 65]]
+- [[_COMMUNITY_Community 66|Community 66]]
+- [[_COMMUNITY_Community 67|Community 67]]
+- [[_COMMUNITY_Community 68|Community 68]]
+- [[_COMMUNITY_Community 69|Community 69]]
+- [[_COMMUNITY_Community 70|Community 70]]
+- [[_COMMUNITY_Community 71|Community 71]]
+- [[_COMMUNITY_Community 72|Community 72]]
+- [[_COMMUNITY_Community 73|Community 73]]
+- [[_COMMUNITY_Community 74|Community 74]]
+- [[_COMMUNITY_Community 75|Community 75]]
+- [[_COMMUNITY_Community 76|Community 76]]
+- [[_COMMUNITY_Community 77|Community 77]]
+- [[_COMMUNITY_Community 78|Community 78]]
+- [[_COMMUNITY_Community 79|Community 79]]
+- [[_COMMUNITY_Community 80|Community 80]]
+- [[_COMMUNITY_Community 81|Community 81]]
+- [[_COMMUNITY_Community 82|Community 82]]
+- [[_COMMUNITY_Community 83|Community 83]]
+- [[_COMMUNITY_Community 84|Community 84]]
+- [[_COMMUNITY_Community 85|Community 85]]
+- [[_COMMUNITY_Community 86|Community 86]]
+- [[_COMMUNITY_Community 87|Community 87]]
+- [[_COMMUNITY_Community 88|Community 88]]
+- [[_COMMUNITY_Community 89|Community 89]]
+- [[_COMMUNITY_Community 90|Community 90]]
+- [[_COMMUNITY_Community 91|Community 91]]
+- [[_COMMUNITY_Community 92|Community 92]]
+- [[_COMMUNITY_Community 93|Community 93]]
+- [[_COMMUNITY_Community 94|Community 94]]
+- [[_COMMUNITY_Community 95|Community 95]]
+- [[_COMMUNITY_Community 96|Community 96]]
+- [[_COMMUNITY_Community 98|Community 98]]
+- [[_COMMUNITY_Community 99|Community 99]]
+- [[_COMMUNITY_Community 100|Community 100]]
+- [[_COMMUNITY_Community 101|Community 101]]
+- [[_COMMUNITY_Community 102|Community 102]]
+- [[_COMMUNITY_Community 103|Community 103]]
+- [[_COMMUNITY_Community 104|Community 104]]
+- [[_COMMUNITY_Community 105|Community 105]]
+- [[_COMMUNITY_Community 106|Community 106]]
+- [[_COMMUNITY_Community 107|Community 107]]
+- [[_COMMUNITY_Community 108|Community 108]]
+- [[_COMMUNITY_Community 109|Community 109]]
+- [[_COMMUNITY_Community 110|Community 110]]
+- [[_COMMUNITY_Community 111|Community 111]]
+- [[_COMMUNITY_Community 112|Community 112]]
+- [[_COMMUNITY_Community 113|Community 113]]
+- [[_COMMUNITY_Community 114|Community 114]]
+- [[_COMMUNITY_Community 115|Community 115]]
+- [[_COMMUNITY_Community 116|Community 116]]
+- [[_COMMUNITY_Community 117|Community 117]]
+- [[_COMMUNITY_Community 118|Community 118]]
+- [[_COMMUNITY_Community 119|Community 119]]
+- [[_COMMUNITY_Community 120|Community 120]]
+- [[_COMMUNITY_Community 121|Community 121]]
+- [[_COMMUNITY_Community 122|Community 122]]
+- [[_COMMUNITY_Community 123|Community 123]]
+- [[_COMMUNITY_Community 124|Community 124]]
+- [[_COMMUNITY_Community 125|Community 125]]
+- [[_COMMUNITY_Community 126|Community 126]]
+- [[_COMMUNITY_Community 127|Community 127]]
+- [[_COMMUNITY_Community 128|Community 128]]
+- [[_COMMUNITY_Community 129|Community 129]]
+- [[_COMMUNITY_Community 130|Community 130]]
+- [[_COMMUNITY_Community 131|Community 131]]
+- [[_COMMUNITY_Community 132|Community 132]]
+- [[_COMMUNITY_Community 133|Community 133]]
+- [[_COMMUNITY_Community 134|Community 134]]
+- [[_COMMUNITY_Community 135|Community 135]]
+- [[_COMMUNITY_Community 136|Community 136]]
+- [[_COMMUNITY_Community 137|Community 137]]
+- [[_COMMUNITY_Community 138|Community 138]]
+- [[_COMMUNITY_Community 139|Community 139]]
+- [[_COMMUNITY_Community 140|Community 140]]
+- [[_COMMUNITY_Community 141|Community 141]]
+- [[_COMMUNITY_Community 142|Community 142]]
+- [[_COMMUNITY_Community 143|Community 143]]
+- [[_COMMUNITY_Community 144|Community 144]]
+- [[_COMMUNITY_Community 145|Community 145]]
+- [[_COMMUNITY_Community 146|Community 146]]
+- [[_COMMUNITY_Community 147|Community 147]]
+- [[_COMMUNITY_Community 148|Community 148]]
+- [[_COMMUNITY_Community 149|Community 149]]
+- [[_COMMUNITY_Community 150|Community 150]]
+- [[_COMMUNITY_Community 151|Community 151]]
+- [[_COMMUNITY_Community 152|Community 152]]
+- [[_COMMUNITY_Community 153|Community 153]]
+- [[_COMMUNITY_Community 154|Community 154]]
+- [[_COMMUNITY_Community 155|Community 155]]
+- [[_COMMUNITY_Community 156|Community 156]]
+- [[_COMMUNITY_Community 157|Community 157]]
+- [[_COMMUNITY_Community 158|Community 158]]
+- [[_COMMUNITY_Community 159|Community 159]]
+- [[_COMMUNITY_Community 160|Community 160]]
+- [[_COMMUNITY_Community 161|Community 161]]
+- [[_COMMUNITY_Community 162|Community 162]]
+- [[_COMMUNITY_Community 163|Community 163]]
+- [[_COMMUNITY_Community 164|Community 164]]
+- [[_COMMUNITY_Community 165|Community 165]]
+- [[_COMMUNITY_Community 166|Community 166]]
+- [[_COMMUNITY_Community 167|Community 167]]
+- [[_COMMUNITY_Community 168|Community 168]]
+- [[_COMMUNITY_Community 169|Community 169]]
+- [[_COMMUNITY_Community 170|Community 170]]
+- [[_COMMUNITY_Community 171|Community 171]]
+- [[_COMMUNITY_Community 172|Community 172]]
+- [[_COMMUNITY_Community 173|Community 173]]
+- [[_COMMUNITY_Community 174|Community 174]]
+- [[_COMMUNITY_Community 175|Community 175]]
+- [[_COMMUNITY_Community 176|Community 176]]
+- [[_COMMUNITY_Community 177|Community 177]]
+- [[_COMMUNITY_Community 178|Community 178]]
+- [[_COMMUNITY_Community 179|Community 179]]
+- [[_COMMUNITY_Community 180|Community 180]]
+- [[_COMMUNITY_Community 181|Community 181]]
+- [[_COMMUNITY_Community 182|Community 182]]
+- [[_COMMUNITY_Community 183|Community 183]]
+- [[_COMMUNITY_Community 184|Community 184]]
+- [[_COMMUNITY_Community 185|Community 185]]
+- [[_COMMUNITY_Community 186|Community 186]]
+- [[_COMMUNITY_Community 187|Community 187]]
+- [[_COMMUNITY_Community 188|Community 188]]
+- [[_COMMUNITY_Community 189|Community 189]]
+- [[_COMMUNITY_Community 190|Community 190]]
+- [[_COMMUNITY_Community 191|Community 191]]
+- [[_COMMUNITY_Community 192|Community 192]]
+- [[_COMMUNITY_Community 193|Community 193]]
+- [[_COMMUNITY_Community 194|Community 194]]
+- [[_COMMUNITY_Community 195|Community 195]]
+- [[_COMMUNITY_Community 196|Community 196]]
+- [[_COMMUNITY_Community 197|Community 197]]
+- [[_COMMUNITY_Community 198|Community 198]]
+- [[_COMMUNITY_Community 199|Community 199]]
+- [[_COMMUNITY_Community 200|Community 200]]
+- [[_COMMUNITY_Community 201|Community 201]]
+- [[_COMMUNITY_Community 202|Community 202]]
+- [[_COMMUNITY_Community 203|Community 203]]
+- [[_COMMUNITY_Community 204|Community 204]]
+- [[_COMMUNITY_Community 205|Community 205]]
+- [[_COMMUNITY_Community 206|Community 206]]
+- [[_COMMUNITY_Community 207|Community 207]]
+- [[_COMMUNITY_Community 208|Community 208]]
+- [[_COMMUNITY_Community 209|Community 209]]
+- [[_COMMUNITY_Community 210|Community 210]]
+- [[_COMMUNITY_Community 211|Community 211]]
+- [[_COMMUNITY_Community 212|Community 212]]
+- [[_COMMUNITY_Community 213|Community 213]]
+- [[_COMMUNITY_Community 214|Community 214]]
+- [[_COMMUNITY_Community 215|Community 215]]
+- [[_COMMUNITY_Community 216|Community 216]]
+- [[_COMMUNITY_Community 217|Community 217]]
+- [[_COMMUNITY_Community 218|Community 218]]
+- [[_COMMUNITY_Community 219|Community 219]]
+- [[_COMMUNITY_Community 220|Community 220]]
+- [[_COMMUNITY_Community 221|Community 221]]
+- [[_COMMUNITY_Community 222|Community 222]]
+- [[_COMMUNITY_Community 223|Community 223]]
+- [[_COMMUNITY_Community 224|Community 224]]
+- [[_COMMUNITY_Community 225|Community 225]]
+- [[_COMMUNITY_Community 226|Community 226]]
+- [[_COMMUNITY_Community 227|Community 227]]
+- [[_COMMUNITY_Community 228|Community 228]]
+- [[_COMMUNITY_Community 229|Community 229]]
+- [[_COMMUNITY_Community 230|Community 230]]
+- [[_COMMUNITY_Community 231|Community 231]]
+- [[_COMMUNITY_Community 232|Community 232]]
+- [[_COMMUNITY_Community 233|Community 233]]
+- [[_COMMUNITY_Community 234|Community 234]]
+- [[_COMMUNITY_Community 235|Community 235]]
+- [[_COMMUNITY_Community 236|Community 236]]
+- [[_COMMUNITY_Community 237|Community 237]]
+- [[_COMMUNITY_Community 238|Community 238]]
+- [[_COMMUNITY_Community 239|Community 239]]
+- [[_COMMUNITY_Community 240|Community 240]]
+- [[_COMMUNITY_Community 241|Community 241]]
+- [[_COMMUNITY_Community 242|Community 242]]
+- [[_COMMUNITY_Community 243|Community 243]]
+- [[_COMMUNITY_Community 244|Community 244]]
+- [[_COMMUNITY_Community 245|Community 245]]
+- [[_COMMUNITY_Community 246|Community 246]]
+- [[_COMMUNITY_Community 247|Community 247]]
+- [[_COMMUNITY_Community 248|Community 248]]
+- [[_COMMUNITY_Community 249|Community 249]]
+- [[_COMMUNITY_Community 250|Community 250]]
+- [[_COMMUNITY_Community 251|Community 251]]
+- [[_COMMUNITY_Community 252|Community 252]]
+- [[_COMMUNITY_Community 253|Community 253]]
+- [[_COMMUNITY_Community 254|Community 254]]
+- [[_COMMUNITY_Community 255|Community 255]]
+- [[_COMMUNITY_Community 256|Community 256]]
+- [[_COMMUNITY_Community 257|Community 257]]
+- [[_COMMUNITY_Community 258|Community 258]]
+- [[_COMMUNITY_Community 259|Community 259]]
+- [[_COMMUNITY_Community 260|Community 260]]
+- [[_COMMUNITY_Community 262|Community 262]]
+- [[_COMMUNITY_Community 263|Community 263]]
+- [[_COMMUNITY_Community 264|Community 264]]
+- [[_COMMUNITY_Community 265|Community 265]]
+- [[_COMMUNITY_Community 266|Community 266]]
+- [[_COMMUNITY_Community 267|Community 267]]
+- [[_COMMUNITY_Community 268|Community 268]]
+- [[_COMMUNITY_Community 269|Community 269]]
+- [[_COMMUNITY_Community 270|Community 270]]
+- [[_COMMUNITY_Community 271|Community 271]]
+- [[_COMMUNITY_Community 272|Community 272]]
+- [[_COMMUNITY_Community 273|Community 273]]
+- [[_COMMUNITY_Community 274|Community 274]]
+- [[_COMMUNITY_Community 275|Community 275]]
+- [[_COMMUNITY_Community 276|Community 276]]
+- [[_COMMUNITY_Community 277|Community 277]]
+- [[_COMMUNITY_Community 278|Community 278]]
+- [[_COMMUNITY_Community 279|Community 279]]
+- [[_COMMUNITY_Community 280|Community 280]]
+- [[_COMMUNITY_Community 281|Community 281]]
+- [[_COMMUNITY_Community 282|Community 282]]
+- [[_COMMUNITY_Community 283|Community 283]]
+- [[_COMMUNITY_Community 284|Community 284]]
+- [[_COMMUNITY_Community 285|Community 285]]
+- [[_COMMUNITY_Community 286|Community 286]]
+- [[_COMMUNITY_Community 287|Community 287]]
+- [[_COMMUNITY_Community 288|Community 288]]
+- [[_COMMUNITY_Community 293|Community 293]]
+- [[_COMMUNITY_Community 294|Community 294]]
+- [[_COMMUNITY_Community 295|Community 295]]
+- [[_COMMUNITY_Community 296|Community 296]]
+- [[_COMMUNITY_Community 297|Community 297]]
+- [[_COMMUNITY_Community 298|Community 298]]
+- [[_COMMUNITY_Community 299|Community 299]]
+- [[_COMMUNITY_Community 300|Community 300]]
+- [[_COMMUNITY_Community 301|Community 301]]
+- [[_COMMUNITY_Community 302|Community 302]]
+- [[_COMMUNITY_Community 303|Community 303]]
+- [[_COMMUNITY_Community 304|Community 304]]
+- [[_COMMUNITY_Community 305|Community 305]]
+- [[_COMMUNITY_Community 306|Community 306]]
+- [[_COMMUNITY_Community 307|Community 307]]
+- [[_COMMUNITY_Community 308|Community 308]]
+- [[_COMMUNITY_Community 309|Community 309]]
+- [[_COMMUNITY_Community 310|Community 310]]
+- [[_COMMUNITY_Community 311|Community 311]]
+- [[_COMMUNITY_Community 312|Community 312]]
+- [[_COMMUNITY_Community 313|Community 313]]
+- [[_COMMUNITY_Community 315|Community 315]]
+- [[_COMMUNITY_Community 316|Community 316]]
+- [[_COMMUNITY_Community 317|Community 317]]
+- [[_COMMUNITY_Community 318|Community 318]]
+- [[_COMMUNITY_Community 319|Community 319]]
+- [[_COMMUNITY_Community 320|Community 320]]
+- [[_COMMUNITY_Community 321|Community 321]]
+- [[_COMMUNITY_Community 322|Community 322]]
+- [[_COMMUNITY_Community 323|Community 323]]
+- [[_COMMUNITY_Community 324|Community 324]]
+- [[_COMMUNITY_Community 325|Community 325]]
+- [[_COMMUNITY_Community 326|Community 326]]
+- [[_COMMUNITY_Community 327|Community 327]]
+- [[_COMMUNITY_Community 328|Community 328]]
+- [[_COMMUNITY_Community 329|Community 329]]
+- [[_COMMUNITY_Community 330|Community 330]]
+- [[_COMMUNITY_Community 331|Community 331]]
+- [[_COMMUNITY_Community 332|Community 332]]
+- [[_COMMUNITY_Community 333|Community 333]]
+- [[_COMMUNITY_Community 334|Community 334]]
+- [[_COMMUNITY_Community 335|Community 335]]
+- [[_COMMUNITY_Community 336|Community 336]]
+- [[_COMMUNITY_Community 337|Community 337]]
+- [[_COMMUNITY_Community 338|Community 338]]
+- [[_COMMUNITY_Community 339|Community 339]]
+- [[_COMMUNITY_Community 340|Community 340]]
+- [[_COMMUNITY_Community 341|Community 341]]
+- [[_COMMUNITY_Community 342|Community 342]]
+- [[_COMMUNITY_Community 343|Community 343]]
+- [[_COMMUNITY_Community 344|Community 344]]
+- [[_COMMUNITY_Community 345|Community 345]]
+- [[_COMMUNITY_Community 346|Community 346]]
+- [[_COMMUNITY_Community 347|Community 347]]
+- [[_COMMUNITY_Community 348|Community 348]]
+- [[_COMMUNITY_Community 349|Community 349]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `Model` - 2117 edges
-2. `TaskType` - 1787 edges
-3. `Task` - 1274 edges
-4. `TaskResult` - 946 edges
-5. `UnifiedClient` - 757 edges
-6. `TaskStatus` - 661 edges
-7. `DiskCache` - 615 edges
-8. `ProjectState` - 487 edges
-9. `Budget` - 387 edges
-10. `Orchestrator` - 375 edges
+1. `Model` - 3043 edges
+2. `TaskType` - 2702 edges
+3. `Task` - 1817 edges
+4. `TaskResult` - 1239 edges
+5. `TaskStatus` - 934 edges
+6. `DiskCache` - 814 edges
+7. `UnifiedClient` - 757 edges
+8. `Budget` - 756 edges
+9. `ProjectState` - 751 edges
+10. `StateManager` - 506 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `UnifiedClient` --uses--> `Test Validator — Pre-validates Test Generation ================================`  [INFERRED]
@@ -301,1500 +378,1935 @@
 - `UnifiedClient` --uses--> `Generate correct import path for source file.`  [INFERRED]
   E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator\api_clients.py → E:\Documents\Vibe-Coding\Ai Orchestrator\orchestrator\test_validator.py
 
+## Hyperedges (group relationships)
+- **Skill Optimizer drives LLM Worker Skill Document Injection Loop** — skill_optimizer_meta, skill_code_generation, skill_code_review, skill_complex_reasoning, skill_creative_writing, skill_data_extraction, skill_evaluation, skill_summarization [INFERRED 0.85]
+- **Analytical Skills Cluster (reasoning, review, evaluation, extraction)** — skill_complex_reasoning, skill_code_review, skill_evaluation, skill_data_extraction [INFERRED 0.75]
+- **Generative Skills Cluster (code generation, creative writing, summarization)** — skill_code_generation, skill_creative_writing, skill_summarization [INFERRED 0.75]
+
 ## Communities
 
-### Community 0 - "ApplicationError"
+### Community 0 - "A2A Protocol & Routing Core"
 Cohesion: 0.0
-Nodes (1678): Get all impacts for an action., Get all cascading impacts (impacts from child actions)., ModelState, Adaptive Model Router — circuit breaker v2.  Per-model states:   HEALTHY   —, Record a timeout for a model (async-safe).          After timeout_threshold co, Record a successful call (async-safe).          Resets timeout counter and cle, Record an authentication failure (async-safe).          Permanently disables t, Record latency observation for EMA calculation (async-safe).          Args: (+1670 more)
+Nodes (2517): Result returned by A2AQueueManager.send_task().      Optional fields (output, sc, Result returned by A2AQueueManager.send_task().      Optional fields (output, sc, TaskResult, Record a timeout for a model (async-safe).          After timeout_threshold co, Record a successful call (async-safe).          Resets timeout counter and cle, Record an authentication failure (async-safe).          Permanently disables t, Record latency observation for EMA calculation (async-safe).          Args:, Return healthy candidate with lowest observed EMA latency (async-safe). (+2509 more)
 
-### Community 1 - "str"
+### Community 1 - "A2A Multi-Agent Communication"
 Cohesion: 0.0
-Nodes (566): Perform a health check on the external agent.          Returns:             bool, Get statistics about the coordinator.          Returns:             Dict with co, Action, Actor, DelegationRecord, Impact, Represents an actor that can perform actions., Represents a single action performed in the system.      This is the core unit (+558 more)
+Nodes (1746): A2AClient, A2AResponse, Async context manager entry., Async context manager entry., Async context manager exit., Async context manager exit., Establish connection to the external agent., Establish connection to the external agent. (+1738 more)
 
-### Community 2 - "StreamingPipeline"
-Cohesion: 0.03
-Nodes (717): AgentCard, Metadata card for a registered agent., Request to dispatch a task to a target agent., TaskSendRequest, AccountabilityTracker, ActionType, ActorType, Accountability Framework — Enhanced audit trail for responsibility tracking === (+709 more)
-
-### Community 3 - ".add()"
+### Community 2 - "API Builder & Integration Layer"
 Cohesion: 0.01
-Nodes (489): AgentSafetyProfile, Register a new agent in the safety system., Report a safety-relevant event from an agent.          Returns the event ID., Update agent's safety level based on risk score., Detect unsafe patterns in content (e.g., code, prompts).          Returns list, Safety profile for an individual agent., ProfileAggregator, ProductBacklog (+481 more)
+Nodes (596): APIEndpoint, APIIntegration, APIIntegrationBuilder, AuthType, from_dict(), get_api_builder(), HTTPMethod, import_from_openapi() (+588 more)
 
-### Community 4 - "Enum"
-Cohesion: 0.01
-Nodes (379): ABTestingEngine, BanditArm, cohens_d(), confidence_interval(), CUPEDAdjustment, Experiment, ExperimentOutcome, ExperimentResult (+371 more)
-
-### Community 5 - "RuntimeError"
-Cohesion: 0.01
-Nodes (356): AuthenticationError, _is_auth_error(), _is_rate_limit_error(), API Clients — Backward-compatibility shim =====================================, Normalized response from any provider., Async API client for OpenRouter exclusively with:     - Disk caching     - Retry, Initialize UnifiedClient.          Args:             cache: Disk cache for respo, Initialize OpenRouter client exclusively. (+348 more)
-
-### Community 6 - "cli.py"
-Cohesion: 0.01
-Nodes (376): AgentPool, Meta-controller for multiple Orchestrator instances.      Agents are registere, Register a named Orchestrator instance., Return a read-only copy of the registered agents dict., Run each assignment on its named agent concurrently.          Parameters, Return the ProjectState with the highest mean TaskResult.score.          Skips, Aggregate ModelProfile data from all registered agents into one dict., CodebaseAnalyzer (+368 more)
-
-### Community 7 - "api_builder.py"
-Cohesion: 0.01
-Nodes (294): APIEndpoint, APIIntegration, APIIntegrationBuilder, AuthType, from_dict(), get_api_builder(), HTTPMethod, import_from_openapi() (+286 more)
-
-### Community 8 - "BaseSearchProvider"
-Cohesion: 0.01
-Nodes (289): AdaptiveDepthController, get_controller(), Nexus Search — Adaptive Research Depth ======================================= A, Analyze query complexity and return depth adjustment.          Args:, Analyze initial result quality and return depth adjustment.          Args:, Decide whether to continue research iterations.          Enables early stopping, Get depth controller statistics., Get or create AdaptiveDepthController instance.      Args:         max_depth: Ma (+281 more)
-
-### Community 9 - "BaseModel"
-Cohesion: 0.01
-Nodes (275): PluginPhase, Permissions that a tool may require., Structured result from a tool execution., ToolPermission, ToolResult, BaseModel, BaseSettings, batch_call() (+267 more)
-
-### Community 10 - "IsolationConfig"
-Cohesion: 0.01
-Nodes (219): Quick liveness check., AVIFOptimizer, CompressStep, convert_to_avif(), convert_to_webp(), ImageFormat, ImageOptimizationPipeline, ImageOptimizer (+211 more)
-
-### Community 11 - "._extract_function_name()"
-Cohesion: 0.01
-Nodes (212): DocsGenerator, DocsGenerator — Auto-generates documentation from knowledge entries ============, Generate markdown documentation from a KnowledgeBase., Generate ARCHITECTURE.md from architecture decisions., Generate DECISIONS.md — chronological decision log., Write all docs to output_dir. Returns list of created files., FeedbackSDK, get_feedback_loop() (+204 more)
-
-### Community 12 - "ABC"
-Cohesion: 0.01
-Nodes (208): ABC, get_model_for(), Agent Model Registry — Centralised LLM model assignments per agent role ========, Look up a model for an agent role and tier.      Args:         role: The AgentRo, Verify every model in AGENT_MODELS is a valid Model enum member., _validate_all_models(), AgentBase, AgentBase (+200 more)
-
-### Community 13 - "ValueError"
-Cohesion: 0.01
-Nodes (187): BrowserTester, close_global_browser_tester(), get_global_browser_tester(), BrowserTesting — Browser-based testing =================================== Mod, Close the browser and clean up resources., Test a page by executing a series of steps.          Args:             url: U, Execute a single test step., Take a screenshot and return the path. (+179 more)
-
-### Community 14 - "StrEnum"
-Cohesion: 0.01
-Nodes (148): A2AClient, A2ACoordinator, A2AMessage, A2AResponse, A2ATask, AgentState, AgentType, get_global_a2a_coordinator() (+140 more)
-
-### Community 15 - "cli_nash.py"
-Cohesion: 0.01
-Nodes (167): main(), CLI Dashboard Command ===================== Run the Mission Control dashboard, _check_drift(), _create_backup(), _follow_events(), _list_backups(), _manual_tune(), nash_backup() (+159 more)
-
-### Community 16 - "health.py"
-Cohesion: 0.01
-Nodes (156): APIStyle, ArchitecturalStyle, ArchitectureAnalyzer, ArchitectureDecision, CodingStandard, create_architecture_rules(), DatabaseType, ProgrammingParadigm (+148 more)
-
-### Community 17 - "guardrails.py"
-Cohesion: 0.01
-Nodes (133): CapabilityEvent, CapabilityLogger, CapabilityType, create(), get_capability_logger(), log_capability(), log_capability_use(), Capability Usage Logger ======================= Tracks usage of system capabil (+125 more)
-
-### Community 18 - "gateway.py"
-Cohesion: 0.01
-Nodes (145): Subscribe to events (replaces hooks.py)., Unsubscribe from events., Async iterator for events (replaces streaming.py)., APIGateway, APIRequest, APIResponse, RateLimitInfo, Gateway — API gateway ==================== Module for handling API gateway fun (+137 more)
-
-### Community 19 - "skills.py"
-Cohesion: 0.01
-Nodes (125): configure_services(), Container, get_container(), Lifecycle, Lightweight dependency injection container., Register as singleton., Register as transient., Register using a factory function. (+117 more)
-
-### Community 20 - "nash_monitor.py"
-Cohesion: 0.02
-Nodes (124): _calculate_complexity(), detect_stack(), FileGenerators, generate_fastapi_backend(), generate_premium_website(), generate_react_app(), generate_static_site(), get_session() (+116 more)
-
-### Community 21 - "Exception"
-Cohesion: 0.03
-Nodes (107): AutonomousDebugger, DebugReport, FailureAnalysis, FixIteration, Autonomous Debugger — Self-Healing Test Fixer =================================, Main entry point: find and fix failing tests autonomously.                  Ar, Run one complete debug iteration., Analyze test failures to find root causes. (+99 more)
-
-### Community 22 - ".update()"
-Cohesion: 0.02
-Nodes (82): Get cache statistics., estimate_task_cost(), get_pricing_cache(), ModelPricing, PricingCache, PricingHealth, PricingTier, Pricing Cache with Graceful Degradation ======================================= (+74 more)
-
-### Community 23 - ".qsize()"
-Cohesion: 0.02
-Nodes (82): A2AQueueManager, Result returned by A2AQueueManager.send_task().      Optional fields (output, sc, Queue-based inter-agent message-passing manager.      Supports registering agent, Register an agent with an optional async message handler., Dispatch a task to the target agent and await its result., Cancel and remove responses whose deadline has passed.         Returns the numbe, TaskResult, Return the current number of messages in the queue. (+74 more)
-
-### Community 24 - ".preflight_check()"
-Cohesion: 0.04
-Nodes (92): generate_design_system_yaml(), CLI Command for DSDG Website Generation ========================================, Execute website generation., Generate a design system YAML file from a preset., Setup website generation subcommand., run_website_generation(), setup_website_parser(), ComponentRegistry (+84 more)
-
-### Community 25 - "input_validation.py"
-Cohesion: 0.02
-Nodes (75): ArrayField, BooleanField, create_login_schema(), create_register_schema(), DateField, EmailField, EnumField, JoiSchemaVisitor (+67 more)
-
-### Community 26 - "multi_platform_generator.py"
-Cohesion: 0.03
-Nodes (64): generate_multi_platform(), GeneratedFile, MultiPlatformGenerator, MultiPlatformResult, OutputTarget, PlatformOutput, ProjectOutputConfig, Multi-Platform Output Generator ================================ Author: Georg (+56 more)
-
-### Community 27 - "Plugin"
-Cohesion: 0.05
-Nodes (69): Plugin, PluginContext, PluginMetadata, PluginPriority, Plugin execution priority., Context passed to plugin hooks., Metadata about a plugin., Base class for all orchestrator plugins.      Plugins can hook into the orches (+61 more)
-
-### Community 28 - "DomainEvent"
-Cohesion: 0.03
-Nodes (63): DomainEvent, create(), DecomposeAction, DeleteEnhancementAction, DeleteTasksAction, EnhanceProjectAction, example(), ExecuteTasksAction (+55 more)
-
-### Community 29 - "api_server.py"
-Cohesion: 0.03
-Nodes (55): APIServer, get_server_instance(), APIServer — REST API server ========================== Module for providing a, REST API server for the orchestrator., Initialize the API server.          SECURITY:         - cors_origins: Configu, Enable CORS with configurable allowlist.          SECURITY FIX: No longer uses, Rate limiting middleware.          SECURITY: Prevents DoS and brute force atta, Request size limit middleware.          SECURITY: Prevents large payload DoS a (+47 more)
-
-### Community 30 - "image_generator.py"
-Cohesion: 0.03
-Nodes (57): FluxImageFactory, generate_image(), generate_images(), GeneratedImage, ImageFormat, ImageGenerationHandler, ImageGenerationRequest, ImageGenerator (+49 more)
-
-### Community 31 - "copy_generator.py"
-Cohesion: 0.03
-Nodes (53): AboutCopyGenerator, CopyConfig, CopyGenerator, CopyGeneratorFactory, CopyMemento, FAQCopyGenerator, generate_about_copy(), generate_faq_copy() (+45 more)
-
-### Community 32 - "frontend_security.py"
-Cohesion: 0.03
-Nodes (61): create_auth_component(), create_csrf_input_component(), create_csrf_meta_component(), create_password_input_component(), create_secure_form_component(), CSPDirective, CSPMetaTagComponent, CSPolicy (+53 more)
-
-### Community 33 - "modes.py"
-Cohesion: 0.06
-Nodes (53): get_global_mode(), get_global_mode_manager(), ModeConfig, ModeManager, OperationMode, Modes — Per-request behavioral modes ==================================== Module, Set the current operational mode., Get the current operational mode. (+45 more)
-
-### Community 34 - "context_sources.py"
-Cohesion: 0.04
-Nodes (40): APISource, BaseContextSource, ContextChunk, ContextSourceManager, DatabaseSource, DocumentSource, MemorySource, ContextSources — Multiple context sources ===================================== (+32 more)
-
-### Community 35 - "caching.py"
-Cohesion: 0.04
-Nodes (30): CacheBackend, cached(), CacheEntry, CacheLevel, get_cache(), InMemoryCache, MultiLayerCache, Multi-Layer Caching System ==========================  Hierarchical cache wit (+22 more)
-
-### Community 36 - "breakpoints.py"
-Cohesion: 0.04
-Nodes (45): BreakpointBuilder, BreakpointConfig, BreakpointSpecification, create_minimal_breakpoints(), create_mobile_first_breakpoints(), create_standard_breakpoints(), generate_responsive_css(), get_breakpoint_by_name() (+37 more)
-
-### Community 37 - "cicd_generator.py"
-Cohesion: 0.05
-Nodes (38): AzureDevOpsStrategy, CICDPipelineBuilder, CICDProvider, CICDStrategy, create_azure_devops_pipeline(), create_github_actions_pipeline(), create_gitlab_ci_pipeline(), GitHubActionsStrategy (+30 more)
-
-### Community 38 - "ProjectSpec"
+### Community 3 - "A2A Agent Card & Task Dispatch"
 Cohesion: 0.07
-Nodes (34): AppStoreAssetGenerator, AppStoreAssets, generate_app_store_assets(), App Store Asset Generator ========================== Author: Georgios-Chrysova, Initialize asset generator., Generate all App Store assets for a project.          Args:             proje, Generate app name (max 30 characters).          Args:             project: Pr, Generate app subtitle (max 30 characters).          Args:             project (+26 more)
+Nodes (655): AgentCard, Metadata card for a registered agent., Metadata card for a registered agent., Request to dispatch a task to a target agent., Request to dispatch a task to a target agent., TaskSendRequest, AccountabilityTracker, ActionType (+647 more)
 
-### Community 39 - "monitoring.py"
-Cohesion: 0.05
-Nodes (35): example(), HealthChecker, KPIDefinition, KPIReporter, KPIThreshold, KPITier, MetricSample, MetricsRegistry (+27 more)
+### Community 4 - "Model Health & Agent Cache"
+Cohesion: 0.0
+Nodes (481): ModelState, AgentCache, CachedResponse, load(), AgentCache — Hash-based response caching for agent calls ======================, A cached agent response with metadata., Hash-based cache for agent responses., Hash-based cache for agent responses. (+473 more)
 
-### Community 40 - "dependency_scanner.py"
-Cohesion: 0.05
-Nodes (34): auto_scan_project(), DependencyScanner, DependencyScannerContext, NpmAdapter, PipAdapter, Dependency Security Scanner — Adapter + Strategy Pattern =======================, Convert to dictionary., Strategy Pattern for different package managers.      Defines common interface f (+26 more)
+### Community 5 - "A2A Coordination & Messaging"
+Cohesion: 0.0
+Nodes (473): A2ACoordinator, A2AMessage, A2AQueueManager, A2ATask, AgentState, AgentType, get_global_a2a_coordinator(), MessagePart (+465 more)
 
-### Community 41 - "meta_config.py"
-Cohesion: 0.05
-Nodes (41): ABTestingConfig, AlertRule, ConfigError, from_dict(), from_env(), from_yaml(), get_config(), HITLConfig (+33 more)
+### Community 6 - "Unified LLM Client"
+Cohesion: 0.01
+Nodes (506): AuthenticationError, _is_auth_error(), _is_rate_limit_error(), API Clients — Backward-compatibility shim ======================================, Normalized response from any provider., Async API client for OpenRouter exclusively with:     - Disk caching     - Retry, Initialize UnifiedClient.          Args:             cache: Disk cache for respo, Initialize OpenRouter client exclusively. (+498 more)
 
-### Community 42 - "rate_limiter.py"
-Cohesion: 0.06
-Nodes (23): close_rate_limiter(), get_rate_limiter(), GrokRateLimiter, RateLimitExceeded, RateLimitState, Rate limits for a specific tier., Current rate limit state., Reset counters if minute has passed. (+15 more)
+### Community 7 - "A/B Testing & Accountability"
+Cohesion: 0.01
+Nodes (408): Flush all actions and impacts to a JSONL file., Flush all actions and impacts to a JSONL file., async_append_text(), async_append_text_locked(), async_file_exists(), async_mkdir_parents(), async_read_json(), async_read_text() (+400 more)
 
-### Community 43 - "tenancy.py"
-Cohesion: 0.07
-Nodes (24): Plan, PlanTier, SaaS-Ready Monetization Layer (Multi-Tenant Support) ==========================, Tracks tenant usage.      Attributes:         projects_this_month: Projects r, Reset monthly counters., Multi-tenant customer.      Attributes:         id: Unique tenant ID, Manages multi-tenant support with usage tracking and billing.      Features:, Initialize tenant manager.          Args:             storage_path: Path to s (+16 more)
+### Community 8 - "A/B Testing Engine"
+Cohesion: 0.01
+Nodes (439): ABTestingEngine, alpha(), BanditArm, beta(), cohens_d(), confidence_interval(), CUPEDAdjustment, Experiment (+431 more)
 
-### Community 44 - "provisioned_throughput.py"
-Cohesion: 0.06
-Nodes (25): CapacityType, CapacityUnit, close_throughput_manager(), get_throughput_manager(), ProvisionedThroughputConfig, ProvisionedThroughputManager, Provisioned Throughput Manager =============================== Author: Georgio, Manager for provisioned throughput capacity.      Features:     - Capacity tr (+17 more)
+### Community 9 - "Event Store & Async Patterns"
+Cohesion: 0.01
+Nodes (364): ABC, get_async_event_store(), Async Event Store — Non-blocking SQLite event persistence =====================, Get singleton AsyncEventStore instance., Reset singleton (for testing)., reset_async_event_store(), Poll for batch job results.          Args:             job: Batch job to poll, print_migration_guide() (+356 more)
 
-### Community 45 - "concurrency_controller.py"
-Cohesion: 0.06
-Nodes (19): ConcurrencyBudget, ConcurrencyStats, get_concurrency_budget(), get_instance_sync(), GlobalConcurrencyController, RateLimitedConcurrencyBudget, Concurrency Budget Controller — Prevent budget overspend via concurrent jobs ==, Explicitly release budget for a job.          Usually not needed - budget is r (+11 more)
+### Community 10 - "Model Routing & Architecture Analysis"
+Cohesion: 0.01
+Nodes (327): Adaptive Model Router — circuit breaker v2.  Per-model states:   HEALTHY   —, analyze_project(), ArchitectureAnalyzer, ArchitectureInsight, CodeIssue, CodeMetricsAnalyzer, _get_nexus_search(), ImprovementSuggester (+319 more)
 
-### Community 46 - "cost_analytics.py"
-Cohesion: 0.07
-Nodes (21): CostAnalytics, CostBreakdown, CostForecast, CostAnalytics — Cost analytics and forecasting ================================, Get the total cost across all tracked usage., Get a detailed cost breakdown., Calculate cost efficiency for each model (cost per token).          Returns:, Forecast costs for a given duration based on historical usage.          Args: (+13 more)
+### Community 11 - "Application Assembly"
+Cohesion: 0.01
+Nodes (341): AppAssembler, AssemblyReport, AppAssembler — writes TaskResult outputs to target files inside output_dir. Aut, Report of what the AppAssembler wrote and what it skipped., Writes TaskResult outputs to the correct file paths inside output_dir.      Us, Write each TaskResult.output to its task.target_path.          Parameters, For every .py file written, ensure all parent directories that are         Pyth, AppBuildResult (+333 more)
 
-### Community 47 - "design_to_code.py"
+### Community 12 - "Adaptive Query Depth Control"
+Cohesion: 0.01
+Nodes (305): AdaptiveDepthController, get_controller(), Nexus Search — Adaptive Research Depth ======================================= A, Analyze query complexity and return depth adjustment.          Args:, Analyze initial result quality and return depth adjustment.          Args:, Decide whether to continue research iterations.          Enables early stopping, Get depth controller statistics., Get or create AdaptiveDepthController instance.      Args:         max_depth: Ma (+297 more)
+
+### Community 13 - "Plugin System & Tool Permissions"
+Cohesion: 0.01
+Nodes (274): PluginPhase, Permissions that a tool may require., Structured result from a tool execution., Structured result from a tool execution., ToolPermission, ToolResult, BaseModel, batch_call() (+266 more)
+
+### Community 14 - "Image Optimization Pipeline"
+Cohesion: 0.01
+Nodes (216): AVIFOptimizer, compression_ratio(), CompressStep, convert_to_avif(), convert_to_webp(), get_format(), ImageFormat, ImageOptimizationPipeline (+208 more)
+
+### Community 15 - "Codebase Analysis & Context Building"
+Cohesion: 0.03
+Nodes (164): AnalysisFinding, CodebaseContext, QualityAnalyzer, CodebaseContext — Relevance ranker, LLM context builder, quality analyzer =====, Rank symbols by relevance to the objective.          Args:             object, Rank symbols by relevance to the objective.          Args:             object, Extract meaningful keywords from an objective string.          Strips common s, Extract meaningful keywords from an objective string.          Strips common s (+156 more)
+
+### Community 16 - "Agent Model Registry"
+Cohesion: 0.02
+Nodes (160): build_all_model_preferences(), get_default_model_preferences(), Agent Model Registry — Centralised LLM model assignments per agent role =======, Build model_preferences dicts for all agent roles.      Args:         tier: ", Convenience: get the default model_preferences for a single agent.      Args:, Verify every model in AGENT_MODELS is a valid Model enum member., Build model_preferences dicts for all agent roles.      Args:         tier: "bud, Convenience: get the default model_preferences for a single agent.      Args: (+152 more)
+
+### Community 17 - "Web CLI / Site Generation"
+Cohesion: 0.02
+Nodes (157): generate_design_system_yaml(), CLI Command for DSDG Website Generation =======================================, Execute website generation., Generate a design system YAML file from a preset., Setup website generation subcommand., run_website_generation(), setup_website_parser(), ComponentRegistry (+149 more)
+
+### Community 18 - "Architecture Rules & NexusScope"
+Cohesion: 0.01
+Nodes (135): Attempt to recover a truncated JSON response.          Tries to close open str, Attempt to recover a truncated JSON response.          Tries to close open str, _cmd_nexusscope_report(), _cmd_nexusscope_sessions(), NexusScopeConfig, Configuration for the NexusScope profiler., Decorators for NexusScope profiling., Push changes to GitHub.          Args:             changes: Changes to push (+127 more)
+
+### Community 19 - "Caching Layer"
+Cohesion: 0.01
+Nodes (155): age(), CacheBackend, cached(), CacheEntry, CacheLevel, clear(), close(), delete() (+147 more)
+
+### Community 20 - "Community 20"
+Cohesion: 0.02
+Nodes (115): create_git_hooks_from_env(), from_config(), GitHookContext, GitIntegrationHooks, Git Integration Hooks for Orchestrator Lifecycle ==============================, Called when orchestrator starts executing tasks., Called when orchestrator run completes. Updates check run with final status., Format detailed markdown output for check run. (+107 more)
+
+### Community 21 - "Community 21"
+Cohesion: 0.02
+Nodes (131): get_plugin_registry(), initialize(), Plugin, PluginContext, PluginMetadata, PluginPriority, PluginRegistry, Called before project execution starts.          Args:             context: P (+123 more)
+
+### Community 22 - "Community 22"
+Cohesion: 0.03
+Nodes (155): AutonomousDebugger, DebugReport, FailureAnalysis, FixIteration, Autonomous Debugger — Self-Healing Test Fixer =================================, Autonomous debugging system that fixes failing tests iteratively.      The deb, Main entry point: find and fix failing tests autonomously.                  Ar, Main entry point: find and fix failing tests autonomously.          Args: (+147 more)
+
+### Community 23 - "Community 23"
+Cohesion: 0.01
+Nodes (107): ContextCondenser, ContextCondensing — Context compression for long runs =========================, Condense context by summarization., Condense context by extracting key sentences based on keywords., Condense a dialogue by reducing the number of turns while preserving key informa, Compresses and condenses context to manage token usage in long-running processes, Initialize the context condenser., Condense the context to a target ratio of its original size.          Args: (+99 more)
+
+### Community 24 - "Community 24"
+Cohesion: 0.02
+Nodes (121): generate_multi_platform(), GeneratedFile, MultiPlatformGenerator, MultiPlatformResult, OutputTarget, PlatformOutput, ProjectOutputConfig, Multi-Platform Output Generator ================================ Author: Georg (+113 more)
+
+### Community 25 - "Community 25"
+Cohesion: 0.02
+Nodes (93): DashboardCore, Registry for dashboard views., List all registered views., Get the default view., Unified dashboard core with plugin-based views.      Single server handles all, Register a view plugin., Render a specific view.          Args:             view_name: Name of view to, Start streaming events to WebSocket clients. (+85 more)
+
+### Community 26 - "Community 26"
+Cohesion: 0.03
+Nodes (66): BuildStage, create_docker_compose(), create_dockerfile(), DockerComposeBuilder, DockerConfig, DockerfileBuilder, get_base_image(), get_build_command() (+58 more)
+
+### Community 27 - "Community 27"
+Cohesion: 0.02
+Nodes (84): ArrayField, BooleanField, create_login_schema(), create_register_schema(), DateField, EmailField, EnumField, JoiSchemaVisitor (+76 more)
+
+### Community 28 - "Community 28"
+Cohesion: 0.02
+Nodes (79): CapabilityEvent, CapabilityLogger, CapabilityType, get_capability_logger(), log_capability(), log_capability_use(), Capability Usage Logger ======================= Tracks usage of system capabil, Convert to dictionary for serialization. (+71 more)
+
+### Community 29 - "Community 29"
+Cohesion: 0.03
+Nodes (56): active_count(), active_jobs(), available_budget(), available_slots(), ConcurrencyBudget, ConcurrencyStats, get_concurrency_budget(), get_instance() (+48 more)
+
+### Community 30 - "Community 30"
+Cohesion: 0.04
+Nodes (60): create_generator(), FluxImageFactory, generate_image(), generate_images(), GeneratedImage, get_capabilities(), handle(), ImageFormat (+52 more)
+
+### Community 31 - "Community 31"
+Cohesion: 0.04
+Nodes (62): BacklogItem, BacklogSyncService, calculate(), create_issue(), fetch_backlog_issues(), find_existing_issue(), from_backlog_item(), from_env() (+54 more)
+
+### Community 32 - "Community 32"
 Cohesion: 0.08
-Nodes (20): DesignSpec, DesignToCodePipeline, GeneratedCode, Design-to-Code Pipeline (Multi-Modal Input) ===================================, Generated code from design spec., Convert visual designs to code specifications.      Pipeline:     1. Send scr, Initialize design-to-code pipeline.          Args:             client: LLM cl, Process image and extract UI specification.          Args:             image_ (+12 more)
+Nodes (63): PolicyViolation, Control Plane Service ===================== Orchestrates the full constraint-e, Return a list of validation error strings, or [] if valid., Produce a RoutingPlan by applying hard constraints + routing hints.          C, Delegate to Orchestrator, wiring in per-task monitor checks., Write an immutable structured audit record., Raised when JobSpecV2 / PolicySpecV2 fail static validation., Raised when the ReferenceMonitor denies the job pre-run. (+55 more)
 
-### Community 48 - "metrics.py"
+### Community 33 - "Community 33"
+Cohesion: 0.04
+Nodes (63): create_auth_component(), create_csrf_input_component(), create_csrf_meta_component(), create_password_input_component(), create_secure_form_component(), CSPDirective, CSPMetaTagComponent, CSPolicy (+55 more)
+
+### Community 34 - "Community 34"
+Cohesion: 0.04
+Nodes (55): AboutCopyGenerator, CopyConfig, CopyGenerator, CopyGeneratorFactory, CopyMemento, _define_structure(), FAQCopyGenerator, generate_about_copy() (+47 more)
+
+### Community 35 - "Community 35"
+Cohesion: 0.03
+Nodes (49): APIServer, get_server_instance(), APIServer — REST API server ========================== Module for providing a, REST API server for the orchestrator., Initialize the API server.          SECURITY:         - cors_origins: Configu, Enable CORS with configurable allowlist.          SECURITY FIX: No longer uses, Rate limiting middleware.          SECURITY: Prevents DoS and brute force atta, Request size limit middleware.          SECURITY: Prevents large payload DoS a (+41 more)
+
+### Community 36 - "Community 36"
+Cohesion: 0.04
+Nodes (49): BreakpointBuilder, BreakpointConfig, BreakpointSpecification, ContainerQueryBuilder, create_minimal_breakpoints(), create_mobile_first_breakpoints(), create_standard_breakpoints(), generate_responsive_css() (+41 more)
+
+### Community 37 - "Community 37"
+Cohesion: 0.06
+Nodes (40): create_loguru_config(), create_pino_config(), create_python_logging_config(), create_winston_config(), generate(), get_framework(), LogFormat, LoggingConfig (+32 more)
+
+### Community 38 - "Community 38"
+Cohesion: 0.05
+Nodes (35): ArticleBuilder, generate_opengraph(), OpenGraphBuilder, OpenGraphMetadata, ProductBuilder, OpenGraph Generator — Builder Pattern for Metadata ============================, Generate Schema.org JSON-LD structured data.          Returns:             JS, Convert to dictionary. (+27 more)
+
+### Community 39 - "Community 39"
+Cohesion: 0.06
+Nodes (46): create_component_test(), create_e2e_test(), create_template(), create_unit_test(), E2ETestPrototype, generate_jest_config(), generate_playwright_config(), generate_pytest_config() (+38 more)
+
+### Community 40 - "Community 40"
+Cohesion: 0.05
+Nodes (40): CapacityType, CapacityUnit, close_throughput_manager(), get_throughput_manager(), ProvisionedThroughputConfig, ProvisionedThroughputManager, Provisioned Throughput Manager =============================== Author: Georgio, Manager for provisioned throughput capacity.      Features:     - Capacity tr (+32 more)
+
+### Community 41 - "Community 41"
+Cohesion: 0.05
+Nodes (27): CostAnalytics, CostBreakdown, CostForecast, CostAnalytics — Cost analytics and forecasting ================================, Get the total cost across all tracked usage., Get a detailed cost breakdown., Calculate cost efficiency for each model (cost per token).          Returns:, Forecast costs for a given duration based on historical usage.          Args: (+19 more)
+
+### Community 42 - "Community 42"
+Cohesion: 0.05
+Nodes (33): BenchmarkProject, BenchmarkReport, BenchmarkResult, BenchmarkRunner, Competitive Benchmarking Engine ================================ Author: Georg, Aggregated benchmark report., Aggregated benchmark report., Generate markdown report for documentation. (+25 more)
+
+### Community 43 - "Community 43"
+Cohesion: 0.06
+Nodes (33): DesignSpec, DesignToCodePipeline, GeneratedCode, Design-to-Code Pipeline (Multi-Modal Input) ===================================, Generated code from design spec., Generated code from design spec., Convert visual designs to code specifications.      Pipeline:     1. Send scr, Convert visual designs to code specifications.      Pipeline:     1. Send scr (+25 more)
+
+### Community 44 - "Community 44"
 Cohesion: 0.07
-Nodes (17): AgentMetrics, AgentMetricsSnapshot, ConsoleExporter, JSONExporter, MetricsRegistry, PrometheusExporter, AgentMetrics — Per-agent observability tracking ================================, Writes the metrics dict to a JSON file with 2-space indentation.      The file (+9 more)
+Nodes (29): downtime_seconds(), get_circuit_breaker(), github_annotation(), IntegrationCircuitBreaker, IntegrationFailure, IntegrationHealth, IntegrationHealthReporter, IntegrationState (+21 more)
 
-### Community 49 - "benchmark_suite.py"
+### Community 45 - "Community 45"
+Cohesion: 0.06
+Nodes (22): Triggers — Event-driven triggers =============================== Module for ma, Remove a trigger.          Args:             trigger_id: ID of the trigger to, Register a custom condition function.          Args:             name: Name o, Register a custom action function.          Args:             name: Name of t, Evaluate a single trigger with the provided context.          Args:, Evaluate a condition expression against the context., Execute an action with the provided context., Evaluate all triggers with the provided context.          Args:             c (+14 more)
+
+### Community 46 - "Community 46"
 Cohesion: 0.08
-Nodes (19): BenchmarkProject, BenchmarkReport, BenchmarkResult, BenchmarkRunner, Competitive Benchmarking Engine ================================ Author: Georg, Aggregated benchmark report., Generate markdown report for documentation., Run benchmark suite and generate reports.      This provides verifiable, data- (+11 more)
+Nodes (27): _display_spec(), _launch_build(), _print_agent(), _print_confidence(), _print_divider(), _print_suggestions(), CLI chat mode — interactive spec-gathering session in the terminal.  Invoked via, Print a human-readable summary of the ProjectSpec. (+19 more)
 
-### Community 50 - "PersonaSettings"
+### Community 47 - "Community 47"
 Cohesion: 0.08
-Nodes (11): Persona, PersonaSettings, Get the full system prompt with persona additions., Set persona for a project.          Args:             project_id: The project, Get the persona for a project.          Returns the Persona object with all se, Get just the settings for a project., Create a custom persona with specific settings.          Returns a Persona tha, Apply persona settings to an orchestrator instance.          This configures t (+3 more)
+Nodes (19): CostAnalytics, CostBreakdown, CostForecast, CostAnalytics — Cost analytics and forecasting ================================, Get the total cost across all tracked usage., Get a detailed cost breakdown., Calculate cost efficiency for each model (cost per token).          Returns:, Forecast costs for a given duration based on historical usage.          Args: (+11 more)
 
-### Community 51 - "frontend_rules.py"
-Cohesion: 0.11
-Nodes (14): FrontendConfig, FrontendRules, generate_frontend_rules(), Front-End Web Development Rules ================================ Production-re, Initialize rules engine., Get template details., Get all available templates., Recommend template based on requirements. (+6 more)
+### Community 48 - "Community 48"
+Cohesion: 0.12
+Nodes (13): CodeCompleteCondition, CustomCondition, get_name(), get_streaming_optimizer(), QualityThresholdCondition, Streaming Optimizer — Response streaming with early termination ===============, RegexPatternCondition, reset_streaming_optimizer() (+5 more)
 
-### Community 52 - "indesign_plugin_rules.py"
-Cohesion: 0.11
+### Community 49 - "Community 49"
+Cohesion: 0.1
+Nodes (18): calculate_math(), SkillsExporter - SKILL.md files for Claude, Cursor, Copilot. ==================, Exports orchestrator skills for external AI agents., Export a skill as SKILL.md for specific agent targets.          Writes to: .ag, Export multiple skills at once., Generate default orchestrator skills for external agents., SkillExport, SkillsExporter (+10 more)
+
+### Community 50 - "Community 50"
+Cohesion: 0.12
 Nodes (14): generate_indesign_plugin_rules(), InDesignPluginRules, InDesignRulesConfig, Adobe InDesign Plugin Development Rules =======================================, Save rules file to output directory., Generate InDesign plugin rules file.      Args:         plugin_name: Name of, InDesign Plugin Rules Configuration., Adobe InDesign Plugin Development Rules Engine.      Provides comprehensive ru (+6 more)
 
-### Community 53 - "wordpress_plugin_rules.py"
-Cohesion: 0.11
+### Community 51 - "Community 51"
+Cohesion: 0.12
 Nodes (14): generate_wordpress_plugin_rules(), WordPress Plugin Development Rules ==================================== Compre, WordPress Plugin Rules Configuration., Initialize rules engine., Get architecture path details., Get all available architecture paths., Recommend architecture path based on requirements., Generate WordPress plugin configuration. (+6 more)
 
-### Community 54 - "agent_cache.py"
-Cohesion: 0.13
-Nodes (9): AgentCache, CachedResponse, load(), AgentCache — Hash-based response caching for agent calls ======================, A cached agent response with metadata., Hash-based cache for agent responses., Create a deterministic cache key from task parameters., Get a cached response. Returns None on miss or expiry. (+1 more)
+### Community 52 - "Community 52"
+Cohesion: 0.12
+Nodes (11): EntityRLSManager, EntityRLS - Row-level and field-level security rule generation. ===============, Generate SQL RLS statements for an entity., Validate that RLS policies are consistent for an entity., Generates row-level and field-level security policies for entities., Generate a standard row-level security policy.          Creates: "user can onl, Generate tenant-level isolation policy., Generate field-level visibility policy. (+3 more)
 
-### Community 55 - "command_center.py"
+### Community 53 - "Community 53"
+Cohesion: 0.12
+Nodes (18): format_x_results(), get_x_trends(), X Search Integration — Real-time X/Twitter Data ===============================, Convenience function to search X.      Usage:         results = await search_, Convenience function to search X.      Usage:         results = await search_, Convenience function to get X trends.      Usage:         trends = await get_, Convenience function to get X trends.      Usage:         trends = await get_, Format X search results as text summary.      Usage:         summary = format (+10 more)
+
+### Community 54 - "Community 54"
+Cohesion: 0.11
+Nodes (13): DriftDetectionResult, get_global_drift_detector(), ModelDriftMonitor, Drift — Drift detection ====================== Module for detecting and managi, Get statistics about drift detection., Result of a drift detection operation., Monitors drift in ML models used by the orchestrator., Initialize the model drift monitor.          Args:             detector: Drif (+5 more)
+
+### Community 55 - "Community 55"
+Cohesion: 0.11
+Nodes (15): UXDesignEnhancer — High-end UI/UX standards for generated frontends ============, Review generated code against UX standards.          Args:             html: Gen, Get the UX standards as an LLM system prompt injection., Calculate a UX quality score from 0.0 to 10.0., Reviews generated HTML/CSS/JS against UX standards.      Can be called by Develo, Generate a critique string for failed standards., Review generated code against UX standards.          Args:             html: Gen, A UX standard that generated code should follow. (+7 more)
+
+### Community 56 - "Community 56"
+Cohesion: 0.13
+Nodes (15): example(), get_best_model(), get_score(), ModelCapabilities, Phase-Aware Model Selection for ARA Pipelines v3.0 ============================, Capability profile for each model.     Scores 0-10 for each capability based on, Capability profile for each model.     Scores 0-10 for each capability based on, Get ultra-budget configuration (cheapest capable models). (+7 more)
+
+### Community 57 - "Community 57"
+Cohesion: 0.12
+Nodes (13): ExperienceBuffer, load(), ExperienceBuffer — Cross-task learning and strategy adaptation ================, Get the best-performing model for a task type., Record of a successful execution pattern., Remembers what worked and what didn't across tasks., Remembers what worked and what didn't across tasks., Record a successful execution. (+5 more)
+
+### Community 58 - "Community 58"
+Cohesion: 0.15
+Nodes (8): AIThread, MultiContextManager, MultipleContexts - Separate AI conversations, shared codebase. ================, Get a summary of all threads for context injection., Merge multiple threads into one., Manages multiple AI conversation threads sharing a codebase., Create a new AI conversation thread., Switch active conversation to another thread.
+
+### Community 59 - "Community 59"
+Cohesion: 0.14
+Nodes (9): ReleaseManager - Semantic versioning and release management. ==================, Generate changelog from all releases., Show what changed between two releases., Manages semantic versioning and release lifecycle., Bump version: major, minor, or patch., Create a new release in draft status., Publish a draft release., Release (+1 more)
+
+### Community 60 - "Community 60"
+Cohesion: 0.11
+Nodes (18): all_slash_commands(), command_aliases(), command_names(), CommandDef, commands_by_category(), Slash Command Registry — Single Source of Truth for CLI Commands ==============, Resolve a command name or alias to its CommandDef.      Handles leading slashe, Resolve a command name or alias to its CommandDef.      Handles leading slashes, (+10 more)
+
+### Community 61 - "Community 61"
+Cohesion: 0.12
+Nodes (14): OpenGraphGenerator, Generates perfect OpenGraph meta tags for any page., Generate complete OpenGraph and Twitter Card meta tags.          Args:, Get security rules as an LLM system prompt injection., Generate JSON-LD structured data for the website., Generate complete head section with OG tags and JSON-LD., Generates perfect OpenGraph meta tags for any page., Generate complete OpenGraph and Twitter Card meta tags.          Args: (+6 more)
+
+### Community 62 - "Community 62"
+Cohesion: 0.15
+Nodes (7): CallCost, CostTracker, CostTracker — Per-call cost visibility. =======================================, Return a one-line cost status., Cost of a single LLM API call., Tracks per-call cost with cumulative totals and history., Record a single call and update cumulatives.
+
+### Community 63 - "Community 63"
+Cohesion: 0.16
+Nodes (8): TwoWayGitSync - Pull external changes back into AI context. ===================, Detect what changed since last sync., Get content of changed files for AI context injection., Build AI context string from pulled changes., Syncs external git changes back into the AI context., Pull external changes from remote and return summary., SyncEvent, TwoWayGitSync
+
+### Community 64 - "Community 64"
+Cohesion: 0.22
+Nodes (6): KnowledgeSidebarData, KnowledgeSidebar - Context injection data provider for sidebar. ===============, Load the full content of a knowledge/skill item., Provides data for the knowledge/skills sidebar panel., Get all sidebar sections for the knowledge panel., SidebarSection
+
+### Community 65 - "Community 65"
+Cohesion: 0.16
+Nodes (6): PublishState, ProjectSiteSeparation - Dev workspace vs published site. ======================, Rollback site to a previous published version., Separates dev workspace from published site with explicit publish step., Publish the dev workspace to the site directory., SiteManager
+
+### Community 66 - "Community 66"
 Cohesion: 0.24
 Nodes (5): CCState, CommandCenter, main(), CommandCenter — Interactive NLP REPL for app development ======================, Interactive REPL. Runs the Orchestrator directly (not via subprocess).
 
-### Community 56 - "command_registry.py"
-Cohesion: 0.14
-Nodes (13): all_slash_commands(), command_aliases(), command_names(), CommandDef, commands_by_category(), Slash Command Registry — Single Source of Truth for CLI Commands ===============, Resolve a command name or alias to its CommandDef.      Handles leading slashes,, Group all commands by their category for help display.      Returns:         Dic (+5 more)
+### Community 67 - "Community 67"
+Cohesion: 0.2
+Nodes (3): JsonConfigAdapter, ConfigAdapter — Infrastructure adapter for architectural configuration ========, Loads configuration from the orchestrator/config directory.
 
-### Community 57 - "._session_file_path()"
+### Community 68 - "Community 68"
 Cohesion: 0.17
-Nodes (6): Get file path for session storage., Save session to disk., End the active session for a project., Summarize a session (placeholder for LLM summarization).          In productio, Archive a session to cold storage., Clean up sessions older than specified days.
+Nodes (8): Charge actual spend to budget (thread-safe)., Atomically reserve budget amount. Returns True if succeeded., FIX-001a: Atomically reserve budget amount.          Returns True if reservation, Convert reservation to actual charge., Release unused reservation., FIX-001a: Convert reservation to actual charge.          Should be called after, FIX-001a: Release unused reservation.          Should be called when task fails, Get or create asyncio.Lock lazily (must be called from async context).
 
-### Community 58 - "DashboardHookRegistry"
-Cohesion: 0.4
-Nodes (3): DashboardHookRegistry, Hook registry tailored for Mission Control to tie hooks to the dashboard server., Support decorator-based registration, e.g.:             @hooks.add(EventType.TA
+### Community 69 - "Community 69"
+Cohesion: 0.23
+Nodes (4): ProgressCollector, ProgressEvent, ProgressCollector - Streaming progress for dashboard UI. ======================, Collects streaming progress events for dashboard status bar.
 
-### Community 59 - "run_tests.py"
+### Community 70 - "Community 70"
+Cohesion: 0.18
+Nodes (5): Integration, SlashIntegrations - 100+ third-party integrations via slash commands. =========, Manages slash command integrations., Resolve a slash command to its integration and build request., SlashIntegrationManager
+
+### Community 71 - "Community 71"
+Cohesion: 0.27
+Nodes (9): get_hig_checklist(), get_ios_prompt(), inject_hig_context(), iOS/HIG-Aware Code Generation Prompts ====================================== A, Generate iOS-specific prompt with HIG guidelines.      Args:         project_, Get HIG compliance checklist.      Returns:         Dictionary with checklist, Validate code for HIG compliance.      Args:         code: Swift code to vali, Inject HIG context if target is iOS.      Args:         project_description: (+1 more)
+
+### Community 72 - "Community 72"
+Cohesion: 0.27
+Nodes (7): ProgressReporter, ProgressReporter — Formatted progress tables., Milestone, SprintPlanner — Sprint creation, milestone tracking, progress., Sprint, SprintPlanner, TaskInfo
+
+### Community 73 - "Community 73"
+Cohesion: 0.25
+Nodes (11): Protected Guidance Block Pattern, Patch JSON Format for Skill Optimization, Score Threshold for No-Op Optimization, Code Generation Skill, Code Review Skill, Complex Reasoning Skill, Creative Writing Skill, Data Extraction Skill (+3 more)
+
+### Community 74 - "Community 74"
+Cohesion: 0.22
+Nodes (5): Check rate limit — no-op stub (limits enforced via acquire())., Release reserved tokens — no-op stub., Record token usage — no-op stub., Set per-tenant limits — no-op stub., Set per-tenant limits — no-op stub.
+
+### Community 75 - "Community 75"
+Cohesion: 0.33
+Nodes (4): Get file path for session storage., Get file path for session storage., Clean up sessions older than specified days., Clean up sessions older than specified days.
+
+### Community 76 - "Community 76"
 Cohesion: 0.5
 Nodes (3): Minimal stub for running project tests., Run project tests if possible.      This is a lightweight placeholder so highe, run_project_tests()
 
-### Community 61 - "log_capability_use()"
+### Community 77 - "Community 77"
 Cohesion: 0.67
-Nodes (3): log_capability_use(), Decorator to automatically log capability usage., Decorator to automatically log capability usage.
+Nodes (2): Get the current session ID for an actor., Get the current session ID for an actor.
 
-### Community 62 - "memory_compressor.py"
+### Community 78 - "Community 78"
 Cohesion: 0.67
-Nodes (2): MemoryCompressor, Summarizes many similar patterns into lessons.
+Nodes (2): Get all failed actions., Get all failed actions.
 
-### Community 63 - "constants.py"
+### Community 79 - "Community 79"
+Cohesion: 0.67
+Nodes (2): Clear all tracked data., Clear all tracked data.
+
+### Community 80 - "Community 80"
+Cohesion: 0.67
+Nodes (2): Get all actions performed by an actor., Get all actions performed by an actor.
+
+### Community 81 - "Community 81"
+Cohesion: 0.67
+Nodes (2): main(), CLI Dashboard Command ===================== Run the Mission Control dashboard
+
+### Community 82 - "Community 82"
+Cohesion: 0.67
+Nodes (2): Unregister an attack scenario., Unregister an attack scenario.
+
+### Community 83 - "Community 83"
+Cohesion: 0.67
+Nodes (2): List all registered scenarios., List all registered scenarios.
+
+### Community 84 - "Community 84"
+Cohesion: 0.67
+Nodes (2): Get usage statistics., Get usage statistics.
+
+### Community 85 - "Community 85"
 Cohesion: 1.0
-Nodes (1): Centralized Constants for AI Orchestrator ======================================
+Nodes (1): Centralized Constants for AI Orchestrator =====================================
 
-### Community 64 - "cli.py"
+### Community 86 - "Community 86"
 Cohesion: 1.0
 Nodes (1): CLI application scaffold template.  Author: Georgios-Chrysovalantis Chatzivant
 
-### Community 65 - "fastapi.py"
+### Community 87 - "Community 87"
 Cohesion: 1.0
 Nodes (1): FastAPI application scaffold template.  Author: Georgios-Chrysovalantis Chatzi
 
-### Community 66 - "generic.py"
+### Community 88 - "Community 88"
 Cohesion: 1.0
 Nodes (1): Generic/fallback scaffold template — used for unknown app types.  Author: Geor
 
-### Community 67 - "html.py"
+### Community 89 - "Community 89"
 Cohesion: 1.0
 Nodes (1): Vanilla HTML/CSS/JS scaffold template.  Provides a minimal frontend scaffold w
 
-### Community 68 - "library.py"
+### Community 90 - "Community 90"
 Cohesion: 1.0
 Nodes (1): Python library scaffold template.  Author: Georgios-Chrysovalantis Chatzivants
 
-### Community 69 - "nextjs.py"
+### Community 91 - "Community 91"
 Cohesion: 1.0
 Nodes (1): Next.js 14 + Tailwind CSS + Framer Motion scaffold template.  Provides a minim
 
-### Community 70 - "react_vite.py"
+### Community 92 - "Community 92"
 Cohesion: 1.0
 Nodes (1): React + Vite + TypeScript + Tailwind CSS scaffold template.  Provides a minima
 
-### Community 71 - "Calculate risk score based on events and viol..."
+### Community 93 - "Community 93"
 Cohesion: 1.0
 Nodes (1): Calculate risk score based on events and violations.
 
-### Community 72 - "Create from dictionary."
+### Community 94 - "Community 94"
 Cohesion: 1.0
 Nodes (1): Create from dictionary.
 
-### Community 73 - "Passed if no critical violations."
+### Community 95 - "Community 95"
 Cohesion: 1.0
 Nodes (1): Passed if no critical violations.
 
-### Community 74 - "Human-readable summary."
+### Community 96 - "Community 96"
 Cohesion: 1.0
 Nodes (1): Human-readable summary.
 
-### Community 76 - "Create mobile breakpoint specification.      ..."
+### Community 98 - "Community 98"
 Cohesion: 1.0
-Nodes (1): Create mobile breakpoint specification.          Returns:             Mobile spe
+Nodes (1): Create mobile breakpoint specification.          Returns:             Mobile
 
-### Community 77 - "Create tablet breakpoint specification.      ..."
+### Community 99 - "Community 99"
 Cohesion: 1.0
-Nodes (1): Create tablet breakpoint specification.          Returns:             Tablet spe
+Nodes (1): Create tablet breakpoint specification.          Returns:             Tablet
 
-### Community 78 - "Create desktop breakpoint specification.     ..."
+### Community 100 - "Community 100"
 Cohesion: 1.0
-Nodes (1): Create desktop breakpoint specification.          Returns:             Desktop s
+Nodes (1): Create desktop breakpoint specification.          Returns:             Deskto
 
-### Community 79 - "Create minimum width specification.          ..."
+### Community 101 - "Community 101"
 Cohesion: 1.0
-Nodes (1): Create minimum width specification.          Args:             width: Minimum wi
+Nodes (1): Create minimum width specification.          Args:             width: Minimum
 
-### Community 80 - "Create maximum width specification.          ..."
+### Community 102 - "Community 102"
 Cohesion: 1.0
-Nodes (1): Create maximum width specification.          Args:             width: Maximum wi
+Nodes (1): Create maximum width specification.          Args:             width: Maximum
 
-### Community 81 - "Get remaining budget excluding reserved amoun..."
+### Community 103 - "Community 103"
 Cohesion: 1.0
 Nodes (1): Get remaining budget excluding reserved amounts.
 
-### Community 82 - "Return phase budget limits (compatibility wit..."
+### Community 104 - "Community 104"
 Cohesion: 1.0
 Nodes (1): Return phase budget limits (compatibility with BudgetEnforcer).
 
-### Community 83 - "Check if this level is local (not requiring n..."
+### Community 105 - "Community 105"
 Cohesion: 1.0
 Nodes (1): Check if this level is local (not requiring network).
 
-### Community 84 - "Factory method to create an event with curren..."
+### Community 106 - "Community 106"
 Cohesion: 1.0
 Nodes (1): Factory method to create an event with current timestamp.
 
-### Community 85 - "Create a checkpoint from a dictionary."
+### Community 107 - "Community 107"
 Cohesion: 1.0
 Nodes (1): Create a checkpoint from a dictionary.
 
-### Community 86 - "Generate CI/CD configuration.          Args: ..."
+### Community 108 - "Community 108"
 Cohesion: 1.0
-Nodes (1): Generate CI/CD configuration.          Args:             config: Pipeline config
+Nodes (1): Generate CI/CD configuration.          Args:             config: Pipeline con
 
-### Community 87 - "Get provider name.          Returns:         ..."
+### Community 109 - "Community 109"
 Cohesion: 1.0
 Nodes (1): Get provider name.          Returns:             CI/CD provider
 
-### Community 88 - "Create from dictionary."
+### Community 110 - "Community 110"
 Cohesion: 1.0
 Nodes (1): Create from dictionary.
 
-### Community 89 - "Render component as React code."
+### Community 111 - "Community 111"
 Cohesion: 1.0
 Nodes (1): Render component as React code.
 
-### Community 90 - "Render form component."
+### Community 112 - "Community 112"
 Cohesion: 1.0
 Nodes (1): Render form component.
 
-### Community 91 - "Render button component."
+### Community 113 - "Community 113"
 Cohesion: 1.0
 Nodes (1): Render button component.
 
-### Community 92 - "Render input component."
+### Community 114 - "Community 114"
 Cohesion: 1.0
 Nodes (1): Render input component.
 
-### Community 93 - "Render card component."
+### Community 115 - "Community 115"
 Cohesion: 1.0
 Nodes (1): Render card component.
 
-### Community 94 - "Render table component."
+### Community 116 - "Community 116"
 Cohesion: 1.0
 Nodes (1): Render table component.
 
-### Community 95 - "Render navigation component."
+### Community 117 - "Community 117"
 Cohesion: 1.0
 Nodes (1): Render navigation component.
 
-### Community 96 - "Render generic component."
+### Community 118 - "Community 118"
 Cohesion: 1.0
 Nodes (1): Render generic component.
 
-### Community 97 - "Render component as Vue code."
+### Community 119 - "Community 119"
 Cohesion: 1.0
 Nodes (1): Render component as Vue code.
 
-### Community 98 - "Render form as Vue component."
+### Community 120 - "Community 120"
 Cohesion: 1.0
 Nodes (1): Render form as Vue component.
 
-### Community 99 - "Render component as Svelte code."
+### Community 121 - "Community 121"
 Cohesion: 1.0
 Nodes (1): Render component as Svelte code.
 
-### Community 100 - "Render form as Svelte component."
+### Community 122 - "Community 122"
 Cohesion: 1.0
 Nodes (1): Render form as Svelte component.
 
-### Community 101 - "Get renderer for framework and component type..."
+### Community 123 - "Community 123"
 Cohesion: 1.0
 Nodes (1): Get renderer for framework and component type.
 
-### Community 102 - "Acquire budget slot for a job.          This ..."
+### Community 124 - "Community 124"
 Cohesion: 1.0
 Nodes (1): Acquire budget slot for a job.          This is an atomic check-and-reserve op
 
-### Community 103 - "Number of available job slots."
+### Community 125 - "Community 125"
 Cohesion: 1.0
 Nodes (1): Number of available job slots.
 
-### Community 104 - "Available cost budget in USD."
+### Community 126 - "Community 126"
 Cohesion: 1.0
 Nodes (1): Available cost budget in USD.
 
-### Community 105 - "Currently active jobs and their reserved cost..."
+### Community 127 - "Community 127"
 Cohesion: 1.0
 Nodes (1): Currently active jobs and their reserved costs.
 
-### Community 106 - "Get singleton instance (async-safe)."
+### Community 128 - "Community 128"
 Cohesion: 1.0
 Nodes (1): Get singleton instance (async-safe).
 
-### Community 107 - "Get singleton instance (sync, for backward co..."
+### Community 129 - "Community 129"
 Cohesion: 1.0
 Nodes (1): Get singleton instance (sync, for backward compatibility).
 
-### Community 108 - "Reset singleton (for testing)."
+### Community 130 - "Community 130"
 Cohesion: 1.0
 Nodes (1): Reset singleton (for testing).
 
-### Community 109 - "Load configuration from environment variables..."
+### Community 131 - "Community 131"
 Cohesion: 1.0
 Nodes (1): Load configuration from environment variables.
 
-### Community 110 - "Establish connection to the external system."
+### Community 132 - "Community 132"
 Cohesion: 1.0
 Nodes (1): Establish connection to the external system.
 
-### Community 111 - "Close connection to the external system."
+### Community 133 - "Community 133"
 Cohesion: 1.0
 Nodes (1): Close connection to the external system.
 
-### Community 112 - "Test if the connection is working."
+### Community 134 - "Community 134"
 Cohesion: 1.0
 Nodes (1): Test if the connection is working.
 
-### Community 113 - "Estimate token count."
+### Community 135 - "Community 135"
 Cohesion: 1.0
 Nodes (1): Estimate token count.
 
-### Community 114 - "Load context from the source."
+### Community 136 - "Community 136"
 Cohesion: 1.0
 Nodes (1): Load context from the source.
 
-### Community 115 - "Search for relevant context chunks."
+### Community 137 - "Community 137"
 Cohesion: 1.0
 Nodes (1): Search for relevant context chunks.
 
-### Community 116 - "Update the context source with new content."
+### Community 138 - "Community 138"
 Cohesion: 1.0
 Nodes (1): Update the context source with new content.
 
-### Community 117 - "Estimate token count."
+### Community 139 - "Community 139"
 Cohesion: 1.0
 Nodes (1): Estimate token count.
 
-### Community 118 - "Hook: Define copy structure.          Subclas..."
+### Community 140 - "Community 140"
 Cohesion: 1.0
-Nodes (1): Hook: Define copy structure.          Subclasses implement to define their speci
+Nodes (1): Hook: Define copy structure.          Subclasses implement to define their spe
 
-### Community 119 - "Hook: Generate content from structure.       ..."
+### Community 141 - "Community 141"
 Cohesion: 1.0
-Nodes (1): Hook: Generate content from structure.          Subclasses implement content gen
+Nodes (1): Hook: Generate content from structure.          Subclasses implement content g
 
-### Community 120 - "Hook: Validate generated content.          Su..."
+### Community 142 - "Community 142"
 Cohesion: 1.0
-Nodes (1): Hook: Validate generated content.          Subclasses implement validation logic
+Nodes (1): Hook: Validate generated content.          Subclasses implement validation log
 
-### Community 122 - "Check if project is safe (no critical/high vu..."
+### Community 143 - "Community 143"
 Cohesion: 1.0
 Nodes (1): Check if project is safe (no critical/high vulnerabilities).
 
-### Community 123 - "Scan project for vulnerabilities.          Ar..."
+### Community 144 - "Community 144"
 Cohesion: 1.0
-Nodes (1): Scan project for vulnerabilities.          Args:             project_path: Path
+Nodes (1): Scan project for vulnerabilities.          Args:             project_path: Pa
 
-### Community 124 - "Parse scanner output.          Args:         ..."
+### Community 145 - "Community 145"
 Cohesion: 1.0
 Nodes (1): Parse scanner output.          Args:             output: Raw scanner output
 
-### Community 125 - "Check if scanner is available (installed).   ..."
+### Community 146 - "Community 146"
 Cohesion: 1.0
-Nodes (1): Check if scanner is available (installed).          Returns:             True if
+Nodes (1): Check if scanner is available (installed).          Returns:             True
 
-### Community 126 - "Set new scanner strategy."
+### Community 147 - "Community 147"
 Cohesion: 1.0
 Nodes (1): Set new scanner strategy.
 
-### Community 127 - "Get deployment target."
+### Community 148 - "Community 148"
 Cohesion: 1.0
 Nodes (1): Get deployment target.
 
-### Community 128 - "Get deployment status."
+### Community 149 - "Community 149"
 Cohesion: 1.0
 Nodes (1): Get deployment status.
 
-### Community 129 - "Create a design system from a preset."
+### Community 150 - "Community 150"
 Cohesion: 1.0
 Nodes (1): Create a design system from a preset.
 
-### Community 130 - "Load design system from YAML file."
+### Community 151 - "Community 151"
 Cohesion: 1.0
 Nodes (1): Load design system from YAML file.
 
-### Community 131 - "Create DesignSystem from dictionary."
+### Community 152 - "Community 152"
 Cohesion: 1.0
 Nodes (1): Create DesignSystem from dictionary.
 
-### Community 132 - "Calculate normalized distance between two hex..."
+### Community 153 - "Community 153"
 Cohesion: 1.0
 Nodes (1): Calculate normalized distance between two hex colors (0-1).
 
-### Community 133 - "Get base image for runtime."
+### Community 154 - "Community 154"
 Cohesion: 1.0
 Nodes (1): Get base image for runtime.
 
-### Community 134 - "Get dependency installation command."
+### Community 155 - "Community 155"
 Cohesion: 1.0
 Nodes (1): Get dependency installation command.
 
-### Community 135 - "Get health check configuration."
+### Community 156 - "Community 156"
 Cohesion: 1.0
 Nodes (1): Get health check configuration.
 
-### Community 136 - "BaseOrchestrator"
+### Community 157 - "Community 157"
 Cohesion: 1.0
 Nodes (1): BaseOrchestrator
 
-### Community 137 - "Generate error handler.          Args:       ..."
+### Community 158 - "Community 158"
 Cohesion: 1.0
-Nodes (1): Generate error handler.          Args:             config: Error configuration
+Nodes (1): Generate error handler.          Args:             config: Error configuratio
 
-### Community 138 - "Render component to HTML string.          Ret..."
+### Community 159 - "Community 159"
 Cohesion: 1.0
 Nodes (1): Render component to HTML string.          Returns:             HTML string
 
-### Community 139 - "Get component props.          Returns:       ..."
+### Community 160 - "Community 160"
 Cohesion: 1.0
 Nodes (1): Get component props.          Returns:             Props dictionary
 
-### Community 140 - "Create from dictionary."
+### Community 161 - "Community 161"
 Cohesion: 1.0
 Nodes (1): Create from dictionary.
 
-### Community 141 - "Load configuration from environment variables..."
+### Community 162 - "Community 162"
 Cohesion: 1.0
 Nodes (1): Load configuration from environment variables.
 
-### Community 142 - "Create a new check run. Returns check run ID."
+### Community 163 - "Community 163"
 Cohesion: 1.0
 Nodes (1): Create a new check run. Returns check run ID.
 
-### Community 143 - "Update an existing check run."
+### Community 164 - "Community 164"
 Cohesion: 1.0
 Nodes (1): Update an existing check run.
 
-### Community 144 - "Post a PR comment. Returns comment ID."
+### Community 165 - "Community 165"
 Cohesion: 1.0
 Nodes (1): Post a PR comment. Returns comment ID.
 
-### Community 145 - "Get existing PR comments for deduplication."
+### Community 166 - "Community 166"
 Cohesion: 1.0
 Nodes (1): Get existing PR comments for deduplication.
 
-### Community 146 - "Create a new branch from base SHA."
+### Community 167 - "Community 167"
 Cohesion: 1.0
 Nodes (1): Create a new branch from base SHA.
 
-### Community 147 - "Commit changes to a branch. Returns commit SH..."
+### Community 168 - "Community 168"
 Cohesion: 1.0
 Nodes (1): Commit changes to a branch. Returns commit SHA.
 
-### Community 148 - "Create a new pull request. Returns PR number."
+### Community 169 - "Community 169"
 Cohesion: 1.0
 Nodes (1): Create a new pull request. Returns PR number.
 
-### Community 149 - "Handle request, pass to next if can't handle...."
+### Community 170 - "Community 170"
 Cohesion: 1.0
-Nodes (1): Handle request, pass to next if can't handle.          Args:             request
+Nodes (1): Handle request, pass to next if can't handle.          Args:             requ
 
-### Community 150 - "Create image generator.          Returns:    ..."
+### Community 171 - "Community 171"
 Cohesion: 1.0
 Nodes (1): Create image generator.          Returns:             ImageGenerator instance
 
-### Community 151 - "Get provider capabilities.          Returns: ..."
+### Community 172 - "Community 172"
 Cohesion: 1.0
-Nodes (1): Get provider capabilities.          Returns:             Capabilities dictionary
+Nodes (1): Get provider capabilities.          Returns:             Capabilities diction
 
-### Community 152 - "Check if provider is available.          Retu..."
+### Community 173 - "Community 173"
 Cohesion: 1.0
-Nodes (1): Check if provider is available.          Returns:             True if available
+Nodes (1): Check if provider is available.          Returns:             True if availab
 
-### Community 153 - "Calculate compression ratio."
+### Community 174 - "Community 174"
 Cohesion: 1.0
 Nodes (1): Calculate compression ratio.
 
-### Community 154 - "Calculate size reduction percentage."
+### Community 175 - "Community 175"
 Cohesion: 1.0
 Nodes (1): Calculate size reduction percentage.
 
-### Community 155 - "Optimize image.          Args:             im..."
+### Community 176 - "Community 176"
 Cohesion: 1.0
 Nodes (1): Optimize image.          Args:             image_data: Input image data
 
-### Community 156 - "Get output format.          Returns:         ..."
+### Community 177 - "Community 177"
 Cohesion: 1.0
 Nodes (1): Get output format.          Returns:             Image format
 
-### Community 157 - "Check if optimizer is available.          Ret..."
+### Community 178 - "Community 178"
 Cohesion: 1.0
-Nodes (1): Check if optimizer is available.          Returns:             True if available
+Nodes (1): Check if optimizer is available.          Returns:             True if availa
 
-### Community 158 - "Process image data.          Args:           ..."
+### Community 179 - "Community 179"
 Cohesion: 1.0
 Nodes (1): Process image data.          Args:             image_data: Input image data
 
-### Community 159 - "Format health status as GitHub Actions annota..."
+### Community 180 - "Community 180"
 Cohesion: 1.0
 Nodes (1): Format health status as GitHub Actions annotation.
 
-### Community 160 - "Print a formatted health report."
+### Community 181 - "Community 181"
 Cohesion: 1.0
 Nodes (1): Print a formatted health report.
 
-### Community 161 - "Load configuration from environment variables..."
+### Community 182 - "Community 182"
 Cohesion: 1.0
 Nodes (1): Load configuration from environment variables.
 
-### Community 162 - "Factory method to create appropriate service ..."
+### Community 183 - "Community 183"
 Cohesion: 1.0
 Nodes (1): Factory method to create appropriate service from environment.
 
-### Community 163 - "Create a new issue in the tracker."
+### Community 184 - "Community 184"
 Cohesion: 1.0
 Nodes (1): Create a new issue in the tracker.
 
-### Community 164 - "Find an existing issue by signature (hash of ..."
+### Community 185 - "Community 185"
 Cohesion: 1.0
 Nodes (1): Find an existing issue by signature (hash of identifying fields).          Arg
 
-### Community 165 - "Add a comment linking an orchestrator run to ..."
+### Community 186 - "Community 186"
 Cohesion: 1.0
 Nodes (1): Add a comment linking an orchestrator run to an issue.
 
-### Community 166 - "Fetch backlog items for RICE scoring.        ..."
+### Community 187 - "Community 187"
 Cohesion: 1.0
 Nodes (1): Fetch backlog items for RICE scoring.          Args:             status_filte
 
-### Community 167 - "Update an issue with RICE score and priority...."
+### Community 188 - "Community 188"
 Cohesion: 1.0
 Nodes (1): Update an issue with RICE score and priority.          Args:             issu
 
-### Community 168 - "Get issues resolved since a given time.      ..."
+### Community 189 - "Community 189"
 Cohesion: 1.0
 Nodes (1): Get issues resolved since a given time.          Args:             since: Onl
 
-### Community 169 - "Calculate RICE score.          RICE = (Reach ..."
+### Community 190 - "Community 190"
 Cohesion: 1.0
 Nodes (1): Calculate RICE score.          RICE = (Reach × Impact × Confidence) / Effort
 
-### Community 170 - "Calculate RICE from a backlog item using mapp..."
+### Community 191 - "Community 191"
 Cohesion: 1.0
 Nodes (1): Calculate RICE from a backlog item using mapping config.
 
-### Community 171 - "Infer impact score from issue labels."
+### Community 192 - "Community 192"
 Cohesion: 1.0
 Nodes (1): Infer impact score from issue labels.
 
-### Community 172 - "Generate logging configuration."
+### Community 193 - "Community 193"
 Cohesion: 1.0
 Nodes (1): Generate logging configuration.
 
-### Community 173 - "Create a memory entry from a dictionary."
+### Community 194 - "Community 194"
 Cohesion: 1.0
 Nodes (1): Create a memory entry from a dictionary.
 
-### Community 174 - "Create configuration from dictionary.        ..."
+### Community 195 - "Community 195"
 Cohesion: 1.0
 Nodes (1): Create configuration from dictionary.          Args:             data: Config
 
-### Community 175 - "Load configuration from YAML file.          A..."
+### Community 196 - "Community 196"
 Cohesion: 1.0
 Nodes (1): Load configuration from YAML file.          Args:             path: Path to Y
 
-### Community 176 - "Load configuration from environment variables..."
+### Community 197 - "Community 197"
 Cohesion: 1.0
 Nodes (1): Load configuration from environment variables.          Environment variables:
 
-### Community 177 - "Create a gauge metric."
+### Community 198 - "Community 198"
 Cohesion: 1.0
 Nodes (1): Create a gauge metric.
 
-### Community 178 - "Create a counter metric."
+### Community 199 - "Community 199"
 Cohesion: 1.0
 Nodes (1): Create a counter metric.
 
-### Community 179 - "Get timeout for a specific model.          Ar..."
+### Community 200 - "Community 200"
 Cohesion: 1.0
 Nodes (1): Get timeout for a specific model.          Args:             model_id: Full mode
 
-### Community 180 - "Get cost information for a model.          Ar..."
+### Community 201 - "Community 201"
 Cohesion: 1.0
 Nodes (1): Get cost information for a model.          Args:             model_id: Full mode
 
-### Community 181 - "Get maximum tokens for a model.          Args..."
+### Community 202 - "Community 202"
 Cohesion: 1.0
 Nodes (1): Get maximum tokens for a model.          Args:             model_id: Full model
 
-### Community 182 - "Check if a model ID is valid (not unavailable..."
+### Community 203 - "Community 203"
 Cohesion: 1.0
 Nodes (1): Check if a model ID is valid (not unavailable/deprecated).          Args:
 
-### Community 183 - "Get replacement model for an unavailable/depr..."
+### Community 204 - "Community 204"
 Cohesion: 1.0
 Nodes (1): Get replacement model for an unavailable/deprecated model.          Args:
 
-### Community 184 - "Check if model is a coding specialist."
+### Community 205 - "Community 205"
 Cohesion: 1.0
 Nodes (1): Check if model is a coding specialist.
 
-### Community 185 - "Check if model is a reasoning specialist."
+### Community 206 - "Community 206"
 Cohesion: 1.0
 Nodes (1): Check if model is a reasoning specialist.
 
-### Community 186 - "Check if model is in budget tier."
+### Community 207 - "Community 207"
 Cohesion: 1.0
 Nodes (1): Check if model is in budget tier.
 
-### Community 187 - "Check if model is in premium tier."
+### Community 208 - "Community 208"
 Cohesion: 1.0
 Nodes (1): Check if model is in premium tier.
 
-### Community 188 - "Check if model supports 200K+ context."
+### Community 209 - "Community 209"
 Cohesion: 1.0
 Nodes (1): Check if model supports 200K+ context.
 
-### Community 189 - "Check if model supports image + text input (v..."
+### Community 210 - "Community 210"
 Cohesion: 1.0
 Nodes (1): Check if model supports image + text input (vision-capable).
 
-### Community 190 - "Get list of all valid model IDs."
+### Community 211 - "Community 211"
 Cohesion: 1.0
 Nodes (1): Get list of all valid model IDs.
 
-### Community 191 - "Get all models for a specific provider.      ..."
+### Community 212 - "Community 212"
 Cohesion: 1.0
 Nodes (1): Get all models for a specific provider.          Args:             provider: Pro
 
-### Community 192 - "Get the cheapest model by average cost."
+### Community 213 - "Community 213"
 Cohesion: 1.0
 Nodes (1): Get the cheapest model by average cost.
 
-### Community 193 - "Validate all model IDs against the registry. ..."
+### Community 214 - "Community 214"
 Cohesion: 1.0
 Nodes (1): Validate all model IDs against the registry.          Returns:             Dicti
 
-### Community 194 - "REFINED (Round 2): Async-safe singleton gette..."
+### Community 215 - "Community 215"
 Cohesion: 1.0
 Nodes (1): REFINED (Round 2): Async-safe singleton getter.          Finding #7 Fix: Use a
 
-### Community 195 - "Create and initialize a new instance."
+### Community 216 - "Community 216"
 Cohesion: 1.0
 Nodes (1): Create and initialize a new instance.
 
-### Community 196 - "Cleanup all instances on process exit."
+### Community 217 - "Community 217"
 Cohesion: 1.0
 Nodes (1): Cleanup all instances on process exit.
 
-### Community 197 - "Deserialize from dict, handling conditional d..."
+### Community 218 - "Community 218"
 Cohesion: 1.0
 Nodes (1): Deserialize from dict, handling conditional data storage.
 
-### Community 198 - "Check if data should be stored in WAL based o..."
+### Community 219 - "Community 219"
 Cohesion: 1.0
 Nodes (1): Check if data should be stored in WAL based on size.
 
-### Community 199 - "Acquire connection from pool."
-Cohesion: 1.0
-Nodes (1): Acquire connection from pool.
-
-### Community 200 - "Execute query with caching."
+### Community 220 - "Community 220"
 Cohesion: 1.0
 Nodes (1): Execute query with caching.
 
-### Community 201 - "Create manifest from dictionary."
+### Community 221 - "Community 221"
 Cohesion: 1.0
 Nodes (1): Create manifest from dictionary.
 
-### Community 202 - "Load manifest from plugin.json file."
+### Community 222 - "Community 222"
 Cohesion: 1.0
 Nodes (1): Load manifest from plugin.json file.
 
-### Community 203 - "Calculate RICE score."
+### Community 223 - "Community 223"
 Cohesion: 1.0
 Nodes (1): Calculate RICE score.
 
-### Community 204 - "Generate product roadmap visualization."
+### Community 224 - "Community 224"
 Cohesion: 1.0
 Nodes (1): Generate product roadmap visualization.
 
-### Community 205 - "Calculate overall quality score (0-100)."
+### Community 225 - "Community 225"
 Cohesion: 1.0
 Nodes (1): Calculate overall quality score (0-100).
 
-### Community 206 - "Check if all quality gates passed."
+### Community 226 - "Community 226"
 Cohesion: 1.0
 Nodes (1): Check if all quality gates passed.
 
-### Community 207 - "Calculate average test coverage."
+### Community 227 - "Community 227"
 Cohesion: 1.0
 Nodes (1): Calculate average test coverage.
 
-### Community 208 - "Calculate overall quality score."
+### Community 228 - "Community 228"
 Cohesion: 1.0
 Nodes (1): Calculate overall quality score.
 
-### Community 209 - "Run complete quality gate.          Pipeline:..."
+### Community 229 - "Community 229"
 Cohesion: 1.0
 Nodes (1): Run complete quality gate.          Pipeline:         1. Static analysis
 
-### Community 210 - "Get quality trends over time."
+### Community 230 - "Community 230"
 Cohesion: 1.0
 Nodes (1): Get quality trends over time.
 
-### Community 211 - "Create uniform spacing."
+### Community 231 - "Community 231"
 Cohesion: 1.0
 Nodes (1): Create uniform spacing.
 
-### Community 212 - "Create symmetric spacing."
+### Community 232 - "Community 232"
 Cohesion: 1.0
 Nodes (1): Create symmetric spacing.
 
-### Community 213 - "Render component to HTML/CSS string.         ..."
+### Community 233 - "Community 233"
 Cohesion: 1.0
-Nodes (1): Render component to HTML/CSS string.          Returns:             HTML/CSS stri
+Nodes (1): Render component to HTML/CSS string.          Returns:             HTML/CSS s
 
-### Community 214 - "Add child component.          Args:          ..."
+### Community 234 - "Community 234"
 Cohesion: 1.0
 Nodes (1): Add child component.          Args:             child: Child component
 
-### Community 215 - "Get child components.          Returns:      ..."
+### Community 235 - "Community 235"
 Cohesion: 1.0
 Nodes (1): Get child components.          Returns:             List of child components
 
-### Community 216 - "Aggressive retry strategy (more attempts, lon..."
+### Community 236 - "Community 236"
 Cohesion: 1.0
 Nodes (1): Aggressive retry strategy (more attempts, longer waits)
 
-### Community 217 - "Conservative retry strategy (fewer attempts, ..."
+### Community 237 - "Community 237"
 Cohesion: 1.0
 Nodes (1): Conservative retry strategy (fewer attempts, shorter waits)
 
-### Community 218 - "Fast-fail strategy (minimal retries for laten..."
+### Community 238 - "Community 238"
 Cohesion: 1.0
 Nodes (1): Fast-fail strategy (minimal retries for latency-critical ops)
 
-### Community 219 - "Create from dictionary."
+### Community 239 - "Community 239"
 Cohesion: 1.0
 Nodes (1): Create from dictionary.
 
-### Community 220 - "Run a command securely (no shell=True).      ..."
+### Community 240 - "Community 240"
 Cohesion: 1.0
 Nodes (1): Run a command securely (no shell=True).          Args:             command: L
 
-### Community 221 - "Run a command asynchronously (no shell=True)...."
+### Community 241 - "Community 241"
 Cohesion: 1.0
 Nodes (1): Run a command asynchronously (no shell=True).          Returns:             T
 
-### Community 222 - "Sanitize a filename to prevent path traversal..."
+### Community 242 - "Community 242"
 Cohesion: 1.0
 Nodes (1): Sanitize a filename to prevent path traversal and injection.          Args:
 
-### Community 223 - "Validate a Python identifier.          Args: ..."
+### Community 243 - "Community 243"
 Cohesion: 1.0
 Nodes (1): Validate a Python identifier.          Args:             identifier: String t
 
-### Community 224 - "Sanitize a git branch name.          Args:   ..."
+### Community 244 - "Community 244"
 Cohesion: 1.0
 Nodes (1): Sanitize a git branch name.          Args:             name: Branch name to s
 
-### Community 225 - "Validate file has an allowed extension.      ..."
+### Community 245 - "Community 245"
 Cohesion: 1.0
 Nodes (1): Validate file has an allowed extension.          Args:             filename:
 
-### Community 226 - "Hook: Define the template structure.         ..."
+### Community 246 - "Community 246"
 Cohesion: 1.0
-Nodes (1): Hook: Define the template structure.          Subclasses must implement this to
+Nodes (1): Hook: Define the template structure.          Subclasses must implement this t
 
-### Community 227 - "Hook: Validate configuration (pure function)...."
+### Community 247 - "Community 247"
 Cohesion: 1.0
-Nodes (1): Hook: Validate configuration (pure function).          Subclasses implement vali
+Nodes (1): Hook: Validate configuration (pure function).          Subclasses implement va
 
-### Community 228 - "Determine memory tier based on age."
+### Community 248 - "Community 248"
 Cohesion: 1.0
 Nodes (1): Determine memory tier based on age.
 
-### Community 229 - "Check if the client has a valid webhook URL."
+### Community 249 - "Community 249"
 Cohesion: 1.0
 Nodes (1): Check if the client has a valid webhook URL.
 
-### Community 230 - "Format cost breakdown as a readable string."
+### Community 250 - "Community 250"
 Cohesion: 1.0
 Nodes (1): Format cost breakdown as a readable string.
 
-### Community 231 - "Format top issues for display."
+### Community 251 - "Community 251"
 Cohesion: 1.0
 Nodes (1): Format top issues for display.
 
-### Community 232 - "Build a complete Slack message from a run sum..."
+### Community 252 - "Community 252"
 Cohesion: 1.0
 Nodes (1): Build a complete Slack message from a run summary payload.
 
-### Community 233 - "Run a template and return the run ID.        ..."
+### Community 253 - "Community 253"
 Cohesion: 1.0
 Nodes (1): Run a template and return the run ID.          Args:             template_nam
 
-### Community 234 - "Get the dashboard URL for a run."
+### Community 254 - "Community 254"
 Cohesion: 1.0
 Nodes (1): Get the dashboard URL for a run.
 
-### Community 235 - "Create test template.          Args:         ..."
+### Community 255 - "Community 255"
 Cohesion: 1.0
-Nodes (1): Create test template.          Args:             name: Test name             con
+Nodes (1): Create test template.          Args:             name: Test name
 
-### Community 236 - "Generate Jest configuration."
+### Community 256 - "Community 256"
 Cohesion: 1.0
 Nodes (1): Generate Jest configuration.
 
-### Community 237 - "Generate Vitest configuration."
+### Community 257 - "Community 257"
 Cohesion: 1.0
 Nodes (1): Generate Vitest configuration.
 
-### Community 238 - "Generate Pytest configuration."
+### Community 258 - "Community 258"
 Cohesion: 1.0
 Nodes (1): Generate Pytest configuration.
 
-### Community 239 - "Generate Playwright configuration."
+### Community 259 - "Community 259"
 Cohesion: 1.0
 Nodes (1): Generate Playwright configuration.
 
-### Community 240 - "Create workspace from dictionary."
+### Community 260 - "Community 260"
 Cohesion: 1.0
 Nodes (1): Create workspace from dictionary.
 
-### Community 242 - "Calculate batch vs realtime ratio."
+### Community 262 - "Community 262"
 Cohesion: 1.0
 Nodes (1): Calculate batch vs realtime ratio.
 
-### Community 243 - "Calculate early exit rate (exits at cheap/mid..."
+### Community 263 - "Community 263"
 Cohesion: 1.0
 Nodes (1): Calculate early exit rate (exits at cheap/mid tier).
 
-### Community 244 - "Calculate cache hit rate."
+### Community 264 - "Community 264"
 Cohesion: 1.0
 Nodes (1): Calculate cache hit rate.
 
-### Community 245 - "Calculate cheap model win rate."
+### Community 265 - "Community 265"
 Cohesion: 1.0
 Nodes (1): Calculate cheap model win rate.
 
-### Community 246 - "Detect appropriate tech stack based on user r..."
+### Community 266 - "Community 266"
 Cohesion: 1.0
 Nodes (1): Detect appropriate tech stack based on user request.          Returns:
 
-### Community 247 - "Calculate complexity score 1-4 based on keywo..."
+### Community 267 - "Community 267"
 Cohesion: 1.0
 Nodes (1): Calculate complexity score 1-4 based on keywords.
 
-### Community 248 - "Check if user wants a premium Awwwards-level ..."
+### Community 268 - "Community 268"
 Cohesion: 1.0
 Nodes (1): Check if user wants a premium Awwwards-level website.
 
-### Community 249 - "Check if user wants a static website."
+### Community 269 - "Community 269"
 Cohesion: 1.0
 Nodes (1): Check if user wants a static website.
 
-### Community 250 - "Check if user wants a React application."
+### Community 270 - "Community 270"
 Cohesion: 1.0
 Nodes (1): Check if user wants a React application.
 
-### Community 251 - "Check if user wants a full-stack application."
+### Community 271 - "Community 271"
 Cohesion: 1.0
 Nodes (1): Check if user wants a full-stack application.
 
-### Community 252 - "Check if user wants a backend API."
+### Community 272 - "Community 272"
 Cohesion: 1.0
 Nodes (1): Check if user wants a backend API.
 
-### Community 253 - "Generate premium Awwwards-level website with ..."
+### Community 273 - "Community 273"
 Cohesion: 1.0
 Nodes (1): Generate premium Awwwards-level website with Three.js 3D elements.
 
-### Community 254 - "Generate static HTML/CSS/JS website."
+### Community 274 - "Community 274"
 Cohesion: 1.0
 Nodes (1): Generate static HTML/CSS/JS website.
 
-### Community 255 - "Generate React + Vite application."
+### Community 275 - "Community 275"
 Cohesion: 1.0
 Nodes (1): Generate React + Vite application.
 
-### Community 256 - "Generate FastAPI backend."
+### Community 276 - "Community 276"
 Cohesion: 1.0
 Nodes (1): Generate FastAPI backend.
 
-### Community 257 - "Total number of unique sources."
+### Community 277 - "Community 277"
 Cohesion: 1.0
 Nodes (1): Total number of unique sources.
 
-### Community 258 - "Create config from environment variables."
+### Community 278 - "Community 278"
 Cohesion: 1.0
 Nodes (1): Create config from environment variables.
 
-### Community 259 - "Sliding-window error rate over last _window_s..."
+### Community 279 - "Community 279"
 Cohesion: 1.0
 Nodes (1): Sliding-window error rate over last _window_size calls.
 
-### Community 260 - "Deserialize from dictionary."
+### Community 280 - "Community 280"
 Cohesion: 1.0
 Nodes (1): Deserialize from dictionary.
 
-### Community 261 - "Get or create singleton instance."
+### Community 281 - "Community 281"
 Cohesion: 1.0
 Nodes (1): Get or create singleton instance.
 
-### Community 262 - "Deserialize from dictionary."
+### Community 282 - "Community 282"
 Cohesion: 1.0
 Nodes (1): Deserialize from dictionary.
 
-### Community 263 - "Get remaining budget excluding reserved amoun..."
+### Community 283 - "Community 283"
 Cohesion: 1.0
 Nodes (1): Get remaining budget excluding reserved amounts.
 
-### Community 264 - "Return phase budget limits (compatibility wit..."
+### Community 284 - "Community 284"
 Cohesion: 1.0
 Nodes (1): Return phase budget limits (compatibility with BudgetEnforcer).
 
-### Community 265 - "Backward compatibility: success = completed s..."
+### Community 285 - "Community 285"
 Cohesion: 1.0
 Nodes (1): Backward compatibility: success = completed status and score > 0.
 
-### Community 266 - "Initialize provider resources."
+### Community 286 - "Community 286"
 Cohesion: 1.0
 Nodes (1): Initialize provider resources.
 
-### Community 267 - "Release provider resources."
+### Community 287 - "Community 287"
 Cohesion: 1.0
 Nodes (1): Release provider resources.
 
-### Community 268 - "Enrich a generation prompt with additional co..."
+### Community 288 - "Community 288"
 Cohesion: 1.0
 Nodes (1): Enrich a generation prompt with additional context.          Args:             p
 
-### Community 273 - "Execute the tool with the given parameters."
+### Community 293 - "Community 293"
 Cohesion: 1.0
 Nodes (1): Execute the tool with the given parameters.
 
+### Community 294 - "Community 294"
+Cohesion: 1.0
+Nodes (1): Return a pre-configured AutonomyConfig for the given level.
+
+### Community 295 - "Community 295"
+Cohesion: 1.0
+Nodes (1): Convert an agent profile name to an AutonomyConfig.          Maps: standard→ST
+
+### Community 296 - "Community 296"
+Cohesion: 1.0
+Nodes (1): Get remaining budget excluding reserved amounts.
+
+### Community 297 - "Community 297"
+Cohesion: 1.0
+Nodes (1): Return phase budget limits (compatibility with BudgetEnforcer).
+
+### Community 298 - "Community 298"
+Cohesion: 1.0
+Nodes (1): Create a checkpoint from a dictionary.
+
+### Community 299 - "Community 299"
+Cohesion: 1.0
+Nodes (1): Load config from JSON or YAML file.
+
+### Community 300 - "Community 300"
+Cohesion: 1.0
+Nodes (1): Load a skill from a Markdown file.          File format:             # Skill
+
+### Community 301 - "Community 301"
+Cohesion: 1.0
+Nodes (1): Deserialize from dictionary.
+
+### Community 302 - "Community 302"
+Cohesion: 1.0
+Nodes (1): Format quick actions for display.
+
+### Community 303 - "Community 303"
+Cohesion: 1.0
+Nodes (1): Check if dev workspace has changes since last publish.
+
+### Community 304 - "Community 304"
+Cohesion: 1.0
+Nodes (1): Get the latest version.
+
+### Community 305 - "Community 305"
+Cohesion: 1.0
+Nodes (1): Execute query with caching.
+
+### Community 306 - "Community 306"
+Cohesion: 1.0
+Nodes (1): Passed if no critical violations.
+
+### Community 307 - "Community 307"
+Cohesion: 1.0
+Nodes (1): Human-readable summary.
+
+### Community 308 - "Community 308"
+Cohesion: 1.0
+Nodes (1): Estimate token count.
+
+### Community 309 - "Community 309"
+Cohesion: 1.0
+Nodes (1): Load context from the source.
+
+### Community 310 - "Community 310"
+Cohesion: 1.0
+Nodes (1): Search for relevant context chunks.
+
+### Community 311 - "Community 311"
+Cohesion: 1.0
+Nodes (1): Update the context source with new content.
+
+### Community 312 - "Community 312"
+Cohesion: 1.0
+Nodes (1): Load a skill from a Markdown file.          File format:             # Skill Nam
+
+### Community 313 - "Community 313"
+Cohesion: 1.0
+Nodes (1): Estimate token count.
+
+### Community 315 - "Community 315"
+Cohesion: 1.0
+Nodes (1): Create configuration from dictionary.          Args:             data: Config
+
+### Community 316 - "Community 316"
+Cohesion: 1.0
+Nodes (1): Load configuration from YAML file.          Args:             path: Path to Y
+
+### Community 317 - "Community 317"
+Cohesion: 1.0
+Nodes (1): Load configuration from environment variables.          Environment variables:
+
+### Community 318 - "Community 318"
+Cohesion: 1.0
+Nodes (1): Create a gauge metric.
+
+### Community 319 - "Community 319"
+Cohesion: 1.0
+Nodes (1): Create a counter metric.
+
+### Community 320 - "Community 320"
+Cohesion: 1.0
+Nodes (1): REFINED (Round 2): Async-safe singleton getter.          Finding #7 Fix: Use a
+
+### Community 321 - "Community 321"
+Cohesion: 1.0
+Nodes (1): Create and initialize a new instance.
+
+### Community 322 - "Community 322"
+Cohesion: 1.0
+Nodes (1): Cleanup all instances on process exit.
+
+### Community 323 - "Community 323"
+Cohesion: 1.0
+Nodes (1): Deserialize from dict, handling conditional data storage.
+
+### Community 324 - "Community 324"
+Cohesion: 1.0
+Nodes (1): Check if data should be stored in WAL based on size.
+
+### Community 325 - "Community 325"
+Cohesion: 1.0
+Nodes (1): Initialize provider resources.
+
+### Community 326 - "Community 326"
+Cohesion: 1.0
+Nodes (1): Release provider resources.
+
+### Community 327 - "Community 327"
+Cohesion: 1.0
+Nodes (1): Enrich a generation prompt with additional context.          Args:             p
+
+### Community 328 - "Community 328"
+Cohesion: 1.0
+Nodes (1): Calculate RICE score.
+
+### Community 329 - "Community 329"
+Cohesion: 1.0
+Nodes (1): Generate product roadmap visualization.
+
+### Community 330 - "Community 330"
+Cohesion: 1.0
+Nodes (1): Calculate overall quality score (0-100).
+
+### Community 331 - "Community 331"
+Cohesion: 1.0
+Nodes (1): Check if all quality gates passed.
+
+### Community 332 - "Community 332"
+Cohesion: 1.0
+Nodes (1): Calculate average test coverage.
+
+### Community 333 - "Community 333"
+Cohesion: 1.0
+Nodes (1): Calculate overall quality score.
+
+### Community 334 - "Community 334"
+Cohesion: 1.0
+Nodes (1): Run complete quality gate.          Pipeline:         1. Static analysis
+
+### Community 335 - "Community 335"
+Cohesion: 1.0
+Nodes (1): Get quality trends over time.
+
+### Community 336 - "Community 336"
+Cohesion: 1.0
+Nodes (1): Factory method to create an event with current timestamp.
+
+### Community 337 - "Community 337"
+Cohesion: 1.0
+Nodes (1): Determine memory tier based on age.
+
+### Community 338 - "Community 338"
+Cohesion: 1.0
+Nodes (1): Execute the tool with the given parameters.
+
+### Community 339 - "Community 339"
+Cohesion: 1.0
+Nodes (1): Deserialize from dictionary.
+
+### Community 340 - "Community 340"
+Cohesion: 1.0
+Nodes (1): Get or create singleton instance.
+
+### Community 341 - "Community 341"
+Cohesion: 1.0
+Nodes (1): Return the synchronous hook registry interface.          Using this property m
+
+### Community 342 - "Community 342"
+Cohesion: 1.0
+Nodes (1): Load configuration from environment variables.
+
+### Community 343 - "Community 343"
+Cohesion: 1.0
+Nodes (1): Create a new check run. Returns check run ID.
+
+### Community 344 - "Community 344"
+Cohesion: 1.0
+Nodes (1): Update an existing check run.
+
+### Community 345 - "Community 345"
+Cohesion: 1.0
+Nodes (1): Post a PR comment. Returns comment ID.
+
+### Community 346 - "Community 346"
+Cohesion: 1.0
+Nodes (1): Get existing PR comments for deduplication.
+
+### Community 347 - "Community 347"
+Cohesion: 1.0
+Nodes (1): Create a new branch from base SHA.
+
+### Community 348 - "Community 348"
+Cohesion: 1.0
+Nodes (1): Commit changes to a branch. Returns commit SHA.
+
+### Community 349 - "Community 349"
+Cohesion: 1.0
+Nodes (1): Create a new pull request. Returns PR number.
+
 ## Knowledge Gaps
-- **3213 isolated node(s):** `A2AProtocol — Agent-to-Agent external agent client =============================`, `Types of external agents supported.`, `Message in the A2A protocol.`, `Task definition for A2A protocol.`, `Response from an A2A agent.` (+3208 more)
+- **4411 isolated node(s):** `Types of external agents supported.`, `Message in the A2A protocol.`, `Task definition for A2A protocol.`, `Response from an A2A agent.`, `Client for communicating with external agents using the A2A protocol.` (+4406 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `memory_compressor.py`** (3 nodes): `memory_compressor.py`, `MemoryCompressor`, `Summarizes many similar patterns into lessons.`
+- **Thin community `Community 77`** (3 nodes): `.get_current_session()`, `Get the current session ID for an actor.`, `Get the current session ID for an actor.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `constants.py`** (2 nodes): `constants.py`, `Centralized Constants for AI Orchestrator ======================================`
+- **Thin community `Community 78`** (3 nodes): `.get_failed_actions()`, `Get all failed actions.`, `Get all failed actions.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `cli.py`** (2 nodes): `CLI application scaffold template.  Author: Georgios-Chrysovalantis Chatzivant`, `cli.py`
+- **Thin community `Community 79`** (3 nodes): `.clear()`, `Clear all tracked data.`, `Clear all tracked data.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `fastapi.py`** (2 nodes): `FastAPI application scaffold template.  Author: Georgios-Chrysovalantis Chatzi`, `fastapi.py`
+- **Thin community `Community 80`** (3 nodes): `.get_actions_by_actor()`, `Get all actions performed by an actor.`, `Get all actions performed by an actor.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `generic.py`** (2 nodes): `Generic/fallback scaffold template — used for unknown app types.  Author: Geor`, `generic.py`
+- **Thin community `Community 81`** (3 nodes): `main()`, `cli_dashboard.py`, `CLI Dashboard Command ===================== Run the Mission Control dashboard`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `html.py`** (2 nodes): `Vanilla HTML/CSS/JS scaffold template.  Provides a minimal frontend scaffold w`, `html.py`
+- **Thin community `Community 82`** (3 nodes): `Unregister an attack scenario.`, `Unregister an attack scenario.`, `.unregister_scenario()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `library.py`** (2 nodes): `Python library scaffold template.  Author: Georgios-Chrysovalantis Chatzivants`, `library.py`
+- **Thin community `Community 83`** (3 nodes): `List all registered scenarios.`, `List all registered scenarios.`, `.list_scenarios()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `nextjs.py`** (2 nodes): `Next.js 14 + Tailwind CSS + Framer Motion scaffold template.  Provides a minim`, `nextjs.py`
+- **Thin community `Community 84`** (3 nodes): `Get usage statistics.`, `Get usage statistics.`, `.get_usage_stats()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `react_vite.py`** (2 nodes): `React + Vite + TypeScript + Tailwind CSS scaffold template.  Provides a minima`, `react_vite.py`
+- **Thin community `Community 85`** (2 nodes): `constants.py`, `Centralized Constants for AI Orchestrator =====================================`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate risk score based on events and viol...`** (1 nodes): `Calculate risk score based on events and violations.`
+- **Thin community `Community 86`** (2 nodes): `CLI application scaffold template.  Author: Georgios-Chrysovalantis Chatzivant`, `cli.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create from dictionary.`** (1 nodes): `Create from dictionary.`
+- **Thin community `Community 87`** (2 nodes): `FastAPI application scaffold template.  Author: Georgios-Chrysovalantis Chatzi`, `fastapi.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Passed if no critical violations.`** (1 nodes): `Passed if no critical violations.`
+- **Thin community `Community 88`** (2 nodes): `Generic/fallback scaffold template — used for unknown app types.  Author: Geor`, `generic.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Human-readable summary.`** (1 nodes): `Human-readable summary.`
+- **Thin community `Community 89`** (2 nodes): `Vanilla HTML/CSS/JS scaffold template.  Provides a minimal frontend scaffold w`, `html.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create mobile breakpoint specification.      ...`** (1 nodes): `Create mobile breakpoint specification.          Returns:             Mobile spe`
+- **Thin community `Community 90`** (2 nodes): `Python library scaffold template.  Author: Georgios-Chrysovalantis Chatzivants`, `library.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create tablet breakpoint specification.      ...`** (1 nodes): `Create tablet breakpoint specification.          Returns:             Tablet spe`
+- **Thin community `Community 91`** (2 nodes): `Next.js 14 + Tailwind CSS + Framer Motion scaffold template.  Provides a minim`, `nextjs.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create desktop breakpoint specification.     ...`** (1 nodes): `Create desktop breakpoint specification.          Returns:             Desktop s`
+- **Thin community `Community 92`** (2 nodes): `React + Vite + TypeScript + Tailwind CSS scaffold template.  Provides a minima`, `react_vite.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create minimum width specification.          ...`** (1 nodes): `Create minimum width specification.          Args:             width: Minimum wi`
+- **Thin community `Community 93`** (1 nodes): `Calculate risk score based on events and violations.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create maximum width specification.          ...`** (1 nodes): `Create maximum width specification.          Args:             width: Maximum wi`
+- **Thin community `Community 94`** (1 nodes): `Create from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get remaining budget excluding reserved amoun...`** (1 nodes): `Get remaining budget excluding reserved amounts.`
+- **Thin community `Community 95`** (1 nodes): `Passed if no critical violations.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Return phase budget limits (compatibility wit...`** (1 nodes): `Return phase budget limits (compatibility with BudgetEnforcer).`
+- **Thin community `Community 96`** (1 nodes): `Human-readable summary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if this level is local (not requiring n...`** (1 nodes): `Check if this level is local (not requiring network).`
+- **Thin community `Community 98`** (1 nodes): `Create mobile breakpoint specification.          Returns:             Mobile`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Factory method to create an event with curren...`** (1 nodes): `Factory method to create an event with current timestamp.`
+- **Thin community `Community 99`** (1 nodes): `Create tablet breakpoint specification.          Returns:             Tablet`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a checkpoint from a dictionary.`** (1 nodes): `Create a checkpoint from a dictionary.`
+- **Thin community `Community 100`** (1 nodes): `Create desktop breakpoint specification.          Returns:             Deskto`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate CI/CD configuration.          Args: ...`** (1 nodes): `Generate CI/CD configuration.          Args:             config: Pipeline config`
+- **Thin community `Community 101`** (1 nodes): `Create minimum width specification.          Args:             width: Minimum`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get provider name.          Returns:         ...`** (1 nodes): `Get provider name.          Returns:             CI/CD provider`
+- **Thin community `Community 102`** (1 nodes): `Create maximum width specification.          Args:             width: Maximum`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create from dictionary.`** (1 nodes): `Create from dictionary.`
+- **Thin community `Community 103`** (1 nodes): `Get remaining budget excluding reserved amounts.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render component as React code.`** (1 nodes): `Render component as React code.`
+- **Thin community `Community 104`** (1 nodes): `Return phase budget limits (compatibility with BudgetEnforcer).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render form component.`** (1 nodes): `Render form component.`
+- **Thin community `Community 105`** (1 nodes): `Check if this level is local (not requiring network).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render button component.`** (1 nodes): `Render button component.`
+- **Thin community `Community 106`** (1 nodes): `Factory method to create an event with current timestamp.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render input component.`** (1 nodes): `Render input component.`
+- **Thin community `Community 107`** (1 nodes): `Create a checkpoint from a dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render card component.`** (1 nodes): `Render card component.`
+- **Thin community `Community 108`** (1 nodes): `Generate CI/CD configuration.          Args:             config: Pipeline con`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render table component.`** (1 nodes): `Render table component.`
+- **Thin community `Community 109`** (1 nodes): `Get provider name.          Returns:             CI/CD provider`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render navigation component.`** (1 nodes): `Render navigation component.`
+- **Thin community `Community 110`** (1 nodes): `Create from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render generic component.`** (1 nodes): `Render generic component.`
+- **Thin community `Community 111`** (1 nodes): `Render component as React code.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render component as Vue code.`** (1 nodes): `Render component as Vue code.`
+- **Thin community `Community 112`** (1 nodes): `Render form component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render form as Vue component.`** (1 nodes): `Render form as Vue component.`
+- **Thin community `Community 113`** (1 nodes): `Render button component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render component as Svelte code.`** (1 nodes): `Render component as Svelte code.`
+- **Thin community `Community 114`** (1 nodes): `Render input component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render form as Svelte component.`** (1 nodes): `Render form as Svelte component.`
+- **Thin community `Community 115`** (1 nodes): `Render card component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get renderer for framework and component type...`** (1 nodes): `Get renderer for framework and component type.`
+- **Thin community `Community 116`** (1 nodes): `Render table component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Acquire budget slot for a job.          This ...`** (1 nodes): `Acquire budget slot for a job.          This is an atomic check-and-reserve op`
+- **Thin community `Community 117`** (1 nodes): `Render navigation component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Number of available job slots.`** (1 nodes): `Number of available job slots.`
+- **Thin community `Community 118`** (1 nodes): `Render generic component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Available cost budget in USD.`** (1 nodes): `Available cost budget in USD.`
+- **Thin community `Community 119`** (1 nodes): `Render component as Vue code.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Currently active jobs and their reserved cost...`** (1 nodes): `Currently active jobs and their reserved costs.`
+- **Thin community `Community 120`** (1 nodes): `Render form as Vue component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get singleton instance (async-safe).`** (1 nodes): `Get singleton instance (async-safe).`
+- **Thin community `Community 121`** (1 nodes): `Render component as Svelte code.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get singleton instance (sync, for backward co...`** (1 nodes): `Get singleton instance (sync, for backward compatibility).`
+- **Thin community `Community 122`** (1 nodes): `Render form as Svelte component.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Reset singleton (for testing).`** (1 nodes): `Reset singleton (for testing).`
+- **Thin community `Community 123`** (1 nodes): `Get renderer for framework and component type.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Load configuration from environment variables...`** (1 nodes): `Load configuration from environment variables.`
+- **Thin community `Community 124`** (1 nodes): `Acquire budget slot for a job.          This is an atomic check-and-reserve op`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Establish connection to the external system.`** (1 nodes): `Establish connection to the external system.`
+- **Thin community `Community 125`** (1 nodes): `Number of available job slots.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Close connection to the external system.`** (1 nodes): `Close connection to the external system.`
+- **Thin community `Community 126`** (1 nodes): `Available cost budget in USD.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Test if the connection is working.`** (1 nodes): `Test if the connection is working.`
+- **Thin community `Community 127`** (1 nodes): `Currently active jobs and their reserved costs.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Estimate token count.`** (1 nodes): `Estimate token count.`
+- **Thin community `Community 128`** (1 nodes): `Get singleton instance (async-safe).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Load context from the source.`** (1 nodes): `Load context from the source.`
+- **Thin community `Community 129`** (1 nodes): `Get singleton instance (sync, for backward compatibility).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Search for relevant context chunks.`** (1 nodes): `Search for relevant context chunks.`
+- **Thin community `Community 130`** (1 nodes): `Reset singleton (for testing).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Update the context source with new content.`** (1 nodes): `Update the context source with new content.`
+- **Thin community `Community 131`** (1 nodes): `Load configuration from environment variables.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Estimate token count.`** (1 nodes): `Estimate token count.`
+- **Thin community `Community 132`** (1 nodes): `Establish connection to the external system.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Hook: Define copy structure.          Subclas...`** (1 nodes): `Hook: Define copy structure.          Subclasses implement to define their speci`
+- **Thin community `Community 133`** (1 nodes): `Close connection to the external system.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Hook: Generate content from structure.       ...`** (1 nodes): `Hook: Generate content from structure.          Subclasses implement content gen`
+- **Thin community `Community 134`** (1 nodes): `Test if the connection is working.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Hook: Validate generated content.          Su...`** (1 nodes): `Hook: Validate generated content.          Subclasses implement validation logic`
+- **Thin community `Community 135`** (1 nodes): `Estimate token count.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if project is safe (no critical/high vu...`** (1 nodes): `Check if project is safe (no critical/high vulnerabilities).`
+- **Thin community `Community 136`** (1 nodes): `Load context from the source.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Scan project for vulnerabilities.          Ar...`** (1 nodes): `Scan project for vulnerabilities.          Args:             project_path: Path`
+- **Thin community `Community 137`** (1 nodes): `Search for relevant context chunks.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Parse scanner output.          Args:         ...`** (1 nodes): `Parse scanner output.          Args:             output: Raw scanner output`
+- **Thin community `Community 138`** (1 nodes): `Update the context source with new content.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if scanner is available (installed).   ...`** (1 nodes): `Check if scanner is available (installed).          Returns:             True if`
+- **Thin community `Community 139`** (1 nodes): `Estimate token count.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Set new scanner strategy.`** (1 nodes): `Set new scanner strategy.`
+- **Thin community `Community 140`** (1 nodes): `Hook: Define copy structure.          Subclasses implement to define their spe`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get deployment target.`** (1 nodes): `Get deployment target.`
+- **Thin community `Community 141`** (1 nodes): `Hook: Generate content from structure.          Subclasses implement content g`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get deployment status.`** (1 nodes): `Get deployment status.`
+- **Thin community `Community 142`** (1 nodes): `Hook: Validate generated content.          Subclasses implement validation log`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a design system from a preset.`** (1 nodes): `Create a design system from a preset.`
+- **Thin community `Community 143`** (1 nodes): `Check if project is safe (no critical/high vulnerabilities).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Load design system from YAML file.`** (1 nodes): `Load design system from YAML file.`
+- **Thin community `Community 144`** (1 nodes): `Scan project for vulnerabilities.          Args:             project_path: Pa`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create DesignSystem from dictionary.`** (1 nodes): `Create DesignSystem from dictionary.`
+- **Thin community `Community 145`** (1 nodes): `Parse scanner output.          Args:             output: Raw scanner output`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate normalized distance between two hex...`** (1 nodes): `Calculate normalized distance between two hex colors (0-1).`
+- **Thin community `Community 146`** (1 nodes): `Check if scanner is available (installed).          Returns:             True`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get base image for runtime.`** (1 nodes): `Get base image for runtime.`
+- **Thin community `Community 147`** (1 nodes): `Set new scanner strategy.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get dependency installation command.`** (1 nodes): `Get dependency installation command.`
+- **Thin community `Community 148`** (1 nodes): `Get deployment target.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get health check configuration.`** (1 nodes): `Get health check configuration.`
+- **Thin community `Community 149`** (1 nodes): `Get deployment status.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `BaseOrchestrator`** (1 nodes): `BaseOrchestrator`
+- **Thin community `Community 150`** (1 nodes): `Create a design system from a preset.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate error handler.          Args:       ...`** (1 nodes): `Generate error handler.          Args:             config: Error configuration`
+- **Thin community `Community 151`** (1 nodes): `Load design system from YAML file.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render component to HTML string.          Ret...`** (1 nodes): `Render component to HTML string.          Returns:             HTML string`
+- **Thin community `Community 152`** (1 nodes): `Create DesignSystem from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get component props.          Returns:       ...`** (1 nodes): `Get component props.          Returns:             Props dictionary`
+- **Thin community `Community 153`** (1 nodes): `Calculate normalized distance between two hex colors (0-1).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create from dictionary.`** (1 nodes): `Create from dictionary.`
+- **Thin community `Community 154`** (1 nodes): `Get base image for runtime.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Load configuration from environment variables...`** (1 nodes): `Load configuration from environment variables.`
+- **Thin community `Community 155`** (1 nodes): `Get dependency installation command.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a new check run. Returns check run ID.`** (1 nodes): `Create a new check run. Returns check run ID.`
+- **Thin community `Community 156`** (1 nodes): `Get health check configuration.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Update an existing check run.`** (1 nodes): `Update an existing check run.`
+- **Thin community `Community 157`** (1 nodes): `BaseOrchestrator`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Post a PR comment. Returns comment ID.`** (1 nodes): `Post a PR comment. Returns comment ID.`
+- **Thin community `Community 158`** (1 nodes): `Generate error handler.          Args:             config: Error configuratio`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get existing PR comments for deduplication.`** (1 nodes): `Get existing PR comments for deduplication.`
+- **Thin community `Community 159`** (1 nodes): `Render component to HTML string.          Returns:             HTML string`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a new branch from base SHA.`** (1 nodes): `Create a new branch from base SHA.`
+- **Thin community `Community 160`** (1 nodes): `Get component props.          Returns:             Props dictionary`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Commit changes to a branch. Returns commit SH...`** (1 nodes): `Commit changes to a branch. Returns commit SHA.`
+- **Thin community `Community 161`** (1 nodes): `Create from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a new pull request. Returns PR number.`** (1 nodes): `Create a new pull request. Returns PR number.`
+- **Thin community `Community 162`** (1 nodes): `Load configuration from environment variables.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Handle request, pass to next if can't handle....`** (1 nodes): `Handle request, pass to next if can't handle.          Args:             request`
+- **Thin community `Community 163`** (1 nodes): `Create a new check run. Returns check run ID.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create image generator.          Returns:    ...`** (1 nodes): `Create image generator.          Returns:             ImageGenerator instance`
+- **Thin community `Community 164`** (1 nodes): `Update an existing check run.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get provider capabilities.          Returns: ...`** (1 nodes): `Get provider capabilities.          Returns:             Capabilities dictionary`
+- **Thin community `Community 165`** (1 nodes): `Post a PR comment. Returns comment ID.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if provider is available.          Retu...`** (1 nodes): `Check if provider is available.          Returns:             True if available`
+- **Thin community `Community 166`** (1 nodes): `Get existing PR comments for deduplication.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate compression ratio.`** (1 nodes): `Calculate compression ratio.`
+- **Thin community `Community 167`** (1 nodes): `Create a new branch from base SHA.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate size reduction percentage.`** (1 nodes): `Calculate size reduction percentage.`
+- **Thin community `Community 168`** (1 nodes): `Commit changes to a branch. Returns commit SHA.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Optimize image.          Args:             im...`** (1 nodes): `Optimize image.          Args:             image_data: Input image data`
+- **Thin community `Community 169`** (1 nodes): `Create a new pull request. Returns PR number.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get output format.          Returns:         ...`** (1 nodes): `Get output format.          Returns:             Image format`
+- **Thin community `Community 170`** (1 nodes): `Handle request, pass to next if can't handle.          Args:             requ`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if optimizer is available.          Ret...`** (1 nodes): `Check if optimizer is available.          Returns:             True if available`
+- **Thin community `Community 171`** (1 nodes): `Create image generator.          Returns:             ImageGenerator instance`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Process image data.          Args:           ...`** (1 nodes): `Process image data.          Args:             image_data: Input image data`
+- **Thin community `Community 172`** (1 nodes): `Get provider capabilities.          Returns:             Capabilities diction`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Format health status as GitHub Actions annota...`** (1 nodes): `Format health status as GitHub Actions annotation.`
+- **Thin community `Community 173`** (1 nodes): `Check if provider is available.          Returns:             True if availab`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Print a formatted health report.`** (1 nodes): `Print a formatted health report.`
+- **Thin community `Community 174`** (1 nodes): `Calculate compression ratio.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Load configuration from environment variables...`** (1 nodes): `Load configuration from environment variables.`
+- **Thin community `Community 175`** (1 nodes): `Calculate size reduction percentage.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Factory method to create appropriate service ...`** (1 nodes): `Factory method to create appropriate service from environment.`
+- **Thin community `Community 176`** (1 nodes): `Optimize image.          Args:             image_data: Input image data`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a new issue in the tracker.`** (1 nodes): `Create a new issue in the tracker.`
+- **Thin community `Community 177`** (1 nodes): `Get output format.          Returns:             Image format`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Find an existing issue by signature (hash of ...`** (1 nodes): `Find an existing issue by signature (hash of identifying fields).          Arg`
+- **Thin community `Community 178`** (1 nodes): `Check if optimizer is available.          Returns:             True if availa`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Add a comment linking an orchestrator run to ...`** (1 nodes): `Add a comment linking an orchestrator run to an issue.`
+- **Thin community `Community 179`** (1 nodes): `Process image data.          Args:             image_data: Input image data`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Fetch backlog items for RICE scoring.        ...`** (1 nodes): `Fetch backlog items for RICE scoring.          Args:             status_filte`
+- **Thin community `Community 180`** (1 nodes): `Format health status as GitHub Actions annotation.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Update an issue with RICE score and priority....`** (1 nodes): `Update an issue with RICE score and priority.          Args:             issu`
+- **Thin community `Community 181`** (1 nodes): `Print a formatted health report.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get issues resolved since a given time.      ...`** (1 nodes): `Get issues resolved since a given time.          Args:             since: Onl`
+- **Thin community `Community 182`** (1 nodes): `Load configuration from environment variables.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate RICE score.          RICE = (Reach ...`** (1 nodes): `Calculate RICE score.          RICE = (Reach × Impact × Confidence) / Effort`
+- **Thin community `Community 183`** (1 nodes): `Factory method to create appropriate service from environment.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate RICE from a backlog item using mapp...`** (1 nodes): `Calculate RICE from a backlog item using mapping config.`
+- **Thin community `Community 184`** (1 nodes): `Create a new issue in the tracker.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Infer impact score from issue labels.`** (1 nodes): `Infer impact score from issue labels.`
+- **Thin community `Community 185`** (1 nodes): `Find an existing issue by signature (hash of identifying fields).          Arg`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate logging configuration.`** (1 nodes): `Generate logging configuration.`
+- **Thin community `Community 186`** (1 nodes): `Add a comment linking an orchestrator run to an issue.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a memory entry from a dictionary.`** (1 nodes): `Create a memory entry from a dictionary.`
+- **Thin community `Community 187`** (1 nodes): `Fetch backlog items for RICE scoring.          Args:             status_filte`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create configuration from dictionary.        ...`** (1 nodes): `Create configuration from dictionary.          Args:             data: Config`
+- **Thin community `Community 188`** (1 nodes): `Update an issue with RICE score and priority.          Args:             issu`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Load configuration from YAML file.          A...`** (1 nodes): `Load configuration from YAML file.          Args:             path: Path to Y`
+- **Thin community `Community 189`** (1 nodes): `Get issues resolved since a given time.          Args:             since: Onl`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Load configuration from environment variables...`** (1 nodes): `Load configuration from environment variables.          Environment variables:`
+- **Thin community `Community 190`** (1 nodes): `Calculate RICE score.          RICE = (Reach × Impact × Confidence) / Effort`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a gauge metric.`** (1 nodes): `Create a gauge metric.`
+- **Thin community `Community 191`** (1 nodes): `Calculate RICE from a backlog item using mapping config.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create a counter metric.`** (1 nodes): `Create a counter metric.`
+- **Thin community `Community 192`** (1 nodes): `Infer impact score from issue labels.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get timeout for a specific model.          Ar...`** (1 nodes): `Get timeout for a specific model.          Args:             model_id: Full mode`
+- **Thin community `Community 193`** (1 nodes): `Generate logging configuration.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get cost information for a model.          Ar...`** (1 nodes): `Get cost information for a model.          Args:             model_id: Full mode`
+- **Thin community `Community 194`** (1 nodes): `Create a memory entry from a dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get maximum tokens for a model.          Args...`** (1 nodes): `Get maximum tokens for a model.          Args:             model_id: Full model`
+- **Thin community `Community 195`** (1 nodes): `Create configuration from dictionary.          Args:             data: Config`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if a model ID is valid (not unavailable...`** (1 nodes): `Check if a model ID is valid (not unavailable/deprecated).          Args:`
+- **Thin community `Community 196`** (1 nodes): `Load configuration from YAML file.          Args:             path: Path to Y`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get replacement model for an unavailable/depr...`** (1 nodes): `Get replacement model for an unavailable/deprecated model.          Args:`
+- **Thin community `Community 197`** (1 nodes): `Load configuration from environment variables.          Environment variables:`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if model is a coding specialist.`** (1 nodes): `Check if model is a coding specialist.`
+- **Thin community `Community 198`** (1 nodes): `Create a gauge metric.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if model is a reasoning specialist.`** (1 nodes): `Check if model is a reasoning specialist.`
+- **Thin community `Community 199`** (1 nodes): `Create a counter metric.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if model is in budget tier.`** (1 nodes): `Check if model is in budget tier.`
+- **Thin community `Community 200`** (1 nodes): `Get timeout for a specific model.          Args:             model_id: Full mode`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if model is in premium tier.`** (1 nodes): `Check if model is in premium tier.`
+- **Thin community `Community 201`** (1 nodes): `Get cost information for a model.          Args:             model_id: Full mode`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if model supports 200K+ context.`** (1 nodes): `Check if model supports 200K+ context.`
+- **Thin community `Community 202`** (1 nodes): `Get maximum tokens for a model.          Args:             model_id: Full model`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if model supports image + text input (v...`** (1 nodes): `Check if model supports image + text input (vision-capable).`
+- **Thin community `Community 203`** (1 nodes): `Check if a model ID is valid (not unavailable/deprecated).          Args:`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get list of all valid model IDs.`** (1 nodes): `Get list of all valid model IDs.`
+- **Thin community `Community 204`** (1 nodes): `Get replacement model for an unavailable/deprecated model.          Args:`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get all models for a specific provider.      ...`** (1 nodes): `Get all models for a specific provider.          Args:             provider: Pro`
+- **Thin community `Community 205`** (1 nodes): `Check if model is a coding specialist.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get the cheapest model by average cost.`** (1 nodes): `Get the cheapest model by average cost.`
+- **Thin community `Community 206`** (1 nodes): `Check if model is a reasoning specialist.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Validate all model IDs against the registry. ...`** (1 nodes): `Validate all model IDs against the registry.          Returns:             Dicti`
+- **Thin community `Community 207`** (1 nodes): `Check if model is in budget tier.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `REFINED (Round 2): Async-safe singleton gette...`** (1 nodes): `REFINED (Round 2): Async-safe singleton getter.          Finding #7 Fix: Use a`
+- **Thin community `Community 208`** (1 nodes): `Check if model is in premium tier.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create and initialize a new instance.`** (1 nodes): `Create and initialize a new instance.`
+- **Thin community `Community 209`** (1 nodes): `Check if model supports 200K+ context.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Cleanup all instances on process exit.`** (1 nodes): `Cleanup all instances on process exit.`
+- **Thin community `Community 210`** (1 nodes): `Check if model supports image + text input (vision-capable).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Deserialize from dict, handling conditional d...`** (1 nodes): `Deserialize from dict, handling conditional data storage.`
+- **Thin community `Community 211`** (1 nodes): `Get list of all valid model IDs.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if data should be stored in WAL based o...`** (1 nodes): `Check if data should be stored in WAL based on size.`
+- **Thin community `Community 212`** (1 nodes): `Get all models for a specific provider.          Args:             provider: Pro`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Acquire connection from pool.`** (1 nodes): `Acquire connection from pool.`
+- **Thin community `Community 213`** (1 nodes): `Get the cheapest model by average cost.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Execute query with caching.`** (1 nodes): `Execute query with caching.`
+- **Thin community `Community 214`** (1 nodes): `Validate all model IDs against the registry.          Returns:             Dicti`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create manifest from dictionary.`** (1 nodes): `Create manifest from dictionary.`
+- **Thin community `Community 215`** (1 nodes): `REFINED (Round 2): Async-safe singleton getter.          Finding #7 Fix: Use a`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Load manifest from plugin.json file.`** (1 nodes): `Load manifest from plugin.json file.`
+- **Thin community `Community 216`** (1 nodes): `Create and initialize a new instance.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate RICE score.`** (1 nodes): `Calculate RICE score.`
+- **Thin community `Community 217`** (1 nodes): `Cleanup all instances on process exit.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate product roadmap visualization.`** (1 nodes): `Generate product roadmap visualization.`
+- **Thin community `Community 218`** (1 nodes): `Deserialize from dict, handling conditional data storage.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate overall quality score (0-100).`** (1 nodes): `Calculate overall quality score (0-100).`
+- **Thin community `Community 219`** (1 nodes): `Check if data should be stored in WAL based on size.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if all quality gates passed.`** (1 nodes): `Check if all quality gates passed.`
+- **Thin community `Community 220`** (1 nodes): `Execute query with caching.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate average test coverage.`** (1 nodes): `Calculate average test coverage.`
+- **Thin community `Community 221`** (1 nodes): `Create manifest from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate overall quality score.`** (1 nodes): `Calculate overall quality score.`
+- **Thin community `Community 222`** (1 nodes): `Load manifest from plugin.json file.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Run complete quality gate.          Pipeline:...`** (1 nodes): `Run complete quality gate.          Pipeline:         1. Static analysis`
+- **Thin community `Community 223`** (1 nodes): `Calculate RICE score.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get quality trends over time.`** (1 nodes): `Get quality trends over time.`
+- **Thin community `Community 224`** (1 nodes): `Generate product roadmap visualization.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create uniform spacing.`** (1 nodes): `Create uniform spacing.`
+- **Thin community `Community 225`** (1 nodes): `Calculate overall quality score (0-100).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create symmetric spacing.`** (1 nodes): `Create symmetric spacing.`
+- **Thin community `Community 226`** (1 nodes): `Check if all quality gates passed.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Render component to HTML/CSS string.         ...`** (1 nodes): `Render component to HTML/CSS string.          Returns:             HTML/CSS stri`
+- **Thin community `Community 227`** (1 nodes): `Calculate average test coverage.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Add child component.          Args:          ...`** (1 nodes): `Add child component.          Args:             child: Child component`
+- **Thin community `Community 228`** (1 nodes): `Calculate overall quality score.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get child components.          Returns:      ...`** (1 nodes): `Get child components.          Returns:             List of child components`
+- **Thin community `Community 229`** (1 nodes): `Run complete quality gate.          Pipeline:         1. Static analysis`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Aggressive retry strategy (more attempts, lon...`** (1 nodes): `Aggressive retry strategy (more attempts, longer waits)`
+- **Thin community `Community 230`** (1 nodes): `Get quality trends over time.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Conservative retry strategy (fewer attempts, ...`** (1 nodes): `Conservative retry strategy (fewer attempts, shorter waits)`
+- **Thin community `Community 231`** (1 nodes): `Create uniform spacing.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Fast-fail strategy (minimal retries for laten...`** (1 nodes): `Fast-fail strategy (minimal retries for latency-critical ops)`
+- **Thin community `Community 232`** (1 nodes): `Create symmetric spacing.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create from dictionary.`** (1 nodes): `Create from dictionary.`
+- **Thin community `Community 233`** (1 nodes): `Render component to HTML/CSS string.          Returns:             HTML/CSS s`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Run a command securely (no shell=True).      ...`** (1 nodes): `Run a command securely (no shell=True).          Args:             command: L`
+- **Thin community `Community 234`** (1 nodes): `Add child component.          Args:             child: Child component`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Run a command asynchronously (no shell=True)....`** (1 nodes): `Run a command asynchronously (no shell=True).          Returns:             T`
+- **Thin community `Community 235`** (1 nodes): `Get child components.          Returns:             List of child components`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Sanitize a filename to prevent path traversal...`** (1 nodes): `Sanitize a filename to prevent path traversal and injection.          Args:`
+- **Thin community `Community 236`** (1 nodes): `Aggressive retry strategy (more attempts, longer waits)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Validate a Python identifier.          Args: ...`** (1 nodes): `Validate a Python identifier.          Args:             identifier: String t`
+- **Thin community `Community 237`** (1 nodes): `Conservative retry strategy (fewer attempts, shorter waits)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Sanitize a git branch name.          Args:   ...`** (1 nodes): `Sanitize a git branch name.          Args:             name: Branch name to s`
+- **Thin community `Community 238`** (1 nodes): `Fast-fail strategy (minimal retries for latency-critical ops)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Validate file has an allowed extension.      ...`** (1 nodes): `Validate file has an allowed extension.          Args:             filename:`
+- **Thin community `Community 239`** (1 nodes): `Create from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Hook: Define the template structure.         ...`** (1 nodes): `Hook: Define the template structure.          Subclasses must implement this to`
+- **Thin community `Community 240`** (1 nodes): `Run a command securely (no shell=True).          Args:             command: L`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Hook: Validate configuration (pure function)....`** (1 nodes): `Hook: Validate configuration (pure function).          Subclasses implement vali`
+- **Thin community `Community 241`** (1 nodes): `Run a command asynchronously (no shell=True).          Returns:             T`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Determine memory tier based on age.`** (1 nodes): `Determine memory tier based on age.`
+- **Thin community `Community 242`** (1 nodes): `Sanitize a filename to prevent path traversal and injection.          Args:`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if the client has a valid webhook URL.`** (1 nodes): `Check if the client has a valid webhook URL.`
+- **Thin community `Community 243`** (1 nodes): `Validate a Python identifier.          Args:             identifier: String t`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Format cost breakdown as a readable string.`** (1 nodes): `Format cost breakdown as a readable string.`
+- **Thin community `Community 244`** (1 nodes): `Sanitize a git branch name.          Args:             name: Branch name to s`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Format top issues for display.`** (1 nodes): `Format top issues for display.`
+- **Thin community `Community 245`** (1 nodes): `Validate file has an allowed extension.          Args:             filename:`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Build a complete Slack message from a run sum...`** (1 nodes): `Build a complete Slack message from a run summary payload.`
+- **Thin community `Community 246`** (1 nodes): `Hook: Define the template structure.          Subclasses must implement this t`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Run a template and return the run ID.        ...`** (1 nodes): `Run a template and return the run ID.          Args:             template_nam`
+- **Thin community `Community 247`** (1 nodes): `Hook: Validate configuration (pure function).          Subclasses implement va`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get the dashboard URL for a run.`** (1 nodes): `Get the dashboard URL for a run.`
+- **Thin community `Community 248`** (1 nodes): `Determine memory tier based on age.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create test template.          Args:         ...`** (1 nodes): `Create test template.          Args:             name: Test name             con`
+- **Thin community `Community 249`** (1 nodes): `Check if the client has a valid webhook URL.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate Jest configuration.`** (1 nodes): `Generate Jest configuration.`
+- **Thin community `Community 250`** (1 nodes): `Format cost breakdown as a readable string.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate Vitest configuration.`** (1 nodes): `Generate Vitest configuration.`
+- **Thin community `Community 251`** (1 nodes): `Format top issues for display.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate Pytest configuration.`** (1 nodes): `Generate Pytest configuration.`
+- **Thin community `Community 252`** (1 nodes): `Build a complete Slack message from a run summary payload.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate Playwright configuration.`** (1 nodes): `Generate Playwright configuration.`
+- **Thin community `Community 253`** (1 nodes): `Run a template and return the run ID.          Args:             template_nam`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create workspace from dictionary.`** (1 nodes): `Create workspace from dictionary.`
+- **Thin community `Community 254`** (1 nodes): `Get the dashboard URL for a run.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate batch vs realtime ratio.`** (1 nodes): `Calculate batch vs realtime ratio.`
+- **Thin community `Community 255`** (1 nodes): `Create test template.          Args:             name: Test name`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate early exit rate (exits at cheap/mid...`** (1 nodes): `Calculate early exit rate (exits at cheap/mid tier).`
+- **Thin community `Community 256`** (1 nodes): `Generate Jest configuration.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate cache hit rate.`** (1 nodes): `Calculate cache hit rate.`
+- **Thin community `Community 257`** (1 nodes): `Generate Vitest configuration.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate cheap model win rate.`** (1 nodes): `Calculate cheap model win rate.`
+- **Thin community `Community 258`** (1 nodes): `Generate Pytest configuration.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Detect appropriate tech stack based on user r...`** (1 nodes): `Detect appropriate tech stack based on user request.          Returns:`
+- **Thin community `Community 259`** (1 nodes): `Generate Playwright configuration.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Calculate complexity score 1-4 based on keywo...`** (1 nodes): `Calculate complexity score 1-4 based on keywords.`
+- **Thin community `Community 260`** (1 nodes): `Create workspace from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if user wants a premium Awwwards-level ...`** (1 nodes): `Check if user wants a premium Awwwards-level website.`
+- **Thin community `Community 262`** (1 nodes): `Calculate batch vs realtime ratio.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if user wants a static website.`** (1 nodes): `Check if user wants a static website.`
+- **Thin community `Community 263`** (1 nodes): `Calculate early exit rate (exits at cheap/mid tier).`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if user wants a React application.`** (1 nodes): `Check if user wants a React application.`
+- **Thin community `Community 264`** (1 nodes): `Calculate cache hit rate.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if user wants a full-stack application.`** (1 nodes): `Check if user wants a full-stack application.`
+- **Thin community `Community 265`** (1 nodes): `Calculate cheap model win rate.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Check if user wants a backend API.`** (1 nodes): `Check if user wants a backend API.`
+- **Thin community `Community 266`** (1 nodes): `Detect appropriate tech stack based on user request.          Returns:`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate premium Awwwards-level website with ...`** (1 nodes): `Generate premium Awwwards-level website with Three.js 3D elements.`
+- **Thin community `Community 267`** (1 nodes): `Calculate complexity score 1-4 based on keywords.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate static HTML/CSS/JS website.`** (1 nodes): `Generate static HTML/CSS/JS website.`
+- **Thin community `Community 268`** (1 nodes): `Check if user wants a premium Awwwards-level website.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate React + Vite application.`** (1 nodes): `Generate React + Vite application.`
+- **Thin community `Community 269`** (1 nodes): `Check if user wants a static website.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Generate FastAPI backend.`** (1 nodes): `Generate FastAPI backend.`
+- **Thin community `Community 270`** (1 nodes): `Check if user wants a React application.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Total number of unique sources.`** (1 nodes): `Total number of unique sources.`
+- **Thin community `Community 271`** (1 nodes): `Check if user wants a full-stack application.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Create config from environment variables.`** (1 nodes): `Create config from environment variables.`
+- **Thin community `Community 272`** (1 nodes): `Check if user wants a backend API.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Sliding-window error rate over last _window_s...`** (1 nodes): `Sliding-window error rate over last _window_size calls.`
+- **Thin community `Community 273`** (1 nodes): `Generate premium Awwwards-level website with Three.js 3D elements.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Deserialize from dictionary.`** (1 nodes): `Deserialize from dictionary.`
+- **Thin community `Community 274`** (1 nodes): `Generate static HTML/CSS/JS website.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get or create singleton instance.`** (1 nodes): `Get or create singleton instance.`
+- **Thin community `Community 275`** (1 nodes): `Generate React + Vite application.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Deserialize from dictionary.`** (1 nodes): `Deserialize from dictionary.`
+- **Thin community `Community 276`** (1 nodes): `Generate FastAPI backend.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Get remaining budget excluding reserved amoun...`** (1 nodes): `Get remaining budget excluding reserved amounts.`
+- **Thin community `Community 277`** (1 nodes): `Total number of unique sources.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Return phase budget limits (compatibility wit...`** (1 nodes): `Return phase budget limits (compatibility with BudgetEnforcer).`
+- **Thin community `Community 278`** (1 nodes): `Create config from environment variables.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Backward compatibility: success = completed s...`** (1 nodes): `Backward compatibility: success = completed status and score > 0.`
+- **Thin community `Community 279`** (1 nodes): `Sliding-window error rate over last _window_size calls.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Initialize provider resources.`** (1 nodes): `Initialize provider resources.`
+- **Thin community `Community 280`** (1 nodes): `Deserialize from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Release provider resources.`** (1 nodes): `Release provider resources.`
+- **Thin community `Community 281`** (1 nodes): `Get or create singleton instance.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Enrich a generation prompt with additional co...`** (1 nodes): `Enrich a generation prompt with additional context.          Args:             p`
+- **Thin community `Community 282`** (1 nodes): `Deserialize from dictionary.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Execute the tool with the given parameters.`** (1 nodes): `Execute the tool with the given parameters.`
+- **Thin community `Community 283`** (1 nodes): `Get remaining budget excluding reserved amounts.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 284`** (1 nodes): `Return phase budget limits (compatibility with BudgetEnforcer).`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 285`** (1 nodes): `Backward compatibility: success = completed status and score > 0.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 286`** (1 nodes): `Initialize provider resources.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 287`** (1 nodes): `Release provider resources.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 288`** (1 nodes): `Enrich a generation prompt with additional context.          Args:             p`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 293`** (1 nodes): `Execute the tool with the given parameters.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 294`** (1 nodes): `Return a pre-configured AutonomyConfig for the given level.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 295`** (1 nodes): `Convert an agent profile name to an AutonomyConfig.          Maps: standard→ST`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 296`** (1 nodes): `Get remaining budget excluding reserved amounts.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 297`** (1 nodes): `Return phase budget limits (compatibility with BudgetEnforcer).`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 298`** (1 nodes): `Create a checkpoint from a dictionary.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 299`** (1 nodes): `Load config from JSON or YAML file.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 300`** (1 nodes): `Load a skill from a Markdown file.          File format:             # Skill`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 301`** (1 nodes): `Deserialize from dictionary.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 302`** (1 nodes): `Format quick actions for display.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 303`** (1 nodes): `Check if dev workspace has changes since last publish.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 304`** (1 nodes): `Get the latest version.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 305`** (1 nodes): `Execute query with caching.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 306`** (1 nodes): `Passed if no critical violations.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 307`** (1 nodes): `Human-readable summary.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 308`** (1 nodes): `Estimate token count.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 309`** (1 nodes): `Load context from the source.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 310`** (1 nodes): `Search for relevant context chunks.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 311`** (1 nodes): `Update the context source with new content.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 312`** (1 nodes): `Load a skill from a Markdown file.          File format:             # Skill Nam`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 313`** (1 nodes): `Estimate token count.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 315`** (1 nodes): `Create configuration from dictionary.          Args:             data: Config`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 316`** (1 nodes): `Load configuration from YAML file.          Args:             path: Path to Y`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 317`** (1 nodes): `Load configuration from environment variables.          Environment variables:`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 318`** (1 nodes): `Create a gauge metric.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 319`** (1 nodes): `Create a counter metric.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 320`** (1 nodes): `REFINED (Round 2): Async-safe singleton getter.          Finding #7 Fix: Use a`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 321`** (1 nodes): `Create and initialize a new instance.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 322`** (1 nodes): `Cleanup all instances on process exit.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 323`** (1 nodes): `Deserialize from dict, handling conditional data storage.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 324`** (1 nodes): `Check if data should be stored in WAL based on size.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 325`** (1 nodes): `Initialize provider resources.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 326`** (1 nodes): `Release provider resources.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 327`** (1 nodes): `Enrich a generation prompt with additional context.          Args:             p`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 328`** (1 nodes): `Calculate RICE score.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 329`** (1 nodes): `Generate product roadmap visualization.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 330`** (1 nodes): `Calculate overall quality score (0-100).`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 331`** (1 nodes): `Check if all quality gates passed.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 332`** (1 nodes): `Calculate average test coverage.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 333`** (1 nodes): `Calculate overall quality score.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 334`** (1 nodes): `Run complete quality gate.          Pipeline:         1. Static analysis`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 335`** (1 nodes): `Get quality trends over time.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 336`** (1 nodes): `Factory method to create an event with current timestamp.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 337`** (1 nodes): `Determine memory tier based on age.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 338`** (1 nodes): `Execute the tool with the given parameters.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 339`** (1 nodes): `Deserialize from dictionary.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 340`** (1 nodes): `Get or create singleton instance.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 341`** (1 nodes): `Return the synchronous hook registry interface.          Using this property m`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 342`** (1 nodes): `Load configuration from environment variables.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 343`** (1 nodes): `Create a new check run. Returns check run ID.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 344`** (1 nodes): `Update an existing check run.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 345`** (1 nodes): `Post a PR comment. Returns comment ID.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 346`** (1 nodes): `Get existing PR comments for deduplication.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 347`** (1 nodes): `Create a new branch from base SHA.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 348`** (1 nodes): `Commit changes to a branch. Returns commit SHA.`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 349`** (1 nodes): `Create a new pull request. Returns PR number.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Model` connect `ApplicationError` to `str`, `StreamingPipeline`, `.add()`, `Enum`, `RuntimeError`, `cli.py`, `modes.py`, `BaseSearchProvider`, `BaseModel`, `._extract_function_name()`, `ABC`, `ValueError`, `cost_analytics.py`, `design_to_code.py`, `health.py`, `Exception`, `.qsize()`, `Plugin`?**
-  _High betweenness centrality (0.136) - this node is a cross-community bridge._
-- **Why does `TaskType` connect `ApplicationError` to `str`, `StreamingPipeline`, `.add()`, `Enum`, `RuntimeError`, `cli.py`, `BaseSearchProvider`, `BaseModel`, `._extract_function_name()`, `ABC`, `ValueError`, `Exception`, `.preflight_check()`?**
-  _High betweenness centrality (0.119) - this node is a cross-community bridge._
-- **Why does `Task` connect `ApplicationError` to `str`, `StreamingPipeline`, `.add()`, `Enum`, `RuntimeError`, `cli.py`, `BaseSearchProvider`, `BaseModel`, `ABC`, `.preflight_check()`, `Plugin`?**
-  _High betweenness centrality (0.045) - this node is a cross-community bridge._
-- **Are the 2113 inferred relationships involving `Model` (e.g. with `ModelState` and `AdaptiveRouter`) actually correct?**
-  _`Model` has 2113 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 1784 inferred relationships involving `TaskType` (e.g. with `ModelState` and `AdaptiveRouter`) actually correct?**
-  _`TaskType` has 1784 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 1273 inferred relationships involving `Task` (e.g. with `ARAPipelineIntegration` and `ARA Pipeline Integration — Engine Extension ===================================`) actually correct?**
-  _`Task` has 1273 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 945 inferred relationships involving `TaskResult` (e.g. with `TaskChannel` and `AgentPool`) actually correct?**
-  _`TaskResult` has 945 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `Model` connect `A2A Protocol & Routing Core` to `A2A Multi-Agent Communication`, `API Builder & Integration Layer`, `A2A Agent Card & Task Dispatch`, `Model Health & Agent Cache`, `A2A Coordination & Messaging`, `Unified LLM Client`, `A/B Testing & Accountability`, `A/B Testing Engine`, `Model Routing & Architecture Analysis`, `Application Assembly`, `Adaptive Query Depth Control`, `Plugin System & Tool Permissions`, `Codebase Analysis & Context Building`, `Agent Model Registry`, `Architecture Rules & NexusScope`, `Community 21`, `Community 22`, `Community 23`, `Community 28`, `Community 32`, `Community 41`, `Community 43`, `Community 47`, `Community 48`, `Community 57`?**
+  _High betweenness centrality (0.183) - this node is a cross-community bridge._
+- **Why does `TaskType` connect `A2A Protocol & Routing Core` to `Community 32`, `A2A Multi-Agent Communication`, `API Builder & Integration Layer`, `A2A Agent Card & Task Dispatch`, `Model Health & Agent Cache`, `A2A Coordination & Messaging`, `Unified LLM Client`, `Model Routing & Architecture Analysis`, `Application Assembly`, `Adaptive Query Depth Control`, `Plugin System & Tool Permissions`, `Codebase Analysis & Context Building`, `Agent Model Registry`, `Web CLI / Site Generation`, `Community 21`, `Community 22`, `Community 23`?**
+  _High betweenness centrality (0.108) - this node is a cross-community bridge._
+- **Why does `Workspace package — Shared blackboard for agent state and communication.` connect `Plugin System & Tool Permissions` to `A2A Protocol & Routing Core`, `A2A Multi-Agent Communication`, `API Builder & Integration Layer`, `A2A Agent Card & Task Dispatch`, `Model Health & Agent Cache`, `A2A Coordination & Messaging`, `Unified LLM Client`, `Event Store & Async Patterns`, `Model Routing & Architecture Analysis`, `Application Assembly`, `Adaptive Query Depth Control`, `Codebase Analysis & Context Building`, `Agent Model Registry`, `Architecture Rules & NexusScope`, `Community 20`, `Community 21`, `Community 22`, `Community 23`, `Community 25`?**
+  _High betweenness centrality (0.041) - this node is a cross-community bridge._
+- **Are the 3039 inferred relationships involving `Model` (e.g. with `ModelState` and `AdaptiveRouter`) actually correct?**
+  _`Model` has 3039 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 2699 inferred relationships involving `TaskType` (e.g. with `ModelState` and `AdaptiveRouter`) actually correct?**
+  _`TaskType` has 2699 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 1816 inferred relationships involving `Task` (e.g. with `ARAPipelineIntegration` and `ARA Pipeline Integration — Engine Extension ===================================`) actually correct?**
+  _`Task` has 1816 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 1238 inferred relationships involving `TaskResult` (e.g. with `TaskChannel` and `AgentPool`) actually correct?**
+  _`TaskResult` has 1238 INFERRED edges - model-reasoned connections that need verification._

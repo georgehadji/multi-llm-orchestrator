@@ -1,0 +1,147 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "items": [
+    {
+      "name": "button",
+      "type": "component",
+      "description": "",
+      "files": [],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "card",
+      "type": "component",
+      "description": "Card with header/content/footer",
+      "files": [
+        "card.tsx"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "input",
+      "type": "component",
+      "description": "Form input with validation",
+      "files": [
+        "input.tsx"
+      ],
+      "dependencies": [
+        "utils"
+      ],
+      "version": "0.1.0"
+    },
+    {
+      "name": "dialog",
+      "type": "component",
+      "description": "",
+      "files": [],
+      "dependencies": [
+        "button"
+      ],
+      "version": "0.1.0"
+    },
+    {
+      "name": "dropdown-menu",
+      "type": "component",
+      "description": "Dropdown menu with items",
+      "files": [
+        "dropdown-menu.tsx"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "toast",
+      "type": "component",
+      "description": "Toast notification system",
+      "files": [
+        "toast.tsx",
+        "use-toast.ts"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "tabs",
+      "type": "component",
+      "description": "Tabbed content container",
+      "files": [
+        "tabs.tsx"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "avatar",
+      "type": "component",
+      "description": "User avatar with fallback",
+      "files": [
+        "avatar.tsx"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "badge",
+      "type": "component",
+      "description": "Status badge with variants",
+      "files": [
+        "badge.tsx"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "separator",
+      "type": "component",
+      "description": "Visual separator",
+      "files": [
+        "separator.tsx"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "utils",
+      "type": "utility",
+      "description": "cn() class merge utility",
+      "files": [
+        "utils.ts"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "colors",
+      "type": "token",
+      "description": "Design system color tokens",
+      "files": [
+        "colors.ts",
+        "globals.css"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "typography",
+      "type": "token",
+      "description": "Typography scale and fonts",
+      "files": [
+        "typography.ts"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    },
+    {
+      "name": "hero",
+      "type": "component",
+      "description": "Hero section",
+      "files": [
+        "hero.tsx"
+      ],
+      "dependencies": [],
+      "version": "0.1.0"
+    }
+  ]
+}

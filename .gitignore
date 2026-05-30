@@ -126,3 +126,6 @@ nul
 *.backup
 *~
 .aider*
+
+# local env helpers / secrets
+openclaude.txt

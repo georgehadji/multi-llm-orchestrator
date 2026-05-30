@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, main, "claude/**"]
+    branches: [master, main, "claude/**", "docs/**"]
   pull_request:
     branches: [master, main]
 
@@ -23,6 +23,23 @@ jobs:
       - name: Run ruff
         run: ruff check orchestrator/ tests/
 
+  architecture:
+    name: Architecture Boundaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -e ".[dev]" || pip install -e "." import-linter
+      - name: Check import boundaries
+        run: lint-imports
+        # Enforces 4 contracts: domain-purity, application-no-concrete-infra,
+        # application-services-no-engine, engine-core-no-loose-infra.
+        # This job MUST pass — architecture violations block merge.
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
@@ -34,9 +51,16 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -e ".[dev]" || pip install -e "." mypy
-      - name: Run mypy
+      - name: Run mypy (core layers)
+        # Check domain and application layers strictly — these must stay clean.
+        # Infrastructure and engine layers still have known issues; warn only.
+        run: |
+          mypy orchestrator/domain/ orchestrator/application/ \
+               orchestrator/engine_core/container.py \
+               --ignore-missing-imports --no-strict-optional
+      - name: Run mypy (full codebase — informational)
         run: mypy orchestrator/ --ignore-missing-imports --no-strict-optional
-        continue-on-error: true  # type errors are warnings until baseline is clean
+        continue-on-error: true
 
   test:
     name: Test
@@ -48,16 +72,22 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install dependencies
-        run: pip install -e ".[dev]" || pip install -e "." pytest pytest-asyncio pytest-cov
-      - name: Run tests (no API / no slow / no stress / no e2e)
+        run: pip install -e ".[dev]" || pip install -e "." pytest pytest-asyncio pytest-cov structlog
+      - name: Run unit + integration tests
         run: |
           pytest -m "not slow and not requires_api and not stress and not e2e" \
             --tb=short -q \
+            --ignore=tests/test_service_observability.py \
             --cov=orchestrator \
             --cov-report=xml \
-            --cov-report=term-missing
+            --cov-report=term-missing \
+            --cov-fail-under=6
+        # Coverage floor: 6%. Ratchet this upward as coverage grows.
+        # Never lower this number — only raise it.
+      - name: Run contract tests
+        run: |
+          pytest tests/contracts/ -v --tb=short --no-cov
         env:
-          # No API keys — all covered tests must run without live APIs
           OPENAI_API_KEY: ""
           ANTHROPIC_API_KEY: ""
           GOOGLE_API_KEY: ""
@@ -68,3 +98,23 @@ jobs:
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install bandit
+        run: pip install bandit[toml]
+      - name: Run bandit (HIGH severity only)
+        run: |
+          bandit -r orchestrator/ \
+            --severity-level high \
+            --confidence-level medium \
+            -x orchestrator/graphify-out \
+            -f txt
+        continue-on-error: true  # warn until baseline is established

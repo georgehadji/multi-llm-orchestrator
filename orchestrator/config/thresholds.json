@@ -1,0 +1,9 @@
+{
+  "data_extraction": 0.90,
+  "summarization": 0.80,
+  "code_generation": 0.85,
+  "code_review": 0.75,
+  "complex_reasoning": 0.90,
+  "creative_writing": 0.80,
+  "evaluation": 0.80
+}

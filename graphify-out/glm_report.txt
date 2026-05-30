@@ -1,0 +1,38 @@
+architecture_advisor.py (1 refs):
+  L334:             Model.ZHIPU_GLM_5_1,  # z-ai/glm-5.1, canonical GLM
+assumption_gate.py (1 refs):
+  L30: _ASSUMPTION_MODEL = Model.ZHIPU_GLM_5_1
+engine.py (1 refs):
+  L4558:     # PRIORITY: Best value models first (Xiaomi, StepFun, GLM, Grok)
+models.py (16 refs):
+  L46:     # Updated v3.0 with Xiaomi, Moonshot, StepFun, GLM models
+  L126:     # Z.AI GLM MODELS (NEW v3.0)
+  L128:     ZHIPU_GLM_5_1 = "z-ai/glm-5.1"  # canonical GLM model
+  L129:     # Backward-compat aliases (all GLM variants remap to glm-5.1)
+  L130:     ZHIPU_GLM_4_7_FLASH = ZHIPU_GLM_5_1
+  ... and 11 more
+model_selector.py (2 refs):
+  L34:     Model.ZHIPU_GLM_5_1: 0,  # z-ai/glm-5.1, canonical GLM model
+  L122:     Model.ZHIPU_GLM_5_1,
+modes.py (1 refs):
+  L131:                 model_override=Model.ZHIPU_GLM_5_1,  # Canonical GLM model
+phase_aware_models.py (13 refs):
+  L8: Includes: Xiaomi, Moonshot, DeepSeek, GLM, StepFun, Qwen, Grok, Claude, Google, OpenAI
+  L17: - GLM-5.1: Canonical GLM model, 202K context
+  L68:         ModelRegistry.GLM_5_1_1,  # $0.06/$0.40, ultra-cheap 202K context
+  L82:         ModelRegistry.GLM_5_1_1,  # $0.39/$1.75, enhanced programming, stable
+  L97:         ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems design
+  ... and 8 more
+application\context_compressor.py (2 refs):
+  L10: Uses the cheapest available model (ZHIPU_GLM_5_1 ? canonical GLM model)
+  L40: _DEFAULT_MODEL: Model = Model.ZHIPU_GLM_5_1
+domain\model_registry.py (14 refs):
+  L111:     # Z-AI GLM Models ? VERIFIED
+  L112:     GLM_5_1 = "z-ai/glm-5.1"  # canonical GLM model
+  L114:     GLM_4_7_FLASH = GLM_5_1
+  L115:     GLM_4_7 = GLM_5_1
+  L116:     GLM_5 = GLM_5_1
+  ... and 9 more
+pattern_learner\curator.py (2 refs):
+  L43: _DEFAULT_REVIEW_MODEL: Model = Model.ZHIPU_GLM_5_1
+  L79:                 ZHIPU_GLM_5_1 (canonical GLM model).

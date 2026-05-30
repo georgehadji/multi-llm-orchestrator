@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from ..models import Model
 
 if TYPE_CHECKING:
-    from ..api_clients import UnifiedClient
+    from ..domain.ports import LLMClient
 
 logger = logging.getLogger("orchestrator.context_compressor")
 
@@ -56,14 +56,14 @@ class ContextCompressor:
 
     def __init__(
         self,
-        client: UnifiedClient | None = None,
+        client: LLMClient | None = None,
         enabled: bool = False,
         cache_ttl: int = _CACHE_TTL_SECONDS,
     ) -> None:
         """Initialize compressor.
 
         Args:
-            client: UnifiedClient instance for LLM calls. Required when enabled.
+            client: LLMClient instance for LLM calls. Required when enabled.
             enabled: When False, falls back to hard truncation.
             cache_ttl: Seconds before a cached summary is evicted.
         """

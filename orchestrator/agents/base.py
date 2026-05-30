@@ -43,6 +43,7 @@ class AgentRole(str, Enum):
     USER = "user"
     PRODUCT_MANAGER = "product_manager"
     QA = "qa"
+    INVESTIGATOR = "investigator"
 
 
 @dataclass
@@ -143,6 +144,7 @@ class AgentBase(ABC):
             return False
         msg = {"sender": self.role.value, "recipient": recipient.value, "content": content}
         if hasattr(self.workspace, "message_bus"):
-            await self.workspace.message_bus.publish(msg)
+            # AgentMessageBus.publish is synchronous — call it directly without await.
+            self.workspace.message_bus.publish(msg)
             return True
         return False

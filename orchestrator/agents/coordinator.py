@@ -95,10 +95,30 @@ class AgentOrchestrator:
         except Exception:
             pass
 
+    # Keywords that trigger an INVESTIGATOR task instead of a build pipeline.
+    _INVESTIGATION_TRIGGERS = frozenset([
+        "understand", "trace", "explore", "investigate",
+        "how does", "map dependencies", "dependency map",
+        "explain", "walk me through", "show me how",
+    ])
+
     def _decompose_goal(self, goal: str) -> list[AgentTask]:
         """Decompose a goal into agent tasks."""
         tasks: list[AgentTask] = []
         goal_lower = goal.lower()
+
+        # Investigation requests — dispatch to INVESTIGATOR before any build task.
+        if any(trigger in goal_lower for trigger in self._INVESTIGATION_TRIGGERS):
+            tasks.append(
+                AgentTask(
+                    id="investigate_001",
+                    goal=goal,
+                    target_role=AgentRole.INVESTIGATOR,
+                    context="",
+                    dependencies=[],
+                )
+            )
+            return tasks
 
         if any(kw in goal_lower for kw in ["design", "architecture", "choose framework", "plan"]):
             tasks.append(

@@ -1,0 +1,52 @@
+{
+  "code_generation": [
+    "deepseek/deepseek-v4-flash",
+    "moonshotai/kimi-k2.6",
+    "qwen/qwen3.7-max",
+    "deepseek/deepseek-v4-pro",
+    "xiaomi/mimo-v2-flash",
+    "openai/gpt-5.4-codex",
+    "anthropic/claude-sonnet-4-6",
+    "google/gemini-3.5-flash"
+  ],
+  "code_review": [
+    "deepseek/deepseek-v4-pro",
+    "x-ai/grok-4.20",
+    "anthropic/claude-sonnet-4-6",
+    "moonshotai/kimi-k2.6"
+  ],
+  "complex_reasoning": [
+    "qwen/qwen3.7-max",
+    "deepseek/deepseek-v4-pro",
+    "openai/gpt-5.4",
+    "moonshotai/kimi-k2.6",
+    "anthropic/claude-opus-4-6"
+  ],
+  "creative_writing": [
+    "anthropic/claude-sonnet-4-6",
+    "openai/gpt-5.4",
+    "meta-llama/llama-4-maverick",
+    "nousresearch/hermes-3-llama-3.1-70b",
+    "meta-llama/llama-3.1-405b-instruct"
+  ],
+  "data_extraction": [
+    "z-ai/glm-5.1",
+    "deepseek/deepseek-v4-flash",
+    "z-ai/glm-5-turbo",
+    "microsoft/phi-4",
+    "google/gemini-3.5-flash"
+  ],
+  "summarization": [
+    "z-ai/glm-5.1",
+    "deepseek/deepseek-v4-flash",
+    "google/gemini-3.5-flash",
+    "microsoft/phi-4"
+  ],
+  "evaluation": [
+    "x-ai/grok-4.20",
+    "deepseek/deepseek-v4-pro",
+    "anthropic/claude-sonnet-4-6",
+    "openai/gpt-5.4",
+    "moonshotai/kimi-k2.6"
+  ]
+}

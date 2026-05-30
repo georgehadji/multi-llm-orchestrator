@@ -19,9 +19,6 @@ from .observability import ModelSummary, ObservabilityService
 from .dependency_resolver import DependencyResolver
 from .context_compressor import ContextCompressor
 
-# Backward-compat: Orchestrator still defined in engine.py during migration
-from ..engine import Orchestrator  # noqa: F401
-
 __all__ = [
     # Engine core (now application-layer)
     "CritiqueCycle",
@@ -43,6 +40,4 @@ __all__ = [
     # Supporting
     "DependencyResolver",
     "ContextCompressor",
-    # Backward-compat
-    "Orchestrator",
 ]

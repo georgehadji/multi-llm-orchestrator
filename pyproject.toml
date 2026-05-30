@@ -46,6 +46,8 @@ dependencies = [
 dev = [
     "pytest>=8.0,<9.0",
     "pytest-cov>=4.1,<5.0",
+    "import-linter>=2.1,<2.2",  # P4-1: Enforce architectural boundary contracts (grimp==3.3 required)
+    "grimp>=3.3,<3.4",          # Pinned: 3.4+ has a Rust panic on Windows with this codebase
     "networkx>=3.0,<4.0",  # Required by codebase_reader.py (DependencyGraph)
     "numpy>=1.24,<3.0",  # Required by networkx.pagerank() via scipy backend
     "scipy>=1.10,<2.0",  # Required by networkx.pagerank() (_pagerank_scipy)
@@ -359,7 +361,7 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
     "typing.TYPE_CHECKING",
 ]
-fail_under = 5  # ratchet: actual baseline 6.94% (after P1 infrastructure additions) minus 2; raise as tests are added (target: 80%)
+fail_under = 6  # ratchet floor — never lower this. Raise in ~5% steps as coverage grows. Target: 80%.
 precision = 2
 
 [tool.coverage.html]
