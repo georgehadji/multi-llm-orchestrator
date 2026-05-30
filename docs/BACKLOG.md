@@ -24,3 +24,4 @@ Prerequisite: Phases 0–4 complete and stable for ≥ 2 weeks.
 
 - **P5-1:** Add `TaskQueuePort` abstraction with `InProcessTaskQueue` and `RedisTaskQueue` adapters.
 - **P5-2:** Serialize SQLite writes via `asyncio.Semaphore(1)` in `StateManager` to prevent concurrent-write corruption.
+# Updated on Sat, May 30, 2026  4:22:27 PM
