@@ -1,10 +1,10 @@
 # Multi-LLM Orchestrator — Architecture Mindmap
 
-> **Version:** v7.0.0 (2026-05-29)  
+> **Version:** v8.0.0 (2026-05-30)  
 > **engine.py:** 2,672 lines (−49% from v5.0)  
-> **Application services:** 16 extracted classes  
-> **Import contracts:** 4 (domain purity, app-no-infra, app-services-no-engine, engine-core-no-loose-infra)  
-> **Architecture compliance score:** 9.2 / 10 (up from 5.5 after 7-milestone refactor)
+> **Application services:** 17 extracted classes  
+> **Import contracts:** 4 (strengthened — domain-purity now covers models.py + exceptions)  
+> **Architecture compliance score:** 7.2 / 10 (empirical audit 2026-05-29; prior self-assessment was 9.4)
 
 ---
 
@@ -358,7 +358,8 @@ All optional module imports in `engine.py` are gated by feature flags (P4-2 comp
 | M5 — Deduplication | 8.6 | 10 duplicate root modules → backward-compat shims |
 | M6 — Tracker ownership | 8.9 | `ModelHealthTracker` owns its dicts; no shared mutable state |
 | M7 — Immutable state | **9.2** | `ResumptionService` returns new `ProjectState` via `dataclasses.replace` |
-| P4-2 — Feature flags | **9.4** | All optional imports in `engine.py` gated by `FeatureFlags` (19 flags total) |
+| P4-2 — Feature flags | 9.4* | All optional imports in `engine.py` gated by `FeatureFlags` (19 flags total) |
+| M8 — Audit remediation | **7.2** | 5 CRITICALs + 8 HIGHs fixed; empirical re-score vs prior self-assessment |
 
 ---
 
@@ -373,12 +374,42 @@ All optional module imports in `engine.py` are gated by feature flags (P4-2 comp
 | **Null adapters** | **12** (NullHookRegistry added in M2) |
 | **Structural dummies** | **0** (all replaced by M2) |
 | **`_host` back-references** | **0** (eliminated by M3) |
-| **Root duplicate modules** | **0** live duplicates (10 shims pending deletion) |
+| **Root duplicate modules** | **0** live duplicates (28 shims total; pending deletion) |
 | **Parallel tasks** | 3 (SQLite WAL + connection pool) |
 | **Circuit breaker** | Trips after 3 consecutive failures |
 
 ---
 
-*Last updated: 2026-05-29 (session 2)*  
+---
+
+## M8 — Audit Remediation (2026-05-30)
+
+Fixes applied from the 2026-05-29 principal-engineer architecture audit (empirical score: 5.8/10 → 7.2/10):
+
+| ID | Fix | Impact |
+|----|-----|--------|
+| I-1 | `asyncio.gather(return_exceptions=True)` + `asyncio.Lock` for results | Correctness — no more orphaned tasks |
+| I-2 | `asyncio.to_thread` for blocking `EventStore.append` | Correctness — event loop no longer stalls |
+| I-3 | Warning on `publish()` before `start()` | Observability |
+| I-4 | `lint-imports` added as blocking CI job | Architecture enforcement in CI |
+| I-5 | Coverage floor raised 5% → 6% | Regression safety |
+| I-6 | Remove `await` on synchronous `AgentMessageBus.publish` | Correctness |
+| H-1 | `models.py` I/O moved to lazy `__getattr__` (Rule #2 fixed) | Domain purity |
+| H-3 | `BudgetHierarchy` persists to SQLite; cross-run caps now enforced | Feature correctness |
+| H-4 | Contract 1 expanded to cover `models.py`/`exceptions`; Contract 3 covers all `application/` | Stronger enforcement |
+| H-7 | Replace raw `ValueError`/`RuntimeError` with domain exception hierarchy | Observability + retriable semantics |
+| L-1 | 18 root/subpackage full-duplicate modules converted to shims; 3 package `__init__.py` fixed | Maintenance + security |
+
+**Remaining high-priority items** (see `docs/BACKLOG.md`):
+- H-2: Extract decomposition cluster from `engine.py` (~600 lines)
+- H-5/H-6: Fully type `LLMClient` port; add `ExecutorPort`, `EvaluatorPort`, `GeneratorPort`
+- H-8: Switch `engine.py` logging to structlog
+- L-2: Centralize 146 `os.getenv` calls through `crosscutting/config.py`
+- L-3: SQLite repository abstraction (centralize schema ownership)
+- L-4: `TaskQueuePort` for horizontal scaling
+- L-5: Contract tests for real adapters (currently mock-only)
+- L-6: Unify the LLM-pipeline and role-based agent models
+
+*Last updated: 2026-05-30*  
 *Maintainer: Georgios-Chrysovalantis Chatzivantsidis*  
 *License: MIT*
