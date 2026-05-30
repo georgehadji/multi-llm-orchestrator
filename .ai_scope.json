@@ -1,0 +1,11 @@
+{
+  "target_files": [
+    "src/app.py"
+  ],
+  "locked_files": [
+    "src/secrets.py"
+  ],
+  "locked_dirs": [],
+  "target_patterns": [],
+  "lock_patterns": []
+}

@@ -1,0 +1,18 @@
+cache)
+        self._semantic_cache = SemanticCache(quality_threshold=0.85)
+
+        # ── Phase 3+: Memory Provider Manager, Pattern Store, and Pattern Injector ──
+        self._memory_provider_mgr = MemoryManager() if MemoryManager is not None else None
+        self._pattern_store = PatternStore() if PatternStore is not None else None
+        self._pattern_extractor = PatternExtractor() if PatternExtractor is not None else None
+        self._pattern_injector = PatternInjector(
+            store=self._pattern_store,
+            enabled=flags.pattern_injection,
+        ) if PatternInjector is not None else None
+        # ── Phase 5: Pattern Curator (wired to UnifiedClient for LLM review) ──
+        self._pattern_curator = PatternCurator(
+            store=self._pattern_store,
+            client=self.client,
+        ) if PatternCurator is not None and self._pattern_store is not None else None
+        # ── Phase 4: Batch Runner (opt-in via ORCH_BATCH_PARALLELISM=true) ──
+        # Concurr

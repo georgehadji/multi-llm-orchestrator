@@ -64,7 +64,13 @@ from .models import (
 from .resilience import ResiliencePolicy, RetryTemplate
 from .semantic_cache import SemanticCache
 from .validators import all_validators_pass, async_run_validators
-from .exceptions import OrchestratorError, TruncatedResponseError
+from .exceptions import (
+    BudgetExceededError,
+    ConfigurationError,
+    OrchestratorError,
+    TruncatedResponseError,
+    TaskError,
+)
 from .tool_guardrails import ToolCallGuardrailController
 from .crosscutting.config import flags
 
@@ -767,7 +773,10 @@ class Orchestrator:
         ]
         missing = [name for name, val in required if val is None]
         if missing:
-            raise RuntimeError(f"Orchestrator missing required services: {missing}")
+            raise ConfigurationError(
+                f"Orchestrator missing required services: {missing}",
+                details={"missing_services": missing},
+            )
         none_optional = [name for name, val in optional if val is None]
         if none_optional:
             logger.info("Optional services not configured: %s", none_optional)
@@ -1353,9 +1362,10 @@ class Orchestrator:
         """
         task = self._lifecycle_manager._task
         if task is not None and not task.done():
-            raise RuntimeError(
-                "configure_session_lifecycle() must be called before starting the scheduler. "
-                "Call stop() first, then reconfigure."
+            raise ConfigurationError(
+                "configure_session_lifecycle() must be called before starting the scheduler; "
+                "call stop() first, then reconfigure.",
+                details={"hint": "call stop() before reconfiguring"},
             )
         self._lifecycle_manager._interval = migration_interval_hours * 3600
         self._lifecycle_manager._model = llm_model
@@ -1550,9 +1560,10 @@ class Orchestrator:
         # BudgetHierarchy pre-flight check (Improvement 6)
         if self._budget_hierarchy is not None:
             if not self._budget_hierarchy.can_afford_job(job_id, team, spec.budget.max_usd):
-                raise ValueError(
-                    f"BudgetHierarchy rejects job '{job_id}': "
-                    "org/team/job limits would be exceeded"
+                raise BudgetExceededError(
+                    spent=self._budget_hierarchy._org_spent,
+                    limit=self._budget_hierarchy._org_max,
+                    details={"job_id": job_id, "team": team, "estimated_usd": spec.budget.max_usd},
                 )
         try:
             state = await self.run_project(
@@ -1688,8 +1699,10 @@ Each task JSON element MUST also include:
             from .structured_outputs import TaskDecomposer
 
             if len(project) > _INSTRUCTOR_MAX_CHARS:
-                raise ValueError(
-                    f"Project description too large for Instructor ({len(project)} chars)"
+                raise ConfigurationError(
+                    f"Project description too large for Instructor ({len(project)} chars); "
+                    f"maximum is {_INSTRUCTOR_MAX_CHARS}",
+                    details={"length": len(project), "max": _INSTRUCTOR_MAX_CHARS},
                 )
 
             decomposer = TaskDecomposer(api_client=self.client)
@@ -1797,7 +1810,11 @@ Each task JSON element MUST also include:
             result = self._parse_decomposition(resp.text)
             if not result:
                 model_name = m.value if isinstance(m, Model) else m
-                raise ValueError(f"Decomposition returned empty task list from {model_name}")
+                raise OrchestratorError(
+                    f"Decomposition returned empty task list from {model_name}",
+                    retriable=True,
+                    details={"model": model_name},
+                )
             return result
 
         # Try primary model, then fallback, with one retry on empty/malformed output

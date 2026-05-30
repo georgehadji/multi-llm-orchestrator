@@ -826,7 +826,18 @@ class UnifiedEventBus(HookRegistry):
             self.subscribers.remove(callback)
 
     async def publish(self, event: DomainEvent) -> None:
-        """Publish event to all subscribers and projections."""
+        """Publish event to all subscribers and projections.
+
+        Warns if the processing loop has not been started — events queued
+        before ``start()`` is called will be processed once it is, but callers
+        should ensure the bus is running before publishing.
+        """
+        if not self._running:
+            logger.warning(
+                "UnifiedEventBus.publish called before start() — event %s queued "
+                "but will not be processed until start() is invoked.",
+                type(event).__name__,
+            )
         await self._event_queue.put(event)
 
     async def start(self) -> None:
@@ -864,12 +875,13 @@ class UnifiedEventBus(HookRegistry):
 
     async def _handle_event(self, event: DomainEvent) -> None:
         """Handle a single event."""
-        # Persist
+        # Persist — EventStore.append uses blocking sqlite3, so we must run it
+        # in a thread to avoid stalling the async event loop.
         if self.store:
             try:
-                self.store.append(event)
+                await asyncio.to_thread(self.store.append, event)
             except Exception as e:
-                logger.warning(f"Failed to persist event: {e}")
+                logger.warning("Failed to persist event: %s", e)
 
         # Update projections
         for projection in self.projections:

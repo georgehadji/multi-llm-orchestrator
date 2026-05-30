@@ -1,0 +1,202 @@
+"""
+AppBuilder — top-level class that wires all App Builder pipeline components.
+Author: Georgios-Chrysovalantis Chatzivantsidis
+
+Pipeline:
+  1. AppDetector.detect()        -> AppProfile
+  2. ScaffoldEngine.scaffold()   -> dict[rel_path, content]
+  3. _run_orchestrator()         -> ProjectState (with TaskResults)
+  4. AppAssembler.assemble()     -> AssemblyReport
+  5. DependencyResolver.resolve() -> ResolveReport
+  6. AppVerifier.verify_local()  -> VerifyReport
+  7. [optional] AppVerifier.verify_docker() -> VerifyReport
+
+Returns AppBuildResult.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from orchestrator.app_assembler import AppAssembler, AssemblyReport
+from orchestrator.app_verifier import AppVerifier, VerifyReport
+from orchestrator.architecture_advisor import ArchitectureAdvisor
+from orchestrator.dep_resolver import DependencyResolver, ResolveReport
+from orchestrator.scaffold import ScaffoldEngine
+
+if TYPE_CHECKING:
+    from orchestrator.app_detector import AppProfile
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AppBuildResult:
+    """Result of a full app build pipeline run."""
+
+    success: bool = False
+    output_dir: str = ""
+    profile: AppProfile | None = None
+    assembly: AssemblyReport | None = None
+    dependencies: ResolveReport | None = None
+    local_verify: VerifyReport | None = None
+    docker_verify: VerifyReport | None = None
+    errors: list[str] = field(default_factory=list)
+    state: ProjectState | None = None  # Raw orchestrator state for task file output
+
+
+class AppBuilder:
+    """
+    Top-level pipeline class that builds a complete app from a description.
+
+    Usage:
+        builder = AppBuilder()
+        result = await builder.build(
+            description="Build a FastAPI REST API",
+            criteria="Must have health endpoint and tests",
+            output_dir=Path("/tmp/my-app"),
+            app_type_override="fastapi",  # optional override
+            docker=False,
+        )
+    """
+
+    def __init__(self) -> None:
+        self._advisor = ArchitectureAdvisor()
+        self._scaffold = ScaffoldEngine()
+        self._assembler = AppAssembler()
+        self._resolver = DependencyResolver()
+        self._verifier = AppVerifier()
+
+    async def build(
+        self,
+        description: str,
+        criteria: str,
+        output_dir: Path,
+        app_type_override: str | None = None,
+        docker: bool = False,
+        budget: "Budget | None" = None,
+        max_concurrency: int = 3,
+    ) -> AppBuildResult:
+        """
+        Run the full app build pipeline.
+
+        Parameters
+        ----------
+        description: Plain-text description of the app to build
+        criteria:    Success criteria / acceptance test description
+        output_dir:  Directory where the app will be written
+        app_type_override: If set, skip LLM detection and use this app type
+        docker:      If True, also run Docker verification
+        """
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        result = AppBuildResult(output_dir=str(output_dir))
+
+        try:
+            # -- Step 1: Decide architecture --
+            logger.info("AppBuilder: running architecture advisor...")
+            profile = await self._advisor.analyze(description, criteria, app_type_override)
+            result.profile = profile
+            logger.info(
+                "AppBuilder: app_type=%s pattern=%s topology=%s detected_from=%s",
+                profile.app_type,
+                profile.structural_pattern,
+                profile.topology,
+                profile.detected_from,
+            )
+
+            # -- Step 2: Scaffold --
+            logger.info("AppBuilder: scaffolding...")
+            scaffold = self._scaffold.scaffold(profile, output_dir)
+
+            # -- Step 3: Run orchestrator to generate code --
+            logger.info("AppBuilder: running orchestrator...")
+            project_state = await self._run_orchestrator(
+                description,
+                criteria,
+                output_dir,
+                profile,
+                budget=budget,
+                max_concurrency=max_concurrency,
+            )
+
+            # -- Step 4: Assemble --
+            logger.info("AppBuilder: assembling...")
+            tasks = getattr(project_state, "tasks", {})
+            results = getattr(project_state, "results", {})
+            assembly = self._assembler.assemble(results, tasks, scaffold, output_dir)
+            result.assembly = assembly
+
+            # -- Step 5: Resolve dependencies --
+            logger.info("AppBuilder: resolving dependencies...")
+            deps = self._resolver.resolve(output_dir)
+            result.dependencies = deps
+
+            # -- Step 6: Local verification --
+            logger.info("AppBuilder: running local verification...")
+            local_verify = self._verifier.verify_local(output_dir, profile)
+            result.local_verify = local_verify
+
+            # -- Step 7: Docker verification (optional) --
+            if docker:
+                logger.info("AppBuilder: running Docker verification...")
+                docker_verify = self._verifier.verify_docker(output_dir, profile)
+                result.docker_verify = docker_verify
+
+            # -- Determine overall success --
+            result.success = local_verify.success
+            if docker and result.docker_verify is not None:
+                result.success = result.success and result.docker_verify.success
+            if result.errors:
+                result.success = False
+
+            # Store state for task file output
+            result.state = project_state
+
+            logger.info(
+                "AppBuilder: done -- success=%s files_written=%d",
+                result.success,
+                len(assembly.files_written),
+            )
+
+        except Exception as exc:
+            logger.exception("AppBuilder pipeline failed: %s", exc)
+            result.success = False
+            result.errors.append(str(exc))
+
+        return result
+
+    async def _run_orchestrator(
+        self,
+        description: str,
+        criteria: str,
+        output_dir: Path,
+        profile: AppProfile,
+        budget: "Budget | None" = None,
+        max_concurrency: int = 3,
+    ):
+        """
+        Isolated method to run the Orchestrator — allows test mocking.
+
+        BUG-API-001 FIX: Accept budget and max_concurrency from the CLI
+        so user-specified limits are NOT silently ignored. Previously,
+        Orchestrator() was created without any budget argument, causing
+        the CLI's --budget flag to be silently replaced by the default
+        $8.00 Budget().
+        """
+        from orchestrator.budget import Budget  # noqa: PLC0415
+        from orchestrator.engine import Orchestrator  # noqa: PLC0415
+
+        orchestrator = Orchestrator(
+            budget=budget,
+            max_concurrency=max_concurrency,
+        )
+        state = await orchestrator.run_project(
+            project_description=description,
+            success_criteria=criteria,
+            app_profile=profile,
+        )
+        return state

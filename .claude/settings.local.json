@@ -140,12 +140,46 @@
       "Bash(echo \"---\")",
       "Bash(rtk ls *)",
       "Bash(rtk git *)",
-      "Bash(rtk gh pr create --title 'fix: patch 5 confirmed runtime bugs + regression tests' --body ' *)"
+      "Bash(rtk gh pr create --title 'fix: patch 5 confirmed runtime bugs + regression tests' --body ' *)",
+      "Bash(rtk read *)",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\tesse\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\E--Documents-Vibe-Coding-Ai-Orchestrator\\\\2257cfbb-a58b-4bff-bc43-30a4512897b4\\\\tasks\\\\bygskkyyt.output\"\\).Length)"
     ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "code-review-graph"
   ],
-  "hooks": {}
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/pre_edit_core.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/post_edit_ruff.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/post_bash_pytest.py"
+          }
+        ]
+      }
+    ]
+  }
 }

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from typing import TYPE_CHECKING, Any
+from .budget import Budget  # noqa: F401
 
 # ─────────────────────────────────────────────
 
@@ -336,269 +337,101 @@ def get_provider(model: Model) -> str:
 
 # ─────────────────────────────────────────────
 
-# Cost table (per 1M tokens, USD)
+# Configuration Loaders
 
 # ─────────────────────────────────────────────
 
 
-COST_TABLE: dict[Model, dict[str, float]] = {
-    # OpenAI Models (via OpenRouter)
-    Model.GPT_4O: {"input": 2.50, "output": 10.00},
-    Model.GPT_4O_MINI: {"input": 0.15, "output": 0.60},
-    Model.GPT_5: {"input": 1.25, "output": 10.00},
-    Model.GPT_5_MINI: {"input": 0.25, "output": 2.00},
-    Model.GPT_5_NANO: {"input": 0.05, "output": 0.40},
-    Model.O1: {"input": 15.00, "output": 60.00},
-    Model.O3_MINI: {"input": 1.10, "output": 4.40},
-    Model.O4_MINI: {"input": 1.50, "output": 6.00},
-    # Google Gemini Models (via OpenRouter)
-    Model.GEMINI_FLASH: {"input": 0.15, "output": 0.60},
-    Model.GEMINI_FLASH_LITE: {"input": 0.10, "output": 0.40},
-    # Anthropic Claude Models (via OpenRouter)
-    Model.CLAUDE_3_5_SONNET: {"input": 3.00, "output": 15.00},
-    Model.CLAUDE_3_OPUS: {"input": 15.00, "output": 75.00},
-    Model.CLAUDE_3_HAIKU: {"input": 0.25, "output": 1.25},
-    Model.CLAUDE_SONNET_4_5: {"input": 3.00, "output": 15.00},
-    Model.CLAUDE_SONNET_4_6: {"input": 3.00, "output": 15.00},
-    Model.CLAUDE_OPUS_4_5: {"input": 5.00, "output": 25.00},
-    Model.CLAUDE_OPUS_4_6: {"input": 5.00, "output": 25.00},
-    Model.CLAUDE_HAIKU_4_5: {"input": 1.00, "output": 5.00},
-    # DeepSeek Models (via OpenRouter)
-    Model.DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},  # flagship reasoning
-    Model.DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},  # fast + cost-effective
-    # Meta LLaMA Models (OpenRouter)
-    Model.LLAMA_4_MAVERICK: {"input": 0.17, "output": 0.17},  # 400B MoE
-    Model.LLAMA_4_SCOUT: {"input": 0.11, "output": 0.34},  # 109B MoE
-    Model.LLAMA_3_3_70B: {"input": 0.12, "output": 0.30},  # 70B
-    Model.LLAMA_3_1_405B: {"input": 2.00, "output": 2.00},  # 405B
-    # Microsoft Phi Models (OpenRouter)
-    Model.PHI_4: {"input": 0.07, "output": 0.14},  # 14B
-    Model.PHI_4_REASONING: {"input": 0.07, "output": 0.35},  # 14B + CoT
-    # Google Gemma Models (OpenRouter)
-    Model.GEMMA_3_27B: {"input": 0.08, "output": 0.20},  # 27B
-    # Nous Research Hermes (OpenRouter)
-    Model.HERMES_3_70B: {"input": 0.40, "output": 0.40},  # 70B fine-tuned
-    # ═══════════════════════════════════════════════════════
-    # XIAOMI MODELS (NEW v3.0) - GAME CHANGERS!
-    # ═══════════════════════════════════════════════════════
-    Model.XIAOMI_MIMO_V2_FLASH: {"input": 0.09, "output": 0.29},  # #1 SWE-bench open ⭐
-    Model.XIAOMI_MIMO_V2_PRO: {"input": 1.00, "output": 3.00},  # 1T+ params
-    Model.XIAOMI_MIMO_V2_OMNI: {"input": 0.40, "output": 2.00},  # omni-modal
-    # ═══════════════════════════════════════════════════════
-    # MOONSHOT KIMI MODELS (NEW v3.0)
-    # ═══════════════════════════════════════════════════════
-    Model.MOONSHOT_KIMI_K2_6: {"input": 0.95, "output": 4.00},  # reasoning SOTA, 256K
-    Model.MOONSHOT_KIMI_K2: {"input": 0.50, "output": 1.50},
-    # ═══════════════════════════════════════════════════════
-    # STEPFUN MODELS (NEW v3.0) - BEST VALUE!
-    # ═══════════════════════════════════════════════════════
-    Model.STEPFUN_STEP_3_5_FLASH: {"input": 0.10, "output": 0.30},  # 196B MoE ⭐
-    Model.STEPFUN_STEP_3_5: {"input": 0.15, "output": 0.45},
-    # ═══════════════════════════════════════════════════════
-    # Z.AI GLM MODELS (NEW v3.0)
-    # ═══════════════════════════════════════════════════════
-    Model.ZHIPU_GLM_5_1: {"input": 0.10, "output": 0.40},  # z-ai/glm-5.1 (balanced)
-    Model.ZHIPU_GLM_5_TURBO: {"input": 0.10, "output": 0.40},  # z-ai/glm-5-turbo (fast)
-    # ═══════════════════════════════════════════════════════
-    # XAI GROK MODELS (NEW v3.0) - LOWEST HALLUCINATION
-    # Note: Updated 2026-04-01 - Use grok-4.20 (NOT grok-4.20-beta)
-    # ═══════════════════════════════════════════════════════
-    Model.XAI_GROK_4_20: {"input": 2.00, "output": 6.00},  # grok-4.20, lowest hallucination
-    # ═══════════════════════════════════════════════════════
-    # QWEN MODELS (NEW v3.0) - CODING SPECIALISTS
-    # Note: Updated 2026-04-01 - Verified available
-    # ═══════════════════════════════════════════════════════
-    Model.QWEN_3_7_MAX: {"input": 0.78, "output": 3.90},  # flagship reasoning + coding
-    Model.QWEN_3_6_FLASH: {"input": 0.12, "output": 0.50},  # fast + cost-effective
-    # ═══════════════════════════════════════════════════════
-    # MINIMAX MODELS (NEW v3.0)
-    # ═══════════════════════════════════════════════════════
-    Model.MINIMAX_M2_7: {"input": 0.30, "output": 1.20},  # 205K ⭐
-    # ═══════════════════════════════════════════════════════
-    # NVIDIA MODELS (redirected via model_registry to fallback)
-    # ═══════════════════════════════════════════════════════
-    Model.NVIDIA_NEMOTRON_3_SUPER: {"input": 0.10, "output": 0.50},  # redirects → minimax-m2.7
-    # GPT-5.4 Models (NEW v3.0)
-    Model.GPT_5_4: {"input": 2.50, "output": 15.00},
-    Model.GPT_5_4_MINI: {"input": 0.75, "output": 4.50},
-    Model.GPT_5_4_CODEX: {"input": 1.75, "output": 14.00},  # SWE-Bench SOTA
-    # InclusionAI Ring
-    Model.INCLUSION_RING_2_6_1T: {"input": 0.50, "output": 2.00},  # 1T params
-    # OpenRouter Auto
-    Model.OPENROUTER_AUTO: {"input": 0.00, "output": 0.00},  # Dynamic
+import json
+from pathlib import Path
+
+
+def _load_static_config(filename: str) -> dict[str, Any]:
+    """Load JSON config from orchestrator/config directory.
+
+    Results are cached per filename via _build_* functions — this function
+    itself is intentionally *not* called at module level.  Rule #2: models.py
+    must not execute I/O at import time.
+    """
+    config_path = Path(__file__).parent / "config" / filename
+    if not config_path.exists():
+        config_path = Path(__file__).parent.parent / "orchestrator" / "config" / filename
+    if not config_path.exists():
+        return {}
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _build_cost_table() -> "dict[Model, dict[str, float]]":
+    data = _load_static_config("costs.json")
+    return {Model(k): v for k, v in data.items() if k in Model._value2member_map_}
+
+
+def _build_routing_table() -> "dict[TaskType, list[Model]]":
+    data = _load_static_config("routing.json")
+    return {
+        TaskType(k): [Model(m) for m in v if m in Model._value2member_map_]
+        for k, v in data.items()
+        if k in TaskType._value2member_map_
+    }
+
+
+def _build_fallback_chain() -> "dict[Model, Model]":
+    data = _load_static_config("fallbacks.json")
+    return {
+        Model(k): Model(v)
+        for k, v in data.items()
+        if k in Model._value2member_map_ and v in Model._value2member_map_
+    }
+
+
+def _build_default_thresholds() -> "dict[TaskType, float]":
+    data = _load_static_config("thresholds.json")
+    return {
+        TaskType(k): float(v)
+        for k, v in data.items()
+        if k in TaskType._value2member_map_
+    }
+
+
+def _build_max_output_tokens() -> "dict[TaskType, int]":
+    data = _load_static_config("limits.json")
+    return {
+        TaskType(k): int(v)
+        for k, v in data.items()
+        if k in TaskType._value2member_map_
+    }
+
+
+# ─────────────────────────────────────────────
+# Lazy-loaded tables — no disk I/O at import time (Rule #2).
+# The five dicts below are populated on first access via __getattr__.
+# After the first access the value is written into module globals so
+# subsequent reads are O(1) dict lookups with no function call overhead.
+# ─────────────────────────────────────────────
+
+TASK_PROVIDER_STRATEGIES: "dict[TaskType, ProviderStrategy]" = {}
+
+_LAZY_TABLES: dict[str, Any] = {
+    "COST_TABLE": _build_cost_table,
+    "ROUTING_TABLE": _build_routing_table,
+    "FALLBACK_CHAIN": _build_fallback_chain,
+    "DEFAULT_THRESHOLDS": _build_default_thresholds,
+    "MAX_OUTPUT_TOKENS": _build_max_output_tokens,
 }
 
 
-# ─────────────────────────────────────────────
-
-# Routing table (priority-ordered per task type)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# OPENROUTER ONLY - All models accessible via OpenRouter
-
-# Updated v3.0 with Xiaomi, Moonshot, DeepSeek, GLM models
-
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-ROUTING_TABLE: dict[TaskType, list[Model]] = {
-    # Optimized May 2026 -- benchlm.ai coding leaderboard evidence
-    # Each primary model has 2 fallbacks (next 2 in list)
-    # ======================================================================
-    # CODE_GEN: DeepSeek V4 Flash leads (83.5 score @ $0.27/M)
-    TaskType.CODE_GEN: [
-        Model.DEEPSEEK_V4_FLASH,  # 83.5 score, $0.27/$1.10 -- BEST VALUE
-        Model.MOONSHOT_KIMI_K2_6,  # 81.5 score, $0.42/$2.20 -- fallback 1
-        Model.QWEN_3_7_MAX,  # 92.2 score, $0.78/$3.90 -- fallback 2 (best quality)
-        Model.DEEPSEEK_V4_PRO,  # 90.1 score, $1.50/$6.00 -- reasoning premium
-        Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29 -- ultra-cheap backup
-        Model.GPT_5_4_CODEX,  # 87.8 score, $1.75/$14.00 -- SWE-Bench specialist
-        Model.CLAUDE_SONNET_4_6,  # 82.2 score, $3/$15 -- premium quality
-        Model.GEMINI_FLASH,  # 78.3 score, $0.15/$0.60 -- cheap fallback
-    ],
-    # CODE_REVIEW: DeepSeek V4 Pro (reasoning chains) + Grok 4.20 (low hallucination)
-    TaskType.CODE_REVIEW: [
-        Model.DEEPSEEK_V4_PRO,  # 90.1 score, reasoning chains -- BEST
-        Model.XAI_GROK_4_20,  # lowest hallucination -- fallback 1
-        Model.CLAUDE_SONNET_4_6,  # 82.2, best quality prose -- fallback 2
-        Model.MOONSHOT_KIMI_K2_6,  # 81.5, strong coding understanding
-    ],
-    # REASONING: Qwen 3.7 Max leads (92.2 score, #4 globally)
-    TaskType.REASONING: [
-        Model.QWEN_3_7_MAX,  # 92.2 score, #4 globally -- BEST
-        Model.DEEPSEEK_V4_PRO,  # 90.1 score, dedicated reasoner -- fallback 1
-        Model.GPT_5_4,  # 87.8 score -- fallback 2
-        Model.MOONSHOT_KIMI_K2_6,  # 81.5, moderate cost reasoning
-        Model.CLAUDE_OPUS_4_6,  # 86.0, most capable
-    ],
-    # WRITING: Quality and creativity
-    TaskType.WRITING: [
-        Model.CLAUDE_SONNET_4_6,  # best prose quality -- BEST
-        Model.GPT_5_4,  # excellent writing -- fallback 1
-        Model.LLAMA_4_MAVERICK,  # $0.17/$0.17, creative -- fallback 2
-        Model.HERMES_3_70B,  # fine-tuned creative
-        Model.LLAMA_3_1_405B,  # Meta frontier
-    ],
-    # DATA_EXTRACT: GLM-5.1 leads (83.4 score @ $0.10 -- beats Claude Sonnet!)
-    TaskType.DATA_EXTRACT: [
-        Model.ZHIPU_GLM_5_1,  # 83.4 score, $0.10/$0.40 -- BEST VALUE
-        Model.DEEPSEEK_V4_FLASH,  # 83.5 score, $0.27/$1.10 -- fallback 1
-        Model.ZHIPU_GLM_5_TURBO,  # $0.10/$0.40, fast -- fallback 2
-        Model.PHI_4,  # $0.07/$0.14, ultra-cheap
-        Model.GEMINI_FLASH,  # 78.3 score, cheap backup
-    ],
-    # SUMMARIZE: GLM-5.1 leads (same reasoning as data extraction)
-    TaskType.SUMMARIZE: [
-        Model.ZHIPU_GLM_5_1,  # 83.4 score, $0.10/$0.40 -- BEST VALUE
-        Model.DEEPSEEK_V4_FLASH,  # 83.5 score, $0.27/$1.10 -- fallback 1
-        Model.GEMINI_FLASH,  # 78.3 score, $0.15/$0.60 -- fallback 2
-        Model.PHI_4,  # $0.07/$0.14, ultra-cheap
-    ],
-    # EVALUATE: Grok 4.20 leads (lowest hallucination = fairest scoring)
-    TaskType.EVALUATE: [
-        Model.XAI_GROK_4_20,  # lowest hallucination -- BEST
-        Model.DEEPSEEK_V4_PRO,  # 90.1 score, nuanced evaluation -- fallback 1
-        Model.CLAUDE_SONNET_4_6,  # reliable structured output -- fallback 2
-        Model.GPT_5_4,  # 87.8, consistent scoring
-        Model.MOONSHOT_KIMI_K2_6,  # 81.5, technical eval
-    ],
-}
-
-
-# ─────────────────────────────────────────────
-
-# Fallback chains (always cross-provider)
-
-# ─────────────────────────────────────────────
-
-
-TASK_PROVIDER_STRATEGIES: dict[TaskType, ProviderStrategy] = {}
-
-
-FALLBACK_CHAIN: dict[Model, Model] = {
-    # OpenRouter fallbacks (cheaper/faster → more capable)
-    # OpenAI models fallbacks
-    Model.GPT_4O: Model.CLAUDE_SONNET_4_6,  # GPT-4o → Claude Sonnet
-    Model.GPT_4O_MINI: Model.LLAMA_3_3_70B,  # GPT-4o-mini → LLaMA 70B
-    Model.O1: Model.CLAUDE_OPUS_4_6,  # o1 → Claude Opus
-    Model.O3_MINI: Model.PHI_4_REASONING,  # o3-mini → Phi-4 Reasoning
-    Model.O4_MINI: Model.CLAUDE_OPUS_4_6,  # o4-mini → Claude Opus
-    # Gemini fallbacks
-    Model.GEMINI_FLASH: Model.GPT_4O,  # Gemini Pro → GPT-4o
-    Model.GEMINI_FLASH: Model.LLAMA_4_SCOUT,  # Gemini Flash → LLaMA Scout
-    Model.GEMINI_FLASH_LITE: Model.PHI_4,  # Gemini Flash Lite → Phi-4
-    # Claude fallbacks
-    Model.CLAUDE_3_5_SONNET: Model.GPT_4O,  # Claude Sonnet → GPT-4o
-    Model.CLAUDE_3_OPUS: Model.CLAUDE_OPUS_4_6,  # Claude Opus → Claude Opus 4-6
-    Model.CLAUDE_3_HAIKU: Model.LLAMA_3_3_70B,  # Claude Haiku → LLaMA 70B
-    Model.CLAUDE_SONNET_4_5: Model.CLAUDE_SONNET_4_6,  # Sonnet 4-5 → Sonnet 4-6
-    Model.CLAUDE_SONNET_4_6: Model.GPT_4O,  # Sonnet 4-6 → GPT-4o
-    Model.CLAUDE_OPUS_4_5: Model.CLAUDE_OPUS_4_6,  # Opus 4-5 → Opus 4-6
-    Model.CLAUDE_OPUS_4_6: Model.GPT_4O,  # Opus 4-6 → GPT-4o
-    Model.CLAUDE_HAIKU_4_5: Model.LLAMA_3_3_70B,  # Haiku 4-5 → LLaMA 70B
-    # DeepSeek fallbacks
-    Model.DEEPSEEK_V4_FLASH: Model.LLAMA_4_SCOUT,  # v4-flash -> LLaMA Scout
-    Model.DEEPSEEK_V4_PRO: Model.O3_MINI,  # v4-pro -> o3-mini
-    # Meta LLaMA fallbacks
-    Model.LLAMA_4_MAVERICK: Model.LLAMA_3_1_405B,  # Maverick → LLaMA 405B
-    Model.LLAMA_4_SCOUT: Model.LLAMA_3_3_70B,  # Scout → LLaMA 70B
-    Model.LLAMA_3_3_70B: Model.HERMES_3_70B,  # LLaMA 70B → Hermes 70B
-    Model.LLAMA_3_1_405B: Model.CLAUDE_SONNET_4_6,  # LLaMA 405B → Claude Sonnet
-    # Microsoft Phi fallbacks
-    Model.PHI_4: Model.GEMMA_3_27B,  # Phi-4 → Gemma 27B
-    Model.PHI_4_REASONING: Model.O3_MINI,  # Phi-4 Reasoning → o3-mini
-    # Google Gemma fallbacks
-    Model.GEMMA_3_27B: Model.LLAMA_3_3_70B,  # Gemma 27B → LLaMA 70B
-    # Nous Hermes fallbacks
-    Model.HERMES_3_70B: Model.LLAMA_3_3_70B,  # Hermes → LLaMA 70B
-    # OpenRouter Auto fallback
-    Model.OPENROUTER_AUTO: Model.LLAMA_3_3_70B,  # Auto → LLaMA 70B safe fallback
-    # ── v3.0 models added to ROUTING_TABLE but missing from FALLBACK_CHAIN ──
-    # Without these entries, self_consistency.py:FALLBACK_CHAIN.get(model, model)
-    # returns the same model as default, making quality retries useless (BUG-006).
-    Model.XIAOMI_MIMO_V2_FLASH: Model.DEEPSEEK_V4_FLASH,  # CODE_GEN primary → proven alt
-    Model.XAI_GROK_4_20: Model.DEEPSEEK_V4_PRO,  # CODE_REVIEW/EVALUATE primary → reasoning
-    Model.STEPFUN_STEP_3_5_FLASH: Model.DEEPSEEK_V4_PRO,  # REASONING primary → reasoning specialist
-    Model.ZHIPU_GLM_5_1: Model.PHI_4,  # DATA_EXTRACT/SUMMARIZE primary
-    Model.ZHIPU_GLM_5_TURBO: Model.ZHIPU_GLM_5_1,  # turbo -> glm-5.1 → cheap alt
-    Model.QWEN_3_7_MAX: Model.DEEPSEEK_V4_PRO,  # REASONING primary fallback
-}
-
-
-# ─────────────────────────────────────────────
-
-# Per-task thresholds & limits
-
-# ─────────────────────────────────────────────
-
-
-DEFAULT_THRESHOLDS: dict[TaskType, float] = {
-    TaskType.DATA_EXTRACT: 0.90,
-    TaskType.SUMMARIZE: 0.80,
-    TaskType.CODE_GEN: 0.85,
-    # CODE_REVIEW: lowered from 0.85 — review quality depends on how much
-    # source context the LLM received, which is often partial due to truncation.
-    # 0.75 is a realistic target; scores above this reflect genuine analysis.
-    TaskType.CODE_REVIEW: 0.75,
-    TaskType.REASONING: 0.90,
-    TaskType.WRITING: 0.80,
-    # EVALUATE: lowered from 0.95 — evaluation outputs are open-ended prose;
-    # scoring ≥ 0.95 requires near-perfect structured responses which LLMs
-    # rarely produce without a domain-specific rubric.
-    TaskType.EVALUATE: 0.80,
-}
-
-
-MAX_OUTPUT_TOKENS: dict[TaskType, int] = {
-    TaskType.CODE_GEN: 8192,  # raised: avoid unterminated strings mid-class
-    TaskType.CODE_REVIEW: 4096,  # raised: full analysis without truncation
-    TaskType.REASONING: 4096,
-    TaskType.WRITING: 4096,
-    TaskType.DATA_EXTRACT: 2048,
-    TaskType.SUMMARIZE: 1024,
-    TaskType.EVALUATE: 2048,  # raised: evaluation tasks need more room
-}
+def __getattr__(name: str) -> Any:
+    """Lazy-initialise tables that require disk I/O on first access."""
+    if name in _LAZY_TABLES:
+        value = _LAZY_TABLES[name]()
+        # Cache in module globals so subsequent `from models import X` is instant.
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # Model-specific max tokens limits (override MAX_OUTPUT_TOKENS)

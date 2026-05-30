@@ -35,10 +35,13 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import logging
+import sqlite3
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from .budget import Budget
 from .models import Model, Task, TaskType, estimate_cost
@@ -145,8 +148,10 @@ class BudgetHierarchy:
         orch = Orchestrator(budget=Budget(max_usd=10.0),
                             budget_hierarchy=BudgetHierarchy(org_max_usd=50.0))
 
-    Note: For high-volume long-running deployments, consider periodically
-    resetting or persisting `_spent` state to disk.
+    Spend state is optionally persisted to SQLite so caps survive process
+    restarts.  Pass ``db_path`` (e.g. ``~/.orchestrator_cache/budget.db``) to
+    enable persistence; omit it for in-memory-only operation (tests, one-shot
+    scripts).
     """
 
     def __init__(
@@ -154,23 +159,31 @@ class BudgetHierarchy:
         org_max_usd: float,
         team_budgets: dict[str, float] | None = None,
         job_budgets: dict[str, float] | None = None,
+        db_path: str | Path | None = None,
     ) -> None:
         self._org_max = org_max_usd
         self._team_max = dict(team_budgets) if team_budgets else {}
         self._job_max = dict(job_budgets) if job_budgets else {}
 
-        # Spent trackers
+        # Spent trackers — loaded from DB if db_path is set, else start at zero.
         self._org_spent: float = 0.0
         self._team_spent: dict[str, float] = {}
         self._job_spent: dict[str, float] = {}
 
         # Pessimistic reservation counters (prevent TOCTOU race between
         # can_afford_job() and charge_job() across concurrent run_job() calls).
-        # A reservation is claimed atomically when can_afford_job() returns True,
-        # then settled by charge_job() or released by release_reservation().
+        # Reservations are in-memory only — they are not persisted because they
+        # represent in-flight transactions that clear at job completion/abort.
         self._reserved_usd: float = 0.0
         self._team_reserved: dict[str, float] = {}
         self._reservations: dict[str, float] = {}  # job_id → reserved amount
+
+        # SQLite persistence (optional)
+        self._db_path: Path | None = Path(db_path) if db_path else None
+        if self._db_path:
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._init_db()
+            self._load_from_db()
 
     # ── Query ────────────────────────────────────────────────────────────────
 
@@ -239,12 +252,109 @@ class BudgetHierarchy:
             self._reservations[job_id] = estimated_cost
         return True
 
+    # ── Persistence ──────────────────────────────────────────────────────────
+
+    def _init_db(self) -> None:
+        """Create the budget_hierarchy table if it does not already exist."""
+        assert self._db_path is not None
+        conn = sqlite3.connect(str(self._db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS budget_hierarchy (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+    def _load_from_db(self) -> None:
+        """Restore spend state from DB.  Missing keys start at 0."""
+        assert self._db_path is not None
+        try:
+            conn = sqlite3.connect(str(self._db_path))
+            rows = conn.execute("SELECT key, value FROM budget_hierarchy").fetchall()
+            conn.close()
+        except Exception as exc:
+            logger.warning("BudgetHierarchy: could not load from DB: %s", exc)
+            return
+
+        for key, raw in rows:
+            try:
+                val = json.loads(raw)
+            except Exception:
+                continue
+            if key == "org_spent":
+                self._org_spent = float(val)
+            elif key.startswith("team:"):
+                team = key[5:]
+                self._team_spent[team] = float(val)
+            elif key.startswith("job:"):
+                job = key[4:]
+                self._job_spent[job] = float(val)
+
+        logger.debug(
+            "BudgetHierarchy loaded from %s: org_spent=%.4f, %d teams, %d jobs",
+            self._db_path,
+            self._org_spent,
+            len(self._team_spent),
+            len(self._job_spent),
+        )
+
+    def _save_to_db(self) -> None:
+        """Persist current spend state.  Called after every charge."""
+        if not self._db_path:
+            return
+        try:
+            rows: list[tuple[str, str]] = [
+                ("org_spent", json.dumps(self._org_spent)),
+            ]
+            for team, spent in self._team_spent.items():
+                rows.append((f"team:{team}", json.dumps(spent)))
+            for job, spent in self._job_spent.items():
+                rows.append((f"job:{job}", json.dumps(spent)))
+
+            conn = sqlite3.connect(str(self._db_path))
+            conn.executemany(
+                "INSERT OR REPLACE INTO budget_hierarchy (key, value) VALUES (?, ?)",
+                rows,
+            )
+            conn.commit()
+            conn.close()
+        except Exception as exc:
+            logger.warning("BudgetHierarchy: could not persist to DB: %s", exc)
+
+    def reset_spend(self, level: str = "all", key: str = "") -> None:
+        """Reset spend counters (e.g. at the start of a new billing period).
+
+        Parameters
+        ----------
+        level : "org" | "team" | "job" | "all"
+        key   : team name or job id when level is "team" or "job"
+        """
+        if level in ("org", "all"):
+            self._org_spent = 0.0
+        if level in ("team", "all"):
+            if key:
+                self._team_spent.pop(key, None)
+            else:
+                self._team_spent.clear()
+        if level in ("job", "all"):
+            if key:
+                self._job_spent.pop(key, None)
+            else:
+                self._job_spent.clear()
+        self._save_to_db()
+
+    # ── Charge ───────────────────────────────────────────────────────────────
+
     def charge_job(self, job_id: str, team: str, amount: float) -> None:
         """
         Settle a job's actual spend, releasing its prior reservation.
 
         Calling charge_job() without a prior can_afford_job() is supported
         (backwards-compatible), but the reservation path is the preferred flow.
+        Spend is persisted to DB immediately after the in-memory update.
         """
         # Release the reservation made by can_afford_job()
         reserved = self._reservations.pop(job_id, 0.0)
@@ -259,6 +369,9 @@ class BudgetHierarchy:
             self._team_spent[team] = self._team_spent.get(team, 0.0) + amount
         if job_id:
             self._job_spent[job_id] = self._job_spent.get(job_id, 0.0) + amount
+
+        # Persist after every charge so restarts see the correct state.
+        self._save_to_db()
 
     def release_reservation(self, job_id: str, team: str = "") -> None:
         """

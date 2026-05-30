@@ -1,0 +1,100 @@
+version: '3.8'
+
+# Nexus Search — Docker Compose Configuration
+# ============================================
+# Author: Georgios-Chrysovalantis Chatzivantsidis
+#
+# Self-hosted search backend for Nexus Search integration.
+# Automatically starts with AI Orchestrator.
+#
+# Usage:
+#   docker-compose -f nexus-search.docker-compose.yml up -d
+#   docker-compose -f nexus-search.docker-compose.yml down
+#
+# Environment:
+#   NEXUS_PORT - Port for Nexus Search (default: 8080)
+#   NEXUS_SECRET_KEY - Secret key for SearXNG (auto-generated if not set)
+#   NEXUS_BIND_ADDRESS - Bind address (default: 0.0.0.0)
+
+services:
+  # Nexus Search (SearXNG backend)
+  nexus-search:
+    image: searxng/searxng:latest
+    container_name: nexus-search
+    restart: unless-stopped
+    ports:
+      - "${NEXUS_PORT:-8080}:8080"
+    volumes:
+      - ./nexus-config:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:${NEXUS_PORT:-8080}/
+      - SEARXNG_SECRET_KEY=${NEXUS_SECRET_KEY:-}
+      - SEARXNG_BIND_ADDRESS=${NEXUS_BIND_ADDRESS:-0.0.0.0}
+      - SEARXNG_PORT=8080
+      - SEARXNG_REDIS_URL=redis://redis:6379/0
+      - SEARXNG_MONGODB_URL=mongodb://mongo:27017/searxng
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.ai-orchestrator.service=nexus-search"
+      - "com.ai-orchestrator.version=1.0.0"
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: nexus-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "com.ai-orchestrator.service=redis"
+
+  # MongoDB for result storage
+  mongo:
+    image: mongo:7
+    container_name: nexus-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "com.ai-orchestrator.service=mongo"
+
+networks:
+  nexus-network:
+    driver: bridge
+    name: nexus-network
+
+volumes:
+  redis-data:
+    name: nexus-redis-data
+  mongo-data:
+    name: nexus-mongo-data
+  # Config volume for SearXNG customization
+  # Created automatically on first run

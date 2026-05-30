@@ -22,7 +22,7 @@ import re
 import time
 from typing import Callable
 
-from ..api_clients import UnifiedClient
+from ..domain.ports import LLMClient
 from ..budget import Budget
 from ..feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
@@ -50,7 +50,7 @@ class EvaluatorService:
 
     def __init__(
         self,
-        client: UnifiedClient,
+        client: LLMClient,
         budget: Budget,
         get_models_fn: Callable[[TaskType], list[Model]],
         consistency_runs: int = 2,

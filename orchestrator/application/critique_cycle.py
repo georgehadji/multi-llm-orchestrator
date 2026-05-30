@@ -23,7 +23,7 @@ from ..models import AttemptRecord, TaskType
 from ..prompt_builder import CritiquePrompt, DeltaPrompt
 
 if TYPE_CHECKING:
-    from ..api_clients import APIResponse, UnifiedClient
+    from ..domain.ports import LLMClient
     from ..models import Model, Task
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ class CritiqueCycle:
 
     def __init__(
         self,
-        client: UnifiedClient,
+        client: LLMClient,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
         enable_streaming: bool = False,
     ):
