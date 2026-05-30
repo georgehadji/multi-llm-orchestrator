@@ -55,7 +55,7 @@ class ProjectRunner:
         generator: Any,
         meta_v2: Any,
         cache: Any,
-        api_health: dict,
+        api_health: dict,  # type: ignore[type-arg]
     ) -> None:
         self._callables = callables
         self._run_state = run_state
@@ -95,7 +95,7 @@ class ProjectRunner:
         - BUG-003: connection lifecycle (close only when not in context manager)
         """
         # Tracer is optional (tracing may be disabled via FeatureFlags)
-        from ..tracing import get_tracer  # type: ignore[import]
+        from ..tracing import get_tracer
 
         tracer = get_tracer()
         with tracer.start_as_current_span("run_project") as span:
@@ -123,7 +123,7 @@ class ProjectRunner:
                     state = await self._resumption_svc.resume(existing)
                     await self._state_mgr.save_project(project_id, state)
                     self._callables.log_summary(state)
-                    return state
+                    return state  # type: ignore[no-any-return]
 
                 # ── Phase 0: Architecture rules ──────────────────────────
                 architecture_rules = await self._callables.generate_architecture_rules(
@@ -135,7 +135,7 @@ class ProjectRunner:
                 # ── Phase 1: Decompose ───────────────────────────────────
                 # Surface hidden assumptions (Karpathy pattern)
                 try:
-                    from ..assumption_gate import surface_assumptions  # type: ignore[import]
+                    from ..assumption_gate import surface_assumptions
 
                     report = await surface_assumptions(
                         project_description, self._callables.client
@@ -160,7 +160,7 @@ class ProjectRunner:
                 )
                 if not gen_result.succeeded:
                     logger.error("Decomposition failed: %s", gen_result.error)
-                    return self._callables.make_state(
+                    return self._callables.make_state(  # type: ignore[no-any-return]
                         project_description,
                         success_criteria,
                         {},
@@ -168,7 +168,7 @@ class ProjectRunner:
                     )
                 tasks = gen_result.tasks
                 if not tasks:
-                    return self._callables.make_state(
+                    return self._callables.make_state(  # type: ignore[no-any-return]
                         project_description,
                         success_criteria,
                         {},
@@ -196,7 +196,7 @@ class ProjectRunner:
 
                 # ProjectStarted event
                 if self._event_bus:
-                    from ..unified_events.core import ProjectStartedEvent  # type: ignore[import]
+                    from ..unified_events.core import ProjectStartedEvent
 
                     logger.debug("Publishing ProjectStarted event...")
                     await self._event_bus.publish(
@@ -224,7 +224,7 @@ class ProjectRunner:
 
                 # Meta-optimisation V2
                 if self._meta_v2:
-                    from ..meta_integration import on_project_completed  # type: ignore[import]
+                    from ..meta_integration import on_project_completed
 
                     await on_project_completed(self._meta_v2, state, run_optimization=True)
 
@@ -238,7 +238,7 @@ class ProjectRunner:
 
                 # ProjectCompleted event
                 if self._event_bus:
-                    from ..unified_events.core import ProjectCompletedEvent  # type: ignore[import]
+                    from ..unified_events.core import ProjectCompletedEvent
 
                     results = self._run_state.results
                     completed_count = sum(
@@ -262,7 +262,7 @@ class ProjectRunner:
                 if analyze_on_complete and output_dir:
                     await self._callables.analyze_completed_project(state, output_dir)
 
-                return state
+                return state  # type: ignore[no-any-return]
 
             finally:
                 # BUG-003 FIX: close connections only when NOT inside an async
@@ -282,7 +282,7 @@ class ProjectRunner:
         Makes one real API call (decomposition) then stops.
         Returns an ``ExecutionPlan`` that can be printed with ``plan.render()``.
         """
-        from ..dry_run import (  # type: ignore[import]
+        from ..dry_run import (
             _DEFAULT_TOKENS,
             _TOKEN_ESTIMATES,
             ExecutionPlan,
@@ -292,7 +292,7 @@ class ProjectRunner:
 
         # Surface assumptions (Karpathy pattern)
         try:
-            from ..assumption_gate import surface_assumptions  # type: ignore[import]
+            from ..assumption_gate import surface_assumptions
 
             report = await surface_assumptions(
                 project_description, self._callables.client

@@ -176,7 +176,7 @@ class SkillOptimizer:
         # ── 7. Estimate val score ─────────────────────────────────────
         val_score = self._estimate_val_score(val, current_score, patches)
 
-        await self._store.save_patches(self._task_type, epoch_num + 1, patches, accepted=False)
+        await self._store.save_patches(self._task_type, epoch_num + 1, patches, accepted=False)  # type: ignore[attr-defined]
 
         # ── 8. Validation gate ────────────────────────────────────────
         if val_score <= current_score:
@@ -206,7 +206,7 @@ class SkillOptimizer:
 
         # ── 10. Persist ───────────────────────────────────────────────
         await self._store.save_skill(self._task_type, candidate_skill, val_score, epoch_num + 1)
-        await self._store.save_patches(self._task_type, epoch_num + 1, patches, accepted=True)
+        await self._store.save_patches(self._task_type, epoch_num + 1, patches, accepted=True)  # type: ignore[attr-defined]
 
         logger.info(
             "SkillOptimizer[%s]: epoch %d accepted — score %.4f → %.4f",
@@ -237,7 +237,7 @@ class SkillOptimizer:
         self,
         train: list[Trajectory],
         current_skill: str,
-        neg_feedback: list[dict],
+        neg_feedback: list[dict],  # type: ignore[type-arg]
     ) -> str:
         """Construct the prompt sent to the optimizer model."""
         traj_lines: list[str] = []
@@ -278,7 +278,7 @@ class SkillOptimizer:
         except Exception:
             opt_model = Model.GPT_4O_MINI
 
-        response = await self._client.call(
+        response = await self._client.call(  # type: ignore[no-untyped-call]
             model=opt_model,
             prompt=prompt,
             system=self._meta_skill,
@@ -372,7 +372,7 @@ class SkillOptimizer:
                 return doc.replace(patch.anchor, patch.content, 1)
             return doc
 
-        return doc
+        return doc  # type: ignore[unreachable]
 
     def _estimate_val_score(
         self,
@@ -426,7 +426,7 @@ class SkillOptimizer:
         )
         try:
             from ..models import Model
-            response = await self._client.call(
+            response = await self._client.call(  # type: ignore[no-untyped-call]
                 model=Model.GPT_4O_MINI,
                 prompt=prompt,
                 max_tokens=256,

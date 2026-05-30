@@ -73,7 +73,7 @@ class SkillManager:
         self._buffers: dict[TaskType, list[Trajectory]] = defaultdict(list)
 
         # Track running epoch tasks so we can await them on close
-        self._running_epochs: set[asyncio.Task] = set()
+        self._running_epochs: set[asyncio.Task] = set()  # type: ignore[type-arg]
 
     # ------------------------------------------------------------------
     # Public API

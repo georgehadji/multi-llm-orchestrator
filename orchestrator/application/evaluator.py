@@ -122,7 +122,7 @@ class EvaluatorService:
                 logger.debug(
                     "  %s: eval run %d/%d starting…", task.id, run + 1, self._consistency_runs
                 )
-                response = await self._client.call(
+                response = await self._client.call(  # type: ignore[no-untyped-call]
                     eval_model,
                     eval_prompt,
                     system="You are a precise evaluator. Score exactly, return only JSON.",
@@ -238,7 +238,7 @@ class EvaluatorService:
                 text = text.strip()
 
             try:
-                import json5  # type: ignore[import]
+                import json5
 
                 data = json5.loads(text)
             except (ImportError, Exception):

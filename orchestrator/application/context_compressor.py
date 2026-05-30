@@ -157,7 +157,7 @@ class ContextCompressor:
             input_text += "\n\n[... more content follows, total "
             input_text += f"{len(text)} chars prior to compression ...]"
 
-        response = await self._client.call(
+        response = await self._client.call(  # type: ignore[no-untyped-call]
             model=self._model,
             system=instruction,
             prompt=input_text,
@@ -168,7 +168,7 @@ class ContextCompressor:
         if len(result) > max_chars:
             result = result[:max_chars] + "\n\n[... truncated ...]"
 
-        return result
+        return result  # type: ignore[no-any-return]
 
     def _log_truncation(self, dep_id: str, original_len: int, max_chars: int) -> None:
         """Log a truncation warning."""

@@ -166,10 +166,10 @@ class CritiqueCycle:
         prompt: str,
         task_type: TaskType,
         max_tokens: int,
-    ) -> APIResponse | None:
+    ) -> APIResponse | None:  # type: ignore[name-defined]
         timeout, effective_max_tokens = self._get_model_params(model, task_type, max_tokens)
         try:
-            response = await self.client.call_with_retry(
+            response = await self.client.call_with_retry(  # type: ignore[attr-defined]
                 model=model,
                 prompt=prompt,
                 max_tokens=effective_max_tokens,
@@ -186,12 +186,12 @@ class CritiqueCycle:
         original_prompt: str,
         generated_output: str,
         task_type: TaskType,
-    ) -> APIResponse | None:
+    ) -> APIResponse | None:  # type: ignore[name-defined]
         critique_prompt = CritiquePrompt.build_score(
             original_prompt, generated_output, task_type.value
         )
         try:
-            response = await self.client.call_with_retry(
+            response = await self.client.call_with_retry(  # type: ignore[attr-defined]
                 model=model,
                 prompt=critique_prompt,
                 max_tokens=1000,

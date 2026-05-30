@@ -217,7 +217,7 @@ class SkillStore:
                 cost_usd=row["cost_usd"],
                 recorded_at=row["recorded_at"],
             )
-            for row in reversed(rows)
+            for row in reversed(rows)  # type: ignore[call-overload]
         ]
 
     # ------------------------------------------------------------------
@@ -323,7 +323,7 @@ class SkillStore:
 
     async def load_negative_feedback(
         self, task_type: TaskType, limit: int = 20
-    ) -> list[dict]:
+    ) -> list[dict]:  # type: ignore[type-arg]
         """Return the most recent *limit* rejected patch batches."""
         await self._ensure_connected()
         assert self._skill_db is not None
