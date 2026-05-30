@@ -267,8 +267,8 @@ class ServiceContainer:
         except ImportError:
             # Fallback for missing deps
             class _DepResolver:
-                def __init__(self, **kwargs):
-                    pass  # type: ignore[no-untyped-def]
+                def __init__(self, **kwargs):  # type: ignore[no-untyped-def]
+                    pass
 
             DepResolver = _DepResolver
             # CBRegistry is wired separately via try/except below; not needed here
