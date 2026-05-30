@@ -63,6 +63,7 @@ class ResumptionService:
                     # package __init__.py (which has fragile wildcard imports).
                     try:
                         from ..operations.resilience import RetryTemplate
+
                         policy = RetryTemplate.for_task_type(task.type)
                     except Exception:
                         policy = None
@@ -70,12 +71,12 @@ class ResumptionService:
                     self._results[task_id] = result
                     # M7: build a new state instead of mutating in place
                     import dataclasses as _dc
-                    state = _dc.replace(
-                        state, results={**state.results, task_id: result}
-                    )
+
+                    state = _dc.replace(state, results={**state.results, task_id: result})
 
         # M7: return a new state with updated status
         import dataclasses as _dc
+
         final_status = self._determine_final_status(state)
         state = _dc.replace(state, status=final_status)
         return state

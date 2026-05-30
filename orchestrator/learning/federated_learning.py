@@ -46,9 +46,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .feedback_loop import CodebaseFingerprint, OutcomeStatus, ProductionOutcome
+# REMOVED: from .feedback_loop import CodebaseFingerprint, OutcomeStatus, ProductionOutcome
 from .log_config import get_logger
-from .models import Model, TaskType
+from ..models import Model, TaskType
 
 logger = get_logger(__name__)
 

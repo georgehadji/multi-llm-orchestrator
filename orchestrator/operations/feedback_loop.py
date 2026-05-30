@@ -36,10 +36,13 @@ from typing import TYPE_CHECKING, Any
 
 # FIXED: from ..knowledge_base import KnowledgeArtifact, KnowledgeBase, KnowledgeType
 from ..knowledge_base import KnowledgeArtifact, KnowledgeBase, KnowledgeType
+
 # FIXED: from ..log_config import get_logger
 from ..log_config import get_logger
+
 # FIXED: from ..models import Model, TaskType
 from ...models import Model, TaskType
+
 # FIXED: from ..plugins import FeedbackPayload, get_plugin_registry
 from ...plugins import FeedbackPayload, get_plugin_registry
 
@@ -528,7 +531,7 @@ class FeedbackLoop:
         top_n: int = 3,
     ) -> list[tuple[Model, float]]:
         """Get best models for a specific codebase fingerprint."""
-# FIXED: from ..models import Model  # Import all models
+        # FIXED: from ..models import Model  # Import all models
         from ...models import Model  # Import all models
 
         scores = []

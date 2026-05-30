@@ -19,7 +19,6 @@ from orchestrator.application.skill_store import SkillStore
 from orchestrator.models import TaskType
 from orchestrator.models_skill import Trajectory
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
@@ -95,9 +94,9 @@ async def test_best_skill_returns_none_before_any_epoch(store: SkillStore):
 async def test_epoch_fires_when_buffer_full(store: SkillStore):
     """After epoch_size trajectories, an epoch should run (fire-and-forget)."""
     # Provide a patch that will be accepted (store starts at score 0.0)
-    patch_json = json.dumps([
-        {"op": "append", "anchor": "", "content": "Always use type hints.", "token_cost": 10}
-    ])
+    patch_json = json.dumps(
+        [{"op": "append", "anchor": "", "content": "Always use type hints.", "token_cost": 10}]
+    )
     mgr = _make_manager(store, client=_mock_client(patch_json), epoch_size=5)
 
     for i in range(5):

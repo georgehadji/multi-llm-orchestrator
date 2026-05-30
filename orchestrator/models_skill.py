@@ -28,13 +28,13 @@ class Trajectory:
 
     task_id: str
     task_type: "TaskType"
-    prompt: str          # task.prompt (truncated if very long)
-    output: str          # best output from the generate/critique pipeline
-    score: float         # CritiqueReport.score in [0.0, 1.0]
-    critique_text: str   # CritiqueState.best_critique (free text)
-    model_used: str      # Model.value of the worker model
-    cost_usd: float      # total LLM cost for this task
-    recorded_at: float   # time.time() at collection point
+    prompt: str  # task.prompt (truncated if very long)
+    output: str  # best output from the generate/critique pipeline
+    score: float  # CritiqueReport.score in [0.0, 1.0]
+    critique_text: str  # CritiqueState.best_critique (free text)
+    model_used: str  # Model.value of the worker model
+    cost_usd: float  # total LLM cost for this task
+    recorded_at: float  # time.time() at collection point
 
 
 @dataclass
@@ -47,9 +47,9 @@ class SkillPatch:
     """
 
     op: Literal["append", "insert_after", "replace", "delete"]
-    anchor: str    # heading or substring that locates the insertion point;
-                   # empty string means "end of document" for append
-    content: str   # new text (empty for delete)
+    anchor: str  # heading or substring that locates the insertion point;
+    # empty string means "end of document" for append
+    content: str  # new text (empty for delete)
     token_cost: int = 0  # estimated tokens; enforced by SkillOptimizer
 
 

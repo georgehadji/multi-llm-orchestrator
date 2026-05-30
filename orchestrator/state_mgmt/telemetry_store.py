@@ -35,7 +35,7 @@ import aiosqlite
 from ..models import Model, TaskResult, TaskType
 
 if TYPE_CHECKING:
-# FIXED: from .policy import ModelProfile
+    # FIXED: from .policy import ModelProfile
     from ..policy import ModelProfile
 
 logger = logging.getLogger("orchestrator.telemetry_store")

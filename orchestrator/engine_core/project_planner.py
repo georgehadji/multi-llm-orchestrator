@@ -34,7 +34,7 @@ class ProjectPlanner:
                 return self._dep_resolver.topological_sort(sorted_tasks)
             except ValueError:
                 return self._dep_resolver.execution_order
-        
+
         # Fallback to local implementation if resolver not available
         return self._local_topological_sort(tasks)
 

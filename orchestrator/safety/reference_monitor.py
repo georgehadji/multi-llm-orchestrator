@@ -25,9 +25,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-# FIXED: from ..models import Task
+    # FIXED: from ..models import Task
     from ..models import Task
-# FIXED: from ..specs import EscalationRule, JobSpecV2, PolicySpecV2
+
+    # FIXED: from ..specs import EscalationRule, JobSpecV2, PolicySpecV2
     from ...specs import EscalationRule, JobSpecV2, PolicySpecV2
 
 
@@ -259,9 +260,10 @@ class ReferenceMonitor:
         is executed.  Does not require a specific Task.
         """
         # For now, check with a sentinel task to run the hard rules
-# FIXED: from ..models import Task as _Task
+        # FIXED: from ..models import Task as _Task
         from ..models import Task as _Task
-# FIXED: from ..models import TaskType
+
+        # FIXED: from ..models import TaskType
         from ..models import TaskType
 
         sentinel = _Task(id="__global__", type=TaskType.EVALUATE, prompt="")

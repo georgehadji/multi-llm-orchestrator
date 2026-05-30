@@ -4,6 +4,7 @@ Tracing — Backward-compatibility shim
 Canonical location: orchestrator/infrastructure/tracing.py
 Import from there directly for new code; this shim exists for existing callers.
 """
+
 from .infrastructure.tracing import (  # noqa: F401
     Span,
     Tracer,

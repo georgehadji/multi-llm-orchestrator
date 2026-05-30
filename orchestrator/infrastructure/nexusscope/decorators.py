@@ -1,4 +1,5 @@
 """Decorators for NexusScope profiling."""
+
 from __future__ import annotations
 import functools
 from typing import Any, Callable
@@ -13,7 +14,9 @@ def profile_sync(name=None):
             profiler = get_profiler()
             with profiler.session(name or func.__name__):
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -24,5 +27,7 @@ def profile_async(name=None):
             profiler = get_profiler()
             async with profiler.async_session(name or func.__name__):
                 return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator

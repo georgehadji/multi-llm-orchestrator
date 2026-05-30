@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-# FIXED: from .api_clients import UnifiedClient
+    # FIXED: from .api_clients import UnifiedClient
     from ...api_clients import UnifiedClient
 
 # FIXED: from .models import Model

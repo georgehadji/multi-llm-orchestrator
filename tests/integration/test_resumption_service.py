@@ -21,7 +21,6 @@ from orchestrator.models import (
     TaskType,
 )
 
-
 pytestmark = pytest.mark.asyncio
 
 
@@ -233,4 +232,5 @@ async def test_resume_returns_new_state():
     assert returned is not state
     # But should be a ProjectState with the correct type
     from orchestrator.models import ProjectState
+
     assert isinstance(returned, ProjectState)

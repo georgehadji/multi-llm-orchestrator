@@ -41,12 +41,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .meta_orchestrator import (
-    ExecutionArchive,
-    ProjectTrajectory,
-    StrategyProposal,
-    StrategyType,
-)
+# meta_orchestrator types removed (module does not exist)
 
 logger = logging.getLogger("orchestrator.transfer")
 

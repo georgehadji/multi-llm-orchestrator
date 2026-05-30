@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-# FIXED: from .models import ProjectState, Task, TaskResult
+    # FIXED: from .models import ProjectState, Task, TaskResult
     from ...models import ProjectState, Task, TaskResult
 
 logger = logging.getLogger("orchestrator.progress_writer")
@@ -40,6 +40,7 @@ from ...async_file_io import (
     async_append_text,
     async_write_text,
 )
+
 # FIXED: from .output_writer import _ext_for, _render_content, _write_summary_json
 from ...output_writer import _ext_for, _render_content, _write_summary_json
 
@@ -120,13 +121,13 @@ class ProgressWriter:
 
     async def _write_task_file(self, task_id: str, result: TaskResult, task: Task) -> str:
         """Write task output file. Returns the filename (relative to output_dir)."""
-# FIXED: from .models import TaskType
+        # FIXED: from .models import TaskType
         from ...models import TaskType
 
         # CRITICAL FIX: Validate code with AST before writing
         if task.type == TaskType.CODE_GEN and result.output:
             try:
-# FIXED: from .code_validator import SecurityConfig, validate_code
+                # FIXED: from .code_validator import SecurityConfig, validate_code
                 from ...code_validator import SecurityConfig, validate_code
 
                 config = SecurityConfig(
@@ -176,7 +177,7 @@ class ProgressWriter:
 
         # Extract named files for CODE_GEN tasks (same as write_output_dir does)
         if task.type == TaskType.CODE_GEN:
-# FIXED: from .output_writer import extract_named_files, write_extracted_files
+            # FIXED: from .output_writer import extract_named_files, write_extracted_files
             from ...output_writer import extract_named_files, write_extracted_files
 
             named = extract_named_files(result.output)

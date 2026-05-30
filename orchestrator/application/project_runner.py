@@ -137,9 +137,7 @@ class ProjectRunner:
                 try:
                     from ..assumption_gate import surface_assumptions
 
-                    report = await surface_assumptions(
-                        project_description, self._callables.client
-                    )
+                    report = await surface_assumptions(project_description, self._callables.client)
                     if report.has_ambiguity:
                         logger.info(
                             "Assumptions surfaced: %d assumptions, %d questions",
@@ -244,9 +242,7 @@ class ProjectRunner:
                     completed_count = sum(
                         1 for r in results.values() if r.status != TaskStatus.FAILED
                     )
-                    failed_count = sum(
-                        1 for r in results.values() if r.status == TaskStatus.FAILED
-                    )
+                    failed_count = sum(1 for r in results.values() if r.status == TaskStatus.FAILED)
                     await self._event_bus.publish(
                         ProjectCompletedEvent(
                             aggregate_id=project_id,
@@ -294,18 +290,14 @@ class ProjectRunner:
         try:
             from ..assumption_gate import surface_assumptions
 
-            report = await surface_assumptions(
-                project_description, self._callables.client
-            )
+            report = await surface_assumptions(project_description, self._callables.client)
             if report.has_ambiguity:
                 logger.info(
                     "Assumptions surfaced: %d assumptions, %d questions",
                     len(report.assumptions),
                     len(report.clarification_questions),
                 )
-                project_description = (
-                    f"{project_description}\n\n{report.to_prompt_context()}"
-                )
+                project_description = f"{project_description}\n\n{report.to_prompt_context()}"
         except ImportError:
             pass
 
@@ -330,9 +322,7 @@ class ProjectRunner:
 
         levels = self._callables.topological_levels(tasks)
         level_index: dict[str, int] = {
-            tid: lvl_idx
-            for lvl_idx, lvl_tasks in enumerate(levels)
-            for tid in lvl_tasks
+            tid: lvl_idx for lvl_idx, lvl_tasks in enumerate(levels) for tid in lvl_tasks
         }
 
         task_plans: list[Any] = []

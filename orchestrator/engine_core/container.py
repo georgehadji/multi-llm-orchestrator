@@ -59,6 +59,7 @@ except ImportError:
     StreamingValidator = None
     TokenBudget = None
 from ..model_registry import ModelRegistry
+
 try:
     from ..model_registry import ModelCascader  # type: ignore[attr-defined]
 except ImportError:
@@ -180,7 +181,11 @@ class ServiceContainer:
         """Late-bind execute_fn and decompose_fn after Orchestrator.__init__ creates them."""
         if self.executor is not None and hasattr(self.executor, "execute_fn"):
             self.executor.execute_fn = execute_fn
-        if self.generator is not None and decompose_fn is not None and hasattr(self.generator, "decompose_fn"):
+        if (
+            self.generator is not None
+            and decompose_fn is not None
+            and hasattr(self.generator, "decompose_fn")
+        ):
             self.generator.decompose_fn = decompose_fn
 
     @classmethod
@@ -240,11 +245,11 @@ class ServiceContainer:
         from ..preflight import PreflightValidator
         from ..state import StateManager
         from ..telemetry_store import TelemetryStore
+
         try:
             from ..task_guard import TaskGuard
         except ImportError:
             from ..concurrency_controller import TaskConcurrencyGuard as TaskGuard
-
 
         # Import canonical GeneratorService from services layer
         try:
@@ -262,7 +267,9 @@ class ServiceContainer:
         except ImportError:
             # Fallback for missing deps
             class _DepResolver:
-                def __init__(self, **kwargs): pass  # type: ignore[no-untyped-def]
+                def __init__(self, **kwargs):
+                    pass  # type: ignore[no-untyped-def]
+
             DepResolver = _DepResolver
             # CBRegistry is wired separately via try/except below; not needed here
 
@@ -308,9 +315,10 @@ class ServiceContainer:
             routing_service = RoutingService(config_adapter)
             cost_service = CostService(config_adapter)
             config_service = ConfigurationService(config_adapter)
-            
+
             from .state_coordinator import StateCoordinator
             from .context_service import ContextService
+
             state_coordinator = StateCoordinator()
             context_service = ContextService()
         except ImportError:
@@ -322,7 +330,9 @@ class ServiceContainer:
             context_service = None
 
         # Wired helpers
-        planner = ConstraintPlanner(profiles=profiles, policy_engine=policy_engine, api_health=api_health)
+        planner = ConstraintPlanner(
+            profiles=profiles, policy_engine=policy_engine, api_health=api_health
+        )
 
         selector = ModelSelector(
             api_health=api_health,
@@ -362,7 +372,7 @@ class ServiceContainer:
 
         # Preflight + validator
         preflight_validator = PreflightValidator()
-        
+
         # Unified Event System integration
         try:
             from .unified_events.core import UnifiedEventBus
@@ -452,19 +462,21 @@ class ServiceContainer:
 
         # NexusScope: wrap pipeline with profiling if enabled
         import os as _os
+
         if _os.getenv("ORCHESTRATOR_PROFILING", "0") == "1":
             try:
                 from ..infrastructure.nexusscope.pipeline_hook import ProfilingTaskPipeline as _PTP
                 from ..infrastructure.nexusscope import get_profiler as _get_ns
+
                 pipeline = _PTP(pipeline._stages, profiler=_get_ns())  # type: ignore[assignment]
             except ImportError:
                 pass
-
 
         # Observability service
         observability = None
         try:
             from ..services import ObservabilityService
+
             observability = ObservabilityService()
         except ImportError:
             pass
@@ -473,6 +485,7 @@ class ServiceContainer:
         cb_registry = None
         try:
             from ..circuit_breaker import CircuitBreakerRegistry
+
             cb_registry = CircuitBreakerRegistry()
         except ImportError:
             pass

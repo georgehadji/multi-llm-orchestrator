@@ -29,6 +29,7 @@ from typing import Any
 
 # FIXED: from ..log_config import get_logger
 from ..log_config import get_logger
+
 # FIXED: from ..models import TaskType
 from ..models import TaskType
 
@@ -341,7 +342,7 @@ class DeploymentFeedbackLoop:
         )
 
         try:
-# FIXED: from ..api_clients import UnifiedClient
+            # FIXED: from ..api_clients import UnifiedClient
             from ...api_clients import UnifiedClient
 
             client = UnifiedClient()
@@ -444,7 +445,7 @@ class DeploymentFeedbackLoop:
         )
 
         try:
-# FIXED: from ..api_clients import UnifiedClient
+            # FIXED: from ..api_clients import UnifiedClient
             from ...api_clients import UnifiedClient
 
             client = UnifiedClient()

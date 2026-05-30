@@ -25,6 +25,7 @@ from enum import Enum
 from typing import Any, Awaitable, Callable, TypeVar
 
 from .circuit_breaker import CircuitBreakerOpen, CircuitBreakerRegistry
+
 # FIXED: from ..models import FALLBACK_CHAIN, Model, TaskType
 from ..models import FALLBACK_CHAIN, Model, TaskType
 
@@ -364,7 +365,7 @@ def classify_model_tier(model: Model) -> CostTier:
     Defaults to PREMIUM if the model is not in COST_TABLE (fail-safe:
     assume expensive rather than assume free).
     """
-# FIXED: from ..models import COST_TABLE
+    # FIXED: from ..models import COST_TABLE
     from ..models import COST_TABLE
 
     costs = COST_TABLE.get(model)

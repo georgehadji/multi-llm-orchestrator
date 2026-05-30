@@ -35,9 +35,7 @@ class ModelHealthTracker:
         initial_api_health: dict[Model, bool] | None = None,
     ) -> None:
         self._telemetry = telemetry
-        self._consecutive_failures: dict[Model, int] = dict(
-            initial_consecutive_failures or {}
-        )
+        self._consecutive_failures: dict[Model, int] = dict(initial_consecutive_failures or {})
         self._api_health: dict[Model, bool] = dict(initial_api_health or {})
         self._dashboard = dashboard
         self._adaptive_router = adaptive_router
@@ -135,9 +133,7 @@ class ModelHealthTracker:
                 model.value, self._consecutive_failures[model]
             )
         except Exception as cb_err:
-            logger.debug(
-                "Could not persist circuit breaker state for %s: %s", model.value, cb_err
-            )
+            logger.debug("Could not persist circuit breaker state for %s: %s", model.value, cb_err)
 
         if self._adaptive_router is not None and self._is_timeout(error_str, error):
             await self._adaptive_router.record_timeout(model)

@@ -3,6 +3,7 @@ Tests for CodebaseInvestigatorAgent and coordinator routing.
 
 Unit tests — no LLM calls made. All CodebaseAnalyzer calls are mocked.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -12,8 +13,8 @@ from orchestrator.agents.base import AgentRole, AgentTask, AgentTaskResult
 from orchestrator.agents.investigator import CodebaseInvestigatorAgent
 from orchestrator.agents.coordinator import AgentOrchestrator
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def agent() -> CodebaseInvestigatorAgent:
@@ -42,6 +43,7 @@ def _make_mock_analyzer_cls(report):
 
 # ── AgentRole enum ────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 def test_investigator_role_in_enum():
     assert AgentRole.INVESTIGATOR == "investigator"
@@ -50,12 +52,14 @@ def test_investigator_role_in_enum():
 
 # ── system_prompt ─────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 def test_system_prompt_is_non_empty(agent):
     assert len(agent.system_prompt) > 20
 
 
 # ── handle_task success ───────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
@@ -127,6 +131,7 @@ async def test_handle_task_passes_budget_usd_to_analyzer(MockAnalyzer, agent):
 
 # ── handle_task failure paths ─────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 @patch("orchestrator.agents.investigator.CodebaseAnalyzer")
@@ -149,6 +154,7 @@ async def test_handle_task_returns_failure_when_import_fails(agent):
 
 
 # ── Coordinator routing ───────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 def test_coordinator_routes_understand_to_investigator():

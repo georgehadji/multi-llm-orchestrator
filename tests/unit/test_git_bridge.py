@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 
 from orchestrator.application.git_bridge import GitBridge
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Null git — returns None, no raises
 # ─────────────────────────────────────────────────────────────────────────────

@@ -20,7 +20,6 @@ from orchestrator.domain.ports import NullSkillStore
 from orchestrator.models import TaskType
 from orchestrator.models_skill import SkillPatch, Trajectory
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -35,7 +34,9 @@ def _make_client(patch_json: str = "[]") -> MagicMock:
     return client
 
 
-def _make_trajectories(n: int, score: float = 0.7, task_type: TaskType = TaskType.CODE_GEN) -> list[Trajectory]:
+def _make_trajectories(
+    n: int, score: float = 0.7, task_type: TaskType = TaskType.CODE_GEN
+) -> list[Trajectory]:
     return [
         Trajectory(
             task_id=f"t{i}",
@@ -79,6 +80,7 @@ def test_load_starter_skill_missing_type_returns_default():
     # Use a custom-value mock TaskType-like
     class FakeType:
         value = "nonexistent_task_type_xyz"
+
     skill = _load_starter_skill(FakeType())  # type: ignore[arg-type]
     assert isinstance(skill, str)
 
@@ -141,9 +143,9 @@ async def test_epoch_rejected_when_no_improvement():
 @pytest.mark.asyncio
 async def test_epoch_accepted_when_improvement():
     # Store starts with a low score, val trajectories are slightly higher
-    patch_json = json.dumps([
-        {"op": "append", "anchor": "", "content": "Always use type hints.", "token_cost": 10}
-    ])
+    patch_json = json.dumps(
+        [{"op": "append", "anchor": "", "content": "Always use type hints.", "token_cost": 10}]
+    )
 
     class LowScoreStore(NullSkillStore):
         _saved: list = []
@@ -246,7 +248,9 @@ def test_parse_patches_valid_json():
 
 def test_parse_patches_json_with_noise():
     opt = _optimizer()
-    raw = "Here are the patches:\n" + json.dumps([{"op": "delete", "anchor": "bad", "content": "", "token_cost": 3}])
+    raw = "Here are the patches:\n" + json.dumps(
+        [{"op": "delete", "anchor": "bad", "content": "", "token_cost": 3}]
+    )
     patches = opt._parse_patches(raw)
     assert len(patches) == 1
     assert patches[0].op == "delete"

@@ -30,6 +30,7 @@ from dataclasses import dataclass
 
 # FIXED: from .log_config import get_logger
 from ...log_config import get_logger
+
 # FIXED: from .models import Model, Task, TaskType
 from ...models import Model, Task, TaskType
 

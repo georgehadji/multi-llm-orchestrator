@@ -501,8 +501,8 @@ class Orchestrator:
         self._cb_registry = getattr(container, "cb_registry", None)
 
         # Optimization & Metadata (wired via container or initialized below)
-        self.optim_config = getattr(container, 'optim_config', None)
-        self.meta_v2 = getattr(container, 'meta_v2', None)
+        self.optim_config = getattr(container, "optim_config", None)
+        self.meta_v2 = getattr(container, "meta_v2", None)
 
         container.wire_executor(
             execute_fn=self._execute_task,
@@ -510,10 +510,14 @@ class Orchestrator:
         )
 
         from .meta_integration import initialize_meta_optimization
+
         self.meta_v2 = initialize_meta_optimization(
-            orchestrator=self, state_manager=self.state_mgr,
-            enable_transfer_learning=True, enable_ab_testing=True,
-            enable_hitl=True, enable_rollout=True,
+            orchestrator=self,
+            state_manager=self.state_mgr,
+            enable_transfer_learning=True,
+            enable_ab_testing=True,
+            enable_hitl=True,
+            enable_rollout=True,
         )
 
         self._project_id: str = ""
@@ -545,11 +549,13 @@ class Orchestrator:
         # Created before health_tracker so the bridge can be passed in.
         from .application.dashboard_bridge import DashboardBridge as _DashboardBridge
         from .application.git_bridge import GitBridge as _GitBridge
+
         self._dashboard_bridge = _DashboardBridge(self._dashboard_integration)
         self._git_bridge = _GitBridge(self._git_integration)
         # M6: ModelHealthTracker now owns its dicts; pass existing state as
         # initial values so persisted circuit-breaker counts are preserved.
         from .application.model_health_tracker import ModelHealthTracker as _ModelHealthTracker
+
         self._health_tracker = _ModelHealthTracker(
             telemetry=self._telemetry,
             dashboard=self._dashboard_bridge,
@@ -561,6 +567,7 @@ class Orchestrator:
         )
         # P3-3: ResumptionService wraps _resume_project logic.
         from .application.resumption_service import ResumptionService as _ResumptionService
+
         self._resumption_svc = _ResumptionService(
             budget=self.budget,
             results=self.results,
@@ -573,6 +580,7 @@ class Orchestrator:
             ProjectRunnerCallables as _Callables,
             ProjectRunState as _RunState,
         )
+
         self._run_state = _RunState(results=self.results)
         _callables = _Callables(
             topological_sort=self._topological_sort,
@@ -601,9 +609,11 @@ class Orchestrator:
         )
         # SkillOpt: self-improving per-TaskType skill documents (P3-4 addendum)
         from .crosscutting.config import flags as _flags
+
         if _flags.skill_optimization_enabled:
             from .application.skill_store import SkillStore as _SkillStore
             from .application.skill_manager import SkillManager as _SkillManager
+
             _skill_store = _SkillStore()
             self._skill_manager: Any = _SkillManager(
                 optimizer_client=self._c.client,
@@ -1039,7 +1049,11 @@ class Orchestrator:
             return 0
         done = {t for t in self._background_tasks if t.done()}
         self._background_tasks -= done
-        logger.debug("Background tasks cleaned up: %d done, %d still running", len(done), len(self._background_tasks))
+        logger.debug(
+            "Background tasks cleaned up: %d done, %d still running",
+            len(done),
+            len(self._background_tasks),
+        )
         return len(done)
 
     async def _start_periodic_cleanup(self, interval_seconds: int = 300) -> None:
@@ -1088,7 +1102,8 @@ class Orchestrator:
                 self.api_health[model] = False
                 logger.info(
                     "Circuit breaker restored: %s open (%d failures from previous run)",
-                    model_name, count,
+                    model_name,
+                    count,
                 )
         if persisted:
             logger.debug("Loaded circuit breaker state for %d models", len(persisted))
@@ -1773,7 +1788,10 @@ Each task JSON element MUST also include:
             # TASK-301: routed through DecomposerService (last self.client.call in engine.py)
             class _CompatResponse:
                 """Minimal response wrapper to satisfy downstream truncation checks."""
-                def __init__(self, text: str): self.text = text
+
+                def __init__(self, text: str):
+                    self.text = text
+
             try:
                 resp = await self._decomposer.decompose(
                     description=str(call_args.get("prompt", "")),
@@ -2433,6 +2451,7 @@ Each task JSON element MUST also include:
                 import asyncio as _asyncio
                 import time as _time
                 from .models_skill import Trajectory as _Trajectory
+
                 _t = _Trajectory(
                     task_id=task.id,
                     task_type=task.type,
@@ -2457,7 +2476,7 @@ Each task JSON element MUST also include:
         return await self._evaluator.evaluate(
             task_id=task.id,
             result=output,
-            model=task.model if hasattr(task, 'model') else None,
+            model=task.model if hasattr(task, "model") else None,
         )
 
     async def _record_success(self, model: Model, response: APIResponse) -> None:

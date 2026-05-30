@@ -24,6 +24,7 @@ from typing import Any
 
 # FIXED: from ..log_config import get_logger
 from ..log_config import get_logger
+
 # FIXED: from ..models import Model
 from ..models import Model
 
@@ -182,7 +183,7 @@ class SystemDiagnostic:
         """Test API key validity."""
         logger.debug("Checking API key validity...")
 
-# FIXED: from ..api_clients import UnifiedClient
+        # FIXED: from ..api_clients import UnifiedClient
         from ...api_clients import UnifiedClient
 
         test_models = [
@@ -344,7 +345,7 @@ class SystemDiagnostic:
 
         # Check cache
         try:
-# FIXED: from ..performance import get_cache
+            # FIXED: from ..performance import get_cache
             from ...performance import get_cache
 
             cache = get_cache()
@@ -376,7 +377,7 @@ class ProjectDiagnostic:
 
     async def diagnose(self) -> dict[str, Any]:
         """Diagnose specific project issues."""
-# FIXED: from ..state import StateManager
+        # FIXED: from ..state import StateManager
         from ...state import StateManager
 
         state_mgr = StateManager()

@@ -29,8 +29,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .log_config import get_logger
-from .models import Model, TaskType
+from .log_config import get_logger  # noqa: F401
+from ..models import Model, TaskType
 
 logger = get_logger(__name__)
 

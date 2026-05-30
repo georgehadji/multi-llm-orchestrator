@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 from ..log_config import get_logger
 
 if TYPE_CHECKING:
-# FIXED: from .memory_tier import MemoryTierManager
+    # FIXED: from .memory_tier import MemoryTierManager
     from ..memory_tier import MemoryTierManager
 
 logger = get_logger(__name__)
@@ -131,9 +131,10 @@ class SessionLifecycleManager:
 
         Raises on failure — caller handles fail-open logic.
         """
-# FIXED: from .api_clients import UnifiedClient
+        # FIXED: from .api_clients import UnifiedClient
         from ..api_clients import UnifiedClient
-# FIXED: from .models import Model
+
+        # FIXED: from .models import Model
         from ..models import Model
 
         # Create client once if not already created

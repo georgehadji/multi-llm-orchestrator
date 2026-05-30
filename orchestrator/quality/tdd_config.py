@@ -161,7 +161,7 @@ class TDDModelConfig:
         Returns:
             Dictionary with cost estimates per phase and total
         """
-# FIXED: from ..models import COST_TABLE, Model
+        # FIXED: from ..models import COST_TABLE, Model
         from ..models import COST_TABLE, Model
 
         models = self.get_all_models(tier)

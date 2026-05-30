@@ -39,8 +39,7 @@ class StateCoordinator:
 
         # COMPLETED or DEGRADED both count as "passed" for final status
         all_passed = all(
-            r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED) 
-            for r in state.results.values()
+            r.status in (TaskStatus.COMPLETED, TaskStatus.DEGRADED) for r in state.results.values()
         )
 
         degraded_heavy = any(

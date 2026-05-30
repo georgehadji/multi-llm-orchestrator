@@ -22,7 +22,6 @@ from orchestrator.application.project_runner_deps import (
 )
 from orchestrator.models import ProjectState, ProjectStatus, TaskResult, TaskStatus
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────

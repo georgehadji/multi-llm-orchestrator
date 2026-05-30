@@ -60,7 +60,10 @@ class PipelineRunner:
         if output_dir and make_state_fn:
             try:
                 from ..progress_writer import ProgressWriter
-                partial_state = make_state_fn(project_desc, success_criteria, tasks, execution_order)
+
+                partial_state = make_state_fn(
+                    project_desc, success_criteria, tasks, execution_order
+                )
                 partial_state.results = results
                 progress_writer = ProgressWriter(output_dir, partial_state)
             except ImportError:
@@ -98,5 +101,7 @@ class PipelineRunner:
                     )
 
         if make_state_fn:
-            return make_state_fn(project_desc, success_criteria, tasks, execution_order, results=results)
-        return results # type: ignore
+            return make_state_fn(
+                project_desc, success_criteria, tasks, execution_order, results=results
+            )
+        return results  # type: ignore

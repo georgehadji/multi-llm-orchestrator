@@ -15,14 +15,17 @@ from pathlib import Path
 
 # FIXED: from .budget import Budget
 from ...budget import Budget
+
 # FIXED: from .component_registry import get_registry
 from ...component_registry import get_registry
+
 # FIXED: from .design_system import (
 from ...design_system import (
     ContentBrief,
     DesignSystem,
     QualityReport,
 )
+
 # FIXED: from .models import ProjectState, Task, TaskType
 from ...models import ProjectState, Task, TaskType
 

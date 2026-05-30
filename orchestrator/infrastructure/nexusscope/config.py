@@ -1,4 +1,5 @@
 """NexusScope configuration."""
+
 import os
 from dataclasses import dataclass
 
@@ -6,6 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class NexusScopeConfig:
     """Configuration for the NexusScope profiler."""
+
     enabled: bool = False
     interval: float = 0.001
     async_mode: bool = True

@@ -37,11 +37,13 @@ class LLMClientContract:
 
 class TestLLMClientContract(LLMClientContract):
     """Mock-based test — isinstance check is N/A for mocks."""
+
     """Run the contract against a mock."""
 
     @pytest.fixture
     def client(self):
         from unittest.mock import AsyncMock
+
         mock = AsyncMock()
         mock.call.return_value = type("Resp", (), {"text": "hello"})()
         return mock

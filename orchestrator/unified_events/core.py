@@ -402,7 +402,13 @@ class PreflightCheckEvent(DomainEvent):
     score_after: float = 0.0
 
     def __init__(
-        self, aggregate_id: str, task_id: str, action: str, reason: str, score_before: float, score_after: float
+        self,
+        aggregate_id: str,
+        task_id: str,
+        action: str,
+        reason: str,
+        score_before: float,
+        score_after: float,
     ):
         super().__init__(
             event_type=EventType.PREFLIGHT_CHECK,
@@ -426,7 +432,12 @@ class AgentMessageEvent(DomainEvent):
     content: str = ""
 
     def __init__(
-        self, aggregate_id: str, sender: str, content: str, msg_type: str, recipient: str | None = None
+        self,
+        aggregate_id: str,
+        sender: str,
+        content: str,
+        msg_type: str,
+        recipient: str | None = None,
     ):
         super().__init__(
             event_type=EventType.AGENT_MESSAGE,
@@ -443,7 +454,14 @@ class AgentMessageEvent(DomainEvent):
 # Nash Stability events
 @dataclass(frozen=True)
 class KnowledgeGraphUpdatedEvent(DomainEvent):
-    def __init__(self, aggregate_id: str, nodes_added: int, edges_added: int, nodes_total: int, edges_total: int):
+    def __init__(
+        self,
+        aggregate_id: str,
+        nodes_added: int,
+        edges_added: int,
+        nodes_total: int,
+        edges_total: int,
+    ):
         super().__init__(
             event_type=EventType.KG_UPDATED,
             aggregate_id=aggregate_id,
@@ -458,7 +476,15 @@ class KnowledgeGraphUpdatedEvent(DomainEvent):
 
 @dataclass(frozen=True)
 class TemplateSelectedEvent(DomainEvent):
-    def __init__(self, aggregate_id: str, task_type: str, model: str, variant_name: str, strategy: str, confidence: float):
+    def __init__(
+        self,
+        aggregate_id: str,
+        task_type: str,
+        model: str,
+        variant_name: str,
+        strategy: str,
+        confidence: float,
+    ):
         super().__init__(
             event_type=EventType.TEMPLATE_SELECTED,
             aggregate_id=aggregate_id,
@@ -474,7 +500,16 @@ class TemplateSelectedEvent(DomainEvent):
 
 @dataclass(frozen=True)
 class DriftDetectedEvent(DomainEvent):
-    def __init__(self, aggregate_id: str, model: str, metric: str, expected_value: float, observed_value: float, p_value: float, severity: str):
+    def __init__(
+        self,
+        aggregate_id: str,
+        model: str,
+        metric: str,
+        expected_value: float,
+        observed_value: float,
+        p_value: float,
+        severity: str,
+    ):
         super().__init__(
             event_type=EventType.DRIFT_DETECTED,
             aggregate_id=aggregate_id,
@@ -491,7 +526,14 @@ class DriftDetectedEvent(DomainEvent):
 
 @dataclass(frozen=True)
 class StabilityScoreUpdatedEvent(DomainEvent):
-    def __init__(self, aggregate_id: str, previous_score: float, new_score: float, score_change: float, interpretation: str):
+    def __init__(
+        self,
+        aggregate_id: str,
+        previous_score: float,
+        new_score: float,
+        score_change: float,
+        interpretation: str,
+    ):
         super().__init__(
             event_type=EventType.STABILITY_SCORE_UPDATED,
             aggregate_id=aggregate_id,

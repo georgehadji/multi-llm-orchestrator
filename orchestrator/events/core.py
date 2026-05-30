@@ -16,6 +16,7 @@ from ..unified_events.core import (  # noqa: F401
 # Placeholder for MessageType until fully unified
 from enum import Enum
 
+
 class MessageType(str, Enum):
     TASK_REQUEST = "task_request"
     TASK_RESPONSE = "task_response"

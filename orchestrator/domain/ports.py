@@ -182,9 +182,13 @@ class SkillStorePort(Protocol):
 
     async def save_trajectory(self, t: Any) -> None: ...
     async def load_trajectories(self, task_type: Any, limit: int = 50) -> list[Any]: ...
-    async def save_skill(self, task_type: Any, skill_doc: str, score: float, epoch: int) -> None: ...
+    async def save_skill(
+        self, task_type: Any, skill_doc: str, score: float, epoch: int
+    ) -> None: ...
     async def load_best_skill(self, task_type: Any) -> tuple[str, float, int] | None: ...
-    async def save_negative_feedback(self, task_type: Any, patches: list[Any], reason: str) -> None: ...
+    async def save_negative_feedback(
+        self, task_type: Any, patches: list[Any], reason: str
+    ) -> None: ...
     async def load_negative_feedback(self, task_type: Any, limit: int = 20) -> list[dict]: ...  # type: ignore[type-arg]
     async def close(self) -> None: ...
 
@@ -204,7 +208,9 @@ class NullSkillStore:
     async def load_best_skill(self, task_type: Any) -> None:
         return None
 
-    async def save_patches(self, task_type: Any, epoch: int, patches: list[Any], accepted: bool) -> None:
+    async def save_patches(
+        self, task_type: Any, epoch: int, patches: list[Any], accepted: bool
+    ) -> None:
         pass
 
     async def save_negative_feedback(self, task_type: Any, patches: list[Any], reason: str) -> None:

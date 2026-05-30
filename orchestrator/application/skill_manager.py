@@ -139,6 +139,4 @@ class SkillManager:
                     result.rejection_reason,
                 )
         except Exception as exc:
-            logger.exception(
-                "SkillManager: epoch for %s crashed: %s", task_type.value, exc
-            )
+            logger.exception("SkillManager: epoch for %s crashed: %s", task_type.value, exc)
