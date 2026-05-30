@@ -307,6 +307,20 @@
       "type": "version",
       "summary": "Version v2",
       "files": []
+    },
+    {
+      "label": "after-auth",
+      "timestamp": 1780151006.0842547,
+      "type": "checkpoint",
+      "summary": "Checkpoint: after-auth",
+      "files": []
+    },
+    {
+      "label": "vv2",
+      "timestamp": 1780151006.0852547,
+      "type": "version",
+      "summary": "Version v2",
+      "files": []
     }
   ]
 }

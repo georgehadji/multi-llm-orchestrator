@@ -1550,8 +1550,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\audit.py": {
-    "mtime": 1780034257.087818,
-    "ast_hash": "427a81fb5d6c225c04a96f52d25a2fcc",
+    "mtime": 1780149677.9569683,
+    "ast_hash": "1273d0bd0fcbeea0221b81f819aa93c2",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\automations.py": {
@@ -1585,8 +1585,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\bm25_search.py": {
-    "mtime": 1780034263.2990294,
-    "ast_hash": "173f7bce7f57a7a24902c4ac07e500d7",
+    "mtime": 1780149678.0965068,
+    "ast_hash": "a9fff0eb1bb4404c56341ab8fb5780eb",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\brain.py": {
@@ -1620,13 +1620,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\cache_optimizer.py": {
-    "mtime": 1780034275.804291,
-    "ast_hash": "78b66b7fefe1d4da821aa91ed97d46f5",
+    "mtime": 1780149823.3996458,
+    "ast_hash": "4cb661d90cf97d6b78fdbc6edd53a0d5",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\caching.py": {
-    "mtime": 1780034269.1406825,
-    "ast_hash": "35e45feae5b09393a7f5afdeff385887",
+    "mtime": 1780149678.176045,
+    "ast_hash": "b109311a39cf4a31354554f3404fb14d",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\canary_deployment.py": {
@@ -1655,8 +1655,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\cli.py": {
-    "mtime": 1780037224.0311832,
-    "ast_hash": "f47f68890e0c8f5d46af78050ec04bf4",
+    "mtime": 1780149684.0647743,
+    "ast_hash": "23feeb055506f17bf7132ef0555fa260",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\cli_dashboard.py": {
@@ -1965,8 +1965,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine.py": {
-    "mtime": 1780147625.3253627,
-    "ast_hash": "866ae6603b350a44996f1bc6b24e7e4b",
+    "mtime": 1780149686.728374,
+    "ast_hash": "2db0ff720306b5ce65ff74cc174c099b",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_deps.py": {
@@ -2260,13 +2260,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\models.py": {
-    "mtime": 1780147625.389328,
-    "ast_hash": "bc0b8802a362140a90240c04cec78c79",
+    "mtime": 1780149687.5596716,
+    "ast_hash": "5fb8214e463aa72d99eca36fcf47bfbf",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\models_skill.py": {
-    "mtime": 1779969213.3525188,
-    "ast_hash": "4b7fb1225f20ff4dac7337cdba866576",
+    "mtime": 1780149686.6092944,
+    "ast_hash": "d16a0bdbd27f022a96e907e73382e3d0",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\model_registry.py": {
@@ -2280,8 +2280,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\model_selector.py": {
-    "mtime": 1779957658.4158032,
-    "ast_hash": "2297f3623951fd1e144f5a244b7dd7ab",
+    "mtime": 1780149686.912922,
+    "ast_hash": "d92818a8f0592ff71ddc37a6ca246647",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\modes.py": {
@@ -2715,8 +2715,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\semantic_cache.py": {
-    "mtime": 1780034281.9050212,
-    "ast_hash": "1fd3b1e87e9b162b62e235485469b05f",
+    "mtime": 1780149692.2697124,
+    "ast_hash": "56886d09864cabcbc9453c22651884c5",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\service_collection.py": {
@@ -2840,8 +2840,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\telemetry.py": {
-    "mtime": 1780034244.3989937,
-    "ast_hash": "6e9d46f843019dc740a8b5791f3cd60c",
+    "mtime": 1780149693.234632,
+    "ast_hash": "61deb53b90dd06adbb7c3d31d5a2a274",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\telemetry_store.py": {
@@ -2890,8 +2890,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\tracing.py": {
-    "mtime": 1780037480.57607,
-    "ast_hash": "d38d7181f67bd55c383a7a2f02822b8f",
+    "mtime": 1780149693.5372472,
+    "ast_hash": "f1fc662992cbd1f7d1be0ac024ad5255",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\transfer_learning.py": {
@@ -2970,8 +2970,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\agents\\coordinator.py": {
-    "mtime": 1780147625.272093,
-    "ast_hash": "02caed0aff1d8b1b47e2b0c69fb31c17",
+    "mtime": 1780149676.477928,
+    "ast_hash": "5920837bfdf3ab19e854c2324230e6ae",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\agents\\developer.py": {
@@ -3040,13 +3040,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\analyzer.py": {
-    "mtime": 1780148237.4082713,
-    "ast_hash": "8c3b96e616297e99c800801e5f34fdb8",
+    "mtime": 1780149677.0781567,
+    "ast_hash": "2273d9569685d8c0aed1023d1e37ca1e",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\assumption_gate.py": {
-    "mtime": 1780148237.4538057,
-    "ast_hash": "ecea716cda1daba699a35873524ce291",
+    "mtime": 1780149676.715536,
+    "ast_hash": "54d9fd29bc7dcb62aadd3475ae06d110",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\competitive.py": {
@@ -3060,18 +3060,18 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\leaderboard.py": {
-    "mtime": 1780148237.4688065,
-    "ast_hash": "b5b951731ec14b0c311ec2a80065415a",
+    "mtime": 1780149678.137044,
+    "ast_hash": "d872d1c9d3bec77b00c202afe5b5961e",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\metrics.py": {
-    "mtime": 1780148237.470806,
-    "ast_hash": "4405ab7dd5687c37643c3119fdb70eaf",
+    "mtime": 1780149676.994618,
+    "ast_hash": "7230a055e82033c5e50c2fd157487c77",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\pareto_frontier.py": {
-    "mtime": 1780148237.4788053,
-    "ast_hash": "64ae158c8bd523cb4bd2549511025787",
+    "mtime": 1780149678.0785055,
+    "ast_hash": "043e82ea860f2e07e59dfe614a8cd87a",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\performance.py": {
@@ -3080,8 +3080,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\progress.py": {
-    "mtime": 1780148237.4878058,
-    "ast_hash": "4359f70db2878991f2e7b6fab7171fdc",
+    "mtime": 1780149677.1156936,
+    "ast_hash": "42bad5e9aacd0513a42f10980a5b4df5",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\progressive_output.py": {
@@ -3095,13 +3095,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\progress_writer.py": {
-    "mtime": 1780148237.4668067,
-    "ast_hash": "5563b2bde8dc1bfe7cd5e4c1b8b471b4",
+    "mtime": 1780149676.940618,
+    "ast_hash": "190b7dbc52d55ab689a04647ca7430b7",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\projections.py": {
-    "mtime": 1780148237.477806,
-    "ast_hash": "4bd05d1abbaf64e0ec5145ab3b9472d5",
+    "mtime": 1780149677.722899,
+    "ast_hash": "234c7b4712825e11ba8d5dfded4915d5",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\visualization.py": {
@@ -3110,8 +3110,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\analysis\\__init__.py": {
-    "mtime": 1780147625.2740934,
-    "ast_hash": "d7646c4adccdc00b7ba25e3066a6091b",
+    "mtime": 1780149676.4729273,
+    "ast_hash": "eeaf364ef9cbd48ca782b2766c689d7e",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\appbuilder\\assembler.py": {
@@ -3145,8 +3145,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\appbuilder\\__init__.py": {
-    "mtime": 1780147625.2830977,
-    "ast_hash": "063cc7056270725b84282d94e9e1a77f",
+    "mtime": 1780149677.0421572,
+    "ast_hash": "a17c83360bdd744758687404ba9c5953",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\budget_enforcer.py": {
@@ -3155,8 +3155,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\chat_cli.py": {
-    "mtime": 1780149065.6035123,
-    "ast_hash": "57996826fdc9494657eef97e1819ad49",
+    "mtime": 1780149677.6683633,
+    "ast_hash": "f321a671d0d65ba0a8de840a27d18686",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\context_compressor.py": {
@@ -3165,8 +3165,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\conversation_agent.py": {
-    "mtime": 1780149065.6025095,
-    "ast_hash": "1f94b26db4397659e08fa2fbf1dffcc9",
+    "mtime": 1780149677.7538998,
+    "ast_hash": "46ee36c20be1f466a17473ea69c2e2e9",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\critique_cycle.py": {
@@ -3210,8 +3210,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\model_health_tracker.py": {
-    "mtime": 1780034970.8638396,
-    "ast_hash": "3dccb15e072e8bf2a6714e52fb983fd0",
+    "mtime": 1780149677.7958999,
+    "ast_hash": "135478b2b333520d202e5c02c77dc64e",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\observability.py": {
@@ -3220,8 +3220,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\project_runner.py": {
-    "mtime": 1780149065.5579815,
-    "ast_hash": "f912946727c308695e07c987e2664452",
+    "mtime": 1780149678.1015198,
+    "ast_hash": "4668d1e2e59ea0db658964207d66d177",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\project_runner_deps.py": {
@@ -3230,23 +3230,23 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\resumption_service.py": {
-    "mtime": 1780149065.579991,
-    "ast_hash": "fba51cbbe7649ae723ed93097084802f",
+    "mtime": 1780149677.7719,
+    "ast_hash": "c15b31bf2f89226b7b1d6770bdcf9cdb",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\skill_manager.py": {
-    "mtime": 1780149065.601511,
-    "ast_hash": "f79d4d58d1c4fb579ada92294e215b92",
+    "mtime": 1780149677.8804328,
+    "ast_hash": "62685da71c41c5360c59a7a08e705161",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\skill_optimizer.py": {
-    "mtime": 1780149065.5609822,
-    "ast_hash": "20164625deb69c8fed665e2f99d68566",
+    "mtime": 1780149678.4896574,
+    "ast_hash": "b2cf9ea53908557f48c89317679f317d",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\skill_store.py": {
-    "mtime": 1780149065.5995097,
-    "ast_hash": "62a5ca3ecc61396ccdbd9617e3072f75",
+    "mtime": 1780149678.115031,
+    "ast_hash": "4e68ba460deaab21619afca9fd321a97",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\application\\task_executor.py": {
@@ -3300,8 +3300,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\codebase\\__init__.py": {
-    "mtime": 1780147625.2910993,
-    "ast_hash": "7f8769840969fd4626b0407c0f68c469",
+    "mtime": 1780149678.4666584,
+    "ast_hash": "27d9a64e7d289ac58a143370f9b9dd3c",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\commands\\center.py": {
@@ -3325,8 +3325,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\commands\\__init__.py": {
-    "mtime": 1780147625.2951245,
-    "ast_hash": "b3ac38d36a2cce00cd065a32bddfefe6",
+    "mtime": 1780149678.8928046,
+    "ast_hash": "cb1e18fc95c597db09213777da8a9480",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\connectors\\connectors.py": {
@@ -3340,8 +3340,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\connectors\\__init__.py": {
-    "mtime": 1780147625.3013246,
-    "ast_hash": "481235306a7fb1e7d8ba8e840aaef82a",
+    "mtime": 1780149679.177418,
+    "ast_hash": "96979c338d96193c2f794f08c9baa9e5",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\context_mgmt\\compressor.py": {
@@ -3375,8 +3375,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\context_mgmt\\__init__.py": {
-    "mtime": 1780147625.3033226,
-    "ast_hash": "3a1aea5bacee74989480e0acb66d46aa",
+    "mtime": 1780149679.274953,
+    "ast_hash": "00b95cb6aead4d6bd4612e21b92c4c7c",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\costing\\analytics.py": {
@@ -3395,8 +3395,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\costing\\__init__.py": {
-    "mtime": 1780147625.3093288,
-    "ast_hash": "fd29a4a0b386ffc05e0d3863e4867ff1",
+    "mtime": 1780149680.0662444,
+    "ast_hash": "a123cc5325845c30a4d67a2ffbc6a03e",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\cost_optimization\\batch_client.py": {
@@ -3465,8 +3465,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\crosscutting\\config.py": {
-    "mtime": 1780054207.5560277,
-    "ast_hash": "dbefe13bbcc730a7fb511dcdb24b8c61",
+    "mtime": 1780149680.3398569,
+    "ast_hash": "93dbafa7afcd6d1c5461adfc05466ca6",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\crosscutting\\__init__.py": {
@@ -3475,13 +3475,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\dashboard_core\\chat_view.py": {
-    "mtime": 1780037303.4897406,
-    "ast_hash": "c102b868ba72c16c03d0ce8f61937b5f",
+    "mtime": 1780149680.5757601,
+    "ast_hash": "3b67c9db953537ecceb03115b0d918f6",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\dashboard_core\\core.py": {
-    "mtime": 1780037235.184007,
-    "ast_hash": "5ba957c3c2aa9a8b23c9cd8c417209f5",
+    "mtime": 1780149680.9023926,
+    "ast_hash": "0539a9f3a90d084f89e6e733e0cae938",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\dashboard_core\\dashboard_core_core.py": {
@@ -3540,8 +3540,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\design\\design_to_code.py": {
-    "mtime": 1780148237.3422704,
-    "ast_hash": "967a910fce2d8bd1210429c6f4b53417",
+    "mtime": 1780149681.3320792,
+    "ast_hash": "0713804ba2d9ffcda53fa3f0e2d33954",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\design\\frontend_rules.py": {
@@ -3560,8 +3560,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\design\\__init__.py": {
-    "mtime": 1780147625.3133285,
-    "ast_hash": "af3f4b7732bfa5da3c83fc7e114917f5",
+    "mtime": 1780149680.3508549,
+    "ast_hash": "a9609160951f0fab0b414ef2ec77d3cf",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\domain\\exceptions.py": {
@@ -3575,8 +3575,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\domain\\ports.py": {
-    "mtime": 1780149065.5829957,
-    "ast_hash": "d52c2d963ba4470370788229b5d6fa78",
+    "mtime": 1780149681.8187609,
+    "ast_hash": "164b4cfa7f78ef6a30751baef572675c",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\domain\\task_factory.py": {
@@ -3590,8 +3590,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\domain\\services\\config_services.py": {
-    "mtime": 1780147625.3233256,
-    "ast_hash": "342c65ccdcbae3fa108591f2927eec4f",
+    "mtime": 1780149681.017457,
+    "ast_hash": "6258f4df9652edccffbf9bbc0665628d",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_core\\a2a_protocol.py": {
@@ -3620,8 +3620,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_core\\container.py": {
-    "mtime": 1780149174.2136545,
-    "ast_hash": "94eb1d62df29aa43c8dda360b63447df",
+    "mtime": 1780150376.7460976,
+    "ast_hash": "9111d1a643c931b9e4445650e911f584",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_core\\context_service.py": {
@@ -3710,13 +3710,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_core\\pipeline_runner.py": {
-    "mtime": 1780147625.3343217,
-    "ast_hash": "8f7526369bbda3425cb5455da4be9103",
+    "mtime": 1780149681.662687,
+    "ast_hash": "045081cb997913e230c0cbf2d0a0581f",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_core\\project_planner.py": {
-    "mtime": 1780147625.3343217,
-    "ast_hash": "ddc39aeaeaef6e59cca6949e6331bb9c",
+    "mtime": 1780149681.6386876,
+    "ast_hash": "cd29afb2af1cbe01961f008c81fb955b",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_core\\sagas.py": {
@@ -3730,8 +3730,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_core\\state_coordinator.py": {
-    "mtime": 1779976611.2860763,
-    "ast_hash": "d48aaa481bacf4195540946f89f7f509",
+    "mtime": 1780149681.9832995,
+    "ast_hash": "3c81314d9c353ba7eeb89f656c8ac0a9",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\engine_core\\task_executor.py": {
@@ -3815,8 +3815,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\events\\core.py": {
-    "mtime": 1780147625.3383229,
-    "ast_hash": "f3db93bba92b593013b3370ba7729407",
+    "mtime": 1780149682.0083146,
+    "ast_hash": "7b6c41ef05ad3ad9f74abfddf195bea8",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\events\\events_resilient.py": {
@@ -3835,8 +3835,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\events\\__init__.py": {
-    "mtime": 1780147625.3363254,
-    "ast_hash": "0c430edf5943127f9ec8a9d00db6530d",
+    "mtime": 1780149681.9402993,
+    "ast_hash": "2f020d74b80eade12a49fa6eb40a6786",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\gateway\\run.py": {
@@ -3870,8 +3870,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\generators\\diff_generator.py": {
-    "mtime": 1780148237.4082713,
-    "ast_hash": "d86224dd732c70ee07a5f5f27385e2d0",
+    "mtime": 1780149683.8996944,
+    "ast_hash": "51fc07e162914030e4d4ed1a13c704d9",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\generators\\diff_view.py": {
@@ -3885,13 +3885,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\generators\\doc_generator.py": {
-    "mtime": 1780148237.4122684,
-    "ast_hash": "53bdda3b0dbf39ef5d9b8e6a72fb4859",
+    "mtime": 1780149682.8901453,
+    "ast_hash": "6d32f641052a59c4e767ab0ec87d3975",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\generators\\fullstack_generator.py": {
-    "mtime": 1780147625.346321,
-    "ast_hash": "f5e35fe76eac1ed24ec72c85f3937f2c",
+    "mtime": 1780149683.8191755,
+    "ast_hash": "ca2dc654ab7eaaaa20396615ae1998af",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\generators\\image_generator.py": {
@@ -3940,8 +3940,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\generators\\website_generator.py": {
-    "mtime": 1780148237.4397917,
-    "ast_hash": "521a562074758bc2088e174e468eb161",
+    "mtime": 1780149684.2328527,
+    "ast_hash": "ef7e43b543bcdeaf61e5d830e048225b",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\generators\\website_validator.py": {
@@ -4145,38 +4145,38 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\infrastructure\\nexusscope\\config.py": {
-    "mtime": 1780147625.3613596,
-    "ast_hash": "c18a271953ef661e048bbba1c3edb598",
+    "mtime": 1780149684.2468536,
+    "ast_hash": "6c31a436389e0381f0dc6b4996563cdb",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\infrastructure\\nexusscope\\decorators.py": {
-    "mtime": 1780147625.362358,
-    "ast_hash": "bcac4d0d44028b6f9e7a5d2732745388",
+    "mtime": 1780149684.4982986,
+    "ast_hash": "78d9d331dbafca84e9d29f65828bc34d",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\infrastructure\\nexusscope\\llm_adapter.py": {
-    "mtime": 1780147625.362358,
-    "ast_hash": "13487ac2ea2fab768a4c4ba990e721ba",
+    "mtime": 1780149684.3327584,
+    "ast_hash": "88432f2f67aec02c0abab31f9940a95f",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\infrastructure\\nexusscope\\pipeline_hook.py": {
-    "mtime": 1780147625.3633597,
-    "ast_hash": "295fac01bd1ddfed352f43e95b300bb0",
+    "mtime": 1780149684.3707678,
+    "ast_hash": "167c581074f0682ade19165761e2ae04",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\infrastructure\\nexusscope\\profiler.py": {
-    "mtime": 1780147625.3633597,
-    "ast_hash": "33bd3198545031c2c8a807843e741420",
+    "mtime": 1780149684.5163102,
+    "ast_hash": "b85381e721ba600fbf1edd6819c9751c",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\infrastructure\\nexusscope\\session.py": {
-    "mtime": 1780147625.3643582,
-    "ast_hash": "2eff01e29af68f57828e142fc7e10dda",
+    "mtime": 1780149684.4117754,
+    "ast_hash": "cb5c815f31dbd63b0ce982989f2abd74",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\infrastructure\\nexusscope\\__init__.py": {
-    "mtime": 1780147625.3613596,
-    "ast_hash": "fa210bf3cb3dbc61a4101e3c1cfb960c",
+    "mtime": 1780149684.2023153,
+    "ast_hash": "575f9e41a48e8bbb7c2e4553181c0eae",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\integrations\\compat.py": {
@@ -4265,13 +4265,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\knowledge\\knowledge_base.py": {
-    "mtime": 1780147625.3773234,
-    "ast_hash": "27c67756a616ddb08184f89d8cc3f2f1",
+    "mtime": 1780149685.2046175,
+    "ast_hash": "037f11ba4f120d19aeed4fb0bd784cc6",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\knowledge\\knowledge_graph.py": {
-    "mtime": 1780147625.3783214,
-    "ast_hash": "9ed732c3bb8a28bdec485ce2dc96b193",
+    "mtime": 1780149685.2176332,
+    "ast_hash": "12d802a6dc2d647873ad3ca1ee7aa073",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\knowledge\\knowledge_sidebar.py": {
@@ -4285,8 +4285,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\knowledge\\__init__.py": {
-    "mtime": 1780147625.3773234,
-    "ast_hash": "0fabaaeab2f934c459a002d5679e7ae2",
+    "mtime": 1780149685.1841002,
+    "ast_hash": "ba7b3b8c4fb25ae40c38fdb0a922c2d6",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\agent_cache.py": {
@@ -4305,8 +4305,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\cross_project_learning.py": {
-    "mtime": 1780147625.380327,
-    "ast_hash": "b8bcbbc7ac71800f5aef11fd581e2733",
+    "mtime": 1780149890.2290318,
+    "ast_hash": "42aee01d937479556b870e1e79dfa8e3",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\experience_buffer.py": {
@@ -4315,8 +4315,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\federated_learning.py": {
-    "mtime": 1780147625.381328,
-    "ast_hash": "80f209311edc82b5f8cb0ebfeaf3a567",
+    "mtime": 1780149936.1070566,
+    "ast_hash": "43ddb8314f66ab8fc0ca181124f2d0cf",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\improvement_suggester.py": {
@@ -4330,8 +4330,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\learning_aggregator.py": {
-    "mtime": 1780147625.3823285,
-    "ast_hash": "d1d163a3872a1c5c95e5efdcbdff2ca6",
+    "mtime": 1780149936.1080546,
+    "ast_hash": "73657ceceea0898b024089c278ab3d3f",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\memory_compressor.py": {
@@ -4345,8 +4345,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\transfer_learning.py": {
-    "mtime": 1780147625.3833284,
-    "ast_hash": "c3ddaa2670929e5d8836d1d4ab46b983",
+    "mtime": 1780149973.9381015,
+    "ast_hash": "fa6dfca17a289425b6a9c1fd65e9f3d5",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\__init__.py": {
@@ -4395,8 +4395,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\meta\\__init__.py": {
-    "mtime": 1780147625.3843277,
-    "ast_hash": "0794c7c3cf4c5ebe3fa5f5731b86dc44",
+    "mtime": 1780149685.914018,
+    "ast_hash": "4966d7df22921cabfb2c50241029e9ed",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\nash\\auto_tuning.py": {
@@ -4425,8 +4425,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\nash\\__init__.py": {
-    "mtime": 1780147625.3903284,
-    "ast_hash": "b50c8a50d124c00334dc72ec69d06e90",
+    "mtime": 1780149686.7403758,
+    "ast_hash": "76d089a8e89c044d2e9dc1766d15314d",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\nexus_search\\config.py": {
@@ -4570,8 +4570,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\deployment_feedback.py": {
-    "mtime": 1780148237.5028067,
-    "ast_hash": "32880d7eb4c78a50a2cf7bb093265eca",
+    "mtime": 1780149688.3089526,
+    "ast_hash": "2cc295984a7191ca9ac73b7714cc90d3",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\deployment_service.py": {
@@ -4580,8 +4580,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\diagnostics.py": {
-    "mtime": 1780148237.5118062,
-    "ast_hash": "8dac327138b3517c17d94f7e91c2deb5",
+    "mtime": 1780149689.1043248,
+    "ast_hash": "27eac36ce4e2e03ed6029f63fa28801e",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\drift.py": {
@@ -4600,8 +4600,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\export_manager.py": {
-    "mtime": 1780148237.513807,
-    "ast_hash": "2b94d84af43502d86765ff7c4c3b9ac3",
+    "mtime": 1780149688.7701807,
+    "ast_hash": "a699a745a3ef699b741750db7f4528b8",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\feedback.py": {
@@ -4610,8 +4610,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\feedback_loop.py": {
-    "mtime": 1780148237.5218084,
-    "ast_hash": "dd537c84ebcbfe7e1a92ec566dd888c4",
+    "mtime": 1780149689.231461,
+    "ast_hash": "543eb45ff78c4cdc5a2e524e23fc08f0",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\file_scope.py": {
@@ -4640,8 +4640,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\memory_tier.py": {
-    "mtime": 1780148237.5198061,
-    "ast_hash": "ae17fbcac4cc56280ccfc426ff470256",
+    "mtime": 1780149688.9797862,
+    "ast_hash": "733c0ed50dcdc60ee6f5949fb7a50b8d",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\module_system.py": {
@@ -4655,8 +4655,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\optimization.py": {
-    "mtime": 1780148237.5178046,
-    "ast_hash": "a50380a8c091efa3b0642bd353c68742",
+    "mtime": 1780149688.2054121,
+    "ast_hash": "07c94c7ada975101c8b67d1f61c865b8",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\provisioned_throughput.py": {
@@ -4675,13 +4675,13 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\remediation.py": {
-    "mtime": 1780148237.5168056,
-    "ast_hash": "a54a450f780c7dfb9262597f386dfeea",
+    "mtime": 1780149688.478849,
+    "ast_hash": "7574292c1e2900e2dbe8fbcaffe07cb5",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\resilience.py": {
-    "mtime": 1780148237.5198061,
-    "ast_hash": "5683274d3fd4b554acbe04305f3ed729",
+    "mtime": 1780149688.6601076,
+    "ast_hash": "1365ec32dfa2cb722943824a9c8aaa82",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\operations\\retry_utils.py": {
@@ -4715,8 +4715,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\output\\__init__.py": {
-    "mtime": 1779961067.4960334,
-    "ast_hash": "b5a282a340915b7001e8c32830d6091b",
+    "mtime": 1780149688.279953,
+    "ast_hash": "1c1b98a4476ef52db796fd128416b7e2",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\pattern_learner\\curator.py": {
@@ -4775,8 +4775,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\plugin\\__init__.py": {
-    "mtime": 1780147625.42184,
-    "ast_hash": "83655e18acb0e1ba2a0bffd38f03ba00",
+    "mtime": 1780149689.068324,
+    "ast_hash": "0c3406d2d686210116a17a726b3b1920",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\plugins\\base.py": {
@@ -4820,8 +4820,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\product\\product_manager.py": {
-    "mtime": 1780148237.4988074,
-    "ast_hash": "ec9bef26e871b87bad82ca959fe58f2a",
+    "mtime": 1780149691.1190908,
+    "ast_hash": "7e1777c82b504f7ae9a10165fdbea4d4",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\product\\__init__.py": {
@@ -4875,23 +4875,23 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\project_mgmt\\__init__.py": {
-    "mtime": 1780147625.42684,
-    "ast_hash": "960eee6a3f813f3416d68d5e30346ea4",
+    "mtime": 1780149689.6505947,
+    "ast_hash": "403f0c780a313ecc75286fa2a7ac61e8",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\adaptive_templates.py": {
-    "mtime": 1780148237.36927,
-    "ast_hash": "06dc9c8b9fcba77592d091c3e2fdab1c",
+    "mtime": 1780149691.8823898,
+    "ast_hash": "59a1f339c46dde895bd4eb426cc0ecff",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\advanced_query_processing.py": {
-    "mtime": 1780148237.452805,
-    "ast_hash": "889beeb718121f8515c2166361ab0a5b",
+    "mtime": 1780149690.8214738,
+    "ast_hash": "e82a57fede623908cbe5b97cab96750b",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\auto_error_fix.py": {
-    "mtime": 1780148237.4548056,
-    "ast_hash": "190feb571307effbeaa8d51b606bee78",
+    "mtime": 1780149690.3783536,
+    "ast_hash": "8df08290feea1827eb7a330ab96ca64a",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\benchmark_suite.py": {
@@ -4925,8 +4925,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\quality_control.py": {
-    "mtime": 1780148237.3922772,
-    "ast_hash": "fb7be0a4a025c583be332be3859cc1f2",
+    "mtime": 1780149692.223182,
+    "ast_hash": "c31cab10bd15a7603b8fa278cc7d6fba",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\quality_report.py": {
@@ -4945,18 +4945,18 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\screenshot_diagnoser.py": {
-    "mtime": 1780148237.3972714,
-    "ast_hash": "5a63aab41a2cdb266d8d58963ad23517",
+    "mtime": 1780149690.7149282,
+    "ast_hash": "4edacd716119a0f8fd2475404a19e22d",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\self_review.py": {
-    "mtime": 1780148237.3992705,
-    "ast_hash": "e44f95a2e87a33858338111c1cd6c028",
+    "mtime": 1780149690.5303535,
+    "ast_hash": "4d761fe915626773ac58785bc458fe52",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\tdd_config.py": {
-    "mtime": 1780148237.4042692,
-    "ast_hash": "6d8afb6f87b7a1b3a046e87ae7da6f39",
+    "mtime": 1780149691.1956122,
+    "ast_hash": "4212a0fa5b955b135f2b717e466e3d29",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\quality\\toml_validator.py": {
@@ -5005,8 +5005,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\reasoning\\__init__.py": {
-    "mtime": 1780147625.444837,
-    "ast_hash": "f593aa2adf286ab7a92cec28f7fa89b6",
+    "mtime": 1780149690.614365,
+    "ast_hash": "527f30a4786cc480ab4642d845a74c41",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\routing\\routing.py": {
@@ -5015,8 +5015,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\routing\\__init__.py": {
-    "mtime": 1780147625.4508395,
-    "ast_hash": "71ec55e36c11ba4d3dc9dc743b967823",
+    "mtime": 1780149691.0145512,
+    "ast_hash": "58ddd455917d67a39dfa73e7fff2cab7",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\runtime\\sandbox.py": {
@@ -5030,23 +5030,23 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\safety\\architecture_advisor.py": {
-    "mtime": 1780148237.3402572,
-    "ast_hash": "8507a31f49ede2aeaf1054f33bb5a290",
+    "mtime": 1780149692.6418605,
+    "ast_hash": "3a42ce6d71287798498c51bb8a9a1118",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\safety\\architecture_rules.py": {
-    "mtime": 1780148237.3492703,
-    "ast_hash": "1364c1d18433a108a0b9b65e79b777e8",
+    "mtime": 1780149694.1890154,
+    "ast_hash": "b9f482f220beaecd919611645be1f8ac",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\safety\\autonomous_debugger.py": {
-    "mtime": 1780148237.3562708,
-    "ast_hash": "2eebe678cff92f734cee5528f03b2743",
+    "mtime": 1780149692.983491,
+    "ast_hash": "57bcb6bf94b3a8e87f6dfe2675990911",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\safety\\code_executor.py": {
-    "mtime": 1780148237.3582692,
-    "ast_hash": "24bc5769986872412012fb1075dde612",
+    "mtime": 1780149691.7223184,
+    "ast_hash": "9262199f94e18864c2e5edb921379534",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\safety\\dependency_scanner.py": {
@@ -5070,8 +5070,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\safety\\reference_monitor.py": {
-    "mtime": 1780148237.3792696,
-    "ast_hash": "d918d99f09d47d647319191a12a75dab",
+    "mtime": 1780149691.83139,
+    "ast_hash": "12dbe1a8f41c0926d8d6584fa18f3327",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\safety\\sandbox.py": {
@@ -5110,8 +5110,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\safety\\__init__.py": {
-    "mtime": 1780147625.451838,
-    "ast_hash": "c98a28e86336557285b4140f9d456d19",
+    "mtime": 1780149691.0630777,
+    "ast_hash": "fa15f1857b0b18c94afb58cc507c8455",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\scaffold\\dynamic.py": {
@@ -5230,8 +5230,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\skills\\__init__.py": {
-    "mtime": 1780147625.4688444,
-    "ast_hash": "8ef7b4ba16bb6ea1b5d14c1fb77f68e2",
+    "mtime": 1780149692.4377823,
+    "ast_hash": "c7a9851cc0a6c18ec54e942afeedbb8e",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\state_mgmt\\capability_logger.py": {
@@ -5255,8 +5255,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\state_mgmt\\session_lifecycle.py": {
-    "mtime": 1780148237.3852699,
-    "ast_hash": "9f658cac114a42dfbcdefe9345146eeb",
+    "mtime": 1780149693.019502,
+    "ast_hash": "06ca6306346cf5f245fba35ebd58c18d",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\state_mgmt\\session_watcher.py": {
@@ -5270,8 +5270,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\state_mgmt\\telemetry_store.py": {
-    "mtime": 1780148237.3972714,
-    "ast_hash": "19bdc61fc02cfd8f276163489b9f9c92",
+    "mtime": 1780149694.5327232,
+    "ast_hash": "343d8a89f94cc405c3d6526d8bd6434c",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\state_mgmt\\workspace.py": {
@@ -5305,8 +5305,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\tasks\\__init__.py": {
-    "mtime": 1780147625.476839,
-    "ast_hash": "163ada19fc14e7815fea56841f87c126",
+    "mtime": 1780149693.144093,
+    "ast_hash": "8f071c43afb18d439e2876d010fb34a7",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\testing\\first_generator.py": {
@@ -5325,8 +5325,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\testing\\__init__.py": {
-    "mtime": 1780147625.48085,
-    "ast_hash": "419dd0df318e9e4d540dcba8426c6ed5",
+    "mtime": 1780149693.3621688,
+    "ast_hash": "57da9750177764d3ed514aebbb0e551b",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\tools\\base.py": {
@@ -5345,8 +5345,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\unified_events\\core.py": {
-    "mtime": 1780147625.4848478,
-    "ast_hash": "274b70f1f1b430e8446200de3380e0aa",
+    "mtime": 1780149695.7989666,
+    "ast_hash": "0af476ba8038b8c68defacf965fac906",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\unified_events\\__init__.py": {
@@ -5385,8 +5385,8 @@
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\vcs\\__init__.py": {
-    "mtime": 1780147625.4858482,
-    "ast_hash": "efc51d42b051058322a6bdce05794949",
+    "mtime": 1780149693.7207944,
+    "ast_hash": "018bbe2d9ac9ba66738208ccc0b4f9c2",
     "semantic_hash": ""
   },
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\workspace\\audit.py": {
@@ -20852,6 +20852,11 @@
   "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\config\\thresholds.json": {
     "mtime": 1780147625.299323,
     "ast_hash": "33048c023566acd090f3a4b7cfe0a602",
+    "semantic_hash": ""
+  },
+  "E:\\Documents\\Vibe-Coding\\Ai Orchestrator\\orchestrator\\learning\\log_config.py": {
+    "mtime": 1780149830.2123551,
+    "ast_hash": "8d7fd6919f918f3a265353f1981797ac",
     "semantic_hash": ""
   }
 }
