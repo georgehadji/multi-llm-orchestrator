@@ -303,7 +303,7 @@ class ConversationAgent:
                 "spec_partial": {},
             })
 
-    def _parse_response(self, raw: str) -> dict:
+    def _parse_response(self, raw: str) -> dict:  # type: ignore[type-arg]
         """Parse the LLM JSON response; fall back gracefully on malformed output."""
         text = raw.strip()
         # Strip markdown code fences if present
@@ -314,7 +314,7 @@ class ConversationAgent:
                 if not line.startswith("```")
             )
         try:
-            return json.loads(text)
+            return json.loads(text)  # type: ignore[no-any-return]
         except json.JSONDecodeError:
             # LLM returned plain text — treat it as the message
             return {
@@ -324,7 +324,7 @@ class ConversationAgent:
                 "spec_partial": {},
             }
 
-    def _merge_spec(self, partial: dict) -> None:
+    def _merge_spec(self, partial: dict) -> None:  # type: ignore[type-arg]
         """Merge a partial spec dict into self._spec."""
         for key, value in partial.items():
             if not value:

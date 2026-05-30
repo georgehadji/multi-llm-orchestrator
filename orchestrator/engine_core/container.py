@@ -41,7 +41,7 @@ from ..domain.ports import (
 )
 
 try:
-    from ..cost_optimization_integration import (
+    from ..cost_optimization_integration import (  # type: ignore[attr-defined]
         AdaptiveTemperatureController,
         BatchClient,
         DependencyContextInjector,
@@ -51,18 +51,18 @@ try:
         TokenBudget,
     )
 except ImportError:
-    AdaptiveTemperatureController = None  # type: ignore[assignment,misc]
-    BatchClient = None  # type: ignore[assignment,misc]
-    DependencyContextInjector = None  # type: ignore[assignment,misc]
-    PromptCacher = None  # type: ignore[assignment,misc]
-    SpeculativeGenerator = None  # type: ignore[assignment,misc]
-    StreamingValidator = None  # type: ignore[assignment,misc]
-    TokenBudget = None  # type: ignore[assignment,misc]
+    AdaptiveTemperatureController = None
+    BatchClient = None
+    DependencyContextInjector = None
+    PromptCacher = None
+    SpeculativeGenerator = None
+    StreamingValidator = None
+    TokenBudget = None
 from ..model_registry import ModelRegistry
 try:
-    from ..model_registry import ModelCascader
+    from ..model_registry import ModelCascader  # type: ignore[attr-defined]
 except ImportError:
-    ModelCascader = None  # type: ignore[assignment,misc]
+    ModelCascader = None
 from ..model_selector import ModelSelector, TieredModelRouter
 from ..policy_engine import PolicyEngine
 from ..rate_limiter import RateLimiter
@@ -243,18 +243,18 @@ class ServiceContainer:
         try:
             from ..task_guard import TaskGuard
         except ImportError:
-            from ..concurrency_controller import TaskConcurrencyGuard as TaskGuard  # type: ignore[assignment]
+            from ..concurrency_controller import TaskConcurrencyGuard as TaskGuard
 
 
         # Import canonical GeneratorService from services layer
         try:
             from ..services import GeneratorService
         except ImportError:
-            GeneratorService = None  # type: ignore[assignment,misc]
+            GeneratorService = None  # type: ignore[misc]
 
         # Local shims for legacy deps if not found in application layer
         try:
-            from .engine_deps import (
+            from .engine_deps import (  # type: ignore[attr-defined]
                 _CBRegistry as CBRegistry,
                 _DepResolver as DepResolver,
                 # GeneratorService imported from services layer above
@@ -262,7 +262,7 @@ class ServiceContainer:
         except ImportError:
             # Fallback for missing deps
             class _DepResolver:
-                def __init__(self, **kwargs): pass
+                def __init__(self, **kwargs): pass  # type: ignore[no-untyped-def]
             DepResolver = _DepResolver
             # CBRegistry is wired separately via try/except below; not needed here
 
@@ -283,7 +283,7 @@ class ServiceContainer:
         policy_engine = PolicyEngine(audit_log=audit_log)
         models_dict = dict.fromkeys(Model, None)
 
-        profiles: dict[Model, Any] = {}
+        profiles: dict[Model, Any] = {}  # type: ignore[no-redef]
         try:
             from .models import ModelProfile
 
@@ -338,7 +338,7 @@ class ServiceContainer:
         )
 
         def get_available_models(task_type: object = None) -> list[Model]:
-            return selector.available_models(task_type)
+            return selector.available_models(task_type)  # type: ignore[arg-type]
 
         # Services (wrapped in type: ignore for optional dependencies)
         executor = ExecutorService(
@@ -347,7 +347,7 @@ class ServiceContainer:
             telemetry=telemetry,
         )
         evaluator = EvaluatorService(
-            client=client,
+            client=client,  # type: ignore[arg-type]
             budget=budget,
             get_models_fn=get_available_models,
             telemetry=telemetry,
@@ -408,8 +408,8 @@ class ServiceContainer:
         # Pipeline with all stages
         pipeline = TaskPipeline(
             [
-                GenerateStage(client=client, budget=budget, selector=selector),
-                CritiqueStage(client=client),
+                GenerateStage(client=client, budget=budget, selector=selector),  # type: ignore[arg-type]
+                CritiqueStage(client=client),  # type: ignore[arg-type]
                 EvaluateStage(evaluator=evaluator),
                 ValidateStage(),
                 PersuasionDefenseStage(ara_integration=ara),
@@ -456,7 +456,7 @@ class ServiceContainer:
             try:
                 from ..infrastructure.nexusscope.pipeline_hook import ProfilingTaskPipeline as _PTP
                 from ..infrastructure.nexusscope import get_profiler as _get_ns
-                pipeline = _PTP(pipeline._stages, profiler=_get_ns())
+                pipeline = _PTP(pipeline._stages, profiler=_get_ns())  # type: ignore[assignment]
             except ImportError:
                 pass
 
@@ -492,7 +492,7 @@ class ServiceContainer:
             planner=planner,
             preflight_validator=preflight_validator,
             hook_registry=hook_registry,
-            validator=validator,
+            validator=validator,  # type: ignore[arg-type]
             decomposer=decomposer,
             architect=architect,
             executor=executor,

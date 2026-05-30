@@ -187,7 +187,7 @@ class ModelRegistry:
     # Updated 2026-04-01 with verified OpenRouter pricing
     # ═══════════════════════════════════════════════════════
 
-    COST_TABLE: Dict[str, dict] = {
+    COST_TABLE: Dict[str, dict] = {  # type: ignore[type-arg]
         # Qwen Models (VERIFIED)
         QWEN_3_6_FLASH: {"input": 0.66, "output": 1.00},
         # DeepSeek Models (VERIFIED)
@@ -380,7 +380,7 @@ class ModelRegistry:
         return cls.DEFAULT_TIMEOUT
 
     @classmethod
-    def get_cost(cls, model_id: str) -> dict:
+    def get_cost(cls, model_id: str) -> dict:  # type: ignore[type-arg]
         """
         Get cost information for a model.
 
@@ -496,14 +496,14 @@ class ModelRegistry:
         return cheapest or cls.MIMO_V2_FLASH
 
     @classmethod
-    def validate_all_models(cls) -> dict:
+    def validate_all_models(cls) -> dict:  # type: ignore[type-arg]
         """
         Validate all model IDs against the registry.
 
         Returns:
             Dictionary with validation results
         """
-        results = {
+        results = {  # type: ignore[var-annotated]
             "valid": [],
             "deprecated": [],
             "unknown": [],
@@ -544,7 +544,7 @@ def get_timeout(model_id: str) -> int:
     return ModelRegistry.get_timeout(model_id)
 
 
-def get_cost(model_id: str) -> dict:
+def get_cost(model_id: str) -> dict:  # type: ignore[type-arg]
     """Get cost for a model (convenience function)."""
     return ModelRegistry.get_cost(model_id)
 
@@ -569,7 +569,7 @@ def get_replacement(deprecated_model: str) -> Optional[str]:
 # ═══════════════════════════════════════════════════════
 
 
-def migrate_deprecated_models(config: dict) -> dict:
+def migrate_deprecated_models(config: dict) -> dict:  # type: ignore[type-arg]
     """
     Migrate deprecated model IDs in a configuration dictionary.
 

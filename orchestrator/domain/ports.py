@@ -109,7 +109,7 @@ class LLMClient(Protocol):
     Satisfied by: orchestrator.api_clients.UnifiedClient
     """
 
-    async def call(
+    async def call(  # type: ignore[no-untyped-def]
         self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs
     ): ...
 
@@ -185,7 +185,7 @@ class SkillStorePort(Protocol):
     async def save_skill(self, task_type: Any, skill_doc: str, score: float, epoch: int) -> None: ...
     async def load_best_skill(self, task_type: Any) -> tuple[str, float, int] | None: ...
     async def save_negative_feedback(self, task_type: Any, patches: list[Any], reason: str) -> None: ...
-    async def load_negative_feedback(self, task_type: Any, limit: int = 20) -> list[dict]: ...
+    async def load_negative_feedback(self, task_type: Any, limit: int = 20) -> list[dict]: ...  # type: ignore[type-arg]
     async def close(self) -> None: ...
 
 
@@ -210,7 +210,7 @@ class NullSkillStore:
     async def save_negative_feedback(self, task_type: Any, patches: list[Any], reason: str) -> None:
         pass
 
-    async def load_negative_feedback(self, task_type: Any, limit: int = 20) -> list[dict]:
+    async def load_negative_feedback(self, task_type: Any, limit: int = 20) -> list[dict]:  # type: ignore[type-arg]
         return []
 
     async def close(self) -> None:

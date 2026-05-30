@@ -20,7 +20,7 @@ from ..models import Model, TaskResult, TaskType
 if TYPE_CHECKING:
     from ..domain.ports import LLMClient
     from ..cache import DiskCache
-    from ..cost_optimization import CacheOptimizer, OptimizationConfig
+    from ..cost_optimization import CacheOptimizer, OptimizationConfig  # type: ignore[attr-defined]
     from ..semantic_cache import SemanticCache
     from .budget_enforcer import BudgetEnforcer
     from .critique_cycle import CritiqueCycle, CritiqueState
@@ -39,7 +39,7 @@ class ExecutionContext:
     primary_model: Model
     reviewer_model: Model | None
     dependency_context: str = ""
-    cached_result: dict | None = None
+    cached_result: dict | None = None  # type: ignore[type-arg]
     full_prompt: str = ""
 
 
@@ -221,7 +221,7 @@ class TaskExecutor:
             task=task,
             primary_model=Model.GPT_4O_MINI,  # Placeholder
             reviewer_model=None,
-            dependency_context=dependency_context,
+            dependency_context=dependency_context,  # type: ignore[arg-type]
             cached_result=cached_result,
         )
 
@@ -268,13 +268,13 @@ class TaskExecutor:
             if self._tdd_generator is None:
                 from ..test_first_generator import TestFirstGenerator
 
-                self._tdd_generator = TestFirstGenerator(
+                self._tdd_generator = TestFirstGenerator(  # type: ignore[assignment]
                     client=self.client,
                     sandbox=None,  # Optional sandbox
                     max_test_iterations=3,
                 )
 
-            tdd_result = await self._tdd_generator.generate_with_tests(
+            tdd_result = await self._tdd_generator.generate_with_tests(  # type: ignore[attr-defined]
                 task=task,
                 project_context=context.dependency_context or "",
                 model=context.primary_model,

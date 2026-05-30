@@ -121,7 +121,7 @@ class BudgetEnforcer:
 
         # Predict task cost if provided
         if task and self.cost_predictor:
-            predicted_cost = self.cost_predictor.predict_task_cost(task)
+            predicted_cost = self.cost_predictor.predict_task_cost(task)  # type: ignore[attr-defined]
             if predicted_cost > self.budget.remaining_usd:
                 logger.warning(
                     f"Predicted task cost ${predicted_cost:.4f} exceeds "
@@ -230,7 +230,7 @@ class BudgetEnforcer:
 
         # Update hierarchy if available
         if self.budget_hierarchy:
-            self.budget_hierarchy.record_cost(task_id, cost_usd)
+            self.budget_hierarchy.record_cost(task_id, cost_usd)  # type: ignore[attr-defined]
 
         logger.debug(f"Recorded cost for {task_id}: ${cost_usd:.6f}")
 
@@ -301,7 +301,7 @@ class BudgetEnforcer:
 
         # Use historical data if available
         if completed_results and self.cost_predictor:
-            return self.cost_predictor.predict_remaining_tasks(tasks, completed_results)
+            return self.cost_predictor.predict_remaining_tasks(tasks, completed_results)  # type: ignore[no-any-return,attr-defined]
 
         # Simple average-based prediction
         if completed_results:

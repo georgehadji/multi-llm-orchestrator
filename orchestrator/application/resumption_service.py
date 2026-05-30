@@ -33,9 +33,9 @@ class ResumptionService:
     def __init__(
         self,
         budget: Any,
-        results: dict,
-        execute_task_fn: Callable,
-        determine_final_status_fn: Callable,
+        results: dict,  # type: ignore[type-arg]
+        execute_task_fn: Callable,  # type: ignore[type-arg]
+        determine_final_status_fn: Callable,  # type: ignore[type-arg]
     ) -> None:
         self._budget = budget
         self._results = results
@@ -62,10 +62,10 @@ class ResumptionService:
                     # Import directly from the module to bypass the operations
                     # package __init__.py (which has fragile wildcard imports).
                     try:
-                        from ..operations.resilience import RetryTemplate  # type: ignore[attr-defined]
+                        from ..operations.resilience import RetryTemplate
                         policy = RetryTemplate.for_task_type(task.type)
                     except Exception:
-                        policy = None  # type: ignore[assignment]
+                        policy = None
                     result = await self._execute_task(task, policy=policy)
                     self._results[task_id] = result
                     # M7: build a new state instead of mutating in place

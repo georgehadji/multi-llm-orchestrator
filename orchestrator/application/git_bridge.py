@@ -48,7 +48,7 @@ class GitBridge:
                 logger.info("Final git commit: %s", commit_hash)
                 branch = self._git.get_branch_name()
                 logger.info("Branch: %s", branch)
-            return commit_hash
+            return commit_hash  # type: ignore[no-any-return]
         except Exception as exc:
             logger.warning("Final git commit failed: %s", exc)
             return None

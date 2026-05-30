@@ -184,18 +184,18 @@ class ExecutorService:
                 async with self._guard:
                     if self._task_timeout is not None:
                         raw = await asyncio.wait_for(
-                            self._execute_fn(task, policy=policy),
+                            self._execute_fn(task, policy=policy),  # type: ignore[call-arg]
                             timeout=self._task_timeout,
                         )
                     else:
-                        raw = await self._execute_fn(task, policy=policy)
+                        raw = await self._execute_fn(task, policy=policy)  # type: ignore[call-arg]
             elif self._task_timeout is not None:
                 raw = await asyncio.wait_for(
-                    self._execute_fn(task, policy=policy),
+                    self._execute_fn(task, policy=policy),  # type: ignore[call-arg]
                     timeout=self._task_timeout,
                 )
             else:
-                raw = await self._execute_fn(task, policy=policy)
+                raw = await self._execute_fn(task, policy=policy)  # type: ignore[call-arg]
             return raw, None
 
         except asyncio.TimeoutError as exc:

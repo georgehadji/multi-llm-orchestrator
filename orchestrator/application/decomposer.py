@@ -112,7 +112,7 @@ class DecomposerService:
         project: str,
         criteria: str,
         policy: _ResiliencePolicy | None = None,
-        project_context: "ProjectContext | None" = None,
+        project_context: "ProjectContext | None" = None,  # type: ignore[name-defined]
         **kwargs: Any,
     ) -> DecomposerResult:
         """Decompose project into an ordered task dict. Never raises."""

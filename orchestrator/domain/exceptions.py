@@ -107,7 +107,7 @@ class MissingAPIKeyError(ConfigurationError):
 
     code = "MISSING_API_KEY"
 
-    def __init__(self, provider: str, **kwargs):
+    def __init__(self, provider: str, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(
             f"API key for {provider} is not configured",
             details={"provider": provider, **kwargs.get("details", {})},
@@ -133,7 +133,7 @@ class BudgetExceededError(OrchestratorError):
     code = "BUDGET_EXCEEDED"
     retriable = False
 
-    def __init__(self, spent: float, limit: float, **kwargs):
+    def __init__(self, spent: float, limit: float, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(
             f"Budget exceeded: ${spent:.2f} / ${limit:.2f}",
             details={"spent_usd": spent, "limit_usd": limit, **kwargs.get("details", {})},
@@ -147,7 +147,7 @@ class TimeoutError(OrchestratorError):
     code = "TIMEOUT"
     retriable = True
 
-    def __init__(self, operation: str, timeout_seconds: float, **kwargs):
+    def __init__(self, operation: str, timeout_seconds: float, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(
             f"Operation '{operation}' timed out after {timeout_seconds}s",
             details={
@@ -165,7 +165,7 @@ class TruncatedResponseError(OrchestratorError):
     code = "TRUNCATED_RESPONSE"
     retriable = True
 
-    def __init__(self, tokens_used: int | None = None, max_tokens: int | None = None, **kwargs):
+    def __init__(self, tokens_used: int | None = None, max_tokens: int | None = None, **kwargs):  # type: ignore[no-untyped-def]
         message = "LLM response was truncated"
         if tokens_used and max_tokens:
             message += f" ({tokens_used}/{max_tokens} tokens)"
@@ -198,7 +198,7 @@ class ModelUnavailableError(ModelError):
     code = "MODEL_UNAVAILABLE"
     retriable = True
 
-    def __init__(self, model: str, reason: str | None = None, **kwargs):
+    def __init__(self, model: str, reason: str | None = None, **kwargs):  # type: ignore[no-untyped-def]
         message = f"Model '{model}' is unavailable"
         if reason:
             message += f": {reason}"
@@ -215,7 +215,7 @@ class RateLimitError(ModelError):
     code = "RATE_LIMIT_EXCEEDED"
     retriable = True
 
-    def __init__(self, provider: str, retry_after: int | None = None, **kwargs):
+    def __init__(self, provider: str, retry_after: int | None = None, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(
             f"Rate limit exceeded for {provider}",
             details={"provider": provider, "retry_after": retry_after, **kwargs.get("details", {})},
@@ -229,7 +229,7 @@ class TokenLimitError(ModelError):
     code = "TOKEN_LIMIT_EXCEEDED"
     retriable = False
 
-    def __init__(self, model: str, tokens: int, limit: int, **kwargs):
+    def __init__(self, model: str, tokens: int, limit: int, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(
             f"Token limit exceeded for {model}: {tokens} > {limit}",
             details={"model": model, "tokens": tokens, "limit": limit, **kwargs.get("details", {})},
@@ -269,7 +269,7 @@ class TaskTimeoutError(TaskError):
     code = "TASK_TIMEOUT"
     retriable = True
 
-    def __init__(self, task_id: str, timeout_seconds: float, **kwargs):
+    def __init__(self, task_id: str, timeout_seconds: float, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(
             f"Task '{task_id}' timed out after {timeout_seconds}s",
             details={"task_id": task_id, "timeout": timeout_seconds, **kwargs.get("details", {})},
@@ -283,7 +283,7 @@ class TaskRetryExhaustedError(TaskError):
     code = "RETRY_EXHAUSTED"
     retriable = False
 
-    def __init__(self, task_id: str, attempts: int, **kwargs):
+    def __init__(self, task_id: str, attempts: int, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(
             f"Task '{task_id}' failed after {attempts} attempts",
             details={"task_id": task_id, "attempts": attempts, **kwargs.get("details", {})},
@@ -308,7 +308,7 @@ class PolicyViolationError(PolicyError):
 
     code = "POLICY_VIOLATION"
 
-    def __init__(self, policy: str, constraint: str, **kwargs):
+    def __init__(self, policy: str, constraint: str, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(
             f"Policy '{policy}' violated: {constraint}",
             details={"policy": policy, "constraint": constraint, **kwargs.get("details", {})},

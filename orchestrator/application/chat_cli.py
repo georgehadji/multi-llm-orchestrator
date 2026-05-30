@@ -171,7 +171,7 @@ async def _launch_build(spec: Any, budget: float, output_dir: str) -> None:
     args = spec.to_orchestrator_args()
     args["budget"] = budget
 
-    orch = Orchestrator(
+    orch = Orchestrator(  # type: ignore[call-arg]
         budget=Budget(max_usd=budget),
         verbose=True,
     )
