@@ -110,20 +110,20 @@ def _make_runner(
     resumption_svc = AsyncMock()
     resumption_svc.resume = AsyncMock(return_value=_make_state(ProjectStatus.SUCCESS))
 
-    defaults = dict(
-        callables=callables,
-        run_state=run_state,
-        state_mgr=state_mgr,
-        budget=budget,
-        event_bus=None,
-        resumption_svc=resumption_svc,
-        dashboard_bridge=dashboard_bridge,
-        git_bridge=git_bridge,
-        generator=generator,
-        meta_v2=None,
-        cache=cache,
-        api_health={},
-    )
+    defaults = {
+        "callables": callables,
+        "run_state": run_state,
+        "state_mgr": state_mgr,
+        "budget": budget,
+        "event_bus": None,
+        "resumption_svc": resumption_svc,
+        "dashboard_bridge": dashboard_bridge,
+        "git_bridge": git_bridge,
+        "generator": generator,
+        "meta_v2": None,
+        "cache": cache,
+        "api_health": {},
+    }
     defaults.update(overrides)
     return ProjectRunner(**defaults)
 

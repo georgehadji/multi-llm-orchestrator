@@ -1090,10 +1090,10 @@ class TestDiffViewProvider:
         assert diff.removed_lines >= 0
         assert diff.unified_diff != ""
 
-    def test_record_checkpoint_and_timeline(self):
+    def test_record_checkpoint_and_timeline(self, tmp_path):
         from orchestrator.diff_view import DiffViewProvider
 
-        provider = DiffViewProvider()
+        provider = DiffViewProvider(project_dir=str(tmp_path))
         provider.record_checkpoint("after-auth")
         provider.record_version("v2")
         timeline = provider.get_timeline()
