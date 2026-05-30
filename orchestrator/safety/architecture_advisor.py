@@ -512,7 +512,7 @@ class ArchitectureAdvisor:
 
     def _get_client(self):
         if self._client is None:
-# FIXED: from ..api_clients import UnifiedClient
+            # FIXED: from ..api_clients import UnifiedClient
             from ...api_clients import UnifiedClient
 
             self._client = UnifiedClient()

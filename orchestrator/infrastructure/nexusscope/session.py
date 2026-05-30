@@ -1,4 +1,5 @@
 """Profile session data types."""
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 import time
@@ -8,6 +9,7 @@ from typing import Any
 @dataclass
 class ProfileSession:
     """A single profiling session."""
+
     name: str
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
@@ -21,6 +23,7 @@ class ProfileSession:
 
 class SessionRingBuffer:
     """Fixed-capacity buffer of ProfileSession objects."""
+
     def __init__(self, capacity: int = 100):
         self._capacity = capacity
         self._sessions: list[ProfileSession] = []

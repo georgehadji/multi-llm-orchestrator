@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-# FIXED: from .telemetry_store import TelemetryStore
+    # FIXED: from .telemetry_store import TelemetryStore
     from ...telemetry_store import TelemetryStore
 
 

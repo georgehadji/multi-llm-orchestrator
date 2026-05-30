@@ -10,7 +10,6 @@ import pytest
 
 from orchestrator.application.dashboard_bridge import DashboardBridge
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Null dashboard — all methods are no-ops
 # ─────────────────────────────────────────────────────────────────────────────

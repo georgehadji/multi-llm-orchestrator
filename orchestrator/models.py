@@ -390,20 +390,12 @@ def _build_fallback_chain() -> "dict[Model, Model]":
 
 def _build_default_thresholds() -> "dict[TaskType, float]":
     data = _load_static_config("thresholds.json")
-    return {
-        TaskType(k): float(v)
-        for k, v in data.items()
-        if k in TaskType._value2member_map_
-    }
+    return {TaskType(k): float(v) for k, v in data.items() if k in TaskType._value2member_map_}
 
 
 def _build_max_output_tokens() -> "dict[TaskType, int]":
     data = _load_static_config("limits.json")
-    return {
-        TaskType(k): int(v)
-        for k, v in data.items()
-        if k in TaskType._value2member_map_
-    }
+    return {TaskType(k): int(v) for k, v in data.items() if k in TaskType._value2member_map_}
 
 
 # ─────────────────────────────────────────────

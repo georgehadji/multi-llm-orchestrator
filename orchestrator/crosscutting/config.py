@@ -17,6 +17,7 @@ Environment variables use the ORCH_ prefix by convention.
 from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 # Re-export static defaults from orchestrator/config.py (TASK 501)
 try:
     from ..config import (
@@ -28,7 +29,6 @@ except ImportError:
     TIMEOUT_SECONDS = 120
     MAX_TOKENS_OUTPUT = 4096
     DEFAULT_BUDGET_USD = 10.0
-
 
 
 class FeatureFlags(BaseSettings):
@@ -58,28 +58,28 @@ class FeatureFlags(BaseSettings):
     # optional module at startup.  Default True preserves existing behaviour;
     # set to False (e.g. ORCH_A2A_ENABLED=false) to skip the import entirely.
     # This makes the feature surface explicit and testable.
-    a2a_enabled: bool = True                # A2A multi-agent protocol
-    accountability_enabled: bool = True     # Accountability / audit trail
-    agent_safety_enabled: bool = True       # Agent safety monitor
-    red_team_enabled: bool = True           # Red-team adversarial testing
-    tdd_enabled: bool = True                # TDD-first generator
-    diff_generation_enabled: bool = True    # Diff-based generation
-    test_validation_enabled: bool = True    # Test validator (HAS_TEST_VALIDATOR)
-    code_validation_enabled: bool = True    # Code output validator (HAS_CODE_VALIDATOR)
+    a2a_enabled: bool = True  # A2A multi-agent protocol
+    accountability_enabled: bool = True  # Accountability / audit trail
+    agent_safety_enabled: bool = True  # Agent safety monitor
+    red_team_enabled: bool = True  # Red-team adversarial testing
+    tdd_enabled: bool = True  # TDD-first generator
+    diff_generation_enabled: bool = True  # Diff-based generation
+    test_validation_enabled: bool = True  # Test validator (HAS_TEST_VALIDATOR)
+    code_validation_enabled: bool = True  # Code output validator (HAS_CODE_VALIDATOR)
     cost_optimization_enabled: bool = True  # Cost-optimisation tier 1-4
-    cache_optimizer_enabled: bool = True    # Cache optimiser (HAS_CACHE_OPTIMIZER)
-    tracing_enabled: bool = False           # OpenTelemetry tracing (needs extra deps)
+    cache_optimizer_enabled: bool = True  # Cache optimiser (HAS_CACHE_OPTIMIZER)
+    tracing_enabled: bool = False  # OpenTelemetry tracing (needs extra deps)
     skill_optimization_enabled: bool = False  # SkillOpt: self-improving per-TaskType skill docs
 
     # ── Secondary optional modules ────────────────────────────────────────────
-    session_watcher_enabled: bool = True     # Session lifecycle watcher
-    persona_enabled: bool = True             # Persona / role manager
-    memory_tier_enabled: bool = True         # Multi-tier memory manager
-    bm25_search_enabled: bool = True         # BM25 keyword search index
-    reranker_enabled: bool = True            # LLM-based result reranker
-    session_lifecycle_enabled: bool = True   # Session lifecycle manager
-    task_verifier_enabled: bool = True       # Task output verifier
-    token_optimizer_enabled: bool = True     # Token usage optimizer
+    session_watcher_enabled: bool = True  # Session lifecycle watcher
+    persona_enabled: bool = True  # Persona / role manager
+    memory_tier_enabled: bool = True  # Multi-tier memory manager
+    bm25_search_enabled: bool = True  # BM25 keyword search index
+    reranker_enabled: bool = True  # LLM-based result reranker
+    session_lifecycle_enabled: bool = True  # Session lifecycle manager
+    task_verifier_enabled: bool = True  # Task output verifier
+    token_optimizer_enabled: bool = True  # Token usage optimizer
 
     model_config = SettingsConfigDict(
         env_prefix="ORCH_",

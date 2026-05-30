@@ -1,4 +1,5 @@
 """NexusScopeProfiler — core profiling API."""
+
 from __future__ import annotations
 import logging
 import time
@@ -15,6 +16,7 @@ _PROFILER_INSTANCE: NexusScopeProfiler | None = None
 
 class NexusScopeProfiler:
     """Statistical profiler wrapping pyinstrument."""
+
     def __init__(self, config: NexusScopeConfig | None = None):
         self._config = config or NexusScopeConfig()
         self._buffer = SessionRingBuffer(capacity=self._config.buffer_size)
@@ -27,6 +29,7 @@ class NexusScopeProfiler:
         self._import_attempted = True
         try:
             import pyinstrument
+
             self._pyinstrument = pyinstrument
         except ImportError:
             logger.warning("pyinstrument not installed")

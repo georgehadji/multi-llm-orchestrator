@@ -14,14 +14,15 @@ from typing import Any
 # ANSI colours (gracefully degraded on Windows without colorama)
 try:
     import colorama
+
     colorama.init(autoreset=True)
-    _C_AGENT   = "\033[1;36m"   # bold cyan  — agent messages
-    _C_HINT    = "\033[0;33m"   # yellow     — suggestions
-    _C_DIM     = "\033[0;90m"   # dark grey  — meta info
-    _C_RESET   = "\033[0m"
-    _C_BOLD    = "\033[1m"
-    _C_GREEN   = "\033[1;32m"
-    _C_RED     = "\033[1;31m"
+    _C_AGENT = "\033[1;36m"  # bold cyan  — agent messages
+    _C_HINT = "\033[0;33m"  # yellow     — suggestions
+    _C_DIM = "\033[0;90m"  # dark grey  — meta info
+    _C_RESET = "\033[0m"
+    _C_BOLD = "\033[1m"
+    _C_GREEN = "\033[1;32m"
+    _C_RED = "\033[1;31m"
 except ImportError:
     _C_AGENT = _C_HINT = _C_DIM = _C_RESET = _C_BOLD = _C_GREEN = _C_RED = ""
 

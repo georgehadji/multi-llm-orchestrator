@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 from ..log_config import get_logger
 
 if TYPE_CHECKING:
-# FIXED: from ..output_organizer import TestResult
+    # FIXED: from ..output_organizer import TestResult
     from ...output_organizer import TestResult
 
 logger = get_logger(__name__)
@@ -705,7 +705,7 @@ class PlaceholderClass:
 
     async def _run_tests(self) -> list[TestResult]:
         """Run tests and return results."""
-# FIXED: from ..output_organizer import OutputOrganizer
+        # FIXED: from ..output_organizer import OutputOrganizer
         from ....output_organizer import OutputOrganizer
 
         organizer = OutputOrganizer(self.output_dir, run_tests=True, fix_tests=False)

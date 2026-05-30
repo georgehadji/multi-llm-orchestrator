@@ -70,14 +70,17 @@ class CachePortContract:
     async def test_is_runtime_checkable(self, cache):
         """CachePort must be runtime-checkable via isinstance."""
         from orchestrator.domain.ports import CachePort
+
         assert isinstance(cache, CachePort)
 
 
 class TestNullCacheContract(CachePortContract):
     """NullCache is no-op by design."""
+
     """Run the contract against NullCache."""
 
     @pytest.fixture
     def cache(self):
         from orchestrator.domain.ports import NullCache
+
         return NullCache()

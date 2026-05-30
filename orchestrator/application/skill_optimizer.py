@@ -62,7 +62,9 @@ def _load_starter_skill(task_type: TaskType) -> str:
     try:
         return path.read_text(encoding="utf-8")
     except FileNotFoundError:
-        return f"# {task_type.value} Skill\n\n## Core Guidance\n\n## Guidance\n<!-- auto-updated -->\n"
+        return (
+            f"# {task_type.value} Skill\n\n## Core Guidance\n\n## Guidance\n<!-- auto-updated -->\n"
+        )
 
 
 class SkillOptimizer:
@@ -135,7 +137,9 @@ class SkillOptimizer:
         try:
             patches = await self._propose_patches(prompt)
         except Exception as exc:
-            logger.warning("SkillOptimizer[%s]: patch proposal failed: %s", self._task_type.value, exc)
+            logger.warning(
+                "SkillOptimizer[%s]: patch proposal failed: %s", self._task_type.value, exc
+            )
             return SkillUpdateResult(
                 task_type=self._task_type,
                 epoch=epoch_num + 1,
@@ -163,7 +167,9 @@ class SkillOptimizer:
         try:
             candidate_skill = self._apply_patches(current_skill, patches)
         except Exception as exc:
-            logger.warning("SkillOptimizer[%s]: patch application failed: %s", self._task_type.value, exc)
+            logger.warning(
+                "SkillOptimizer[%s]: patch application failed: %s", self._task_type.value, exc
+            )
             return SkillUpdateResult(
                 task_type=self._task_type,
                 epoch=epoch_num + 1,
@@ -181,7 +187,12 @@ class SkillOptimizer:
         # ── 8. Validation gate ────────────────────────────────────────
         if val_score <= current_score:
             reason = f"no improvement: {val_score:.4f} vs {current_score:.4f}"
-            logger.info("SkillOptimizer[%s]: epoch %d rejected — %s", self._task_type.value, epoch_num + 1, reason)
+            logger.info(
+                "SkillOptimizer[%s]: epoch %d rejected — %s",
+                self._task_type.value,
+                epoch_num + 1,
+                reason,
+            )
             await self._store.save_negative_feedback(self._task_type, patches, reason)
             return SkillUpdateResult(
                 task_type=self._task_type,
@@ -273,6 +284,7 @@ class SkillOptimizer:
         # Use REASONING model for the optimizer
         try:
             from ..models import ROUTING_TABLE
+
             models = ROUTING_TABLE.get(TaskType.REASONING, [])
             opt_model = models[0] if models else Model.GPT_4O_MINI
         except Exception:
@@ -407,9 +419,7 @@ class SkillOptimizer:
 
         return min(1.0, base + bonus)
 
-    async def _update_guidance_block(
-        self, skill_doc: str, train: list[Trajectory]
-    ) -> str:
+    async def _update_guidance_block(self, skill_doc: str, train: list[Trajectory]) -> str:
         """Rebuild the protected ## Guidance block from accepted epoch lessons.
 
         Makes one extra LLM call but only every slow_update_every epochs.
@@ -426,6 +436,7 @@ class SkillOptimizer:
         )
         try:
             from ..models import Model
+
             response = await self._client.call(  # type: ignore[no-untyped-call]
                 model=Model.GPT_4O_MINI,
                 prompt=prompt,

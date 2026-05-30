@@ -96,11 +96,20 @@ class AgentOrchestrator:
             pass
 
     # Keywords that trigger an INVESTIGATOR task instead of a build pipeline.
-    _INVESTIGATION_TRIGGERS = frozenset([
-        "understand", "trace", "explore", "investigate",
-        "how does", "map dependencies", "dependency map",
-        "explain", "walk me through", "show me how",
-    ])
+    _INVESTIGATION_TRIGGERS = frozenset(
+        [
+            "understand",
+            "trace",
+            "explore",
+            "investigate",
+            "how does",
+            "map dependencies",
+            "dependency map",
+            "explain",
+            "walk me through",
+            "show me how",
+        ]
+    )
 
     def _decompose_goal(self, goal: str) -> list[AgentTask]:
         """Decompose a goal into agent tasks."""

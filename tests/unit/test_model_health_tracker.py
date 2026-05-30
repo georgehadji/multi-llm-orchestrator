@@ -13,7 +13,6 @@ import pytest
 
 from orchestrator.models import Model
 
-
 pytestmark = pytest.mark.asyncio
 
 
@@ -22,8 +21,12 @@ pytestmark = pytest.mark.asyncio
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _make_response(latency_ms: float = 200.0, cost_usd: float = 0.001,
-                   input_tokens: int = 100, output_tokens: int = 50):
+def _make_response(
+    latency_ms: float = 200.0,
+    cost_usd: float = 0.001,
+    input_tokens: int = 100,
+    output_tokens: int = 50,
+):
     r = MagicMock()
     r.latency_ms = latency_ms
     r.cost_usd = cost_usd

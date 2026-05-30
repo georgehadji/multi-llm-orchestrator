@@ -5,12 +5,16 @@ from dataclasses import dataclass
 
 pytestmark = pytest.mark.asyncio
 
-FAKE_STATE = type("FakeState", (), {
-    "project_id": "test_proj",
-    "status": "running",
-    "tasks": [],
-    "budget": None,
-})()
+FAKE_STATE = type(
+    "FakeState",
+    (),
+    {
+        "project_id": "test_proj",
+        "status": "running",
+        "tasks": [],
+        "budget": None,
+    },
+)()
 
 
 class StatePortContract:
@@ -41,6 +45,7 @@ class StatePortContract:
 
     async def test_is_runtime_checkable(self, state):
         from orchestrator.domain.ports import StatePort
+
         assert isinstance(state, StatePort)
 
 
@@ -48,4 +53,5 @@ class TestNullStateContract(StatePortContract):
     @pytest.fixture
     def state(self):
         from orchestrator.domain.ports import NullState
+
         return NullState()

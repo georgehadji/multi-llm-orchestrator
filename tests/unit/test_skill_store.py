@@ -16,7 +16,6 @@ from orchestrator.application.skill_store import SkillStore
 from orchestrator.models import TaskType
 from orchestrator.models_skill import SkillPatch, Trajectory
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────

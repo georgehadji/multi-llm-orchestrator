@@ -45,7 +45,7 @@ from ..log_config import get_logger
 
 # Import BM25 search for hybrid retrieval
 try:
-# FIXED: from ..bm25_search import BM25Search, get_bm25_search
+    # FIXED: from ..bm25_search import BM25Search, get_bm25_search
     from ..bm25_search import BM25Search, get_bm25_search
 
     HAS_BM25 = True

@@ -26,24 +26,26 @@ logger = logging.getLogger(__name__)
 # Data models
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ConversationTurn:
-    role: str           # "user" | "agent"
+    role: str  # "user" | "agent"
     content: str
-    suggestions: list[str] = field(default_factory=list)   # proactive suggestions shown this turn
-    confidence: float = 0.0                                 # 0.0 – 1.0 spec completeness
-    ready_to_build: bool = False                            # agent believes spec is complete
+    suggestions: list[str] = field(default_factory=list)  # proactive suggestions shown this turn
+    confidence: float = 0.0  # 0.0 – 1.0 spec completeness
+    ready_to_build: bool = False  # agent believes spec is complete
 
 
 @dataclass
 class ProjectSpec:
     """Structured output produced by the conversation; fed directly into the orchestrator."""
+
     project_description: str = ""
     success_criteria: str = ""
     target_users: str = ""
     core_features: list[str] = field(default_factory=list)
     tech_stack: str = ""
-    platform: str = ""           # web / desktop / api / mobile / cli
+    platform: str = ""  # web / desktop / api / mobile / cli
     auth_requirements: str = ""
     data_persistence: str = ""
     integrations: list[str] = field(default_factory=list)
@@ -81,7 +83,8 @@ class ProjectSpec:
 
         return {
             "project": description,
-            "criteria": self.success_criteria or "All core features implemented, tests pass, production-ready code",
+            "criteria": self.success_criteria
+            or "All core features implemented, tests pass, production-ready code",
             "budget": self.budget_usd,
         }
 
@@ -169,17 +172,42 @@ set ready=true in your JSON response.
 - When ready, summarise the spec in bullet form and ask for confirmation
 """
 
-_READY_SIGNALS = frozenset([
-    "ok", "okay", "go", "go ahead", "proceed", "build", "build it",
-    "yes", "yep", "yeah", "sure", "fine", "start", "do it", "let's go",
-    "let's do it", "looks good", "that's good", "good", "great", "perfect",
-    "sounds good", "confirmed", "confirm", "yes please", "go for it",
-])
+_READY_SIGNALS = frozenset(
+    [
+        "ok",
+        "okay",
+        "go",
+        "go ahead",
+        "proceed",
+        "build",
+        "build it",
+        "yes",
+        "yep",
+        "yeah",
+        "sure",
+        "fine",
+        "start",
+        "do it",
+        "let's go",
+        "let's do it",
+        "looks good",
+        "that's good",
+        "good",
+        "great",
+        "perfect",
+        "sounds good",
+        "confirmed",
+        "confirm",
+        "yes please",
+        "go for it",
+    ]
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ConversationAgent
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class ConversationAgent:
     """
@@ -288,7 +316,7 @@ class ConversationAgent:
         messages = [{"role": "system", "content": _SYSTEM_PROMPT}] + self._history
         try:
             response = await self._client.call(
-                model="gemini-2.5-flash",   # fast + cheap for conversation
+                model="gemini-2.5-flash",  # fast + cheap for conversation
                 messages=messages,
                 temperature=0.7,
                 max_tokens=800,
@@ -296,12 +324,14 @@ class ConversationAgent:
             return response.text if hasattr(response, "text") else str(response)
         except Exception as exc:
             logger.warning("LLM call failed in ConversationAgent: %s", exc)
-            return json.dumps({
-                "message": "Sorry, I had a connection issue. Could you repeat that?",
-                "suggestions": [],
-                "ready": False,
-                "spec_partial": {},
-            })
+            return json.dumps(
+                {
+                    "message": "Sorry, I had a connection issue. Could you repeat that?",
+                    "suggestions": [],
+                    "ready": False,
+                    "spec_partial": {},
+                }
+            )
 
     def _parse_response(self, raw: str) -> dict:  # type: ignore[type-arg]
         """Parse the LLM JSON response; fall back gracefully on malformed output."""
@@ -309,10 +339,7 @@ class ConversationAgent:
         # Strip markdown code fences if present
         if text.startswith("```"):
             lines = text.split("\n")
-            text = "\n".join(
-                line for line in lines
-                if not line.startswith("```")
-            )
+            text = "\n".join(line for line in lines if not line.startswith("```"))
         try:
             return json.loads(text)  # type: ignore[no-any-return]
         except json.JSONDecodeError:

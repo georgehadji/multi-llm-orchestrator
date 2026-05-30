@@ -1,16 +1,16 @@
 # Graph Report - orchestrator  (2026-05-30)
 
 ## Corpus Check
-- 815 files · ~817,473 words
+- 815 files · ~817,653 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 24827 nodes · 47843 edges · 1337 communities (1009 shown, 328 thin omitted)
+- 24827 nodes · 47843 edges · 1338 communities (1008 shown, 330 thin omitted)
 - Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 6112 edges (avg confidence: 0.51)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8296af32`
+- Built from commit: `3ec96d30`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -1342,6 +1342,7 @@
 - [[_COMMUNITY_Community 1326|Community 1326]]
 - [[_COMMUNITY_Community 1327|Community 1327]]
 - [[_COMMUNITY_Community 1328|Community 1328]]
+- [[_COMMUNITY_Community 1337|Community 1337]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `Model` - 417 edges
@@ -1367,15 +1368,15 @@
 - `bool` --uses--> `XSearchClient`  [INFERRED]
   reasoning/ara_pipelines.py → xai_search.py
 
-## Communities (1337 total, 328 thin omitted)
+## Communities (1338 total, 330 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.01
-Nodes (592): AdaptiveRouter, ModelState, Adaptive Model Router — circuit breaker v2.  Per-model states:   HEALTHY   —, Record a timeout for a model (async-safe).          After timeout_threshold co, Record a successful call (async-safe).          Resets timeout counter and cle, Record an authentication failure (async-safe).          Permanently disables t, Record latency observation for EMA calculation (async-safe).          Args:, Async-safe adaptive model router with circuit breaker functionality.      All (+584 more)
+Nodes (590): AdaptiveRouter, ModelState, Adaptive Model Router — circuit breaker v2.  Per-model states:   HEALTHY   —, Record a timeout for a model (async-safe).          After timeout_threshold co, Record a successful call (async-safe).          Resets timeout counter and cle, Record an authentication failure (async-safe).          Permanently disables t, Record latency observation for EMA calculation (async-safe).          Args:, Async-safe adaptive model router with circuit breaker functionality.      All (+582 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.10
-Nodes (14): FederatedLearningOrchestrator, ModelInsight, A single model performance insight., Create anonymized version for sharing., Add Gaussian noise for (epsilon, delta)-DP., Federated learning orchestrator for cross-organization learning.      Creates, Load cached global baselines., Contribute a production outcome to the federated learning pool.          The i (+6 more)
+Nodes (13): FederatedLearningOrchestrator, Add Gaussian noise for (epsilon, delta)-DP., Federated learning orchestrator for cross-organization learning.      Creates, Load cached global baselines., Contribute a production outcome to the federated learning pool.          The i, Get global performance baseline from collective wisdom.          New users sta, Generate baseline from aggregated insights., Trigger aggregation if enough time has passed. (+5 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.03
@@ -1443,7 +1444,7 @@ Nodes (52): Any, bool, float, Alert, AlertRule, AlertRulesEngine, AlertSeverity,
 
 ### Community 18 - "Community 18"
 Cohesion: 0.03
-Nodes (73): AgentState, AgentType, Types of external agents supported., Status of a dispatched inter-agent task., Lifecycle state of a registered agent., TaskStatus, ImpactSeverity, ImpactType (+65 more)
+Nodes (75): AgentState, AgentType, Types of external agents supported., Status of a dispatched inter-agent task., Lifecycle state of a registered agent., TaskStatus, ImpactSeverity, ImpactType (+67 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.04
@@ -1459,7 +1460,7 @@ Nodes (56): APIIntegration, API integration configuration., Convert to dictionar
 
 ### Community 22 - "Community 22"
 Cohesion: 0.07
-Nodes (52): AgentBase, AgentBase, AgentRole, AgentTask, AgentTaskResult, The agent's core identity and instructions., Execute an assigned task.          Args:             task: The task to execut, Specialized agent roles. (+44 more)
+Nodes (55): AgentBase, AgentBase, AgentRole, AgentTask, AgentTaskResult, AgentBase — Abstract base class for all specialized agents ====================, The agent's core identity and instructions., Execute an assigned task.          Args:             task: The task to execut (+47 more)
 
 ### Community 23 - "Community 23"
 Cohesion: 0.05
@@ -1494,8 +1495,8 @@ Cohesion: 0.06
 Nodes (47): create_session(), FileGenerators, get_session(), handle_chat_message(), handle_file_request(), handle_modification_request(), handle_terminal_command(), handle_websocket() (+39 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.03
-Nodes (66): AgentSafetyProfile, InteractionRequest, Cross-Agent Propagation Guards — Prevent unsafe practices spreading between agen, Request for inter-agent interaction., Register a new agent in the safety system., Report a safety-relevant event from an agent.          Returns the event ID., Update agent's safety level based on risk score., Check if two agents can interact.          Returns (allowed, reason) tuple. (+58 more)
+Cohesion: 0.02
+Nodes (71): AgentSafetyProfile, InteractionRequest, Cross-Agent Propagation Guards — Prevent unsafe practices spreading between agen, Request for inter-agent interaction., Register a new agent in the safety system., Report a safety-relevant event from an agent.          Returns the event ID., Update agent's safety level based on risk score., Check if two agents can interact.          Returns (allowed, reason) tuple. (+63 more)
 
 ### Community 32 - "Community 32"
 Cohesion: 0.03
@@ -1554,8 +1555,8 @@ Cohesion: 0.06
 Nodes (46): create_csrf_input_component(), create_csrf_meta_component(), create_secure_form_component(), CSPMetaTagComponent, CSRFConfig, CSRFTokenComponent, escape_html(), generate_csrf_token() (+38 more)
 
 ### Community 46 - "Community 46"
-Cohesion: 0.06
-Nodes (49): AuthTemplate, compose(), generate_auth_template(), generate_rate_limit_template(), generate_rbac_template(), pipe(), Any, bool (+41 more)
+Cohesion: 0.08
+Nodes (27): generate_auth_template(), generate_rate_limit_template(), generate_rbac_template(), str, RateLimitTemplate, Generate rate limiting template.      Args:         config: Security configur, Immutable security configuration.      Frozen dataclass ensures immutability (, Validate configuration after initialization. (+19 more)
 
 ### Community 47 - "Community 47"
 Cohesion: 0.05
@@ -1598,8 +1599,8 @@ Cohesion: 0.07
 Nodes (36): AppStoreAssetGenerator, AppStoreAssets, generate_app_store_assets(), Any, bool, str, App Store Asset Generator ========================== Author: Georgios-Chrysova, Initialize asset generator. (+28 more)
 
 ### Community 57 - "Community 57"
-Cohesion: 0.05
-Nodes (39): Change, ChangeOperation, ConflictResolution, get_github_sync(), GitHub Sync — Two-way synchronization with GitHub repositories ================, Create from dictionary., GitHub sync configuration., Convert to dictionary. (+31 more)
+Cohesion: 0.03
+Nodes (70): APIIntegration, FullStackApp, Change, ChangeOperation, ConflictResolution, get_github_sync(), GitHubSync, Any (+62 more)
 
 ### Community 58 - "Community 58"
 Cohesion: 0.05
@@ -1898,12 +1899,12 @@ Cohesion: 0.07
 Nodes (28): KanbanBoard, KanbanTask, Any, bool, int, Path, str, Kanban Board — SQLite-Backed Multi-Project Work Queue ========================== (+20 more)
 
 ### Community 132 - "Community 132"
-Cohesion: 0.08
-Nodes (31): APIIntegration, FullStackApp, GitHubSync, Any, Two-way GitHub synchronization.      Provides seamless integration between AI, Disconnect from repository., generate_app(), get_swiftstack_integration() (+23 more)
+Cohesion: 0.10
+Nodes (22): AuthTemplate, compose(), pipe(), Any, bool, int, Security Templates Generator — Template Method + Functional Composition =======, Authentication template generator.      Generates JWT-based authentication cod (+14 more)
 
 ### Community 133 - "Community 133"
-Cohesion: 0.11
-Nodes (14): PluginManager, PluginManifest, bool, Path, Load manifest from plugin.json file., Convert to dictionary., Manages plugin discovery, loading, and execution.      Features:     - Discov, Initialize plugin manager.          Args:             plugins_dir: Directory (+6 more)
+Cohesion: 0.14
+Nodes (12): PluginManager, PluginManifest, bool, Path, Load manifest from plugin.json file., Manages plugin discovery, loading, and execution.      Features:     - Discov, Initialize plugin manager.          Args:             plugins_dir: Directory, Discover plugins in directory.          Args:             plugins_dir: Direct (+4 more)
 
 ### Community 134 - "Community 134"
 Cohesion: 0.07
@@ -1930,8 +1931,8 @@ Cohesion: 0.05
 Nodes (25): from_dict(), Workspace — Workspace isolation ============================== Module for mana, Load existing workspaces from the base directory., Create a new workspace.          Args:             name: Name of the workspac, Get a workspace by its ID., List all workspaces, optionally filtered by owner.          Args:, Activate a workspace, making it the current one for operations.          Args:, Deactivate the current workspace. (+17 more)
 
 ### Community 140 - "Community 140"
-Cohesion: 0.07
-Nodes (17): AttackScenario, Red-Teaming Framework — Stress testing methodology for the Orchestrator =======, Result of running an attack scenario., Comprehensive red-team assessment report., Set up default attack scenarios based on the paper's findings., Register a new attack scenario., Run a single attack scenario.          Args:             scenario_id: ID of t, Run all registered attack scenarios. (+9 more)
+Cohesion: 0.12
+Nodes (12): get_reranker(), LLM Re-ranking — Quality-based Result Re-ranking ==============================, Re-rank search results by relevance.          Args:             query: Search, Score a single result for relevance., Call LLM for re-ranking score., Mock scoring when LLM not available., Re-rank multiple query results in batch.          Args:             queries:, Get or create re-ranker instance. (+4 more)
 
 ### Community 141 - "Community 141"
 Cohesion: 0.08
@@ -2142,8 +2143,8 @@ Cohesion: 0.08
 Nodes (26): AppDetector, AppDetector — analyses a project description and returns an AppProfile. Author:, Detects the type and characteristics of an app from its description.      Usag, Parameters         ----------         client : UnifiedClient | None, Return the client, creating one lazily if needed., Make a single LLM classification call using the cheapest available model., ArchitectureAdvisor, ArchitectureDecision (+18 more)
 
 ### Community 193 - "Community 193"
-Cohesion: 0.05
-Nodes (34): CodeMetrics, get_quality_controller(), QualityIssue, QualityReport, QualitySeverity, Quality Control System ====================== Automated testing, code quality, Code quality metrics., Complete quality report. (+26 more)
+Cohesion: 0.06
+Nodes (26): CodeMetrics, get_quality_controller(), QualityIssue, QualityReport, QualitySeverity, Quality Control System ====================== Automated testing, code quality, Code quality metrics., Complete quality report. (+18 more)
 
 ### Community 194 - "Community 194"
 Cohesion: 0.07
@@ -2178,8 +2179,8 @@ Cohesion: 0.09
 Nodes (24): CompetitiveIntelligence, CompetitiveRecommendation, MarketDataPoint, any, bool, datetime, float, Model (+16 more)
 
 ### Community 202 - "Community 202"
-Cohesion: 0.11
-Nodes (15): DecomposeStage, ExecuteStage, bool, EventBus, int, Queue, Semaphore, Task wrapper for streaming execution. (+7 more)
+Cohesion: 0.09
+Nodes (21): DecomposeStage, ExecuteStage, PipelineStage, bool, EventBus, int, Queue, Semaphore (+13 more)
 
 ### Community 203 - "Community 203"
 Cohesion: 0.12
@@ -2407,7 +2408,7 @@ Nodes (15): MissionControlView, Any, int, str, Render main content area., Missio
 
 ### Community 259 - "Community 259"
 Cohesion: 0.10
-Nodes (17): bool, Exception, int, Model, str, TaskType, Select best model for task type.          Args:             task_type: Type of t, Select a reviewer model for cross-model review.          Invariants:         1. (+9 more)
+Nodes (17): bool, Exception, int, Model, str, TaskType, Select best model for task type.          Args:             task_type: Type o, Select a reviewer model for cross-model review.          Invariants: (+9 more)
 
 ### Community 260 - "Community 260"
 Cohesion: 0.10
@@ -2434,8 +2435,8 @@ Cohesion: 0.10
 Nodes (23): _calculate_match_score(), _extract_keywords(), _is_exact_match(), bool, float, StateManager, str, Resume Detector with ResumeDetector class — Auto-Resume Detection.  Provides b (+15 more)
 
 ### Community 266 - "Community 266"
-Cohesion: 0.09
-Nodes (19): AgentBase — Abstract base class for all specialized agents ====================, AgentOrchestrator — Coordinates specialized agents toward a goal ==============, ArchitectAgent, DeveloperAgent, AgentTask, AgentTaskResult, Any, str (+11 more)
+Cohesion: 0.11
+Nodes (17): ArchitectAgent, DeveloperAgent, AgentTask, AgentTaskResult, Any, str, DeveloperAgent — Generates and modifies code with self-correction =============, Agent responsible for writing and running tests.      Models (from orchestrato (+9 more)
 
 ### Community 267 - "Community 267"
 Cohesion: 0.13
@@ -2659,7 +2660,7 @@ Nodes (15): get_classifier(), QueryClassifier, Nexus Search — Query Classifier
 
 ### Community 322 - "Community 322"
 Cohesion: 0.10
-Nodes (15): Any, bool, float, int, str, Task, TaskResult, Check budget during task execution (mid-task).          Args:             iterat (+7 more)
+Nodes (15): Any, bool, float, int, str, Task, TaskResult, Check budget during task execution (mid-task).          Args:             ite (+7 more)
 
 ### Community 323 - "Community 323"
 Cohesion: 0.15
@@ -2682,8 +2683,8 @@ Cohesion: 0.12
 Nodes (11): from_dict(), ModuleDefinition, ModuleInput, ModuleKind, ModuleOutput, ModuleRegistry, ModuleSystem - Reusable component+query packages. =============================, Validate that all required inputs are provided. (+3 more)
 
 ### Community 328 - "Community 328"
-Cohesion: 0.15
-Nodes (7): Get incoming edges to a node., Find similar patterns in the graph using multi-factor similarity.          Mor, Convert fingerprint to embedding vector representation., Calculate structural similarity using graph neighborhood., Calculate cosine similarity between embeddings., Find which patterns match between fingerprint and node., Recommend models using multi-hop graph traversal.          Strategy options:
+Cohesion: 0.13
+Nodes (9): A similarity match result., Get incoming edges to a node., Find similar patterns in the graph using multi-factor similarity.          Mor, Convert fingerprint to embedding vector representation., Calculate structural similarity using graph neighborhood., Calculate cosine similarity between embeddings., Find which patterns match between fingerprint and node., Recommend models using multi-hop graph traversal.          Strategy options: (+1 more)
 
 ### Community 329 - "Community 329"
 Cohesion: 0.12
@@ -2758,8 +2759,8 @@ Cohesion: 0.13
 Nodes (9): DockerfileBuilder, Builder Pattern for Dockerfile generation.      Fluent interface for construct, Initialize Dockerfile builder., Add line to Dockerfile., Add multi-stage build stage., Add production stage., Set environment variable., Set multiple environment variables. (+1 more)
 
 ### Community 347 - "Community 347"
-Cohesion: 0.17
-Nodes (12): A2AResponse, A2ATask, Invoke an external agent with a task.          Args:             task: Either, Invoke a LangGraph agent., Invoke a Vertex AI agent., Invoke an Azure AI agent., Invoke an OpenAI Assistant., Invoke a custom HTTP agent. (+4 more)
+Cohesion: 0.15
+Nodes (13): A2AResponse, A2ATask, Invoke an external agent with a task.          Args:             task: Either, Invoke a LangGraph agent., Invoke an Azure AI agent., Invoke an OpenAI Assistant., Invoke a custom HTTP agent., Format a task for Azure AI. (+5 more)
 
 ### Community 348 - "Community 348"
 Cohesion: 0.11
@@ -2787,7 +2788,7 @@ Nodes (15): configure_logging(), CorrelationIdFilter, JSONFormatter, LogContext,
 
 ### Community 354 - "Community 354"
 Cohesion: 0.11
-Nodes (19): Edge, Node, NodeType, PerformanceKnowledgeGraph, An edge in the knowledge graph., Knowledge graph for model performance relationships.      Optimized for:, Load graph from disk., Get all nodes in the graph. (+11 more)
+Nodes (20): Edge, EdgeType, Node, NodeType, PerformanceKnowledgeGraph, An edge in the knowledge graph., Knowledge graph for model performance relationships.      Optimized for:, Load graph from disk. (+12 more)
 
 ### Community 355 - "Community 355"
 Cohesion: 0.19
@@ -2862,20 +2863,20 @@ Cohesion: 0.22
 Nodes (6): bool, str, Redis-based distributed cache., Delete from all cache levels., Invalidate all keys matching pattern., RedisCache
 
 ### Community 373 - "Community 373"
-Cohesion: 0.15
-Nodes (10): JiraIssueTrackerService, AsyncClient, Get or create HTTP client., Jira Cloud implementation of IssueTrackerService., Create a Jira issue using REST API v3., Convert plain text to Atlassian Document Format., Search for existing issue by signature in description., Add a comment with run link. (+2 more)
+Cohesion: 0.11
+Nodes (13): BacklogItem, JiraIssueTrackerService, AsyncClient, Backlog item for RICE syncing., Factory method to create appropriate service from environment., Get or create HTTP client., Fetch backlog items for RICE scoring.          Args:             status_filte, Jira Cloud implementation of IssueTrackerService. (+5 more)
 
 ### Community 374 - "Community 374"
-Cohesion: 0.16
-Nodes (12): AST, QualityIssue, Static code analysis engine., Analyze single Python file., Calculate cyclomatic complexity., Calculate documentation coverage., Calculate type hint coverage., Check for long lines. (+4 more)
+Cohesion: 0.13
+Nodes (16): CodeMetrics, AST, float, int, Code quality metrics., Calculate overall quality score (0-100)., Static code analysis engine., Analyze single Python file. (+8 more)
 
 ### Community 375 - "Community 375"
 Cohesion: 0.14
 Nodes (14): REPLVerifier — Code verification with self-healing loop scaffold ==============, EXECUTION level — run in subprocess; fail on non-zero exit code., FULL level — execution + non-empty stdout without 'error' keyword., Scaffold for the self-healing verification loop.      Tries to verify *code* u, Progressive verification levels ordered from least to most strict., Result of a verification attempt., Verifies LLM-generated code at a configured level.      Implements a Chain of, Verify *code* at the configured level.          Args:             code: Pytho (+6 more)
 
 ### Community 376 - "Community 376"
-Cohesion: 0.12
-Nodes (14): AgentTask, AgentTaskResult, Any, bool, str, UserAgent — Talks to the user in natural language ==============================, Talks to the user. Explains plans, asks questions, reports progress.      Models, Handle a user-facing task — present info or ask a question. (+6 more)
+Cohesion: 0.14
+Nodes (13): AgentTask, AgentTaskResult, Any, bool, str, Talks to the user. Explains plans, asks questions, reports progress.      Models, Handle a user-facing task — present info or ask a question., Present a decision to the user and collect their input. (+5 more)
 
 ### Community 377 - "Community 377"
 Cohesion: 0.16
@@ -2998,8 +2999,8 @@ Cohesion: 0.14
 Nodes (14): bool, int, Model, str, get_expander(), QueryExpander, Nexus Search — Query Expansion =============================== Author: Georgios-, Initialize query expander.          Args:             max_expansions: Maximum nu (+6 more)
 
 ### Community 407 - "Community 407"
-Cohesion: 0.12
-Nodes (12): PluginContext, PluginHook, Any, int, Context passed to plugin hooks.      Plugins can read and modify this context., Execute plugin logic for a hook.          Args:             hook: Hook being, Run all plugins registered for a hook.          Args:             hook: Hook, Get number of plugins registered for a hook. (+4 more)
+Cohesion: 0.11
+Nodes (14): PluginContext, PluginHook, Any, int, Convert to dictionary., Context passed to plugin hooks.      Plugins can read and modify this context., Execute plugin logic for a hook.          Args:             hook: Hook being, Run all plugins registered for a hook.          Args:             hook: Hook (+6 more)
 
 ### Community 408 - "Community 408"
 Cohesion: 0.06
@@ -3014,8 +3015,8 @@ Cohesion: 0.14
 Nodes (14): AutoErrorFixer, FixResult, bool, int, str, Task, UnifiedClient, Make a single fix attempt. (+6 more)
 
 ### Community 411 - "Community 411"
-Cohesion: 0.17
-Nodes (12): Any, str, QualityController, QualityReport, Complete quality report., Filter issues by severity., Main quality control orchestrator.      Features:     - Multi-level testing, Run complete quality gate.          Pipeline:         1. Static analysis (+4 more)
+Cohesion: 0.15
+Nodes (13): Any, str, QualityController, QualityReport, Complete quality report., Calculate overall quality score., Filter issues by severity., Main quality control orchestrator.      Features:     - Multi-level testing (+5 more)
 
 ### Community 412 - "Community 412"
 Cohesion: 0.14
@@ -3038,8 +3039,8 @@ Cohesion: 0.15
 Nodes (13): ProgressEntry, ProgressWriter, Path, ProjectState, str, Task, TaskResult, ProgressWriter — incremental per-task output writer (Improvement 13) ========== (+5 more)
 
 ### Community 417 - "Community 417"
-Cohesion: 0.13
-Nodes (13): BudgetProjection, BudgetSnapshot, get_budget_projection(), get_model_performance_projection(), datetime, CQRS Projections (Read Models) ==============================  Pre-computed,, Budget state at a point in time., Projection for real-time budget tracking. (+5 more)
+Cohesion: 0.12
+Nodes (14): BudgetProjection, BudgetSnapshot, get_budget_projection(), get_model_performance_projection(), datetime, CQRS Projections (Read Models) ==============================  Pre-computed,, Budget state at a point in time., Projection for real-time budget tracking. (+6 more)
 
 ### Community 418 - "Community 418"
 Cohesion: 0.16
@@ -3114,8 +3115,8 @@ Cohesion: 0.15
 Nodes (8): AIThread, MultiContextManager, MultipleContexts - Separate AI conversations, shared codebase. ================, Get a summary of all threads for context injection., Merge multiple threads into one., Manages multiple AI conversation threads sharing a codebase., Create a new AI conversation thread., Switch active conversation to another thread.
 
 ### Community 436 - "Community 436"
-Cohesion: 0.17
-Nodes (10): PipelineStage, float, str, Abstract base class for pipeline stages., Set progress callback., Report progress if callback is set., Execute a project with real-time streaming.          Yields PipelineEvent obje, Run all pipeline stages. (+2 more)
+Cohesion: 0.15
+Nodes (11): PipelineEvent, DomainEvent, float, str, Set progress callback., Execute a project with real-time streaming.          Yields PipelineEvent obje, Run all pipeline stages., Handle stage progress updates. (+3 more)
 
 ### Community 437 - "Community 437"
 Cohesion: 0.12
@@ -3182,8 +3183,8 @@ Cohesion: 0.19
 Nodes (6): DesignRegistry, DesignSystemRegistry - shadcn/ui format, registry.json, CSS tokens. ===========, Export a component and its dependencies to a directory., Manages a shadcn/ui-compatible component registry., Seed registry with shadcn/ui-compatible base components., RegistryItem
 
 ### Community 453 - "Community 453"
-Cohesion: 0.13
-Nodes (17): OutcomeStatus, ProductionOutcome, Complete production outcome data., Status of a production outcome., EdgeType, get_knowledge_graph(), PathResult, Model Performance Knowledge Graph =================================  A semant (+9 more)
+Cohesion: 0.10
+Nodes (17): ModelInsight, A single model performance insight., Create anonymized version for sharing., OutcomeStatus, ProductionOutcome, Complete production outcome data., Status of a production outcome., get_knowledge_graph() (+9 more)
 
 ### Community 454 - "Community 454"
 Cohesion: 0.15
@@ -3222,8 +3223,8 @@ Cohesion: 0.14
 Nodes (11): _encode_image(), _parse_diagnosis(), ScreenshotDiagnoser — Diagnose issues from screenshots. =======================, Diagnose issues from a screenshot or description.          Args:, Format a diagnosis as a markdown report., A single issue found in a screenshot., Complete diagnosis from a screenshot., Diagnose UI/functional issues from screenshots.      Accepts image files (base (+3 more)
 
 ### Community 463 - "Community 463"
-Cohesion: 0.12
-Nodes (15): PresetTemplate, Any, Handle the 'run' subcommand., A predefined template for project runs., Registry of available templates for slash commands., Register default templates., Register a new template., Get a template by name. (+7 more)
+Cohesion: 0.17
+Nodes (10): PresetTemplate, Handle the 'run' subcommand., A predefined template for project runs., Registry of available templates for slash commands., Register default templates., Register a new template., Get a template by name., List all available templates. (+2 more)
 
 ### Community 464 - "Community 464"
 Cohesion: 0.18
@@ -3254,8 +3255,8 @@ Cohesion: 0.16
 Nodes (8): I18nManager, LocaleFile, I18nManager - Internationalization with key extraction and LLM translation. ===, Extracts translatable strings and generates locale files., Extract translatable strings from source code.          Detects: _("text"), t(, Generate base locale file from extracted keys., Translate all keys to a target locale using LLM., TranslationKey
 
 ### Community 471 - "Community 471"
-Cohesion: 0.18
-Nodes (6): IssueTrackerConfig, IssueTrackingCLI, Configuration for issue tracker integration., Load configuration from environment variables., CLI commands for issue tracking integration.      Usage:         orchestrator, Factory method to create appropriate service from environment.
+Cohesion: 0.12
+Nodes (12): IssueSeverity, IssueTrackerConfig, IssueTrackingCLI, IssueType, QualityIssue, Issue Tracking Integration for Multi-LLM Orchestrator =========================, Configuration for issue tracker integration., Load configuration from environment variables. (+4 more)
 
 ### Community 472 - "Community 472"
 Cohesion: 0.20
@@ -3282,8 +3283,8 @@ Cohesion: 0.16
 Nodes (11): int, MemoryTierManager, str, For each HOT entry old enough to migrate, attempt LLM summarization.         Se, Call LLM to produce a compact summary of a memory entry's content.          Ra, Manages automatic session lifecycle transitions for MemoryTierManager.      Ad, Start the background migration scheduler., Cancel the background scheduler and wait for it to finish. (+3 more)
 
 ### Community 478 - "Community 478"
-Cohesion: 0.19
-Nodes (13): StrEnum, CheckRunConclusion, CheckRunOutput, CheckRunStatus, int, Create a new check run. Returns check run ID., Update an existing check run., Create new check run or update existing one. (+5 more)
+Cohesion: 0.16
+Nodes (14): StrEnum, CheckRunConclusion, CheckRunOutput, CheckRunStatus, GitService, Git Integration for Multi-LLM Orchestrator ====================================, Abstract base class for Git platform integration., Create a new check run. Returns check run ID. (+6 more)
 
 ### Community 479 - "Community 479"
 Cohesion: 0.14
@@ -3359,7 +3360,7 @@ Nodes (15): AdaptiveTemplateSystem, get_adaptive_template_system(), get_self_imp
 
 ### Community 498 - "Community 498"
 Cohesion: 0.15
-Nodes (11): Any, int, str, Generate template evolution report., Build context profile from context dict., Get statistics about template performance., Get the best template for a specific context (for analysis)., Get hash of template for versioning. (+3 more)
+Nodes (11): Any, int, str, Generate template evolution report., Build context profile from context dict., Get statistics about template performance., Get the best template for a specific context (for analysis)., Render the template with variables. (+3 more)
 
 ### Community 499 - "Community 499"
 Cohesion: 0.18
@@ -3402,8 +3403,8 @@ Cohesion: 0.14
 Nodes (10): classify_query(), LearningClassifier, Learning-based query classifier.      Uses keyword matching with learning from, Initialize learning classifier., Classify a query.          Args:             query: Query to classify, Record feedback for learning.          Args:             query: Original quer, Learn from classification mistake.          Args:             query: Original, Get current classification accuracy.          Returns:             Accuracy o (+2 more)
 
 ### Community 509 - "Community 509"
-Cohesion: 0.19
-Nodes (9): ModelPerformanceStats, Any, int, str, Statistics for a model on a specific task type., Get full stats for a model., Get model leaderboard sorted by composite score.          Args:             t, Get the best model for a specific task type.          Args:             task_ (+1 more)
+Cohesion: 0.16
+Nodes (10): ModelPerformanceStats, Any, int, str, Statistics for a model on a specific task type., Update stats with a failed task., Get full stats for a model., Get model leaderboard sorted by composite score.          Args:             t (+2 more)
 
 ### Community 510 - "Community 510"
 Cohesion: 0.12
@@ -3458,8 +3459,8 @@ Cohesion: 0.21
 Nodes (9): float, str, Integration hooks for the orchestrator lifecycle.      Connects orchestrator e, Generate dashboard URL., Called when budget crosses a threshold (0.5, 0.8, 1.0).          Args:, Called when quality gate is evaluated.          Only sends notification if the, Called when a run completes (success or failure)., Record a request for the given key. (+1 more)
 
 ### Community 523 - "Community 523"
-Cohesion: 0.13
-Nodes (15): Handle the 'list' subcommand., Handle the 'help' subcommand., HTTP endpoint handler for Slack slash commands.      Works with FastAPI, Starl, Handle an incoming HTTP request.          Works with FastAPI/Starlette Request, Incoming Slack slash command request., Response to a slash command., Handles Slack slash commands for the orchestrator.      Supports:     - /orch, Verify Slack request signature.          Args:             timestamp: X-Slack (+7 more)
+Cohesion: 0.18
+Nodes (11): Handle the 'list' subcommand., Handle the 'help' subcommand., Incoming Slack slash command request., Response to a slash command., Handles Slack slash commands for the orchestrator.      Supports:     - /orch, Parse form data into a SlashCommandRequest., Get rate limit key for a request., Handle a slash command request.          Returns:             Response to sen (+3 more)
 
 ### Community 524 - "Community 524"
 Cohesion: 0.23
@@ -3522,16 +3523,16 @@ Cohesion: 0.17
 Nodes (11): FixResult, Budget, int, str, UnifiedClient, TestFixer — Automatically repair failing tests in the critique cycle ==========, Single fix attempt — call LLM with test failure context.          Args:, Outcome of a test-fix attempt.      Attributes:         fixed: Whether the fi (+3 more)
 
 ### Community 540 - "Community 540"
-Cohesion: 0.14
-Nodes (11): GitHubService, str, Create a new branch from base SHA., Commit changes to a branch. Returns commit SHA., GitHub integration using REST API., Make GitHub API request., Post a PR review comment (inline on code)., Get existing PR review comments for deduplication. (+3 more)
+Cohesion: 0.17
+Nodes (10): GitHubService, str, Create a new branch from base SHA., Commit changes to a branch. Returns commit SHA., GitHub integration using REST API., Make GitHub API request., Create a new GitHub check run., Get existing PR review comments for deduplication. (+2 more)
 
 ### Community 541 - "Community 541"
 Cohesion: 0.18
 Nodes (9): KnowledgeArtifactDraft, Sync resolved tickets to Knowledge Base as artifacts.      Usage:         syn, Sync recently resolved tickets to Knowledge Base.          Args:, Convert a ticket to a Knowledge Artifact draft., Create a Knowledge Artifact from draft., Handle incoming webhook from issue tracker.          Args:             event_, Sync resolved tickets to Knowledge Base.          Args:             since_day, Draft knowledge artifact from resolved ticket. (+1 more)
 
 ### Community 542 - "Community 542"
-Cohesion: 0.15
-Nodes (8): bool, float, Update with production feedback score., Calculate composite score for ranking., Calculate cost efficiency (quality per dollar)., Handle production feedback., Get performance score for a model on a task type.          Returns 0.0-1.0 sco, ProductionOutcomeRecordedEvent
+Cohesion: 0.13
+Nodes (9): bool, float, Update stats with a successful task., Update with production feedback score., Calculate composite score for ranking., Calculate cost efficiency (quality per dollar)., Handle production feedback., Get performance score for a model on a task type.          Returns 0.0-1.0 sco (+1 more)
 
 ### Community 543 - "Community 543"
 Cohesion: 0.17
@@ -3555,7 +3556,7 @@ Nodes (9): ContextSourceManager, str, Update in-memory data with new content., M
 
 ### Community 548 - "Community 548"
 Cohesion: 0.14
-Nodes (13): A2AMessage, MessagePart, A2AProtocol — Agent-to-Agent external agent client ============================, Message in the A2A protocol., Status of a dispatched inter-agent task., Single content part inside a routing A2AMessage., Routing message passed through agent message queues., Request to dispatch a task to a target agent. (+5 more)
+Nodes (12): A2AMessage, AgentCard, MessagePart, A2AProtocol — Agent-to-Agent external agent client ============================, Message in the A2A protocol., Status of a dispatched inter-agent task., Metadata card for a registered agent., Single content part inside a routing A2AMessage. (+4 more)
 
 ### Community 549 - "Community 549"
 Cohesion: 0.17
@@ -3583,7 +3584,7 @@ Nodes (9): GeneratedImage, ImageGenerator, Generate image then pass to next hand
 
 ### Community 555 - "Community 555"
 Cohesion: 0.14
-Nodes (9): ImageOptimizerStrategy, JPEGOptimizer, Strategy Pattern for image optimization algorithms.      Subclasses implement, WebP optimization strategy.      Google's modern image format with superior co, Check if WebP is available., JPEG optimization strategy.      Classic format with good compression., Check if JPEG is available., Initialize optimizer.          Args:             strategies: List of optimiza (+1 more)
+Nodes (9): AVIFOptimizer, ImageOptimizerStrategy, JPEGOptimizer, Strategy Pattern for image optimization algorithms.      Subclasses implement, AVIF optimization strategy.      Next-gen format with best compression., Check if AVIF is available., JPEG optimization strategy.      Classic format with good compression., Check if JPEG is available. (+1 more)
 
 ### Community 556 - "Community 556"
 Cohesion: 0.14
@@ -3614,8 +3615,8 @@ Cohesion: 0.22
 Nodes (7): AIQueryGenerator, QueryLanguage, QueryResult, AIQueryGenerator - Natural language to SQL/JS/GraphQL with schema validation. =, Generates queries from natural language with schema awareness., Fast template-based generation (no LLM). Falls back to basic patterns., TableSchema
 
 ### Community 563 - "Community 563"
-Cohesion: 0.14
-Nodes (9): QuickAction, QuickActionKind, QuickActionResolver, QuickActionResolver — Contextual actions after Plan Mode. =====================, Suggest contextual quick actions based on plan state.          Args:, Resolve a hotkey to a QuickAction., Kinds of quick actions available after plan creation., A single suggested quick action. (+1 more)
+Cohesion: 0.15
+Nodes (9): Any, HTTP endpoint handler for Slack slash commands.      Works with FastAPI, Starl, Handle an incoming HTTP request.          Works with FastAPI/Starlette Request, Abstract interface for running templates.      Implement this to integrate wit, Run a template and return the run ID.          Args:             template_nam, Get the dashboard URL for a run., Verify Slack request signature.          Args:             timestamp: X-Slack, SlackEndpointHandler (+1 more)
 
 ### Community 564 - "Community 564"
 Cohesion: 0.21
@@ -3663,7 +3664,7 @@ Nodes (10): estimate_tdd_cost(), example(), get_tdd_profile(), TDD (Test-First G
 
 ### Community 575 - "Community 575"
 Cohesion: 0.13
-Nodes (10): GitLabService, GitService, PRComment, Git Integration for Multi-LLM Orchestrator ====================================, Abstract base class for Git platform integration., Post a PR comment. Returns comment ID., Get existing PR comments for deduplication., Create a new pull request. Returns PR number. (+2 more)
+Nodes (10): GitLabService, PRComment, int, Post a PR comment. Returns comment ID., Get existing PR comments for deduplication., Create a new pull request. Returns PR number., Post a PR review comment (inline on code)., GitLab integration (stub for future implementation). (+2 more)
 
 ### Community 576 - "Community 576"
 Cohesion: 0.16
@@ -3690,8 +3691,8 @@ Cohesion: 0.18
 Nodes (12): cache_invalidate(), cached(), generate_cache_key(), MetricPoint, float, str, Performance Optimization Module ============================== Caching, connec, Generate deterministic cache key from function call. (+4 more)
 
 ### Community 582 - "Community 582"
-Cohesion: 0.19
-Nodes (8): ModelPerformanceProjection, Projection that maintains model performance statistics.      This is a CQRS re, Subscribe to relevant events., Handle circuit breaker trip., Save projection state to SQLite., Load projection state from SQLite., Rebuild projection from event history., CircuitBreakerTrippedEvent
+Cohesion: 0.18
+Nodes (9): ModelPerformanceProjection, Projection that maintains model performance statistics.      This is a CQRS re, Get or create stats for a model/task_type pair., Handle task completion., Handle circuit breaker trip., Save projection state to SQLite., CircuitBreakerTrippedEvent, TaskCompletedEvent (+1 more)
 
 ### Community 583 - "Community 583"
 Cohesion: 0.16
@@ -3734,8 +3735,8 @@ Cohesion: 0.14
 Nodes (8): PythonRuntimeTemplate, Python runtime template., Get Python base image., Get pip install command., Get Python build command., Get Python start command., Get Python health check., Configure for Python.
 
 ### Community 593 - "Community 593"
-Cohesion: 0.16
-Nodes (8): A2AClient, Async context manager entry., Async context manager exit., Establish connection to the external agent., Close the connection to the external agent., Format a task for Vertex AI., Format a task for OpenAI Assistant., Client for communicating with external agents using the A2A protocol.
+Cohesion: 0.18
+Nodes (8): A2AClient, Async context manager entry., Async context manager exit., Establish connection to the external agent., Close the connection to the external agent., Invoke a Vertex AI agent., Format a task for Vertex AI., Client for communicating with external agents using the A2A protocol.
 
 ### Community 594 - "Community 594"
 Cohesion: 0.15
@@ -3802,20 +3803,20 @@ Cohesion: 0.14
 Nodes (13): LinearIssueTrackerService, datetime, Represents a ticket in an issue tracker., Get issues resolved since a given time.          Args:             since: Onl, Get recently resolved issues., Linear implementation using GraphQL API., Execute a GraphQL query., Create a Linear issue. (+5 more)
 
 ### Community 610 - "Community 610"
-Cohesion: 0.17
-Nodes (11): float, int, Configuration for mapping issue fields to RICE inputs., Calculate RICE scores from input values., Calculate RICE score.          RICE = (Reach × Impact × Confidence) / Effort, Calculate RICE from a backlog item using mapping config., Infer impact score from issue labels., Update an issue with RICE score and priority.          Args:             issu (+3 more)
+Cohesion: 0.21
+Nodes (9): float, int, Configuration for mapping issue fields to RICE inputs., Calculate RICE scores from input values., Calculate RICE score.          RICE = (Reach × Impact × Confidence) / Effort, Calculate RICE from a backlog item using mapping config., Infer impact score from issue labels., RICECalculator (+1 more)
 
 ### Community 611 - "Community 611"
 Cohesion: 0.24
 Nodes (9): KnowledgeArtifactDraft, Sync resolved tickets to Knowledge Base as artifacts.      Usage:         syn, Sync recently resolved tickets to Knowledge Base.          Args:, Convert a ticket to a Knowledge Artifact draft., Create a Knowledge Artifact from draft., Handle incoming webhook from issue tracker.          Args:             event_, Sync resolved tickets to Knowledge Base.          Args:             since_day, Draft knowledge artifact from resolved ticket. (+1 more)
 
 ### Community 612 - "Community 612"
-Cohesion: 0.15
-Nodes (16): example(), Streaming Pipeline for Real-Time Project Execution ============================, Real-time streaming pipeline for project execution.      Emits events as they, Helper for streaming pipeline events over WebSocket., Example of streaming pipeline usage., BackpressureStrategy, CircuitState, MemoryPressure (+8 more)
+Cohesion: 0.19
+Nodes (13): example(), Real-time streaming pipeline for project execution.      Emits events as they, Example of streaming pipeline usage., BackpressureStrategy, CircuitState, MemoryPressure, Resilient Streaming Pipeline with Backpressure ================================, Raised when streaming is unavailable due to failures. (+5 more)
 
 ### Community 613 - "Community 613"
-Cohesion: 0.25
-Nodes (5): ProjectEventBus, Any, Legacy event bus for streaming project execution.     Wraps the standard EventB, Subscribe to events. Returns an async iterator., Close the event bus. Sends sentinel to unblock subscribers.
+Cohesion: 0.16
+Nodes (8): ProjectEventBus, Any, Helper for streaming pipeline events over WebSocket., Handle WebSocket connection with streaming execution.          Usage (FastAPI), Legacy event bus for streaming project execution.     Wraps the standard EventB, Subscribe to events. Returns an async iterator., Close the event bus. Sends sentinel to unblock subscribers., WebSocketStreamingHandler
 
 ### Community 614 - "Community 614"
 Cohesion: 0.24
@@ -3870,16 +3871,16 @@ Cohesion: 0.15
 Nodes (7): ProgressRenderer, Any, bool, str, Terminal progress renderer for run_project_streaming().  Prints compact task-b, Stateful event handler that prints live progress to stderr.     Maintains count, DAG visualization for orchestrator task dependency graphs. Pure-Python implemen
 
 ### Community 627 - "Community 627"
-Cohesion: 0.12
-Nodes (11): PersistentProjection, Projection, EventBus, Path, Save projection state to disk., Load projection state from disk., Base class for CQRS projections (read models).      Projections subscribe to e, Subscribe to an event type. (+3 more)
+Cohesion: 0.15
+Nodes (8): PersistentProjection, Projection, Save projection state to disk., Load projection state from disk., Base class for CQRS projections (read models).      Projections subscribe to e, Rebuild the projection from event history., Clear all projection state., Projection that persists state to disk.
 
 ### Community 628 - "Community 628"
 Cohesion: 0.15
 Nodes (9): AppStorePlatform, ComplianceCheck, GuidelineCategory, App Store Compliance Validator Pipeline =======================================, Convenience function to validate app store compliance.      Usage:         re, Target app store platform., App Store Guideline Categories., A single compliance check. (+1 more)
 
 ### Community 629 - "Community 629"
-Cohesion: 0.17
-Nodes (10): BacklogItem, IssueSeverity, IssueType, QualityIssue, Issue Tracking Integration for Multi-LLM Orchestrator =========================, Backlog item for RICE syncing., Fetch backlog items for RICE scoring.          Args:             status_filte, Severity levels for issues. (+2 more)
+Cohesion: 0.20
+Nodes (8): Test execution engine., Run tests at specified level., Run pytest and collect results., Run performance benchmarks., Run security vulnerability checks., Load quality baseline., TestResult, TestRunner
 
 ### Community 630 - "Community 630"
 Cohesion: 0.19
@@ -3962,8 +3963,8 @@ Cohesion: 0.21
 Nodes (11): load_project_file(), _parse_policy(), ProjectFileResult, Any, Path, Policy, str, Project File Loader — load a JobSpec from a YAML file ========================= (+3 more)
 
 ### Community 650 - "Community 650"
-Cohesion: 0.18
-Nodes (6): Update stats with a successful task., Update stats with a failed task., Get or create stats for a model/task_type pair., Handle task completion., TaskCompletedEvent, TaskFailedEvent
+Cohesion: 0.20
+Nodes (7): _check_destructive(), GuardrailDecision, GuardrailResult, Tool Call Guardrails — Runtime Safety Checks ==================================, Check output for destructive patterns.      Returns a description string if a, Check generated output against guardrails.          Three checks in order:, Result of a guardrail check.      Attributes:         decision: ALLOW → proce
 
 ### Community 651 - "Community 651"
 Cohesion: 0.21
@@ -3995,7 +3996,7 @@ Nodes (8): AppAssembler, AssemblyReport, Path, AppAssembler — writes TaskResul
 
 ### Community 658 - "Community 658"
 Cohesion: 0.18
-Nodes (7): ConversationTurn, ProjectSpec, Any, ConversationAgent — Interactive spec-gathering dialogue.  Drives a back-and-fort, Open the conversation with the first agent message., Structured output produced by the conversation; fed directly into the orchestrat, Convert to kwargs accepted by Orchestrator / CLI.
+Nodes (7): ConversationTurn, ProjectSpec, Any, ConversationAgent — Interactive spec-gathering dialogue.  Drives a back-and-fo, Open the conversation with the first agent message., Structured output produced by the conversation; fed directly into the orchestrat, Convert to kwargs accepted by Orchestrator / CLI.
 
 ### Community 659 - "Community 659"
 Cohesion: 0.18
@@ -4031,7 +4032,7 @@ Nodes (8): generate_testimonial_copy(), Template Method: Final algorithm for cop
 
 ### Community 667 - "Community 667"
 Cohesion: 0.18
-Nodes (8): A2AQueueManager, AgentCard, int, Metadata card for a registered agent., Queue-based inter-agent message-passing manager.      Supports registering age, Register an agent with an optional async message handler., Cancel and remove responses whose deadline has passed.         Returns the numb, engine_deps — All optional/try-except imports for the Orchestrator ============
+Nodes (9): A2AQueueManager, int, Request to dispatch a task to a target agent., Result returned by A2AQueueManager.send_task().      Optional fields (output,, Queue-based inter-agent message-passing manager.      Supports registering age, Dispatch a task to the target agent and await its result., Cancel and remove responses whose deadline has passed.         Returns the numb, TaskResult (+1 more)
 
 ### Community 668 - "Community 668"
 Cohesion: 0.20
@@ -4094,16 +4095,16 @@ Cohesion: 0.20
 Nodes (11): DependencyAnalyzer, extract_exports(), _extract_exports_regex(), extract_imports(), _extract_imports_regex(), ModuleInfo, Project Assembler (Improvement 10) ================================== Transfor, # NOTE: Also includes frontend/React component names that get mistakenly (+3 more)
 
 ### Community 683 - "Community 683"
-Cohesion: 0.29
-Nodes (5): FeaturePriority, Add new feature to backlog., Business priority levels., RICE prioritization framework.      RICE = (Reach * Impact * Confidence) / Eff, RICEScore
+Cohesion: 0.18
+Nodes (8): Feature, FeaturePriority, Add new feature to backlog., Business priority levels., Save features to disk., RICE prioritization framework.      RICE = (Reach * Impact * Confidence) / Eff, Product feature definition., RICEScore
 
 ### Community 684 - "Community 684"
-Cohesion: 0.33
-Nodes (4): float, Create new feature flag., Create feature flag for gradual rollout., Calculate RICE score.
+Cohesion: 0.23
+Nodes (7): float, str, Create new feature flag., Update rollout percentage., Analyze sentiment of text.          Returns:             Score from -1 (negat, Create feature flag for gradual rollout., Calculate RICE score.
 
 ### Community 685 - "Community 685"
-Cohesion: 0.33
-Nodes (5): datetime, Product Management System ========================= Feature prioritization, re, Product release definition., Plan a release with top-priority features.          Algorithm:         1. Fil, Release
+Cohesion: 0.18
+Nodes (9): FeatureFlagManager, datetime, Product Management System ========================= Feature prioritization, re, Product release definition., Manage feature flags for A/B testing and gradual rollout., Simple sentiment analysis for feedback., Plan a release with top-priority features.          Algorithm:         1. Fil, Release (+1 more)
 
 ### Community 686 - "Community 686"
 Cohesion: 0.23
@@ -4171,7 +4172,7 @@ Nodes (6): AppStoreComplianceResult, Validate project against app store guidelin
 
 ### Community 702 - "Community 702"
 Cohesion: 0.18
-Nodes (8): GitBridge, Any, float, int, str, Null-safe bridge to the optional git integration.  P3-5 of REFACTORING_PLAN_V7.m, Wraps the optional git integration with null-safety and error suppression., Create a final commit for a completed project.          Returns the commit hash,
+Nodes (8): GitBridge, Any, float, int, str, Null-safe bridge to the optional git integration.  P3-5 of REFACTORING_PLAN_V7, Wraps the optional git integration with null-safety and error suppression., Create a final commit for a completed project.          Returns the commit has
 
 ### Community 703 - "Community 703"
 Cohesion: 0.20
@@ -4198,8 +4199,8 @@ Cohesion: 0.18
 Nodes (6): BudgetHierarchy, Tracks cross-run organisational budget caps at three levels:        Org  — glo, Settle a job's actual spend, releasing its prior reservation.          Calling, Free a reservation without charging (e.g. on job abort or error).          Ide, Return remaining budget at the specified level.          Parameters         -, Serialise the hierarchy state to a plain dict.
 
 ### Community 709 - "Community 709"
-Cohesion: 0.17
-Nodes (9): AgentState, Any, bool, str, Format a task for Azure AI., Perform a health check on the external agent.          Returns:             b, Get information about the configured agent.          Returns:             Dic, Get statistics about the coordinator.          Returns:             Dict with (+1 more)
+Cohesion: 0.20
+Nodes (8): AgentState, Any, bool, str, Perform a health check on the external agent.          Returns:             b, Get information about the configured agent.          Returns:             Dic, Get statistics about the coordinator.          Returns:             Dict with, Lifecycle state of a registered agent.
 
 ### Community 710 - "Community 710"
 Cohesion: 0.18
@@ -4262,8 +4263,8 @@ Cohesion: 0.18
 Nodes (6): ApprovalConfig, NotificationChannel, Path, Notification channels for approvals., Configuration for HITL workflow., Load requests from disk.
 
 ### Community 725 - "Community 725"
-Cohesion: 0.22
-Nodes (7): PipelineEvent, DomainEvent, StreamingContext, Execute the stage and emit events., Convert pipeline event to domain event and emit to bus., Convert pipeline event to domain event., Event emitted during streaming pipeline execution.
+Cohesion: 0.33
+Nodes (4): EventBus, Path, Subscribe to relevant events., Subscribe to an event type.
 
 ### Community 726 - "Community 726"
 Cohesion: 0.18
@@ -4354,8 +4355,8 @@ Cohesion: 0.20
 Nodes (6): ContextSourceManager, Manages multiple context sources., Add an API source.          Args:             source_id: Unique identifier fo, Add a memory source.          Args:             source_id: Unique identifier, Set the default sources to use when none are specified., Get statistics about all context sources.          Returns:             Dict
 
 ### Community 748 - "Community 748"
-Cohesion: 0.22
-Nodes (8): CopyConfig, generate_hero_copy(), generate_product_copy(), Copy generation configuration.      Note: This dataclass is frozen (immutable), Generate hero copy.      Args:         tone: Copy tone         keywords: SEO, Generate product description.      Args:         product_name: Product name, Initialize copy generator., Set configuration (fluent interface).
+Cohesion: 0.20
+Nodes (10): CopyConfig, generate_about_copy(), generate_hero_copy(), generate_product_copy(), Copy generation configuration.      Note: This dataclass is frozen (immutable), Generate hero copy.      Args:         tone: Copy tone         keywords: SEO, Generate about page copy.      Args:         tone: Copy tone         keyword, Generate product description.      Args:         product_name: Product name (+2 more)
 
 ### Community 749 - "Community 749"
 Cohesion: 0.20
@@ -4449,10 +4450,6 @@ Nodes (6): AppStoreAssets, App Store Asset Generator ========================== 
 Cohesion: 0.25
 Nodes (8): _apply_diff_line_by_line(), _apply_hunk(), apply_unified_diff(), _parse_unified_diff(), Apply unified diff to original code.      This is a simplified diff applier. F, Parse unified diff into hunks.      Args:         diff_text: Unified diff tex, Apply a single hunk to code.      Args:         code: Source code         hu, Fallback: Apply diff line-by-line (less reliable).      Args:         code: S
 
-### Community 772 - "Community 772"
-Cohesion: 0.20
-Nodes (6): float, int, Calculate overall quality score (0-100)., Calculate average test coverage., Calculate overall quality score., Calculate maintainability index (simplified).
-
 ### Community 773 - "Community 773"
 Cohesion: 0.31
 Nodes (9): fix_toml_newlines(), main(), bool, Path, str, TOML Validator — Validates and fixes TOML files ===============================, Validate a TOML file.      Returns:         (is_valid, error_message), Fix newline characters in TOML strings.      This is a common issue when LLMs (+1 more)
@@ -4486,8 +4483,8 @@ Cohesion: 0.29
 Nodes (6): Context manager that wraps a policy check in a tracing span., traced_policy_check(), _is_hard_violation(), Return True if the violation message represents a hard (structural) violation., Evaluate all policies against the (model, profile) pair.          Returns Poli, Call check() and raise PolicyViolationError if any violations are found.
 
 ### Community 781 - "Community 781"
-Cohesion: 0.33
-Nodes (4): Clear all projection state., Reset all projections (for testing)., Unsubscribe from all events., reset_projections()
+Cohesion: 0.28
+Nodes (5): Clear all projection state., Rebuild projection from event history., Reset all projections (for testing)., Unsubscribe from all events., reset_projections()
 
 ### Community 782 - "Community 782"
 Cohesion: 0.28
@@ -4495,7 +4492,7 @@ Nodes (8): handle_chat_websocket(), str, WebSocket, Dashboard Chat View — /cha
 
 ### Community 783 - "Community 783"
 Cohesion: 0.28
-Nodes (6): Any, ProjectState, Resumes a partially-completed project from a saved :class:`ProjectState`.      D, Resume execution from *state*, return the updated state., Restore persisted budget fields; reset start_time for new session., ResumptionService
+Nodes (6): Any, ProjectState, Resumes a partially-completed project from a saved :class:`ProjectState`., Resume execution from *state*, return the updated state., Restore persisted budget fields; reset start_time for new session., ResumptionService
 
 ### Community 784 - "Community 784"
 Cohesion: 0.22
@@ -4594,12 +4591,12 @@ Cohesion: 0.25
 Nodes (5): Configurable retry strategy builder, Aggressive retry strategy (more attempts, longer waits), Conservative retry strategy (fewer attempts, shorter waits), Fast-fail strategy (minimal retries for latency-critical ops), RetryStrategy
 
 ### Community 809 - "Community 809"
-Cohesion: 0.20
-Nodes (8): Any, str, Update rollout percentage., Get feature flag metrics., Summarize user feedback., Extract most common feature requests., Generate product roadmap visualization., Get product management metrics.
+Cohesion: 0.25
+Nodes (5): Any, Get feature flag metrics., Summarize user feedback., Extract most common feature requests., Get product management metrics.
 
 ### Community 810 - "Community 810"
-Cohesion: 0.18
-Nodes (8): Feature, FeatureStatus, int, Get features sorted by RICE score., Feature lifecycle status., Update feature status and progress., Save features to disk., Product feature definition.
+Cohesion: 0.22
+Nodes (6): FeatureStatus, int, Get features sorted by RICE score., Feature lifecycle status., Generate product roadmap visualization., Update feature status and progress.
 
 ### Community 811 - "Community 811"
 Cohesion: 0.29
@@ -4670,8 +4667,8 @@ Cohesion: 0.25
 Nodes (5): FAQCopyGenerator, generate_faq_copy(), FAQ page copy generator.      Generates frequently asked questions and answers, Define FAQ copy structure., Generate FAQ copy.      Returns:         Generated FAQ copy
 
 ### Community 828 - "Community 828"
-Cohesion: 0.25
-Nodes (5): AboutCopyGenerator, generate_about_copy(), About page copy generator.      Generates compelling about page content., Define about copy structure., Generate about page copy.      Args:         tone: Copy tone         keyword
+Cohesion: 0.33
+Nodes (3): AboutCopyGenerator, About page copy generator.      Generates compelling about page content., Define about copy structure.
 
 ### Community 829 - "Community 829"
 Cohesion: 0.29
@@ -4758,8 +4755,8 @@ Cohesion: 0.25
 Nodes (5): Any, float, Hours since submission., Get approval workflow statistics., Calculate average pending duration for reviewed requests.
 
 ### Community 850 - "Community 850"
-Cohesion: 0.21
-Nodes (8): BacklogSyncService, bool, Service for syncing backlog items with RICE scoring.      Usage:         serv, Fetch backlog, calculate RICE scores, and update issues.          Args:, Generate a human-readable report of the sync., Sync RICE scores to backlog issues.          Args:             dry_run: Previ, Check if this bug has occurred multiple times.          Tracks occurrences and, Update Linear issue with RICE score.
+Cohesion: 0.15
+Nodes (11): BacklogSyncService, bool, Service for syncing backlog items with RICE scoring.      Usage:         serv, Fetch backlog, calculate RICE scores, and update issues.          Args:, Generate a human-readable report of the sync., Sync RICE scores to backlog issues.          Args:             dry_run: Previ, Update an issue with RICE score and priority.          Args:             issu, Check if this bug has occurred multiple times.          Tracks occurrences and (+3 more)
 
 ### Community 851 - "Community 851"
 Cohesion: 0.25
@@ -4779,7 +4776,7 @@ Nodes (3): ProductBacklog, ProductBacklog — Requirements backlog., UserStory
 
 ### Community 855 - "Community 855"
 Cohesion: 0.29
-Nodes (4): AVIFOptimizer, AVIF optimization strategy.      Next-gen format with best compression., Optimize to AVIF format., Check if AVIF is available.
+Nodes (4): WebP optimization strategy.      Google's modern image format with superior co, Optimize to WebP format., Check if WebP is available., WebPOptimizer
 
 ### Community 856 - "Community 856"
 Cohesion: 0.32
@@ -4863,7 +4860,7 @@ Nodes (4): QueryOptimizer, Database query optimization utilities.      Provides:
 
 ### Community 876 - "Community 876"
 Cohesion: 0.33
-Nodes (4): OptimizedImage, Convert to base64 string., Optimize to WebP format., Immutable optimized image result.      Attributes:         data: Image data (
+Nodes (4): OptimizedImage, Convert to base64 string., Optimize to AVIF format., Immutable optimized image result.      Attributes:         data: Image data (
 
 ### Community 877 - "Community 877"
 Cohesion: 0.33
@@ -4890,8 +4887,8 @@ Cohesion: 0.33
 Nodes (3): Return healthy candidate with lowest observed EMA latency (async-safe)., Get model state - caller must hold _lock.          Internal method for use whe, Get model state (async-safe).
 
 ### Community 885 - "Community 885"
-Cohesion: 0.22
-Nodes (6): FeatureFlagManager, bool, Check if release is on track., Manage feature flags for A/B testing and gradual rollout., Check if feature is enabled for user., Check if feature is enabled for user.
+Cohesion: 0.33
+Nodes (4): bool, Check if release is on track., Check if feature is enabled for user., Check if feature is enabled for user.
 
 ### Community 886 - "Community 886"
 Cohesion: 0.29
@@ -5007,7 +5004,7 @@ Nodes (3): bool, Delete key from cache. Returns True if key existed., Delete key
 
 ### Community 916 - "Community 916"
 Cohesion: 0.40
-Nodes (4): Budget, BudgetHierarchy, CostPredictor, Initialize budget enforcer.          Args:             budget: Budget object to
+Nodes (4): Budget, BudgetHierarchy, CostPredictor, Initialize budget enforcer.          Args:             budget: Budget object
 
 ### Community 918 - "Community 918"
 Cohesion: 0.40
@@ -5038,8 +5035,8 @@ Cohesion: 0.40
 Nodes (3): bool, Check if plugin is enabled., Check if plugin is initialized.
 
 ### Community 927 - "Community 927"
-Cohesion: 0.22
-Nodes (6): Simple sentiment analysis for feedback., Analyze sentiment of text.          Returns:             Score from -1 (negat, Add and analyze user feedback., Save feedback to disk., SentimentAnalyzer, UserFeedback
+Cohesion: 0.40
+Nodes (3): Add and analyze user feedback., Save feedback to disk., UserFeedback
 
 ### Community 929 - "Community 929"
 Cohesion: 0.40
@@ -5117,6 +5114,10 @@ Nodes (3): get_global_persona(), Get the current persona., Get the global person
 Cohesion: 0.50
 Nodes (3): KPIThreshold, Threshold configuration for a KPI., Check value against thresholds. Returns (is_alert, severity).
 
+### Community 959 - "Community 959"
+Cohesion: 0.40
+Nodes (3): QualityIssue, Check for long lines., Get all discovered issues.
+
 ### Community 962 - "Community 962"
 Cohesion: 0.50
 Nodes (4): bool, Wrapper to normalize ValidationResult to tuple., Fallback validation using ast module., validate_code()
@@ -5132,10 +5133,6 @@ Nodes (3): PluginManifest, Convert to dictionary., Plugin metadata and configura
 ### Community 966 - "Community 966"
 Cohesion: 0.50
 Nodes (3): A cached semantic pattern with quality threshold., SemanticPattern, SemanticCache — Backward-compatibility shim ====================================
-
-### Community 967 - "Community 967"
-Cohesion: 0.50
-Nodes (3): CodeMetrics, Code quality metrics., Return empty metrics for unparseable file.
 
 ### Community 968 - "Community 968"
 Cohesion: 0.50
@@ -5368,14 +5365,14 @@ Nodes (3): deepseek/deepseek-v4-pro, input, output
 ## Knowledge Gaps
 - **660 isolated node(s):** `CronParser`, `OpenRouterOptimizations`, `ProjectType`, `bool`, `Any` (+655 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **328 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **330 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `TaskType` connect `Community 0` to `Community 1`, `Community 385`, `Community 3`, `Community 4`, `Community 6`, `Community 266`, `Community 652`, `Community 18`, `Community 147`, `Community 22`, `Community 151`, `Community 408`, `Community 281`, `Community 31`, `Community 672`, `Community 163`, `Community 165`, `Community 425`, `Community 682`, `Community 302`, `Community 179`, `Community 52`, `Community 700`, `Community 188`, `Community 446`, `Community 577`, `Community 66`, `Community 453`, `Community 711`, `Community 75`, `Community 588`, `Community 80`, `Community 345`, `Community 218`, `Community 223`, `Community 608`, `Community 354`, `Community 227`, `Community 877`, `Community 240`, `Community 370`, `Community 883`, `Community 246`, `Community 118`, `Community 376`, `Community 378`, `Community 252`?**
+- **Why does `TaskType` connect `Community 0` to `Community 1`, `Community 385`, `Community 3`, `Community 4`, `Community 6`, `Community 266`, `Community 652`, `Community 18`, `Community 147`, `Community 22`, `Community 151`, `Community 408`, `Community 281`, `Community 31`, `Community 672`, `Community 163`, `Community 165`, `Community 425`, `Community 682`, `Community 302`, `Community 179`, `Community 52`, `Community 700`, `Community 188`, `Community 446`, `Community 577`, `Community 66`, `Community 453`, `Community 711`, `Community 328`, `Community 75`, `Community 588`, `Community 80`, `Community 345`, `Community 218`, `Community 223`, `Community 608`, `Community 354`, `Community 227`, `Community 877`, `Community 240`, `Community 370`, `Community 883`, `Community 246`, `Community 118`, `Community 378`, `Community 252`?**
   _High betweenness centrality (0.108) - this node is a cross-community bridge._
-- **Why does `Model` connect `Community 0` to `Community 128`, `Community 1`, `Community 3`, `Community 4`, `Community 6`, `Community 135`, `Community 266`, `Community 267`, `Community 652`, `Community 401`, `Community 18`, `Community 659`, `Community 147`, `Community 405`, `Community 22`, `Community 406`, `Community 408`, `Community 151`, `Community 282`, `Community 283`, `Community 409`, `Community 281`, `Community 286`, `Community 31`, `Community 672`, `Community 34`, `Community 163`, `Community 162`, `Community 165`, `Community 425`, `Community 304`, `Community 179`, `Community 52`, `Community 310`, `Community 700`, `Community 316`, `Community 62`, `Community 574`, `Community 192`, `Community 577`, `Community 66`, `Community 453`, `Community 711`, `Community 585`, `Community 715`, `Community 75`, `Community 588`, `Community 332`, `Community 466`, `Community 851`, `Community 467`, `Community 213`, `Community 343`, `Community 344`, `Community 345`, `Community 473`, `Community 608`, `Community 227`, `Community 362`, `Community 365`, `Community 877`, `Community 370`, `Community 252`, `Community 244`, `Community 630`, `Community 118`, `Community 248`, `Community 246`, `Community 378`, `Community 508`?**
+- **Why does `Model` connect `Community 0` to `Community 128`, `Community 1`, `Community 3`, `Community 4`, `Community 6`, `Community 135`, `Community 266`, `Community 267`, `Community 140`, `Community 652`, `Community 401`, `Community 18`, `Community 659`, `Community 147`, `Community 405`, `Community 22`, `Community 406`, `Community 408`, `Community 151`, `Community 282`, `Community 283`, `Community 409`, `Community 281`, `Community 286`, `Community 31`, `Community 672`, `Community 34`, `Community 163`, `Community 162`, `Community 165`, `Community 425`, `Community 304`, `Community 179`, `Community 52`, `Community 310`, `Community 700`, `Community 316`, `Community 62`, `Community 574`, `Community 192`, `Community 577`, `Community 66`, `Community 453`, `Community 711`, `Community 585`, `Community 715`, `Community 75`, `Community 588`, `Community 332`, `Community 466`, `Community 851`, `Community 467`, `Community 213`, `Community 343`, `Community 344`, `Community 345`, `Community 473`, `Community 608`, `Community 227`, `Community 362`, `Community 365`, `Community 877`, `Community 370`, `Community 252`, `Community 244`, `Community 630`, `Community 118`, `Community 248`, `Community 246`, `Community 378`, `Community 508`?**
   _High betweenness centrality (0.106) - this node is a cross-community bridge._
 - **Why does `GitHubService` connect `Community 8` to `Community 637`?**
   _High betweenness centrality (0.020) - this node is a cross-community bridge._

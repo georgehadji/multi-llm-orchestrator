@@ -30,12 +30,12 @@ from orchestrator.models import (
 def _inject_mock_client(orch: Orchestrator, mock_client: MagicMock) -> None:
     """Propagate a mock client into all pipeline stages that hold a client ref."""
     orch.client = mock_client
-    if hasattr(orch, '_c') and orch._c is not None:
+    if hasattr(orch, "_c") and orch._c is not None:
         orch._c.client = mock_client
-    pipeline = getattr(getattr(orch, '_c', None), 'pipeline', None)
+    pipeline = getattr(getattr(orch, "_c", None), "pipeline", None)
     if pipeline is not None:
-        for stage in getattr(pipeline, '_stages', []):
-            if hasattr(stage, '_client'):
+        for stage in getattr(pipeline, "_stages", []):
+            if hasattr(stage, "_client"):
                 stage._client = mock_client
 
 
@@ -135,9 +135,9 @@ async def test_resume_does_not_return_system_failure(resume_orchestrator):
         project_id=project_id,
     )
 
-    assert state.status != ProjectStatus.SYSTEM_FAILURE, (
-        f"Resume must not return SYSTEM_FAILURE, got {state.status}"
-    )
+    assert (
+        state.status != ProjectStatus.SYSTEM_FAILURE
+    ), f"Resume must not return SYSTEM_FAILURE, got {state.status}"
 
 
 @pytest.mark.asyncio
@@ -156,6 +156,6 @@ async def test_resume_preserves_completed_task_result(resume_orchestrator):
     )
 
     assert "t1" in state.results, "t1 must be in results after resume"
-    assert state.results["t1"].status == TaskStatus.COMPLETED, (
-        "Completed task t1 must remain COMPLETED after resume"
-    )
+    assert (
+        state.results["t1"].status == TaskStatus.COMPLETED
+    ), "Completed task t1 must remain COMPLETED after resume"

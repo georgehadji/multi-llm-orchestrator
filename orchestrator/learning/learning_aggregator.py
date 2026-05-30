@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from .models import Model, TaskType
+from ..models import Model, TaskType
 
 logger = logging.getLogger("orchestrator.learning_aggregator")
 

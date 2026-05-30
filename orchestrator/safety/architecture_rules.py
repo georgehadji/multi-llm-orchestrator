@@ -831,7 +831,7 @@ Choose the best options based on the project requirements. Be specific and pract
 
         # Select optimal model for architecture decisions (v3.0)
         # Architecture decisions require strong reasoning + system design knowledge
-# FIXED: from ..models import Model as M
+        # FIXED: from ..models import Model as M
         from ...models import Model as M
 
         architecture_models = [
@@ -984,7 +984,7 @@ Choose the best options based on the project requirements. Be specific and pract
 
         Returns optimized rules if improvements suggested, None if no changes needed.
         """
-# FIXED: from ..models import Model
+        # FIXED: from ..models import Model
         from ....models import Model
 
         arch = initial_rules.architecture

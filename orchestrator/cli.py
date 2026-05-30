@@ -1734,7 +1734,7 @@ def main():
     _gateway_subparsers(subparsers)  # NEW: Gateway commands
     _kanban_subparsers(subparsers)
     _nexusscope_subparsers(subparsers)
-    _chat_subparsers(subparsers)          # Interactive spec-gathering chat mode
+    _chat_subparsers(subparsers)  # Interactive spec-gathering chat mode
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
@@ -1846,14 +1846,20 @@ def main():
         help="Seed routing from historical run profiles (future feature)",
     )
     parser.add_argument(
-        "--profile", action="store_true", default=False,
-                   help="Enable NexusScope profiling for this run")
+        "--profile",
+        action="store_true",
+        default=False,
+        help="Enable NexusScope profiling for this run",
+    )
     parser.add_argument(
-        "--profile-output", default=None, metavar="PATH",
-                   help="Write profile report to PATH on exit")
+        "--profile-output",
+        default=None,
+        metavar="PATH",
+        help="Write profile report to PATH on exit",
+    )
     parser.add_argument(
-        "--profile-format", choices=["text", "html", "json", "speedscope"],
-                   default="text")
+        "--profile-format", choices=["text", "html", "json", "speedscope"], default="text"
+    )
     parser.add_argument(
         "--tracing",
         action="store_true",
@@ -2251,8 +2257,6 @@ except ImportError:
         print("Click not installed")
 
 
-
-
 def _nexusscope_subparsers(subparsers) -> None:
     """Register the 'nexusscope' profiling subcommand."""
     nsp = subparsers.add_parser("nexusscope", help="NexusScope statistical profiler")
@@ -2265,8 +2269,13 @@ def _nexusscope_subparsers(subparsers) -> None:
 
     rep_p = nsp_sub.add_parser("report", help="Render profiling report")
     rep_p.add_argument("--name", "-n", default=None, help="Session name filter")
-    rep_p.add_argument("--format", "-f", choices=["text", "html", "json", "speedscope"],
-                       default="text", help="Output format")
+    rep_p.add_argument(
+        "--format",
+        "-f",
+        choices=["text", "html", "json", "speedscope"],
+        default="text",
+        help="Output format",
+    )
     rep_p.add_argument("--output", "-o", default=None, help="Write to file")
     rep_p.set_defaults(func=_cmd_nexusscope_report)
 
@@ -2274,9 +2283,11 @@ def _nexusscope_subparsers(subparsers) -> None:
 def _cmd_nexusscope_sessions(args):
     try:
         from orchestrator.infrastructure.nexusscope import get_profiler
+
         profiler = get_profiler()
-        sessions = profiler.get_sessions(name=getattr(args, 'name', None),
-                                         last_n=getattr(args, 'last', 20))
+        sessions = profiler.get_sessions(
+            name=getattr(args, "name", None), last_n=getattr(args, "last", 20)
+        )
         if not sessions:
             print("No profiling sessions recorded.")
             return
@@ -2292,10 +2303,11 @@ def _cmd_nexusscope_sessions(args):
 def _cmd_nexusscope_report(args):
     try:
         from orchestrator.infrastructure.nexusscope import get_profiler
+
         profiler = get_profiler()
-        fmt = getattr(args, 'format', 'text')
-        rendered = profiler.render_last(name=getattr(args, 'name', None), fmt=fmt)
-        output = getattr(args, 'output', None)
+        fmt = getattr(args, "format", "text")
+        rendered = profiler.render_last(name=getattr(args, "name", None), fmt=fmt)
+        output = getattr(args, "output", None)
         if output:
             Path(output).write_text(str(rendered))
             print(f"Report written to: {output}")
@@ -2309,6 +2321,7 @@ def _cmd_nexusscope_report(args):
 # chat — Interactive spec-gathering mode
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _chat_subparsers(subparsers) -> None:
     """Register the 'chat' subcommand."""
     p = subparsers.add_parser(
@@ -2316,13 +2329,15 @@ def _chat_subparsers(subparsers) -> None:
         help="Interactive mode — describe what you want to build in conversation",
     )
     p.add_argument(
-        "--budget", "-b",
+        "--budget",
+        "-b",
         type=float,
         default=8.0,
         help="Max LLM budget in USD for the build (default: 8.0)",
     )
     p.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         type=str,
         default="",
         help="Write generated files to this directory",

@@ -176,8 +176,8 @@ class SkillStore:
             (
                 t.task_id,
                 t.task_type.value,
-                t.prompt[:4000],   # cap very long prompts
-                t.output[:8000],   # cap very long outputs
+                t.prompt[:4000],  # cap very long prompts
+                t.output[:8000],  # cap very long outputs
                 t.score,
                 t.critique_text[:2000],
                 t.model_used,
@@ -247,9 +247,7 @@ class SkillStore:
         await self._skill_db.commit()
         logger.info("SkillStore: saved skill %s epoch=%d score=%.3f", task_type.value, epoch, score)
 
-    async def load_best_skill(
-        self, task_type: TaskType
-    ) -> tuple[str, float, int] | None:
+    async def load_best_skill(self, task_type: TaskType) -> tuple[str, float, int] | None:
         """Return (skill_doc, score, epoch) for the current best skill, or None."""
         await self._ensure_connected()
         assert self._skill_db is not None

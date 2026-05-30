@@ -48,19 +48,59 @@ _MODEL_TIERS: dict[Model, int] = {
 }
 
 _COMPLEXITY_KEYWORDS = [
-    "microservice", "distributed", "kubernetes", "cluster", "scalable",
-    "authentication", "authorization", "OAuth", "JWT", "RBAC", "permissions",
-    "database", "migration", "replication", "sharding", "caching", "redis",
-    "real-time", "websocket", "streaming", "queue", "kafka", "rabbitmq",
-    "multi-tenant", "SaaS", "API gateway", "load balancer", "CDN",
-    "machine learning", "ML", "AI", "neural", "embedding", "vector",
+    "microservice",
+    "distributed",
+    "kubernetes",
+    "cluster",
+    "scalable",
+    "authentication",
+    "authorization",
+    "OAuth",
+    "JWT",
+    "RBAC",
+    "permissions",
+    "database",
+    "migration",
+    "replication",
+    "sharding",
+    "caching",
+    "redis",
+    "real-time",
+    "websocket",
+    "streaming",
+    "queue",
+    "kafka",
+    "rabbitmq",
+    "multi-tenant",
+    "SaaS",
+    "API gateway",
+    "load balancer",
+    "CDN",
+    "machine learning",
+    "ML",
+    "AI",
+    "neural",
+    "embedding",
+    "vector",
 ]
 
 _TECH_STACK_KEYWORDS = [
-    "react", "next.js", "vue", "angular",
-    "fastapi", "django", "flask", "express",
-    "postgresql", "mongodb", "mysql",
-    "docker", "terraform", "aws", "azure", "gcp",
+    "react",
+    "next.js",
+    "vue",
+    "angular",
+    "fastapi",
+    "django",
+    "flask",
+    "express",
+    "postgresql",
+    "mongodb",
+    "mysql",
+    "docker",
+    "terraform",
+    "aws",
+    "azure",
+    "gcp",
 ]
 
 _RELIABLE_DECOMPOSITION_MODELS: list[Model] = [
@@ -98,7 +138,7 @@ class ModelSelector:
         for m in _RELIABLE_DECOMPOSITION_MODELS:
             if self._health.get(m, True):
                 return m
-        
+
         # Fallback: find any healthy model, preferring cheaper
         healthy = [m for m in Model if self._health.get(m, True)]
         if not healthy:
@@ -144,8 +184,7 @@ class ModelSelector:
         """Escalate to higher tier."""
         current_tier = _MODEL_TIERS.get(current_model, 0)
         candidates = [
-            m for m in self.available_models(task_type)
-            if _MODEL_TIERS.get(m, 0) > current_tier
+            m for m in self.available_models(task_type) if _MODEL_TIERS.get(m, 0) > current_tier
         ]
 
         if not candidates:
@@ -174,10 +213,10 @@ class TieredModelRouter:
         """Get available models, filtered by health and adaptive routing."""
         candidates = self._routing.get_models_for_task(task_type)
         available = [m for m in candidates if self._health.get(m, True)]
-        
+
         if self._adaptive and hasattr(self._adaptive, "is_available"):
             available = [m for m in available if self._adaptive.is_available(m)]
-        
+
         return available
 
     def escalate_tier(self, task_type: TaskType) -> None:

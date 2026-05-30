@@ -40,10 +40,13 @@ from pathlib import Path
 
 # FIXED: from .api_clients import UnifiedClient
 from ...api_clients import UnifiedClient
+
 # FIXED: from .cache import DiskCache
 from ...cache import DiskCache
+
 # FIXED: from .codebase_reader import CodebaseContext, CodebaseReader
 from ...codebase_reader import CodebaseContext, CodebaseReader
+
 # FIXED: from .models import Model, TaskType
 from ...models import Model, TaskType
 
@@ -364,7 +367,7 @@ class CodebaseAnalyzer:
         Pick the best available model for the given task type.
         Falls back through the routing table until an available model is found.
         """
-# FIXED: from .models import ROUTING_TABLE
+        # FIXED: from .models import ROUTING_TABLE
         from ...models import ROUTING_TABLE
 
         for model in ROUTING_TABLE.get(task_type, []):

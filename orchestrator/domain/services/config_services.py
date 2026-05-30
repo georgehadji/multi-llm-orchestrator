@@ -23,6 +23,7 @@ class RoutingService:
     def get_models_for_task(self, task_type: TaskType) -> list[Model]:
         """Returns priority-ordered list of models for a task type."""
         from ...models import Model
+
         routing = self._config.get_routing()
         model_names = routing.get(task_type.value, [])
         return [Model(name) for name in model_names if name in Model._value2member_map_]
@@ -30,6 +31,7 @@ class RoutingService:
     def get_fallback_for_model(self, model: Model) -> Model | None:
         """Returns the configured fallback model for a given model."""
         from ...models import Model
+
         fallbacks = self._config.get_fallbacks()
         fallback_name = fallbacks.get(model.value)
         if fallback_name and fallback_name in Model._value2member_map_:

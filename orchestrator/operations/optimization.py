@@ -35,9 +35,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-# FIXED: from ..models import Model, TaskType
+    # FIXED: from ..models import Model, TaskType
     from ..models import Model, TaskType
-# FIXED: from ..policy import ModelProfile
+
+    # FIXED: from ..policy import ModelProfile
     from ..policy import ModelProfile
 
 # ── Shared constant ────────────────────────────────────────────────────────────

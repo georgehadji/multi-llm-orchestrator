@@ -30,17 +30,20 @@ pytestmark = pytest.mark.asyncio
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _make_agent(llm_response: str | None = None) -> ConversationAgent:
     """Build an agent with a mocked LLM client."""
     client = MagicMock()
     response = MagicMock()
     if llm_response is None:
-        llm_response = json.dumps({
-            "message": "Tell me more.",
-            "suggestions": [],
-            "ready": False,
-            "spec_partial": {},
-        })
+        llm_response = json.dumps(
+            {
+                "message": "Tell me more.",
+                "suggestions": [],
+                "ready": False,
+                "spec_partial": {},
+            }
+        )
     response.text = llm_response
     client.call = AsyncMock(return_value=response)
     return ConversationAgent(client=client)
@@ -59,17 +62,20 @@ def _full_spec_response(**overrides) -> str:
         "success_criteria": "Users can create and send invoices",
     }
     partial.update(overrides)
-    return json.dumps({
-        "message": "Here is a summary of the spec.",
-        "suggestions": ["Stripe integration", "Admin dashboard"],
-        "ready": True,
-        "spec_partial": partial,
-    })
+    return json.dumps(
+        {
+            "message": "Here is a summary of the spec.",
+            "suggestions": ["Stripe integration", "Admin dashboard"],
+            "ready": True,
+            "spec_partial": partial,
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ProjectSpec tests
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def test_spec_to_orchestrator_args_includes_description():
     spec = ProjectSpec(
@@ -115,6 +121,7 @@ def test_spec_budget_defaults_to_eight():
 # ConversationAgent — opening
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def test_start_returns_agent_turn():
     agent = _make_agent()
     turn = await agent.start()
@@ -127,6 +134,7 @@ async def test_start_returns_agent_turn():
 # ─────────────────────────────────────────────────────────────────────────────
 # ConversationAgent — confidence scoring
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 async def test_confidence_zero_on_empty_spec():
     agent = _make_agent()
@@ -142,16 +150,20 @@ async def test_confidence_increases_as_fields_filled():
 
 
 async def test_confidence_partial_when_some_fields_missing():
-    agent = _make_agent(json.dumps({
-        "message": "Got it.",
-        "suggestions": [],
-        "ready": False,
-        "spec_partial": {
-            "project_description": "An app",
-            "target_users": "Developers",
-            # missing features, tech_stack, auth, data_persistence
-        },
-    }))
+    agent = _make_agent(
+        json.dumps(
+            {
+                "message": "Got it.",
+                "suggestions": [],
+                "ready": False,
+                "spec_partial": {
+                    "project_description": "An app",
+                    "target_users": "Developers",
+                    # missing features, tech_stack, auth, data_persistence
+                },
+            }
+        )
+    )
     await agent.start()
     await agent.process_turn("I want to build an app for developers")
     # 2 out of 6 required fields → ~0.33
@@ -161,6 +173,7 @@ async def test_confidence_partial_when_some_fields_missing():
 # ─────────────────────────────────────────────────────────────────────────────
 # ConversationAgent — ready detection
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 async def test_agent_not_ready_initially():
     agent = _make_agent()
@@ -176,17 +189,19 @@ async def test_agent_ready_when_llm_says_ready_and_confidence_high():
 
 async def test_explicit_go_signal_marks_ready_at_50pct_confidence():
     """User typing 'go' should mark ready even if only half the fields are filled."""
-    partial_response = json.dumps({
-        "message": "Tell me more.",
-        "suggestions": [],
-        "ready": False,
-        "spec_partial": {
-            "project_description": "An invoicing app",
-            "target_users": "Freelancers",
-            "core_features": ["Invoice creation", "PDF export", "Payments"],
-            "tech_stack": "Next.js",
-        },
-    })
+    partial_response = json.dumps(
+        {
+            "message": "Tell me more.",
+            "suggestions": [],
+            "ready": False,
+            "spec_partial": {
+                "project_description": "An invoicing app",
+                "target_users": "Freelancers",
+                "core_features": ["Invoice creation", "PDF export", "Payments"],
+                "tech_stack": "Next.js",
+            },
+        }
+    )
     agent = _make_agent(partial_response)
     await agent.start()
     await agent.process_turn("It's an invoicing tool for freelancers")
@@ -214,15 +229,24 @@ def test_ready_signals_set_contains_common_phrases():
 # ConversationAgent — spec merging
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def test_features_accumulate_across_turns():
-    first = json.dumps({
-        "message": "Got it.", "suggestions": [], "ready": False,
-        "spec_partial": {"core_features": ["Login", "Dashboard"]},
-    })
-    second = json.dumps({
-        "message": "More features.", "suggestions": [], "ready": False,
-        "spec_partial": {"core_features": ["Export", "Notifications"]},
-    })
+    first = json.dumps(
+        {
+            "message": "Got it.",
+            "suggestions": [],
+            "ready": False,
+            "spec_partial": {"core_features": ["Login", "Dashboard"]},
+        }
+    )
+    second = json.dumps(
+        {
+            "message": "More features.",
+            "suggestions": [],
+            "ready": False,
+            "spec_partial": {"core_features": ["Export", "Notifications"]},
+        }
+    )
 
     client = MagicMock()
     r1, r2 = MagicMock(), MagicMock()
@@ -239,10 +263,14 @@ async def test_features_accumulate_across_turns():
 
 
 async def test_duplicate_features_not_added():
-    resp = json.dumps({
-        "message": ".", "suggestions": [], "ready": False,
-        "spec_partial": {"core_features": ["Login", "Login", "Dashboard"]},
-    })
+    resp = json.dumps(
+        {
+            "message": ".",
+            "suggestions": [],
+            "ready": False,
+            "spec_partial": {"core_features": ["Login", "Login", "Dashboard"]},
+        }
+    )
     agent = _make_agent(resp)
     await agent.start()
     await agent.process_turn("anything")
@@ -253,13 +281,16 @@ async def test_duplicate_features_not_added():
 # ConversationAgent — suggestions
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 async def test_suggestions_returned_in_turn():
-    resp = json.dumps({
-        "message": "Got it.",
-        "suggestions": ["Stripe integration", "Admin dashboard"],
-        "ready": False,
-        "spec_partial": {},
-    })
+    resp = json.dumps(
+        {
+            "message": "Got it.",
+            "suggestions": ["Stripe integration", "Admin dashboard"],
+            "ready": False,
+            "spec_partial": {},
+        }
+    )
     agent = _make_agent(resp)
     await agent.start()
     turn = await agent.process_turn("I want a SaaS app")
@@ -284,6 +315,7 @@ async def test_accept_enhancement_no_duplicates():
 # ─────────────────────────────────────────────────────────────────────────────
 # ConversationAgent — LLM error handling
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 async def test_llm_error_returns_graceful_fallback():
     client = MagicMock()

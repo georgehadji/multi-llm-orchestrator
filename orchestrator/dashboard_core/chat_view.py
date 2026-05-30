@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from fastapi import WebSocket, WebSocketDisconnect
+
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
@@ -38,6 +39,7 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 # WebSocket handler
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 async def handle_chat_websocket(websocket: WebSocket) -> None:  # type: ignore[valid-type]
     """Manage one chat session over a WebSocket connection."""
@@ -54,13 +56,15 @@ async def handle_chat_websocket(websocket: WebSocket) -> None:  # type: ignore[v
 
         # Send opening message
         opening = await agent.start()
-        await websocket.send_json({
-            "type": "agent",
-            "text": opening.content,
-            "suggestions": opening.suggestions,
-            "confidence": opening.confidence,
-            "ready": opening.ready_to_build,
-        })
+        await websocket.send_json(
+            {
+                "type": "agent",
+                "text": opening.content,
+                "suggestions": opening.suggestions,
+                "confidence": opening.confidence,
+                "ready": opening.ready_to_build,
+            }
+        )
 
         # Conversation loop
         while True:
@@ -86,13 +90,15 @@ async def handle_chat_websocket(websocket: WebSocket) -> None:  # type: ignore[v
                     continue
 
                 turn = await agent.process_turn(text)
-                await websocket.send_json({
-                    "type": "agent",
-                    "text": turn.content,
-                    "suggestions": turn.suggestions,
-                    "confidence": turn.confidence,
-                    "ready": turn.ready_to_build,
-                })
+                await websocket.send_json(
+                    {
+                        "type": "agent",
+                        "text": turn.content,
+                        "suggestions": turn.suggestions,
+                        "confidence": turn.confidence,
+                        "ready": turn.ready_to_build,
+                    }
+                )
 
                 if turn.ready_to_build:
                     # Wait for explicit "build" frame or next message
@@ -134,6 +140,7 @@ async def _run_build(websocket: WebSocket, agent) -> None:  # type: ignore[valid
 # ─────────────────────────────────────────────────────────────────────────────
 # HTML page
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def render_chat_page() -> str:
     return """<!DOCTYPE html>

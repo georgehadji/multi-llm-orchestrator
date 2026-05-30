@@ -22,13 +22,13 @@ def _inject_mock_client(orch: Orchestrator, mock_client: MagicMock) -> None:
     # Top-level reference on the orchestrator
     orch.client = mock_client
     # Also patch into the ServiceContainer and any pipeline stages
-    if hasattr(orch, '_c') and orch._c is not None:
+    if hasattr(orch, "_c") and orch._c is not None:
         orch._c.client = mock_client
     # Walk pipeline stages if accessible
-    pipeline = getattr(getattr(orch, '_c', None), 'pipeline', None)
+    pipeline = getattr(getattr(orch, "_c", None), "pipeline", None)
     if pipeline is not None:
-        for stage in getattr(pipeline, '_stages', []):
-            if hasattr(stage, '_client'):
+        for stage in getattr(pipeline, "_stages", []):
+            if hasattr(stage, "_client"):
                 stage._client = mock_client
 
 
@@ -77,8 +77,7 @@ async def test_execute_task_returns_completed_result(null_orchestrator):
     assert isinstance(result, TaskResult), "Must return a TaskResult"
     assert result.task_id == "canary-001"
     assert result.status == TaskStatus.COMPLETED, (
-        f"Expected COMPLETED, got {result.status}. "
-        f"Output: {result.output[:100]!r}"
+        f"Expected COMPLETED, got {result.status}. " f"Output: {result.output[:100]!r}"
     )
 
 
