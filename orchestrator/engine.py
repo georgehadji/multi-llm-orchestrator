@@ -625,6 +625,16 @@ class Orchestrator:
 
         if tracing_cfg is not None and configure_tracing is not None:
             configure_tracing(tracing_cfg)
+
+        # taste-skill: anti-slop design prefix for frontend tasks
+        from .crosscutting.config import settings as _settings
+        from .design.taste_skill_service import TasteSkillService as _TasteSkillService
+
+        self._taste_skill_service = _TasteSkillService(
+            flags=_flags,
+            settings=_settings,
+        )
+
         logger.info("Orchestrator initialized via ServiceContainer")
 
     # ─────────────────────────────────────────
@@ -2221,15 +2231,8 @@ Each task JSON element MUST also include:
                     and ".py" in target_path.lower()
                 )
 
-                is_web_frontend_task = (
-                    "html" in prompt.lower()
-                    or "css" in prompt.lower()
-                    or "javascript" in prompt.lower()
-                    or "js" in prompt.lower()
-                    or ".html" in target_path.lower()
-                    or ".css" in target_path.lower()
-                    or ".js" in target_path.lower()
-                ) and not is_backend_python_task  # Don't remove if it's a backend task
+                from .design.frontend_detect import is_web_frontend_task as _is_frontend
+                is_web_frontend_task = _is_frontend(prompt, target_path)
 
                 # Only remove Python validators for pure frontend tasks, not backend tasks
                 if is_web_frontend_task:
@@ -2421,6 +2424,34 @@ Each task JSON element MUST also include:
             except Exception:
                 pass
 
+        # taste-skill: prepend anti-slop design prefix for frontend tasks
+        try:
+            taste_prefix = self._taste_skill_service.build_prefix(task)
+            if taste_prefix:
+                skill_prefix = f"{taste_prefix}\n\n{skill_prefix}".strip()
+        except Exception:
+            pass  # taste-skill is always optional
+
+        # taste-skill: optional image reference pipeline (text visual-context pre-flight)
+        try:
+            from .crosscutting.config import flags as _ts_flags2
+            from .design.frontend_detect import is_web_frontend_task as _is_fe2
+
+            if (
+                getattr(_ts_flags2, "image_reference_pipeline", False)
+                and _is_fe2(task.prompt, getattr(task, "target_path", ""))
+            ):
+                import dataclasses as _dc
+                from .design.image_reference_pipeline import ImageReferencePipeline as _IRP
+                from .design.taste_skill_loader import get_default_loader as _get_loader
+
+                _irp = _IRP(loader=_get_loader(), client=self._c.client, flags=_ts_flags2)
+                _visual_ctx = await _irp.build_visual_context(task)
+                if _visual_ctx:
+                    task = _dc.replace(task, prompt=f"{task.prompt}\n\n{_visual_ctx}")
+        except Exception:
+            pass  # always optional
+
         ctx = PipelineContext(
             task=task,
             model=model,
@@ -2444,6 +2475,22 @@ Each task JSON element MUST also include:
             status = TaskStatus.FAILED
 
         result = ctx.to_task_result(status=status)
+
+        # taste-skill: soft anti-slop check (WARN only, never blocks)
+        try:
+            from .crosscutting.config import flags as _ts_flags
+            from .design.frontend_detect import is_web_frontend_task as _is_frontend
+
+            if getattr(_ts_flags, "taste_skill_enabled", False) and _is_frontend(
+                task.prompt, getattr(task, "target_path", "")
+            ) and ctx.output:
+                from .quality.design_validators import validate_anti_slop as _anti_slop
+
+                _slop_result = _anti_slop(ctx.output)
+                if not _slop_result.passed:
+                    logger.warning("taste-skill anti_slop [%s]: %s", task.id, _slop_result.details)
+        except Exception:
+            pass
 
         # SkillOpt: record trajectory for optimizer (fire-and-forget)
         if self._skill_manager is not None:

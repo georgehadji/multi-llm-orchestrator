@@ -97,6 +97,10 @@ path = "orchestrator/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["orchestrator"]
+artifacts = [
+    "orchestrator/design/skills/*.SKILL.md",
+    "orchestrator/design/skills/SOURCE.md",
+]
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Black - Code Formatting

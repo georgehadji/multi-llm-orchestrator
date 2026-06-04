@@ -110,11 +110,23 @@ class CritiqueCycle:
             score = 0.0
 
             if reviewer_model:
+                # taste-skill: use structured redesign rubric when variant == REDESIGN
+                _redesign_rubric = None
+                try:
+                    from ..models import DesignVariant as _DV
+                    from ..design.redesign_rubric import RedesignRubric as _RR
+
+                    if getattr(task, "design_variant", None) == _DV.REDESIGN:
+                        _redesign_rubric = _RR()
+                except Exception:
+                    pass
+
                 critique_response = await self._critique(
                     model=reviewer_model,
                     original_prompt=full_prompt,
                     generated_output=output,
                     task_type=task.type,
+                    redesign_rubric=_redesign_rubric,
                 )
 
                 if critique_response:
@@ -186,10 +198,16 @@ class CritiqueCycle:
         original_prompt: str,
         generated_output: str,
         task_type: TaskType,
+        redesign_rubric: object | None = None,
     ) -> APIResponse | None:  # type: ignore[name-defined]
-        critique_prompt = CritiquePrompt.build_score(
-            original_prompt, generated_output, task_type.value
-        )
+        if redesign_rubric is not None:
+            critique_prompt = redesign_rubric.build_score(  # type: ignore[union-attr]
+                original_prompt, generated_output, task_type.value
+            )
+        else:
+            critique_prompt = CritiquePrompt.build_score(
+                original_prompt, generated_output, task_type.value
+            )
         try:
             response = await self.client.call_with_retry(  # type: ignore[attr-defined]
                 model=model,

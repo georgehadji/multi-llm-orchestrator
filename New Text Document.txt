@@ -1,0 +1,11 @@
+[Environment]::SetEnvironmentVariable(
+    "LINKEDIN_USERNAME",
+    "8alassa@gmail.com",
+    "User"
+)
+
+[Environment]::SetEnvironmentVariable(
+    "LINKEDIN_PASSWORD",
+    "T3ss3ra!!",
+    "User"
+)

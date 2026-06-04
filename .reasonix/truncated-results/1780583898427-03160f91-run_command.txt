@@ -1,0 +1,486 @@
+$ git stash && git checkout master && git pull origin master && git merge docs/architecture-audit-and-refactoring-plan && git stash pop
+[exit 0]
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'orchestrator/design/__init__.py', LF will be replaced by CRLF the next time Git touches it
+Saved working directory and index state WIP on docs/architecture-audit-and-refactoring-plan: 519ac4c fix: kanban async safety + state deserialization warning
+Switched to branch 'master'
+Your branch is up to date with 'origin/master'.
+From https://github.com/georgehadji/multi-llm-orchestrator
+ * branch            master     -> FETCH_HEAD
+Already up to date.
+Updating files:  69% (864/1242)Updating files:  70% (870/1242)Updating files:  71% (882/1242)Updating files:  72% (895/1242)Updating files:  73% (907/1242)Updating files:  74% (920/1242)Updating files:  75% (932/1242)Updating files:  76% (944/1242)Updating files:  77% (957/1242)Updating files:  78% (969/1242)Updating files:  79% (982/1242)Updating files:  80% (994/1242)Updating files:  81% (1007/1242)Updating files:  82% (1019/1242)Updating files:  83% (1031/1242)Updating files:  84% (1044/1242)Updating files:  85% (1056/1242)Updating files:  86% (1069/1242)Updating files:  87% (1081/1242)Updating files:  88% (1093/1242)Updating files:  89% (1106/1242)Updating files:  90% (1118/1242)Updating files:  91% (1131/1242)Updating files:  92% (1143/1242)Updating files:  93% (1156/1242)Updating files:  94% (1168/1242)Updating files:  95% (1180/1242)Updating files:  96% (1193/1242)Updating files:  97% (1205/1242)Updating files:  98% (1218/1242)Updating files:  99% (1230/1242)Updating files: 100% (1242/1242)Updating files: 100% (1242/1242), done.
+Updating a485c4a..519ac4c
+Fast-forward
+ .agents/types/agent-definition.ts                  |     452 +
+ .agents/types/tools.ts                             |     438 +
+ .agents/types/util-types.ts                        |     175 +
+ .ai_scope.json                                     |      11 +
+ .claude/hooks/post_bash_pytest.py                  |      41 +
+ .claude/hooks/post_edit_ruff.py                    |      36 +-
+ .claude/hooks/pre_edit_core.py                     |      31 +-
+ .claude/settings.local.json                        |      38 +-
+ .claude/skills/architecture-guard/SKILL.md         |      79 +
+ .claude/skills/dashboard-start/SKILL.md            |      71 +
+ .claude/skills/orchestrator-run/SKILL.md           |      66 +
+ .claude/skills/quality-check/SKILL.md              |      74 +
+ .claude/skills/test-smart/SKILL.md                 |      76 +
+ .../pastes/paste-2026-05-27-110242-f9e3094a.md     |     286 +
+ .deepseek/state/subagents.v1.json                  |       4 +
+ .dev/publish_history.json                          |     156 +
+ .diff_history.json                                 |     326 +
+ .github/workflows/ci.yml                           |      64 +-
+ .gitignore                                         |       3 +
+ .importlinter                                      |      86 +
+ .registry/registry.json                            |     147 +
+ .releases/releases.json                            |    1298 +
+ Chain of verification.pdf                          |     Bin 0 -> 1121859 bytes
+ GEMINI.md                                          |       0
+ MEMORY_ARTICLE.md                                  |      97 +
+ QWEN.md                                            |       0
+ README.md                                          |     447 +-
+ archive/builders/__init__.py                       |       6 +
+ archive/builders/api_builder.py                    |     727 +
+ archive/builders/assembler.py                      |     349 +
+ archive/builders/plan_then_build.py                |     447 +
+ archive/builders/release_manager.py                |     138 +
+ archive/builders/site_manager.py                   |     136 +
+ archive/builders/version_manager.py                |     294 +
+ archive/prompting/__init__.py                      |       4 +
+ archive/prompting/builder.py                       |     328 +
+ archive/prompting/compressor.py                    |     452 +
+ archive/prompting/enhancer.py                      |     356 +
+ current_failures.txt                               |       1 +
+ docs/AGENT_MEMORY_ENHANCEMENT_PLAN.md              |     218 +
+ docs/ARCHITECTURAL_AUDIT_2026_05_29.md             |     447 +
+ docs/ARCHITECTURAL_AUDIT_FINAL.md                  |     106 +
+ docs/ARCHITECTURAL_REMEDIATION_PLAN.md             |     788 +
+ docs/ARCHITECTURE_COMPLIANCE_PLAN.md               |     539 +
+ docs/BACKLOG.md                                    |      27 +
+ docs/BASE44_INSPIRED_ENHANCEMENTS.md               |     891 +
+ docs/BLACKBOX_INSPIRED_ENHANCEMENTS.md             |     546 +
+ docs/BOLT_INSPIRED_ENHANCEMENTS.md                 |    1046 +
+ docs/CODEBASE_INVESTIGATOR_AGENT_PLAN.md           |     235 +
+ docs/CODEBASE_MINDMAP.md                           |     748 +-
+ docs/CREATE_XYZ_INSPIRED_ENHANCEMENTS.md           |    1092 +
+ docs/DEPENDENCY_POLICY.md                          |      95 +
+ docs/DYAD_INSPIRED_ENHANCEMENTS.md                 |    1061 +
+ docs/ENHANCEMENT_MASTER_INDEX.md                   |     229 +
+ docs/IMPLEMENTATION_PLAN.md                        |     884 +
+ docs/INTEGRATION.md                                |     418 +
+ docs/KARPATHY_GUIDELINES_INTEGRATION.md            |     168 +
+ docs/KARPATHY_IMPLEMENTATION_PLAN.md               |     652 +
+ docs/LOVABLE_INSPIRED_ENHANCEMENTS.md              |     620 +
+ docs/NEWLY_INSPIRED_ENHANCEMENTS.md                |     819 +
+ docs/NEXUSSCOPE_PLAN.md                            |     454 +
+ docs/REFACTORING01.md                              |    1028 +
+ docs/REFACTORING02.md                              |     328 +
+ docs/REFACTORING_PLAN_V6.md                        |      59 +
+ docs/REFACTORING_PLAN_V7.md                        |     783 +
+ docs/REPLIT_INSPIRED_ENHANCEMENTS.md               |     613 +
+ docs/RETOOL_INSPIRED_ENHANCEMENTS.md               |    1318 +
+ docs/ROADMAP.md                                    |      94 +
+ docs/SKILLS_AND_HOOKS_PLAN.md                      |     486 +
+ docs/UI_ENHANCEMENT_PLAN.md                        |     528 +
+ docs/V0_INSPIRED_ENHANCEMENTS.md                   |    1515 +
+ docs/adr/ADR-001.md                                |     164 +
+ docs/categories/01-autonomous-execution.md         |      57 +
+ docs/categories/02-version-control.md              |      45 +
+ docs/categories/03-context-knowledge.md            |      41 +
+ docs/categories/04-design-systems.md               |      43 +
+ docs/categories/05-output-quality.md               |      45 +
+ docs/categories/06-security.md                     |      36 +
+ docs/categories/07-user-interface.md               |      43 +
+ docs/categories/08-integrations.md                 |      37 +
+ docs/categories/09-collaboration.md                |      34 +
+ docs/categories/10-configuration.md                |      40 +
+ docs/categories/11-cost-optimization.md            |      31 +
+ docs/categories/12-scoping-safety.md               |      34 +
+ exec                                               |     Bin 0 -> 23757 bytes
+ generated_models.txt                               |    1163 +
+ graphify-out/.category_analysis.txt                |      63 +
+ graphify-out/.engine_tier_section.txt              |     129 +
+ graphify-out/.graphify_python                      |       1 +
+ graphify-out/.learning_block.txt                   |      18 +
+ graphify-out/GRAPH_REPORT.md                       |    2266 +-
+ graphify-out/HERMES_RESEARCH_REPORT.md             |     246 +
+ graphify-out/ORCHESTRATOR_IMPLEMENTATION_PLAN.md   |     884 +
+ graphify-out/ORCHESTRATOR_IMPROVEMENTS.md          |     383 +
+ graphify-out/check_graphify.py                     |       5 +
+ graphify-out/converted/sample_8353df43.md          |      16 +
+ graphify-out/converted/sample_91102f56.md          |      14 +
+ graphify-out/copy_core.py                          |      23 +
+ graphify-out/copy_core_docs.sh                     |      24 +
+ graphify-out/copy_readme.py                        |       5 +
+ graphify-out/cost.json                             |       7 +
+ graphify-out/count_files.py                        |      25 +
+ graphify-out/detect_files.py                       |       7 +
+ graphify-out/gemini_refs.txt                       |     106 +
+ graphify-out/glm_report.txt                        |      38 +
+ graphify-out/graph.json                            | 1319399 +++++++++++------
+ graphify-out/grok_refs.txt                         |      35 +
+ graphify-out/hermes_AGENTS.md                      |    1132 +
+ graphify-out/hermes_README.md                      |     215 +
+ graphify-out/hermes_agent___init__.py              |       6 +
+ graphify-out/hermes_agent_agent_runtime_helpers.py |    2230 +
+ graphify-out/hermes_agent_async_utils.py           |      68 +
+ graphify-out/hermes_agent_context_engine.py        |     212 +
+ graphify-out/hermes_agent_conversation_loop.py     |    4258 +
+ graphify-out/hermes_agent_memory_manager.py        |     609 +
+ graphify-out/hermes_agent_prompt_builder.py        |    1465 +
+ graphify-out/hermes_agent_skill_utils.py           |     566 +
+ graphify-out/hermes_agent_system_prompt.py         |     380 +
+ graphify-out/hermes_agent_tool_executor.py         |     912 +
+ graphify-out/hermes_agent_trajectory.py            |      56 +
+ graphify-out/hermes_cli.py                         |   14873 +
+ graphify-out/hermes_hermes_cli_commands.py         |    1819 +
+ graphify-out/hermes_hermes_cli_main.py             |   13946 +
+ graphify-out/hermes_hermes_constants.py            |     438 +
+ graphify-out/hermes_hermes_logging.py              |     389 +
+ graphify-out/hermes_pyproject.toml                 |     268 +
+ graphify-out/hermes_run_agent.py                   |    4348 +
+ graphify-out/manifest.json                         |   20862 +
+ graphify-out/model_audit.txt                       |       0
+ graphify-out/model_audit_err.txt                   |       4 +
+ graphify-out/qwen_refs.txt                         |      52 +
+ graphify-out/setup_env.py                          |       4 +
+ graphify-out/task_models.txt                       |      55 +
+ knowledge.md                                       |      17 +
+ nexus-search.docker-compose.yml                    |     100 +
+ openevolve-main.zip                                |     Bin 0 -> 3467748 bytes
+ .../sidebar-node-logic.instructions.md             |      12 +
+ .../openevolve-main/.github/workflows/claude.yml   |      64 +
+ .../.github/workflows/python-test.yml              |      96 +
+ .../openevolve-main/.github/workflows/release.yml  |      83 +
+ openevolve-main/openevolve-main/.gitignore         |      58 +
+ .../openevolve-main/.pre-commit-config.yaml        |      11 +
+ openevolve-main/openevolve-main/CLAUDE.md          |     118 +
+ openevolve-main/openevolve-main/CONTRIBUTING.md    |      86 +
+ openevolve-main/openevolve-main/Dockerfile         |      22 +
+ openevolve-main/openevolve-main/LICENSE            |     201 +
+ openevolve-main/openevolve-main/MANIFEST.in        |       2 +
+ openevolve-main/openevolve-main/Makefile           |     100 +
+ openevolve-main/openevolve-main/README.md          |     888 +
+ openevolve-main/openevolve-main/configs/README.md  |      73 +
+ .../openevolve-main/configs/default_config.yaml    |     179 +
+ .../configs/early_stopping_example.yaml            |      38 +
+ .../configs/island_config_example.yaml             |      61 +
+ .../openevolve-main/configs/island_examples.yaml   |      80 +
+ openevolve-main/openevolve-main/examples/README.md |     390 +
+ .../openevolve-main/examples/algotune/README.md    |     264 +
+ .../algotune/affine_transform_2d/best_program.py   |     248 +
+ .../affine_transform_2d/best_program_info.json     |      19 +
+ .../algotune/affine_transform_2d/config.yaml       |     125 +
+ .../algotune/affine_transform_2d/evaluator.py      |     602 +
+ .../affine_transform_2d/initial_program.py         |     246 +
+ .../algotune/convolve2d_full_fill/best_program.py  |     148 +
+ .../convolve2d_full_fill/best_program_info.json    |      19 +
+ .../algotune/convolve2d_full_fill/config.yaml      |     128 +
+ .../algotune/convolve2d_full_fill/evaluator.py     |     602 +
+ .../convolve2d_full_fill/initial_program.py        |     149 +
+ .../examples/algotune/create_task.py               |      73 +
+ .../algotune/eigenvectors_complex/best_program.py  |     201 +
+ .../eigenvectors_complex/best_program_info.json    |      19 +
+ .../algotune/eigenvectors_complex/config.yaml      |     134 +
+ .../algotune/eigenvectors_complex/evaluator.py     |     602 +
+ .../eigenvectors_complex/initial_program.py        |     202 +
+ .../fft_cmplx_scipy_fftpack/best_program.py        |     133 +
+ .../fft_cmplx_scipy_fftpack/best_program_info.json |      19 +
+ .../algotune/fft_cmplx_scipy_fftpack/config.yaml   |     129 +
+ .../algotune/fft_cmplx_scipy_fftpack/evaluator.py  |     602 +
+ .../fft_cmplx_scipy_fftpack/initial_program.py     |     133 +
+ .../algotune/fft_convolution/best_program.py       |     288 +
+ .../fft_convolution/best_program_info.json         |      19 +
+ .../examples/algotune/fft_convolution/config.yaml  |     129 +
+ .../examples/algotune/fft_convolution/evaluator.py |     602 +
+ .../algotune/fft_convolution/initial_program.py    |     246 +
+ .../examples/algotune/generate_all_tasks.py        |      86 +
+ .../algotune/lu_factorization/best_program.py      |     203 +
+ .../lu_factorization/best_program_info.json        |      19 +
+ .../examples/algotune/lu_factorization/config.yaml |     136 +
+ .../algotune/lu_factorization/evaluator.py         |     602 +
+ .../algotune/lu_factorization/initial_program.py   |     228 +
+ .../algotune/polynomial_real/best_program.py       |     174 +
+ .../polynomial_real/best_program_info.json         |      19 +
+ .../examples/algotune/polynomial_real/config.yaml  |     135 +
+ .../examples/algotune/polynomial_real/evaluator.py |     602 +
+ .../algotune/polynomial_real/initial_program.py    |     154 +
+ .../algotune/psd_cone_projection/best_program.py   |     197 +
+ .../psd_cone_projection/best_program_info.json     |      19 +
+ .../algotune/psd_cone_projection/config.yaml       |     146 +
+ .../algotune/psd_cone_projection/evaluator.py      |     602 +
+ .../psd_cone_projection/initial_program.py         |     200 +
+ .../examples/algotune/requirements.txt             |      37 +
+ .../examples/algotune/run_benchmark.py             |     435 +
+ .../examples/algotune/task_adapter.py              |    1438 +
+ .../examples/alphaevolve_math_problems/README.md   |      23 +
+ .../circle_packing_rect/config.yaml                |      62 +
+ .../circle_packing_rect/evaluator.py               |     111 +
+ .../circle_packing_rect/initial_program.py         |      22 +
+ .../circle_packing_rect/requirements.txt           |       1 +
+ .../erdos_min_overlap/config.yaml                  |      60 +
+ .../erdos_min_overlap/evaluator.py                 |      76 +
+ .../erdos_min_overlap/initial_program.py           |      96 +
+ .../erdos_min_overlap/requirements.txt             |       3 +
+ .../first_autocorr_ineq/config.yaml                |      83 +
+ .../first_autocorr_ineq/evaluator.py               |      87 +
+ .../first_autocorr_ineq/initial_program.py         |     117 +
+ .../first_autocorr_ineq/requirements.txt           |       3 +
+ .../heilbronn_convex/13/config.yaml                |     125 +
+ .../heilbronn_convex/13/evaluator.py               |      72 +
+ .../heilbronn_convex/13/initial_program.py         |      19 +
+ .../heilbronn_convex/13/requirements.txt           |       2 +
+ .../heilbronn_convex/14/config.yaml                |      63 +
+ .../heilbronn_convex/14/evaluator.py               |      71 +
+ .../heilbronn_convex/14/initial_program.py         |      19 +
+ .../heilbronn_convex/14/requirements.txt           |       3 +
+ .../heilbronn_triangle/config.yaml                 |      52 +
+ .../heilbronn_triangle/evaluator.py                |      92 +
+ .../heilbronn_triangle/initial_program.py          |      18 +
+ .../heilbronn_triangle/requirements.txt            |       1 +
+ .../hexagon_packing/11/config.yaml                 |      53 +
+ .../hexagon_packing/11/evaluator.py                |     234 +
+ .../hexagon_packing/11/initial_program.py          |      37 +
+ .../hexagon_packing/11/requirements.txt            |       1 +
+ .../hexagon_packing/12/config.yaml                 |      53 +
+ .../hexagon_packing/12/evaluator.py                |     234 +
+ .../hexagon_packing/12/initial_program.py          |      38 +
+ .../hexagon_packing/12/requirements.txt            |       1 +
+ .../kissing_number/config.yaml                     |      58 +
+ .../kissing_number/evaluator.py                    |      95 +
+ .../kissing_number/initial_program.py              |      18 +
+ .../kissing_number/requirements.txt                |       1 +
+ .../alphaevolve_math_problems/matmul/config.yaml   |      80 +
+ .../alphaevolve_math_problems/matmul/evaluator.py  |     107 +
+ .../matmul/initial_program.py                      |     199 +
+ .../matmul/requirements.txt                        |       3 +
+ .../minimizing_max_min_dist/2/config.yaml          |      57 +
+ .../minimizing_max_min_dist/2/evaluator.py         |      65 +
+ .../minimizing_max_min_dist/2/initial_program.py   |      24 +
+ .../minimizing_max_min_dist/2/requirements.txt     |       2 +
+ .../minimizing_max_min_dist/3/config.yaml          |      57 +
+ .../minimizing_max_min_dist/3/evaluator.py         |      65 +
+ .../minimizing_max_min_dist/3/initial_program.py   |      24 +
+ .../minimizing_max_min_dist/3/requirements.txt     |       2 +
+ .../second_autocorr_ineq/config.yaml               |     137 +
+ .../second_autocorr_ineq/evaluator.py              |      87 +
+ .../second_autocorr_ineq/initial_program.py        |     110 +
+ .../second_autocorr_ineq/requirements.txt          |       3 +
+ .../sums_diffs_finite_sets/config.yaml             |      59 +
+ .../sums_diffs_finite_sets/evaluator.py            |      89 +
+ .../sums_diffs_finite_sets/initial_program.py      |     117 +
+ .../sums_diffs_finite_sets/requirements.txt        |       3 +
+ .../third_autocorr_ineq/config.yaml                |      62 +
+ .../third_autocorr_ineq/evaluator.py               |      80 +
+ .../third_autocorr_ineq/initial_program.py         |     107 +
+ .../third_autocorr_ineq/requirements.txt           |       3 +
+ .../uncertainty_ineq/config.yaml                   |      63 +
+ .../uncertainty_ineq/evaluator.py                  |     129 +
+ .../uncertainty_ineq/initial_program.py            |     211 +
+ .../uncertainty_ineq/requirements.txt              |       4 +
+ .../examples/arc_benchmark/README.md               |     186 +
+ .../examples/arc_benchmark/base_config.yaml        |      74 +
+ .../examples/arc_benchmark/config.yaml             |     228 +
+ .../examples/arc_benchmark/evaluator.py            |     220 +
+ .../examples/arc_benchmark/generate_config.py      |      62 +
+ .../examples/arc_benchmark/images/Evolved task.png |     Bin 0 -> 198868 bytes
+ .../examples/arc_benchmark/images/example.png      |     Bin 0 -> 265602 bytes
+ .../examples/arc_benchmark/initial_program.py      |      42 +
+ .../examples/arc_benchmark/post_evolution_eval.py  |     119 +
+ .../examples/arc_benchmark/run_evolution.sh        |      17 +
+ .../examples/attention_optimization/README.md      |     541 +
+ .../examples/attention_optimization/config.yaml    |     121 +
+ .../configs/failing_config.yaml                    |      53 +
+ .../examples/attention_optimization/evaluator.py   |     307 +
+ .../attention_optimization/initial_program.py      |      88 +
+ .../legacy/prev_sim__works_evaluator.py            |     505 +
+ .../examples/attention_optimization/mlir/attn.mlir |     195 +
+ .../attention_optimization/mlir/attn_template.mlir |      53 +
+ .../mlir/baseline_attention.mlir                   |      50 +
+ .../mlir/baseline_attention_v0.mlir                |      74 +
+ .../attention_optimization/mlir/export_mlir.mlir   |     194 +
+ .../mlir/self_attention_torch_mlir_gen.mlir        |     194 +
+ .../self_attention_with_consts_torch_dialect.mlir  |      60 +
+ .../mlir/self_attn_with_consts_linalg_dialect.mlir |     195 +
+ .../scripts/debug_real_execution.py                |     161 +
+ .../scripts/fix_tensor_shapes.py                   |      32 +
+ .../scripts/mlir_lowering_pipeline.py              |     258 +
+ .../scripts/mlir_syntax_test.py                    |     312 +
+ .../attention_optimization/scripts/to_real_mlir.sh |     511 +
+ .../attention_optimization/tests/test_evaluator.py |     164 +
+ .../attention_optimization/tests/test_results.py   |     101 +
+ .../examples/circle_packing/README.md              |     240 +
+ .../examples/circle_packing/best_program.py        |     151 +
+ .../examples/circle_packing/best_program_info.json |      16 +
+ .../examples/circle_packing/circle_packing_1.png   |     Bin 0 -> 43095 bytes
+ .../examples/circle_packing/circle_packing_10.png  |     Bin 0 -> 61787 bytes
+ .../examples/circle_packing/circle_packing_190.png |     Bin 0 -> 69783 bytes
+ .../examples/circle_packing/circle_packing_460.png |     Bin 0 -> 75363 bytes
+ .../examples/circle_packing/config_phase_1.yaml    |      56 +
+ .../circle_packing/config_phase_1_anthropic.yaml   |      53 +
+ .../examples/circle_packing/config_phase_2.yaml    |      58 +
+ .../circle_packing/config_phase_2_anthropic.yaml   |      60 +
+ .../examples/circle_packing/evaluator.py           |     340 +
+ .../examples/circle_packing/initial_program.py     |     133 +
+ .../examples/circle_packing/requirements.txt       |       2 +
+ .../circle_packing_with_artifacts/README.md        |     404 +
+ .../circle_packing_with_artifacts/config.yaml      |      90 +
+ .../config_phase_1.yaml                            |      56 +
+ .../config_phase_2.yaml                            |      58 +
+ .../circle_packing_with_artifacts/evaluator.py     |     509 +
+ .../evolution_plot.png                             |     Bin 0 -> 120588 bytes
+ .../initial_program.py                             |     133 +
+ .../circle_packing_with_artifacts/requirements.txt |       2 +
+ .../examples/function_minimization/README.md       |     202 +
+ .../examples/function_minimization/config.yaml     |      45 +
+ .../examples/function_minimization/evaluator.py    |     493 +
+ .../function_minimization/initial_program.py       |      51 +
+ .../function_minimization/requirements.txt         |       1 +
+ .../examples/k_module_problem/README.md            |     257 +
+ .../examples/k_module_problem/compare_results.py   |     286 +
+ .../examples/k_module_problem/config.yaml          |      87 +
+ .../examples/k_module_problem/evaluator.py         |     272 +
+ .../examples/k_module_problem/initial_program.py   |      57 +
+ .../examples/k_module_problem/iterative_agent.py   |     340 +
+ .../examples/k_module_problem/run_iterative.sh     |      80 +
+ .../k_module_problem/run_iterative_trials.py       |     101 +
+ .../examples/k_module_problem/run_openevolve.sh    |      36 +
+ .../k_module_problem/run_openevolve_trials.py      |     169 +
+ .../k_module_problem/run_random_baseline.py        |     224 +
+ .../examples/llm_prompt_optimization/README.md     |     358 +
+ .../examples/llm_prompt_optimization/config.yaml   |      74 +
+ .../config_qwen3_baseline.yaml                     |      59 +
+ .../config_qwen3_evolution.yaml                    |      67 +
+ .../llm_prompt_optimization/dataset_settings.yaml  |       9 +
+ .../llm_prompt_optimization/emotion_prompt.txt     |      11 +
+ .../emotion_prompt_dataset.yaml                    |      18 +
+ .../llm_prompt_optimization/evaluate_prompts.py    |     474 +
+ ...valuation_results_baseline_20250809_070942.json |      50 +
+ ...evaluation_results_evolved_20250809_103002.json |      50 +
+ .../examples/llm_prompt_optimization/evaluator.py  |     607 +
+ .../llm_prompt_optimization/gsm8k_prompt.txt       |       5 +
+ .../gsm8k_prompt_dataset.yaml                      |      14 +
+ .../llm_prompt_optimization/hotpotqa_prompt.txt    |       8 +
+ .../hotpotqa_prompt_dataset.yaml                   |      17 +
+ .../llm_prompt_optimization/hover_prompt.txt       |       5 +
+ .../hover_prompt_dataset.yaml                      |      16 +
+ .../llm_prompt_optimization/ifeval_prompt.txt      |       5 +
+ .../ifeval_prompt_dataset.yaml                     |      13 +
+ .../llm_prompt_optimization/initial_prompt.txt     |       5 +
+ .../initial_prompt_dataset.yaml                    |       8 +
+ .../llm_prompt_optimization/requirements.txt       |       4 +
+ .../llm_prompt_optimization/run_evolution.sh       |      17 +
+ .../templates/evaluation.txt                       |      31 +
+ .../templates/evaluator_system_message.txt         |       2 +
+ .../templates/full_rewrite_user.txt                |      26 +
+ .../openevolve-main/examples/lm_eval/README.md     |      78 +
+ .../openevolve-main/examples/lm_eval/config.yml    |      48 +
+ .../examples/lm_eval/evaluator_stub.py             |       6 +
+ .../examples/lm_eval/initial_content_stub.txt      |       1 +
+ .../openevolve-main/examples/lm_eval/lm-eval.py    |     209 +
+ .../examples/lm_eval/prompts/diff_user.txt         |      34 +
+ .../examples/lm_eval/prompts/evaluation.txt        |      24 +
+ .../examples/lm_eval/prompts/evolution_history.txt |       7 +
+ .../examples/lm_eval/prompts/full_rewrite_user.txt |      17 +
+ .../examples/lm_eval/prompts/previous_attempt.txt  |       4 +
+ .../examples/lm_eval/prompts/top_program.txt       |       5 +
+ .../examples/lm_eval/requirements.txt              |       2 +
+ .../mlx_metal_kernel_opt/EVOLUTION_ANALYSIS.md     |     252 +
+ .../examples/mlx_metal_kernel_opt/README.md        |     107 +
+ .../examples/mlx_metal_kernel_opt/best_program.py  |     508 +
+ .../mlx_metal_kernel_opt/best_program_info.json    |     195 +
+ .../examples/mlx_metal_kernel_opt/config.yaml      |     235 +
+ .../examples/mlx_metal_kernel_opt/evaluator.py     |    1471 +
+ .../mlx_metal_kernel_opt/initial_program.py        |     505 +
+ .../mlx_lm_generate_with_hook.py                   |     158 +
+ .../mlx_metal_kernel_opt/quick_benchmark_test.py   |     139 +
+ .../examples/mlx_metal_kernel_opt/quick_demo.py    |      78 +
+ .../mlx_metal_kernel_opt/qwen3_benchmark_suite.py  |    1024 +
+ .../examples/mlx_metal_kernel_opt/requirements.txt |      20 +
+ .../mlx_metal_kernel_opt/run_benchmarks.py         |     626 +
+ .../mlx_metal_kernel_opt/run_evolve_experiment.sh  |     229 +
+ .../test_optimized_attention.py                    |     498 +
+ .../examples/online_judge_programming/README.md    |      83 +
+ .../examples/online_judge_programming/config.yaml  |      71 +
+ .../examples/online_judge_programming/evaluator.py |     102 +
+ .../online_judge_programming/example.kattisrc      |      14 +
+ .../online_judge_programming/initial_program.py    |      12 +
+ .../online_judge_programming/requirements.txt      |       2 +
+ .../examples/online_judge_programming/submit.py    |     603 +
+ .../examples/r_robust_regression/README.md         |      35 +
+ .../examples/r_robust_regression/config.yaml       |      58 +
+ .../examples/r_robust_regression/evaluator.py      |     246 +
+ .../examples/r_robust_regression/initial_program.r |      83 +
+ .../examples/r_robust_regression/requirements.txt  |      13 +
+ .../examples/rust_adaptive_sort/README.md          |      37 +
+ .../examples/rust_adaptive_sort/config.yaml        |      54 +
+ .../examples/rust_adaptive_sort/evaluator.py       |     228 +
+ .../examples/rust_adaptive_sort/initial_program.rs |     153 +
+ .../examples/rust_adaptive_sort/requirements.txt   |      11 +
+ .../rust_adaptive_sort/sort_test/.gitignore        |       1 +
+ .../rust_adaptive_sort/sort_test/Cargo.toml        |       7 +
+ .../rust_adaptive_sort/sort_test/src/lib.rs        |     156 +
+ .../rust_adaptive_sort/sort_test/src/main.rs       |      88 +
+ .../examples/signal_processing/README.md           |     246 +
+ .../examples/signal_processing/config.yaml         |      41 +
+ .../examples/signal_processing/evaluator.py        |     512 +
+ .../examples/signal_processing/initial_program.py  |     189 +
+ .../examples/signal_processing/requirements.txt    |       7 +
+ .../openevolve-main/examples/sldbench/README.md    |     162 +
+ .../configs/data_constrained_scaling_law.yaml      |      88 +
+ .../configs/domain_mixture_scaling_law.yaml        |      85 +
+ .../configs/easy_question_scaling_law.yaml         |      78 +
+ .../sldbench/configs/lr_bsz_scaling_law.yaml       |      92 +
+ .../examples/sldbench/configs/moe_scaling_law.yaml |      87 +
+ .../sldbench/configs/parallel_scaling_law.yaml     |      93 +
+ .../examples/sldbench/configs/sft_scaling_law.yaml |      87 +
+ .../sldbench/configs/vocab_scaling_law.yaml        |      93 +
+ .../examples/sldbench/data_loader.py               |     140 +
+ .../openevolve-main/examples/sldbench/evaluator.py |     320 +
+ .../examples/sldbench/init_program.py              |      53 +
+ .../openevolve-main/examples/sldbench/run.sh       |     160 +
+ .../examples/symbolic_regression/README.md         |     258 +
+ .../symbolic_regression/bench/dataclasses.py       |      62 +
+ .../symbolic_regression/bench/datamodules.py       |     187 +
+ .../examples/symbolic_regression/data_api.py       |     782 +
+ .../examples/symbolic_regression/eval.py           |     456 +
+ .../examples/symbolic_regression/scripts.sh        |      82 +
+ .../examples/tsp_tour_minimization/.gitignore      |       1 +
+ .../examples/tsp_tour_minimization/README.md       |     156 +
+ .../examples/tsp_tour_minimization/config.yaml     |      81 +
+ .../examples/tsp_tour_minimization/evaluator.py    |     298 +
+ .../tsp_tour_minimization/evolved_program/TSP.cpp  |     517 +
+ .../evolved_program/config.json                    |      19 +
+ .../evolved_program/heat_map_inference.py          |      45 +
+ .../evolved_program/heat_map_train.py              |      19 +
+ .../evolved_program/include/additional.hpp         |     153 +
+ .../evolved_program/include/context.hpp            |     275 +
+ .../evolved_program/include/json.hpp               |   24765 +
+ .../evolved_program/include/local_2_opt_search.hpp |      90 +
+ .../evolved_program/include/local_k_opt_search.hpp |     248 +
+ .../evolved_program/include/random_solution.hpp    |      33 +
+ .../evolved_program/include/utils.hpp              |     184 +
+ .../tsp_tour_minimization/initial_program/TSP.cpp  |     216 +
+ .../initial_program/config.json                    |      19 +
+ .../initial_program/heat_map_inference.py          |      47 +
+ .../initial_program/heat_map_train.py              |      21 +
+ .../initial_program/include/additional.hpp         |       4 +
+ .../initial_program/include/context.hpp            |     275 +
+ .../initial_program/include/json.hpp               |   24765 +
+ .../initial_program/include/local_2_opt_search.hpp |      82 +
+ .../initial_program/include/local_k_opt_search.hpp |     258 +
+ .../initial_program/include/random_solution.hpp    |      33 +
+ .../initial_program/include/utils.hpp              |     184 +
+ ...etric_improvement_through_evolution_process.png |     Bin 0 -> 401349 bytes
+ .../tsp_tour_minimization/requirements.txt         |       3 +
+ .../tsp_tour_minimization/start_evolution.py       |      90 +
+ .../tsp_tour_minimization/utils/code_to_query.py   |     148 +
+ .../tsp_tour_minimization/utils/heat_map_runner.py |     295 +
+ .../tsp_tour_minimization/utils/load_data.py       |      31 +
+ .../examples/tsp_tour_minimization/utils/runner.py |      99 +
+ .../tsp_tour_minimization/utils/tsp_runner.py      |     355 +
+ .../examples/tsp_tour_minimization/utils/utils.py  |     206 +
+ .../examples/web_scraper_optillm/README.md         |     296 +
+ .../examples/web_scraper_optillm/config.yaml       |      77 +
+ .../examples/web_scra
+
+[… truncated 129619 chars …]
