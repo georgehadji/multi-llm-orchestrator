@@ -1832,41 +1832,11 @@ class Orchestrator:
         if not model and hasattr(self, "_selector") and self._selector:
             model = self._selector.select(task.type)
 
-        # SkillOpt: fetch best skill doc for injection into system prompt
-        skill_prefix = ""
-        if self._skill_manager is not None:
-            try:
-                skill_prefix = await self._skill_manager.best_skill(task.type) or ""
-            except Exception:
-                pass
+        # Build skill prefix (SkillOpt + taste-skill)
+        skill_prefix = await self._build_skill_prefix(task)
 
-        # taste-skill: prepend anti-slop design prefix for frontend tasks
-        try:
-            taste_prefix = self._taste_skill_service.build_prefix(task)
-            if taste_prefix:
-                skill_prefix = f"{taste_prefix}\n\n{skill_prefix}".strip()
-        except Exception:
-            pass  # taste-skill is always optional
-
-        # taste-skill: optional image reference pipeline (text visual-context pre-flight)
-        try:
-            from .crosscutting.config import flags as _ts_flags2
-            from .design.frontend_detect import is_web_frontend_task as _is_fe2
-
-            if (
-                getattr(_ts_flags2, "image_reference_pipeline", False)
-                and _is_fe2(task.prompt, getattr(task, "target_path", ""))
-            ):
-                import dataclasses as _dc
-                from .design.image_reference_pipeline import ImageReferencePipeline as _IRP
-                from .design.taste_skill_loader import get_default_loader as _get_loader
-
-                _irp = _IRP(loader=_get_loader(), client=self._c.client, flags=_ts_flags2)
-                _visual_ctx = await _irp.build_visual_context(task)
-                if _visual_ctx:
-                    task = _dc.replace(task, prompt=f"{task.prompt}\n\n{_visual_ctx}")
-        except Exception:
-            pass  # always optional
+        # Optional image-reference visual-context enrichment
+        task = await self._enrich_with_visual_context(task)
 
         ctx = PipelineContext(
             task=task,
@@ -1893,44 +1863,93 @@ class Orchestrator:
         result = ctx.to_task_result(status=status)
 
         # taste-skill: soft anti-slop check (WARN only, never blocks)
+        self._check_anti_slop(task, ctx)
+
+        # SkillOpt: record trajectory for optimizer (fire-and-forget)
+        await self._record_trajectory(task, ctx)
+
+        return result
+
+    async def _build_skill_prefix(self, task: Task) -> str:
+        """Build combined skill prefix from SkillOpt + taste-skill."""
+        prefix = ""
+        if self._skill_manager is not None:
+            try:
+                prefix = await self._skill_manager.best_skill(task.type) or ""
+            except Exception:
+                pass
+        try:
+            taste = self._taste_skill_service.build_prefix(task)
+            if taste:
+                prefix = f"{taste}\n\n{prefix}".strip()
+        except Exception:
+            pass
+        return prefix
+
+    async def _enrich_with_visual_context(self, task: Task) -> Task:
+        """Optionally enrich task prompt with image-reference visual context."""
+        try:
+            from .crosscutting.config import flags as _ts_flags2
+            from .design.frontend_detect import is_web_frontend_task as _is_fe2
+
+            if (
+                getattr(_ts_flags2, "image_reference_pipeline", False)
+                and _is_fe2(task.prompt, getattr(task, "target_path", ""))
+            ):
+                import dataclasses as _dc
+                from .design.image_reference_pipeline import ImageReferencePipeline as _IRP
+                from .design.taste_skill_loader import get_default_loader as _get_loader
+
+                _irp = _IRP(loader=_get_loader(), client=self._c.client, flags=_ts_flags2)
+                _visual_ctx = await _irp.build_visual_context(task)
+                if _visual_ctx:
+                    task = _dc.replace(task, prompt=f"{task.prompt}\n\n{_visual_ctx}")
+        except Exception:
+            pass
+        return task
+
+    def _check_anti_slop(self, task: Task, ctx: Any) -> None:
+        """Soft anti-slop WARN check for frontend tasks."""
         try:
             from .crosscutting.config import flags as _ts_flags
             from .design.frontend_detect import is_web_frontend_task as _is_frontend
 
-            if getattr(_ts_flags, "taste_skill_enabled", False) and _is_frontend(
-                task.prompt, getattr(task, "target_path", "")
-            ) and ctx.output:
+            if (
+                getattr(_ts_flags, "taste_skill_enabled", False)
+                and _is_frontend(task.prompt, getattr(task, "target_path", ""))
+                and ctx.output
+            ):
                 from .quality.design_validators import validate_anti_slop as _anti_slop
-
                 _slop_result = _anti_slop(ctx.output)
                 if not _slop_result.passed:
                     logger.warning("taste-skill anti_slop [%s]: %s", task.id, _slop_result.details)
         except Exception:
             pass
 
-        # SkillOpt: record trajectory for optimizer (fire-and-forget)
-        if self._skill_manager is not None:
-            try:
-                import asyncio as _asyncio
-                import time as _time
-                from .models_skill import Trajectory as _Trajectory
+    async def _record_trajectory(self, task: Task, ctx: Any) -> None:
+        """Record SkillOpt trajectory (fire-and-forget with reference storage)."""
+        if self._skill_manager is None:
+            return
+        try:
+            import time as _time
+            from .models_skill import Trajectory as _Trajectory
 
-                _t = _Trajectory(
-                    task_id=task.id,
-                    task_type=task.type,
-                    prompt=task.prompt[:2000],
-                    output=ctx.output[:4000],
-                    score=ctx.score,
-                    critique_text=ctx.critique[:1000] if ctx.critique else "",
-                    model_used=ctx.model.value if ctx.model else "",
-                    cost_usd=ctx.cost_usd,
-                    recorded_at=_time.time(),
-                )
-                _task = _asyncio.create_task(self._skill_manager.record_trajectory(_t))
-                self._background_tasks.add(_task)
-                _task.add_done_callback(self._background_tasks.discard)
-            except Exception as _e:
-                logger.debug("SkillOpt trajectory skipped: %s", _e)
+            _t = _Trajectory(
+                task_id=task.id,
+                task_type=task.type,
+                prompt=task.prompt[:2000],
+                output=ctx.output[:4000],
+                score=ctx.score,
+                critique_text=ctx.critique[:1000] if ctx.critique else "",
+                model_used=ctx.model.value if ctx.model else "",
+                cost_usd=ctx.cost_usd,
+                recorded_at=_time.time(),
+            )
+            _task = asyncio.create_task(self._skill_manager.record_trajectory(_t))
+            self._background_tasks.add(_task)
+            _task.add_done_callback(self._background_tasks.discard)
+        except Exception as _e:
+            logger.debug("SkillOpt trajectory skipped: %s", _e)
 
         return result
 
