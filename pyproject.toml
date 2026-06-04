@@ -365,7 +365,7 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
     "typing.TYPE_CHECKING",
 ]
-fail_under = 6  # ratchet floor — never lower this. Raise in ~5% steps as coverage grows. Target: 80%.
+fail_under = 15  # ratchet floor — never lower this. Raise in ~5% steps as coverage grows. Target: 80%.
 precision = 2
 
 [tool.coverage.html]
