@@ -838,103 +838,78 @@ class Orchestrator:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """
-        Exit async context manager, ensuring all resources are cleaned up.
-
-        Cleanup order:
-        1. Cancel periodic cleanup timer (P0-2 OPTIMIZATION)
-        2. Clean up completed background tasks (BUG-MEMORY-002 FIX)
-        3. Wait for pending background tasks (BUG-SHUTDOWN-001 FIX)
-        4. Flush any pending telemetry snapshots
-        5. Close cache connection
-        6. Close state manager connection
-        7. Flush audit log
-        8. Flush telemetry store
-
+        Exit async context manager, delegating all cleanup to ``_cleanup_resources()``.
         Exceptions during cleanup are logged but not raised to avoid masking
         the original exception.
-
-        BUG-EVENTLOOP-001 FIX: Properly wait for aiosqlite background threads
-        to complete before event loop closes.
-
         """
-        logger.debug("Orchestrator exiting context manager, cleaning up resources...")
+        await self._cleanup_resources()
 
-        # Stop session lifecycle scheduler (no-op if never started)
+    async def _cleanup_resources(self) -> None:
+        """
+        Release all resources: lifecycle, tasks, cache, state, audit, telemetry.
+
+        Order matters — dependent services are shut down before their providers.
+        """
+        logger.debug("Orchestrator cleaning up resources...")
+
+        # 1. Stop session lifecycle scheduler (no-op if never started)
         try:
             await self._lifecycle_manager.stop()
         except Exception as e:
-            logger.warning(f"Failed to stop lifecycle manager: {e}")
+            logger.warning("Failed to stop lifecycle manager: %s", e)
 
-        # P0-2 OPTIMIZATION: Cancel periodic cleanup timer
+        # 2. Cancel periodic cleanup timer
         if self._cleanup_timer:
             self._cleanup_timer.cancel()
             try:
                 await self._cleanup_timer
             except asyncio.CancelledError:
                 pass
-            logger.debug("Periodic cleanup timer cancelled")
 
-        # BUG-MEMORY-002 FIX: Clean up completed background tasks first
+        # 3. Drain background tasks
         await self._cleanup_background_tasks()
-
         background_list = list(self._background_tasks)
         if background_list:
-            logger.debug(f"Waiting for {len(background_list)} background tasks...")
-            done, pending = await asyncio.wait(
-                background_list,
-                timeout=5.0,  # Don't wait forever
-                return_when=asyncio.ALL_COMPLETED,
-            )
-            if pending:
-                logger.warning(f"{len(pending)} background tasks did not complete in time")
-                # Cancel pending tasks to prevent resource leak
-                for task in pending:
-                    task.cancel()
-            logger.debug(f"Background tasks complete: {len(done)} succeeded")
+            done, pending = await asyncio.wait(background_list, timeout=5.0)
+            for task in pending:
+                task.cancel()
 
-        # 1. Flush telemetry if we have a project ID
+        # 4. Flush telemetry snapshots
         if self._project_id:
             try:
                 await self._flush_telemetry_snapshots(self._project_id)
-                logger.debug("Telemetry snapshots flushed")
             except Exception as e:
-                logger.warning(f"Failed to flush telemetry snapshots: {e}")
+                logger.warning("Failed to flush telemetry: %s", e)
 
-        # 2. Close cache connection with proper shutdown (BUG-EVENTLOOP-001 FIX)
+        # 5. Close cache (aiosqlite background thread yield)
         try:
             await self.cache.close()
-            # Yield control to allow aiosqlite background thread to finish
             await asyncio.sleep(0)
-            logger.debug("Cache connection closed")
         except Exception as e:
-            logger.warning(f"Failed to close cache connection: {e}")
+            logger.warning("Failed to close cache: %s", e)
 
-        # 3. Close state manager connection with proper shutdown (BUG-EVENTLOOP-001 FIX)
+        # 6. Close state manager (aiosqlite background thread yield)
         try:
             await self.state_mgr.close()
-            # Yield control to allow aiosqlite background thread to finish
             await asyncio.sleep(0)
-            logger.debug("State manager connection closed")
         except Exception as e:
-            logger.warning(f"Failed to close state manager connection: {e}")
+            logger.warning("Failed to close state manager: %s", e)
 
-        # 4. Flush audit log if needed
+        # 7. Flush audit log
         try:
             if hasattr(self._audit_log, "flush"):
                 await self._audit_log.flush()
-                logger.debug("Audit log flushed")
         except Exception as e:
-            logger.warning(f"Failed to flush audit log: {e}")
+            logger.warning("Failed to flush audit log: %s", e)
 
-        # 5. Flush telemetry store
+        # 8. Flush telemetry store
         try:
             if self._telemetry_store is not None:
                 await self._telemetry_store.flush()
-            logger.debug("Telemetry store flushed")
         except Exception as e:
-            logger.warning(f"Failed to flush telemetry store: {e}")
+            logger.warning("Failed to flush telemetry store: %s", e)
 
-        # 6. SkillOpt cleanup
+        # 9. Close SkillOpt manager
         try:
             if self._skill_manager is not None:
                 await self._skill_manager.close()
@@ -944,7 +919,6 @@ class Orchestrator:
         self._entered = False
         if hasattr(self, "_run_state"):
             self._run_state.entered = False
-        logger.debug("Orchestrator cleanup complete")
 
     async def close(self) -> None:
         """
