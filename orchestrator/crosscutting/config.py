@@ -122,12 +122,33 @@ class OrchestratorSettings(BaseSettings):
     motion_intensity: int = Field(default=5, ge=1, le=10)  # Animation depth
     visual_density: int = Field(default=5, ge=1, le=10)    # Info per viewport
 
+    # ── Paths & models ────────────────────────────────────────────────────
+    cache_home: str = ""  # Override ~/.orchestrator_cache (ORCH_CACHE_HOME)
+    compression_model: str = ""  # Override context compression model
+
     model_config = SettingsConfigDict(
         env_prefix="ORCH_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @staticmethod
+    def env_str(key: str, default: str = "") -> str:
+        """Centralized env-var reader — prefer this over os.getenv."""
+        import os
+
+        return os.environ.get(f"ORCH_{key}", default)
+
+    @staticmethod
+    def env_int(key: str, default: int = 0) -> int:
+        """Centralized env-var reader for integer values."""
+        import os
+
+        try:
+            return int(os.environ.get(f"ORCH_{key}", str(default)))
+        except (TypeError, ValueError):
+            return default
 
 
 # ── Singleton instances (created once at import time) ──

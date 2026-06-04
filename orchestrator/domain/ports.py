@@ -169,6 +169,29 @@ class ValidatorPort(Protocol):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# TaskQueuePort  (work-queue abstraction for horizontal scaling)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class TaskQueuePort(Protocol):
+    """Async work-queue for task dispatch and execution.
+
+    Satisfied by: orchestrator.kanban.board.KanbanBoard
+    Enables swapping the queue backend (Kanban → Redis, RabbitMQ, etc.)
+    without changing dispatcher or engine code.
+    """
+
+    async def enqueue(self, project_spec: Any, priority: int = 0) -> str: ...
+    async def claim_next(self, assignee: str) -> Any | None: ...
+    async def complete(self, task_id: str, result: Any | None = None) -> bool: ...
+    async def record_failure(self, task_id: str, error: str = "") -> bool: ...
+    async def list_tasks(self, status: str | None = None, limit: int = 50) -> list[Any]: ...
+    async def get_stats(self) -> dict[str, Any]: ...
+    async def update_status(self, task_id: str, status: str, result: Any | None = None) -> bool: ...
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # SkillStorePort  (SkillOpt — self-improving skill system)
 # ─────────────────────────────────────────────────────────────────────────────
 
