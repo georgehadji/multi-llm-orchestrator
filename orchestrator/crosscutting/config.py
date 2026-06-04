@@ -16,6 +16,7 @@ Environment variables use the ORCH_ prefix by convention.
 
 from __future__ import annotations
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Re-export static defaults from orchestrator/config.py (TASK 501)
@@ -81,6 +82,10 @@ class FeatureFlags(BaseSettings):
     task_verifier_enabled: bool = True  # Task output verifier
     token_optimizer_enabled: bool = True  # Token usage optimizer
 
+    # ── taste-skill design quality gates ──────────────────────────────────
+    taste_skill_enabled: bool = True  # Inject taste-skill anti-slop prefix for frontend tasks
+    image_reference_pipeline: bool = False  # Pre-generate text visual context before code gen
+
     model_config = SettingsConfigDict(
         env_prefix="ORCH_",
         env_file=".env",
@@ -111,6 +116,11 @@ class OrchestratorSettings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
     audit_log_path: str = "~/.orchestrator_cache/audit.log"
+
+    # ── taste-skill design dials (1–10) ───────────────────────────────────
+    design_variance: int = Field(default=5, ge=1, le=10)   # Layout experimentation
+    motion_intensity: int = Field(default=5, ge=1, le=10)  # Animation depth
+    visual_density: int = Field(default=5, ge=1, le=10)    # Info per viewport
 
     model_config = SettingsConfigDict(
         env_prefix="ORCH_",

@@ -810,6 +810,17 @@ def validate_no_error_placeholders(output: str) -> ValidationResult:
 # Validator registry - MUST be at end after all functions defined
 # ─────────────────────────────────────────────
 
+
+def _load_anti_slop_validator():
+    """Lazy-load anti_slop to avoid circular import at module level."""
+    try:
+        from orchestrator.quality.design_validators import validate_anti_slop
+
+        return validate_anti_slop
+    except ImportError:
+        return lambda output: ValidationResult(True, "anti_slop unavailable", "anti_slop")
+
+
 VALIDATORS = {
     "json_schema": validate_json_schema,
     "python_syntax": validate_python_syntax,
@@ -822,6 +833,7 @@ VALIDATORS = {
     "tool_safety": validate_tool_safety,  # Prevent hallucinated tool calls
     "simplicity": validate_simplicity,  # Karpathy Principle 2: over-engineering detection
     "surgical_changes": validate_surgical_changes,  # Karpathy Principle 3: scope creep detection
+    "anti_slop": _load_anti_slop_validator(),  # taste-skill: soft/WARN only — never in hard_validators
 }
 
 

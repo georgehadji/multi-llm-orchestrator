@@ -64,6 +64,70 @@ python -m orchestrator slash
 
 ---
 
+## Design Quality Gates (taste-skill)
+
+The orchestrator integrates **taste-skill**, a suite of anti-slop design rules that prevent AI-generated frontend UIs from defaulting to generic patterns (Inter font, purple-blue gradients, pure black/white, uniform 3-column grids).
+
+### Activate & Configure
+
+**Feature flags** (default behavior shown):
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `ORCH_TASTE_SKILL_ENABLED` | `true` | Inject anti-slop rules into frontend code generation |
+| `ORCH_IMAGE_REFERENCE_PIPELINE` | `false` | Pre-flight text visual-direction brief (optional, slower) |
+
+**Tunable dials** (1–10, default 5 for all):
+
+| Dial | Range | What It Controls |
+|------|-------|------------------|
+| `ORCH_DESIGN_VARIANCE` | 1–10 | Layout experimentation (1=centered/clean, 10=asymmetric/modern) |
+| `ORCH_MOTION_INTENSITY` | 1–10 | Animation depth (1=hover-only, 10=scroll-triggered/magnetic) |
+| `ORCH_VISUAL_DENSITY` | 1–10 | Information per viewport (1=spacious/minimal, 10=dense dashboard) |
+
+### Design Variants
+
+When generating frontend tasks, the orchestrator picks a design direction:
+
+| Variant | When Used | Characteristic |
+|---------|-----------|-----------------|
+| **DEFAULT** | All frontend tasks | Core anti-slop rules (always applied) |
+| **SOFT** | Explicit selection | Premium agency aesthetic (serifs, luxury spacing) |
+| **MINIMALIST** | Explicit selection | Editorial/Notion style (high whitespace, typography-first) |
+| **BRUTALIST** | Explicit selection | Swiss/Industrial (geometric, constrained palette) |
+| **REDESIGN** | Tasks with "redesign"/"improve ui" in prompt | Triggers structured audit critique instead of generic review |
+
+### Usage Examples
+
+```bash
+# Default — taste-skill enabled with standard dials (5/5/5)
+python -m orchestrator --project "Build a SaaS landing page in HTML/CSS" --budget 2.0
+
+# Max layout variance, minimal motion
+ORCH_DESIGN_VARIANCE=9 ORCH_MOTION_INTENSITY=1 \
+  python -m orchestrator --project "Build a brutalist portfolio site" --budget 2.0
+
+# Redesign audit mode — evaluates against typography/color/layout/interactivity
+python -m orchestrator --project "Redesign the pricing page to feel more premium" --budget 1.5
+
+# Disable entirely (for Python-only projects)
+ORCH_TASTE_SKILL_ENABLED=false python -m orchestrator ...
+
+# Enable visual-context pre-flight (experimental, slower)
+ORCH_IMAGE_REFERENCE_PIPELINE=true \
+  python -m orchestrator --project "Build a portfolio site with a specific mood" --budget 3.0
+```
+
+### How It Works
+
+1. **Generator stage**: If task is frontend + flag enabled, prepends taste-skill rules to LLM system prompt, parameterized by dials
+2. **Critic stage**: If task variant is REDESIGN, uses structured design audit (typography→color→layout→interactivity→content) instead of generic code review
+3. **Validator stage**: Anti-slop pattern detector (soft WARN-only, logs generic patterns found but never blocks)
+
+taste-skill is **always optional** — disabled flag or non-frontend task → no overhead.
+
+---
+
 ## Architecture
 
 ```

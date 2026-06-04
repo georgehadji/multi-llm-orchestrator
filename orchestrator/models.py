@@ -93,6 +93,20 @@ class TaskType(str, Enum):
     EVALUATE = "evaluation"
 
 
+class DesignVariant(str, Enum):
+    """Visual design direction for frontend code generation tasks.
+
+    Passed as ``Task.design_variant`` to select the appropriate
+    taste-skill SKILL.md prefix and critique rubric.
+    """
+
+    DEFAULT = "default"       # Anti-slop default (taste-skill v2)
+    SOFT = "soft"             # Premium agency / Awwwards-tier
+    MINIMALIST = "minimalist" # Editorial / Notion-style
+    BRUTALIST = "brutalist"   # Swiss / industrial mechanical
+    REDESIGN = "redesign"     # Audit-first redesign of existing UI
+
+
 class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════
@@ -535,6 +549,8 @@ class Task:
     revision_context: str = ""
 
     mode: str = ""  # "" means STANDARD
+
+    design_variant: "DesignVariant | None" = None  # taste-skill aesthetic direction
 
     # NOTE: type-specific defaults (thresholds, iterations, token limits) are
 
