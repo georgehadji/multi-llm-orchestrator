@@ -995,6 +995,22 @@ class UnifiedEventBus(HookRegistry):
         """Get current metrics."""
         return self.projection_metrics.get_metrics()
 
+    def get_event_history(
+        self,
+        event_type: EventType | None = None,
+        limit: int = 100,
+    ) -> list[DomainEvent]:
+        """Return recent events, optionally filtered by type.
+
+        Queries the EventStore (SQLite) when available, otherwise returns
+        an empty list.  Matches the NashEventBus.get_event_history() API
+        for migration compatibility.
+        """
+        if self.store is None:
+            return []
+        events = self.store.get_events(event_type=event_type)
+        return events[-limit:]
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Global Instance & Convenience Functions

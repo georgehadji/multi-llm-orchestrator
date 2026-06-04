@@ -60,6 +60,7 @@ class KanbanDispatcher:
         self._max_workers = max_workers
         self._worker_name = worker_name
         self._running = False
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
 
     # ── Public API ──────────────────────────────────────────────────────────
 
@@ -109,8 +110,10 @@ class KanbanDispatcher:
             if task is None:
                 break  # no more tasks
 
-            # Fire-and-forget: spawn worker without blocking
-            asyncio.create_task(self._execute_task(task.task_id, task.project_spec))
+            # Spawn worker with task reference storage (prevents GC cancellation)
+            t = asyncio.create_task(self._execute_task(task.task_id, task.project_spec))
+            self._pending_tasks.add(t)
+            t.add_done_callback(self._pending_tasks.discard)
             dispatched += 1
 
         if dispatched:

@@ -19,6 +19,7 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger("orchestrator.command_center")
 
@@ -161,6 +162,7 @@ class CommandCenterServer:
         self._audit_log = AuditLog()
         self._running = False
         self._event_queue: asyncio.Queue = asyncio.Queue()
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
         self._lock = asyncio.Lock()
 
     async def start(self, host: str = "0.0.0.0", port: int = 8765):
