@@ -22,9 +22,10 @@ import logging
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import aiosqlite
+if TYPE_CHECKING:
+    import aiosqlite
 
 from ..models import TaskType
 from ..models_skill import SkillPatch, Trajectory
@@ -122,8 +123,8 @@ class SkillStore:
     ) -> None:
         self._traj_path = traj_path
         self._skill_path = skill_path
-        self._traj_db: aiosqlite.Connection | None = None
-        self._skill_db: aiosqlite.Connection | None = None
+        self._traj_db: Any = None  # aiosqlite.Connection
+        self._skill_db: Any = None  # aiosqlite.Connection
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -131,16 +132,18 @@ class SkillStore:
 
     async def connect(self) -> None:
         """Open both databases and ensure schemas exist."""
+        import aiosqlite as _aio
+
         self._traj_path.parent.mkdir(parents=True, exist_ok=True)
         self._skill_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self._traj_db = await aiosqlite.connect(self._traj_path)
-        self._traj_db.row_factory = aiosqlite.Row
+        self._traj_db = await _aio.connect(self._traj_path)
+        self._traj_db.row_factory = _aio.Row
         await self._traj_db.executescript(_TRAJ_SCHEMA)
         await self._traj_db.commit()
 
-        self._skill_db = await aiosqlite.connect(self._skill_path)
-        self._skill_db.row_factory = aiosqlite.Row
+        self._skill_db = await _aio.connect(self._skill_path)
+        self._skill_db.row_factory = _aio.Row
         await self._skill_db.executescript(_SKILL_SCHEMA)
         await self._skill_db.commit()
 

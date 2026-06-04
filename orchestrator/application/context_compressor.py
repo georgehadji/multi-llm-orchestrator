@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -59,6 +58,7 @@ class ContextCompressor:
         client: LLMClient | None = None,
         enabled: bool = False,
         cache_ttl: int = _CACHE_TTL_SECONDS,
+        compression_model: str = "",
     ) -> None:
         """Initialize compressor.
 
@@ -66,15 +66,15 @@ class ContextCompressor:
             client: LLMClient instance for LLM calls. Required when enabled.
             enabled: When False, falls back to hard truncation.
             cache_ttl: Seconds before a cached summary is evicted.
+            compression_model: Model to use for compression (defaults to
+                _DEFAULT_MODEL if empty).  Callers should read this from
+                crosscutting/config.py rather than os.environ.
         """
         self._client = client
         self._enabled = enabled
         self._cache_ttl = cache_ttl
         self._cache: dict[str, tuple[float, str]] = {}  # hash → (timestamp, summary)
-
-        # Override model from env if set
-        model_env = os.environ.get("ORCH_CONTEXT_COMPRESSION_MODEL", "")
-        self._model = Model(model_env) if model_env else _DEFAULT_MODEL
+        self._model = Model(compression_model) if compression_model else _DEFAULT_MODEL
 
     # ── Public API ──────────────────────────────────────────────────────────
 
