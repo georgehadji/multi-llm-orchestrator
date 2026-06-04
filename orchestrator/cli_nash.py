@@ -497,7 +497,7 @@ def nash_events(follow: bool, event_type: str | None, limit: int):
 def _show_events(event_type: str | None, limit: int):
     """Show recent events."""
     try:
-        from .nash_events import EventType, get_event_bus
+        from .unified_events.core import EventType, get_event_bus
 
         bus = get_event_bus()
 
@@ -527,7 +527,7 @@ def _follow_events(event_type: str | None):
     import time
 
     try:
-        from .nash_events import get_event_bus
+        from .unified_events.core import get_event_bus
 
         bus = get_event_bus()
         seen = set()

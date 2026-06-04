@@ -142,30 +142,27 @@ class AgentBase(ABC):
     async def send_message(self, recipient: AgentRole, content: str) -> bool:
         """Send a message to another agent via the unified event bus.
 
-        Prefers the injected ``event_bus`` (UnifiedEventBus) when available,
-        falling back to the legacy synchronous AgentMessageBus on the workspace.
+        Requires ``event_bus`` to have been injected at construction time.
+        Raises RuntimeError if no event bus is available.
         """
-        if self._event_bus is not None:
-            try:
-                from ..unified_events.core import AgentMessageEvent
+        if self._event_bus is None:
+            raise RuntimeError(
+                f"Agent {self.role.value} has no event bus — cannot send messages. "
+                "Inject event_bus at construction time."
+            )
+        try:
+            from ..unified_events.core import AgentMessageEvent
 
-                await self._event_bus.publish(
-                    AgentMessageEvent(
-                        aggregate_id=self.role.value,
-                        sender=self.role.value,
-                        content=content,
-                        msg_type="query",
-                        recipient=recipient.value,
-                    )
+            await self._event_bus.publish(
+                AgentMessageEvent(
+                    aggregate_id=self.role.value,
+                    sender=self.role.value,
+                    content=content,
+                    msg_type="query",
+                    recipient=recipient.value,
                 )
-                return True
-            except Exception:
-                logger.debug("Event bus publish failed for agent message", exc_info=True)
-                return False
-        # Legacy path: synchronous AgentMessageBus on workspace
-        if self.workspace is not None and hasattr(self.workspace, "message_bus"):
-            msg = {"sender": self.role.value, "recipient": recipient.value, "content": content}
-            self.workspace.message_bus.publish(msg)
+            )
             return True
-        logger.warning("No event bus or workspace available for messaging")
-        return False
+        except Exception:
+            logger.debug("Event bus publish failed for agent message", exc_info=True)
+            return False
