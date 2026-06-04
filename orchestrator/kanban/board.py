@@ -144,9 +144,9 @@ class KanbanBoard:
         spec_str = json.dumps(project_spec) if isinstance(project_spec, dict) else project_spec
         task_id = f"kanban_{uuid.uuid4().hex[:8]}"
 
-        async with self._lock:
+        def _write() -> str:
+            conn = sqlite3.connect(str(self._db_path))
             try:
-                conn = sqlite3.connect(str(self._db_path))
                 conn.execute(
                     """INSERT INTO kanban_tasks
                        (task_id, project_spec, status, priority, created_at)
@@ -154,9 +154,15 @@ class KanbanBoard:
                     (task_id, spec_str, priority, time.time()),
                 )
                 conn.commit()
+            finally:
                 conn.close()
+            return task_id
+
+        async with self._lock:
+            try:
+                result = await asyncio.to_thread(_write)
                 logger.info("Kanban: enqueued %s (priority=%d)", task_id, priority)
-                return task_id
+                return result
             except sqlite3.Error as exc:
                 logger.error("Kanban: enqueue failed: %s", exc)
                 raise
@@ -172,9 +178,9 @@ class KanbanBoard:
         Returns:
             A KanbanTask if one was available, None otherwise.
         """
-        async with self._lock:
+        def _claim() -> KanbanTask | None:
+            conn = sqlite3.connect(str(self._db_path))
             try:
-                conn = sqlite3.connect(str(self._db_path))
                 conn.row_factory = sqlite3.Row
 
                 # Atomic claim: find and update in one step
@@ -193,7 +199,6 @@ class KanbanBoard:
                     (assignee, time.time()),
                 ).fetchone()
                 conn.commit()
-                conn.close()
 
                 if row is None:
                     return None
@@ -210,6 +215,12 @@ class KanbanBoard:
                     failure_count=row["failure_count"],
                     error_log=row["error_log"] or "",
                 )
+            finally:
+                conn.close()
+
+        async with self._lock:
+            try:
+                return await asyncio.to_thread(_claim)
             except sqlite3.Error as exc:
                 logger.error("Kanban: claim failed: %s", exc)
                 return None
@@ -247,17 +258,16 @@ class KanbanBoard:
         Returns:
             True if the task was updated.
         """
-        async with self._lock:
+        def _fail() -> tuple[bool, int, str]:
+            conn = sqlite3.connect(str(self._db_path))
             try:
-                conn = sqlite3.connect(str(self._db_path))
                 row = conn.execute(
                     "SELECT failure_count FROM kanban_tasks WHERE task_id = ?",
                     (task_id,),
                 ).fetchone()
 
                 if row is None:
-                    conn.close()
-                    return False
+                    return False, 0, ""
 
                 new_count = row[0] + 1
                 new_status = "blocked" if new_count >= _FAILURE_LIMIT else "failed"
@@ -272,16 +282,20 @@ class KanbanBoard:
                     (new_status, new_count, new_error, time.time(), task_id),
                 )
                 conn.commit()
+                return True, new_count, new_status
+            finally:
                 conn.close()
 
-                if new_status == "blocked":
+        async with self._lock:
+            try:
+                updated, new_count, new_status = await asyncio.to_thread(_fail)
+                if updated and new_status == "blocked":
                     logger.warning(
                         "Kanban: %s blocked after %d failures",
                         task_id,
                         new_count,
                     )
-
-                return True
+                return updated
             except sqlite3.Error as exc:
                 logger.error("Kanban: fail update failed: %s", exc)
                 return False
@@ -303,73 +317,84 @@ class KanbanBoard:
         Returns:
             List of KanbanTask objects.
         """
-        try:
+        def _list() -> list[KanbanTask]:
             conn = sqlite3.connect(str(self._db_path))
-            conn.row_factory = sqlite3.Row
+            try:
+                conn.row_factory = sqlite3.Row
 
-            if status:
-                rows = conn.execute(
-                    """SELECT * FROM kanban_tasks
-                       WHERE status = ?
-                       ORDER BY priority DESC, created_at DESC
-                       LIMIT ?""",
-                    (status, limit),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM kanban_tasks ORDER BY created_at DESC LIMIT ?",
-                    (limit,),
-                ).fetchall()
-            conn.close()
+                if status:
+                    rows = conn.execute(
+                        """SELECT * FROM kanban_tasks
+                           WHERE status = ?
+                           ORDER BY priority DESC, created_at DESC
+                           LIMIT ?""",
+                        (status, limit),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        "SELECT * FROM kanban_tasks ORDER BY created_at DESC LIMIT ?",
+                        (limit,),
+                    ).fetchall()
 
-            return [
-                KanbanTask(
-                    task_id=r["task_id"],
-                    project_spec=r["project_spec"],
-                    status=r["status"],
-                    assignee=r["assignee"] or "",
-                    created_at=r["created_at"],
-                    claimed_at=r["claimed_at"] or 0.0,
-                    completed_at=r["completed_at"] or 0.0,
-                    priority=r["priority"],
-                    failure_count=r["failure_count"],
-                    error_log=r["error_log"] or "",
-                )
-                for r in rows
-            ]
+                return [
+                    KanbanTask(
+                        task_id=r["task_id"],
+                        project_spec=r["project_spec"],
+                        status=r["status"],
+                        assignee=r["assignee"] or "",
+                        created_at=r["created_at"],
+                        claimed_at=r["claimed_at"] or 0.0,
+                        completed_at=r["completed_at"] or 0.0,
+                        priority=r["priority"],
+                        failure_count=r["failure_count"],
+                        error_log=r["error_log"] or "",
+                    )
+                    for r in rows
+                ]
+            finally:
+                conn.close()
+
+        try:
+            return await asyncio.to_thread(_list)
         except sqlite3.Error as exc:
             logger.debug("Kanban: list failed: %s", exc)
             return []
 
     async def get_stats(self) -> dict[str, Any]:
         """Return aggregate statistics about the board."""
-        try:
+
+        def _stats() -> dict[str, Any]:
             conn = sqlite3.connect(str(self._db_path))
-            total = conn.execute("SELECT COUNT(*) FROM kanban_tasks").fetchone()[0]
-            todo = conn.execute(
-                "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'todo'"
-            ).fetchone()[0]
-            claimed = conn.execute(
-                "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'claimed'"
-            ).fetchone()[0]
-            completed = conn.execute(
-                "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'completed'"
-            ).fetchone()[0]
-            failed = conn.execute(
-                "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'failed'"
-            ).fetchone()[0]
-            blocked = conn.execute(
-                "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'blocked'"
-            ).fetchone()[0]
-            conn.close()
-            return {
-                "total": total,
-                "todo": todo,
-                "claimed": claimed,
-                "completed": completed,
-                "failed": failed,
-                "blocked": blocked,
-            }
+            try:
+                total = conn.execute("SELECT COUNT(*) FROM kanban_tasks").fetchone()[0]
+                todo = conn.execute(
+                    "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'todo'"
+                ).fetchone()[0]
+                claimed = conn.execute(
+                    "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'claimed'"
+                ).fetchone()[0]
+                completed = conn.execute(
+                    "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'completed'"
+                ).fetchone()[0]
+                failed = conn.execute(
+                    "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'failed'"
+                ).fetchone()[0]
+                blocked = conn.execute(
+                    "SELECT COUNT(*) FROM kanban_tasks WHERE status = 'blocked'"
+                ).fetchone()[0]
+                return {
+                    "total": total,
+                    "todo": todo,
+                    "claimed": claimed,
+                    "completed": completed,
+                    "failed": failed,
+                    "blocked": blocked,
+                }
+            finally:
+                conn.close()
+
+        try:
+            return await asyncio.to_thread(_stats)
         except sqlite3.Error:
             return {
                 "total": 0,
@@ -389,9 +414,9 @@ class KanbanBoard:
         result: dict[str, Any] | None = None,
     ) -> bool:
         """Update a task's status."""
-        async with self._lock:
+        def _update() -> bool:
+            conn = sqlite3.connect(str(self._db_path))
             try:
-                conn = sqlite3.connect(str(self._db_path))
                 result_str = json.dumps(result) if result else ""
                 conn.execute(
                     "UPDATE kanban_tasks SET status = ?, error_log = ?, "
@@ -400,7 +425,12 @@ class KanbanBoard:
                 )
                 changed = conn.total_changes > 0
                 conn.commit()
-                conn.close()
                 return changed
+            finally:
+                conn.close()
+
+        async with self._lock:
+            try:
+                return await asyncio.to_thread(_update)
             except sqlite3.Error:
                 return False

@@ -159,7 +159,12 @@ def _result_from_dict(d: dict) -> TaskResult:
         try:
             return Model(model_value)
         except ValueError:
-            # Return GPT_4O_MINI as fallback for unknown models
+            logger.warning(
+                "Unknown model '%s' in persisted state — falling back to %s. "
+                "This may indicate stale data or a model removed from the registry.",
+                model_value,
+                Model.GPT_4O_MINI.value,
+            )
             return Model.GPT_4O_MINI
 
     return TaskResult(
