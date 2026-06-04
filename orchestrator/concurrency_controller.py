@@ -98,6 +98,9 @@ class ConcurrencyBudget:
         self._jobs_completed: int = 0
         self._jobs_rejected: int = 0
 
+        # Pending fire-and-forget tasks (prevent GC from cancelling mid-flight)
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
+
     @asynccontextmanager
     async def acquire(self, job_id: str, estimated_cost: float, timeout_seconds: float = 30.0):
         """
@@ -193,8 +196,10 @@ class ConcurrencyBudget:
                 self._jobs_completed += 1
                 logger.debug(f"Job {job_id} charged: ${actual_cost:.2f}")
 
-        # Schedule charge (fire-and-forget)
-        asyncio.create_task(_record())
+        # Schedule charge (fire-and-forget with reference storage)
+        task = asyncio.create_task(_record())
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
 
     def release(self, job_id: str) -> None:
         """
@@ -214,7 +219,9 @@ class ConcurrencyBudget:
                     self._total_reserved -= reserved
                     logger.debug(f"Budget released for {job_id}: ${reserved:.2f}")
 
-        asyncio.create_task(_release())
+        task = asyncio.create_task(_release())
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
 
     @property
     def available_slots(self) -> int:
