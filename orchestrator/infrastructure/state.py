@@ -37,7 +37,10 @@ from ..models import (
 
 logger = logging.getLogger("orchestrator.state")
 
-DEFAULT_STATE_PATH = Path.home() / ".orchestrator_cache" / "state.db"
+from .path_provider import CachePathProvider
+
+_DEFAULT_PATHS = CachePathProvider()
+DEFAULT_STATE_PATH = _DEFAULT_PATHS.state_db
 
 
 # ─────────────────────────────────────────────
