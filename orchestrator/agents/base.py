@@ -91,11 +91,13 @@ class AgentBase(ABC):
         workspace: "ProjectWorkspace | None" = None,
         client: "UnifiedClient | None" = None,
         model_preferences: dict[TaskType, Model] = None,
+        event_bus: Any = None,
     ) -> None:
         self.role = role
         self.tools: dict[str, Tool] = {t.name: t for t in (tools or [])}
         self.workspace = workspace
         self.client = client
+        self._event_bus = event_bus
         # Lazy-load from centralised registry when no explicit preferences given.
         # The try/except avoids a circular import between agent_model_registry
         # (which imports AgentRole from here) and agents/base.py.
@@ -138,13 +140,32 @@ class AgentBase(ABC):
         return self.tools.get(name)
 
     async def send_message(self, recipient: AgentRole, content: str) -> bool:
-        """Send a message to another agent via the workspace message bus."""
-        if self.workspace is None:
-            logger.warning("No workspace available for messaging")
-            return False
-        msg = {"sender": self.role.value, "recipient": recipient.value, "content": content}
-        if hasattr(self.workspace, "message_bus"):
-            # AgentMessageBus.publish is synchronous — call it directly without await.
+        """Send a message to another agent via the unified event bus.
+
+        Prefers the injected ``event_bus`` (UnifiedEventBus) when available,
+        falling back to the legacy synchronous AgentMessageBus on the workspace.
+        """
+        if self._event_bus is not None:
+            try:
+                from ..unified_events.core import AgentMessageEvent
+
+                await self._event_bus.publish(
+                    AgentMessageEvent(
+                        aggregate_id=self.role.value,
+                        sender=self.role.value,
+                        content=content,
+                        msg_type="query",
+                        recipient=recipient.value,
+                    )
+                )
+                return True
+            except Exception:
+                logger.debug("Event bus publish failed for agent message", exc_info=True)
+                return False
+        # Legacy path: synchronous AgentMessageBus on workspace
+        if self.workspace is not None and hasattr(self.workspace, "message_bus"):
+            msg = {"sender": self.role.value, "recipient": recipient.value, "content": content}
             self.workspace.message_bus.publish(msg)
             return True
+        logger.warning("No event bus or workspace available for messaging")
         return False
