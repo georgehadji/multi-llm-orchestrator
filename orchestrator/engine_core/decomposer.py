@@ -65,6 +65,7 @@ class Decomposer:
         api_health: dict[Model, bool] | None = None,
         output_dir: Path | None = None,
         record_failure_fn: Any = None,
+        charge_fn: Any = None,
     ) -> dict[str, Task]:
         """Break a project description into an ordered dict of atomic tasks.
 
@@ -170,6 +171,11 @@ Each task JSON element MUST also include:
 
                 parsed = self._parse_decomposition(response.text)
                 if parsed:
+                    if charge_fn is not None:
+                        try:
+                            await charge_fn(getattr(response, "cost_usd", 0.0))
+                        except Exception:
+                            logger.debug("charge_fn failed for decomposition", exc_info=True)
                     logger.info(
                         "Decomposition succeeded on attempt %d with %s (%d tasks)",
                         attempt + 1,
