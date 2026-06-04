@@ -78,23 +78,27 @@ class AdaptiveRouter:
 
     def is_available(self, model: Model) -> bool:
         """
-        Check if model is available for routing (thread-safe, non-blocking).
+        Check if model is available for routing (fast, non-blocking).
 
-        Uses try-lock pattern to avoid blocking in list comprehensions.
-        Returns True if model is HEALTHY, False otherwise.
+        Reads mutable state without acquiring the lock — this is safe in
+        CPython asyncio because dict.get() is a single C call that does not
+        release the GIL, and this method contains no ``await`` points that
+        could yield control mid-read.  When the lock IS held by a concurrent
+        writer, the method returns True (optimistic), avoiding blocking in
+        list comprehensions.
         """
-        # Non-blocking check - if lock is held, assume model is available
-        # This is safe because we're just reading state, not modifying it
+        # Optimistic: if lock is held, a writer is in progress — assume available
         try:
             if self._lock.locked():
-                return True  # Assume available if lock is held (temporary state)
+                return True
         except AttributeError:
-            pass  # asyncio.Lock doesn't support locked() in older versions
-        # Safe to read without lock for simple boolean check
-        since = self._degraded_since.get(model)
+            pass
         if model in self._disabled:
             return False
-        return not (since is not None and time.monotonic() - since < self.cooldown_seconds)
+        since = self._degraded_since.get(model)
+        if since is None:
+            return True
+        return (time.monotonic() - since) >= self.cooldown_seconds
 
     async def record_timeout(self, model: Model) -> None:
         """
