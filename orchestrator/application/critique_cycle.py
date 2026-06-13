@@ -16,6 +16,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..model_registry import ModelRegistry
@@ -23,7 +24,7 @@ from ..models import AttemptRecord, TaskType
 from ..prompt_builder import CritiquePrompt, DeltaPrompt
 
 if TYPE_CHECKING:
-    from ..domain.ports import LLMClient
+    from ..domain.ports import LLMClient, LSPValidatorPort
     from ..models import Model, Task
 
 logger = logging.getLogger(__name__)
@@ -66,10 +67,12 @@ class CritiqueCycle:
     def __init__(
         self,
         client: LLMClient,
+        lsp_validator: LSPValidatorPort | None = None,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
         enable_streaming: bool = False,
     ):
         self.client = client
+        self._lsp_validator = lsp_validator
         self.max_iterations = max_iterations
         self.enable_streaming = enable_streaming
         self._partial_output_buffer = ""
@@ -106,6 +109,33 @@ class CritiqueCycle:
             if task.type == TaskType.CODE_GEN:
                 output = self._clean_code_output(output)
 
+            # ── CodeWhale Phase 1: LSP validation ──────────────────────
+            # Run deterministic language-server diagnostics between generation
+            # and critique. Diagnostics are injected as inline code comments AND
+            # as a structured summary in the critique prompt.
+            lsp_diagnostics: list = []
+            lsp_summary: str = ""
+            if self._lsp_validator is not None and task.type == TaskType.CODE_GEN:
+                try:
+                    language = self._detect_language(task)
+                    lsp_diagnostics = await self._lsp_validator.validate(output, language)
+                    if lsp_diagnostics:
+                        # Inject inline comments
+                        from ..infrastructure.lsp_validator import LspValidator as _LV
+
+                        output = _LV.inject_inline_diagnostics(output, lsp_diagnostics)
+                        lsp_summary = _LV.diagnostics_summary(lsp_diagnostics)
+                        logger.info(
+                            "  %s: LSP found %d diagnostics (%d errors, %d warnings)",
+                            task.id,
+                            len(lsp_diagnostics),
+                            sum(1 for d in lsp_diagnostics if d.severity == "error"),
+                            sum(1 for d in lsp_diagnostics if d.severity == "warning"),
+                        )
+                except Exception as _lsp_e:
+                    logger.warning("  %s: LSP validation failed: %s", task.id, _lsp_e)
+            # ────────────────────────────────────────────────────────────
+
             critique = ""
             score = 0.0
 
@@ -121,9 +151,22 @@ class CritiqueCycle:
                 except Exception:
                     pass
 
+                # Enrich the critique prompt with LSP diagnostics summary
+                _critique_prompt = full_prompt
+                if lsp_summary:
+                    _critique_prompt = (
+                        full_prompt
+                        + "\n\n## LSP Validation Results\n\n"
+                        + lsp_summary
+                        + "\n\n**Reviewer guidance:** The diagnostics above were produced "
+                        "by deterministic language-server analysis. Errors must be resolved. "
+                        "Warnings should be addressed where appropriate. "
+                        "Evaluate the revised code accordingly in your score.\n"
+                    )
+
                 critique_response = await self._critique(
                     model=reviewer_model,
-                    original_prompt=full_prompt,
+                    original_prompt=_critique_prompt,
                     generated_output=output,
                     task_type=task.type,
                     redesign_rubric=_redesign_rubric,
@@ -289,6 +332,18 @@ class CritiqueCycle:
             effective_max_tokens = min(effective_max_tokens, model_limit)
 
         return timeout, effective_max_tokens
+
+    def _detect_language(self, task: Task) -> str:
+        """Detect programming language from task metadata or output pattern."""
+        if hasattr(task, "language") and task.language:
+            return task.language
+        if hasattr(task, "target_path") and task.target_path:
+            ext = Path(task.target_path).suffix.lower()
+            ext_map = {".py": "python", ".ts": "typescript", ".tsx": "typescript",
+                       ".js": "typescript", ".jsx": "typescript", ".go": "go",
+                       ".rs": "rust", ".java": "java"}
+            return ext_map.get(ext, "python")
+        return "python"
 
     def _validate_syntax(self, output: str) -> bool:
         try:

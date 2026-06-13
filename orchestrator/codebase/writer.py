@@ -12,6 +12,7 @@ from __future__ import annotations
 import difflib
 import logging
 import shutil
+from typing import Any
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -244,13 +245,17 @@ class ModificationGate:
 class CodebaseWriter:
     """Top-level writer that applies modifications with safety gates."""
 
-    def __init__(self, root: Path, dry_run: bool = False) -> None:
+    def __init__(
+        self, root: Path, dry_run: bool = False, snapshot_store: Any = None
+    ) -> None:
         self._files = FileOperations(root)
         self._diffs = DiffEngine()
         self._gate = ModificationGate()
         self._root = root
         self._dry_run = dry_run
+        self._snapshot_store = snapshot_store
         self._all_diffs: list[str] = []
+        self._snapshot_created: bool = False
 
     @property
     def all_diffs(self) -> str:
@@ -271,6 +276,28 @@ class CodebaseWriter:
             return False
 
         content = result.output.strip()
+
+        # CodeWhale Phase 2: Snapshot before destructive operations
+        if (
+            self._snapshot_store is not None
+            and not self._snapshot_created
+            and task.type in (TaskType.MODIFY_FILE, TaskType.DELETE_FILE)
+        ):
+            try:
+                import asyncio
+
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.ensure_future(
+                        self._snapshot_store.create(
+                            label=f"before-{task.id}",
+                            source_dir=str(self._root),
+                            metadata={"task_id": task.id, "task_type": task.type.value},
+                        )
+                    )
+                self._snapshot_created = True
+            except Exception as _ss_e:
+                logger.debug("Pre-snapshot failed: %s", _ss_e)
 
         if task.type == TaskType.CODE_GEN:
             target = Path(task.target_path) if task.target_path else Path(f"{task.id}.py")

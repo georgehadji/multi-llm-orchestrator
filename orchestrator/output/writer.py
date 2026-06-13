@@ -217,6 +217,7 @@ def write_output_dir(
     state: ProjectState,
     output_dir: str | Path,
     project_id: str = "",
+    snapshot_store: Any = None,
 ) -> Path:
     """
     Write all task outputs + summary files to output_dir.
@@ -317,6 +318,33 @@ raise RuntimeError(
         logger.info("Project Assembler: created %d integrated files", len(created_files))
     except Exception as e:
         logger.warning(f"Project Assembler failed: {e}. Continuing with task files only.")
+
+    # CodeWhale Phase 2: Snapshot the output directory for rollback
+    if snapshot_store:
+        try:
+            import asyncio
+
+            if asyncio.iscoroutinefunction(snapshot_store.create):
+                # If we're in an async context, schedule it
+                try:
+                    asyncio.get_running_loop()
+                    # We're in an async context — create task
+                    asyncio.ensure_future(
+                        snapshot_store.create(
+                            label=f"project-{project_id}-complete",
+                            source_dir=str(out),
+                            metadata={
+                                "project_id": project_id,
+                                "project_description": getattr(state, "project_description", ""),
+                            },
+                        )
+                    )
+                except RuntimeError:
+                    pass
+            else:
+                logger.debug("Snapshot store available but create() not async")
+        except Exception as _ss_e:
+            logger.debug("Snapshot trigger: %s", _ss_e)
 
     resolved = out.resolve()
     logger.info(f"Output written to: {resolved}")

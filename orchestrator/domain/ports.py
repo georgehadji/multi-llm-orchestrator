@@ -317,3 +317,155 @@ class NullEventBus:
 
     async def publish(self, event: Any) -> None:
         pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LSPValidatorPort  (CodeWhale Phase 1 — deterministic post-generation validation)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class LSPDiagnostic:
+    """A single diagnostic from a language server (pyright, tsc, gopls, etc.)."""
+
+    severity: str = "error"  # "error" | "warning" | "information" | "hint"
+    message: str = ""
+    line: int = 0  # 1-indexed
+    column: int = 0  # 1-indexed
+    source: str = ""  # e.g. "pyright", "tsc"
+    code: str = ""  # e.g. "reportUndefinedVariable"
+
+
+@runtime_checkable
+class LSPValidatorPort(Protocol):
+    """Validates generated code via language server diagnostics.
+
+    Satisfied by: orchestrator.infrastructure.lsp_validator.LspValidator
+    Application layer (CritiqueCycle) imports this protocol, not the adapter.
+    """
+
+    async def validate(
+        self, code: str, language: str = "python", filename: str = ""
+    ) -> list[LSPDiagnostic]:
+        """Validate a code string, return diagnostics.
+        Writes to tempfile, runs language server, cleans up.
+        """
+        ...
+
+    async def validate_file(self, filepath: str) -> list[LSPDiagnostic]:
+        """Validate a file already on disk, return diagnostics."""
+        ...
+
+    def available_servers(self) -> frozenset[str]:
+        """Return language IDs (e.g. 'python', 'typescript') for which a
+        server binary is installed and executable.
+        """
+        ...
+
+
+class NullLspValidator:
+    """No-op fallback when LSP validation is disabled or no servers installed."""
+
+    async def validate(
+        self, code: str, language: str = "python", filename: str = ""
+    ) -> list[LSPDiagnostic]:
+        return []
+
+    async def validate_file(self, filepath: str) -> list[LSPDiagnostic]:
+        return []
+
+    def available_servers(self) -> frozenset[str]:
+        return frozenset()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SnapshotPort  (CodeWhale Phase 2 — content-preserving workspace snapshots)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class SnapshotPort(Protocol):
+    """Content-preserving workspace snapshots.
+
+    Unlike CheckpointManager (which stores metadata/hashes only), this port
+    stores actual file contents — enabling true `rollback()` that restores
+    file state, not just metadata inspection.
+
+    Satisfied by: orchestrator.infrastructure.snapshot_store.GitSnapshotStore
+                  orchestrator.infrastructure.snapshot_store.TarSnapshotStore
+    """
+
+    async def create(
+        self,
+        label: str,
+        source_dir: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """Create a snapshot of source_dir, return snapshot_id.
+
+        Args:
+            label: Human-readable name (e.g. "before-refactor-main").
+            source_dir: Directory whose contents to snapshot.
+            metadata: Optional extra data to associate (project_id, budget, etc.).
+
+        Returns:
+            String snapshot_id (git SHA, tariff name, etc.).
+        """
+        ...
+
+    async def restore(self, snapshot_id: str, target_dir: str) -> bool:
+        """Restore file contents from snapshot into target_dir.
+
+        Args:
+            snapshot_id: ID returned by create().
+            target_dir: Directory to restore into (created if missing).
+
+        Returns:
+            True if successful.
+        """
+        ...
+
+    async def list_snapshots(
+        self,
+    ) -> list[dict[str, Any]]:
+        """Return all snapshots with metadata.
+
+        Returns list of dicts with keys:
+            id, label, timestamp, file_count, total_size_bytes, metadata
+        Sorted by timestamp descending (most recent first).
+        """
+        ...
+
+    async def diff(
+        self, snapshot_a: str, snapshot_b: str
+    ) -> dict[str, Any]:
+        """Compare two snapshots.
+
+        Returns dict with keys:
+            added_files, removed_files, modified_files, file_diffs
+        File_diffs is a dict path -> unified diff string (line-level).
+        """
+        ...
+
+    async def delete(self, snapshot_id: str) -> bool:
+        """Remove a snapshot and its stored content."""
+        ...
+
+
+class NullSnapshotStore:
+    """No-op fallback when snapshot storage is disabled."""
+
+    async def create(self, label, source_dir, metadata=None):
+        return ""
+
+    async def restore(self, snapshot_id, target_dir):
+        return False
+
+    async def list_snapshots(self):
+        return []
+
+    async def diff(self, snapshot_a, snapshot_b):
+        return {"added_files": [], "removed_files": [], "modified_files": [], "file_diffs": {}}
+
+    async def delete(self, snapshot_id):
+        return False

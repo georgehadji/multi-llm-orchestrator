@@ -62,6 +62,8 @@ from .memory_tier import MemoryTierManager, MemoryType
 from .persona import PersonaManager, PersonaMode
 from .session_watcher import SessionWatcher
 from .token_optimizer import TokenOptimizer
+from ..domain.ports import NullSnapshotStore
+from ..infrastructure.snapshot_store import GitSnapshotStore, default_snapshot_dir
 
 
 @dataclass
@@ -94,6 +96,13 @@ class MCPServer:
         self.persona_manager = PersonaManager()
         self.session_watcher = SessionWatcher()
         self.token_optimizer = TokenOptimizer()
+
+        # Snapshot store (for project-aware tools)
+        self._snapshot_store: Any = NullSnapshotStore()
+        try:
+            self._snapshot_store = GitSnapshotStore(storage_dir=default_snapshot_dir())
+        except Exception:
+            pass
 
         # MCP server instance
         self.server: Server | None = None
@@ -254,6 +263,27 @@ class MCPServer:
                         "required": ["command", "output"],
                     },
                 ),
+                Tool(
+                    name="orch_project_status",
+                    description="Get the status of a project (tasks completed, budget, snapshots)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {"type": "string", "description": "Project ID"},
+                        },
+                        "required": ["project_id"],
+                    },
+                ),
+                Tool(
+                    name="orch_project_snapshots",
+                    description="List workspace snapshots available for rollback",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "limit": {"type": "integer", "default": 20, "description": "Max results"},
+                        },
+                    },
+                ),
             ]
 
     def _register_handlers(self) -> None:
@@ -295,6 +325,10 @@ class MCPServer:
             return self._tool_session_record(arguments)
         elif name == "orch_optimize_output":
             return self._tool_optimize_output(arguments)
+        elif name == "orch_project_status":
+            return await self._tool_project_status(arguments)
+        elif name == "orch_project_snapshots":
+            return await self._tool_project_snapshots(arguments)
         else:
             raise ValueError(f"Unknown tool: {name}")
 
@@ -458,6 +492,48 @@ class MCPServer:
             "original_tokens": stats.total_original,
             "optimized_tokens": stats.total_optimized,
             "savings_percent": stats.savings_percent,
+        }
+
+    async def _tool_project_status(self, args: dict) -> dict:
+        """Handle orch_project_status tool."""
+        project_id = args.get("project_id", "")
+
+        # Gather available snapshots for this project
+        snapshots = await self._snapshot_store.list_snapshots()
+        project_snapshots = [
+            {
+                "id": s.get("id", ""),
+                "label": s.get("label", ""),
+                "timestamp": s.get("timestamp", 0),
+            }
+            for s in snapshots
+            if project_id in str(s.get("metadata", {}))
+        ]
+
+        # Gather session data if available
+        sessions = self.session_watcher.get_session_stats() if hasattr(self, "session_watcher") else {}
+
+        return {
+            "project_id": project_id,
+            "snapshots_available": len(project_snapshots),
+            "recent_snapshots": project_snapshots[:10],
+            "memory_count": len(
+                (await self.memory_manager.retrieve(project_id, "", limit=0))
+                if project_id
+                else []
+            ),
+            "sessions": sessions,
+        }
+
+    async def _tool_project_snapshots(self, args: dict) -> dict:
+        """Handle orch_project_snapshots tool."""
+        limit = args.get("limit", 20)
+
+        all_snapshots = await self._snapshot_store.list_snapshots()
+        return {
+            "snapshots": all_snapshots[:limit],
+            "total": len(all_snapshots),
+            "store_type": "git" if isinstance(self._snapshot_store, GitSnapshotStore) else "tar",
         }
 
     async def run_stdio(self) -> None:

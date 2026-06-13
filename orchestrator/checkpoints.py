@@ -445,3 +445,122 @@ class NamedCheckpointManager(CheckpointManager):
             "snapshot_a": name_a,
             "snapshot_b": name_b,
         }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# CodeWhale Phase 2: ContentCheckpointManager — content-aware snapshots
+# ─────────────────────────────────────────────────────────────────────
+
+
+class ContentCheckpointManager(NamedCheckpointManager):
+    """NamedCheckpointManager extended with content-preserving rollback.
+
+    Uses a SnapshotPort to store actual file contents (not just hashes),
+    enabling true `rollback()` that restores file state.
+
+    Falls back to hash-only behavior when no SnapshotStore is provided.
+    """
+
+    def __init__(
+        self,
+        checkpoint_dir: str = "./checkpoints",
+        snapshot_store: Any = None,
+    ):
+        super().__init__(checkpoint_dir)
+        self._snapshot_store = snapshot_store
+
+    async def create_snapshot(
+        self,
+        name: str,
+        description: str = "",
+        output_dir: str | None = None,
+        conversation_summary: str = "",
+    ) -> NamedCheckpoint:
+        """Create a named snapshot with optional content backup.
+
+        Delegates content storage to the SnapshotPort when output_dir
+        is provided. The snapshot_id is stored in artifacts["_snapshot_id"]
+        for later retrieval.
+        """
+        cp = await super().create_snapshot(
+            name=name,
+            description=description,
+            output_dir=output_dir,
+            conversation_summary=conversation_summary,
+        )
+
+        # Also store file contents via SnapshotPort
+        if output_dir and self._snapshot_store is not None:
+            try:
+                snapshot_id = await self._snapshot_store.create(
+                    label=name,
+                    source_dir=output_dir,
+                    metadata={
+                        "checkpoint_name": name,
+                        "description": description,
+                        "conversation_summary": conversation_summary,
+                    },
+                )
+                if snapshot_id and cp.artifacts is not None:
+                    cp.artifacts["_snapshot_id"] = snapshot_id
+                    # Update the stored file
+                    await self._update_stored_snapshot(name, cp)
+                    logger.info(
+                        "Content snapshot '%s' stored (id=%s)",
+                        name,
+                        snapshot_id,
+                    )
+            except Exception as e:
+                logger.warning("Content snapshot failed for '%s': %s", name, e)
+
+        return cp
+
+    async def rollback(self, snapshot_name: str, output_dir: str) -> NamedCheckpoint | None:
+        """Restore project to a named snapshot, INCLUDING file contents.
+
+        Unlike NamedCheckpointManager.rollback() which returns metadata and
+        says "File restoration is caller's responsibility," this method
+        actually restores file contents from the snapshot store.
+
+        Falls back to hash-only behavior if no content was stored.
+        """
+        cp = await super().rollback(snapshot_name, output_dir)
+        if cp is None:
+            return None
+
+        # Restore file contents if we have a content snapshot
+        if (
+            self._snapshot_store is not None
+            and cp.artifacts is not None
+            and "_snapshot_id" in cp.artifacts
+        ):
+            snapshot_id = cp.artifacts["_snapshot_id"]
+            try:
+                success = await self._snapshot_store.restore(snapshot_id, output_dir)
+                if success:
+                    logger.info(
+                        "File contents restored from snapshot '%s' (%s)",
+                        snapshot_name,
+                        snapshot_id,
+                    )
+                else:
+                    logger.warning(
+                        "Content restoration failed for '%s' — "
+                        "falling back to metadata-only rollback",
+                        snapshot_name,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Content restoration error for '%s': %s — "
+                    "metadata-only rollback returned",
+                    snapshot_name,
+                    e,
+                )
+
+        return cp
+
+    async def _update_stored_snapshot(self, name: str, cp: NamedCheckpoint) -> None:
+        """Update the on-disk snapshot file with new artifact metadata."""
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
+        filepath = self._snapshots_dir / f"snapshot_{safe_name}.json"
+        filepath.write_text(json.dumps(cp.to_dict(), indent=2, default=str), encoding="utf-8")

@@ -460,7 +460,7 @@ def all_validators_pass(results: list[ValidationResult]) -> bool:
 
 # Subprocess-based validators that block the CPU — offloaded to threads
 # when called from async context via async_run_validators().
-_SUBPROCESS_VALIDATORS = {"pytest", "ruff", "latex"}
+_SUBPROCESS_VALIDATORS = {"pytest", "ruff", "latex", "lsp"}
 
 
 async def async_run_validators(
@@ -811,6 +811,45 @@ def validate_no_error_placeholders(output: str) -> ValidationResult:
 # ─────────────────────────────────────────────
 
 
+def validate_lsp(output: str, language: str = "python", **kwargs) -> ValidationResult:
+    """Validate code via LSP (Language Server Protocol) diagnostics.
+
+    Runs pyright/tsc on the generated output and reports errors as failures.
+    Follows the same subprocess pattern as validate_pytest / validate_ruff.
+
+    Only available when the LspValidator infrastructure adapter is installed
+    and a language server (pyright, tsc) is on PATH. Gracefully returns PASS
+    if no server is available.
+    """
+    try:
+        from ..infrastructure.lsp_validator import LspValidator
+
+        validator = LspValidator(timeout_seconds=30)
+        # Synchronous wrapper for the validator registry (async_run_validators
+        # offloads to to_thread when name is in _SUBPROCESS_VALIDATORS)
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        try:
+            diags = loop.run_until_complete(validator.validate(output, language))
+        finally:
+            loop.close()
+        errors = [d for d in diags if d.severity == "error"]
+        warnings = [d for d in diags if d.severity == "warning"]
+        detail = f"{len(errors)} errors, {len(warnings)} warnings"
+        if errors:
+            detail += f" (e.g. L{errors[0].line}: {errors[0].message[:60]})"
+        return ValidationResult(
+            passed=len(errors) == 0,
+            details=detail,
+            validator_name="lsp",
+        )
+    except ImportError:
+        return ValidationResult(True, "LspValidator not available", "lsp")
+    except Exception as e:
+        return ValidationResult(False, f"LSP validator error: {e}", "lsp")
+
+
 def _load_anti_slop_validator():
     """Lazy-load anti_slop to avoid circular import at module level."""
     try:
@@ -829,6 +868,7 @@ VALIDATORS = {
     "pytest": validate_pytest,
     "ruff": validate_ruff,
     "latex": validate_latex,
+    "lsp": validate_lsp,  # CodeWhale Phase 1: Language Server Protocol diagnostics
     "length": validate_length_bounds,
     "tool_safety": validate_tool_safety,  # Prevent hallucinated tool calls
     "simplicity": validate_simplicity,  # Karpathy Principle 2: over-engineering detection
