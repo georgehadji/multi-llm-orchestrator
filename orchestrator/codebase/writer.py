@@ -286,18 +286,23 @@ class CodebaseWriter:
             try:
                 import asyncio
 
+                def _pre_snapshot_done(t):
+                    if t.exception():
+                        logger.warning("Pre-snapshot failed for %s: %s", task.id, t.exception())
+
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    asyncio.ensure_future(
+                    fut = asyncio.ensure_future(
                         self._snapshot_store.create(
                             label=f"before-{task.id}",
                             source_dir=str(self._root),
                             metadata={"task_id": task.id, "task_type": task.type.value},
                         )
                     )
+                    fut.add_done_callback(_pre_snapshot_done)
                 self._snapshot_created = True
             except Exception as _ss_e:
-                logger.debug("Pre-snapshot failed: %s", _ss_e)
+                logger.warning("Pre-snapshot setup failed: %s", _ss_e)
 
         if task.type == TaskType.CODE_GEN:
             target = Path(task.target_path) if task.target_path else Path(f"{task.id}.py")

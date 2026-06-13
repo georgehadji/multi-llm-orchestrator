@@ -324,12 +324,19 @@ raise RuntimeError(
         try:
             import asyncio
 
+            def _snapshot_done_callback(task):
+                """Log snapshot failures instead of silently swallowing them."""
+                if task.cancelled():
+                    logger.debug("Snapshot task cancelled for project %s", project_id)
+                elif task.exception():
+                    logger.warning(
+                        "Snapshot failed for project %s: %s", project_id, task.exception()
+                    )
+
             if asyncio.iscoroutinefunction(snapshot_store.create):
-                # If we're in an async context, schedule it
                 try:
                     asyncio.get_running_loop()
-                    # We're in an async context — create task
-                    asyncio.ensure_future(
+                    task = asyncio.ensure_future(
                         snapshot_store.create(
                             label=f"project-{project_id}-complete",
                             source_dir=str(out),
@@ -339,12 +346,13 @@ raise RuntimeError(
                             },
                         )
                     )
+                    task.add_done_callback(_snapshot_done_callback)
                 except RuntimeError:
                     pass
             else:
                 logger.debug("Snapshot store available but create() not async")
         except Exception as _ss_e:
-            logger.debug("Snapshot trigger: %s", _ss_e)
+            logger.warning("Snapshot trigger failed: %s", _ss_e)
 
     resolved = out.resolve()
     logger.info(f"Output written to: {resolved}")

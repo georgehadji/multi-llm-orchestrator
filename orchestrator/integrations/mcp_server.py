@@ -101,8 +101,8 @@ class MCPServer:
         self._snapshot_store: Any = NullSnapshotStore()
         try:
             self._snapshot_store = GitSnapshotStore(storage_dir=default_snapshot_dir())
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("GitSnapshotStore init failed, using NullSnapshotStore: %s", exc)
 
         # MCP server instance
         self.server: Server | None = None

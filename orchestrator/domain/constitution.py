@@ -87,14 +87,37 @@ class ProjectConstitution:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectConstitution:
-        """Create from a dictionary (parsed JSON)."""
+        """Create from a dictionary (parsed JSON).
+
+        Casts numeric fields with error recovery — invalid values revert to
+        defaults rather than raising. Logs a warning for each invalid field.
+        """
+        # Safe numeric conversion
+        try:
+            review_above = float(data.get("require_review_above", 0.0))
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid require_review_above=%r, defaulting to 0.0",
+                data.get("require_review_above"),
+            )
+            review_above = 0.0
+
+        try:
+            max_size = int(data.get("max_file_size_bytes", 0))
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid max_file_size_bytes=%r, defaulting to 0",
+                data.get("max_file_size_bytes"),
+            )
+            max_size = 0
+
         return cls(
             protect_paths=data.get("protect_paths", []),
-            require_review_above=float(data.get("require_review_above", 0.0)),
+            require_review_above=review_above,
             require_tests=bool(data.get("require_tests", False)),
             required_validators=data.get("required_validators", []),
             forbidden_imports=data.get("forbidden_imports", []),
-            max_file_size_bytes=int(data.get("max_file_size_bytes", 0)),
+            max_file_size_bytes=max_size,
         )
 
     @classmethod
@@ -121,18 +144,33 @@ class ProjectConstitution:
             return cls()
 
     @classmethod
-    def discover(cls, project_root: str | Path | None = None) -> ProjectConstitution:
+    def discover(
+        cls,
+        project_root: str | Path | None = None,
+        max_depth: int = 10,
+    ) -> ProjectConstitution:
         """Auto-discover constitution.json in the project directory tree.
 
         Searches upward from current directory (or project_root if given)
         for `.orchestrator/constitution.json`.
 
+        Stops at Path.home() or after max_depth parents to avoid walking
+        the entire filesystem or accidentally picking up a parent project's
+        constitution.
+
         Returns empty constitution (no restrictions) if not found.
         """
         search_start = Path(project_root).resolve() if project_root else Path.cwd().resolve()
+        home = Path.home().resolve()
 
-        # Walk up the directory tree
-        for parent in [search_start] + list(search_start.parents):
+        # Walk up the directory tree with limits
+        parents = [search_start] + list(search_start.parents)
+        for i, parent in enumerate(parents):
+            if i >= max_depth:
+                break
+            if parent == home.parent:
+                # Don't look above home directory
+                break
             candidate = parent / ".orchestrator" / "constitution.json"
             if candidate.exists():
                 return cls.from_file(candidate)
