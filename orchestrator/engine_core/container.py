@@ -373,6 +373,21 @@ class ServiceContainer:
         # Preflight + validator
         preflight_validator = PreflightValidator()
 
+        # LSP validator (CodeWhale Phase 1 — post-generation diagnostics)
+        lsp_validator = None
+        try:
+            from ..infrastructure.lsp_validator import LspValidator
+
+            lsp_validator = LspValidator(timeout_seconds=30)
+            known = lsp_validator.available_servers()
+            if known:
+                logger.info("LSP servers available: %s", ", ".join(sorted(known)))
+            else:
+                logger.info("No LSP servers found on PATH — LSP validation disabled")
+                lsp_validator = None
+        except Exception as exc:
+            logger.debug("LspValidator not available: %s", exc)
+
         # Unified Event System integration
         try:
             from .unified_events.core import UnifiedEventBus
@@ -419,7 +434,7 @@ class ServiceContainer:
         pipeline = TaskPipeline(
             [
                 GenerateStage(client=client, budget=budget, selector=selector),  # type: ignore[arg-type]
-                CritiqueStage(client=client),  # type: ignore[arg-type]
+                CritiqueStage(client=client, lsp_validator=lsp_validator),  # type: ignore[arg-type]
                 EvaluateStage(evaluator=evaluator),
                 ValidateStage(),
                 PersuasionDefenseStage(ara_integration=ara),
