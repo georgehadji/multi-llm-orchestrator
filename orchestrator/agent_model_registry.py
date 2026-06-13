@@ -87,16 +87,16 @@ AGENT_MODELS: dict[AgentRole, AgentModelEntry] = {
     AgentRole.DEVELOPER: AgentModelEntry(
         role=AgentRole.DEVELOPER,
         budget=Model.DEEPSEEK_V4_FLASH,
-        premium=Model.DEEPSEEK_V4_FLASH,
+        premium=Model.MOONSHOT_KIMI_K2_7_CODE,
         task_type=TaskType.CODE_GEN,
-        rationale="83.5 benchlm coding — beats Claude Sonnet at 10x less cost",
+        rationale="Budget: DEEPSEEK_V4_FLASH ($0.09). Premium: K2.7 Code ($0.95) — 256K context, thinking mode, structured JSON",
     ),
     AgentRole.TESTER: AgentModelEntry(
         role=AgentRole.TESTER,
         budget=Model.DEEPSEEK_V4_FLASH,
-        premium=Model.DEEPSEEK_V4_FLASH,
+        premium=Model.MOONSHOT_KIMI_K2_7_CODE,
         task_type=TaskType.CODE_GEN,
-        rationale="83.5 benchlm — fast, cheap, reliable test generation",
+        rationale="Budget: DEEPSEEK_V4_FLASH ($0.09). Premium: K2.7 Code ($0.95) — test generation benefits from reasoning chains",
     ),
     AgentRole.REVIEWER: AgentModelEntry(
         role=AgentRole.REVIEWER,
@@ -115,9 +115,9 @@ AGENT_MODELS: dict[AgentRole, AgentModelEntry] = {
     AgentRole.RESEARCHER: AgentModelEntry(
         role=AgentRole.RESEARCHER,
         budget=Model.MOONSHOT_KIMI_K2_6,
-        premium=Model.MOONSHOT_KIMI_K2_6,
+        premium=Model.MOONSHOT_KIMI_K2_7_CODE,
         task_type=TaskType.DATA_EXTRACT,
-        rationale="89.2 benchlm, 256K context — best for multi-source research",
+        rationale="Budget: K2.6 ($0.95). Premium: K2.7 Code ($0.95) — 30% fewer thinking tokens, stronger agentic capabilities, same pricing",
     ),
     AgentRole.PRODUCT_MANAGER: AgentModelEntry(
         role=AgentRole.PRODUCT_MANAGER,

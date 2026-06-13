@@ -101,6 +101,7 @@ class ModelRegistry:
     GROK_4_1_FAST = "x-ai/grok-4.20"  # $0.20/$0.50, fast
 
     # Moonshot Kimi Models
+    KIMI_K2_7_CODE = "moonshotai/kimi-k2.7-code"  # $0.95/$4.00, 256K, MoE 32B/1T
     KIMI_K2 = "moonshotai/kimi-k2"  # $0.57/$2.30, 128K ⭐ VERIFIED
     KIMI_K2_6 = "moonshotai/kimi-k2.6"  # $0.42/$2.20, visual coding SOTA
 
@@ -212,6 +213,7 @@ class ModelRegistry:
         GROK_4_20: {"input": 2.00, "output": 6.00},
         GROK_4_1_FAST: {"input": 0.20, "output": 0.50},
         # Moonshot Kimi Models (VERIFIED)
+        KIMI_K2_7_CODE: {"input": 0.95, "output": 4.00},
         KIMI_K2: {"input": 0.57, "output": 2.30},
         KIMI_K2_6: {"input": 0.42, "output": 2.20},
         # Xiaomi MiMo Models (VERIFIED)
@@ -257,6 +259,7 @@ class ModelRegistry:
         GROK_4_1_FAST: 131072,
         # Moonshot Kimi Models (VERIFIED)
         KIMI_K2: 131072,
+        KIMI_K2_7_CODE: 262144,
         KIMI_K2_6: 131072,
         # Xiaomi MiMo Models (VERIFIED)
         MIMO_V2_FLASH: 262144,
@@ -277,6 +280,7 @@ class ModelRegistry:
 
     # Coding specialists - best for code generation
     CODING_SPECIALISTS = {
+        KIMI_K2_7_CODE,
         QWEN_3_6_FLASH,
         GPT_5_CODEX,
         GPT_5_4_CODEX,
@@ -314,6 +318,7 @@ class ModelRegistry:
 
     # Models with 200K+ context capability
     LONG_CONTEXT_MODELS = {
+        KIMI_K2_7_CODE,
         GEMINI_FLASH,  # 1M+
         MIMO_V2_PRO,  # 1M+
         CLAUDE_SONNET_4_6,  # 200K
@@ -336,6 +341,7 @@ class ModelRegistry:
 
     # Multimodal models — support image + text input (vision-capable)
     MULTIMODAL_MODELS = {
+        KIMI_K2_7_CODE,
         # Google Gemini — natively multimodal
         GEMINI_FLASH,
         GEMINI_FLASH,
