@@ -268,54 +268,16 @@ class LspValidator(LSPValidatorPort):
 
     @staticmethod
     def diagnostics_summary(diags: list[LSPDiagnostic]) -> str:
-        """Build a human-readable summary of diagnostics for prompt injection."""
-        if not diags:
-            return ""
+        """Build a human-readable summary. Delegates to domain-layer function."""
+        from ..domain.ports import lsp_diagnostics_summary
 
-        errors = [d for d in diags if d.severity == "error"]
-        warnings = [d for d in diags if d.severity == "warning"]
-        infos = [d for d in diags if d.severity in ("information", "hint")]
-
-        parts: list[str] = []
-        if errors:
-            parts.append(f"### {len(errors)} Error(s)")
-            for e in errors[:10]:
-                code_str = f" ({e.code})" if e.code else ""
-                parts.append(f"- L{e.line}:{e.column} {e.message}{code_str}")
-            if len(errors) > 10:
-                parts.append(f"- ... and {len(errors) - 10} more errors")
-
-        if warnings:
-            parts.append(f"### {len(warnings)} Warning(s)")
-            for w in warnings[:10]:
-                code_str = f" ({w.code})" if w.code else ""
-                parts.append(f"- L{w.line}:{w.column} {w.message}{code_str}")
-            if len(warnings) > 10:
-                parts.append(f"- ... and {len(warnings) - 10} more warnings")
-
-        if infos:
-            parts.append(f"*{len(infos)} information(s) (not shown)*")
-
-        return "\n".join(parts)
+        return lsp_diagnostics_summary(diags)
 
     @staticmethod
-    def inject_inline_diagnostics(code: str, diags: list[LSPDiagnostic]) -> str:
-        """Inject diagnostics as inline comments above the flagged lines.
+    def inject_inline_diagnostics(
+        code: str, diags: list[LSPDiagnostic], language: str = "python"
+    ) -> str:
+        """Inject diagnostics as inline comments. Delegates to domain-layer function."""
+        from ..domain.ports import lsp_inject_inline_diagnostics
 
-        Errors and warnings are injected as source-level comments so the LLM
-        reviewer can see them in context during the critique cycle.
-        """
-        lines = code.splitlines()
-        sorted_diags = sorted(diags, key=lambda d: d.line, reverse=True)
-
-        for d in sorted_diags:
-            if d.severity not in ("error", "warning"):
-                continue
-            idx = max(0, min(d.line - 1, len(lines) - 1))
-            # Choose comment char based on crude language detection from first line
-            prefix = "//" if lines and lines[0].strip().startswith(("import ", "const ", "let ", "var ", "function ")) else "#"
-            code_str = f" ({d.code})" if d.code else ""
-            comment = f"{prefix} LSP [{d.severity.upper()}]: {d.message}{code_str}"
-            lines.insert(idx, comment)
-
-        return "\n".join(lines)
+        return lsp_inject_inline_diagnostics(code, diags, language)

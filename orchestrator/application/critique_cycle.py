@@ -120,11 +120,16 @@ class CritiqueCycle:
                     language = self._detect_language(task)
                     lsp_diagnostics = await self._lsp_validator.validate(output, language)
                     if lsp_diagnostics:
-                        # Inject inline comments
-                        from ..infrastructure.lsp_validator import LspValidator as _LV
+                        # Inject inline comments (uses domain-layer helpers)
+                        from ..domain.ports import (
+                            lsp_inject_inline_diagnostics,
+                            lsp_diagnostics_summary,
+                        )
 
-                        output = _LV.inject_inline_diagnostics(output, lsp_diagnostics)
-                        lsp_summary = _LV.diagnostics_summary(lsp_diagnostics)
+                        output = lsp_inject_inline_diagnostics(
+                            output, lsp_diagnostics, language
+                        )
+                        lsp_summary = lsp_diagnostics_summary(lsp_diagnostics)
                         logger.info(
                             "  %s: LSP found %d diagnostics (%d errors, %d warnings)",
                             task.id,

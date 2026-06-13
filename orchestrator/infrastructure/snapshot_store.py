@@ -17,6 +17,7 @@ Architecture:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -78,13 +79,13 @@ class GitSnapshotStore(SnapshotPort):
         if not source.exists():
             raise FileNotFoundError(f"Source directory does not exist: {source_dir}")
 
-        self._ensure_repo()
+        await self._ensure_repo()
 
         # Sync source into worktree (rsync-style copy)
-        self._sync_to_worktree(source)
+        await asyncio.to_thread(self._sync_to_worktree, source)
 
         # Git add + commit
-        commit_hash = self._git_commit(label)
+        commit_hash = await self._git_commit(label)
 
         # Save metadata alongside
         await self._save_meta(commit_hash, label, metadata)
@@ -97,23 +98,23 @@ class GitSnapshotStore(SnapshotPort):
         target = Path(target_dir)
         target.mkdir(parents=True, exist_ok=True)
 
-        self._ensure_repo()
+        await self._ensure_repo()
 
         # Check out the commit into the worktree
-        if not self._git_checkout(snapshot_id):
+        if not await self._git_checkout(snapshot_id):
             logger.warning("Snapshot '%s' not found for restore", snapshot_id)
             return False
 
         # Sync worktree to target
-        self._sync_to_target(target)
+        await asyncio.to_thread(self._sync_to_target, target)
 
         logger.info("Restored snapshot '%s' -> %s", snapshot_id, target_dir)
         return True
 
     async def list_snapshots(self) -> list[dict[str, Any]]:
         """List all snapshots with metadata."""
-        self._ensure_repo()
-        snapshots = self._git_log()
+        await self._ensure_repo()
+        snapshots = await self._git_log()
 
         # Enrich with metadata
         for snap in snapshots:
@@ -131,21 +132,16 @@ class GitSnapshotStore(SnapshotPort):
         self, snapshot_a: str, snapshot_b: str
     ) -> dict[str, Any]:
         """Compare two snapshots and return rich diff."""
-        self._ensure_repo()
-        raw = self._git_diff(snapshot_a, snapshot_b)
+        await self._ensure_repo()
+        raw = await self._git_diff(snapshot_a, snapshot_b)
         return self._parse_diff(raw)
 
     async def delete(self, snapshot_id: str) -> bool:
         """Remove a snapshot. Note: git doesn't delete easily — this tags it."""
-        self._ensure_repo()
+        await self._ensure_repo()
         try:
             # Tag as deleted so we can still recover if needed
-            subprocess.run(
-                ["git", "tag", f"deleted/{snapshot_id}", snapshot_id],
-                cwd=self._work_dir,
-                capture_output=True,
-                timeout=30,
-            )
+            await self._run_git("tag", f"deleted/{snapshot_id}", snapshot_id)
             # Remove metadata file
             meta_path = self._meta_dir / f"{snapshot_id}.json"
             if meta_path.exists():
@@ -158,28 +154,24 @@ class GitSnapshotStore(SnapshotPort):
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
-    def _ensure_repo(self) -> None:
+    async def _run_git(self, *args: str, timeout: int = 60) -> subprocess.CompletedProcess:
+        """Run a git command non-blocking via asyncio.to_thread."""
+        return await asyncio.to_thread(
+            subprocess.run,
+            ["git", *args],
+            cwd=str(self._work_dir),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+    async def _ensure_repo(self) -> None:
         """Initialize shadow git repo if not already initialized."""
         self._work_dir.mkdir(parents=True, exist_ok=True)
         if not self._git_dir.exists():
-            subprocess.run(
-                ["git", "init"],
-                cwd=self._work_dir,
-                capture_output=True,
-                timeout=30,
-            )
-            subprocess.run(
-                ["git", "config", "user.name", "orchestrator-snapshot"],
-                cwd=self._work_dir,
-                capture_output=True,
-                timeout=30,
-            )
-            subprocess.run(
-                ["git", "config", "user.email", "snapshot@orchestrator.local"],
-                cwd=self._work_dir,
-                capture_output=True,
-                timeout=30,
-            )
+            await self._run_git("init")
+            await self._run_git("config", "user.name", "orchestrator-snapshot")
+            await self._run_git("config", "user.email", "snapshot@orchestrator.local")
             logger.info("Initialized snapshot git repo at %s", self._work_dir)
 
     def _sync_to_worktree(self, source: Path) -> None:
@@ -202,87 +194,35 @@ class GitSnapshotStore(SnapshotPort):
             else:
                 shutil.copy2(item, dest)
 
-    def _git_commit(self, label: str) -> str:
+    async def _git_commit(self, label: str) -> str:
         """Git add all + commit with label as message. Returns abbreviated SHA."""
-        subprocess.run(
-            ["git", "add", "-A"],
-            cwd=self._work_dir,
-            capture_output=True,
-            timeout=60,
-        )
+        await self._run_git("add", "-A")
 
         # Only commit if there are changes
-        status = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=self._work_dir,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        status = await self._run_git("status", "--porcelain")
         if not status.stdout.strip():
             # No changes — return HEAD SHA
-            result = subprocess.run(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=self._work_dir,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
+            result = await self._run_git("rev-parse", "--short", "HEAD")
             return result.stdout.strip() or "empty"
 
-        result = subprocess.run(
-            ["git", "commit", "-m", label, "--allow-empty"],
-            cwd=self._work_dir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        # Extract the abbreviated SHA from the output
-        sha_result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=self._work_dir,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        await self._run_git("commit", "-m", label, "--allow-empty")
+        sha_result = await self._run_git("rev-parse", "--short", "HEAD")
         return sha_result.stdout.strip()
 
-    def _git_checkout(self, snapshot_id: str) -> bool:
+    async def _git_checkout(self, snapshot_id: str) -> bool:
         """Check out a snapshot commit. Returns False if not found."""
         # First check if the ref exists
-        result = subprocess.run(
-            ["git", "cat-file", "-t", snapshot_id],
-            cwd=self._work_dir,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        result = await self._run_git("cat-file", "-t", snapshot_id)
         if result.returncode != 0:
             return False
 
-        # Hard reset worktree to that commit
-        subprocess.run(
-            ["git", "checkout", "--force", snapshot_id],
-            cwd=self._work_dir,
-            capture_output=True,
-            timeout=60,
-        )
+        # Reset worktree to that commit
+        await self._run_git("checkout", "--force", snapshot_id)
         return True
 
-    def _git_log(self) -> list[dict[str, Any]]:
+    async def _git_log(self) -> list[dict[str, Any]]:
         """Parse git log into structured snapshots list."""
-        result = subprocess.run(
-            [
-                "git",
-                "log",
-                "--format=%H|%h|%s|%ct",
-                "--max-count=100",
-            ],
-            cwd=self._work_dir,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        result = await self._run_git("log", "--format=%H|%h|%s|%ct", "--max-count=100")
         if result.returncode != 0 or not result.stdout.strip():
             return []
 
@@ -298,15 +238,9 @@ class GitSnapshotStore(SnapshotPort):
                 })
         return snapshots
 
-    def _git_diff(self, a: str, b: str) -> str:
+    async def _git_diff(self, a: str, b: str) -> str:
         """Run git diff between two refs."""
-        result = subprocess.run(
-            ["git", "diff", "--unified=3", a, b],
-            cwd=self._work_dir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        result = await self._run_git("diff", "--unified=3", a, b)
         return result.stdout
 
     @staticmethod

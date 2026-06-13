@@ -17,6 +17,7 @@ NullAdapters for testing:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from ..models import ProjectState
@@ -334,6 +335,63 @@ class LSPDiagnostic:
     column: int = 0  # 1-indexed
     source: str = ""  # e.g. "pyright", "tsc"
     code: str = ""  # e.g. "reportUndefinedVariable"
+
+
+# ── Domain-layer utility functions for LSP diagnostics ────────────────────────
+# These operate only on LSPDiagnostic (a domain type) and str/list,
+# so they belong in the domain layer — not infrastructure.
+
+
+def lsp_diagnostics_summary(diags: list[LSPDiagnostic]) -> str:
+    """Build a human-readable summary of diagnostics for prompt injection."""
+    if not diags:
+        return ""
+
+    errors = [d for d in diags if d.severity == "error"]
+    warnings = [d for d in diags if d.severity == "warning"]
+
+    parts: list[str] = []
+    if errors:
+        parts.append(f"### {len(errors)} Error(s)")
+        for e in errors[:10]:
+            code_str = f" ({e.code})" if e.code else ""
+            parts.append(f"- L{e.line}:{e.column} {e.message}{code_str}")
+        if len(errors) > 10:
+            parts.append(f"- ... and {len(errors) - 10} more errors")
+
+    if warnings:
+        parts.append(f"### {len(warnings)} Warning(s)")
+        for w in warnings[:10]:
+            code_str = f" ({w.code})" if w.code else ""
+            parts.append(f"- L{w.line}:{w.column} {w.message}{code_str}")
+        if len(warnings) > 10:
+            parts.append(f"- ... and {len(warnings) - 10} more warnings")
+
+    return "\n".join(parts)
+
+
+def lsp_inject_inline_diagnostics(
+    code: str, diags: list[LSPDiagnostic], language: str = "python"
+) -> str:
+    """Inject diagnostics as inline comments above the flagged lines.
+
+    Uses language-appropriate comment prefix (# for Python, // for TS/JS).
+    """
+    lines = code.splitlines()
+    sorted_diags = sorted(diags, key=lambda d: d.line, reverse=True)
+
+    # Comment prefix based on explicit language parameter
+    prefix = "#" if language in ("python", "ruby", "bash", "shell") else "//"
+
+    for d in sorted_diags:
+        if d.severity not in ("error", "warning"):
+            continue
+        idx = max(0, min(d.line - 1, len(lines) - 1))
+        code_str = f" ({d.code})" if d.code else ""
+        comment = f"{prefix} LSP [{d.severity.upper()}]: {d.message}{code_str}"
+        lines.insert(idx, comment)
+
+    return "\n".join(lines)
 
 
 @runtime_checkable
