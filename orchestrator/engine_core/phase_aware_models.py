@@ -102,6 +102,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.SYNTHESIS: [
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx, agent ⭐ NEW!
+        ModelRegistry.KIMI_K2_7_CODE,  # $0.95/$4.00, 256K, MoE 32B/1T, thinking mode
         "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34, 397B MoE SOTA
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, 1M context, codebase nav
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, agent swarm, multimodal
@@ -155,6 +156,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # Best: Claude Sonnet 4.6 (iterative development specialist)
     # ═══════════════════════════════════════════════════════
     PhaseType.REFINEMENT: [
+        ModelRegistry.KIMI_K2_7_CODE,  # $0.95/$4.00, 3.1× cheaper than Sonnet, thinking mode
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative dev specialist ⭐ BEST
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, code reviews, 25% faster
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench, fast iterations
@@ -224,6 +226,15 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # MOONSHOT KIMI MODELS (NEW v3.0)
         # ═══════════════════════════════════════════════════════
+        "moonshotai/kimi-k2.7-code": {
+            "reasoning": 9.0,
+            "coding": 9.5,  # ⭐ Long-horizon coding specialist
+            "creativity": 8.5,
+            "critique": 9.0,  # ⭐ Thinking mode code understanding
+            "synthesis": 9.0,  # ⭐ 256K context integration
+            "speed": 8.5,
+            "cost_efficiency": 9.0,  # Great value at $0.95/1M
+        },
         "moonshotai/kimi-k2.6": {
             "reasoning": 9.0,
             "coding": 9.5,  # ⭐ Visual coding SOTA

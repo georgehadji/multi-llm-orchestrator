@@ -104,6 +104,7 @@ _TECH_STACK_KEYWORDS = [
 ]
 
 _RELIABLE_DECOMPOSITION_MODELS: list[Model] = [
+    Model.MOONSHOT_KIMI_K2_7_CODE,
     Model.QWEN_3_7_MAX,
     Model.CLAUDE_SONNET_4_6,
     Model.GPT_4O,
