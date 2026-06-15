@@ -15,7 +15,7 @@ from typing import Any
 
 from ..pipeline import PipelineContext
 from ...crosscutting.config import flags
-from ...models import FALLBACK_CHAIN, TaskType
+from ...models import AttemptRecord, FALLBACK_CHAIN, TaskType
 
 # Lazy import for VerbalizedSampler
 _VS_SAMPLER_MODULE = None
@@ -76,12 +76,11 @@ class EnhancedSelfConsistencyStage:
 
         # Record this attempt for diagnostics
         ctx.attempt_history.append(
-            {
-                "attempt": ctx.attempt,
-                "score": ctx.score,
-                "model": ctx.model.value if ctx.model else "none",
-                "output_snippet": ctx.output[:200],
-            }
+            AttemptRecord(
+                attempt_num=ctx.attempt,
+                model_used=ctx.model.value if ctx.model else "unknown",
+                output_snippet=ctx.output[:200] if ctx.output else "",
+            )
         )
 
         ctx.attempt += 1
