@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .ara_pipelines import ReasoningMethod
-from .models import Task, TaskType
+from ..models import Task, TaskType
 
 logger = logging.getLogger("orchestrator.ara_execution_strategy")
 
@@ -148,7 +148,7 @@ class ARAReasoningDispatcher:
     def select_method(self, task: "Task") -> "ReasoningMethod":
         """Select best ARA method for a REASONING task."""
         from .ara_pipelines import ReasoningMethod
-        from .models import TaskType
+        from ..models import TaskType
 
         if task.type != TaskType.REASONING:
             return ReasoningMethod.COVE  # Default

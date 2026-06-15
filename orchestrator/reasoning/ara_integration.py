@@ -12,21 +12,21 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .api_clients import UnifiedClient
+from ..api_clients import UnifiedClient
 from .ara_pipelines import (
     PipelineFactory,
     ReasoningMethod,
 )
-from .cache import DiskCache
-from .method_selector import (
+from ..infrastructure.cache import DiskCache
+from ..method_selector import (
     ComplexityLevel,
     MethodSelection,
     MethodSelector,
     RiskLevel,
     select_method_for_task,
 )
-from .models import Model, Task, TaskResult, TaskStatus, TaskType
-from .telemetry import TelemetryCollector
+from ..models import Model, Task, TaskResult, TaskStatus, TaskType
+from ..telemetry import TelemetryCollector
 
 logger = logging.getLogger("orchestrator")
 
@@ -400,7 +400,7 @@ class ARAPipelineIntegration:
 
     def _get_available_models(self, task_type: TaskType) -> list:
         """Get available models for task type."""
-        from .models import ROUTING_TABLE
+        from ..models import ROUTING_TABLE
 
         routing = ROUTING_TABLE.get(task_type, [])
         return [m for m in routing if True]  # Could check api_health
