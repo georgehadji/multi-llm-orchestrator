@@ -129,3 +129,6 @@ nul
 
 # secrets / local env helpers
 openclaude.txt
+
+
+*.pdf
