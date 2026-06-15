@@ -755,14 +755,16 @@ export default function {section.title()}() {{
             encoding="utf-8",
         )
 
-        # Write postcss.config.js
-        (output_dir / "postcss.config.js").write_text(
-            "module.exports = {\n"
+        # Write postcss.config.mjs (ESM format required by Next.js 14+)
+        (output_dir / "postcss.config.mjs").write_text(
+            "/** @type {import('postcss-load-config').Config} */\n"
+            "const config = {\n"
             "  plugins: {\n"
             "    tailwindcss: {},\n"
             "    autoprefixer: {},\n"
             "  },\n"
-            "};\n",
+            "};\n\n"
+            "export default config;\n",
             encoding="utf-8",
         )
 
@@ -771,18 +773,20 @@ export default function {section.title()}() {{
             "@tailwind base;\n"
             "@tailwind components;\n"
             "@tailwind utilities;\n\n"
-            ":root {\n"
-            f"  --color-primary: {design_system.colors.primary};\n"
-            f"  --color-accent: {design_system.colors.accent};\n"
-            f"  --color-surface: {design_system.colors.surface};\n"
-            f"  --color-surface-alt: {design_system.colors.surface_alt};\n"
-            f"  --color-text-primary: {design_system.colors.text_primary};\n"
-            f"  --color-text-secondary: {design_system.colors.text_secondary};\n"
-            "}\n\n"
-            "body {\n"
-            "  font-family: system-ui, -apple-system, sans-serif;\n"
-            "  color: var(--color-text-primary);\n"
-            "  background: var(--color-surface);\n"
+            "@layer base {\n"
+            "  :root {\n"
+            f"    --color-primary: {design_system.colors.primary};\n"
+            f"    --color-accent: {design_system.colors.accent};\n"
+            f"    --color-surface: {design_system.colors.surface};\n"
+            f"    --color-surface-alt: {design_system.colors.surface_alt};\n"
+            f"    --color-text-primary: {design_system.colors.text_primary};\n"
+            f"    --color-text-secondary: {design_system.colors.text_secondary};\n"
+            "  }\n\n"
+            "  body {\n"
+            "    font-family: system-ui, -apple-system, sans-serif;\n"
+            "    color: var(--color-text-primary);\n"
+            "    background: var(--color-surface);\n"
+            "  }\n"
             "}\n",
             encoding="utf-8",
         )
@@ -953,6 +957,32 @@ export default function {section.title()}() {{
                 "}\n",
                 encoding="utf-8",
             )
+
+        # Write tsconfig.json (required for Next.js TypeScript)
+        (output_dir / "tsconfig.json").write_text(
+            "{\n"
+            '  "compilerOptions": {\n'
+            '    "target": "es5",\n'
+            '    "lib": ["dom", "dom.iterable", "esnext"],\n'
+            '    "allowJs": true,\n'
+            '    "skipLibCheck": true,\n'
+            '    "strict": false,\n'
+            '    "noEmit": true,\n'
+            '    "esModuleInterop": true,\n'
+            '    "module": "esnext",\n'
+            '    "moduleResolution": "bundler",\n'
+            '    "resolveJsonModule": true,\n'
+            '    "isolatedModules": true,\n'
+            '    "jsx": "preserve",\n'
+            '    "incremental": true,\n'
+            '    "plugins": [{ "name": "next" }],\n'
+            '    "paths": { "@/*": ["./*"] }\n'
+            "  },\n"
+            '  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],\n'
+            '  "exclude": ["node_modules"]\n'
+            "}\n",
+            encoding="utf-8",
+        )
 
         # Write .gitignore
         (output_dir / ".gitignore").write_text(
