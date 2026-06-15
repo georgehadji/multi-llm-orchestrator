@@ -326,13 +326,25 @@ class WebsiteGenerator:
             else:
                 # Without engine, generate content from content brief
                 logger.warning("No orchestrator engine available — using content brief")
-                self._create_content_from_brief(
-                    output_dir=output_dir,
-                    sections=config.sections,
-                    design_system=design_system,
-                    content_brief=content_brief,
-                    config=config,
-                )
+                try:
+                    self._create_content_from_brief(
+                        output_dir=output_dir,
+                        sections=config.sections,
+                        design_system=design_system,
+                        content_brief=content_brief,
+                        config=config,
+                    )
+                    result.components_generated = len(config.sections)
+                except Exception as brief_err:
+                    logger.warning(f"Content-from-brief failed: {brief_err}")
+                    self._create_content_from_brief(
+                        output_dir=output_dir,
+                        sections=config.sections,
+                        design_system=design_system,
+                        content_brief=None,
+                        config=config,
+                    )
+                    result.components_generated = len(config.sections)
                 result.components_generated = len(config.sections)
 
             # Step 5: Assemble final page
@@ -544,11 +556,16 @@ Export as default export. Include TypeScript types.
             else:
                 component_path.write_text(self._build_generic_section(name, headline, value_props[:3], design_system), encoding="utf-8")
 
-        # Write design tokens
-        tokens_path = output_dir / "design_system.json"
-        import json
-        with open(tokens_path, "w", encoding="utf-8") as f:
-            json.dump(design_system.to_dict(), f, indent=2)
+        # Write design tokens (best-effort)
+        try:
+            tokens_path = output_dir / "design_system.json"
+            import json
+            tokens_path.write_text(json.dumps(
+                {"name": getattr(design_system, "name", ""), "colors": getattr(design_system.colors, "__dict__", {})},
+                indent=2,
+            ), encoding="utf-8")
+        except Exception:
+            pass
 
     def _assemble_page(
         self,
