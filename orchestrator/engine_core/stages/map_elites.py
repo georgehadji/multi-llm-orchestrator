@@ -12,7 +12,20 @@ import logging
 import random
 
 from ...ara_pipelines import BasePipeline, PipelineState, ReasoningMethod
-from ...models import Model, Task, TaskResult, TaskStatus, TaskType
+from ...crosscutting.config import flags
+from ...models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, TaskType, VSConfig
+
+# Lazy import for VerbalizedSampler (avoids circular dep at module level)
+_VerbalizedSampler = None
+
+
+def _get_vs_sampler(client):
+    global _VerbalizedSampler
+    if _VerbalizedSampler is None:
+        from ...application.verbalized_sampling import VerbalizedSampler
+
+        _VerbalizedSampler = VerbalizedSampler
+    return _VerbalizedSampler(client=client)
 
 logger = logging.getLogger("orchestrator.engine_core.stages.map_elites")
 
@@ -78,14 +91,49 @@ class MAPElitesPipeline(BasePipeline):
         return self._build_result(state)
 
     async def _initialize(self, prompt: str, count: int = 9) -> list[str]:
-        """Generate count diverse code variants."""
+        """Generate count diverse code variants.
+
+        When ORCH_VS_MAP_ELITES_SEEDING=true, uses VerbalizedSampler with
+        tail-threshold sampling to deliberately seed unconventional grid cells
+        from the low-probability tail of the distribution.
+        """
         if self.client is None:
             return [f"# MAP-Elites variant: {prompt[:50]}"] * count
 
-        resp, _ = await self.client.call(
+        # CodeWhale Phase 2: VS-tail seeding for diversity
+        if flags.vs_map_elites_seeding:
+            sampler = _get_vs_sampler(self.client)
+            candidates = await sampler.sample(
+                prompt=(
+                    f"Goal: {prompt}\n\n"
+                    f"Generate {count} diverse code implementations. "
+                    f"Each should differ in complexity (simple/medium/advanced) "
+                    f"and performance (slow/fast/optimal)."
+                ),
+                model=self._get_model(prompt),
+                cfg=VSConfig(
+                    k=count,
+                    probability_threshold=0.10,  # Tail: sample unconventional approaches
+                    temperature=0.9,
+                    fmt=ProbabilityFormat.EXPLICIT,
+                ),
+                max_tokens=4096,
+                timeout=120,
+            )
+            if candidates:
+                logger.info(
+                    "MAP-Elites VS-seeded: %d candidates from tail distribution",
+                    len(candidates),
+                )
+                return [c.text for c in candidates]
+
+            logger.warning("MAP-Elites VS returned no candidates — falling back to direct call")
+
+        # Legacy path (flag off or VS returned nothing)
+        resp = await self.client.call(
             model=self._get_model(prompt),
-            system_prompt=_INITIALIZE_SYSTEM,
-            user_prompt=(
+            system=_INITIALIZE_SYSTEM,
+            prompt=(
                 f"Goal: {prompt}\n\n"
                 f"Generate {count} diverse code implementations. "
                 f"Each should differ in complexity (simple/medium/advanced) "
@@ -167,10 +215,10 @@ class MAPElitesPipeline(BasePipeline):
         if self.client is None or not elites:
             return [f"# Mutant of {e[:40]}" for e in elites]
 
-        resp, _ = await self.client.call(
+        resp = await self.client.call(
             model=self._get_model(prompt),
-            system_prompt=_MUTATE_SYSTEM,
-            user_prompt=(
+            system=_MUTATE_SYSTEM,
+            prompt=(
                 f"Goal: {prompt}\n\n"
                 f"Parent code:\n{elites[0][:2000]}\n\n"
                 f"Generate {len(elites) * 3} mutated variants. "
