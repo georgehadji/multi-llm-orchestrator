@@ -32,12 +32,26 @@ def _get_registry():
             get_registry = lambda: {}
     return get_registry
 
-# FIXED: from .design_system import (
-from ..design_system import (
-    ContentBrief,
-    DesignSystem,
-    QualityReport,
-)
+from ..design_system import DesignSystem
+
+# Stubs for symbols removed from design_system
+
+
+@dataclass
+class ContentBrief:
+    headlines: dict[str, str] = field(default_factory=dict)
+    value_props: list[str] = field(default_factory=list)
+    target_audience: str = ""
+    competitors: list[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
+
+
+@dataclass
+class QualityReport:
+    score: float = 0.0
+    issues: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    passed: bool = False
 
 # FIXED: from .models import ProjectState, Task, TaskType
 from ..models import ProjectState, Task, TaskType
