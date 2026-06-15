@@ -765,22 +765,7 @@ Export as default export. Include TypeScript types.
             encoding="utf-8",
         )
 
-        # Write postcss.config.mjs (ESM format required by Next.js 14+)
-        # Remove old CJS format to avoid conflicts
-        old_cjs = output_dir / "postcss.config.js"
-        if old_cjs.exists():
-            old_cjs.unlink()
-        (output_dir / "postcss.config.mjs").write_text(
-            "/** @type {import('postcss-load-config').Config} */\n"
-            "const config = {\n"
-            "  plugins: {\n"
-            "    tailwindcss: {},\n"
-            "    autoprefixer: {},\n"
-            "  },\n"
-            "};\n\n"
-            "export default config;\n",
-            encoding="utf-8",
-        )
+        # No postcss or tailwind config — using CDN Tailwind in layout.tsx
 
         # Write globals.css — plain CSS + CDN Tailwind in layout for reliability
         (app_dir / "globals.css").write_text(
@@ -814,8 +799,7 @@ Export as default export. Include TypeScript types.
             encoding="utf-8",
         )
 
-        # Tailwind config with design tokens
-        self._write_tailwind_config(output_dir, design_system)
+        # Design tokens live in globals.css :root — no build-time Tailwind config needed
 
         # Build proper site name
         site_name = getattr(config, "client_name", "CloudFlow") or "CloudFlow"
