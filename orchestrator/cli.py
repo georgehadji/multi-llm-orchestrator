@@ -1735,6 +1735,12 @@ def main():
     _kanban_subparsers(subparsers)
     _nexusscope_subparsers(subparsers)
     _chat_subparsers(subparsers)  # Interactive spec-gathering chat mode
+    try:
+        from .cli_website import setup_website_parser
+
+        setup_website_parser(subparsers)
+    except ImportError:
+        pass
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
