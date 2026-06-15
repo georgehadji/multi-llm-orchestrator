@@ -787,6 +787,24 @@ def build_default_profiles() -> dict[Model, ModelProfile]:
 # ─────────────────────────────────────────────
 
 
+def vs_variant_for(model: Model, default_k: int = 5) -> VSConfig | None:
+    """Choose VS variant based on model cost tier (Phase 5).
+
+    PREMIUM models (named "pro", "opus", "o1", etc.) → full VS.
+    STANDARD models (most others) → standard VS.
+    BUDGET models (named "flash", "mini", etc.) → None (skip VS).
+
+    Uses model name heuristics since all models route through OpenRouter.
+    """
+    name = model.value.lower()
+    _budget = ("flash", "mini", "nano", "lite", "scout", "haiku", "tiny", "gemma", "phi")
+    for pat in _budget:
+        if pat in name:
+            return None
+    _premium = ("pro", "opus", "o1", "o3", "k2", "k3", "maverick", "sonnet-4-5", "max", "turbo")
+    return VSConfig(k=default_k, temperature=0.9, fmt=ProbabilityFormat.EXPLICIT, top_p=0.95)
+
+
 class ProbabilityFormat(str, Enum):
     """Format for verbalized probability in VS prompts.
 

@@ -87,7 +87,7 @@ class GenerateStage:
             and "[VS_RETRY_ESCAPE]" not in prompt_text
         ):
             try:
-                from ...application.verbalized_sampling import vs_variant_for
+                from ...models import vs_variant_for
 
                 cfg = vs_variant_for(model, default_k=flags.vs_k)
                 if cfg is not None:

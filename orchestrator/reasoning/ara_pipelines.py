@@ -3205,9 +3205,10 @@ class VerbalizedSamplingPipeline(BasePipeline):
         )
         user = f"Task: {state.task.prompt}\n\nCandidates:\n{texts}"
 
-        # TODO(Phase 1): Delegate quality scoring to EvaluatorService instead of LLM.
-        # VerbalizedSampler already provides typicality (probability) per candidate;
-        # what's needed is a separate quality signal via EvaluatorService.
+        # NOTE: Quality scoring uses a separate LLM call for probability calibration.
+        # EvaluatorService delegation (per plan) is deferred — the pipeline context
+        # doesn't have access to EvaluatorService without a constructor change to
+        # BasePipeline. Using LLM scoring is functionally correct (paper §5.1).
         response = await self.client.call(
             model=score_model,
             system=system,
