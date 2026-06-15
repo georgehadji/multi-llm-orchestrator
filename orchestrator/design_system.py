@@ -7,6 +7,7 @@ Part of Category 4, Phase 6 (Replit-inspired).
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+from typing import Any
 from pathlib import Path
 import json
 import logging
@@ -18,10 +19,14 @@ logger = logging.getLogger(__name__)
 class ColorTokens:
     primary: str = "#818cf8"
     secondary: str = "#a78bfa"
+    accent: str = "#4f9eff"
     background: str = "#09090b"
     surface: str = "#111113"
-    text: str = "#fafafa"
+    surface_alt: str = "#1a1a1a"
+    text_primary: str = "#fafafa"
     text_secondary: str = "#a1a1aa"
+    text: str = "#fafafa"
+    border: str = "#27272a"
     success: str = "#34d399"
     warning: str = "#fbbf24"
     error: str = "#f87171"
@@ -52,6 +57,25 @@ class DesignSystem:
     border_radius: int = 8
     spacing_unit: int = 4
     dark_mode: bool = True
+
+    # Additional fields used by WebsiteGenerator — defaults to None for compatibility
+    tone: str = "modern"
+    font_heading: str = "Inter"
+    font_body: str = "Inter"
+    accessibility: Any = None
+
+    def __post_init__(self):
+        # Ensure nested objects exist as property-like access
+        if self.accessibility is None:
+            from types import SimpleNamespace
+            self.accessibility = SimpleNamespace(min_contrast_ratio=4.5)
+        # Make spacing, shadow, animation, border_radius accessible
+        if not hasattr(self, "spacing"):
+            from types import SimpleNamespace
+            self.spacing = SimpleNamespace(unit=f"{self.spacing_unit}px")
+            self.shadow = SimpleNamespace(sm="0 1px 2px rgba(0,0,0,.05)", md="0 4px 6px rgba(0,0,0,.07)", lg="0 10px 15px rgba(0,0,0,.1)")
+            self.animation = SimpleNamespace(duration="200ms", easing="ease-in-out")
+            self.border_radius = SimpleNamespace(sm="4px", md="8px", lg="12px", full="9999px")
 
     def to_dict(self):
         return {
