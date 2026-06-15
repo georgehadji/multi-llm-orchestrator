@@ -14,7 +14,23 @@ import logging
 from typing import Any
 
 from ..pipeline import PipelineContext
+from ...crosscutting.config import flags
 from ...models import FALLBACK_CHAIN, TaskType
+
+# Lazy import for VerbalizedSampler
+_VS_SAMPLER_MODULE = None
+_IMPORT_LOCK = __import__("threading").Lock()
+
+
+def _get_vs_sampler(client):
+    global _VS_SAMPLER_MODULE
+    if _VS_SAMPLER_MODULE is None:
+        with _IMPORT_LOCK:
+            if _VS_SAMPLER_MODULE is None:
+                from ...application.verbalized_sampling import VerbalizedSampler
+
+                _VS_SAMPLER_MODULE = VerbalizedSampler
+    return _VS_SAMPLER_MODULE(client=client)
 
 logger = logging.getLogger("orchestrator.engine_core.stages.self_consistency")
 
@@ -69,6 +85,33 @@ class EnhancedSelfConsistencyStage:
         )
 
         ctx.attempt += 1
+
+        # ── CodeWhale Phase 3: VS tail-escape after 1+ failed retries ─────
+        # If the first retry already happened and vs_retry_escape is on,
+        # use VerbalizedSampler with tail threshold instead of another
+        # standard retry.
+        if (
+            flags.vs_retry_escape
+            and ctx.attempt >= 2
+            and ctx.task.type in (TaskType.CODE_GEN, TaskType.REASONING)
+        ):
+            logger.info(
+                "Attempt %d score=%.3f — VS tail-escape engaged for task %s",
+                ctx.attempt,
+                ctx.score,
+                ctx.task.id,
+            )
+            # Signal GenerateStage to use VS with tail threshold
+            ctx.task.revision_context = (
+                f"{ctx.critique}\n\n"
+                f"[VS_RETRY_ESCAPE] Attempt {ctx.attempt} still below threshold. "
+                f"Use verbalized sampling with tail threshold to explore "
+                f"unconventional approaches outside the current search path."
+            )
+            ctx.reset_for_retry()
+            ctx.should_abort = True
+            ctx.abort_reason = "vs_retry_escape"
+            return ctx
 
         # Try ARA retry if strategy is available
         if self._ara_strategy is not None:
