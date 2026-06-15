@@ -1708,10 +1708,11 @@ def _website_subparsers(subparsers) -> None:
     wp.set_defaults(func=_cmd_website)
 
 
-async def _cmd_website(args):
+def _cmd_website(args):
     """Execute website generation."""
+    import asyncio
     from pathlib import Path
-    
+
     from .design_system import DesignSystem
     from .generators.website_generator import ClientInfo, WebsiteConfig, WebsiteGenerator
 
@@ -1724,12 +1725,16 @@ async def _cmd_website(args):
     output_dir = Path(args.output_dir)
 
     generator = WebsiteGenerator()
-    result = await generator.generate(
-        design_system=design_system,
-        client_info=client_info,
-        config=config,
-        output_dir=output_dir,
-    )
+
+    async def _run():
+        return await generator.generate(
+            design_system=design_system,
+            client_info=client_info,
+            config=config,
+            output_dir=output_dir,
+        )
+
+    result = asyncio.run(_run())
 
     if result.success:
         print(f"✅ Website generated: {output_dir.resolve()}")
