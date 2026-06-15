@@ -367,55 +367,10 @@ class WebsiteGenerator:
             try:
                 if config.framework in ("next.js", "react"):
                     self._assemble_nextjs_page(output_dir, config.sections, design_system, config)
-                    logger.info("Fallback: assembled Next.js project")
+                    logger.info(f"Fallback: assembled Next.js project at {output_dir}")
                 else:
-                    fallback = output_dir / "index.html"
-                    fallback.write_text(
-                        "<!DOCTYPE html>\n"
-                    '<html lang="en">\n<head>\n'
-                    '  <meta charset="UTF-8">\n'
-                    '  <meta name="viewport" content="width=device-width,initial-scale=1">\n'
-                    f"  <title>{getattr(config, 'page_type', 'Landing Page')}</title>\n"
-                    "  <style>\n"
-                    "    :root{--bg:#111;--fg:#eee;--accent:#4f9eff}\n"
-                    "    *,*::before,*::after{box-sizing:border-box;margin:0}\n"
-                    "    body{font-family:system-ui,sans-serif;color:var(--fg);background:var(--bg);min-height:100vh}\n"
-                    "    .hero,.section{padding:4rem 1rem;max-width:960px;margin:0 auto}\n"
-                    "    .hero h1{font-size:3rem;margin-bottom:1rem}\n"
-                    "    .hero p{font-size:1.25rem;color:#aaa;margin-bottom:2rem}\n"
-                    "    .cta{background:var(--accent);color:#fff;border:0;padding:.75rem 2rem;border-radius:8px;font-size:1.1rem;cursor:pointer;text-decoration:none}\n"
-                    "    .grid{display:grid;gap:2rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}\n"
-                    "    .card{background:#1a1a1a;padding:2rem;border-radius:12px}\n"
-                    "    .card h3{margin-bottom:0.5rem}\n"
-                    "    .card p{color:#888}\n"
-                    "    .pricing{display:flex;gap:2rem;flex-wrap:wrap;justify-content:center}\n"
-                    "    .plan{background:#1a1a1a;padding:2rem;border-radius:12px;text-align:center;min-width:200px}\n"
-                    "    .plan .price{font-size:2rem;font-weight:700;margin:1rem 0}\n"
-                    "    .plan .price span{font-size:1rem;color:#888}\n"
-                    "    footer{text-align:center;padding:2rem;color:#666;border-top:1px solid #222}\n"
-                    "    @media(max-width:640px){.hero h1{font-size:2rem}}\n"
-                    "  </style>\n</head>\n<body>\n"
-                    '  <section class="hero"><h1>CloudFlow</h1>'
-                    "<p>Intelligent SaaS platform for modern teams.</p>"
-                    '<a href="#" class="cta">Get Started</a></section>\n'
-                    '  <section class="section"><h2 style="text-align:center;margin-bottom:2rem">Features</h2>'
-                    '<div class="grid">'
-                    '<div class="card"><h3>⚡ Fast</h3><p>Lightning-quick performance.</p></div>'
-                    '<div class="card"><h3>🔒 Secure</h3><p>Enterprise-grade security.</p></div>'
-                    '<div class="card"><h3>📊 Analytics</h3><p>Real-time insights.</p></div>'
-                    '<div class="card"><h3>🤝 Collaboration</h3><p>Team-first workflow.</p></div>'
-                    "</div></section>\n"
-                    '  <section class="section"><h2 style="text-align:center;margin-bottom:2rem">Pricing</h2>'
-                    '<div class="pricing">'
-                    '<div class="plan"><h3>Starter</h3><div class="price">$9<span>/mo</span></div><p>For small teams</p></div>'
-                    '<div class="plan"><h3>Pro</h3><div class="price">$29<span>/mo</span></div><p>For growing businesses</p></div>'
-                    '<div class="plan"><h3>Enterprise</h3><div class="price">$99<span>/mo</span></div><p>For large orgs</p></div>'
-                    "</div></section>\n"
-                    '  <footer><p>&copy; 2026 CloudFlow. All rights reserved.</p><p>Contact: hello@cloudflow.io</p></footer>\n'
-                    "</body>\n</html>\n",
-                    encoding="utf-8",
-                )
-                logger.info(f"Fallback: wrote minimal index.html to {fallback}")
+                    self._assemble_html_page(output_dir, config.sections, design_system, config)
+                    logger.info(f"Fallback: assembled HTML page at {output_dir}")
             except Exception as fallback_err:
                 logger.warning(f"Fallback write also failed: {fallback_err}")
 
@@ -541,7 +496,7 @@ Export as default export. Include TypeScript types.
             component_path.write_text(
                 f"""
 // {section} component
-// Generated with Design System: {design_system.tone.value}
+// Generated with Design System: {getattr(design_system.tone, 'value', str(design_system.tone)) if design_system.tone else 'modern'}
 
 export default function {section.title()}() {{
   return (
