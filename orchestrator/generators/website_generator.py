@@ -30,10 +30,12 @@ def _get_registry():
             get_registry = _gr
         except ImportError:
             class _FakeComponent:
-                def __init__(self, name):
+                def __init__(self, name, **kwargs):
                     self.name = name
-                    self.component_id = name
-                    self.section = name
+                    self.component_id = kwargs.get("component_id", name)
+                    self.section = kwargs.get("section", name)
+                    self.source = kwargs.get("source", "")
+                    self.__dict__.update(kwargs)
 
                 def title(self):
                     return self.name.title()
