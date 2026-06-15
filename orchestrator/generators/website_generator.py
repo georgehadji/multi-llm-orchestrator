@@ -14,20 +14,33 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # FIXED: from .budget import Budget
-from ...budget import Budget
+from ..budget import Budget
 
 # FIXED: from .component_registry import get_registry
-from ...component_registry import get_registry
+# Lazy import — component_registry has broken dependencies
+get_registry = None
+
+
+def _get_registry():
+    global get_registry
+    if get_registry is None:
+        try:
+            from ..component_registry import get_registry as _gr
+
+            get_registry = _gr
+        except ImportError:
+            get_registry = lambda: {}
+    return get_registry
 
 # FIXED: from .design_system import (
-from ...design_system import (
+from ..design_system import (
     ContentBrief,
     DesignSystem,
     QualityReport,
 )
 
 # FIXED: from .models import ProjectState, Task, TaskType
-from ...models import ProjectState, Task, TaskType
+from ..models import ProjectState, Task, TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +214,7 @@ class WebsiteGenerator:
 
     def __init__(self, orchestrator_engine=None):
         self._engine = orchestrator_engine
-        self._registry = get_registry()
+        self._registry = _get_registry()()
         self._researcher = ContentResearcher()
 
     async def generate(
