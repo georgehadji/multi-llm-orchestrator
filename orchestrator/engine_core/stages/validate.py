@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from ..pipeline import PipelineContext
-from ...validators import all_validators_pass
+from ...validators import all_validators_pass, run_validators
 
 logger = logging.getLogger("orchestrator.engine_core.stages.validate")
 
@@ -28,13 +28,17 @@ class ValidateStage:
             return ctx
 
         try:
-            passed, failures = all_validators_pass(ctx.task, ctx.output.strip())
-            if not passed:
-                logger.warning(
-                    "Deterministic validation failed for task %s: %s",
-                    ctx.task.id,
-                    failures,
-                )
+            hard_validators = getattr(ctx.task, "hard_validators", []) or []
+            if hard_validators:
+                results = run_validators(ctx.output.strip(), hard_validators)
+                passed = all_validators_pass(results)
+                if not passed:
+                    failures = [r.details for r in results if not r.passed]
+                    logger.warning(
+                        "Deterministic validation failed for task %s: %s",
+                        ctx.task.id,
+                        failures,
+                    )
         except Exception as exc:
             logger.warning("Validation error for task %s: %s", ctx.task.id, exc)
 
