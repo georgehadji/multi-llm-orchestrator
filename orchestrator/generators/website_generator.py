@@ -55,6 +55,9 @@ class ContentBrief:
         self.faqs: list = kwargs.pop("faqs", [])
         self.__dict__.update(kwargs)
 
+    def get_section_content(self, section_name: str) -> str:
+        return self.headlines.get(section_name, f"Content for {section_name}")
+
 
 class QualityReport:
     """Website quality report — accepts arbitrary kwargs for compatibility."""
