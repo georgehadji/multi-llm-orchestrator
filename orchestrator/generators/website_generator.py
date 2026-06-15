@@ -492,12 +492,13 @@ Export as default export. Include TypeScript types.
         components_dir.mkdir(parents=True, exist_ok=True)
 
         for section in sections:
-            safe_name = section.replace("-", "_").replace(" ", "_")
+            # PascalCase component name
+            name = section.replace("-", " ").replace("_", " ").title().replace(" ", "")
             component_path = components_dir / f"{section}.tsx"
             component_path.write_text(
                 f"// {section} component\n"
                 f"// Generated with Design System: {getattr(design_system.tone, 'value', str(design_system.tone)) if design_system.tone else 'modern'}\n\n"
-                f"export default function {safe_name}() {{\n"
+                f"export default function {name}() {{\n"
                 f"  return (\n"
                 f'    <section id="{section}" className="py-20 px-6 max-w-6xl mx-auto">\n'
                 f"      <h2 className=\"text-3xl md:text-4xl font-bold text-center mb-12\">\n"
@@ -875,15 +876,13 @@ Export as default export. Include TypeScript types.
             encoding="utf-8",
         )
 
-        # Build page.tsx with section imports
+        # Build page.tsx — imports default exports from components
         section_imports = []
         section_jsx = []
         for s in sections:
             safe_name = s.replace("-", "_").replace(" ", "_")
-            section_imports.append(
-                f"import {{{s.title().replace(' ', '')}Section}} from '@/components/{s}';"
-            )
-            section_jsx.append(f"      <{s.title().replace(' ', '')}Section />")
+            section_imports.append(f"import {s.title().replace(' ', '')} from '@/components/{s}';")
+            section_jsx.append(f"      <{s.title().replace(' ', '')} />")
 
         page = (
             "\n".join(section_imports)
