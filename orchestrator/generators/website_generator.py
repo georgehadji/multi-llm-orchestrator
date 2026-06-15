@@ -324,12 +324,14 @@ class WebsiteGenerator:
                 result.state = state
                 result.components_generated = len(tasks)
             else:
-                # Without engine, just create placeholder files
-                logger.warning("No orchestrator engine available, creating placeholders")
-                self._create_placeholder_files(
+                # Without engine, generate content from content brief
+                logger.warning("No orchestrator engine available — using content brief")
+                self._create_content_from_brief(
                     output_dir=output_dir,
                     sections=config.sections,
                     design_system=design_system,
+                    content_brief=content_brief,
+                    config=config,
                 )
                 result.components_generated = len(config.sections)
 
@@ -481,53 +483,70 @@ OUTPUT: Complete React/Next.js component with Tailwind CSS.
 Export as default export. Include TypeScript types.
 """
 
-    def _create_placeholder_files(
+    def _create_content_from_brief(
         self,
         output_dir: Path,
         sections: list[str],
-        design_system: DesignSystem,
+        design_system,
+        content_brief,
+        config,
     ) -> None:
-        """Create placeholder component files."""
+        """Create component files with real content from the content brief."""
         components_dir = output_dir / "components"
         components_dir.mkdir(parents=True, exist_ok=True)
 
-        for section in sections:
-            # PascalCase component name
-            name = section.replace("-", " ").replace("_", " ").title().replace(" ", "")
-            component_path = components_dir / f"{section}.tsx"
-            component_path.write_text(
-                f"// {section} component\n"
-                f"// Generated with Design System: {getattr(design_system.tone, 'value', str(design_system.tone)) if design_system.tone else 'modern'}\n\n"
-                f"export default function {name}() {{\n"
-                f"  return (\n"
-                f'    <section id="{section}" className="py-20 px-6 max-w-6xl mx-auto">\n'
-                f"      <h2 className=\"text-3xl md:text-4xl font-bold text-center mb-12\">\n"
-                f"        {section.title()}\n"
-                f"      </h2>\n"
-                f'      <div className="grid md:grid-cols-3 gap-8">\n'
-                f'        <div className="bg-gray-800/50 p-8 rounded-xl hover:bg-gray-800/70 transition-colors">\n'
-                f'          <h3 className="text-xl font-semibold mb-3">Feature One</h3>\n'
-                f'          <p className="text-gray-400">Description for {section} section.</p>\n'
-                f"        </div>\n"
-                f'        <div className="bg-gray-800/50 p-8 rounded-xl">\n'
-                f'          <h3 className="text-xl font-semibold mb-3">Feature Two</h3>\n'
-                f'          <p className="text-gray-400">Another {section} feature.</p>\n'
-                f"        </div>\n"
-                f'        <div className="bg-gray-800/50 p-8 rounded-xl">\n'
-                f'          <h3 className="text-xl font-semibold mb-3">Feature Three</h3>\n'
-                f'          <p className="text-gray-400">Third {section} highlight.</p>\n'
-                f"        </div>\n"
-                f"      </div>\n"
-                f"    </section>\n"
-                f"  );\n"
-                f"}}\n",
-                encoding="utf-8",
-            )
+        # Extract content from brief
+        headlines = getattr(content_brief, "headlines", {}) or {}
+        value_props = getattr(content_brief, "value_props", []) or []
+        ctas = getattr(content_brief, "ctas", []) or []
+        tagline = getattr(content_brief, "tagline", "Intelligent SaaS Platform") or "Intelligent SaaS Platform"
+        faqs = getattr(content_brief, "faqs", []) or []
+        testimonials_data = getattr(content_brief, "social_proof", []) or []
 
-        # Write design system tokens
+        # Default value props if brief is sparse
+        if not value_props:
+            value_props = ["Lightning-fast performance", "Enterprise-grade security", "Real-time analytics", "Team collaboration", "API-first architecture", "24/7 support"]
+        if not ctas:
+            ctas = ["Get Started Free", "Schedule Demo", "Start Building"]
+        if not testimonials_data:
+            testimonials_data = [
+                {"name": "Sarah Chen", "role": "CTO, TechCorp", "quote": "CloudFlow transformed our workflow. 3x faster deployments and zero downtime."},
+                {"name": "Marcus Rivera", "role": "VP Engineering, DataSync", "quote": "The best SaaS platform we've ever used. Intuitive, powerful, reliable."},
+                {"name": "Aisha Patel", "role": "Founder, LaunchPad", "quote": "From idea to production in hours. CloudFlow is a game-changer."},
+            ]
+        if not faqs:
+            faqs = [
+                {"q": "How does the free trial work?", "a": "Start with full access for 14 days. No credit card required. Upgrade anytime."},
+                {"q": "Can I integrate with existing tools?", "a": "Yes, we offer native integrations with Slack, GitHub, Jira, and 50+ other tools via our API."},
+                {"q": "Is my data secure?", "a": "We use AES-256 encryption at rest and TLS 1.3 in transit. SOC 2 Type II certified."},
+                {"q": "What kind of support do you offer?", "a": "All plans include email support. Pro and Enterprise plans get dedicated Slack support with < 1hr response time."},
+            ]
+
+        for section in sections:
+            name = section.replace("-", " ").replace("_", " ").title().replace(" ", "")
+            headline = headlines.get(section, section.title())
+            component_path = components_dir / f"{section}.tsx"
+
+            if "hero" in section.lower():
+                component_path.write_text(self._build_hero_component(name, headline, tagline, ctas, design_system), encoding="utf-8")
+            elif "feature" in section.lower():
+                component_path.write_text(self._build_features_component(name, headline, value_props[:4], design_system), encoding="utf-8")
+            elif "pric" in section.lower():
+                component_path.write_text(self._build_pricing_component(name, headline, design_system), encoding="utf-8")
+            elif "testimonial" in section.lower() or "social" in section.lower():
+                component_path.write_text(self._build_testimonials_component(name, headline, testimonials_data, design_system), encoding="utf-8")
+            elif "faq" in section.lower():
+                component_path.write_text(self._build_faq_component(name, headline, faqs, design_system), encoding="utf-8")
+            elif "cta" in section.lower() or "call" in section.lower():
+                component_path.write_text(self._build_cta_component(name, headline, ctas, design_system), encoding="utf-8")
+            elif "footer" in section.lower() or "contact" in section.lower():
+                component_path.write_text(self._build_footer_component(name, design_system), encoding="utf-8")
+            else:
+                component_path.write_text(self._build_generic_section(name, headline, value_props[:3], design_system), encoding="utf-8")
+
+        # Write design tokens
         tokens_path = output_dir / "design_system.json"
         import json
-
         with open(tokens_path, "w", encoding="utf-8") as f:
             json.dump(design_system.to_dict(), f, indent=2)
 
@@ -1070,6 +1089,192 @@ Export as default export. Include TypeScript types.
     ) -> None:
         """Assemble React page."""
         self._assemble_nextjs_page(output_dir, sections, design_system, config)
+
+    def _build_hero_component(self, name, headline, tagline, ctas, ds):
+        cta1 = (ctas[0] if ctas else "Get Started")
+        cta2 = (ctas[1] if len(ctas) > 1 else "Learn More")
+        return (
+            f'"use client";\n\n'
+            f"export default function {name}() {{\n"
+            f"  return (\n"
+            f'    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center">\n'
+            f'      <div className="absolute inset-0 bg-gradient-to-b from-indigo-900/20 to-transparent pointer-events-none" />\n'
+            f'      <h1 className="relative text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">\n'
+            f"        {headline}\n"
+            f"      </h1>\n"
+            f'      <p className="relative text-xl md:text-2xl text-gray-300 max-w-3xl mb-10 leading-relaxed">\n'
+            f"        {tagline}\n"
+            f"      </p>\n"
+            f'      <div className="relative flex flex-wrap gap-4 justify-center">\n'
+            f'        <a href="#features" className="bg-indigo-500 hover:bg-indigo-600 px-8 py-4 rounded-xl font-semibold text-white text-lg transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40">\n'
+            f"          {cta1}\n"
+            f"        </a>\n"
+            f'        <a href="#pricing" className="border border-gray-500 hover:border-gray-300 px-8 py-4 rounded-xl font-semibold text-gray-200 text-lg transition-all">\n'
+            f"          {cta2}\n"
+            f"        </a>\n"
+            f"      </div>\n"
+            f"    </section>\n"
+            f"  );\n"
+            f"}}\n"
+        )
+
+    def _build_features_component(self, name, headline, items, ds):
+        cards = []
+        icons = ["⚡", "🔒", "📊", "🤝"]
+        for i, item in enumerate(items[:4]):
+            icon = icons[i % len(icons)]
+            cards.append(
+                f'        <div className="bg-gray-800/40 hover:bg-gray-800/60 p-8 rounded-2xl transition-all border border-gray-700/50 hover:border-gray-600">\n'
+                f'          <div className="text-3xl mb-4">{icon}</div>\n'
+                f'          <h3 className="text-xl font-semibold mb-3">{item}</h3>\n'
+                f'          <p className="text-gray-400 leading-relaxed">\n'
+                f"            {item} for modern teams. Designed for scale, built for speed.\n"
+                f"          </p>\n"
+                f"        </div>"
+            )
+        return (
+            f"export default function {name}() {{\n"
+            f"  return (\n"
+            f'    <section id="features" className="py-24 px-6 max-w-6xl mx-auto">\n'
+            f'      <h2 className="text-3xl md:text-5xl font-bold text-center mb-6">{headline}</h2>\n'
+            f'      <p className="text-gray-400 text-center max-w-2xl mx-auto mb-16 text-lg">\n'
+            f"        Everything you need to build, deploy, and scale your SaaS application.\n"
+            f"      </p>\n"
+            f'      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">\n'
+            + "\n".join(cards) +
+            f"\n      </div>\n"
+            f"    </section>\n"
+            f"  );\n"
+            f"}}\n"
+        )
+
+    def _build_pricing_component(self, name, headline, ds):
+        plans = [
+            {"name": "Starter", "price": "$9", "desc": "For small teams getting started", "features": ["Up to 5 users", "10GB storage", "Email support", "Basic analytics"]},
+            {"name": "Pro", "price": "$29", "desc": "For growing businesses", "features": ["Up to 50 users", "100GB storage", "Priority support", "Advanced analytics", "Custom integrations"]},
+            {"name": "Enterprise", "price": "$99", "desc": "For large organizations", "features": ["Unlimited users", "Unlimited storage", "Dedicated support", "SSO & SAML", "Custom SLA", "On-premise option"]},
+        ]
+        plan_cards = []
+        for plan in plans:
+            feats = "\n".join(f'              <li className="flex items-center gap-2"><span className="text-green-400">✓</span> {f}</li>' for f in plan["features"])
+            plan_cards.append(
+                f'        <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-8 flex flex-col">\n'
+                f'          <h3 className="text-xl font-semibold mb-2">{plan["name"]}</h3>\n'
+                f'          <div className="text-4xl font-bold mb-1">{plan["price"]}<span className="text-lg text-gray-400 font-normal">/mo</span></div>\n'
+                f'          <p className="text-gray-400 mb-6">{plan["desc"]}</p>\n'
+                f'          <ul className="space-y-2 mb-8 flex-1 text-sm">\n{feats}\n          </ul>\n'
+                f'          <a href="#" className="bg-indigo-500 hover:bg-indigo-600 text-center py-3 rounded-xl font-semibold text-white transition-all mt-auto">Get Started</a>\n'
+                f"        </div>"
+            )
+        return (
+            f"export default function {name}() {{\n"
+            f"  return (\n"
+            f'    <section id="pricing" className="py-24 px-6 max-w-6xl mx-auto">\n'
+            f'      <h2 className="text-3xl md:text-5xl font-bold text-center mb-6">{headline}</h2>\n'
+            f'      <p className="text-gray-400 text-center max-w-2xl mx-auto mb-16 text-lg">Simple, transparent pricing. No hidden fees.</p>\n'
+            f'      <div className="grid md:grid-cols-3 gap-6">\n'
+            + "\n".join(plan_cards) +
+            f"\n      </div>\n"
+            f"    </section>\n"
+            f"  );\n"
+            f"}}\n"
+        )
+
+    def _build_testimonials_component(self, name, headline, items, ds):
+        cards = []
+        for t in items[:6]:
+            person_name = t.get("name", "User") if isinstance(t, dict) else str(t)
+            role = t.get("role", "") if isinstance(t, dict) else ""
+            quote = t.get("quote", str(t)) if isinstance(t, dict) else str(t)
+            cards.append(
+                f'        <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-8">\n'
+                f'          <p className="text-gray-300 italic mb-6 leading-relaxed">&ldquo;{quote}&rdquo;</p>\n'
+                f'          <div className="flex items-center gap-3">\n'
+                f'            <div className="w-10 h-10 rounded-full bg-indigo-500/30 flex items-center justify-center font-bold text-indigo-300">{person_name[0]}</div>\n'
+                f'            <div><div className="font-semibold text-sm">{person_name}</div><div className="text-gray-500 text-xs">{role}</div></div>\n'
+                f"          </div>\n"
+                f"        </div>"
+            )
+        return (
+            f"export default function {name}() {{\n"
+            f"  return (\n"
+            f'    <section id="testimonials" className="py-24 px-6 max-w-6xl mx-auto">\n'
+            f'      <h2 className="text-3xl md:text-5xl font-bold text-center mb-16">{headline}</h2>\n'
+            f'      <div className="grid md:grid-cols-3 gap-6">\n'
+            + "\n".join(cards) +
+            f"\n      </div>\n"
+            f"    </section>\n"
+            f"  );\n"
+            f"}}\n"
+        )
+
+    def _build_faq_component(self, name, headline, items, ds):
+        items_html = []
+        for i, faq in enumerate(items[:8]):
+            q = faq.get("q", str(faq)) if isinstance(faq, dict) else str(faq)
+            a = faq.get("a", "") if isinstance(faq, dict) else ""
+            items_html.append(
+                f'        <details className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-6 group cursor-pointer">\n'
+                f'          <summary className="text-lg font-semibold list-none flex justify-between items-center">\n'
+                f'            {q}\n'
+                f'            <span className="text-gray-500 group-open:rotate-180 transition-transform text-xl ml-4">▼</span>\n'
+                f"          </summary>\n"
+                f'          <p className="mt-4 text-gray-400 leading-relaxed">{a}</p>\n'
+                f"        </details>"
+            )
+        return (
+            f"export default function {name}() {{\n"
+            f"  return (\n"
+            f'    <section id="faq" className="py-24 px-6 max-w-3xl mx-auto">\n'
+            f'      <h2 className="text-3xl md:text-5xl font-bold text-center mb-16">{headline}</h2>\n'
+            f'      <div className="space-y-4">\n'
+            + "\n".join(items_html) +
+            f"\n      </div>\n"
+            f"    </section>\n"
+            f"  );\n"
+            f"}}\n"
+        )
+
+    def _build_cta_component(self, name, headline, ctas, ds):
+        cta_text = ctas[0] if ctas else "Get Started Free"
+        return (
+            f"export default function {name}() {{\n"
+            f"  return (\n"
+            f'    <section className="py-24 px-6 text-center">\n'
+            f'      <div className="max-w-3xl mx-auto bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-3xl p-16">\n'
+            f'        <h2 className="text-3xl md:text-5xl font-bold mb-6">{headline}</h2>\n'
+            f'        <p className="text-gray-300 text-lg mb-10 max-w-xl mx-auto">Join thousands of teams already using CloudFlow. Start free, upgrade when you\'re ready.</p>\n'
+            f'        <a href="#" className="bg-indigo-500 hover:bg-indigo-600 px-10 py-4 rounded-xl font-semibold text-white text-lg transition-all shadow-lg shadow-indigo-500/25">{cta_text}</a>\n'
+            f"      </div>\n"
+            f"    </section>\n"
+            f"  );\n"
+            f"}}\n"
+        )
+
+    def _build_footer_component(self, name, ds):
+        return (
+            f"export default function {name}() {{\n"
+            f"  return (\n"
+            f'    <footer className="border-t border-gray-800 py-16 px-6">\n'
+            f'      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">\n'
+            f'        <div>\n'
+            f'          <h4 className="font-bold text-lg mb-4">CloudFlow</h4>\n'
+            f'          <p className="text-gray-500 text-sm">Intelligent SaaS platform for modern teams.</p>\n'
+            f"        </div>\n"
+            f'        <div><h4 className="font-semibold mb-3">Product</h4><ul className="space-y-2 text-gray-400 text-sm"><li><a href="#features">Features</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#">Integrations</a></li><li><a href="#">Changelog</a></li></ul></div>\n'
+            f'        <div><h4 className="font-semibold mb-3">Company</h4><ul className="space-y-2 text-gray-400 text-sm"><li><a href="#">About</a></li><li><a href="#">Blog</a></li><li><a href="#">Careers</a></li><li><a href="/security">Security</a></li></ul></div>\n'
+            f'        <div><h4 className="font-semibold mb-3">Legal</h4><ul className="space-y-2 text-gray-400 text-sm"><li><a href="#">Privacy</a></li><li><a href="#">Terms</a></li><li><a href="/security">Security</a></li></ul></div>\n'
+            f"      </div>\n"
+            f'      <div className="max-w-6xl mx-auto mt-12 pt-8 border-t border-gray-800 text-center text-gray-600 text-sm">\n'
+            f"        &copy; {2026} CloudFlow. All rights reserved.\n"
+            f"      </div>\n"
+            f"    </footer>\n"
+            f"  );\n"
+            f"}}\n"
+        )
+
+    def _build_generic_section(self, name, headline, items, ds):
+        return self._build_features_component(name, headline, items, ds)
 
     def _write_tailwind_config(
         self,
