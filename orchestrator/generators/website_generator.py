@@ -915,39 +915,20 @@ Export as default export. Include TypeScript types.
         )
         (app_dir / "page.tsx").write_text(page, encoding="utf-8")
 
-        # Write OG image generation API route (Next.js)
-        api_dir = output_dir / "app" / "api" / "og"
-        api_dir.mkdir(parents=True, exist_ok=True)
-        (api_dir / "route.tsx").write_text(
-            "import { ImageResponse } from 'next/og';\n"
-            "import { NextRequest } from 'next/server';\n\n"
-            "export const runtime = 'edge';\n\n"
-            "export async function GET(request: NextRequest) {\n"
-            "  return new ImageResponse(\n"
-            "    (\n"
-            "      <div\n"
-            "        style={{\n"
-            "          height: '100%',\n"
-            "          width: '100%',\n"
-            "          display: 'flex',\n"
-            "          flexDirection: 'column',\n"
-            "          alignItems: 'center',\n"
-            "          justifyContent: 'center',\n"
-            "          backgroundColor: '#111',\n"
-            "          fontFamily: 'system-ui',\n"
-            "        }}\n"
-            "      >\n"
-            "        <div style={{ fontSize: 80, fontWeight: 800, color: '#fff', marginBottom: 20 }}>\n"
-            "          CloudFlow\n"
-            "        </div>\n"
-            "        <div style={{ fontSize: 36, color: '#888' }}>\n"
-            "          Intelligent SaaS Platform\n"
-            "        </div>\n"
-            "      </div>\n"
-            "    ),\n"
-            "    {{ width: 1200, height: 630 }}\n"
-            "  );\n"
-            "}\n",
+        # Write static OG image HTML fallback (no @vercel/og dep needed)
+        public_dir = output_dir / "public"
+        public_dir.mkdir(parents=True, exist_ok=True)
+        (public_dir / "og-image.html").write_text(
+            "<!DOCTYPE html>\n<html>\n<head>\n"
+            '<meta charset="UTF-8">\n'
+            "<style>\n"
+            "  body { margin:0; width:1200px; height:630px; background:#111; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:system-ui; }\n"
+            "  h1 { font-size:80px; font-weight:800; color:#fff; margin:0 0 20px; }\n"
+            "  p { font-size:36px; color:#888; margin:0; }\n"
+            "</style>\n</head>\n<body>\n"
+            "<h1>CloudFlow</h1>\n"
+            "<p>Intelligent SaaS Platform</p>\n"
+            "</body>\n</html>\n",
             encoding="utf-8",
         )
 
@@ -1011,31 +992,34 @@ Export as default export. Include TypeScript types.
             encoding="utf-8",
         )
 
-        # Write robots.txt
+        # Write robots.ts (Next.js App Router route)
         (app_dir / "robots.ts").write_text(
-            "import { MetadataRoute } from 'next';\n\n"
+            "import type { MetadataRoute } from 'next';\n\n"
             "export default function robots(): MetadataRoute.Robots {\n"
             "  return {\n"
-            "    rules: {\n"
-            "      userAgent: '*',\n"
-            "      allow: '/',\n"
-            "      disallow: '/api/',\n"
-            "    },\n"
+            "    rules: [\n"
+            "      {\n"
+            "        userAgent: '*',\n"
+            "        allow: '/',\n"
+            "      },\n"
+            "    ],\n"
             "    sitemap: 'https://cloudflow.io/sitemap.xml',\n"
             "  };\n"
             "}\n",
             encoding="utf-8",
         )
 
-        # Write sitemap.xml
+        # Write sitemap.ts (Next.js App Router route)
         (app_dir / "sitemap.ts").write_text(
-            "import { MetadataRoute } from 'next';\n\n"
+            "import type { MetadataRoute } from 'next';\n\n"
             "export default function sitemap(): MetadataRoute.Sitemap {\n"
             "  return [\n"
-            "    { url: 'https://cloudflow.io', lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },\n"
-            "    { url: 'https://cloudflow.io/#features', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },\n"
-            "    { url: 'https://cloudflow.io/#pricing', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },\n"
-            "    { url: 'https://cloudflow.io/#contact', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },\n"
+            "    {\n"
+            "      url: 'https://cloudflow.io',\n"
+            "      lastModified: new Date(),\n"
+            "      changeFrequency: 'weekly' as const,\n"
+            "      priority: 1,\n"
+            "    },\n"
             "  ];\n"
             "}\n",
             encoding="utf-8",
