@@ -78,14 +78,28 @@ class DesignSystem:
             self.border_radius = SimpleNamespace(sm="4px", md="8px", lg="12px", full="9999px")
 
     def to_dict(self):
+        from types import SimpleNamespace
+
+        def _safe_dict(obj):
+            if isinstance(obj, SimpleNamespace):
+                return {k: _safe_dict(v) for k, v in obj.__dict__.items()}
+            if hasattr(obj, "to_dict"):
+                return obj.to_dict()
+            if isinstance(obj, (int, float, str, bool, type(None))):
+                return obj
+            return str(obj)
+
         return {
             "name": self.name,
             "version": self.version,
             "colors": self.colors.to_dict(),
             "typography": self.typography.to_dict(),
-            "border_radius": self.border_radius,
-            "spacing_unit": self.spacing_unit,
+            "border_radius": _safe_dict(self.border_radius),
+            "spacing": _safe_dict(self.spacing),
+            "shadow": _safe_dict(self.shadow),
+            "animation": _safe_dict(self.animation),
             "dark_mode": self.dark_mode,
+            "tone": self.tone,
         }
 
     @classmethod
