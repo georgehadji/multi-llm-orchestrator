@@ -116,6 +116,10 @@ module.exports = {{
         nl = chr(10)
         return f'DESIGN SYSTEM ({self.name} v{self.version}):{nl}- Primary: {self.colors.primary}{nl}- Font: {self.typography.font_sans}{nl}- Dark: {"yes" if self.dark_mode else "no"}{nl}Use these tokens in all generated UI code.'
 
+    def to_prompt_context(self):
+        """Alias for to_prompt_injection — used by WebsiteGenerator."""
+        return self.to_prompt_injection()
+
 
 class DesignSystemManager:
     def __init__(self, project_dir="."):
@@ -148,6 +152,10 @@ class DesignSystemManager:
 
     def get_prompt(self):
         return self.design_system.to_prompt_injection()
+
+    def to_prompt_context(self) -> str:
+        """Alias for to_prompt_injection — used by WebsiteGenerator."""
+        return self.to_prompt_injection()
 
     def export_frontend(self, output_dir="."):
         out = Path(output_dir)
