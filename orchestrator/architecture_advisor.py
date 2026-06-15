@@ -126,6 +126,13 @@ _TYPE_DEFAULTS = {
         "run_command": "npm run dev",
         "requires_docker": False,
     },
+    "static": {
+        "tech_stack": ["html", "css", "javascript"],
+        "entry_point": "index.html",
+        "test_command": "",
+        "run_command": "open index.html",
+        "requires_docker": False,
+    },
 }
 
 _ARCH_DEFAULTS = {
@@ -202,6 +209,12 @@ _ARCH_DEFAULTS = {
         "data_paradigm": "none",
         "api_paradigm": "webgl",
     },
+    "static": {
+        "structural_pattern": "script",
+        "topology": "static",
+        "data_paradigm": "none",
+        "api_paradigm": "none",
+    },
 }
 
 _FALLBACK_TYPE = "script"
@@ -225,6 +238,13 @@ def detect_project_type(description: str) -> tuple[ProjectType, Language]:
 
     # FRONTEND DETECTION - Check first (more specific than backend)
     frontend_keywords = [
+        "html",
+        "css",
+        "landing page",
+        "website",
+        "web page",
+        "frontend",
+        "front-end",
         "react",
         "vue",
         "angular",
@@ -236,8 +256,6 @@ def detect_project_type(description: str) -> tuple[ProjectType, Language]:
         "gatsby",
         "remix",
         "astro",
-        "frontend",
-        "front-end",
         "web app",
         "spa ",
         "single page",
@@ -462,7 +480,7 @@ _USER_PROMPT_TEMPLATE = (
     "SUCCESS CRITERIA: {criteria}\n\n"
     "Return a JSON object with these exact fields:\n"
     "{{\n"
-    '  "app_type": "fastapi|flask|cli|library|script|react-fastapi|nextjs|generic",\n'
+    '  "app_type": "fastapi|flask|cli|library|script|react-fastapi|nextjs|generic|static",\n'
     '  "tech_stack": ["list", "of", "technologies"],\n'
     '  "entry_point": "relative/path/to/main.py",\n'
     '  "test_command": "pytest",\n'

@@ -1,0 +1,278 @@
+$ git add -A && git commit -m "fix: add decompose_fn property to DecomposerService (the actual class behind GeneratorService alias)" && git push && python -m orchestrator build --description "Build a modern responsive landing page for CloudFlow SaaS with HTML CSS JS — hero, features, pricing, contact" --output-dir outputs/cloudflow --criteria "Clean, fast, all sections present" 2>&1
+[killed after timeout]
+[master e5294f99] fix: add decompose_fn property to DecomposerService (the actual class behind GeneratorService alias)
+ 5 files changed, 12 insertions(+), 221 deletions(-)
+ delete mode 100644 KIMI_K2_7_CODE_INTEGRATION_PLAN.md
+ delete mode 100644 New Text Document.txt
+ delete mode 100644 openevolve-main.zip
+To https://github.com/georgehadji/multi-llm-orchestrator.git
+   a5840a6d..e5294f99  master -> master
+15:30:11 [orchestrator.app_builder] INFO: AppBuilder: running architecture advisor...
+15:30:11 [orchestrator.architecture_advisor] INFO: Detected BACKEND project with Python (default)
+15:30:13 [orchestrator.api] INFO: OpenRouter client initialized
+15:30:14 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:30:38 [orchestrator.architecture_advisor] WARNING: ArchitectureAdvisor JSON parse failed: Expecting value: line 1 column 1 (char 0)
+15:30:38 [orchestrator.app_builder] INFO: AppBuilder: app_type=script pattern=script topology=library detected_from=advisor
+15:30:38 [orchestrator.app_builder] INFO: AppBuilder: scaffolding...
+15:30:38 [orchestrator.app_builder] INFO: AppBuilder: running orchestrator...
+15:30:39 [orchestrator.api] INFO: OpenRouter client initialized
+15:30:39 [orchestrator.container] INFO: No LSP servers found on PATH — LSP validation disabled
+15:30:39 [orchestrator.meta] INFO: Loaded 1 projects from archive
+15:30:39 [orchestrator.ab_testing] INFO: Loaded 509 experiments from disk
+15:30:39 [orchestrator.transfer] INFO: Loaded 1 embeddings
+15:30:39 [orchestrator.transfer] INFO: Loaded 262 patterns
+15:30:39 [orchestrator.meta_integration] INFO: Transfer learning enabled
+15:30:39 [orchestrator.meta_integration] INFO: Meta-Optimization V2 initialized: AB=True, HITL=True, Rollout=True
+15:30:39 [orchestrator] INFO: Orchestrator initialized via ServiceContainer
+15:30:39 [orchestrator] INFO: Starting project 10f397334696
+15:30:39 [orchestrator] INFO: Budget: $8.0, 5400.0s
+15:30:39 [orchestrator.engine_core.architect] INFO: Generating architecture rules...
+15:30:39 [orchestrator.orchestrator.architecture_rules] INFO: Generating architecture rules...
+15:30:39 [orchestrator.api] WARNING: Unknown model anthropic/claude-sonnet-4-6 - allowing through
+15:30:41 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:30:51 [orchestrator.orchestrator.architecture_rules] INFO: Architecture (LLM): monolith
+15:30:51 [orchestrator.orchestrator.architecture_rules] INFO: Paradigm (LLM): declarative
+15:30:51 [orchestrator.orchestrator.architecture_rules] INFO: Stack (LLM): typescript
+15:30:52 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:30:54 [orchestrator.assumption_gate] WARNING: Assumption surfacing failed, proceeding without check
+15:31:06 [orchestrator] INFO: Using Instructor for structured decomposition with moonshotai/kimi-k2.7-code
+15:31:07 [orchestrator.orchestrator.structured_outputs] INFO: Decomposition token budget: 1820 (complexity: 0.05)
+15:31:09 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:31:42 [orchestrator] WARNING: Instructor decomposition failed (AttributeError), using Decomposer
+15:31:43 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:17 [orchestrator.engine_core.decomposer] INFO: Decomposition succeeded on attempt 1 with moonshotai/kimi-k2.7-code (14 tasks)
+15:33:17 [orchestrator] INFO: Execution order: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+15:33:17 [orchestrator] INFO: Starting task execution...
+15:33:17 [orchestrator.engine_core.pipeline_runner] INFO: Executing level 0 (14 tasks)
+15:33:18 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:19 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:19 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:29 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:31 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:33:31 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 2: all_validators_pass() takes 1 positional argument but 2 were given
+15:33:31 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.065 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:33:31 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:33:32 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:34 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:36 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:33:36 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 3: all_validators_pass() takes 1 positional argument but 2 were given
+15:33:36 [orchestrator.engine_core.validator] INFO: [preflight] BLOCK task=3 - attempting 1 revision: Blocking issues: API key detected (timeout=120s)
+15:33:37 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:44 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:45 [orchestrator.engine_core.validator] INFO: [preflight] BLOCK recovered task=3
+15:33:45 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.092 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:33:45 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:33:45 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:46 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:46 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:33:46 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 2: all_validators_pass() takes 1 positional argument but 2 were given
+15:33:46 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.045 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:33:46 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:33:47 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:48 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:33:48 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 1: all_validators_pass() takes 1 positional argument but 2 were given
+15:33:48 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.045 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:33:48 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:33:48 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:51 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:54 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:33:54 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 2: all_validators_pass() takes 1 positional argument but 2 were given
+15:33:54 [orchestrator.engine_core.stages.self_consistency] INFO: Max attempts (2) reached for task 2, best score=0.045
+15:33:54 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:56 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:33:56 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 3: all_validators_pass() takes 1 positional argument but 2 were given
+15:33:56 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=3 - attempting 1 revision: Consider adding: Code generation task but no code found (timeout=120s)
+15:33:56 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:33:58 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:33:59 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:00 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:02 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:34:02 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 1: all_validators_pass() takes 1 positional argument but 2 were given
+15:34:02 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.035 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:34:02 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:34:03 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:04 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:06 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:34:06 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 4: all_validators_pass() takes 1 positional argument but 2 were given
+15:34:06 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=4 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete). Code generation task but no code foun (timeout=120s)
+15:34:06 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:07 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:09 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=3
+15:34:09 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.065 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:34:09 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:34:10 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=4
+15:34:10 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.072 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:34:10 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:34:10 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:10 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:34:10 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 1: all_validators_pass() takes 1 positional argument but 2 were given
+15:34:10 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=1 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:34:10 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:34:11 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:11 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:15 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=1
+15:34:15 [orchestrator.engine_core.stages.self_consistency] INFO: Max attempts (2) reached for task 1, best score=0.045
+15:34:16 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:17 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:19 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:34:19 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 3: all_validators_pass() takes 1 positional argument but 2 were given
+15:34:19 [orchestrator.engine_core.stages.self_consistency] INFO: Max attempts (2) reached for task 3, best score=0.092
+15:34:19 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:28 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:33 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:34:33 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 4: all_validators_pass() takes 1 positional argument but 2 were given
+15:34:33 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.045 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:34:33 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:34:34 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:38 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:41 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:34:41 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 4: all_validators_pass() takes 1 positional argument but 2 were given
+15:34:41 [orchestrator.engine_core.stages.self_consistency] INFO: Max attempts (2) reached for task 4, best score=0.065
+15:34:41 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:48 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:34:50 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:34:50 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 5: all_validators_pass() takes 1 positional argument but 2 were given
+15:34:50 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=5 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:34:51 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:00 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:03 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:35:03 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 6: all_validators_pass() takes 1 positional argument but 2 were given
+15:35:03 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.065 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:35:03 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:35:03 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:08 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:10 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:35:10 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 7: all_validators_pass() takes 1 positional argument but 2 were given
+15:35:10 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.065 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:35:10 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:35:12 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:20 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=5
+15:35:20 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.065 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:35:20 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:35:21 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:35 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:38 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:35:38 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 7: all_validators_pass() takes 1 positional argument but 2 were given
+15:35:38 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=7 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:35:38 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:35:38 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:42 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:44 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:44 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:35:44 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 5: all_validators_pass() takes 1 positional argument but 2 were given
+15:35:44 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.042 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:35:44 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:35:46 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:46 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:35:46 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 6: all_validators_pass() takes 1 positional argument but 2 were given
+15:35:46 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=6 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:35:46 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:35:47 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:50 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:35:53 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:35:53 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 5: all_validators_pass() takes 1 positional argument but 2 were given
+15:35:53 [orchestrator.engine_core.stages.self_consistency] INFO: Max attempts (2) reached for task 5, best score=0.045
+15:35:53 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:15 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=6
+15:36:15 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.072 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:36:15 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:36:15 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=7
+15:36:15 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.065 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:36:15 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:36:15 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:16 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:20 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:22 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:36:22 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 7: all_validators_pass() takes 1 positional argument but 2 were given
+15:36:22 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=7 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:36:22 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:36:22 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:22 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:25 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:36:25 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 6: all_validators_pass() takes 1 positional argument but 2 were given
+15:36:25 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=6 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:36:25 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:36:26 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:29 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=7
+15:36:29 [orchestrator.engine_core.stages.self_consistency] INFO: Max attempts (2) reached for task 7, best score=0.035
+15:36:30 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:32 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=6
+15:36:32 [orchestrator.engine_core.stages.self_consistency] INFO: Max attempts (2) reached for task 6, best score=0.045
+15:36:32 [orchestrator] WARNING: taste-skill anti_slop [6]: Anti-slop findings (4 total):
+  - Banned font detected (Inter/Roboto/Arial/Helvetica)
+  - Pure #fff/#ffffff background detected
+  - Generic low-quality box-shadow detected
+  - Em-dash (—) in copy detected
+15:36:33 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:34 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:36:37 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:36:37 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 8: all_validators_pass() takes 1 positional argument but 2 were given
+15:36:37 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=8 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:36:37 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:09 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:09 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=8
+15:37:09 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.062 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:37:09 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:37:10 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:11 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:37:11 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 10: all_validators_pass() takes 1 positional argument but 2 were given
+15:37:11 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=10 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:37:11 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:11 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:14 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:37:14 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 9: all_validators_pass() takes 1 positional argument but 2 were given
+15:37:14 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=9 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:37:14 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:32 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:34 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:37:34 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 8: all_validators_pass() takes 1 positional argument but 2 were given
+15:37:34 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=8 - attempting 1 revision: Consider adding: Template placeholder found (timeout=120s)
+15:37:34 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:37:35 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:36 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=10
+15:37:36 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.072 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:37:36 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:37:36 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:37 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=9
+15:37:37 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.065 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:37:37 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:37:39 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:51 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:52 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=8
+15:37:52 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.065 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:37:52 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:37:53 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:53 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:37:53 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 10: all_validators_pass() takes 1 positional argument but 2 were given
+15:37:53 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=10 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:37:53 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:37:54 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:37:57 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:38:00 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:38:00 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 8: all_validators_pass() takes 1 positional argument but 2 were given
+15:38:00 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=8 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete) (timeout=120s)
+15:38:00 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:38:01 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:38:01 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:38:04 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:38:04 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 9: all_validators_pass() takes 1 positional argument but 2 were given
+15:38:04 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=9 - attempting 1 revision: Consider adding: Template placeholder found (timeout=120s)
+15:38:04 [orchestrator.api] WARNING: Unknown model meta-llama/llama-4-scout - allowing through
+15:38:04 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:38:06 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=8
+15:38:06 [orchestrator.engine_core.stages.self_consistency] INFO: Max attempts (2) reached for task 8, best score=0.065
+15:38:06 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:38:09 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:38:11 [orchestrator.telemetry] WARNING: TelemetryCollector: unknown model <Model.XAI_GROK_4_20: 'x-ai/grok-4.20'>
+15:38:11 [orchestrator.engine_core.stages.validate] WARNING: Validation error for task 11: all_validators_pass() takes 1 positional argument but 2 were given
+15:38:11 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH task=11 - attempting 1 revision: Consider adding: HTML/XML tags detected (possible incomplete). Code generation task but no code foun (timeout=120s)
+15:38:11 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=10
+15:38:11 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 2 score=0.072 below threshold=0.700, retrying with fallback model meta-llama/llama-3.3-70b-instruct
+15:38:11 [orchestrator.api] WARNING: Unknown model meta-llama/llama-3.3-70b-instruct - allowing through
+15:38:12 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:38:13 [httpx] INFO: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+15:38:16 [orchestrator.engine_core.validator] INFO: [preflight] ENRICH recovered task=11
+15:38:16 [orchestrator.engine_core.stages.self_consistency] INFO: Attempt 1 score=0.000 below threshold=0.700, retrying with fallback model meta-llama/llama-4-scout
+15:38:16 [orchestrator.api] WARNING: Unknown 
+
+[… truncated 10751 chars …]
