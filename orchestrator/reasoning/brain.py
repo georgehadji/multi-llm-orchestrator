@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from .models import Model
+from ..models import Model
 
 logger = logging.getLogger("orchestrator.brain")
 
@@ -63,7 +63,7 @@ class Brain:
         Returns:
             CognitiveState: The resulting cognitive state after reasoning
         """
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 
@@ -198,7 +198,7 @@ class Brain:
         then state your final choice as "FINAL CHOICE: [selected option]"
         """
 
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 
@@ -241,7 +241,7 @@ class Brain:
         SUMMARY:
         """
 
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 

@@ -22,8 +22,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from .cache import DiskCache
-from .models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, TaskType, VSConfig, get_provider
+from ..infrastructure.cache import DiskCache
+from ..models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, TaskType, VSConfig, get_provider
 
 # Lazy import for VerbalizedSampler (avoids circular dep at module level)
 _VerbalizedSampler = None
@@ -39,10 +39,10 @@ def _get_vs_sampler(client):
 
                 _VerbalizedSampler = VerbalizedSampler
     return _VerbalizedSampler(client=client)
-from .telemetry import TelemetryCollector
+from ..telemetry import TelemetryCollector
 
 if TYPE_CHECKING:
-    from .api_clients import UnifiedClient
+    from ..api_clients import UnifiedClient
 
 logger = logging.getLogger("orchestrator")
 
@@ -211,22 +211,20 @@ class BasePipeline(ABC):
 
     def _get_available_models(self, task_type: TaskType) -> list[Model]:
         """Get list of available models for task type."""
-        from .models import ROUTING_TABLE
+        from ..models import ROUTING_TABLE
 
         routing = ROUTING_TABLE.get(task_type, list(Model)[:5])
         return [m for m in routing if self.api_health.get(m, False)]
 
     def _get_model_for_phase(self, phase: "PhaseType", task_type: TaskType) -> Model:
         """Get optimal model for a specific phase type."""
-        from .phase_aware_models import PhaseAwareModelSelector
+        from ..phase_aware_models import PhaseAwareModelSelector
 
         available = [m.value for m in self._get_available_models(task_type)]
         selector = PhaseAwareModelSelector()
         best = selector.select_model(phase=phase, available_models=available)
 
-        # Convert string back to Model enum
-        from .models import Model
-
+        # Convert string back to Model enum (Model already imported at module level)
         try:
             return Model(best)
         except ValueError:
@@ -239,7 +237,7 @@ class BasePipeline(ABC):
 
     def _select_reviewer(self, primary: Model, task_type: TaskType) -> Model | None:
         """Select a reviewer model from different provider."""
-        from .models import ROUTING_TABLE
+        from ..models import ROUTING_TABLE
 
         primary_provider = get_provider(primary)
 
