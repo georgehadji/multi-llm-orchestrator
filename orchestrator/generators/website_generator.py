@@ -619,7 +619,7 @@ export default function {section.title()}() {{
             # ── PWA / Icons ──
             '  <link rel="icon" type="image/svg+xml" href="/favicon.svg">',
             '  <link rel="apple-touch-icon" href="/apple-touch-icon.png">',
-            '  <meta name="theme-color" content="{design_system.colors.primary}">',
+            f'  <meta name="theme-color" content="{design_system.colors.primary}">',
             # ── Assets ──
             '  <link rel="stylesheet" href="styles.css">',
             "  <script src=\"script.js\" defer></script>",
