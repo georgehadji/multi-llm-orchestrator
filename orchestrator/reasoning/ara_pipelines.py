@@ -3138,9 +3138,21 @@ class VerbalizedSamplingPipeline(BasePipeline):
         return self._build_result(state)
 
     async def _phase_generate_candidates(self, state: PipelineState, context: str):
-        """Generate k diverse candidate responses via VerbalizedSampler."""
+        """Generate k diverse candidate responses via VerbalizedSampler.
+
+        Supports TAIL mode via VSConfig.probability_threshold. When the task
+        metadata contains a 'vs_threshold' key (e.g. 0.10), tail-sampling is
+        activated to surface unconventional approaches.
+        """
         models = self._get_available_models(state.task.type)
         gen_model = models[0] if models else Model.GPT_4O_MINI
+
+        # Determine VS mode: TAIL if threshold is set in task metadata
+        threshold = (
+            state.task.metadata.get("vs_threshold")
+            if getattr(state.task, "metadata", None)
+            else None
+        )
 
         # Use the reusable VS primitive (port-only, never blocks on old tuple contract)
         sampler = _get_vs_sampler(self.client)
@@ -3149,8 +3161,8 @@ class VerbalizedSamplingPipeline(BasePipeline):
             model=gen_model,
             cfg=VSConfig(
                 k=self.K_DEFAULT,
+                probability_threshold=threshold,
                 temperature=0.9,
-                # Use EXPLICIT format for standard VS
                 fmt=ProbabilityFormat.EXPLICIT,
             ),
             max_tokens=state.task.max_output_tokens,

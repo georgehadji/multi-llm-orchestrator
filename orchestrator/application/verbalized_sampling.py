@@ -31,7 +31,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..models import Model, ProbabilityFormat, TaskType, VSConfig
 
@@ -82,8 +82,10 @@ class VerbalizedSampler:
     def __init__(
         self,
         client: LLMClient,
+        budget: Any = None,
     ) -> None:
         self._client = client
+        self._budget = budget
 
     async def sample(
         self,
@@ -128,6 +130,14 @@ class VerbalizedSampler:
         except Exception as e:
             logger.warning("VerbalizedSampler call failed: %s", e)
             return []
+
+        # Track cost against budget when available
+        if self._budget is not None and resp is not None:
+            try:
+                cost = getattr(resp, "cost_usd", 0.0)
+                await self._budget.charge(cost, "verbalized_sampling")
+            except Exception:
+                pass
 
         if not resp or not resp.text:
             logger.warning("VerbalizedSampler got empty response")
