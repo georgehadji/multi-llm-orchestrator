@@ -82,6 +82,13 @@ class FeatureFlags(BaseSettings):
     task_verifier_enabled: bool = True  # Task output verifier
     token_optimizer_enabled: bool = True  # Token usage optimizer
 
+    # ── Verbalized Sampling gates (CodeWhale Phase 0) ────────────────────
+    vs_map_elites_seeding: bool = False  # Phase 2: VS-tail seed MAP-Elites grid
+    vs_retry_escape: bool = False  # Phase 3: VS-tail escape from stuck retries
+    vs_test_generation: bool = False  # Phase 4: VS for test/synthetic data
+    vs_generate: bool = False  # Phase 6: VS-first GenerateStage
+    vs_k: int = 5  # Default candidates per VS call
+
     # ── taste-skill design quality gates ──────────────────────────────────
     taste_skill_enabled: bool = True  # Inject taste-skill anti-slop prefix for frontend tasks
     image_reference_pipeline: bool = False  # Pre-generate text visual context before code gen
