@@ -391,6 +391,15 @@ def _ext_for(task_type: TaskType, output: str) -> str:
                 "sql": ".sql",
                 "xml": ".xml",
                 "ini": ".ini",
+                "html": ".html",
+                "css": ".css",
+                "scss": ".scss",
+                "javascript": ".js",
+                "js": ".js",
+                "typescript": ".ts",
+                "ts": ".ts",
+                "jsx": ".jsx",
+                "tsx": ".tsx",
             }
             if lang in _lang_to_ext:
                 return _lang_to_ext[lang]

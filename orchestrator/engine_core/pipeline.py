@@ -89,7 +89,11 @@ class PipelineContext:
             status=status,
             critique=self.critique,
             attempt_history=[
-                {"attempt": a.get("attempt", 0), "score": a.get("score", 0.0)}
+                (
+                    {"attempt": a.attempt_num, "score": 0.0}
+                    if hasattr(a, "attempt_num")
+                    else {"attempt": a.get("attempt", 0), "score": a.get("score", 0.0)}
+                )
                 for a in self.attempt_history
             ],
             preflight_result=self.preflight_result,

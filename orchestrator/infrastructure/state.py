@@ -115,13 +115,23 @@ def _task_from_dict(d: dict) -> Task:
     return t
 
 
-def _attempt_to_dict(a: AttemptRecord) -> dict:
+def _attempt_to_dict(a) -> dict:
+    """Convert an attempt record to a dict. Accepts both AttemptRecord and dict."""
+    if hasattr(a, "attempt_num"):
+        return {
+            "attempt_num": a.attempt_num,
+            "model_used": a.model_used,
+            "output_snippet": a.output_snippet,
+            "failure_reason": a.failure_reason,
+            "validators_failed": getattr(a, "validators_failed", []),
+        }
+    # Fallback for raw dict
     return {
-        "attempt_num": a.attempt_num,
-        "model_used": a.model_used,
-        "output_snippet": a.output_snippet,
-        "failure_reason": a.failure_reason,
-        "validators_failed": a.validators_failed,
+        "attempt_num": a.get("attempt_num", a.get("attempt", 0)) if isinstance(a, dict) else 0,
+        "model_used": a.get("model_used", "") if isinstance(a, dict) else "",
+        "output_snippet": a.get("output_snippet", "") if isinstance(a, dict) else "",
+        "failure_reason": a.get("failure_reason", "") if isinstance(a, dict) else "",
+        "validators_failed": a.get("validators_failed", []) if isinstance(a, dict) else [],
     }
 
 

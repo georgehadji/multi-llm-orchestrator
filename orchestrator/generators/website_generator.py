@@ -445,10 +445,108 @@ export default function {section.title()}() {{
         config: WebsiteConfig,
     ) -> None:
         """Assemble individual components into a complete page."""
-        if config.framework == "next.js":
+        if config.framework == "html":
+            self._assemble_html_page(output_dir, sections, design_system, config)
+        elif config.framework == "next.js":
             self._assemble_nextjs_page(output_dir, sections, design_system, config)
         else:
             self._assemble_react_page(output_dir, sections, design_system, config)
+
+    def _assemble_html_page(
+        self,
+        output_dir: Path,
+        sections: list[str],
+        design_system: DesignSystem,
+        config: WebsiteConfig,
+    ) -> None:
+        """Assemble a vanilla HTML/CSS/JS page from component files."""
+        components_dir = output_dir / "components"
+        css_path = output_dir / "styles.css"
+
+        # Gather CSS from individual files and consolidate
+        css_lines = [
+            "/* CloudFlow — Generated Styles */",
+            ":root {",
+            f"  --color-primary: {design_system.colors.primary};",
+            f"  --color-accent: {design_system.colors.accent};",
+            f"  --color-surface: {design_system.colors.surface};",
+            f"  --color-surface-alt: {design_system.colors.surface_alt};",
+            f"  --color-text-primary: {design_system.colors.text_primary};",
+            f"  --color-text-secondary: {design_system.colors.text_secondary};",
+            f"  --font-heading: '{design_system.font_heading}', sans-serif;",
+            f"  --font-body: '{design_system.font_body}', sans-serif;",
+            f"  --spacing-unit: {design_system.spacing.unit};",
+            f"  --shadow-sm: {design_system.shadow.sm};",
+            f"  --shadow-md: {design_system.shadow.md};",
+            f"  --shadow-lg: {design_system.shadow.lg};",
+            "}",
+            "",
+            "*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }",
+            "html { scroll-behavior: smooth; }",
+            "body {",
+            "  font-family: var(--font-body);",
+            "  color: var(--color-text-primary);",
+            "  background: var(--color-surface);",
+            "  line-height: 1.6;",
+            "}",
+        ]
+        css_path.write_text("\n".join(css_lines) + "\n", encoding="utf-8")
+
+        # Gather JS from individual files
+        js_lines = ["// CloudFlow — Generated Scripts", "(function() {", "  'use strict';", ""]
+        js_path = output_dir / "script.js"
+
+        # Build index.html from sections
+        page_lines = [
+            "<!DOCTYPE html>",
+            '<html lang="en">',
+            "<head>",
+            '  <meta charset="UTF-8">',
+            '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+            f"  <title>{config.client_name or 'CloudFlow'} — {config.page_type or 'Landing Page'}</title>",
+            '  <link rel="stylesheet" href="styles.css">',
+            "  <script src=\"script.js\" defer></script>",
+            "</head>",
+            "<body>",
+        ]
+
+        # Read each component file and inject into the page
+        if components_dir.exists():
+            for section_file in sorted(components_dir.glob("*.html")):
+                content = section_file.read_text(encoding="utf-8")
+                page_lines.append(f"  <!-- {section_file.stem} -->")
+                for line in content.splitlines():
+                    if line.strip():
+                        page_lines.append(f"  {line}")
+                page_lines.append("")
+
+            # Collect CSS from component CSS files
+            for css_file in sorted(components_dir.glob("*.css")):
+                css_content = css_file.read_text(encoding="utf-8")
+                with open(css_path, "a", encoding="utf-8") as f:
+                    f.write(f"\n/* {css_file.stem} */\n")
+                    f.write(css_content)
+                    f.write("\n")
+
+            # Collect JS from component JS files
+            for js_file in sorted(components_dir.glob("*.js")):
+                js_content = js_file.read_text(encoding="utf-8")
+                js_lines.append(f"  // {js_file.stem}")
+                for line in js_content.splitlines():
+                    if line.strip():
+                        js_lines.append(f"  {line}")
+                js_lines.append("")
+
+        page_lines.append("</body>")
+        page_lines.append("</html>")
+        page_lines.append("")
+
+        js_lines.append("})();")
+
+        # Write assembled files
+        index_path = output_dir / "index.html"
+        index_path.write_text("\n".join(page_lines), encoding="utf-8")
+        js_path.write_text("\n".join(js_lines) + "\n", encoding="utf-8")
 
     def _assemble_nextjs_page(
         self,
