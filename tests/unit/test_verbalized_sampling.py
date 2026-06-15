@@ -90,12 +90,12 @@ class TestBuildSystem:
     def test_injects_k(self):
         s = VerbalizedSampler(client=FakeLLMClient())
         system = s._build_system(VSConfig(k=5), "")
-        assert "Generate 5 possible responses" in system
+        assert "Generate 5 candidate responses" in system
 
     def test_injects_k_varied(self):
         s = VerbalizedSampler(client=FakeLLMClient())
         system = s._build_system(VSConfig(k=1), "")
-        assert "Generate 1 possible responses" in system  # not 0/empty
+        assert "Generate 1 candidate response" in system
 
     def test_explicit_format_string(self):
         s = VerbalizedSampler(client=FakeLLMClient())
@@ -112,7 +112,8 @@ class TestBuildSystem:
     def test_threshold_injects_tail_instruction(self):
         s = VerbalizedSampler(client=FakeLLMClient())
         system = s._build_system(VSConfig(probability_threshold=0.10), "")
-        assert "probability of each response is below 0.1" in system
+        assert "low-probability tail" in system
+        assert "below 0.1" in system
 
     def test_no_threshold_omits_tail(self):
         s = VerbalizedSampler(client=FakeLLMClient())
@@ -306,7 +307,7 @@ class TestSample:
         )
         system = fake.last_call.get("system", "")
         assert "CUSTOM" in system
-        assert "Generate 1 possible response" in system
+        assert "Generate 1 candidate response" in system
 
     @pytest.mark.asyncio
     async def test_passes_timeout_and_max_tokens(self):

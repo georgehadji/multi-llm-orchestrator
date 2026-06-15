@@ -120,6 +120,7 @@ class VerbalizedSampler:
                 system=system,
                 max_tokens=max_tokens,
                 temperature=cfg.temperature,
+                top_p=cfg.top_p,
                 timeout=timeout,
                 task_type=task_type,
                 response_schema=bool(task_type),
@@ -148,13 +149,13 @@ class VerbalizedSampler:
         tail = ""
         if cfg.probability_threshold is not None:
             tail = (
-                f" Randomly sample from the distribution such that the "
-                f"probability of each response is below "
-                f"{cfg.probability_threshold}."
+                f" Prefer responses from the low-probability tail of the "
+                f"distribution — each candidate's verbalized typicality "
+                f"should be below {cfg.probability_threshold}."
             )
 
         return (
-            f"{extra}\nGenerate {cfg.k} possible responses to the user prompt. "
+            f"{extra}\nGenerate {cfg.k} candidate {'response' if cfg.k == 1 else 'responses'} to the user prompt. "
             f"Return ONLY valid JSON in this exact format: "
             f'{{"responses": [{{"text": str, "probability": float}}]}}. '
             f"For each response, 'probability' is "
@@ -291,8 +292,8 @@ class VerbalizedSampler:
                 except json.JSONDecodeError:
                     pass
 
-        # Try to find a bare [...] array
-        arr_match = re.search(r"\[", text)
+        # Try to find a bare [...] array (anchor: [ followed by {)
+        arr_match = re.search(r"\[\s*\{", text)
         if arr_match:
             start = arr_match.start()
             result = VerbalizedSampler._try_extract_balanced(text, start, k, "[", "]")

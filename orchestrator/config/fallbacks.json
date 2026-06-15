@@ -30,5 +30,6 @@
   "stepfun/step-3.5-flash": "deepseek/deepseek-v4-pro",
   "z-ai/glm-5.1": "microsoft/phi-4",
   "z-ai/glm-5-turbo": "z-ai/glm-5.1",
-  "qwen/qwen3.7-max": "deepseek/deepseek-v4-pro"
+  "qwen/qwen3.7-max": "deepseek/deepseek-v4-pro",
+  "moonshotai/kimi-k2.7-code": "moonshotai/kimi-k2.6"
 }
