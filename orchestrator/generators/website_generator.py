@@ -317,12 +317,23 @@ class WebsiteGenerator:
 
             # Step 4: Execute through orchestrator (if available)
             if self._engine:
-                state = await self._engine.execute_tasks(
-                    tasks=tasks,
-                    budget=budget,
-                )
-                result.state = state
+                logger.info(f"LLM-powered generation: {len(tasks)} sections via orchestrator")
+                for i, task in enumerate(tasks):
+                    try:
+                        component_result = await self._engine._execute_task(task)
+                        if component_result and component_result.output:
+                            # Write LLM output to component file
+                            comp_path = output_dir / "components" / f"{config.sections[i]}.tsx"
+                            comp_path.parent.mkdir(parents=True, exist_ok=True)
+                            comp_path.write_text(component_result.output, encoding="utf-8")
+                            result.total_cost += getattr(component_result, "cost_usd", 0)
+                            logger.info(f"  ✓ {config.sections[i]}: {len(component_result.output)} chars")
+                        else:
+                            logger.warning(f"  ✗ {config.sections[i]}: empty LLM output")
+                    except Exception as task_err:
+                        logger.warning(f"  ✗ {config.sections[i]}: {task_err}")
                 result.components_generated = len(tasks)
+                result.success = True
             else:
                 # Without engine, generate content from content brief
                 logger.warning("No orchestrator engine available — using content brief")

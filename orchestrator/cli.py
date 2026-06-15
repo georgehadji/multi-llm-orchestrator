@@ -1709,22 +1709,42 @@ def _website_subparsers(subparsers) -> None:
 
 
 def _cmd_website(args):
-    """Execute website generation."""
+    """Execute website generation — wired into the orchestrator engine for LLM-powered generation."""
     import asyncio
+    import logging
     from pathlib import Path
 
     from .design_system import DesignSystem
     from .generators.website_generator import ClientInfo, WebsiteConfig, WebsiteGenerator
 
-    print(f"\n🎨 Generating '{args.preset}' website: {args.description[:80]}...")
+    logger = logging.getLogger(__name__)
+
+    print(f"\n🎨 Generating '{args.preset}' LLM-powered website: {args.description[:80]}...")
     print(f"   Framework: {args.framework}")
 
-    design_system = DesignSystem()  # Default design system
-    client_info = ClientInfo(name="Website Project", industry="technology", description=args.description)
-    config = WebsiteConfig(framework=args.framework, styling="css", page_type="landing")
+    design_system = DesignSystem(tone=args.preset)
+    client_info = ClientInfo(name="CloudFlow", industry="technology", description=args.description)
+    config = WebsiteConfig(
+        framework=args.framework,
+        styling="tailwind" if args.framework != "html" else "css",
+        page_type="landing",
+        sections=["hero", "features", "pricing", "testimonials", "faq", "cta", "footer"],
+    )
     output_dir = Path(args.output_dir)
 
-    generator = WebsiteGenerator()
+    # Wire orchestrator engine for LLM-powered generation
+    engine = None
+    try:
+        from .budget import Budget
+        from .engine import Orchestrator
+
+        orchestrator = Orchestrator(budget=Budget(max_usd=3.0), max_concurrency=3)
+        engine = orchestrator
+        print("   Engine: LLM-powered (OpenRouter)")
+    except Exception as e:
+        print(f"   Engine: content-brief fallback ({e})")
+
+    generator = WebsiteGenerator(orchestrator_engine=engine)
 
     async def _run():
         return await generator.generate(
@@ -1737,15 +1757,15 @@ def _cmd_website(args):
     result = asyncio.run(_run())
 
     has_index = (output_dir / "index.html").exists()
-    has_nextjs = (output_dir / "package.json").exists() and (output_dir / "tailwind.config.js").exists()
+    has_nextjs = (output_dir / "package.json").exists()
     
     if result.success:
-        print(f"✅ Website generated: {output_dir.resolve()}")
+        print(f"✅ LLM-powered website: {output_dir.resolve()}")
         print(f"   Components: {result.components_generated}")
         print(f"   Cost: ${result.total_cost:.4f}")
     elif has_nextjs:
-        print(f"⚠️  Pipeline issues (assembled from fallback)")
-        print(f"✅ Next.js + Tailwind project: {output_dir.resolve()}")
+        print(f"⚠️  Content-brief fallback (engine not available)")
+        print(f"✅ Next.js + Tailwind: {output_dir.resolve()}")
         print(f"   Run: cd {output_dir} && npm install && npm run dev")
     elif has_index:
         print(f"⚠️  Pipeline issues ({result.errors[0][:60]}...), but fallback HTML written")
