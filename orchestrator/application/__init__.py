@@ -18,6 +18,7 @@ from .decomposer import DecomposerMetrics, DecomposerResult, DecomposerService
 from .observability import ModelSummary, ObservabilityService
 from .dependency_resolver import DependencyResolver
 from .context_compressor import ContextCompressor
+from .verbalized_sampling import VerbalizedSampler, VSCandidate
 
 __all__ = [
     # Engine core (now application-layer)
@@ -40,4 +41,7 @@ __all__ = [
     # Supporting
     "DependencyResolver",
     "ContextCompressor",
+    # Verbalized Sampling
+    "VerbalizedSampler",
+    "VSCandidate",
 ]

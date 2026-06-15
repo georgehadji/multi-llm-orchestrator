@@ -217,6 +217,8 @@ class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════
 
+    MOONSHOT_KIMI_K2_7_CODE = "moonshotai/kimi-k2.7-code"  # $1.10/$4.50, 256K, code-optimized
+
     MOONSHOT_KIMI_K2_6 = "moonshotai/kimi-k2.6"  # $0.95/$4.00, 256K, reasoning SOTA
 
     MOONSHOT_KIMI_K2 = "moonshotai/kimi-k2"  # $0.50/$1.50
@@ -776,6 +778,49 @@ def build_default_profiles() -> dict[Model, ModelProfile]:
         )
 
     return profiles
+
+
+# ─────────────────────────────────────────────
+
+# Verbalized Sampling types (CodeWhale Phase 0)
+
+# ─────────────────────────────────────────────
+
+
+class ProbabilityFormat(str, Enum):
+    """Format for verbalized probability in VS prompts.
+
+    EXPLICIT — "the estimated probability from 0.0 to 1.0 of this response
+               given the input prompt (relative to the full distribution)"
+               Best for VS-Standard (paper H.3).
+
+    CONFIDENCE — "the normalized likelihood score between 0.0 and 1.0 that
+                  indicates how representative or typical this response is"
+                  Best for VS-Multi (paper H.3).
+    """
+
+    EXPLICIT = "explicit"
+    CONFIDENCE = "confidence"
+
+
+@dataclass(frozen=True)
+class VSConfig:
+    """Configuration for a single Verbalized Sampling call.
+
+    k: Number of candidates to generate (paper default 5; H.1 shows
+       diminishing returns above).
+    probability_threshold: None = no threshold. 0.10 = sample from the
+       tail (probability < 0.10). Paper §Tail.
+    fmt: Probability format string to inject (see ProbabilityFormat).
+    temperature: Sampling temperature (VS is orthogonal; paper §5.3).
+    top_p: Nucleus sampling (paper H.2 optimum 0.95).
+    """
+
+    k: int = 5
+    probability_threshold: float | None = None
+    fmt: ProbabilityFormat = ProbabilityFormat.EXPLICIT
+    temperature: float = 0.9
+    top_p: float = 0.95
 
 
 # ─────────────────────────────────────────────
