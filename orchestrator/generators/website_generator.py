@@ -37,24 +37,29 @@ from ..design_system import DesignSystem
 # Stubs for symbols removed from design_system
 
 
-@dataclass
 class ContentBrief:
-    headlines: dict[str, str] = field(default_factory=dict)
-    value_props: list[str] = field(default_factory=list)
-    target_audience: str = ""
-    competitors: list[str] = field(default_factory=list)
-    keywords: list[str] = field(default_factory=list)
-    ctas: list[str] = field(default_factory=list)
-    tagline: str = ""
-    social_proof: list[str] = field(default_factory=list)
+    """Website content brief — accepts arbitrary kwargs for compatibility."""
+    def __init__(self, **kwargs):
+        self.headlines: dict = kwargs.pop("headlines", {})
+        self.value_props: list = kwargs.pop("value_props", [])
+        self.target_audience: str = kwargs.pop("target_audience", "")
+        self.competitors: list = kwargs.pop("competitors", [])
+        self.keywords: list = kwargs.pop("keywords", [])
+        self.ctas: list = kwargs.pop("ctas", [])
+        self.tagline: str = kwargs.pop("tagline", "")
+        self.social_proof: list = kwargs.pop("social_proof", [])
+        self.faqs: list = kwargs.pop("faqs", [])
+        self.__dict__.update(kwargs)
 
 
-@dataclass
 class QualityReport:
-    score: float = 0.0
-    issues: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-    passed: bool = False
+    """Website quality report — accepts arbitrary kwargs for compatibility."""
+    def __init__(self, **kwargs):
+        self.score: float = kwargs.pop("score", 0.0)
+        self.issues: list = kwargs.pop("issues", [])
+        self.warnings: list = kwargs.pop("warnings", [])
+        self.passed: bool = kwargs.pop("passed", False)
+        self.__dict__.update(kwargs)
 
 # FIXED: from .models import ProjectState, Task, TaskType
 from ..models import ProjectState, Task, TaskType
