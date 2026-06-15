@@ -107,6 +107,15 @@ class DecomposerService:
         self.metrics = DecomposerMetrics()
         self._lock = asyncio.Lock()
 
+    @property
+    def decompose_fn(self):
+        """Late-bound decompose_fn — allows container.wire_executor() to set."""
+        return self._decompose_fn
+
+    @decompose_fn.setter
+    def decompose_fn(self, fn):
+        self._decompose_fn = fn
+
     async def decompose(
         self,
         project: str,
