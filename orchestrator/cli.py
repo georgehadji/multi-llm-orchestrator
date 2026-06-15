@@ -1721,7 +1721,7 @@ def _cmd_website(args):
 
     design_system = DesignSystem()  # Default design system
     client_info = ClientInfo(name="Website Project", industry="technology", description=args.description)
-    config = WebsiteConfig(framework=args.framework, styling="css", page_type="landing", client_name="Website")
+    config = WebsiteConfig(framework=args.framework, styling="css", page_type="landing")
     output_dir = Path(args.output_dir)
 
     generator = WebsiteGenerator()
