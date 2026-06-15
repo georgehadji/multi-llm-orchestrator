@@ -30,7 +30,7 @@ def _get_registry():
             get_registry = _gr
         except ImportError:
             class _FakeRegistry:
-                def select_components(self, **kw):
+                async def select_components(self, **kw):
                     return ["hero", "features", "pricing", "contact"]
 
             get_registry = lambda: _FakeRegistry()
