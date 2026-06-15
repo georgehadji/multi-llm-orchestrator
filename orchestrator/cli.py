@@ -1698,6 +1698,47 @@ def _gateway_subparsers(subparsers) -> None:
     gp.set_defaults(func=cmd_gateway)
 
 
+def _website_subparsers(subparsers) -> None:
+    """Register the 'website' subcommand."""
+    wp = subparsers.add_parser("website", help="Generate a website with design system")
+    wp.add_argument("--description", "-d", required=True, help="Website description")
+    wp.add_argument("--output-dir", "-o", default="outputs/website", help="Output directory")
+    wp.add_argument("--framework", "-f", default="html", choices=["html", "react", "next.js"], help="Target framework")
+    wp.add_argument("--preset", default="modern", choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"], help="Design preset")
+    wp.set_defaults(func=_cmd_website)
+
+
+async def _cmd_website(args):
+    """Execute website generation."""
+    from pathlib import Path
+    
+    from .design_system import DesignSystem
+    from .generators.website_generator import ClientInfo, WebsiteConfig, WebsiteGenerator
+
+    print(f"\n🎨 Generating '{args.preset}' website: {args.description[:80]}...")
+    print(f"   Framework: {args.framework}")
+
+    design_system = DesignSystem()  # Default design system
+    client_info = ClientInfo(name="Website Project", industry="technology", description=args.description)
+    config = WebsiteConfig(framework=args.framework, styling="css", page_type="landing", client_name="Website")
+    output_dir = Path(args.output_dir)
+
+    generator = WebsiteGenerator()
+    result = await generator.generate(
+        design_system=design_system,
+        client_info=client_info,
+        config=config,
+        output_dir=output_dir,
+    )
+
+    if result.success:
+        print(f"✅ Website generated: {output_dir.resolve()}")
+        print(f"   Components: {result.components_generated}")
+        print(f"   Cost: ${result.total_cost:.4f}")
+    else:
+        print(f"❌ Failed: {result.errors}")
+
+
 def _kanban_subparsers(subparsers) -> None:
     """Register the 'kanban' subcommand."""
     kp = subparsers.add_parser("kanban", help="Multi-project work queue")
@@ -1735,12 +1776,7 @@ def main():
     _kanban_subparsers(subparsers)
     _nexusscope_subparsers(subparsers)
     _chat_subparsers(subparsers)  # Interactive spec-gathering chat mode
-    try:
-        from .cli_website import setup_website_parser
-
-        setup_website_parser(subparsers)
-    except ImportError:
-        pass
+    _website_subparsers(subparsers)  # Website generation
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")

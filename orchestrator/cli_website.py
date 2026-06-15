@@ -18,10 +18,19 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .design_system import (
-    BrandTone,
-    DesignSystem,
-)
+from .design_system import DesignSystem
+
+# BrandTone was removed — use a local enum stub
+from enum import Enum
+
+
+class BrandTone(str, Enum):
+    MODERN = "modern"
+    MINIMALIST = "minimalist"
+    PLAYFUL = "playful"
+    CORPORATE = "corporate"
+    LUXURY = "luxury"
+    TECH = "tech"
 from .website_generator import (
     ClientInfo,
     WebsiteConfig,
