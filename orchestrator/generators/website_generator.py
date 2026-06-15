@@ -44,6 +44,9 @@ class ContentBrief:
     target_audience: str = ""
     competitors: list[str] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
+    ctas: list[str] = field(default_factory=list)
+    tagline: str = ""
+    social_proof: list[str] = field(default_factory=list)
 
 
 @dataclass
