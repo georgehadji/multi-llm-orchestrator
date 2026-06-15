@@ -22,7 +22,19 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from .cache import DiskCache
-from .models import Model, Task, TaskResult, TaskStatus, TaskType, get_provider
+from .models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, TaskType, VSConfig, get_provider
+
+# Lazy import for VerbalizedSampler (avoids circular dep at module level)
+_VerbalizedSampler = None
+
+
+def _get_vs_sampler(client):
+    global _VerbalizedSampler
+    if _VerbalizedSampler is None:
+        from ..application.verbalized_sampling import VerbalizedSampler
+
+        _VerbalizedSampler = VerbalizedSampler
+    return _VerbalizedSampler(client=client)
 from .telemetry import TelemetryCollector
 
 if TYPE_CHECKING:
@@ -2944,46 +2956,37 @@ class BrainstormingPipeline(BasePipeline):
         return self._build_result(state)
 
     async def _phase_generate(self, state: PipelineState, context: str):
-        """Generate diverse ideas via VS-Multi."""
+        """Generate diverse ideas via VS-Multi (VerbalizedSampler)."""
         cfg = state.brainstorming_state["config"]
         rounds = cfg.get("rounds", self.ROUNDS_DEFAULT)
         k = cfg.get("k", self.K_DEFAULT)
         models = self._get_available_models(state.task.type)
         gen_model = models[0] if models else Model.GPT_4O_MINI
 
+        sampler = _get_vs_sampler(self.client)
         all_ideas = []
+
         for rnd in range(1, rounds + 1):
             previous = ""
             if all_ideas:
                 texts = [s.get("text", "")[:200] for s in all_ideas]
-                previous = "\nPrevious ideas:\n" + "\n".join(texts)
+                previous = "\nPrevious ideas (be diverse):\n" + "\n".join(texts)
 
-            system = (
-                f"You are a creative brainstorming assistant. "
-                f"Generate exactly {k} diverse, novel candidate ideas. "
-                "Each idea should be distinct and explore a different angle."
-            )
-            user = (
-                f"Task: {state.task.prompt}\n\nContext: {context}"
-                f"{previous}\n\nRound {rnd}/{rounds}"
-            )
-
-            response, _ = await self.client.call(
+            candidates = await sampler.sample(
+                prompt=f"Task: {state.task.prompt}\n\nContext: {context}{previous}\n\nRound {rnd}/{rounds}",
                 model=gen_model,
-                system_prompt=system,
-                user_prompt=user,
+                cfg=VSConfig(k=k, temperature=0.8, fmt=ProbabilityFormat.CONFIDENCE),
                 max_tokens=state.task.max_output_tokens,
-                temperature=0.8,
+                timeout=120,
             )
-            data = self._extract_json(response.text) or {}
-            ideas = data.get("ideas", [])
-            if not ideas:
-                # Fallback: treat entire response as a single idea
-                ideas = [{"text": response.text[:500], "score": 0.5}]
-            all_ideas.extend(ideas)
+            if candidates:
+                for c in candidates:
+                    all_ideas.append({"text": c.text, "score": c.probability})
+            else:
+                logger.warning("Brainstorming round %d: VS returned no candidates", rnd)
 
         state.brainstorming_state["raw_ideas"] = all_ideas
-        logger.info("Brainstorming: %d raw ideas generated", len(all_ideas))
+        logger.info("Brainstorming: %d raw ideas generated across %d rounds", len(all_ideas), rounds)
 
     async def _phase_cluster(self, state: PipelineState):
         """Cluster raw ideas into themes."""
@@ -2998,10 +3001,10 @@ class BrainstormingPipeline(BasePipeline):
         system = "You are an idea clustering expert. Group the following ideas into themes. Return JSON with 'clusters' list."
         user = f"Cluster these ideas:\n\n{texts}"
 
-        response, _ = await self.client.call(
+        response = await self.client.call(
             model=cluster_model,
-            system_prompt=system,
-            user_prompt=user,
+            system=system,
+            prompt=user,
             max_tokens=2000,
             temperature=0.3,
         )
@@ -3033,10 +3036,10 @@ class BrainstormingPipeline(BasePipeline):
         system = "You are a strategic development expert. Expand each idea into a concrete, actionable plan."
         user = f"Develop these ideas into detailed plans:\n\n{texts}"
 
-        response, _ = await self.client.call(
+        response = await self.client.call(
             model=dev_model,
-            system_prompt=system,
-            user_prompt=user,
+            system=system,
+            prompt=user,
             max_tokens=state.task.max_output_tokens,
             temperature=0.4,
         )
@@ -3061,10 +3064,10 @@ class BrainstormingPipeline(BasePipeline):
         system = "Synthesize the developed ideas into a final, coherent, actionable solution."
         user = f"Synthesize these developments:\n\n{dev_text}"
 
-        response, _ = await self.client.call(
+        response = await self.client.call(
             model=synth_model,
-            system_prompt=system,
-            user_prompt=user,
+            system=system,
+            prompt=user,
             max_tokens=state.task.max_output_tokens,
             temperature=0.3,
         )
@@ -3131,40 +3134,42 @@ class VerbalizedSamplingPipeline(BasePipeline):
         return self._build_result(state)
 
     async def _phase_generate_candidates(self, state: PipelineState, context: str):
-        """Generate k diverse candidate responses."""
-        k = self.K_DEFAULT
+        """Generate k diverse candidate responses via VerbalizedSampler."""
         models = self._get_available_models(state.task.type)
         gen_model = models[0] if models else Model.GPT_4O_MINI
 
-        system = (
-            f"You are a diverse reasoning engine. Generate exactly {k} distinct, "
-            "plausible candidate answers to the given task. Each must be substantively "
-            "different from the others. Return JSON with 'candidates' list."
-        )
-        user = f"Task: {state.task.prompt}\n\nContext: {context}"
-
-        response, _ = await self.client.call(
+        # Use the reusable VS primitive (port-only, never blocks on old tuple contract)
+        sampler = _get_vs_sampler(self.client)
+        candidates = await sampler.sample(
+            prompt=f"{state.task.prompt}\n\nContext: {context}",
             model=gen_model,
-            system_prompt=system,
-            user_prompt=user,
+            cfg=VSConfig(
+                k=self.K_DEFAULT,
+                temperature=0.9,
+                # Use EXPLICIT format for standard VS
+                fmt=ProbabilityFormat.EXPLICIT,
+            ),
             max_tokens=state.task.max_output_tokens,
-            temperature=0.9,
+            timeout=120,
         )
-        data = self._extract_json(response.text) or {}
-        candidates_raw = data.get("candidates", [response.text])
 
-        for i, c in enumerate(candidates_raw):
-            text = c.get("text", c) if isinstance(c, dict) else str(c)
+        # Fallback: if VS returned nothing, create a single-candidate stub
+        if not candidates:
+            state.candidates.append(
+                SolutionCandidate(
+                    perspective="vs_candidate_1",
+                    content=context or state.task.prompt,
+                    metadata={"index": 0, "probability": 1.0},
+                )
+            )
+            return
+
+        for i, cand in enumerate(candidates):
             state.candidates.append(
                 SolutionCandidate(
                     perspective=f"vs_candidate_{i+1}",
-                    content=text,
-                    metadata={
-                        "index": i,
-                        "probability": (
-                            c.get("probability", 1.0 / k) if isinstance(c, dict) else 1.0 / k
-                        ),
-                    },
+                    content=cand.text,
+                    metadata={"index": i, "probability": cand.probability},
                 )
             )
 
@@ -3184,10 +3189,13 @@ class VerbalizedSamplingPipeline(BasePipeline):
         )
         user = f"Task: {state.task.prompt}\n\nCandidates:\n{texts}"
 
-        response, _ = await self.client.call(
+        # TODO(Phase 1): Delegate quality scoring to EvaluatorService instead of LLM.
+        # VerbalizedSampler already provides typicality (probability) per candidate;
+        # what's needed is a separate quality signal via EvaluatorService.
+        response = await self.client.call(
             model=score_model,
-            system_prompt=system,
-            user_prompt=user,
+            system=system,
+            prompt=user,
             max_tokens=1000,
             temperature=0.1,
         )
@@ -3252,10 +3260,10 @@ class VerbalizedSamplingPipeline(BasePipeline):
         system = "Synthesize the best candidate responses into a final, coherent answer."
         user = f"Task: {state.task.prompt}\n\nTop candidates:\n{texts}"
 
-        response, _ = await self.client.call(
+        response = await self.client.call(
             model=synth_model,
-            system_prompt=system,
-            user_prompt=user,
+            system=system,
+            prompt=user,
             max_tokens=state.task.max_output_tokens,
             temperature=0.3,
         )
