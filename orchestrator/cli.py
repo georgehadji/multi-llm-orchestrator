@@ -1740,6 +1740,10 @@ def _cmd_website(args):
         print(f"✅ Website generated: {output_dir.resolve()}")
         print(f"   Components: {result.components_generated}")
         print(f"   Cost: ${result.total_cost:.4f}")
+    elif (output_dir / "index.html").exists():
+        print(f"⚠️  Pipeline issues ({result.errors[0][:60]}...), but fallback HTML written")
+        print(f"✅ Fallback website: {output_dir.resolve() / 'index.html'}")
+        print(f"   Size: {(output_dir / 'index.html').stat().st_size} bytes")
     else:
         print(f"❌ Failed: {result.errors}")
 
