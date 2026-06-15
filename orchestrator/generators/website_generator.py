@@ -492,21 +492,34 @@ Export as default export. Include TypeScript types.
         components_dir.mkdir(parents=True, exist_ok=True)
 
         for section in sections:
+            safe_name = section.replace("-", "_").replace(" ", "_")
             component_path = components_dir / f"{section}.tsx"
             component_path.write_text(
-                f"""
-// {section} component
-// Generated with Design System: {getattr(design_system.tone, 'value', str(design_system.tone)) if design_system.tone else 'modern'}
-
-export default function {section.title()}() {{
-  return (
-    <section className="{section}">
-      <h2>{section.title()}</h2>
-      <p>Content placeholder - implement with design system tokens</p>
-    </section>
-  )
-}}
-""",
+                f"// {section} component\n"
+                f"// Generated with Design System: {getattr(design_system.tone, 'value', str(design_system.tone)) if design_system.tone else 'modern'}\n\n"
+                f"export default function {safe_name}() {{\n"
+                f"  return (\n"
+                f'    <section id="{section}" className="py-20 px-6 max-w-6xl mx-auto">\n'
+                f"      <h2 className=\"text-3xl md:text-4xl font-bold text-center mb-12\">\n"
+                f"        {section.title()}\n"
+                f"      </h2>\n"
+                f'      <div className="grid md:grid-cols-3 gap-8">\n'
+                f'        <div className="bg-gray-800/50 p-8 rounded-xl hover:bg-gray-800/70 transition-colors">\n'
+                f'          <h3 className="text-xl font-semibold mb-3">Feature One</h3>\n'
+                f'          <p className="text-gray-400">Description for {section} section.</p>\n'
+                f"        </div>\n"
+                f'        <div className="bg-gray-800/50 p-8 rounded-xl">\n'
+                f'          <h3 className="text-xl font-semibold mb-3">Feature Two</h3>\n'
+                f'          <p className="text-gray-400">Another {section} feature.</p>\n'
+                f"        </div>\n"
+                f'        <div className="bg-gray-800/50 p-8 rounded-xl">\n'
+                f'          <h3 className="text-xl font-semibold mb-3">Feature Three</h3>\n'
+                f'          <p className="text-gray-400">Third {section} highlight.</p>\n'
+                f"        </div>\n"
+                f"      </div>\n"
+                f"    </section>\n"
+                f"  );\n"
+                f"}}\n",
                 encoding="utf-8",
             )
 
@@ -743,9 +756,6 @@ export default function {section.title()}() {{
             '    "react-dom": "^18.2.0"\n'
             '  },\n'
             '  "devDependencies": {\n'
-            '    "tailwindcss": "^3.4.0",\n'
-            '    "postcss": "^8.4.0",\n'
-            '    "autoprefixer": "^10.4.0",\n'
             '    "@types/node": "^20.0.0",\n'
             '    "@types/react": "^18.2.0",\n'
             '    "@types/react-dom": "^18.2.0",\n'
@@ -756,6 +766,10 @@ export default function {section.title()}() {{
         )
 
         # Write postcss.config.mjs (ESM format required by Next.js 14+)
+        # Remove old CJS format to avoid conflicts
+        old_cjs = output_dir / "postcss.config.js"
+        if old_cjs.exists():
+            old_cjs.unlink()
         (output_dir / "postcss.config.mjs").write_text(
             "/** @type {import('postcss-load-config').Config} */\n"
             "const config = {\n"
@@ -768,26 +782,35 @@ export default function {section.title()}() {{
             encoding="utf-8",
         )
 
-        # Write globals.css with Tailwind directives + design tokens
+        # Write globals.css — plain CSS + CDN Tailwind in layout for reliability
         (app_dir / "globals.css").write_text(
-            "@tailwind base;\n"
-            "@tailwind components;\n"
-            "@tailwind utilities;\n\n"
-            "@layer base {\n"
-            "  :root {\n"
-            f"    --color-primary: {design_system.colors.primary};\n"
-            f"    --color-accent: {design_system.colors.accent};\n"
-            f"    --color-surface: {design_system.colors.surface};\n"
-            f"    --color-surface-alt: {design_system.colors.surface_alt};\n"
-            f"    --color-text-primary: {design_system.colors.text_primary};\n"
-            f"    --color-text-secondary: {design_system.colors.text_secondary};\n"
-            "  }\n\n"
-            "  body {\n"
-            "    font-family: system-ui, -apple-system, sans-serif;\n"
-            "    color: var(--color-text-primary);\n"
-            "    background: var(--color-surface);\n"
-            "  }\n"
-            "}\n",
+            ":root {\n"
+            f"  --color-primary: {design_system.colors.primary};\n"
+            f"  --color-accent: {design_system.colors.accent};\n"
+            f"  --color-surface: {design_system.colors.surface};\n"
+            f"  --color-surface-alt: {design_system.colors.surface_alt};\n"
+            f"  --color-text-primary: {design_system.colors.text_primary};\n"
+            f"  --color-text-secondary: {design_system.colors.text_secondary};\n"
+            "}\n\n"
+            "*, *::before, *::after {\n"
+            "  box-sizing: border-box;\n"
+            "  margin: 0;\n"
+            "  padding: 0;\n"
+            "}\n\n"
+            "html {\n"
+            "  scroll-behavior: smooth;\n"
+            "}\n\n"
+            "body {\n"
+            "  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;\n"
+            "  color: var(--color-text-primary);\n"
+            "  background: var(--color-surface);\n"
+            "  line-height: 1.6;\n"
+            "  -webkit-font-smoothing: antialiased;\n"
+            "  -moz-osx-font-smoothing: grayscale;\n"
+            "}\n\n"
+            "a { color: var(--color-accent); text-decoration: none; }\n"
+            "a:hover { text-decoration: underline; }\n"
+            "img { max-width: 100%; height: auto; }\n",
             encoding="utf-8",
         )
 
@@ -850,6 +873,8 @@ export default function {section.title()}() {{
             "  return (\n"
             '    <html lang="en">\n'
             "      <head>\n"
+            "        {/* Tailwind CSS CDN for reliable cross-project builds */}\n"
+            '        <script src="https://cdn.tailwindcss.com"></script>\n'
             "        {/* Security headers */}\n"
             '        <meta httpEquiv="X-Content-Type-Options" content="nosniff" />\n'
             '        <meta httpEquiv="X-Frame-Options" content="DENY" />\n'
@@ -930,25 +955,21 @@ export default function {section.title()}() {{
         hero_path = components_dir / "hero.tsx"
         if not hero_path.exists():
             hero_path.write_text(
-                '"use client";\n\n'
+                "\"use client\";\n\n"
                 "export function HeroSection() {\n"
                 "  return (\n"
-                '    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center">\n'
-                '      <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6" \n'
-                "          style={{color: 'var(--color-text-primary)'}}>\n"
+                "    <section className=\"relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center\">\n"
+                "      <h1 className=\"text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent\">\n"
                 "        CloudFlow\n"
                 "      </h1>\n"
-                '      <p className="text-xl md:text-2xl max-w-2xl mb-8" \n'
-                "         style={{color: 'var(--color-text-secondary)'}}>\n"
+                "      <p className=\"text-xl md:text-2xl text-gray-300 max-w-2xl mb-8\">\n"
                 "        The intelligent platform for modern teams.\n"
                 "      </p>\n"
-                '      <div className="flex gap-4">\n'
-                '        <a href="#" className="px-8 py-3 rounded-lg font-semibold text-white transition-all hover:opacity-90"\n'
-                "           style={{backgroundColor: 'var(--color-primary)'}}>\n"
+                "      <div className=\"flex gap-4\">\n"
+                "        <a href=\"#\" className=\"bg-indigo-500 hover:bg-indigo-600 px-8 py-3 rounded-lg font-semibold text-white transition-all\">\n"
                 "          Get Started\n"
                 "        </a>\n"
-                '        <a href="#features" className="px-8 py-3 rounded-lg font-semibold border transition-all hover:opacity-80"\n'
-                "           style={{borderColor: 'var(--color-text-secondary)', color: 'var(--color-text-primary)'}}>\n"
+                "        <a href=\"#features\" className=\"border border-gray-500 hover:border-gray-300 px-8 py-3 rounded-lg font-semibold text-gray-200 transition-all\">\n"
                 "          Learn More\n"
                 "        </a>\n"
                 "      </div>\n"
