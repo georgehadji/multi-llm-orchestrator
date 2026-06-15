@@ -30,6 +30,7 @@
   "xiaomi/mimo-v2-flash": {"input": 0.09, "output": 0.29},
   "xiaomi/mimo-v2-pro": {"input": 1.00, "output": 3.00},
   "xiaomi/mimo-v2-omni": {"input": 0.40, "output": 2.00},
+  "moonshotai/kimi-k2.7-code": {"input": 1.10, "output": 4.50},
   "moonshotai/kimi-k2.6": {"input": 0.95, "output": 4.00},
   "moonshotai/kimi-k2": {"input": 0.50, "output": 1.50},
   "stepfun/step-3.5-flash": {"input": 0.10, "output": 0.30},
