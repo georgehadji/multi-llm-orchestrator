@@ -29,7 +29,11 @@ def _get_registry():
 
             get_registry = _gr
         except ImportError:
-            get_registry = lambda: {}
+            class _FakeRegistry:
+                def select_components(self, **kw):
+                    return ["hero", "features", "pricing", "contact"]
+
+            get_registry = lambda: _FakeRegistry()
     return get_registry
 
 from ..design_system import DesignSystem
