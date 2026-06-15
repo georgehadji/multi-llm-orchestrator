@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import random
+import threading
 
 from ...ara_pipelines import BasePipeline, PipelineState, ReasoningMethod
 from ...crosscutting.config import flags
@@ -17,14 +18,17 @@ from ...models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, Ta
 
 # Lazy import for VerbalizedSampler (avoids circular dep at module level)
 _VerbalizedSampler = None
+_VerbalizedSampler_lock = threading.Lock()
 
 
 def _get_vs_sampler(client):
     global _VerbalizedSampler
     if _VerbalizedSampler is None:
-        from ...application.verbalized_sampling import VerbalizedSampler
+        with _VerbalizedSampler_lock:
+            if _VerbalizedSampler is None:
+                from ...application.verbalized_sampling import VerbalizedSampler
 
-        _VerbalizedSampler = VerbalizedSampler
+                _VerbalizedSampler = VerbalizedSampler
     return _VerbalizedSampler(client=client)
 
 logger = logging.getLogger("orchestrator.engine_core.stages.map_elites")

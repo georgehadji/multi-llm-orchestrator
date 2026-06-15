@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import re
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -26,14 +27,17 @@ from .models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, Task
 
 # Lazy import for VerbalizedSampler (avoids circular dep at module level)
 _VerbalizedSampler = None
+_VerbalizedSampler_lock = threading.Lock()
 
 
 def _get_vs_sampler(client):
     global _VerbalizedSampler
     if _VerbalizedSampler is None:
-        from ..application.verbalized_sampling import VerbalizedSampler
+        with _VerbalizedSampler_lock:
+            if _VerbalizedSampler is None:
+                from ..application.verbalized_sampling import VerbalizedSampler
 
-        _VerbalizedSampler = VerbalizedSampler
+                _VerbalizedSampler = VerbalizedSampler
     return _VerbalizedSampler(client=client)
 from .telemetry import TelemetryCollector
 
