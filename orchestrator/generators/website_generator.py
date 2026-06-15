@@ -576,16 +576,70 @@ export default function {section.title()}() {{
         js_lines = ["// CloudFlow — Generated Scripts", "(function() {", "  'use strict';", ""]
         js_path = output_dir / "script.js"
 
-        # Build index.html from sections
+        # Build index.html from sections with security headers + OG meta
+        site_name = getattr(config, "client_name", "CloudFlow") or "CloudFlow"
+        page_title = f"{site_name} — {config.page_type or 'Landing Page'}"
+        page_desc = "Intelligent SaaS platform for modern teams."
+        page_url = getattr(config, "site_url", "https://cloudflow.io") or "https://cloudflow.io"
+        og_image = getattr(config, "og_image", "/og-image.png") or "/og-image.png"
+
         page_lines = [
             "<!DOCTYPE html>",
             '<html lang="en">',
             "<head>",
             '  <meta charset="UTF-8">',
+            '  <meta http-equiv="X-UA-Compatible" content="IE=edge">',
             '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-            f"  <title>{config.client_name or 'CloudFlow'} — {config.page_type or 'Landing Page'}</title>",
+            # ── Security headers ──
+            '  <meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'unsafe-inline\' https:; style-src \'self\' \'unsafe-inline\' https:; img-src \'self\' data: https:; font-src \'self\' https:; connect-src \'self\' https:; frame-ancestors \'none\'; base-uri \'self\'; form-action \'self\';">',
+            '  <meta http-equiv="X-Content-Type-Options" content="nosniff">',
+            '  <meta http-equiv="X-Frame-Options" content="DENY">',
+            '  <meta http-equiv="X-XSS-Protection" content="1; mode=block">',
+            '  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">',
+            '  <meta http-equiv="Strict-Transport-Security" content="max-age=31536000; includeSubDomains; preload">',
+            '  <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), interest-cohort=()">',
+            # ── SEO ──
+            f"  <title>{page_title}</title>",
+            f'  <meta name="description" content="{page_desc}">',
+            f'  <meta name="robots" content="index, follow">',
+            f'  <link rel="canonical" href="{page_url}">',
+            # ── Open Graph ──
+            f'  <meta property="og:title" content="{page_title}">',
+            f'  <meta property="og:description" content="{page_desc}">',
+            f'  <meta property="og:image" content="{og_image}">',
+            f'  <meta property="og:url" content="{page_url}">',
+            '  <meta property="og:type" content="website">',
+            f'  <meta property="og:site_name" content="{site_name}">',
+            '  <meta property="og:locale" content="en_US">',
+            # ── Twitter Card ──
+            '  <meta name="twitter:card" content="summary_large_image">',
+            f'  <meta name="twitter:title" content="{page_title}">',
+            f'  <meta name="twitter:description" content="{page_desc}">',
+            f'  <meta name="twitter:image" content="{og_image}">',
+            # ── PWA / Icons ──
+            '  <link rel="icon" type="image/svg+xml" href="/favicon.svg">',
+            '  <link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+            '  <meta name="theme-color" content="{design_system.colors.primary}">',
+            # ── Assets ──
             '  <link rel="stylesheet" href="styles.css">',
             "  <script src=\"script.js\" defer></script>",
+            # ── JSON-LD Structured Data ──
+            '  <script type="application/ld+json">',
+            "  {",
+            '    "@context": "https://schema.org",',
+            '    "@type": "SoftwareApplication",',
+            f'    "name": "{site_name}",',
+            '    "applicationCategory": "BusinessApplication",',
+            '    "operatingSystem": "Web",',
+            '    "offers": {',
+            '      "@type": "Offer",',
+            '      "price": "0",',
+            '      "priceCurrency": "USD"',
+            "    },",
+            f'    "description": "{page_desc}",',
+            f'    "url": "{page_url}"',
+            "  }",
+            "  </script>",
             "</head>",
             "<body>",
         ]
@@ -644,12 +698,29 @@ export default function {section.title()}() {{
         components_dir.mkdir(parents=True, exist_ok=True)
         lib_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write next.config.js (Tailwind-aware, no TypeScript strictness)
+        # Write next.config.js with security headers
         (output_dir / "next.config.js").write_text(
             "/** @type {import('next').NextConfig} */\n"
             "const nextConfig = {\n"
             "  reactStrictMode: true,\n"
             "  images: { domains: [] },\n"
+            "  poweredByHeader: false,\n"
+            "  async headers() {\n"
+            "    return [\n"
+            "      {\n"
+            "        source: '/(.*)',\n"
+            "        headers: [\n"
+            "          { key: 'X-Content-Type-Options', value: 'nosniff' },\n"
+            "          { key: 'X-Frame-Options', value: 'DENY' },\n"
+            "          { key: 'X-XSS-Protection', value: '1; mode=block' },\n"
+            "          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },\n"
+            "          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },\n"
+            "          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },\n"
+            "          { key: 'Content-Security-Policy', value: \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\" },\n"
+            "        ],\n"
+            "      },\n"
+            "    ];\n"
+            "  },\n"
             "};\n"
             "module.exports = nextConfig;\n",
             encoding="utf-8",
@@ -674,7 +745,11 @@ export default function {section.title()}() {{
             '  "devDependencies": {\n'
             '    "tailwindcss": "^3.4.0",\n'
             '    "postcss": "^8.4.0",\n'
-            '    "autoprefixer": "^10.4.0"\n'
+            '    "autoprefixer": "^10.4.0",\n'
+            '    "@types/node": "^20.0.0",\n'
+            '    "@types/react": "^18.2.0",\n'
+            '    "@types/react-dom": "^18.2.0",\n'
+            '    "typescript": "^5.0.0"\n'
             '  }\n'
             '}\n',
             encoding="utf-8",
@@ -715,21 +790,71 @@ export default function {section.title()}() {{
         # Tailwind config with design tokens
         self._write_tailwind_config(output_dir, design_system)
 
-        # Write layout.tsx
+        # Build proper site name
+        site_name = getattr(config, "client_name", "CloudFlow") or "CloudFlow"
+        site_url = getattr(config, "site_url", "https://cloudflow.io") or "https://cloudflow.io"
+        
+        # Write layout.tsx with full SEO + OG + security headers
         (app_dir / "layout.tsx").write_text(
-            "import type { Metadata } from 'next';\n"
+            "import type { Metadata, Viewport } from 'next';\n"
             "import './globals.css';\n\n"
+            "export const viewport: Viewport = {\n"
+            '  themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#111" }],\n'
+            '  width: "device-width",\n'
+            '  initialScale: 1,\n'
+            "};\n\n"
             "export const metadata: Metadata = {\n"
-            "  title: 'CloudFlow — SaaS Platform',\n"
-            "  description: 'Intelligent SaaS platform for modern teams',\n"
+            "  metadataBase: new URL('https://cloudflow.io'),\n"
+            "  title: {\n"
+            "    default: 'CloudFlow — SaaS Platform',\n"
+            "    template: '%s | CloudFlow',\n"
+            "  },\n"
+            "  description: 'Intelligent SaaS platform for modern teams.',\n"
+            "  keywords: ['saas', 'platform', 'cloud', 'automation'],\n"
+            "  robots: { index: true, follow: true },\n"
+            "  openGraph: {\n"
+            "    type: 'website',\n"
+            "    locale: 'en_US',\n"
+            "    url: '/',\n"
+            "    siteName: 'CloudFlow',\n"
+            "    title: 'CloudFlow — SaaS Platform',\n"
+            "    description: 'Intelligent SaaS platform for modern teams.',\n"
+            "    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'CloudFlow' }],\n"
+            "  },\n"
+            "  twitter: {\n"
+            "    card: 'summary_large_image',\n"
+            "    title: 'CloudFlow — SaaS Platform',\n"
+            "    description: 'Intelligent SaaS platform for modern teams.',\n"
+            "    images: ['/og-image.png'],\n"
+            "  },\n"
+            "  alternates: { canonical: '/' },\n"
             "};\n\n"
             "export default function RootLayout({\n"
             "  children,\n"
             "}: {\n"
             "  children: React.ReactNode;\n"
             "}) {\n"
+            "  const jsonLd = {\n"
+            "    '@context': 'https://schema.org',\n"
+            "    '@type': 'SoftwareApplication',\n"
+            "    name: 'CloudFlow',\n"
+            "    applicationCategory: 'BusinessApplication',\n"
+            "    operatingSystem: 'Web',\n"
+            "    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },\n"
+            "    description: 'Intelligent SaaS platform for modern teams.',\n"
+            "  };\n\n"
             "  return (\n"
             '    <html lang="en">\n'
+            "      <head>\n"
+            "        {/* Security headers */}\n"
+            '        <meta httpEquiv="X-Content-Type-Options" content="nosniff" />\n'
+            '        <meta httpEquiv="X-Frame-Options" content="DENY" />\n'
+            '        <meta httpEquiv="X-XSS-Protection" content="1; mode=block" />\n'
+            '        <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />\n'
+            '        <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), interest-cohort=()" />\n'
+            "        {/* JSON-LD structured data */}\n"
+            '        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />\n'
+            "      </head>\n"
             "      <body>{children}</body>\n"
             "    </html>\n"
             "  );\n"
@@ -760,6 +885,42 @@ export default function {section.title()}() {{
             + "}\n"
         )
         (app_dir / "page.tsx").write_text(page, encoding="utf-8")
+
+        # Write OG image generation API route (Next.js)
+        api_dir = output_dir / "app" / "api" / "og"
+        api_dir.mkdir(parents=True, exist_ok=True)
+        (api_dir / "route.tsx").write_text(
+            "import { ImageResponse } from 'next/og';\n"
+            "import { NextRequest } from 'next/server';\n\n"
+            "export const runtime = 'edge';\n\n"
+            "export async function GET(request: NextRequest) {\n"
+            "  return new ImageResponse(\n"
+            "    (\n"
+            "      <div\n"
+            "        style={{\n"
+            "          height: '100%',\n"
+            "          width: '100%',\n"
+            "          display: 'flex',\n"
+            "          flexDirection: 'column',\n"
+            "          alignItems: 'center',\n"
+            "          justifyContent: 'center',\n"
+            "          backgroundColor: '#111',\n"
+            "          fontFamily: 'system-ui',\n"
+            "        }}\n"
+            "      >\n"
+            "        <div style={{ fontSize: 80, fontWeight: 800, color: '#fff', marginBottom: 20 }}>\n"
+            "          CloudFlow\n"
+            "        </div>\n"
+            "        <div style={{ fontSize: 36, color: '#888' }}>\n"
+            "          Intelligent SaaS Platform\n"
+            "        </div>\n"
+            "      </div>\n"
+            "    ),\n"
+            "    {{ width: 1200, height: 630 }}\n"
+            "  );\n"
+            "}\n",
+            encoding="utf-8",
+        )
 
         # Write a sample Hero component if components are empty
         hero_path = components_dir / "hero.tsx"
@@ -796,6 +957,89 @@ export default function {section.title()}() {{
         # Write .gitignore
         (output_dir / ".gitignore").write_text(
             "node_modules/\n.next/\nout/\n.env.local\n",
+            encoding="utf-8",
+        )
+
+        # Write robots.txt
+        (app_dir / "robots.ts").write_text(
+            "import { MetadataRoute } from 'next';\n\n"
+            "export default function robots(): MetadataRoute.Robots {\n"
+            "  return {\n"
+            "    rules: {\n"
+            "      userAgent: '*',\n"
+            "      allow: '/',\n"
+            "      disallow: '/api/',\n"
+            "    },\n"
+            "    sitemap: 'https://cloudflow.io/sitemap.xml',\n"
+            "  };\n"
+            "}\n",
+            encoding="utf-8",
+        )
+
+        # Write sitemap.xml
+        (app_dir / "sitemap.ts").write_text(
+            "import { MetadataRoute } from 'next';\n\n"
+            "export default function sitemap(): MetadataRoute.Sitemap {\n"
+            "  return [\n"
+            "    { url: 'https://cloudflow.io', lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },\n"
+            "    { url: 'https://cloudflow.io/#features', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },\n"
+            "    { url: 'https://cloudflow.io/#pricing', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },\n"
+            "    { url: 'https://cloudflow.io/#contact', lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },\n"
+            "  ];\n"
+            "}\n",
+            encoding="utf-8",
+        )
+
+        # Write security.txt (well-known)
+        public_dir = output_dir / "public"
+        well_known = public_dir / ".well-known"
+        well_known.mkdir(parents=True, exist_ok=True)
+        (well_known / "security.txt").write_text(
+            "Contact: mailto:security@cloudflow.io\n"
+            "Expires: 2027-12-31T23:59:59Z\n"
+            "Preferred-Languages: en\n"
+            "Canonical: https://cloudflow.io/.well-known/security.txt\n"
+            "Policy: https://cloudflow.io/security\n",
+            encoding="utf-8",
+        )
+
+        # Write _headers for static hosting (Cloudflare Pages, Netlify, etc.)
+        (public_dir / "_headers").write_text(
+            "/*\n"
+            "  X-Content-Type-Options: nosniff\n"
+            "  X-Frame-Options: DENY\n"
+            "  X-XSS-Protection: 1; mode=block\n"
+            "  Referrer-Policy: strict-origin-when-cross-origin\n"
+            "  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\n"
+            "  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()\n"
+            "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\n"
+            "  Access-Control-Allow-Origin: https://cloudflow.io\n",
+            encoding="utf-8",
+        )
+
+        # Write security page
+        security_page = public_dir / "security.html"
+        security_page.write_text(
+            "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
+            '<meta charset="UTF-8">\n'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+            "<title>Security Policy — CloudFlow</title>\n"
+            "<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:2rem auto;padding:0 1rem;line-height:1.6;color:#333}</style>\n"
+            "</head>\n<body>\n"
+            "<h1>Security Policy</h1>\n"
+            "<h2>Reporting a Vulnerability</h2>\n"
+            "<p>Email <a href=\"mailto:security@cloudflow.io\">security@cloudflow.io</a>. "
+            "We respond within 48 hours and aim to resolve critical issues within 7 days.</p>\n"
+            "<h2>Security Measures</h2>\n"
+            "<ul>\n"
+            "<li>All traffic encrypted via HTTPS (HSTS preloaded)</li>\n"
+            "<li>Content Security Policy (CSP) enforced</li>\n"
+            "<li>XSS, clickjacking, MIME-sniffing protections active</li>\n"
+            "<li>Dependency scanning via Dependabot</li>\n"
+            "<li>No user data stored client-side</li>\n"
+            "</ul>\n"
+            "<p><em>Last updated: 2026-01-01</em></p>\n"
+            "</body>\n</html>\n",
             encoding="utf-8",
         )
 
