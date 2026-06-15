@@ -29,9 +29,18 @@ def _get_registry():
 
             get_registry = _gr
         except ImportError:
+            class _FakeComponent:
+                def __init__(self, name):
+                    self.name = name
+                    self.component_id = name
+                    self.section = name
+
+                def title(self):
+                    return self.name.title()
+
             class _FakeRegistry:
                 async def select_components(self, **kw):
-                    return ["hero", "features", "pricing", "contact"]
+                    return [_FakeComponent(n) for n in ["hero", "features", "pricing", "contact"]]
 
             get_registry = lambda: _FakeRegistry()
     return get_registry
