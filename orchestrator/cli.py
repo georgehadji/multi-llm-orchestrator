@@ -1736,11 +1736,18 @@ def _cmd_website(args):
 
     result = asyncio.run(_run())
 
+    has_index = (output_dir / "index.html").exists()
+    has_nextjs = (output_dir / "package.json").exists() and (output_dir / "tailwind.config.js").exists()
+    
     if result.success:
         print(f"✅ Website generated: {output_dir.resolve()}")
         print(f"   Components: {result.components_generated}")
         print(f"   Cost: ${result.total_cost:.4f}")
-    elif (output_dir / "index.html").exists():
+    elif has_nextjs:
+        print(f"⚠️  Pipeline issues (assembled from fallback)")
+        print(f"✅ Next.js + Tailwind project: {output_dir.resolve()}")
+        print(f"   Run: cd {output_dir} && npm install && npm run dev")
+    elif has_index:
         print(f"⚠️  Pipeline issues ({result.errors[0][:60]}...), but fallback HTML written")
         print(f"✅ Fallback website: {output_dir.resolve() / 'index.html'}")
         print(f"   Size: {(output_dir / 'index.html').stat().st_size} bytes")
