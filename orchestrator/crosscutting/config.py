@@ -87,6 +87,10 @@ class FeatureFlags(BaseSettings):
     vs_retry_escape: bool = False  # Phase 3: VS-tail escape from stuck retries
     vs_test_generation: bool = False  # Phase 4: VS for test/synthetic data
     vs_generate: bool = False  # Phase 6: VS-first GenerateStage
+    vs_architecture: bool = False  # Phase 7a: VS for architecture selection
+    vs_code_review: bool = False  # Phase 7b: VS for multi-hypothesis code review
+    vs_decomposition: bool = False  # Phase 7c: VS for task planning
+    vs_bug_hunting: bool = False  # Phase 7d: VS for Bayesian bug hunting
     vs_k: int = 5  # Default candidates per VS call
 
     # ── taste-skill design quality gates ──────────────────────────────────

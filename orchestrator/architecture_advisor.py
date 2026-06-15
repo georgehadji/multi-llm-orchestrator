@@ -652,19 +652,19 @@ class ArchitectureAdvisor:
                     criteria=criteria,
                 )
 
-            response = await self._get_client().call(
-                model=model,
-                prompt=prompt,
-                system=_SYSTEM_PROMPT,
-                max_tokens=1024,
-                temperature=0.2,
-                timeout=_TIMEOUT_S,
-                retries=1,
-            )
-            decision = _parse_response(response.text)
-            logger.debug(
-                "ArchitectureAdvisor: used %s (cost $%.6f)", model.value, response.cost_usd
-            )
+            # ── VS-powered multi-architecture exploration ──────────────────
+            from .crosscutting.config import flags
+
+            if flags.vs_architecture:
+                decision = await self._vs_architecture_selection(model, prompt)
+                if decision is not None:
+                    logger.debug("ArchitectureAdvisor: VS selected from %d candidates", flags.vs_k)
+                else:
+                    logger.warning("VS architecture selection failed, falling back")
+                    decision = await self._single_architecture_call(model, prompt)
+            else:
+                decision = await self._single_architecture_call(model, prompt)
+
         except Exception as exc:
             logger.warning("ArchitectureAdvisor LLM call failed (%s), using fallback", exc)
             decision = _parse_response("")
@@ -683,6 +683,64 @@ class ArchitectureAdvisor:
 
         _print_summary(decision, model_label)
         return decision
+
+    async def _single_architecture_call(self, model, prompt: str) -> ArchitectureDecision:
+        """Single LLM call for architecture (legacy path)."""
+        response = await self._get_client().call(
+            model=model,
+            prompt=prompt,
+            system=_SYSTEM_PROMPT,
+            max_tokens=1024,
+            temperature=0.2,
+            timeout=_TIMEOUT_S,
+            retries=1,
+        )
+        logger.debug("ArchitectureAdvisor: used %s (cost $%.6f)", model.value, response.cost_usd)
+        return _parse_response(response.text)
+
+    async def _vs_architecture_selection(self, model, prompt: str) -> ArchitectureDecision | None:
+        """Generate k architecture hypotheses via VerbalizedSampler, select best."""
+        from .application.verbalized_sampling import VerbalizedSampler
+        from .models import VSConfig
+
+        client = self._get_client()
+        sampler = VerbalizedSampler(client=client)
+        vs_k = min(flags.vs_k, 5)  # Cap at 5 for architecture
+
+        vs_system = (
+            f"{_SYSTEM_PROMPT}\n"
+            f"IMPORTANT: Generate {vs_k} substantially different architecture "
+            f"alternatives. Each must explore a different structural pattern, "
+            f"topology, or data paradigm. Avoid minor variations."
+        )
+
+        candidates = await sampler.sample(
+            prompt=prompt,
+            model=model,
+            cfg=VSConfig(k=vs_k, temperature=0.4),
+            system_extra=vs_system,
+            max_tokens=1024 * vs_k,
+            timeout=_TIMEOUT_S * 2,
+        )
+
+        if not candidates:
+            return None
+
+        # Parse each candidate into an ArchitectureDecision, pick highest probability
+        best: tuple[float, ArchitectureDecision] = (0.0, _parse_response(""))
+        for c in candidates:
+            arch = _parse_response(c.text)
+            score = c.probability
+            if score > best[0]:
+                best = (score, arch)
+
+        logger.info(
+            "VS architecture: %d candidates, selected pattern=%s (prob=%.2f)",
+            len(candidates),
+            best[1].structural_pattern,
+            best[0],
+        )
+        return best[1]
 
     def detect_from_yaml(self, app_type: str) -> ArchitectureDecision:
         """Return an ArchitectureDecision for a YAML app_type override without LLM."""
