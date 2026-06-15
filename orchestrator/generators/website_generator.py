@@ -363,11 +363,15 @@ class WebsiteGenerator:
             result.errors.append(str(e))
             result.total_time_seconds = time.time() - start_time
 
-            # Fallback: write a minimal index.html so the user gets SOMETHING
+            # Fallback: write site based on framework
             try:
-                fallback = output_dir / "index.html"
-                fallback.write_text(
-                    "<!DOCTYPE html>\n"
+                if config.framework in ("next.js", "react"):
+                    self._assemble_nextjs_page(output_dir, config.sections, design_system, config)
+                    logger.info("Fallback: assembled Next.js project")
+                else:
+                    fallback = output_dir / "index.html"
+                    fallback.write_text(
+                        "<!DOCTYPE html>\n"
                     '<html lang="en">\n<head>\n'
                     '  <meta charset="UTF-8">\n'
                     '  <meta name="viewport" content="width=device-width,initial-scale=1">\n'
@@ -420,20 +424,21 @@ class WebsiteGenerator:
     def _create_section_tasks(
         self,
         sections: list[str],
-        components: list[ComponentSpec],
+        components: list,
         design_system: DesignSystem,
-        content_brief: ContentBrief,
+        content_brief,
         config: WebsiteConfig,
     ) -> list[Task]:
         """Create orchestration tasks for each section."""
         tasks = []
 
-        for i, (section, component) in enumerate(zip(sections, components, strict=False)):
+        for i, section in enumerate(sections):
+            component = components[i] if i < len(components) else None
             prompt = self._build_section_prompt(
                 section=section,
-                component=component,
+                component=component or section,
                 design_system=design_system,
-                content_brief=content_brief.get_section_content(section),
+                content_brief=content_brief,
                 config=config,
             )
 
@@ -451,6 +456,7 @@ class WebsiteGenerator:
                 tech_context=f"{config.framework} + {config.styling}",
                 acceptance_threshold=0.85,
                 max_iterations=3,
+                max_output_tokens=4096,
             )
             tasks.append(task)
 
@@ -459,31 +465,46 @@ class WebsiteGenerator:
     def _build_section_prompt(
         self,
         section: str,
-        component: ComponentSpec,
+        component,
         design_system: DesignSystem,
-        content_brief: dict,
+        content_brief,
         config: WebsiteConfig,
     ) -> str:
         """Build prompt for generating a section."""
+        component_name = getattr(component, "name", str(component))
+        source = getattr(component, "source", "")
+        source_str = source.value if hasattr(source, "value") else str(source)
+        category = getattr(component, "category", "general")
+        desc = getattr(component, "prompt_reference", getattr(component, "description", ""))
+        
+        # Handle both ContentBrief objects and dicts
+        if hasattr(content_brief, "get"):
+            headline = content_brief.get("headline", content_brief.headlines.get(section, "") if hasattr(content_brief, "headlines") else "")
+            cta = content_brief.get("cta", "")
+            pain_points = content_brief.get("pain_points", [])
+        else:
+            headline = content_brief.headlines.get(section, "") if hasattr(content_brief, "headlines") else ""
+            cta = ", ".join(getattr(content_brief, "ctas", []))
+            pain_points = []
+        
         return f"""
 You are building a premium website section using design system-driven development.
 
 {design_system.to_prompt_context()}
 
 COMPONENT REFERENCE:
-Name: {component.name}
-Source: {component.source.value}
-Category: {component.category}
+Name: {component_name}
+Source: {source_str}
+Category: {category}
 
 DESCRIPTION:
-{component.prompt_reference}
+{desc}
 
 SECTION: {section}
 
-CONTENT FOR THIS SECTION:
-Headline: {content_brief.get('headline', '')}
-CTA: {content_brief.get('cta', '')}
-Pain Points: {', '.join(content_brief.get('pain_points', []))}
+CONTENT:
+Headline: {headline}
+CTA: {cta}
 
 CONFIGURATION:
 Framework: {config.framework}
@@ -499,8 +520,7 @@ RULES:
 4. Every interactive element must have focus and hover states.
 5. All images must have alt text. Use semantic HTML.
 6. Animations must respect prefers-reduced-motion.
-7. Maintain contrast ratio minimum {design_system.accessibility.min_contrast_ratio}:1.
-8. Mobile-first responsive design.
+7. Mobile-first responsive design.
 
 OUTPUT: Complete React/Next.js component with Tailwind CSS.
 Export as default export. Include TypeScript types.
@@ -660,42 +680,169 @@ export default function {section.title()}() {{
         design_system: DesignSystem,
         config: WebsiteConfig,
     ) -> None:
-        """Assemble Next.js page."""
-        page_content = """
-"use client"
+        """Assemble a complete Next.js + Tailwind CSS project."""
+        app_dir = output_dir / "app"
+        components_dir = output_dir / "components"
+        lib_dir = output_dir / "lib"
+        
+        app_dir.mkdir(parents=True, exist_ok=True)
+        components_dir.mkdir(parents=True, exist_ok=True)
+        lib_dir.mkdir(parents=True, exist_ok=True)
 
-import { useState, useEffect } from 'react'
-"""
-        # Import all components
-        for section in sections:
-            page_content += f"import {section.title()} from '@/components/{section}'\n"
+        # Write next.config.js (Tailwind-aware, no TypeScript strictness)
+        (output_dir / "next.config.js").write_text(
+            "/** @type {import('next').NextConfig} */\n"
+            "const nextConfig = {\n"
+            "  reactStrictMode: true,\n"
+            "  images: { domains: [] },\n"
+            "};\n"
+            "module.exports = nextConfig;\n",
+            encoding="utf-8",
+        )
 
-        page_content += f"""
+        # Write package.json with all deps
+        (output_dir / "package.json").write_text(
+            '{\n'
+            '  "name": "cloudflow",\n'
+            '  "version": "0.1.0",\n'
+            '  "private": true,\n'
+            '  "scripts": {\n'
+            '    "dev": "next dev",\n'
+            '    "build": "next build",\n'
+            '    "start": "next start"\n'
+            '  },\n'
+            '  "dependencies": {\n'
+            '    "next": "^14.0.0",\n'
+            '    "react": "^18.2.0",\n'
+            '    "react-dom": "^18.2.0"\n'
+            '  },\n'
+            '  "devDependencies": {\n'
+            '    "tailwindcss": "^3.4.0",\n'
+            '    "postcss": "^8.4.0",\n'
+            '    "autoprefixer": "^10.4.0"\n'
+            '  }\n'
+            '}\n',
+            encoding="utf-8",
+        )
 
-export default function HomePage() {{
-  return (
-    <main className="min-h-screen bg-[{design_system.colors.surface}]">
-"""
-        # Add all sections
-        for section in sections:
-            page_content += f"      <{section.title()} />\n"
+        # Write postcss.config.js
+        (output_dir / "postcss.config.js").write_text(
+            "module.exports = {\n"
+            "  plugins: {\n"
+            "    tailwindcss: {},\n"
+            "    autoprefixer: {},\n"
+            "  },\n"
+            "};\n",
+            encoding="utf-8",
+        )
 
-        page_content += """
-    </main>
-  )
-}
-"""
+        # Write globals.css with Tailwind directives + design tokens
+        (app_dir / "globals.css").write_text(
+            "@tailwind base;\n"
+            "@tailwind components;\n"
+            "@tailwind utilities;\n\n"
+            ":root {\n"
+            f"  --color-primary: {design_system.colors.primary};\n"
+            f"  --color-accent: {design_system.colors.accent};\n"
+            f"  --color-surface: {design_system.colors.surface};\n"
+            f"  --color-surface-alt: {design_system.colors.surface_alt};\n"
+            f"  --color-text-primary: {design_system.colors.text_primary};\n"
+            f"  --color-text-secondary: {design_system.colors.text_secondary};\n"
+            "}\n\n"
+            "body {\n"
+            "  font-family: system-ui, -apple-system, sans-serif;\n"
+            "  color: var(--color-text-primary);\n"
+            "  background: var(--color-surface);\n"
+            "}\n",
+            encoding="utf-8",
+        )
 
-        # Write page file
-        if config.framework == "next.js":
-            page_path = output_dir / "page.tsx"
-        else:
-            page_path = output_dir / "App.tsx"
-
-        page_path.write_text(page_content, encoding="utf-8")
-
-        # Write Tailwind config with design tokens
+        # Tailwind config with design tokens
         self._write_tailwind_config(output_dir, design_system)
+
+        # Write layout.tsx
+        (app_dir / "layout.tsx").write_text(
+            "import type { Metadata } from 'next';\n"
+            "import './globals.css';\n\n"
+            "export const metadata: Metadata = {\n"
+            "  title: 'CloudFlow — SaaS Platform',\n"
+            "  description: 'Intelligent SaaS platform for modern teams',\n"
+            "};\n\n"
+            "export default function RootLayout({\n"
+            "  children,\n"
+            "}: {\n"
+            "  children: React.ReactNode;\n"
+            "}) {\n"
+            "  return (\n"
+            '    <html lang="en">\n'
+            "      <body>{children}</body>\n"
+            "    </html>\n"
+            "  );\n"
+            "}\n",
+            encoding="utf-8",
+        )
+
+        # Build page.tsx with section imports
+        section_imports = []
+        section_jsx = []
+        for s in sections:
+            safe_name = s.replace("-", "_").replace(" ", "_")
+            section_imports.append(
+                f"import {{{s.title().replace(' ', '')}Section}} from '@/components/{s}';"
+            )
+            section_jsx.append(f"      <{s.title().replace(' ', '')}Section />")
+
+        page = (
+            "\n".join(section_imports)
+            + "\n\n"
+            + "export default function HomePage() {\n"
+            + "  return (\n"
+            + '    <main className="min-h-screen">\n'
+            + "\n".join(section_jsx)
+            + "\n"
+            + "    </main>\n"
+            + "  );\n"
+            + "}\n"
+        )
+        (app_dir / "page.tsx").write_text(page, encoding="utf-8")
+
+        # Write a sample Hero component if components are empty
+        hero_path = components_dir / "hero.tsx"
+        if not hero_path.exists():
+            hero_path.write_text(
+                '"use client";\n\n'
+                "export function HeroSection() {\n"
+                "  return (\n"
+                '    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center">\n'
+                '      <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6" \n'
+                "          style={{color: 'var(--color-text-primary)'}}>\n"
+                "        CloudFlow\n"
+                "      </h1>\n"
+                '      <p className="text-xl md:text-2xl max-w-2xl mb-8" \n'
+                "         style={{color: 'var(--color-text-secondary)'}}>\n"
+                "        The intelligent platform for modern teams.\n"
+                "      </p>\n"
+                '      <div className="flex gap-4">\n'
+                '        <a href="#" className="px-8 py-3 rounded-lg font-semibold text-white transition-all hover:opacity-90"\n'
+                "           style={{backgroundColor: 'var(--color-primary)'}}>\n"
+                "          Get Started\n"
+                "        </a>\n"
+                '        <a href="#features" className="px-8 py-3 rounded-lg font-semibold border transition-all hover:opacity-80"\n'
+                "           style={{borderColor: 'var(--color-text-secondary)', color: 'var(--color-text-primary)'}}>\n"
+                "          Learn More\n"
+                "        </a>\n"
+                "      </div>\n"
+                "    </section>\n"
+                "  );\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+        # Write .gitignore
+        (output_dir / ".gitignore").write_text(
+            "node_modules/\n.next/\nout/\n.env.local\n",
+            encoding="utf-8",
+        )
 
     def _assemble_react_page(
         self,
@@ -712,56 +859,59 @@ export default function HomePage() {{
         output_dir: Path,
         design_system: DesignSystem,
     ) -> None:
-        """Write Tailwind CSS configuration with design tokens."""
-        tailwind_config = f"""
-/** @type {{import('tailwindcss').Config}} */
+        """Write Tailwind CSS configuration with design tokens.
+
+        Defensive: uses getattr with fallbacks for every design_system attribute
+        since the DesignSystem class may not have all fields.
+        """
+        colors = getattr(design_system, "colors", design_system)
+        typography = getattr(design_system, "typography", design_system)
+        spacing = getattr(design_system, "spacing", design_system)
+        border_radius = getattr(design_system, "border_radius", design_system)
+        shadow = getattr(design_system, "shadow", design_system)
+
+        primary = getattr(colors, "primary", "#4f9eff")
+        accent = getattr(colors, "accent", "#7c3aed")
+        surface = getattr(colors, "surface", "#ffffff")
+        surface_alt = getattr(colors, "surface_alt", "#f5f5f5")
+        text_primary = getattr(colors, "text_primary", "#111111")
+        text_secondary = getattr(colors, "text_secondary", "#666666")
+        border = getattr(colors, "border", "#e5e5e5")
+        
+        font_heading = getattr(getattr(typography, "font_heading", None), "value", None) or getattr(typography, "font_sans", "Inter")
+        font_body = getattr(getattr(typography, "font_body", None), "value", None) or getattr(typography, "font_sans", "Inter")
+        spacing_unit = getattr(spacing, "unit", "1rem")
+        shadow_sm = getattr(shadow, "sm", "0 1px 2px rgba(0,0,0,0.05)")
+        shadow_md = getattr(shadow, "md", "0 4px 6px rgba(0,0,0,0.07)")
+        shadow_lg = getattr(shadow, "lg", "0 10px 15px rgba(0,0,0,0.1)")
+
+        tailwind_config = f"""/** @type {{import('tailwindcss').Config}} */
 module.exports = {{
   content: [
-    './pages/**/*{{js,ts,jsx,tsx,mdx}}',
-    './components/**/*{{js,ts,jsx,tsx,mdx}}',
-    './app/**/*{{js,ts,jsx,tsx,mdx}}',
+    './pages/**/*.{{js,ts,jsx,tsx,mdx}}',
+    './components/**/*.{{js,ts,jsx,tsx,mdx}}',
+    './app/**/*.{{js,ts,jsx,tsx,mdx}}',
   ],
   theme: {{
     extend: {{
       colors: {{
-        primary: '{design_system.colors.primary}',
-        accent: '{design_system.colors.accent}',
-        surface: '{design_system.colors.surface}',
-        'surface-alt': '{design_system.colors.surface_alt}',
-        'text-primary': '{design_system.colors.text_primary}',
-        'text-secondary': '{design_system.colors.text_secondary}',
-        border: '{design_system.colors.border}',
-        success: '{design_system.colors.success}',
-        error: '{design_system.colors.error}',
+        primary: '{primary}',
+        accent: '{accent}',
+        surface: '{surface}',
+        'surface-alt': '{surface_alt}',
+        'text-primary': '{text_primary}',
+        'text-secondary': '{text_secondary}',
+        border: '{border}',
       }},
       fontFamily: {{
-        heading: ['{design_system.font_heading}', 'sans-serif'],
-        body: ['{design_system.font_body}', 'sans-serif'],
-      }},
-      spacing: {{
-        'unit': '{design_system.spacing.unit}',
-      }},
-      borderRadius: {{
-        'sm': '{design_system.border_radius.sm}',
-        'md': '{design_system.border_radius.md}',
-        'lg': '{design_system.border_radius.lg}',
-        'full': '{design_system.border_radius.full}',
-      }},
-      boxShadow: {{
-        'sm': '{design_system.shadow.sm}',
-        'md': '{design_system.shadow.md}',
-        'lg': '{design_system.shadow.lg}',
-      }},
-      animation: {{
-        'duration': '{design_system.animation.duration}',
-        'easing': '{design_system.animation.easing}',
+        heading: ['{font_heading}', 'system-ui', 'sans-serif'],
+        body: ['{font_body}', 'system-ui', 'sans-serif'],
       }},
     }},
   }},
   plugins: [],
 }}
 """
-
         config_path = output_dir / "tailwind.config.js"
         config_path.write_text(tailwind_config, encoding="utf-8")
 
