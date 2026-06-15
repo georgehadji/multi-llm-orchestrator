@@ -80,6 +80,7 @@ class EnhancedSelfConsistencyStage:
                 attempt_num=ctx.attempt,
                 model_used=ctx.model.value if ctx.model else "unknown",
                 output_snippet=ctx.output[:200] if ctx.output else "",
+                failure_reason=f"Score {ctx.score:.3f} below threshold {self._quality_threshold}",
             )
         )
 
