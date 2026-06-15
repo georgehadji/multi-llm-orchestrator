@@ -335,3 +335,47 @@ class VerbalizedSampler:
                     except json.JSONDecodeError:
                         return None
         return None
+
+
+# ── Phase 5: Tier-aware VS variant selection ─────────────────────────────────
+# Heuristic: estimate model cost tier from model name string.
+# Returns VSConfig (allow VS) or None (skip VS for budget models).
+
+
+def vs_variant_for(model: Model, default_k: int = 5) -> VSConfig | None:
+    """Choose VS variant based on model cost tier.
+
+    PREMIUM models (named "pro", "opus", "sonnet-4-5", "o1", "o3", "k2", "k3",
+    "maverick", "max") → full VS with EXPLICIT format.
+    STANDARD models (most others) → standard VS with EXPLICIT format.
+    BUDGET models (named "flash", "mini", "nano", "lite", "scout", "haiku",
+    "tiny", "gemma") → None (skip VS — cognitive burden can lower quality).
+
+    Args:
+        model: The model to check.
+        default_k: Number of VS candidates (default 5).
+
+    Returns:
+        VSConfig if VS is suitable for this model tier, None for budget models.
+    """
+    name = model.value.lower()
+
+    # Budget-tier heuristics: models where VS overhead likely hurts
+    _budget_patterns = ("flash", "mini", "nano", "lite", "scout", "haiku",
+                        "tiny", "gemma", "phi")
+    for pat in _budget_patterns:
+        if pat in name:
+            return None
+
+    # Premium-tier heuristics: models that benefit from diversity
+    _premium_patterns = ("pro", "opus", "o1", "o3", "k2", "k3", "maverick",
+                         "sonnet-4-5", "max", "turbo")
+    is_premium = any(pat in name for pat in _premium_patterns)
+
+    # Standard/Varied tier: most models
+    return VSConfig(
+        k=default_k,
+        temperature=0.9,
+        fmt=ProbabilityFormat.EXPLICIT,
+        top_p=0.95,
+    )
