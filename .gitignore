@@ -132,3 +132,7 @@ openclaude.txt
 
 
 *.pdf
+
+scripts/
+docs/
+tests/

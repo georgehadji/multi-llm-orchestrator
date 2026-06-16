@@ -152,5 +152,12 @@
     "published_dir": "site\\v1.0.0",
     "files_count": 1,
     "description": "Initial release"
+  },
+  {
+    "version": "1.0.0",
+    "published_at": 1781606917.7126815,
+    "published_dir": "site\\v1.0.0",
+    "files_count": 1,
+    "description": "Initial release"
   }
 ]

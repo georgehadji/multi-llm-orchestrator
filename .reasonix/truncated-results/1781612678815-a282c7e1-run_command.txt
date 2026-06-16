@@ -1,0 +1,863 @@
+$ diff orchestrator/container.py orchestrator/engine_core/container.py 2>&1
+[exit 1]
+2,5c2,8
+< Dependency Injection Container
+< ==============================
+< 
+< Lightweight DI container for managing dependencies and their lifecycle.
+---
+> ServiceContainer — Factory for all Orchestrator collaborators
+> ================================================================
+> Author: Georgios-Chrysovalantis Chatzivantsidis
+> 
+> Phase 5 of the Master Architecture Enhancement Plan.
+> Centralizes the wiring of 30+ collaborators that were previously
+> inline in Orchestrator.__init__.
+8,18c11,12
+<     from orchestrator.container import Container, singleton, transient
+< 
+<     container = Container()
+< 
+<     # Register services
+<     container.register_singleton(Cache, DiskCache)
+<     container.register_transient(Validator, MyValidator)
+< 
+<     # Resolve
+<     cache = container.resolve(Cache)
+<     validator = container.resolve(Validator)
+---
+>     container = ServiceContainer.build(budget=budget, cache=cache, ...)
+>     orch = Orchestrator(container=container)
+23,28c17,21
+< import inspect
+< from dataclasses import dataclass, field
+< from enum import Enum, auto
+< from typing import TYPE_CHECKING, Any, TypeVar, get_type_hints
+< 
+< from .log_config import get_logger
+---
+> import asyncio
+> import logging
+> from dataclasses import dataclass
+> from pathlib import Path
+> from typing import TYPE_CHECKING, Any, Optional
+31,33c24,71
+<     from collections.abc import Callable
+< 
+< logger = get_logger(__name__)
+---
+>     from .pipeline import TaskPipeline
+>     from .pipeline_runner import PipelineRunner
+>     from .project_planner import ProjectPlanner
+>     from .state_coordinator import StateCoordinator
+>     from .context_service import ContextService
+> 
+> from ..api_clients import UnifiedClient
+> from ..budget import Budget
+> from ..domain.ports import (
+>     CachePort,
+>     EventPort,
+>     HookRegistryPort,
+>     NullEventBus,
+>     NullHookRegistry,
+>     PlannerPort,
+>     StatePort,
+>     ValidatorPort,
+> )
+> 
+> try:
+>     from ..cost_optimization import (  # type: ignore[attr-defined]
+>         AdaptiveTemperatureController,
+>         BatchClient,
+>         DependencyContextInjector,
+>         PromptCacher,
+>         SpeculativeGenerator,
+>         StreamingValidator,
+>         TokenBudget,
+>     )
+> except ImportError:
+>     AdaptiveTemperatureController = None
+>     BatchClient = None
+>     DependencyContextInjector = None
+>     PromptCacher = None
+>     SpeculativeGenerator = None
+>     StreamingValidator = None
+>     TokenBudget = None
+> from ..model_registry import ModelRegistry
+> 
+> try:
+>     from ..model_registry import ModelCascader  # type: ignore[attr-defined]
+> except ImportError:
+>     ModelCascader = None
+> from ..model_selector import ModelSelector, TieredModelRouter
+> from ..policy_engine import PolicyEngine
+> from ..rate_limiter import RateLimiter
+> from ..telemetry import TelemetryCollector
+> from ..tracing import Tracer
+35,43c73
+< T = TypeVar("T")
+< 
+< 
+< class Lifecycle(Enum):
+<     """Dependency lifecycle types."""
+< 
+<     SINGLETON = auto()
+<     SCOPED = auto()
+<     TRANSIENT = auto()
+---
+> logger = logging.getLogger("orchestrator.container")
+47,60c77,78
+< class Registration:
+<     """Registration of a service in the container."""
+< 
+<     interface: type
+<     implementation: type | None = None
+<     factory: Callable[..., Any] | None = None
+<     instance: Any | None = None
+<     lifecycle: Lifecycle = Lifecycle.TRANSIENT
+<     kwargs: dict[str, Any] = field(default_factory=dict)
+< 
+<     def __post_init__(self):
+<         if self.implementation is None and self.factory is None and self.instance is None:
+<             self.implementation = self.interface
+< 
+---
+> class ServiceContainer:
+>     """Holds all wired collaborators for the Orchestrator.
+62,63c80,81
+< class Scope:
+<     """A scope for managing scoped dependencies."""
+---
+>     Every service/component that the Orchestrator needs to function
+>     is wired here via the factory method ``build()``.
+65,69c83,247
+<     def __init__(self, container: Container, name: str = "default"):
+<         self.container = container
+<         self.name = name
+<         self._instances: dict[type, Any] = {}
+<         self._disposables: list[Any] = []
+---
+>     Lazy-init attributes (accessed via ``@property``) are not included
+>     here — they remain property-based for efficiency.
+>     """
+> 
+>     budget: Budget
+>     client: UnifiedClient
+>     cache: CachePort
+>     state_mgr: StatePort
+> 
+>     # Core services
+>     task_guard: Any
+>     results_lock: asyncio.Lock
+>     selector: ModelSelector  # also satisfies PlannerPort
+>     tiered_router: TieredModelRouter = None
+>     telemetry: TelemetryCollector = None
+>     tracer: Tracer = None
+>     policy_engine: PolicyEngine = None
+>     planner: Any = None
+>     project_planner: Optional[ProjectPlanner] = None
+>     pipeline_runner: Optional[PipelineRunner] = None
+>     preflight_validator: Any = None
+>     hook_registry: Optional[HookRegistryPort] = None
+>     validator: Optional[ValidatorPort] = None
+>     decomposer: Any = None
+>     architect: Any = None
+>     executor: Any = None
+>     evaluator: Any = None
+>     generator: Any = None
+>     ara: Any = None
+>     ara_strategy: Any = None
+>     pipeline: Optional[TaskPipeline] = None
+>     dep_resolver: Any = None
+>     event_bus: Optional[EventPort] = None
+>     adaptive_router: Any = None
+>     telemetry_store: Any = None
+>     semantic_cache: Any = None
+>     cb_registry: Any = None
+>     observability: Any = None
+>     context_compressor: Any = None
+>     memory_provider_mgr: Any = None
+>     pattern_store: Any = None
+>     pattern_extractor: Any = None
+>     pattern_injector: Any = None
+>     pattern_curator: Any = None
+>     batch_guard: Any = None
+>     batch_runner: Any = None
+>     tool_guardrails: Any = None
+>     optim_config: Any = None
+>     meta_v2: Any = None
+> 
+>     # New Domain Services (Phase 2 refactor)
+>     routing_service: Any = None
+>     cost_service: Any = None
+>     config_service: Any = None
+>     state_coordinator: Optional[StateCoordinator] = None
+>     context_service: Optional[ContextService] = None
+> 
+>     git_integration: Any = None
+>     output_dir: Path | None = None
+> 
+>     # Dashboard
+>     dashboard_integration: Any = None
+> 
+>     # Cost optimization
+>     cache_optimizer: Any = None
+>     cost_predictor: Any = None
+>     budget_hierarchy: Any = None
+>     prompt_cacher: Any = None
+>     batch_client: Any = None
+>     token_budget: Any = None
+>     model_cascader: Any = None
+>     speculative_gen: Any = None
+>     streaming_validator: Any = None
+>     dependency_injector: Any = None
+>     adaptive_temp: Any = None
+>     eval_dataset: Any = None
+>     tdd_generator: Any = None
+>     diff_generator: Any = None
+> 
+>     # Accessory services (rarely used, kept here for reference)
+>     session_watcher: Any = None
+>     persona_manager: Any = None
+>     memory_manager: Any = None
+>     bm25_search: Any = None
+>     reranker: Any = None
+>     hybrid_pipeline: Any = None
+>     a2a_manager: Any = None
+>     rate_limiter: Any = None
+>     lifecycle_manager: Any = None
+>     knowledge_base: Any = None
+>     query_expander: Any = None
+>     token_optimizer: Any = None
+>     red_team: Any = None
+>     task_verifier: Any = None
+>     accountability: Any = None
+>     agent_safety: Any = None
+> 
+>     def wire_executor(self, execute_fn: Any, decompose_fn: Any = None) -> None:
+>         """Late-bind execute_fn and decompose_fn after Orchestrator.__init__ creates them."""
+>         if self.executor is not None and hasattr(self.executor, "execute_fn"):
+>             self.executor.execute_fn = execute_fn
+>         if (
+>             self.generator is not None
+>             and decompose_fn is not None
+>             and hasattr(self.generator, "decompose_fn")
+>         ):
+>             self.generator.decompose_fn = decompose_fn
+> 
+>     @classmethod
+>     def build(
+>         cls,
+>         budget: Budget,
+>         cache: Any | None = None,
+>         state_manager: Any | None = None,
+>         max_concurrency: int = 3,
+>         max_parallel_tasks: int = 3,
+>         output_dir: Path | None = None,
+>         telemetry_store: Any | None = None,
+>         budget_hierarchy: Any | None = None,
+>         cost_predictor: Any | None = None,
+>         project_context: Any | None = None,
+>         profiles: Any | None = None,
+>     ) -> ServiceContainer:
+>         """Factory: wire all services with their dependencies.
+> 
+>         This is the single place where the dependency graph is assembled.
+>         Callers can override individual services for testing or customization.
+> 
+>         Args:
+>             budget: Budget tracker for cost enforcement.
+>             cache: Optional cache adapter (defaults to DiskCache).
+>             state_manager: Optional state adapter (defaults to StateManager).
+>             max_concurrency: Maximum concurrent operations.
+>             max_parallel_tasks: Maximum parallel tasks.
+>             output_dir: Directory for output files.
+>             telemetry_store: Optional telemetry persistence.
+>             budget_hierarchy: Optional hierarchical budget.
+>             cost_predictor: Optional cost prediction.
+>             project_context: Optional project context accumulator.
+> 
+>         Returns:
+>             Fully wired ServiceContainer.
+>         """
+>         from ..audit import AuditLog
+>         from ..application.executor import ExecutorService
+>         from ..application.evaluator import EvaluatorService
+>         from .decomposer import Decomposer
+>         from .architect import Architect
+>         from .pipeline import TaskPipeline
+>         from .stages import (
+>             CritiqueStage,
+>             EvaluateStage,
+>             GenerateStage,
+>             PersuasionDefenseStage,
+>             PreflightStage,
+>             SelfConsistencyStage,
+>             ValidateStage,
+>         )
+>         from .validator import TaskValidator
+>         from ..models import Model, TaskType
+>         from ..output_organizer import OutputOrganizer
+>         from ..planner import ConstraintPlanner
+>         from ..preflight import PreflightValidator
+>         from ..state import StateManager
+>         from ..telemetry_store import TelemetryStore
+71,73c249,252
+<     def resolve(self, interface: type[T]) -> T:
+<         """Resolve a dependency within this scope."""
+<         registration = self.container._registrations.get(interface)
+---
+>         try:
+>             from ..task_guard import TaskGuard
+>         except ImportError:
+>             from ..concurrency_controller import TaskConcurrencyGuard as TaskGuard
+75,76c254,258
+<         if registration is None:
+<             raise KeyError(f"No registration found for {interface}")
+---
+>         # Import canonical GeneratorService from services layer
+>         try:
+>             from ..services import GeneratorService
+>         except ImportError:
+>             GeneratorService = None  # type: ignore[misc]
+78,80c260,291
+<         if registration.lifecycle == Lifecycle.SCOPED:
+<             if interface in self._instances:
+<                 return self._instances[interface]
+---
+>         # Local shims for legacy deps if not found in application layer
+>         try:
+>             from .engine_deps import (  # type: ignore[attr-defined]
+>                 _CBRegistry as CBRegistry,
+>                 _DepResolver as DepResolver,
+>                 # GeneratorService imported from services layer above
+>             )
+>         except ImportError:
+>             # Fallback for missing deps
+>             class _DepResolver:
+>                 def __init__(self, **kwargs):  # type: ignore[no-untyped-def]
+>                     pass
+> 
+>             DepResolver = _DepResolver
+>             # CBRegistry is wired separately via try/except below; not needed here
+> 
+>         # Defaults
+>         if cache is None:
+>             from ..infrastructure.cache import DiskCache
+> 
+>             cache = DiskCache()
+>         if state_manager is None:
+>             state_manager = StateManager()
+> 
+>         # Core infrastructure
+>         client = UnifiedClient(cache=cache)
+>         results_lock = asyncio.Lock()
+>         task_guard = TaskGuard(name="tasks", max_concurrent=max_concurrency)
+>         tracer = Tracer("orchestrator")
+>         audit_log = AuditLog()
+>         policy_engine = PolicyEngine(audit_log=audit_log)
+>         models_dict = dict.fromkeys(Model, None)
+82,83c293,295
+<             instance = self.container._create_instance(registration, self)
+<             self._instances[interface] = instance
+---
+>         profiles: dict[Model, Any] = {}  # type: ignore[no-redef]
+>         try:
+>             from .models import ModelProfile
+85,86c297,300
+<             if hasattr(instance, "close") or hasattr(instance, "__aexit__"):
+<                 self._disposables.append(instance)
+---
+>             for m in Model:
+>                 profiles[m] = ModelProfile(model=m)
+>         except ImportError:
+>             pass
+88c302,303
+<             return instance
+---
+>         telemetry = TelemetryCollector(profiles)
+>         api_health: dict[Model, bool] = {}
+90c305,312
+<         return self.container.resolve(interface)
+---
+>         # New Domain Services (Phase 2 refactor)
+>         try:
+>             from ..infrastructure.adapters.config_adapter import JsonConfigAdapter
+>             from ..domain.services.config_services import (
+>                 RoutingService,
+>                 CostService,
+>                 ConfigurationService,
+>             )
+92,192c314,335
+<     async def close(self) -> None:
+<         """Close the scope and dispose all scoped instances."""
+<         for instance in self._disposables:
+<             try:
+<                 if hasattr(instance, "__aexit__"):
+<                     await instance.__aexit__(None, None, None)
+<                 elif hasattr(instance, "__exit__"):
+<                     instance.__exit__(None, None, None)
+<                 elif hasattr(instance, "close"):
+<                     if inspect.iscoroutinefunction(instance.close):
+<                         await instance.close()
+<                     else:
+<                         instance.close()
+<             except Exception as e:
+<                 logger.error(f"Error disposing instance: {e}")
+< 
+<         self._instances.clear()
+<         self._disposables.clear()
+< 
+< 
+< class Container:
+<     """Lightweight dependency injection container."""
+< 
+<     def __init__(self):
+<         self._registrations: dict[type, Registration] = {}
+<         self._singletons: dict[type, Any] = {}
+<         self._scopes: list[Scope] = []
+< 
+<     def register(
+<         self,
+<         interface: type[T],
+<         implementation: type | None = None,
+<         lifecycle: Lifecycle = Lifecycle.TRANSIENT,
+<         **kwargs,
+<     ) -> Registration:
+<         """Register a service."""
+<         registration = Registration(
+<             interface=interface,
+<             implementation=implementation,
+<             lifecycle=lifecycle,
+<             kwargs=kwargs,
+<         )
+<         self._registrations[interface] = registration
+<         logger.debug(f"Registered {interface.__name__} with {lifecycle.name}")
+<         return registration
+< 
+<     def register_singleton(
+<         self, interface: type[T], implementation: type | None = None, **kwargs
+<     ) -> Registration:
+<         """Register as singleton."""
+<         return self.register(interface, implementation, Lifecycle.SINGLETON, **kwargs)
+< 
+<     def register_scoped(
+<         self, interface: type[T], implementation: type | None = None, **kwargs
+<     ) -> Registration:
+<         """Register as scoped."""
+<         return self.register(interface, implementation, Lifecycle.SCOPED, **kwargs)
+< 
+<     def register_transient(
+<         self, interface: type[T], implementation: type | None = None, **kwargs
+<     ) -> Registration:
+<         """Register as transient."""
+<         return self.register(interface, implementation, Lifecycle.TRANSIENT, **kwargs)
+< 
+<     def register_factory(
+<         self,
+<         interface: type[T],
+<         factory: Callable[..., T],
+<         lifecycle: Lifecycle = Lifecycle.TRANSIENT,
+<     ) -> Registration:
+<         """Register using a factory function."""
+<         registration = Registration(
+<             interface=interface,
+<             factory=factory,
+<             lifecycle=lifecycle,
+<         )
+<         self._registrations[interface] = registration
+<         return registration
+< 
+<     def register_instance(
+<         self,
+<         interface: type[T],
+<         instance: T,
+<     ) -> Registration:
+<         """Register a pre-created instance as singleton."""
+<         registration = Registration(
+<             interface=interface,
+<             instance=instance,
+<             lifecycle=Lifecycle.SINGLETON,
+<         )
+<         self._registrations[interface] = registration
+<         self._singletons[interface] = instance
+<         return registration
+< 
+<     def resolve(self, interface: type[T], scope: Scope | None = None) -> T:
+<         """Resolve a dependency."""
+<         if scope:
+<             try:
+<                 return scope.resolve(interface)
+<             except KeyError:
+<                 pass
+---
+>             config_adapter = JsonConfigAdapter()
+>             routing_service = RoutingService(config_adapter)
+>             cost_service = CostService(config_adapter)
+>             config_service = ConfigurationService(config_adapter)
+> 
+>             from .state_coordinator import StateCoordinator
+>             from .context_service import ContextService
+> 
+>             state_coordinator = StateCoordinator()
+>             context_service = ContextService()
+>         except ImportError:
+>             logger.warning("Failed to load new domain services (Phase 2)")
+>             routing_service = None
+>             cost_service = None
+>             config_service = None
+>             state_coordinator = None
+>             context_service = None
+> 
+>         # Wired helpers
+>         planner = ConstraintPlanner(
+>             profiles=profiles, policy_engine=policy_engine, api_health=api_health
+>         )
+194,234c337,341
+<         registration = self._registrations.get(interface)
+<         if registration is None:
+<             raise KeyError(f"No registration found for {interface}")
+< 
+<         if registration.lifecycle == Lifecycle.SINGLETON and interface in self._singletons:
+<             return self._singletons[interface]
+< 
+<         instance = self._create_instance(registration, scope)
+< 
+<         if registration.lifecycle == Lifecycle.SINGLETON:
+<             self._singletons[interface] = instance
+< 
+<         return instance
+< 
+<     def try_resolve(self, interface: type[T], scope: Scope | None = None) -> T | None:
+<         """Try to resolve, return None if not registered."""
+<         try:
+<             return self.resolve(interface, scope)
+<         except KeyError:
+<             return None
+< 
+<     def resolve_all(self, interface: type[T]) -> list[T]:
+<         """Resolve all implementations."""
+<         instance = self.try_resolve(interface)
+<         return [instance] if instance else []
+< 
+<     def _create_instance(
+<         self,
+<         registration: Registration,
+<         scope: Scope | None = None,
+<     ) -> Any:
+<         """Create an instance based on registration."""
+<         if registration.instance is not None:
+<             return registration.instance
+< 
+<         if registration.factory is not None:
+<             return self._invoke_with_injection(
+<                 registration.factory,
+<                 scope,
+<                 registration.kwargs,
+<             )
+---
+>         selector = ModelSelector(
+>             api_health=api_health,
+>             routing_service=routing_service,
+>             cost_service=cost_service,
+>         )
+236,237c343,348
+<         impl = registration.implementation or registration.interface
+<         return self._create_class_instance(impl, scope, registration.kwargs)
+---
+>         tiered_router = TieredModelRouter(
+>             api_health=api_health,
+>             routing_service=routing_service,
+>             cost_service=cost_service,
+>             adaptive_router=None,  # wired later if needed
+>         )
+239,270c350,351
+<     def _create_class_instance(
+<         self,
+<         cls: type,
+<         scope: Scope | None,
+<         additional_kwargs: dict[str, Any],
+<     ) -> Any:
+<         """Create class instance with constructor injection."""
+<         try:
+<             sig = inspect.signature(cls.__init__)
+<             type_hints = get_type_hints(cls.__init__)
+<         except (ValueError, TypeError):
+<             return cls(**additional_kwargs)
+< 
+<         kwargs = dict(additional_kwargs)
+< 
+<         for name, param in sig.parameters.items():
+<             if name == "self":
+<                 continue
+<             if name in kwargs:
+<                 continue
+< 
+<             param_type = type_hints.get(name)
+<             if param_type and param_type in self._registrations:
+<                 try:
+<                     kwargs[name] = self.resolve(param_type, scope)
+<                 except KeyError:
+<                     if param.default is inspect.Parameter.empty:
+<                         raise
+<             elif param.default is not inspect.Parameter.empty:
+<                 pass
+<             elif param.default is inspect.Parameter.empty:
+<                 raise KeyError(f"Cannot resolve parameter {name} for {cls}")
+---
+>         def get_available_models(task_type: object = None) -> list[Model]:
+>             return selector.available_models(task_type)  # type: ignore[arg-type]
+272c353,367
+<         return cls(**kwargs)
+---
+>         # Services (wrapped in type: ignore for optional dependencies)
+>         executor = ExecutorService(
+>             execute_fn=None,  # assigned later by Orchestrator
+>             guard=task_guard,
+>             telemetry=telemetry,
+>         )
+>         evaluator = EvaluatorService(
+>             client=client,  # type: ignore[arg-type]
+>             budget=budget,
+>             get_models_fn=get_available_models,
+>             telemetry=telemetry,
+>         )
+>         generator = GeneratorService(
+>             decompose_fn=None,  # assigned later
+>         )
+274,300c369,371
+<     def _invoke_with_injection(
+<         self,
+<         func: Callable,
+<         scope: Scope | None,
+<         additional_kwargs: dict[str, Any],
+<     ) -> Any:
+<         """Invoke a function with parameter injection."""
+<         sig = inspect.signature(func)
+<         type_hints = get_type_hints(func)
+< 
+<         kwargs = dict(additional_kwargs)
+< 
+<         for name, param in sig.parameters.items():
+<             if name in kwargs:
+<                 continue
+< 
+<             param_type = type_hints.get(name)
+<             if param_type and param_type in self._registrations:
+<                 try:
+<                     kwargs[name] = self.resolve(param_type, scope)
+<                 except KeyError:
+<                     if param.default is inspect.Parameter.empty:
+<                         raise
+<             elif param.default is not inspect.Parameter.empty:
+<                 pass
+<             elif param.default is inspect.Parameter.empty:
+<                 raise KeyError(f"Cannot resolve parameter {name} for {func}")
+---
+>         # Engine core components
+>         decomposer = Decomposer(client=client, selector=selector, tracer=tracer)
+>         architect = Architect(client=client)
+302c373,374
+<         return func(**kwargs)
+---
+>         # Preflight + validator
+>         preflight_validator = PreflightValidator()
+304,308c376,379
+<     def create_scope(self, name: str = "scoped") -> Scope:
+<         """Create a new scope."""
+<         scope = Scope(self, name)
+<         self._scopes.append(scope)
+<         return scope
+---
+>         # LSP validator (CodeWhale Phase 1 — post-generation diagnostics)
+>         lsp_validator = None
+>         try:
+>             from ..infrastructure.lsp_validator import LspValidator
+310,312c381,389
+<     def is_registered(self, interface: type) -> bool:
+<         """Check if interface is registered."""
+<         return interface in self._registrations
+---
+>             lsp_validator = LspValidator(timeout_seconds=30)
+>             known = lsp_validator.available_servers()
+>             if known:
+>                 logger.info("LSP servers available: %s", ", ".join(sorted(known)))
+>             else:
+>                 logger.info("No LSP servers found on PATH — LSP validation disabled")
+>                 lsp_validator = None
+>         except Exception as exc:
+>             logger.debug("LspValidator not available: %s", exc)
+314,319c391,393
+<     def unregister(self, interface: type) -> None:
+<         """Unregister a service."""
+<         if interface in self._registrations:
+<             del self._registrations[interface]
+<         if interface in self._singletons:
+<             del self._singletons[interface]
+---
+>         # Unified Event System integration
+>         try:
+>             from .unified_events.core import UnifiedEventBus
+321,325c395,410
+<     def clear(self) -> None:
+<         """Clear all registrations."""
+<         self._registrations.clear()
+<         self._singletons.clear()
+<         self._scopes.clear()
+---
+>             # event_bus  → async face (publish DomainEvents)
+>             # hook_registry → sync face (fire lifecycle hooks)
+>             # They share the same underlying object; .sync_hooks just narrows the type.
+>             event_bus = UnifiedEventBus()
+>             hook_registry = event_bus.sync_hooks
+>         except ImportError:
+>             # Fallback to domain null-adapters if unified_events is not reachable
+>             hook_registry = NullHookRegistry()
+>             event_bus = NullEventBus()
+> 
+>         validator = TaskValidator(
+>             client=client,
+>             budget=budget,
+>             preflight_validator=preflight_validator,
+>             hook_registry=hook_registry,
+>         )
+327,329c412,414
+<     def build_provider(self) -> ServiceProvider:
+<         """Create immutable service provider."""
+<         return ServiceProvider(self)
+---
+>         # ARA integration
+>         try:
+>             from .ara_integration import create_ara_integration
+330a416,424
+>             ara = create_ara_integration(
+>                 client=client,
+>                 cache=cache,
+>                 telemetry=telemetry,
+>                 enabled=True,
+>                 auto_select=True,
+>             )
+>         except ImportError:
+>             ara = None
+332,333c426,427
+< class ServiceProvider:
+<     """Immutable, thread-safe service provider."""
+---
+>         try:
+>             from .ara_execution_strategy import ARAExecutionStrategy
+335,336c429,448
+<     def __init__(self, container: Container):
+<         self._container = container
+---
+>             ara_strategy = ARAExecutionStrategy(ara_integration=ara)
+>         except ImportError:
+>             ara_strategy = None
+> 
+>         # Pipeline with all stages
+>         pipeline = TaskPipeline(
+>             [
+>                 GenerateStage(client=client, budget=budget, selector=selector),  # type: ignore[arg-type]
+>                 CritiqueStage(client=client, lsp_validator=lsp_validator),  # type: ignore[arg-type]
+>                 EvaluateStage(evaluator=evaluator),
+>                 ValidateStage(),
+>                 PersuasionDefenseStage(ara_integration=ara),
+>                 PreflightStage(validator=validator),
+>                 SelfConsistencyStage(
+>                     max_attempts=2,
+>                     quality_threshold=0.7,
+>                     ara_strategy=ara_strategy,
+>                 ),
+>             ]
+>         )
+338,340c450,468
+<     def get_service(self, interface: type[T]) -> T:
+<         """Get a service."""
+<         return self._container.resolve(interface)
+---
+>         # State management
+>         if telemetry_store is None:
+>             telemetry_store = TelemetryStore()
+> 
+>         # Dependency resolver
+>         dep_resolver = DepResolver(context_truncation_limit=8192)
+> 
+>         # New Domain Services (Phase 3 refactor: Planning and Execution)
+>         from .project_planner import ProjectPlanner
+>         from .pipeline_runner import PipelineRunner
+> 
+>         project_planner = ProjectPlanner(dep_resolver=dep_resolver)
+>         pipeline_runner = PipelineRunner(
+>             pipeline=pipeline,
+>             planner=project_planner,
+>             max_parallel_tasks=max_parallel_tasks,
+>             event_bus=event_bus,
+>             dashboard=None,  # wired later
+>         )
+342,346c470,476
+<     def get_required_service(self, interface: type[T]) -> T:
+<         """Get a service or raise."""
+<         if not self._container.is_registered(interface):
+<             raise KeyError(f"Service {interface} not registered")
+<         return self._container.resolve(interface)
+---
+>         # Semantic cache — real SemanticCache wired by Orchestrator if needed;
+>         # None here so callers must guard with `if self._semantic_cache is not None`.
+>         semantic_cache = None
+> 
+>         # Adaptive router — real AdaptiveRouter wired by Orchestrator if needed;
+>         # None here so callers must guard with `if self._adaptive_router is not None`.
+>         adaptive_router = None
+348,350c478,479
+<     def get_services(self, interface: type[T]) -> list[T]:
+<         """Get all services of type."""
+<         return self._container.resolve_all(interface)
+---
+>         # NexusScope: wrap pipeline with profiling if enabled
+>         import os as _os
+351a481,484
+>         if _os.getenv("ORCHESTRATOR_PROFILING", "0") == "1":
+>             try:
+>                 from ..infrastructure.nexusscope.pipeline_hook import ProfilingTaskPipeline as _PTP
+>                 from ..infrastructure.nexusscope import get_profiler as _get_ns
+353,354c486,488
+< # Global Container
+< _default_container: Container | None = None
+---
+>                 pipeline = _PTP(pipeline._stages, profiler=_get_ns())  # type: ignore[assignment]
+>             except ImportError:
+>                 pass
+355a490,493
+>         # Observability service
+>         observability = None
+>         try:
+>             from ..services import ObservabilityService
+357,362c495,497
+< def get_container() -> Container:
+<     """Get global container."""
+<     global _default_container
+<     if _default_container is None:
+<         _default_container = Container()
+<     return _default_container
+---
+>             observability = ObservabilityService()
+>         except ImportError:
+>             pass
+363a499,502
+>         # Circuit breaker registry
+>         cb_registry = None
+>         try:
+>             from ..circuit_breaker import CircuitBreakerRegistry
+365,368c504,551
+< def reset_container() -> None:
+<     """Reset global container."""
+<     global _default_container
+<     _default_container = None
+---
+>             cb_registry = CircuitBreakerRegistry()
+>         except ImportError:
+>             pass
+> 
+>         return cls(
+>             budget=budg
+
+[… truncated 2472 chars …]

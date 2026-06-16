@@ -333,7 +333,7 @@ def cmd_agent(args) -> None:
     """
     import re
 
-    from orchestrator.control_plane import ControlPlane
+    from orchestrator.engine_core.control_plane import ControlPlane
     from orchestrator.orchestration_agent import OrchestrationAgent
     from orchestrator.secure_execution import CommandInjectionError
 

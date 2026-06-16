@@ -1532,7 +1532,7 @@ asyncio.run(use_ara_pipelines())
 #### Automatic Selection (Recommended)
 
 ```python
-from orchestrator.method_selector import select_method_for_task
+from orchestrator.engine_core.method_selector import select_method_for_task
 
 # Auto-select based on task characteristics
 selection = select_method_for_task(
@@ -1771,7 +1771,7 @@ for method, percentage in distribution.items():
 ### Cost Planning
 
 ```python
-from orchestrator.method_selector import METHOD_COST_MULTIPLIERS, ReasoningMethod
+from orchestrator.engine_core.method_selector import METHOD_COST_MULTIPLIERS, ReasoningMethod
 
 # Estimate cost for project with multiple methods
 methods_needed = {
@@ -1830,7 +1830,7 @@ logging.getLogger("orchestrator").setLevel(logging.DEBUG)
 
 - **[ARA_PIPELINE_GUIDE.md](./ARA_PIPELINE_GUIDE.md)** — Complete guide with all 12 methods
 - **[orchestrator/ara_pipelines.py](./orchestrator/ara_pipelines.py)** — Pipeline implementations
-- **[orchestrator/method_selector.py](./orchestrator/method_selector.py)** — Method selection logic
+- **[orchestrator/engine_core/method_selector.py](./orchestrator/engine_core/method_selector.py)** — Method selection logic
 - **[orchestrator/ara_integration.py](./orchestrator/ara_integration.py)** — Integration layer
 
 ---
