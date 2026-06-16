@@ -30,6 +30,21 @@ if TYPE_CHECKING:
     from ..project_context import ProjectContext
     from ..model_selector import ModelSelector
 
+# Lazy import for VS-powered decomposition
+_VS_SAMPLER_DECOMP = None
+_VS_DECOMP_LOCK = __import__("threading").Lock()
+
+
+def _get_vs_decomp_sampler(client):
+    global _VS_SAMPLER_DECOMP
+    if _VS_SAMPLER_DECOMP is None:
+        with _VS_DECOMP_LOCK:
+            if _VS_SAMPLER_DECOMP is None:
+                from ..application.verbalized_sampling import VerbalizedSampler as _VS
+
+                _VS_SAMPLER_DECOMP = _VS
+    return _VS_SAMPLER_DECOMP(client=client)
+
 logger = logging.getLogger("orchestrator.engine_core.decomposer")
 
 
@@ -134,20 +149,7 @@ Each task JSON element MUST also include:
             except ImportError:
                 logger.debug("scaffold module not available, skipping app context block")
 
-                _VS_SAMPLER_DECOMP = None
-        _VS_DECOMP_LOCK = __import__("threading").Lock()
-
-        def _get_vs_sampler():
-            nonlocal _VS_SAMPLER_DECOMP
-            if _VS_SAMPLER_DECOMP is None:
-                with _VS_DECOMP_LOCK:
-                    if _VS_SAMPLER_DECOMP is None:
-                        from ..application.verbalized_sampling import VerbalizedSampler as _VS
-
-                        _VS_SAMPLER_DECOMP = _VS
-            return _VS_SAMPLER_DECOMP(client=self._client)
-
-        # Phase 5: inject project context
+                # Phase 5: inject project context
         if project_context is not None and not project_context.is_empty():
             ctx_str = project_context.to_system_prompt()
             if ctx_str:
@@ -174,7 +176,7 @@ Each task JSON element MUST also include:
             try:
                 # ── VS multi-plan decomposition ──────────────────────────
                 if flags.vs_decomposition and attempt == 0:
-                    sampler = _get_vs_sampler()
+                    sampler = _get_vs_decomp_sampler(self._client)
                     vs_system = (
                         system + "\n"
                         "Generate 2 complete task plans. Each plan should be a "

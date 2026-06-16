@@ -427,11 +427,16 @@ class AutonomousDebugger:
 
     async def _vs_analyze_root_cause(self, error_type: str, error_detail: str) -> str:
         """Bayesian root cause analysis using Verbalized Sampling."""
-        if not flags.vs_bug_hunting or not hasattr(self, "_engine") or self._engine is None:
+        if not flags.vs_bug_hunting:
+            return self._determine_root_cause(error_type, error_detail)
+
+        # Use the client available on the debugger
+        client = getattr(self, "_client", getattr(self, "client", None))
+        if client is None:
             return self._determine_root_cause(error_type, error_detail)
 
         try:
-            sampler = _get_vs_bug_sampler(self._engine)
+            sampler = _get_vs_bug_sampler(client)
         except Exception:
             return self._determine_root_cause(error_type, error_detail)
 
