@@ -134,6 +134,7 @@ class WebsiteConfig:
     include_animations: bool = True
     seo_optimized: bool = True
     performance_optimized: bool = True
+    image_model: str = ""  # OpenRouter image model ID; empty = SVG placeholders
 
 
 @dataclass
@@ -604,10 +605,119 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             pass
 
     def _generate_images(self, output_dir, config, design_system) -> None:
-        """Generate placeholder images using design system colors."""
-        from .image_generator import generate_images
-        generate_images(output_dir, config, design_system)
-        logger.info(f'WebsiteGenerator: generated placeholder images')
+        """Generate images using LLM model or SVG fallback.
+
+        Tries OpenRouter image generation model first (if ``config.image_model``
+        is set and OPENROUTER_API_KEY is available). Falls back to self-contained
+        SVG placeholders with design system colors.
+        """
+        if config.image_model:
+            try:
+                import asyncio
+                from ..infrastructure.image_client import ImageGenClient
+
+                client = ImageGenClient()
+                success = asyncio.run_coroutine_threadsafe(
+                    self._generate_images_llm(output_dir, config, design_system, client),
+                    asyncio.get_event_loop(),
+                ).result(timeout=120)
+                if success:
+                    return
+            except Exception as e:
+                logger.warning("LLM image generation failed, falling back to SVG: %s", e)
+
+        from .image_generator import generate_images as _svg_fallback
+
+        _svg_fallback(output_dir, config, design_system)
+        logger.info("WebsiteGenerator: generated SVG placeholder images")
+
+    async def _generate_images_llm(
+        self,
+        output_dir: Path,
+        config: WebsiteConfig,
+        design_system: DesignSystem,
+        client: Any,
+    ) -> bool:
+        """Generate images via OpenRouter image model.
+
+        Produces: hero background, OG image, up to 3 portfolio thumbnails,
+        up to 4 team avatars, favicon.
+        """
+        from ..infrastructure.image_client import ImageGenClient as _IGC
+
+        model = config.image_model
+        ds = design_system
+        colors = getattr(ds, "colors", ds)
+        primary = getattr(colors, "primary", "#4f9eff")
+        accent = getattr(colors, "accent", "#7c3aed")
+        site_name = getattr(config, "client_name", "Site") or "Site"
+
+        img_dir = output_dir / "public" / "images"
+        img_dir.mkdir(parents=True, exist_ok=True)
+
+        # Define images to generate
+        images = [
+            {
+                "name": "hero-bg",
+                "prompt": (
+                    f"Dark premium {getattr(config, 'page_type', 'landing')} website hero background, "
+                    f"abstract geometric gradient with {accent} and {primary} tones, "
+                    "subtle grid pattern overlay, cinematic lighting, no text"
+                ),
+                "width": 1440,
+                "height": 900,
+            },
+            {
+                "name": "og-image",
+                "prompt": (
+                    f"Social sharing card for {site_name}, "
+                    f"professional brand image with {primary} and {accent} color scheme, "
+                    "clean modern design, no text"
+                ),
+                "width": 1200,
+                "height": 630,
+            },
+        ]
+
+        # Add portfolio thumbnails (3)
+        for i in range(1, 4):
+            images.append({
+                "name": f"portfolio-{i}",
+                "prompt": (
+                    f"Minimalist portfolio project thumbnail {i}, "
+                    f"clean modern aesthetic, abstract design representation, no text"
+                ),
+                "width": 600,
+                "height": 400,
+            })
+
+        success_count = 0
+        total = len(images)
+
+        for img in images:
+            try:
+                result = await client.generate(
+                    prompt=img["prompt"],
+                    model=model,
+                    width=img["width"],
+                    height=img["height"],
+                    output_path=img_dir / f"{img['name']}.png",
+                )
+                if result.success:
+                    success_count += 1
+                    logger.debug("Generated: %s (%s)", img["name"], result.mime_type)
+                else:
+                    logger.warning("Failed to generate %s: %s", img["name"], result.error)
+            except Exception as e:
+                logger.warning("Error generating %s: %s", img["name"], e)
+
+        logger.info(
+            "WebsiteGenerator: LLM images %d/%d generated (model=%s)",
+            success_count,
+            total,
+            model,
+        )
+        return success_count > 0
 
     def _assemble_page(
         self,

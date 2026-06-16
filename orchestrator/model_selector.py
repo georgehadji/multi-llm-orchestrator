@@ -46,6 +46,10 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.LLAMA_4_MAVERICK: 0,
     Model.PHI_4: 0,
     Model.CLAUDE_3_HAIKU: 0,
+    # Image generation models
+    Model.NANO_BANANA_2: 1,
+    Model.RECRAFT_V4_PRO_VECTOR: 1,
+    Model.FLUX_2_KLEIN: 1,
 }
 
 _COMPLEXITY_KEYWORDS = [

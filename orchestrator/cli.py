@@ -1705,6 +1705,7 @@ def _website_subparsers(subparsers) -> None:
     wp.add_argument("--output-dir", "-o", default="outputs/website", help="Output directory")
     wp.add_argument("--framework", "-f", default="html", choices=["html", "react", "next.js"], help="Target framework")
     wp.add_argument("--preset", default="modern", choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"], help="Design preset")
+    wp.add_argument("--image-model", default="", help="OpenRouter image model (e.g. google/gemini-3.1-flash-image-preview)")
     wp.set_defaults(func=_cmd_website)
 
 
@@ -1729,6 +1730,7 @@ def _cmd_website(args):
         styling="tailwind" if args.framework != "html" else "css",
         page_type="landing",
         sections=["hero", "features", "pricing", "testimonials", "faq", "cta", "footer"],
+        image_model=args.image_model,
     )
     output_dir = Path(args.output_dir)
 

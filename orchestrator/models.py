@@ -92,6 +92,8 @@ class TaskType(str, Enum):
 
     EVALUATE = "evaluation"
 
+    IMAGE_GEN = "image_generation"
+
 
 class DesignVariant(str, Enum):
     """Visual design direction for frontend code generation tasks.
@@ -322,8 +324,21 @@ class Model(str, Enum):
 
     OPENROUTER_AUTO = "openrouter/auto"  # Dynamic routing
 
+    # ═══════════════════════════════════════════════════════
+    # IMAGE GENERATION MODELS
+    # ═══════════════════════════════════════════════════════
 
-class ProjectStatus(str, Enum):
+    # Google Nano Banana 2 (Gemini 3.1 Flash Image) — #1 Design Arena
+    NANO_BANANA_2 = "google/gemini-3.1-flash-image-preview"  # $0.0005/$0.003, image+text
+
+    # Recraft V4.1 Pro Vector — native SVG output
+    RECRAFT_V4_PRO_VECTOR = "recraft/recraft-v4.1-pro-vector"  # SVG, $0/$0
+
+    # Black Forest Labs FLUX.2 Klein — fast, cost-effective
+    FLUX_2_KLEIN = "black-forest-labs/flux.2-klein-4b"  # $0/$0, fastest image gen
+
+
+class TaskType(str, Enum):
 
     SUCCESS = "SUCCESS"
 
@@ -497,6 +512,10 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     # Microsoft Phi models
     Model.PHI_4: 4096,
     Model.PHI_4_REASONING: 4096,
+    # Image generation models
+    Model.NANO_BANANA_2: 4096,
+    Model.RECRAFT_V4_PRO_VECTOR: 4096,
+    Model.FLUX_2_KLEIN: 4096,
     # Google Gemma models
     Model.GEMMA_3_27B: 8192,
     # Nous Hermes models
