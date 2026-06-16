@@ -233,14 +233,15 @@ class ServiceContainer:
             except Exception as e:
                 logger.warning("Failed to close event bus: %s", e)
 
-    # Lazy-init cache for optional services. Initialized in __post_init__.
+    # Lazy-init cache for optional services. Managed by get_or_create().
     _lazy_cache: dict[str, Any] = field(default_factory=dict)
 
     def get_or_create(self, name: str, factory: Callable[[], Any]) -> Any:
         """Lazy-init cache for optional services.
 
         Returns a cached instance if already created, otherwise calls factory,
-        stores the result, and returns it. Thread-safe for concurrent access.
+        stores the result, and returns it. Safe under asyncio's single-threaded
+        event loop (synchronous factory is atomic between check and set).
         """
         if name not in self._lazy_cache:
             self._lazy_cache[name] = factory()
