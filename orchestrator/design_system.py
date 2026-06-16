@@ -58,6 +58,33 @@ class DesignSystem:
     spacing_unit: int = 4
     dark_mode: bool = True
 
+
+class QualityCheck:
+    """Individual quality check result — used by website_validator."""
+    def __init__(
+        self,
+        name: str,
+        passed: bool,
+        score: float,
+        details: str,
+        recommendations: list[str] = [],
+    ):
+        self.name = name
+        self.passed = passed
+        self.score = score
+        self.details = details
+        self.recommendations = recommendations
+
+
+class QualityReport:
+    """Aggregated quality report — accepts arbitrary kwargs for compatibility."""
+    def __init__(self, **kwargs):
+        self.score: float = kwargs.pop("score", 0.0)
+        self.issues: list = kwargs.pop("issues", [])
+        self.warnings: list = kwargs.pop("warnings", [])
+        self.passed: bool = kwargs.pop("passed", False)
+        self.__dict__.update(kwargs)
+
     # Additional fields used by WebsiteGenerator — defaults to None for compatibility
     tone: str = "modern"
     font_heading: str = "Inter"

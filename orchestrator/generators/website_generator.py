@@ -9,6 +9,7 @@ Integrates with existing Orchestrator engine for parallel execution.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,7 +48,7 @@ def _get_registry():
             get_registry = lambda: _FakeRegistry()
     return get_registry
 
-from ..design_system import DesignSystem
+from ..design_system import DesignSystem, QualityReport
 
 # Stubs for symbols removed from design_system
 
@@ -318,22 +319,31 @@ class WebsiteGenerator:
             # Step 4: Execute through orchestrator (if available)
             if self._engine:
                 logger.info(f"LLM-powered generation: {len(tasks)} sections via orchestrator")
-                for i, task in enumerate(tasks):
-                    try:
-                        component_result = await self._engine._execute_task(task)
-                        if component_result and component_result.output:
-                            # Write LLM output to component file
-                            comp_path = output_dir / "components" / f"{config.sections[i]}.tsx"
-                            comp_path.parent.mkdir(parents=True, exist_ok=True)
-                            comp_path.write_text(component_result.output, encoding="utf-8")
-                            result.total_cost += getattr(component_result, "cost_usd", 0)
-                            logger.info(f"  ✓ {config.sections[i]}: {len(component_result.output)} chars")
-                        else:
-                            logger.warning(f"  ✗ {config.sections[i]}: empty LLM output")
-                    except Exception as task_err:
-                        logger.warning(f"  ✗ {config.sections[i]}: {task_err}")
-                result.components_generated = len(tasks)
-                result.success = True
+                max_concurrent = getattr(self._engine, "max_concurrency", 3)
+                semaphore = asyncio.Semaphore(max_concurrent)
+
+                async def _run_one(i: int, task: Task) -> tuple[int, bool]:
+                    async with semaphore:
+                        try:
+                            component_result = await self._engine._execute_task(task)
+                            if component_result and component_result.output:
+                                ext = ".html" if config.framework == "html" else ".tsx"
+                                comp_path = output_dir / "components" / f"{config.sections[i]}{ext}"
+                                comp_path.parent.mkdir(parents=True, exist_ok=True)
+                                comp_path.write_text(component_result.output, encoding="utf-8")
+                                result.total_cost += getattr(component_result, "cost_usd", 0)
+                                logger.info(f"  ✓ {config.sections[i]}: {len(component_result.output)} chars")
+                                return i, True
+                            else:
+                                logger.warning(f"  ✗ {config.sections[i]}: empty LLM output")
+                                return i, False
+                        except Exception as task_err:
+                            logger.warning(f"  ✗ {config.sections[i]}: {task_err}")
+                            return i, False
+
+                results = await asyncio.gather(*[_run_one(i, task) for i, task in enumerate(tasks)])
+                result.components_generated = sum(1 for _, ok in results if ok)
+                result.success = any(ok for _, ok in results)
             else:
                 # Without engine, generate content from content brief
                 logger.warning("No orchestrator engine available — using content brief")
@@ -518,8 +528,8 @@ RULES:
 10. If the page contains auth/registration, include email verification flow:
     send a verification token after signup before allowing login.
 
-OUTPUT: Complete React/Next.js component with Tailwind CSS.
-Export as default export. Include TypeScript types.
+OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. Return a plain HTML + CSS <style> block. No JavaScript framework, no JSX, no React.' if config.framework == 'html' else 'Complete React/Next.js component with Tailwind CSS. Export as default export. Include TypeScript types.'}
+{'Only the HTML content (no ``` fences).' if config.framework == 'html' else 'Export as default export. Include TypeScript types.'}
 """
 
     def _create_content_from_brief(
@@ -564,7 +574,7 @@ Export as default export. Include TypeScript types.
         for section in sections:
             name = section.replace("-", " ").replace("_", " ").title().replace(" ", "")
             headline = headlines.get(section, section.title())
-            component_path = components_dir / f"{section}.tsx"
+            component_path = components_dir / f"{section}{'.html' if config.framework == 'html' else '.tsx'}"
 
             if "hero" in section.lower():
                 component_path.write_text(self._build_hero_component(name, headline, tagline, ctas, design_system), encoding="utf-8")
@@ -727,7 +737,7 @@ Export as default export. Include TypeScript types.
 
         # Read each component file and inject into the page
         if components_dir.exists():
-            for section_file in sorted(components_dir.glob("*.html")):
+            for section_file in sorted(components_dir.glob("*.html")) + sorted(components_dir.glob("*.tsx")):
                 content = section_file.read_text(encoding="utf-8")
                 page_lines.append(f"  <!-- {section_file.stem} -->")
                 for line in content.splitlines():

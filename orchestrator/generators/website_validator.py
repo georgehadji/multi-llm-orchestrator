@@ -19,7 +19,7 @@ import re
 from typing import TYPE_CHECKING
 
 # FIXED: from .design_system import DesignSystem, QualityCheck, QualityReport
-from ...design_system import DesignSystem, QualityCheck, QualityReport
+from ..design_system import DesignSystem, QualityCheck, QualityReport
 
 if TYPE_CHECKING:
     from pathlib import Path
