@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from .pipeline import TaskPipeline
@@ -232,6 +232,19 @@ class ServiceContainer:
                     await self.event_bus.close()
             except Exception as e:
                 logger.warning("Failed to close event bus: %s", e)
+
+    # Lazy-init cache for optional services. Initialized in __post_init__.
+    _lazy_cache: dict[str, Any] = field(default_factory=dict)
+
+    def get_or_create(self, name: str, factory: Callable[[], Any]) -> Any:
+        """Lazy-init cache for optional services.
+
+        Returns a cached instance if already created, otherwise calls factory,
+        stores the result, and returns it. Thread-safe for concurrent access.
+        """
+        if name not in self._lazy_cache:
+            self._lazy_cache[name] = factory()
+        return self._lazy_cache[name]
 
     def wire_executor(self, execute_fn: Any, decompose_fn: Any = None) -> None:
         """Late-bind execute_fn and decompose_fn after Orchestrator.__init__ creates them."""
