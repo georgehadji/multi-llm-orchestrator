@@ -26,7 +26,7 @@ from ..tracing import Tracer
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
 from ..project_context import ProjectContext as _ProjectContext
 
-logger = logging.getLogger("orchestrator.services.generator")
+_service_logger = logging.getLogger("orchestrator.services.generator")
 
 DecomposeFn = Callable[..., Awaitable[dict[str, Task]]]
 
@@ -156,9 +156,9 @@ class DecomposerService:
             self.metrics.record(result)
 
         if error:
-            logger.warning("decompose FAILED in %.0fms: %s", wall_ms, error)
+            _service_logger.warning("decompose FAILED in %.0fms: %s", wall_ms, error)
         else:
-            logger.debug("decompose succeeded in %.0fms — %d tasks", wall_ms, result.task_count)
+            _service_logger.debug("decompose succeeded in %.0fms — %d tasks", wall_ms, result.task_count)
 
         return result
 
@@ -223,7 +223,7 @@ def _get_vs_decomp_sampler(client):
                 _VS_SAMPLER_DECOMP = _VS
     return _VS_SAMPLER_DECOMP(client=client)
 
-logger = logging.getLogger("orchestrator.engine_core.decomposer")
+logger = logging.getLogger("orchestrator.engine_core.decomposer")  # Legacy — preserved for Decomposer class logs
 
 
 class Decomposer:
