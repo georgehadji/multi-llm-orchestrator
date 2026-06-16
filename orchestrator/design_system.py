@@ -58,33 +58,6 @@ class DesignSystem:
     spacing_unit: int = 4
     dark_mode: bool = True
 
-
-class QualityCheck:
-    """Individual quality check result — used by website_validator."""
-    def __init__(
-        self,
-        name: str,
-        passed: bool,
-        score: float,
-        details: str,
-        recommendations: list[str] = [],
-    ):
-        self.name = name
-        self.passed = passed
-        self.score = score
-        self.details = details
-        self.recommendations = recommendations
-
-
-class QualityReport:
-    """Aggregated quality report — accepts arbitrary kwargs for compatibility."""
-    def __init__(self, **kwargs):
-        self.score: float = kwargs.pop("score", 0.0)
-        self.issues: list = kwargs.pop("issues", [])
-        self.warnings: list = kwargs.pop("warnings", [])
-        self.passed: bool = kwargs.pop("passed", False)
-        self.__dict__.update(kwargs)
-
     # Additional fields used by WebsiteGenerator — defaults to None for compatibility
     tone: str = "modern"
     font_heading: str = "Inter"
@@ -226,3 +199,42 @@ class DesignSystemManager:
         out = Path(output_dir)
         (out / "design-tokens.css").write_text(self.design_system.to_css(), encoding="utf-8")
         (out / "tailwind.design.js").write_text(self.design_system.to_tailwind(), encoding="utf-8")
+
+
+# ── Quality types used by website_validator ─────────────────────────────────
+
+
+class QualityCheck:
+    """Individual quality check result — used by website_validator."""
+    def __init__(
+        self,
+        name: str,
+        passed: bool,
+        score: float,
+        details: str,
+        recommendations: list[str] | None = None,
+    ):
+        self.name = name
+        self.passed = passed
+        self.score = score
+        self.details = details
+        self.recommendations = recommendations if recommendations is not None else []
+
+
+class QualityReport:
+    """Aggregated quality report — accepts arbitrary kwargs for compatibility.
+    
+    Separate from DesignSystem — this is the output of WebsiteQualityValidator.validate(),
+    not a design token definition.
+    """
+    def __init__(self, **kwargs):
+        self.checks: list = kwargs.pop("checks", [])
+        self.score: float = kwargs.pop("score", 0.0)
+        self.lighthouse_score: float = kwargs.pop("lighthouse_score", 0)
+        self.wcag_level: str = kwargs.pop("wcag_level", "A")
+        self.responsive_breakpoints_tested: int = kwargs.pop("responsive_breakpoints_tested", 0)
+        self.issues: list = kwargs.pop("issues", [])
+        self.warnings: list = kwargs.pop("warnings", [])
+        self.passed: bool = kwargs.pop("passed", False)
+        self.__dict__.update(kwargs)
+    

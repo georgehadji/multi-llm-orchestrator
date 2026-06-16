@@ -71,16 +71,7 @@ class ContentBrief:
         return self.headlines.get(section_name, f"Content for {section_name}")
 
 
-class QualityReport:
-    """Website quality report — accepts arbitrary kwargs for compatibility."""
-    def __init__(self, **kwargs):
-        self.score: float = kwargs.pop("score", 0.0)
-        self.issues: list = kwargs.pop("issues", [])
-        self.warnings: list = kwargs.pop("warnings", [])
-        self.passed: bool = kwargs.pop("passed", False)
-        self.__dict__.update(kwargs)
-
-# FIXED: from .models import ProjectState, Task, TaskType
+logger = logging.getLogger(__name__)
 from ..models import ProjectState, Task, TaskType
 
 logger = logging.getLogger(__name__)
@@ -368,7 +359,11 @@ class WebsiteGenerator:
                     result.components_generated = len(config.sections)
                 result.components_generated = len(config.sections)
 
-            # Step 5: Assemble final page
+            # Step 5: Generate placeholder images (hero bg, OG, section images)
+            logger.info("WebsiteGenerator: generating images...")
+            self._generate_images(output_dir, config, design_system)
+
+            # Step 6: Assemble final page
             logger.info("WebsiteGenerator: assembling page...")
             self._assemble_page(
                 output_dir=output_dir,
@@ -452,7 +447,7 @@ class WebsiteGenerator:
                 type=TaskType.CODE_GEN,
                 prompt=prompt,
                 dependencies=dependencies,
-                target_path=f"components/{section}.tsx",
+                target_path=f"components/{section}{'.html' if config.framework == 'html' else '.tsx'}",
                 tech_context=f"{config.framework} + {config.styling}",
                 acceptance_threshold=0.85,
                 max_iterations=3,
@@ -607,6 +602,12 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             ), encoding="utf-8")
         except Exception:
             pass
+
+    def _generate_images(self, output_dir, config, design_system) -> None:
+        """Generate placeholder images using design system colors."""
+        from .image_generator import generate_images
+        generate_images(output_dir, config, design_system)
+        logger.info(f'WebsiteGenerator: generated placeholder images')
 
     def _assemble_page(
         self,
