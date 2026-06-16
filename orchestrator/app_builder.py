@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from orchestrator.app_assembler import AppAssembler, AssemblyReport
 from orchestrator.app_verifier import AppVerifier, VerifyReport
 from orchestrator.architecture_advisor import ArchitectureAdvisor
-from orchestrator.dep_resolver import DependencyResolver, ResolveReport
+from orchestrator.engine_core.dep_resolver import DependencyResolver, ResolveReport
 from orchestrator.scaffold import ScaffoldEngine
 
 if TYPE_CHECKING:

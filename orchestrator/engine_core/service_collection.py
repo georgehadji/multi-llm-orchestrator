@@ -173,7 +173,7 @@ class LearningServices:
         _bg = None
 
         try:
-            from .context_compressor import ContextCompressor
+            from ..context_compressor import ContextCompressor
             from .delegation.batch_runner import BatchRunner
             from .memory.memory_manager import MemoryManager
             from .pattern_learner.curator import PatternCurator

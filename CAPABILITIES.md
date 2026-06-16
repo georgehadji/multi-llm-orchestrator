@@ -495,7 +495,7 @@ print(f"Method: {result.metadata['ara_method']}")  # e.g., "pre_mortem"
 **Method Selection (Automatic):**
 
 ```python
-from orchestrator.method_selector import select_method_for_task
+from orchestrator.engine_core.method_selector import select_method_for_task
 
 # Auto-select based on task characteristics
 selection = select_method_for_task(

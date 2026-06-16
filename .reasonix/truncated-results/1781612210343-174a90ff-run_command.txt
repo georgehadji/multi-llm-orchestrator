@@ -1,0 +1,816 @@
+$ git diff 3a123b27^..3a123b27 -- orchestrator/quality/advanced_query_processing.py orchestrator/reasoning/ara_integration.py orchestrator/reasoning/ara_pipelines.py orchestrator/engine_core/method_selector.py orchestrator/tracing.py pyproject.toml
+[exit 0]
+diff --git a/orchestrator/engine_core/method_selector.py b/orchestrator/engine_core/method_selector.py
+index bb484c60..6bf3dd8b 100644
+--- a/orchestrator/engine_core/method_selector.py
++++ b/orchestrator/engine_core/method_selector.py
+@@ -505,10 +505,10 @@ Recommend the optimal method.
+             import asyncio
+ 
+             async def call_llm():
+-                response, _ = await self.client.call(
++                response = await self.client.call(
+                     model=models[0],
+-                    system_prompt=system_prompt,
+-                    user_prompt=user_prompt,
++                    system=system_prompt,
++                    prompt=user_prompt,
+                     max_tokens=500,
+                     temperature=0.2,
+                 )
+diff --git a/orchestrator/quality/advanced_query_processing.py b/orchestrator/quality/advanced_query_processing.py
+index f7349ece..10711d2e 100644
+--- a/orchestrator/quality/advanced_query_processing.py
++++ b/orchestrator/quality/advanced_query_processing.py
+@@ -112,10 +112,10 @@ Return JSON array:
+         )
+ 
+         try:
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=self._expansion_model,
+-                system_prompt="You are a search query expansion expert. Return ONLY valid JSON.",
+-                user_prompt=prompt,
++                system="You are a search query expansion expert. Return ONLY valid JSON.",
++                prompt=prompt,
+                 max_tokens=500,
+                 temperature=0.7,
+             )
+@@ -529,10 +529,10 @@ Return JSON:
+         )
+ 
+         try:
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=self._summary_model,
+-                system_prompt="You are a research summarizer. Return ONLY valid JSON.",
+-                user_prompt=prompt,
++                system="You are a research summarizer. Return ONLY valid JSON.",
++                prompt=prompt,
+                 max_tokens=500,
+                 temperature=0.3,
+             )
+diff --git a/orchestrator/reasoning/ara_integration.py b/orchestrator/reasoning/ara_integration.py
+index 7cf744c0..68fc9e5c 100644
+--- a/orchestrator/reasoning/ara_integration.py
++++ b/orchestrator/reasoning/ara_integration.py
+@@ -18,7 +18,7 @@ from .ara_pipelines import (
+     ReasoningMethod,
+ )
+ from ..infrastructure.cache import DiskCache
+-from ..method_selector import (
++from ..engine_core.method_selector import (
+     ComplexityLevel,
+     MethodSelection,
+     MethodSelector,
+@@ -289,10 +289,10 @@ class ARAPipelineIntegration:
+ 
+         prompt = f"Task: {task.prompt}\n\nContext: {context}" if context else task.prompt
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=primary,
+-            system_prompt="You are an expert AI assistant. Provide a comprehensive solution.",
+-            user_prompt=prompt,
++            system="You are an expert AI assistant. Provide a comprehensive solution.",
++            prompt=prompt,
+             max_tokens=task.max_output_tokens,
+             temperature=0.3,
+         )
+diff --git a/orchestrator/reasoning/ara_pipelines.py b/orchestrator/reasoning/ara_pipelines.py
+index 4fbf6827..55490f00 100644
+--- a/orchestrator/reasoning/ara_pipelines.py
++++ b/orchestrator/reasoning/ara_pipelines.py
+@@ -325,10 +325,10 @@ class MultiPerspectivePipeline(BasePipeline):
+             system_prompt = self.PERSPECTIVE_SYSTEMS[perspective]
+             user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}\n\nAnalyze from {perspective.value} perspective."
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=primary,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=state.task.max_output_tokens,
+                 temperature=0.7,
+             )
+@@ -374,10 +374,10 @@ class MultiPerspectivePipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nCandidates:\n{candidates_text}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=scorer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1000,
+             temperature=0.1,
+         )
+@@ -429,10 +429,10 @@ class MultiPerspectivePipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nTop Perspectives:\n{top_texts}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=synthesizer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.3,
+         )
+@@ -537,10 +537,10 @@ class IterativePipeline(BasePipeline):
+             f"Task: {state.task.prompt}\n\nContext: {context}{memory_context}\n\nRound: {round_num}"
+         )
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=generator,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.5,
+         )
+@@ -578,10 +578,10 @@ class IterativePipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nSolution:\n{candidate.content}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=scorer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1500,
+             temperature=0.2,
+         )
+@@ -689,15 +689,15 @@ class DebatePipeline(BasePipeline):
+         response_a, response_b = await asyncio.gather(
+             self.client.call(
+                 model=model_pro,
+-                system_prompt=system_a,
+-                user_prompt=prompt_a,
++                system=system_a,
++                prompt=prompt_a,
+                 max_tokens=state.task.max_output_tokens,
+                 temperature=0.7,
+             ),
+             self.client.call(
+                 model=model_con,
+-                system_prompt=system_b,
+-                user_prompt=prompt_b,
++                system=system_b,
++                prompt=prompt_b,
+                 max_tokens=state.task.max_output_tokens,
+                 temperature=0.7,
+             ),
+@@ -708,8 +708,8 @@ class DebatePipeline(BasePipeline):
+                 "round": 1,
+                 "type": "opening",
+                 "statements": [
+-                    {"side": "A", "content": response_a[0].text, "model": model_pro.value},
+-                    {"side": "B", "content": response_b[0].text, "model": model_con.value},
++                    {"side": "A", "content": response_a.text, "model": model_pro.value},
++                    {"side": "B", "content": response_b.text, "model": model_con.value},
+                 ],
+             }
+         )
+@@ -738,15 +738,15 @@ class DebatePipeline(BasePipeline):
+         response_a, response_b = await asyncio.gather(
+             self.client.call(
+                 model=model_pro,
+-                system_prompt="You are a debater. Rebut your opponent's arguments point-by-point.",
+-                user_prompt=prompt_a,
++                system="You are a debater. Rebut your opponent's arguments point-by-point.",
++                prompt=prompt_a,
+                 max_tokens=state.task.max_output_tokens,
+                 temperature=0.6,
+             ),
+             self.client.call(
+                 model=model_con,
+-                system_prompt="You are a debater. Rebut your opponent's arguments point-by-point.",
+-                user_prompt=prompt_b,
++                system="You are a debater. Rebut your opponent's arguments point-by-point.",
++                prompt=prompt_b,
+                 max_tokens=state.task.max_output_tokens,
+                 temperature=0.6,
+             ),
+@@ -757,8 +757,8 @@ class DebatePipeline(BasePipeline):
+                 "round": 2,
+                 "type": "rebuttal",
+                 "statements": [
+-                    {"side": "A", "content": response_a[0].text, "model": model_pro.value},
+-                    {"side": "B", "content": response_b[0].text, "model": model_con.value},
++                    {"side": "A", "content": response_a.text, "model": model_pro.value},
++                    {"side": "B", "content": response_b.text, "model": model_con.value},
+                 ],
+             }
+         )
+@@ -782,10 +782,10 @@ class DebatePipeline(BasePipeline):
+         system_prompt = "You are a judge in a debate. Ask 3 probing questions that reveal the strengths and weaknesses of each position."
+         user_prompt = f"Task: {state.task.prompt}\n\nDebate so far:\n{all_statements}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=judge_model,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=800,
+             temperature=0.5,
+         )
+@@ -817,10 +817,10 @@ class DebatePipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nDebate transcript:\n{all_statements}\n\nQuestions: {state.metadata.get('cross_exam_questions', '')}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=judge_model,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1500,
+             temperature=0.2,
+         )
+@@ -855,10 +855,10 @@ class DebatePipeline(BasePipeline):
+         system_prompt = "Synthesize the debate outcome into a final recommendation that incorporates the winning argument and judge's insights."
+         user_prompt = f"Task: {state.task.prompt}\n\nWinner's argument: {winner_statement}\n\nJudge's decision: {judge_decision}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=synthesizer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.3,
+         )
+@@ -1053,10 +1053,10 @@ class ResearchPipeline(BasePipeline):
+             )
+             user_prompt = f"Task: {state.task.prompt}\n\nCurrent knowledge:\n{knowledge_context}\n\nDo you need more information? (max {max_iterations} iterations)"
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=researcher,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=500,
+                 temperature=0.3,
+             )
+@@ -1071,14 +1071,14 @@ class ResearchPipeline(BasePipeline):
+             queries = data.get("queries", [])[:3]
+             for query in queries:
+                 search_prompt = f"Provide detailed information about: {query}"
+-                search_response, _ = await self.client.call(
++                search_response = await self.client.call(
+                     model=researcher,
+-                    system_prompt="You are a research assistant. Provide factual, detailed information.",
+-                    user_prompt=search_prompt,
++                    system="You are a research assistant. Provide factual, detailed information.",
++                    prompt=search_prompt,
+                     max_tokens=1000,
+                     temperature=0.2,
+                 )
+-                current_knowledge.append(f"Query: {query}\nResult: {search_response[0].text}")
++                current_knowledge.append(f"Query: {query}\nResult: {search_response.text}")
+ 
+         state.web_discovery_results = current_knowledge
+         state.metadata["research_iterations"] = len(current_knowledge)
+@@ -1104,10 +1104,10 @@ class ResearchPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nResearch findings:\n{web_context}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=primary,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.4,
+         )
+@@ -1148,10 +1148,10 @@ class ResearchPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nAnalysis: {candidate.content}\n\nResearch evidence: {web_context}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=critic,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1000,
+             temperature=0.1,
+         )
+@@ -1189,10 +1189,10 @@ class ResearchPipeline(BasePipeline):
+             f"Task: {state.task.prompt}\n\nAnalysis: {candidate.content}\n\nEvidence: {web_context}"
+         )
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=synthesizer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.3,
+         )
+@@ -1268,10 +1268,10 @@ class JuryPipeline(BasePipeline):
+             )
+             user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}\n\nRole: {role}"
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=model,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=state.task.max_output_tokens,
+                 temperature=0.7,
+             )
+@@ -1318,10 +1318,10 @@ class JuryPipeline(BasePipeline):
+                 f"Task: {state.task.prompt}\n\nSolutions:\n{candidate_contents}\n\nRole: {role}"
+             )
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=model,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=1500,
+                 temperature=0.2,
+             )
+@@ -1360,10 +1360,10 @@ class JuryPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nSolutions: {candidate_contents}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=verifier,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=2000,
+             temperature=0.1,
+         )
+@@ -1374,10 +1374,10 @@ class JuryPipeline(BasePipeline):
+         # Meta-evaluate critics
+         meta_prompt = "Evaluate the quality of each critic's feedback. Return JSON: {'critic_1': {'quality': 0-10, 'insights': ''}, ...}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=verifier,
+-            system_prompt="You are a meta-evaluator. Assess critic quality.",
+-            user_prompt=meta_prompt,
++            system="You are a meta-evaluator. Assess critic quality.",
++            prompt=meta_prompt,
+             max_tokens=1500,
+             temperature=0.2,
+         )
+@@ -1457,10 +1457,10 @@ class JuryPipeline(BasePipeline):
+         )
+         user_prompt = f"Task: {state.task.prompt}\n\nTop solutions:\n{top_texts}\n\nVerifications: {json.dumps(verifications)}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=synthesizer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.3,
+         )
+@@ -1532,10 +1532,10 @@ class ScientificPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=primary,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1500,
+             temperature=0.7,
+         )
+@@ -1568,10 +1568,10 @@ class ScientificPipeline(BasePipeline):
+             system_prompt = "Design a rigorous test to validate or falsify this hypothesis."
+             user_prompt = f"Hypothesis: {hypothesis.get('name')}\nDescription: {hypothesis.get('description')}"
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=tester,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=1000,
+                 temperature=0.3,
+             )
+@@ -1599,10 +1599,10 @@ class ScientificPipeline(BasePipeline):
+             )
+             user_prompt = f"Test design: {test_design.get('test_design')}"
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=evaluator,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=800,
+                 temperature=0.2,
+             )
+@@ -1659,10 +1659,10 @@ class ScientificPipeline(BasePipeline):
+         system_prompt = "Synthesize the scientific conclusion based on the strongest hypothesis and evidence evaluation."
+         user_prompt = f"Task: {state.task.prompt}\n\nBest hypothesis: {best_candidate.perspective}\nContent: {best_candidate.content}\nEvidence: {json.dumps(best_eval)}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=synthesizer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.3,
+         )
+@@ -1740,10 +1740,10 @@ class SocraticPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=questioner,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1000,
+             temperature=0.5,
+         )
+@@ -1785,10 +1785,10 @@ class SocraticPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nQ&A so far:\n{qa_pairs}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=questioner,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=800,
+             temperature=0.4,
+         )
+@@ -1814,10 +1814,10 @@ class SocraticPipeline(BasePipeline):
+         )
+         user_prompt = f"Task: {state.task.prompt}\n\nQuestions:\n" + "\n".join(questions)
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=answerer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1500,
+             temperature=0.4,
+         )
+@@ -1846,10 +1846,10 @@ class SocraticPipeline(BasePipeline):
+ 
+         user_prompt = f"Original task: {state.task.prompt}\n\nSocratic Q&A:\n{qa_pairs}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=solver,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.4,
+         )
+@@ -1923,10 +1923,10 @@ class PreMortemPipeline(BasePipeline):
+ 
+         user_prompt = f"Project/Task: {state.task.prompt}\n\nContext: {context}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=primary,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1500,
+             temperature=0.7,
+         )
+@@ -1952,10 +1952,10 @@ class PreMortemPipeline(BasePipeline):
+ 
+         user_prompt = f"Failure narrative:\n{failure_narrative}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=analyst,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1200,
+             temperature=0.3,
+         )
+@@ -1977,10 +1977,10 @@ class PreMortemPipeline(BasePipeline):
+         root_cause = state.metadata.get("root_cause", "")
+         user_prompt = f"Root cause: {root_cause}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=analyst,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1000,
+             temperature=0.3,
+         )
+@@ -2013,10 +2013,10 @@ Early signals: {json.dumps(early_signals)}
+ Design a solution that specifically addresses these failure modes.
+ """
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=designer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.4,
+         )
+@@ -2099,10 +2099,10 @@ class BayesianPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=primary,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1200,
+             temperature=0.5,
+         )
+@@ -2134,10 +2134,10 @@ class BayesianPipeline(BasePipeline):
+         hyp_text = "\n".join([f"- {h['name']}: {h.get('rationale', '')}" for h in hypotheses])
+         user_prompt = f"Task: {state.task.prompt}\n\nHypotheses:\n{hyp_text}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=analyst,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1500,
+             temperature=0.4,
+         )
+@@ -2166,10 +2166,10 @@ Likelihoods: {json.dumps(likelihoods)}
+ Compute posteriors using Bayes' theorem: P(H|E) = P(E|H) * P(H) / P(E)
+ """
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=calculator,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1000,
+             temperature=0.2,
+         )
+@@ -2192,10 +2192,10 @@ Compute posteriors using Bayes' theorem: P(H|E) = P(E|H) * P(H) / P(E)
+ 
+         user_prompt = f"Posteriors: {json.dumps(posteriors)}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=analyst,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1000,
+             temperature=0.3,
+         )
+@@ -2223,10 +2223,10 @@ Sensitivity: {json.dumps(sensitivity)}
+ Provide a decision recommendation with confidence level.
+ """
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=synthesizer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.3,
+         )
+@@ -2300,10 +2300,10 @@ class DialecticalPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=primary,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1200,
+             temperature=0.5,
+         )
+@@ -2328,10 +2328,10 @@ class DialecticalPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nThesis: {thesis}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=opposition,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1200,
+             temperature=0.5,
+         )
+@@ -2357,10 +2357,10 @@ class DialecticalPipeline(BasePipeline):
+ 
+         user_prompt = f"Thesis: {thesis}\n\nAntithesis: {antithesis}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=analyst,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1000,
+             temperature=0.3,
+         )
+@@ -2394,10 +2394,10 @@ Compatible: {json.dumps(compatible)}
+ Achieve synthesis through transcendence.
+ """
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=synthesizer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.4,
+         )
+@@ -2477,10 +2477,10 @@ class AnalogicalPipeline(BasePipeline):
+ 
+         user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=primary,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1200,
+             temperature=0.5,
+         )
+@@ -2508,10 +2508,10 @@ class AnalogicalPipeline(BasePipeline):
+             f"Abstract structure: {abstract_structure}\n\nConstraints: {json.dumps(constraints)}"
+         )
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=searcher,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1500,
+             temperature=0.7,
+         )
+@@ -2539,10 +2539,10 @@ Source solution: {source.get('solution')}
+ Target abstract structure: {abstract_structure}
+ """
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=mapper,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=1000,
+                 temperature=0.4,
+             )
+@@ -2586,10 +2586,10 @@ Mapping: {json.dumps(best_mapping.get('mapping'))}
+ Transfer and adapt the solution.
+ """
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=adapter,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.4,
+         )
+@@ -2680,10 +2680,10 @@ class DelphiPipeline(BasePipeline):
+ 
+             user_prompt = f"Task: {state.task.prompt}\n\nContext: {context}"
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=model,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=800,
+                 temperature=0.5,
+             )
+@@ -2771,10 +2771,10 @@ You are the outlier: {expert.get('expert_id') == stats.get('outlier_expert')}
+ Revise your estimate if the group information warrants it.
+ """
+ 
+-            response, _ = await self.client.call(
++            response = await self.client.call(
+                 model=model,
+-                system_prompt=system_prompt,
+-                user_prompt=user_prompt,
++                system=system_prompt,
++                prompt=user_prompt,
+                 max_tokens=800,
+                 temperature=0.4,
+             )
+@@ -2852,10 +2852,10 @@ Consensus stats: {json.dumps(consensus)}
+ Analyze the dissent.
+ """
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=analyst,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=1200,
+             temperature=0.3,
+         )
+@@ -2883,10 +2883,10 @@ Dissent analysis: {json.dumps(dissent)}
+ Provide final recommendation.
+ """
+ 
+-        response, _ = await self.client.call(
++        response = await self.client.call(
+             model=synthesizer,
+-            system_prompt=system_prompt,
+-            user_prompt=user_prompt,
++            system=system_prompt,
++            prompt=user_prompt,
+             max_tokens=state.task.max_output_tokens,
+             temperature=0.3,
+         )
+@@ -3358,10 +3358,10 @@ class PersuasionDefensePipeline(BasePipeline):
+         )
+         user = f"Text: {context}\n\nTask: {state.task.prompt}"
+ 
+-        response, _ = await self.client.call(
++        response = await self.c
+
+[… truncated 5316 chars …]

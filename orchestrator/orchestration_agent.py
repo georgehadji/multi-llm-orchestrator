@@ -17,7 +17,7 @@ Usage:
     # iterate:
     draft = await agent.refine(draft, "also add ruff linting")
     # submit:
-    from orchestrator.control_plane import ControlPlane
+    from orchestrator.engine_core.control_plane import ControlPlane
     state = await ControlPlane().submit(draft.job, draft.policy)
 """
 
