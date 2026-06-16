@@ -20,7 +20,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .audit import AuditLog
 from .reference_monitor import Decision, ReferenceMonitor
@@ -81,9 +81,18 @@ class ControlPlane:
     def __init__(
         self,
         audit_log: AuditLog | None = None,
+        orchestrator: Any = None,
     ) -> None:
+        """
+        Args:
+            audit_log: Optional audit log instance.
+            orchestrator: Optional pre-wired Orchestrator instance.
+                          When provided, avoids the runtime import of orchestrator.engine
+                          (breaking the circular dependency).
+        """
         self._monitor = ReferenceMonitor()
         self._audit = audit_log or AuditLog()
+        self._orchestrator = orchestrator
 
     async def submit(
         self,
@@ -214,9 +223,12 @@ class ControlPlane:
         routing: RoutingPlan,
     ) -> ProjectState:
         """Delegate to Orchestrator, wiring in per-task monitor checks."""
-        from .engine import Orchestrator
+        if self._orchestrator is not None:
+            orchestrator = self._orchestrator
+        else:
+            from .engine import Orchestrator  # Circular import — only when not injected
 
-        orchestrator = Orchestrator(budget=job.budget)
+            orchestrator = Orchestrator(budget=job.budget)
         monitor = self._monitor
 
         # Patch _execute_task to run monitor check before each task
