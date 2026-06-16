@@ -338,7 +338,7 @@ class Model(str, Enum):
     FLUX_2_KLEIN = "black-forest-labs/flux.2-klein-4b"  # $0/$0, fastest image gen
 
 
-class TaskType(str, Enum):
+class ProjectStatus(str, Enum):
 
     SUCCESS = "SUCCESS"
 

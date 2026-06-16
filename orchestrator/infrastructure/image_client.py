@@ -20,6 +20,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -105,6 +106,7 @@ class ImageGenClient:
         )
 
         messages = [
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Generate a {width}x{height} image: {prompt}"},
         ]
 
@@ -131,8 +133,6 @@ class ImageGenClient:
 
                 if response.status_code == 429:
                     logger.warning("Image gen rate limited, retry %d/%d", attempt + 1, MAX_RETRIES)
-                    import asyncio
-
                     await asyncio.sleep(2**attempt)
                     continue
 
@@ -146,15 +146,16 @@ class ImageGenClient:
                 result.model = model
                 if result.success and output_path:
                     output_path.parent.mkdir(parents=True, exist_ok=True)
-                    output_path.write_bytes(result.image_data)
+                    if result.image_data:
+                        output_path.write_bytes(result.image_data)
+                    elif result.image_url:
+                        logger.info("Image URL received (not downloading): %s", result.image_url[:80])
                     result.output_path = output_path
                 return result
 
             except httpx.TimeoutException:
                 last_error = "Request timed out"
                 logger.warning("Image gen timeout, retry %d/%d", attempt + 1, MAX_RETRIES)
-                import asyncio
-
                 await asyncio.sleep(1)
                 continue
             except Exception as e:
