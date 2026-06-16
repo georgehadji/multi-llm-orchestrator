@@ -1373,7 +1373,7 @@ Export as default export. Include TypeScript types.
             success_state = "setState('success')"
             success_message = "Login successful! Redirecting..."
             verify_note = ""
-            switch_message = "Don\\'t have an account? <a href=\"/register\" className=\"underline\" style={{ color: primary }}>Sign up</a>"
+            switch_message = "Don't have an account? <a href=\"/register\" className=\"underline\" style={{ color: primary }}>Sign up</a>"
 
         return AUTH_TEMPLATE.format(
             component_name=name,

@@ -489,18 +489,22 @@ class WebsiteQualityValidator:
         import re
 
         rate_limit_patterns = [
-            r'rate.limit', r'RateLimit', r'RATE_LIMIT', r'ratelimit',
-            r'too.many.requests', r'429', r'X-RateLimit',
-            r'express-rate-limit', r'upstash/ratelimit',
-            r'@upstash/ratelimit', r'maxRequests', r'max_requests',
+            r'rate.limit', r'RateLimit', r'ratelimit',
+            r'too.many.requests', r'status.*429|429.*Too Many',
+            r'X-RateLimit', r'express-rate-limit',
+            r'upstash/ratelimit', r'@upstash/ratelimit',
+            r'maxRequests', r'max_requests', r'Ratelimit\(',
         ]
         files_to_check = (
             list(output_dir.rglob('*.ts')) + list(output_dir.rglob('*.tsx'))
             + list(output_dir.rglob('*.js')) + list(output_dir.rglob('*.jsx'))
             + list(output_dir.rglob('*.py'))
         )
+        # Scan contact/auth files first
+        priority = [f for f in files_to_check if any(k in f.name.lower() for k in ('contact', 'auth', 'register', 'signup', 'login'))]
+        rest = [f for f in files_to_check if f not in priority]
         found = False
-        for fpath in files_to_check[:50]:
+        for fpath in (priority + rest)[:50]:
             try:
                 c = fpath.read_text(encoding='utf-8', errors='ignore')
                 for pat in rate_limit_patterns:
@@ -584,32 +588,46 @@ class WebsiteQualityValidator:
         import re
 
         secret_patterns = [
-            r'(["\x60\(])sk-[a-zA-Z0-9]{20,}',
-            r'(["\x60\(])AIza[0-9A-Za-z\-_]{35}',
-            r'(["\x60\(])gh[ops]_[a-zA-Z0-9]{36}',
-            r'(["\x60\(])hf_[a-zA-Z0-9]{34}',
-            r'supabase\.(url|key|anon)',
-            r'firebase\.(apiKey|authDomain|projectId)',
-            r'postgres(ql)?://[^:]+:[^@]+@',
-            r'mongodb(\+srv)?://[^:]+:[^@]+@',
-            r'(["\x60\(])[A-Z_]+_(SECRET|TOKEN|KEY|PASSWORD)\s*[:=]',
+            # OpenAI / Anthropic / Google AI keys
+            r'sk-(?:proj-)?[a-zA-Z0-9]{20,}',
+            r'AIza[0-9A-Za-z\-_]{35}',
+            # GitHub tokens (all variants)
+            r'gh[opsu]_[a-zA-Z0-9]{36,}',
+            r'github_pat_[a-zA-Z0-9_]{40,}',
+            # HuggingFace
+            r'hf_[a-zA-Z0-9]{34}',
+            # Stripe live keys
+            r'(?:sk|rk)_live_[a-zA-Z0-9]{24,}',
+            # AWS access keys
+            r'AKIA[0-9A-Z]{16}',
+            # Supabase / Firebase config
+            r'supabase\.(?:url|key|anon)',
+            r'firebase\.(?:apiKey|authDomain|projectId)',
+            # Database URLs with credentials
+            r'postgres(?:ql)?://[^:]+:[^@]+@',
+            r'mongodb(?:\+srv)?://[^:]+:[^@]+@',
+            # Generic secret patterns
+            r'[A-Z_]+_(?:SECRET|TOKEN|KEY|PASSWORD)\s*[:=]\s*["\x60\'(]',
             r'process\.env\.NEXT_PUBLIC_(?!.*URL\b)[A-Z_]+',
+            # Sentry DSNs
+            r'https://[a-f0-9]+@o\d+\.ingest\.sentry\.io/\d+',
         ]
         frontend_files = (
             list(output_dir.rglob('*.tsx')) + list(output_dir.rglob('*.jsx'))
             + list(output_dir.rglob('*.html'))
         )
+        # Exclude API route files and server-only dirs (cross-platform safe)
         frontend_files = [
             f for f in frontend_files
-            if 'api/' not in str(f) and 'server/' not in str(f)
+            if 'api' not in f.parts and 'server' not in f.parts
         ]
         leaks = []
         for fpath in frontend_files[:50]:
             try:
                 c = fpath.read_text(encoding='utf-8', errors='ignore')
                 for pat in secret_patterns:
-                    for m in re.findall(pat, c, re.IGNORECASE):
-                        match_text = str(m) if isinstance(m, str) else str(m[0]) if isinstance(m, tuple) else str(m)
+                    for m in re.finditer(pat, c, re.IGNORECASE):
+                        match_text = m.group(0)
                         masked = match_text[:12] + '***' if len(match_text) > 12 else match_text
                         leaks.append(f'{fpath.relative_to(output_dir)}: {masked}')
             except Exception:
