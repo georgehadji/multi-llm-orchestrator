@@ -93,7 +93,7 @@ class Tier1OptimizationMixin:
 
         try:
             cache_key = await self.prompt_cacher.warm_cache(
-                system=system_prompt,
+                system_prompt=system_prompt,
                 project_context=project_context,
             )
             logger.info(f"Cache warmed for parallel execution (key={cache_key})")
@@ -134,7 +134,7 @@ class Tier1OptimizationMixin:
             response = await self.prompt_cacher.call_with_cache(
                 model=model.value,
                 messages=[{"role": "user", "content": full_prompt}],
-                system=self._get_system_prompt(),  # Orchestrator method
+                system_prompt=self._get_system_prompt(),  # Orchestrator method
                 project_context=getattr(self, "_project_context", ""),
                 max_tokens=max_tokens,
                 **kwargs,
