@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from orchestrator.ports import (
+from orchestrator.domain.ports import (
     CachePort,
     EventPort,
     NullCache,
