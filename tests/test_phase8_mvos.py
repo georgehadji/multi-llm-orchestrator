@@ -25,7 +25,7 @@ import pytest
 
 from orchestrator.circuit_breaker import CircuitBreakerRegistry, CircuitState
 from orchestrator.models import Model
-from orchestrator.ports import CachePort, NullCache, NullState, StatePort
+from orchestrator.domain.ports import CachePort, NullCache, NullState, StatePort
 from orchestrator.resilience import CascadePolicy, ResiliencePolicy
 from orchestrator.services import (
     EvaluatorService,
