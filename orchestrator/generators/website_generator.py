@@ -511,6 +511,12 @@ RULES:
 5. All images must have alt text. Use semantic HTML.
 6. Animations must respect prefers-reduced-motion.
 7. Mobile-first responsive design.
+8. NEVER embed API keys, secrets, or tokens in client-side code. All API calls
+   requiring credentials MUST route through a backend API handler.
+9. All contact forms and registration endpoints MUST include rate limiting by
+   client IP. Include a rate-limit error state (429 Too Many Requests).
+10. If the page contains auth/registration, include email verification flow:
+    send a verification token after signup before allowing login.
 
 OUTPUT: Complete React/Next.js component with Tailwind CSS.
 Export as default export. Include TypeScript types.
@@ -572,8 +578,12 @@ Export as default export. Include TypeScript types.
                 component_path.write_text(self._build_faq_component(name, headline, faqs, design_system), encoding="utf-8")
             elif "cta" in section.lower() or "call" in section.lower():
                 component_path.write_text(self._build_cta_component(name, headline, ctas, design_system), encoding="utf-8")
-            elif "footer" in section.lower() or "contact" in section.lower():
+            elif "contact" in section.lower():
+                component_path.write_text(self._build_contact_form(name, headline, design_system), encoding="utf-8")
+            elif "footer" in section.lower():
                 component_path.write_text(self._build_footer_component(name, design_system), encoding="utf-8")
+            elif any(kw in section.lower() for kw in ("auth", "login", "register", "signup")):
+                component_path.write_text(self._build_auth_component(name, headline, design_system), encoding="utf-8")
             else:
                 component_path.write_text(self._build_generic_section(name, headline, value_props[:3], design_system), encoding="utf-8")
 
@@ -1313,6 +1323,76 @@ Export as default export. Include TypeScript types.
 
     def _build_generic_section(self, name, headline, items, ds):
         return self._build_features_component(name, headline, items, ds)
+
+    def _build_contact_form(self, name, headline, ds) -> str:
+        """Generate a contact form with rate-limiting and 429 error handling."""
+        primary = getattr(getattr(ds, "colors", ds), "primary", "#4f9eff")
+        surface_alt = getattr(getattr(ds, "colors", ds), "surface_alt", "#f5f5f5")
+        border = getattr(getattr(ds, "colors", ds), "border", "#e5e5e5")
+        font_body = (
+            getattr(getattr(getattr(ds, "typography", ds), "font_body", None), "value", None)
+            or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
+        )
+        from .templates.contact_form import CONTACT_FORM_TEMPLATE
+
+        return CONTACT_FORM_TEMPLATE.format(
+            headline=headline,
+            primary=primary,
+            surface_alt=surface_alt,
+            border=border,
+            font_body=font_body,
+        )
+
+    def _build_auth_component(self, name, headline, ds) -> str:
+        """Generate auth/register page with email verification flow."""
+        primary = getattr(getattr(ds, "colors", ds), "primary", "#4f9eff")
+        surface_alt = getattr(getattr(ds, "colors", ds), "surface_alt", "#f5f5f5")
+        border = getattr(getattr(ds, "colors", ds), "border", "#e5e5e5")
+        font_body = (
+            getattr(getattr(getattr(ds, "typography", ds), "font_body", None), "value", None)
+            or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
+        )
+        from .templates.auth_page import AUTH_TEMPLATE
+
+        is_register = any(kw in name.lower() for kw in ("register", "signup"))
+
+        if is_register:
+            page_title = "Create your account"
+            page_subtitle = "Enter your details to get started."
+            button_text = "Sign Up"
+            endpoint = "/api/auth/register"
+            success_state = "setState('check-email')"
+            success_message = "Check your email to complete registration."
+            verify_note = '<p className="text-xs text-center opacity-60">We will send a verification email to confirm your address.</p>'
+            switch_message = 'Already have an account? <a href="/login" className="underline" style={{ color: primary }}>Log in</a>'
+        else:
+            page_title = "Welcome back"
+            page_subtitle = "Log in to your account."
+            button_text = "Log In"
+            endpoint = "/api/auth/login"
+            success_state = "setState('success')"
+            success_message = "Login successful! Redirecting..."
+            verify_note = ""
+            switch_message = "Don\\'t have an account? <a href=\"/register\" className=\"underline\" style={{ color: primary }}>Sign up</a>"
+
+        return AUTH_TEMPLATE.format(
+            component_name=name,
+            page_type="Registration" if is_register else "Login",
+            headline=headline,
+            primary=primary,
+            surface_alt=surface_alt,
+            border=border,
+            font_body=font_body,
+            page_title=page_title,
+            page_subtitle=page_subtitle,
+            button_text=button_text,
+            endpoint=endpoint,
+            success_state=success_state,
+            success_message=success_message,
+            verify_note=verify_note,
+            switch_message=switch_message,
+        )
+
 
     def _write_tailwind_config(
         self,
