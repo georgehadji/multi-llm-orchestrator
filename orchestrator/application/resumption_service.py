@@ -62,7 +62,7 @@ class ResumptionService:
                     # Import directly from the module to bypass the operations
                     # package __init__.py (which has fragile wildcard imports).
                     try:
-                        from ..operations.resilience import RetryTemplate
+                        from ..resilience import RetryTemplate
 
                         policy = RetryTemplate.for_task_type(task.type)
                     except Exception:
