@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .policy import Budget, PolicySet
+from .budget import Budget
+from .policy import PolicySet
 
 # ─────────────────────────────────────────────
 # SLA + Input description
