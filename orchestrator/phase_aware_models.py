@@ -64,7 +64,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, 196B MoE reasoning ⭐ BEST VALUE
         ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, reasoning specialist
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, native multimodal, agent swarm
-        ModelRegistry.GLM_5_1_1,  # $0.06/$0.40, ultra-cheap 202K context
+        ModelRegistry.GLM_5_1,  # $0.06/$0.40, ultra-cheap 202K context
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination
         "qwen/qwen-3-max-thinking",  # $0.78/$3.90, flagship reasoning
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, adaptive reasoning
@@ -78,7 +78,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, 80B MoE coding agents
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, 1.24T tokens, battle-tested
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
-        ModelRegistry.GLM_5_1_1,  # $0.39/$1.75, enhanced programming, stable
+        ModelRegistry.GLM_5_1,  # $0.39/$1.75, enhanced programming, stable
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative development
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, SWE-Bench Pro SOTA
@@ -102,13 +102,14 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.SYNTHESIS: [
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx, agent ⭐ NEW!
+        ModelRegistry.KIMI_K2_7_CODE,  # $0.95/$4.00, 256K, MoE 32B/1T, thinking mode
         "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34, 397B MoE SOTA
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, 1M context, codebase nav
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, agent swarm, multimodal
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified Codex+GPT, 1M
         "google/gemini-3.5-flash",  # $2.00/$12.00, 1M context, agentic
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, integration
-        ModelRegistry.GLM_5_1_TURBO,  # $1.20/$4.00, 202K, long-horizon agents
+        ModelRegistry.GLM_5_TURBO,  # $1.20/$4.00, 202K, long-horizon agents
     ],
     # ═══════════════════════════════════════════════════════
     # DEBATE: Needs argumentation + rhetoric
@@ -131,7 +132,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, agent swarm paradigm, multimodal
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, 1.24T tokens, broad knowledge
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, agent orchestration
-        ModelRegistry.GLM_5_1_TURBO,  # $1.20/$4.00, 202K, agent-driven
+        ModelRegistry.GLM_5_TURBO,  # $1.20/$4.00, 202K, agent-driven
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified knowledge, 1M
         "x-ai/grok-4.20",  # $2.00/$6.00, 4-16 parallel agents
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast iterations
@@ -155,12 +156,13 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # Best: Claude Sonnet 4.6 (iterative development specialist)
     # ═══════════════════════════════════════════════════════
     PhaseType.REFINEMENT: [
+        ModelRegistry.KIMI_K2_7_CODE,  # $0.95/$4.00, 3.1× cheaper than Sonnet, thinking mode
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative dev specialist ⭐ BEST
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, code reviews, 25% faster
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench, fast iterations
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
         "qwen/qwen-3-coder-next",  # $0.12/$0.75, coding agents, iterative
-        ModelRegistry.GLM_5_1_1,  # $0.39/$1.75, enhanced programming, stable
+        ModelRegistry.GLM_5_1,  # $0.39/$1.75, enhanced programming, stable
     ],
     # ═══════════════════════════════════════════════════════
     # VERIFICATION: Needs accuracy + validation
@@ -224,6 +226,15 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # MOONSHOT KIMI MODELS (NEW v3.0)
         # ═══════════════════════════════════════════════════════
+        "moonshotai/kimi-k2.7-code": {
+            "reasoning": 9.0,
+            "coding": 9.5,  # ⭐ Long-horizon coding specialist
+            "creativity": 8.5,
+            "critique": 9.0,  # ⭐ Thinking mode code understanding
+            "synthesis": 9.0,  # ⭐ 256K context integration
+            "speed": 8.5,
+            "cost_efficiency": 9.0,  # Great value at $0.95/1M
+        },
         "moonshotai/kimi-k2.6": {
             "reasoning": 9.0,
             "coding": 9.5,  # ⭐ Visual coding SOTA
