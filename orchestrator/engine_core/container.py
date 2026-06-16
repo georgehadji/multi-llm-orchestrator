@@ -177,6 +177,62 @@ class ServiceContainer:
     accountability: Any = None
     agent_safety: Any = None
 
+    async def shutdown(self) -> None:
+        """Release all container-managed resources.
+
+        Order matters — dependent services are shut down before their providers.
+        After this call, the container should not be reused.
+        """
+        logger.debug("ServiceContainer shutting down...")
+
+        # 1. Stop session lifecycle scheduler (no-op if never started)
+        if self.lifecycle_manager is not None:
+            try:
+                if hasattr(self.lifecycle_manager, "stop"):
+                    await self.lifecycle_manager.stop()
+            except Exception as e:
+                logger.warning("Failed to stop lifecycle manager: %s", e)
+
+        # 2. Flush telemetry store
+        if self.telemetry_store is not None:
+            try:
+                if hasattr(self.telemetry_store, "flush"):
+                    await self.telemetry_store.flush()
+            except Exception as e:
+                logger.warning("Failed to flush telemetry store: %s", e)
+
+        # 3. Close cache (aiosqlite background thread yield)
+        if self.cache is not None:
+            try:
+                await self.cache.close()
+                await asyncio.sleep(0)
+            except Exception as e:
+                logger.warning("Failed to close cache: %s", e)
+
+        # 4. Close state manager (aiosqlite background thread yield)
+        if self.state_mgr is not None:
+            try:
+                await self.state_mgr.close()
+                await asyncio.sleep(0)
+            except Exception as e:
+                logger.warning("Failed to close state manager: %s", e)
+
+        # 5. Close semantic cache
+        if self.semantic_cache is not None:
+            try:
+                if hasattr(self.semantic_cache, "close"):
+                    await self.semantic_cache.close()
+            except Exception as e:
+                logger.warning("Failed to close semantic cache: %s", e)
+
+        # 6. Close event bus
+        if self.event_bus is not None:
+            try:
+                if hasattr(self.event_bus, "close"):
+                    await self.event_bus.close()
+            except Exception as e:
+                logger.warning("Failed to close event bus: %s", e)
+
     def wire_executor(self, execute_fn: Any, decompose_fn: Any = None) -> None:
         """Late-bind execute_fn and decompose_fn after Orchestrator.__init__ creates them."""
         if self.executor is not None and hasattr(self.executor, "execute_fn"):

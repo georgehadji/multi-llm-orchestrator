@@ -848,17 +848,17 @@ class Orchestrator:
         """
         Release all resources: lifecycle, tasks, cache, state, audit, telemetry.
 
-        Order matters — dependent services are shut down before their providers.
+        Delegates container-managed services to ``self._container.shutdown()``,
+        then cleans up Orchestrator-specific state (timers, background tasks, audit).
         """
         logger.debug("Orchestrator cleaning up resources...")
 
-        # 1. Stop session lifecycle scheduler (no-op if never started)
-        try:
-            await self._lifecycle_manager.stop()
-        except Exception as e:
-            logger.warning("Failed to stop lifecycle manager: %s", e)
+        # ── Phase 1: Container-managed services ──────────────────────────────
+        if self._container is not None:
+            await self._container.shutdown()
 
-        # 2. Cancel periodic cleanup timer
+        # ── Phase 2: Orchestrator-specific cleanup ───────────────────────────
+        # 2a. Cancel periodic cleanup timer
         if self._cleanup_timer:
             self._cleanup_timer.cancel()
             try:
@@ -866,7 +866,7 @@ class Orchestrator:
             except asyncio.CancelledError:
                 pass
 
-        # 3. Drain background tasks
+        # 2b. Drain background tasks
         await self._cleanup_background_tasks()
         background_list = list(self._background_tasks)
         if background_list:
@@ -874,42 +874,14 @@ class Orchestrator:
             for task in pending:
                 task.cancel()
 
-        # 4. Flush telemetry snapshots
-        if self._project_id:
-            try:
-                await self._flush_telemetry_snapshots(self._project_id)
-            except Exception as e:
-                logger.warning("Failed to flush telemetry: %s", e)
-
-        # 5. Close cache (aiosqlite background thread yield)
-        try:
-            await self.cache.close()
-            await asyncio.sleep(0)
-        except Exception as e:
-            logger.warning("Failed to close cache: %s", e)
-
-        # 6. Close state manager (aiosqlite background thread yield)
-        try:
-            await self.state_mgr.close()
-            await asyncio.sleep(0)
-        except Exception as e:
-            logger.warning("Failed to close state manager: %s", e)
-
-        # 7. Flush audit log
+        # 2c. Flush audit log
         try:
             if hasattr(self._audit_log, "flush"):
                 await self._audit_log.flush()
         except Exception as e:
             logger.warning("Failed to flush audit log: %s", e)
 
-        # 8. Flush telemetry store
-        try:
-            if self._telemetry_store is not None:
-                await self._telemetry_store.flush()
-        except Exception as e:
-            logger.warning("Failed to flush telemetry store: %s", e)
-
-        # 9. Close SkillOpt manager
+        # 2d. Close SkillOpt manager
         try:
             if self._skill_manager is not None:
                 await self._skill_manager.close()
