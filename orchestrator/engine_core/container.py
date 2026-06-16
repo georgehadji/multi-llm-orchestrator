@@ -41,7 +41,7 @@ from ..domain.ports import (
 )
 
 try:
-    from ..cost_optimization_integration import (  # type: ignore[attr-defined]
+    from ..cost_optimization import (  # type: ignore[attr-defined]
         AdaptiveTemperatureController,
         BatchClient,
         DependencyContextInjector,

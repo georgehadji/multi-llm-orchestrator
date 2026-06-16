@@ -107,6 +107,31 @@ class DesignVariant(str, Enum):
     REDESIGN = "redesign"     # Audit-first redesign of existing UI
 
 
+class DesignScope(str, Enum):
+    """Scope classification for frontend code generation.
+
+    Distinguishes component-level tasks from full-page tasks.
+    Used by scope_detector to route to the correct generation pipeline.
+    """
+
+    COMPONENT = "component"
+    PAGE = "page"
+
+
+class Genre(str, Enum):
+    """Visual genre classification for design themes.
+
+    Used by the design catalog to select appropriate themes,
+    navigation patterns, and footer styles.
+    """
+
+    EDITORIAL = "editorial"
+    MODERN_MINIMAL = "modern_minimal"
+    ATMOSPHERIC = "atmospheric"
+    PLAYFUL = "playful"
+    TERMINAL = "terminal"
+
+
 class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════

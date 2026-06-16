@@ -505,10 +505,10 @@ Recommend the optimal method.
             import asyncio
 
             async def call_llm():
-                response, _ = await self.client.call(
+                response = await self.client.call(
                     model=models[0],
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
+                    system=system_prompt,
+                    prompt=user_prompt,
                     max_tokens=500,
                     temperature=0.2,
                 )

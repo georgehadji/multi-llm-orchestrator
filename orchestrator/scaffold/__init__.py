@@ -31,6 +31,7 @@ _TEMPLATE_MAP: dict[str, dict[str, str]] = {
     "react-fastapi": react_vite.FILES,  # frontend; backend uses fastapi.FILES
     "nextjs": nextjs.FILES,
     "html": html.FILES,
+    "static": html.FILES,  # static HTML/CSS/JS uses the html template
     "generic": generic.FILES,
 }
 

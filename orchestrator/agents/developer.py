@@ -56,10 +56,10 @@ class DeveloperAgent(AgentBase):
                 if task.context:
                     prompt += "\n\n" + task.context
 
-                response, _ = await self.client.call(
+                response = await self.client.call(
                     model=self.model_preferences.get(TaskType.CODE_GEN),
-                    system_prompt=self.system_prompt,
-                    user_prompt=prompt,
+                    system=self.system_prompt,
+                    prompt=prompt,
                     max_tokens=4096,
                     temperature=0.3 + (attempt * 0.1),
                 )
@@ -128,10 +128,10 @@ class ArchitectAgent(AgentBase):
             )
 
         try:
-            response, _ = await self.client.call(
+            response = await self.client.call(
                 model=self.model_preferences.get(TaskType.REASONING),
-                system_prompt=self.system_prompt,
-                user_prompt=task.goal + "\n\n" + task.context,
+                system=self.system_prompt,
+                prompt=task.goal + "\n\n" + task.context,
                 max_tokens=2048,
                 temperature=0.4,
             )
@@ -164,10 +164,10 @@ class TesterAgent(AgentBase):
         if self.client is None:
             return AgentTaskResult(task_id=task.id, success=False, output="No LLM available")
         try:
-            response, _ = await self.client.call(
+            response = await self.client.call(
                 model=self.model_preferences.get(TaskType.CODE_GEN),
-                system_prompt=self.system_prompt,
-                user_prompt=f"Write tests for:\n\n{task.goal}\n\n{task.context}",
+                system=self.system_prompt,
+                prompt=f"Write tests for:\n\n{task.goal}\n\n{task.context}",
                 max_tokens=2048,
                 temperature=0.3,
             )

@@ -325,7 +325,7 @@ class ModelCascader:
         # Call API
         response = await self.client.call(
             model=model,
-            system_prompt=prompt,
+            system=prompt,
             max_tokens=max_tokens,
             **kwargs,
         )

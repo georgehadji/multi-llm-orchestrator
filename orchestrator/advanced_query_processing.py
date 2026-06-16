@@ -109,10 +109,10 @@ Return JSON array:
         )
 
         try:
-            response, _ = await self.client.call(
+            response = await self.client.call(
                 model=self._expansion_model,
-                system_prompt="You are a search query expansion expert. Return ONLY valid JSON.",
-                user_prompt=prompt,
+                system="You are a search query expansion expert. Return ONLY valid JSON.",
+                prompt=prompt,
                 max_tokens=500,
                 temperature=0.7,
             )
@@ -526,10 +526,10 @@ Return JSON:
         )
 
         try:
-            response, _ = await self.client.call(
+            response = await self.client.call(
                 model=self._summary_model,
-                system_prompt="You are a research summarizer. Return ONLY valid JSON.",
-                user_prompt=prompt,
+                system="You are a research summarizer. Return ONLY valid JSON.",
+                prompt=prompt,
                 max_tokens=500,
                 temperature=0.3,
             )

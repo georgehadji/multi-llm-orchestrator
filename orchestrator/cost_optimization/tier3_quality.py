@@ -135,7 +135,7 @@ class AdaptiveTemperatureController:
                 # Generate with temperature
                 response = await self.client.call(
                     model=model,
-                    system_prompt=prompt,
+                    system=prompt,
                     temperature=temperature,
                     **kwargs,
                 )

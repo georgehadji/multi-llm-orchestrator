@@ -42,10 +42,10 @@ class ResearcherAgent(AgentBase):
         if self.client is None:
             return AgentTaskResult(task_id=task.id, success=False, output="No LLM client")
         try:
-            response, _ = await self.client.call(
+            response = await self.client.call(
                 model=self.model_preferences.get(TaskType.DATA_EXTRACT),
-                system_prompt=self.system_prompt,
-                user_prompt=task.goal + "\n\n" + task.context,
+                system=self.system_prompt,
+                prompt=task.goal + "\n\n" + task.context,
                 max_tokens=2048,
                 temperature=0.3,
             )

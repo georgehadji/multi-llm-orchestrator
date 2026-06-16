@@ -6,6 +6,8 @@ Import from there directly for new code; this shim exists for existing callers.
 """
 
 from .infrastructure.tracing import (  # noqa: F401
+    ConsoleExporter,
+    InMemoryExporter,
     Span,
     Tracer,
     TracingConfig,
