@@ -35,5 +35,5 @@
   "moonshotai/kimi-k2.7-code": "moonshotai/kimi-k2.6",
   "google/gemini-3.1-flash-image-preview": "black-forest-labs/flux.2-klein-4b",
   "recraft/recraft-v4.1-pro-vector": "black-forest-labs/flux.2-klein-4b",
-  "black-forest-labs/flux.2-klein-4b": "google/gemini-3.1-flash-image-preview"
+  "black-forest-labs/flux.2-klein-4b": "openrouter/auto"
 }

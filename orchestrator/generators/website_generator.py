@@ -362,7 +362,7 @@ class WebsiteGenerator:
 
             # Step 5: Generate placeholder images (hero bg, OG, section images)
             logger.info("WebsiteGenerator: generating images...")
-            self._generate_images(output_dir, config, design_system)
+            await self._generate_images(output_dir, config, design_system)
 
             # Step 6: Assemble final page
             logger.info("WebsiteGenerator: assembling page...")
@@ -604,7 +604,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         except Exception:
             pass
 
-    def _generate_images(self, output_dir, config, design_system) -> None:
+    async def _generate_images(self, output_dir, config, design_system) -> None:
         """Generate images using LLM model or SVG fallback.
 
         Tries OpenRouter image generation model first (if ``config.image_model``
@@ -613,14 +613,10 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         """
         if config.image_model:
             try:
-                import asyncio
                 from ..infrastructure.image_client import ImageGenClient
 
                 client = ImageGenClient()
-                success = asyncio.run_coroutine_threadsafe(
-                    self._generate_images_llm(output_dir, config, design_system, client),
-                    asyncio.get_event_loop(),
-                ).result(timeout=120)
+                success = await self._generate_images_llm(output_dir, config, design_system, client)
                 if success:
                     return
             except Exception as e:
@@ -638,12 +634,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         design_system: DesignSystem,
         client: Any,
     ) -> bool:
-        """Generate images via OpenRouter image model.
-
-        Produces: hero background, OG image, up to 3 portfolio thumbnails,
-        up to 4 team avatars, favicon.
-        """
-        from ..infrastructure.image_client import ImageGenClient as _IGC
+        """Generate images via OpenRouter image model."""
 
         model = config.image_model
         ds = design_system
