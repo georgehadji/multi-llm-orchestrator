@@ -367,21 +367,31 @@ class WebsiteGenerator:
                 config=config,
             )
 
-            # Step 6: Generate quality report
+            # Step 6: Generate quality report (optional — validator may be missing)
             logger.info("WebsiteGenerator: validating quality...")
-            from .website_validator import WebsiteQualityValidator
+            try:
+                from .website_validator import WebsiteQualityValidator
 
-            validator = WebsiteQualityValidator()
-            quality_report = await validator.validate(output_dir)
-            result.quality_report = quality_report
+                validator = WebsiteQualityValidator()
+                quality_report = await validator.validate(output_dir)
+                result.quality_report = quality_report
+            except ImportError:
+                logger.warning("WebsiteQualityValidator not available — skipping quality validation")
+                quality_report = None
 
             result.success = True
             result.total_time_seconds = time.time() - start_time
 
-            logger.info(
-                f"WebsiteGenerator: complete in {result.total_time_seconds:.1f}s, "
-                f"quality score: {quality_report.score:.2f}"
-            )
+            if quality_report is not None:
+                logger.info(
+                    f"WebsiteGenerator: complete in {result.total_time_seconds:.1f}s, "
+                    f"quality score: {quality_report.score:.2f}"
+                )
+            else:
+                logger.info(
+                    f"WebsiteGenerator: complete in {result.total_time_seconds:.1f}s "
+                    f"(quality validation skipped)"
+                )
 
         except Exception as e:
             logger.error(f"WebsiteGenerator failed: {e}")

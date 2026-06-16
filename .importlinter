@@ -101,24 +101,3 @@ source_modules =
 forbidden_modules =
     orchestrator.infrastructure
 ignore_imports =
-    # ── Documented backward-compat shims ──────────────────────────────────
-    orchestrator.api_clients -> orchestrator.infrastructure
-    orchestrator.audit -> orchestrator.infrastructure
-    orchestrator.bm25_search -> orchestrator.infrastructure
-    orchestrator.cache -> orchestrator.infrastructure
-    orchestrator.cache_optimizer -> orchestrator.infrastructure
-    orchestrator.caching -> orchestrator.infrastructure
-    orchestrator.secure_cache -> orchestrator.infrastructure
-    orchestrator.semantic_cache -> orchestrator.infrastructure
-    orchestrator.state -> orchestrator.infrastructure
-    orchestrator.telemetry -> orchestrator.infrastructure
-    orchestrator.token_optimizer -> orchestrator.infrastructure
-    orchestrator.tracing -> orchestrator.infrastructure
-    # ── Sprint 4 duplicate-module shims ───────────────────────────────────
-    orchestrator.ara_pipelines -> orchestrator.infrastructure
-    orchestrator.project_assembler -> orchestrator.infrastructure
-    orchestrator.test_first_generator -> orchestrator.infrastructure
-    orchestrator.issue_tracking -> orchestrator.infrastructure
-    orchestrator.slack_integration -> orchestrator.infrastructure
-    orchestrator.nash_infrastructure_v2 -> orchestrator.infrastructure
-    orchestrator.frontend_rules -> orchestrator.infrastructure

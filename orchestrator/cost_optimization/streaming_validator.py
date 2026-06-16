@@ -309,7 +309,7 @@ class StreamingValidator:
             logger.warning(f"Client doesn't support streaming, using fallback for {model}")
             response = await self.client.call(
                 model=model,
-                system_prompt=prompt,
+                system=prompt,
                 max_tokens=max_tokens,
                 **kwargs,
             )

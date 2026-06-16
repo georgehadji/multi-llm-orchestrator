@@ -366,7 +366,7 @@ class StructuredOutputEnforcer:
         # Call model
         response = await self.client.call(
             model=model,
-            system_prompt=json_prompt,
+            system=json_prompt,
             max_tokens=kwargs.get("max_tokens", 4000),
         )
 

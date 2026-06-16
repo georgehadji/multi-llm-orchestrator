@@ -43,10 +43,10 @@ class ProductManagerAgent(AgentBase):
             return AgentTaskResult(task_id=task.id, success=False, output="No LLM")
 
         try:
-            response, _ = await self.client.call(
+            response = await self.client.call(
                 model=self.model_preferences.get(TaskType.REASONING),
-                system_prompt=self.system_prompt,
-                user_prompt=f"Generate user stories and requirements for:\n\n{task.goal}\n\n{task.context}",
+                system=self.system_prompt,
+                prompt=f"Generate user stories and requirements for:\n\n{task.goal}\n\n{task.context}",
                 max_tokens=2048,
                 temperature=0.3,
             )

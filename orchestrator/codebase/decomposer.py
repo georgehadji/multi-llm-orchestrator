@@ -76,7 +76,7 @@ class CodebaseDecomposer:
         )
 
         try:
-            response, _ = await self._client.call(
+            response = await self._client.call(
                 model=self._model,
                 system=(
                     "You are an expert software engineer. Generate a precise, "

@@ -18,7 +18,7 @@ from .ara_pipelines import (
     ReasoningMethod,
 )
 from .cache import DiskCache
-from .method_selector import (
+from .engine_core.method_selector import (
     ComplexityLevel,
     MethodSelection,
     MethodSelector,
@@ -289,10 +289,10 @@ class ARAPipelineIntegration:
 
         prompt = f"Task: {task.prompt}\n\nContext: {context}" if context else task.prompt
 
-        response, _ = await self.client.call(
+        response = await self.client.call(
             model=primary,
-            system_prompt="You are an expert AI assistant. Provide a comprehensive solution.",
-            user_prompt=prompt,
+            system="You are an expert AI assistant. Provide a comprehensive solution.",
+            prompt=prompt,
             max_tokens=task.max_output_tokens,
             temperature=0.3,
         )
