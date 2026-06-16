@@ -112,43 +112,43 @@ class TestEngineDeps:
 
     def test_engine_deps_imports_without_error(self):
         """engine_deps.py should import without any errors."""
-        import orchestrator.engine_deps as ed
+        import orchestrator.engine_core.engine_deps as ed
 
         assert ed is not None
 
     def test_has_test_validator_flag(self):
         """HAS_TEST_VALIDATOR should be defined."""
-        import orchestrator.engine_deps as ed
+        import orchestrator.engine_core.engine_deps as ed
 
         assert hasattr(ed, "HAS_TEST_VALIDATOR")
 
     def test_has_tdd_flag(self):
         """HAS_TDD should be defined."""
-        import orchestrator.engine_deps as ed
+        import orchestrator.engine_core.engine_deps as ed
 
         assert hasattr(ed, "HAS_TDD")
 
     def test_has_context_management_flag(self):
         """HAS_CONTEXT_MANAGEMENT should be defined."""
-        import orchestrator.engine_deps as ed
+        import orchestrator.engine_core.engine_deps as ed
 
         assert hasattr(ed, "HAS_CONTEXT_MANAGEMENT")
 
     def test_has_test_fixer_flag(self):
         """HAS_TEST_FIXER should be defined."""
-        import orchestrator.engine_deps as ed
+        import orchestrator.engine_core.engine_deps as ed
 
         assert hasattr(ed, "HAS_TEST_FIXER")
 
     def test_has_pre_submission_flag(self):
         """HAS_PRE_SUBMISSION should be defined."""
-        import orchestrator.engine_deps as ed
+        import orchestrator.engine_core.engine_deps as ed
 
         assert hasattr(ed, "HAS_PRE_SUBMISSION")
 
     def test_all_has_flags_are_boolean(self):
         """All HAS_* flags should be booleans."""
-        import orchestrator.engine_deps as ed
+        import orchestrator.engine_core.engine_deps as ed
 
         for name in dir(ed):
             if name.startswith("HAS_"):
@@ -565,7 +565,7 @@ class TestEngineDelegation:
 
     def test_engine_deps_available(self):
         """engine_deps should export to engine.py namespace."""
-        from orchestrator.engine_deps import HAS_TEST_VALIDATOR
+        from orchestrator.engine_core.engine_deps import HAS_TEST_VALIDATOR
 
         assert HAS_TEST_VALIDATOR in (True, False)
 
