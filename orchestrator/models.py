@@ -266,13 +266,13 @@ class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════
 
-    # Z.AI GLM MODELS — two canonical models only
+    # Z.AI GLM MODELS — three canonical models only
 
     # ═══════════════════════════════════════════════════════
 
     ZHIPU_GLM_5_1 = "z-ai/glm-5.1"  # balanced, 202K context
-
     ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"  # fast variant
+    ZHIPU_GLM_5_2 = "z-ai/glm-5.2"  # latest model
 
     # ═══════════════════════════════════════════════════════
 
@@ -488,6 +488,7 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     # Z.AI GLM models
     Model.ZHIPU_GLM_5_1: 16384,  # z-ai/glm-5.1 (balanced)
     Model.ZHIPU_GLM_5_TURBO: 16384,  # z-ai/glm-5-turbo (fast)
+    Model.ZHIPU_GLM_5_2: 16384,  # z-ai/glm-5.2 (latest)
     # Meta LLaMA models
     Model.LLAMA_4_MAVERICK: 8192,
     Model.LLAMA_4_SCOUT: 8192,

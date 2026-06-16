@@ -115,11 +115,8 @@ class ModelRegistry:
 
     # Z-AI GLM Models ⭐ VERIFIED
     GLM_5_1 = "z-ai/glm-5.1"  # canonical GLM model
-    # Backward-compat aliases
-    GLM_4_7_FLASH = GLM_5_1
-    GLM_4_7 = GLM_5_1
-    GLM_5 = GLM_5_1
-    GLM_5_TURBO = GLM_5_1
+    GLM_5_TURBO = "z-ai/glm-5-turbo"  # fast variant
+    GLM_5_2 = "z-ai/glm-5.2"  # latest model
 
     # Minimax Models ⭐ VERIFIED
     MINIMAX_M2_7 = "minimax/minimax-m2.7"  # $0.30/$1.20, 205K, multi-agent ⭐
@@ -224,6 +221,8 @@ class ModelRegistry:
         STEP_3_5: {"input": 0.15, "output": 0.45},
         # Z-AI GLM Models (VERIFIED)
         GLM_5_1: {"input": 0.10, "output": 0.40},  # z-ai/glm-5.1
+        GLM_5_TURBO: {"input": 1.20, "output": 4.00},  # z-ai/glm-5-turbo
+        GLM_5_2: {"input": 0.50, "output": 2.00},  # z-ai/glm-5.2
         # Minimax Models (VERIFIED)
         MINIMAX_M2_7: {"input": 0.30, "output": 1.20},
     }
@@ -269,6 +268,8 @@ class ModelRegistry:
         STEP_3_5: 262144,
         # Z-AI GLM Models (VERIFIED)
         GLM_5_1: 202752,  # z-ai/glm-5.1
+        GLM_5_TURBO: 202752,  # z-ai/glm-5-turbo
+        GLM_5_2: 202752,  # z-ai/glm-5.2
         # Minimax Models (VERIFIED)
         MINIMAX_M2_7: 204800,
     }
@@ -331,8 +332,8 @@ class ModelRegistry:
         STEP_3_5,  # 262K
         MIMO_V2_FLASH,  # 256K
         GLM_5_1,  # 202K
-        GLM_5_1,  # 202K
-        GLM_5_1,  # 202K
+        GLM_5_TURBO,  # 202K
+        GLM_5_2,  # 202K
         MINIMAX_M2_7,  # 205K
         MINIMAX_M2_7,  # 205K
         DEEPSEEK_V4_FLASH,  # 164K
