@@ -298,15 +298,6 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # Z.AI GLM MODELS - CHINESE POWERHOUSES
         # ═══════════════════════════════════════════════════════
-        "z-ai/glm-5.1.1": {
-            "reasoning": 8.5,
-            "coding": 9.0,  # ⭐ Enhanced programming
-            "creativity": 8.0,
-            "critique": 8.5,
-            "synthesis": 8.5,
-            "speed": 8.5,
-            "cost_efficiency": 9.0,
-        },
         "z-ai/glm-5.1": {
             "reasoning": 9.0,
             "coding": 9.0,
@@ -316,7 +307,7 @@ class ModelCapabilities:
             "speed": 8.0,
             "cost_efficiency": 8.5,
         },
-        "z-ai/glm-5.1-turbo": {
+        "z-ai/glm-5-turbo": {
             "reasoning": 9.0,
             "coding": 8.5,
             "creativity": 8.5,
@@ -324,6 +315,15 @@ class ModelCapabilities:
             "synthesis": 9.0,  # ⭐ Long-horizon agents, 202K context
             "speed": 9.0,
             "cost_efficiency": 8.5,
+        },
+        "z-ai/glm-5.2": {
+            "reasoning": 9.5,
+            "coding": 9.5,  # ⭐ Latest GLM model
+            "creativity": 9.0,
+            "critique": 9.0,
+            "synthesis": 9.0,
+            "speed": 8.5,
+            "cost_efficiency": 9.0,
         },
         # ═══════════════════════════════════════════════════════
         # QWEN MODELS - SYNTHESIS & CODING SPECIALISTS
@@ -608,7 +608,7 @@ class PhaseAwareModelSelector:
     def get_budget_config(self) -> dict[PhaseType, str]:
         """Get ultra-budget configuration (cheapest capable models)."""
         return {
-            PhaseType.ANALYSIS: "z-ai/glm-5.1.1",  # $0.06/$0.40
+            PhaseType.ANALYSIS: "z-ai/glm-5.1",  # $0.10/$0.40
             PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29
             PhaseType.CRITIQUE: "deepseek/deepseek-v4-pro",  # $0.55/$2.19
             PhaseType.SYNTHESIS: "qwen/qwen-3-697b-a17b",  # $0.39/$2.34
@@ -662,9 +662,9 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "deepseek/deepseek-v4-pro": {"input": 0.55, "output": 2.19},
     "deepseek/deepseek-v4-flash": {"input": 0.28, "output": 0.42},
     # Z.ai GLM
-    "z-ai/glm-5.1.1": {"input": 0.06, "output": 0.40},
-    "z-ai/glm-5.1": {"input": 0.72, "output": 2.30},
-    "z-ai/glm-5.1-turbo": {"input": 1.20, "output": 4.00},
+    "z-ai/glm-5.1": {"input": 0.10, "output": 0.40},
+    "z-ai/glm-5-turbo": {"input": 1.20, "output": 4.00},
+    "z-ai/glm-5.2": {"input": 0.50, "output": 2.00},
     # Qwen
     "qwen/qwen-3-coder-next": {"input": 0.12, "output": 0.75},
     "qwen/qwen-3.5-397b-a17b": {"input": 0.39, "output": 2.34},

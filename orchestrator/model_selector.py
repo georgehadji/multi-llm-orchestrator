@@ -41,6 +41,7 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.MINIMAX_M2_7: 0,
     Model.ZHIPU_GLM_5_1: 0,
     Model.ZHIPU_GLM_5_TURBO: 0,
+    Model.ZHIPU_GLM_5_2: 0,
     Model.STEPFUN_STEP_3_5_FLASH: 0,
     Model.LLAMA_4_MAVERICK: 0,
     Model.PHI_4: 0,

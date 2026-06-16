@@ -32,6 +32,7 @@
   ],
   "data_extraction": [
     "z-ai/glm-5.1",
+    "z-ai/glm-5.2",
     "deepseek/deepseek-v4-flash",
     "z-ai/glm-5-turbo",
     "microsoft/phi-4",
@@ -39,6 +40,7 @@
   ],
   "summarization": [
     "z-ai/glm-5.1",
+    "z-ai/glm-5.2",
     "deepseek/deepseek-v4-flash",
     "google/gemini-3.5-flash",
     "microsoft/phi-4"
