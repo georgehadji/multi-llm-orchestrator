@@ -25,7 +25,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .crosscutting.config import flags
 from .log_config import get_logger
+from .models import Model, ProbabilityFormat, VSConfig
+
+# Lazy import for VerbalizedSampler
+_VS_SAMPLER_BUG = None
+_VS_BUG_LOCK = __import__("threading").Lock()
+
+
+def _get_vs_bug_sampler(client):
+    global _VS_SAMPLER_BUG
+    if _VS_SAMPLER_BUG is None:
+        with _VS_BUG_LOCK:
+            if _VS_SAMPLER_BUG is None:
+                from .application.verbalized_sampling import VerbalizedSampler as _VS
+
+                _VS_SAMPLER_BUG = _VS
+    return _VS_SAMPLER_BUG(client=client)
+
 
 if TYPE_CHECKING:
     from .output_organizer import TestResult
@@ -210,7 +228,7 @@ class AutonomousDebugger:
 
         # Step 1: Analyze failures
         logger.info("\n📊 STEP 1: Analyzing test failures...")
-        failures = self._analyze_failures(test_results)
+        failures = await self._analyze_failures(test_results)
         logger.info(f"   Found {len(failures)} distinct failure(s)")
 
         # Step 2: Create fix plan
@@ -243,12 +261,12 @@ class AutonomousDebugger:
             failures_before=failures,
             fix_plan=fix_plan,
             fixes_applied=fixes_applied,
-            failures_after=self._analyze_failures(new_results),
+            failures_after=await self._analyze_failures(new_results),
             tests_passed=tests_passed,
             duration_seconds=duration,
         )
 
-    def _analyze_failures(self, test_results: list[TestResult]) -> list[FailureAnalysis]:
+    async def _analyze_failures(self, test_results: list[TestResult]) -> list[FailureAnalysis]:
         """Analyze test failures to find root causes."""
         analyses = []
 
@@ -257,14 +275,14 @@ class AutonomousDebugger:
                 continue
 
             # Parse pytest output to extract failure details
-            analysis = self._parse_failure_output(
+            analysis = await self._parse_failure_output(
                 result.test_file, result.output, result.error_message
             )
             analyses.extend(analysis)
 
         return analyses
 
-    def _parse_failure_output(
+    async def _parse_failure_output(
         self, test_file: str, output: str, error_message: str
     ) -> list[FailureAnalysis]:
         """Parse pytest output to extract failure details."""
@@ -295,8 +313,11 @@ class AutonomousDebugger:
                     error_type = match.group(2).strip()
                     error_detail = match.group(3).strip()
 
-                # Determine root cause
-                root_cause = self._determine_root_cause(error_type, error_detail)
+                # Determine root cause (VS Bayesian when enabled)
+                if flags.vs_bug_hunting:
+                    root_cause = await self._vs_analyze_root_cause(error_type, error_detail)
+                else:
+                    root_cause = self._determine_root_cause(error_type, error_detail)
                 suggested_fix = self._suggest_fix(root_cause, error_detail)
 
                 analysis = FailureAnalysis(
@@ -403,6 +424,56 @@ class AutonomousDebugger:
             )
 
         return analyses
+
+    async def _vs_analyze_root_cause(self, error_type: str, error_detail: str) -> str:
+        """Bayesian root cause analysis using Verbalized Sampling."""
+        if not flags.vs_bug_hunting or not hasattr(self, "_engine") or self._engine is None:
+            return self._determine_root_cause(error_type, error_detail)
+
+        try:
+            sampler = _get_vs_bug_sampler(self._engine)
+        except Exception:
+            return self._determine_root_cause(error_type, error_detail)
+
+        prompt = (
+            f"Error type: {error_type}\n"
+            f"Error message: {error_detail}\n\n"
+            "Generate 5 possible root causes for this failure. "
+            "For each, provide:\n"
+            "1. Root cause name (short, one word)\n"
+            "2. Probability (0-1)\n"
+            "3. Supporting evidence (what in the error supports this)\n"
+            "4. Contradicting evidence (what argues against this)\n"
+            "5. Verification test (how to confirm or falsify)\n\n"
+            "Return JSON with format:\n"
+            '{"hypotheses": [{"cause": "...", "probability": 0.0, '
+            '"supporting": "...", "contradicting": "...", "test": "..."}]}'
+        )
+
+        candidates = await sampler.sample(
+            prompt=prompt,
+            model=Model.GPT_4O_MINI,
+            cfg=VSConfig(k=5, temperature=0.3, probability_threshold=0.05, fmt=ProbabilityFormat.EXPLICIT),
+            max_tokens=2048,
+            timeout=60,
+        )
+
+        if not candidates:
+            return self._determine_root_cause(error_type, error_detail)
+
+        # Pick highest-probability hypothesis, extract the cause string
+        best = candidates[0]
+        try:
+            import json
+            data = json.loads(best.text)
+            hypotheses = data.get("hypotheses", [])
+            if hypotheses:
+                return hypotheses[0].get("cause", "unknown")
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: use the highest-probability text as-is
+        return self._determine_root_cause(error_type, error_detail)
 
     def _determine_root_cause(self, error_type: str, error_detail: str) -> str:
         """Determine the root cause of a failure."""
