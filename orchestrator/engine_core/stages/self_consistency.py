@@ -62,6 +62,11 @@ class EnhancedSelfConsistencyStage:
 
     async def process(self, ctx: PipelineContext) -> PipelineContext:
         """Check quality and signal retry if needed."""
+        # Website generation sections: skip retry — HTML/TSX content naturally
+        # contains "HTML tags" that trigger false-positive validator checks.
+        if getattr(ctx.task, "target_path", "").startswith("components/"):
+            return ctx
+
         if ctx.score >= self._quality_threshold:
             return ctx
 

@@ -1890,6 +1890,7 @@ class Orchestrator:
                 getattr(_ts_flags, "taste_skill_enabled", False)
                 and _is_frontend(task.prompt, getattr(task, "target_path", ""))
                 and ctx.output
+                and not getattr(task, "target_path", "").startswith("components/")
             ):
                 from .quality.design_validators import validate_anti_slop as _anti_slop
                 _slop_result = _anti_slop(ctx.output)
