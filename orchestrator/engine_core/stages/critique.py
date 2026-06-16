@@ -13,7 +13,23 @@ from typing import TYPE_CHECKING
 
 from ..pipeline import PipelineContext
 from ...domain.ports import LLMClient
-from ...models import Model, TaskType
+from ...crosscutting.config import flags
+from ...models import Model, ProbabilityFormat, TaskType, VSConfig
+
+# Lazy import for VerbalizedSampler
+_VS_SAMPLER = None
+_VS_LOCK = __import__("threading").Lock()
+
+
+def _get_vs_sampler(client):
+    global _VS_SAMPLER
+    if _VS_SAMPLER is None:
+        with _VS_LOCK:
+            if _VS_SAMPLER is None:
+                from ...application.verbalized_sampling import VerbalizedSampler as _VS
+
+                _VS_SAMPLER = _VS
+    return _VS_SAMPLER(client=client)
 
 if TYPE_CHECKING:
     from ...domain.ports import LSPValidatorPort
@@ -57,19 +73,40 @@ class CritiqueStage:
         critique_prompt = await self._build_critique_prompt(ctx)
 
         try:
-            response = await self._client.call(
-                model=reviewer,
-                prompt=critique_prompt,
-                system=(
-                    "You are a code reviewer. Provide constructive, "
-                    "specific feedback. Be concise."
-                ),
-                max_tokens=2048,
-                temperature=0.3,
-                timeout=60,
-                retries=1,
-            )
-            ctx.critique = response.text[:2000]
+            if flags.vs_code_review and ctx.task and ctx.task.type == TaskType.CODE_GEN:
+                sampler = _get_vs_sampler(self._client)
+                candidates = await sampler.sample(
+                    prompt=critique_prompt,
+                    model=reviewer,
+                    cfg=VSConfig(k=3, temperature=0.2, fmt=ProbabilityFormat.CONFIDENCE),
+                    system_extra="You are a code reviewer. Generate 3 independent review "
+                                 "hypotheses. Each must explore a different angle "
+                                 "(correctness, performance, security, style, edge cases). "
+                                 "Be specific and constructive.",
+                    max_tokens=2048,
+                    timeout=60,
+                )
+                if candidates:
+                    ctx.critique = "\n\n".join(
+                        f"## Review {i+1} (confidence: {c.probability:.0%})\n{c.text[:1500]}"
+                        for i, c in enumerate(candidates)
+                    )
+                else:
+                    raise RuntimeError("VS returned no candidates")
+            else:
+                response = await self._client.call(
+                    model=reviewer,
+                    prompt=critique_prompt,
+                    system=(
+                        "You are a code reviewer. Provide constructive, "
+                        "specific feedback. Be concise."
+                    ),
+                    max_tokens=2048,
+                    temperature=0.3,
+                    timeout=60,
+                    retries=1,
+                )
+                ctx.critique = response.text[:2000]
         except Exception as e:
             logger.warning("Critique failed for task %s: %s", ctx.task.id, e)
 

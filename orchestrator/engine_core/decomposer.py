@@ -21,7 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 from ..api_clients import UnifiedClient
 from ..exceptions import OrchestratorError
-from ..models import Model, Task, TaskType
+from ..crosscutting.config import flags
+from ..models import Model, Task, TaskType, VSConfig
 from ..resilience import ResiliencePolicy, RetryTemplate
 from ..tracing import Tracer
 
@@ -133,6 +134,19 @@ Each task JSON element MUST also include:
             except ImportError:
                 logger.debug("scaffold module not available, skipping app context block")
 
+                _VS_SAMPLER_DECOMP = None
+        _VS_DECOMP_LOCK = __import__("threading").Lock()
+
+        def _get_vs_sampler():
+            nonlocal _VS_SAMPLER_DECOMP
+            if _VS_SAMPLER_DECOMP is None:
+                with _VS_DECOMP_LOCK:
+                    if _VS_SAMPLER_DECOMP is None:
+                        from ..application.verbalized_sampling import VerbalizedSampler as _VS
+
+                        _VS_SAMPLER_DECOMP = _VS
+            return _VS_SAMPLER_DECOMP(client=self._client)
+
         # Phase 5: inject project context
         if project_context is not None and not project_context.is_empty():
             ctx_str = project_context.to_system_prompt()
@@ -158,6 +172,34 @@ Each task JSON element MUST also include:
         for attempt, model in enumerate(models_to_try):
             model_name = model.value if hasattr(model, "value") else str(model)
             try:
+                # ── VS multi-plan decomposition ──────────────────────────
+                if flags.vs_decomposition and attempt == 0:
+                    sampler = _get_vs_sampler()
+                    vs_system = (
+                        system + "\n"
+                        "Generate 2 complete task plans. Each plan should be a "
+                        "full task decomposition covering a different architectural "
+                        "approach. Return them as separate JSON task arrays."
+                    )
+                    candidates = await sampler.sample(
+                        prompt=prompt,
+                        model=model,
+                        cfg=VSConfig(k=2, temperature=0.3),
+                        system_extra=vs_system,
+                        max_tokens=8192 * 2,
+                        timeout=160,
+                    )
+                    for c in candidates:
+                        parsed = self._parse_decomposition(c.text)
+                        if parsed:
+                            logger.info(
+                                "VS decomposition: plan (prob=%.2f) with %d tasks",
+                                c.probability,
+                                len(parsed),
+                            )
+                            return parsed
+
+                # Standard single-call decomposition
                 response = await self._client.call(
                     model=model,
                     prompt=prompt,
