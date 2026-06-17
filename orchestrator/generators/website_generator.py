@@ -394,22 +394,6 @@ class WebsiteExtractor:
         'objectFit','objectPosition','mixBlendMode','filter','backdropFilter',
         'whiteSpace','textOverflow','WebkitLineClamp'
     ];
-    function extract(el, depth=0) {
-        if (!el || depth > 3) return null;
-        const cs = getComputedStyle(el);
-        const styles = {};
-        props.forEach(p => { const v = cs[p]; if (v && v !== 'none' && v !== 'normal' && v !== 'auto' && v !== '0px' && v !== 'rgba(0, 0, 0, 0)') styles[p] = v; });
-        const children = [...el.children];
-        return {
-            tag: el.tagName.toLowerCase(),
-            id: el.id || '',
-            classes: (el.className?.toString() || '').split(' ').slice(0, 5).join(' '),
-            text: el.childNodes.length === 1 && el.childNodes[0].nodeType === 3 ? el.textContent.trim().slice(0, 300) : null,
-            styles,
-            rect: el.getBoundingClientRect ? { w: Math.round(el.getBoundingClientRect().width), h: Math.round(el.getBoundingClientRect().height) } : null,
-            childCount: children.length,
-        };
-    }
     // 1. Extract global CSS custom properties
     const root = document.documentElement;
     const rootCS = getComputedStyle(root);
@@ -514,11 +498,11 @@ class WebsiteExtractor:
             css_vars = extracted.get("cssVars", {})
             data.colors = css_vars
 
-            # Parse font families
+            # Parse font families — take first entry from each CSS font-stack
             font_families = extracted.get("fontFamilies", [])
             data.fonts = [
-                {"family": f.strip().strip("'\""), "weights": [400], "style": "normal", "url": ""}
-                for f in font_families if f.strip()
+                {"family": f.split(",")[0].strip().strip("\"'"), "weights": [400], "style": "normal", "url": ""}
+                for f in font_families if f and f.strip()
             ]
 
             # Parse favicons
@@ -534,18 +518,18 @@ class WebsiteExtractor:
             raw_sections = extracted.get("sections", [])
             data.sections = raw_sections
 
-            # ── Extract text content per section ──
+            # ── Extract text content per section (using Playwright arg-passing, safe) ──
             for sec in raw_sections[:10]:
                 classes = sec.get('classes', '')
                 tag = sec.get('tag', 'section')
                 sel = f"{tag}.{classes.split(' ')[0]}" if classes else tag
-                escaped_sel = sel.replace("'", "\\'")
                 try:
                     text_content = await tester.page.evaluate(
-                        f"""(() => {{
-                            const el = document.querySelector('{escaped_sel}');
+                        """(sel) => {
+                            const el = document.querySelector(sel);
                             return el ? el.innerText.slice(0, 2000) : '';
-                        }})()"""
+                        }""",
+                        sel,
                     )
                     if text_content and isinstance(text_content, str) and text_content.strip():
                         data.section_content[sec.get("name", f"section_{sec.get('order', 0)}")] = text_content.strip()[:2000]
@@ -637,19 +621,14 @@ class WebsiteGenerator:
                     extraction_data = await extractor.extract(config.source_url, output_dir=output_dir)
                     # Override design system colors with extracted CSS custom properties
                     if extraction_data.colors:
-                        known_tokens = {"--primary", "--secondary", "--accent", "--background",
-                                        "--surface", "--text", "--border", "--success", "--warning", "--error"}
                         for css_var, value in extraction_data.colors.items():
                             if value and not value.startswith("var("):
                                 clean_val = value.strip()
-                                # Map common CSS var names to ColorTokens fields
-                                var_short = css_var.replace("--", "").replace("-", "_")
+                                # Map CSS var names to ColorTokens fields
+                                # e.g. --primary → primary, --color-primary → primary
+                                var_short = css_var.replace("--", "").replace("-", "_").removeprefix("color_")
                                 if hasattr(design_system.colors, var_short):
                                     setattr(design_system.colors, var_short, clean_val)
-                                elif css_var in known_tokens:
-                                    token_name = css_var.replace("--", "")
-                                    if hasattr(design_system.colors, token_name):
-                                        setattr(design_system.colors, token_name, clean_val)
                     # Override fonts with extracted font families
                     if extraction_data.fonts:
                         families = [f["family"] for f in extraction_data.fonts if f.get("family")]
@@ -821,7 +800,6 @@ class WebsiteGenerator:
                     if section.lower() in sec_name.lower() or sec_name.lower() in section.lower():
                         section_extraction = {
                             "text": sec_content[:1500],
-                            "styles": extraction_data.section_styles.get(sec_name, {}),
                         }
                         break
             prompt = self._build_section_prompt(
@@ -978,9 +956,6 @@ SOURCE URL EXTRACTION:
 
 {'Extracted Content for this section (verbatim from source):' if section_extraction and section_extraction.get('text') else ''}
 {section_extraction['text'] if section_extraction and section_extraction.get('text') else ''}
-
-{'Extracted CSS Values (match these exactly):' if section_extraction and section_extraction.get('styles') else ''}
-{chr(10).join(f'  {k}: {v}' for k, v in section_extraction['styles'].items()) if section_extraction and section_extraction.get('styles') else ''}
 
 IMPORTANT: When source URL extraction is present, match the extracted values EXACTLY.
 This is a clone, not an approximation. Use the extracted colors, fonts, and content verbatim.
