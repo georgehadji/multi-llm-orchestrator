@@ -1,415 +1,326 @@
-# Multi-LLM Orchestrator — Architecture Mindmap
+# ARCHITECTURE MINDMAP
 
-> **Version:** v8.0.0 (2026-05-30)  
-> **engine.py:** 2,672 lines (−49% from v5.0)  
-> **Application services:** 17 extracted classes  
-> **Import contracts:** 4 (strengthened — domain-purity now covers models.py + exceptions)  
-> **Architecture compliance score:** 7.2 / 10 (empirical audit 2026-05-29; prior self-assessment was 9.4)
+## 1. SYSTEM IDENTITY
 
----
+- **Primary Language:** Python 3.10+ (`pyproject.toml:5`: `requires-python = ">=3.10"`)
+- **Frameworks:**
+  - `openai>=1.30,<2.0` — OpenRouter API client (`pyproject.toml:28`)
+  - `google-genai>=1.0,<2.0` — Gemini provider (`pyproject.toml:29`)
+  - `pydantic>=2.0,<3.0` — Data validation (`pyproject.toml:31`)
+  - `aiosqlite>=0.19,<1.0` — State persistence (`pyproject.toml:30`)
+  - `httpx>=0.24.0` — HTTP transport (`pyproject.toml:36`)
+  - `aiohttp>=3.9.0` — Async HTTP (`pyproject.toml:37`)
+  - `tenacity>=8.2.0` — Retry logic (`pyproject.toml:38`)
+  - `playwright>=1.40.0` — Browser automation (`pyproject.toml:35`)
+  - `newspaper3k>=0.2.8` — Web scraping (`pyproject.toml:36`)
+  - `instructor>=1.0,<2.0` — Structured output via LLM (`pyproject.toml:41`)
+  - `tabulate>=0.8.0` — Terminal tables (`pyproject.toml:43`)
+- **Architectural Style:** **Layered modular monolith** with hexagonal core. Justification: All code lives in a single Python package (`orchestrator/`), but is organized into strict layer boundaries enforced by `import-linter` with 4 contracts (`domain-purity`, `application-no-concrete-infra`, `application-services-no-engine`, `engine-core-no-loose-infra` at `.importlinter:1-110`). The `domain/ports.py` defines abstract protocols (hexagonal "ports") that `infrastructure/` adapters satisfy via structural subtyping.
+- **Entry Points:**
+  - `orchestrator/__main__.py:22` — `python -m orchestrator` → delegates to `cli.main()`
+  - `orchestrator/cli.py:1819` — `main()` → argparse dispatch to subcommands: `build`, `analyze`, `agent`, `slash`, `dashboard`, `chat`, `kanban`, `website`, `cache-stats`, `nexusscope`
+  - `orchestrator/application/chat_cli.py:112` — `run_chat()` — interactive spec-gathering REPL
+  - `orchestrator/cli.py:2435` — `cmd_chat()` — async launch of chat session
+  - `orchestrator/cli.py:330` — `cmd_build()` — AppBuilder pipeline for code projects
+  - `orchestrator/cli.py:1710` — `_cmd_website()` — website generation
+- **Build/Config Files:**
+  - `pyproject.toml` — Build (hatchling), deps, mypy strict 48-module list, ruff config (line-length 100, google docstrings), coverage ratchet (6%), pytest markers
+  - `.importlinter` — 4 layer-boundary contracts
+  - `.github/workflows/ci.yml` — CI pipeline
+  - `orchestrator_config.json` — Runtime config
+  - `.env` — API keys (OPENROUTER_API_KEY)
 
-## Hexagonal Architecture
+## 2. MODULE INVENTORY
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                 Multi-LLM Orchestrator v7.0               │
-│       Autonomous Multi-Agent Software Development         │
-└──────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-  ┌─────▼─────┐         ┌─────▼─────┐         ┌─────▼──────┐
-  │  DOMAIN   │         │APPLICATION│         │INFRASTRUCTURE│
-  │  Layer    │ ◄────── │  Layer    │ ◄────── │   Layer    │
-  │(pure data)│         │(use cases)│         │ (adapters) │
-  └───────────┘         └───────────┘         └────────────┘
-        │                     │                     │
-   models.py             engine.py             infrastructure/
-   models_skill.py       application/          api_clients.py ¹
-   domain/ports.py       engine_core/          state.py ¹
-                         agents/               cache.py ¹
-```
+### 1. Orchestrator Core `orchestrator/`
+- **Responsibility:** Top-level package — re-exports all public API symbols for external consumers
+- **Type:** Core logic / facade
+- **Exports:** `Orchestrator`, `Budget`, `DiskCache`, `StateManager`, `UnifiedClient`, `Model`, `Task`, `TaskResult`, `TaskStatus`, `TaskType`, `ProjectState`, `ProjectStatus`, `CodebaseAnalyzer`, `DryRunRenderer`, `ExecutionPlan`, `TaskPlan`, `ProgressEntry`, `ProgressWriter` (`orchestrator/__init__.py:13-27`)
+- **Internal Structure:**
+  - `__init__.py` — Package facade re-exports
+  - `__main__.py` — `python -m orchestrator` entry point (`__main__.py:22`: `cli.main()`)
+  - `cli.py` — Root CLI dispatcher (2450 lines): argparse, 12 subcommands
+  - `engine.py` — `Orchestrator` class: core control loop, task execution, budget enforcement (2193 lines)
+  - `models.py` — All data models, enums, routing/cost tables, budget logic (918 lines)
+  - `design_system.py` — DesignSystem, ColorTokens, TypographyTokens, Layout, BrandTone (240 lines)
+- **Dependencies:**
+  - → `orchestrator/engine_core/` — delegates `_execute_task()` to `TaskPipeline`
+  - → `orchestrator/domain/ports.py` — consumes `CachePort`, `StatePort`, `EventPort` protocols
+  - → `orchestrator/infrastructure/` — resolves adapters via ServiceContainer
+  - → External: `openai>=1.30` — OpenRouter SDK for all LLM calls
 
-¹ Root-level `orchestrator/*.py` shims for backward compat; canonical code lives in `infrastructure/`.
+### 2. Engine Core `orchestrator/engine_core/`
+- **Responsibility:** Task execution pipeline with pluggable stages, project planning, state coordination, and dependency injection container
+- **Type:** Core logic
+- **Exports:** `ServiceContainer`, `TaskPipeline`, `PipelineContext`, `PipelineRunner`, `ProjectPlanner`, `StateCoordinator`, `ContextService`, pipeline stages (`GenerateStage`, `CritiqueStage`, `EvaluateStage`, etc.)
+- **Internal Structure:**
+  - `container.py` — `ServiceContainer.build()`: wires 30+ collaborators (638 lines)
+  - `pipeline.py` — `TaskPipeline`: composable stage runner with `PipelineContext` (166 lines)
+  - `pipeline_runner.py` — `PipelineRunner`: orchestrates execution across tasks
+  - `project_planner.py` — `ProjectPlanner`: decomposes spec into task DAG
+  - `state_coordinator.py` — `StateCoordinator`: manages task state transitions
+  - `context_service.py` — `ContextService`: manages token context per task
+  - `stages/` — Directory of `PipelineStage` implementations (GenerateStage, CritiqueStage, EvaluateStage, ValidateStage, PreflightStage, PersuasionDefenseStage, SelfConsistencyStage)
+- **Dependencies:**
+  - → `orchestrator/domain/ports.py` — consumes `CachePort`, `StatePort`, `EventPort`, `ValidatorPort`, `PlannerPort`
+  - → `orchestrator/infrastructure/` — resolves concrete adapters
+  - → `orchestrator/models.py` — consumes `Task`, `TaskResult`, `TaskStatus`, `Model`
+  - → `orchestrator/application/` — delegates to `skill_optimizer`, `evaluator`
 
-**Dependency rule:** each layer imports only from the layer to its left (inward).  
-`import-linter` enforces this with **4 contracts**; CI will fail if violated.
+### 3. Domain Boundaries `orchestrator/domain/`
+- **Responsibility:** Abstract interfaces (hexagonal ports), domain exceptions, model registry, service contracts
+- **Type:** Core logic / interface definition
+- **Exports:** `CachePort`, `StatePort`, `EventPort`, `HookRegistryPort`, `PlannerPort`, `ValidatorPort`, `NullEventBus`, `NullHookRegistry`, `ModelRegistry`, domain exceptions (`ModelUnavailableError`, `BudgetExceededError`, etc.)
+- **Internal Structure:**
+  - `ports.py` — 6 `Protocol` classes for cache/state/events/hooks/planner/validator (529 lines)
+  - `model_registry.py` — `ModelRegistry`: 52-model registry with cost tables, UNAVAILABLE_MODELS
+  - `exceptions.py` — Domain exception hierarchy
+  - `services/` — Service-level interfaces (e.g. `PlannerService`, `ValidatorService`)
+- **Dependencies:**
+  - → `orchestrator/models.py` — consumes `ProjectState`, `Model`, `TaskType`
+  - → **No infrastructure imports** — enforced by `.importlinter` contract 1: "domain-purity" (no infra dependency)
 
----
+### 4. Application Services `orchestrator/application/`
+- **Responsibility:** Orchestration-agnostic business logic — skill optimization, project execution, decomposition, evaluation, chat
+- **Type:** Core logic
+- **Exports:** `SkillOptimizer`, `SkillManager`, `SkillStore`, `ProjectRunner`, `ChatCLI`, `ConversationAgent`, `TaskExecutor`, `Evaluator`, `Decomposer`, `CritiqueCycle`, `BudgetEnforcer`, `FallbackHandler`, `ResumptionService`, `GitBridge`, `DashboardBridge`, `ModelHealthTracker`, `ContextCompressor`
+- **Internal Structure:**
+  - `chat_cli.py` — Interactive REPL for spec gathering (194 lines)
+  - `conversation_agent.py` — NL dialogue → structured spec
+  - `project_runner.py` — `ProjectRunner`: coordinates `run_project`, `dry_run`
+  - `skill_optimizer.py` — `SkillOptimizer`: per-TaskType prompt evolution via trajectory feedback
+  - `skill_store.py` — `SkillStore`: aiosqlite trajectory + skill persistence
+  - `evaluator.py` — Task result evaluator
+  - `executor.py` — Task executor
+  - `decomposer.py` — Project spec → task DAG decomposition
+  - `critique_cycle.py` — Cross-model review loop
+  - `skills/` — Per-TaskType skill documents (`code_generation.md`, `code_review.md`, etc.)
+- **Dependencies:**
+  - → `orchestrator/domain/ports.py` — consumes `CachePort`, `StatePort`
+  - → `orchestrator/models.py` — consumes `Task`, `TaskType`, `ProjectState`
+  - → `orchestrator/infrastructure/` — resolves concrete adapters
+  - → **Not to `orchestrator/engine.py`** — enforced by `.importlinter` contract 3: "application-services-no-engine"
 
-## Execution Flow
+### 5. Infrastructure `orchestrator/infrastructure/`
+- **Responsibility:** Concrete adapter implementations for all domain ports — LLM client, state persistence, caching, telemetry, streaming
+- **Type:** Infrastructure
+- **Exports:** `UnifiedClient` (LLM), `StateManager` (SQLite), `DiskCache` (SQLite), `TelemetryCollector`, `ImageGenClient`, `PathProvider`, `SemanticCache`, `SnapshotStore`
+- **Internal Structure:**
+  - `llm_client.py` — `UnifiedClient`: async OpenRouter-only API client with caching, retry, circuit breaker (727 lines)
+  - `state.py` — `StateManager`: aiosqlite-backed project state persistence
+  - `cache.py` — `DiskCache`: SQLite-backed LLM response cache
+  - `image_client.py` — `ImageGenClient`: OpenRouter image generation
+  - `telemetry.py` — `TelemetryCollector`: per-model metrics
+  - `streaming.py` — Streaming response handler
+  - `cache_optimizer.py` — Cache optimization utilities
+  - `caching.py` — Caching middleware
+  - `secure_cache.py` — Secure cache wrapper
+  - `semantic_cache.py` — Semantic embedding-based cache
+  - `path_provider.py` — Platform-aware path resolution
+  - `snapshot_store.py` — State snapshot persistence
+- **Dependencies:**
+  - → `orchestrator/domain/ports.py` — implements `CachePort`, `StatePort`
+  - → `orchestrator/models.py` — consumes `Model`, `TaskType`, `ProjectState`
+  - → External: `aiosqlite>=0.19` — state/cache DB
+  - → External: `openai>=1.30` — OpenRouter API SDK
 
-```
-User: "Build a todo app"
-        │
-        ▼
-   engine.py (Orchestrator)
-        │
-        ├─ ProjectRunner.run_project()          ← M3: no longer holds host ref
-        │     │
-        │     ├─ decompose_project() → dict[Task]
-        │     │
-        │     ├─ for each task:
-        │     │     │
-        │     │     ├─ best_skill(task.type) → skill_prefix   [SkillOpt]
-        │     │     │
-        │     │     ├─ PipelineContext(task, model, skill_prefix)
-        │     │     │
-        │     │     └─ TaskPipeline.run(ctx)
-        │     │           │
-        │     │           ▼ 7 stages (see below)
-        │     │
-        │     └─ record_trajectory(score, critique) → epoch may fire  [SkillOpt]
-        │
-        └─ ProjectRunState.project_id / .architecture_rules / .entered
-```
+### 6. Website Generator `orchestrator/generators/`
+- **Responsibility:** Design-system-driven website generation with LLM-powered content and section assembly
+- **Type:** Core logic / feature module
+- **Exports:** `WebsiteGenerator`, `ContentResearcher`, `ClientInfo`, `WebsiteConfig`, `WebsiteBuildResult`, `WebsiteQualityValidator`
+- **Internal Structure:**
+  - `website_generator.py` — `WebsiteGenerator.generate()`: 6-step pipeline (1898 lines)
+  - `image_generator.py` — SVG placeholder image fallback
+  - `website_validator.py` — Quality validation (Lighthouse, WCAG, SEO)
+- **Dependencies:**
+  - → `orchestrator/engine.py` — uses `Orchestrator._execute_task()` for section generation
+  - → `orchestrator/design_system.py` — consumes `DesignSystem`
+  - → `orchestrator/models.py` — consumes `Task`, `TaskType`
+  - → `orchestrator/budget.py` — consumes `Budget`
 
----
+### 7. Design System `orchestrator/design/`
+- **Responsibility:** Curated design themes, archetypes, macrostructures, taste skills, and anti-slop guards
+- **Type:** Utility / cross-cutting concern
+- **Exports:** `AtelierTheme` (20 themes), `Theme` (catalog), `Archetype` (13 nav, 8 footer), `Macrostructure` (17 layouts), taste-skill injector, anti-slop validator
+- **Internal Structure:**
+  - `atelier/themes.py` — 20 AtelierTheme definitions (OKLCH colors, fonts, genres)
+  - `catalogs/themes.py` — Theme catalog with genre classification
+  - `catalogs/archetypes.py` — Navigation (N1-N13) and footer (Ft1-Ft8) patterns
+  - `catalogs/macrostructures.py` — 17 page layout templates
+  - `catalogs/routing.py` — Genre→macrostructure routing table
+  - `skills/` — Taste skill documents (`image_to_code.SKILL.md`, `imagegen_web.SKILL.md`)
+- **Dependencies:**
+  - → `orchestrator/models.py` — consumes `Genre`, `DesignVariant`
+  - → **No infrastructure dependencies** — pure data layer
 
-## Pipeline Stages (7)
+### 8. Agents `orchestrator/agents/`
+- **Responsibility:** Specialized agent implementations for the autonomous development pipeline
+- **Type:** Core logic
+- **Exports:** `BaseAgent`, `CoordinatorAgent`, `DeveloperAgent`, `ReviewerAgent`, `TesterAgent`, `DevOpsAgent`, `ResearcherAgent`, `ProductManagerAgent`, `QCAgent`, `UserAgent`
+- **Internal Structure:**
+  - `base.py` — `BaseAgent` abstract class
+  - `coordinator.py` — Agent orchestration coordinator
+  - `developer.py` — Code generation specialist
+  - `reviewer.py` — Code review specialist
+  - `product_manager.py` — Product planning specialist
+  - `researcher.py` — Research/analysis specialist
+  - `devops.py` — Deployment/CI specialist
+  - `qc.py` — Quality control specialist
+  - `user.py` — User persona simulation
+  - `persona.py` — Agent persona definitions
+  - `persona_modes.py` — Agent persona configuration modes
+  - `metrics.py` — Agent performance metrics
+  - `rate_limiter.py` — Per-agent rate limiting
+- **Dependencies:**
+  - → `orchestrator/engine.py` — uses Orchestrator for task dispatch
+  - → `orchestrator/models.py` — consumes `Task`, `TaskType`, `Model`
 
-```
-GenerateStage        ← M4: depends on LLMClient Protocol, not UnifiedClient
-    │  injects skill_prefix as <skill>...</skill> XML tag in system prompt
-    ▼
-PersuasionDefenseStage   (claim extraction → NLI verification)
-    ▼
-CritiqueStage            ← M4: depends on LLMClient Protocol, not UnifiedClient
-    ▼
-EvaluateStage            (2-pass self-consistency scoring)
-    ▼
-SelfConsistencyStage     (score < 0.7 → retry with fallback model)
-    ▼
-PreflightStage           (PASS / WARN / ENRICH / BLOCK gate)
-    ▼
-ValidateStage            (syntax, bracket balance, ruff lint)
-```
+### 9. Application Builders `orchestrator/appbuilder/` (and root `app_builder.py`)
+- **Responsibility:** Full-stack application generation pipeline — detect, scaffold, assemble, verify
+- **Type:** Core logic / feature module
+- **Exports:** `AppBuilder`, `AppProfile`, `AppBuildResult`, `AssemblyReport`, `VerifyReport`
+- **Internal Structure:**
+  - `app_builder.py` — `AppBuilder.build()`: 7-step pipeline (detect → scaffold → orchestrate → assemble → deps → verify → docs)
+  - `app_detector.py` — `AppDetector.detect()`: description → `AppProfile` (language, framework, app type)
+  - `scaffold.py` — `ScaffoldEngine.scaffold()`: project skeleton generation
+  - `app_assembler.py` — `AppAssembler.assemble()`: file assembly
+  - `app_verifier.py` — `AppVerifier.verify_local()`/`verify_docker()`: test execution
+  - `architecture_advisor.py` — `ArchitectureAdvisor`: framework recommendations
+- **Dependencies:**
+  - → `orchestrator/engine.py` — uses `Orchestrator.run_project()`
+  - → `orchestrator/domain/ports.py` — consumes `CachePort`, `StatePort`
 
-`engine.py._execute_task()` builds `PipelineContext` and calls `TaskPipeline.run(ctx)` — it is ~30 lines.
+## 3. DEPENDENCY GRAPH
 
----
-
-## Application Layer — Service Classes
-
-| Service | File | Responsibility |
-|---------|------|----------------|
-| `SkillOptimizer` | `skill_optimizer.py` | Per-TaskType epoch loop |
-| `SkillManager` | `skill_manager.py` | Facade + fire-and-forget epoch scheduling |
-| `SkillStore` | `skill_store.py` | aiosqlite persistence (trajectories + skills) |
-| `ModelHealthTracker` | `model_health_tracker.py` | Circuit breaker — owns its state dicts (M6) |
-| `ResumptionService` | `resumption_service.py` | resume_project — returns new ProjectState (M7) |
-| `DashboardBridge` | `dashboard_bridge.py` | Null-safe dashboard notifications |
-| `GitBridge` | `git_bridge.py` | Git commit dispatch |
-| `ProjectRunner` | `project_runner.py` | run_project / dry_run — no host back-ref (M3) |
-| `ProjectRunnerCallables` | `project_runner_deps.py` | Injected execution callbacks (M3) |
-| `ProjectRunState` | `project_runner_deps.py` | Shared mutable run metadata (M3) |
-| `TaskExecutor` | `task_executor.py` | Single-task execution coordinator |
-| `Evaluator` | `evaluator.py` | Score computation, CritiqueReport |
-| `CritiqueCycle` | `critique_cycle.py` | Multi-round critique orchestration |
-| `Decomposer` | `decomposer.py` | Project → Task decomposition |
-| `ContextCompressor` | `context_compressor.py` | Context window management |
-| `BudgetEnforcer` | `budget_enforcer.py` | Per-run budget tracking |
-| `ConversationAgent` | `conversation_agent.py` | Interactive spec-gathering via CLI + dashboard chat |
-
----
-
-## M3 — ProjectRunner Decoupling
-
-`ProjectRunner` used to hold `self._host = Orchestrator` and call 13+ private methods on it.  
-After M3 the host reference is gone entirely.
-
-```
-BEFORE (cosmetic extraction):
-  ProjectRunner._host._execute_all(...)
-  ProjectRunner._host._topological_sort(tasks)
-  ProjectRunner._host._project_id = project_id
-  … (13 more calls)
-
-AFTER (true decoupling):
-  ProjectRunner._callables.execute_all(...)       ← ProjectRunnerCallables
-  ProjectRunner._callables.topological_sort(tasks)
-  ProjectRunner._run_state.project_id = project_id ← ProjectRunState
-```
-
-**ProjectRunnerCallables** — dataclass holding 8 async/sync callables injected by Orchestrator.  
-**ProjectRunState** — dataclass holding `project_id`, `architecture_rules`, `entered`, `results`.  
-Both objects are wired in `engine.py.__init__`; `_run_state.entered` is kept in sync by `__aenter__`/`__aexit__`.
-
----
-
-## SkillOpt — Self-Improving Skill System
-
-A text-space optimization loop where per-TaskType markdown skill documents evolve based on task trajectories. The worker model is frozen; only the skill document changes.
-
-```
-                    ┌─────────────────────────────────┐
-                    │         SkillManager             │
-                    │   (one SkillOptimizer / TaskType) │
-                    └─────────────┬───────────────────┘
-                                  │
-          record_trajectory()     │     best_skill(task_type)
-          ─────────────────►      │     ◄─────────────────────
-                                  │
-                    ┌─────────────▼───────────────────┐
-                    │         SkillStore               │
-                    │  trajectories.db  │  skills.db   │
-                    └─────────────────────────────────┘
-                                  │
-               every epoch_size trajectories
-                                  │
-                    ┌─────────────▼───────────────────┐
-                    │       SkillOptimizer.run_epoch() │
-                    │                                  │
-                    │  train/val split                 │
-                    │  → optimizer LLM proposes patches│
-                    │  → edit budget enforced (≤150t)  │
-                    │  → val gate (must improve score) │
-                    │  → accepted: save best_skill     │
-                    │  → rejected: save negative feed  │
-                    │  → every 5 epochs: slow update   │
-                    └──────────────────────────────────┘
-```
-
-**Key design decisions:**
-- `## Guidance` block is regex-protected — only slow-update rewrites it
-- Epoch failures are logged at DEBUG; never surface to the main execution path
-- Orphan task retained in `_background_tasks` (M1) — GC cannot cancel mid-flight
-- Feature off by default (`ORCH_SKILL_OPTIMIZATION_ENABLED=false`)
-- No fine-tuning; no re-evaluation LLM calls in validation (cheap proxy scoring)
-
-**Starter skills** at `orchestrator/application/skills/` — 7 TaskTypes:
-`code_generation`, `code_review`, `complex_reasoning`, `creative_writing`, `data_extraction`, `summarization`, `evaluation`
-
----
-
-## Domain Ports (`domain/ports.py`)
-
-| Protocol | Satisfied By | Null Adapter |
-|----------|-------------|--------------|
-| `CachePort` | `infrastructure/cache.py::DiskCache` | `NullCache` |
-| `StatePort` | `infrastructure/state.py::StateManager` | `NullState` |
-| `EventPort` | `unified_events/core.py::UnifiedEventBus` | `NullEventBus` |
-| `ConfigPort` | `crosscutting/config.py::ConfigAdapter` | — |
-| `LLMClient` | `infrastructure/llm_client.py::UnifiedClient` | — |
-| `PlannerPort` | `engine_core/model_selector.py::ModelSelector` | — |
-| `TelemetryPort` | `infrastructure/telemetry.py::TelemetryCollector` | — |
-| `PolicyEnginePort` | `engine_core/policy.py::PolicyEngine` | — |
-| `HookRegistryPort` | `unified_events/core.py::SyncHookRegistry` | `NullHookRegistry` ← M2 |
-| `ValidatorPort` | `engine_core/validator.py::TaskValidator` | — |
-| `SkillStorePort` | `application/skill_store.py::SkillStore` | `NullSkillStore` |
-
-All null adapters live in `domain/ports.py` for zero-dependency testing.  
-`NullHookRegistry` (M2) replaced the `type("HookRegistry", (), {...})()` dummy that was previously in `container.build()`.
-
----
-
-## ServiceContainer (`engine_core/container.py`)
-
-Wires all collaborators at startup via constructor injection.  
-After M2: no structural dummy objects (`type("X", (), {})()`) remain — all optional services are either a real adapter or `None` with guarded callers.
-
-Key wiring sequence:
-1. Build infrastructure adapters (cache, state, event bus / hook registry)
-2. Build domain services (model selector, policy engine, telemetry)
-3. Build application services (decomposer, evaluator, pipeline)
-4. Wire SkillManager if `skill_optimization_enabled`
-5. Call `assert_healthy()` — raises `RuntimeError` on missing required services
-
-**Typed fields (post-M2):**
-
-| Field | Type |
-|-------|------|
-| `pipeline` | `Optional[TaskPipeline]` |
-| `pipeline_runner` | `Optional[PipelineRunner]` |
-| `project_planner` | `Optional[ProjectPlanner]` |
-| `state_coordinator` | `Optional[StateCoordinator]` |
-| `context_service` | `Optional[ContextService]` |
-| `hook_registry` | `Optional[HookRegistryPort]` |
-| `event_bus` | `Optional[EventPort]` |
-| `semantic_cache` | `None` (guarded callers) |
-| `adaptive_router` | `None` (guarded callers) |
-
----
-
-## Module Layout — Canonical vs Shim
-
-Ten root-level `orchestrator/*.py` files were duplicates of their `infrastructure/` counterparts.  
-After M5, all ten are backward-compat shims; canonical code lives exclusively in `infrastructure/`.
-
-| Root shim | Canonical location |
-|-----------|--------------------|
-| `orchestrator/state.py` | `infrastructure/state.py` |
-| `orchestrator/cache.py` | `infrastructure/cache.py` |
-| `orchestrator/telemetry.py` | `infrastructure/telemetry.py` |
-| `orchestrator/tracing.py` | `infrastructure/tracing.py` |
-| `orchestrator/audit.py` | `infrastructure/audit.py` |
-| `orchestrator/bm25_search.py` | `infrastructure/bm25_search.py` |
-| `orchestrator/caching.py` | `infrastructure/caching.py` |
-| `orchestrator/cache_optimizer.py` | `infrastructure/cache_optimizer.py` |
-| `orchestrator/semantic_cache.py` | `infrastructure/semantic_cache.py` |
-| `orchestrator/token_optimizer.py` | `infrastructure/token_optimizer.py` |
-
-> New code must import from `infrastructure/` directly. Shim deletion is deferred to a follow-up PR.
-
----
-
-## 52 Models / 15 Providers
-
-```
-FREE:       owl-alpha, deepseek-v4-flash:free, nemotron-3-nano-omni:free,
-            poolside/laguna-m.1:free, poolside/laguna-xs.2:free
-
-ULTRA-LOW ($0.01–0.09):  ling-2.6-flash, granite-4.1-8b, deepseek-v4-flash
-
-BUDGET ($0.10–0.50):     qwen-3.5-flash, qwen-3-coder-next, codestral-2508,
-                         qwen-3.6-flash, gemini-2.5-flash
-
-STANDARD ($0.50–2.00):   deepseek-reasoner, qwen-3.6-plus, kimi-k2.6,
-                         gpt-5.4-nano, gemini-2.5-pro, grok-4.20
-
-PREMIUM ($2.00+):        gpt-5, claude-sonnet-4.6, qwen-3.7-max, o3, sonar-pro
+```mermaid
+graph LR
+  A["orchestrator.__init__"] --> B["orchestrator.engine"]
+  A --> C["orchestrator.models"]
+  A --> D["orchestrator.budget"]
+  A --> E["orchestrator.api_clients"]
+  A --> F["orchestrator.cache"]
+  B --> G["orchestrator.engine_core.container"]
+  B --> H["orchestrator.engine_core.pipeline"]
+  B --> I["orchestrator.application.executor"]
+  B --> J["orchestrator.application.project_runner"]
+  B --> K["orchestrator.application.decomposer"]
+  B --> L["orchestrator.application.evaluator"]
+  B --> M["orchestrator.application.critique_cycle"]
+  B --> N["orchestrator.infrastructure.llm_client:UnifiedClient"]
+  B --> O["orchestrator.models"]
+  B --> P["orchestrator.budget"]
+  B --> Q["orchestrator.domain.ports"]
+  G --> R["External: openai>=1.30"]
+  G --> N
+  G --> S["orchestrator.domain.ports"]
+  N --> T["External: openai>=1.30"]
+  N --> F
+  N --> U["orchestrator.circuit_breaker"]
+  N --> V["orchestrator.model_registry"]
+  V --> O
+  I --> O
+  I --> N
+  J --> O
+  J --> N
+  L --> O
+  C --> D
+  C --> W["orchestrator.budget"]
+  X["orchestrator.generators.website_generator"] --> B
+  X --> Y["orchestrator.design_system"]
+  X --> O
+  Z["orchestrator.app_builder"] --> B
+  Z --> AA["orchestrator.app_detector"]
+  Z --> AB["orchestrator.scaffold"]
+  Z --> AC["orchestrator.app_assembler"]
+  Z --> AD["orchestrator.app_verifier"]
+  AE["orchestrator.design.atelier.themes"] --> AF["orchestrator.models:Genre"]
 ```
 
-**Routing components:**
-- `adaptive_router.py` — circuit breaker v2 (HEALTHY / DEGRADED / DISABLED)
-- `outcome_router.py` — outcome-weighted router using production feedback
-- `escalation.py` — auto-escalation to higher-capability models on quality failure
+**Notable import constraints** (enforced by `.importlinter:1-110`):
+- `domain/` → **NO** → `infrastructure/` — contract 1: "domain-purity"
+- `application/` → **NO** → concrete `infrastructure/` adapters — contract 2: "application-no-concrete-infra" (only uses domain ports)
+- `application/` → **NO** → `engine.py` — contract 3: "application-services-no-engine"
+- `engine-core/` → **NO** → directly to loose `infrastructure/` — contract 4: "engine-core-no-loose-infra"
 
----
+## 4. DATA FLOW — TOP 3 CRITICAL PATHS
 
-## 5-Layer Memory Architecture
+### Path 1: Website Generation
+- **Sequence:** `User CLI input` → `orchestrator/cli.py:1713:_cmd_website()` → `orchestrator/generators/website_generator.py:276:WebsiteGenerator.generate()` → `generators/website_generator.py:306:_create_section_tasks()` → `generators/website_generator.py:462:_build_section_prompt()` → `orchestrator/engine.py:_execute_task()` → `infrastructure/llm_client.py:280:UnifiedClient.call()` → `External: OpenRouter API` → `website_generator.py:316:component .tsx files written` → `website_generator.py:690:_assemble_nextjs_page()` → `Output: outputs/<project>/`
+- **State Changes:** `config.sections` iterated → per-section `Task` objects created → LLM response cached in `DiskCache` (SQLite) → each section component written to `output_dir/components/{section}.tsx` → `page.tsx` assembled with imports → `package.json` written with deps
+- **Failure Modes:**
+  - LLM auth failure → `orchestrator/api.py` raises `AuthenticationError` → `website_generator.py:372` catches and uses content-brief fallback assembly
+  - Image gen permission error (`Errno 13` on `public/` directory) → `website_generator.py:371` catches and logs, falls through to assembled project without images
+  - Circuit breaker open after 5 consecutive failures → `infrastructure/llm_client.py:131` sets `openrouter` breaker to OPEN → all subsequent calls fail instantly for 60s
+- **Observability Gap:** `orchestrator/generators/website_generator.py:371` — the `Permission denied` error during image generation is logged but not surfaced in the CLI result message. The `_cmd_website()` function (cli.py:1795) checks `result.success` or file existence but has no branch for partial failure.
 
-| Layer | Scope | Storage |
-|-------|-------|---------|
-| ProjectWorkspace | Per-project, in-memory | dict |
-| PersistentWorkspace | Cross-run crash recovery | SQLite (`state.db`) |
-| SkillStore | Cross-run skill evolution | SQLite (`trajectories.db`, `skills.db`) |
-| KnowledgeGraph | Relational task context | networkx (in-memory) |
-| AgentCache | Response deduplication | Disk (SHA-256, TTL 1h) |
+### Path 2: Code Project Build
+- **Sequence:** `CLI: python -m orchestrator --project "..."` → `orchestrator/cli.py:964:_async_new_project()` → `ProjectEnhancer.analyze()` for spec improvement → `AppBuilder.build()` → `AppDetector.detect()` infers language/framework → `Orchestrator.run_project_streaming()` → `ProjectPlanner.decompose()` → `TaskPipeline` per task → `UnifiedClient.call()` → LLM response → `ValidateStage` → `CritiqueStage` → `EvaluateStage` → `output_writer.write_output_dir()` → `organize_project_output()` generates tests
+- **State Changes:** Project state persisted via `StateManager.save_project()` (SQLite) at each milestone → task results stored in `ProjectState.results` → budget deducted per task → checkpoints saved per task
+- **Failure Modes:**
+  - Budget exceeded mid-task → `BudgetExceededError` at `engine.py:445` → task marked `FAILED`
+  - Decomposition JSON parse failure → retried once with different model (`engine.py:45` docstring)
+  - Validation failure → `PreflightStage` returns WARN/BLOCK → pipeline may retry or abort
+- **Observability Gap:** `orchestrator/cli.py:1107` — `ProgressRenderer` consumes streaming events but the raw event stream has no guaranteed delivery — if the renderer crashes, events are lost.
 
----
+### Path 3: Interactive Chat Loop
+- **Sequence:** `python -m orchestrator chat` → `orchestrator/cli.py:2435:cmd_chat()` → `application/chat_cli.py:112:run_chat()` → `ConversationAgent.start()` → interactive `input()` loop → `ConversationAgent` refines spec → user says "go" → `_launch_build()` → `Orchestrator.run_project()` → same as Path 2
+- **State Changes:** `ConversationAgent.ready` flag set to `True` when spec is complete → `accepted_enhancements` list accumulated → spec → task DAG → project state persisted
+- **Failure Modes:**
+  - OpenAI client init failure → `chat_cli.py:125` catches, `sys.exit(1)` — hard abort
+  - User EOF/Ctrl+C → `chat_cli.py:144` catches, returns cleanly
+- **Observability Gap:** `application/chat_cli.py:139-152` — all user input and agent output is printed to stdout with no logging to file. No conversation persistence.
 
-## Import Boundary Contracts
+## 5. DESIGN PATTERNS & DECISIONS
 
-```
-[importlinter:contract:domain-purity]
-  orchestrator.domain  must NOT import  orchestrator.infrastructure
-                                        orchestrator.application
-                                        orchestrator.engine_core
+| Pattern | Evidence (file:line or structural indicator) | Confidence | Rationale |
+|---------|----------------------------------------------|------------|-----------|
+| **Hexagonal Architecture (Ports & Adapters)** | `orchestrator/domain/ports.py:1-80` defines 6 `Protocol` classes; `infrastructure/llm_client.py` implements `CachePort` implicitly; `infrastructure/state.py` implements `StatePort` | CONFIRMED | Domain protocols are runtime-checkable (`@runtime_checkable`) with NullAdapter variants for testing. Concrete adapters satisfy protocols implicitly via structural subtyping — no ABC registration. |
+| **Strangler Fig (Incremental Extraction)** | `orchestrator/engine_core/pipeline.py:1`: "Strangler Fig extraction of engine.py _execute_task"; `orchestrator/application/executor.py` splits from engine | CONFIRMED | Pipeline stages are being extracted from the monolithic `engine.py` (2193 lines) into `engine_core/` and `application/` modules. The docstring on `pipeline.py` explicitly names this pattern. |
+| **Mediator Pattern** | `orchestrator/engine.py:1` docstring: "Orchestrator Engine — Core Control Loop"; `engine_core/container.py.ServiceContainer` wires 30+ collaborators | CONFIRMED | `Orchestrator` class mediates between all subsystems (task factory, pipeline, state, budget, cache, circuit breaker). CLI dispatch `main()` also acts as a Mediator for subcommands. |
+| **Pipeline (Chain of Responsibility)** | `orchestrator/engine_core/pipeline.py:30:PipelineContext` + `stages/GenerateStage`, `CritiqueStage`, `EvaluateStage`, `ValidateStage`, `PreflightStage` | CONFIRMED | `TaskPipeline` runs ordered stages, each reading/writing `PipelineContext`. Stages are pluggable and independently testable. |
+| **Circuit Breaker** | `orchestrator/circuit_breaker.py` + `infrastructure/llm_client.py:131` instantiates `CircuitBreaker(name="openrouter", failure_threshold=5, reset_timeout=60.0)` | CONFIRMED | Model-level failure tracking with automatic probe after timeout. Circuit breaker state persisted via `StatePort.save_circuit_breaker_state()`. |
+| **Events / Event Bus** | `orchestrator/domain/ports.py` defines `EventPort` protocol; `orchestrator/unified_events.py` contains `ProjectCompletedEvent`; `orchestrator/events/` directory | CONFIRMED | Unified event bus replaces 4 previous event systems. Events typed by class with `EventPort.publish()` protocol. |
+| **Strategy Pattern (Provider Routing)** | `orchestrator/models.py` defines `ROUTING_TABLE` and `TASK_PROVIDER_STRATEGIES`; `orchestrator/model_selector.py:ModelSelector` selects models per task | LIKELY | Task types route to provider/model combinations. `ProviderStrategy` dataclass controls sort order, throughput, and latency preferences. |
+| **Retry with Backoff (Tenacity)** | `pyproject.toml:38`: `tenacity>=8.2.0`; `infrastructure/llm_client.py:280` `UnifiedClient.call()` uses `run_with_resilience()` | CONFIRMED | Manifests as both tenacity retry decorators and manual retry loops. ResiliencePolicy supports fallback model chains. |
+| **Null Object Pattern** | `domain/ports.py`: `NullCache`, `NullState`, `NullEventBus`, `NullHookRegistry` | CONFIRMED | All six domain ports have NullAdapter implementations for testing. Explicitly documented in line 18: "NullAdapters for testing". |
+| **Service Container / DI** | `orchestrator/engine_core/container.py:1` `ServiceContainer` class: factory wiring 30+ collaborators | CONFIRMED | Phase 5 of MAEP: extracted from `Orchestrator.__init__`. `Orchestrator` now accepts pre-built container. |
+| **Taste-Skill (Anti-slop injection)** | `orchestrator/design/skills/image_to_code.SKILL.md` frontmatter: "Elite website image-to-code skill for Codex"; `orchestrator/design/slop_test.py` validates against 20+ anti-patterns | CONFIRMED | Generated frontend code gets prepended with design rules preventing common AI defaults (Inter-only fonts, purple-cyan gradients, centered heroes). Gated at GenerateStage. |
+| **Per-TaskType Skill Optimization** | `orchestrator/application/skill_optimizer.py`: evolves prompt via trajectory feedback; `application/skills/` directory has 7 .md files per TaskType | CONFIRMED | Each TaskType has a skill document that the optimizer evolves using trajectory data from previous executions. Edits are constrained to 150 tokens. |
 
-[importlinter:contract:application-no-concrete-infra]
-  orchestrator.application  must NOT import  orchestrator.infrastructure
+## 6. ENTITY MAP
 
-[importlinter:contract:application-services-no-engine]
-  orchestrator.application.{dashboard_bridge, git_bridge,
-                             model_health_tracker, resumption_service,
-                             project_runner, project_runner_deps}
-                           must NOT import  orchestrator.engine
+| Entity | Key Fields | Defined In | Consumed By | Persistence |
+|--------|------------|------------|-------------|-------------|
+| `Task` | `id: str`, `type: TaskType`, `prompt: str`, `dependencies: list[str]`, `target_path: str`, `acceptance_threshold: float`, `max_iterations: int`, `model: Model \| None`, `design_variant: DesignVariant \| None` | `orchestrator/models.py` (dataclass) | `engine.py`, `engine_core/pipeline.py`, `application/task_executor.py`, `application/decomposer.py` | in-memory within ProjectState; SQLite via StateManager |
+| `TaskResult` | `task_id: str`, `output: str`, `score: float`, `model: str`, `cost_usd: float`, `tokens_used: dict`, `attempts: list`, `status: TaskStatus`, `critiques: list[str]` | `orchestrator/models.py` (dataclass) | `engine.py`, `application/evaluator.py`, `output_writer.py` | SQLite via StateManager |
+| `ProjectState` | `project_id: str`, `tasks: list[Task]`, `results: list[TaskResult]`, `status: ProjectStatus`, `execution_order: list[str]`, `budget_used: float`, `created_at: float`, `metadata: dict` | `orchestrator/models.py` (dataclass) | `engine.py`, `application/project_runner.py`, `cli.py`, `state.py` | SQLite table via `StateManager` |
+| `ProjectStatus` | Enum: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`, `PAUSED` | `orchestrator/models.py` | `engine.py`, `state.py`, `cli.py` | in-memory |
+| `Budget` | `max_usd: float`, `max_time_seconds: float`, `spent_usd: float`, `soft_cap_multiplier: float`, `phase_caps: dict` | `orchestrator/budget.py` | `engine.py`, `cli.py`, `application/project_runner.py` | in-memory |
+| `Model` | Enum with 52+ OpenRouter model IDs (e.g. `GPT_5 = "openai/gpt-5"`) | `orchestrator/models.py` | `infrastructure/llm_client.py`, `model_selector.py`, `model_registry.py` | in-memory (enum) |
+| `TaskType` | Enum: `CODE_GEN`, `CODE_REVIEW`, `REASONING`, `WRITING`, `DATA_EXTRACT`, `SUMMARIZE`, `EVALUATE`, `IMAGE_GEN` | `orchestrator/models.py` | Every module — routing, prompts, skill selection | in-memory (enum) |
+| `DesignSystem` | `tone: str`, `colors: ColorTokens`, `typography: TypographyTokens`, `spacing: Spacing`, `layout: Layout`, `brand_name: str`, `industry: str` | `orchestrator/design_system.py` (dataclass) | `generators/website_generator.py`, `design/` modules | in-memory |
+| `WebsiteConfig` | `page_type: str`, `sections: list[str]`, `framework: str`, `atelier_theme: str`, `description: str`, `brand_name: str`, `dependencies: list[str]` | `orchestrator/generators/website_generator.py` (dataclass) | `WebsiteGenerator.generate()`, `_create_section_tasks()`, `_assemble_nextjs_page()` | in-memory |
+| `AtelierTheme` | `slug: str`, `genre: str`, `paper_oklch: str`, `ink_oklch: str`, `heading_font: str`, `body_font: str`, `motion_direction: str`, `accent_hue: str` | `orchestrator/design/atelier/themes.py` (dataclass) | `_build_section_prompt()`, `theme_to_prompt_context()` | in-memory (20 in `ATELIER_THEMES` dict) |
 
-[importlinter:contract:engine-core-no-loose-infra]          ← NEW (M1+M4)
-  orchestrator.engine_core.{pipeline, pipeline_runner,
-                             project_planner, state_coordinator,
-                             stages}
-                           must NOT import  orchestrator.infrastructure
-```
+## 7. RISK REGISTER
 
-Run `lint-imports` to verify. Checked in CI on every push (763 files, 4 contracts).
+| Risk | Severity | Location (file:line) | Evidence |
+|------|----------|---------------------|----------|
+| **engine.py is 2193-line God class — 50% extraction target** | CRITICAL | `orchestrator/engine.py:1-2193` | Docstring declares "Strangler Fig extraction" but the file is still 2193 lines. The `README.md:101` lists it as "Mediator facade (2,643 lines, −50% from original)" confirming it was 5,286+ lines and is only halfway extracted. |
+| **Website generator crash on image gen permission error is silent** | MEDIUM | `orchestrator/generators/website_generator.py:371` | `errno. Permission denied` during `_generate_images()` is logged at ERROR but `_cmd_website()` in `cli.py:1795` only checks `result.success` or file-exists — it never prints the image error to the user. |
+| **Orphaned CLI path — cli_website.py has --sections but main cli.py didn't** | MEDIUM | `orchestrator/cli_website.py:60-87` | `cli_website.py` supports `--sections`, `--industry`, `--company-name`, `--page-type` flags but was never wired into the main `cli.py:1819` dispatch. (Fixed in this session — now in `cli.py:1701`.) |
+| **ContentResearcher was a pure stub for non-website paths** | MEDIUM | `orchestrator/generators/website_generator.py:156-228` | `generate_content_brief()` returned hardcoded SaaS strings. The "TODO: Integrate with Nexus Search" comment at line 161 confirms this was never implemented. (Fixed in this session with LLM-powered version.) |
+| **28+ legacy modules in mypy ignore_errors** | MEDIUM | `pyproject.toml:157-211` | The mypy override list at lines 157-211 has 26+ entries with `ignore_errors = true`. The REASONIX.md explicitly says "do NOT add new code there" and "modules should be removed from it as they are typed" — no remediation plan visible. |
+| **40+ ruff rule codes ignored** | MEDIUM | `pyproject.toml:118-155` | Ruff config at lines 118-155 ignores `F401`, `F811`, `F821`, `E402`, `I001` and 40+ other rule codes. The REASONIX.md says "new code should NOT rely on these ignores" but there's no enforcement mechanism. |
+| **Browser testing dependency may be dead code** | LOW | `pyproject.toml:35` | `playwright>=1.40.0` is listed as a dependency but `orchestrator/browser_testing.py` is at the root level with no import from any core path. May be unused or conditionally imported. |
+| **Semantic cache may fail to import at runtime** | LOW | `orchestrator/engine.py:64` | `from .semantic_cache import SemanticCache` — the semantic cache exists in `infrastructure/` but the import in engine.py is a flat module import. If the flat file doesn't exist, this is a runtime ImportError. |
 
----
+## 8. UNCERTAINTY LOG
 
-## Feature Flags (`crosscutting/config.py::FeatureFlags`)
-
-All optional module imports in `engine.py` are gated by feature flags (P4-2 complete).
-
-| Flag | Env Var | Default | Effect |
-|------|---------|---------|--------|
-| `skill_optimization_enabled` | `ORCH_SKILL_OPTIMIZATION_ENABLED` | `false` | SkillOpt trajectory collection + epoch optimization |
-| `a2a_enabled` | `ORCH_A2A_ENABLED` | `true` | Agent-to-Agent protocol |
-| `accountability_enabled` | `ORCH_ACCOUNTABILITY_ENABLED` | `true` | Audit trail tracker |
-| `agent_safety_enabled` | `ORCH_AGENT_SAFETY_ENABLED` | `true` | Agent safety monitor |
-| `red_team_enabled` | `ORCH_RED_TEAM_ENABLED` | `true` | Adversarial quality checks |
-| `tdd_enabled` | `ORCH_TDD_ENABLED` | `true` | Test-first task execution |
-| `diff_generation_enabled` | `ORCH_DIFF_GENERATION_ENABLED` | `true` | Diff-based code generation |
-| `cost_optimization_enabled` | `ORCH_COST_OPTIMIZATION_ENABLED` | `true` | BatchClient / speculative gen / streaming validator |
-| `cache_optimizer_enabled` | `ORCH_CACHE_OPTIMIZER_ENABLED` | `true` | Cache optimizer |
-| `tracing_enabled` | `ORCH_TRACING_ENABLED` | `false` | OpenTelemetry tracing (needs extra deps) |
-| `audit_log` | `ORCH_AUDIT_LOG` | `true` | Audit log |
-| `bm25_search_enabled` | `ORCH_BM25_SEARCH_ENABLED` | `true` | BM25 keyword search index |
-| `memory_tier_enabled` | `ORCH_MEMORY_TIER_ENABLED` | `true` | Multi-tier memory manager |
-| `persona_enabled` | `ORCH_PERSONA_ENABLED` | `true` | Persona / role manager |
-| `session_watcher_enabled` | `ORCH_SESSION_WATCHER_ENABLED` | `true` | Session lifecycle watcher |
-| `session_lifecycle_enabled` | `ORCH_SESSION_LIFECYCLE_ENABLED` | `true` | Session lifecycle manager |
-| `task_verifier_enabled` | `ORCH_TASK_VERIFIER_ENABLED` | `true` | Task output verifier |
-| `reranker_enabled` | `ORCH_RERANKER_ENABLED` | `true` | LLM-based result reranker |
-| `token_optimizer_enabled` | `ORCH_TOKEN_OPTIMIZER_ENABLED` | `true` | Token usage optimizer |
-| `context_compression` | `ORCH_CONTEXT_COMPRESSION` | `true` | Token compression for long contexts |
-
----
-
-## Architecture Compliance History
-
-| Version | Score | Key gap closed |
-|---------|-------|----------------|
-| v6.0 (baseline) | 5.5 | — |
-| M1 — Hygiene | 5.8 | Orphan asyncio task; swallowed exceptions; wildcard re-export |
-| M2 — Container | 6.5 | Dummy fallbacks → null adapters; 7 core fields typed |
-| M3 — ProjectRunner | 7.5 | `_host` back-reference eliminated; 13 private method calls removed |
-| M4 — Stage Protocols | 7.8 | GenerateStage + CritiqueStage depend on `LLMClient` Protocol |
-| M5 — Deduplication | 8.6 | 10 duplicate root modules → backward-compat shims |
-| M6 — Tracker ownership | 8.9 | `ModelHealthTracker` owns its dicts; no shared mutable state |
-| M7 — Immutable state | **9.2** | `ResumptionService` returns new `ProjectState` via `dataclasses.replace` |
-| P4-2 — Feature flags | 9.4* | All optional imports in `engine.py` gated by `FeatureFlags` (19 flags total) |
-| M8 — Audit remediation | **7.2** | 5 CRITICALs + 8 HIGHs fixed; empirical re-score vs prior self-assessment |
-
----
-
-## Key Metrics
-
-| Metric | Value |
-|--------|-------|
-| **engine.py** | 2,672 lines (−49% from original) |
-| **Application services** | 17 extracted classes (+ ConversationAgent) |
-| **Domain protocols** | 11 typed Protocols |
-| **Import contracts** | **4** (enforced in CI) |
-| **Null adapters** | **12** (NullHookRegistry added in M2) |
-| **Structural dummies** | **0** (all replaced by M2) |
-| **`_host` back-references** | **0** (eliminated by M3) |
-| **Root duplicate modules** | **0** live duplicates (28 shims total; pending deletion) |
-| **Parallel tasks** | 3 (SQLite WAL + connection pool) |
-| **Circuit breaker** | Trips after 3 consecutive failures |
-
----
-
----
-
-## M8 — Audit Remediation (2026-05-30)
-
-Fixes applied from the 2026-05-29 principal-engineer architecture audit (empirical score: 5.8/10 → 7.2/10):
-
-| ID | Fix | Impact |
-|----|-----|--------|
-| I-1 | `asyncio.gather(return_exceptions=True)` + `asyncio.Lock` for results | Correctness — no more orphaned tasks |
-| I-2 | `asyncio.to_thread` for blocking `EventStore.append` | Correctness — event loop no longer stalls |
-| I-3 | Warning on `publish()` before `start()` | Observability |
-| I-4 | `lint-imports` added as blocking CI job | Architecture enforcement in CI |
-| I-5 | Coverage floor raised 5% → 6% | Regression safety |
-| I-6 | Remove `await` on synchronous `AgentMessageBus.publish` | Correctness |
-| H-1 | `models.py` I/O moved to lazy `__getattr__` (Rule #2 fixed) | Domain purity |
-| H-3 | `BudgetHierarchy` persists to SQLite; cross-run caps now enforced | Feature correctness |
-| H-4 | Contract 1 expanded to cover `models.py`/`exceptions`; Contract 3 covers all `application/` | Stronger enforcement |
-| H-7 | Replace raw `ValueError`/`RuntimeError` with domain exception hierarchy | Observability + retriable semantics |
-| L-1 | 18 root/subpackage full-duplicate modules converted to shims; 3 package `__init__.py` fixed | Maintenance + security |
-
-**Remaining high-priority items** (see `docs/BACKLOG.md`):
-- H-2: Extract decomposition cluster from `engine.py` (~600 lines)
-- H-5/H-6: Fully type `LLMClient` port; add `ExecutorPort`, `EvaluatorPort`, `GeneratorPort`
-- H-8: Switch `engine.py` logging to structlog
-- L-2: Centralize 146 `os.getenv` calls through `crosscutting/config.py`
-- L-3: SQLite repository abstraction (centralize schema ownership)
-- L-4: `TaskQueuePort` for horizontal scaling
-- L-5: Contract tests for real adapters (currently mock-only)
-- L-6: Unify the LLM-pipeline and role-based agent models
-
-*Last updated: 2026-05-30*  
-*Maintainer: Georgios-Chrysovalantis Chatzivantsidis*  
-*License: MIT*
+| Question | Location | Possible Interpretations | Impact if Wrong |
+|----------|----------|--------------------------|-----------------|
+| Is `orchestrator/semantic_cache.py` a flat file or a re-export? | `orchestrator/engine.py:64` import | (A) A flat module at `orchestrator/semantic_cache.py` — (B) A re-export from `orchestrator/infrastructure/semantic_cache.py` — (C) A missing file causing ImportError at runtime | If (C), `Orchestrator.__init__` will crash. The `infrastructure/semantic_cache.py` exists but engine.py imports from the flat path. |
+| How many total flat modules exist in `orchestrator/`? | `orchestrator/` directory tree | The directory_tree shows ~300+ entries but was truncated. The REASONIX.md says "300+ flat modules" | Inventory counts of "core modules" are approximate. Some root-level files may be deprecated/orphaned. |
+| Is `orchestrator/browser_testing.py` actually used? | `orchestrator/browser_testing.py` | (A) Used by a non-CLI path (IDE Backend) — (B) Dead code | If (B), it adds unnecessary dependency weight (playwright) and dead code surface. |
+| What is the `router/` directory structure? | `orchestrator/engine_core/router/` | Appeared in directory tree but wasn't explored deeply. Likely contains routing/fallback logic for model selection. | Missing from module inventory. |
+| Truncation note — analysis depth | 4 packages deprioritized: `orchestrator/engine_core/stages/`, `orchestrator/design/catalogs/`, `orchestrator/events/`, `orchestrator/plugins/` | These subpackages contain stage implementations, catalog themes, event definitions, and plugin architecture. | Stage implementations may contain pipeline logic not captured in the core PipelineContext analysis. Events may include additional event types beyond `ProjectCompletedEvent`. |
