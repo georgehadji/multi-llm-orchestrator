@@ -61,6 +61,16 @@ def generate_images(output_dir: Path, config, design_system) -> None:
         "apple-touch-icon.svg", svg_icon(180, 36, bg, site_name[0].upper()), img_dir
     )
 
+    # ── Logo (brand wordmark) ──
+    _write_svg("logo.svg", svg_logo(primary, accent, bg, text, site_name), img_dir)
+
+    # ── Section thumbnails (match site sections) ──
+    sections = getattr(config, "sections", ["hero", "features", "pricing", "testimonials"])
+    for i, section in enumerate(sections[:6]):
+        _write_svg(f"section-{section}.svg",
+                    svg_section_thumb(i, section, primary, accent, surface, text),
+                    img_dir)
+
 
 def svg_og(primary, accent, bg, text, site_name, tagline):
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
@@ -132,4 +142,33 @@ def svg_icon(size=32, radius=6, bg="#4f9eff", letter="S"):
   <rect width="{size}" height="{size}" rx="{radius}" fill="{bg}"/>
   <text x="{size // 2}" y="{int(size * 0.7)}" text-anchor="middle" font-family="system-ui,sans-serif"
         font-size="{int(size * 0.55)}" font-weight="700" fill="#fff">{letter}</text>
+</svg>'''
+
+
+def svg_logo(primary, accent, bg, text, site_name):
+    """Brand wordmark SVG — dark background compatible."""
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="512" height="128" viewBox="0 0 512 128">
+  <rect width="512" height="128" fill="{bg}"/>
+  <circle cx="48" cy="64" r="24" fill="{primary}"/>
+  <circle cx="64" cy="64" r="12" fill="{accent}" opacity="0.7"/>
+  <text x="96" y="78" font-family="system-ui,sans-serif" font-size="36" font-weight="700" fill="{text}">{site_name}</text>
+</svg>'''
+
+
+def svg_section_thumb(index, section_name, primary, accent, surface, text):
+    """Section placeholder thumbnail SVG."""
+    label = section_name.replace("-", " ").title()
+    colors = [primary, accent, "#34d399", "#fbbf24", "#f87171", "#818cf8"]
+    color = colors[index % len(colors)]
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <defs>
+    <linearGradient id="sec-grad-{index}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:{color};stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:{surface}"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" rx="12" fill="{surface}"/>
+  <rect width="600" height="400" rx="12" fill="url(#sec-grad-{index})"/>
+  <text x="300" y="200" text-anchor="middle" font-family="system-ui,sans-serif"
+        font-size="22" font-weight="600" fill="{text}" opacity="0.6">{label}</text>
 </svg>'''

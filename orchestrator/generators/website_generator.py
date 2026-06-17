@@ -153,6 +153,7 @@ class WebsiteConfig:
     description: str = ""  # User's full project description (injected into LLM prompts)
     brand_name: str = ""  # Brand/company name for metadata and prompts
     dependencies: list[str] = field(default_factory=lambda: ["react", "react-dom"])  # npm deps
+    image_quality: str = "balanced"  # "draft", "balanced", "premium"
 
 
 @dataclass
@@ -693,11 +694,12 @@ RULES:
 5. All images must have alt text. Use semantic HTML.
 6. Animations must respect prefers-reduced-motion.
 7. Mobile-first responsive design.
-8. NEVER embed API keys, secrets, or tokens in client-side code. All API calls
+8. All <img> tags MUST include loading="lazy" and decoding="async".
+9. NEVER embed API keys, secrets, or tokens in client-side code. All API calls
    requiring credentials MUST route through a backend API handler.
-9. All contact forms and registration endpoints MUST include rate limiting by
-   client IP. Include a rate-limit error state (429 Too Many Requests).
-10. If the page contains auth/registration, include email verification flow:
+10. All contact forms and registration endpoints MUST include rate limiting by
+    client IP. Include a rate-limit error state (429 Too Many Requests).
+11. If the page contains auth/registration, include email verification flow:
     send a verification token after signup before allowing login.
 
 OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. Return a plain HTML + CSS <style> block. No JavaScript framework, no JSX, no React.' if config.framework == 'html' else 'Complete React/Next.js component with Tailwind CSS. Export as default export. Include TypeScript types.'}
@@ -941,17 +943,41 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         ],
     }
 
+    # Quality-tier overrides: draft=cheapest, premium=best
+    _IMAGE_QUALITY_TIERS: dict[str, dict[str, list[str]]] = {
+        "draft": {
+            "favicon": ["sourceful/riverflow-v2-fast", "black-forest-labs/flux.2-klein-4b"],
+            "logo": ["google/gemini-2.5-flash-image", "black-forest-labs/flux.2-pro"],
+            "hero-bg": ["black-forest-labs/flux.2-klein-4b", "sourceful/riverflow-v2-fast"],
+            "og-image": ["sourceful/riverflow-v2-fast", "black-forest-labs/flux.2-klein-4b"],
+            "section": ["sourceful/riverflow-v2-fast", "black-forest-labs/flux.2-klein-4b"],
+        },
+        "premium": {
+            "favicon": ["recraft/recraft-v4-pro-vector", "google/gemini-3.1-flash-image-preview"],
+            "logo": ["google/gemini-3-pro-image-preview", "openai/gpt-5-image-mini"],
+            "hero-bg": ["google/gemini-3-pro-image-preview", "google/gemini-3.1-flash-image-preview"],
+            "og-image": ["google/gemini-3.1-flash-image-preview", "google/gemini-3-pro-image-preview"],
+            "section": ["google/gemini-2.5-flash-image", "black-forest-labs/flux.2-max"],
+        },
+    }
+
     def _select_image_model(self, image_type: str, global_model: str) -> str:
         """Select the best VFM model for an image type, falling back through the chain.
 
         If the user specified a global model, use it for everything.
-        Otherwise, pick the best VFM model for the image type.
+        Otherwise, pick the best VFM model for the image type based on quality tier.
         """
         if global_model and global_model not in ("auto", "none"):
             return global_model
 
+        # Check quality tier override first
+        quality = getattr(self, "_quality_tier", "balanced")
+        if quality in self._IMAGE_QUALITY_TIERS:
+            tier_map = self._IMAGE_QUALITY_TIERS[quality]
+            if image_type in tier_map:
+                return tier_map[image_type][0]
+
         model_list = self._IMAGE_MODEL_MAP.get(image_type, self._IMAGE_MODEL_MAP["section"])
-        # Use first available model (all OpenRouter models are always available)
         return model_list[0]
 
     async def _generate_images(self, output_dir, config, design_system) -> None:
@@ -965,6 +991,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         global_model = config.image_model
         if not global_model or global_model == "auto":
             global_model = "auto"  # triggers per-type selection
+
+        # Set quality tier for per-type model selection
+        self._quality_tier = getattr(config, "image_quality", "balanced")
 
         if global_model == "none":
             logger.info("WebsiteGenerator: image generation disabled (--image-model none)")
@@ -1097,14 +1126,20 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             ext = ".svg" if "recraft" in img_model and "vector" in img_model.lower() else ".png"
             async with semaphore:
                 try:
-                    result = await client.generate(
-                        prompt=img["prompt"],
-                        model=img_model,
-                        width=img["width"],
-                        height=img["height"],
-                        output_path=img_dir / f"{img['name']}{ext}",
+                    result = await asyncio.wait_for(
+                        client.generate(
+                            prompt=img["prompt"],
+                            model=img_model,
+                            width=img["width"],
+                            height=img["height"],
+                            output_path=img_dir / f"{img['name']}{ext}",
+                        ),
+                        timeout=20.0,
                     )
                     return (result, img["name"], img_model)
+                except asyncio.TimeoutError:
+                    logger.warning("Timeout generating %s (model=%s)", img["name"], img_model)
+                    return (None, img["name"], img_model)
                 except Exception as e:
                     logger.warning("Error generating %s: %s", img["name"], e)
                     return (None, img["name"], img_model)

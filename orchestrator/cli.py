@@ -1706,6 +1706,9 @@ def _website_subparsers(subparsers) -> None:
     wp.add_argument("--framework", "-f", default="html", choices=["html", "react", "next.js"], help="Target framework")
     wp.add_argument("--preset", default="modern", choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"], help="Design preset")
     wp.add_argument("--image-model", default="auto", help="OpenRouter image model (default: auto-select Nano Banana 2; use 'none' for SVG only)")
+    wp.add_argument("--image-quality", default="balanced",
+                    choices=["draft", "balanced", "premium"],
+                    help="Image quality tier (draft=cheapest/fastest, balanced=best VFM, premium=best quality)")
     wp.add_argument("--atelier-theme", default="", help="Atelier design theme (e.g. specimen, midnight, brutal)")
     # ── Customisation flags (Phase 1: un-hardcode) ──
     wp.add_argument("--sections", "-s", default="hero,features,pricing,testimonials,faq,cta,footer",
@@ -1759,6 +1762,7 @@ def _cmd_website(args):
         description=args.description,
         brand_name=company_name,
         dependencies=["react", "react-dom"] + extra_deps,
+        image_quality=getattr(args, "image_quality", "balanced"),
     )
     output_dir = Path(args.output_dir)
 
