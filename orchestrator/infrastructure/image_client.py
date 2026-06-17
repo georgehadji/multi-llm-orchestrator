@@ -162,6 +162,12 @@ class ImageGenClient:
                     await asyncio.sleep(2**attempt)
                     continue
 
+                if response.status_code >= 500:
+                    logger.warning("Image gen server error %d, retry %d/%d",
+                                   response.status_code, attempt + 1, MAX_RETRIES)
+                    await asyncio.sleep(2**attempt)
+                    continue
+
                 if response.status_code != 200:
                     last_error = f"HTTP {response.status_code}: {response.text[:200]}"
                     logger.error("Image gen failed: %s", last_error)
