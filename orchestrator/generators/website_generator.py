@@ -1316,11 +1316,11 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
     # ── Per-task image model selection (VFM-optimized) ────────────────────
 
-    # Best VFM model + 2 fallbacks per image type
+    # Best VFM model + 2 fallbacks per image type (no Gemini — avoid content=None bug)
     _IMAGE_MODEL_MAP: dict[str, list[str]] = {
         "favicon": [
-            "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest, simple
             "recraft/recraft-v4-vector",               # $0.08/img — SVG native
+            "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest
             "sourceful/riverflow-v2-fast",             # $0.02/img — fast
         ],
         "apple-touch-icon": [
@@ -1329,19 +1329,19 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "sourceful/riverflow-v2-fast",             # $0.02/img — fast
         ],
         "logo": [
-            "google/gemini-3.1-flash-image-preview",  # $0.50/img — best text rendering
             "recraft/recraft-v4.1-pro",               # $0.25/img — good quality
-            "google/gemini-2.5-flash-image",          # $0.30/img — cheaper alternative
+            "black-forest-labs/flux.2-pro",           # $0.03/img — high quality
+            "bytedance-seed/seedream-4.5",            # $0.04/img — good quality
         ],
         "hero-bg": [
-            "google/gemini-3.1-flash-image-preview",  # $0.50/img — best quality/cost
-            "black-forest-labs/flux.2-pro",           # $0.03/img — cheap, high quality
+            "black-forest-labs/flux.2-pro",           # $0.03/img — high quality, cheap
+            "black-forest-labs/flux.2-max",           # $0.07/img — best quality
             "bytedance-seed/seedream-4.5",            # $0.04/img — good quality
         ],
         "og-image": [
-            "google/gemini-2.5-flash-image",          # $0.30/img — good enough
-            "black-forest-labs/flux.2-max",           # $0.07/img — cheap, good quality
-            "recraft/recraft-v4.1",                   # $0.04/img — cheap
+            "black-forest-labs/flux.2-max",           # $0.07/img — best quality
+            "recraft/recraft-v4.1-pro",               # $0.25/img — good quality
+            "bytedance-seed/seedream-4.5",            # $0.04/img — cheap
         ],
         "section": [
             "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest, fast
@@ -1350,21 +1350,21 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         ],
     }
 
-    # Quality-tier overrides: draft=cheapest, premium=best
+    # Quality-tier overrides: draft=cheapest, premium=best (no Gemini)
     _IMAGE_QUALITY_TIERS: dict[str, dict[str, list[str]]] = {
         "draft": {
             "favicon": ["sourceful/riverflow-v2-fast", "black-forest-labs/flux.2-klein-4b"],
-            "logo": ["google/gemini-2.5-flash-image", "black-forest-labs/flux.2-pro"],
+            "logo": ["black-forest-labs/flux.2-pro", "sourceful/riverflow-v2-fast"],
             "hero-bg": ["black-forest-labs/flux.2-klein-4b", "sourceful/riverflow-v2-fast"],
             "og-image": ["sourceful/riverflow-v2-fast", "black-forest-labs/flux.2-klein-4b"],
             "section": ["sourceful/riverflow-v2-fast", "black-forest-labs/flux.2-klein-4b"],
         },
         "premium": {
-            "favicon": ["recraft/recraft-v4-pro-vector", "google/gemini-3.1-flash-image-preview"],
-            "logo": ["google/gemini-3-pro-image-preview", "openai/gpt-5-image-mini"],
-            "hero-bg": ["google/gemini-3-pro-image-preview", "google/gemini-3.1-flash-image-preview"],
-            "og-image": ["google/gemini-3.1-flash-image-preview", "google/gemini-3-pro-image-preview"],
-            "section": ["google/gemini-2.5-flash-image", "black-forest-labs/flux.2-max"],
+            "favicon": ["recraft/recraft-v4-pro-vector", "recraft/recraft-v4-vector"],
+            "logo": ["recraft/recraft-v4.1-pro", "black-forest-labs/flux.2-pro"],
+            "hero-bg": ["black-forest-labs/flux.2-max", "black-forest-labs/flux.2-pro"],
+            "og-image": ["black-forest-labs/flux.2-max", "bytedance-seed/seedream-4.5"],
+            "section": ["black-forest-labs/flux.2-max", "black-forest-labs/flux.2-pro"],
         },
     }
 
@@ -1404,8 +1404,14 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
         if global_model == "none":
             logger.info("WebsiteGenerator: image generation disabled (--image-model none)")
-            from .image_generator import generate_images as _svg_fallback
-            _svg_fallback(output_dir, config, design_system)
+            try:
+                (output_dir / "public" / "images").mkdir(parents=True, exist_ok=True)
+                from .image_generator import generate_images as _svg_fallback
+                _svg_fallback(output_dir, config, design_system)
+            except PermissionError:
+                logger.warning("Permission denied creating public/images — skipping SVG placeholders")
+            except Exception as e:
+                logger.warning("SVG placeholder generation failed: %s", e)
             return
 
         try:
@@ -1417,9 +1423,15 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         except Exception as e:
             logger.warning("LLM image generation failed, falling back to SVG: %s", e)
 
-        from .image_generator import generate_images as _svg_fallback
-        _svg_fallback(output_dir, config, design_system)
-        logger.info("WebsiteGenerator: generated SVG placeholder images")
+        try:
+            (output_dir / "public" / "images").mkdir(parents=True, exist_ok=True)
+            from .image_generator import generate_images as _svg_fallback
+            _svg_fallback(output_dir, config, design_system)
+            logger.info("WebsiteGenerator: generated SVG placeholder images")
+        except PermissionError:
+            logger.warning("Permission denied creating public/images — skipping SVG fallback")
+        except Exception as e:
+            logger.warning("SVG fallback failed: %s", e)
 
     async def _generate_images_llm(
         self,
