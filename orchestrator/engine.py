@@ -803,7 +803,7 @@ class Orchestrator:
         """
         from .models import TaskType as _TT
 
-        for model, profile in self._profiles.items():
+        for model, profile in self._c.planner._profiles.items():
             # Use CODE_GEN as the representative task type for global quality blending.
             # In future, per-task-type blending can be added here.
             hist = await self._telemetry_store.load_historical_profile(model, _TT.CODE_GEN)
@@ -821,92 +821,38 @@ class Orchestrator:
                 profile.quality_score = 0.4 * hist.quality_score + 0.6 * profile.quality_score
                 profile.trust_factor = 0.4 * hist.trust_factor + 0.6 * profile.trust_factor
 
+    # ── Telemetry & cleanup — delegated to TelemetrySnapshotter (extracted) ──
+
+    def _get_snapshotter(self):
+        """Lazy-init TelemetrySnapshotter."""
+        if not hasattr(self, "_snapshotter") or self._snapshotter is None:
+            from .infrastructure.telemetry_snapshotter import TelemetrySnapshotter
+
+            self._snapshotter = TelemetrySnapshotter(
+                telemetry_store=self._c.telemetry_store,
+                get_active_profiles_fn=lambda: [
+                    p for p in self._c.planner._profiles.values()
+                    if getattr(p, "call_count", 0) >= 1
+                ],
+                background_tasks=self._background_tasks,
+            )
+        return self._snapshotter
+
     async def _flush_telemetry_snapshots(self, project_id: str) -> None:
-        """
-        Fire-and-forget: snapshot each ModelProfile that was used this run.
-        Only profiles with call_count >= 1 are written.
-        Uses asyncio.create_task so the hot path is never blocked.
-
-        BUG-SHUTDOWN-001 FIX: Task is tracked for proper shutdown waiting.
-        BUG-MEMORY-002 FIX: Added exception handling in callback to prevent leaks.
-        P1-1 OPTIMIZATION: Uses cached active profiles to avoid iterating all models.
-        P2-2 OPTIMIZATION: Uses batch insert for 10x faster writes.
-        FIX-005a: Handles validation errors and logs detailed failures.
-        """
-
-        async def _write_snapshots() -> None:
-            # P2-2 OPTIMIZATION: Use batch insert instead of individual calls
-            # Collect all active profiles and insert in single transaction
-            active_profiles = self._get_active_profiles()
-            if active_profiles:
-                try:
-                    result = await self._telemetry_store.record_snapshots_batch(
-                        project_id, active_profiles
-                    )
-                    # FIX-005a: Handle validation errors
-                    if result.get("failed", 0) > 0:
-                        logger.warning(
-                            f"Telemetry batch: {result['success']} succeeded, "
-                            f"{result['failed']} failed"
-                        )
-                        for err in result.get("errors", [])[:5]:  # Log first 5 errors
-                            logger.warning(
-                                f"  - {err.get('model', 'unknown')}: {err.get('error', 'unknown')}"
-                            )
-                    else:
-                        logger.debug(
-                            f"P2-2: Batch telemetry flush complete for {len(active_profiles)} models"
-                        )
-                except Exception as exc:
-                    logger.warning(f"TelemetryStore.record_snapshots_batch failed: {exc}")
-            else:
-                logger.debug("P2-2: No active profiles to flush")
-
-        task = asyncio.create_task(_write_snapshots())
-        self._background_tasks.add(task)
-        task.add_done_callback(self._cleanup_task_callback)
+        """Snapshot active model profiles — delegates to TelemetrySnapshotter."""
+        await self._get_snapshotter().flush_snapshots(project_id)
 
     def _cleanup_task_callback(self, task: asyncio.Task) -> None:
-        """Done-callback: remove task from the strong-reference set and log failures."""
-        self._background_tasks.discard(task)
-        if task.cancelled():
-            logger.debug("Background task was cancelled")
-        elif task.exception() is not None:
-            logger.warning("Background task failed: %s", task.exception())
-        else:
-            logger.debug("Background task completed successfully")
+        """Background task done-callback — delegates to TelemetrySnapshotter."""
+        self._get_snapshotter()._cleanup_task_callback(task)
 
     async def _cleanup_background_tasks(self) -> int:
-        """Remove completed tasks from the tracking set.
-
-        Returns:
-            Number of tasks removed.
-        """
-        if not self._background_tasks:
-            return 0
-        done = {t for t in self._background_tasks if t.done()}
-        self._background_tasks -= done
-        logger.debug(
-            "Background tasks cleaned up: %d done, %d still running",
-            len(done),
-            len(self._background_tasks),
-        )
-        return len(done)
+        """Remove completed tasks — delegates to TelemetrySnapshotter."""
+        return await self._get_snapshotter().cleanup_done_tasks()
 
     async def _start_periodic_cleanup(self, interval_seconds: int = 300) -> None:
-        """Start periodic cleanup timer for completed background tasks.
-
-        Args:
-            interval_seconds: How often to run cleanup (default: 5 minutes)
-        """
-
-        async def _cleanup_loop():
-            while True:
-                await asyncio.sleep(interval_seconds)
-                await self._cleanup_background_tasks()
-
-        self._cleanup_timer = asyncio.create_task(_cleanup_loop())
-        logger.info("Started periodic cleanup timer (interval=%ds)", interval_seconds)
+        """Start periodic cleanup timer — delegates to TelemetrySnapshotter."""
+        self._get_snapshotter().start_periodic_cleanup(interval_seconds)
 
     async def _safe_record_routing_event(
         self,
@@ -915,11 +861,8 @@ class Orchestrator:
         task_type: TaskType,
         result: TaskResult,
     ) -> None:
-        """Fire-and-forget wrapper: record a routing event, swallowing exceptions."""
-        try:
-            await self._telemetry_store.record_routing_event(project_id, task_id, task_type, result)
-        except Exception as exc:
-            logger.warning("TelemetryStore.record_routing_event failed: %s", exc)
+        """Record routing event — delegates to TelemetrySnapshotter."""
+        await self._get_snapshotter().record_routing_event(project_id, task_id, task_type, result)
 
     async def _load_circuit_breaker_state(self) -> None:
         """Restore circuit breaker failure counts from the previous run (P1-4)."""
@@ -1351,7 +1294,7 @@ class Orchestrator:
     def _build_metrics_dict(self) -> dict:
         """Build a per-model metrics dict from live ModelProfile data."""
         result: dict = {}
-        for model, profile in self._profiles.items():
+        for model, profile in self._c.planner._profiles.items():
             result[model.value] = {
                 "call_count": profile.call_count,
                 "failure_count": profile.failure_count,
