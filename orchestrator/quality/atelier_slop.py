@@ -55,12 +55,12 @@ _STRUCTURE_GATES = {
         "Feature section as 3 even columns",
     ),
     "single_cta_hero": (
-        r'<button.*>.*(?:Get\s+Started|Sign\s+Up|Learn\s+More).*</button>',
+        r'(?:<button|<a\s+[^>]*class="[^"]*btn[^"]*")\s*[^>]*>(?:Get\s+Started|Sign\s+Up|Learn\s+More)',
         "Hero CTA uses generic 'Get Started' or 'Sign Up'",
     ),
     "no_section_rhythm": (
-        r'(?:<section|<div\s+class="[^"]*section)',
-        "Sections lack distinct structural rhythm",
+        r'(?!.*(?:<section|<div\s+class="[^"]*"))',
+        "No semantic sections or div containers — page has no structure",
     ),
     "all_same_height_sections": (
         r'min-height\s*:\s*100vh',
@@ -78,13 +78,13 @@ _TYPOGRAPHY_GATES = {
         r'(?:font-size\s*:\s*(?:14|16)px|text-(?:sm|base|lg))\s*[;}]',
         "Font sizes are clustered at 14px/16px with nothing between",
     ),
-    "no_heading_weight_contrast": (
-        r'(?:h1|h2|h3).*font-weight\s*:\s*(?:700|bold)',
-        "All headings use the same weight — no contrast",
+    "heading_weight_monoculture": (
+        r'font-weight\s*:\s*700[^;]*;\s*\n\s*(?:h2|h3)',
+        "Likely heading weight monoculture — all headings appear to use 700",
     ),
     "no_display_text": (
-        r'(?:font-size\s*:\s*(?:48|56|64|72)px)',
-        "No display-scale typography (48px+ headings)",
+        r'(?!.*(?:font-size\s*:\s*(?:48|56|64|72)px|text-[4-8]xl))',
+        "No display-scale typography (48px+ headings) — page lacks visual anchor",
     ),
 }
 
