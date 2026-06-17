@@ -1705,7 +1705,7 @@ def _website_subparsers(subparsers) -> None:
     wp.add_argument("--output-dir", "-o", default="outputs/website", help="Output directory")
     wp.add_argument("--framework", "-f", default="html", choices=["html", "react", "next.js"], help="Target framework")
     wp.add_argument("--preset", default="modern", choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"], help="Design preset")
-    wp.add_argument("--image-model", default="", help="OpenRouter image model")
+    wp.add_argument("--image-model", default="auto", help="OpenRouter image model (default: auto-select Nano Banana 2; use 'none' for SVG only)")
     wp.add_argument("--atelier-theme", default="", help="Atelier design theme (e.g. specimen, midnight, brutal)")
     # ── Customisation flags (Phase 1: un-hardcode) ──
     wp.add_argument("--sections", "-s", default="hero,features,pricing,testimonials,faq,cta,footer",
