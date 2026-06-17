@@ -319,6 +319,111 @@ class BudgetEnforcer:
 
         logger.info("Budget session reset")
 
+    @staticmethod
+    def should_exit_early(
+        scores_history: list[float],
+        threshold: float,
+        confidence_window: int = 2,
+        variance_tolerance: float = 0.001,
+    ) -> bool:
+        """
+        Determine if execution should exit early based on stable high performance.
+
+        Exit early if recent scores are above threshold with low variance,
+        saving budget on tasks that have already achieved stable results.
+        """
+        if len(scores_history) < confidence_window:
+            return False
+
+        recent = scores_history[-confidence_window:]
+        avg_score = sum(recent) / len(recent)
+
+        if avg_score < threshold * 0.95:
+            return False
+
+        variance = sum((s - avg_score) ** 2 for s in recent) / len(recent)
+        return variance < variance_tolerance
+
+    @staticmethod
+    def enforce_hierarchy_job(
+        budget_hierarchy: "BudgetHierarchy | None",
+        job_id: str,
+        team: str,
+        estimated_cost: float,
+        actual_cost: float | None = None,
+    ) -> bool:
+        """
+        Enforce budget hierarchy for a job (pre-flight check + charge).
+
+        Args:
+            budget_hierarchy: The budget hierarchy instance, or None.
+            job_id: Job identifier.
+            team: Team identifier.
+            estimated_cost: Estimated cost for pre-flight check.
+            actual_cost: Actual cost to charge (if None, only checks).
+
+        Returns:
+            True if allowed, False if budget hierarchy would be exceeded.
+
+        Raises:
+            BudgetExceededError: If pre-flight check fails.
+        """
+        if budget_hierarchy is None:
+            return True
+
+        if actual_cost is None:
+            # Pre-flight check
+            if not budget_hierarchy.can_afford_job(job_id, team, estimated_cost):
+                raise BudgetExceededError(
+                    spent=budget_hierarchy._org_spent,
+                    limit=budget_hierarchy._org_max,
+                    details={"job_id": job_id, "team": team, "estimated_usd": estimated_cost},
+                )
+            return True
+        else:
+            # Charge actual cost
+            budget_hierarchy.charge_job(job_id, team, actual_cost)
+            return True
+
+    @staticmethod
+    def check_phase_cap(
+        budget: "Budget",
+        phase: str,
+        logger: logging.Logger,
+        hook_registry: Any = None,
+    ) -> None:
+        """
+        Check phase budget against soft/hard caps and log warnings.
+
+        Warns at 1x phase soft cap, errors at 2x phase soft cap.
+        Does NOT halt execution — phase caps are advisory.
+        """
+        from ..events import EventType as _EventType
+
+        spent = budget.phase_spent.get(phase, 0.0)
+        cap = budget.phase_budget(phase) if hasattr(budget, 'phase_budget') else 0.0
+        if cap <= 0:
+            return
+        ratio = spent / cap
+        if ratio >= 2.0:
+            logger.error(
+                f"Phase '{phase}' spent ${spent:.4f} — "
+                f"{ratio:.1f}x its soft cap of ${cap:.4f}. "
+                f"Consider raising --budget or reducing task count."
+            )
+        elif ratio >= 1.0:
+            logger.warning(
+                f"Phase '{phase}' exceeded soft cap: ${spent:.4f} / ${cap:.4f} ({ratio:.0%})"
+            )
+            if hook_registry is not None:
+                hook_registry.fire(
+                    _EventType.BUDGET_WARNING,
+                    phase=phase,
+                    spent=spent,
+                    cap=cap,
+                    ratio=ratio,
+                )
+
     def should_halt(self) -> bool:
         """
         Check if execution should halt due to budget constraints.

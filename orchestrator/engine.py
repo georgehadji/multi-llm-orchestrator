@@ -1409,29 +1409,28 @@ class Orchestrator:
         # Extract once; both the pre-flight check and charge path need them.
         job_id = getattr(spec, "job_id", "") or ""
         team = getattr(spec, "team", "") or ""
-        # BudgetHierarchy pre-flight check (Improvement 6)
-        if self._c.budget_hierarchy is not None:
-            if not self._c.budget_hierarchy.can_afford_job(job_id, team, spec.budget.max_usd):
-                raise BudgetExceededError(
-                    spent=self._c.budget_hierarchy._org_spent,
-                    limit=self._c.budget_hierarchy._org_max,
-                    details={"job_id": job_id, "team": team, "estimated_usd": spec.budget.max_usd},
-                )
+        # BudgetHierarchy pre-flight check via BudgetEnforcer
+        from .application.budget_enforcer import BudgetEnforcer
+
+        BudgetEnforcer.enforce_hierarchy_job(
+            self._c.budget_hierarchy, job_id, team, spec.budget.max_usd
+        )
         try:
             state = await self.run_project(
                 project_description=spec.project_description,
                 success_criteria=spec.success_criteria,
             )
         except Exception:
-            # BUG-001 FIX: release the reservation made by can_afford_job() so the
-            # org/team budget is not permanently locked when run_project() fails.
+            # BUG-001 FIX: release reservation on failure
             if self._c.budget_hierarchy is not None:
                 self._c.budget_hierarchy.release_reservation(job_id, team)
             raise
-        # Charge actual spend to BudgetHierarchy so cross-run caps are enforced.
+        # Charge actual spend to BudgetHierarchy
         if self._c.budget_hierarchy is not None:
             actual_spend = self.budget.max_usd - self.budget.remaining_usd
-            self._c.budget_hierarchy.charge_job(job_id, team, actual_spend)
+            BudgetEnforcer.enforce_hierarchy_job(
+                self._c.budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
+            )
         # Persist telemetry snapshots for all models used this run (fire-and-forget)
         job_id = getattr(spec, "job_id", "") or self._project_id
         await self._flush_telemetry_snapshots(job_id)
@@ -1539,34 +1538,10 @@ class Orchestrator:
     # ─────────────────────────────────────────
 
     def _check_phase_budget(self, phase: str) -> None:
-        """
-        Warn when a phase exceeds its soft cap, and log an error when it
-        reaches 2× the soft cap (runaway spend in one phase).
-        The caps are soft — execution is not halted, but the warnings are
-        visible in logs and can be acted upon by the operator.
-        """
-        spent = self.budget.phase_spent.get(phase, 0.0)
-        cap = self.budget.phase_budget(phase)
-        if cap <= 0:
-            return
-        ratio = spent / cap
-        if ratio >= 2.0:
-            logger.error(
-                f"Phase '{phase}' spent ${spent:.4f} — "
-                f"{ratio:.1f}× its soft cap of ${cap:.4f}. "
-                f"Consider raising --budget or reducing task count."
-            )
-        elif ratio >= 1.0:
-            logger.warning(
-                f"Phase '{phase}' exceeded soft cap: " f"${spent:.4f} / ${cap:.4f} ({ratio:.0%})"
-            )
-            self._hook_registry.fire(
-                EventType.BUDGET_WARNING,
-                phase=phase,
-                spent=spent,
-                cap=cap,
-                ratio=ratio,
-            )
+        """Check phase budget caps via BudgetEnforcer."""
+        from .application.budget_enforcer import BudgetEnforcer
+
+        BudgetEnforcer.check_phase_cap(self.budget, phase, logger, self._hook_registry)
 
     async def _execute_all(
         self,
@@ -1724,88 +1699,35 @@ class Orchestrator:
         return result
 
     async def _build_skill_prefix(self, task: Task) -> str:
-        """Build combined skill prefix from SkillOpt + taste-skill."""
-        prefix = ""
-        if self._skill_manager is not None:
-            try:
-                prefix = await self._skill_manager.best_skill(task.type) or ""
-            except Exception:
-                pass
-        try:
-            taste = self._taste_skill_service.build_prefix(task)
-            if taste:
-                prefix = f"{taste}\n\n{prefix}".strip()
-        except Exception:
-            pass
-        return prefix
+        """Build combined skill prefix — delegates to TaskContextEnricher."""
+        enricher = self._get_enricher()
+        return await enricher.build_prefix(task)
 
     async def _enrich_with_visual_context(self, task: Task) -> Task:
-        """Optionally enrich task prompt with image-reference visual context."""
-        try:
-            from .crosscutting.config import flags as _ts_flags2
-            from .design.frontend_detect import is_web_frontend_task as _is_fe2
-
-            if (
-                getattr(_ts_flags2, "image_reference_pipeline", False)
-                and _is_fe2(task.prompt, getattr(task, "target_path", ""))
-            ):
-                import dataclasses as _dc
-                from .design.image_reference_pipeline import ImageReferencePipeline as _IRP
-                from .design.taste_skill_loader import get_default_loader as _get_loader
-
-                _irp = _IRP(loader=_get_loader(), client=self._c.client, flags=_ts_flags2)
-                _visual_ctx = await _irp.build_visual_context(task)
-                if _visual_ctx:
-                    task = _dc.replace(task, prompt=f"{task.prompt}\n\n{_visual_ctx}")
-        except Exception:
-            pass
-        return task
+        """Enrich task with visual context — delegates to TaskContextEnricher."""
+        enricher = self._get_enricher()
+        return await enricher.enrich_with_visual_context(task)
 
     def _check_anti_slop(self, task: Task, ctx: Any) -> None:
-        """Soft anti-slop WARN check for frontend tasks."""
-        try:
-            from .crosscutting.config import flags as _ts_flags
-            from .design.frontend_detect import is_web_frontend_task as _is_frontend
-
-            if (
-                getattr(_ts_flags, "taste_skill_enabled", False)
-                and _is_frontend(task.prompt, getattr(task, "target_path", ""))
-                and ctx.output
-                and not getattr(task, "target_path", "").startswith("components/")
-            ):
-                from .quality.design_validators import validate_anti_slop as _anti_slop
-                _slop_result = _anti_slop(ctx.output)
-                if not _slop_result.passed:
-                    logger.warning("taste-skill anti_slop [%s]: %s", task.id, _slop_result.details)
-        except Exception:
-            pass
+        """Soft anti-slop WARN check — delegates to TaskContextEnricher."""
+        enricher = self._get_enricher()
+        enricher.check_anti_slop(task, ctx)
 
     async def _record_trajectory(self, task: Task, ctx: Any) -> None:
-        """Record SkillOpt trajectory (fire-and-forget with reference storage)."""
-        if self._skill_manager is None:
-            return
-        try:
-            import time as _time
-            from .models_skill import Trajectory as _Trajectory
+        """Record SkillOpt trajectory — delegates to TaskContextEnricher."""
+        enricher = self._get_enricher()
+        await enricher.record_trajectory(task, ctx, self._background_tasks)
 
-            _t = _Trajectory(
-                task_id=task.id,
-                task_type=task.type,
-                prompt=task.prompt[:2000],
-                output=ctx.output[:4000],
-                score=ctx.score,
-                critique_text=ctx.critique[:1000] if ctx.critique else "",
-                model_used=ctx.model.value if ctx.model else "",
-                cost_usd=ctx.cost_usd,
-                recorded_at=_time.time(),
+    def _get_enricher(self):
+        """Lazy-init TaskContextEnricher for backward compatibility."""
+        if not hasattr(self, "_ctx_enricher") or self._ctx_enricher is None:
+            from .engine_core.stages.context_enricher import TaskContextEnricher
+            self._ctx_enricher = TaskContextEnricher(
+                skill_manager=self._skill_manager,
+                taste_skill_service=self._taste_skill_service,
+                client=self._c.client,
             )
-            _task = asyncio.create_task(self._skill_manager.record_trajectory(_t))
-            self._background_tasks.add(_task)
-            _task.add_done_callback(self._background_tasks.discard)
-        except Exception as _e:
-            logger.debug("SkillOpt trajectory skipped: %s", _e)
-
-        return result
+        return self._ctx_enricher
 
     async def _evaluate(self, task: Task, output: str) -> float:
         """Evaluate task quality via EvaluatorService (wired through container)."""
@@ -1844,37 +1766,12 @@ class Orchestrator:
         confidence_window: int = 2,
         variance_tolerance: float = 0.001,
     ) -> bool:
-        """
-        Determine if we should exit early based on stable high performance.
+        """Determine if execution should exit early — delegates to BudgetEnforcer."""
+        from .application.budget_enforcer import BudgetEnforcer
 
-        Exit early if we've seen threshold-level scores with low variance
-        across the confidence_window most recent iterations. This saves
-        budget on tasks that have already achieved stable good results.
-
-        Args:
-            scores_history: List of scores from previous iterations
-            threshold: Acceptance threshold for the task
-            confidence_window: Number of recent iterations to check (default: 2)
-            variance_tolerance: Maximum variance to consider "stable" (default: 0.001)
-
-        Returns:
-            True if early exit should occur, False otherwise
-        """
-        if len(scores_history) < confidence_window:
-            return False
-
-        recent = scores_history[-confidence_window:]
-        avg_score = sum(recent) / len(recent)
-
-        # Only consider early exit if average is near or above threshold
-        if avg_score < threshold * 0.95:
-            return False
-
-        # Calculate variance
-        variance = sum((s - avg_score) ** 2 for s in recent) / len(recent)
-
-        # Exit if performance is high and stable
-        return variance < variance_tolerance
+        return BudgetEnforcer.should_exit_early(
+            scores_history, threshold, confidence_window, variance_tolerance
+        )
 
     # ─────────────────────────────────────────
     # Model selection & fallback
@@ -2001,64 +1898,22 @@ class Orchestrator:
     async def _analyze_completed_project(self, state: ProjectState, output_dir: Path):
         """
         Analyze completed project and generate improvement suggestions.
-
-        This runs automatically after project completion if _analyze_on_complete=True.
-        Results are stored in the Knowledge Base and printed to console.
+        Delegates to ProjectAnalyzer — extracted output formatting lives there.
         """
         try:
             from .project_analyzer import ProjectAnalyzer
 
-            logger.info("🔍 Running post-project analysis...")
-
+            logger.info("Running post-project analysis...")
             analyzer = ProjectAnalyzer()
             report = await analyzer.analyze_project(
                 project_path=output_dir, project_id=state.project_id, run_quality_gate=True
             )
-
-            # Print summary
             summary = analyzer.generate_summary(report)
             logger.info("\n" + summary)
-
-            # Save report to file
-            report_file = output_dir / "analysis_report.json"
-            with open(report_file, "w", encoding="utf-8") as f:
-                json.dump(report.to_dict(), f, indent=2, default=str)
-            logger.info(f"📊 Analysis report saved to: {report_file}")
-
-            # Print actionable suggestions
-            if report.suggestions:
-                print("\n" + "=" * 70)
-                print("💡 IMPROVEMENT SUGGESTIONS")
-                print("=" * 70)
-
-                for suggestion in report.suggestions[:5]:  # Top 5
-                    priority_icon = {
-                        "critical": "🔴",
-                        "high": "🟠",
-                        "medium": "🟡",
-                        "low": "🔵",
-                    }.get(suggestion.priority.value, "⚪")
-
-                    print(
-                        f"\n{priority_icon} [{suggestion.priority.value.upper()}] {suggestion.title}"
-                    )
-                    print(f"   Category: {suggestion.category.value}")
-                    print(f"   Effort: {suggestion.estimated_effort}")
-                    print(f"   Impact: {suggestion.expected_impact}")
-                    print(f"   {suggestion.description[:100]}...")
-
-                    if suggestion.code_example:
-                        print("\n   Example:")
-                        for line in suggestion.code_example.strip().split("\n")[:3]:
-                            print(f"     {line}")
-
-                print("\n" + "=" * 70)
-                print(f"💾 {len(report.suggestions)} suggestions stored in Knowledge Base")
-                print("=" * 70)
-
+            analyzer.save_report(report, output_dir)
+            analyzer.print_suggestions(report)
         except Exception as e:
             logger.warning(f"Project analysis failed: {e}")
-            # Don't fail the project if analysis fails
 
     async def _generate_architecture_rules(
         self, project_description: str, success_criteria: str, output_dir: Path | None
