@@ -21,6 +21,9 @@ python -m orchestrator --project "Build a FastAPI todo app" --budget 2.0
 ### Other Commands
 
 ```bash
+# Generate a website (design-system-driven, any page type)
+python -m orchestrator website -d "A modern SaaS landing page" --framework next.js
+
 # Plan only (no execution)
 python -m orchestrator --project "Build a REST API" --criteria "All tests pass" --dry-run
 
@@ -51,6 +54,7 @@ python -m orchestrator slash
 
 | Capability | What It Does |
 |------------|-------------|
+| **Website Generator** | Design-system-driven site builder — any page type, 3D/WebGL support, 20 curated themes, LLM-powered content |
 | **9 Specialized Agents** | Architect, Developer, Reviewer, Tester, DevOps, Researcher, PM, QA, User |
 | **52 LLMs / 15 Providers** | GPT-5, Claude Sonnet 4.6, Gemini, DeepSeek, Qwen, Grok, and more |
 | **SkillOpt** | Self-improving per-TaskType skill documents — optimizer LLM evolves prompts via trajectory feedback |
@@ -125,6 +129,169 @@ ORCH_IMAGE_REFERENCE_PIPELINE=true \
 3. **Validator stage**: Anti-slop pattern detector (soft WARN-only, logs generic patterns found but never blocks)
 
 taste-skill is **always optional** — disabled flag or non-frontend task → no overhead.
+
+---
+
+## Website Generator — Design-System-Driven Site Builder
+
+The orchestrator includes a **universal website generator** that produces complete, production-ready sites using LLM-powered content generation and a curated design system. It supports any page type — landing pages, SaaS, portfolios, agency sites, editorial, ecommerce — with optional 3D/WebGL and animation library support.
+
+### Quick Start
+
+```bash
+# SaaS landing page (default sections)
+python -m orchestrator website -d "A modern task management SaaS" --output-dir ./outputs/my-saas
+
+# Ad agency portfolio with 3D effects
+python -m orchestrator website \
+  -d "Bold LA ad agency with immersive brand experiences, dark neon aesthetic" \
+  --company-name "NEONVOID" \
+  --industry advertising \
+  --page-type agency \
+  --sections "hero,work,services,about,clients,contact" \
+  --framework next.js \
+  --preset luxury \
+  --atelier-theme midnight \
+  --3d \
+  --output-dir ./outputs/neonvoid
+
+# Editorial magazine with minimal design
+python -m orchestrator website \
+  -d "Long-form journalism publication with typography-forward layout" \
+  --company-name "The Interval" \
+  --industry publishing \
+  --page-type editorial \
+  --sections "hero,featured,articles,newsletter,footer" \
+  --framework html \
+  --preset minimalist \
+  --output-dir ./outputs/the-interval
+```
+
+### CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--description`, `-d` | *(required)* | Website description — drives content, tone, and imagery |
+| `--company-name` | inferred | Brand/company name for metadata and content |
+| `--industry` | `technology` | Industry for content research (advertising, fashion, publishing, etc.) |
+| `--page-type` | `landing` | `landing`, `saas`, `portfolio`, `ecommerce`, `agency`, `editorial`, `custom` |
+| `--sections`, `-s` | `hero,features,pricing,testimonials,faq,cta,footer` | Comma-separated section names |
+| `--framework`, `-f` | `html` | `html`, `react`, `next.js` |
+| `--preset` | `modern` | Design tone: `modern`, `minimalist`, `playful`, `corporate`, `luxury`, `tech` |
+| `--atelier-theme` | *(none)* | Curated theme: `specimen`, `midnight`, `brutal`, `manifesto`, `riso`, and 15 more |
+| `--image-model` | *(none)* | OpenRouter image model ID; empty = SVG placeholders |
+| `--3d` | off | Shorthand for `--deps three,@react-three/fiber,@react-three/drei` |
+| `--deps` | *(none)* | Extra npm packages (e.g. `gsap,swiper,lenis`) |
+| `--output-dir`, `-o` | `outputs/website` | Output directory |
+
+### Pipeline
+
+```
+User description
+       │
+       ▼
+ContentResearcher (LLM-powered) → industry-specific content brief
+       │                          (headlines, CTAs, FAQs, testimonials, pain points)
+       ▼
+DesignSystem + Atelier Theme → color tokens, typography, spacing, motion
+       │
+       ▼
+Section Tasks (parallel LLM) → each section gets a tailored prompt with:
+       │                        - PROJECT BRIEF (brand, industry, description)
+       │                        - Section-type guidance (hero→dramatic, work→portfolio, about→story)
+       │                        - Library awareness (3D deps → "use Three.js/R3F")
+       │                        - Atelier design rules (color discipline, typography hierarchy)
+       ▼
+Assembly → framework-specific page (Next.js + Tailwind, React, or vanilla HTML)
+       │    - Data-driven metadata (brand name, page type, description)
+       │    - page_type-aware JSON-LD (Organization, CreativeWork, SoftwareApplication)
+       │    - Security headers, OG tags, sitemap, robots.txt
+       │    - Custom npm dependencies merged into package.json
+       │    - 3D-compatible CSP (worker-src blob:, unsafe-eval)
+       ▼
+Image Generation → description-aware hero/OG/section images (LLM or SVG fallback)
+       │
+       ▼
+Quality Validation → Lighthouse score, WCAG level, SEO score
+```
+
+### Supported Section Types
+
+Each section name maps to type-specific LLM guidance:
+
+| Section | Guidance |
+|---------|----------|
+| `hero` | Dramatic above-the-fold, bold typography, strong CTA, optional 3D/particle bg |
+| `work`, `portfolio` | Project showcase with hover effects, masonry/horizontal scroll, category filters |
+| `services` | Service cards with icons, descriptions, pricing tiers |
+| `about` | Brand story, mission, team photos, timeline — NOT a contact form |
+| `clients` | Logo grid or marquee, grayscale-to-color hover, trust indicators |
+| `contact` | Form with validation, rate limiting, map embed, optional 3D globe |
+| `team` | Member cards with hover bios, carousel or 3D depth layout |
+| `testimonials` | Quote cards with avatars, carousel or masonry |
+| `features` | Capability grid with icons, bento or alternating rows |
+| `pricing` | Tier comparison cards, feature checkmarks, highlighted tier |
+| `faq` | Accordion with smooth expand/collapse, category grouping |
+| `cta` | Strong call-to-action, dramatic background, primary button |
+| `footer` | Multi-column sitemap, social links, newsletter, copyright |
+| *unrecognized* | Falls back to page-type-aware generic layout |
+
+### 3D / Animation Library Support
+
+When `--3d` or `--deps` specifies 3D/animation libraries, the generator:
+
+- **Adds them to `package.json`** — `three`, `@react-three/fiber`, `@react-three/drei`, `gsap`, etc.
+- **Updates CSP** — `worker-src blob:` and `script-src 'unsafe-eval'` for Three.js workers
+- **Guides the LLM** — prompts include available library names and encourage their use: "You CAN use these for immersive effects: Three.js scenes, 3D models, particle systems, post-processing. Include all necessary imports. Use 'use client' directive."
+- **Sets `"use client"` directive** — required for R3F and browser API components
+
+### Atelier Themes (20 curated design directions)
+
+| Theme | Genre | Vibe |
+|-------|-------|------|
+| `specimen` | Editorial | High-contrast serif headings, newspaper grid |
+| `midnight` | Modern Minimal | Dark mode, cool blue, geometric minimalism |
+| `brutal` | Brutal | Raw contrast, condensed bold, no decoration |
+| `manifesto` | Brutal | Dark, red accent, condensed power |
+| `riso` | Playful | Risograph print, misregistration, neon accents |
+| `craft` | Artisanal | Warm tones, serif display, process-forward |
+| `almanac` | Editorial | Journalistic, newspaper masthead, serif-only |
+| `catalog` | Editorial | Typographic hierarchy, numbered sections |
+| …plus 12 more | | |
+
+### Content Generation Modes
+
+| Mode | Trigger | Behavior |
+|------|---------|----------|
+| **LLM-powered** | Engine available (default) | ContentResearcher calls LLM for industry-specific headlines, CTAs, FAQs, testimonials |
+| **Template fallback** | No engine or LLM fails | Industry-aware templates with expanded section coverage (work, about, clients, etc.) |
+| **Content-brief only** | LLM sections fail | Assembles directly from content brief without per-section LLM generation |
+
+### Generated Output Structure
+
+```
+outputs/<project>/
+  app/
+    layout.tsx          ← brand-aware metadata, OG tags, JSON-LD, security headers
+    page.tsx            ← imports all section components
+    globals.css         ← design system CSS custom properties
+    robots.ts           ← dynamic sitemap URL
+    sitemap.ts          ← canonical URL
+  components/
+    hero.tsx            ← LLM-generated section components
+    work.tsx
+    services.tsx
+    about.tsx
+    clients.tsx
+    contact.tsx
+  public/
+    images/             ← generated or SVG placeholder images
+    og-image.html       ← static OG fallback
+  package.json          ← base deps + custom 3D/animation deps
+  next.config.js        ← security headers + 3D-compatible CSP
+  tsconfig.json
+  .gitignore
+```
 
 ---
 

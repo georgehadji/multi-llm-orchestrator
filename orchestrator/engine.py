@@ -641,126 +641,7 @@ class Orchestrator:
     # Accessory Services (Lazy Properties)
     # ─────────────────────────────────────────
 
-    @property
-    def _token_optimizer(self) -> Any:
-        return self._c.token_optimizer
-
-    @property
-    def _session_watcher(self) -> Any:
-        return self._c.session_watcher
-
-    @property
-    def _persona_manager(self) -> Any:
-        return self._c.persona_manager
-
-    @property
-    def _a2a_manager(self) -> Any:
-        return self._c.a2a_manager
-
-    @property
-    def _red_team(self) -> Any:
-        return self._c.red_team
-
-    @property
-    def _rate_limiter(self) -> Any:
-        return self._c.rate_limiter
-
-    @property
-    def _lifecycle_manager(self) -> Any:
-        return self._c.lifecycle_manager
-
-    @property
-    def _memory_manager(self) -> Any:
-        return self._c.memory_manager
-
-    @property
-    def _bm25_search(self) -> Any:
-        return self._c.bm25_search
-
-    @property
-    def _reranker(self) -> Any:
-        return self._c.reranker
-
-    @property
-    def _knowledge_base(self) -> Any:
-        return self._c.knowledge_base
-
-    @property
-    def _hybrid_pipeline(self) -> Any:
-        return self._c.hybrid_pipeline
-
-    @property
-    def _query_expander(self) -> Any:
-        return self._c.query_expander
-
-    @property
-    def _task_verifier(self) -> Any:
-        return self._c.task_verifier
-
-    @property
-    def _accountability(self) -> Any:
-        return self._c.accountability
-
-    @property
-    def _agent_safety(self) -> Any:
-        return self._c.agent_safety
-
-    @property
-    def _tool_guardrails(self) -> Any:
-        return self._c.tool_guardrails
-
-    @property
-    def _cache_optimizer(self) -> Any:
-        return self._c.cache_optimizer
-
-    @property
-    def _prompt_cacher(self) -> Any:
-        return self._c.prompt_cacher
-
-    @property
-    def _budget_hierarchy(self) -> Any:
-        """BudgetHierarchy from the container (used by run_job)."""
-        return self._c.budget_hierarchy
-
-    @property
-    def _batch_client(self) -> Any:
-        return self._c.batch_client
-
-    @property
-    def _token_budget(self) -> Any:
-        return self._c.token_budget
-
-    @property
-    def _model_cascader(self) -> Any:
-        return self._c.model_cascader
-
-    @property
-    def _speculative_gen(self) -> Any:
-        return self._c.speculative_gen
-
-    @property
-    def _streaming_validator(self) -> Any:
-        return self._c.streaming_validator
-
-    @property
-    def _dependency_injector(self) -> Any:
-        return self._c.dependency_injector
-
-    @property
-    def _adaptive_temp(self) -> Any:
-        return self._c.adaptive_temp
-
-    @property
-    def _tdd_generator(self) -> Any:
-        return self._c.tdd_generator
-
-    @property
-    def _diff_generator(self) -> Any:
-        return self._c.diff_generator
-
-    @property
-    def _eval_dataset(self) -> Any:
-        return self._c.eval_dataset
+    # ── Lazy-init properties removed (Cluster 5) — access via self._c.X directly ──
 
     # ─────────────────────────────────────────
     # Health Check (P2-3)
@@ -1114,22 +995,22 @@ class Orchestrator:
     @property
     def task_verifier(self) -> TaskVerifier:
         """Access TaskVerifier for task completion verification."""
-        return self._task_verifier
+        return self._c.task_verifier
 
     @property
     def accountability(self) -> AccountabilityTracker:
         """Access AccountabilityTracker for action attribution."""
-        return self._accountability
+        return self._c.accountability
 
     @property
     def agent_safety(self) -> AgentSafetyMonitor:
         """Access AgentSafetyMonitor for cross-agent safety."""
-        return self._agent_safety
+        return self._c.agent_safety
 
     @property
     def red_team(self) -> RedTeamFramework:
         """Access RedTeamFramework for stress testing."""
-        return self._red_team
+        return self._c.red_team
 
     # ─────────────────────────────────────────
     # External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
@@ -1138,48 +1019,48 @@ class Orchestrator:
     @property
     def token_optimizer(self) -> TokenOptimizer:
         """Access TokenOptimizer for CLI output filtering."""
-        return self._token_optimizer
+        return self._c.token_optimizer
 
     @property
     def preflight_validator(self) -> PreflightValidator:
         """Access PreflightValidator for response quality control."""
-        return self._preflight_validator
+        return self._c.preflight_validator
 
     @property
     def session_watcher(self) -> SessionWatcher:
         """Access SessionWatcher for conversation capture."""
-        return self._session_watcher
+        return self._c.session_watcher
 
     @property
     def persona_manager(self) -> PersonaManager:
         """Access PersonaManager for behavior customization."""
-        return self._persona_manager
+        return self._c.persona_manager
 
     @property
     def memory_manager(self) -> MemoryTierManager:
         """Access MemoryTierManager for multi-tier memory."""
-        return self._memory_manager
+        return self._c.memory_manager
 
     @property
     def bm25_search(self) -> BM25Search:
         """Access BM25Search for full-text search."""
-        return self._bm25_search
+        return self._c.bm25_search
 
     @property
     def reranker(self) -> LLMReranker:
         """Access LLMReranker for result re-ranking."""
-        return self._reranker
+        return self._c.reranker
 
     @property
     def a2a_manager(self) -> A2AManager:
         """Access A2AManager for agent-to-agent communication."""
-        return self._a2a_manager
+        return self._c.a2a_manager
 
     # Convenience methods for external integrations
 
     def optimize_command_output(self, command: str, output: str) -> str:
         """Optimize command output for token efficiency (RTK)."""
-        return self._token_optimizer.optimize(command, output)
+        return self._c.token_optimizer.optimize(command, output)
 
     def preflight_check(
         self,
@@ -1188,11 +1069,11 @@ class Orchestrator:
         mode: PreflightMode = PreflightMode.AUTO,
     ) -> Any:
         """Validate response before sending (Mnemo Cortex)."""
-        return self._preflight_validator.validate(response, context, mode)
+        return self._c.preflight_validator.validate(response, context, mode)
 
     def start_session(self, project_id: str) -> str:
         """Start a new session for conversation capture."""
-        return self._session_watcher.start_session(project_id)
+        return self._c.session_watcher.start_session(project_id)
 
     def record_interaction(
         self,
@@ -1203,7 +1084,7 @@ class Orchestrator:
         **kwargs,
     ) -> str:
         """Record an interaction in a session."""
-        return self._session_watcher.record_interaction(
+        return self._c.session_watcher.record_interaction(
             session_id=session_id,
             task_input=task_input,
             task_output=task_output,
@@ -1213,11 +1094,11 @@ class Orchestrator:
 
     def set_persona(self, project_id: str, mode: PersonaMode) -> None:
         """Set persona mode for a project."""
-        self._persona_manager.set_persona(project_id, mode)
+        self._c.persona_manager.set_persona(project_id, mode)
 
     def get_persona_settings(self, project_id: str) -> Any:
         """Get persona settings for a project."""
-        return self._persona_manager.get_persona_settings(project_id)
+        return self._c.persona_manager.get_persona_settings(project_id)
 
     async def store_memory(
         self,
@@ -1228,7 +1109,7 @@ class Orchestrator:
         """Store a memory in the tiered memory system."""
         from .memory_tier import MemoryType
 
-        return await self._memory_manager.store(
+        return await self._c.memory_manager.store(
             project_id=project_id,
             content=content,
             memory_type=MemoryType(memory_type),
@@ -1256,7 +1137,7 @@ class Orchestrator:
             List of memory entries ordered by relevance
         """
         # Retrieve with hybrid search
-        memories = await self._memory_manager.retrieve(
+        memories = await self._c.memory_manager.retrieve(
             project_id=project_id,
             query=query,
             limit=limit * 2 if use_reranking else limit,  # Get more for reranking
@@ -1268,7 +1149,7 @@ class Orchestrator:
 
         # Apply re-ranking if enabled and we have results
         if use_reranking and query and results:
-            reranked = await self._reranker.rerank(query, results, top_k=limit)
+            reranked = await self._c.reranker.rerank(query, results, top_k=limit)
             # Convert back to memory entries (or return ranked dicts)
             return [r.to_dict() if hasattr(r, "to_dict") else r for r in reranked]
 
@@ -1288,7 +1169,7 @@ class Orchestrator:
         Uses HybridSearchPipeline with LLM-based query expansion (DeepSeek-Chat).
         Falls back gracefully if any component is unavailable.
         """
-        results = await self._hybrid_pipeline.search(
+        results = await self._c.hybrid_pipeline.search(
             query,
             project_id=project_id,
             top_k=limit,
@@ -1313,7 +1194,7 @@ class Orchestrator:
             tpm: Maximum tokens per minute for this tenant+model.
             rpm: Maximum requests per minute for this tenant+model.
         """
-        self._rate_limiter.set_limits(tenant, model, tpm, rpm)
+        self._c.rate_limiter.set_limits(tenant, model, tpm, rpm)
 
     def configure_session_lifecycle(
         self,
@@ -1331,15 +1212,15 @@ class Orchestrator:
             migration_interval_hours: How often to run HOT/WARM/COLD migration.
             llm_model: Model used for HOT→WARM entry summarization.
         """
-        task = self._lifecycle_manager._task
+        task = self._c.lifecycle_manager._task
         if task is not None and not task.done():
             raise ConfigurationError(
                 "configure_session_lifecycle() must be called before starting the scheduler; "
                 "call stop() first, then reconfigure.",
                 details={"hint": "call stop() before reconfiguring"},
             )
-        self._lifecycle_manager._interval = migration_interval_hours * 3600
-        self._lifecycle_manager._model = llm_model
+        self._c.lifecycle_manager._interval = migration_interval_hours * 3600
+        self._c.lifecycle_manager._model = llm_model
 
     async def register_agent(
         self,
@@ -1355,7 +1236,7 @@ class Orchestrator:
             description=description,
             capabilities=capabilities,
         )
-        await self._a2a_manager.register_agent(card)
+        await self._c.a2a_manager.register_agent(card)
 
     async def send_task_to_agent(
         self,
@@ -1373,7 +1254,7 @@ class Orchestrator:
             message=message,
             context=context or {},
         )
-        return await self._a2a_manager.send_task(request)
+        return await self._c.a2a_manager.send_task(request)
 
     def register_task_expectations(
         self,
@@ -1389,7 +1270,7 @@ class Orchestrator:
         This enables post-completion verification to detect task completion
         misrepresentation (a key vulnerability from the "Agents of Chaos" paper).
         """
-        self._task_verifier.register_expected_outcome(
+        self._c.task_verifier.register_expected_outcome(
             task_id=task_id,
             expected_files=expected_files,
             expected_outputs=expected_outputs,
@@ -1403,7 +1284,7 @@ class Orchestrator:
 
         Returns VerificationResult with discrepancies if any.
         """
-        return await self._task_verifier.verify_completion(task_id)
+        return await self._c.task_verifier.verify_completion(task_id)
 
     def record_action(
         self,
@@ -1419,7 +1300,7 @@ class Orchestrator:
 
         Returns action_id for linking downstream impacts.
         """
-        return self._accountability.record_action(
+        return self._c.accountability.record_action(
             actor_id=actor_id,
             actor_type=actor_type,
             actor_name=actor_name,
@@ -1440,7 +1321,7 @@ class Orchestrator:
 
         Returns event_id.
         """
-        return self._agent_safety.report_event(
+        return self._c.agent_safety.report_event(
             agent_id=agent_id,
             event_type=event_type,
             severity=severity,
@@ -1529,11 +1410,11 @@ class Orchestrator:
         job_id = getattr(spec, "job_id", "") or ""
         team = getattr(spec, "team", "") or ""
         # BudgetHierarchy pre-flight check (Improvement 6)
-        if self._budget_hierarchy is not None:
-            if not self._budget_hierarchy.can_afford_job(job_id, team, spec.budget.max_usd):
+        if self._c.budget_hierarchy is not None:
+            if not self._c.budget_hierarchy.can_afford_job(job_id, team, spec.budget.max_usd):
                 raise BudgetExceededError(
-                    spent=self._budget_hierarchy._org_spent,
-                    limit=self._budget_hierarchy._org_max,
+                    spent=self._c.budget_hierarchy._org_spent,
+                    limit=self._c.budget_hierarchy._org_max,
                     details={"job_id": job_id, "team": team, "estimated_usd": spec.budget.max_usd},
                 )
         try:
@@ -1544,13 +1425,13 @@ class Orchestrator:
         except Exception:
             # BUG-001 FIX: release the reservation made by can_afford_job() so the
             # org/team budget is not permanently locked when run_project() fails.
-            if self._budget_hierarchy is not None:
-                self._budget_hierarchy.release_reservation(job_id, team)
+            if self._c.budget_hierarchy is not None:
+                self._c.budget_hierarchy.release_reservation(job_id, team)
             raise
         # Charge actual spend to BudgetHierarchy so cross-run caps are enforced.
-        if self._budget_hierarchy is not None:
+        if self._c.budget_hierarchy is not None:
             actual_spend = self.budget.max_usd - self.budget.remaining_usd
-            self._budget_hierarchy.charge_job(job_id, team, actual_spend)
+            self._c.budget_hierarchy.charge_job(job_id, team, actual_spend)
         # Persist telemetry snapshots for all models used this run (fire-and-forget)
         job_id = getattr(spec, "job_id", "") or self._project_id
         await self._flush_telemetry_snapshots(job_id)

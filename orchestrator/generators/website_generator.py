@@ -77,6 +77,19 @@ from ..models import ProjectState, Task, TaskType
 logger = logging.getLogger(__name__)
 
 
+def _page_type_schema(page_type: str, site_name: str) -> tuple[str, str]:
+    """Return (Schema.org @type, applicationCategory) for a given page type."""
+    mapping = {
+        "agency": ("Organization", ""),
+        "portfolio": ("CreativeWork", ""),
+        "editorial": ("WebSite", ""),
+        "ecommerce": ("WebSite", ""),
+        "saas": ("SoftwareApplication", "BusinessApplication"),
+        "landing": ("SoftwareApplication", "BusinessApplication"),
+    }
+    return mapping.get(page_type, ("WebSite", ""))
+
+
 @dataclass
 class ClientInfo:
     """Client information for website generation."""
@@ -136,6 +149,10 @@ class WebsiteConfig:
     performance_optimized: bool = True
     image_model: str = ""  # OpenRouter image model ID; empty = SVG placeholders
     atelier_theme: str = ""  # Atelier design theme slug (e.g. specimen, midnight)
+    # ── Phase 2: user description + deps ──
+    description: str = ""  # User's full project description (injected into LLM prompts)
+    brand_name: str = ""  # Brand/company name for metadata and prompts
+    dependencies: list[str] = field(default_factory=lambda: ["react", "react-dom"])  # npm deps
 
 
 @dataclass
@@ -154,7 +171,7 @@ class WebsiteBuildResult:
 
 
 class ContentResearcher:
-    """Integrated industry research → content generation."""
+    """Integrated industry research -> content generation — now LLM-powered with template fallback."""
 
     def __init__(self, nexus_search=None):
         self.nexus_search = nexus_search
@@ -162,46 +179,131 @@ class ContentResearcher:
     async def generate_content_brief(
         self,
         client_info: ClientInfo,
+        engine=None,
+        config: "WebsiteConfig | None" = None,
     ) -> ContentBrief:
         """
-        Generate content brief from client info and research.
+        Generate content brief from client info.
 
-        In full implementation, this would use Nexus Search to:
-        1. Research competitor websites
-        2. Find customer reviews/complaints
-        3. Identify industry design trends
-
-        For now, generates a template-based brief.
+        When an orchestrator engine is available, uses LLM to generate
+        industry-specific content. Falls back to template-based generation
+        if no engine is available or the LLM call fails.
         """
-        # TODO: Integrate with Nexus Search when available
-        # competitors = await self.nexus_search.search(...)
-        # reviews = await self.nexus_search.search(...)
-        # trends = await self.nexus_search.research(...)
+        # Try LLM-powered generation first
+        if engine is not None:
+            try:
+                return await self._generate_brief_llm(client_info, engine, config)
+            except Exception as e:
+                logger.warning("LLM content brief failed, falling back to template: %s", e)
 
-        # Generate template-based brief for now
+        # Fallback: template-based (industry-aware but generic)
+        return self._generate_brief_template(client_info)
+
+    async def _generate_brief_llm(
+        self,
+        client_info: ClientInfo,
+        engine,
+        config: "WebsiteConfig | None" = None,
+    ) -> ContentBrief:
+        """Use the orchestrator engine to generate an industry-specific content brief."""
+        sections = getattr(config, "sections", ["hero", "features", "pricing"]) if config else ["hero", "features", "pricing"]
+        page_type = getattr(config, "page_type", "landing") if config else "landing"
+
+        prompt = f"""Generate a content brief for a {page_type} website.
+
+Brand: {client_info.name}
+Industry: {client_info.industry}
+Description: {getattr(client_info, 'description', '') or 'A modern website'}
+Target Audience: {getattr(client_info, 'target_audience', 'professionals')}
+Competitors: {', '.join(getattr(client_info, 'competitors', [])) or 'industry leaders'}
+Sections needed: {', '.join(sections)}
+
+Return a JSON object with these keys:
+- "headlines": dict mapping each section name to a compelling headline (tailored to this brand/industry)
+- "ctas": dict mapping relevant sections to call-to-action text
+- "value_props": list of 4-6 value propositions (industry-specific, not generic SaaS)
+- "faqs": list of 3-5 {{"question": "...", "answer": "...", "section": "faq"}} objects (industry-relevant)
+- "testimonials_angles": list of 4 angles for testimonials (specific to this industry)
+- "pain_points": list of 4-6 pain points this industry's customers face
+- "tagline": a short brand tagline
+- "social_proof": list of 2-3 {{"name": "...", "role": "...", "quote": "..."}} sample testimonials
+
+IMPORTANT: Do NOT use generic SaaS content. Tailor EVERYTHING to the {client_info.industry} industry.
+For a portfolio/agency site, headlines should be creative and brand-forward, not "Why Choose Us".
+For an ecommerce site, focus on products and shopping experience.
+For an editorial site, focus on content and readership.
+
+Return ONLY valid JSON, no markdown fences."""
+
+        try:
+            from ..models import Task, TaskType
+
+            task = Task(
+                id="content_brief_000",
+                type=TaskType.CODE_GEN,
+                prompt=prompt,
+                max_output_tokens=2048,
+                acceptance_threshold=0.7,
+                max_iterations=1,
+            )
+            result = await engine._execute_task(task)
+            if result and result.output:
+                import json
+                data = json.loads(result.output.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip())
+                brief = ContentBrief(
+                    headlines=data.get("headlines", {}),
+                    ctas=data.get("ctas", {}),
+                    value_props=data.get("value_props", []),
+                    faqs=data.get("faqs", []),
+                    testimonials_angles=data.get("testimonials_angles", []),
+                    pain_points=data.get("pain_points", []),
+                    tagline=data.get("tagline", ""),
+                    social_proof=data.get("social_proof", []),
+                )
+                logger.info("LLM-generated content brief with %d sections", len(brief.headlines))
+                return brief
+        except Exception as e:
+            logger.warning("Failed to parse LLM content brief JSON: %s", e)
+            raise
+
+        raise RuntimeError("LLM content brief generation returned no output")
+
+    def _generate_brief_template(self, client_info: ClientInfo) -> ContentBrief:
+        """Template-based fallback — industry-aware but generic."""
+        industry = getattr(client_info, "industry", "technology")
+        name = getattr(client_info, "name", "the company")
+
         brief = ContentBrief(
             headlines={
-                "hero": f"Transform Your {client_info.industry} Experience",
+                "hero": f"Transform Your {industry.title()} Experience",
                 "features": "Why Choose Us",
                 "pricing": "Simple, Transparent Pricing",
                 "testimonials": "What Our Clients Say",
                 "faq": "Frequently Asked Questions",
-                "cta": f"Ready to Get Started with {client_info.name}?",
+                "cta": f"Ready to Get Started with {name}?",
+                "work": "Our Work",
+                "portfolio": "Selected Projects",
+                "services": "What We Offer",
+                "about": f"About {name}",
+                "clients": "Trusted By",
+                "contact": "Get In Touch",
             },
             ctas={
                 "hero": "Get Started Free",
                 "pricing": "Choose Your Plan",
                 "cta": "Start Your Free Trial",
+                "work": "View Our Work",
+                "contact": "Contact Us",
             },
             faqs=[
                 {
                     "question": "How do I get started?",
-                    "answer": "Simply sign up for a free account and you'll be up and running in minutes.",
+                    "answer": f"Simply reach out to our team and we'll set up a consultation to understand your needs.",
                     "section": "faq",
                 },
                 {
-                    "question": "Is there a free trial?",
-                    "answer": "Yes! We offer a 14-day free trial with full access to all features.",
+                    "question": f"What makes {name} different?",
+                    "answer": f"We combine deep {industry} expertise with cutting-edge technology to deliver results that matter.",
                     "section": "faq",
                 },
                 {
@@ -217,7 +319,7 @@ class ContentResearcher:
                 "Feature completeness",
             ],
             pain_points=[
-                f"Complex {client_info.industry} solutions that are hard to use",
+                f"Complex {industry} solutions that are hard to use",
                 "Poor customer support",
                 "Hidden fees and unclear pricing",
                 "Outdated technology",
@@ -225,7 +327,8 @@ class ContentResearcher:
             competitor_insights=[],
         )
 
-        logger.info(f"Generated content brief with {len(brief.headlines)} sections")
+        logger.info(f"Template content brief with {len(brief.headlines)} sections")
+        return brief
         return brief
 
 
@@ -289,7 +392,9 @@ class WebsiteGenerator:
         try:
             # Step 1: Generate content brief
             logger.info("WebsiteGenerator: generating content brief...")
-            content_brief = await self._researcher.generate_content_brief(client_info)
+            content_brief = await self._researcher.generate_content_brief(
+                client_info, engine=self._engine, config=config
+            )
 
             # Step 2: Select components
             logger.info("WebsiteGenerator: selecting components...")
@@ -307,6 +412,7 @@ class WebsiteGenerator:
                 design_system=design_system,
                 content_brief=content_brief,
                 config=config,
+                client_info=client_info,
             )
 
             # Step 4: Execute through orchestrator (if available)
@@ -425,6 +531,7 @@ class WebsiteGenerator:
         design_system: DesignSystem,
         content_brief,
         config: WebsiteConfig,
+        client_info=None,
     ) -> list[Task]:
         """Create orchestration tasks for each section."""
         tasks = []
@@ -437,6 +544,7 @@ class WebsiteGenerator:
                 design_system=design_system,
                 content_brief=content_brief,
                 config=config,
+                client_info=client_info,
             )
 
             # Each section depends on the previous one for sequential assembly
@@ -466,8 +574,9 @@ class WebsiteGenerator:
         design_system: DesignSystem,
         content_brief,
         config: WebsiteConfig,
+        client_info=None,
     ) -> str:
-        """Build prompt for generating a section."""
+        """Build prompt for generating a section — now with project brief, section-type guidance, and library awareness."""
         component_name = getattr(component, "name", str(component))
         source = getattr(component, "source", "")
         source_str = source.value if hasattr(source, "value") else str(source)
@@ -484,6 +593,46 @@ class WebsiteGenerator:
             cta = ", ".join(getattr(content_brief, "ctas", []))
             pain_points = []
 
+        # ── PROJECT BRIEF — the user's actual description ──
+        project_brief = ""
+        if client_info is not None:
+            brief_parts = []
+            if getattr(client_info, "name", ""):
+                brief_parts.append(f"Brand/Company: {client_info.name}")
+            if getattr(client_info, "industry", ""):
+                brief_parts.append(f"Industry: {client_info.industry}")
+            if getattr(client_info, "description", "") or config.description:
+                desc_text = getattr(client_info, "description", "") or config.description
+                brief_parts.append(f"Project Description: {desc_text}")
+            if getattr(client_info, "target_audience", ""):
+                brief_parts.append(f"Target Audience: {client_info.target_audience}")
+            if getattr(client_info, "competitors", []):
+                brief_parts.append(f"Competitors: {', '.join(client_info.competitors)}")
+            if brief_parts:
+                project_brief = "PROJECT BRIEF:\n" + "\n".join(brief_parts) + "\n\n"
+                project_brief += "IMPORTANT: This is NOT a generic SaaS site. Tailor ALL content, tone, and design to this specific brand and industry.\n"
+
+        # ── SECTION-TYPE GUIDANCE — tells LLM what each section should be ──
+        section_guidance = self._get_section_guidance(section, config.page_type)
+
+        # ── LIBRARY AWARENESS — tells LLM what 3D/animation libraries are available ──
+        library_context = ""
+        deps = getattr(config, "dependencies", []) or []
+        _3d_deps = [d for d in deps if any(kw in d.lower() for kw in ("three", "react-three", "drei", "fiber", "cannon", "babylon"))]
+        anim_deps = [d for d in deps if any(kw in d.lower() for kw in ("gsap", "framer-motion", "motion", "lenis", "spring"))]
+        if _3d_deps:
+            library_context += (
+                f"\n3D LIBRARIES AVAILABLE: {', '.join(_3d_deps)}\n"
+                "You CAN use these for immersive effects: Three.js scenes, 3D models, particle systems, "
+                "post-processing, canvas-based backgrounds, WebGL effects. Include all necessary imports.\n"
+                "IMPORTANT: Use 'use client' directive for any component using browser APIs or 3D libraries.\n"
+            )
+        if anim_deps:
+            library_context += (
+                f"\nANIMATION LIBRARIES AVAILABLE: {', '.join(anim_deps)}\n"
+                "Use these for scroll-triggered animations, page transitions, hover effects, and micro-interactions.\n"
+            )
+
         atelier_theme_context = ""
         if config.atelier_theme:
             try:
@@ -497,6 +646,7 @@ class WebsiteGenerator:
         return f"""
 You are building a premium website section using design system-driven development.
 
+{project_brief}
 {design_system.to_prompt_context()}
 
 COMPONENT REFERENCE:
@@ -508,6 +658,10 @@ DESCRIPTION:
 {desc}
 
 SECTION: {section}
+PAGE TYPE: {config.page_type}
+
+{section_guidance}
+{library_context}
 
 CONTENT:
 Headline: {headline}
@@ -551,6 +705,118 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 {'Only the HTML content (no ``` fences).' if config.framework == 'html' else 'Export as default export. Include TypeScript types.'}
 """
 
+    @staticmethod
+    def _get_section_guidance(section: str, page_type: str) -> str:
+        """Return section-type-specific guidance for the LLM prompt."""
+        section_lower = section.lower()
+
+        guidance_map = {
+            "hero": (
+                "HERO SECTION: Design a dramatic above-the-fold section. "
+                "Bold typography, clear value proposition, strong CTA. "
+                "Use the brand name prominently. Consider geometric decoration, "
+                "animated entrance effects, or a 3D/particle background if libraries are available. "
+                "Avoid generic centered dark hero cliches."
+            ),
+            "work": (
+                "WORK/PORTFOLIO SECTION: Showcase projects with visual cards. "
+                "Use hover effects (scale, tilt, reveal), category filters, and project metadata. "
+                "Each card should have a thumbnail, title, category, and description. "
+                "Consider masonry grid, horizontal scroll, or staggered layout. "
+                "NOT a generic features grid — these are REAL client projects."
+            ),
+            "portfolio": (
+                "PORTFOLIO SECTION: Showcase creative work with large visuals. "
+                "Use image-first layouts, hover reveals, project detail overlays. "
+                "Consider horizontal scroll, filmstrip, or bento grid layout. "
+                "Each piece should feel art-directed, not templated."
+            ),
+            "services": (
+                "SERVICES SECTION: List what the company offers. "
+                "Use icon + title + description cards with clear visual hierarchy. "
+                "Include pricing tiers or service packages if relevant. "
+                "Consider alternating layout, numbered list, or split-panel design."
+            ),
+            "about": (
+                "ABOUT SECTION: Tell the company story. "
+                "Include mission statement, founding story, team photos, timeline, values. "
+                "Use asymmetric layout, pull quotes, stats, or a narrative flow. "
+                "NOT a contact form — this is the brand story section."
+            ),
+            "clients": (
+                "CLIENTS SECTION: Display client logos with subtle animations. "
+                "Use a logo grid or marquee with grayscale-to-color hover effects. "
+                "Include trust indicators (testimonial snippets, case study links)."
+            ),
+            "contact": (
+                "CONTACT SECTION: A contact form with validation and rate limiting. "
+                "Include office location, email, phone, social links. "
+                "Consider a map embed, 3D globe (if libraries available), or split layout."
+            ),
+            "team": (
+                "TEAM SECTION: Showcase team members with photos, names, roles. "
+                "Use hover reveals for bios, social links. Consider carousel or 3D depth layout."
+            ),
+            "testimonials": (
+                "TESTIMONIALS SECTION: Client quotes with attribution. "
+                "Use card layouts with avatar, name, role, company. "
+                "Consider carousel, 3D rotation, or masonry grid with varied card sizes."
+            ),
+            "features": (
+                "FEATURES SECTION: Product/service capabilities with icons. "
+                "Use grid layout with clear icon+title+description pattern. "
+                "Consider bento grid, alternating rows, or numbered stepper."
+            ),
+            "pricing": (
+                "PRICING SECTION: Pricing tiers or packages. "
+                "Use comparison cards with feature checkmarks. Highlight recommended tier. "
+                "Include FAQ toggle within or below pricing cards."
+            ),
+            "faq": (
+                "FAQ SECTION: Expandable accordion with common questions. "
+                "Use clean typography, smooth expand/collapse animations. "
+                "Group questions by category if many."
+            ),
+            "cta": (
+                "CTA SECTION: Strong call-to-action before footer. "
+                "Bold headline, supporting text, primary button. "
+                "Consider dramatic background treatment (gradient, geometric, 3D)."
+            ),
+            "footer": (
+                "FOOTER SECTION: Site map, social links, copyright, newsletter signup. "
+                "Use multi-column layout. Include back-to-top button."
+            ),
+        }
+
+        for key, guidance in guidance_map.items():
+            if key in section_lower:
+                return guidance
+
+        # Generic fallback based on page_type
+        if page_type in ("portfolio", "agency"):
+            return (
+                f"SECTION '{section}': This is a creative {page_type} site. "
+                "Design with visual impact — bold layouts, experimental typography, "
+                "generous whitespace. Make it feel premium and art-directed."
+            )
+        elif page_type == "ecommerce":
+            return (
+                f"SECTION '{section}': This is an ecommerce site. "
+                "Focus on product presentation, clear CTAs, trust signals. "
+                "Use conversion-optimized layout patterns."
+            )
+        elif page_type == "editorial":
+            return (
+                f"SECTION '{section}': This is an editorial/publishing site. "
+                "Typography-forward layout with generous whitespace. "
+                "Serif headings, clean reading flow, newspaper-inspired grid."
+            )
+        else:
+            return (
+                f"SECTION '{section}': Design this section to match the {page_type} "
+                "page type. Use the project brief for context about brand and audience."
+            )
+
     def _create_content_from_brief(
         self,
         output_dir: Path,
@@ -567,7 +833,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         headlines = getattr(content_brief, "headlines", {}) or {}
         value_props = getattr(content_brief, "value_props", []) or []
         ctas = getattr(content_brief, "ctas", []) or []
-        tagline = getattr(content_brief, "tagline", "Intelligent SaaS Platform") or "Intelligent SaaS Platform"
+        tagline = getattr(content_brief, "tagline", "") or f"A premium {getattr(config, 'page_type', 'website')} experience"
         faqs = getattr(content_brief, "faqs", []) or []
         testimonials_data = getattr(content_brief, "social_proof", []) or []
 
@@ -577,10 +843,11 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         if not ctas:
             ctas = ["Get Started Free", "Schedule Demo", "Start Building"]
         if not testimonials_data:
+            brand_ref = getattr(config, "brand_name", "") or "Our platform"
             testimonials_data = [
-                {"name": "Sarah Chen", "role": "CTO, TechCorp", "quote": "CloudFlow transformed our workflow. 3x faster deployments and zero downtime."},
-                {"name": "Marcus Rivera", "role": "VP Engineering, DataSync", "quote": "The best SaaS platform we've ever used. Intuitive, powerful, reliable."},
-                {"name": "Aisha Patel", "role": "Founder, LaunchPad", "quote": "From idea to production in hours. CloudFlow is a game-changer."},
+                {"name": "Sarah Chen", "role": "CTO, TechCorp", "quote": f"{brand_ref} transformed our workflow. 3x faster deployments and zero downtime."},
+                {"name": "Marcus Rivera", "role": "VP Engineering, DataSync", "quote": "The best platform we've ever used. Intuitive, powerful, reliable."},
+                {"name": "Aisha Patel", "role": "Founder, LaunchPad", "quote": f"From idea to production in hours. {brand_ref} is a game-changer."},
             ]
         if not faqs:
             faqs = [
@@ -664,19 +931,22 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         colors = getattr(ds, "colors", ds)
         primary = getattr(colors, "primary", "#4f9eff")
         accent = getattr(colors, "accent", "#7c3aed")
-        site_name = getattr(config, "client_name", "Site") or "Site"
+        site_name = getattr(config, "brand_name", "") or getattr(config, "client_name", "Site") or "Site"
+        page_type = getattr(config, "page_type", "landing")
+        desc_short = (getattr(config, "description", "") or "")[:100]
 
         img_dir = output_dir / "public" / "images"
         img_dir.mkdir(parents=True, exist_ok=True)
 
-        # Define images to generate
+        # Description-aware image prompts
+        desc_hint = f" — {desc_short}" if desc_short else ""
         images = [
             {
                 "name": "hero-bg",
                 "prompt": (
-                    f"Dark premium {getattr(config, 'page_type', 'landing')} website hero background, "
-                    f"abstract geometric gradient with {accent} and {primary} tones, "
-                    "subtle grid pattern overlay, cinematic lighting, no text"
+                    f"Premium {page_type} website hero background for {site_name}{desc_hint}, "
+                    f"abstract geometric composition with {accent} and {primary} tones, "
+                    "cinematic lighting, subtle grain texture, no text, no letters"
                 ),
                 "width": 1440,
                 "height": 900,
@@ -684,22 +954,24 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             {
                 "name": "og-image",
                 "prompt": (
-                    f"Social sharing card for {site_name}, "
-                    f"professional brand image with {primary} and {accent} color scheme, "
-                    "clean modern design, no text"
+                    f"Social sharing card for {site_name}{desc_hint}, "
+                    f"professional {page_type} brand image with {primary} and {accent} color scheme, "
+                    "clean premium design, no text, no letters"
                 ),
                 "width": 1200,
                 "height": 630,
             },
         ]
 
-        # Add portfolio thumbnails (3)
-        for i in range(1, 4):
+        # Section-specific thumbnails based on actual sections
+        sections = getattr(config, "sections", [])
+        for i, section in enumerate(sections[:4]):
+            section_name = section.replace("-", " ").title()
             images.append({
-                "name": f"portfolio-{i}",
+                "name": f"section-{section}",
                 "prompt": (
-                    f"Minimalist portfolio project thumbnail {i}, "
-                    f"clean modern aesthetic, abstract design representation, no text"
+                    f"{section_name} section visual for {site_name} {page_type} website{desc_hint}, "
+                    f"abstract representation, {primary} and {accent} color palette, no text"
                 ),
                 "width": 600,
                 "height": 400,
@@ -760,8 +1032,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         css_path = output_dir / "styles.css"
 
         # Gather CSS from individual files and consolidate
+        brand = getattr(config, "brand_name", "") or "Site"
         css_lines = [
-            "/* CloudFlow — Generated Styles */",
+            f"/* {brand} — Generated Styles */",
             ":root {",
             f"  --color-primary: {design_system.colors.primary};",
             f"  --color-accent: {design_system.colors.accent};",
@@ -789,15 +1062,21 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         css_path.write_text("\n".join(css_lines) + "\n", encoding="utf-8")
 
         # Gather JS from individual files
-        js_lines = ["// CloudFlow — Generated Scripts", "(function() {", "  'use strict';", ""]
+        js_lines = [f"// {brand} — Generated Scripts", "(function() {", "  'use strict';", ""]
         js_path = output_dir / "script.js"
 
         # Build index.html from sections with security headers + OG meta
-        site_name = getattr(config, "client_name", "CloudFlow") or "CloudFlow"
-        page_title = f"{site_name} — {config.page_type or 'Landing Page'}"
-        page_desc = "Intelligent SaaS platform for modern teams."
-        page_url = getattr(config, "site_url", "https://cloudflow.io") or "https://cloudflow.io"
+        site_name = getattr(config, "brand_name", "") or getattr(config, "client_name", "Site") or "Site"
+        page_type = getattr(config, "page_type", "landing") or "landing"
+        page_desc = getattr(config, "description", "") or f"A premium {page_type} website"
+        if len(page_desc) > 160:
+            page_desc = page_desc[:157] + "..."
+        site_url = getattr(config, "site_url", f"https://{site_name.lower().replace(' ', '')}.io") or f"https://{site_name.lower().replace(' ', '')}.io"
         og_image = getattr(config, "og_image", "/og-image.png") or "/og-image.png"
+
+        # page_type-aware JSON-LD
+        json_ld_type, json_ld_category = _page_type_schema(page_type, site_name)
+        page_title = f"{site_name} — {page_type.title()}"
 
         page_lines = [
             "<!DOCTYPE html>",
@@ -807,7 +1086,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             '  <meta http-equiv="X-UA-Compatible" content="IE=edge">',
             '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
             # ── Security headers ──
-            '  <meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'unsafe-inline\' https:; style-src \'self\' \'unsafe-inline\' https:; img-src \'self\' data: https:; font-src \'self\' https:; connect-src \'self\' https:; frame-ancestors \'none\'; base-uri \'self\'; form-action \'self\';">',
+            '  <meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https:; style-src \'self\' \'unsafe-inline\' https:; img-src \'self\' data: https:; font-src \'self\' https:; connect-src \'self\' https:; worker-src \'self\' blob:; frame-ancestors \'none\'; base-uri \'self\'; form-action \'self\';">',
             '  <meta http-equiv="X-Content-Type-Options" content="nosniff">',
             '  <meta http-equiv="X-Frame-Options" content="DENY">',
             '  <meta http-equiv="X-XSS-Protection" content="1; mode=block">',
@@ -818,12 +1097,12 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f"  <title>{page_title}</title>",
             f'  <meta name="description" content="{page_desc}">',
             f'  <meta name="robots" content="index, follow">',
-            f'  <link rel="canonical" href="{page_url}">',
+            f'  <link rel="canonical" href="{site_url}">',
             # ── Open Graph ──
             f'  <meta property="og:title" content="{page_title}">',
             f'  <meta property="og:description" content="{page_desc}">',
             f'  <meta property="og:image" content="{og_image}">',
-            f'  <meta property="og:url" content="{page_url}">',
+            f'  <meta property="og:url" content="{site_url}">',
             '  <meta property="og:type" content="website">',
             f'  <meta property="og:site_name" content="{site_name}">',
             '  <meta property="og:locale" content="en_US">',
@@ -839,11 +1118,11 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             # ── Assets ──
             '  <link rel="stylesheet" href="styles.css">',
             "  <script src=\"script.js\" defer></script>",
-            # ── JSON-LD Structured Data ──
+            # ── JSON-LD Structured Data (page_type-aware) ──
             '  <script type="application/ld+json">',
             "  {",
             '    "@context": "https://schema.org",',
-            '    "@type": "SoftwareApplication",',
+            f'    "@type": "{json_ld_type}",',
             f'    "name": "{site_name}",',
             '    "applicationCategory": "BusinessApplication",',
             '    "operatingSystem": "Web",',
@@ -853,7 +1132,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             '      "priceCurrency": "USD"',
             "    },",
             f'    "description": "{page_desc}",',
-            f'    "url": "{page_url}"',
+            f'    "url": "{site_url}"',
             "  }",
             "  </script>",
             "</head>",
@@ -932,7 +1211,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },\n"
             "          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },\n"
             "          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },\n"
-            "          { key: 'Content-Security-Policy', value: \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\" },\n"
+            "          { key: 'Content-Security-Policy', value: \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\" },\n"
             "        ],\n"
             "      },\n"
             "    ];\n"
@@ -942,30 +1221,58 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             encoding="utf-8",
         )
 
-        # Write package.json with all deps
+        # Build data-driven identifiers
+        brand = getattr(config, "brand_name", "") or "site"
+        pkg_name = brand.lower().replace(" ", "-")
+        safe_brand = brand or "Site"
+
+        # Write package.json with all deps (including custom 3D/animation deps)
+        import json as _json
+
+        pkg = {
+            "name": pkg_name,
+            "version": "0.1.0",
+            "private": True,
+            "scripts": {"dev": "next dev", "build": "next build", "start": "next start"},
+            "dependencies": {
+                "next": "^14.0.0",
+                "react": "^18.2.0",
+                "react-dom": "^18.2.0",
+            },
+            "devDependencies": {
+                "@types/node": "^20.0.0",
+                "@types/react": "^18.2.0",
+                "@types/react-dom": "^18.2.0",
+                "typescript": "^5.0.0",
+            },
+        }
+
+        # Merge custom dependencies (format: "pkg" or "pkg@version")
+        custom_deps = getattr(config, "dependencies", []) or []
+        for dep in custom_deps:
+            if dep in ("react", "react-dom", "next"):
+                continue  # already in base
+            if "@" in dep and not dep.startswith("@"):
+                name, ver = dep.split("@", 1)
+            elif dep.startswith("@") and dep.count("@") >= 2:
+                # scoped package: @scope/name@version
+                parts = dep.split("@")
+                name = "@" + parts[1]
+                ver = parts[2] if len(parts) > 2 else "latest"
+            else:
+                name = dep
+                ver = "latest"
+            pkg["dependencies"][name] = ver
+
         (output_dir / "package.json").write_text(
-            '{\n'
-            '  "name": "cloudflow",\n'
-            '  "version": "0.1.0",\n'
-            '  "private": true,\n'
-            '  "scripts": {\n'
-            '    "dev": "next dev",\n'
-            '    "build": "next build",\n'
-            '    "start": "next start"\n'
-            '  },\n'
-            '  "dependencies": {\n'
-            '    "next": "^14.0.0",\n'
-            '    "react": "^18.2.0",\n'
-            '    "react-dom": "^18.2.0"\n'
-            '  },\n'
-            '  "devDependencies": {\n'
-            '    "@types/node": "^20.0.0",\n'
-            '    "@types/react": "^18.2.0",\n'
-            '    "@types/react-dom": "^18.2.0",\n'
-            '    "typescript": "^5.0.0"\n'
-            '  }\n'
-            '}\n',
+            _json.dumps(pkg, indent=2) + "\n",
             encoding="utf-8",
+        )
+
+        # Check for 3D deps and update CSP if needed
+        has_3d = any(
+            kw in str(custom_deps).lower()
+            for kw in ("three", "react-three", "fiber", "drei", "cannon", "babylon")
         )
 
         # No postcss or tailwind config — using CDN Tailwind in layout.tsx
@@ -1004,9 +1311,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
         # Design tokens live in globals.css :root — no build-time Tailwind config needed
 
-        # Build proper site name
-        site_name = getattr(config, "client_name", "CloudFlow") or "CloudFlow"
-        site_url = getattr(config, "site_url", "https://cloudflow.io") or "https://cloudflow.io"
+        # Use data-driven brand identifiers
+        site_name = safe_brand
+        site_url = getattr(config, "site_url", f"https://{pkg_name}.io") or f"https://{pkg_name}.io"
         
         # Write layout.tsx with full SEO + OG + security headers
         (app_dir / "layout.tsx").write_text(
@@ -1018,27 +1325,27 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             '  initialScale: 1,\n'
             "};\n\n"
             "export const metadata: Metadata = {\n"
-            "  metadataBase: new URL('https://cloudflow.io'),\n"
+            f"  metadataBase: new URL('{site_url}'),\n"
             "  title: {\n"
-            "    default: 'CloudFlow — SaaS Platform',\n"
-            "    template: '%s | CloudFlow',\n"
+            f"    default: '{safe_brand} — {getattr(config, 'page_type', 'Website').title()}',\n"
+            f"    template: '%s | {safe_brand}',\n"
             "  },\n"
-            "  description: 'Intelligent SaaS platform for modern teams.',\n"
-            "  keywords: ['saas', 'platform', 'cloud', 'automation'],\n"
+            f"  description: '{getattr(config, 'description', '')[:150] or f"A premium " + getattr(config, 'page_type', '') + " website"}',\n"
+            f"  keywords: ['{getattr(config, 'page_type', 'web')}', '{pkg_name}'],\n"
             "  robots: { index: true, follow: true },\n"
             "  openGraph: {\n"
             "    type: 'website',\n"
             "    locale: 'en_US',\n"
             "    url: '/',\n"
-            "    siteName: 'CloudFlow',\n"
-            "    title: 'CloudFlow — SaaS Platform',\n"
-            "    description: 'Intelligent SaaS platform for modern teams.',\n"
-            "    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'CloudFlow' }],\n"
+            f"    siteName: '{safe_brand}',\n"
+            f"    title: '{safe_brand} — {getattr(config, 'page_type', 'Website').title()}',\n"
+            f"    description: '{getattr(config, 'description', '')[:150] or f"A premium website"}',\n"
+            f"    images: [{{ url: '/og-image.png', width: 1200, height: 630, alt: '{safe_brand}' }}],\n"
             "  },\n"
             "  twitter: {\n"
             "    card: 'summary_large_image',\n"
-            "    title: 'CloudFlow — SaaS Platform',\n"
-            "    description: 'Intelligent SaaS platform for modern teams.',\n"
+            f"    title: '{safe_brand} — {getattr(config, 'page_type', 'Website').title()}',\n"
+            f"    description: '{getattr(config, 'description', '')[:150] or f"A premium website"}',\n"
             "    images: ['/og-image.png'],\n"
             "  },\n"
             "  alternates: { canonical: '/' },\n"
@@ -1051,7 +1358,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "  const jsonLd = {\n"
             "    '@context': 'https://schema.org',\n"
             "    '@type': 'SoftwareApplication',\n"
-            "    name: 'CloudFlow',\n"
+            f"    name: '{safe_brand}',\n"
             "    applicationCategory: 'BusinessApplication',\n"
             "    operatingSystem: 'Web',\n"
             "    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },\n"
@@ -1079,12 +1386,13 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         )
 
         # Build page.tsx — imports default exports from components
+        # Component names: each section file exports a default component named {Section}Section
         section_imports = []
         section_jsx = []
         for s in sections:
-            safe_name = s.replace("-", "_").replace(" ", "_")
-            section_imports.append(f"import {s.title().replace(' ', '')} from '@/components/{s}';")
-            section_jsx.append(f"      <{s.title().replace(' ', '')} />")
+            component_name = s.title().replace('-', '').replace('_', '').replace(' ', '')
+            section_imports.append(f"import {component_name} from '@/components/{s}';")
+            section_jsx.append(f"      <{component_name} />")
 
         page = (
             "\n".join(section_imports)
@@ -1111,8 +1419,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "  h1 { font-size:80px; font-weight:800; color:#fff; margin:0 0 20px; }\n"
             "  p { font-size:36px; color:#888; margin:0; }\n"
             "</style>\n</head>\n<body>\n"
-            "<h1>CloudFlow</h1>\n"
-            "<p>Intelligent SaaS Platform</p>\n"
+            f"<h1>{safe_brand}</h1>\n"
+            f"<p>{getattr(config, 'page_type', 'Website').title()}</p>\n"
             "</body>\n</html>\n",
             encoding="utf-8",
         )
@@ -1125,11 +1433,11 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 "export function HeroSection() {\n"
                 "  return (\n"
                 "    <section className=\"relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center\">\n"
-                "      <h1 className=\"text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent\">\n"
-                "        CloudFlow\n"
+                f"      <h1 className=\"text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent\">\n"
+                f"        {safe_brand}\n"
                 "      </h1>\n"
-                "      <p className=\"text-xl md:text-2xl text-gray-300 max-w-2xl mb-8\">\n"
-                "        The intelligent platform for modern teams.\n"
+                f"      <p className=\"text-xl md:text-2xl text-gray-300 max-w-2xl mb-8\">\n"
+                f"        A premium {getattr(config, 'page_type', 'website')} experience.\n"
                 "      </p>\n"
                 "      <div className=\"flex gap-4\">\n"
                 "        <a href=\"#\" className=\"bg-indigo-500 hover:bg-indigo-600 px-8 py-3 rounded-lg font-semibold text-white transition-all\">\n"
@@ -1188,7 +1496,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "        allow: '/',\n"
             "      },\n"
             "    ],\n"
-            "    sitemap: 'https://cloudflow.io/sitemap.xml',\n"
+            f"    sitemap: '{site_url}/sitemap.xml',\n"
             "  };\n"
             "}\n",
             encoding="utf-8",
@@ -1200,7 +1508,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "export default function sitemap(): MetadataRoute.Sitemap {\n"
             "  return [\n"
             "    {\n"
-            "      url: 'https://cloudflow.io',\n"
+            f"      url: '{site_url}',\n"
             "      lastModified: new Date(),\n"
             "      changeFrequency: 'weekly' as const,\n"
             "      priority: 1,\n"
@@ -1243,7 +1551,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
             '<meta charset="UTF-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
-            "<title>Security Policy — CloudFlow</title>\n"
+            f"<title>Security Policy — {safe_brand}</title>\n"
             "<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:2rem auto;padding:0 1rem;line-height:1.6;color:#333}</style>\n"
             "</head>\n<body>\n"
             "<h1>Security Policy</h1>\n"
@@ -1426,7 +1734,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'    <section className="py-24 px-6 text-center">\n'
             f'      <div className="max-w-3xl mx-auto bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-3xl p-16">\n'
             f'        <h2 className="text-3xl md:text-5xl font-bold mb-6">{headline}</h2>\n'
-            f'        <p className="text-gray-300 text-lg mb-10 max-w-xl mx-auto">Join thousands of teams already using CloudFlow. Start free, upgrade when you\'re ready.</p>\n'
+            f'        <p className="text-gray-300 text-lg mb-10 max-w-xl mx-auto">Join thousands of teams already using {safe_brand}. Start free, upgrade when you\'re ready.</p>\n'
             f'        <a href="#" className="bg-indigo-500 hover:bg-indigo-600 px-10 py-4 rounded-xl font-semibold text-white text-lg transition-all shadow-lg shadow-indigo-500/25">{cta_text}</a>\n'
             f"      </div>\n"
             f"    </section>\n"
@@ -1441,7 +1749,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'    <footer className="border-t border-gray-800 py-16 px-6">\n'
             f'      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">\n'
             f'        <div>\n'
-            f'          <h4 className="font-bold text-lg mb-4">CloudFlow</h4>\n'
+            f'          <h4 className="font-bold text-lg mb-4">{safe_brand}</h4>\n'
             f'          <p className="text-gray-500 text-sm">Intelligent SaaS platform for modern teams.</p>\n'
             f"        </div>\n"
             f'        <div><h4 className="font-semibold mb-3">Product</h4><ul className="space-y-2 text-gray-400 text-sm"><li><a href="#features">Features</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#">Integrations</a></li><li><a href="#">Changelog</a></li></ul></div>\n'
@@ -1449,7 +1757,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'        <div><h4 className="font-semibold mb-3">Legal</h4><ul className="space-y-2 text-gray-400 text-sm"><li><a href="#">Privacy</a></li><li><a href="#">Terms</a></li><li><a href="/security">Security</a></li></ul></div>\n'
             f"      </div>\n"
             f'      <div className="max-w-6xl mx-auto mt-12 pt-8 border-t border-gray-800 text-center text-gray-600 text-sm">\n'
-            f"        &copy; {2026} CloudFlow. All rights reserved.\n"
+            f"        &copy; 2026 {safe_brand}. All rights reserved.\n"
             f"      </div>\n"
             f"    </footer>\n"
             f"  );\n"

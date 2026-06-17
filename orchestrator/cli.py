@@ -1707,6 +1707,17 @@ def _website_subparsers(subparsers) -> None:
     wp.add_argument("--preset", default="modern", choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"], help="Design preset")
     wp.add_argument("--image-model", default="", help="OpenRouter image model")
     wp.add_argument("--atelier-theme", default="", help="Atelier design theme (e.g. specimen, midnight, brutal)")
+    # ── Customisation flags (Phase 1: un-hardcode) ──
+    wp.add_argument("--sections", "-s", default="hero,features,pricing,testimonials,faq,cta,footer",
+                    help="Comma-separated section names (default: hero,features,pricing,testimonials,faq,cta,footer)")
+    wp.add_argument("--company-name", default="", help="Brand/company name (default: inferred from description)")
+    wp.add_argument("--industry", default="technology", help="Client industry for content research (default: technology)")
+    wp.add_argument("--page-type", default="landing",
+                    choices=["landing", "saas", "portfolio", "ecommerce", "agency", "editorial", "custom"],
+                    help="Type of page to generate (default: landing)")
+    wp.add_argument("--deps", default="", help="Extra npm dependencies (comma-separated, e.g. three,@react-three/fiber,gsap)")
+    wp.add_argument("--3d", dest="use_3d", action="store_true", default=False,
+                    help="Shorthand for --deps three,@react-three/fiber,@react-three/drei")
     wp.set_defaults(func=_cmd_website)
 
 
@@ -1721,20 +1732,40 @@ def _cmd_website(args):
 
     logger = logging.getLogger(__name__)
 
-    print(f"\n🎨 Generating '{args.preset}' LLM-powered website: {args.description[:80]}...")
+    print(f"\n>>> Generating '{args.preset}' LLM-powered website: {args.description[:80]}...")
     print(f"   Framework: {args.framework}")
 
     design_system = DesignSystem(tone=args.preset)
-    client_info = ClientInfo(name="CloudFlow", industry="technology", description=args.description)
+
+    # ── Un-hardcoded: use CLI args or sensible defaults ──
+    company_name = args.company_name or args.description.split()[0][:20]
+    sections = [s.strip() for s in args.sections.split(",")]
+    extra_deps = [d.strip() for d in args.deps.split(",")] if args.deps else []
+    if getattr(args, "use_3d", False):
+        extra_deps.extend(["three", "@react-three/fiber", "@react-three/drei"])
+
+    client_info = ClientInfo(
+        name=company_name,
+        industry=args.industry,
+        description=args.description,
+    )
     config = WebsiteConfig(
         framework=args.framework,
         styling="tailwind" if args.framework != "html" else "css",
-        page_type="landing",
-        sections=["hero", "features", "pricing", "testimonials", "faq", "cta", "footer"],
+        page_type=args.page_type,
+        sections=sections,
         image_model=args.image_model,
         atelier_theme=args.atelier_theme,
+        description=args.description,
+        brand_name=company_name,
+        dependencies=["react", "react-dom"] + extra_deps,
     )
     output_dir = Path(args.output_dir)
+
+    print(f"   Sections: {sections}")
+    print(f"   Page type: {args.page_type}")
+    if extra_deps:
+        print(f"   Extra deps: {extra_deps}")
 
     # Wire orchestrator engine for LLM-powered generation
     engine = None
@@ -1764,19 +1795,19 @@ def _cmd_website(args):
     has_nextjs = (output_dir / "package.json").exists()
     
     if result.success:
-        print(f"✅ LLM-powered website: {output_dir.resolve()}")
+        print(f"[OK] LLM-powered website: {output_dir.resolve()}")
         print(f"   Components: {result.components_generated}")
         print(f"   Cost: ${result.total_cost:.4f}")
     elif has_nextjs:
-        print(f"⚠️  Content-brief fallback (engine not available)")
-        print(f"✅ Next.js + Tailwind: {output_dir.resolve()}")
+        print(f"!  Content-brief fallback (engine not available)")
+        print(f"[OK] Next.js + Tailwind: {output_dir.resolve()}")
         print(f"   Run: cd {output_dir} && npm install && npm run dev")
     elif has_index:
-        print(f"⚠️  Pipeline issues ({result.errors[0][:60]}...), but fallback HTML written")
-        print(f"✅ Fallback website: {output_dir.resolve() / 'index.html'}")
+        print(f"!  Pipeline issues ({result.errors[0][:60]}...), but fallback HTML written")
+        print(f"[OK] Fallback website: {output_dir.resolve() / 'index.html'}")
         print(f"   Size: {(output_dir / 'index.html').stat().st_size} bytes")
     else:
-        print(f"❌ Failed: {result.errors}")
+        print(f"[FAIL] Failed: {result.errors}")
 
 
 def _kanban_subparsers(subparsers) -> None:
