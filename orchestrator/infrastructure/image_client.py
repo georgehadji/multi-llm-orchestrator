@@ -172,21 +172,10 @@ class ImageGenClient:
     ) -> ImageGenResult:
         """Extract image data from an OpenRouter chat completions response.
 
-        OpenRouter image models return content blocks in one of these formats:
-
-        .. code-block:: json
-            {
-              "choices": [{
-                "message": {
-                  "content": [
-                    {"type": "image", "source": {"data": "<b64>", "media_type": "image/png"}},
-                    {"type": "text", "text": "..."}
-                  ]
-                }
-              }]
-            }
-
-        Or for some models, the content is a single text block containing a URL.
+        Handles multiple response formats across different image models:
+        - Gemini: content as list of content blocks with {'type': 'image', 'source': {...}}
+        - Recraft: b64_json field in content blocks or URL string
+        - FLUX: content may be None; image data in choices[0]['images'] or top-level
         """
         try:
             choices = data.get("choices", [])
@@ -194,12 +183,15 @@ class ImageGenClient:
                 return ImageGenResult(success=False, error="No choices in response")
 
             message = choices[0].get("message", {})
-            content = message.get("content", "")
+            content = message.get("content", None)
 
             # Format 1: content is a list of content blocks
             if isinstance(content, list):
                 for block in content:
-                    if isinstance(block, dict) and block.get("type") == "image":
+                    if not isinstance(block, dict):
+                        continue
+                    # Gemini-style image blocks
+                    if block.get("type") == "image":
                         source = block.get("source", {})
                         b64 = source.get("data", "")
                         mime = source.get("media_type", "image/png")
@@ -209,29 +201,65 @@ class ImageGenClient:
                                 return ImageGenResult(success=True, image_data=img_bytes, mime_type=mime)
                             except Exception as e:
                                 return ImageGenResult(success=False, error=f"Base64 decode failed: {e}")
-                    # Recraft vector models sometimes return b64_json in a different format
-                    if isinstance(block, dict) and "b64_json" in block:
-                        mime = block.get("media_type", "image/svg+xml")
-                        return ImageGenResult(
-                            success=True,
-                            image_data=base64.b64decode(block["b64_json"]),
-                            mime_type=mime,
-                        )
+                    # Recraft/FLUX b64_json format
+                    if "b64_json" in block:
+                        mime = block.get("media_type", "image/png")
+                        try:
+                            return ImageGenResult(
+                                success=True,
+                                image_data=base64.b64decode(block["b64_json"]),
+                                mime_type=mime,
+                            )
+                        except Exception as e:
+                            return ImageGenResult(success=False, error=f"b64_json decode: {e}")
 
             # Format 2: Recraft SVG models return content as a URL string
-            if isinstance(content, str) and content.startswith("http"):
-                return ImageGenResult(success=True, image_url=content, mime_type="image/svg+xml")
+            if isinstance(content, str):
+                if content.startswith("http"):
+                    return ImageGenResult(success=True, image_url=content, mime_type="image/svg+xml")
+                # Might be base64 directly
+                if len(content) > 100 and not content.startswith("{"):
+                    try:
+                        return ImageGenResult(success=True, image_data=base64.b64decode(content))
+                    except Exception:
+                        pass
 
-            # Format 3: b64_json at the top level of the choice
+            # Format 3: Image data in top-level choices[0] fields (not nested in message.content)
             if "b64_json" in choices[0]:
-                return ImageGenResult(
-                    success=True,
-                    image_data=base64.b64decode(choices[0]["b64_json"]),
-                )
+                try:
+                    return ImageGenResult(success=True, image_data=base64.b64decode(choices[0]["b64_json"]))
+                except Exception as e:
+                    return ImageGenResult(success=False, error=f"Top-level b64_json: {e}")
+
+            # Format 4: Images array at top level (some models return this)
+            if "images" in choices[0]:
+                img = choices[0]["images"]
+                if isinstance(img, list) and img:
+                    img = img[0]
+                if isinstance(img, dict):
+                    b64 = img.get("b64_json") or img.get("data", "")
+                    if b64:
+                        return ImageGenResult(success=True, image_data=base64.b64decode(b64))
+
+            # Format 5: Content is None — check for image_url or data at choice level
+            if content is None:
+                # Some models put image_url directly on the message
+                img_url = message.get("image_url") or choices[0].get("image_url", "")
+                if img_url and img_url.startswith("http"):
+                    return ImageGenResult(success=True, image_url=img_url, mime_type="image/png")
+                # Check for top-level data key with base64 content
+                for key in ("data", "image", "image_data"):
+                    val = data.get(key, "")
+                    if isinstance(val, str) and len(val) > 100:
+                        try:
+                            return ImageGenResult(success=True, image_data=base64.b64decode(val))
+                        except Exception:
+                            pass
 
             return ImageGenResult(
                 success=False,
-                error=f"Unrecognised response format: no image content found in {type(content).__name__}",
+                error=f"Unrecognised response format: content={type(content).__name__}, "
+                f"message_keys={list(message.keys())[:8]}, choice_keys={list(choices[0].keys())[:8]}",
             )
 
         except (KeyError, IndexError, TypeError) as e:
