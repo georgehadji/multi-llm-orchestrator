@@ -159,6 +159,7 @@ class Model(str, Enum):
     GPT_5_NANO = "openai/gpt-5-nano"
 
     GPT_5_4 = "openai/gpt-5.4"
+    GPT_5_4_NANO = "openai/gpt-5.4-nano"  # $0.20/$1.25, 400K ctx, intel=38.2
 
     GPT_5_4_MINI = "openai/gpt-5.4-mini"
 
@@ -221,6 +222,7 @@ class Model(str, Enum):
     # Google Gemma Models (OpenRouter)
 
     GEMMA_3_27B = "google/gemma-3-27b-it"  # 27B
+    GEMMA_4_31B = "google/gemma-4-31b-it"  # $0.12/$0.35, 262K ctx, coding=38.7
 
     # Nous Research Hermes (OpenRouter)
 
@@ -237,6 +239,10 @@ class Model(str, Enum):
     XIAOMI_MIMO_V2_PRO = "xiaomi/mimo-v2-pro"  # $1.00/$3.00, 1T+ params, 1M+ ctx
 
     XIAOMI_MIMO_V2_OMNI = "xiaomi/mimo-v2-omni"  # $0.40/$2.00, omni-modal
+
+    # Xiaomi Mimo V2.5 — best coding VFM
+    XIAOMI_MIMO_V2_5 = "xiaomi/mimo-v2.5"  # $0.14/$0.28, 1M ctx, coding=42.1
+    XIAOMI_MIMO_V2_5_PRO = "xiaomi/mimo-v2.5-pro"  # $0.44/$0.87, 1M ctx
 
     # ═══════════════════════════════════════════════════════
 
@@ -291,6 +297,7 @@ class Model(str, Enum):
     # ═══════════════════════════════════════════════════════
 
     QWEN_3_7_MAX = "qwen/qwen3.7-max"  # flagship reasoning + coding
+    QWEN_3_7_PLUS = "qwen/qwen3.7-plus"  # $0.32/$1.28, 1M ctx, coding=46.5
 
     QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # fast + cost-effective
 
@@ -302,7 +309,9 @@ class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════
 
-    MINIMAX_M2_7 = "minimax/minimax-m2.7"  # $0.30/$1.20, 205K, multi-agent ⭐
+    MINIMAX_M2_7 = "minimax/minimax-m2.7"  # $0.30/$1.20, 205K, multi-agent
+    # MiniMax M3 — best intelligence + agentic VFM
+    MINIMAX_M3 = "minimax/minimax-m3"  # $0.30/$1.20, 1M ctx, intel=44.4, agentic=68.6
 
     # Backward compatibility alias
 
@@ -564,6 +573,15 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.RIVERFLOW_V2_STANDARD: 4096,
     Model.RIVERFLOW_V2_FAST_PREVIEW: 4096,
     Model.SEEDREAM_4_5: 4096,
+    # Xiaomi Mimo V2.5
+    Model.XIAOMI_MIMO_V2_5: 8192,
+    Model.XIAOMI_MIMO_V2_5_PRO: 8192,
+    # MiniMax M3
+    Model.MINIMAX_M3: 8192,
+    # Qwen 3.7 Plus
+    Model.QWEN_3_7_PLUS: 8192,
+    # GPT-5.4 Nano
+    Model.GPT_5_4_NANO: 4096,
     # Google Gemma models
     Model.GEMMA_3_27B: 8192,
     # Nous Hermes models
