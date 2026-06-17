@@ -799,8 +799,10 @@ class WebsiteGenerator:
                                 )
                                 return i, True
                             except Exception as task_err:
-                                if attempt == 1:
-                                    logger.warning(f"  ✗ {section_name}: {task_err}")
+                                if attempt == 0:
+                                    logger.info(f"  ↻ {section_name}: retrying after error: {task_err}")
+                                    continue
+                                logger.warning(f"  ✗ {section_name}: {task_err}")
                                 return i, False
                         return i, False
 
@@ -1836,7 +1838,12 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         build_ok = True
 
         # ── Step 2: Build-verify loop ───────────────────────────────────
-        npx_path = str(output_dir / "node_modules" / ".bin" / "next")
+        # Resolve next binary on both Windows (next.cmd) and Unix (next)
+        npx_path = shutil.which("next", path=str(output_dir / "node_modules" / ".bin"))
+        if not npx_path:
+            npx_path = shutil.which("next.cmd", path=str(output_dir / "node_modules" / ".bin"))
+        if not npx_path:
+            npx_path = str(output_dir / "node_modules" / ".bin" / "next")  # Unix fallback
         for attempt in range(max_attempts):
             logger.info(f"  build-verify attempt {attempt + 1}/{max_attempts}...")
 
@@ -1883,16 +1890,21 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
             # Syntax errors — extract file + line, feed to LLM for fix
             syntax_errors = re.findall(
-                r"\./(components/\S+)\s*\n\s*.*?(\d+):(\d+):\s*\n\s*(.*?)(?:\n\n|\n\s*\n)",
+                r"\./(components/[a-zA-Z0-9_./-]+)\s*\n\s*.*?(\d+):(\d+):\s*\n\s*(.*?)(?:\n\n|\n\s*\n)",
                 build_output,
                 re.DOTALL,
             )
             if syntax_errors and self._engine:
                 for file_path, line_no, col_no, details in syntax_errors[:3]:
+                    # Validate path stays under output_dir (path-traversal prevention)
+                    resolved = (output_dir / file_path).resolve()
+                    if not str(resolved).startswith(str(output_dir.resolve())):
+                        log.append(f"path traversal blocked: {file_path}")
+                        continue
                     comp_name = Path(file_path).stem
                     logger.info(f"  ↻ auto-fixing syntax error in {comp_name} (line {line_no})...")
                     fixed = await self._llm_fix_syntax(
-                        file_path=str(output_dir / file_path),
+                        file_path=str(resolved),
                         error_line=int(line_no),
                         error_details=details.strip()[:500],
                         component_name=comp_name,
