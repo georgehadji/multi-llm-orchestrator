@@ -785,6 +785,50 @@ class ProjectAnalyzer:
         except Exception as e:
             logger.warning(f"Could not store in Knowledge Base: {e}")
 
+    def save_report(self, report: ProjectAnalysisReport, output_dir: Path) -> Path:
+        """Save analysis report to a JSON file in the output directory."""
+        import json
+
+        report_file = output_dir / "analysis_report.json"
+        report_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(report_file, "w", encoding="utf-8") as f:
+            json.dump(report.to_dict() if hasattr(report, 'to_dict') else asdict(report), f, indent=2, default=str)
+        logger.info(f"Analysis report saved to: {report_file}")
+        return report_file
+
+    def print_suggestions(self, report: ProjectAnalysisReport, max_items: int = 5) -> None:
+        """Print actionable suggestions to console with priority icons."""
+        if not report.suggestions:
+            return
+        print("\n" + "=" * 70)
+        print("IMPROVEMENT SUGGESTIONS")
+        print("=" * 70)
+
+        for suggestion in report.suggestions[:max_items]:
+            priority_icon = {
+                SuggestionPriority.CRITICAL: "[CRIT]",
+                SuggestionPriority.HIGH: "[HIGH]",
+                SuggestionPriority.MEDIUM: "[MED]",
+                SuggestionPriority.LOW: "[LOW]",
+            }.get(suggestion.priority, "[INFO]")
+
+            print(
+                f"\n{priority_icon} {suggestion.title}"
+            )
+            print(f"   Category: {suggestion.category.value}")
+            print(f"   Effort: {suggestion.estimated_effort}")
+            print(f"   Impact: {suggestion.expected_impact}")
+            print(f"   {suggestion.description[:100]}...")
+
+            if suggestion.code_example:
+                print("\n   Example:")
+                for line in suggestion.code_example.strip().split("\n")[:3]:
+                    print(f"     {line}")
+
+        print("\n" + "=" * 70)
+        print(f"{len(report.suggestions)} suggestions available")
+        print("=" * 70)
+
     def generate_summary(self, report: ProjectAnalysisReport) -> str:
         """Generate human-readable summary."""
         lines = [
