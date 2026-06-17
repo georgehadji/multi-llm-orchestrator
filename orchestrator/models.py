@@ -328,14 +328,41 @@ class Model(str, Enum):
     # IMAGE GENERATION MODELS
     # ═══════════════════════════════════════════════════════
 
-    # Google Nano Banana 2 (Gemini 3.1 Flash Image) — #1 Design Arena
-    NANO_BANANA_2 = "google/gemini-3.1-flash-image-preview"  # $0.0005/$0.003, image+text
+    # Google Nano Banana series
+    NANO_BANANA = "google/gemini-2.5-flash-image"  # $0.30/$2.50 img, 32K ctx
+    NANO_BANANA_2 = "google/gemini-3.1-flash-image-preview"  # $0.50/$3 img, 131K ctx
+    NANO_BANANA_PRO = "google/gemini-3-pro-image-preview"  # $2/$12 img, 65K ctx
 
-    # Recraft V4.1 Pro Vector — native SVG output
-    RECRAFT_V4_PRO_VECTOR = "recraft/recraft-v4.1-pro-vector"  # SVG, $0/$0
+    # OpenAI GPT Image series
+    GPT_5_IMAGE = "openai/gpt-5-image"  # $10/$10 img, 400K ctx
+    GPT_5_IMAGE_MINI = "openai/gpt-5-image-mini"  # $2.50/$2 img, 400K ctx
+    GPT_54_IMAGE_2 = "openai/gpt-5.4-image-2"  # $8/$15 img, 272K ctx
 
-    # Black Forest Labs FLUX.2 Klein — fast, cost-effective
-    FLUX_2_KLEIN = "black-forest-labs/flux.2-klein-4b"  # $0/$0, fastest image gen
+    # Black Forest Labs FLUX series
+    FLUX_2_KLEIN = "black-forest-labs/flux.2-klein-4b"  # $0.014/img, 40K ctx
+    FLUX_2_MAX = "black-forest-labs/flux.2-max"  # $0.07/img, 46K ctx
+    FLUX_2_FLEX = "black-forest-labs/flux.2-flex"  # from $0.06/img, 67K ctx
+    FLUX_2_PRO = "black-forest-labs/flux.2-pro"  # $0.03/img, 46K ctx
+
+    # Recraft V4 series
+    RECRAFT_V4_UTILITY = "recraft/recraft-v4.1-utility"  # $0.04/img, 65K ctx
+    RECRAFT_V4_PRO = "recraft/recraft-v4.1-pro"  # $0.25/img, 65K ctx
+    RECRAFT_V4 = "recraft/recraft-v4.1"  # $0.04/img, 65K ctx
+    RECRAFT_V4_PRO_VECTOR = "recraft/recraft-v4-pro-vector"  # $0.30/img, SVG
+    RECRAFT_V4_VECTOR = "recraft/recraft-v4-vector"  # $0.08/img, SVG
+    RECRAFT_V4_1_PRO = "recraft/recraft-v4-pro"  # $0.25/img, 65K ctx
+    RECRAFT_V4_1 = "recraft/recraft-v4"  # $0.04/img, 65K ctx
+    RECRAFT_V3 = "recraft/recraft-v3"  # $0.04/img, 65K ctx
+
+    # Sourceful Riverflow series
+    RIVERFLOW_V2_PRO = "sourceful/riverflow-v2-pro"  # from $0.15/img, 8K ctx
+    RIVERFLOW_V2_FAST = "sourceful/riverflow-v2-fast"  # from $0.02/img, 8K ctx
+    RIVERFLOW_V2_MAX = "sourceful/riverflow-v2-max-preview"  # $0.075/img, 8K ctx
+    RIVERFLOW_V2_STANDARD = "sourceful/riverflow-v2-standard-preview"  # $0.035/img, 8K ctx
+    RIVERFLOW_V2_FAST_PREVIEW = "sourceful/riverflow-v2-fast-preview"  # $0.03/img, 8K ctx
+
+    # ByteDance Seedream
+    SEEDREAM_4_5 = "bytedance-seed/seedream-4.5"  # $0.04/img, 4K ctx
 
 
 class ProjectStatus(str, Enum):
@@ -513,9 +540,30 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.PHI_4: 4096,
     Model.PHI_4_REASONING: 4096,
     # Image generation models
+    Model.NANO_BANANA: 4096,
     Model.NANO_BANANA_2: 4096,
-    Model.RECRAFT_V4_PRO_VECTOR: 4096,
+    Model.NANO_BANANA_PRO: 4096,
+    Model.GPT_5_IMAGE: 4096,
+    Model.GPT_5_IMAGE_MINI: 4096,
+    Model.GPT_54_IMAGE_2: 4096,
     Model.FLUX_2_KLEIN: 4096,
+    Model.FLUX_2_MAX: 4096,
+    Model.FLUX_2_FLEX: 4096,
+    Model.FLUX_2_PRO: 4096,
+    Model.RECRAFT_V4_UTILITY: 4096,
+    Model.RECRAFT_V4_PRO: 4096,
+    Model.RECRAFT_V4: 4096,
+    Model.RECRAFT_V4_PRO_VECTOR: 4096,
+    Model.RECRAFT_V4_VECTOR: 4096,
+    Model.RECRAFT_V4_1_PRO: 4096,
+    Model.RECRAFT_V4_1: 4096,
+    Model.RECRAFT_V3: 4096,
+    Model.RIVERFLOW_V2_PRO: 4096,
+    Model.RIVERFLOW_V2_FAST: 4096,
+    Model.RIVERFLOW_V2_MAX: 4096,
+    Model.RIVERFLOW_V2_STANDARD: 4096,
+    Model.RIVERFLOW_V2_FAST_PREVIEW: 4096,
+    Model.SEEDREAM_4_5: 4096,
     # Google Gemma models
     Model.GEMMA_3_27B: 8192,
     # Nous Hermes models
