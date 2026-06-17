@@ -734,20 +734,13 @@ class Orchestrator:
         """
         logger.debug("Orchestrator cleaning up resources...")
 
-        # ── Phase 1: Container-managed services ──────────────────────────────
-        if self._container is not None:
-            await self._container.shutdown()
+        # ── Phase 1: Orchestrator-specific cleanup ───────────────────────────
+        # 1a. Cancel periodic cleanup timer (in snapshotter)
+        snap = self._get_snapshotter()
+        snap.stop_periodic_cleanup()
 
-        # ── Phase 2: Orchestrator-specific cleanup ───────────────────────────
-        # 2a. Cancel periodic cleanup timer
-        if self._cleanup_timer:
-            self._cleanup_timer.cancel()
-            try:
-                await self._cleanup_timer
-            except asyncio.CancelledError:
-                pass
-
-        # 2b. Drain background tasks
+        # 1b. Drain background tasks BEFORE container shutdown to avoid
+        #     writing to closed telemetry store
         await self._cleanup_background_tasks()
         background_list = list(self._background_tasks)
         if background_list:
@@ -755,14 +748,18 @@ class Orchestrator:
             for task in pending:
                 task.cancel()
 
-        # 2c. Flush audit log
+        # ── Phase 2: Container-managed services ──────────────────────────────
+        if self._container is not None:
+            await self._container.shutdown()
+
+        # 2a. Flush audit log
         try:
             if hasattr(self._audit_log, "flush"):
                 await self._audit_log.flush()
         except Exception as e:
             logger.warning("Failed to flush audit log: %s", e)
 
-        # 2d. Close SkillOpt manager
+        # 2b. Close SkillOpt manager
         try:
             if self._skill_manager is not None:
                 await self._skill_manager.close()
@@ -841,10 +838,6 @@ class Orchestrator:
     async def _flush_telemetry_snapshots(self, project_id: str) -> None:
         """Snapshot active model profiles — delegates to TelemetrySnapshotter."""
         await self._get_snapshotter().flush_snapshots(project_id)
-
-    def _cleanup_task_callback(self, task: asyncio.Task) -> None:
-        """Background task done-callback — delegates to TelemetrySnapshotter."""
-        self._get_snapshotter()._cleanup_task_callback(task)
 
     async def _cleanup_background_tasks(self) -> int:
         """Remove completed tasks — delegates to TelemetrySnapshotter."""
