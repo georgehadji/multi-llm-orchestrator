@@ -1721,6 +1721,9 @@ def _website_subparsers(subparsers) -> None:
     wp.add_argument("--deps", default="", help="Extra npm dependencies (comma-separated, e.g. three,@react-three/fiber,gsap)")
     wp.add_argument("--3d", dest="use_3d", action="store_true", default=False,
                     help="Shorthand for --deps three,@react-three/fiber,@react-three/drei")
+    # ── URL source extraction ──
+    wp.add_argument("--source-url", default="",
+                    help="Live URL to clone — extracts design tokens, fonts, and content via Playwright")
     wp.set_defaults(func=_cmd_website)
 
 
@@ -1763,11 +1766,14 @@ def _cmd_website(args):
         brand_name=company_name,
         dependencies=["react", "react-dom"] + extra_deps,
         image_quality=getattr(args, "image_quality", "balanced"),
+        source_url=args.source_url if hasattr(args, "source_url") else "",
     )
     output_dir = Path(args.output_dir)
 
     print(f"   Sections: {sections}")
     print(f"   Page type: {args.page_type}")
+    if config.source_url:
+        print(f"   Source URL: {config.source_url}")
     if extra_deps:
         print(f"   Extra deps: {extra_deps}")
 
