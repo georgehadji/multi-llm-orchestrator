@@ -364,6 +364,81 @@ Return ONLY valid JSON, no markdown fences."""
         return brief
 
 
+def _count_unbalanced_braces(source: str) -> int:
+    """Return net open braces in source, skipping strings and comments.
+
+    A simple state machine that ignores braces inside:
+    - Double-quoted strings ("...")
+    - Single-quoted strings ('...')
+    - Template literals (`...`)
+    - Line comments (//...)
+    - Block comments (/* ... */)
+
+    This prevents false-positive truncation warnings from braces that appear
+    inside string literals (e.g. URLs with {id}) or comments.
+    """
+    depth = 0
+    i = 0
+    in_single = in_double = in_backtick = False
+    in_line_comment = in_block_comment = False
+    while i < len(source):
+        c = source[i]
+
+        # ── Comments ─────────────────────────────────────────────
+        if not in_single and not in_double and not in_backtick:
+            if not in_block_comment and i + 1 < len(source):
+                if c == "/" and source[i + 1] == "/":
+                    in_line_comment = True
+                    i += 2
+                    continue
+                if c == "/" and source[i + 1] == "*":
+                    in_block_comment = True
+                    i += 2
+                    continue
+
+        if in_line_comment:
+            if c == "\n":
+                in_line_comment = False
+            i += 1
+            continue
+
+        if in_block_comment:
+            if c == "*" and i + 1 < len(source) and source[i + 1] == "/":
+                in_block_comment = False
+                i += 2
+            else:
+                i += 1
+            continue
+
+        # ── String literals ─────────────────────────────────────
+        if c in ("'", '"', "`"):
+            if c == "'" and not in_double and not in_backtick:
+                in_single = not in_single
+            elif c == '"' and not in_single and not in_backtick:
+                in_double = not in_double
+            elif c == "`" and not in_single and not in_double:
+                in_backtick = not in_backtick
+            i += 1
+            continue
+
+        # Skip non-escape characters inside strings
+        if in_single or in_double or in_backtick:
+            if c == "\\" and i + 1 < len(source):
+                i += 2  # skip escape sequence
+            else:
+                i += 1
+            continue
+
+        # ── Brace counting ──────────────────────────────────────
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        i += 1
+
+    return depth
+
+
 class WebsiteExtractor:
     """
     Extract visual design tokens, content, and assets from a live website URL.
@@ -610,33 +685,50 @@ class WebsiteGenerator:
         #    SWC fails parsing `oklch(...)1px` — convert to string concat
         import re as _re
 
-        tl_pattern = _re.compile(r"`([^`]*)\$\{([^}]+)\}([^`]*)`")
         fixed_tls = 0
 
-        def _replace_tl(match):
-            nonlocal fixed_tls
-            before, expr, after = match.group(1), match.group(2).strip(), match.group(3)
-            # Only fix if the expression is a simple variable name (not complex expressions)
+        def _fix_tl_expr(expr: str) -> str | None:
+            """Convert a template expression to concatenation-safe form.
+            Only simple variable/chain names are fixed; complex expressions are left as-is."""
+            expr = expr.strip()
             if _re.match(r"^[a-zA-Z_]\w*(\.\w+)*$", expr):
+                return expr
+            return None
+
+        def _fix_template_literal(match):
+            nonlocal fixed_tls
+            inner = match.group(1)
+            has_expr = _re.search(r"\$\{", inner)
+            if not has_expr:
+                return match.group(0)
+            # Split on ${expr} and convert each part
+            parts = _re.split(r"\$\{([^}]+)\}", inner)
+            result = []
+            any_converted = False
+            for i, part in enumerate(parts):
+                if i % 2 == 1:  # expression
+                    expr = _fix_tl_expr(part)
+                    if expr is not None:
+                        result.append(expr)
+                        any_converted = True
+                    else:
+                        # Complex expression — put back the ${} syntax
+                        result.append("${" + part + "}")
+                elif part:
+                    result.append(repr(part))
+            if any_converted:
                 fixed_tls += 1
-                parts = []
-                if before:
-                    parts.append(repr(before))
-                parts.append(expr)
-                if after:
-                    parts.append(repr(after))
-                return " + ".join(parts)
+                return " + ".join(p for p in result if p)
             return match.group(0)
 
-        cleaned = tl_pattern.sub(_replace_tl, cleaned)
+        cleaned = _re.sub(r"`([^`]*)`", _fix_template_literal, cleaned)
         if fixed_tls > 0:
             warnings.append(f"converted {fixed_tls} template literal(s) to string concat")
 
-        # 4. Detect truncation: check balanced braces and closing tag
-        open_b = cleaned.count("{")
-        close_b = cleaned.count("}")
-        if open_b != close_b:
-            warnings.append(f"unbalanced braces ({open_b} open, {close_b} close) — output may be truncated")
+        # 4. Detect truncation: check balanced braces (string/comment-aware)
+        unbalanced = _count_unbalanced_braces(cleaned)
+        if unbalanced != 0:
+            warnings.append(f"unbalanced braces (net {unbalanced:+d}) — output may be truncated")
 
         # Check for trailing truncated patterns
         last_line = cleaned.rsplit("\n", 1)[-1].strip() if "\n" in cleaned else cleaned
@@ -1903,7 +1995,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                         continue
                     comp_name = Path(file_path).stem
                     logger.info(f"  ↻ auto-fixing syntax error in {comp_name} (line {line_no})...")
-                    fixed = await self._llm_fix_syntax(
+                    fixed, fix_cost = await self._llm_fix_syntax(
                         file_path=str(resolved),
                         error_line=int(line_no),
                         error_details=details.strip()[:500],
@@ -1911,7 +2003,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                         config=config,
                     )
                     if fixed:
-                        log.append(f"LLM fix applied to {comp_name}")
+                        result.total_cost += fix_cost
+                        log.append(f"LLM fix applied to {comp_name} (${fix_cost:.4f})")
                     else:
                         log.append(f"LLM fix failed for {comp_name}")
                 continue  # retry build with fixed files
@@ -1930,8 +2023,12 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         error_details: str,
         component_name: str,
         config: WebsiteConfig,
-    ) -> bool:
-        """Feed a syntax error back to the LLM for a targeted fix."""
+    ) -> tuple[bool, float]:
+        """Feed a syntax error back to the LLM for a targeted fix.
+
+        Returns:
+            (success: bool, cost_usd: float)
+        """
         try:
             source = Path(file_path).read_text(encoding="utf-8")
 
@@ -1957,12 +2054,13 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             if component_result and component_result.output:
                 cleaned, _ = self._sanitize_output(component_result.output, component_name)
                 if len(cleaned) > 200:
+                    cost = getattr(component_result, "cost_usd", 0.0)
                     Path(file_path).write_text(cleaned, encoding="utf-8")
-                    logger.info(f"  ✓ {component_name}: LLM fix applied ({len(cleaned)} chars)")
-                    return True
+                    logger.info(f"  ✓ {component_name}: LLM fix applied ({len(cleaned)} chars, ${cost:.4f})")
+                    return True, cost
         except Exception as e:
             logger.warning(f"LLM syntax fix failed for {component_name}: {e}")
-        return False
+        return False, 0.0
 
     def _assemble_nextjs_page(
         self,
