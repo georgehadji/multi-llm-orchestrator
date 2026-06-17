@@ -329,7 +329,6 @@ Return ONLY valid JSON, no markdown fences."""
 
         logger.info(f"Template content brief with {len(brief.headlines)} sections")
         return brief
-        return brief
 
 
 class WebsiteGenerator:
@@ -1247,18 +1246,24 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             },
         }
 
-        # Merge custom dependencies (format: "pkg" or "pkg@version")
+        # Merge custom dependencies (format: "pkg", "pkg@version", "@scope/pkg", "@scope/pkg@version")
         custom_deps = getattr(config, "dependencies", []) or []
         for dep in custom_deps:
             if dep in ("react", "react-dom", "next"):
                 continue  # already in base
-            if "@" in dep and not dep.startswith("@"):
+            if dep.startswith("@") and dep.count("/") >= 1:
+                # Scoped package: @scope/name or @scope/name@version
+                name, at, ver = dep.rpartition("@")
+                if dep.count("@") == 1:
+                    # Just @scope/name, no version
+                    name = dep
+                    ver = "latest"
+                else:
+                    # @scope/name@version — rpartition gives name=@scope/name, ver
+                    pass
+            elif "@" in dep:
+                # Unscoped package with version: pkg@version
                 name, ver = dep.split("@", 1)
-            elif dep.startswith("@") and dep.count("@") >= 2:
-                # scoped package: @scope/name@version
-                parts = dep.split("@")
-                name = "@" + parts[1]
-                ver = parts[2] if len(parts) > 2 else "latest"
             else:
                 name = dep
                 ver = "latest"
@@ -1315,6 +1320,11 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         site_name = safe_brand
         site_url = getattr(config, "site_url", f"https://{pkg_name}.io") or f"https://{pkg_name}.io"
         
+        # Data-driven metadata for layout.tsx
+        page_type_title = getattr(config, "page_type", "Website").title()
+        desc = getattr(config, "description", "") or ""
+        meta_desc = desc[:150] if desc else f"A premium {getattr(config, 'page_type', 'website')} website"
+
         # Write layout.tsx with full SEO + OG + security headers
         (app_dir / "layout.tsx").write_text(
             "import type { Metadata, Viewport } from 'next';\n"
@@ -1327,10 +1337,10 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "export const metadata: Metadata = {\n"
             f"  metadataBase: new URL('{site_url}'),\n"
             "  title: {\n"
-            f"    default: '{safe_brand} — {getattr(config, 'page_type', 'Website').title()}',\n"
+            f"    default: '{safe_brand} — {page_type_title}',\n"
             f"    template: '%s | {safe_brand}',\n"
             "  },\n"
-            f"  description: '{getattr(config, 'description', '')[:150] or f"A premium " + getattr(config, 'page_type', '') + " website"}',\n"
+            f"  description: '{meta_desc}',\n"
             f"  keywords: ['{getattr(config, 'page_type', 'web')}', '{pkg_name}'],\n"
             "  robots: { index: true, follow: true },\n"
             "  openGraph: {\n"
@@ -1338,14 +1348,14 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "    locale: 'en_US',\n"
             "    url: '/',\n"
             f"    siteName: '{safe_brand}',\n"
-            f"    title: '{safe_brand} — {getattr(config, 'page_type', 'Website').title()}',\n"
-            f"    description: '{getattr(config, 'description', '')[:150] or f"A premium website"}',\n"
+            f"    title: '{safe_brand} — {page_type_title}',\n"
+            f"    description: '{meta_desc}',\n"
             f"    images: [{{ url: '/og-image.png', width: 1200, height: 630, alt: '{safe_brand}' }}],\n"
             "  },\n"
             "  twitter: {\n"
             "    card: 'summary_large_image',\n"
-            f"    title: '{safe_brand} — {getattr(config, 'page_type', 'Website').title()}',\n"
-            f"    description: '{getattr(config, 'description', '')[:150] or f"A premium website"}',\n"
+            f"    title: '{safe_brand} — {page_type_title}',\n"
+            f"    description: '{meta_desc}',\n"
             "    images: ['/og-image.png'],\n"
             "  },\n"
             "  alternates: { canonical: '/' },\n"
@@ -1518,16 +1528,17 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             encoding="utf-8",
         )
 
-        # Write security.txt (well-known)
+        # Write security.txt (well-known) — data-driven
+        security_email = f"security@{pkg_name}.io"
         public_dir = output_dir / "public"
         well_known = public_dir / ".well-known"
         well_known.mkdir(parents=True, exist_ok=True)
         (well_known / "security.txt").write_text(
-            "Contact: mailto:security@cloudflow.io\n"
+            f"Contact: mailto:{security_email}\n"
             "Expires: 2027-12-31T23:59:59Z\n"
             "Preferred-Languages: en\n"
-            "Canonical: https://cloudflow.io/.well-known/security.txt\n"
-            "Policy: https://cloudflow.io/security\n",
+            f"Canonical: {site_url}/.well-known/security.txt\n"
+            f"Policy: {site_url}/security\n",
             encoding="utf-8",
         )
 
@@ -1541,7 +1552,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\n"
             "  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()\n"
             "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\n"
-            "  Access-Control-Allow-Origin: https://cloudflow.io\n",
+            f"  Access-Control-Allow-Origin: {site_url}\n",
             encoding="utf-8",
         )
 
@@ -1556,7 +1567,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "</head>\n<body>\n"
             "<h1>Security Policy</h1>\n"
             "<h2>Reporting a Vulnerability</h2>\n"
-            "<p>Email <a href=\"mailto:security@cloudflow.io\">security@cloudflow.io</a>. "
+            f"<p>Email <a href=\"mailto:{security_email}\">{security_email}</a>. "
             "We respond within 48 hours and aim to resolve critical issues within 7 days.</p>\n"
             "<h2>Security Measures</h2>\n"
             "<ul>\n"
