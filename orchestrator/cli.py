@@ -1705,7 +1705,8 @@ def _website_subparsers(subparsers) -> None:
     wp.add_argument("--output-dir", "-o", default="outputs/website", help="Output directory")
     wp.add_argument("--framework", "-f", default="html", choices=["html", "react", "next.js"], help="Target framework")
     wp.add_argument("--preset", default="modern", choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"], help="Design preset")
-    wp.add_argument("--image-model", default="", help="OpenRouter image model (e.g. google/gemini-3.1-flash-image-preview)")
+    wp.add_argument("--image-model", default="", help="OpenRouter image model")
+    wp.add_argument("--atelier-theme", default="", help="Atelier design theme (e.g. specimen, midnight, brutal)")
     wp.set_defaults(func=_cmd_website)
 
 
@@ -1731,6 +1732,7 @@ def _cmd_website(args):
         page_type="landing",
         sections=["hero", "features", "pricing", "testimonials", "faq", "cta", "footer"],
         image_model=args.image_model,
+        atelier_theme=args.atelier_theme,
     )
     output_dir = Path(args.output_dir)
 

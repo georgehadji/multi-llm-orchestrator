@@ -135,6 +135,7 @@ class WebsiteConfig:
     seo_optimized: bool = True
     performance_optimized: bool = True
     image_model: str = ""  # OpenRouter image model ID; empty = SVG placeholders
+    atelier_theme: str = ""  # Atelier design theme slug (e.g. specimen, midnight)
 
 
 @dataclass
@@ -482,7 +483,17 @@ class WebsiteGenerator:
             headline = content_brief.headlines.get(section, "") if hasattr(content_brief, "headlines") else ""
             cta = ", ".join(getattr(content_brief, "ctas", []))
             pain_points = []
-        
+
+        atelier_theme_context = ""
+        if config.atelier_theme:
+            try:
+                from ..design.atelier.themes import get_theme, theme_to_prompt_context
+                theme = get_theme(config.atelier_theme)
+                if theme:
+                    atelier_theme_context = theme_to_prompt_context(theme)
+            except ImportError:
+                pass
+
         return f"""
 You are building a premium website section using design system-driven development.
 
@@ -508,6 +519,18 @@ Styling: {config.styling}
 Dark Mode: {'Yes' if config.include_dark_mode else 'No'}
 Animations: {'Yes' if config.include_animations else 'No'}
 SEO Optimized: {'Yes' if config.seo_optimized else 'No'}
+Atelier Theme: {"Yes" if config.atelier_theme else "None"}
+
+{atelier_theme_context}
+
+ATELIER DESIGN RULES (when a theme is selected):
+A. Structural variety — avoid centered heroes and 3-even-column grids.
+B. Color discipline — use OKLCH-paired colors; no purple-to-cyan gradients.
+C. Typography hierarchy — use paired heading/body fonts at multiple scales.
+D. Motion character — match easing to the theme's motion direction.
+E. Imagery restraint — no Unsplash people, undersea cables, or grey placeholders.
+F. Interactive polish — 8-state buttons, focus-visible rings, prefers-reduced-motion.
+G. No 'Inter' monoculture — use the specified font pairing only.
 
 RULES:
 1. Use ONLY colors from the design system. No arbitrary hex values.
