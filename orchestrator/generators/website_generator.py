@@ -198,6 +198,7 @@ class WebsiteBuildResult:
     quality_report: QualityReport | None = None
     state: ProjectState | None = None
     errors: list[str] = field(default_factory=list)
+    sanitization_fixes: int = 0  # number of sections fixed by _sanitize_output
     total_cost: float = 0.0
     total_time_seconds: float = 0.0
 
@@ -570,6 +571,94 @@ class WebsiteGenerator:
         self._registry = _get_registry()()
         self._researcher = ContentResearcher()
 
+    @staticmethod
+    def _sanitize_output(raw: str, section_name: str = "") -> tuple[str, list[str]]:
+        """Clean and validate LLM-generated component output before writing to disk.
+
+        Handles the four bug classes discovered in production:
+        1. Markdown code fences (`` ```tsx `` / `` ``` ``)
+        2. Truncated output (unclosed tags, unbalanced braces)
+        3. SWC-incompatible casts (`` } as React.CSSProperties} ``)
+        4. Template literals with oklch() number ambiguities
+
+        Args:
+            raw: Raw LLM output string.
+            section_name: Section name for log context.
+
+        Returns:
+            (cleaned_output, warnings_list)
+        """
+        warnings: list[str] = []
+        cleaned = raw.strip()
+
+        # 1. Strip markdown code fences
+        if cleaned.startswith("```"):
+            first_nl = cleaned.find("\n")
+            if first_nl > 0:
+                cleaned = cleaned[first_nl + 1 :]
+            if cleaned.rstrip().endswith("```"):
+                cleaned = cleaned.rstrip()[: -3].rstrip()
+            warnings.append("stripped markdown code fences")
+
+        # 2. Fix SWC-incompatible casts (} as React.CSSProperties} → }})
+        if "as React.CSSProperties}" in cleaned:
+            cleaned = cleaned.replace("} as React.CSSProperties}", "}}")
+            warnings.append("removed as React.CSSProperties cast(s)")
+
+        # 3. Fix template literals with oklch() → number ambiguity
+        #    Pattern: `${ink} 1px` where ink = "oklch(0.15 0.01 95)"
+        #    SWC fails parsing `oklch(...)1px` — convert to string concat
+        import re as _re
+
+        tl_pattern = _re.compile(r"`([^`]*)\$\{([^}]+)\}([^`]*)`")
+        fixed_tls = 0
+
+        def _replace_tl(match):
+            nonlocal fixed_tls
+            before, expr, after = match.group(1), match.group(2).strip(), match.group(3)
+            # Only fix if the expression is a simple variable name (not complex expressions)
+            if _re.match(r"^[a-zA-Z_]\w*(\.\w+)*$", expr):
+                fixed_tls += 1
+                parts = []
+                if before:
+                    parts.append(repr(before))
+                parts.append(expr)
+                if after:
+                    parts.append(repr(after))
+                return " + ".join(parts)
+            return match.group(0)
+
+        cleaned = tl_pattern.sub(_replace_tl, cleaned)
+        if fixed_tls > 0:
+            warnings.append(f"converted {fixed_tls} template literal(s) to string concat")
+
+        # 4. Detect truncation: check balanced braces and closing tag
+        open_b = cleaned.count("{")
+        close_b = cleaned.count("}")
+        if open_b != close_b:
+            warnings.append(f"unbalanced braces ({open_b} open, {close_b} close) — output may be truncated")
+
+        # Check for trailing truncated patterns
+        last_line = cleaned.rsplit("\n", 1)[-1].strip() if "\n" in cleaned else cleaned
+        truncation_signs = [
+            last_line.endswith("<") or last_line.endswith("</"),
+            last_line.endswith("={") or last_line.endswith("=("),
+            last_line.endswith("d=") or last_line.endswith("d='") or last_line.endswith('d="'),
+            last_line == "exit",
+            len(last_line) < 10 and ("<" in last_line or "{" in last_line),
+        ]
+        if any(truncation_signs):
+            warnings.append("output appears truncated (incomplete last line)")
+
+        # Check for minimum viable output
+        if len(cleaned) < 200:
+            warnings.append(f"output too short ({len(cleaned)} chars) — likely failed generation")
+
+        if warnings:
+            logger.warning("WebsiteGenerator._sanitize [%s]: %s", section_name, "; ".join(warnings))
+
+        return cleaned, warnings
+
     async def generate(
         self,
         design_system: DesignSystem,
@@ -673,28 +762,53 @@ class WebsiteGenerator:
                 logger.info(f"LLM-powered generation: {len(tasks)} sections via orchestrator")
                 max_concurrent = getattr(self._engine, "max_concurrency", 3)
                 semaphore = asyncio.Semaphore(max_concurrent)
+                sanitization_counts: list[int] = [0]
 
-                async def _run_one(i: int, task: Task) -> tuple[int, bool]:
+                async def _run_section(i: int, task: Task) -> tuple[int, bool]:
                     async with semaphore:
-                        try:
-                            component_result = await self._engine._execute_task(task)
-                            if component_result and component_result.output:
-                                ext = ".html" if config.framework == "html" else ".tsx"
-                                comp_path = output_dir / "components" / f"{config.sections[i]}{ext}"
-                                comp_path.parent.mkdir(parents=True, exist_ok=True)
-                                comp_path.write_text(component_result.output, encoding="utf-8")
-                                result.total_cost += getattr(component_result, "cost_usd", 0)
-                                logger.info(f"  ✓ {config.sections[i]}: {len(component_result.output)} chars")
-                                return i, True
-                            else:
-                                logger.warning(f"  ✗ {config.sections[i]}: empty LLM output")
-                                return i, False
-                        except Exception as task_err:
-                            logger.warning(f"  ✗ {config.sections[i]}: {task_err}")
-                            return i, False
+                        section_name = config.sections[i]
+                        for attempt in range(2):
+                            try:
+                                component_result = await self._engine._execute_task(task)
+                                if not component_result or not component_result.output:
+                                    logger.warning(f"  ✗ {section_name}: empty LLM output")
+                                    return i, False
 
-                results = await asyncio.gather(*[_run_one(i, task) for i, task in enumerate(tasks)])
+                                cleaned, warnings_list = self._sanitize_output(
+                                    component_result.output, section_name
+                                )
+
+                                # Retry once if output appears truncated
+                                if any("truncated" in w for w in warnings_list) and attempt == 0:
+                                    logger.info(f"  ↻ {section_name}: retrying with 2× tokens (truncated)")
+                                    task.max_output_tokens = min(task.max_output_tokens * 2, 16384)
+                                    continue
+
+                                ext = ".html" if config.framework == "html" else ".tsx"
+                                comp_path = output_dir / "components" / f"{section_name}{ext}"
+                                comp_path.parent.mkdir(parents=True, exist_ok=True)
+                                comp_path.write_text(cleaned, encoding="utf-8")
+                                result.total_cost += getattr(component_result, "cost_usd", 0)
+
+                                if warnings_list:
+                                    sanitization_counts[0] += 1
+                                status = "⚠" if warnings_list else "✓"
+                                logger.info(
+                                    f"  {status} {section_name}: {len(cleaned)} chars"
+                                    f"{' (' + '; '.join(warnings_list) + ')' if warnings_list else ''}"
+                                )
+                                return i, True
+                            except Exception as task_err:
+                                if attempt == 1:
+                                    logger.warning(f"  ✗ {section_name}: {task_err}")
+                                return i, False
+                        return i, False
+
+                results = await asyncio.gather(
+                    *[_run_section(i, task) for i, task in enumerate(tasks)]
+                )
                 result.components_generated = sum(1 for _, ok in results if ok)
+                result.sanitization_fixes = sanitization_counts[0]
                 result.success = any(ok for _, ok in results)
             else:
                 # Without engine, generate content from content brief
@@ -723,6 +837,16 @@ class WebsiteGenerator:
             # Step 5: Generate placeholder images (hero bg, OG, section images)
             logger.info("WebsiteGenerator: generating images...")
             await self._generate_images(output_dir, config, design_system)
+
+            # Step 5.5: Install deps + build-verify + auto-fix errors
+            if config.framework in ("next.js", "react"):
+                logger.info("WebsiteGenerator: installing npm dependencies + build-verifying...")
+                build_ok, build_log = await self._verify_and_fix_build(
+                    output_dir, config, result
+                )
+                if not build_ok:
+                    logger.warning("Build verification had issues (see log)")
+                    result.errors.append("build-verify: " + build_log[-1] if build_log else "unknown build error")
 
             # Step 6: Assemble final page
             logger.info("WebsiteGenerator: assembling page...")
@@ -827,7 +951,7 @@ class WebsiteGenerator:
                 tech_context=f"{config.framework} + {config.styling}",
                 acceptance_threshold=0.85,
                 max_iterations=3,
-                max_output_tokens=4096,
+                max_output_tokens=8192,  # bumped from 4096 — complex 3D TSX needs headroom
             )
             tasks.append(task)
 
@@ -1643,6 +1767,179 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         index_path.write_text("\n".join(page_lines), encoding="utf-8")
         js_path.write_text("\n".join(js_lines) + "\n", encoding="utf-8")
 
+    async def _verify_and_fix_build(
+        self,
+        output_dir: Path,
+        config: WebsiteConfig,
+        result: WebsiteBuildResult,
+        max_attempts: int = 3,
+    ) -> tuple[bool, list[str]]:
+        """Install deps, run build, catch errors, and auto-fix common issues.
+
+        Args:
+            output_dir: Project directory with package.json and components/.
+            config: Website configuration.
+            result: Build result (mutated — cost_usd updated for fix LLM calls).
+            max_attempts: Maximum fix-retry cycles.
+
+        Returns:
+            (build_passed: bool, log_lines: list[str])
+        """
+        import asyncio
+        import re
+        import shutil
+        log: list[str] = []
+
+        npm_path = shutil.which("npm")
+        if not npm_path:
+            log.append("npm not found on PATH — skipping build verification")
+            return False, log
+
+        # ── Step 1: npm install ─────────────────────────────────────────
+        logger.info("  npm install...")
+        proc = await asyncio.create_subprocess_exec(
+            npm_path, "install", "--legacy-peer-deps",
+            cwd=str(output_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        install_ok = proc.returncode == 0
+        install_output = (stdout + stderr).decode(errors="replace")
+        log.append(f"npm install: {'OK' if install_ok else 'FAILED'} (exit {proc.returncode})")
+
+        if not install_ok and "ERESOLVE" in install_output:
+            # Peer dep conflicts — retry with --force
+            logger.info("  npm install --force (ERESOLVE)...")
+            proc = await asyncio.create_subprocess_exec(
+                npm_path, "install", "--force",
+                cwd=str(output_dir),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+            install_ok = proc.returncode == 0
+            log.append(f"npm install --force: {'OK' if install_ok else 'FAILED'}")
+
+        build_ok = True
+
+        # ── Step 2: Build-verify loop ───────────────────────────────────
+        npx_path = str(output_dir / "node_modules" / ".bin" / "next")
+        for attempt in range(max_attempts):
+            logger.info(f"  build-verify attempt {attempt + 1}/{max_attempts}...")
+
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    npx_path, "build",
+                    cwd=str(output_dir),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+            except FileNotFoundError:
+                log.append("next binary not found after install — cannot verify")
+                return False, log
+
+            stdout, stderr = await proc.communicate()
+            build_output = (stdout + stderr).decode(errors="replace")
+
+            if proc.returncode == 0:
+                log.append(f"Build attempt {attempt + 1}: PASSED")
+                build_ok = True
+                return build_ok, log
+
+            log.append(f"Build attempt {attempt + 1}: FAILED (exit {proc.returncode})")
+
+            # ── Parse errors for auto-fix ───────────────────────
+            missing_modules = re.findall(
+                r"Module not found: Can't resolve '([^']+)'",
+                build_output,
+            )
+            missing_imports = set(missing_modules)
+
+            if missing_imports:
+                for mod in sorted(missing_imports):
+                    logger.info(f"  ↻ auto-installing missing dep: {mod}")
+                    proc = await asyncio.create_subprocess_exec(
+                        npm_path, "install", mod, "--legacy-peer-deps",
+                        cwd=str(output_dir),
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    await proc.communicate()
+                    log.append(f"npm install {mod}: exit {proc.returncode}")
+                continue  # retry build with new deps
+
+            # Syntax errors — extract file + line, feed to LLM for fix
+            syntax_errors = re.findall(
+                r"\./(components/\S+)\s*\n\s*.*?(\d+):(\d+):\s*\n\s*(.*?)(?:\n\n|\n\s*\n)",
+                build_output,
+                re.DOTALL,
+            )
+            if syntax_errors and self._engine:
+                for file_path, line_no, col_no, details in syntax_errors[:3]:
+                    comp_name = Path(file_path).stem
+                    logger.info(f"  ↻ auto-fixing syntax error in {comp_name} (line {line_no})...")
+                    fixed = await self._llm_fix_syntax(
+                        file_path=str(output_dir / file_path),
+                        error_line=int(line_no),
+                        error_details=details.strip()[:500],
+                        component_name=comp_name,
+                        config=config,
+                    )
+                    if fixed:
+                        log.append(f"LLM fix applied to {comp_name}")
+                    else:
+                        log.append(f"LLM fix failed for {comp_name}")
+                continue  # retry build with fixed files
+
+            # No actionable errors found — give up
+            log.append(f"No auto-fixable errors detected. Last ~300 chars: {build_output[-300:]}")
+            build_ok = False
+            return build_ok, log
+
+        return build_ok, log
+
+    async def _llm_fix_syntax(
+        self,
+        file_path: str,
+        error_line: int,
+        error_details: str,
+        component_name: str,
+        config: WebsiteConfig,
+    ) -> bool:
+        """Feed a syntax error back to the LLM for a targeted fix."""
+        try:
+            source = Path(file_path).read_text(encoding="utf-8")
+
+            prompt = (
+                f"Fix the following build error in a {config.framework} + {config.styling} component.\n\n"
+                f"ERROR at line {error_line}:\n{error_details}\n\n"
+                f"CURRENT FILE ({component_name}.tsx):\n```tsx\n{source}\n```\n\n"
+                "Return ONLY the complete fixed file content (no markdown fences, no explanation). "
+                "Fix the specific error — change as little as possible."
+            )
+
+            from ..models import Task, TaskType
+
+            task = Task(
+                id=f"fix_syntax_{component_name}",
+                type=TaskType.CODE_GEN,
+                prompt=prompt,
+                max_output_tokens=16384,
+                acceptance_threshold=0.7,
+                max_iterations=1,
+            )
+            component_result = await self._engine._execute_task(task)
+            if component_result and component_result.output:
+                cleaned, _ = self._sanitize_output(component_result.output, component_name)
+                if len(cleaned) > 200:
+                    Path(file_path).write_text(cleaned, encoding="utf-8")
+                    logger.info(f"  ✓ {component_name}: LLM fix applied ({len(cleaned)} chars)")
+                    return True
+        except Exception as e:
+            logger.warning(f"LLM syntax fix failed for {component_name}: {e}")
+        return False
+
     def _assemble_nextjs_page(
         self,
         output_dir: Path,
@@ -1701,14 +1998,14 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "private": True,
             "scripts": {"dev": "next dev", "build": "next build", "start": "next start"},
             "dependencies": {
-                "next": "^14.0.0",
-                "react": "^18.2.0",
-                "react-dom": "^18.2.0",
+                "next": "^15.0.0",
+                "react": "^19.0.0",
+                "react-dom": "^19.0.0",
             },
             "devDependencies": {
                 "@types/node": "^20.0.0",
-                "@types/react": "^18.2.0",
-                "@types/react-dom": "^18.2.0",
+                "@types/react": "^19.0.0",
+                "@types/react-dom": "^19.0.0",
                 "typescript": "^5.0.0",
             },
         }

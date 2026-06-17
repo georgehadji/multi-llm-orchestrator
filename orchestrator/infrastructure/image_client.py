@@ -300,6 +300,41 @@ class ImageGenClient:
                 img_url = message.get("image_url") or choices[0].get("image_url", "")
                 if img_url and img_url.startswith("http"):
                     return ImageGenResult(success=True, image_url=img_url, mime_type="image/png")
+
+                # Gemini 3 image models return images[] on the message object, not choices[0]
+                msg_images = message.get("images", [])
+                if isinstance(msg_images, list) and msg_images:
+                    img = msg_images[0]
+                    if isinstance(img, dict):
+                        # Debug: log all keys to understand the actual format
+                        logger.debug("Message images[0] keys: %s", list(img.keys())[:10])
+                        logger.debug("Message images[0] sample vals: %s",
+                                     {k: str(v)[:80] for k, v in list(img.items())[:6]})
+                        # Try b64_json first, then data, then image_url.url
+                        b64 = img.get("b64_json") or img.get("data", "")
+                        mime = img.get("mime_type", img.get("media_type", "image/png"))
+                        if b64:
+                            try:
+                                return ImageGenResult(
+                                    success=True,
+                                    image_data=base64.b64decode(b64),
+                                    mime_type=mime,
+                                )
+                            except Exception as e:
+                                return ImageGenResult(success=False, error=f"Message images decode: {e}")
+                        # Some models return image_url as a nested object
+                        img_url = img.get("image_url", "")
+                        if isinstance(img_url, dict):
+                            img_url = img_url.get("url", "")
+                        if img_url and isinstance(img_url, str) and img_url.startswith("http"):
+                            return ImageGenResult(success=True, image_url=img_url, mime_type=mime)
+                    elif isinstance(img, str):
+                        # Images might be base64 strings directly
+                        try:
+                            return ImageGenResult(success=True, image_data=base64.b64decode(img))
+                        except Exception:
+                            pass  # fall through to unrecognised format
+
                 # Check for top-level data key with base64 content
                 for key in ("data", "image", "image_data"):
                     val = data.get(key, "")
