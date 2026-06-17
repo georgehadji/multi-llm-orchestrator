@@ -893,53 +893,85 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         except Exception:
             pass
 
-    async def _generate_images(self, output_dir, config, design_system) -> None:
-        """Generate images using LLM model or SVG fallback.
+    # ── Per-task image model selection (VFM-optimized) ────────────────────
 
-        Auto-selects default model from routing table when --image-model is empty.
-        Falls back to SVG placeholders if API key is missing or generation fails.
+    # Best VFM model + 2 fallbacks per image type
+    _IMAGE_MODEL_MAP: dict[str, list[str]] = {
+        "favicon": [
+            "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest, simple
+            "recraft/recraft-v4-vector",               # $0.08/img — SVG native
+            "sourceful/riverflow-v2-fast",             # $0.02/img — fast
+        ],
+        "apple-touch-icon": [
+            "recraft/recraft-v4-vector",               # $0.08/img — SVG native
+            "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest
+            "sourceful/riverflow-v2-fast",             # $0.02/img — fast
+        ],
+        "logo": [
+            "google/gemini-3.1-flash-image-preview",  # $0.50/img — best text rendering
+            "recraft/recraft-v4.1-pro",               # $0.25/img — good quality
+            "google/gemini-2.5-flash-image",          # $0.30/img — cheaper alternative
+        ],
+        "hero-bg": [
+            "google/gemini-3.1-flash-image-preview",  # $0.50/img — best quality/cost
+            "black-forest-labs/flux.2-pro",           # $0.03/img — cheap, high quality
+            "bytedance-seed/seedream-4.5",            # $0.04/img — good quality
+        ],
+        "og-image": [
+            "google/gemini-2.5-flash-image",          # $0.30/img — good enough
+            "black-forest-labs/flux.2-max",           # $0.07/img — cheap, good quality
+            "recraft/recraft-v4.1",                   # $0.04/img — cheap
+        ],
+        "section": [
+            "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest, fast
+            "sourceful/riverflow-v2-fast",             # $0.02/img — fast
+            "recraft/recraft-v4",                      # $0.04/img — good quality
+        ],
+    }
+
+    def _select_image_model(self, image_type: str, global_model: str) -> str:
+        """Select the best VFM model for an image type, falling back through the chain.
+
+        If the user specified a global model, use it for everything.
+        Otherwise, pick the best VFM model for the image type.
         """
-        model = config.image_model
-        if not model or model == "auto":
-            # Auto-select default from routing table
-            model = self._get_default_image_model()
+        if global_model and global_model not in ("auto", "none"):
+            return global_model
 
-        if model and model != "none":
-            try:
-                from ..infrastructure.image_client import ImageGenClient
+        model_list = self._IMAGE_MODEL_MAP.get(image_type, self._IMAGE_MODEL_MAP["section"])
+        # Use first available model (all OpenRouter models are always available)
+        return model_list[0]
 
-                client = ImageGenClient()
-                config.image_model = model  # update for downstream use
-                success = await self._generate_images_llm(output_dir, config, design_system, client)
-                if success:
-                    return
-            except Exception as e:
-                logger.warning("LLM image generation failed, falling back to SVG: %s", e)
+    async def _generate_images(self, output_dir, config, design_system) -> None:
+        """
+        Generate all website images with per-type VFM model selection.
+
+        Each image type (favicon, logo, hero-bg, etc.) gets its own best-VFM
+        model with 2 fallbacks. When --image-model is specified, it overrides
+        all types. Falls back to SVG placeholders on failure.
+        """
+        global_model = config.image_model
+        if not global_model or global_model == "auto":
+            global_model = "auto"  # triggers per-type selection
+
+        if global_model == "none":
+            logger.info("WebsiteGenerator: image generation disabled (--image-model none)")
+            from .image_generator import generate_images as _svg_fallback
+            _svg_fallback(output_dir, config, design_system)
+            return
+
+        try:
+            from ..infrastructure.image_client import ImageGenClient
+            client = ImageGenClient()
+            success = await self._generate_images_llm(output_dir, config, design_system, client)
+            if success:
+                return
+        except Exception as e:
+            logger.warning("LLM image generation failed, falling back to SVG: %s", e)
 
         from .image_generator import generate_images as _svg_fallback
-
         _svg_fallback(output_dir, config, design_system)
         logger.info("WebsiteGenerator: generated SVG placeholder images")
-
-    @staticmethod
-    def _get_default_image_model() -> str:
-        """Get the first available image model from the routing table."""
-        try:
-            from ..models import TaskType
-            from ..domain.services.config_services import RoutingService
-            from ..infrastructure.adapters.config_adapter import JsonConfigAdapter
-
-            routing = RoutingService(JsonConfigAdapter())
-            models = routing.get_models_for_task(TaskType.IMAGE_GEN)
-            if models:
-                # Prefer Nano Banana 2 for best quality/cost ratio
-                preferred = [m for m in models if "gemini-3.1-flash-image" in m]
-                if preferred:
-                    return preferred[0]
-                return models[0]
-        except Exception:
-            pass
-        return "google/gemini-3.1-flash-image-preview"
 
     async def _generate_images_llm(
         self,
@@ -1039,29 +1071,36 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
         success_count = 0
         total = len(images)
+        models_used = set()
 
         for img in images:
+            # Per-type model selection with fallbacks
+            img_type = img["name"].split("-")[0]  # "hero-bg" -> "hero", "favicon" -> "favicon"
+            img_type = img_type if img_type in self._IMAGE_MODEL_MAP else "section"
+            img_model = model if model != "auto" else self._select_image_model(img_type, "auto")
+            models_used.add(img_model)
+
             try:
                 result = await client.generate(
                     prompt=img["prompt"],
-                    model=model,
+                    model=img_model,
                     width=img["width"],
                     height=img["height"],
                     output_path=img_dir / f"{img['name']}.png",
                 )
                 if result.success:
                     success_count += 1
-                    logger.debug("Generated: %s (%s)", img["name"], result.mime_type)
+                    logger.debug("Generated: %s (%s via %s)", img["name"], result.mime_type, img_model)
                 else:
                     logger.warning("Failed to generate %s: %s", img["name"], result.error)
             except Exception as e:
                 logger.warning("Error generating %s: %s", img["name"], e)
 
         logger.info(
-            "WebsiteGenerator: LLM images %d/%d generated (model=%s)",
+            "WebsiteGenerator: LLM images %d/%d generated (models=%s)",
             success_count,
             total,
-            model,
+            ", ".join(sorted(models_used)),
         )
         return success_count > 0
 
