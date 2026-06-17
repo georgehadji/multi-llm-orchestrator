@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
@@ -63,9 +64,11 @@ class ImageGenClient:
         self,
         api_key: str | None = None,
         base_url: str = OPENROUTER_BASE,
+        cache=None,
     ):
         self._api_key = api_key or self._resolve_api_key()
         self._base_url = base_url
+        self._cache = cache
 
     @staticmethod
     def _resolve_api_key() -> str:
@@ -121,6 +124,27 @@ class ImageGenClient:
             "Content-Type": "application/json",
         }
 
+        # ── Cache check ────────────────────────────────────────────────────
+        if self._cache:
+            cache_key = hashlib.sha256(
+                f"{model}:{prompt}:{width}x{height}".encode()
+            ).hexdigest()
+            cached = await self._cache.get(cache_key, "", 4096, "", 0.0)
+            if cached and output_path:
+                try:
+                    img_bytes = base64.b64decode(cached)
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    output_path.write_bytes(img_bytes)
+                    return ImageGenResult(
+                        success=True,
+                        image_data=img_bytes,
+                        mime_type="image/png",
+                        model=model,
+                        cached=True,
+                    )
+                except Exception:
+                    pass
+
         last_error: str | None = None
         for attempt in range(1 + MAX_RETRIES):
             try:
@@ -149,7 +173,28 @@ class ImageGenClient:
                     if result.image_data:
                         output_path.write_bytes(result.image_data)
                     elif result.image_url:
-                        logger.info("Image URL received (not downloading): %s", result.image_url[:80])
+                        # Download SVG URLs (Recraft models return URLs, not base64)
+                        try:
+                            async with httpx.AsyncClient(timeout=30) as http:
+                                resp = await http.get(result.image_url)
+                                if resp.status_code == 200:
+                                    output_path.write_bytes(resp.content)
+                                    result.image_data = resp.content
+                                    logger.debug("Downloaded SVG from %s", result.image_url[:60])
+                                else:
+                                    logger.warning("Failed to download image URL: HTTP %d", resp.status_code)
+                        except Exception as e:
+                            logger.warning("Failed to download image URL: %s", e)
+                    # ── Cache write ──
+                    if result.success and result.image_data and self._cache:
+                        try:
+                            await self._cache.put(
+                                cache_key, "", 4096,
+                                base64.b64encode(result.image_data).decode(),
+                                len(result.image_data), 0, "", 0.0,
+                            )
+                        except Exception:
+                            pass
                     result.output_path = output_path
                 return result
 

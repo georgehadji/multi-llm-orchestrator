@@ -55,10 +55,10 @@ def generate_images(output_dir: Path, config, design_system) -> None:
     for i, (name, color) in enumerate(zip(names, avatar_colors), 1):
         _write_svg(f"team-{i}.svg", svg_team_avatar(i, name[0], color, bg, text))
 
-    # ── Favicon + Apple Icon ──
-    _write_svg("favicon.svg", svg_icon(32, 6, primary, site_name[0].upper()), img_dir.parent)
+    # ── Favicon + Apple Icon (write to images/ alongside other images) ──
+    _write_svg("favicon.svg", svg_icon(32, 6, primary, site_name[0].upper()), img_dir)
     _write_svg(
-        "apple-touch-icon.svg", svg_icon(180, 36, bg, site_name[0].upper()), img_dir.parent
+        "apple-touch-icon.svg", svg_icon(180, 36, bg, site_name[0].upper()), img_dir
     )
 
 

@@ -893,6 +893,18 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         except Exception:
             pass
 
+    # ── Image cache ──────────────────────────────────────────────────────
+
+    def _get_cache(self):
+        """Lazy-init DiskCache for image generation caching."""
+        if not hasattr(self, "_img_cache") or self._img_cache is None:
+            try:
+                from ..cache import DiskCache
+                self._img_cache = DiskCache()
+            except Exception:
+                self._img_cache = None
+        return self._img_cache
+
     # ── Per-task image model selection (VFM-optimized) ────────────────────
 
     # Best VFM model + 2 fallbacks per image type
@@ -962,7 +974,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
         try:
             from ..infrastructure.image_client import ImageGenClient
-            client = ImageGenClient()
+            client = ImageGenClient(cache=self._get_cache())
             success = await self._generate_images_llm(output_dir, config, design_system, client)
             if success:
                 return
@@ -1073,28 +1085,37 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         total = len(images)
         models_used = set()
 
-        for img in images:
-            # Per-type model selection with fallbacks
-            img_type = img["name"].split("-")[0]  # "hero-bg" -> "hero", "favicon" -> "favicon"
+        # Parallel image generation with concurrency=3
+        semaphore = asyncio.Semaphore(3)
+
+        async def _gen_one(img):
+            nonlocal model
+            img_type = img["name"].split("-")[0]
             img_type = img_type if img_type in self._IMAGE_MODEL_MAP else "section"
             img_model = model if model != "auto" else self._select_image_model(img_type, "auto")
             models_used.add(img_model)
+            ext = ".svg" if "recraft" in img_model and "vector" in img_model.lower() else ".png"
+            async with semaphore:
+                try:
+                    result = await client.generate(
+                        prompt=img["prompt"],
+                        model=img_model,
+                        width=img["width"],
+                        height=img["height"],
+                        output_path=img_dir / f"{img['name']}{ext}",
+                    )
+                    return (result, img["name"], img_model)
+                except Exception as e:
+                    logger.warning("Error generating %s: %s", img["name"], e)
+                    return (None, img["name"], img_model)
 
-            try:
-                result = await client.generate(
-                    prompt=img["prompt"],
-                    model=img_model,
-                    width=img["width"],
-                    height=img["height"],
-                    output_path=img_dir / f"{img['name']}.png",
-                )
-                if result.success:
-                    success_count += 1
-                    logger.debug("Generated: %s (%s via %s)", img["name"], result.mime_type, img_model)
-                else:
-                    logger.warning("Failed to generate %s: %s", img["name"], result.error)
-            except Exception as e:
-                logger.warning("Error generating %s: %s", img["name"], e)
+        gen_results = await asyncio.gather(*[_gen_one(img) for img in images])
+        for result, name, img_model in gen_results:
+            if result and result.success:
+                success_count += 1
+                logger.debug("Generated: %s (%s via %s)", name, result.mime_type, img_model)
+            elif result:
+                logger.warning("Failed to generate %s: %s", name, result.error)
 
         logger.info(
             "WebsiteGenerator: LLM images %d/%d generated (models=%s)",
@@ -1488,6 +1509,10 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             '        <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), interest-cohort=()" />\n'
             "        {/* JSON-LD structured data */}\n"
             '        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />\n'
+            "        {/* Favicon + PWA icons */}\n"
+            '        <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png" />\n'
+            '        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />\n'
+            '        <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />\n'
             "      </head>\n"
             "      <body>{children}</body>\n"
             "    </html>\n"
