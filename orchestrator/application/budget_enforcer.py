@@ -374,6 +374,7 @@ class BudgetEnforcer:
         if actual_cost is None:
             # Pre-flight check
             if not budget_hierarchy.can_afford_job(job_id, team, estimated_cost):
+                from ..domain.exceptions import BudgetExceededError
                 raise BudgetExceededError(
                     spent=budget_hierarchy._org_spent,
                     limit=budget_hierarchy._org_max,
@@ -398,7 +399,10 @@ class BudgetEnforcer:
         Warns at 1x phase soft cap, errors at 2x phase soft cap.
         Does NOT halt execution — phase caps are advisory.
         """
-        from ..events import EventType as _EventType
+        try:
+            from ..unified_events.core import EventType as _EventType
+        except ImportError:
+            _EventType = None
 
         spent = budget.phase_spent.get(phase, 0.0)
         cap = budget.phase_budget(phase) if hasattr(budget, 'phase_budget') else 0.0
@@ -415,7 +419,7 @@ class BudgetEnforcer:
             logger.warning(
                 f"Phase '{phase}' exceeded soft cap: ${spent:.4f} / ${cap:.4f} ({ratio:.0%})"
             )
-            if hook_registry is not None:
+            if _EventType is not None and hook_registry is not None:
                 hook_registry.fire(
                     _EventType.BUDGET_WARNING,
                     phase=phase,
