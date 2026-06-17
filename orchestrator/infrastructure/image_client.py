@@ -51,6 +51,7 @@ class ImageGenResult:
     cost_usd: float = 0.0
     error: str | None = None
     output_path: Path | None = None
+    cached: bool = False
 
 
 class ImageGenClient:
@@ -125,6 +126,7 @@ class ImageGenClient:
         }
 
         # ── Cache check ────────────────────────────────────────────────────
+        cache_key = ""
         if self._cache:
             cache_key = hashlib.sha256(
                 f"{model}:{prompt}:{width}x{height}".encode()
