@@ -1152,6 +1152,33 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             elif result:
                 logger.warning("Failed to generate %s: %s", name, result.error)
 
+        # ── Optional WebP conversion (requires Pillow) ─────────────────────
+        try:
+            from PIL import Image as _PIL
+            import io as _io
+
+            for img in images:
+                # Determine extension same way _gen_one does
+                img_type = img["name"].split("-")[0]
+                img_type = img_type if img_type in self._IMAGE_MODEL_MAP else "section"
+                img_model = model if model != "auto" else self._select_image_model(img_type, "auto")
+                img_ext = ".svg" if "recraft" in img_model and "vector" in img_model.lower() else ".png"
+
+                src = img_dir / f"{img['name']}{img_ext}"
+                webp = img_dir / f"{img['name']}.webp"
+                if src.exists() and not webp.exists():
+                    try:
+                        data = src.read_bytes()
+                        _pil_img = _PIL.open(_io.BytesIO(data))
+                        _pil_img.save(webp, "WEBP", quality=85)
+                        # Remove original for large images to save space
+                        if src.stat().st_size > 100000 and src.suffix != ".svg":
+                            src.unlink()
+                    except Exception:
+                        pass
+        except ImportError:
+            pass  # Pillow not installed — keep PNG originals
+
         logger.info(
             "WebsiteGenerator: LLM images %d/%d generated (models=%s)",
             success_count,
