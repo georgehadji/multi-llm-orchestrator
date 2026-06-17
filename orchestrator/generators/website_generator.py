@@ -154,6 +154,37 @@ class WebsiteConfig:
     brand_name: str = ""  # Brand/company name for metadata and prompts
     dependencies: list[str] = field(default_factory=lambda: ["react", "react-dom"])  # npm deps
     image_quality: str = "balanced"  # "draft", "balanced", "premium"
+    # ── Phase 3: URL source extraction ──
+    source_url: str = ""  # Live URL to extract design tokens, fonts, and content from
+
+
+@dataclass
+class ExtractedSiteData:
+    """Data extracted from a live website URL.
+
+    Populated by WebsiteExtractor when source_url is provided.
+    Maps directly to the cloner template's spec file pattern.
+    """
+
+    url: str = ""
+    # Design tokens
+    colors: dict[str, str] = field(default_factory=dict)  # CSS variable name → value
+    fonts: list[dict] = field(default_factory=list)  # [{family, weights, style, url}]
+    # Page topology
+    sections: list[dict] = field(default_factory=list)  # [{name, selector, order}]
+    # Computed CSS per section
+    section_styles: dict[str, dict] = field(default_factory=dict)  # section → {selector → {prop → value}}
+    # Extracted text content per section
+    section_content: dict[str, str] = field(default_factory=dict)  # section → text
+    # Assets
+    images: list[dict] = field(default_factory=list)  # [{src, alt, width, height}]
+    favicons: list[dict] = field(default_factory=list)
+    # Full-page screenshots
+    screenshots: list[str] = field(default_factory=list)
+    # Global behaviors
+    behaviors: list[dict] = field(default_factory=list)  # [{type, trigger, before, after}]
+    # Raw extraction JS (for debugging / builder agent use)
+    extraction_script: str = ""
 
 
 @dataclass
@@ -332,6 +363,207 @@ Return ONLY valid JSON, no markdown fences."""
         return brief
 
 
+class WebsiteExtractor:
+    """
+    Extract visual design tokens, content, and assets from a live website URL.
+
+    Uses BrowserTester (Playwright) to navigate the target site and execute
+    JavaScript extraction scripts — mirroring the cloner template's Phase 1-2
+    reconnaissance methodology.
+
+    Usage:
+        extractor = WebsiteExtractor()
+        data = await extractor.extract("https://example.com")
+    """
+
+    # ── CSS extraction JS (mirrors cloner template's getComputedStyle() extraction) ──
+    _EXTRACT_CSS_JS = r"""
+(async () => {
+    const props = [
+        'fontSize','fontWeight','fontFamily','lineHeight','letterSpacing','color',
+        'textTransform','textDecoration','backgroundColor','background',
+        'padding','paddingTop','paddingRight','paddingBottom','paddingLeft',
+        'margin','marginTop','marginRight','marginBottom','marginLeft',
+        'width','height','maxWidth','minWidth','maxHeight','minHeight',
+        'display','flexDirection','justifyContent','alignItems','gap',
+        'gridTemplateColumns','gridTemplateRows',
+        'borderRadius','border','borderTop','borderBottom','borderLeft','borderRight',
+        'boxShadow','overflow','overflowX','overflowY',
+        'position','top','right','bottom','left','zIndex',
+        'opacity','transform','transition','cursor',
+        'objectFit','objectPosition','mixBlendMode','filter','backdropFilter',
+        'whiteSpace','textOverflow','WebkitLineClamp'
+    ];
+    function extract(el, depth=0) {
+        if (!el || depth > 3) return null;
+        const cs = getComputedStyle(el);
+        const styles = {};
+        props.forEach(p => { const v = cs[p]; if (v && v !== 'none' && v !== 'normal' && v !== 'auto' && v !== '0px' && v !== 'rgba(0, 0, 0, 0)') styles[p] = v; });
+        const children = [...el.children];
+        return {
+            tag: el.tagName.toLowerCase(),
+            id: el.id || '',
+            classes: (el.className?.toString() || '').split(' ').slice(0, 5).join(' '),
+            text: el.childNodes.length === 1 && el.childNodes[0].nodeType === 3 ? el.textContent.trim().slice(0, 300) : null,
+            styles,
+            rect: el.getBoundingClientRect ? { w: Math.round(el.getBoundingClientRect().width), h: Math.round(el.getBoundingClientRect().height) } : null,
+            childCount: children.length,
+        };
+    }
+    // 1. Extract global CSS custom properties
+    const root = document.documentElement;
+    const rootCS = getComputedStyle(root);
+    const cssVars = {};
+    for (let i = 0; i < rootCS.length; i++) {
+        const name = rootCS[i];
+        if (name.startsWith('--')) cssVars[name] = rootCS.getPropertyValue(name).trim();
+    }
+    // 2. Color palette: sample common elements
+    const colorEls = ['h1','h2','p','a','button','header','footer','main','section','nav','body'];
+    const colorMap = {};
+    colorEls.forEach(tag => {
+        const el = document.querySelector(tag);
+        if (el) {
+            const cs = getComputedStyle(el);
+            colorMap[tag] = {
+                color: cs.color,
+                bg: cs.backgroundColor,
+                font: cs.fontFamily,
+                size: cs.fontSize
+            };
+        }
+    });
+    // 3. Font discovery
+    const fontFamilies = [...new Set([...document.querySelectorAll('*')].slice(0, 200).map(el => getComputedStyle(el).fontFamily))];
+    const fontLinks = [...document.querySelectorAll('link[rel="stylesheet"]')].map(l => l.href).filter(h => h.includes('fonts') || h.includes('google'));
+    // 4. Favicons
+    const favicons = [...document.querySelectorAll('link[rel*="icon"], link[rel="apple-touch-icon"]')].map(l => ({ rel: l.rel, href: l.href, sizes: l.sizes?.toString() }));
+    // 5. Images
+    const images = [...document.querySelectorAll('img[src]')].slice(0, 30).map(img => ({
+        src: img.src || img.currentSrc,
+        alt: img.alt,
+        w: img.naturalWidth,
+        h: img.naturalHeight
+    }));
+    // 6. Section discovery: heading-based page topology
+    const sections = [];
+    let idx = 0;
+    document.querySelectorAll('section, div[class*="section"], div[class*="hero"], div[class*="feature"], div[class*="pricing"], div[class*="footer"], header, footer').forEach(el => {
+        const heading = el.querySelector('h1, h2, h3, h4');
+        const text = heading ? heading.textContent.trim() : (el.className?.split(' ')[0] || '');
+        const rect = el.getBoundingClientRect();
+        sections.push({
+            order: idx++,
+            name: text.slice(0, 60),
+            tag: el.tagName.toLowerCase(),
+            classes: (el.className || '').slice(0, 100),
+            rect: { w: Math.round(rect.width), h: Math.round(rect.height), top: Math.round(rect.top) }
+        });
+    });
+    return JSON.stringify({ cssVars, colorMap, fontFamilies, fontLinks, favicons, images: images.slice(0, 20), sections: sections.slice(0, 30), extractionScript: 'extracted' });
+})();
+"""
+
+    async def extract(self, url: str, output_dir: Path | None = None) -> ExtractedSiteData:
+        """
+        Navigate to a URL and extract design tokens, topology, and assets.
+
+        Args:
+            url: The target website URL to extract from.
+            output_dir: Optional directory to save screenshots and raw data.
+
+        Returns:
+            ExtractedSiteData with all discovered design tokens, sections, and assets.
+        """
+        logger.info("WebsiteExtractor: extracting from %s", url)
+
+        from ..browser_testing import BrowserTester
+
+        data = ExtractedSiteData(url=url)
+        screenshots_dir = (output_dir / "screenshots" if output_dir else Path("outputs/extraction/screenshots"))
+        screenshots_dir.mkdir(parents=True, exist_ok=True)
+
+        tester = BrowserTester(browser_type="chromium", headless=True, screenshot_on_failure=True)
+
+        try:
+            await tester.initialize()
+
+            # Navigate to target URL
+            logger.info("WebsiteExtractor: navigating to %s ...", url)
+            await tester.page.goto(url, wait_until="networkidle")
+            await tester.page.wait_for_timeout(1000)  # Let JS render settle
+
+            # ── Full-page screenshots at 2 viewports ──
+            for vp_name, vp_width, vp_height in [("desktop", 1440, 900), ("mobile", 390, 844)]:
+                await tester.page.set_viewport_size({"width": vp_width, "height": vp_height})
+                await tester.page.wait_for_timeout(500)
+                shot_path = str(screenshots_dir / f"{vp_name}_{vp_width}x{vp_height}.png")
+                await tester.page.screenshot(path=shot_path, full_page=True)
+                data.screenshots.append(shot_path)
+                logger.info("  Screenshot: %s", shot_path)
+
+            # ── Run CSS extraction JS ──
+            extraction_js = self._EXTRACT_CSS_JS
+            raw = await tester.page.evaluate(extraction_js)
+            import json
+
+            extracted = json.loads(raw) if isinstance(raw, str) else raw
+            data.extraction_script = extraction_js
+
+            # Parse CSS custom properties → colors dict
+            css_vars = extracted.get("cssVars", {})
+            data.colors = css_vars
+
+            # Parse font families
+            font_families = extracted.get("fontFamilies", [])
+            data.fonts = [
+                {"family": f.strip().strip("'\""), "weights": [400], "style": "normal", "url": ""}
+                for f in font_families if f.strip()
+            ]
+
+            # Parse favicons
+            data.favicons = extracted.get("favicons", [])
+
+            # Parse images
+            data.images = [
+                {"src": img.get("src", ""), "alt": img.get("alt", ""), "width": img.get("w", 0), "height": img.get("h", 0)}
+                for img in extracted.get("images", [])
+            ]
+
+            # Parse section topology
+            raw_sections = extracted.get("sections", [])
+            data.sections = raw_sections
+
+            # ── Extract text content per section ──
+            for sec in raw_sections[:10]:
+                classes = sec.get('classes', '')
+                tag = sec.get('tag', 'section')
+                sel = f"{tag}.{classes.split(' ')[0]}" if classes else tag
+                escaped_sel = sel.replace("'", "\\'")
+                try:
+                    text_content = await tester.page.evaluate(
+                        f"""(() => {{
+                            const el = document.querySelector('{escaped_sel}');
+                            return el ? el.innerText.slice(0, 2000) : '';
+                        }})()"""
+                    )
+                    if text_content and isinstance(text_content, str) and text_content.strip():
+                        data.section_content[sec.get("name", f"section_{sec.get('order', 0)}")] = text_content.strip()[:2000]
+                except Exception:
+                    pass
+
+            logger.info("WebsiteExtractor: extracted %d CSS vars, %d fonts, %d sections, %d images",
+                        len(data.colors), len(data.fonts), len(data.sections), len(data.images))
+
+        except Exception as e:
+            logger.error("WebsiteExtractor: extraction failed: %s", e)
+            raise
+        finally:
+            await tester.close()
+
+        return data
+
+
 class WebsiteGenerator:
     """
     Main website generation pipeline.
@@ -396,6 +628,47 @@ class WebsiteGenerator:
                 client_info, engine=self._engine, config=config
             )
 
+            # ── Step 1.5: URL source extraction (when source_url is set) ──
+            extraction_data: ExtractedSiteData | None = None
+            if config.source_url:
+                logger.info("WebsiteGenerator: extracting from source URL %s ...", config.source_url)
+                try:
+                    extractor = WebsiteExtractor()
+                    extraction_data = await extractor.extract(config.source_url, output_dir=output_dir)
+                    # Override design system colors with extracted CSS custom properties
+                    if extraction_data.colors:
+                        known_tokens = {"--primary", "--secondary", "--accent", "--background",
+                                        "--surface", "--text", "--border", "--success", "--warning", "--error"}
+                        for css_var, value in extraction_data.colors.items():
+                            if value and not value.startswith("var("):
+                                clean_val = value.strip()
+                                # Map common CSS var names to ColorTokens fields
+                                var_short = css_var.replace("--", "").replace("-", "_")
+                                if hasattr(design_system.colors, var_short):
+                                    setattr(design_system.colors, var_short, clean_val)
+                                elif css_var in known_tokens:
+                                    token_name = css_var.replace("--", "")
+                                    if hasattr(design_system.colors, token_name):
+                                        setattr(design_system.colors, token_name, clean_val)
+                    # Override fonts with extracted font families
+                    if extraction_data.fonts:
+                        families = [f["family"] for f in extraction_data.fonts if f.get("family")]
+                        if families:
+                            design_system.typography.font_sans = families[0]
+                            if len(families) > 1:
+                                design_system.typography.font_mono = families[1]
+                    # Update section list from discovered topology (if user didn't override)
+                    if extraction_data.sections and config.sections == ["hero", "features", "pricing", "testimonials", "faq", "cta", "footer"]:
+                        discovered = [s.get("name", "").lower().replace(" ", "_") or f"section_{s['order']}" for s in extraction_data.sections]
+                        if discovered:
+                            config.sections = discovered
+                            logger.info("  Updated sections from extraction: %s", config.sections)
+                    logger.info("  Extraction complete: %d CSS vars, %d fonts, %d sections",
+                                len(extraction_data.colors), len(extraction_data.fonts), len(extraction_data.sections))
+                except Exception as extract_err:
+                    logger.warning("URL extraction failed, falling back to LLM generation: %s", extract_err)
+                    extraction_data = None
+
             # Step 2: Select components
             logger.info("WebsiteGenerator: selecting components...")
             components = await self._registry.select_components(
@@ -413,6 +686,7 @@ class WebsiteGenerator:
                 content_brief=content_brief,
                 config=config,
                 client_info=client_info,
+                extraction_data=extraction_data,
             )
 
             # Step 4: Execute through orchestrator (if available)
@@ -532,12 +806,24 @@ class WebsiteGenerator:
         content_brief,
         config: WebsiteConfig,
         client_info=None,
+        extraction_data: ExtractedSiteData | None = None,
     ) -> list[Task]:
         """Create orchestration tasks for each section."""
         tasks = []
 
         for i, section in enumerate(sections):
             component = components[i] if i < len(components) else None
+            # Look up extracted data for this section (by index or name match)
+            section_extraction = None
+            if extraction_data and extraction_data.section_content:
+                # Try name match
+                for sec_name, sec_content in extraction_data.section_content.items():
+                    if section.lower() in sec_name.lower() or sec_name.lower() in section.lower():
+                        section_extraction = {
+                            "text": sec_content[:1500],
+                            "styles": extraction_data.section_styles.get(sec_name, {}),
+                        }
+                        break
             prompt = self._build_section_prompt(
                 section=section,
                 component=component or section,
@@ -545,6 +831,8 @@ class WebsiteGenerator:
                 content_brief=content_brief,
                 config=config,
                 client_info=client_info,
+                extraction_data=extraction_data,
+                section_extraction=section_extraction,
             )
 
             # Each section depends on the previous one for sequential assembly
@@ -575,6 +863,8 @@ class WebsiteGenerator:
         content_brief,
         config: WebsiteConfig,
         client_info=None,
+        extraction_data: ExtractedSiteData | None = None,
+        section_extraction: dict | None = None,
     ) -> str:
         """Build prompt for generating a section — now with project brief, section-type guidance, and library awareness."""
         component_name = getattr(component, "name", str(component))
@@ -676,6 +966,24 @@ SEO Optimized: {'Yes' if config.seo_optimized else 'No'}
 Atelier Theme: {"Yes" if config.atelier_theme else "None"}
 
 {atelier_theme_context}
+
+SOURCE URL EXTRACTION:
+{'YES — This section is a CLONE of the source. Match the extracted values below exactly.' if extraction_data else 'No source URL — generate from description.'}
+
+{'Extracted Colors (override design system with these exact values):' if extraction_data and extraction_data.colors else ''}
+{chr(10).join(f'  {k}: {v}' for k, v in (extraction_data.colors or {}).items()) if extraction_data and extraction_data.colors else ''}
+
+{'Extracted Fonts:' if extraction_data and extraction_data.fonts else ''}
+{chr(10).join(f'  {f["family"]}' for f in (extraction_data.fonts or [])) if extraction_data and extraction_data.fonts else ''}
+
+{'Extracted Content for this section (verbatim from source):' if section_extraction and section_extraction.get('text') else ''}
+{section_extraction['text'] if section_extraction and section_extraction.get('text') else ''}
+
+{'Extracted CSS Values (match these exactly):' if section_extraction and section_extraction.get('styles') else ''}
+{chr(10).join(f'  {k}: {v}' for k, v in section_extraction['styles'].items()) if section_extraction and section_extraction.get('styles') else ''}
+
+IMPORTANT: When source URL extraction is present, match the extracted values EXACTLY.
+This is a clone, not an approximation. Use the extracted colors, fonts, and content verbatim.
 
 ATELIER DESIGN RULES (when a theme is selected):
 A. Structural variety — avoid centered heroes and 3-even-column grids.
