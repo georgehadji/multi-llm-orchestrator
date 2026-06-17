@@ -896,15 +896,20 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
     async def _generate_images(self, output_dir, config, design_system) -> None:
         """Generate images using LLM model or SVG fallback.
 
-        Tries OpenRouter image generation model first (if ``config.image_model``
-        is set and OPENROUTER_API_KEY is available). Falls back to self-contained
-        SVG placeholders with design system colors.
+        Auto-selects default model from routing table when --image-model is empty.
+        Falls back to SVG placeholders if API key is missing or generation fails.
         """
-        if config.image_model:
+        model = config.image_model
+        if not model or model == "auto":
+            # Auto-select default from routing table
+            model = self._get_default_image_model()
+
+        if model and model != "none":
             try:
                 from ..infrastructure.image_client import ImageGenClient
 
                 client = ImageGenClient()
+                config.image_model = model  # update for downstream use
                 success = await self._generate_images_llm(output_dir, config, design_system, client)
                 if success:
                     return
@@ -915,6 +920,26 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
         _svg_fallback(output_dir, config, design_system)
         logger.info("WebsiteGenerator: generated SVG placeholder images")
+
+    @staticmethod
+    def _get_default_image_model() -> str:
+        """Get the first available image model from the routing table."""
+        try:
+            from ..models import TaskType
+            from ..domain.services.config_services import RoutingService
+            from ..infrastructure.adapters.config_adapter import JsonConfigAdapter
+
+            routing = RoutingService(JsonConfigAdapter())
+            models = routing.get_models_for_task(TaskType.IMAGE_GEN)
+            if models:
+                # Prefer Nano Banana 2 for best quality/cost ratio
+                preferred = [m for m in models if "gemini-3.1-flash-image" in m]
+                if preferred:
+                    return preferred[0]
+                return models[0]
+        except Exception:
+            pass
+        return "google/gemini-3.1-flash-image-preview"
 
     async def _generate_images_llm(
         self,
@@ -959,6 +984,42 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 ),
                 "width": 1200,
                 "height": 630,
+            },
+            # ── Brand assets ──
+            {
+                "name": "favicon",
+                "prompt": (
+                    f"Minimalist favicon for {site_name}, {page_type} brand. "
+                    f"Use {primary} as the primary color on a {accent} or transparent background. "
+                    "Geometric abstract mark, NO text, NO letters, NO words. "
+                    "Simple bold shape — circle, triangle, hexagon, or abstract geometric symbol. "
+                    "Must be recognizable at 16x16 pixels."
+                ),
+                "width": 128,
+                "height": 128,
+            },
+            {
+                "name": "apple-touch-icon",
+                "prompt": (
+                    f"iOS home screen icon for {site_name}. "
+                    f"Rounded-square icon with {primary} and {accent} gradient background. "
+                    "Clean geometric symbol in the center — same shape as the favicon. "
+                    "NO text, NO letters, premium app-icon quality."
+                ),
+                "width": 180,
+                "height": 180,
+            },
+            {
+                "name": "logo",
+                "prompt": (
+                    f"Brand logo / wordmark for {site_name}, a {page_type} website in the {getattr(config, 'atelier_theme', 'modern')} design style. "
+                    f"Use {primary} and {accent} as primary colors. "
+                    "Clean geometric logo mark + stylized brand name text. "
+                    "Minimalist, modern, suitable for a website header/navbar. "
+                    "Dark background compatible."
+                ),
+                "width": 512,
+                "height": 128,
             },
         ]
 
@@ -1111,8 +1172,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'  <meta name="twitter:description" content="{page_desc}">',
             f'  <meta name="twitter:image" content="{og_image}">',
             # ── PWA / Icons ──
+            '  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">',
             '  <link rel="icon" type="image/svg+xml" href="/favicon.svg">',
-            '  <link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+            '  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">',
             f'  <meta name="theme-color" content="{design_system.colors.primary}">',
             # ── Assets ──
             '  <link rel="stylesheet" href="styles.css">',
