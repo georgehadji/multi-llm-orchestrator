@@ -133,7 +133,9 @@ class DomainEvent:
         Compatible with NashEvent.source for migration purposes.
         For aggregate_ids like ``model:gpt-4o``, returns ``model``.
         """
-        return self.aggregate_id.split(":")[0] if ":" in self.aggregate_id else self.aggregate_id[:20]
+        return (
+            self.aggregate_id.split(":")[0] if ":" in self.aggregate_id else self.aggregate_id[:20]
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""

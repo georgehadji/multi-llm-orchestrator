@@ -551,8 +551,7 @@ class ContentCheckpointManager(NamedCheckpointManager):
                     )
             except Exception as e:
                 logger.warning(
-                    "Content restoration error for '%s': %s — "
-                    "metadata-only rollback returned",
+                    "Content restoration error for '%s': %s — " "metadata-only rollback returned",
                     snapshot_name,
                     e,
                 )

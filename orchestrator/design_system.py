@@ -68,12 +68,18 @@ class DesignSystem:
         # Ensure nested objects exist as property-like access
         if self.accessibility is None:
             from types import SimpleNamespace
+
             self.accessibility = SimpleNamespace(min_contrast_ratio=4.5)
         # Make spacing, shadow, animation, border_radius accessible
         if not hasattr(self, "spacing"):
             from types import SimpleNamespace
+
             self.spacing = SimpleNamespace(unit=f"{self.spacing_unit}px")
-            self.shadow = SimpleNamespace(sm="0 1px 2px rgba(0,0,0,.05)", md="0 4px 6px rgba(0,0,0,.07)", lg="0 10px 15px rgba(0,0,0,.1)")
+            self.shadow = SimpleNamespace(
+                sm="0 1px 2px rgba(0,0,0,.05)",
+                md="0 4px 6px rgba(0,0,0,.07)",
+                lg="0 10px 15px rgba(0,0,0,.1)",
+            )
             self.animation = SimpleNamespace(duration="200ms", easing="ease-in-out")
             self.border_radius = SimpleNamespace(sm="4px", md="8px", lg="12px", full="9999px")
 
@@ -206,6 +212,7 @@ class DesignSystemManager:
 
 class QualityCheck:
     """Individual quality check result — used by website_validator."""
+
     def __init__(
         self,
         name: str,
@@ -223,10 +230,11 @@ class QualityCheck:
 
 class QualityReport:
     """Aggregated quality report — accepts arbitrary kwargs for compatibility.
-    
+
     Separate from DesignSystem — this is the output of WebsiteQualityValidator.validate(),
     not a design token definition.
     """
+
     def __init__(self, **kwargs):
         self.checks: list = kwargs.pop("checks", [])
         self.score: float = kwargs.pop("score", 0.0)
@@ -237,4 +245,3 @@ class QualityReport:
         self.warnings: list = kwargs.pop("warnings", [])
         self.passed: bool = kwargs.pop("passed", False)
         self.__dict__.update(kwargs)
-    

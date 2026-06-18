@@ -113,7 +113,11 @@ class HallmarkDesignPlugin(Plugin):
                 self._preflight = await self._scanner.scan(self._project_dir)
                 logger.info(
                     "Hallmark preflight: %s",
-                    self._preflight.findings[:3] if self._preflight.findings else "no prior design system",
+                    (
+                        self._preflight.findings[:3]
+                        if self._preflight.findings
+                        else "no prior design system"
+                    ),
                 )
             except Exception as exc:
                 logger.warning("Hallmark plugin: preflight scan failed: %s", exc)
@@ -262,7 +266,11 @@ class HallmarkDesignPlugin(Plugin):
                     if not hasattr(context.task_result, "metadata"):
                         context.task_result.metadata = {}  # type: ignore[union-attr]
                     context.task_result.metadata["hallmark_audit"] = report  # type: ignore[union-attr]
-                    logger.info("Hallmark plugin: audit complete for %s (%d findings)", task.id, len(findings))
+                    logger.info(
+                        "Hallmark plugin: audit complete for %s (%d findings)",
+                        task.id,
+                        len(findings),
+                    )
             except Exception as exc:
                 logger.warning("Hallmark plugin: audit failed: %s", exc)
 

@@ -67,9 +67,7 @@ class ConstitutionLoader:
                 )
         return self._constitution or ProjectConstitution()
 
-    def check_file_write(
-        self, path: str | Path, content: str = ""
-    ) -> tuple[bool, str]:
+    def check_file_write(self, path: str | Path, content: str = "") -> tuple[bool, str]:
         """Check if a file write is allowed by the constitution.
 
         Args:

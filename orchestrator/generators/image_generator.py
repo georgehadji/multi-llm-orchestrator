@@ -31,9 +31,11 @@ def generate_images(output_dir: Path, config, design_system) -> None:
     text = getattr(colors, "text_primary", "#fafafa")
 
     site_name = getattr(config, "client_name", "Site") or "Site"
-    tagline = getattr(config, "tagline", "") or getattr(
-        getattr(config, "content_brief", None), "tagline", ""
-    ) or ""
+    tagline = (
+        getattr(config, "tagline", "")
+        or getattr(getattr(config, "content_brief", None), "tagline", "")
+        or ""
+    )
 
     def _write_svg(filename: str, content: str, parent: Path | None = None):
         (parent or img_dir).mkdir(parents=True, exist_ok=True)
@@ -57,9 +59,7 @@ def generate_images(output_dir: Path, config, design_system) -> None:
 
     # ── Favicon + Apple Icon (write to images/ alongside other images) ──
     _write_svg("favicon.svg", svg_icon(32, 6, primary, site_name[0].upper()), img_dir)
-    _write_svg(
-        "apple-touch-icon.svg", svg_icon(180, 36, bg, site_name[0].upper()), img_dir
-    )
+    _write_svg("apple-touch-icon.svg", svg_icon(180, 36, bg, site_name[0].upper()), img_dir)
 
     # ── Logo (brand wordmark) ──
     _write_svg("logo.svg", svg_logo(primary, accent, bg, text, site_name), img_dir)
@@ -67,13 +67,15 @@ def generate_images(output_dir: Path, config, design_system) -> None:
     # ── Section thumbnails (match site sections) ──
     sections = getattr(config, "sections", ["hero", "features", "pricing", "testimonials"])
     for i, section in enumerate(sections[:6]):
-        _write_svg(f"section-{section}.svg",
-                    svg_section_thumb(i, section, primary, accent, surface, text),
-                    img_dir)
+        _write_svg(
+            f"section-{section}.svg",
+            svg_section_thumb(i, section, primary, accent, surface, text),
+            img_dir,
+        )
 
 
 def svg_og(primary, accent, bg, text, site_name, tagline):
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
     <linearGradient id="og-grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:{bg}"/>
@@ -87,11 +89,11 @@ def svg_og(primary, accent, bg, text, site_name, tagline):
   <text x="600" y="350" text-anchor="middle" font-family="system-ui,sans-serif"
         font-size="28" fill="{text}" opacity="0.7">{tagline or 'Built with precision'}</text>
   <rect x="500" y="420" width="200" height="4" rx="2" fill="{accent}"/>
-</svg>'''
+</svg>"""
 
 
 def svg_hero(primary, accent, bg, surface):
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
   <defs>
     <radialGradient id="hero-grad" cx="50%" cy="40%" r="60%">
       <stop offset="0%" style="stop-color:{accent};stop-opacity:0.15"/>
@@ -105,11 +107,11 @@ def svg_hero(primary, accent, bg, surface):
   <rect width="1440" height="900" fill="url(#grid)"/>
   <circle cx="1100" cy="200" r="300" fill="{primary}" opacity="0.08"/>
   <circle cx="300" cy="700" r="200" fill="{accent}" opacity="0.06"/>
-</svg>'''
+</svg>"""
 
 
 def svg_portfolio_thumb(i, c1, c2, surface, text):
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
   <defs>
     <linearGradient id="thumb-grad-{i}" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:{c1};stop-opacity:0.3"/>
@@ -120,11 +122,11 @@ def svg_portfolio_thumb(i, c1, c2, surface, text):
   <rect width="600" height="400" rx="12" fill="url(#thumb-grad-{i})"/>
   <text x="300" y="200" text-anchor="middle" font-family="system-ui,sans-serif"
         font-size="24" fill="{text}" opacity="0.4">Project {i}</text>
-</svg>'''
+</svg>"""
 
 
 def svg_team_avatar(i, initial, color, bg, text):
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
   <defs>
     <linearGradient id="avatar-grad-{i}" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:{color}"/>
@@ -134,25 +136,25 @@ def svg_team_avatar(i, initial, color, bg, text):
   <circle cx="100" cy="100" r="100" fill="url(#avatar-grad-{i})"/>
   <text x="100" y="115" text-anchor="middle" font-family="system-ui,sans-serif"
         font-size="48" font-weight="600" fill="{text}">{initial}</text>
-</svg>'''
+</svg>"""
 
 
 def svg_icon(size=32, radius=6, bg="#4f9eff", letter="S"):
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">
   <rect width="{size}" height="{size}" rx="{radius}" fill="{bg}"/>
   <text x="{size // 2}" y="{int(size * 0.7)}" text-anchor="middle" font-family="system-ui,sans-serif"
         font-size="{int(size * 0.55)}" font-weight="700" fill="#fff">{letter}</text>
-</svg>'''
+</svg>"""
 
 
 def svg_logo(primary, accent, bg, text, site_name):
     """Brand wordmark SVG — dark background compatible."""
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="512" height="128" viewBox="0 0 512 128">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="512" height="128" viewBox="0 0 512 128">
   <rect width="512" height="128" fill="{bg}"/>
   <circle cx="48" cy="64" r="24" fill="{primary}"/>
   <circle cx="64" cy="64" r="12" fill="{accent}" opacity="0.7"/>
   <text x="96" y="78" font-family="system-ui,sans-serif" font-size="36" font-weight="700" fill="{text}">{site_name}</text>
-</svg>'''
+</svg>"""
 
 
 def svg_section_thumb(index, section_name, primary, accent, surface, text):
@@ -160,7 +162,7 @@ def svg_section_thumb(index, section_name, primary, accent, surface, text):
     label = section_name.replace("-", " ").title()
     colors = [primary, accent, "#34d399", "#fbbf24", "#f87171", "#818cf8"]
     color = colors[index % len(colors)]
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
   <defs>
     <linearGradient id="sec-grad-{index}" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:{color};stop-opacity:0.3"/>
@@ -171,4 +173,4 @@ def svg_section_thumb(index, section_name, primary, accent, surface, text):
   <rect width="600" height="400" rx="12" fill="url(#sec-grad-{index})"/>
   <text x="300" y="200" text-anchor="middle" font-family="system-ui,sans-serif"
         font-size="22" font-weight="600" fill="{text}" opacity="0.6">{label}</text>
-</svg>'''
+</svg>"""

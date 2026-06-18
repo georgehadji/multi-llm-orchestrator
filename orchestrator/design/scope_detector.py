@@ -16,20 +16,55 @@ from typing import Literal
 
 from orchestrator.models import DesignScope
 
-_COMPONENT_SIGNALS: frozenset[str] = frozenset({
-    "button", "input", "card", "modal", "dropdown", "tooltip",
-    "select", "checkbox", "switch", "tab", "chip", "badge", "banner",
-    "snackbar", "popover", "slider", "date picker", "avatar",
-    "toggle", "radio", "textarea", "form", "field", "pill",
-})
+_COMPONENT_SIGNALS: frozenset[str] = frozenset(
+    {
+        "button",
+        "input",
+        "card",
+        "modal",
+        "dropdown",
+        "tooltip",
+        "select",
+        "checkbox",
+        "switch",
+        "tab",
+        "chip",
+        "badge",
+        "banner",
+        "snackbar",
+        "popover",
+        "slider",
+        "date picker",
+        "avatar",
+        "toggle",
+        "radio",
+        "textarea",
+        "form",
+        "field",
+        "pill",
+    }
+)
 
-_SCOPE_PHRASES: frozenset[str] = frozenset({
-    "just the", "only the", "this one element", "a single",
-    "one component", "single component", "only component",
-})
+_SCOPE_PHRASES: frozenset[str] = frozenset(
+    {
+        "just the",
+        "only the",
+        "this one element",
+        "a single",
+        "one component",
+        "single component",
+        "only component",
+    }
+)
 
 _SINGLE_FILE_EXTS: tuple[str, ...] = (
-    ".tsx", ".jsx", ".vue", ".svelte", ".css", ".scss", ".less",
+    ".tsx",
+    ".jsx",
+    ".vue",
+    ".svelte",
+    ".css",
+    ".scss",
+    ".less",
 )
 
 

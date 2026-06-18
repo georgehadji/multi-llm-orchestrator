@@ -64,9 +64,7 @@ class DesignCritiqueStage:
 
             # Merge into main critique for downstream EvaluateStage
             if ctx.critique:
-                ctx.critique = (
-                    f"{ctx.critique}\n\n[DESIGN CRITIQUE]\n{ctx.design_critique}"
-                )
+                ctx.critique = f"{ctx.critique}\n\n[DESIGN CRITIQUE]\n{ctx.design_critique}"
             else:
                 ctx.critique = f"[DESIGN CRITIQUE]\n{ctx.design_critique}"
 

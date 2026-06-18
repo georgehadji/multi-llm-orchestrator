@@ -337,9 +337,7 @@ class VerbalizedSampler:
                         data = json.loads(text[start : i + 1])
                         if open_char == "[":
                             if isinstance(data, list):
-                                return VerbalizedSampler._extract_candidates(
-                                    {"responses": data}, k
-                                )
+                                return VerbalizedSampler._extract_candidates({"responses": data}, k)
                         else:
                             return VerbalizedSampler._extract_candidates(data, k)
                     except json.JSONDecodeError:

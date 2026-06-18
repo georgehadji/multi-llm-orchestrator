@@ -828,7 +828,8 @@ class Orchestrator:
             self._snapshotter = TelemetrySnapshotter(
                 telemetry_store=self._c.telemetry_store,
                 get_active_profiles_fn=lambda: [
-                    p for p in self._c.planner._profiles.values()
+                    p
+                    for p in self._c.planner._profiles.values()
                     if getattr(p, "call_count", 0) >= 1
                 ],
                 background_tasks=self._background_tasks,
@@ -1438,9 +1439,7 @@ class Orchestrator:
             if len(project) <= _INSTRUCTOR_MAX_CHARS:
                 decomposer = TaskDecomposer(api_client=self.client)
                 decomp_model = (
-                    "deepseek/deepseek-v4-flash"
-                    if "free" in model.value.lower()
-                    else model.value
+                    "deepseek/deepseek-v4-flash" if "free" in model.value.lower() else model.value
                 )
                 logger.info("Using Instructor for structured decomposition with %s", decomp_model)
                 result = await decomposer.decompose(
@@ -1455,7 +1454,9 @@ class Orchestrator:
         except ImportError:
             logger.warning("Instructor not available, using Decomposer")
         except Exception as e:
-            logger.warning("Instructor decomposition failed (%s), using Decomposer", type(e).__name__)
+            logger.warning(
+                "Instructor decomposition failed (%s), using Decomposer", type(e).__name__
+            )
 
         # ── Fallback: Decomposer from engine_core ───────────────────────────
         async def _record_fail(m: Model, error: Exception | None = None) -> None:
@@ -1658,6 +1659,7 @@ class Orchestrator:
         """Lazy-init TaskContextEnricher for backward compatibility."""
         if not hasattr(self, "_ctx_enricher") or self._ctx_enricher is None:
             from .engine_core.stages.context_enricher import TaskContextEnricher
+
             self._ctx_enricher = TaskContextEnricher(
                 skill_manager=self._skill_manager,
                 taste_skill_service=self._taste_skill_service,

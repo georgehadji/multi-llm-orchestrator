@@ -56,6 +56,7 @@ class TelemetrySnapshotter:
         Only profiles with call_count >= 1 are written.
         Uses asyncio.create_task so the hot path is never blocked.
         """
+
         async def _write_snapshots() -> None:
             active_profiles = self._get_active_profiles()
             if active_profiles:
@@ -106,12 +107,14 @@ class TelemetrySnapshotter:
         self._background_tasks -= done
         logger.debug(
             "Background tasks cleaned up: %d done, %d still running",
-            len(done), len(self._background_tasks),
+            len(done),
+            len(self._background_tasks),
         )
         return len(done)
 
     def start_periodic_cleanup(self, interval_seconds: int = 300) -> None:
         """Start periodic cleanup timer for completed background tasks."""
+
         async def _cleanup_loop():
             while True:
                 await asyncio.sleep(interval_seconds)

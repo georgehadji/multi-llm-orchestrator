@@ -34,6 +34,7 @@ def _get_vs_sampler(client):
                 _VS_SAMPLER = _VS
     return _VS_SAMPLER(client=client)
 
+
 logger = logging.getLogger("orchestrator.engine_core.stages.generate")
 
 
@@ -104,14 +105,11 @@ class GenerateStage:
                         # Pick the text of the first (highest-prob) candidate
                         best_text = candidates[0].text
                         ctx.output = best_text
-                        ctx.cost_usd += sum(
-                            getattr(c, "cost_usd", 0) for c in candidates[:1]
-                        )
+                        ctx.cost_usd += sum(getattr(c, "cost_usd", 0) for c in candidates[:1])
                         # Use existing token tracking fallback for VS calls
                         ctx.tokens_used["output"] += len(best_text.split())
                         logger.info(
-                            "VS-first: task %s, %d candidates, "
-                            "top prob=%.3f, output_len=%d",
+                            "VS-first: task %s, %d candidates, " "top prob=%.3f, output_len=%d",
                             task.id,
                             len(candidates),
                             candidates[0].probability,

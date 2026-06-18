@@ -129,9 +129,9 @@ class OrchestratorSettings(BaseSettings):
     audit_log_path: str = "~/.orchestrator_cache/audit.log"
 
     # ── taste-skill design dials (1–10) ───────────────────────────────────
-    design_variance: int = Field(default=5, ge=1, le=10)   # Layout experimentation
+    design_variance: int = Field(default=5, ge=1, le=10)  # Layout experimentation
     motion_intensity: int = Field(default=5, ge=1, le=10)  # Animation depth
-    visual_density: int = Field(default=5, ge=1, le=10)    # Info per viewport
+    visual_density: int = Field(default=5, ge=1, le=10)  # Info per viewport
 
     # ── Paths & models ────────────────────────────────────────────────────
     cache_home: str = ""  # Override ~/.orchestrator_cache (ORCH_CACHE_HOME)

@@ -105,8 +105,21 @@ THEMES: dict[str, Theme] = {
             "Star-burst micro-celebration on success — coral-red, 420ms",
         ],
         motion_stance="motion-on",
-        macrostructure_loves=["marquee_hero", "bento_grid", "workbench", "stat_led", "catalogue", "narrative_workflow"],
-        macrostructure_rejects=["long_document", "manifesto", "quote_led", "type_specimen", "photographic"],
+        macrostructure_loves=[
+            "marquee_hero",
+            "bento_grid",
+            "workbench",
+            "stat_led",
+            "catalogue",
+            "narrative_workflow",
+        ],
+        macrostructure_rejects=[
+            "long_document",
+            "manifesto",
+            "quote_led",
+            "type_specimen",
+            "photographic",
+        ],
         voice_fixtures=[
             "Playful, vibrant, alive. The room is warm and someone smart is smiling.",
         ],

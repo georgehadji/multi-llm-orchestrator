@@ -67,7 +67,7 @@ class RedesignRubric:
             f"  0.4 = significant generic patterns present\n"
             f"  0.0 = output is generic slop with no intentional design\n\n"
             f"Respond with ONLY valid JSON on the last line:\n"
-            f'{{\"score\": <float 0.0-1.0>, \"reasoning\": \"<1-3 sentences>\"}}'
+            f'{{"score": <float 0.0-1.0>, "reasoning": "<1-3 sentences>"}}'
         )
 
     # ------------------------------------------------------------------

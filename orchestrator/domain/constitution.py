@@ -64,10 +64,7 @@ class ProjectConstitution:
 
     def is_path_protected(self, path: str) -> bool:
         """Check if a file path matches any protected glob pattern."""
-        for pattern in self.protect_paths:
-            if fnmatch.fnmatch(path, pattern):
-                return True
-        return False
+        return any(fnmatch.fnmatch(path, pattern) for pattern in self.protect_paths)
 
     def is_import_forbidden(self, import_name: str) -> bool:
         """Check if an import is on the forbidden list."""

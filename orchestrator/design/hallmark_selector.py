@@ -67,9 +67,7 @@ class HallmarkSelector:
             candidates = [s for s in trio_slugs if not log.is_recently_used(s)]
             if not candidates:
                 # All trio used — expand to all macrostructures
-                candidates = [
-                    s for s in ALL_MACROSTRUCTURE_SLUGS if not log.is_recently_used(s)
-                ]
+                candidates = [s for s in ALL_MACROSTRUCTURE_SLUGS if not log.is_recently_used(s)]
             if not candidates:
                 # Everything used — just pick from the trio
                 candidates = trio_slugs
@@ -98,10 +96,7 @@ class HallmarkSelector:
     ) -> Theme:
         """Select a theme that loves the chosen macrostructure."""
         # 1. Find themes that love this macrostructure
-        compatible = [
-            t for t in THEMES.values()
-            if macrostructure.slug in t.macrostructure_loves
-        ]
+        compatible = [t for t in THEMES.values() if macrostructure.slug in t.macrostructure_loves]
 
         # 2. Exclude recently used themes
         if log is not None and compatible:
@@ -160,9 +155,7 @@ class HallmarkSelector:
         """Pick first archetype from *codes* not recently used."""
         if log is not None:
             check_fn = (
-                log.is_nav_recently_used
-                if category == "nav"
-                else log.is_footer_recently_used
+                log.is_nav_recently_used if category == "nav" else log.is_footer_recently_used
             )
             candidates = [c for c in codes if not check_fn(c)]
             if not candidates:
@@ -212,7 +205,8 @@ class HallmarkSelector:
             category = category_map.get(role, "feature")
             # Get all archetypes in this category
             available = [
-                a for a in ARCHETYPES.values()
+                a
+                for a in ARCHETYPES.values()
                 if a.category == category and a.code not in used_codes
             ]
             if not available:
@@ -224,14 +218,10 @@ class HallmarkSelector:
                 chosen = available[0]
                 used_codes.add(chosen.code)
                 # Pick first knob value for each knob (deterministic)
-                knob_values = {
-                    k: v[0] for k, v in chosen.knobs.items()
-                }
+                knob_values = {k: v[0] for k, v in chosen.knobs.items()}
                 result.append((chosen, knob_values))
             else:
-                logger.warning(
-                    "hallmark_selector: no archetypes for category %s", category
-                )
+                logger.warning("hallmark_selector: no archetypes for category %s", category)
 
         return result
 

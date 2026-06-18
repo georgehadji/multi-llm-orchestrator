@@ -21,14 +21,10 @@ def is_web_frontend_task(prompt: str, target_path: str = "") -> bool:
     prompt_lower = prompt.lower()
     path_lower = target_path.lower()
 
-    is_backend = (
-        any(kw in prompt_lower for kw in _BACKEND_KEYWORDS)
-        and ".py" in path_lower
-    )
+    is_backend = any(kw in prompt_lower for kw in _BACKEND_KEYWORDS) and ".py" in path_lower
     if is_backend:
         return False
 
-    return (
-        any(kw in prompt_lower for kw in _FRONTEND_KEYWORDS)
-        or any(path_lower.endswith(ext) for ext in _FRONTEND_EXTENSIONS)
+    return any(kw in prompt_lower for kw in _FRONTEND_KEYWORDS) or any(
+        path_lower.endswith(ext) for ext in _FRONTEND_EXTENSIONS
     )

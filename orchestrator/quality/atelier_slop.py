@@ -47,11 +47,11 @@ class AtelierCritiqueResult:
 # Structure gates: detect generic layout patterns
 _STRUCTURE_GATES = {
     "centered_hero": (
-        r'(?:\.hero|#hero).*text-align\s*:\s*center',
+        r"(?:\.hero|#hero).*text-align\s*:\s*center",
         "Centered hero with no visual anchor",
     ),
     "three_even_columns": (
-        r'grid-template-columns\s*:\s*(?:repeat\s*\(\s*3\s*,\s*1fr|1fr\s+1fr\s+1fr)',
+        r"grid-template-columns\s*:\s*(?:repeat\s*\(\s*3\s*,\s*1fr|1fr\s+1fr\s+1fr)",
         "Feature section as 3 even columns",
     ),
     "single_cta_hero": (
@@ -63,7 +63,7 @@ _STRUCTURE_GATES = {
         "No semantic sections or div containers — page has no structure",
     ),
     "all_same_height_sections": (
-        r'min-height\s*:\s*100vh',
+        r"min-height\s*:\s*100vh",
         "All sections are full-viewport — no visual breathing room",
     ),
 }
@@ -75,15 +75,15 @@ _TYPOGRAPHY_GATES = {
         "Inter is the only font family — no typographic contrast",
     ),
     "font_size_binary": (
-        r'(?:font-size\s*:\s*(?:14|16)px|text-(?:sm|base|lg))\s*[;}]',
+        r"(?:font-size\s*:\s*(?:14|16)px|text-(?:sm|base|lg))\s*[;}]",
         "Font sizes are clustered at 14px/16px with nothing between",
     ),
     "heading_weight_monoculture": (
-        r'font-weight\s*:\s*700[^;]*;\s*\n\s*(?:h2|h3)',
+        r"font-weight\s*:\s*700[^;]*;\s*\n\s*(?:h2|h3)",
         "Likely heading weight monoculture — all headings appear to use 700",
     ),
     "no_display_text": (
-        r'(?!.*(?:font-size\s*:\s*(?:48|56|64|72)px|text-[4-8]xl))',
+        r"(?!.*(?:font-size\s*:\s*(?:48|56|64|72)px|text-[4-8]xl))",
         "No display-scale typography (48px+ headings) — page lacks visual anchor",
     ),
 }
@@ -91,15 +91,15 @@ _TYPOGRAPHY_GATES = {
 # Color gates
 _COLOR_GATES = {
     "purple_cyan_gradient": (
-        r'(?:#[7-9a-f][0-9a-f]{2}(?:f[5-9a-f]|e[0-9a-f])|#[a-f0-9]*[pP][uU])',
+        r"(?:#[7-9a-f][0-9a-f]{2}(?:f[5-9a-f]|e[0-9a-f])|#[a-f0-9]*[pP][uU])",
         "Purple-to-cyan gradient detected",
     ),
     "no_oklch_colors": (
-        r'(?!.*oklch\()',
+        r"(?!.*oklch\()",
         "No OKLCH colors used — fallback to hex/rgb",
     ),
     "flat_shadows": (
-        r'box-shadow\s*:\s*(?:0\s+\d+px\s+\d+px\s+rgba\(0,\s*0,\s*0)',
+        r"box-shadow\s*:\s*(?:0\s+\d+px\s+\d+px\s+rgba\(0,\s*0,\s*0)",
         "Shadows use flat black rgba(0,0,0,...) instead of OKLCH-derived",
     ),
 }
@@ -107,15 +107,15 @@ _COLOR_GATES = {
 # Imagery gates
 _IMAGERY_GATES = {
     "undersea_cable": (
-        r'(?:undersea|cable|circuit|network)\s*(?:illustration|image|graphic)',
+        r"(?:undersea|cable|circuit|network)\s*(?:illustration|image|graphic)",
         "Undersea-cable illustration trope",
     ),
     "gray_placeholder": (
-        r'(?:placeholder|grey\s+box).*landscape',
+        r"(?:placeholder|grey\s+box).*landscape",
         "Placeholder grey box with landscape icon",
     ),
     "unsplash_people": (
-        r'unsplash.*(?:people|team|office)',
+        r"unsplash.*(?:people|team|office)",
         "Generic Unsplash stock photos of people in offices",
     ),
 }
@@ -123,15 +123,15 @@ _IMAGERY_GATES = {
 # Motion gates
 _MOTION_GATES = {
     "no_reduced_motion": (
-        r'(?!.*prefers-reduced-motion)',
+        r"(?!.*prefers-reduced-motion)",
         "No prefers-reduced-motion media query",
     ),
     "no_transition_duration": (
-        r'(?!.*transition-duration)',
+        r"(?!.*transition-duration)",
         "No transition-duration on interactive elements",
     ),
     "linear_animations": (
-        r'(?:animation|transition).*linear',
+        r"(?:animation|transition).*linear",
         "Animations use 'linear' easing — no character",
     ),
 }
@@ -139,15 +139,15 @@ _MOTION_GATES = {
 # Polish gates
 _POLISH_GATES = {
     "no_focus_styles": (
-        r'(?!.*:focus-visible)',
+        r"(?!.*:focus-visible)",
         "No :focus-visible styles on interactive elements",
     ),
     "no_print_stylesheet": (
-        r'(?!.*@media\s+print)',
+        r"(?!.*@media\s+print)",
         "No @media print stylesheet",
     ),
     "no_loading_states": (
-        r'(?!.*aria-busy|aria-live|loading\s*[=:])',
+        r"(?!.*aria-busy|aria-live|loading\s*[=:])",
         "No loading states or progress indicators",
     ),
 }
@@ -217,12 +217,8 @@ def critique_html(html_content: str) -> AtelierCritiqueResult:
         total_score=overall,
         passed=overall >= 3.0,
         slop_detected=slop,
-        details=(
-            f"Atelier score: {overall:.1f}/5.0 — {'PASS' if not slop else 'SLOP DETECTED'}"
-        ),
-        recommendations=[
-            f"{axis.name}: {f}" for axis in axes for f in axis.findings[:2]
-        ][:6],
+        details=(f"Atelier score: {overall:.1f}/5.0 — {'PASS' if not slop else 'SLOP DETECTED'}"),
+        recommendations=[f"{axis.name}: {f}" for axis in axes for f in axis.findings[:2]][:6],
     )
 
 

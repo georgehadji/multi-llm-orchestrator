@@ -31,6 +31,8 @@ class BrandTone(str, Enum):
     CORPORATE = "corporate"
     LUXURY = "luxury"
     TECH = "tech"
+
+
 from .website_generator import (
     ClientInfo,
     WebsiteConfig,

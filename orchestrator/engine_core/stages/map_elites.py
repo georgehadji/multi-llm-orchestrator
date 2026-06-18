@@ -31,6 +31,7 @@ def _get_vs_sampler(client):
                 _VerbalizedSampler = VerbalizedSampler
     return _VerbalizedSampler(client=client)
 
+
 logger = logging.getLogger("orchestrator.engine_core.stages.map_elites")
 
 

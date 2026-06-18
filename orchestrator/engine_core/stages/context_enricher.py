@@ -66,9 +66,8 @@ class TaskContextEnricher:
             from ..crosscutting.config import flags as _ts_flags2
             from ..design.frontend_detect import is_web_frontend_task as _is_fe2
 
-            if (
-                getattr(_ts_flags2, "image_reference_pipeline", False)
-                and _is_fe2(task.prompt, getattr(task, "target_path", ""))
+            if getattr(_ts_flags2, "image_reference_pipeline", False) and _is_fe2(
+                task.prompt, getattr(task, "target_path", "")
             ):
                 import dataclasses as _dc
                 from ..design.image_reference_pipeline import ImageReferencePipeline as _IRP
@@ -95,11 +94,10 @@ class TaskContextEnricher:
                 and not getattr(task, "target_path", "").startswith("components/")
             ):
                 from ..quality.design_validators import validate_anti_slop as _anti_slop
+
                 _slop_result = _anti_slop(ctx.output)
                 if not _slop_result.passed:
-                    logger.warning(
-                        "taste-skill anti_slop [%s]: %s", task.id, _slop_result.details
-                    )
+                    logger.warning("taste-skill anti_slop [%s]: %s", task.id, _slop_result.details)
         except Exception:
             pass
 
@@ -117,7 +115,9 @@ class TaskContextEnricher:
                 prompt=task.prompt[:2000],
                 output=ctx.output[:4000] if getattr(ctx, "output", None) else "",
                 score=getattr(ctx, "score", 0.0),
-                critique_text=getattr(ctx, "critique", "")[:1000] if getattr(ctx, "critique", None) else "",
+                critique_text=(
+                    getattr(ctx, "critique", "")[:1000] if getattr(ctx, "critique", None) else ""
+                ),
                 model_used=getattr(ctx.model, "value", "") if getattr(ctx, "model", None) else "",
                 cost_usd=getattr(ctx, "cost_usd", 0.0),
                 recorded_at=_time.time(),

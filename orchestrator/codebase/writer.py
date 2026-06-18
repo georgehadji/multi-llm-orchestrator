@@ -245,9 +245,7 @@ class ModificationGate:
 class CodebaseWriter:
     """Top-level writer that applies modifications with safety gates."""
 
-    def __init__(
-        self, root: Path, dry_run: bool = False, snapshot_store: Any = None
-    ) -> None:
+    def __init__(self, root: Path, dry_run: bool = False, snapshot_store: Any = None) -> None:
         self._files = FileOperations(root)
         self._diffs = DiffEngine()
         self._gate = ModificationGate()

@@ -66,9 +66,7 @@ class AuditEngine:
                 severity = (
                     "critical"
                     if gate.severity.value == "critical"
-                    else "major"
-                    if gate.severity.value == "major"
-                    else "minor"
+                    else "major" if gate.severity.value == "major" else "minor"
                 )
                 findings.append(
                     AuditFinding(
@@ -108,7 +106,9 @@ class AuditEngine:
         if hero_count > 0 and feature_count >= 3 and cta_count > 0:
             # Check if it has structural variety
             has_asymmetry = "grid-template-columns" in content and "1fr 2fr" in content
-            has_varied_sections = len(set(re.findall(r'<section[^>]*class="([^"]*)"', content))) >= 4
+            has_varied_sections = (
+                len(set(re.findall(r'<section[^>]*class="([^"]*)"', content))) >= 4
+            )
 
             if not has_asymmetry and not has_varied_sections:
                 findings.append(

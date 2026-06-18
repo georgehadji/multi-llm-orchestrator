@@ -280,7 +280,11 @@ class MCPServer:
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "limit": {"type": "integer", "default": 20, "description": "Max results"},
+                            "limit": {
+                                "type": "integer",
+                                "default": 20,
+                                "description": "Max results",
+                            },
                         },
                     },
                 ),
@@ -511,16 +515,16 @@ class MCPServer:
         ]
 
         # Gather session data if available
-        sessions = self.session_watcher.get_session_stats() if hasattr(self, "session_watcher") else {}
+        sessions = (
+            self.session_watcher.get_session_stats() if hasattr(self, "session_watcher") else {}
+        )
 
         return {
             "project_id": project_id,
             "snapshots_available": len(project_snapshots),
             "recent_snapshots": project_snapshots[:10],
             "memory_count": len(
-                (await self.memory_manager.retrieve(project_id, "", limit=0))
-                if project_id
-                else []
+                (await self.memory_manager.retrieve(project_id, "", limit=0)) if project_id else []
             ),
             "sessions": sessions,
         }

@@ -458,7 +458,9 @@ class AutonomousDebugger:
         candidates = await sampler.sample(
             prompt=prompt,
             model=Model.GPT_4O_MINI,
-            cfg=VSConfig(k=5, temperature=0.3, probability_threshold=0.05, fmt=ProbabilityFormat.EXPLICIT),
+            cfg=VSConfig(
+                k=5, temperature=0.3, probability_threshold=0.05, fmt=ProbabilityFormat.EXPLICIT
+            ),
             max_tokens=2048,
             timeout=60,
         )
@@ -470,6 +472,7 @@ class AutonomousDebugger:
         best = candidates[0]
         try:
             import json
+
             data = json.loads(best.text)
             hypotheses = data.get("hypotheses", [])
             if hypotheses:

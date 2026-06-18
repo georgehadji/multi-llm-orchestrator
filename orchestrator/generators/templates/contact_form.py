@@ -1,6 +1,6 @@
 """ContactForm component — generated with rate-limit error handling."""
 
-CONTACT_FORM_TEMPLATE = '''import { useState } from 'react'
+CONTACT_FORM_TEMPLATE = """import { useState } from 'react'
 
 /**
  * ContactForm - Rate-limited contact form component.
@@ -134,4 +134,4 @@ export default function ContactForm({
  *     return Response.json({ success: true })
  *   }
  */
-'''
+"""
