@@ -28,9 +28,12 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
+
+if TYPE_CHECKING:
+    from orchestrator.supervisor.service import Supervisor
 
 logger = logging.getLogger("orchestrator.api_server")
 
@@ -116,6 +119,7 @@ class APIServer:
         rate_limit: int = 100,
         rate_window: int = 60,
         max_request_size: int = 10 * 1024 * 1024,  # 10MB
+        supervisor: Supervisor | None = None,
     ):
         """
         Initialize the API server.
@@ -130,6 +134,7 @@ class APIServer:
         self.cors_origins = cors_origins or []  # Empty = same origin only
         self.auth_required = auth_required
         self.max_request_size = max_request_size
+        self.supervisor = supervisor
 
         self.app = web.Application()
         self.runner: web.AppRunner | None = None
@@ -175,6 +180,13 @@ class APIServer:
         self.app.router.add_get("/models", self.list_models)
         self.app.router.add_post("/register_key", self.register_api_key)
         self.app.router.add_get("/stats", self.get_stats)
+        if self.supervisor is not None:
+            self.app.router.add_post("/supervisor/directive", self.supervisor_directive)
+            self.app.router.add_get("/supervisor/sessions", self.list_supervisor_sessions)
+            self.app.router.add_get("/supervisor/sessions/{id}", self.get_supervisor_session)
+            self.app.router.add_get(
+                "/supervisor/sessions/{id}/lessons", self.get_supervisor_lessons
+            )
 
     def _enable_cors(self):
         """
@@ -448,6 +460,127 @@ class APIServer:
         }
 
         return web.json_response(stats)
+
+    # ─────────────────────────────────────────────
+    # Supervisor endpoints (Phase 2)
+    # ─────────────────────────────────────────────
+
+    async def supervisor_directive(self, request: web.Request) -> web.Response:
+        """Accept an inbound agent directive and hand it to the Supervisor."""
+        self._update_request_stats()
+
+        if self.auth_required:
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                self._update_request_stats(success=False)
+                return web.json_response({"error": "Authorization header required"}, status=401)
+            api_key = auth_header[7:]
+            if not self._verify_api_key(api_key):
+                self._update_request_stats(success=False)
+                return web.json_response({"error": "Invalid API key"}, status=401)
+
+        if self.supervisor is None:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": "Supervisor not configured"}, status=503)
+
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": "Invalid JSON in request body"}, status=400)
+
+        text = data.get("text", "").strip()
+        if not text:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": "text required"}, status=400)
+
+        from orchestrator.supervisor.models import Directive
+
+        directive = Directive(
+            source="agent",
+            text=text,
+            project_id=data.get("project_id", ""),
+            criteria=data.get("criteria", ""),
+            budget=data.get("budget"),
+        )
+
+        try:
+            result = await self.supervisor.handle(directive)
+            self._update_request_stats(success=True)
+            return web.json_response(
+                {
+                    "session_id": result.session_id,
+                    "status": result.project_status,
+                    "lessons_recorded": result.lessons_recorded,
+                }
+            )
+        except Exception as exc:
+            logger.exception("Supervisor directive failed")
+            self._update_request_stats(success=False)
+            return web.json_response({"error": str(exc)}, status=500)
+
+    async def list_supervisor_sessions(self, request: web.Request) -> web.Response:
+        """List supervisor sessions."""
+        self._update_request_stats(success=True)
+        if self.supervisor is None:
+            return web.json_response({"error": "Supervisor not configured"}, status=503)
+        sessions = await self.supervisor._store.list_sessions()
+        return web.json_response(
+            [
+                {
+                    "id": s.id,
+                    "created_at": s.created_at,
+                    "updated_at": s.updated_at,
+                    "status": s.status,
+                    "summary": s.summary,
+                    "directive_count": s.directive_count,
+                }
+                for s in sessions
+            ]
+        )
+
+    async def get_supervisor_session(self, request: web.Request) -> web.Response:
+        """Get a single supervisor session."""
+        self._update_request_stats(success=True)
+        if self.supervisor is None:
+            return web.json_response({"error": "Supervisor not configured"}, status=503)
+        session_id = request.match_info["id"]
+        session = await self.supervisor._store.get_session(session_id)
+        if session is None:
+            return web.json_response({"error": "Session not found"}, status=404)
+        return web.json_response(
+            {
+                "id": session.id,
+                "created_at": session.created_at,
+                "updated_at": session.updated_at,
+                "status": session.status,
+                "summary": session.summary,
+                "directive_count": session.directive_count,
+            }
+        )
+
+    async def get_supervisor_lessons(self, request: web.Request) -> web.Response:
+        """Get lessons for a supervisor session."""
+        self._update_request_stats(success=True)
+        if self.supervisor is None:
+            return web.json_response({"error": "Supervisor not configured"}, status=503)
+        session_id = request.match_info["id"]
+        lessons = await self.supervisor._store.search_lessons(session_id, limit=100)
+        return web.json_response(
+            [
+                {
+                    "id": lesson.id,
+                    "session_id": lesson.session_id,
+                    "project_id": lesson.project_id,
+                    "task_type": lesson.task_type,
+                    "kind": lesson.kind,
+                    "signal": lesson.signal,
+                    "detail": lesson.detail,
+                    "created_at": lesson.created_at,
+                }
+                for lesson in lessons
+            ]
+        )
 
     def _verify_api_key(self, api_key: str) -> bool:
         """Verify an API key."""
