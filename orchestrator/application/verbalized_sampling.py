@@ -116,7 +116,7 @@ class VerbalizedSampler:
         system = self._build_system(cfg, system_extra)
 
         try:
-            resp = await self._client.call(
+            resp = await self._client.call(  # type: ignore[no-untyped-call]
                 model=model,
                 prompt=prompt,
                 system=system,
@@ -197,7 +197,7 @@ class VerbalizedSampler:
 
         # Step 3: Try json5 (optional dependency)
         try:
-            import json5  # type: ignore[import-untyped]
+            import json5
 
             data = json5.loads(cleaned)
             return self._extract_candidates(data, k)
@@ -238,7 +238,7 @@ class VerbalizedSampler:
 
         Accepts both {"responses": [...]} and bare [...] formats.
         """
-        responses: list[dict] = []
+        responses: list[Any] = []
 
         if isinstance(data, dict):
             data = data.get("responses", data)
