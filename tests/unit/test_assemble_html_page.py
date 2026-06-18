@@ -33,13 +33,19 @@ def _component(section: str, three_version: str) -> str:
 """
 
 
-@pytest.fixture
-def assembled(tmp_path: Path) -> str:
+def _build(tmp_path: Path, *, with_images: bool) -> str:
     components = tmp_path / "components"
     components.mkdir()
     # Write out-of-order on disk to prove ordering follows the sections list.
     (components / "about.html").write_text(_component("about", "0.160.0"), encoding="utf-8")
     (components / "hero.html").write_text(_component("hero", "0.160.0"), encoding="utf-8")
+
+    if with_images:
+        img_dir = tmp_path / "public" / "images"
+        img_dir.mkdir(parents=True)
+        (img_dir / "favicon.svg").write_text("<svg/>", encoding="utf-8")
+        (img_dir / "og-image.webp").write_bytes(b"RIFF....WEBP")
+        (img_dir / "apple-touch-icon.webp").write_bytes(b"RIFF....WEBP")
 
     design_system = SimpleNamespace(
         colors=SimpleNamespace(
@@ -69,6 +75,11 @@ def assembled(tmp_path: Path) -> str:
     return (tmp_path / "index.html").read_text(encoding="utf-8")
 
 
+@pytest.fixture
+def assembled(tmp_path: Path) -> str:
+    return _build(tmp_path, with_images=False)
+
+
 @pytest.mark.unit
 def test_single_document(assembled: str):
     assert assembled.lower().count("<!doctype html>") == 1
@@ -94,3 +105,27 @@ def test_sections_present_in_configured_order(assembled: str):
 @pytest.mark.unit
 def test_module_scripts_after_importmap(assembled: str):
     assert assembled.index('type="importmap"') < assembled.index("import * as THREE")
+
+
+@pytest.mark.unit
+def test_icon_links_reference_existing_files(tmp_path: Path):
+    html = _build(tmp_path, with_images=True)
+    # Real generated files are referenced; the old hardcoded names are gone.
+    assert 'href="public/images/favicon.svg"' in html
+    assert 'href="public/images/apple-touch-icon.webp"' in html
+    assert "/images/favicon.png" not in html
+    assert "/favicon.svg" not in html.replace("public/images/favicon.svg", "")
+
+
+@pytest.mark.unit
+def test_og_image_points_to_generated_file(tmp_path: Path):
+    html = _build(tmp_path, with_images=True)
+    assert 'content="public/images/og-image.webp"' in html
+    assert "/og-image.png" not in html
+
+
+@pytest.mark.unit
+def test_no_icon_links_when_no_images(assembled: str):
+    # When no image files exist, no broken icon links are emitted.
+    assert 'rel="icon"' not in assembled
+    assert 'rel="apple-touch-icon"' not in assembled
