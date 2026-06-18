@@ -128,9 +128,7 @@ class ImageGenClient:
         # ── Cache check ────────────────────────────────────────────────────
         cache_key = ""
         if self._cache:
-            cache_key = hashlib.sha256(
-                f"{model}:{prompt}:{width}x{height}".encode()
-            ).hexdigest()
+            cache_key = hashlib.sha256(f"{model}:{prompt}:{width}x{height}".encode()).hexdigest()
             cached = await self._cache.get(cache_key, "", 4096, "", 0.0)
             if cached and output_path:
                 try:
@@ -163,8 +161,12 @@ class ImageGenClient:
                     continue
 
                 if response.status_code >= 500:
-                    logger.warning("Image gen server error %d, retry %d/%d",
-                                   response.status_code, attempt + 1, MAX_RETRIES)
+                    logger.warning(
+                        "Image gen server error %d, retry %d/%d",
+                        response.status_code,
+                        attempt + 1,
+                        MAX_RETRIES,
+                    )
                     await asyncio.sleep(2**attempt)
                     continue
 
@@ -190,16 +192,23 @@ class ImageGenClient:
                                     result.image_data = resp.content
                                     logger.debug("Downloaded SVG from %s", result.image_url[:60])
                                 else:
-                                    logger.warning("Failed to download image URL: HTTP %d", resp.status_code)
+                                    logger.warning(
+                                        "Failed to download image URL: HTTP %d", resp.status_code
+                                    )
                         except Exception as e:
                             logger.warning("Failed to download image URL: %s", e)
                     # ── Cache write ──
                     if result.success and result.image_data and self._cache:
                         try:
                             await self._cache.put(
-                                cache_key, "", 4096,
+                                cache_key,
+                                "",
+                                4096,
                                 base64.b64encode(result.image_data).decode(),
-                                len(result.image_data), 0, "", 0.0,
+                                len(result.image_data),
+                                0,
+                                "",
+                                0.0,
                             )
                         except Exception:
                             pass
@@ -217,6 +226,92 @@ class ImageGenClient:
                 break
 
         return ImageGenResult(success=False, error=last_error or "Unknown error")
+
+    @staticmethod
+    def _result_from_url(url: str, mime: str = "image/png") -> ImageGenResult | None:
+        """Build a result from a URL string.
+
+        Handles base64 ``data:`` URIs (decoded inline) and remote ``http(s)``
+        URLs (returned for later download). Returns None if ``url`` is neither.
+        """
+        if not url or not isinstance(url, str):
+            return None
+        if url.startswith("data:"):
+            # data:[<mime>][;base64],<payload>
+            try:
+                header, _, payload = url.partition(",")
+                if not payload:
+                    return None
+                if header[5:].split(";")[0]:
+                    mime = header[5:].split(";")[0]
+                return ImageGenResult(
+                    success=True,
+                    image_data=base64.b64decode(payload),
+                    mime_type=mime,
+                )
+            except Exception as e:  # noqa: BLE001 - report, do not raise
+                return ImageGenResult(success=False, error=f"data URI decode failed: {e}")
+        if url.startswith("http"):
+            svg = url.lower().endswith(".svg")
+            return ImageGenResult(
+                success=True,
+                image_url=url,
+                mime_type="image/svg+xml" if svg else mime,
+            )
+        return None
+
+    def _extract_message_images(
+        self,
+        message: dict[str, Any],
+        choice: dict[str, Any],
+    ) -> ImageGenResult | None:
+        """Extract an image from a message's ``images[]`` / ``image_url`` fields.
+
+        Returns an ImageGenResult on success/decode-failure, or None when no
+        image payload is present (so the caller can keep trying other formats).
+        """
+        # Some models put image_url directly on the message or choice.
+        direct = message.get("image_url") or choice.get("image_url", "")
+        if isinstance(direct, dict):
+            direct = direct.get("url", "")
+        direct_result = self._result_from_url(direct)
+        if direct_result is not None:
+            return direct_result
+
+        msg_images = message.get("images", [])
+        if not isinstance(msg_images, list) or not msg_images:
+            return None
+
+        img = msg_images[0]
+        if isinstance(img, str):
+            # Bare base64 string or a data/http URL.
+            url_result = self._result_from_url(img)
+            if url_result is not None:
+                return url_result
+            try:
+                return ImageGenResult(success=True, image_data=base64.b64decode(img))
+            except Exception:
+                return None
+
+        if isinstance(img, dict):
+            mime = img.get("mime_type", img.get("media_type", "image/png"))
+            b64 = img.get("b64_json") or img.get("data", "")
+            if b64:
+                try:
+                    return ImageGenResult(
+                        success=True,
+                        image_data=base64.b64decode(b64),
+                        mime_type=mime,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    return ImageGenResult(success=False, error=f"Message images decode: {e}")
+            # Nested image_url object or string (commonly a base64 data: URI).
+            img_url = img.get("image_url", "")
+            if isinstance(img_url, dict):
+                img_url = img_url.get("url", "")
+            return self._result_from_url(img_url, mime)
+
+        return None
 
     def _parse_response(
         self,
@@ -251,9 +346,13 @@ class ImageGenClient:
                         if b64:
                             try:
                                 img_bytes = base64.b64decode(b64)
-                                return ImageGenResult(success=True, image_data=img_bytes, mime_type=mime)
+                                return ImageGenResult(
+                                    success=True, image_data=img_bytes, mime_type=mime
+                                )
                             except Exception as e:
-                                return ImageGenResult(success=False, error=f"Base64 decode failed: {e}")
+                                return ImageGenResult(
+                                    success=False, error=f"Base64 decode failed: {e}"
+                                )
                     # Recraft/FLUX b64_json format
                     if "b64_json" in block:
                         mime = block.get("media_type", "image/png")
@@ -269,7 +368,9 @@ class ImageGenClient:
             # Format 2: Recraft SVG models return content as a URL string
             if isinstance(content, str):
                 if content.startswith("http"):
-                    return ImageGenResult(success=True, image_url=content, mime_type="image/svg+xml")
+                    return ImageGenResult(
+                        success=True, image_url=content, mime_type="image/svg+xml"
+                    )
                 # Might be base64 directly
                 if len(content) > 100 and not content.startswith("{"):
                     try:
@@ -280,7 +381,9 @@ class ImageGenClient:
             # Format 3: Image data in top-level choices[0] fields (not nested in message.content)
             if "b64_json" in choices[0]:
                 try:
-                    return ImageGenResult(success=True, image_data=base64.b64decode(choices[0]["b64_json"]))
+                    return ImageGenResult(
+                        success=True, image_data=base64.b64decode(choices[0]["b64_json"])
+                    )
                 except Exception as e:
                     return ImageGenResult(success=False, error=f"Top-level b64_json: {e}")
 
@@ -294,48 +397,17 @@ class ImageGenClient:
                     if b64:
                         return ImageGenResult(success=True, image_data=base64.b64decode(b64))
 
-            # Format 5: Content is None — check for image_url or data at choice level
+            # Format 5: image payload carried on the message object (not in content).
+            # OpenRouter image models (Gemini, FLUX, etc.) return images[] on the
+            # message with a nested image_url.url that is usually a base64 ``data:``
+            # URI. ``content`` may be None OR an empty string, so this branch must
+            # NOT be gated on ``content is None``.
+            msg_result = self._extract_message_images(message, choices[0])
+            if msg_result is not None:
+                return msg_result
+
+            # Content is None — check for base64 payload carried at the top level.
             if content is None:
-                # Some models put image_url directly on the message
-                img_url = message.get("image_url") or choices[0].get("image_url", "")
-                if img_url and img_url.startswith("http"):
-                    return ImageGenResult(success=True, image_url=img_url, mime_type="image/png")
-
-                # Gemini 3 image models return images[] on the message object, not choices[0]
-                msg_images = message.get("images", [])
-                if isinstance(msg_images, list) and msg_images:
-                    img = msg_images[0]
-                    if isinstance(img, dict):
-                        # Debug: log all keys to understand the actual format
-                        logger.debug("Message images[0] keys: %s", list(img.keys())[:10])
-                        logger.debug("Message images[0] sample vals: %s",
-                                     {k: str(v)[:80] for k, v in list(img.items())[:6]})
-                        # Try b64_json first, then data, then image_url.url
-                        b64 = img.get("b64_json") or img.get("data", "")
-                        mime = img.get("mime_type", img.get("media_type", "image/png"))
-                        if b64:
-                            try:
-                                return ImageGenResult(
-                                    success=True,
-                                    image_data=base64.b64decode(b64),
-                                    mime_type=mime,
-                                )
-                            except Exception as e:
-                                return ImageGenResult(success=False, error=f"Message images decode: {e}")
-                        # Some models return image_url as a nested object
-                        img_url = img.get("image_url", "")
-                        if isinstance(img_url, dict):
-                            img_url = img_url.get("url", "")
-                        if img_url and isinstance(img_url, str) and img_url.startswith("http"):
-                            return ImageGenResult(success=True, image_url=img_url, mime_type=mime)
-                    elif isinstance(img, str):
-                        # Images might be base64 strings directly
-                        try:
-                            return ImageGenResult(success=True, image_data=base64.b64decode(img))
-                        except Exception:
-                            pass  # fall through to unrecognised format
-
-                # Check for top-level data key with base64 content
                 for key in ("data", "image", "image_data"):
                     val = data.get(key, "")
                     if isinstance(val, str) and len(val) > 100:
