@@ -46,7 +46,9 @@ def _get_registry():
                 async def select_components(self, **kw):
                     return [_FakeComponent(n) for n in ["hero", "features", "pricing", "contact"]]
 
-            get_registry = lambda: _FakeRegistry()
+            def get_registry():
+                return _FakeRegistry()
+
     return get_registry
 
 

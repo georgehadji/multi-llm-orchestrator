@@ -102,4 +102,6 @@ def validate_anti_slop(output: str) -> ValidationResult:
         details += "\n".join(f"  - {f}" for f in findings)
         return ValidationResult(passed=False, details=details, validator_name="anti_slop")
 
-    return ValidationResult(passed=True, details="No anti-slop patterns detected", validator_name="anti_slop")
+    return ValidationResult(
+        passed=True, details="No anti-slop patterns detected", validator_name="anti_slop"
+    )

@@ -1703,27 +1703,72 @@ def _website_subparsers(subparsers) -> None:
     wp = subparsers.add_parser("website", help="Generate a website with design system")
     wp.add_argument("--description", "-d", required=True, help="Website description")
     wp.add_argument("--output-dir", "-o", default="outputs/website", help="Output directory")
-    wp.add_argument("--framework", "-f", default="html", choices=["html", "react", "next.js"], help="Target framework")
-    wp.add_argument("--preset", default="modern", choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"], help="Design preset")
-    wp.add_argument("--image-model", default="auto", help="OpenRouter image model (default: auto-select Nano Banana 2; use 'none' for SVG only)")
-    wp.add_argument("--image-quality", default="balanced",
-                    choices=["draft", "balanced", "premium"],
-                    help="Image quality tier (draft=cheapest/fastest, balanced=best VFM, premium=best quality)")
-    wp.add_argument("--atelier-theme", default="", help="Atelier design theme (e.g. specimen, midnight, brutal)")
+    wp.add_argument(
+        "--framework",
+        "-f",
+        default="html",
+        choices=["html", "react", "next.js"],
+        help="Target framework",
+    )
+    wp.add_argument(
+        "--preset",
+        default="modern",
+        choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"],
+        help="Design preset",
+    )
+    wp.add_argument(
+        "--image-model",
+        default="auto",
+        help="OpenRouter image model (default: auto-select Nano Banana 2; use 'none' for SVG only)",
+    )
+    wp.add_argument(
+        "--image-quality",
+        default="balanced",
+        choices=["draft", "balanced", "premium"],
+        help="Image quality tier (draft=cheapest/fastest, balanced=best VFM, premium=best quality)",
+    )
+    wp.add_argument(
+        "--atelier-theme", default="", help="Atelier design theme (e.g. specimen, midnight, brutal)"
+    )
     # ── Customisation flags (Phase 1: un-hardcode) ──
-    wp.add_argument("--sections", "-s", default="hero,features,pricing,testimonials,faq,cta,footer",
-                    help="Comma-separated section names (default: hero,features,pricing,testimonials,faq,cta,footer)")
-    wp.add_argument("--company-name", default="", help="Brand/company name (default: inferred from description)")
-    wp.add_argument("--industry", default="technology", help="Client industry for content research (default: technology)")
-    wp.add_argument("--page-type", default="landing",
-                    choices=["landing", "saas", "portfolio", "ecommerce", "agency", "editorial", "custom"],
-                    help="Type of page to generate (default: landing)")
-    wp.add_argument("--deps", default="", help="Extra npm dependencies (comma-separated, e.g. three,@react-three/fiber,gsap)")
-    wp.add_argument("--3d", dest="use_3d", action="store_true", default=False,
-                    help="Shorthand for --deps three,@react-three/fiber,@react-three/drei")
+    wp.add_argument(
+        "--sections",
+        "-s",
+        default="hero,features,pricing,testimonials,faq,cta,footer",
+        help="Comma-separated section names (default: hero,features,pricing,testimonials,faq,cta,footer)",
+    )
+    wp.add_argument(
+        "--company-name", default="", help="Brand/company name (default: inferred from description)"
+    )
+    wp.add_argument(
+        "--industry",
+        default="technology",
+        help="Client industry for content research (default: technology)",
+    )
+    wp.add_argument(
+        "--page-type",
+        default="landing",
+        choices=["landing", "saas", "portfolio", "ecommerce", "agency", "editorial", "custom"],
+        help="Type of page to generate (default: landing)",
+    )
+    wp.add_argument(
+        "--deps",
+        default="",
+        help="Extra npm dependencies (comma-separated, e.g. three,@react-three/fiber,gsap)",
+    )
+    wp.add_argument(
+        "--3d",
+        dest="use_3d",
+        action="store_true",
+        default=False,
+        help="Shorthand for --deps three,@react-three/fiber,@react-three/drei",
+    )
     # ── URL source extraction ──
-    wp.add_argument("--source-url", default="",
-                    help="Live URL to clone — extracts design tokens, fonts, and content via Playwright")
+    wp.add_argument(
+        "--source-url",
+        default="",
+        help="Live URL to clone — extracts design tokens, fonts, and content via Playwright",
+    )
     wp.set_defaults(func=_cmd_website)
 
 
@@ -1803,7 +1848,7 @@ def _cmd_website(args):
 
     has_index = (output_dir / "index.html").exists()
     has_nextjs = (output_dir / "package.json").exists()
-    
+
     if result.success:
         print(f"[OK] LLM-powered website: {output_dir.resolve()}")
         print(f"   Components: {result.components_generated}")

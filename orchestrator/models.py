@@ -102,11 +102,11 @@ class DesignVariant(str, Enum):
     taste-skill SKILL.md prefix and critique rubric.
     """
 
-    DEFAULT = "default"       # Anti-slop default (taste-skill v2)
-    SOFT = "soft"             # Premium agency / Awwwards-tier
-    MINIMALIST = "minimalist" # Editorial / Notion-style
-    BRUTALIST = "brutalist"   # Swiss / industrial mechanical
-    REDESIGN = "redesign"     # Audit-first redesign of existing UI
+    DEFAULT = "default"  # Anti-slop default (taste-skill v2)
+    SOFT = "soft"  # Premium agency / Awwwards-tier
+    MINIMALIST = "minimalist"  # Editorial / Notion-style
+    BRUTALIST = "brutalist"  # Swiss / industrial mechanical
+    REDESIGN = "redesign"  # Audit-first redesign of existing UI
 
 
 class DesignScope(str, Enum):

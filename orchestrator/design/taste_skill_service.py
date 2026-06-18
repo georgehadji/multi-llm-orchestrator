@@ -18,17 +18,19 @@ from .taste_skill_loader import TasteSkillLoader, get_default_loader
 logger = logging.getLogger(__name__)
 
 # Phrases that signal the user wants a redesign audit
-_REDESIGN_CUES = frozenset({
-    "redesign",
-    "improve ui",
-    "improve the ui",
-    "fix design",
-    "update layout",
-    "update the layout",
-    "fix the design",
-    "audit the ui",
-    "ui overhaul",
-})
+_REDESIGN_CUES = frozenset(
+    {
+        "redesign",
+        "improve ui",
+        "improve the ui",
+        "fix design",
+        "update layout",
+        "update the layout",
+        "fix the design",
+        "audit the ui",
+        "ui overhaul",
+    }
+)
 
 
 def _infer_variant_from_prompt(prompt: str) -> DesignVariant | None:

@@ -792,7 +792,12 @@ class ProjectAnalyzer:
         report_file = output_dir / "analysis_report.json"
         report_file.parent.mkdir(parents=True, exist_ok=True)
         with open(report_file, "w", encoding="utf-8") as f:
-            json.dump(report.to_dict() if hasattr(report, 'to_dict') else asdict(report), f, indent=2, default=str)
+            json.dump(
+                report.to_dict() if hasattr(report, "to_dict") else asdict(report),
+                f,
+                indent=2,
+                default=str,
+            )
         logger.info(f"Analysis report saved to: {report_file}")
         return report_file
 
@@ -812,9 +817,7 @@ class ProjectAnalyzer:
                 SuggestionPriority.LOW: "[LOW]",
             }.get(suggestion.priority, "[INFO]")
 
-            print(
-                f"\n{priority_icon} {suggestion.title}"
-            )
+            print(f"\n{priority_icon} {suggestion.title}")
             print(f"   Category: {suggestion.category.value}")
             print(f"   Effort: {suggestion.estimated_effort}")
             print(f"   Impact: {suggestion.expected_impact}")

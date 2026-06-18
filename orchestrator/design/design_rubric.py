@@ -48,7 +48,7 @@ class DefaultDesignRubric:
             "3. **Layout** — grid use, spacing scale, responsive behaviour\n"
             "4. **Interactivity** — hover/focus states, motion, feedback\n"
             "5. **Content Realism** — placeholder text, generic icons, Lorem ipsum\n\n"
-            'Return JSON: {\n'
+            "Return JSON: {\n"
             '  "score": 0.0-1.0,\n'
             '  "dimensions": {\n'
             '    "typography": {"score": 0.0-1.0, "issues": ["..."]},\n'
@@ -56,9 +56,9 @@ class DefaultDesignRubric:
             '    "layout": {"score": 0.0-1.0, "issues": ["..."]},\n'
             '    "interactivity": {"score": 0.0-1.0, "issues": ["..."]},\n'
             '    "content_realism": {"score": 0.0-1.0, "issues": ["..."]}\n'
-            '  },\n'
+            "  },\n"
             '  "top_fixes": ["..."]\n'
-            '}'
+            "}"
         )
 
     @staticmethod
@@ -72,7 +72,7 @@ class DefaultDesignRubric:
 
         try:
             # Find JSON block
-            match = re.search(r'\{.*\}', critique_text, re.DOTALL)
+            match = re.search(r"\{.*\}", critique_text, re.DOTALL)
             if match:
                 data = json.loads(match.group())
                 score = float(data.get("score", 0.5))

@@ -65,10 +65,17 @@ class PreflightReport:
 class PreflightScanner:
     """Scan a project directory for existing design system signals."""
 
-    _MOTION_LIBS: frozenset[str] = frozenset({
-        "framer-motion", "motion", "gsap", "lenis", "lottie-react",
-        "@react-spring", "auto-animate",
-    })
+    _MOTION_LIBS: frozenset[str] = frozenset(
+        {
+            "framer-motion",
+            "motion",
+            "gsap",
+            "lenis",
+            "lottie-react",
+            "@react-spring",
+            "auto-animate",
+        }
+    )
 
     _FRAMEWORKS: dict[str, str] = {
         "next": "Next.js",
@@ -153,15 +160,11 @@ class PreflightScanner:
                     text = fp.read_text(encoding="utf-8")
                     if "fonts.googleapis.com" in text:
                         # Extract font names
-                        matches = re.findall(
-                            r"family=([^:&]+)", text
-                        )
+                        matches = re.findall(r"family=([^:&]+)", text)
                         for m in matches:
                             fonts.append(m.replace("+", " "))
                     if "@font-face" in text:
-                        family_matches = re.findall(
-                            r"font-family:\s*['\"]?([^;'\"]+)['\"]?", text
-                        )
+                        family_matches = re.findall(r"font-family:\s*['\"]?([^;'\"]+)['\"]?", text)
                         fonts.extend(f.strip() for f in family_matches)
                 except (OSError, UnicodeDecodeError):
                     continue

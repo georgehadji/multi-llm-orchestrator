@@ -479,9 +479,6 @@ class WebsiteQualityValidator:
             recommendations=[] if passed else ["Replace placeholder content with real copy"],
         )
 
-
-
-
     # ── Security Checks ──────────────────────────────────────────────────────
 
     async def _check_rate_limiting(self, output_dir: Path) -> QualityCheck:
@@ -489,24 +486,37 @@ class WebsiteQualityValidator:
         import re
 
         rate_limit_patterns = [
-            r'rate.limit', r'RateLimit', r'ratelimit',
-            r'too.many.requests', r'status.*429|429.*Too Many',
-            r'X-RateLimit', r'express-rate-limit',
-            r'upstash/ratelimit', r'@upstash/ratelimit',
-            r'maxRequests', r'max_requests', r'Ratelimit\(',
+            r"rate.limit",
+            r"RateLimit",
+            r"ratelimit",
+            r"too.many.requests",
+            r"status.*429|429.*Too Many",
+            r"X-RateLimit",
+            r"express-rate-limit",
+            r"upstash/ratelimit",
+            r"@upstash/ratelimit",
+            r"maxRequests",
+            r"max_requests",
+            r"Ratelimit\(",
         ]
         files_to_check = (
-            list(output_dir.rglob('*.ts')) + list(output_dir.rglob('*.tsx'))
-            + list(output_dir.rglob('*.js')) + list(output_dir.rglob('*.jsx'))
-            + list(output_dir.rglob('*.py'))
+            list(output_dir.rglob("*.ts"))
+            + list(output_dir.rglob("*.tsx"))
+            + list(output_dir.rglob("*.js"))
+            + list(output_dir.rglob("*.jsx"))
+            + list(output_dir.rglob("*.py"))
         )
         # Scan contact/auth files first
-        priority = [f for f in files_to_check if any(k in f.name.lower() for k in ('contact', 'auth', 'register', 'signup', 'login'))]
+        priority = [
+            f
+            for f in files_to_check
+            if any(k in f.name.lower() for k in ("contact", "auth", "register", "signup", "login"))
+        ]
         rest = [f for f in files_to_check if f not in priority]
         found = False
         for fpath in (priority + rest)[:50]:
             try:
-                c = fpath.read_text(encoding='utf-8', errors='ignore')
+                c = fpath.read_text(encoding="utf-8", errors="ignore")
                 for pat in rate_limit_patterns:
                     if re.search(pat, c, re.IGNORECASE):
                         found = True
@@ -518,18 +528,26 @@ class WebsiteQualityValidator:
 
         passed = found
         return QualityCheck(
-            name='Rate Limiting',
+            name="Rate Limiting",
             passed=passed,
             score=1.0 if passed else 0.0,
-            details='Rate-limit patterns detected' if passed else (
-                'No rate limiting found. Contact forms and registration '
-                'endpoints must include IP-based rate limiting.'
+            details=(
+                "Rate-limit patterns detected"
+                if passed
+                else (
+                    "No rate limiting found. Contact forms and registration "
+                    "endpoints must include IP-based rate limiting."
+                )
             ),
-            recommendations=[] if passed else [
-                'Add express-rate-limit or upstash/ratelimit middleware to API routes',
-                'Implement in-memory rate-limit map if no Redis available',
-                'Return HTTP 429 with Retry-After header when limit exceeded',
-            ],
+            recommendations=(
+                []
+                if passed
+                else [
+                    "Add express-rate-limit or upstash/ratelimit middleware to API routes",
+                    "Implement in-memory rate-limit map if no Redis available",
+                    "Return HTTP 429 with Retry-After header when limit exceeded",
+                ]
+            ),
         )
 
     async def _check_auth_flow(self, output_dir: Path) -> QualityCheck:
@@ -537,28 +555,36 @@ class WebsiteQualityValidator:
         import re
 
         auth_patterns = [
-            r'verifyEmail', r'verify.email', r'verify_email',
-            r'emailVerification', r'email_verification',
-            r'verificationToken', r'verification.token',
-            r'checkEmail', r'check.email', r'sendVerification',
+            r"verifyEmail",
+            r"verify.email",
+            r"verify_email",
+            r"emailVerification",
+            r"email_verification",
+            r"verificationToken",
+            r"verification.token",
+            r"checkEmail",
+            r"check.email",
+            r"sendVerification",
         ]
         auth_files = (
-            list(output_dir.rglob('*auth*')) + list(output_dir.rglob('*signup*'))
-            + list(output_dir.rglob('*register*')) + list(output_dir.rglob('*login*'))
-            + list(output_dir.rglob('*verify*'))
+            list(output_dir.rglob("*auth*"))
+            + list(output_dir.rglob("*signup*"))
+            + list(output_dir.rglob("*register*"))
+            + list(output_dir.rglob("*login*"))
+            + list(output_dir.rglob("*verify*"))
         )
         if not auth_files:
             return QualityCheck(
-                name='Email Verification',
+                name="Email Verification",
                 passed=True,
                 score=1.0,
-                details='No auth pages found — not applicable.',
+                details="No auth pages found — not applicable.",
                 recommendations=[],
             )
         found = False
         for fpath in auth_files[:20]:
             try:
-                c = fpath.read_text(encoding='utf-8', errors='ignore')
+                c = fpath.read_text(encoding="utf-8", errors="ignore")
                 for pat in auth_patterns:
                     if re.search(pat, c, re.IGNORECASE):
                         found = True
@@ -570,17 +596,23 @@ class WebsiteQualityValidator:
 
         passed = found
         return QualityCheck(
-            name='Email Verification',
+            name="Email Verification",
             passed=passed,
             score=1.0 if passed else 0.0,
-            details='Email verification flow detected' if passed else (
-                'Auth pages found but no email verification flow detected.'
+            details=(
+                "Email verification flow detected"
+                if passed
+                else ("Auth pages found but no email verification flow detected.")
             ),
-            recommendations=[] if passed else [
-                'Send verification email with a unique token after registration',
-                'Add /api/auth/verify-email route to mark user as verified',
-                'Prevent login until email is verified',
-            ],
+            recommendations=(
+                []
+                if passed
+                else [
+                    "Send verification email with a unique token after registration",
+                    "Add /api/auth/verify-email route to mark user as verified",
+                    "Prevent login until email is verified",
+                ]
+            ),
         )
 
     async def _check_secret_exposure(self, output_dir: Path) -> QualityCheck:
@@ -589,58 +621,62 @@ class WebsiteQualityValidator:
 
         secret_patterns = [
             # OpenAI / Anthropic / Google AI keys
-            r'sk-(?:proj-)?[a-zA-Z0-9]{20,}',
-            r'AIza[0-9A-Za-z\-_]{35}',
+            r"sk-(?:proj-)?[a-zA-Z0-9]{20,}",
+            r"AIza[0-9A-Za-z\-_]{35}",
             # GitHub tokens (all variants)
-            r'gh[opsu]_[a-zA-Z0-9]{36,}',
-            r'github_pat_[a-zA-Z0-9_]{40,}',
+            r"gh[opsu]_[a-zA-Z0-9]{36,}",
+            r"github_pat_[a-zA-Z0-9_]{40,}",
             # HuggingFace
-            r'hf_[a-zA-Z0-9]{34}',
+            r"hf_[a-zA-Z0-9]{34}",
             # Stripe live keys
-            r'(?:sk|rk)_live_[a-zA-Z0-9]{24,}',
+            r"(?:sk|rk)_live_[a-zA-Z0-9]{24,}",
             # AWS access keys
-            r'AKIA[0-9A-Z]{16}',
+            r"AKIA[0-9A-Z]{16}",
             # Supabase / Firebase config
-            r'supabase\.(?:url|key|anon)',
-            r'firebase\.(?:apiKey|authDomain|projectId)',
+            r"supabase\.(?:url|key|anon)",
+            r"firebase\.(?:apiKey|authDomain|projectId)",
             # Database URLs with credentials
-            r'postgres(?:ql)?://[^:]+:[^@]+@',
-            r'mongodb(?:\+srv)?://[^:]+:[^@]+@',
+            r"postgres(?:ql)?://[^:]+:[^@]+@",
+            r"mongodb(?:\+srv)?://[^:]+:[^@]+@",
             # Generic secret patterns
             r'[A-Z_]+_(?:SECRET|TOKEN|KEY|PASSWORD)\s*[:=]\s*["\x60\'(]',
-            r'process\.env\.NEXT_PUBLIC_(?!.*URL\b)[A-Z_]+',
+            r"process\.env\.NEXT_PUBLIC_(?!.*URL\b)[A-Z_]+",
             # Sentry DSNs
-            r'https://[a-f0-9]+@o\d+\.ingest\.sentry\.io/\d+',
+            r"https://[a-f0-9]+@o\d+\.ingest\.sentry\.io/\d+",
         ]
         frontend_files = (
-            list(output_dir.rglob('*.tsx')) + list(output_dir.rglob('*.jsx'))
-            + list(output_dir.rglob('*.html'))
+            list(output_dir.rglob("*.tsx"))
+            + list(output_dir.rglob("*.jsx"))
+            + list(output_dir.rglob("*.html"))
         )
         # Exclude API route files and server-only dirs (cross-platform safe)
         frontend_files = [
-            f for f in frontend_files
-            if 'api' not in f.parts and 'server' not in f.parts
+            f for f in frontend_files if "api" not in f.parts and "server" not in f.parts
         ]
         leaks = []
         for fpath in frontend_files[:50]:
             try:
-                c = fpath.read_text(encoding='utf-8', errors='ignore')
+                c = fpath.read_text(encoding="utf-8", errors="ignore")
                 for pat in secret_patterns:
                     for m in re.finditer(pat, c, re.IGNORECASE):
                         match_text = m.group(0)
-                        masked = match_text[:12] + '***' if len(match_text) > 12 else match_text
-                        leaks.append(f'{fpath.relative_to(output_dir)}: {masked}')
+                        masked = match_text[:12] + "***" if len(match_text) > 12 else match_text
+                        leaks.append(f"{fpath.relative_to(output_dir)}: {masked}")
             except Exception:
                 continue
 
         passed = len(leaks) == 0
         return QualityCheck(
-            name='Secret Exposure',
+            name="Secret Exposure",
             passed=passed,
             score=0.0 if leaks else 1.0,
-            details='No secrets found in frontend code' if passed else (
-                f'Potential secret exposure in {len(leaks)} location(s). '
-                'API keys must never appear in client-side code.'
+            details=(
+                "No secrets found in frontend code"
+                if passed
+                else (
+                    f"Potential secret exposure in {len(leaks)} location(s). "
+                    "API keys must never appear in client-side code."
+                )
             ),
             recommendations=leaks[:5] if not passed else [],
         )

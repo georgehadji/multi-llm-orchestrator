@@ -133,7 +133,7 @@ class StudyEngine:
                 f"CSS (first 2000 chars):\n{css[:2000]}\n\n"
                 "Extract: macrostructure, type_pairing, colour_anchor, spacing_scale, "
                 "motion_stance, genre.\n"
-                'Return ONLY JSON.'
+                "Return ONLY JSON."
             )
             try:
                 response = await self._client.call(

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from orchestrator.models import Genre
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Domain → Trio (offer these three; never default)
 # ═══════════════════════════════════════════════════════════════════════════════

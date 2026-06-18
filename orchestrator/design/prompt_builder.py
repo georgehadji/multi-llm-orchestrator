@@ -22,9 +22,8 @@ class HallmarkPromptBuilder:
         """Build a macrostructure constraint block."""
         sections = ""
         if macro.saas_sections:
-            sections = (
-                "\n## SaaS Section Sequence\n"
-                + "\n".join(f"- {s}" for s in macro.saas_sections)
+            sections = "\n## SaaS Section Sequence\n" + "\n".join(
+                f"- {s}" for s in macro.saas_sections
             )
         return (
             f"## Selected Macrostructure: {macro.name}\n"

@@ -375,6 +375,7 @@ class BudgetEnforcer:
             # Pre-flight check
             if not budget_hierarchy.can_afford_job(job_id, team, estimated_cost):
                 from ..domain.exceptions import BudgetExceededError
+
                 raise BudgetExceededError(
                     spent=budget_hierarchy._org_spent,
                     limit=budget_hierarchy._org_max,
@@ -405,7 +406,7 @@ class BudgetEnforcer:
             _EventType = None
 
         spent = budget.phase_spent.get(phase, 0.0)
-        cap = budget.phase_budget(phase) if hasattr(budget, 'phase_budget') else 0.0
+        cap = budget.phase_budget(phase) if hasattr(budget, "phase_budget") else 0.0
         if cap <= 0:
             return
         ratio = spent / cap

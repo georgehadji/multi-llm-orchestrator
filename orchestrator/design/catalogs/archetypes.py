@@ -123,7 +123,12 @@ ARCHETYPES: dict[str, Archetype] = {
         name="Mockup Split Browser Framed",
         description="Headline left, browser-frame mockup right, tilted 1–3° for life.",
         knobs={
-            "frame_style": ["browser-chrome", "macOS-toolbar", "minimal-hairline", "floating-no-frame"],
+            "frame_style": [
+                "browser-chrome",
+                "macOS-toolbar",
+                "minimal-hairline",
+                "floating-no-frame",
+            ],
             "tilt": ["0deg", "1.5deg", "3deg"],
             "screenshot_count": ["1", "stack-of-3", "orbit-of-3"],
         },
@@ -134,7 +139,12 @@ ARCHETYPES: dict[str, Archetype] = {
         name="Custom Illustration Centerpiece",
         description="A single hand-built SVG or pure-CSS shape sitting on the hero as one illustrative element.",
         knobs={
-            "build_method": ["tier-a-pure-css", "tier-b-hand-svg", "tier-c-generated", "tier-d-library"],
+            "build_method": [
+                "tier-a-pure-css",
+                "tier-b-hand-svg",
+                "tier-c-generated",
+                "tier-d-library",
+            ],
             "animation": ["none", "loop", "scroll-linked"],
             "scale": ["small-accent", "dominant"],
         },

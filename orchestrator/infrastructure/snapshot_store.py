@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 # ── Default location ─────────────────────────────────────────────────────────
 
+
 def default_snapshot_dir() -> str:
     """Return default snapshot storage directory."""
     return str(Path.home() / ".orchestrator_cache" / "snapshots")
@@ -128,9 +129,7 @@ class GitSnapshotStore(SnapshotPort):
 
         return snapshots
 
-    async def diff(
-        self, snapshot_a: str, snapshot_b: str
-    ) -> dict[str, Any]:
+    async def diff(self, snapshot_a: str, snapshot_b: str) -> dict[str, Any]:
         """Compare two snapshots and return rich diff."""
         await self._ensure_repo()
         raw = await self._git_diff(snapshot_a, snapshot_b)
@@ -230,12 +229,14 @@ class GitSnapshotStore(SnapshotPort):
         for line in result.stdout.strip().splitlines():
             parts = line.split("|", 3)
             if len(parts) >= 4:
-                snapshots.append({
-                    "id": parts[1],
-                    "label": parts[2],
-                    "timestamp": int(parts[3]),
-                    "full_id": parts[0],
-                })
+                snapshots.append(
+                    {
+                        "id": parts[1],
+                        "label": parts[2],
+                        "timestamp": int(parts[3]),
+                        "full_id": parts[0],
+                    }
+                )
         return snapshots
 
     async def _git_diff(self, a: str, b: str) -> str:
@@ -355,7 +356,9 @@ class TarSnapshotStore(SnapshotPort):
         manifest_path = self._storage / f"{snapshot_id}.manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-        logger.info("TarSnapshot '%s' created: %s (%s files)", label, snapshot_id, manifest["file_count"])
+        logger.info(
+            "TarSnapshot '%s' created: %s (%s files)", label, snapshot_id, manifest["file_count"]
+        )
         return snapshot_id
 
     async def restore(self, snapshot_id: str, target_dir: str) -> bool:
@@ -383,16 +386,22 @@ class TarSnapshotStore(SnapshotPort):
                 pass
         return snapshots
 
-    async def diff(
-        self, snapshot_a: str, snapshot_b: str
-    ) -> dict[str, Any]:
+    async def diff(self, snapshot_a: str, snapshot_b: str) -> dict[str, Any]:
         # For tar, we restore both to temp dirs and compare
-        with tempfile.TemporaryDirectory(prefix="snap_diff_a_") as tmp_a, \
-             tempfile.TemporaryDirectory(prefix="snap_diff_b_") as tmp_b:
+        with (
+            tempfile.TemporaryDirectory(prefix="snap_diff_a_") as tmp_a,
+            tempfile.TemporaryDirectory(prefix="snap_diff_b_") as tmp_b,
+        ):
             ok_a = await self.restore(snapshot_a, tmp_a)
             ok_b = await self.restore(snapshot_b, tmp_b)
             if not ok_a or not ok_b:
-                return {"error": "One or both snapshots not found", "added_files": [], "removed_files": [], "modified_files": [], "file_diffs": {}}
+                return {
+                    "error": "One or both snapshots not found",
+                    "added_files": [],
+                    "removed_files": [],
+                    "modified_files": [],
+                    "file_diffs": {},
+                }
 
             return self._diff_dirs(Path(tmp_a), Path(tmp_b))
 
@@ -417,10 +426,16 @@ class TarSnapshotStore(SnapshotPort):
     @staticmethod
     def _diff_dirs(a: Path, b: Path) -> dict[str, Any]:
         """Compare two directories by file listing and content hashes."""
-        files_a = {f.relative_to(a): hashlib.sha256(f.read_bytes()).hexdigest()
-                   for f in a.rglob("*") if f.is_file()}
-        files_b = {f.relative_to(b): hashlib.sha256(f.read_bytes()).hexdigest()
-                   for f in b.rglob("*") if f.is_file()}
+        files_a = {
+            f.relative_to(a): hashlib.sha256(f.read_bytes()).hexdigest()
+            for f in a.rglob("*")
+            if f.is_file()
+        }
+        files_b = {
+            f.relative_to(b): hashlib.sha256(f.read_bytes()).hexdigest()
+            for f in b.rglob("*")
+            if f.is_file()
+        }
 
         set_a = set(files_a.keys())
         set_b = set(files_b.keys())

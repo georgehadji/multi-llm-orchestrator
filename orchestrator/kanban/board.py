@@ -178,6 +178,7 @@ class KanbanBoard:
         Returns:
             A KanbanTask if one was available, None otherwise.
         """
+
         def _claim() -> KanbanTask | None:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -258,6 +259,7 @@ class KanbanBoard:
         Returns:
             True if the task was updated.
         """
+
         def _fail() -> tuple[bool, int, str]:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -317,6 +319,7 @@ class KanbanBoard:
         Returns:
             List of KanbanTask objects.
         """
+
         def _list() -> list[KanbanTask]:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -414,6 +417,7 @@ class KanbanBoard:
         result: dict[str, Any] | None = None,
     ) -> bool:
         """Update a task's status."""
+
         def _update() -> bool:
             conn = sqlite3.connect(str(self._db_path))
             try:

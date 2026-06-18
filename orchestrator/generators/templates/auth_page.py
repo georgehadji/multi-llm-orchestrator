@@ -1,6 +1,6 @@
 """Auth page component — generated with email verification flow."""
 
-AUTH_TEMPLATE = '''import { useState } from 'react'
+AUTH_TEMPLATE = """import { useState } from 'react'
 
 /**
  * {component_name} - {page_type} page.
@@ -139,4 +139,4 @@ export default function {component_name}({{
  *     return Response.redirect("/login?verified=true")
  *   }}
  */
-'''
+"""

@@ -158,7 +158,9 @@ class DecomposerService:
         if error:
             _service_logger.warning("decompose FAILED in %.0fms: %s", wall_ms, error)
         else:
-            _service_logger.debug("decompose succeeded in %.0fms — %d tasks", wall_ms, result.task_count)
+            _service_logger.debug(
+                "decompose succeeded in %.0fms — %d tasks", wall_ms, result.task_count
+            )
 
         return result
 
@@ -203,7 +205,6 @@ class DecomposerService:
             return None, wrapped
 
 
-
 if TYPE_CHECKING:
     from ..project_context import ProjectContext
     from ..model_selector import ModelSelector
@@ -223,7 +224,10 @@ def _get_vs_decomp_sampler(client):
                 _VS_SAMPLER_DECOMP = _VS
     return _VS_SAMPLER_DECOMP(client=client)
 
-logger = logging.getLogger("orchestrator.engine_core.decomposer")  # Legacy — preserved for Decomposer class logs
+
+logger = logging.getLogger(
+    "orchestrator.engine_core.decomposer"
+)  # Legacy — preserved for Decomposer class logs
 
 
 class Decomposer:

@@ -494,9 +494,7 @@ class SnapshotPort(Protocol):
         """
         ...
 
-    async def diff(
-        self, snapshot_a: str, snapshot_b: str
-    ) -> dict[str, Any]:
+    async def diff(self, snapshot_a: str, snapshot_b: str) -> dict[str, Any]:
         """Compare two snapshots.
 
         Returns dict with keys:

@@ -176,7 +176,11 @@ class DatabaseManager:
                     continue
                 try:
                     conn = await aiosqlite.connect(str(db_path))
-                    await conn.execute("PRAGMA journal_mode=WAL" if self._wal_mode else "PRAGMA journal_mode=DELETE")
+                    await conn.execute(
+                        "PRAGMA journal_mode=WAL"
+                        if self._wal_mode
+                        else "PRAGMA journal_mode=DELETE"
+                    )
                     await conn.execute(f"PRAGMA synchronous={self._synchronous}")
                     await conn.executescript(schema)
                     await conn.commit()
@@ -209,7 +213,9 @@ class DatabaseManager:
             db_path = self._paths.db(f"{name}.db")
             conn = await aiosqlite.connect(str(db_path))
             try:
-                await conn.execute("PRAGMA journal_mode=WAL" if self._wal_mode else "PRAGMA journal_mode=DELETE")
+                await conn.execute(
+                    "PRAGMA journal_mode=WAL" if self._wal_mode else "PRAGMA journal_mode=DELETE"
+                )
                 await conn.execute(f"PRAGMA synchronous={self._synchronous}")
                 await conn.executescript(schema)
                 await conn.commit()

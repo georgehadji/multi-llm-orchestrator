@@ -48,9 +48,9 @@ class DesignDials:
     silently clamped on construction.
     """
 
-    design_variance: int = 5   # Layout experimentation (1=centered, 10=asymmetric)
+    design_variance: int = 5  # Layout experimentation (1=centered, 10=asymmetric)
     motion_intensity: int = 5  # Animation depth (1=hover-only, 10=scroll/magnetic)
-    visual_density: int = 5    # Info per viewport (1=spacious, 10=dense)
+    visual_density: int = 5  # Info per viewport (1=spacious, 10=dense)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "design_variance", _clamp(self.design_variance))

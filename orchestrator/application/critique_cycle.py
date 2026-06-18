@@ -126,9 +126,7 @@ class CritiqueCycle:
                             lsp_diagnostics_summary,
                         )
 
-                        output = lsp_inject_inline_diagnostics(
-                            output, lsp_diagnostics, language
-                        )
+                        output = lsp_inject_inline_diagnostics(output, lsp_diagnostics, language)
                         lsp_summary = lsp_diagnostics_summary(lsp_diagnostics)
                         logger.info(
                             "  %s: LSP found %d diagnostics (%d errors, %d warnings)",
@@ -344,9 +342,16 @@ class CritiqueCycle:
             return task.language
         if hasattr(task, "target_path") and task.target_path:
             ext = Path(task.target_path).suffix.lower()
-            ext_map = {".py": "python", ".ts": "typescript", ".tsx": "typescript",
-                       ".js": "typescript", ".jsx": "typescript", ".go": "go",
-                       ".rs": "rust", ".java": "java"}
+            ext_map = {
+                ".py": "python",
+                ".ts": "typescript",
+                ".tsx": "typescript",
+                ".js": "typescript",
+                ".jsx": "typescript",
+                ".go": "go",
+                ".rs": "rust",
+                ".java": "java",
+            }
             return ext_map.get(ext, "python")
         return "python"
 

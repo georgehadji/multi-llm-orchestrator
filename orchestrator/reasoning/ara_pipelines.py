@@ -23,7 +23,16 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from ..infrastructure.cache import DiskCache
-from ..models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, TaskType, VSConfig, get_provider
+from ..models import (
+    Model,
+    ProbabilityFormat,
+    Task,
+    TaskResult,
+    TaskStatus,
+    TaskType,
+    VSConfig,
+    get_provider,
+)
 
 # Lazy import for VerbalizedSampler (avoids circular dep at module level)
 _VerbalizedSampler = None
@@ -39,6 +48,8 @@ def _get_vs_sampler(client):
 
                 _VerbalizedSampler = VerbalizedSampler
     return _VerbalizedSampler(client=client)
+
+
 from ..telemetry import TelemetryCollector
 
 if TYPE_CHECKING:
@@ -2988,7 +2999,9 @@ class BrainstormingPipeline(BasePipeline):
                 logger.warning("Brainstorming round %d: VS returned no candidates", rnd)
 
         state.brainstorming_state["raw_ideas"] = all_ideas
-        logger.info("Brainstorming: %d raw ideas generated across %d rounds", len(all_ideas), rounds)
+        logger.info(
+            "Brainstorming: %d raw ideas generated across %d rounds", len(all_ideas), rounds
+        )
 
     async def _phase_cluster(self, state: PipelineState):
         """Cluster raw ideas into themes."""

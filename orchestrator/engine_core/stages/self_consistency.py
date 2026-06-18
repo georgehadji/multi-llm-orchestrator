@@ -32,6 +32,7 @@ def _get_vs_sampler(client):
                 _VS_SAMPLER_MODULE = VerbalizedSampler
     return _VS_SAMPLER_MODULE(client=client)
 
+
 logger = logging.getLogger("orchestrator.engine_core.stages.self_consistency")
 
 
