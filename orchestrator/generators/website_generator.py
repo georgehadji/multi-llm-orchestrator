@@ -1570,6 +1570,11 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
     # ── Per-task image model selection (VFM-optimized) ────────────────────
 
+    # Per-image generation timeout (seconds). Generous enough for premium
+    # models like recraft-v4.1-pro; the underlying client has its own 60s
+    # HTTP timeout + retries, so this only bounds a fully hung request.
+    _IMAGE_GEN_TIMEOUT_S: float = 90.0
+
     # Best VFM model + 2 fallbacks per image type (no Gemini — avoid content=None bug)
     _IMAGE_MODEL_MAP: dict[str, list[str]] = {
         "favicon": [
@@ -1816,7 +1821,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                             height=img["height"],
                             output_path=img_dir / f"{img['name']}{ext}",
                         ),
-                        timeout=20.0,
+                        timeout=self._IMAGE_GEN_TIMEOUT_S,
                     )
                     return (result, img["name"], img_model)
                 except asyncio.TimeoutError:
@@ -2029,6 +2034,33 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         )
         og_image = getattr(config, "og_image", "/og-image.png") or "/og-image.png"
 
+        # Resolve icon/OG assets against files that were actually generated.
+        # Images live in public/images/ relative to index.html. Extensions vary
+        # (favicon→svg from vector models, others→webp after conversion), so pick
+        # the first that exists rather than hardcoding a name that may not.
+        img_root = output_dir / "public" / "images"
+
+        def _asset_href(stem: str, exts: tuple[str, ...]) -> str | None:
+            for ext in exts:
+                if (img_root / f"{stem}{ext}").exists():
+                    return f"public/images/{stem}{ext}"
+            return None
+
+        favicon_href = _asset_href("favicon", (".svg", ".png", ".ico", ".webp"))
+        apple_icon_href = _asset_href("apple-touch-icon", (".png", ".webp"))
+        og_href = _asset_href("og-image", (".webp", ".png", ".jpg"))
+        if og_href:
+            og_image = og_href
+
+        icon_lines: list[str] = []
+        if favicon_href:
+            ftype = "image/svg+xml" if favicon_href.endswith(".svg") else "image/png"
+            icon_lines.append(f'  <link rel="icon" type="{ftype}" href="{favicon_href}">')
+        if apple_icon_href:
+            icon_lines.append(
+                f'  <link rel="apple-touch-icon" sizes="180x180" href="{apple_icon_href}">'
+            )
+
         # page_type-aware JSON-LD
         json_ld_type, json_ld_category = _page_type_schema(page_type, site_name)
         page_title = f"{site_name} — {page_type.title()}"
@@ -2066,10 +2098,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'  <meta name="twitter:title" content="{page_title}">',
             f'  <meta name="twitter:description" content="{page_desc}">',
             f'  <meta name="twitter:image" content="{og_image}">',
-            # ── PWA / Icons ──
-            '  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">',
-            '  <link rel="icon" type="image/svg+xml" href="/favicon.svg">',
-            '  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">',
+            # ── PWA / Icons (only those that were actually generated) ──
+            *icon_lines,
             f'  <meta name="theme-color" content="{design_system.colors.primary}">',
             # ── Assets ──
             '  <link rel="stylesheet" href="styles.css">',
