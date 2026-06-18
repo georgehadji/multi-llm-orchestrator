@@ -30,6 +30,7 @@ def _get_registry():
 
             get_registry = _gr
         except ImportError:
+
             class _FakeComponent:
                 def __init__(self, name, **kwargs):
                     self.name = name
@@ -48,6 +49,7 @@ def _get_registry():
             get_registry = lambda: _FakeRegistry()
     return get_registry
 
+
 from ..design_system import DesignSystem, QualityReport
 
 # Stubs for symbols removed from design_system
@@ -55,6 +57,7 @@ from ..design_system import DesignSystem, QualityReport
 
 class ContentBrief:
     """Website content brief — accepts arbitrary kwargs for compatibility."""
+
     def __init__(self, **kwargs):
         self.headlines: dict = kwargs.pop("headlines", {})
         self.value_props: list = kwargs.pop("value_props", [])
@@ -173,7 +176,9 @@ class ExtractedSiteData:
     # Page topology
     sections: list[dict] = field(default_factory=list)  # [{name, selector, order}]
     # Computed CSS per section
-    section_styles: dict[str, dict] = field(default_factory=dict)  # section → {selector → {prop → value}}
+    section_styles: dict[str, dict] = field(
+        default_factory=dict
+    )  # section → {selector → {prop → value}}
     # Extracted text content per section
     section_content: dict[str, str] = field(default_factory=dict)  # section → text
     # Assets
@@ -239,7 +244,11 @@ class ContentResearcher:
         config: "WebsiteConfig | None" = None,
     ) -> ContentBrief:
         """Use the orchestrator engine to generate an industry-specific content brief."""
-        sections = getattr(config, "sections", ["hero", "features", "pricing"]) if config else ["hero", "features", "pricing"]
+        sections = (
+            getattr(config, "sections", ["hero", "features", "pricing"])
+            if config
+            else ["hero", "features", "pricing"]
+        )
         page_type = getattr(config, "page_type", "landing") if config else "landing"
 
         prompt = f"""Generate a content brief for a {page_type} website.
@@ -282,7 +291,14 @@ Return ONLY valid JSON, no markdown fences."""
             result = await engine._execute_task(task)
             if result and result.output:
                 import json
-                data = json.loads(result.output.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip())
+
+                data = json.loads(
+                    result.output.strip()
+                    .removeprefix("```json")
+                    .removeprefix("```")
+                    .removesuffix("```")
+                    .strip()
+                )
                 brief = ContentBrief(
                     headlines=data.get("headlines", {}),
                     ctas=data.get("ctas", {}),
@@ -540,7 +556,9 @@ class WebsiteExtractor:
         from ..browser_testing import BrowserTester
 
         data = ExtractedSiteData(url=url)
-        screenshots_dir = (output_dir / "screenshots" if output_dir else Path("outputs/extraction/screenshots"))
+        screenshots_dir = (
+            output_dir / "screenshots" if output_dir else Path("outputs/extraction/screenshots")
+        )
         screenshots_dir.mkdir(parents=True, exist_ok=True)
 
         tester = BrowserTester(browser_type="chromium", headless=True, screenshot_on_failure=True)
@@ -577,8 +595,14 @@ class WebsiteExtractor:
             # Parse font families — take first entry from each CSS font-stack
             font_families = extracted.get("fontFamilies", [])
             data.fonts = [
-                {"family": f.split(",")[0].strip().strip("\"'"), "weights": [400], "style": "normal", "url": ""}
-                for f in font_families if f and f.strip()
+                {
+                    "family": f.split(",")[0].strip().strip("\"'"),
+                    "weights": [400],
+                    "style": "normal",
+                    "url": "",
+                }
+                for f in font_families
+                if f and f.strip()
             ]
 
             # Parse favicons
@@ -586,7 +610,12 @@ class WebsiteExtractor:
 
             # Parse images
             data.images = [
-                {"src": img.get("src", ""), "alt": img.get("alt", ""), "width": img.get("w", 0), "height": img.get("h", 0)}
+                {
+                    "src": img.get("src", ""),
+                    "alt": img.get("alt", ""),
+                    "width": img.get("w", 0),
+                    "height": img.get("h", 0),
+                }
                 for img in extracted.get("images", [])
             ]
 
@@ -596,8 +625,8 @@ class WebsiteExtractor:
 
             # ── Extract text content per section (using Playwright arg-passing, safe) ──
             for sec in raw_sections[:10]:
-                classes = sec.get('classes', '')
-                tag = sec.get('tag', 'section')
+                classes = sec.get("classes", "")
+                tag = sec.get("tag", "section")
                 sel = f"{tag}.{classes.split(' ')[0]}" if classes else tag
                 try:
                     text_content = await tester.page.evaluate(
@@ -608,12 +637,19 @@ class WebsiteExtractor:
                         sel,
                     )
                     if text_content and isinstance(text_content, str) and text_content.strip():
-                        data.section_content[sec.get("name", f"section_{sec.get('order', 0)}")] = text_content.strip()[:2000]
+                        data.section_content[sec.get("name", f"section_{sec.get('order', 0)}")] = (
+                            text_content.strip()[:2000]
+                        )
                 except Exception:
                     pass
 
-            logger.info("WebsiteExtractor: extracted %d CSS vars, %d fonts, %d sections, %d images",
-                        len(data.colors), len(data.fonts), len(data.sections), len(data.images))
+            logger.info(
+                "WebsiteExtractor: extracted %d CSS vars, %d fonts, %d sections, %d images",
+                len(data.colors),
+                len(data.fonts),
+                len(data.sections),
+                len(data.images),
+            )
 
         except Exception as e:
             logger.error("WebsiteExtractor: extraction failed: %s", e)
@@ -672,7 +708,7 @@ class WebsiteGenerator:
             if first_nl > 0:
                 cleaned = cleaned[first_nl + 1 :]
             if cleaned.rstrip().endswith("```"):
-                cleaned = cleaned.rstrip()[: -3].rstrip()
+                cleaned = cleaned.rstrip()[:-3].rstrip()
             warnings.append("stripped markdown code fences")
 
         # 2. Fix SWC-incompatible casts (} as React.CSSProperties} → }})
@@ -796,10 +832,14 @@ class WebsiteGenerator:
             # ── Step 1.5: URL source extraction (when source_url is set) ──
             extraction_data: ExtractedSiteData | None = None
             if config.source_url:
-                logger.info("WebsiteGenerator: extracting from source URL %s ...", config.source_url)
+                logger.info(
+                    "WebsiteGenerator: extracting from source URL %s ...", config.source_url
+                )
                 try:
                     extractor = WebsiteExtractor()
-                    extraction_data = await extractor.extract(config.source_url, output_dir=output_dir)
+                    extraction_data = await extractor.extract(
+                        config.source_url, output_dir=output_dir
+                    )
                     # Override design system colors with extracted CSS custom properties
                     if extraction_data.colors:
                         for css_var, value in extraction_data.colors.items():
@@ -807,7 +847,11 @@ class WebsiteGenerator:
                                 clean_val = value.strip()
                                 # Map CSS var names to ColorTokens fields
                                 # e.g. --primary → primary, --color-primary → primary
-                                var_short = css_var.replace("--", "").replace("-", "_").removeprefix("color_")
+                                var_short = (
+                                    css_var.replace("--", "")
+                                    .replace("-", "_")
+                                    .removeprefix("color_")
+                                )
                                 if hasattr(design_system.colors, var_short):
                                     setattr(design_system.colors, var_short, clean_val)
                     # Override fonts with extracted font families
@@ -818,15 +862,32 @@ class WebsiteGenerator:
                             if len(families) > 1:
                                 design_system.typography.font_mono = families[1]
                     # Update section list from discovered topology (if user didn't override)
-                    if extraction_data.sections and config.sections == ["hero", "features", "pricing", "testimonials", "faq", "cta", "footer"]:
-                        discovered = [s.get("name", "").lower().replace(" ", "_") or f"section_{s['order']}" for s in extraction_data.sections]
+                    if extraction_data.sections and config.sections == [
+                        "hero",
+                        "features",
+                        "pricing",
+                        "testimonials",
+                        "faq",
+                        "cta",
+                        "footer",
+                    ]:
+                        discovered = [
+                            s.get("name", "").lower().replace(" ", "_") or f"section_{s['order']}"
+                            for s in extraction_data.sections
+                        ]
                         if discovered:
                             config.sections = discovered
                             logger.info("  Updated sections from extraction: %s", config.sections)
-                    logger.info("  Extraction complete: %d CSS vars, %d fonts, %d sections",
-                                len(extraction_data.colors), len(extraction_data.fonts), len(extraction_data.sections))
+                    logger.info(
+                        "  Extraction complete: %d CSS vars, %d fonts, %d sections",
+                        len(extraction_data.colors),
+                        len(extraction_data.fonts),
+                        len(extraction_data.sections),
+                    )
                 except Exception as extract_err:
-                    logger.warning("URL extraction failed, falling back to LLM generation: %s", extract_err)
+                    logger.warning(
+                        "URL extraction failed, falling back to LLM generation: %s", extract_err
+                    )
                     extraction_data = None
 
             # Step 2: Select components
@@ -872,7 +933,9 @@ class WebsiteGenerator:
 
                                 # Retry once if output appears truncated
                                 if any("truncated" in w for w in warnings_list) and attempt == 0:
-                                    logger.info(f"  ↻ {section_name}: retrying with 2× tokens (truncated)")
+                                    logger.info(
+                                        f"  ↻ {section_name}: retrying with 2× tokens (truncated)"
+                                    )
                                     task.max_output_tokens = min(task.max_output_tokens * 2, 16384)
                                     continue
 
@@ -892,7 +955,9 @@ class WebsiteGenerator:
                                 return i, True
                             except Exception as task_err:
                                 if attempt == 0:
-                                    logger.info(f"  ↻ {section_name}: retrying after error: {task_err}")
+                                    logger.info(
+                                        f"  ↻ {section_name}: retrying after error: {task_err}"
+                                    )
                                     continue
                                 logger.warning(f"  ✗ {section_name}: {task_err}")
                                 return i, False
@@ -935,12 +1000,12 @@ class WebsiteGenerator:
             # Step 5.5: Install deps + build-verify + auto-fix errors
             if config.framework in ("next.js", "react"):
                 logger.info("WebsiteGenerator: installing npm dependencies + build-verifying...")
-                build_ok, build_log = await self._verify_and_fix_build(
-                    output_dir, config, result
-                )
+                build_ok, build_log = await self._verify_and_fix_build(output_dir, config, result)
                 if not build_ok:
                     logger.warning("Build verification had issues (see log)")
-                    result.errors.append("build-verify: " + build_log[-1] if build_log else "unknown build error")
+                    result.errors.append(
+                        "build-verify: " + build_log[-1] if build_log else "unknown build error"
+                    )
 
             # Step 6: Assemble final page
             logger.info("WebsiteGenerator: assembling page...")
@@ -960,7 +1025,9 @@ class WebsiteGenerator:
                 quality_report = await validator.validate(output_dir)
                 result.quality_report = quality_report
             except ImportError:
-                logger.warning("WebsiteQualityValidator not available — skipping quality validation")
+                logger.warning(
+                    "WebsiteQualityValidator not available — skipping quality validation"
+                )
                 quality_report = None
 
             result.success = True
@@ -1068,14 +1135,25 @@ class WebsiteGenerator:
         source_str = source.value if hasattr(source, "value") else str(source)
         category = getattr(component, "category", "general")
         desc = getattr(component, "prompt_reference", getattr(component, "description", ""))
-        
+
         # Handle both ContentBrief objects and dicts
         if hasattr(content_brief, "get"):
-            headline = content_brief.get("headline", content_brief.headlines.get(section, "") if hasattr(content_brief, "headlines") else "")
+            headline = content_brief.get(
+                "headline",
+                (
+                    content_brief.headlines.get(section, "")
+                    if hasattr(content_brief, "headlines")
+                    else ""
+                ),
+            )
             cta = content_brief.get("cta", "")
             pain_points = content_brief.get("pain_points", [])
         else:
-            headline = content_brief.headlines.get(section, "") if hasattr(content_brief, "headlines") else ""
+            headline = (
+                content_brief.headlines.get(section, "")
+                if hasattr(content_brief, "headlines")
+                else ""
+            )
             cta = ", ".join(getattr(content_brief, "ctas", []))
             pain_points = []
 
@@ -1104,8 +1182,19 @@ class WebsiteGenerator:
         # ── LIBRARY AWARENESS — tells LLM what 3D/animation libraries are available ──
         library_context = ""
         deps = getattr(config, "dependencies", []) or []
-        _3d_deps = [d for d in deps if any(kw in d.lower() for kw in ("three", "react-three", "drei", "fiber", "cannon", "babylon"))]
-        anim_deps = [d for d in deps if any(kw in d.lower() for kw in ("gsap", "framer-motion", "motion", "lenis", "spring"))]
+        _3d_deps = [
+            d
+            for d in deps
+            if any(
+                kw in d.lower()
+                for kw in ("three", "react-three", "drei", "fiber", "cannon", "babylon")
+            )
+        ]
+        anim_deps = [
+            d
+            for d in deps
+            if any(kw in d.lower() for kw in ("gsap", "framer-motion", "motion", "lenis", "spring"))
+        ]
         if _3d_deps:
             library_context += (
                 f"\n3D LIBRARIES AVAILABLE: {', '.join(_3d_deps)}\n"
@@ -1123,6 +1212,7 @@ class WebsiteGenerator:
         if config.atelier_theme:
             try:
                 from ..design.atelier.themes import get_theme, theme_to_prompt_context
+
                 theme = get_theme(config.atelier_theme)
                 if theme:
                     atelier_theme_context = theme_to_prompt_context(theme)
@@ -1335,64 +1425,133 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         headlines = getattr(content_brief, "headlines", {}) or {}
         value_props = getattr(content_brief, "value_props", []) or []
         ctas = getattr(content_brief, "ctas", []) or []
-        tagline = getattr(content_brief, "tagline", "") or f"A premium {getattr(config, 'page_type', 'website')} experience"
+        tagline = (
+            getattr(content_brief, "tagline", "")
+            or f"A premium {getattr(config, 'page_type', 'website')} experience"
+        )
         faqs = getattr(content_brief, "faqs", []) or []
         testimonials_data = getattr(content_brief, "social_proof", []) or []
 
         # Default value props if brief is sparse
         if not value_props:
-            value_props = ["Lightning-fast performance", "Enterprise-grade security", "Real-time analytics", "Team collaboration", "API-first architecture", "24/7 support"]
+            value_props = [
+                "Lightning-fast performance",
+                "Enterprise-grade security",
+                "Real-time analytics",
+                "Team collaboration",
+                "API-first architecture",
+                "24/7 support",
+            ]
         if not ctas:
             ctas = ["Get Started Free", "Schedule Demo", "Start Building"]
         if not testimonials_data:
             brand_ref = getattr(config, "brand_name", "") or "Our platform"
             testimonials_data = [
-                {"name": "Sarah Chen", "role": "CTO, TechCorp", "quote": f"{brand_ref} transformed our workflow. 3x faster deployments and zero downtime."},
-                {"name": "Marcus Rivera", "role": "VP Engineering, DataSync", "quote": "The best platform we've ever used. Intuitive, powerful, reliable."},
-                {"name": "Aisha Patel", "role": "Founder, LaunchPad", "quote": f"From idea to production in hours. {brand_ref} is a game-changer."},
+                {
+                    "name": "Sarah Chen",
+                    "role": "CTO, TechCorp",
+                    "quote": f"{brand_ref} transformed our workflow. 3x faster deployments and zero downtime.",
+                },
+                {
+                    "name": "Marcus Rivera",
+                    "role": "VP Engineering, DataSync",
+                    "quote": "The best platform we've ever used. Intuitive, powerful, reliable.",
+                },
+                {
+                    "name": "Aisha Patel",
+                    "role": "Founder, LaunchPad",
+                    "quote": f"From idea to production in hours. {brand_ref} is a game-changer.",
+                },
             ]
         if not faqs:
             faqs = [
-                {"q": "How does the free trial work?", "a": "Start with full access for 14 days. No credit card required. Upgrade anytime."},
-                {"q": "Can I integrate with existing tools?", "a": "Yes, we offer native integrations with Slack, GitHub, Jira, and 50+ other tools via our API."},
-                {"q": "Is my data secure?", "a": "We use AES-256 encryption at rest and TLS 1.3 in transit. SOC 2 Type II certified."},
-                {"q": "What kind of support do you offer?", "a": "All plans include email support. Pro and Enterprise plans get dedicated Slack support with < 1hr response time."},
+                {
+                    "q": "How does the free trial work?",
+                    "a": "Start with full access for 14 days. No credit card required. Upgrade anytime.",
+                },
+                {
+                    "q": "Can I integrate with existing tools?",
+                    "a": "Yes, we offer native integrations with Slack, GitHub, Jira, and 50+ other tools via our API.",
+                },
+                {
+                    "q": "Is my data secure?",
+                    "a": "We use AES-256 encryption at rest and TLS 1.3 in transit. SOC 2 Type II certified.",
+                },
+                {
+                    "q": "What kind of support do you offer?",
+                    "a": "All plans include email support. Pro and Enterprise plans get dedicated Slack support with < 1hr response time.",
+                },
             ]
 
         for section in sections:
             name = section.replace("-", " ").replace("_", " ").title().replace(" ", "")
             headline = headlines.get(section, section.title())
-            component_path = components_dir / f"{section}{'.html' if config.framework == 'html' else '.tsx'}"
+            component_path = (
+                components_dir / f"{section}{'.html' if config.framework == 'html' else '.tsx'}"
+            )
 
             if "hero" in section.lower():
-                component_path.write_text(self._build_hero_component(name, headline, tagline, ctas, design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_hero_component(name, headline, tagline, ctas, design_system),
+                    encoding="utf-8",
+                )
             elif "feature" in section.lower():
-                component_path.write_text(self._build_features_component(name, headline, value_props[:4], design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_features_component(name, headline, value_props[:4], design_system),
+                    encoding="utf-8",
+                )
             elif "pric" in section.lower():
-                component_path.write_text(self._build_pricing_component(name, headline, design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_pricing_component(name, headline, design_system), encoding="utf-8"
+                )
             elif "testimonial" in section.lower() or "social" in section.lower():
-                component_path.write_text(self._build_testimonials_component(name, headline, testimonials_data, design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_testimonials_component(
+                        name, headline, testimonials_data, design_system
+                    ),
+                    encoding="utf-8",
+                )
             elif "faq" in section.lower():
-                component_path.write_text(self._build_faq_component(name, headline, faqs, design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_faq_component(name, headline, faqs, design_system), encoding="utf-8"
+                )
             elif "cta" in section.lower() or "call" in section.lower():
-                component_path.write_text(self._build_cta_component(name, headline, ctas, design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_cta_component(name, headline, ctas, design_system), encoding="utf-8"
+                )
             elif "contact" in section.lower():
-                component_path.write_text(self._build_contact_form(name, headline, design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_contact_form(name, headline, design_system), encoding="utf-8"
+                )
             elif "footer" in section.lower():
-                component_path.write_text(self._build_footer_component(name, design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_footer_component(name, design_system), encoding="utf-8"
+                )
             elif any(kw in section.lower() for kw in ("auth", "login", "register", "signup")):
-                component_path.write_text(self._build_auth_component(name, headline, design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_auth_component(name, headline, design_system), encoding="utf-8"
+                )
             else:
-                component_path.write_text(self._build_generic_section(name, headline, value_props[:3], design_system), encoding="utf-8")
+                component_path.write_text(
+                    self._build_generic_section(name, headline, value_props[:3], design_system),
+                    encoding="utf-8",
+                )
 
         # Write design tokens (best-effort)
         try:
             tokens_path = output_dir / "design_system.json"
             import json
-            tokens_path.write_text(json.dumps(
-                {"name": getattr(design_system, "name", ""), "colors": getattr(design_system.colors, "__dict__", {})},
-                indent=2,
-            ), encoding="utf-8")
+
+            tokens_path.write_text(
+                json.dumps(
+                    {
+                        "name": getattr(design_system, "name", ""),
+                        "colors": getattr(design_system.colors, "__dict__", {}),
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
         except Exception:
             pass
 
@@ -1403,6 +1562,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         if not hasattr(self, "_img_cache") or self._img_cache is None:
             try:
                 from ..cache import DiskCache
+
                 self._img_cache = DiskCache()
             except Exception:
                 self._img_cache = None
@@ -1410,37 +1570,42 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
     # ── Per-task image model selection (VFM-optimized) ────────────────────
 
+    # Per-image generation timeout (seconds). Generous enough for premium
+    # models like recraft-v4.1-pro; the underlying client has its own 60s
+    # HTTP timeout + retries, so this only bounds a fully hung request.
+    _IMAGE_GEN_TIMEOUT_S: float = 90.0
+
     # Best VFM model + 2 fallbacks per image type (no Gemini — avoid content=None bug)
     _IMAGE_MODEL_MAP: dict[str, list[str]] = {
         "favicon": [
-            "recraft/recraft-v4-vector",               # $0.08/img — SVG native
-            "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest
-            "sourceful/riverflow-v2-fast",             # $0.02/img — fast
+            "recraft/recraft-v4-vector",  # $0.08/img — SVG native
+            "black-forest-labs/flux.2-klein-4b",  # $0.014/img — cheapest
+            "sourceful/riverflow-v2-fast",  # $0.02/img — fast
         ],
         "apple-touch-icon": [
-            "recraft/recraft-v4-vector",               # $0.08/img — SVG native
-            "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest
-            "sourceful/riverflow-v2-fast",             # $0.02/img — fast
+            "recraft/recraft-v4-vector",  # $0.08/img — SVG native
+            "black-forest-labs/flux.2-klein-4b",  # $0.014/img — cheapest
+            "sourceful/riverflow-v2-fast",  # $0.02/img — fast
         ],
         "logo": [
-            "recraft/recraft-v4.1-pro",               # $0.25/img — good quality
-            "black-forest-labs/flux.2-pro",           # $0.03/img — high quality
-            "bytedance-seed/seedream-4.5",            # $0.04/img — good quality
+            "recraft/recraft-v4.1-pro",  # $0.25/img — good quality
+            "black-forest-labs/flux.2-pro",  # $0.03/img — high quality
+            "bytedance-seed/seedream-4.5",  # $0.04/img — good quality
         ],
         "hero-bg": [
-            "black-forest-labs/flux.2-pro",           # $0.03/img — high quality, cheap
-            "black-forest-labs/flux.2-max",           # $0.07/img — best quality
-            "bytedance-seed/seedream-4.5",            # $0.04/img — good quality
+            "black-forest-labs/flux.2-pro",  # $0.03/img — high quality, cheap
+            "black-forest-labs/flux.2-max",  # $0.07/img — best quality
+            "bytedance-seed/seedream-4.5",  # $0.04/img — good quality
         ],
         "og-image": [
-            "black-forest-labs/flux.2-max",           # $0.07/img — best quality
-            "recraft/recraft-v4.1-pro",               # $0.25/img — good quality
-            "bytedance-seed/seedream-4.5",            # $0.04/img — cheap
+            "black-forest-labs/flux.2-max",  # $0.07/img — best quality
+            "recraft/recraft-v4.1-pro",  # $0.25/img — good quality
+            "bytedance-seed/seedream-4.5",  # $0.04/img — cheap
         ],
         "section": [
-            "black-forest-labs/flux.2-klein-4b",      # $0.014/img — cheapest, fast
-            "sourceful/riverflow-v2-fast",             # $0.02/img — fast
-            "recraft/recraft-v4",                      # $0.04/img — good quality
+            "black-forest-labs/flux.2-klein-4b",  # $0.014/img — cheapest, fast
+            "sourceful/riverflow-v2-fast",  # $0.02/img — fast
+            "recraft/recraft-v4",  # $0.04/img — good quality
         ],
     }
 
@@ -1501,15 +1666,19 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             try:
                 (output_dir / "public" / "images").mkdir(parents=True, exist_ok=True)
                 from .image_generator import generate_images as _svg_fallback
+
                 _svg_fallback(output_dir, config, design_system)
             except PermissionError:
-                logger.warning("Permission denied creating public/images — skipping SVG placeholders")
+                logger.warning(
+                    "Permission denied creating public/images — skipping SVG placeholders"
+                )
             except Exception as e:
                 logger.warning("SVG placeholder generation failed: %s", e)
             return
 
         try:
             from ..infrastructure.image_client import ImageGenClient
+
             client = ImageGenClient(cache=self._get_cache())
             success = await self._generate_images_llm(output_dir, config, design_system, client)
             if success:
@@ -1520,6 +1689,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         try:
             (output_dir / "public" / "images").mkdir(parents=True, exist_ok=True)
             from .image_generator import generate_images as _svg_fallback
+
             _svg_fallback(output_dir, config, design_system)
             logger.info("WebsiteGenerator: generated SVG placeholder images")
         except PermissionError:
@@ -1541,7 +1711,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         colors = getattr(ds, "colors", ds)
         primary = getattr(colors, "primary", "#4f9eff")
         accent = getattr(colors, "accent", "#7c3aed")
-        site_name = getattr(config, "brand_name", "") or getattr(config, "client_name", "Site") or "Site"
+        site_name = (
+            getattr(config, "brand_name", "") or getattr(config, "client_name", "Site") or "Site"
+        )
         page_type = getattr(config, "page_type", "landing")
         desc_short = (getattr(config, "description", "") or "")[:100]
 
@@ -1613,15 +1785,17 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         sections = getattr(config, "sections", [])
         for i, section in enumerate(sections[:4]):
             section_name = section.replace("-", " ").title()
-            images.append({
-                "name": f"section-{section}",
-                "prompt": (
-                    f"{section_name} section visual for {site_name} {page_type} website{desc_hint}, "
-                    f"abstract representation, {primary} and {accent} color palette, no text"
-                ),
-                "width": 600,
-                "height": 400,
-            })
+            images.append(
+                {
+                    "name": f"section-{section}",
+                    "prompt": (
+                        f"{section_name} section visual for {site_name} {page_type} website{desc_hint}, "
+                        f"abstract representation, {primary} and {accent} color palette, no text"
+                    ),
+                    "width": 600,
+                    "height": 400,
+                }
+            )
 
         success_count = 0
         total = len(images)
@@ -1647,7 +1821,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                             height=img["height"],
                             output_path=img_dir / f"{img['name']}{ext}",
                         ),
-                        timeout=20.0,
+                        timeout=self._IMAGE_GEN_TIMEOUT_S,
                     )
                     return (result, img["name"], img_model)
                 except asyncio.TimeoutError:
@@ -1675,7 +1849,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 img_type = img["name"].split("-")[0]
                 img_type = img_type if img_type in self._IMAGE_MODEL_MAP else "section"
                 img_model = model if model != "auto" else self._select_image_model(img_type, "auto")
-                img_ext = ".svg" if "recraft" in img_model and "vector" in img_model.lower() else ".png"
+                img_ext = (
+                    ".svg" if "recraft" in img_model and "vector" in img_model.lower() else ".png"
+                )
 
                 src = img_dir / f"{img['name']}{img_ext}"
                 webp = img_dir / f"{img['name']}.webp"
@@ -1700,6 +1876,88 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         )
         return success_count > 0
 
+    @staticmethod
+    def _extract_html_component_parts(html: str) -> dict[str, Any]:
+        """Split a standalone HTML component document into inlinable parts.
+
+        Generated section components are full HTML documents (``<!DOCTYPE>``,
+        ``<html>``, ``<head>``, ``<body>``). To merge them into a single page we
+        strip the per-document scaffolding and hoist the reusable pieces:
+
+        - ``styles``: inner CSS of each ``<style>`` block (→ appended to styles.css)
+        - ``font_links``: ``<link>``/preconnect tags from the head (→ deduped in head)
+        - ``importmaps``: inner JSON of ``<script type="importmap">`` (→ merged, one in head)
+        - ``scripts``: full ``<script>`` tags (→ end of body, after the importmap)
+        - ``body_inner``: the ``<body>`` contents, with styles/scripts removed
+        """
+        import re
+
+        styles: list[str] = []
+        font_links: list[str] = []
+        importmaps: list[str] = []
+        scripts: list[str] = []
+
+        def _collect_style(match: "re.Match[str]") -> str:
+            styles.append(match.group(1).strip())
+            return ""
+
+        work = re.sub(
+            r"<style[^>]*>(.*?)</style>", _collect_style, html, flags=re.DOTALL | re.IGNORECASE
+        )
+
+        def _collect_importmap(match: "re.Match[str]") -> str:
+            importmaps.append(match.group(1).strip())
+            return ""
+
+        work = re.sub(
+            r'<script[^>]*type=["\']importmap["\'][^>]*>(.*?)</script>',
+            _collect_importmap,
+            work,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+
+        def _collect_script(match: "re.Match[str]") -> str:
+            scripts.append(match.group(0).strip())
+            return ""
+
+        work = re.sub(
+            r"<script\b.*?</script>", _collect_script, work, flags=re.DOTALL | re.IGNORECASE
+        )
+
+        def _is_font_link(tag: str) -> bool:
+            low = tag.lower()
+            return (
+                "fonts.g" in low or "preconnect" in low or ("stylesheet" in low and "http" in low)
+            )
+
+        def _strip_font_link(match: "re.Match[str]") -> str:
+            tag = match.group(0)
+            if _is_font_link(tag):
+                stripped = tag.strip()
+                if stripped not in font_links:
+                    font_links.append(stripped)
+                return ""
+            return tag
+
+        work = re.sub(r"<link\b[^>]*>", _strip_font_link, work, flags=re.IGNORECASE)
+
+        body_match = re.search(r"<body[^>]*>(.*?)</body>", work, flags=re.DOTALL | re.IGNORECASE)
+        if body_match:
+            body_inner = body_match.group(1)
+        else:
+            body_inner = re.sub(r"<head[^>]*>.*?</head>", "", work, flags=re.DOTALL | re.IGNORECASE)
+            body_inner = re.sub(
+                r"</?(?:!doctype|html|head|body)[^>]*>", "", body_inner, flags=re.IGNORECASE
+            )
+
+        return {
+            "styles": styles,
+            "font_links": font_links,
+            "importmaps": importmaps,
+            "scripts": scripts,
+            "body_inner": body_inner.strip(),
+        }
+
     def _assemble_page(
         self,
         output_dir: Path,
@@ -1723,6 +1981,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         config: WebsiteConfig,
     ) -> None:
         """Assemble a vanilla HTML/CSS/JS page from component files."""
+        import json
+
         components_dir = output_dir / "components"
         css_path = output_dir / "styles.css"
 
@@ -1761,13 +2021,45 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         js_path = output_dir / "script.js"
 
         # Build index.html from sections with security headers + OG meta
-        site_name = getattr(config, "brand_name", "") or getattr(config, "client_name", "Site") or "Site"
+        site_name = (
+            getattr(config, "brand_name", "") or getattr(config, "client_name", "Site") or "Site"
+        )
         page_type = getattr(config, "page_type", "landing") or "landing"
         page_desc = getattr(config, "description", "") or f"A premium {page_type} website"
         if len(page_desc) > 160:
             page_desc = page_desc[:157] + "..."
-        site_url = getattr(config, "site_url", f"https://{site_name.lower().replace(' ', '')}.io") or f"https://{site_name.lower().replace(' ', '')}.io"
+        site_url = (
+            getattr(config, "site_url", f"https://{site_name.lower().replace(' ', '')}.io")
+            or f"https://{site_name.lower().replace(' ', '')}.io"
+        )
         og_image = getattr(config, "og_image", "/og-image.png") or "/og-image.png"
+
+        # Resolve icon/OG assets against files that were actually generated.
+        # Images live in public/images/ relative to index.html. Extensions vary
+        # (favicon→svg from vector models, others→webp after conversion), so pick
+        # the first that exists rather than hardcoding a name that may not.
+        img_root = output_dir / "public" / "images"
+
+        def _asset_href(stem: str, exts: tuple[str, ...]) -> str | None:
+            for ext in exts:
+                if (img_root / f"{stem}{ext}").exists():
+                    return f"public/images/{stem}{ext}"
+            return None
+
+        favicon_href = _asset_href("favicon", (".svg", ".png", ".ico", ".webp"))
+        apple_icon_href = _asset_href("apple-touch-icon", (".png", ".webp"))
+        og_href = _asset_href("og-image", (".webp", ".png", ".jpg"))
+        if og_href:
+            og_image = og_href
+
+        icon_lines: list[str] = []
+        if favicon_href:
+            ftype = "image/svg+xml" if favicon_href.endswith(".svg") else "image/png"
+            icon_lines.append(f'  <link rel="icon" type="{ftype}" href="{favicon_href}">')
+        if apple_icon_href:
+            icon_lines.append(
+                f'  <link rel="apple-touch-icon" sizes="180x180" href="{apple_icon_href}">'
+            )
 
         # page_type-aware JSON-LD
         json_ld_type, json_ld_category = _page_type_schema(page_type, site_name)
@@ -1781,7 +2073,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             '  <meta http-equiv="X-UA-Compatible" content="IE=edge">',
             '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
             # ── Security headers ──
-            '  <meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https:; style-src \'self\' \'unsafe-inline\' https:; img-src \'self\' data: https:; font-src \'self\' https:; connect-src \'self\' https:; worker-src \'self\' blob:; frame-ancestors \'none\'; base-uri \'self\'; form-action \'self\';">',
+            "  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';\">",
             '  <meta http-equiv="X-Content-Type-Options" content="nosniff">',
             '  <meta http-equiv="X-Frame-Options" content="DENY">',
             '  <meta http-equiv="X-XSS-Protection" content="1; mode=block">',
@@ -1806,14 +2098,12 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'  <meta name="twitter:title" content="{page_title}">',
             f'  <meta name="twitter:description" content="{page_desc}">',
             f'  <meta name="twitter:image" content="{og_image}">',
-            # ── PWA / Icons ──
-            '  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon.png">',
-            '  <link rel="icon" type="image/svg+xml" href="/favicon.svg">',
-            '  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">',
+            # ── PWA / Icons (only those that were actually generated) ──
+            *icon_lines,
             f'  <meta name="theme-color" content="{design_system.colors.primary}">',
             # ── Assets ──
             '  <link rel="stylesheet" href="styles.css">',
-            "  <script src=\"script.js\" defer></script>",
+            '  <script src="script.js" defer></script>',
             # ── JSON-LD Structured Data (page_type-aware) ──
             '  <script type="application/ld+json">',
             "  {",
@@ -1831,29 +2121,52 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'    "url": "{site_url}"',
             "  }",
             "  </script>",
-            "</head>",
-            "<body>",
         ]
 
-        # Read each component file and inject into the page
+        # ── Collect component parts (single valid document, not nested docs) ──
+        body_parts: list[str] = []
+        collected_styles: list[str] = []
+        collected_font_links: list[str] = []
+        collected_scripts: list[str] = []
+        importmap_imports: dict[str, str] = {}
+
         if components_dir.exists():
-            for section_file in sorted(components_dir.glob("*.html")) + sorted(components_dir.glob("*.tsx")):
-                content = section_file.read_text(encoding="utf-8")
-                page_lines.append(f"  <!-- {section_file.stem} -->")
-                for line in content.splitlines():
+            # Order components by the configured section order; append any extras.
+            ordered: list[Path] = []
+            seen: set[Path] = set()
+            for name in sections:
+                cand = components_dir / f"{name}.html"
+                if cand.exists() and cand not in seen:
+                    ordered.append(cand)
+                    seen.add(cand)
+            for extra in sorted(components_dir.glob("*.html")):
+                if extra not in seen:
+                    ordered.append(extra)
+                    seen.add(extra)
+
+            for section_file in ordered:
+                parts = self._extract_html_component_parts(section_file.read_text(encoding="utf-8"))
+                body_parts.append(f"  <!-- {section_file.stem} -->")
+                for line in parts["body_inner"].splitlines():
                     if line.strip():
-                        page_lines.append(f"  {line}")
-                page_lines.append("")
+                        body_parts.append(f"  {line}")
+                body_parts.append("")
+                collected_styles.extend(parts["styles"])
+                collected_scripts.extend(parts["scripts"])
+                for link in parts["font_links"]:
+                    if link not in collected_font_links:
+                        collected_font_links.append(link)
+                for raw_map in parts["importmaps"]:
+                    try:
+                        importmap_imports.update(json.loads(raw_map).get("imports", {}))
+                    except (ValueError, TypeError):
+                        pass
 
-            # Collect CSS from component CSS files
+            # Standalone component CSS files (if any) → styles.css
             for css_file in sorted(components_dir.glob("*.css")):
-                css_content = css_file.read_text(encoding="utf-8")
-                with open(css_path, "a", encoding="utf-8") as f:
-                    f.write(f"\n/* {css_file.stem} */\n")
-                    f.write(css_content)
-                    f.write("\n")
+                collected_styles.append(css_file.read_text(encoding="utf-8"))
 
-            # Collect JS from component JS files
+            # Standalone component JS files (if any) → script.js
             for js_file in sorted(components_dir.glob("*.js")):
                 js_content = js_file.read_text(encoding="utf-8")
                 js_lines.append(f"  // {js_file.stem}")
@@ -1862,9 +2175,37 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                         js_lines.append(f"  {line}")
                 js_lines.append("")
 
+        # ── Finish <head>: deduped font links + a single merged importmap ──
+        for link in collected_font_links:
+            page_lines.append(f"  {link}")
+        if importmap_imports:
+            page_lines.append('  <script type="importmap">')
+            page_lines.append("  " + json.dumps({"imports": importmap_imports}))
+            page_lines.append("  </script>")
+        page_lines.append("</head>")
+        page_lines.append("<body>")
+
+        # ── Body: section markup ──
+        page_lines.extend(body_parts)
+
+        # ── Section scripts (modules) at end of body, after the importmap ──
+        for script in collected_scripts:
+            for line in script.splitlines():
+                if line.strip():
+                    page_lines.append(f"  {line}")
+            page_lines.append("")
+
         page_lines.append("</body>")
         page_lines.append("</html>")
         page_lines.append("")
+
+        # Append collected component styles to styles.css
+        if collected_styles:
+            with open(css_path, "a", encoding="utf-8") as f:
+                for css in collected_styles:
+                    f.write("\n")
+                    f.write(css.strip())
+                    f.write("\n")
 
         js_lines.append("})();")
 
@@ -1894,6 +2235,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         import asyncio
         import re
         import shutil
+
         log: list[str] = []
 
         npm_path = shutil.which("npm")
@@ -1904,7 +2246,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         # ── Step 1: npm install ─────────────────────────────────────────
         logger.info("  npm install...")
         proc = await asyncio.create_subprocess_exec(
-            npm_path, "install", "--legacy-peer-deps",
+            npm_path,
+            "install",
+            "--legacy-peer-deps",
             cwd=str(output_dir),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -1918,7 +2262,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             # Peer dep conflicts — retry with --force
             logger.info("  npm install --force (ERESOLVE)...")
             proc = await asyncio.create_subprocess_exec(
-                npm_path, "install", "--force",
+                npm_path,
+                "install",
+                "--force",
                 cwd=str(output_dir),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -1941,7 +2287,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
             try:
                 proc = await asyncio.create_subprocess_exec(
-                    npx_path, "build",
+                    npx_path,
+                    "build",
                     cwd=str(output_dir),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
@@ -1971,7 +2318,10 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 for mod in sorted(missing_imports):
                     logger.info(f"  ↻ auto-installing missing dep: {mod}")
                     proc = await asyncio.create_subprocess_exec(
-                        npm_path, "install", mod, "--legacy-peer-deps",
+                        npm_path,
+                        "install",
+                        mod,
+                        "--legacy-peer-deps",
                         cwd=str(output_dir),
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE,
@@ -2056,7 +2406,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 if len(cleaned) > 200:
                     cost = getattr(component_result, "cost_usd", 0.0)
                     Path(file_path).write_text(cleaned, encoding="utf-8")
-                    logger.info(f"  ✓ {component_name}: LLM fix applied ({len(cleaned)} chars, ${cost:.4f})")
+                    logger.info(
+                        f"  ✓ {component_name}: LLM fix applied ({len(cleaned)} chars, ${cost:.4f})"
+                    )
                     return True, cost
         except Exception as e:
             logger.warning(f"LLM syntax fix failed for {component_name}: {e}")
@@ -2073,7 +2425,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         app_dir = output_dir / "app"
         components_dir = output_dir / "components"
         lib_dir = output_dir / "lib"
-        
+
         app_dir.mkdir(parents=True, exist_ok=True)
         components_dir.mkdir(parents=True, exist_ok=True)
         lib_dir.mkdir(parents=True, exist_ok=True)
@@ -2205,11 +2557,13 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         # Use data-driven brand identifiers
         site_name = safe_brand
         site_url = getattr(config, "site_url", f"https://{pkg_name}.io") or f"https://{pkg_name}.io"
-        
+
         # Data-driven metadata for layout.tsx
         page_type_title = getattr(config, "page_type", "Website").title()
         desc = getattr(config, "description", "") or ""
-        meta_desc = desc[:150] if desc else f"A premium {getattr(config, 'page_type', 'website')} website"
+        meta_desc = (
+            desc[:150] if desc else f"A premium {getattr(config, 'page_type', 'website')} website"
+        )
 
         # Write layout.tsx with full SEO + OG + security headers
         (app_dir / "layout.tsx").write_text(
@@ -2218,7 +2572,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "export const viewport: Viewport = {\n"
             '  themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#111" }],\n'
             '  width: "device-width",\n'
-            '  initialScale: 1,\n'
+            "  initialScale: 1,\n"
             "};\n\n"
             "export const metadata: Metadata = {\n"
             f"  metadataBase: new URL('{site_url}'),\n"
@@ -2290,7 +2644,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         section_imports = []
         section_jsx = []
         for s in sections:
-            component_name = s.title().replace('-', '').replace('_', '').replace(' ', '')
+            component_name = s.title().replace("-", "").replace("_", "").replace(" ", "")
             section_imports.append(f"import {component_name} from '@/components/{s}';")
             section_jsx.append(f"      <{component_name} />")
 
@@ -2329,21 +2683,21 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         hero_path = components_dir / "hero.tsx"
         if not hero_path.exists():
             hero_path.write_text(
-                "\"use client\";\n\n"
+                '"use client";\n\n'
                 "export function HeroSection() {\n"
                 "  return (\n"
-                "    <section className=\"relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center\">\n"
-                f"      <h1 className=\"text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent\">\n"
+                '    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center">\n'
+                f'      <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">\n'
                 f"        {safe_brand}\n"
                 "      </h1>\n"
-                f"      <p className=\"text-xl md:text-2xl text-gray-300 max-w-2xl mb-8\">\n"
+                f'      <p className="text-xl md:text-2xl text-gray-300 max-w-2xl mb-8">\n'
                 f"        A premium {getattr(config, 'page_type', 'website')} experience.\n"
                 "      </p>\n"
-                "      <div className=\"flex gap-4\">\n"
-                "        <a href=\"#\" className=\"bg-indigo-500 hover:bg-indigo-600 px-8 py-3 rounded-lg font-semibold text-white transition-all\">\n"
+                '      <div className="flex gap-4">\n'
+                '        <a href="#" className="bg-indigo-500 hover:bg-indigo-600 px-8 py-3 rounded-lg font-semibold text-white transition-all">\n'
                 "          Get Started\n"
                 "        </a>\n"
-                "        <a href=\"#features\" className=\"border border-gray-500 hover:border-gray-300 px-8 py-3 rounded-lg font-semibold text-gray-200 transition-all\">\n"
+                '        <a href="#features" className="border border-gray-500 hover:border-gray-300 px-8 py-3 rounded-lg font-semibold text-gray-200 transition-all">\n'
                 "          Learn More\n"
                 "        </a>\n"
                 "      </div>\n"
@@ -2449,7 +2803,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         # Write security page
         security_page = public_dir / "security.html"
         security_page.write_text(
-            "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
+            '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
             '<meta charset="UTF-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
             f"<title>Security Policy — {safe_brand}</title>\n"
@@ -2457,7 +2811,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "</head>\n<body>\n"
             "<h1>Security Policy</h1>\n"
             "<h2>Reporting a Vulnerability</h2>\n"
-            f"<p>Email <a href=\"mailto:{security_email}\">{security_email}</a>. "
+            f'<p>Email <a href="mailto:{security_email}">{security_email}</a>. '
             "We respond within 48 hours and aim to resolve critical issues within 7 days.</p>\n"
             "<h2>Security Measures</h2>\n"
             "<ul>\n"
@@ -2483,8 +2837,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         self._assemble_nextjs_page(output_dir, sections, design_system, config)
 
     def _build_hero_component(self, name, headline, tagline, ctas, ds):
-        cta1 = (ctas[0] if ctas else "Get Started")
-        cta2 = (ctas[1] if len(ctas) > 1 else "Learn More")
+        cta1 = ctas[0] if ctas else "Get Started"
+        cta2 = ctas[1] if len(ctas) > 1 else "Learn More"
         return (
             f'"use client";\n\n'
             f"export default function {name}() {{\n"
@@ -2533,8 +2887,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f"        Everything you need to build, deploy, and scale your SaaS application.\n"
             f"      </p>\n"
             f'      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">\n'
-            + "\n".join(cards) +
-            f"\n      </div>\n"
+            + "\n".join(cards)
+            + f"\n      </div>\n"
             f"    </section>\n"
             f"  );\n"
             f"}}\n"
@@ -2542,13 +2896,44 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
     def _build_pricing_component(self, name, headline, ds):
         plans = [
-            {"name": "Starter", "price": "$9", "desc": "For small teams getting started", "features": ["Up to 5 users", "10GB storage", "Email support", "Basic analytics"]},
-            {"name": "Pro", "price": "$29", "desc": "For growing businesses", "features": ["Up to 50 users", "100GB storage", "Priority support", "Advanced analytics", "Custom integrations"]},
-            {"name": "Enterprise", "price": "$99", "desc": "For large organizations", "features": ["Unlimited users", "Unlimited storage", "Dedicated support", "SSO & SAML", "Custom SLA", "On-premise option"]},
+            {
+                "name": "Starter",
+                "price": "$9",
+                "desc": "For small teams getting started",
+                "features": ["Up to 5 users", "10GB storage", "Email support", "Basic analytics"],
+            },
+            {
+                "name": "Pro",
+                "price": "$29",
+                "desc": "For growing businesses",
+                "features": [
+                    "Up to 50 users",
+                    "100GB storage",
+                    "Priority support",
+                    "Advanced analytics",
+                    "Custom integrations",
+                ],
+            },
+            {
+                "name": "Enterprise",
+                "price": "$99",
+                "desc": "For large organizations",
+                "features": [
+                    "Unlimited users",
+                    "Unlimited storage",
+                    "Dedicated support",
+                    "SSO & SAML",
+                    "Custom SLA",
+                    "On-premise option",
+                ],
+            },
         ]
         plan_cards = []
         for plan in plans:
-            feats = "\n".join(f'              <li className="flex items-center gap-2"><span className="text-green-400">✓</span> {f}</li>' for f in plan["features"])
+            feats = "\n".join(
+                f'              <li className="flex items-center gap-2"><span className="text-green-400">✓</span> {f}</li>'
+                for f in plan["features"]
+            )
             plan_cards.append(
                 f'        <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-8 flex flex-col">\n'
                 f'          <h3 className="text-xl font-semibold mb-2">{plan["name"]}</h3>\n'
@@ -2565,8 +2950,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'      <h2 className="text-3xl md:text-5xl font-bold text-center mb-6">{headline}</h2>\n'
             f'      <p className="text-gray-400 text-center max-w-2xl mx-auto mb-16 text-lg">Simple, transparent pricing. No hidden fees.</p>\n'
             f'      <div className="grid md:grid-cols-3 gap-6">\n'
-            + "\n".join(plan_cards) +
-            f"\n      </div>\n"
+            + "\n".join(plan_cards)
+            + f"\n      </div>\n"
             f"    </section>\n"
             f"  );\n"
             f"}}\n"
@@ -2593,8 +2978,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'    <section id="testimonials" className="py-24 px-6 max-w-6xl mx-auto">\n'
             f'      <h2 className="text-3xl md:text-5xl font-bold text-center mb-16">{headline}</h2>\n'
             f'      <div className="grid md:grid-cols-3 gap-6">\n'
-            + "\n".join(cards) +
-            f"\n      </div>\n"
+            + "\n".join(cards)
+            + f"\n      </div>\n"
             f"    </section>\n"
             f"  );\n"
             f"}}\n"
@@ -2608,7 +2993,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             items_html.append(
                 f'        <details className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-6 group cursor-pointer">\n'
                 f'          <summary className="text-lg font-semibold list-none flex justify-between items-center">\n'
-                f'            {q}\n'
+                f"            {q}\n"
                 f'            <span className="text-gray-500 group-open:rotate-180 transition-transform text-xl ml-4">▼</span>\n'
                 f"          </summary>\n"
                 f'          <p className="mt-4 text-gray-400 leading-relaxed">{a}</p>\n'
@@ -2619,9 +3004,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f"  return (\n"
             f'    <section id="faq" className="py-24 px-6 max-w-3xl mx-auto">\n'
             f'      <h2 className="text-3xl md:text-5xl font-bold text-center mb-16">{headline}</h2>\n'
-            f'      <div className="space-y-4">\n'
-            + "\n".join(items_html) +
-            f"\n      </div>\n"
+            f'      <div className="space-y-4">\n' + "\n".join(items_html) + f"\n      </div>\n"
             f"    </section>\n"
             f"  );\n"
             f"}}\n"
@@ -2649,7 +3032,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f"  return (\n"
             f'    <footer className="border-t border-gray-800 py-16 px-6">\n'
             f'      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">\n'
-            f'        <div>\n'
+            f"        <div>\n"
             f'          <h4 className="font-bold text-lg mb-4">{safe_brand}</h4>\n'
             f'          <p className="text-gray-500 text-sm">Intelligent SaaS platform for modern teams.</p>\n'
             f"        </div>\n"
@@ -2673,10 +3056,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         primary = getattr(getattr(ds, "colors", ds), "primary", "#4f9eff")
         surface_alt = getattr(getattr(ds, "colors", ds), "surface_alt", "#f5f5f5")
         border = getattr(getattr(ds, "colors", ds), "border", "#e5e5e5")
-        font_body = (
-            getattr(getattr(getattr(ds, "typography", ds), "font_body", None), "value", None)
-            or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
-        )
+        font_body = getattr(
+            getattr(getattr(ds, "typography", ds), "font_body", None), "value", None
+        ) or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
         from .templates.contact_form import CONTACT_FORM_TEMPLATE
 
         return CONTACT_FORM_TEMPLATE.format(
@@ -2692,10 +3074,9 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         primary = getattr(getattr(ds, "colors", ds), "primary", "#4f9eff")
         surface_alt = getattr(getattr(ds, "colors", ds), "surface_alt", "#f5f5f5")
         border = getattr(getattr(ds, "colors", ds), "border", "#e5e5e5")
-        font_body = (
-            getattr(getattr(getattr(ds, "typography", ds), "font_body", None), "value", None)
-            or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
-        )
+        font_body = getattr(
+            getattr(getattr(ds, "typography", ds), "font_body", None), "value", None
+        ) or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
         from .templates.auth_page import AUTH_TEMPLATE
 
         is_register = any(kw in name.lower() for kw in ("register", "signup"))
@@ -2717,7 +3098,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             success_state = "setState('success')"
             success_message = "Login successful! Redirecting..."
             verify_note = ""
-            switch_message = "Don't have an account? <a href=\"/register\" className=\"underline\" style={{ color: primary }}>Sign up</a>"
+            switch_message = 'Don\'t have an account? <a href="/register" className="underline" style={{ color: primary }}>Sign up</a>'
 
         return AUTH_TEMPLATE.format(
             component_name=name,
@@ -2736,7 +3117,6 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             verify_note=verify_note,
             switch_message=switch_message,
         )
-
 
     def _write_tailwind_config(
         self,
@@ -2761,9 +3141,13 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         text_primary = getattr(colors, "text_primary", "#111111")
         text_secondary = getattr(colors, "text_secondary", "#666666")
         border = getattr(colors, "border", "#e5e5e5")
-        
-        font_heading = getattr(getattr(typography, "font_heading", None), "value", None) or getattr(typography, "font_sans", "Inter")
-        font_body = getattr(getattr(typography, "font_body", None), "value", None) or getattr(typography, "font_sans", "Inter")
+
+        font_heading = getattr(getattr(typography, "font_heading", None), "value", None) or getattr(
+            typography, "font_sans", "Inter"
+        )
+        font_body = getattr(getattr(typography, "font_body", None), "value", None) or getattr(
+            typography, "font_sans", "Inter"
+        )
         spacing_unit = getattr(spacing, "unit", "1rem")
         shadow_sm = getattr(shadow, "sm", "0 1px 2px rgba(0,0,0,0.05)")
         shadow_md = getattr(shadow, "md", "0 4px 6px rgba(0,0,0,0.07)")
