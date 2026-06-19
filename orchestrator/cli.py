@@ -1902,7 +1902,6 @@ def main():
     _kanban_subparsers(subparsers)
     _nexusscope_subparsers(subparsers)
     _chat_subparsers(subparsers)  # Interactive spec-gathering chat mode
-    _supervisor_subparsers(subparsers)  # Persistent supervisor REPL
     _website_subparsers(subparsers)  # Website generation
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
@@ -2528,46 +2527,6 @@ def cmd_chat(args) -> int:
             budget=getattr(args, "budget", 8.0),
             dry_run=getattr(args, "dry_run", False),
             output_dir=getattr(args, "output_dir", ""),
-        )
-    )
-    return 0
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# supervisor — Persistent learning REPL
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def _supervisor_subparsers(subparsers) -> None:
-    """Register the 'supervisor' subcommand."""
-    p = subparsers.add_parser(
-        "supervisor",
-        help="Persistent supervisor REPL — run directives with learning memory",
-    )
-    p.add_argument(
-        "--budget",
-        "-b",
-        type=float,
-        default=8.0,
-        help="Max LLM budget in USD for the run (default: 8.0)",
-    )
-    p.add_argument(
-        "--db-path",
-        type=str,
-        default="",
-        help="Override the default supervisor.db path",
-    )
-    p.set_defaults(func=cmd_supervisor)
-
-
-def cmd_supervisor(args) -> int:
-    """Handle the 'supervisor' subcommand."""
-    from orchestrator.supervisor.cli_adapter import run_repl
-
-    asyncio.run(
-        run_repl(
-            budget=getattr(args, "budget", 8.0),
-            db_path=getattr(args, "db_path", "") or None,
         )
     )
     return 0
