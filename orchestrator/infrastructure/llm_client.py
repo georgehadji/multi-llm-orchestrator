@@ -39,6 +39,25 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("orchestrator.api")
 
+
+def _maybe_add_response_healing(request_params: dict, opts) -> None:
+    """Add the OpenRouter ``response-healing`` plugin to a request when enabled.
+
+    Only applies to non-streaming structured-output requests (those carrying a
+    ``response_format``). The plugin repairs malformed JSON server-side
+    (brackets, trailing commas, markdown fences); it cannot fix ``max_tokens``
+    truncation. Idempotent and safe when ``opts`` is None.
+    """
+    if opts is None or not getattr(opts, "USE_RESPONSE_HEALING", False):
+        return
+    if "response_format" not in request_params or request_params.get("stream"):
+        return
+    plugins = request_params.setdefault("plugins", [])
+    if not any(isinstance(p, dict) and p.get("id") == "response-healing" for p in plugins):
+        plugins.append({"id": "response-healing"})
+        logger.debug("Response-healing plugin enabled")
+
+
 # FIX #9: Rate-limit error patterns across providers
 _RATE_LIMIT_PATTERNS = (
     "rate_limit",
@@ -625,6 +644,9 @@ class UnifiedClient:
             if schema:
                 request_params["response_format"] = schema
                 logger.debug(f"Using JSON schema for {task_type.value}")
+
+        # Feature: Response healing — OpenRouter repairs malformed JSON server-side.
+        _maybe_add_response_healing(request_params, OPENROUTER_OPTS)
 
         # Feature: Native fallback models
         if fallback_models and OPENROUTER_OPTS.USE_NATIVE_FALLBACKS:
