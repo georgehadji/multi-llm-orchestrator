@@ -49,6 +49,20 @@ def test_failed_project_completed():
     _assert_lesson(lesson, "degraded")
 
 
+@pytest.mark.parametrize(
+    "status",
+    ["COMPLETED_DEGRADED", "PARTIAL_SUCCESS", "BUDGET_EXHAUSTED", "SYSTEM_FAILURE"],
+)
+def test_uppercase_degraded_status_records_lesson(status):
+    # Real ProjectStatus degraded/failure values are uppercase; a run can be
+    # degraded with tasks_failed == 0 (e.g. validation failure) and must still
+    # produce a lesson.
+    event = ProjectCompletedEvent("agg", "p1", status, 0.5, tasks_completed=3, tasks_failed=0)
+    lesson = event_to_lesson(event, "s1", "p1", "code_gen")
+    _assert_lesson(lesson, "degraded")
+    assert status in lesson.signal
+
+
 def test_budget_warning_event():
     event = BudgetWarningEvent("agg", "generation", 4.5, 5.0, 0.9)
     lesson = event_to_lesson(event, "s1", "p1", "code_gen")

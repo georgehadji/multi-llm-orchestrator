@@ -33,6 +33,21 @@ _KIND_FOR_EVENT_TYPE: dict[EventType, LessonKind] = {
     EventType.BUDGET_WARNING: "budget",
 }
 
+# Project statuses that warrant a lesson even when tasks_failed == 0. Matched
+# case-insensitively against ProjectStatus values, whose degraded/failure
+# members are uppercase (COMPLETED_DEGRADED, PARTIAL_SUCCESS, BUDGET_EXHAUSTED,
+# SYSTEM_FAILURE) while COMPLETED/FAILED are lowercase.
+_DEGRADED_STATUSES = frozenset(
+    {
+        "failed",
+        "degraded",
+        "completed_degraded",
+        "partial_success",
+        "budget_exhausted",
+        "system_failure",
+    }
+)
+
 
 def event_to_lesson(
     event: Any,
@@ -56,7 +71,7 @@ def event_to_lesson(
     elif isinstance(event, ProjectCompletedEvent):
         status = event.metadata.get("status", "")
         tasks_failed = event.metadata.get("tasks_failed", 0)
-        if status in ("failed", "degraded") or tasks_failed:
+        if str(status).lower() in _DEGRADED_STATUSES or tasks_failed:
             kind = "degraded"
             signal = f"status={status}"
             detail = (

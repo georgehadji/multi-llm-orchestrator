@@ -25,12 +25,17 @@ from .store import SupervisorStore
 logger = logging.getLogger("orchestrator.supervisor.cli_adapter")
 
 
-def _default_factory(budget: float) -> Callable[[], Orchestrator]:
-    """Build a fresh Orchestrator for each Supervisor run."""
+def _default_factory(default_budget: float) -> Callable[[float | None], Orchestrator]:
+    """Build a fresh Orchestrator for each Supervisor run.
 
-    def factory() -> Orchestrator:
+    The per-directive budget (from ``Directive.budget`` or text extraction) takes
+    precedence; ``default_budget`` is the REPL/CLI fallback when none is given.
+    """
+
+    def factory(budget: float | None = None) -> Orchestrator:
+        effective = budget if budget is not None else default_budget
         return Orchestrator(
-            budget=Budget(max_usd=budget, max_time_seconds=5400),
+            budget=Budget(max_usd=effective, max_time_seconds=5400),
         )
 
     return factory

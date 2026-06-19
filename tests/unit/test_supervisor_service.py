@@ -58,7 +58,7 @@ async def store(tmp_path: Path) -> SupervisorStore:
 
 async def test_handle_success_records_session(store: SupervisorStore):
     orch = CaptureOrchestrator([ProjectCompletedEvent("agg", "p1", "completed", 0.1)])
-    supervisor = Supervisor(store, lambda: orch)
+    supervisor = Supervisor(store, lambda _budget=None: orch)
     result = await supervisor.handle(Directive(source="human", text="build api", budget=5.0))
     assert result.project_status == "completed"
     assert result.lessons_recorded == 0
@@ -67,13 +67,26 @@ async def test_handle_success_records_session(store: SupervisorStore):
     assert session.status == "completed"
 
 
+async def test_per_directive_budget_passed_to_factory(store: SupervisorStore):
+    orch = CaptureOrchestrator([ProjectCompletedEvent("agg", "p1", "completed", 0.1)])
+    captured: dict[str, Any] = {}
+
+    def factory(budget: float | None = None) -> CaptureOrchestrator:
+        captured["budget"] = budget
+        return orch
+
+    supervisor = Supervisor(store, factory)
+    await supervisor.handle(Directive(source="agent", text="build it", budget=1.0))
+    assert captured["budget"] == 1.0
+
+
 async def test_handle_records_lesson_on_task_failure(store: SupervisorStore):
     events = [
         TaskFailedEvent("agg", "t1", "timeout", will_retry=False),
         ProjectCompletedEvent("agg", "p1", "failed", 0.2, tasks_completed=0, tasks_failed=1),
     ]
     orch = CaptureOrchestrator(events)
-    supervisor = Supervisor(store, lambda: orch)
+    supervisor = Supervisor(store, lambda _budget=None: orch)
     result = await supervisor.handle(Directive(source="human", text="build api", budget=5.0))
     assert result.project_status == "failed"
     assert result.lessons_recorded == 2  # task_failed + degraded completion
@@ -97,7 +110,7 @@ async def test_lessons_injected_into_description(store: SupervisorStore):
         )
     )
     orch = CaptureOrchestrator([ProjectCompletedEvent("agg", "p1", "completed", 0.1)])
-    supervisor = Supervisor(store, lambda: orch)
+    supervisor = Supervisor(store, lambda _budget=None: orch)
     await supervisor.handle(Directive(source="human", text="build api", budget=5.0))
     assert len(orch.calls) == 1
     description = orch.calls[0]["project_description"]
@@ -111,7 +124,7 @@ async def test_stream_yields_events(store: SupervisorStore):
         ProjectCompletedEvent("agg", "p1", "failed", 0.2, tasks_completed=0, tasks_failed=1),
     ]
     orch = CaptureOrchestrator(events)
-    supervisor = Supervisor(store, lambda: orch)
+    supervisor = Supervisor(store, lambda _budget=None: orch)
     seen = []
     async for event in supervisor.stream(Directive(source="agent", text="build api")):
         seen.append(event)
@@ -120,7 +133,7 @@ async def test_stream_yields_events(store: SupervisorStore):
 
 async def test_on_event_callback(store: SupervisorStore):
     orch = CaptureOrchestrator([ProjectCompletedEvent("agg", "p1", "completed", 0.1)])
-    supervisor = Supervisor(store, lambda: orch)
+    supervisor = Supervisor(store, lambda _budget=None: orch)
     seen = []
     result = await supervisor.handle(
         Directive(source="human", text="build api"),
