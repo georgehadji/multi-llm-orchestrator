@@ -128,3 +128,25 @@ async def test_secret_redaction(store: SupervisorStore):
     lessons = await store.recent_lessons()
     assert "[REDACTED]" in lessons[0].detail
     assert "sk-12345678901234567890" not in lessons[0].detail
+
+
+async def test_standalone_sk_key_redacted(store: SupervisorStore):
+    # A raw OpenAI-style key with no api_key= prefix (e.g. inside an engine
+    # exception message) must be fully redacted, not left as "sk-<secret>[REDACTED]".
+    session = await store.create_session()
+    await store.record_lesson(
+        Lesson(
+            id="l2",
+            session_id=session.id,
+            project_id="p1",
+            task_type="general",
+            kind="error",
+            signal="secret",
+            detail="RuntimeError: bad credential sk-ABCDEFGHIJKLMNOPQRSTUVWX rejected",
+            created_at=time.time(),
+        )
+    )
+    stored = (await store.recent_lessons())[0].detail
+    assert "sk-ABCDEFGHIJKLMNOPQRSTUVWX" not in stored
+    assert "ABCDEFGHIJKLMNOPQRSTUVWX" not in stored
+    assert "[REDACTED]" in stored

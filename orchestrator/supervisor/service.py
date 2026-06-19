@@ -45,7 +45,7 @@ class Supervisor:
     def __init__(
         self,
         store: SupervisorStore,
-        orchestrator_factory: Callable[[], Orchestrator],
+        orchestrator_factory: Callable[[float | None], Orchestrator],
         lesson_cap: int = _DEFAULT_LESSON_CAP,
     ) -> None:
         self._store = store
@@ -91,7 +91,7 @@ class Supervisor:
         description = self._inject_lessons(job.project_description, lessons)
 
         try:
-            orch = self._orchestrator_factory()
+            orch = self._orchestrator_factory(job.budget)
             async for event in orch.run_project_streaming(
                 project_description=description,
                 success_criteria=job.success_criteria,

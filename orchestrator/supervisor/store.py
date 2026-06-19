@@ -62,7 +62,10 @@ _SECRET_PATTERNS = [
     re.compile(r"(secret\s*[:=]\s*)[\"']?[\w\-]{10,}[\"']?", re.IGNORECASE),
     re.compile(r"(password\s*[:=]\s*)[\"']?[^\s\"']+[\"']?", re.IGNORECASE),
     re.compile(r"(bearer\s+)\"?[\w\-]{10,}\"?", re.IGNORECASE),
-    re.compile(r"(sk-[a-zA-Z0-9]{20,})", re.IGNORECASE),
+    # Capture only the "sk-" marker so the substitution (\1[REDACTED]) drops the
+    # secret body. A capture of the whole key would leave it intact as
+    # "sk-<secret>[REDACTED]".
+    re.compile(r"\b(sk-)[a-zA-Z0-9]{20,}", re.IGNORECASE),
 ]
 
 _MAX_DETAIL_LEN = 8000
