@@ -403,7 +403,7 @@ class BudgetEnforcer:
         try:
             from ..unified_events.core import EventType as _EventType
         except ImportError:
-            _EventType = None
+            _EventType = None  # type: ignore[misc]  # optional dependency fallback
 
         spent = budget.phase_spent.get(phase, 0.0)
         cap = budget.phase_budget(phase) if hasattr(budget, "phase_budget") else 0.0

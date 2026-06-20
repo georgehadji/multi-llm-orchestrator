@@ -6,4 +6,6 @@ Import from there directly for new code; this module exists only for callers
 that reference orchestrator.application.context_compressor.
 """
 
-from orchestrator.context_compressor import ContextCompressor  # noqa: F401
+from orchestrator.context_compressor import ContextCompressor
+
+__all__ = ["ContextCompressor"]

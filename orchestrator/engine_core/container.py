@@ -41,7 +41,7 @@ from ..domain.ports import (
 )
 
 try:
-    from ..cost_optimization import (  # type: ignore[attr-defined]
+    from ..cost_optimization import (
         AdaptiveTemperatureController,
         BatchClient,
         DependencyContextInjector,
@@ -51,13 +51,13 @@ try:
         TokenBudget,
     )
 except ImportError:
-    AdaptiveTemperatureController = None
-    BatchClient = None
-    DependencyContextInjector = None
-    PromptCacher = None
-    SpeculativeGenerator = None
-    StreamingValidator = None
-    TokenBudget = None
+    AdaptiveTemperatureController = None  # type: ignore[misc]
+    BatchClient = None  # type: ignore[misc]
+    DependencyContextInjector = None  # type: ignore[misc]
+    PromptCacher = None  # type: ignore[misc]
+    SpeculativeGenerator = None  # type: ignore[misc]
+    StreamingValidator = None  # type: ignore[misc]
+    TokenBudget = None  # type: ignore[misc]
 from ..model_registry import ModelRegistry
 
 try:

@@ -750,8 +750,11 @@ class WebsiteGenerator:
                         result.append(expr)
                         any_converted = True
                     else:
-                        # Complex expression — put back the ${} syntax
-                        result.append("${" + part + "}")
+                        # Complex expression present (e.g. a ternary). We cannot
+                        # splice a raw ${...} into a `+` concatenation chain — the
+                        # result would be invalid JS/TSX. Leave the entire literal
+                        # untouched rather than corrupting it.
+                        return match.group(0)
                 elif part:
                     result.append(repr(part))
             if any_converted:
@@ -999,7 +1002,20 @@ class WebsiteGenerator:
             logger.info("WebsiteGenerator: generating images...")
             await self._generate_images(output_dir, config, design_system)
 
-            # Step 5.5: Install deps + build-verify + auto-fix errors
+            # Step 6: Assemble final page. Must run BEFORE build verification so
+            # the Next.js/React project (package.json, app/layout.tsx, tsconfig,
+            # imports) exists on disk — otherwise `npm install` has no framework
+            # dependency and the build cannot validate the generated components.
+            logger.info("WebsiteGenerator: assembling page...")
+            self._assemble_page(
+                output_dir=output_dir,
+                sections=config.sections,
+                design_system=design_system,
+                config=config,
+            )
+
+            # Step 6.5: Install deps + build-verify + auto-fix errors (needs the
+            # assembled project from Step 6).
             if config.framework in ("next.js", "react"):
                 logger.info("WebsiteGenerator: installing npm dependencies + build-verifying...")
                 build_ok, build_log = await self._verify_and_fix_build(output_dir, config, result)
@@ -1008,15 +1024,6 @@ class WebsiteGenerator:
                     result.errors.append(
                         "build-verify: " + build_log[-1] if build_log else "unknown build error"
                     )
-
-            # Step 6: Assemble final page
-            logger.info("WebsiteGenerator: assembling page...")
-            self._assemble_page(
-                output_dir=output_dir,
-                sections=config.sections,
-                design_system=design_system,
-                config=config,
-            )
 
             # Step 6: Generate quality report (optional — validator may be missing)
             logger.info("WebsiteGenerator: validating quality...")

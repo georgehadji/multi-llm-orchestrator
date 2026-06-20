@@ -290,7 +290,7 @@ class TestEnhancedSelfConsistencyStage:
         ctx.attempt = 0
         result = await stage.process(ctx)
         assert len(result.attempt_history) == 1
-        assert result.attempt_history[0]["attempt"] == 0
+        assert result.attempt_history[0].attempt_num == 0
 
     @pytest.mark.asyncio
     async def test_ara_strategy_called_when_provided(self, ctx):
