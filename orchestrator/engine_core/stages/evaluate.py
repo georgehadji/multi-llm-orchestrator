@@ -31,7 +31,10 @@ class EvaluateStage:
                 task=ctx.task,
                 output=ctx.output,
             )
-            ctx.score = critique_report.score / 10.0  # normalize to 0.0-1.0
+            # CritiqueReport.score is already in [0.0, 1.0] (see EvaluatorService);
+            # the previous `/ 10.0` double-normalized it, collapsing real scores
+            # (0.85 -> 0.085, the 0.5 default -> 0.05) and degrading every task.
+            ctx.score = critique_report.score
             ctx.critique = critique_report.to_prompt_context(max_items=10)
         except Exception as exc:
             logger.warning("Evaluation failed for task %s: %s", ctx.task.id, exc)
