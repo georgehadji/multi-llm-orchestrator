@@ -1246,10 +1246,17 @@ class TestSystemDiagnostics:
 
     @pytest.mark.asyncio
     async def test_run_all(self):
+        from unittest.mock import MagicMock, patch
+
         from orchestrator.system_diagnostics import SystemDiagnostics
 
         diag = SystemDiagnostics()
-        report = await diag.run_all()
+        # The "tests" diagnostic shells out to `pytest --co` via subprocess; under
+        # the test runner that recursively collects the whole suite and hangs.
+        # Stub subprocess.run so the diagnostic stays fast and deterministic.
+        fake = MagicMock(returncode=0, stdout="1 selected", stderr="")
+        with patch("orchestrator.system_diagnostics.subprocess.run", return_value=fake):
+            report = await diag.run_all()
         assert report.overall_status in ("ok", "warning")
         assert len(report.checks) >= 4
 

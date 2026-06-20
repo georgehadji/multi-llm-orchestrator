@@ -125,8 +125,9 @@ class TwoWayGitSync:
         """Get content of changed files for AI context injection."""
         prev = self._last_sync_hash or "HEAD~1"
         content = {}
-        targets = files or []
-        if not targets:
+        # Distinguish None (auto-detect changed files from git) from an explicit
+        # empty list (caller says "no files" → return no content).
+        if files is None:
             try:
                 result = subprocess.run(
                     ["git", "diff", "--name-only", prev, "HEAD"],
@@ -137,7 +138,9 @@ class TwoWayGitSync:
                 )
                 targets = [f for f in result.stdout.strip().split("\n") if f]
             except Exception:
-                pass
+                targets = []
+        else:
+            targets = files
         for f in targets:
             fp = self.repo_dir / f
             if fp.exists():
