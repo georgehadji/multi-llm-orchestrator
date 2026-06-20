@@ -234,11 +234,14 @@ class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════
 
-    XIAOMI_MIMO_V2_FLASH = "xiaomi/mimo-v2-flash"  # $0.09/$0.29, #1 SWE-bench open ⭐
+    # NOTE: xiaomi/mimo-v2-{flash,pro,omni} were deprecated by OpenRouter (404,
+    # "migrate to xiaomi/mimo-v2.5"). Repointed to the live v2.5 IDs; the legacy
+    # enum names are retained as aliases so existing references keep resolving.
+    XIAOMI_MIMO_V2_FLASH = "xiaomi/mimo-v2.5"  # was mimo-v2-flash (deprecated)
 
-    XIAOMI_MIMO_V2_PRO = "xiaomi/mimo-v2-pro"  # $1.00/$3.00, 1T+ params, 1M+ ctx
+    XIAOMI_MIMO_V2_PRO = "xiaomi/mimo-v2.5-pro"  # was mimo-v2-pro (deprecated)
 
-    XIAOMI_MIMO_V2_OMNI = "xiaomi/mimo-v2-omni"  # $0.40/$2.00, omni-modal
+    XIAOMI_MIMO_V2_OMNI = "xiaomi/mimo-v2.5"  # was mimo-v2-omni (deprecated); v2.5 is omni-modal
 
     # Xiaomi Mimo V2.5 — best coding VFM
     XIAOMI_MIMO_V2_5 = "xiaomi/mimo-v2.5"  # $0.14/$0.28, 1M ctx, coding=42.1

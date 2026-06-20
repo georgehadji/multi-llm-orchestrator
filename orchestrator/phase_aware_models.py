@@ -196,7 +196,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # XIAOMI MODELS (NEW v3.0) - GAME CHANGERS
         # ═══════════════════════════════════════════════════════
-        "xiaomi/mimo-v2-flash": {
+        "xiaomi/mimo-v2.5": {
             "reasoning": 8.5,
             "coding": 9.5,  # ⭐ #1 open-source SWE-bench
             "creativity": 8.0,
@@ -205,7 +205,7 @@ class ModelCapabilities:
             "speed": 9.5,  # Very fast
             "cost_efficiency": 10.0,  # ⭐ Best value at $0.09/1M
         },
-        "xiaomi/mimo-v2-pro": {
+        "xiaomi/mimo-v2.5-pro": {
             "reasoning": 9.5,  # 1T+ parameters
             "coding": 9.0,
             "creativity": 9.0,
@@ -213,15 +213,6 @@ class ModelCapabilities:
             "synthesis": 9.5,  # ⭐ 1M+ context integration
             "speed": 7.0,
             "cost_efficiency": 9.5,  # ⭐ Incredible value at $1.00/1M
-        },
-        "xiaomi/mimo-v2-omni": {
-            "reasoning": 8.5,
-            "coding": 8.5,
-            "creativity": 9.0,
-            "critique": 8.5,
-            "synthesis": 9.0,
-            "speed": 8.0,
-            "cost_efficiency": 9.0,  # Omni-modal at $0.40/1M
         },
         # ═══════════════════════════════════════════════════════
         # MOONSHOT KIMI MODELS (NEW v3.0)
@@ -482,7 +473,7 @@ class ModelCapabilities:
                 best_score = score
                 best_model = model
 
-        return best_model or candidates[0] if candidates else "xiaomi/mimo-v2-flash"
+        return best_model or candidates[0] if candidates else "xiaomi/mimo-v2.5"
 
 
 # ═══════════════════════════════════════════════════════
@@ -550,7 +541,7 @@ class PhaseAwareModelSelector:
             available_models = PHASE_MODEL_PREFERENCES.get(
                 phase,
                 [
-                    "xiaomi/mimo-v2-flash",
+                    "xiaomi/mimo-v2.5",
                     "stepfun/step-3.5-flash",
                     "qwen/qwen-3.5-397b-a17b",
                 ],
@@ -594,7 +585,7 @@ class PhaseAwareModelSelector:
         # Sort by score
         candidates.sort(key=lambda x: x[1], reverse=True)
 
-        return candidates[0][0] if candidates else "xiaomi/mimo-v2-flash"
+        return candidates[0][0] if candidates else "xiaomi/mimo-v2.5"
 
     def get_phase_models(
         self,
@@ -609,7 +600,7 @@ class PhaseAwareModelSelector:
         """Get ultra-budget configuration (cheapest capable models)."""
         return {
             PhaseType.ANALYSIS: "z-ai/glm-5.1",  # $0.10/$0.40
-            PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29
+            PhaseType.GENERATION: "xiaomi/mimo-v2.5",  # $0.09/$0.29
             PhaseType.CRITIQUE: "deepseek/deepseek-v4-pro",  # $0.55/$2.19
             PhaseType.SYNTHESIS: "qwen/qwen-3-697b-a17b",  # $0.39/$2.34
             PhaseType.RESEARCH: "deepseek/deepseek-v4-flash",  # $0.27/$1.10
@@ -621,9 +612,9 @@ class PhaseAwareModelSelector:
         """Get balanced configuration (best value/quality ratio)."""
         return {
             PhaseType.ANALYSIS: "stepfun/step-3.5-flash",  # $0.10/$0.30
-            PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29
+            PhaseType.GENERATION: "xiaomi/mimo-v2.5",  # $0.09/$0.29
             PhaseType.CRITIQUE: "x-ai/grok-4.20",  # $2.00/$6.00
-            PhaseType.SYNTHESIS: "xiaomi/mimo-v2-pro",  # $1.00/$3.00
+            PhaseType.SYNTHESIS: "xiaomi/mimo-v2.5-pro",  # $1.00/$3.00
             PhaseType.RESEARCH: "moonshotai/kimi-k2.6",  # $0.42/$2.20
             PhaseType.EVALUATION: "x-ai/grok-4.20",  # $2.00/$6.00
             PhaseType.VERIFICATION: "x-ai/grok-4.20",  # $2.00/$6.00
@@ -633,9 +624,9 @@ class PhaseAwareModelSelector:
         """Get premium configuration (highest quality for critical tasks)."""
         return {
             PhaseType.ANALYSIS: "stepfun/step-3.5-flash",  # $0.10/$0.30 (already best)
-            PhaseType.GENERATION: "xiaomi/mimo-v2-flash",  # $0.09/$0.29 (already best)
+            PhaseType.GENERATION: "xiaomi/mimo-v2.5",  # $0.09/$0.29 (already best)
             PhaseType.CRITIQUE: "x-ai/grok-4.20",  # $2.00/$6.00 (lowest hallucination)
-            PhaseType.SYNTHESIS: "xiaomi/mimo-v2-pro",  # $1.00/$3.00 (1T+ params)
+            PhaseType.SYNTHESIS: "xiaomi/mimo-v2.5-pro",  # $1.00/$3.00 (1T+ params)
             PhaseType.RESEARCH: "google/gemini-3.5-flash",  # $2.00/$12.00 (1M context)
             PhaseType.EVALUATION: "x-ai/grok-4.20",  # $2.00/$6.00 (lowest hallucination)
             PhaseType.VERIFICATION: "x-ai/grok-4.20",  # $2.00/$6.00 (lowest hallucination)
@@ -648,10 +639,9 @@ class PhaseAwareModelSelector:
 # ═══════════════════════════════════════════════════════
 
 MODEL_COSTS: dict[str, dict[str, float]] = {
-    # Xiaomi (Best Value!)
-    "xiaomi/mimo-v2-flash": {"input": 0.09, "output": 0.29},
-    "xiaomi/mimo-v2-pro": {"input": 1.00, "output": 3.00},
-    "xiaomi/mimo-v2-omni": {"input": 0.40, "output": 2.00},
+    # Xiaomi (Best Value!) — live OpenRouter pricing
+    "xiaomi/mimo-v2.5": {"input": 0.14, "output": 0.28},
+    "xiaomi/mimo-v2.5-pro": {"input": 0.43, "output": 0.87},
     # Moonshot Kimi
     "moonshotai/kimi-k2.6": {"input": 0.42, "output": 2.20},
     "moonshotai/kimi-k2": {"input": 0.50, "output": 1.50},

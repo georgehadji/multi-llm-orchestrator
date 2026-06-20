@@ -105,9 +105,10 @@ class ModelRegistry:
     KIMI_K2 = "moonshotai/kimi-k2"  # $0.57/$2.30, 128K ⭐ VERIFIED
     KIMI_K2_6 = "moonshotai/kimi-k2.6"  # $0.42/$2.20, visual coding SOTA
 
-    # Xiaomi MiMo Models - New Open-Source Leaders ⭐ VERIFIED
-    MIMO_V2_FLASH = "xiaomi/mimo-v2-flash"  # $0.09/$0.29, 256K, #1 SWE-bench ⭐ BEST VALUE
-    MIMO_V2_PRO = "xiaomi/mimo-v2-pro"  # $1.00/$3.00, 1T+ params, 1M+ ctx
+    # Xiaomi MiMo Models — mimo-v2-{flash,pro} deprecated by OpenRouter (404);
+    # repointed to the live v2.5 IDs.
+    MIMO_V2_FLASH = "xiaomi/mimo-v2.5"  # was mimo-v2-flash (deprecated), $0.14/$0.28, 1M ctx
+    MIMO_V2_PRO = "xiaomi/mimo-v2.5-pro"  # was mimo-v2-pro (deprecated), $0.43/$0.87, 1M ctx
 
     # StepFun Models - Best Value ⭐ VERIFIED
     STEP_3_5_FLASH = "stepfun/step-3.5-flash"  # $0.10/$0.30, 262K, 196B MoE ⭐ BEST VALUE
