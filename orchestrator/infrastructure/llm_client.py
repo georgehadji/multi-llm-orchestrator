@@ -147,11 +147,17 @@ def validate_model_available(model: Model | str) -> tuple[bool, str | None]:
         replacement = ModelRegistry.UNAVAILABLE_MODELS[model_id]
         return False, replacement
 
-    # Check if model is in cost table (indicates it's valid)
+    # The Model enum is the curated source of truth for known-good ids.
+    if model_id in Model._value2member_map_:
+        return True, None
+
+    # Cost table is a secondary registry of verified ids.
     if model_id in ModelRegistry.COST_TABLE:
         return True, None
 
-    # Unknown model - allow it through (might be new)
+    # Genuinely unknown id (not in the enum or cost table). Allow it through in
+    # case it is brand-new on OpenRouter, but surface it so the registry can be
+    # refreshed (see scripts/audit_openrouter_models.py).
     logger.warning(f"Unknown model {model_id} - allowing through")
     return True, None
 

@@ -66,7 +66,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, native multimodal, agent swarm
         ModelRegistry.GLM_5_1,  # $0.06/$0.40, ultra-cheap 202K context
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination
-        "qwen/qwen-3-max-thinking",  # $0.78/$3.90, flagship reasoning
+        "qwen/qwen3-max-thinking",  # $0.78/$3.90, flagship reasoning
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, adaptive reasoning
     ],
     # ═══════════════════════════════════════════════════════
@@ -75,7 +75,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.GENERATION: [
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, 309B MoE, #1 SWE-bench open ⭐ NEW!
-        "qwen/qwen-3-coder-next",  # $0.12/$0.75, 80B MoE coding agents
+        "qwen/qwen3-coder-next",  # $0.12/$0.75, 80B MoE coding agents
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, 1.24T tokens, battle-tested
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
         ModelRegistry.GLM_5_1,  # $0.39/$1.75, enhanced programming, stable
@@ -91,7 +91,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination ⭐ BEST
         ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, reasoning specialist, critical
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
-        "qwen/qwen-3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
+        "qwen/qwen3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
         ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex analysis
         ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems design
         ModelRegistry.GPT_5_4_PRO,  # $30.00/$180.00, most advanced (use sparingly)
@@ -103,7 +103,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     PhaseType.SYNTHESIS: [
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx, agent ⭐ NEW!
         ModelRegistry.KIMI_K2_7_CODE,  # $0.95/$4.00, 256K, MoE 32B/1T, thinking mode
-        "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34, 397B MoE SOTA
+        "qwen/qwen3.5-397b-a17b",  # $0.39/$2.34, 397B MoE SOTA
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, 1M context, codebase nav
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, agent swarm, multimodal
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified Codex+GPT, 1M
@@ -119,9 +119,9 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, strict adherence ⭐ BEST
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, balanced, nuanced
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, strong argumentation
-        "qwen/qwen-3.5-397b-a17b",  # $0.39/$2.34, SOTA reasoning
+        "qwen/qwen3.5-397b-a17b",  # $0.39/$2.34, SOTA reasoning
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, broad knowledge
-        "aionlabs/aion-2.0",  # $0.80/$1.60, roleplay capability
+        "qwen/qwen3.5-397b-a17b",  # $0.80/$1.60, roleplay capability
     ],
     # ═══════════════════════════════════════════════════════
     # RESEARCH: Needs information retrieval + accuracy
@@ -145,7 +145,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination ⭐ BEST
         ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, high-stakes cognitive, fair
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA, technical
-        "qwen/qwen-3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
+        "qwen/qwen3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
         ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex evaluation
         ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems
         ModelRegistry.GPT_5_4_PRO,  # $30.00/$180.00, most advanced (critical)
@@ -161,7 +161,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, code reviews, 25% faster
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench, fast iterations
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
-        "qwen/qwen-3-coder-next",  # $0.12/$0.75, coding agents, iterative
+        "qwen/qwen3-coder-next",  # $0.12/$0.75, coding agents, iterative
         ModelRegistry.GLM_5_1,  # $0.39/$1.75, enhanced programming, stable
     ],
     # ═══════════════════════════════════════════════════════
@@ -173,8 +173,8 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, SWE-Bench verified
         ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, reasoning, validation
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast verification cycles
-        "qwen/qwen-3-coder-next",  # $0.12/$0.75, coding verification
-        "nvidia/nemotron-3-super",  # $0.10/$0.50, 120B MoE, multi-env
+        "qwen/qwen3-coder-next",  # $0.12/$0.75, coding verification
+        "nvidia/nemotron-3-super-120b-a12b",  # $0.10/$0.50, 120B MoE, multi-env
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
     ],
 }
@@ -256,7 +256,7 @@ class ModelCapabilities:
             "speed": 9.5,  # Very fast
             "cost_efficiency": 10.0,  # ⭐ Best value at $0.10/1M
         },
-        "stepfun/step-3.5": {
+        "stepfun/step-3.7-flash": {
             "reasoning": 9.0,
             "coding": 8.5,
             "creativity": 8.0,
@@ -319,7 +319,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # QWEN MODELS - SYNTHESIS & CODING SPECIALISTS
         # ═══════════════════════════════════════════════════════
-        "qwen/qwen-3-coder-next": {
+        "qwen/qwen3-coder-next": {
             "reasoning": 8.5,
             "coding": 9.5,  # ⭐ 80B MoE coding specialist
             "creativity": 8.0,
@@ -328,7 +328,7 @@ class ModelCapabilities:
             "speed": 9.0,
             "cost_efficiency": 9.5,  # Great value at $0.12/1M
         },
-        "qwen/qwen-3.5-397b-a17b": {
+        "qwen/qwen3.5-397b-a17b": {
             "reasoning": 9.5,  # ⭐ 397B MoE SOTA
             "coding": 9.0,
             "creativity": 9.0,
@@ -337,7 +337,7 @@ class ModelCapabilities:
             "speed": 7.5,
             "cost_efficiency": 9.5,  # ⭐ Incredible value at $0.39/1M
         },
-        "qwen/qwen-3-max-thinking": {
+        "qwen/qwen3-max-thinking": {
             "reasoning": 9.5,  # ⭐ Flagship reasoning
             "coding": 8.5,
             "creativity": 8.5,
@@ -391,7 +391,7 @@ class ModelCapabilities:
             "speed": 8.0,
             "cost_efficiency": 7.0,
         },
-        "openai/gpt-5.4-codex": {
+        "openai/gpt-5.3-codex": {
             "reasoning": 9.0,
             "coding": 9.5,  # ⭐ SWE-Bench Pro SOTA
             "creativity": 8.5,
@@ -445,7 +445,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # NVIDIA MODELS - EFFICIENT MOE
         # ═══════════════════════════════════════════════════════
-        "nvidia/nemotron-3-super": {
+        "nvidia/nemotron-3-super-120b-a12b": {
             "reasoning": 8.5,
             "coding": 8.5,
             "creativity": 8.0,
@@ -543,7 +543,7 @@ class PhaseAwareModelSelector:
                 [
                     "xiaomi/mimo-v2.5",
                     "stepfun/step-3.5-flash",
-                    "qwen/qwen-3.5-397b-a17b",
+                    "qwen/qwen3.5-397b-a17b",
                 ],
             )
 
@@ -602,10 +602,10 @@ class PhaseAwareModelSelector:
             PhaseType.ANALYSIS: "z-ai/glm-5.1",  # $0.10/$0.40
             PhaseType.GENERATION: "xiaomi/mimo-v2.5",  # $0.09/$0.29
             PhaseType.CRITIQUE: "deepseek/deepseek-v4-pro",  # $0.55/$2.19
-            PhaseType.SYNTHESIS: "qwen/qwen-3-697b-a17b",  # $0.39/$2.34
+            PhaseType.SYNTHESIS: "qwen/qwen3.5-397b-a17b",  # $0.39/$2.34
             PhaseType.RESEARCH: "deepseek/deepseek-v4-flash",  # $0.27/$1.10
             PhaseType.EVALUATION: "deepseek/deepseek-v4-pro",  # $0.55/$2.19
-            PhaseType.VERIFICATION: "nvidia/nemotron-3-super",  # $0.10/$0.50
+            PhaseType.VERIFICATION: "nvidia/nemotron-3-super-120b-a12b",  # $0.10/$0.50
         }
 
     def get_balanced_config(self) -> dict[PhaseType, str]:
@@ -647,7 +647,7 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "moonshotai/kimi-k2": {"input": 0.50, "output": 1.50},
     # StepFun (Best Value!)
     "stepfun/step-3.5-flash": {"input": 0.10, "output": 0.30},
-    "stepfun/step-3.5": {"input": 0.15, "output": 0.45},
+    "stepfun/step-3.7-flash": {"input": 0.20, "output": 1.15},
     # DeepSeek
     "deepseek/deepseek-v4-pro": {"input": 0.55, "output": 2.19},
     "deepseek/deepseek-v4-flash": {"input": 0.28, "output": 0.42},
@@ -656,9 +656,9 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "z-ai/glm-5-turbo": {"input": 1.20, "output": 4.00},
     "z-ai/glm-5.2": {"input": 0.50, "output": 2.00},
     # Qwen
-    "qwen/qwen-3-coder-next": {"input": 0.12, "output": 0.75},
-    "qwen/qwen-3.5-397b-a17b": {"input": 0.39, "output": 2.34},
-    "qwen/qwen-3-max-thinking": {"input": 0.78, "output": 3.90},
+    "qwen/qwen3-coder-next": {"input": 0.11, "output": 0.80},
+    "qwen/qwen3.5-397b-a17b": {"input": 0.39, "output": 2.45},
+    "qwen/qwen3-max-thinking": {"input": 0.78, "output": 3.90},
     # xAI Grok
     "x-ai/grok-4.20": {"input": 2.00, "output": 6.00},
     # Anthropic Claude
@@ -666,7 +666,7 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "anthropic/claude-opus-4-6": {"input": 5.00, "output": 25.00},
     # OpenAI GPT
     "openai/gpt-5.4": {"input": 2.50, "output": 15.00},
-    "openai/gpt-5.4-codex": {"input": 1.75, "output": 14.00},
+    "openai/gpt-5.3-codex": {"input": 1.75, "output": 14.00},
     "openai/gpt-5.4-pro": {"input": 30.00, "output": 180.00},
     # Google Gemini
     "google/gemini-3.5-flash": {"input": 2.00, "output": 12.00},
@@ -674,7 +674,7 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     # MiniMax
     "minimax/minimax-m2.7": {"input": 0.30, "output": 1.20},
     # NVIDIA
-    "nvidia/nemotron-3-super": {"input": 0.10, "output": 0.50},
+    "nvidia/nemotron-3-super-120b-a12b": {"input": 0.09, "output": 0.45},
 }
 
 

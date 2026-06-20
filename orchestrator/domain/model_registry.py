@@ -15,13 +15,13 @@ Usage:
     coder_model = ModelRegistry.QWEN_CODER
 
     # Get timeout for model
-    timeout = ModelRegistry.get_timeout("qwen/qwen-3-coder")
+    timeout = ModelRegistry.get_timeout("qwen/qwen3-coder")
 
     # Get cost info
     cost = ModelRegistry.get_cost("deepseek/deepseek-v4-flash")
 
     # Check if model is valid
-    is_valid = ModelRegistry.is_valid_model("qwen/qwen-3-coder")
+    is_valid = ModelRegistry.is_valid_model("qwen/qwen3-coder")
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class ModelRegistry:
     # DeepSeek Models - Best Value
     DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.27/$1.10, battle-tested ⭐ VERIFIED
     DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.32/$0.89, 164K context ⭐ VERIFIED
-    DEEPSEEK_V4_PRO = "deepseek/deepseek-reasoner"  # $0.55/$2.19, reasoning specialist
+    DEEPSEEK_V4_PRO = "deepseek/deepseek-r1"  # $0.55/$2.19, reasoning specialist
 
     # Anthropic Claude Models - Balanced Quality
     CLAUDE_SONNET_4_6 = (
@@ -86,7 +86,7 @@ class ModelRegistry:
     GPT_5_CODEX = "openai/gpt-5-codex"  # $1.25/$10.00, coding specialist ⭐ VERIFIED
     GPT_5_4 = "openai/gpt-5.4"  # $2.50/$15.00, unified
     GPT_5_4_MINI = "openai/gpt-5.4-mini"  # $0.25/$2.00, fast
-    GPT_5_4_CODEX = "openai/gpt-5.4-codex"  # $1.75/$14.00, coding specialist
+    GPT_5_4_CODEX = "openai/gpt-5.3-codex"  # $1.75/$14.00, coding specialist
     GPT_5_4_PRO = "openai/gpt-5.4-pro"  # $30.00/$180.00, maximum quality
     GPT_4O = "openai/gpt-4o"  # $2.50/$10.00, previous gen
     GPT_4O_MINI = "openai/gpt-4o-mini"  # $0.15/$0.60, 128K ⭐ VERIFIED
@@ -112,7 +112,7 @@ class ModelRegistry:
 
     # StepFun Models - Best Value ⭐ VERIFIED
     STEP_3_5_FLASH = "stepfun/step-3.5-flash"  # $0.10/$0.30, 262K, 196B MoE ⭐ BEST VALUE
-    STEP_3_5 = "stepfun/step-3.5"  # $0.15/$0.45
+    STEP_3_5 = "stepfun/step-3.7-flash"  # $0.15/$0.45
 
     # Z-AI GLM Models ⭐ VERIFIED
     GLM_5_1 = "z-ai/glm-5.1"  # canonical GLM model
@@ -131,20 +131,37 @@ class ModelRegistry:
     # Verified via OpenRouter URL checks 2026-04-01
     # ═══════════════════════════════════════════════════════
 
+    # Deprecated/removed OpenRouter IDs → live replacements.
+    # Keys are the DEAD ids (verified absent from /api/v1/models, 404/400 on a
+    # real call); values are live replacements matched by provider + capability
+    # + price tier. validate_model_available() redirects these so any persisted
+    # state or external reference to an old id keeps resolving.
+    # NOTE: anthropic/claude-{opus,sonnet,haiku}-N-M (hyphen) are intentionally
+    # NOT listed — OpenRouter normalizes them server-side (verified live call).
     UNAVAILABLE_MODELS = {
-        # Anthropic models - Standardize on 4.6
+        # Anthropic legacy ids (genuine 404)
         "anthropic/claude-3.5-sonnet": "anthropic/claude-sonnet-4.6",
-        # Qwen models - NOT AVAILABLE
-        "qwen/qwen-3-coder-next": "qwen/qwen3.6-flash",
-        "qwen/qwen-3.5-397b-a17b": "openai/gpt-5",
-        "qwen/qwen-3-coder": "qwen/qwen3.6-flash",
-        "qwen/qwen-3.5-235b-a22b-thinking-2507": "openai/gpt-5",
-        # NVIDIA - NOT AVAILABLE
-        "nvidia/nemotron-3-super": "minimax/minimax-m2.7",
-        # AION Labs - NOT AVAILABLE
-        "aionlabs/aion-2.0": "z-ai/glm-5.1",
-        # Google - NOT AVAILABLE
-        "google/gemini-3.5-flash": "google/gemini-3.5-flash",
+        "anthropic/claude-3-opus": "anthropic/claude-opus-4",
+        # Qwen — hyphenated/legacy ids OpenRouter no longer accepts
+        "qwen/qwen-3-coder-next": "qwen/qwen3-coder-next",
+        "qwen/qwen-3-coder": "qwen/qwen3-coder",
+        "qwen/qwen-3.5-397b-a17b": "qwen/qwen3.5-397b-a17b",
+        "qwen/qwen-3.5-235b-a22b-thinking-2507": "qwen/qwen3-235b-a22b-thinking-2507",
+        "qwen/qwen-3-max-thinking": "qwen/qwen3-max-thinking",
+        "qwen/qwen-3-697b-a17b": "qwen/qwen3.5-397b-a17b",
+        # NVIDIA — base alias replaced by the sized id
+        "nvidia/nemotron-3-super": "nvidia/nemotron-3-super-120b-a12b",
+        # AION Labs — provider no longer on OpenRouter
+        "aionlabs/aion-2.0": "qwen/qwen3.5-397b-a17b",
+        # OpenAI
+        "openai/gpt-5.4-codex": "openai/gpt-5.3-codex",
+        "openai/o4": "openai/o4-mini",
+        # DeepSeek
+        "deepseek/deepseek-reasoner": "deepseek/deepseek-r1",
+        # StepFun
+        "stepfun/step-3.5": "stepfun/step-3.7-flash",
+        # Meta — 405B not on OpenRouter
+        "meta-llama/llama-3.1-405b-instruct": "meta-llama/llama-3.3-70b-instruct",
     }
 
     # ═══════════════════════════════════════════════════════
@@ -170,7 +187,7 @@ class ModelRegistry:
         "openai/gpt-5": 120,
         "openai/o1": 180,
         "openai/o3": 180,
-        "openai/o4": 180,
+        "openai/o4-mini": 180,
     }
 
     # Per-model timeout overrides
@@ -219,7 +236,7 @@ class ModelRegistry:
         MIMO_V2_PRO: {"input": 1.00, "output": 3.00},
         # StepFun Models (VERIFIED)
         STEP_3_5_FLASH: {"input": 0.10, "output": 0.30},  # ⭐ BEST VALUE
-        STEP_3_5: {"input": 0.15, "output": 0.45},
+        STEP_3_5: {"input": 0.20, "output": 1.15},  # stepfun/step-3.7-flash
         # Z-AI GLM Models (VERIFIED)
         GLM_5_1: {"input": 0.10, "output": 0.40},  # z-ai/glm-5.1
         GLM_5_TURBO: {"input": 1.20, "output": 4.00},  # z-ai/glm-5-turbo
@@ -371,7 +388,7 @@ class ModelRegistry:
         Get timeout for a specific model.
 
         Args:
-            model_id: Full model ID (e.g., "qwen/qwen-3-coder")
+            model_id: Full model ID (e.g., "qwen/qwen3-coder")
 
         Returns:
             Timeout in seconds
