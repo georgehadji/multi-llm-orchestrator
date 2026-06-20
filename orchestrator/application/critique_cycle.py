@@ -267,6 +267,16 @@ class CritiqueCycle:
             return None
 
     def _extract_score(self, critique_text: str) -> float:
+        # Strip reasoning-model thinking first: when the reviewer is truncated
+        # mid-<think>, the chain-of-thought ("score: 0.05 ...") must not be
+        # mistaken for the verdict — the root cause of near-zero task scores.
+        critique_text = re.sub(
+            r"<think>.*?</think>", "", critique_text, flags=re.DOTALL | re.IGNORECASE
+        )
+        critique_text = re.sub(
+            r"<think>.*$", "", critique_text, flags=re.DOTALL | re.IGNORECASE
+        ).strip()
+
         try:
             json_match = re.search(r'\{[^}]*"score"[^}]*\}', critique_text, re.DOTALL)
             if json_match:
