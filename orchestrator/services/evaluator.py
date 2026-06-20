@@ -226,6 +226,13 @@ class EvaluatorService:
           4. Returns 0.5 as a safe default fallback
         """
         text = text.strip()
+
+        # Strip reasoning-model thinking so numbers inside the chain-of-thought
+        # are never mistaken for the score. Remove closed <think>...</think>
+        # blocks, then any dangling open <think> tail (truncated reasoning).
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+
         logger.debug("parse_score: input length=%d", len(text))
 
         # ── Try 1: JSON / json5 ──────────────────────────────────────────────
