@@ -99,6 +99,28 @@ jobs:
           file: ./coverage.xml
           fail_ci_if_error: false
 
+  model-audit:
+    name: OpenRouter Model Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Audit referenced model ids against live OpenRouter catalogue
+        # Keyless GET of https://openrouter.ai/api/v1/models; exits non-zero if
+        # any referenced id is dead or an UNAVAILABLE_MODELS replacement is dead.
+        # Exit 2 (network failure) is tolerated so transient flakes don't block.
+        run: |
+          set +e
+          python scripts/audit_openrouter_models.py
+          code=$?
+          if [ "$code" = "2" ]; then
+            echo "::warning::OpenRouter catalogue unreachable — audit skipped"
+            exit 0
+          fi
+          exit "$code"
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest

@@ -1,209 +1,253 @@
 #!/usr/bin/env python3
 """
-OpenRouter Model Audit Script
-=============================
-Query OpenRouter API to check model variant availability.
-Part of Phase 0: Foundation for OpenRouter Optimizations.
+OpenRouter Model Registry Audit
+===============================
+Cross-checks every ``provider/model`` string literal referenced in the
+orchestrator's model registry against the *live* OpenRouter catalogue
+(https://openrouter.ai/api/v1/models, keyless GET) and reports any id that is
+no longer available.
+
+Why this exists
+---------------
+The registry drifts from the live catalogue over time: providers rename ids,
+drop models, or bump versions. Stale ids surface at runtime as 404/400 crashes
+and "Unknown model X - allowing through" warnings. This script is the single
+audit that catches that drift, and is wired into CI.
+
+Runtime-resolvable ids
+----------------------
+A few ids are absent from the public ``/models`` snapshot yet still resolve at
+runtime because OpenRouter normalizes them server-side. The clearest case is
+Anthropic's API-style hyphenated ids (``anthropic/claude-opus-4-6`` →
+``anthropic/claude-opus-4.6``). ``normalize_for_lookup`` encodes those rules so
+the audit does not flag valid ids as dead. Verified with real cheap calls.
+
+Hexagonal note
+--------------
+This network fetch lives here in ``scripts/`` (a driving adapter), never in
+``orchestrator/models.py`` (pure data). The orchestrator core stays I/O-free.
+
+Usage
+-----
+    python scripts/audit_openrouter_models.py            # fetch live + audit
+    python scripts/audit_openrouter_models.py --snapshot snap.json   # offline
+    python scripts/audit_openrouter_models.py --save-snapshot snap.json
+    python scripts/audit_openrouter_models.py --json     # machine-readable
+
+Exit code is non-zero when any referenced id is dead — suitable for CI.
 
 Author: Georgios-Chrysovalantis Chatzivantsidis
 """
 
-import asyncio
+from __future__ import annotations
+
+import argparse
 import json
-import os
-from typing import Any
+import re
+import sys
+import urllib.request
+from pathlib import Path
 
-import aiohttp
+OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 
-# Models from current ROUTING_TABLE that we want to check
-MODELS_TO_CHECK = [
-    "openai/gpt-4o",
-    "openai/gpt-4o-mini",
-    "anthropic/claude-sonnet-4.5",
-    "anthropic/claude-opus-4.5",
-    "google/gemini-3.1-pro",
-    "google/gemini-3.1-flash",
-    "deepseek/deepseek-v3.2",
-    "deepseek/deepseek-r1",
-    "meta/llama-4-maverick",
-    "meta/llama-4-scout",
-    "x-ai/grok-4.20",
-    "qwen/qwen-2.5-coder-32b",
-    "xiaomi/mimo-v2-flash",
-    "moonshot/kimi-k2.5",
-    "stepfun/step-3.5-flash",
-    "z-ai/glm-4.7-flash",
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Files whose string literals are audited. These are the registry surfaces that
+# reference concrete OpenRouter model ids.
+DEFAULT_TARGET_FILES = [
+    REPO_ROOT / "orchestrator" / "models.py",
+    REPO_ROOT / "orchestrator" / "domain" / "model_registry.py",
+    REPO_ROOT / "orchestrator" / "phase_aware_models.py",
 ]
 
-# Variants to check availability
-VARIANTS = [":free", ":nitro", ":floor", ":thinking", ":extended", ":exacto"]
+# Matches "provider/model[:variant]" string literals.
+_ID_PATTERN = re.compile(r"""["']([a-z0-9-]+/[a-zA-Z0-9._:-]+)["']""")
 
-OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-
-
-async def fetch_models(session: aiohttp.ClientSession) -> list[dict[str, Any]]:
-    """Fetch all available models from OpenRouter API."""
-    url = f"{OPENROUTER_API_BASE}/models"
-    
-    async with session.get(url) as response:
-        if response.status == 200:
-            data = await response.json()
-            return data.get("data", [])
-        else:
-            print(f"Error fetching models: {response.status}")
-            return []
+# Anthropic API-style hyphenated ids are absent from the /models snapshot but
+# resolve at runtime via OpenRouter server-side normalization
+# (claude-opus-4-6 -> claude-opus-4.6). Verified with real calls 2026-06-20.
+_ANTHROPIC_HYPHEN = re.compile(r"^anthropic/claude-(opus|sonnet|haiku)-(\d+)-(\d+)$")
 
 
-def check_variant_availability(
-    model_id: str, 
-    available_models: list[dict[str, Any]]
-) -> dict[str, bool]:
-    """Check which variants are available for a given model."""
-    results = {}
-    
-    for variant in VARIANTS:
-        variant_id = f"{model_id}{variant}"
-        # Check if any model in the list matches this variant ID
-        is_available = any(
-            m.get("id") == variant_id or 
-            m.get("canonical_slug") == variant_id
-            for m in available_models
+def normalize_for_lookup(model_id: str) -> str:
+    """Return the canonical live id a referenced id resolves to.
+
+    Strips a trailing OpenRouter routing variant (``:nitro`` / ``:floor`` /
+    ``:exacto`` / ``:free`` …) and applies Anthropic hyphen→dot normalization.
+    """
+    base = model_id.split(":", 1)[0]
+    m = _ANTHROPIC_HYPHEN.match(base)
+    if m:
+        return f"anthropic/claude-{m.group(1)}-{m.group(2)}.{m.group(3)}"
+    return base
+
+
+def fetch_live_ids(url: str = OPENROUTER_MODELS_URL) -> set[str]:
+    """Fetch the live catalogue and return the set of available model ids."""
+    req = urllib.request.Request(url, headers={"User-Agent": "orchestrator-audit"})
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 (trusted URL)
+        data = json.loads(resp.read().decode("utf-8"))
+    return _ids_from_catalog(data)
+
+
+def _ids_from_catalog(data: dict) -> set[str]:
+    ids: set[str] = set()
+    for entry in data.get("data", []):
+        if entry.get("id"):
+            ids.add(entry["id"])
+        if entry.get("canonical_slug"):
+            ids.add(entry["canonical_slug"])
+    return ids
+
+
+def load_snapshot_ids(path: Path) -> set[str]:
+    """Load model ids from a previously saved /models snapshot file."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return _ids_from_catalog(data)
+
+
+def extract_referenced_ids(files: list[Path]) -> dict[str, set[str]]:
+    """Return {model_id: {filenames referencing it}} from the target files."""
+    refs: dict[str, set[str]] = {}
+    for f in files:
+        text = f.read_text(encoding="utf-8")
+        for match in _ID_PATTERN.finditer(text):
+            refs.setdefault(match.group(1), set()).add(f.name)
+    return refs
+
+
+def load_known_deprecated() -> dict[str, str]:
+    """Return ModelRegistry.UNAVAILABLE_MODELS (deprecated id -> replacement).
+
+    These are intentionally-documented dead ids kept as a runtime redirect map;
+    they are not registry drift. Degrades to an empty mapping if the orchestrator
+    package cannot be imported (keeps the script standalone-runnable).
+    """
+    sys.path.insert(0, str(REPO_ROOT))
+    try:
+        from orchestrator.domain.model_registry import ModelRegistry
+
+        return dict(ModelRegistry.UNAVAILABLE_MODELS)
+    except Exception:  # pragma: no cover - import environment dependent
+        return {}
+
+
+def find_dead_ids(
+    refs: dict[str, set[str]],
+    live_ids: set[str],
+    known_deprecated: dict[str, str] | None = None,
+) -> dict[str, set[str]]:
+    """Return referenced ids that are neither live nor documented-deprecated.
+
+    An id is acceptable when it is in the live catalogue, resolves there via a
+    runtime normalizer, or is a key in ``known_deprecated`` (a deliberately
+    recorded dead id with a live replacement).
+    """
+    known = known_deprecated or {}
+    dead: dict[str, set[str]] = {}
+    for model_id, sources in refs.items():
+        if model_id in live_ids:
+            continue
+        if normalize_for_lookup(model_id) in live_ids:
+            continue
+        if model_id in known:
+            continue
+        dead[model_id] = sources
+    return dead
+
+
+def find_stale_replacements(known_deprecated: dict[str, str], live_ids: set[str]) -> dict[str, str]:
+    """Return deprecated→replacement entries whose replacement is itself dead."""
+    return {
+        dead_id: repl
+        for dead_id, repl in known_deprecated.items()
+        if repl not in live_ids and normalize_for_lookup(repl) not in live_ids
+    }
+
+
+def run_audit(files: list[Path], live_ids: set[str]) -> dict[str, set[str]]:
+    refs = extract_referenced_ids(files)
+    return find_dead_ids(refs, live_ids, load_known_deprecated())
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--snapshot",
+        type=Path,
+        help="Audit against a saved /models snapshot instead of fetching live.",
+    )
+    parser.add_argument(
+        "--save-snapshot",
+        type=Path,
+        help="Fetch live catalogue and write it to this path (then audit).",
+    )
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
+    args = parser.parse_args(argv)
+
+    if args.snapshot:
+        live_ids = load_snapshot_ids(args.snapshot)
+        source = f"snapshot {args.snapshot}"
+    else:
+        try:
+            req = urllib.request.Request(
+                OPENROUTER_MODELS_URL, headers={"User-Agent": "orchestrator-audit"}
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+                raw = resp.read().decode("utf-8")
+        except Exception as exc:  # network failure should not crash CI ambiguously
+            print(f"ERROR: could not fetch OpenRouter catalogue: {exc}", file=sys.stderr)
+            return 2
+        if args.save_snapshot:
+            args.save_snapshot.write_text(raw, encoding="utf-8")
+        live_ids = _ids_from_catalog(json.loads(raw))
+        source = "live OpenRouter catalogue"
+
+    known_deprecated = load_known_deprecated()
+    refs = extract_referenced_ids(DEFAULT_TARGET_FILES)
+    dead = find_dead_ids(refs, live_ids, known_deprecated)
+    stale_replacements = find_stale_replacements(known_deprecated, live_ids)
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "source": source,
+                    "live_model_count": len(live_ids),
+                    "referenced_id_count": len(refs),
+                    "known_deprecated_count": len(known_deprecated),
+                    "dead": {k: sorted(v) for k, v in sorted(dead.items())},
+                    "stale_replacements": dict(sorted(stale_replacements.items())),
+                },
+                indent=2,
+            )
         )
-        results[variant] = is_available
-    
-    return results
+    else:
+        print(
+            f"Audited {len(refs)} referenced ids against {source} "
+            f"({len(live_ids)} live ids; {len(known_deprecated)} documented "
+            f"deprecated)."
+        )
+        if not dead and not stale_replacements:
+            print("OK: every referenced model id is live or a documented redirect.")
+        if dead:
+            print(f"\nFOUND {len(dead)} DEAD model id(s):\n")
+            for model_id in sorted(dead):
+                print(f"  {model_id}  <- {', '.join(sorted(dead[model_id]))}")
+            print(
+                "\nRemap each dead id to a live replacement (add it to "
+                "ModelRegistry.UNAVAILABLE_MODELS) and re-run."
+            )
+        if stale_replacements:
+            print(
+                f"\nFOUND {len(stale_replacements)} UNAVAILABLE_MODELS entry(ies) "
+                "whose replacement is itself dead:\n"
+            )
+            for dead_id, repl in sorted(stale_replacements.items()):
+                print(f"  {dead_id} -> {repl}  (replacement not live)")
 
-
-def get_model_info(model_id: str, available_models: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Get detailed info for a specific model."""
-    for model in available_models:
-        if model.get("id") == model_id or model.get("canonical_slug") == model_id:
-            return {
-                "id": model.get("id"),
-                "name": model.get("name"),
-                "context_length": model.get("context_length"),
-                "pricing": model.get("pricing"),
-                "supported_parameters": model.get("supported_parameters", []),
-            }
-    return None
-
-
-async def main():
-    """Main audit function."""
-    print("=" * 70)
-    print("OpenRouter Model Variant Availability Audit")
-    print("=" * 70)
-    print()
-    
-    async with aiohttp.ClientSession() as session:
-        print("Fetching available models from OpenRouter...")
-        available_models = await fetch_models(session)
-        print(f"Found {len(available_models)} models\n")
-        
-        # Build lookup sets for quick checking
-        available_ids = {m.get("id") for m in available_models}
-        available_slugs = {m.get("canonical_slug") for m in available_models if m.get("canonical_slug")}
-        
-        results = {
-            "audit_date": "2026-04-05",
-            "total_available_models": len(available_models),
-            "models_checked": {},
-            "variant_summary": {v: {"available": 0, "unavailable": 0} for v in VARIANTS}
-        }
-        
-        print("Checking model availability and variants...")
-        print("-" * 70)
-        
-        for model_id in MODELS_TO_CHECK:
-            # Check base model availability
-            base_available = model_id in available_ids or model_id in available_slugs
-            
-            if not base_available:
-                print(f"\n⚠️  {model_id}: NOT FOUND in OpenRouter")
-                results["models_checked"][model_id] = {
-                    "available": False,
-                    "variants": {}
-                }
-                continue
-            
-            # Get model info
-            info = get_model_info(model_id, available_models)
-            
-            # Check variant availability
-            variant_status = check_variant_availability(model_id, available_models)
-            
-            # Update summary
-            for variant, available in variant_status.items():
-                if available:
-                    results["variant_summary"][variant]["available"] += 1
-                else:
-                    results["variant_summary"][variant]["unavailable"] += 1
-            
-            results["models_checked"][model_id] = {
-                "available": True,
-                "info": info,
-                "variants": variant_status
-            }
-            
-            # Print summary
-            print(f"\n✅ {model_id}")
-            if info:
-                print(f"   Context: {info.get('context_length', 'N/A')} tokens")
-                pricing = info.get('pricing', {})
-                prompt_price = pricing.get('prompt', 'N/A')
-                completion_price = pricing.get('completion', 'N/A')
-                print(f"   Pricing: ${prompt_price}/1M prompt, ${completion_price}/1M completion")
-            
-            # Print variant status
-            available_variants = [v for v, avail in variant_status.items() if avail]
-            unavailable_variants = [v for v, avail in variant_status.items() if not avail]
-            
-            if available_variants:
-                print(f"   Available variants: {', '.join(available_variants)}")
-            if unavailable_variants:
-                print(f"   ❌ Missing variants: {', '.join(unavailable_variants)}")
-        
-        print("\n" + "=" * 70)
-        print("SUMMARY")
-        print("=" * 70)
-        
-        total_checked = len(MODELS_TO_CHECK)
-        available_count = sum(1 for m in results["models_checked"].values() if m["available"])
-        
-        print(f"\nBase Models: {available_count}/{total_checked} available")
-        print("\nVariant Availability Summary:")
-        print(f"{'Variant':<15} {'Available':<12} {'%':<8}")
-        print("-" * 35)
-        
-        for variant, counts in results["variant_summary"].items():
-            total = counts["available"] + counts["unavailable"]
-            pct = (counts["available"] / total * 100) if total > 0 else 0
-            print(f"{variant:<15} {counts['available']}/{total:<8} {pct:.1f}%")
-        
-        # Save results to JSON
-        output_file = "openrouter_model_audit.json"
-        with open(output_file, "w") as f:
-            json.dump(results, f, indent=2)
-        
-        print(f"\n✅ Detailed results saved to: {output_file}")
-        
-        # Recommendations
-        print("\n" + "=" * 70)
-        print("RECOMMENDATIONS")
-        print("=" * 70)
-        
-        for variant in VARIANTS:
-            available = results["variant_summary"][variant]["available"]
-            total = available + results["variant_summary"][variant]["unavailable"]
-            pct = (available / total * 100) if total > 0 else 0
-            
-            if pct >= 80:
-                print(f"✅ {variant}: High availability ({pct:.0f}%) - Safe to implement")
-            elif pct >= 50:
-                print(f"⚠️  {variant}: Medium availability ({pct:.0f}%) - Implement with fallback")
-            else:
-                print(f"❌ {variant}: Low availability ({pct:.0f}%) - Not recommended yet")
+    return 1 if (dead or stale_replacements) else 0
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(main())

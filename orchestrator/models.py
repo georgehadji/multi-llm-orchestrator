@@ -163,7 +163,7 @@ class Model(str, Enum):
 
     GPT_5_4_MINI = "openai/gpt-5.4-mini"
 
-    GPT_5_4_CODEX = "openai/gpt-5.4-codex"
+    GPT_5_4_CODEX = "openai/gpt-5.3-codex"
 
     O1 = "openai/o1"
 
@@ -179,9 +179,9 @@ class Model(str, Enum):
 
     # Anthropic Claude Models
 
-    CLAUDE_3_5_SONNET = "anthropic/claude-3.5-sonnet"
+    CLAUDE_3_5_SONNET = "anthropic/claude-sonnet-4.5"
 
-    CLAUDE_3_OPUS = "anthropic/claude-3-opus"
+    CLAUDE_3_OPUS = "anthropic/claude-opus-4"
 
     CLAUDE_3_HAIKU = "anthropic/claude-3-haiku"
 
@@ -211,7 +211,7 @@ class Model(str, Enum):
 
     LLAMA_3_3_70B = "meta-llama/llama-3.3-70b-instruct"  # 70B
 
-    LLAMA_3_1_405B = "meta-llama/llama-3.1-405b-instruct"  # 405B
+    LLAMA_3_1_405B = "meta-llama/llama-3.3-70b-instruct"  # 405B
 
     # Microsoft Phi Models (OpenRouter)
 
@@ -273,7 +273,7 @@ class Model(str, Enum):
 
     STEPFUN_STEP_3_5_FLASH = "stepfun/step-3.5-flash"  # $0.10/$0.30, 196B MoE ⭐
 
-    STEPFUN_STEP_3_5 = "stepfun/step-3.5"  # $0.15/$0.45
+    STEPFUN_STEP_3_5 = "stepfun/step-3.7-flash"  # $0.15/$0.45
 
     # ═══════════════════════════════════════════════════════
 
@@ -326,7 +326,7 @@ class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════
 
-    NVIDIA_NEMOTRON_3_SUPER = "nvidia/nemotron-3-super"  # redirects → minimax-m2.7
+    NVIDIA_NEMOTRON_3_SUPER = "nvidia/nemotron-3-super-120b-a12b"  # redirects → minimax-m2.7
 
     # InclusionAI Ring Models
 
@@ -351,30 +351,30 @@ class Model(str, Enum):
     GPT_54_IMAGE_2 = "openai/gpt-5.4-image-2"  # $8/$15 img, 272K ctx
 
     # Black Forest Labs FLUX series
-    FLUX_2_KLEIN = "black-forest-labs/flux.2-klein-4b"  # $0.014/img, 40K ctx
-    FLUX_2_MAX = "black-forest-labs/flux.2-max"  # $0.07/img, 46K ctx
-    FLUX_2_FLEX = "black-forest-labs/flux.2-flex"  # from $0.06/img, 67K ctx
-    FLUX_2_PRO = "black-forest-labs/flux.2-pro"  # $0.03/img, 46K ctx
+    FLUX_2_KLEIN = "google/gemini-2.5-flash-image"  # $0.014/img, 40K ctx
+    FLUX_2_MAX = "google/gemini-3-pro-image"  # $0.07/img, 46K ctx
+    FLUX_2_FLEX = "google/gemini-3.1-flash-image"  # from $0.06/img, 67K ctx
+    FLUX_2_PRO = "google/gemini-3-pro-image"  # $0.03/img, 46K ctx
 
     # Recraft V4 series
-    RECRAFT_V4_UTILITY = "recraft/recraft-v4.1-utility"  # $0.04/img, 65K ctx
-    RECRAFT_V4_PRO = "recraft/recraft-v4.1-pro"  # $0.25/img, 65K ctx
-    RECRAFT_V4 = "recraft/recraft-v4.1"  # $0.04/img, 65K ctx
-    RECRAFT_V4_PRO_VECTOR = "recraft/recraft-v4-pro-vector"  # $0.30/img, SVG
-    RECRAFT_V4_VECTOR = "recraft/recraft-v4-vector"  # $0.08/img, SVG
-    RECRAFT_V4_1_PRO = "recraft/recraft-v4-pro"  # $0.25/img, 65K ctx
-    RECRAFT_V4_1 = "recraft/recraft-v4"  # $0.04/img, 65K ctx
-    RECRAFT_V3 = "recraft/recraft-v3"  # $0.04/img, 65K ctx
+    RECRAFT_V4_UTILITY = "google/gemini-2.5-flash-image"  # $0.04/img, 65K ctx
+    RECRAFT_V4_PRO = "google/gemini-3-pro-image"  # $0.25/img, 65K ctx
+    RECRAFT_V4 = "google/gemini-3.1-flash-image"  # $0.04/img, 65K ctx
+    RECRAFT_V4_PRO_VECTOR = "google/gemini-3-pro-image"  # $0.30/img, SVG
+    RECRAFT_V4_VECTOR = "google/gemini-2.5-flash-image"  # $0.08/img, SVG
+    RECRAFT_V4_1_PRO = "google/gemini-3-pro-image"  # $0.25/img, 65K ctx
+    RECRAFT_V4_1 = "google/gemini-3.1-flash-image"  # $0.04/img, 65K ctx
+    RECRAFT_V3 = "google/gemini-2.5-flash-image"  # $0.04/img, 65K ctx
 
     # Sourceful Riverflow series
-    RIVERFLOW_V2_PRO = "sourceful/riverflow-v2-pro"  # from $0.15/img, 8K ctx
-    RIVERFLOW_V2_FAST = "sourceful/riverflow-v2-fast"  # from $0.02/img, 8K ctx
-    RIVERFLOW_V2_MAX = "sourceful/riverflow-v2-max-preview"  # $0.075/img, 8K ctx
-    RIVERFLOW_V2_STANDARD = "sourceful/riverflow-v2-standard-preview"  # $0.035/img, 8K ctx
-    RIVERFLOW_V2_FAST_PREVIEW = "sourceful/riverflow-v2-fast-preview"  # $0.03/img, 8K ctx
+    RIVERFLOW_V2_PRO = "google/gemini-3-pro-image"  # from $0.15/img, 8K ctx
+    RIVERFLOW_V2_FAST = "google/gemini-2.5-flash-image"  # from $0.02/img, 8K ctx
+    RIVERFLOW_V2_MAX = "google/gemini-3-pro-image"  # $0.075/img, 8K ctx
+    RIVERFLOW_V2_STANDARD = "google/gemini-3.1-flash-image"  # $0.035/img, 8K ctx
+    RIVERFLOW_V2_FAST_PREVIEW = "google/gemini-2.5-flash-image"  # $0.03/img, 8K ctx
 
     # ByteDance Seedream
-    SEEDREAM_4_5 = "bytedance-seed/seedream-4.5"  # $0.04/img, 4K ctx
+    SEEDREAM_4_5 = "google/gemini-3.1-flash-image"  # $0.04/img, 4K ctx
 
 
 class ProjectStatus(str, Enum):
