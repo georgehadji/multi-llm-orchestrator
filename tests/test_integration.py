@@ -26,10 +26,12 @@ class TestBudgetTaskWorkflow:
     """Integration: Budget tracks costs across a task execution."""
 
     @pytest.mark.asyncio
-    async def test_complete_workflow(self):
+    async def test_complete_workflow(self, tmp_path):
         """Full workflow: reserve -> charge -> complete."""
         budget = Budget(max_usd=5.0)
-        tracker = CostTracker()
+        # Isolated storage dir: CostTracker persists to ~/.orchestrator_cache and
+        # would otherwise load cost accumulated by prior tests/runs.
+        tracker = CostTracker(storage_dir=str(tmp_path))
 
         # Reserve budget
         reserved = await budget.reserve(2.0)

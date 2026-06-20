@@ -17,7 +17,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..model_registry import ModelRegistry
 from ..models import AttemptRecord, TaskType
@@ -113,7 +113,7 @@ class CritiqueCycle:
             # Run deterministic language-server diagnostics between generation
             # and critique. Diagnostics are injected as inline code comments AND
             # as a structured summary in the critique prompt.
-            lsp_diagnostics: list = []
+            lsp_diagnostics: list[Any] = []
             lsp_summary: str = ""
             if self._lsp_validator is not None and task.type == TaskType.CODE_GEN:
                 try:
@@ -247,7 +247,7 @@ class CritiqueCycle:
         redesign_rubric: object | None = None,
     ) -> APIResponse | None:  # type: ignore[name-defined]
         if redesign_rubric is not None:
-            critique_prompt = redesign_rubric.build_score(  # type: ignore[union-attr]
+            critique_prompt = redesign_rubric.build_score(  # type: ignore[attr-defined]
                 original_prompt, generated_output, task_type.value
             )
         else:
@@ -339,7 +339,7 @@ class CritiqueCycle:
     def _detect_language(self, task: Task) -> str:
         """Detect programming language from task metadata or output pattern."""
         if hasattr(task, "language") and task.language:
-            return task.language
+            return str(task.language)
         if hasattr(task, "target_path") and task.target_path:
             ext = Path(task.target_path).suffix.lower()
             ext_map = {
