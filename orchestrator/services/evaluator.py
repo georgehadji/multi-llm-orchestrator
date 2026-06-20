@@ -111,6 +111,18 @@ class EvaluatorService:
             f'"suggestion": "<optional>"}}]}}'
         )
 
+        # A reasoning evaluator burns its budget on <think>; 300 tokens never
+        # reaches the verdict, leaving the score un-parseable. Give reasoning
+        # models room for thinking plus the JSON verdict, with a longer timeout.
+        # (Interim until reasoning.exclude lands in the reasoning-model task.)
+        from ..model_registry import ModelRegistry
+
+        _eval_is_reasoning = ModelRegistry.is_reasoning_model(
+            eval_model.value if hasattr(eval_model, "value") else str(eval_model)
+        )
+        _eval_max_tokens = 2000 if _eval_is_reasoning else 400
+        _eval_timeout = 240 if _eval_is_reasoning else 60
+
         scores: list[float] = []
         total_cost = 0.0
         for run in range(self._consistency_runs):
@@ -122,9 +134,9 @@ class EvaluatorService:
                     eval_model,
                     eval_prompt,
                     system="You are a precise evaluator. Score exactly, return only JSON.",
-                    max_tokens=300,
+                    max_tokens=_eval_max_tokens,
                     temperature=0.1,
-                    timeout=60,
+                    timeout=_eval_timeout,
                     policy=policy,
                 )
                 parsed = self.parse_score(response.text)
