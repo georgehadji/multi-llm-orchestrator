@@ -145,12 +145,9 @@ class TestAgentCoordination:
         from orchestrator.agents.base import AgentTask
 
         mock_client = MagicMock()
-        mock_client.call = AsyncMock(
-            return_value=(
-                MagicMock(text="def valid_code(): pass\n"),
-                {"tokens": 10, "cost": 0.01},
-            )
-        )
+        # client.call() returns a single APIResponse-like object (with .text),
+        # not a tuple — match the real UnifiedClient.call contract.
+        mock_client.call = AsyncMock(return_value=MagicMock(text="def valid_code(): pass\n"))
 
         agent = DeveloperAgent(client=mock_client)
         result = await agent.handle_task(AgentTask(id="t1", goal="Write function"))
