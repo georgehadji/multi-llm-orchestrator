@@ -646,7 +646,7 @@ class UnifiedClient:
 
         # Feature: JSON Schema structured output
         if response_schema and task_type and OPENROUTER_OPTS.USE_JSON_SCHEMA_RESPONSES:
-            schema = generate_openrouter_schema(task_type.value)
+            schema = generate_openrouter_schema(task_type)
             if schema:
                 request_params["response_format"] = schema
                 logger.debug(f"Using JSON schema for {task_type.value}")
