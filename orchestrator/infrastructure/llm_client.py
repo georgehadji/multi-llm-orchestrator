@@ -40,6 +40,35 @@ if TYPE_CHECKING:
 logger = logging.getLogger("orchestrator.api")
 
 
+# OpenRouter variant suffixes fall into two categories:
+#   - Endpoint variants (:free/:thinking/:extended) resolve to a *different*
+#     model endpoint and must reach OpenRouter intact on the model slug.
+#   - Sorting aliases (:nitro/:floor) are shortcuts for provider.sort and are
+#     translated to a provider.sort value (the only valid values are
+#     "price"/"throughput"/"latency").
+#   - :exacto is a virtual variant with NO provider.sort equivalent; OpenRouter
+#     resolves it from the slug suffix, so it is left in place.
+_SORT_ALIASES = {":nitro": "throughput", ":floor": "price"}
+
+
+def _resolve_provider_variant(model_id: str) -> tuple[str, str | None, bool]:
+    """Resolve OpenRouter sorting-alias suffixes on a model slug.
+
+    Returns ``(model_id, sort_override, exacto_requested)``:
+      - ``:nitro``/``:floor`` are stripped from the slug and mapped to a
+        ``provider.sort`` value ("throughput"/"price").
+      - ``:exacto`` is kept on the slug (OpenRouter resolves it natively) and
+        flagged so the caller does not override it with a task-strategy sort.
+      - Endpoint variants and plain slugs are returned unchanged.
+    """
+    for suffix, sort in _SORT_ALIASES.items():
+        if model_id.endswith(suffix):
+            return model_id[: -len(suffix)], sort, False
+    if model_id.endswith(":exacto"):
+        return model_id, None, True
+    return model_id, None, False
+
+
 def _maybe_add_response_healing(request_params: dict, opts) -> None:
     """Add the OpenRouter ``response-healing`` plugin to a request when enabled.
 
@@ -608,28 +637,11 @@ class UnifiedClient:
         # Get string model ID
         model_id = model.value if isinstance(model, Model) else model
 
-        # Validate and sanitize variant suffixes
-        # NOTE: As of 2026-04-05, only :free, :thinking, :extended are supported
-        SUPPORTED_VARIANTS = [":free", ":thinking", ":extended"]
-        has_unsupported_variant = any(model_id.endswith(v) for v in [":nitro", ":floor", ":exacto"])
-        if has_unsupported_variant:
-            # Strip unsupported variant and log warning (rate-limited)
-            base_model = model_id.split(":")[0]
-
-            # Initialize warning cache if needed (with corruption guard)
-            if not hasattr(self, "_variant_warning_cache") or not isinstance(
-                getattr(self, "_variant_warning_cache"), set
-            ):
-                self._variant_warning_cache = set()
-
-            # Only warn once per unique variant model ID
-            if model_id not in self._variant_warning_cache:
-                self._variant_warning_cache.add(model_id)
-                logger.warning(
-                    f"Model variant '{model_id}' not supported by OpenRouter yet, "
-                    f"using base model '{base_model}'. Supported: {SUPPORTED_VARIANTS}"
-                )
-            model_id = base_model
+        # Resolve sorting-alias suffixes. Endpoint variants (:free/:thinking/
+        # :extended) stay on the slug; :nitro/:floor become a provider.sort
+        # value; :exacto is kept on the slug and flagged so a task-strategy sort
+        # does not override the caller's explicit choice.
+        model_id, alias_sort, exacto_requested = _resolve_provider_variant(model_id)
 
         # Build request parameters
         messages = []
@@ -659,22 +671,26 @@ class UnifiedClient:
             request_params["models"] = fallback_models
             logger.debug(f"Using native fallbacks: {fallback_models}")
 
-        # Feature: Provider sorting strategy
-        if task_type and OPENROUTER_OPTS.USE_PROVIDER_SORTING:
+        # Feature: Provider sorting strategy.
+        # Precedence: an explicit :nitro/:floor suffix wins over the per-task
+        # strategy. When :exacto is requested we skip the strategy sort entirely
+        # so OpenRouter's exacto provider ranking (carried on the slug) applies.
+        provider_cfg: dict[str, Any] = {}
+        if task_type and OPENROUTER_OPTS.USE_PROVIDER_SORTING and not exacto_requested:
             strategy = TASK_PROVIDER_STRATEGIES.get(task_type)
             if strategy:
-                request_params["provider"] = {
-                    "sort": strategy.sort,
-                }
+                provider_cfg["sort"] = strategy.sort
                 if strategy.preferred_min_throughput:
-                    request_params["provider"][
-                        "preferred_min_throughput"
-                    ] = strategy.preferred_min_throughput
+                    provider_cfg["preferred_min_throughput"] = strategy.preferred_min_throughput
                 if strategy.preferred_max_latency:
-                    request_params["provider"][
-                        "preferred_max_latency"
-                    ] = strategy.preferred_max_latency
-                logger.debug(f"Using provider strategy: {strategy.sort}")
+                    provider_cfg["preferred_max_latency"] = strategy.preferred_max_latency
+
+        if alias_sort:  # explicit :nitro/:floor overrides the task strategy
+            provider_cfg["sort"] = alias_sort
+
+        if provider_cfg:
+            request_params["provider"] = provider_cfg
+            logger.debug(f"Using provider sort: {provider_cfg.get('sort')}")
 
         # Check for reasoning models (strip variant suffix for check)
         base_model_id = model_id.split(":")[0]
