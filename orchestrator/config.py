@@ -173,6 +173,10 @@ class OpenRouterOptimizations:
     USE_PROVIDER_SORTING: bool = False
     USE_STREAMING: bool = False
     USE_EMBEDDING_CACHE: bool = False
+    # OpenRouter "response-healing" plugin: server-side repair of malformed JSON
+    # (missing brackets, trailing commas, markdown fences) for non-streaming
+    # structured-output requests. Does NOT fix max_tokens truncation.
+    USE_RESPONSE_HEALING: bool = False
 
     @classmethod
     def from_env(cls):
@@ -184,6 +188,7 @@ class OpenRouterOptimizations:
             USE_PROVIDER_SORTING=os.getenv("USE_PROVIDER_SORTING", "false").lower() == "true",
             USE_STREAMING=os.getenv("USE_STREAMING", "false").lower() == "true",
             USE_EMBEDDING_CACHE=os.getenv("USE_EMBEDDING_CACHE", "false").lower() == "true",
+            USE_RESPONSE_HEALING=os.getenv("USE_RESPONSE_HEALING", "false").lower() == "true",
         )
 
 
