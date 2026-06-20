@@ -47,15 +47,21 @@ def _maybe_add_response_healing(request_params: dict, opts) -> None:
     ``response_format``). The plugin repairs malformed JSON server-side
     (brackets, trailing commas, markdown fences); it cannot fix ``max_tokens``
     truncation. Idempotent and safe when ``opts`` is None.
+
+    ``plugins`` is an OpenRouter-specific field, not a parameter of the OpenAI
+    SDK's ``chat.completions.create()`` — so it is routed through ``extra_body``
+    (which the SDK merges into the JSON request body) rather than set as a
+    top-level kwarg, which would raise ``TypeError``.
     """
     if opts is None or not getattr(opts, "USE_RESPONSE_HEALING", False):
         return
     if "response_format" not in request_params or request_params.get("stream"):
         return
-    plugins = request_params.setdefault("plugins", [])
+    extra_body = request_params.setdefault("extra_body", {})
+    plugins = extra_body.setdefault("plugins", [])
     if not any(isinstance(p, dict) and p.get("id") == "response-healing" for p in plugins):
         plugins.append({"id": "response-healing"})
-        logger.debug("Response-healing plugin enabled")
+        logger.debug("Response-healing plugin enabled (via extra_body)")
 
 
 # FIX #9: Rate-limit error patterns across providers
