@@ -166,3 +166,27 @@ async def test_cors_headers_absent_for_disallowed_origin():
         assert allowed != "https://evil.example.com"
     finally:
         await client.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("post", "/supervisor/directive"),
+        ("get", "/supervisor/sessions"),
+        ("get", "/supervisor/sessions/abc"),
+        ("get", "/supervisor/sessions/abc/lessons"),
+    ],
+)
+async def test_supervisor_endpoints_require_auth(method, path):
+    """All supervisor endpoints (including read endpoints) must enforce auth."""
+    from unittest.mock import MagicMock
+
+    server = APIServer(port=0, auth_required=True, rate_limit=1000, supervisor=MagicMock())
+    client = TestClient(TestServer(server.app))
+    await client.start_server()
+    try:
+        resp = await getattr(client, method)(path)
+        assert resp.status == 401
+    finally:
+        await client.close()
