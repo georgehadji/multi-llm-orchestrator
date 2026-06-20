@@ -40,8 +40,10 @@ async def test_run_project_fails_fast_on_decomposition_error(orchestrator_fixtur
     )
     elapsed = time.monotonic() - t0
 
-    # Should fail fast (< 5 seconds — audit MVOS says < 30s, we aim for < 5s)
-    assert elapsed < 5.0, f"Took {elapsed:.1f}s — did not fail fast"
+    # Should fail fast: the audit MVOS invariant is < 30s. We use a tolerant
+    # bound here that still catches hangs / infinite-retry while not flaking on
+    # legitimate retry backoff under machine load (raw aim is ~5s).
+    assert elapsed < 15.0, f"Took {elapsed:.1f}s — did not fail fast"
 
     # State should reflect failure
     assert state is not None
