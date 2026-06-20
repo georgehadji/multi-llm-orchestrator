@@ -199,6 +199,8 @@ def cmd_build(args) -> None:
     output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
 
     builder = AppBuilder()
+    _budget = getattr(args, "budget", None)
+    _time = getattr(args, "time", None)
     result = asyncio.run(
         builder.build(
             description=args.description,
@@ -206,6 +208,10 @@ def cmd_build(args) -> None:
             output_dir=Path(output_dir),
             app_type_override=args.app_type or None,
             docker=args.docker,
+            # Propagate CLI --budget/--time so the build respects the user's cap.
+            budget=Budget(max_usd=_budget, max_time_seconds=_time if _time is not None else 5400.0)
+            if _budget is not None
+            else None,
         )
     )
 
@@ -1029,6 +1035,9 @@ async def _async_new_project(args):
             description=description,
             criteria=criteria,
             output_dir=Path(output_dir),
+            # Propagate the CLI --budget/--time; without this the build silently
+            # used AppBuilder's default $8.00 despite the printed budget above.
+            budget=Budget(max_usd=args.budget, max_time_seconds=args.time),
         )
         if result.success:
             print(f"Build successful: {result.output_dir}")
