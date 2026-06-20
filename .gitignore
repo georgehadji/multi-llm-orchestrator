@@ -137,3 +137,9 @@ scripts/
 docs/
 tests/
 .reasonix/
+
+# graphify: generated graph artifacts (large; regenerate with /graphify)
+graphify-out/graph.json
+graphify-out/graph.html
+graphify-out/manifest.json
+orchestrator/graphify-out/
