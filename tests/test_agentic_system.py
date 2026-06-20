@@ -64,7 +64,9 @@ class TestDeveloperAgent:
         from orchestrator.agents.base import AgentTask
 
         mock_client = MagicMock()
-        mock_client.call = AsyncMock(return_value=(MagicMock(text="def hello(): pass"), {}))
+        # client.call() returns a single APIResponse-like object (with .text),
+        # not a tuple — match the real UnifiedClient.call contract.
+        mock_client.call = AsyncMock(return_value=MagicMock(text="def hello(): pass"))
 
         agent = DeveloperAgent(client=mock_client)
         result = await agent.handle_task(AgentTask(id="t1", goal="Write hello"))

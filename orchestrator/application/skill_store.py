@@ -220,7 +220,7 @@ class SkillStore:
                 cost_usd=row["cost_usd"],
                 recorded_at=row["recorded_at"],
             )
-            for row in reversed(rows)  # type: ignore[call-overload]
+            for row in reversed(rows)
         ]
 
     # ------------------------------------------------------------------

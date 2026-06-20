@@ -15,6 +15,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from ..api_clients import UnifiedClient
@@ -113,12 +114,12 @@ class DecomposerService:
         self._lock = asyncio.Lock()
 
     @property
-    def decompose_fn(self):
+    def decompose_fn(self) -> Any:
         """Late-bound decompose_fn — allows container.wire_executor() to set."""
         return self._decompose_fn
 
     @decompose_fn.setter
-    def decompose_fn(self, fn):
+    def decompose_fn(self, fn: Any) -> None:
         self._decompose_fn = fn
 
     async def decompose(
@@ -126,7 +127,7 @@ class DecomposerService:
         project: str,
         criteria: str,
         policy: _ResiliencePolicy | None = None,
-        project_context: "ProjectContext | None" = None,  # type: ignore[name-defined]
+        project_context: "ProjectContext | None" = None,
         **kwargs: Any,
     ) -> DecomposerResult:
         """Decompose project into an ordered task dict. Never raises."""
@@ -214,7 +215,7 @@ _VS_SAMPLER_DECOMP = None
 _VS_DECOMP_LOCK = __import__("threading").Lock()
 
 
-def _get_vs_decomp_sampler(client):
+def _get_vs_decomp_sampler(client: Any) -> Any:
     global _VS_SAMPLER_DECOMP
     if _VS_SAMPLER_DECOMP is None:
         with _VS_DECOMP_LOCK:
@@ -456,7 +457,7 @@ Each task JSON element MUST also include:
             "Try simplifying the project description or using a different model."
         )
 
-    def _try_parse_partial_json_array(self, text: str) -> list | None:
+    def _try_parse_partial_json_array(self, text: str) -> list[Any] | None:
         """Attempt to parse a potentially truncated JSON array.
 
         When LLM responses get cut off mid-stream, we may have valid JSON objects
@@ -510,7 +511,9 @@ Each task JSON element MUST also include:
 
         return None
 
-    def _repair_partial_tasks(self, partial_objects: list[dict]) -> dict[str, Task] | None:
+    def _repair_partial_tasks(
+        self, partial_objects: list[dict[str, Any]]
+    ) -> dict[str, Task] | None:
         """Convert partially recovered JSON objects into Tasks.
 
         Args:
@@ -671,8 +674,8 @@ Each task JSON element MUST also include:
     def _get_decomposition_models(
         self,
         project_description: str,
-        api_health: list = None,
-    ) -> list:
+        api_health: dict[Model, bool] | None = None,
+    ) -> list[Any]:
         """Get prioritized list of models for decomposition."""
         from ..models import FALLBACK_CHAIN, Model as _M
 

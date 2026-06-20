@@ -34,9 +34,9 @@ except ImportError:
     HAS_CACHE_OPTIMIZER = False
     CacheOptimizer = None
     CacheConfig = None
-from .policy import JobSpec, ModelProfile, Policy, PolicySet
-from .policy_engine import PolicyEngine
-from .state import StateManager
+from ..policy import JobSpec, ModelProfile, Policy, PolicySet
+from ..policy_engine import PolicyEngine
+from ..state import StateManager
 
 # Test validation for reliable test generation
 try:
@@ -260,7 +260,7 @@ except ImportError:
     SmartContextTruncator = None
 
 # Phase 5: Cross-phase context accumulator
-from .project_context import ProjectContext
+from ..project_context import ProjectContext
 
 # Phase 6: Test infrastructure — automatically repair failing tests
 try:
