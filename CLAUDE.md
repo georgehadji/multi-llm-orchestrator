@@ -45,10 +45,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **Important naming distinction:** `api_clients.py::UnifiedClient` is the LLM provider adapter (normalizes OpenAI/Google/Anthropic/DeepSeek SDKs into a single `call_model()` interface). `gateway.py` is the HTTP API gateway for routing external requests — these are separate concerns.
 
-### Three Unbreakable Rules
+### Four Unbreakable Rules
 1. **`engine.py` = Mediator** — New business logic goes into a new service module, **not** into `engine.py`. The engine only wires services together.
 2. **`models.py` = Pure data** — No I/O, no asyncio, no behavior. Only dataclasses and enums.
 3. **TDD without exceptions** — First failing test (RED), then implementation (GREEN), then commit.
+4. **No new root-level modules** — All new code must live in existing subpackages (`orchestrator/domain/`, `application/`, `engine_core/`, `infrastructure/`, `commands/`, `generators/`, etc.). Do NOT add new `orchestrator/*.py` files at depth 1.
 
 ---
 

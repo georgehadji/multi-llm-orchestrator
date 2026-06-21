@@ -1046,9 +1046,9 @@ def main():
     from importlib import import_module
 
     subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
-    from .commands import COMMAND_MODULES
+    from .commands import discover_command_modules
 
-    for cmd_mod in COMMAND_MODULES:
+    for cmd_mod in discover_command_modules():
         try:
             mod = import_module(f".commands.{cmd_mod}", __package__)
             mod.register(subparsers)
