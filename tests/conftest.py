@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from orchestrator.application.model_profile_builder import build_default_profiles
 from orchestrator.models import (
     Budget,
     Model,
@@ -22,7 +23,6 @@ from orchestrator.models import (
     TaskType,
     TaskStatus,
     TaskResult,
-    build_default_profiles,
 )
 from orchestrator.circuit_breaker import CircuitBreaker, CircuitState
 
