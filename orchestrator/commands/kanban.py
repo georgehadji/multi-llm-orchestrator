@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-def cmd_kanban(args) -> None:
+def execute(args) -> None:
     """Handle the 'kanban' subcommand: manage the work queue."""
     import asyncio
     from .kanban.board import KanbanBoard

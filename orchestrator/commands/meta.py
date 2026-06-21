@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-def cmd_meta(args) -> None:
+def execute(args) -> None:
     """Handle meta-optimization subcommands."""
     # Initialize a minimal orchestrator to access meta_v2
     from .engine import Orchestrator

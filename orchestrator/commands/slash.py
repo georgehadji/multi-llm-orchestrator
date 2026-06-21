@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-def cmd_slash(args) -> None:
+def execute(args) -> None:
     """Handle the 'slash' subcommand."""
     import asyncio
     from pathlib import Path

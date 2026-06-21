@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-def cmd_dashboard(args) -> None:
+def execute(args) -> None:
     """Handle the 'dashboard' subcommand: render persistent cross-run learning."""
     from .metrics import render_dashboard
     from .telemetry_store import TelemetryStore
