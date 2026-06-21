@@ -57,10 +57,11 @@ from .models import (
     TaskResult,
     TaskStatus,
     TaskType,
-    build_default_profiles,
     estimate_cost,
     get_provider,
 )
+from .application.model_profile_builder import build_default_profiles
+
 from .resilience import ResiliencePolicy, RetryTemplate
 from .semantic_cache import SemanticCache
 from .validators import all_validators_pass, async_run_validators
