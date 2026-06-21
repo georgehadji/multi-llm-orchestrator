@@ -65,126 +65,9 @@ from .visualization import DagRenderer
 
 
 def cmd_analyze(args) -> None:
-    """
-    Handle the 'analyze' subcommand: read a codebase and produce an analysis report.
-
-    Uses CodebaseReader to scan files and CodebaseAnalyzer to run multi-LLM analysis.
-    """
-    from pathlib import Path
-
-    from orchestrator.analyzer import CodebaseAnalyzer
-    from orchestrator.secure_execution import InputValidator
-
-    # SECURITY FIX: Validate input path to prevent path traversal
-    try:
-        # Sanitize and resolve path
-        base_path = Path.cwd()
-        path = (base_path / args.path).resolve()
-
-        # Verify path is within allowed base directory
-        try:
-            path.relative_to(base_path)
-        except ValueError:
-            print(f"ERROR: Path traversal detected: {args.path}", file=sys.stderr)
-            sys.exit(1)
-
-    except Exception as e:
-        print(f"ERROR: Invalid path: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    if not path.exists():
-        print(f"ERROR: Path does not exist: {path}", file=sys.stderr)
-        sys.exit(1)
-
-    # SECURITY FIX: Validate focus areas and extensions
-    focus = None
-    if args.focus:
-        focus = []
-        for f in args.focus.split(","):
-            f = f.strip()
-            if f:  # Only add non-empty values
-                # Basic validation: alphanumeric and common separators only
-                if not re.match(r"^[\w\s\-_,]+$", f):
-                    print(f"ERROR: Invalid focus area: {f}", file=sys.stderr)
-                    sys.exit(1)
-                focus.append(f)
-
-    include_exts = None
-    if args.extensions:
-        include_exts = set()
-        for ext in args.extensions.split(","):
-            ext = ext.strip()
-            if ext:
-                # Validate extension format
-                if not re.match(r"^[\w.]+$", ext):
-                    print(f"ERROR: Invalid extension: {ext}", file=sys.stderr)
-                    sys.exit(1)
-                # Ensure extension starts with dot
-                if not ext.startswith("."):
-                    ext = f".{ext}"
-                include_exts.add(ext)
-
-    analyzer = CodebaseAnalyzer(
-        max_context_tokens=args.context_tokens,
-        max_concurrency=args.concurrency,
-    )
-
-    print(f"Analyzing: {path}")
-    if focus:
-        print(f"Focus areas: {', '.join(focus)}")
-    print(f"Budget: ${args.budget:.2f} | Context limit: {args.context_tokens:,} tokens")
-    print("-" * 60)
-
-    report = asyncio.run(
-        analyzer.analyze(
-            path=path,
-            focus=focus,
-            budget_usd=args.budget,
-            include_exts=include_exts,
-            max_tokens_per_section=args.section_tokens,
-        )
-    )
-
-    # Print summary
-    print(
-        f"\nAnalysis complete: {len(report.sections)} sections | "
-        f"${report.total_cost:.4f} | {report.elapsed_s:.1f}s"
-    )
-    print(
-        f"Files analyzed: {report.files_analyzed} | "
-        f"Languages: {', '.join(sorted(report.languages))}"
-    )
-
-    # Write report
-    # SECURITY FIX: Validate output path
-    if args.output:
-        output_path = Path(args.output).resolve()
-        # Ensure output path is safe (not traversing outside working dir)
-        try:
-            output_path.relative_to(Path.cwd())
-        except ValueError:
-            print("ERROR: Output path must be within current directory", file=sys.stderr)
-            sys.exit(1)
-        # Validate filename
-        safe_filename = InputValidator.sanitize_filename(output_path.name)
-        if safe_filename != output_path.name:
-            print(f"WARNING: Output filename sanitized to: {safe_filename}", file=sys.stderr)
-            output_path = output_path.parent / safe_filename
-    else:
-        output_path = path / "ANALYSIS_REPORT.md"
-
-    output_path.write_text(report.markdown, encoding="utf-8")
-    print(f"\nReport written to: {output_path}")
-
-    # Print preview
-    if not args.quiet:
-        print("\n" + "=" * 60)
-        preview = report.markdown[:2000]
-        print(preview)
-        if len(report.markdown) > 2000:
-            print(f"\n... ({len(report.markdown):,} chars total — see {output_path})")
-
-
+    """Analyze a codebase — delegates to commands.analyze."""
+    from .commands.analyze import execute
+    execute(args)
 def cmd_build(args) -> None:
     """Build a complete app — delegates to commands.build."""
     from .commands.build import execute
@@ -304,90 +187,9 @@ def _build_subparsers(subparsers) -> None:
 
 
 def cmd_agent(args) -> None:
-    """
-    Handle the 'agent' subcommand: NL intent → draft specs → submit to ControlPlane.
-    """
-    import re
-
-    from orchestrator.engine_core.control_plane import ControlPlane
-    from orchestrator.orchestration_agent import OrchestrationAgent
-    from orchestrator.secure_execution import CommandInjectionError
-
-    # SECURITY FIX: Validate intent input length and content
-    intent = args.intent.strip()
-    if len(intent) > 10000:
-        print("ERROR: Intent description too long (max 10000 chars)", file=sys.stderr)
-        sys.exit(1)
-
-    # Basic check for potential injection patterns
-    dangerous_patterns = [
-        r"`.*?`",  # Backtick execution
-        r"\$\(",  # Command substitution
-        r"\$\{",  # Variable expansion
-    ]
-    for pattern in dangerous_patterns:
-        if re.search(pattern, intent):
-            print(
-                "WARNING: Intent contains potentially dangerous characters", file=sys.stderr
-            )  # Post-build setup: create venv, install deps
-            print("  Setting up virtual environment...")
-            print(f"  cd {output_dir}")
-            print(f"  python -m venv venv")
-            print(f"  venv\\Scripts\\activate")
-            print(f"  pip install -e .")
-            print(f"  python main.py\n")
-
-            # Don't block, just warn - natural language can contain backticks
-
-    agent = OrchestrationAgent()
-    draft = asyncio.run(agent.draft(intent))
-
-    print("\n=== Draft Job Spec ===")
-    import json as _json
-    from dataclasses import asdict
-
-    print(_json.dumps(asdict(draft.job), indent=2, default=str))
-    print("\n=== Draft Policy Spec ===")
-    print(_json.dumps(asdict(draft.policy), indent=2, default=str))
-    print(f"\nRationale: {draft.rationale}")
-
-    if not args.interactive:
-        return
-
-    while True:
-        try:
-            feedback = input("\nFeedback (or 'submit' to run, 'quit' to exit): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\nExiting...")
-            return
-
-        # SECURITY FIX: Validate feedback length
-        if len(feedback) > 5000:
-            print("ERROR: Feedback too long (max 5000 chars)", file=sys.stderr)
-            continue
-
-        if feedback.lower() == "quit":
-            return
-        if feedback.lower() == "submit":
-            break
-
-        # SECURITY FIX: Additional validation for feedback
-        try:
-            draft = asyncio.run(agent.refine(draft, feedback))
-        except CommandInjectionError as e:
-            print(f"ERROR: Security violation in feedback: {e}", file=sys.stderr)
-            continue
-
-        print("\n=== Revised Job Spec ===")
-        print(_json.dumps(asdict(draft.job), indent=2, default=str))
-        print(f"\nRationale: {draft.rationale}")
-
-    print("\nSubmitting to ControlPlane...")
-    cp = ControlPlane()
-    state = asyncio.run(cp.submit(draft.job, draft.policy))
-    print(f"Status: {state.status.value}")
-
-
+    """Agent subcommand — delegates to commands.agent."""
+    from .commands.agent import execute
+    execute(args)
 def _agent_subparsers(subparsers) -> None:
     """Register the 'agent' subcommand."""
     ap = subparsers.add_parser(
@@ -444,71 +246,13 @@ def _slash_subparsers(subparsers) -> None:
 
 
 def cmd_slash(args) -> None:
-    """Handle the 'slash' subcommand."""
-    import asyncio
-    from pathlib import Path
-
-    from .api_clients import UnifiedClient
-    from .cache import DiskCache
-    from .slash_commands import SlashCommandContext, get_slash_registry
-
-    registry = get_slash_registry()
-    cache = DiskCache()
-    client = UnifiedClient(cache=cache)
-
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    ctx = SlashCommandContext(
-        client=client,
-        output_dir=output_dir,
-        project_id=f"slash_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-    )
-
-    if args.interactive or not args.command:
-        # Interactive REPL mode
-        print("╔══════════════════════════════════════════════════════════╗")
-        print("║     Multi-LLM Orchestrator - Slash Command Mode          ║")
-        print("╚══════════════════════════════════════════════════════════╝")
-        print("\nType /help for available commands, or /quit to exit\n")
-        print_help()
-
-        while True:
-            try:
-                user_input = input("orchestrator> ").strip()
-                if not user_input:
-                    continue
-                if user_input.lower() in ("/quit", "/exit", "quit", "exit"):
-                    print("Goodbye!")
-                    break
-                if not user_input.startswith("/"):
-                    user_input = "/" + user_input
-
-                result = asyncio.run(registry.execute(user_input, ctx))
-                print(f"\n{result}\n")
-
-            except KeyboardInterrupt:
-                print("\nGoodbye!")
-                break
-            except Exception as e:
-                print(f"Error: {e}\n")
-    else:
-        # Single command mode
-        cmd_line = f"/{args.command} {args.args}"
-        result = asyncio.run(registry.execute(cmd_line, ctx))
-        print(result)
-
-
+    """Slash agent subcommand — delegates to commands.slash."""
+    from .commands.slash import execute
+    execute(args)
 def cmd_dashboard(args) -> None:
-    """Handle the 'dashboard' subcommand: render persistent cross-run learning."""
-    from .metrics import render_dashboard
-    from .telemetry_store import TelemetryStore
-
-    store = TelemetryStore()
-    output = asyncio.run(render_dashboard(store, days=args.days))
-    print(output)
-
-
+    """Dashboard — delegates to commands.dashboard."""
+    from .commands.dashboard import execute
+    execute(args)
 def _dashboard_subparsers(subparsers) -> None:
     """Register the 'dashboard' subcommand."""
     dp = subparsers.add_parser(
@@ -1392,96 +1136,15 @@ def _cmd_nash_compare(args):
 
 
 def cmd_cache_stats(args) -> None:
-    """Show cache statistics."""
-    from orchestrator.cache_optimizer import get_cache_optimizer
-
-    optimizer = get_cache_optimizer()
-
-    if args.clear:
-        level = args.level if args.level else None
-        asyncio.run(optimizer.clear(level))
-        print(f"✓ Cache cleared (level: {level or 'all'})")
-        return
-
-    if args.cleanup:
-        stats = asyncio.run(optimizer.cleanup())
-        print(f"✓ Cleanup complete: {stats['l2_deleted']} expired entries removed")
-        return
-
-    # Print statistics
-    stats = optimizer.get_stats()
-
-    print("""
-╔══════════════════════════════════════════════════════════════════╗
-║                    CACHE STATISTICS                              ║
-╠══════════════════════════════════════════════════════════════════╣""")
-    print(f"║ Total Requests:     {stats['total_requests']:>10,}                               ║")
-    print(
-        f"║ Total Hits:         {stats['total_hits']:>10,}  ({stats['overall_hit_rate']:.1%})                        ║"
-    )
-    print(f"║ Total Misses:       {stats['total_misses']:>10,}                               ║")
-    print("╠══════════════════════════════════════════════════════════════════╣")
-    print("║ By Level:                                                        ║")
-    print(f"║   L1 (Memory):      {stats['l1_hits']:>10,} hits                              ║")
-    print(f"║   L2 (Disk):        {stats['l2_hits']:>10,} hits                              ║")
-    print(f"║   L3 (Semantic):    {stats['l3_hits']:>10,} hits                              ║")
-    print("╠══════════════════════════════════════════════════════════════════╣")
-    print("║ Savings:                                                         ║")
-    print(f"║   Tokens Saved:     {stats['tokens_saved']:>10,}                               ║")
-    print(f"║   Cost Saved:       ${stats['cost_saved']:>9.2f}                               ║")
-    print("╚══════════════════════════════════════════════════════════════════╝")
-
-    # L1 detailed stats
-    if stats.get("l1_stats"):
-        l1 = stats["l1_stats"]
-        print("\nL1 Memory Cache:")
-        print(
-            f"  Entries: {l1['entries']}/{l1['max_size']} ({100*l1['entries']/l1['max_size']:.1f}%)"
-        )
-        print(f"  Hit Rate: {l1['hit_rate']:.1%}")
+    """Cache stats — delegates to commands.cache_stats."""
+    from .commands.cache_stats import execute
+    execute(args)
 
 
 def cmd_cache_stats(args: argparse.Namespace) -> int:
-    """Handle cache-stats subcommand."""
-    import asyncio
-
-    async def _run():
-        from .cache_optimizer import get_cache_optimizer
-
-        optimizer = get_cache_optimizer()
-
-        if args.clear:
-            level = args.level
-            if level:
-                print(f"[CLEAR]  Clearing {level.upper()} cache...")
-                if level == "l1":
-                    optimizer.l1_cache.clear()
-                elif level == "l2":
-                    await optimizer.l2_cache.clear()
-                elif level == "l3":
-                    optimizer.l3_cache.clear()
-                print(f"✅ {level.upper()} cache cleared")
-            else:
-                print("[CLEAR]  Clearing all cache levels...")
-                optimizer.l1_cache.clear()
-                await optimizer.l2_cache.clear()
-                optimizer.l3_cache.clear()
-                print("✅ All caches cleared")
-            return 0
-
-        if args.cleanup:
-            print("[CLEAN] Cleaning up expired entries...")
-            optimizer.l1_cache.cleanup()
-            await optimizer.l2_cache.cleanup()
-            optimizer.l3_cache.cleanup()
-            print("✅ Cleanup complete")
-            return 0
-
-        # Show statistics
-        optimizer.print_stats()
-        return 0
-
-    return asyncio.run(_run())
+    """Cache stats (int return) — delegates to commands.cache_stats."""
+    from .commands.cache_stats import execute_stats
+    return execute_stats(args)
 
 
 def _cache_stats_subparsers(subparsers) -> None:
@@ -1595,72 +1258,15 @@ def print_help() -> None:
 
 
 def cmd_gateway(args) -> None:
-    """Handle the 'gateway' subcommand: start/stop the messaging gateway."""
-    import asyncio
-    from .gateway.run import OrchestratorGateway, GatewayConfig
-
-    async def _run():
-        config = GatewayConfig()
-        if args.platforms:
-            for pair in args.platforms:
-                if ":" in pair:
-                    name, val = pair.split(":", 1)
-                    config.platforms[name.strip()] = {"port": int(val.strip())}
-                else:
-                    config.platforms[pair.strip()] = {}
-
-        if args.command == "start":
-            gw = OrchestratorGateway(config)
-            try:
-                await gw.start()
-                print("Gateway running. Press Ctrl+C to stop.")
-                while True:
-                    await asyncio.sleep(1)
-            except KeyboardInterrupt:
-                print("\nShutting down gateway...")
-                await gw.shutdown()
-        elif args.command == "status":
-            gw = OrchestratorGateway(config)
-            await gw.start()
-            print(f"Gateway running: {gw.is_running}")
-            print(f"Platforms: {list(config.platforms.keys())}")
-            await gw.shutdown()
-
-    asyncio.run(_run())
+    """Delegates to commands.gateway."""
+    from .commands.gateway import execute
+    execute(args)
 
 
 def cmd_kanban(args) -> None:
-    """Handle the 'kanban' subcommand: manage the work queue."""
-    import asyncio
-    from .kanban.board import KanbanBoard
-
-    async def _run():
-        board = KanbanBoard()
-        if args.command == "enqueue":
-            tid = await board.enqueue({"description": args.description or "auto"})
-            print(f"Enqueued: {tid}")
-        elif args.command == "list":
-            tasks = await board.list_tasks(status=args.status)
-            if not tasks:
-                print("No tasks found.")
-            else:
-                for t in tasks:
-                    print(f"  [{t.status:>8}] {t.task_id}: {t.project_spec[:50]}")
-        elif args.command == "stats":
-            stats = await board.get_stats()
-            for k, v in stats.items():
-                print(f"  {k}: {v}")
-        elif args.command == "start":
-            from .kanban.dispatcher import KanbanDispatcher
-
-            dispatcher = KanbanDispatcher(board)
-            try:
-                await dispatcher.start()
-            except KeyboardInterrupt:
-                await dispatcher.shutdown()
-                print("\nDispatcher stopped.")
-
-    asyncio.run(_run())
+    """Delegates to commands.kanban."""
+    from .commands.kanban import execute
+    execute(args)
 
 
 def _gateway_subparsers(subparsers) -> None:
@@ -2166,92 +1772,9 @@ def _print_results(state, orch=None):
 
 
 def cmd_meta(args) -> None:
-    """Handle meta-optimization subcommands."""
-    # Initialize a minimal orchestrator to access meta_v2
-    from .engine import Orchestrator
-    from .meta_integration import get_meta_status
-
-    async def run():
-        orch = Orchestrator()
-        await orch.__aenter__()
-
-        try:
-            if orch.meta_v2:
-                status = get_meta_status(orch.meta_v2)
-
-                if args.meta_cmd == "status":
-                    print("\n=== META-OPTIMIZATION STATUS ===")
-                    print(f"Enabled: {status.get('enabled', False)}")
-                    print(f"Optimizations run: {status.get('optimization_count', 0)}")
-
-                    if "archive_stats" in status:
-                        print("\nArchive:")
-                        print(
-                            f"  Total projects: {status['archive_stats'].get('total_projects', 0)}"
-                        )
-                        print(
-                            f"  Total executions: {status['archive_stats'].get('total_executions', 0)}"
-                        )
-
-                    if "ab_testing" in status:
-                        print("\nA/B Testing:")
-                        print(
-                            f"  Total experiments: {status['ab_testing'].get('total_experiments', 0)}"
-                        )
-                        print(
-                            f"  Active experiments: {status['ab_testing'].get('active_experiments', 0)}"
-                        )
-
-                    if "hitl" in status:
-                        print("\nHITL:")
-                        print(f"  Pending requests: {status['hitl'].get('pending_count', 0)}")
-                        print(f"  Auto-approved: {status['hitl'].get('auto_approved_count', 0)}")
-
-                    if "rollout" in status:
-                        print("\nGradual Rollout:")
-                        print(f"  Active rollouts: {status['rollout'].get('active_rollouts', 0)}")
-                        print(
-                            f"  Completed rollouts: {status['rollout'].get('completed_rollouts', 0)}"
-                        )
-
-                elif args.meta_cmd == "optimize":
-                    print("\nRunning meta-optimization...")
-                    outcomes = await orch.meta_v2.maybe_optimize()
-
-                    if outcomes:
-                        print(f"\nGenerated {len(outcomes)} proposals:")
-                        for outcome in outcomes:
-                            print(
-                                f"  [{outcome.decision.value}] {outcome.proposal.description[:60]}..."
-                            )
-                    else:
-                        print(
-                            "No optimization proposals generated (insufficient data or no improvements found)"
-                        )
-
-                elif args.meta_cmd == "transfer":
-                    from .transfer_learning import get_transfer_engine
-
-                    transfer_engine = get_transfer_engine()
-
-                    if transfer_engine:
-                        stats = transfer_engine.get_stats()
-                        print("\n=== TRANSFER LEARNING STATUS ===")
-                        print(f"Indexed projects: {stats.get('indexed_projects', 0)}")
-                        print(f"Active patterns: {stats.get('active_patterns', 0)}")
-                        print(f"Total patterns: {stats.get('total_patterns', 0)}")
-                        print(
-                            f"Average pattern confidence: {stats.get('avg_pattern_confidence', 0):.2f}"
-                        )
-                    else:
-                        print("Transfer learning not initialized")
-            else:
-                print("Meta-optimization not available")
-
-        finally:
-            await orch.__aexit__(None, None, None)
-
-    asyncio.run(run())
+    """Delegates to commands.meta."""
+    from .commands.meta import execute
+    execute(args)
 
 
 def _codebase_subparsers(subparsers) -> None:
@@ -2469,18 +1992,10 @@ def _chat_subparsers(subparsers) -> None:
     p.set_defaults(func=cmd_chat)
 
 
-def cmd_chat(args) -> int:
-    """Handle the 'chat' subcommand — launch the interactive session."""
-    from orchestrator.application.chat_cli import run_chat
-
-    asyncio.run(
-        run_chat(
-            budget=getattr(args, "budget", 8.0),
-            dry_run=getattr(args, "dry_run", False),
-            output_dir=getattr(args, "output_dir", ""),
-        )
-    )
-    return 0
+def cmd_chat(args) -> None:
+    """Delegates to commands.chat."""
+    from .commands.chat import execute
+    execute(args)
 
 
 if __name__ == "__main__":
