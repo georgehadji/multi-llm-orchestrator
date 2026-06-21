@@ -43,6 +43,8 @@ class PipelineContext:
         abort_reason: Reason for abort (e.g. "retry_for_quality").
         attempt_history: Records of each attempt for diagnostics.
         preflight_result: Result from preflight check stage.
+        evaluation_failed: If True, evaluator raised an exception (score=0.0 forced).
+        evaluation_error: Error message when evaluation_failed is True.
     """
 
     task: Task
@@ -66,6 +68,12 @@ class PipelineContext:
     # skipped, e.g. for non-frontend tasks or empty output).
     design_score: float = 0.0
     design_critique: str = ""
+    # Whether evaluation stage failed (exception) — downstream stages should
+    # treat score=0.0 from a failed evaluator differently than score=0.0 from
+    # a pass that genuinely scored zero.
+    evaluation_failed: bool = False
+    # Error message if evaluation failed.
+    evaluation_error: str = ""
 
     def reset_for_retry(self) -> None:
         """Reset mutable state for a retry attempt while preserving task context."""
