@@ -75,35 +75,18 @@ def cmd_build(args) -> None:
     execute(args)
 
 
-def _analyze_subparsers(subparsers) -> None:
-    """Register 'analyze' subcommand."""
-    from .commands.analyze import register
-    register(subparsers)
 
 
 
-def _build_subparsers(subparsers) -> None:
-    """Register the 'build' subcommand — delegates to commands.build.register."""
-    from .commands.build import register
-
-    register(subparsers)
 
 
 def cmd_agent(args) -> None:
     """Agent subcommand — delegates to commands.agent."""
     from .commands.agent import execute
     execute(args)
-def _agent_subparsers(subparsers) -> None:
-    """Register 'agent' subcommand."""
-    from .commands.agent import register
-    register(subparsers)
 
 
 
-def _slash_subparsers(subparsers) -> None:
-    """Register 'slash' subcommand."""
-    from .commands.slash import register
-    register(subparsers)
 
 
 
@@ -115,10 +98,6 @@ def cmd_dashboard(args) -> None:
     """Dashboard — delegates to commands.dashboard."""
     from .commands.dashboard import execute
     execute(args)
-def _dashboard_subparsers(subparsers) -> None:
-    """Register 'dashboard' subcommand."""
-    from .commands.dashboard import register
-    register(subparsers)
 
 
 
@@ -778,10 +757,6 @@ def _resolve_task_paths(
     return resolved
 
 
-def _nash_subparsers(subparsers) -> None:
-    """Register 'nash' subcommand."""
-    from .commands.nash import register
-    register(subparsers)
 
 
 
@@ -972,17 +947,9 @@ def cmd_cache_stats(args: argparse.Namespace) -> int:
     return execute_stats(args)
 
 
-def _cache_stats_subparsers(subparsers) -> None:
-    """Register 'cache_stats' subcommand."""
-    from .commands.cache_stats import register
-    register(subparsers)
 
 
 
-def _nexus_subparsers(subparsers) -> None:
-    """Register 'nexus' subcommand."""
-    from .commands.nexus import register
-    register(subparsers)
 
 
 
@@ -1046,18 +1013,9 @@ def cmd_kanban(args) -> None:
     execute(args)
 
 
-def _gateway_subparsers(subparsers) -> None:
-    """Register 'gateway' subcommand."""
-    from .commands.gateway import register
-    register(subparsers)
 
 
 
-def _website_subparsers(subparsers) -> None:
-    """Register the 'website' subcommand — delegates to commands.website.register."""
-    from .commands.website import register
-
-    register(subparsers)
 
 
 def _cmd_website(args):
@@ -1067,10 +1025,6 @@ def _cmd_website(args):
     execute(args)
 
 
-def _kanban_subparsers(subparsers) -> None:
-    """Register 'kanban' subcommand."""
-    from .commands.kanban import register
-    register(subparsers)
 
 
 
@@ -1088,21 +1042,21 @@ def main():
     # ── Top-level parser ─────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(description="Multi-LLM Orchestrator — Local AI Project Runner")
 
-    # ── Subcommands (e.g. 'build') ────────────────────────────────────────────
+    # ── Subcommands — dynamically discovered from commands/ package ──────────
+    from importlib import import_module
+
     subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
-    _analyze_subparsers(subparsers)
-    _build_subparsers(subparsers)
-    _agent_subparsers(subparsers)
-    _slash_subparsers(subparsers)
-    _dashboard_subparsers(subparsers)
-    _cache_stats_subparsers(subparsers)
-    _nexus_subparsers(subparsers)  # Nexus Search commands
-    _setup_meta_parser(subparsers)  # NEW: Meta-optimization commands
-    _gateway_subparsers(subparsers)  # NEW: Gateway commands
-    _kanban_subparsers(subparsers)
-    _nexusscope_subparsers(subparsers)
-    _chat_subparsers(subparsers)  # Interactive spec-gathering chat mode
-    _website_subparsers(subparsers)  # Website generation
+    from .commands import COMMAND_MODULES
+
+    for cmd_mod in COMMAND_MODULES:
+        try:
+            mod = import_module(f".commands.{cmd_mod}", __package__)
+            mod.register(subparsers)
+        except Exception as exc:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning("Could not register command '%s': %s", cmd_mod, exc)
 
     # ── Legacy flat flags (kept for backwards compatibility) ──────────────────
     parser.add_argument("--project", "-p", type=str, help="Project description")
@@ -1420,10 +1374,6 @@ def cmd_meta(args) -> None:
     execute(args)
 
 
-def _codebase_subparsers(subparsers) -> None:
-    """Register 'codebase' subcommand."""
-    from .commands.codebase import register
-    register(subparsers)
 
 
 
@@ -1461,10 +1411,6 @@ async def _run_modify(repo, objective: str, dry_run: bool) -> str:
         return f"Modification failed: {exc}\n{traceback.format_exc()}"
 
 
-def _setup_meta_parser(subparsers) -> None:
-    """Register 'meta' subcommand."""
-    from .commands.meta import register
-    register(subparsers)
 
 
 
@@ -1521,10 +1467,6 @@ except ImportError:
         print("Click not installed")
 
 
-def _nexusscope_subparsers(subparsers) -> None:
-    """Register 'nexusscope' subcommand."""
-    from .commands.nexusscope import register
-    register(subparsers)
 
 
 
@@ -1570,10 +1512,6 @@ def _cmd_nexusscope_report(args):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _chat_subparsers(subparsers) -> None:
-    """Register 'chat' subcommand."""
-    from .commands.chat import register
-    register(subparsers)
 
 
 
