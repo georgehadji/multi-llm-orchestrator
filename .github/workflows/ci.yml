@@ -139,4 +139,4 @@ jobs:
             --confidence-level medium \
             -x orchestrator/graphify-out \
             -f txt
-        continue-on-error: true  # warn until baseline is established
+        # continue-on-error removed — all HIGH findings fixed or justified (#nosec)

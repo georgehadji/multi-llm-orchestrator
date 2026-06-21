@@ -444,7 +444,7 @@ class CanaryDeployment:
         import hashlib
 
         hash_input = f"{project_id}:{optimization}:canary"
-        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest(), 16)
+        hash_value = int(hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest(), 16)
         normalized = (hash_value % 10000) / 10000.0
 
         return normalized < state.traffic_percentage

@@ -230,7 +230,7 @@ class OpenRouterABTester:
 
         # Consistent hashing for deterministic assignment
         hash_input = f"{project_id}:{opt_type.value}"
-        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest(), 16)
+        hash_value = int(hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest(), 16)
 
         # Map to 0-1 range
         normalized = (hash_value % 10000) / 10000.0

@@ -122,7 +122,7 @@ class DevServer:
         try:
             result = subprocess.run(
                 pt.install_command,
-                shell=True,
+                shell=True,  # nosec B602 — user-defined project commands
                 cwd=str(self.project_dir),
                 capture_output=True,
                 text=True,
@@ -143,7 +143,7 @@ class DevServer:
         if background:
             proc = subprocess.Popen(
                 cmd,
-                shell=True,
+                shell=True,  # nosec B602 — user-defined project commands
                 cwd=str(self.project_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -152,7 +152,7 @@ class DevServer:
         else:
             result = subprocess.run(
                 cmd,
-                shell=True,
+                shell=True,  # nosec B602 — user-defined project commands
                 cwd=str(self.project_dir),
                 capture_output=True,
                 text=True,
