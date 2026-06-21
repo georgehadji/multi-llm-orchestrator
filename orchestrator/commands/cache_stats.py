@@ -92,3 +92,27 @@ def execute_stats(args: argparse.Namespace) -> int:
 
     return asyncio.run(_run())
 
+
+
+def register(subparsers) -> None:
+    """Register the 'cache-stats' subcommand."""
+    parser = subparsers.add_parser(
+        "cache-stats",
+        help="Show cache statistics and manage cache",
+    )
+    parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Clear all cache levels",
+    )
+    parser.add_argument(
+        "--level",
+        choices=["l1", "l2", "l3"],
+        help="Specific cache level to clear (default: all)",
+    )
+    parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Remove expired cache entries",
+    )
+    parser.set_defaults(func=cmd_cache_stats)

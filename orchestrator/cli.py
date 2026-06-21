@@ -76,114 +76,17 @@ def cmd_build(args) -> None:
 
 
 def _analyze_subparsers(subparsers) -> None:
-    """Register the 'analyze' subcommand on the given subparsers action."""
-    ap = subparsers.add_parser(
-        "analyze",
-        help="Analyze a codebase and produce an improvement report",
-    )
-    ap.add_argument(
-        "--path",
-        "-p",
-        required=True,
-        help="Root directory of the codebase to analyze",
-    )
-    ap.add_argument(
-        "--focus",
-        "-f",
-        default="",
-        help=(
-            "Comma-separated focus areas: architecture, quality, security, "
-            "performance, improvements (default: all)"
-        ),
-    )
-    ap.add_argument(
-        "--extensions",
-        "-e",
-        default="",
-        help="Comma-separated file extensions to include (e.g. .py,.ts). Default: all code files",
-    )
-    ap.add_argument(
-        "--budget",
-        "-b",
-        type=float,
-        default=3.0,
-        help="Max API spend in USD (default: 3.0)",
-    )
-    ap.add_argument(
-        "--context-tokens",
-        dest="context_tokens",
-        type=int,
-        default=60_000,
-        help="Max tokens for the codebase context passed to each LLM (default: 60000)",
-    )
-    ap.add_argument(
-        "--section-tokens",
-        dest="section_tokens",
-        type=int,
-        default=4096,
-        help="Max output tokens per analysis section (default: 4096)",
-    )
-    ap.add_argument(
-        "--concurrency",
-        type=int,
-        default=2,
-        help="Max simultaneous API calls (default: 2)",
-    )
-    ap.add_argument(
-        "--output",
-        "-o",
-        default="",
-        help="Output file path for the report (default: <path>/ANALYSIS_REPORT.md)",
-    )
-    ap.add_argument(
-        "--quiet",
-        "-q",
-        action="store_true",
-        default=False,
-        help="Suppress report preview in terminal",
-    )
-    ap.set_defaults(func=cmd_analyze)
+    """Register 'analyze' subcommand."""
+    from .commands.analyze import register
+    register(subparsers)
+
 
 
 def _build_subparsers(subparsers) -> None:
-    """Register the 'build' subcommand on the given subparsers action."""
-    build_parser = subparsers.add_parser(
-        "build",
-        help="Build a complete app from a description",
-    )
-    build_parser.add_argument(
-        "--description",
-        "-d",
-        required=True,
-        help="App description",
-    )
-    build_parser.add_argument(
-        "--criteria",
-        "-c",
-        default="The app must work correctly",
-        help="Success criteria (default: 'The app must work correctly')",
-    )
-    build_parser.add_argument(
-        "--app-type",
-        "-t",
-        dest="app_type",
-        default="",
-        help="Force app type (fastapi/cli/library/generic)",
-    )
-    build_parser.add_argument(
-        "--docker",
-        action="store_true",
-        default=False,
-        help="Run Docker-based verification after build",
-    )
-    build_parser.add_argument(
-        "--output-dir",
-        "-o",
-        dest="output_dir",
-        default="",
-        help="Directory to write the generated app (default: auto-generated temp dir)",
-    )
-    build_parser.set_defaults(func=cmd_build)
+    """Register the 'build' subcommand — delegates to commands.build.register."""
+    from .commands.build import register
+
+    register(subparsers)
 
 
 def cmd_agent(args) -> None:
@@ -191,58 +94,17 @@ def cmd_agent(args) -> None:
     from .commands.agent import execute
     execute(args)
 def _agent_subparsers(subparsers) -> None:
-    """Register the 'agent' subcommand."""
-    ap = subparsers.add_parser(
-        "agent",
-        help="Convert NL intent to typed specs and optionally run via ControlPlane",
-    )
-    ap.add_argument(
-        "--intent",
-        "-i",
-        required=True,
-        help="Natural language description of the job to run",
-    )
-    ap.add_argument(
-        "--interactive",
-        action="store_true",
-        default=False,
-        help="Enter interactive refine loop before submitting",
-    )
-    ap.set_defaults(func=cmd_agent)
+    """Register 'agent' subcommand."""
+    from .commands.agent import register
+    register(subparsers)
+
 
 
 def _slash_subparsers(subparsers) -> None:
-    """Register the 'slash' subcommand for interactive agent commands."""
-    sp = subparsers.add_parser(
-        "slash",
-        help="Interactive slash commands (/analyst, /architect, /implement, etc.)",
-    )
-    sp.add_argument(
-        "command",
-        nargs="?",
-        default="",
-        help="Slash command to execute (e.g., 'analyst', 'architect', 'help')",
-    )
-    sp.add_argument(
-        "--args",
-        "-a",
-        default="",
-        help="Arguments for the slash command",
-    )
-    sp.add_argument(
-        "--output-dir",
-        "-o",
-        type=str,
-        default="./slash_outputs",
-        help="Directory for progressive output",
-    )
-    sp.add_argument(
-        "--interactive",
-        "-i",
-        action="store_true",
-        help="Enter interactive REPL mode",
-    )
-    sp.set_defaults(func=cmd_slash)
+    """Register 'slash' subcommand."""
+    from .commands.slash import register
+    register(subparsers)
+
 
 
 def cmd_slash(args) -> None:
@@ -254,19 +116,10 @@ def cmd_dashboard(args) -> None:
     from .commands.dashboard import execute
     execute(args)
 def _dashboard_subparsers(subparsers) -> None:
-    """Register the 'dashboard' subcommand."""
-    dp = subparsers.add_parser(
-        "dashboard",
-        help="Show persistent cross-run model rankings, task leaders, and recommendations",
-    )
-    dp.add_argument(
-        "--days",
-        type=int,
-        default=30,
-        metavar="N",
-        help="Lookback window in days (default: 30)",
-    )
-    dp.set_defaults(func=cmd_dashboard)
+    """Register 'dashboard' subcommand."""
+    from .commands.dashboard import register
+    register(subparsers)
+
 
 
 def _default_output_dir(project_id: str | None) -> str:
@@ -925,39 +778,11 @@ def _resolve_task_paths(
     return resolved
 
 
-def _nash_subparsers(subparsers):
-    """Add Nash stability subcommands."""
-    nash_parser = subparsers.add_parser("nash", help="Nash stability management")
-    nash_subparsers = nash_parser.add_subparsers(dest="nash_command", metavar="COMMAND")
+def _nash_subparsers(subparsers) -> None:
+    """Register 'nash' subcommand."""
+    from .commands.nash import register
+    register(subparsers)
 
-    # nash status
-    status_parser = nash_subparsers.add_parser("status", help="Show Nash stability status")
-    status_parser.add_argument("--format", choices=["table", "json"], default="table")
-    status_parser.add_argument("--watch", action="store_true", help="Watch mode")
-    status_parser.set_defaults(func=_cmd_nash_status)
-
-    # nash backup
-    backup_parser = nash_subparsers.add_parser(
-        "backup", help="Backup/restore accumulated knowledge"
-    )
-    backup_parser.add_argument("--list", action="store_true", help="List backups")
-    backup_parser.add_argument("--restore", type=str, help="Restore from backup file")
-    backup_parser.add_argument("--value", action="store_true", help="Show estimated value")
-    backup_parser.set_defaults(func=_cmd_nash_backup)
-
-    # nash tuning
-    tuning_parser = nash_subparsers.add_parser("tuning", help="Auto-tuning control")
-    tuning_parser.add_argument("--status", action="store_true", help="Show tuning status")
-    tuning_parser.add_argument("--tune", type=str, help="Parameter to tune")
-    tuning_parser.add_argument("--value", type=float, help="New value for parameter")
-    tuning_parser.set_defaults(func=_cmd_nash_tuning)
-
-    # nash compare
-    compare_parser = nash_subparsers.add_parser("compare", help="Compare two models")
-    compare_parser.add_argument("model_a", help="First model to compare")
-    compare_parser.add_argument("model_b", help="Second model to compare")
-    compare_parser.add_argument("--task-type", default="CODE_GEN", help="Task type")
-    compare_parser.set_defaults(func=_cmd_nash_compare)
 
 
 def _cmd_nash_status(args):
@@ -1148,65 +973,17 @@ def cmd_cache_stats(args: argparse.Namespace) -> int:
 
 
 def _cache_stats_subparsers(subparsers) -> None:
-    """Register the 'cache-stats' subcommand."""
-    parser = subparsers.add_parser(
-        "cache-stats",
-        help="Show cache statistics and manage cache",
-    )
-    parser.add_argument(
-        "--clear",
-        action="store_true",
-        help="Clear all cache levels",
-    )
-    parser.add_argument(
-        "--level",
-        choices=["l1", "l2", "l3"],
-        help="Specific cache level to clear (default: all)",
-    )
-    parser.add_argument(
-        "--cleanup",
-        action="store_true",
-        help="Remove expired cache entries",
-    )
-    parser.set_defaults(func=cmd_cache_stats)
+    """Register 'cache_stats' subcommand."""
+    from .commands.cache_stats import register
+    register(subparsers)
+
 
 
 def _nexus_subparsers(subparsers) -> None:
-    """Register the 'nexus' subcommand for Nexus Search."""
-    parser = subparsers.add_parser(
-        "nexus",
-        help="Nexus Search - Web search for AI Orchestrator",
-    )
-    nexus_sub = parser.add_subparsers(dest="nexus_command", metavar="COMMAND")
+    """Register 'nexus' subcommand."""
+    from .commands.nexus import register
+    register(subparsers)
 
-    # Search command
-    search_p = nexus_sub.add_parser("search", help="Perform web search")
-    search_p.add_argument("query", help="Search query")
-    search_p.add_argument("-s", "--sources", help="Sources (web,academic,tech,news,code)")
-    search_p.add_argument(
-        "-o", "--optimization", default="balanced", choices=["speed", "balanced", "quality"]
-    )
-    search_p.add_argument("-n", "--num-results", type=int, default=10)
-    search_p.add_argument("--json", action="store_true")
-    search_p.set_defaults(func=_nexus_search_cmd)
-
-    # Research command
-    research_p = nexus_sub.add_parser("research", help="Deep research")
-    research_p.add_argument("query", help="Research query")
-    research_p.add_argument("-d", "--depth", type=int, default=3)
-    research_p.add_argument("--json", action="store_true")
-    research_p.set_defaults(func=_nexus_research_cmd)
-
-    # Status command
-    status_p = nexus_sub.add_parser("status", help="Check Nexus Search status")
-    status_p.add_argument("--json", action="store_true")
-    status_p.set_defaults(func=_nexus_status_cmd)
-
-    # Classify command
-    classify_p = nexus_sub.add_parser("classify", help="Classify a query")
-    classify_p.add_argument("query", help="Query to classify")
-    classify_p.add_argument("--json", action="store_true")
-    classify_p.set_defaults(func=_nexus_classify_cmd)
 
 
 def _nexus_search_cmd(args) -> int:
@@ -1270,91 +1047,17 @@ def cmd_kanban(args) -> None:
 
 
 def _gateway_subparsers(subparsers) -> None:
-    """Register the 'gateway' subcommand."""
-    gp = subparsers.add_parser("gateway", help="Multi-platform messaging gateway")
-    gp.add_argument("command", choices=["start", "status"], help="Gateway command")
-    gp.add_argument(
-        "--platforms",
-        "-p",
-        nargs="*",
-        default=[],
-        help="Platforms to enable (e.g. echo webhook:8080)",
-    )
-    gp.set_defaults(func=cmd_gateway)
+    """Register 'gateway' subcommand."""
+    from .commands.gateway import register
+    register(subparsers)
+
 
 
 def _website_subparsers(subparsers) -> None:
-    """Register the 'website' subcommand."""
-    wp = subparsers.add_parser("website", help="Generate a website with design system")
-    wp.add_argument("--description", "-d", required=True, help="Website description")
-    wp.add_argument("--output-dir", "-o", default="outputs/website", help="Output directory")
-    wp.add_argument(
-        "--framework",
-        "-f",
-        default="html",
-        choices=["html", "react", "next.js"],
-        help="Target framework",
-    )
-    wp.add_argument(
-        "--preset",
-        default="modern",
-        choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"],
-        help="Design preset",
-    )
-    wp.add_argument(
-        "--image-model",
-        default="auto",
-        help="OpenRouter image model (default: auto-select Nano Banana 2; use 'none' for SVG only)",
-    )
-    wp.add_argument(
-        "--image-quality",
-        default="balanced",
-        choices=["draft", "balanced", "premium"],
-        help="Image quality tier (draft=cheapest/fastest, balanced=best VFM, premium=best quality)",
-    )
-    wp.add_argument(
-        "--atelier-theme", default="", help="Atelier design theme (e.g. specimen, midnight, brutal)"
-    )
-    # ── Customisation flags (Phase 1: un-hardcode) ──
-    wp.add_argument(
-        "--sections",
-        "-s",
-        default="hero,features,pricing,testimonials,faq,cta,footer",
-        help="Comma-separated section names (default: hero,features,pricing,testimonials,faq,cta,footer)",
-    )
-    wp.add_argument(
-        "--company-name", default="", help="Brand/company name (default: inferred from description)"
-    )
-    wp.add_argument(
-        "--industry",
-        default="technology",
-        help="Client industry for content research (default: technology)",
-    )
-    wp.add_argument(
-        "--page-type",
-        default="landing",
-        choices=["landing", "saas", "portfolio", "ecommerce", "agency", "editorial", "custom"],
-        help="Type of page to generate (default: landing)",
-    )
-    wp.add_argument(
-        "--deps",
-        default="",
-        help="Extra npm dependencies (comma-separated, e.g. three,@react-three/fiber,gsap)",
-    )
-    wp.add_argument(
-        "--3d",
-        dest="use_3d",
-        action="store_true",
-        default=False,
-        help="Shorthand for --deps three,@react-three/fiber,@react-three/drei",
-    )
-    # ── URL source extraction ──
-    wp.add_argument(
-        "--source-url",
-        default="",
-        help="Live URL to clone — extracts design tokens, fonts, and content via Playwright",
-    )
-    wp.set_defaults(func=_cmd_website)
+    """Register the 'website' subcommand — delegates to commands.website.register."""
+    from .commands.website import register
+
+    register(subparsers)
 
 
 def _cmd_website(args):
@@ -1362,73 +1065,13 @@ def _cmd_website(args):
     from .commands.website import execute
 
     execute(args)
-    output_dir = Path(args.output_dir)
-
-    print(f"   Sections: {sections}")
-    print(f"   Page type: {args.page_type}")
-    if config.source_url:
-        print(f"   Source URL: {config.source_url}")
-    if extra_deps:
-        print(f"   Extra deps: {extra_deps}")
-
-    # Wire orchestrator engine for LLM-powered generation
-    engine = None
-    try:
-        from .budget import Budget
-        from .engine import Orchestrator
-
-        orchestrator = Orchestrator(budget=Budget(max_usd=3.0), max_concurrency=3)
-        engine = orchestrator
-        print("   Engine: LLM-powered (OpenRouter)")
-    except Exception as e:
-        print(f"   Engine: content-brief fallback ({e})")
-
-    # Wrap engine as a TaskExecutorPort-compatible executor
-    # (decouples WebsiteGenerator from engine._execute_task private method)
-    class _ExecutorAdapter:
-        def __init__(self, eng):
-            self._eng = eng
-        async def execute(self, task):
-            return await self._eng._execute_task(task)
-
-    generator = WebsiteGenerator(executor=_ExecutorAdapter(engine) if engine else None)
-
-    async def _run():
-        return await generator.generate(
-            design_system=design_system,
-            client_info=client_info,
-            config=config,
-            output_dir=output_dir,
-        )
-
-    result = asyncio.run(_run())
-
-    has_index = (output_dir / "index.html").exists()
-    has_nextjs = (output_dir / "package.json").exists()
-
-    if result.success:
-        print(f"[OK] LLM-powered website: {output_dir.resolve()}")
-        print(f"   Components: {result.components_generated}")
-        print(f"   Cost: ${result.total_cost:.4f}")
-    elif has_nextjs:
-        print(f"!  Content-brief fallback (engine not available)")
-        print(f"[OK] Next.js + Tailwind: {output_dir.resolve()}")
-        print(f"   Run: cd {output_dir} && npm install && npm run dev")
-    elif has_index:
-        print(f"!  Pipeline issues ({result.errors[0][:60]}...), but fallback HTML written")
-        print(f"[OK] Fallback website: {output_dir.resolve() / 'index.html'}")
-        print(f"   Size: {(output_dir / 'index.html').stat().st_size} bytes")
-    else:
-        print(f"[FAIL] Failed: {result.errors}")
 
 
 def _kanban_subparsers(subparsers) -> None:
-    """Register the 'kanban' subcommand."""
-    kp = subparsers.add_parser("kanban", help="Multi-project work queue")
-    kp.add_argument("command", choices=["enqueue", "list", "stats", "start"], help="Kanban command")
-    kp.add_argument("--description", "-d", default="", help="Project description")
-    kp.add_argument("--status", "-s", default=None, help="Filter by status (list only)")
-    kp.set_defaults(func=cmd_kanban)
+    """Register 'kanban' subcommand."""
+    from .commands.kanban import register
+    register(subparsers)
+
 
 
 def main():
@@ -1778,16 +1421,10 @@ def cmd_meta(args) -> None:
 
 
 def _codebase_subparsers(subparsers) -> None:
-    # Register the modify subcommand for codebase-aware operations.
-    mp = subparsers.add_parser(
-        "modify",
-        help="Modify an existing codebase using AI reasoning",
-    )
-    mp.add_argument("--repo", required=True, help="Path to codebase root")
-    mp.add_argument("--objective", required=True, help="What to do")
-    mp.add_argument("--budget", type=float, default=10.0, help="Max LLM budget USD")
-    mp.add_argument("--dry-run", action="store_true", help="Plan only")
-    mp.set_defaults(func=_handle_modify_command)
+    """Register 'codebase' subcommand."""
+    from .commands.codebase import register
+    register(subparsers)
+
 
 
 def _handle_modify_command(args):
@@ -1824,26 +1461,11 @@ async def _run_modify(repo, objective: str, dry_run: bool) -> str:
         return f"Modification failed: {exc}\n{traceback.format_exc()}"
 
 
-def _setup_meta_parser(subparsers):
-    """Setup meta-optimization subcommand parser."""
-    meta_parser = subparsers.add_parser(
-        "meta",
-        help="Meta-optimization management (A/B testing, HITL, rollout, transfer learning)",
-    )
+def _setup_meta_parser(subparsers) -> None:
+    """Register 'meta' subcommand."""
+    from .commands.meta import register
+    register(subparsers)
 
-    meta_subparsers = meta_parser.add_subparsers(dest="meta_cmd", help="Meta-optimization command")
-
-    # Status command
-    status_parser = meta_subparsers.add_parser("status", help="Show meta-optimization status")
-    status_parser.set_defaults(func=cmd_meta)
-
-    # Optimize command
-    optimize_parser = meta_subparsers.add_parser("optimize", help="Run meta-optimization cycle")
-    optimize_parser.set_defaults(func=cmd_meta)
-
-    # Transfer command
-    transfer_parser = meta_subparsers.add_parser("transfer", help="Show transfer learning status")
-    transfer_parser.set_defaults(func=cmd_meta)
 
 
 # Click-based CLI for codebase analysis feature
@@ -1900,26 +1522,10 @@ except ImportError:
 
 
 def _nexusscope_subparsers(subparsers) -> None:
-    """Register the 'nexusscope' profiling subcommand."""
-    nsp = subparsers.add_parser("nexusscope", help="NexusScope statistical profiler")
-    nsp_sub = nsp.add_subparsers(dest="nexusscope_command", metavar="COMMAND")
+    """Register 'nexusscope' subcommand."""
+    from .commands.nexusscope import register
+    register(subparsers)
 
-    sess_p = nsp_sub.add_parser("sessions", help="List recent profiling sessions")
-    sess_p.add_argument("--name", "-n", default=None, help="Filter by session name")
-    sess_p.add_argument("--last", "-l", type=int, default=20, help="Number to show")
-    sess_p.set_defaults(func=_cmd_nexusscope_sessions)
-
-    rep_p = nsp_sub.add_parser("report", help="Render profiling report")
-    rep_p.add_argument("--name", "-n", default=None, help="Session name filter")
-    rep_p.add_argument(
-        "--format",
-        "-f",
-        choices=["text", "html", "json", "speedscope"],
-        default="text",
-        help="Output format",
-    )
-    rep_p.add_argument("--output", "-o", default=None, help="Write to file")
-    rep_p.set_defaults(func=_cmd_nexusscope_report)
 
 
 def _cmd_nexusscope_sessions(args):
@@ -1965,31 +1571,10 @@ def _cmd_nexusscope_report(args):
 
 
 def _chat_subparsers(subparsers) -> None:
-    """Register the 'chat' subcommand."""
-    p = subparsers.add_parser(
-        "chat",
-        help="Interactive mode — describe what you want to build in conversation",
-    )
-    p.add_argument(
-        "--budget",
-        "-b",
-        type=float,
-        default=8.0,
-        help="Max LLM budget in USD for the build (default: 8.0)",
-    )
-    p.add_argument(
-        "--output-dir",
-        "-o",
-        type=str,
-        default="",
-        help="Write generated files to this directory",
-    )
-    p.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show the final spec but do not start the build",
-    )
-    p.set_defaults(func=cmd_chat)
+    """Register 'chat' subcommand."""
+    from .commands.chat import register
+    register(subparsers)
+
 
 
 def cmd_chat(args) -> None:

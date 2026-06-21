@@ -12,6 +12,17 @@ from ..app_builder import AppBuilder
 from ..budget import Budget
 
 
+def register(subparsers) -> None:
+    """Register the 'build' subcommand arguments."""
+    bp = subparsers.add_parser("build", help="Build a complete app from a description")
+    bp.add_argument("--description", "-d", required=True, help="App description")
+    bp.add_argument("--criteria", "-c", default="The app must work correctly", help="Success criteria")
+    bp.add_argument("--app-type", "-t", dest="app_type", default="", help="Force app type")
+    bp.add_argument("--docker", action="store_true", default=False, help="Docker verification")
+    bp.add_argument("--output-dir", "-o", dest="output_dir", default="", help="Output directory")
+    bp.set_defaults(func=execute)
+
+
 def execute(args) -> None:
     """Build a complete app from a description using the AppBuilder pipeline."""
     output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")

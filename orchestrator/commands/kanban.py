@@ -34,3 +34,12 @@ def execute(args) -> None:
                 print("\nDispatcher stopped.")
 
     asyncio.run(_run())
+
+
+def register(subparsers) -> None:
+    """Register the 'kanban' subcommand."""
+    kp = subparsers.add_parser("kanban", help="Multi-project work queue")
+    kp.add_argument("command", choices=["enqueue", "list", "stats", "start"], help="Kanban command")
+    kp.add_argument("--description", "-d", default="", help="Project description")
+    kp.add_argument("--status", "-s", default=None, help="Filter by status (list only)")
+    kp.set_defaults(func=cmd_kanban)

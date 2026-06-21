@@ -85,3 +85,24 @@ def execute(args) -> None:
     cp = ControlPlane()
     state = asyncio.run(cp.submit(draft.job, draft.policy))
     print(f"Status: {state.status.value}")
+
+
+def register(subparsers) -> None:
+    """Register the 'agent' subcommand."""
+    ap = subparsers.add_parser(
+        "agent",
+        help="Convert NL intent to typed specs and optionally run via ControlPlane",
+    )
+    ap.add_argument(
+        "--intent",
+        "-i",
+        required=True,
+        help="Natural language description of the job to run",
+    )
+    ap.add_argument(
+        "--interactive",
+        action="store_true",
+        default=False,
+        help="Enter interactive refine loop before submitting",
+    )
+    ap.set_defaults(func=cmd_agent)

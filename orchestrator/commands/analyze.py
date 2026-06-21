@@ -121,3 +121,73 @@ def execute(args) -> None:
         print(preview)
         if len(report.markdown) > 2000:
             print(f"\n... ({len(report.markdown):,} chars total — see {output_path})")
+
+
+def register(subparsers) -> None:
+    """Register the 'analyze' subcommand on the given subparsers action."""
+    ap = subparsers.add_parser(
+        "analyze",
+        help="Analyze a codebase and produce an improvement report",
+    )
+    ap.add_argument(
+        "--path",
+        "-p",
+        required=True,
+        help="Root directory of the codebase to analyze",
+    )
+    ap.add_argument(
+        "--focus",
+        "-f",
+        default="",
+        help=(
+            "Comma-separated focus areas: architecture, quality, security, "
+            "performance, improvements (default: all)"
+        ),
+    )
+    ap.add_argument(
+        "--extensions",
+        "-e",
+        default="",
+        help="Comma-separated file extensions to include (e.g. .py,.ts). Default: all code files",
+    )
+    ap.add_argument(
+        "--budget",
+        "-b",
+        type=float,
+        default=3.0,
+        help="Max API spend in USD (default: 3.0)",
+    )
+    ap.add_argument(
+        "--context-tokens",
+        dest="context_tokens",
+        type=int,
+        default=60_000,
+        help="Max tokens for the codebase context passed to each LLM (default: 60000)",
+    )
+    ap.add_argument(
+        "--section-tokens",
+        dest="section_tokens",
+        type=int,
+        default=4096,
+        help="Max output tokens per analysis section (default: 4096)",
+    )
+    ap.add_argument(
+        "--concurrency",
+        type=int,
+        default=2,
+        help="Max simultaneous API calls (default: 2)",
+    )
+    ap.add_argument(
+        "--output",
+        "-o",
+        default="",
+        help="Output file path for the report (default: <path>/ANALYSIS_REPORT.md)",
+    )
+    ap.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        default=False,
+        help="Suppress report preview in terminal",
+    )
+    ap.set_defaults(func=cmd_analyze)

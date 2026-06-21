@@ -10,3 +10,19 @@ def execute(args) -> None:
     store = TelemetryStore()
     output = asyncio.run(render_dashboard(store, days=args.days))
     print(output)
+
+
+def register(subparsers) -> None:
+    """Register the 'dashboard' subcommand."""
+    dp = subparsers.add_parser(
+        "dashboard",
+        help="Show persistent cross-run model rankings, task leaders, and recommendations",
+    )
+    dp.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        metavar="N",
+        help="Lookback window in days (default: 30)",
+    )
+    dp.set_defaults(func=cmd_dashboard)

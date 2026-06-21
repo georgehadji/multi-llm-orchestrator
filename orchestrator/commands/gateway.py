@@ -35,3 +35,17 @@ def execute(args) -> None:
             await gw.shutdown()
 
     asyncio.run(_run())
+
+
+def register(subparsers) -> None:
+    """Register the 'gateway' subcommand."""
+    gp = subparsers.add_parser("gateway", help="Multi-platform messaging gateway")
+    gp.add_argument("command", choices=["start", "status"], help="Gateway command")
+    gp.add_argument(
+        "--platforms",
+        "-p",
+        nargs="*",
+        default=[],
+        help="Platforms to enable (e.g. echo webhook:8080)",
+    )
+    gp.set_defaults(func=cmd_gateway)
