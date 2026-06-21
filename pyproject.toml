@@ -344,7 +344,7 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
     "typing.TYPE_CHECKING",
 ]
-fail_under = 15  # Phase 1 ratchet — raised from 6. Target: 30 by end of Phase 1. Increase in ~5-15% steps per release.
+fail_under = 15  # Phase 1 ratchet (6→15). Phase 2 target: 30%. Phase 4 target: 50%.
 precision = 2
 
 [tool.coverage.html]
