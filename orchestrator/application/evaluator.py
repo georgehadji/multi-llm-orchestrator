@@ -22,13 +22,11 @@ import re
 import time
 from typing import Callable
 
-from ..domain.ports import LLMClient
+from ..domain.ports import LLMClient, TelemetryPort, TracingPort
 from ..budget import Budget
 from ..feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
-from ..telemetry import TelemetryCollector
-from ..tracing import Tracer
 
 logger = logging.getLogger("orchestrator.services.evaluator")
 
@@ -55,8 +53,8 @@ class EvaluatorService:
         get_models_fn: Callable[[TaskType], list[Model]],
         consistency_runs: int = 2,
         consistency_delta: float = 0.05,
-        tracer: Tracer | None = None,
-        telemetry: TelemetryCollector | None = None,
+        tracer: TracingPort | None = None,
+        telemetry: TelemetryPort | None = None,
     ) -> None:
         self._client = client
         self._budget = budget

@@ -143,6 +143,20 @@ class TelemetryPort(Protocol):
 
 
 @runtime_checkable
+class TracingPort(Protocol):
+    """Distributed tracing. Satisfied by Tracer.
+
+    Only the methods used by application-layer services are declared here.
+    """
+
+    def trace(
+        self, name: str, attributes: dict[str, Any] | None = None
+    ) -> Any:
+        """Context manager for trace spans."""
+        ...
+
+
+@runtime_checkable
 class PolicyEnginePort(Protocol):
     """Policy evaluation. Satisfied by PolicyEngine."""
 
@@ -162,6 +176,19 @@ class ValidatorPort(Protocol):
     """Task output validation. Satisfied by TaskValidator."""
 
     async def validate(self, task: Any, output: str) -> bool: ...
+
+
+@runtime_checkable
+class TaskExecutorPort(Protocol):
+    """Task execution dispatcher. Satisfied by PipelineRunner / TaskPipeline.
+
+    Decouples task executors (WebsiteGenerator, etc.) from the concrete
+    engine._execute_task() private method.
+    """
+
+    async def execute(self, task: Any) -> Any:
+        """Execute a single task and return a TaskResult-like object."""
+        ...
 
 
 # ─────────────────────────────────────────────────────────────────────────────
