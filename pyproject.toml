@@ -368,7 +368,7 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
     "typing.TYPE_CHECKING",
 ]
-fail_under = 6  # ratchet floor — lowered from 15 to 6 as part of remediation (15 was aspirational and unreachable). Raise in ~5% steps.
+fail_under = 15  # Phase 1 ratchet — raised from 6. Target: 30 by end of Phase 1. Increase in ~5-15% steps per release.
 precision = 2
 
 [tool.coverage.html]
