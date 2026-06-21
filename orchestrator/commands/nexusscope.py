@@ -24,3 +24,22 @@ def register(subparsers) -> None:
     )
     rep_p.add_argument("--output", "-o", default=None, help="Write to file")
     rep_p.set_defaults(func=_cmd_nexusscope_report)
+
+def sessions(args):
+    try:
+        from orchestrator.infrastructure.nexusscope import get_profiler
+
+        profiler = get_profiler()
+        sessions = profiler.get_sessions(
+            name=getattr(args, "name", None), last_n=getattr(args, "last", 20)
+        )
+        if not sessions:
+            print("No profiling sessions recorded.")
+            return
+        print(f"{'Name':<30} {'Duration (ms)':<15} {'Has Profile':<12}")
+        print("-" * 60)
+        for s in sessions:
+            has_p = "Yes" if s._profiler else "No"
+            print(f"{s.name:<30} {s.duration_ms:<15.2f} {has_p:<12}")
+    except ImportError:
+        print("NexusScope not available (install pyinstrument)")

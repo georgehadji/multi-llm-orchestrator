@@ -761,39 +761,10 @@ def _resolve_task_paths(
 
 
 def _cmd_nash_status(args):
-    """Handle nash status command."""
-    import asyncio
+    """Delegates to commands.nash.status."""
+    from .commands.nash import status
+    status(args)
 
-    from orchestrator.nash_stable_orchestrator import get_nash_stable_orchestrator
-
-    async def show():
-        orch = get_nash_stable_orchestrator()
-        report = orch.get_nash_stability_report()
-
-        if args.format == "json":
-            import json
-
-            print(json.dumps(report, indent=2))
-        else:
-            _print_nash_status(report)
-
-    if args.watch:
-        import time
-
-        try:
-            while True:
-                import os
-
-                os.system("cls" if os.name == "nt" else "clear")  # nosec B605 — terminal clear only
-                asyncio.run(show())
-                print("\n[Press Ctrl+C to exit]")
-                # Sync poll loop — asyncio.sleep() cannot be used outside an async
-                # function. time.sleep() between asyncio.run() calls is correct here.
-                time.sleep(5)
-        except KeyboardInterrupt:
-            print("\nExiting...")
-    else:
-        asyncio.run(show())
 
 
 def _print_nash_status(report):
@@ -821,118 +792,24 @@ def _print_nash_status(report):
 
 
 def _cmd_nash_backup(args):
-    """Handle nash backup command."""
-    import asyncio
+    """Delegates to commands.nash.backup."""
+    from .commands.nash import backup
+    backup(args)
 
-    from orchestrator.nash_backup import get_backup_manager
-
-    async def run():
-        mgr = get_backup_manager()
-
-        if args.list:
-            backups = mgr.list_backups()
-            if not backups:
-                print("No backups found.")
-                return
-            print(f"\n{'Backup ID':<30} {'Date':<20} {'Size':<10} {'Value':<10}")
-            print("-" * 70)
-            for b in backups:
-                date_str = b.created_at.strftime("%Y-%m-%d %H:%M")
-                size_str = f"{b.total_size_bytes / 1024:.1f} KB"
-                value_str = f"${b.estimated_value_usd:.2f}"
-                print(f"{b.backup_id:<30} {date_str:<20} {size_str:<10} {value_str:<10}")
-
-        elif args.restore:
-            result = await mgr.restore_backup(args.restore)
-            if result.success:
-                print(f"✓ Restored: {result.backup_id}")
-            else:
-                print("✗ Restore failed")
-                for error in result.errors:
-                    print(f"  - {error}")
-
-        elif args.value:
-            estimate = mgr.estimate_switching_cost()
-            print(f"\nEstimated Value: ${estimate['total_value_usd']:.2f}")
-            print(f"Total Records: {estimate['total_records']}")
-
-        else:
-            manifest = await mgr.create_backup()
-            print(f"✓ Backup created: {manifest.backup_id}")
-            print(f"  Components: {len(manifest.components)}")
-            print(f"  Size: {manifest.total_size_bytes / 1024:.1f} KB")
-            print(f"  Value: ${manifest.estimated_value_usd:.2f}")
-
-    asyncio.run(run())
 
 
 def _cmd_nash_tuning(args):
-    """Handle nash tuning command."""
-    from orchestrator.nash_auto_tuning import get_auto_tuner
+    """Delegates to commands.nash.tuning."""
+    from .commands.nash import tuning
+    tuning(args)
 
-    tuner = get_auto_tuner()
-
-    if args.status or (not args.tune):
-        report = tuner.get_tuning_report()
-        print("\nAuto-Tuning Status:")
-        print("=" * 50)
-        for name, info in report.get("parameters", {}).items():
-            print(f"\n{name}:")
-            print(f"  Current: {info['current_value']:.4f}")
-            print(f"  Strategy: {info['strategy']}")
-            print(f"  Samples: {info['samples']}")
-
-    elif args.tune and args.value is not None:
-        param = tuner._parameters.get(args.tune)
-        if param:
-            old = param.current_value
-            param.current_value = max(param.min_value, min(param.max_value, args.value))
-            tuner._save_state()
-            print(f"✓ Tuned {args.tune}: {old:.4f} → {param.current_value:.4f}")
-        else:
-            print(f"Unknown parameter: {args.tune}")
 
 
 def _cmd_nash_compare(args):
-    """Handle nash compare command."""
-    import asyncio
+    """Delegates to commands.nash.compare."""
+    from .commands.nash import compare
+    compare(args)
 
-    from orchestrator.models import Model, TaskType
-    from orchestrator.pareto_frontier import get_cost_quality_frontier
-
-    async def run():
-        frontier = get_cost_quality_frontier()
-        try:
-            model_a = Model(args.model_a)
-            model_b = Model(args.model_b)
-            task_type = TaskType(args.task_type)
-
-            comparison = frontier.compare_models(model_a, model_b, task_type)
-
-            print("\n" + "=" * 70)
-            print(f"MODEL COMPARISON: {args.model_a} vs {args.model_b}".center(70))
-            print("=" * 70)
-
-            data_a = comparison.get("model_a", {})
-            data_b = comparison.get("model_b", {})
-
-            print(f"\n  {'Metric':<15} {args.model_a:<12} {args.model_b:<12}")
-            print("  " + "-" * 40)
-            print(
-                f"  {'Quality':<15} {data_a.get('quality', 0):<12.3f} {data_b.get('quality', 0):<12.3f}"
-            )
-            print(f"  {'Cost':<15} ${data_a.get('cost', 0):<11.4f} ${data_b.get('cost', 0):<11.4f}")
-            print(
-                f"  {'Efficiency':<15} {data_a.get('efficiency', 0):<12.1f} {data_b.get('efficiency', 0):<12.1f}"
-            )
-
-            print(f"\n  {comparison.get('recommendation', '')}")
-            print("=" * 70 + "\n")
-
-        except ValueError as e:
-            print(f"Error: {e}")
-
-    asyncio.run(run())
 
 
 def cmd_cache_stats(args) -> None:
@@ -1471,40 +1348,17 @@ except ImportError:
 
 
 def _cmd_nexusscope_sessions(args):
-    try:
-        from orchestrator.infrastructure.nexusscope import get_profiler
+    """Delegates to commands.nexusscope.sessions."""
+    from .commands.nexusscope import sessions
+    sessions(args)
 
-        profiler = get_profiler()
-        sessions = profiler.get_sessions(
-            name=getattr(args, "name", None), last_n=getattr(args, "last", 20)
-        )
-        if not sessions:
-            print("No profiling sessions recorded.")
-            return
-        print(f"{'Name':<30} {'Duration (ms)':<15} {'Has Profile':<12}")
-        print("-" * 60)
-        for s in sessions:
-            has_p = "Yes" if s._profiler else "No"
-            print(f"{s.name:<30} {s.duration_ms:<15.2f} {has_p:<12}")
-    except ImportError:
-        print("NexusScope not available (install pyinstrument)")
 
 
 def _cmd_nexusscope_report(args):
-    try:
-        from orchestrator.infrastructure.nexusscope import get_profiler
+    """Delegates to commands.nexusscope.report."""
+    from .commands.nexusscope import report
+    report(args)
 
-        profiler = get_profiler()
-        fmt = getattr(args, "format", "text")
-        rendered = profiler.render_last(name=getattr(args, "name", None), fmt=fmt)
-        output = getattr(args, "output", None)
-        if output:
-            Path(output).write_text(str(rendered))
-            print(f"Report written to: {output}")
-        else:
-            print(rendered)
-    except ImportError:
-        print("NexusScope not available (install pyinstrument)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
