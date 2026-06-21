@@ -117,6 +117,9 @@ class ServiceContainer:
     telemetry_store: Any = None
     semantic_cache: Any = None
     cb_registry: Any = None
+    health_tracker: Any = None  # ModelHealthTracker
+    budget_enforcer: Any = None  # BudgetEnforcer
+    resumption_service: Any = None  # ResumptionService
     observability: Any = None
     context_compressor: Any = None
     memory_provider_mgr: Any = None
@@ -500,6 +503,26 @@ class ServiceContainer:
         except ImportError:
             ara_strategy = None
 
+        # ── Health tracker, budget enforcer, resumption (extracted from engine.py) ──
+        health_tracker = None
+        budget_enforcer = None
+        resumption_service = None
+        try:
+            from ..application.model_health_tracker import ModelHealthTracker
+
+            health_tracker = ModelHealthTracker(
+                telemetry=telemetry,
+                policy_engine=policy_engine,
+            )
+        except ImportError:
+            pass
+        try:
+            from ..application.resumption_service import ResumptionService
+
+            resumption_service = ResumptionService()
+        except ImportError:
+            pass
+
         # Pipeline with all stages
         pipeline = TaskPipeline(
             [
@@ -600,6 +623,9 @@ class ServiceContainer:
             ara_strategy=ara_strategy,
             pipeline=pipeline,
             dep_resolver=dep_resolver,
+            health_tracker=health_tracker,
+            budget_enforcer=budget_enforcer,
+            resumption_service=resumption_service,
             event_bus=event_bus,
             adaptive_router=adaptive_router,
             routing_service=routing_service,

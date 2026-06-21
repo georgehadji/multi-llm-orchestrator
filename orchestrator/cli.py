@@ -1782,46 +1782,10 @@ def _website_subparsers(subparsers) -> None:
 
 
 def _cmd_website(args):
-    """Execute website generation — wired into the orchestrator engine for LLM-powered generation."""
-    import asyncio
-    import logging
-    from pathlib import Path
+    """Generate a website — delegates to commands.website."""
+    from .commands.website import execute
 
-    from .design_system import DesignSystem
-    from .generators.website_generator import ClientInfo, WebsiteConfig, WebsiteGenerator
-
-    logger = logging.getLogger(__name__)
-
-    print(f"\n>>> Generating '{args.preset}' LLM-powered website: {args.description[:80]}...")
-    print(f"   Framework: {args.framework}")
-
-    design_system = DesignSystem(tone=args.preset)
-
-    # ── Un-hardcoded: use CLI args or sensible defaults ──
-    company_name = args.company_name or args.description.split()[0][:20]
-    sections = [s.strip() for s in args.sections.split(",")]
-    extra_deps = [d.strip() for d in args.deps.split(",")] if args.deps else []
-    if getattr(args, "use_3d", False):
-        extra_deps.extend(["three", "@react-three/fiber", "@react-three/drei"])
-
-    client_info = ClientInfo(
-        name=company_name,
-        industry=args.industry,
-        description=args.description,
-    )
-    config = WebsiteConfig(
-        framework=args.framework,
-        styling="tailwind" if args.framework != "html" else "css",
-        page_type=args.page_type,
-        sections=sections,
-        image_model=args.image_model,
-        atelier_theme=args.atelier_theme,
-        description=args.description,
-        brand_name=company_name,
-        dependencies=["react", "react-dom"] + extra_deps,
-        image_quality=getattr(args, "image_quality", "balanced"),
-        source_url=args.source_url if hasattr(args, "source_url") else "",
-    )
+    execute(args)
     output_dir = Path(args.output_dir)
 
     print(f"   Sections: {sections}")
