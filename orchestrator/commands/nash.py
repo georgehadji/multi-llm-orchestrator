@@ -36,3 +36,48 @@ def register(subparsers):
     compare_parser.add_argument("model_b", help="Second model to compare")
     compare_parser.add_argument("--task-type", default="CODE_GEN", help="Task type")
     compare_parser.set_defaults(func=_cmd_nash_compare)
+
+def backup(args):
+    """Handle nash backup command."""
+    import asyncio
+
+    from orchestrator.nash_backup import get_backup_manager
+
+    async def run():
+        mgr = get_backup_manager()
+
+        if args.list:
+            backups = mgr.list_backups()
+            if not backups:
+                print("No backups found.")
+                return
+            print(f"\n{'Backup ID':<30} {'Date':<20} {'Size':<10} {'Value':<10}")
+            print("-" * 70)
+            for b in backups:
+                date_str = b.created_at.strftime("%Y-%m-%d %H:%M")
+                size_str = f"{b.total_size_bytes / 1024:.1f} KB"
+                value_str = f"${b.estimated_value_usd:.2f}"
+                print(f"{b.backup_id:<30} {date_str:<20} {size_str:<10} {value_str:<10}")
+
+        elif args.restore:
+            result = await mgr.restore_backup(args.restore)
+            if result.success:
+                print(f"✓ Restored: {result.backup_id}")
+            else:
+                print("✗ Restore failed")
+                for error in result.errors:
+                    print(f"  - {error}")
+
+        elif args.value:
+            estimate = mgr.estimate_switching_cost()
+            print(f"\nEstimated Value: ${estimate['total_value_usd']:.2f}")
+            print(f"Total Records: {estimate['total_records']}")
+
+        else:
+            manifest = await mgr.create_backup()
+            print(f"✓ Backup created: {manifest.backup_id}")
+            print(f"  Components: {len(manifest.components)}")
+            print(f"  Size: {manifest.total_size_bytes / 1024:.1f} KB")
+            print(f"  Value: ${manifest.estimated_value_usd:.2f}")
+
+    asyncio.run(run())
