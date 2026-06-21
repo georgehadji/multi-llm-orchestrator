@@ -1,6 +1,5 @@
-"""Command center and registry."""
+"""CLI command handler modules — extracted from orchestrator/cli.py.
 
-from .center import *  # noqa: F401, F403
-from .integration import *  # noqa: F401, F403
-from .server import *  # noqa: F401, F403
-from .registry import *  # noqa: F401, F403
+Each module exposes an ``execute(args)`` function that the argparse
+dispatcher in cli.py delegates to.
+"""
