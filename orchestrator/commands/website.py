@@ -14,6 +14,48 @@ from ..engine import Orchestrator
 from ..generators.website_generator import ClientInfo, WebsiteConfig, WebsiteGenerator
 
 
+def register(subparsers) -> None:
+    """Register the 'website' subcommand arguments."""
+    wp = subparsers.add_parser("website", help="Generate a website with design system")
+    wp.add_argument("--description", "-d", required=True, help="Website description")
+    wp.add_argument("--output-dir", "-o", default="outputs/website", help="Output directory")
+    wp.add_argument(
+        "--framework", "-f", default="html", choices=["html", "react", "next.js"],
+        help="Target framework",
+    )
+    wp.add_argument(
+        "--preset", default="modern",
+        choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"],
+        help="Design preset",
+    )
+    wp.add_argument(
+        "--image-model", default="auto",
+        help="OpenRouter image model (default: auto-select; use 'none' for SVG only)",
+    )
+    wp.add_argument(
+        "--image-quality", default="balanced",
+        choices=["draft", "balanced", "premium"],
+        help="Image quality tier (draft=cheapest, balanced=best VFM, premium=best quality)",
+    )
+    wp.add_argument("--atelier-theme", default="", help="Atelier design theme")
+    wp.add_argument(
+        "--sections", "-s",
+        default="hero,features,pricing,testimonials,faq,cta,footer",
+        help="Comma-separated section names",
+    )
+    wp.add_argument("--company-name", default="", help="Brand/company name")
+    wp.add_argument("--industry", default="technology", help="Client industry")
+    wp.add_argument(
+        "--page-type", default="landing",
+        choices=["landing", "saas", "portfolio", "ecommerce", "agency", "editorial", "custom"],
+        help="Type of page",
+    )
+    wp.add_argument("--deps", default="", help="Extra npm deps (comma-separated)")
+    wp.add_argument("--3d", dest="use_3d", action="store_true", default=False, help="3D FX shorthand")
+    wp.add_argument("--source-url", default="", help="Live URL to clone via Playwright")
+    wp.set_defaults(func=execute)
+
+
 def execute(args) -> None:
     """Execute website generation — LLM-powered with design-system-driven generation."""
     logger = logging.getLogger(__name__)
@@ -29,75 +71,49 @@ def execute(args) -> None:
     if getattr(args, "use_3d", False):
         extra_deps.extend(["three", "@react-three/fiber", "@react-three/drei"])
 
-    client_info = ClientInfo(
-        name=company_name,
-        industry=args.industry,
-        description=args.description,
-    )
+    client_info = ClientInfo(name=company_name, industry=args.industry, description=args.description)
     config = WebsiteConfig(
         framework=args.framework,
         styling="tailwind" if args.framework != "html" else "css",
-        page_type=args.page_type,
-        sections=sections,
-        image_model=args.image_model,
-        atelier_theme=args.atelier_theme,
-        description=args.description,
-        brand_name=company_name,
+        page_type=args.page_type, sections=sections, image_model=args.image_model,
+        atelier_theme=args.atelier_theme, description=args.description, brand_name=company_name,
         dependencies=["react", "react-dom"] + extra_deps,
         image_quality=getattr(args, "image_quality", "balanced"),
         source_url=args.source_url if hasattr(args, "source_url") else "",
     )
     output_dir = Path(args.output_dir)
 
-    print(f"   Sections: {sections}")
-    print(f"   Page type: {args.page_type}")
+    print(f"   Sections: {sections}   Page type: {args.page_type}")
     if config.source_url:
         print(f"   Source URL: {config.source_url}")
-    if extra_deps:
-        print(f"   Extra deps: {extra_deps}")
 
     engine = None
     try:
-        orchestrator = Orchestrator(budget=Budget(max_usd=3.0), max_concurrency=3)
-        engine = orchestrator
+        engine = Orchestrator(budget=Budget(max_usd=3.0), max_concurrency=3)
         print("   Engine: LLM-powered (OpenRouter)")
     except Exception as e:
         print(f"   Engine: content-brief fallback ({e})")
 
-    # Wrap engine as a TaskExecutorPort adapter
     class _ExecutorAdapter:
         def __init__(self, eng):
             self._eng = eng
-
         async def execute(self, task):
             return await self._eng._execute_task(task)
 
-    generator = WebsiteGenerator(executor=_ExecutorAdapter(engine) if engine else None)
+    gen = WebsiteGenerator(executor=_ExecutorAdapter(engine) if engine else None)
 
     async def _run():
-        return await generator.generate(
-            design_system=design_system,
-            client_info=client_info,
-            config=config,
-            output_dir=output_dir,
+        return await gen.generate(
+            design_system=design_system, client_info=client_info, config=config, output_dir=output_dir,
         )
 
     result = asyncio.run(_run())
 
-    has_index = (output_dir / "index.html").exists()
-    has_nextjs = (output_dir / "package.json").exists()
-
     if result.success:
-        print(f"[OK] LLM-powered website: {output_dir.resolve()}")
-        print(f"   Components: {result.components_generated}")
-        print(f"   Cost: ${result.total_cost:.4f}")
-    elif has_nextjs:
-        print("!  Content-brief fallback (engine not available)")
-        print(f"[OK] Next.js + Tailwind: {output_dir.resolve()}")
-        print(f"   Run: cd {output_dir} && npm install && npm run dev")
-    elif has_index:
-        print(f"!  Pipeline issues ({result.errors[0][:60]}...), but fallback HTML written")
-        print(f"[OK] Fallback website: {output_dir.resolve() / 'index.html'}")
-        print(f"   Size: {(output_dir / 'index.html').stat().st_size} bytes")
+        print(f"[OK] Website: {output_dir.resolve()}  Components: {result.components_generated}  Cost: ${result.total_cost:.4f}")
+    elif (output_dir / "package.json").exists():
+        print(f"!  Fallback: cd {output_dir} && npm install && npm run dev")
+    elif (output_dir / "index.html").exists():
+        print(f"!  Fallback HTML: {(output_dir / 'index.html').stat().st_size} bytes")
     else:
-        print(f"[FAIL] Failed: {result.errors}")
+        print(f"[FAIL] {result.errors}")

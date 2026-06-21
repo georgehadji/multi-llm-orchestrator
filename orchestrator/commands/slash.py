@@ -56,3 +56,37 @@ def execute(args) -> None:
         cmd_line = f"/{args.command} {args.args}"
         result = asyncio.run(registry.execute(cmd_line, ctx))
         print(result)
+
+
+def register(subparsers) -> None:
+    """Register the 'slash' subcommand for interactive agent commands."""
+    sp = subparsers.add_parser(
+        "slash",
+        help="Interactive slash commands (/analyst, /architect, /implement, etc.)",
+    )
+    sp.add_argument(
+        "command",
+        nargs="?",
+        default="",
+        help="Slash command to execute (e.g., 'analyst', 'architect', 'help')",
+    )
+    sp.add_argument(
+        "--args",
+        "-a",
+        default="",
+        help="Arguments for the slash command",
+    )
+    sp.add_argument(
+        "--output-dir",
+        "-o",
+        type=str,
+        default="./slash_outputs",
+        help="Directory for progressive output",
+    )
+    sp.add_argument(
+        "--interactive",
+        "-i",
+        action="store_true",
+        help="Enter interactive REPL mode",
+    )
+    sp.set_defaults(func=cmd_slash)

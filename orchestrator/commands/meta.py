@@ -89,3 +89,25 @@ def execute(args) -> None:
             await orch.__aexit__(None, None, None)
 
     asyncio.run(run())
+
+
+def register(subparsers):
+    """Setup meta-optimization subcommand parser."""
+    meta_parser = subparsers.add_parser(
+        "meta",
+        help="Meta-optimization management (A/B testing, HITL, rollout, transfer learning)",
+    )
+
+    meta_subparsers = meta_parser.add_subparsers(dest="meta_cmd", help="Meta-optimization command")
+
+    # Status command
+    status_parser = meta_subparsers.add_parser("status", help="Show meta-optimization status")
+    status_parser.set_defaults(func=cmd_meta)
+
+    # Optimize command
+    optimize_parser = meta_subparsers.add_parser("optimize", help="Run meta-optimization cycle")
+    optimize_parser.set_defaults(func=cmd_meta)
+
+    # Transfer command
+    transfer_parser = meta_subparsers.add_parser("transfer", help="Show transfer learning status")
+    transfer_parser.set_defaults(func=cmd_meta)
