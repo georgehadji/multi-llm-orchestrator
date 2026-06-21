@@ -1270,7 +1270,7 @@ def _cmd_nash_status(args):
             while True:
                 import os
 
-                os.system("cls" if os.name == "nt" else "clear")
+                os.system("cls" if os.name == "nt" else "clear")  # nosec B605 — terminal clear only
                 asyncio.run(show())
                 print("\n[Press Ctrl+C to exit]")
                 # Sync poll loop — asyncio.sleep() cannot be used outside an async

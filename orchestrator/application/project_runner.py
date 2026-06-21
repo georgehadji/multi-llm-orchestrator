@@ -102,7 +102,8 @@ class ProjectRunner:
             span.set_attribute("project.description", project_description[:200])
             if not project_id:
                 project_id = hashlib.md5(
-                    f"{project_description[:100]}{time.time()}".encode()
+                    f"{project_description[:100]}{time.time()}".encode(),
+                    usedforsecurity=False,
                 ).hexdigest()[:12]
 
             # Publish project_id to run_state so downstream callbacks can read it

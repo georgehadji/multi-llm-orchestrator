@@ -25,6 +25,7 @@ import os
 import shutil
 import subprocess
 import tarfile
+import os
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -370,8 +371,15 @@ class TarSnapshotStore(SnapshotPort):
         target = Path(target_dir)
         target.mkdir(parents=True, exist_ok=True)
 
+        def _safe_members(members):
+            for m in members:
+                dest = os.path.normpath(os.path.join(str(target), m.name))
+                if not dest.startswith(os.path.normpath(str(target))):
+                    raise ValueError(f"Path traversal blocked: {m.name}")
+                yield m
+
         with tarfile.open(archive_path, "r:xz") as tar:
-            tar.extractall(path=target)
+            tar.extractall(path=str(target), members=_safe_members(tar.getmembers()))
 
         logger.info("Restored TarSnapshot '%s' -> %s", snapshot_id, target_dir)
         return True
