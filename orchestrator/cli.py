@@ -1843,7 +1843,15 @@ def _cmd_website(args):
     except Exception as e:
         print(f"   Engine: content-brief fallback ({e})")
 
-    generator = WebsiteGenerator(orchestrator_engine=engine)
+    # Wrap engine as a TaskExecutorPort-compatible executor
+    # (decouples WebsiteGenerator from engine._execute_task private method)
+    class _ExecutorAdapter:
+        def __init__(self, eng):
+            self._eng = eng
+        async def execute(self, task):
+            return await self._eng._execute_task(task)
+
+    generator = WebsiteGenerator(executor=_ExecutorAdapter(engine) if engine else None)
 
     async def _run():
         return await generator.generate(

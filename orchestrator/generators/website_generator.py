@@ -679,8 +679,8 @@ class WebsiteGenerator:
         )
     """
 
-    def __init__(self, orchestrator_engine=None):
-        self._engine = orchestrator_engine
+    def __init__(self, executor=None, orchestrator_engine=None):
+        self._executor = executor or orchestrator_engine
         self._registry = _get_registry()()
         self._researcher = ContentResearcher()
 
@@ -927,7 +927,7 @@ class WebsiteGenerator:
                         section_name = config.sections[i]
                         for attempt in range(2):
                             try:
-                                component_result = await self._engine._execute_task(task)
+                                component_result = await self._executor.execute(task)
                                 if not component_result or not component_result.output:
                                     logger.warning(f"  ✗ {section_name}: empty LLM output")
                                     return i, False
@@ -2409,7 +2409,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 acceptance_threshold=0.7,
                 max_iterations=1,
             )
-            component_result = await self._engine._execute_task(task)
+            component_result = await self._executor.execute(task)
             if component_result and component_result.output:
                 cleaned, _ = self._sanitize_output(component_result.output, component_name)
                 if len(cleaned) > 200:
