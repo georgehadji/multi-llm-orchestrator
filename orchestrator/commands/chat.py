@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-def cmd_chat(args) -> int:
+def execute(args) -> int:
     """Handle the 'chat' subcommand — launch the interactive session."""
     from orchestrator.application.chat_cli import run_chat
 

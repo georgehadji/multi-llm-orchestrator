@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-def cmd_agent(args) -> None:
+def execute(args) -> None:
     """
     Handle the 'agent' subcommand: NL intent → draft specs → submit to ControlPlane.
     """

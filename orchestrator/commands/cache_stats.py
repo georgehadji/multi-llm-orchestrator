@@ -1,7 +1,7 @@
 """Cache stats command handler — extracted from cli.py."""
 from __future__ import annotations
 
-def cmd_cache_stats(args) -> None:
+def execute(args) -> None:
     """Show cache statistics."""
     from orchestrator.cache_optimizer import get_cache_optimizer
 
@@ -50,7 +50,7 @@ def cmd_cache_stats(args) -> None:
         )
         print(f"  Hit Rate: {l1['hit_rate']:.1%}")
 
-def cmd_cache_stats(args: argparse.Namespace) -> int:
+def execute_stats(args: argparse.Namespace) -> int:
     """Handle cache-stats subcommand."""
     import asyncio
 

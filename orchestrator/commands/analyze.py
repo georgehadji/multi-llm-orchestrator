@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-def cmd_analyze(args) -> None:
+def execute(args) -> None:
     """
     Handle the 'analyze' subcommand: read a codebase and produce an analysis report.
 
