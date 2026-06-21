@@ -91,7 +91,7 @@ async def run_chat(
     while not agent.ready:
         print()
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             user_input = (await loop.run_in_executor(
                 None, lambda: input(f"{_C_BOLD}You ▸{_C_RESET} "))).strip()
         except (EOFError, KeyboardInterrupt):
