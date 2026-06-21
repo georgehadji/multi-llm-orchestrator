@@ -619,7 +619,7 @@ async def _async_resume(args):
     )
     # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
     if getattr(args, "agent_profile", None):
-        from .models import build_default_profiles
+        from .application.model_profile_builder import build_default_profiles
 
         profile_map = {
             "standard": {"quality_mode": "standard", "iteration_cap": 3},
@@ -705,7 +705,7 @@ async def _async_file_project(args):
     budget = spec.budget
     # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
     if getattr(args, "agent_profile", None):
-        from .models import build_default_profiles
+        from .application.model_profile_builder import build_default_profiles
 
         profile_map = {
             "standard": {"quality_mode": "standard", "iteration_cap": 3},
@@ -1084,7 +1084,7 @@ async def _async_new_project(args):
     )
     # Apply agent profile if specified (Wave 1: W1 Agent Profiles)
     if getattr(args, "agent_profile", None):
-        from .models import build_default_profiles
+        from .application.model_profile_builder import build_default_profiles
 
         profile_map = {
             "standard": {"quality_mode": "standard", "iteration_cap": 3},

@@ -838,15 +838,7 @@ def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
 
 
-def build_default_profiles() -> dict[Model, ModelProfile]:
-    """DEPRECATED — moved to orchestrator.application.model_profile_builder.
 
-    Retained as a re-export shim for backward compatibility.
-    Will be removed in the next major release.
-    """
-    from .application.model_profile_builder import build_default_profiles as _f
-
-    return _f()
 
 
 # ─────────────────────────────────────────────
