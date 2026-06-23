@@ -542,11 +542,20 @@ class ServiceContainer:
         except (ImportError, TypeError):
             pass
 
+        # VerbalizedSampler: wire via port to break engine_core→application cycle
+        vs_sampler = None
+        try:
+            from ..application.verbalized_sampling import VerbalizedSampler
+
+            vs_sampler = VerbalizedSampler(client=client, budget=budget)
+        except ImportError:
+            logger.debug("VerbalizedSampler not available — VS features disabled")
+
         # Pipeline with all stages
         pipeline = TaskPipeline(
             [
-                GenerateStage(client=client, budget=budget, selector=selector),  # type: ignore[arg-type]
-                CritiqueStage(client=client, lsp_validator=lsp_validator),  # type: ignore[arg-type]
+                GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
+                CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
                 EvaluateStage(evaluator=evaluator),
                 ValidateStage(),
                 PersuasionDefenseStage(ara_integration=ara),

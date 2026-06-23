@@ -16,20 +16,7 @@ from ...domain.ports import LLMClient
 from ...crosscutting.config import flags
 from ...models import ProbabilityFormat, TaskType, VSConfig
 
-# Lazy import for VerbalizedSampler
-_VS_SAMPLER = None
-_VS_LOCK = __import__("threading").Lock()
-
-
-def _get_vs_sampler(client, budget=None):
-    global _VS_SAMPLER
-    if _VS_SAMPLER is None:
-        with _VS_LOCK:
-            if _VS_SAMPLER is None:
-                from ...application.verbalized_sampling import VerbalizedSampler as _VS
-
-                _VS_SAMPLER = _VS
-    return _VS_SAMPLER(client=client, budget=budget)
+from ...domain.ports import VSSamplerPort
 
 
 if TYPE_CHECKING:
@@ -54,10 +41,12 @@ class CritiqueStage:
         client: LLMClient,
         get_reviewer_fn: object = None,
         lsp_validator: LSPValidatorPort | None = None,
+        vs_sampler: VSSamplerPort | None = None,
     ) -> None:
         self._client = client
         self._get_reviewer_fn = get_reviewer_fn
         self._lsp_validator = lsp_validator
+        self._vs_sampler = vs_sampler
 
     async def process(self, ctx: PipelineContext) -> PipelineContext:
         """Run critique if a reviewer model is available."""
@@ -75,12 +64,12 @@ class CritiqueStage:
 
         try:
             if flags.vs_code_review and ctx.task and ctx.task.type == TaskType.CODE_GEN:
-                sampler = _get_vs_sampler(self._client)
-                candidates = await sampler.sample(
-                    prompt=critique_prompt,
-                    model=reviewer,
-                    cfg=VSConfig(k=3, temperature=0.2, fmt=ProbabilityFormat.CONFIDENCE),
-                    system_extra="You are a code reviewer. Generate 3 independent review "
+                if self._vs_sampler is not None:
+                    candidates = await self._vs_sampler.sample(
+                        prompt=critique_prompt,
+                        model=reviewer,
+                        cfg=VSConfig(k=3, temperature=0.2, fmt=ProbabilityFormat.CONFIDENCE),
+                        system_extra="You are a code reviewer. Generate 3 independent review "
                     "hypotheses. Each must explore a different angle "
                     "(correctness, performance, security, style, edge cases). "
                     "Be specific and constructive.",

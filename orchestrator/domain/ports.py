@@ -554,6 +554,37 @@ class SnapshotPort(Protocol):
         ...
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# VSSamplerPort — Verbalized Sampling (CodeWhale Phase 6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class VSSamplerPort(Protocol):
+    """Verbalized sampling interface for pipeline stages.
+
+    Satisfied by: orchestrator.application.verbalized_sampling.VerbalizedSampler
+
+    Decouples ``engine_core.stages.{generate,critique}`` from the concrete
+    application implementation, respecting the engine_core↔application
+    boundary.
+    """
+
+    async def sample(
+        self,
+        *,
+        prompt: str,
+        model: Any,
+        cfg: Any,
+        system_extra: str = "",
+        task_type: Any | None = None,
+        max_tokens: int = 4096,
+        timeout: int = 160,
+    ) -> Any:
+        """Generate k candidates with verbalized probabilities."""
+        ...
+
+
 class NullSnapshotStore:
     """No-op fallback when snapshot storage is disabled."""
 
