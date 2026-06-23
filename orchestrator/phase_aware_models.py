@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import TYPE_CHECKING
 
 
 from .model_registry import ModelRegistry
@@ -64,7 +63,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, 196B MoE reasoning ⭐ BEST VALUE
         ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, reasoning specialist
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, native multimodal, agent swarm
-        ModelRegistry.GLM_5_1,  # $0.06/$0.40, ultra-cheap 202K context
+        ModelRegistry.GLM_5_2,  # $0.50/$2.00, canonical GLM 202K context
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, lowest hallucination
         "qwen/qwen3-max-thinking",  # $0.78/$3.90, flagship reasoning
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, adaptive reasoning
@@ -78,7 +77,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         "qwen/qwen3-coder-next",  # $0.12/$0.75, 80B MoE coding agents
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, 1.24T tokens, battle-tested
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
-        ModelRegistry.GLM_5_1,  # $0.39/$1.75, enhanced programming, stable
+        ModelRegistry.GLM_5_2,  # $0.50/$2.00, enhanced programming, stable
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
         ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative development
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, SWE-Bench Pro SOTA
@@ -92,8 +91,8 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, reasoning specialist, critical
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
         "qwen/qwen3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
-        ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex analysis
-        ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems design
+        ModelRegistry.CLAUDE_OPUS_4_8,  # $6.00/$30.00, complex analysis
+        ModelRegistry.GLM_5_2,  # $0.50/$2.00, complex systems design
         ModelRegistry.GPT_5_4_PRO,  # $30.00/$180.00, most advanced (use sparingly)
     ],
     # ═══════════════════════════════════════════════════════
@@ -146,8 +145,8 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.DEEPSEEK_V4_PRO,  # $0.55/$2.19, high-stakes cognitive, fair
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA, technical
         "qwen/qwen3-max-thinking",  # $0.78/$3.90, high-stakes cognitive
-        ModelRegistry.CLAUDE_OPUS_4_6,  # $5.00/$25.00, complex evaluation
-        ModelRegistry.GLM_5_1,  # $0.72/$2.30, complex systems
+        ModelRegistry.CLAUDE_OPUS_4_8,  # $5.00/$25.00, complex evaluation
+        ModelRegistry.GLM_5_2,  # $0.50/$2.00, complex systems
         ModelRegistry.GPT_5_4_PRO,  # $30.00/$180.00, most advanced (critical)
         ModelRegistry.STEP_3_5_FLASH,  # $0.10/$0.30, fast, reliable scoring
     ],
@@ -162,7 +161,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench, fast iterations
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
         "qwen/qwen3-coder-next",  # $0.12/$0.75, coding agents, iterative
-        ModelRegistry.GLM_5_1,  # $0.39/$1.75, enhanced programming, stable
+        ModelRegistry.GLM_5_2,  # $0.50/$2.00, enhanced programming, stable
     ],
     # ═══════════════════════════════════════════════════════
     # VERIFICATION: Needs accuracy + validation
@@ -289,7 +288,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # Z.AI GLM MODELS - CHINESE POWERHOUSES
         # ═══════════════════════════════════════════════════════
-        "z-ai/glm-5.1": {
+        "z-ai/glm-5.2": {
             "reasoning": 9.0,
             "coding": 9.0,
             "creativity": 8.5,
@@ -599,7 +598,7 @@ class PhaseAwareModelSelector:
     def get_budget_config(self) -> dict[PhaseType, str]:
         """Get ultra-budget configuration (cheapest capable models)."""
         return {
-            PhaseType.ANALYSIS: "z-ai/glm-5.1",  # $0.10/$0.40
+            PhaseType.ANALYSIS: "z-ai/glm-5.2",  # $0.50/$2.00
             PhaseType.GENERATION: "xiaomi/mimo-v2.5",  # $0.09/$0.29
             PhaseType.CRITIQUE: "deepseek/deepseek-v4-pro",  # $0.55/$2.19
             PhaseType.SYNTHESIS: "qwen/qwen3.5-397b-a17b",  # $0.39/$2.34
@@ -652,7 +651,6 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     "deepseek/deepseek-v4-pro": {"input": 0.55, "output": 2.19},
     "deepseek/deepseek-v4-flash": {"input": 0.28, "output": 0.42},
     # Z.ai GLM
-    "z-ai/glm-5.1": {"input": 0.10, "output": 0.40},
     "z-ai/glm-5-turbo": {"input": 1.20, "output": 4.00},
     "z-ai/glm-5.2": {"input": 0.50, "output": 2.00},
     # Qwen

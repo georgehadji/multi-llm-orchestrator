@@ -56,6 +56,7 @@ class ProjectRunner:
         meta_v2: Any,
         cache: Any,
         api_health: dict,  # type: ignore[type-arg]
+        budget_hierarchy: Any = None,
     ) -> None:
         self._callables = callables
         self._run_state = run_state
@@ -69,6 +70,7 @@ class ProjectRunner:
         self._meta_v2 = meta_v2
         self._cache = cache
         self._api_health = api_health
+        self._budget_hierarchy = budget_hierarchy
 
     # ------------------------------------------------------------------
     # Public entry points
@@ -268,6 +270,57 @@ class ProjectRunner:
                 if not self._run_state.entered:
                     await self._state_mgr.close()
                     await self._cache.close()
+
+    async def run_job(self, spec: Any) -> Any:
+        """
+        Policy-driven entry point. Accepts a JobSpec that bundles project
+        description, success criteria, budget, quality targets, and policies.
+
+        Orchestrator-level state mutation (budget assignment, policy set,
+        quality mode, max parallel tasks) is expected to happen BEFORE this
+        call. This method handles the lifecycle: warm-start → preflight
+        BudgetEnforcer → run_project → charge → flush telemetry.
+
+        Args:
+            spec: A JobSpec-like object with project_description, success_criteria,
+                  budget, job_id, team, max_parallel_tasks, quality_mode,
+                  and policy_set attributes.
+        """
+        # Warm-start: blend historical profiles before execution
+        if self._callables.warm_start_fn is not None:
+            await self._callables.warm_start_fn()
+
+        # Extract once; both the pre-flight check and charge path need them.
+        job_id = getattr(spec, "job_id", "") or ""
+        team = getattr(spec, "team", "") or ""
+
+        # BudgetHierarchy pre-flight check via BudgetEnforcer
+        from .budget_enforcer import BudgetEnforcer
+
+        BudgetEnforcer.enforce_hierarchy_job(
+            self._budget_hierarchy, job_id, team, spec.budget.max_usd
+        )
+        try:
+            state = await self.run_project(
+                project_description=spec.project_description,
+                success_criteria=spec.success_criteria,
+            )
+        except Exception:
+            # BUG-001 FIX: release reservation on failure
+            if self._budget_hierarchy is not None:
+                self._budget_hierarchy.release_reservation(job_id, team)
+            raise
+        # Charge actual spend to BudgetHierarchy
+        if self._budget_hierarchy is not None:
+            actual_spend = self._budget.max_usd - self._budget.remaining_usd
+            BudgetEnforcer.enforce_hierarchy_job(
+                self._budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
+            )
+        # Persist telemetry snapshots for all models used this run (fire-and-forget)
+        if self._callables.flush_telemetry_fn is not None:
+            await self._callables.flush_telemetry_fn(job_id)
+
+        return state
 
     async def dry_run(
         self,

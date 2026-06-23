@@ -7,9 +7,3 @@ that reference orchestrator.engine_core.control_plane.
 """
 
 from orchestrator.control_plane import *  # noqa: F401, F403
-from orchestrator.control_plane import (
-    ControlPlane,
-    RoutingPlan,
-    SpecValidationError,
-    PolicyViolation,
-)  # noqa: F401, F403

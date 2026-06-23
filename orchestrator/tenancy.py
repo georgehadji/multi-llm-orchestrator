@@ -98,7 +98,7 @@ PLANS = {
         max_projects_per_month=20,
         max_budget_per_project=5.0,
         max_concurrent_tasks=4,
-        allowed_models=["deepseek-v3.2", "gemini-3.1-flash-lite-lite", "claude-3-haiku"],
+        allowed_models=["deepseek-v3.2", "gemini-3.1-flash-lite-lite", "claude-haiku-4-5"],
         features={"basic_support"},
         price_monthly=29.0,
     ),

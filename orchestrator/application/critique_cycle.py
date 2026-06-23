@@ -224,7 +224,7 @@ class CritiqueCycle:
         prompt: str,
         task_type: TaskType,
         max_tokens: int,
-    ) -> APIResponse | None:  # type: ignore[name-defined]
+    ) -> APIResponse | None:  # type: ignore[name-defined]  # noqa: F821
         timeout, effective_max_tokens = self._get_model_params(model, task_type, max_tokens)
         try:
             response = await self.client.call_with_retry(  # type: ignore[attr-defined]
@@ -245,7 +245,7 @@ class CritiqueCycle:
         generated_output: str,
         task_type: TaskType,
         redesign_rubric: object | None = None,
-    ) -> APIResponse | None:  # type: ignore[name-defined]
+    ) -> APIResponse | None:  # type: ignore[name-defined]  # noqa: F821
         if redesign_rubric is not None:
             critique_prompt = redesign_rubric.build_score(  # type: ignore[attr-defined]
                 original_prompt, generated_output, task_type.value

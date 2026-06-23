@@ -13,11 +13,11 @@ from ...domain.ports import LLMClient
 from ...budget import Budget
 from ...crosscutting.config import flags
 from ...model_selector import ModelSelector
-from ...models import Model, TaskType
+from ...models import TaskType
 from ...prompt_builder import SystemPrompt
 
 if TYPE_CHECKING:
-    from ...application.verbalized_sampling import VerbalizedSampler
+    pass
 
 # Lazy import for VerbalizedSampler (avoids circular dep at module level)
 _VS_SAMPLER = None

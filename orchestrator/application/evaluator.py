@@ -15,7 +15,6 @@ Dependencies injected at construction; no reference back to Orchestrator.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re

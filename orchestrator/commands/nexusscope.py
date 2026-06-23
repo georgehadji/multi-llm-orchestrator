@@ -11,7 +11,7 @@ def register(subparsers) -> None:
     sess_p = nsp_sub.add_parser("sessions", help="List recent profiling sessions")
     sess_p.add_argument("--name", "-n", default=None, help="Filter by session name")
     sess_p.add_argument("--last", "-l", type=int, default=20, help="Number to show")
-    sess_p.set_defaults(func=_cmd_nexusscope_sessions)
+    sess_p.set_defaults(func=sessions)
 
     rep_p = nsp_sub.add_parser("report", help="Render profiling report")
     rep_p.add_argument("--name", "-n", default=None, help="Session name filter")
@@ -23,7 +23,7 @@ def register(subparsers) -> None:
         help="Output format",
     )
     rep_p.add_argument("--output", "-o", default=None, help="Write to file")
-    rep_p.set_defaults(func=_cmd_nexusscope_report)
+    rep_p.set_defaults(func=report)
 
 def sessions(args):
     try:
@@ -41,5 +41,24 @@ def sessions(args):
         for s in sessions:
             has_p = "Yes" if s._profiler else "No"
             print(f"{s.name:<30} {s.duration_ms:<15.2f} {has_p:<12}")
+    except ImportError:
+        print("NexusScope not available (install pyinstrument)")
+
+
+def report(args):
+    from pathlib import Path
+
+    try:
+        from orchestrator.infrastructure.nexusscope import get_profiler
+
+        profiler = get_profiler()
+        fmt = getattr(args, "format", "text")
+        rendered = profiler.render_last(name=getattr(args, "name", None), fmt=fmt)
+        output = getattr(args, "output", None)
+        if output:
+            Path(output).write_text(str(rendered))
+            print(f"Report written to: {output}")
+        else:
+            print(rendered)
     except ImportError:
         print("NexusScope not available (install pyinstrument)")

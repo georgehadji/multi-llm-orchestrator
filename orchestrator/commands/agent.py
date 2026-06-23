@@ -6,7 +6,9 @@ def execute(args) -> None:
     """
     Handle the 'agent' subcommand: NL intent → draft specs → submit to ControlPlane.
     """
+    import asyncio
     import re
+    import sys
 
     from orchestrator.engine_core.control_plane import ControlPlane
     from orchestrator.orchestration_agent import OrchestrationAgent
@@ -28,14 +30,7 @@ def execute(args) -> None:
         if re.search(pattern, intent):
             print(
                 "WARNING: Intent contains potentially dangerous characters", file=sys.stderr
-            )  # Post-build setup: create venv, install deps
-            print("  Setting up virtual environment...")
-            print(f"  cd {output_dir}")
-            print(f"  python -m venv venv")
-            print(f"  venv\\Scripts\\activate")
-            print(f"  pip install -e .")
-            print(f"  python main.py\n")
-
+            )
             # Don't block, just warn - natural language can contain backticks
 
     agent = OrchestrationAgent()
@@ -105,4 +100,4 @@ def register(subparsers) -> None:
         default=False,
         help="Enter interactive refine loop before submitting",
     )
-    ap.set_defaults(func=cmd_agent)
+    ap.set_defaults(func=execute)

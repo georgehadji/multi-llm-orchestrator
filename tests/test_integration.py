@@ -5,14 +5,10 @@ Integration tests — Multi-module workflows.
 from __future__ import annotations
 
 import asyncio
-import tempfile
-import json
-from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 
-from orchestrator.models import Budget, Model, Task, TaskType
+from orchestrator.models import Budget
 from orchestrator.circuit_breaker import CircuitBreaker, CircuitState
 from orchestrator.autonomy_config import AutonomyConfig, AutonomyLevel
 from orchestrator.cost_tracker import CostTracker
@@ -71,7 +67,10 @@ class TestCircuitBreakerRetry:
     async def test_circuit_breaker_with_budget_protection(self):
         """Circuit breaker must prevent calls when budget is tight AND breaker is open."""
         budget = Budget(max_usd=1.0)
-        cb = CircuitBreaker(name="api", failure_threshold=1, reset_timeout=0.03)
+        # Large reset_timeout keeps the breaker unambiguously OPEN during the
+        # assertion below — avoids flakiness from coarse OS timer granularity
+        # (e.g. Windows' ~15ms scheduler resolution overrunning a tiny timeout).
+        cb = CircuitBreaker(name="api", failure_threshold=1, reset_timeout=30.0)
 
         try:
             # Trip breaker
@@ -80,8 +79,7 @@ class TestCircuitBreakerRetry:
         except ConnectionError:
             pass
 
-        # Budget is fine, but breaker is open
-        await asyncio.sleep(0.01)
+        # Budget is fine, but breaker is open → check() must reject the call
         with pytest.raises(Exception):
             await cb.check()
 

@@ -191,6 +191,26 @@ class TaskExecutorPort(Protocol):
         ...
 
 
+class TaskExecutorAdapter:
+    """Wraps any async callable to satisfy ``TaskExecutorPort``.
+
+    Useful for injecting a pre-existing function as a ``TaskExecutorPort``
+    without creating a closure or a partial.
+
+    Usage::
+
+        adapter = TaskExecutorAdapter(engine._execute_task)
+        await adapter.execute(task)
+
+    """
+
+    def __init__(self, execute_fn: Any) -> None:
+        self._execute_fn = execute_fn
+
+    async def execute(self, task: Any) -> Any:
+        return await self._execute_fn(task)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # NullAdapters — lightweight no-op implementations for testing
 # ─────────────────────────────────────────────────────────────────────────────

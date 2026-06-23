@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from ..pipeline import PipelineContext
 from ...domain.ports import LLMClient
 from ...crosscutting.config import flags
-from ...models import Model, ProbabilityFormat, TaskType, VSConfig
+from ...models import ProbabilityFormat, TaskType, VSConfig
 
 # Lazy import for VerbalizedSampler
 _VS_SAMPLER = None

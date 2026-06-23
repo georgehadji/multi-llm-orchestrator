@@ -24,7 +24,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Awaitable, Callable
+from typing import Awaitable, Callable
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Imports

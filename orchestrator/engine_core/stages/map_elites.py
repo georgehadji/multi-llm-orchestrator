@@ -6,7 +6,6 @@ ARA Method #21: creates a population of code variants across a 3x3 feature grid
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import random
@@ -14,7 +13,7 @@ import threading
 
 from ...ara_pipelines import BasePipeline, PipelineState, ReasoningMethod
 from ...crosscutting.config import flags
-from ...models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, TaskType, VSConfig
+from ...models import Model, ProbabilityFormat, Task, TaskResult, TaskStatus, VSConfig
 
 # Lazy import for VerbalizedSampler (avoids circular dep at module level)
 _VerbalizedSampler = None

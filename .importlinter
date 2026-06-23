@@ -61,6 +61,13 @@ ignore_imports =
     # intentionally in application/ for co-location with ConversationAgent but
     # is the sole permitted engine import.
     orchestrator.application.chat_cli -> orchestrator.engine
+    # Phase 5: cli_dispatch.py is a CLI driving adapter — same pattern as chat_cli.
+    orchestrator.application.cli_dispatch -> orchestrator.engine
+    # cli_dispatch uses AppBuilder for the non-raw-tasks code path.
+    orchestrator.application.cli_dispatch -> orchestrator.app_builder
+    # Phase 5: cli_helpers._print_results imports meta_integration for status
+    # display — same pattern as project_runner (transitive to engine via meta_integration).
+    orchestrator.application.cli_helpers -> orchestrator.meta_integration
     # meta_integration.py imports Orchestrator only under TYPE_CHECKING (no
     # runtime coupling).  Import-linter follows TYPE_CHECKING guards, so we
     # document this transitive path here rather than obscure it.
@@ -78,6 +85,7 @@ name = engine_core pipeline modules must not import infrastructure directly
 type = forbidden
 source_modules =
     orchestrator.engine_core.pipeline
+    orchestrator.engine_core.pipeline_executor
     orchestrator.engine_core.pipeline_runner
     orchestrator.engine_core.project_planner
     orchestrator.engine_core.state_coordinator

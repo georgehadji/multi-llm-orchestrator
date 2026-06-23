@@ -8,6 +8,9 @@ def execute(args) -> None:
 
     Uses CodebaseReader to scan files and CodebaseAnalyzer to run multi-LLM analysis.
     """
+    import asyncio
+    import re
+    import sys
     from pathlib import Path
 
     from orchestrator.analyzer import CodebaseAnalyzer
@@ -190,4 +193,4 @@ def register(subparsers) -> None:
         default=False,
         help="Suppress report preview in terminal",
     )
-    ap.set_defaults(func=cmd_analyze)
+    ap.set_defaults(func=execute)

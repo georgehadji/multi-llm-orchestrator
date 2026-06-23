@@ -102,7 +102,7 @@ class CompetitiveIntelligence:
                 timestamp=datetime.now(),
             ),
             MarketDataPoint(
-                model=Model.CLAUDE_3_OPUS,
+                model=Model.CLAUDE_OPUS_4_8,
                 price_per_mil_tokens=75.0,
                 latency_ms=1500.0,
                 availability=0.94,
@@ -110,7 +110,7 @@ class CompetitiveIntelligence:
                 timestamp=datetime.now(),
             ),
             MarketDataPoint(
-                model=Model.CLAUDE_3_5_SONNET,
+                model=Model.CLAUDE_SONNET_4_5,
                 price_per_mil_tokens=15.0,
                 latency_ms=1000.0,
                 availability=0.96,
@@ -118,7 +118,7 @@ class CompetitiveIntelligence:
                 timestamp=datetime.now(),
             ),
             MarketDataPoint(
-                model=Model.CLAUDE_3_HAIKU,
+                model=Model.CLAUDE_HAIKU_4_5,
                 price_per_mil_tokens=1.25,
                 latency_ms=400.0,
                 availability=0.97,
@@ -154,7 +154,7 @@ class CompetitiveIntelligence:
                 (Model.DEEPSEEK_V4_PRO, 0.7),
                 (Model.GPT_4O, 0.6),
                 (Model.GEMINI_FLASH, 0.5),
-                (Model.CLAUDE_3_5_SONNET, 0.4),
+                (Model.CLAUDE_SONNET_4_5, 0.4),
             ]
 
         # Calculate composite scores for each model
@@ -201,27 +201,27 @@ class CompetitiveIntelligence:
             TaskType.CODE_GEN: {
                 Model.DEEPSEEK_V4_FLASH: 1.1,  # Good at coding
                 Model.DEEPSEEK_V4_PRO: 1.05,
-                Model.CLAUDE_3_5_SONNET: 1.15,  # Excellent at coding
+                Model.CLAUDE_SONNET_4_5: 1.15,  # Excellent at coding
                 Model.GPT_4O: 1.0,
                 Model.GEMINI_FLASH: 0.95,
             },
             TaskType.REASONING: {
                 Model.DEEPSEEK_V4_PRO: 1.15,  # Optimized for reasoning
-                Model.CLAUDE_3_OPUS: 1.2,  # Excellent reasoning
-                Model.CLAUDE_3_5_SONNET: 1.1,
+                Model.CLAUDE_OPUS_4_8: 1.2,  # Excellent reasoning
+                Model.CLAUDE_SONNET_4_5: 1.1,
                 Model.GPT_4O: 1.0,
                 Model.GEMINI_FLASH: 1.05,
             },
             TaskType.TEXT_GEN: {
-                Model.CLAUDE_3_OPUS: 1.1,  # Great for text generation
-                Model.CLAUDE_3_5_SONNET: 1.05,
+                Model.CLAUDE_OPUS_4_8: 1.1,  # Great for text generation
+                Model.CLAUDE_SONNET_4_5: 1.05,
                 Model.GPT_4O: 1.0,
                 Model.DEEPSEEK_V4_FLASH: 0.95,
                 Model.GEMINI_FLASH: 1.0,
             },
             TaskType.OTHER: {
                 Model.DEEPSEEK_V4_FLASH: 1.05,  # Versatile
-                Model.CLAUDE_3_5_SONNET: 1.0,
+                Model.CLAUDE_SONNET_4_5: 1.0,
                 Model.GPT_4O: 1.0,
                 Model.GEMINI_FLASH: 1.0,
                 Model.DEEPSEEK_V4_PRO: 0.95,

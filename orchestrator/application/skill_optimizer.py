@@ -25,9 +25,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..models import TaskType
 from ..models_skill import SkillPatch, SkillUpdateResult, Trajectory
