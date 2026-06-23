@@ -11,7 +11,9 @@ from orchestrator.models import Model, Task, TaskType
 
 @pytest.mark.unit
 class TestDesignCritiqueStage:
-    def _make_ctx(self, prompt="build a React UI", target_path="App.tsx", output="<div>hello</div>"):
+    def _make_ctx(
+        self, prompt="build a React UI", target_path="App.tsx", output="<div>hello</div>"
+    ):
         task = Task(
             id="t1",
             type=TaskType.CODE_GEN,
@@ -25,7 +27,9 @@ class TestDesignCritiqueStage:
     @pytest.mark.asyncio
     async def test_skips_non_frontend_task(self):
         stage = DesignCritiqueStage(client=MagicMock())
-        ctx = self._make_ctx(prompt="build a FastAPI endpoint", target_path="api.py", output="def hello(): pass")
+        ctx = self._make_ctx(
+            prompt="build a FastAPI endpoint", target_path="api.py", output="def hello(): pass"
+        )
         result = await stage.process(ctx)
         assert result.design_score == 0.0
         assert result.design_critique == ""

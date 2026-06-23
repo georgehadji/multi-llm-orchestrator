@@ -16,7 +16,10 @@ class TestSelfCritiqueParser:
         assert SelfCritiqueParser.parse_scores("Just some code without any stamp") is None
 
     def test_parse_malformed_stamp(self):
-        assert SelfCritiqueParser.parse_scores("/* Hallmark · pre-emit critique: P H E S R V */") is None
+        assert (
+            SelfCritiqueParser.parse_scores("/* Hallmark · pre-emit critique: P H E S R V */")
+            is None
+        )
 
     def test_parse_partial_stamp(self):
         assert SelfCritiqueParser.parse_scores("/* Hallmark · pre-emit critique: P4 H3 */") is None

@@ -3,7 +3,6 @@ Tests for optimization modules A-2, B-5, C-8, D-10.
 """
 
 
-
 class TestAgentCache:
     """D-10: Agent call caching."""
 
