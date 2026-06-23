@@ -197,7 +197,7 @@ def cmd_chat(args) -> None:
 
 def main():
     """Entry point: delegates to application.cli_dispatch.run()."""
-    from .application.cli_dispatch import run
+    from .entrypoints.cli_dispatch import run
 
     run()
 

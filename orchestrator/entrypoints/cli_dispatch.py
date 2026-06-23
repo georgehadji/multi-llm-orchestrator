@@ -19,14 +19,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..budget import Budget
-from ..engine import Orchestrator
-from ..output_organizer import organize_project_output
-from ..output_writer import write_output_dir
-from ..progress import ProgressRenderer
-from ..project_file import load_project_file
-from ..state import StateManager
-from .cli_helpers import (
+from orchestrator.budget import Budget
+from orchestrator.engine import Orchestrator
+from orchestrator.output_organizer import organize_project_output
+from orchestrator.output_writer import write_output_dir
+from orchestrator.progress import ProgressRenderer
+from orchestrator.project_file import load_project_file
+from orchestrator.state import StateManager
+from orchestrator.application.cli_helpers import (
     _build_tracing_cfg,
     _default_output_dir,
     _print_results,
@@ -34,14 +34,14 @@ from .cli_helpers import (
     safe_print,
 )
 
-from ..state_mgmt.resume_detector import (
+from orchestrator.state_mgmt.resume_detector import (
     ResumeCandidate,
     _extract_keywords,
     _is_exact_match,
     _recency_factor,
     _score_candidates,
 )
-from ..visualization import DagRenderer
+from orchestrator.visualization import DagRenderer
 
 logger = logging.getLogger("orchestrator.cli")
 
@@ -64,7 +64,7 @@ def run() -> None:
     from importlib import import_module
 
     subparsers = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
-    from ..commands import discover_command_modules
+    from orchestrator.commands import discover_command_modules
 
     for cmd_mod in discover_command_modules():
         try:
@@ -336,7 +336,7 @@ async def _async_file_project(args: Any) -> None:
     effective_tdd_quality = args.tdd_quality if cli_tdd_first else result.tdd_quality
 
     if effective_tdd_first:
-        from ..cost_optimization import get_optimization_config, update_config
+        from orchestrator.cost_optimization import get_optimization_config, update_config
 
         config = get_optimization_config()
         config.enable_tdd_first = True
@@ -351,7 +351,7 @@ async def _async_file_project(args: Any) -> None:
         )
 
     concurrency = args.concurrency if args.concurrency != 3 else result.concurrency
-    from .cli_helpers import setup_logging
+    from orchestrator.application.cli_helpers import setup_logging
 
     setup_logging(args.verbose or result.verbose)
     budget = spec.budget
@@ -408,7 +408,7 @@ async def _async_file_project(args: Any) -> None:
         path = write_output_dir(state, output_dir, project_id=actual_project_id)
         print(f"\nOutput written to: {path}")
 
-        from ..assembler import assemble_project
+        from orchestrator.assembler import assemble_project
 
         org_report = await organize_project_output(
             path,
@@ -466,7 +466,7 @@ async def _async_dry_run(args: Any) -> None:
 
 async def _async_new_project(args: Any) -> None:
     if getattr(args, "tdd_first", False):
-        from ..cost_optimization import get_optimization_config, update_config
+        from orchestrator.cost_optimization import get_optimization_config, update_config
 
         config = get_optimization_config()
         config.enable_tdd_first = True
@@ -502,7 +502,7 @@ async def _async_new_project(args: Any) -> None:
     no_enhance = getattr(args, "no_enhance", False)
 
     if not no_enhance:
-        from ..enhancer import ProjectEnhancer, _apply_enhancements, _present_enhancements
+        from orchestrator.enhancer import ProjectEnhancer, _apply_enhancements, _present_enhancements
 
         enhancer = ProjectEnhancer()
         suggestions = await enhancer.analyze(description, criteria)
@@ -514,7 +514,7 @@ async def _async_new_project(args: Any) -> None:
 
     if not raw_tasks:
         # Route through AppBuilder
-        from ..app_builder import AppBuilder
+        from orchestrator.app_builder import AppBuilder
 
         output_dir = args.output_dir or _default_output_dir(None)
         print(f"Starting app build (budget: ${args.budget})")
@@ -536,7 +536,7 @@ async def _async_new_project(args: Any) -> None:
                 )
                 print(f"  Execution order: {result.state.execution_order}")
             if result.state:
-                from ..output_writer import write_output_dir as _write_out
+                from orchestrator.output_writer import write_output_dir as _write_out
 
                 tasks_dir = Path(output_dir) / "tasks"
                 project_id = getattr(result.state, "project_id", "")
