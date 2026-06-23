@@ -544,17 +544,44 @@ class WebsiteExtractor:
 })();
 """
 
+    @staticmethod
+    def _validate_source_url(url: str) -> None:
+        """Reject URLs that could reach internal/cloud-metadata networks (SSRF prevention)."""
+        import ipaddress
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if parsed.scheme not in ("https",):
+            raise ValueError(f"source_url must use https:// (got {parsed.scheme!r})")
+        host = parsed.hostname or ""
+        if not host:
+            raise ValueError("source_url missing host")
+        # Block bare IP addresses that fall in private/link-local/loopback ranges
+        try:
+            addr = ipaddress.ip_address(host)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise ValueError(f"source_url host {host!r} resolves to a disallowed IP range")
+        except ValueError as exc:
+            if "disallowed IP range" in str(exc):
+                raise
+            # Not an IP address — hostname, allow through
+        # Block well-known cloud metadata hostnames
+        _BLOCKED = {"169.254.169.254", "metadata.google.internal", "metadata.internal"}
+        if host.lower() in _BLOCKED:
+            raise ValueError(f"source_url host {host!r} is blocked")
+
     async def extract(self, url: str, output_dir: Path | None = None) -> ExtractedSiteData:
         """
         Navigate to a URL and extract design tokens, topology, and assets.
 
         Args:
-            url: The target website URL to extract from.
+            url: The target website URL to extract from (must be https://).
             output_dir: Optional directory to save screenshots and raw data.
 
         Returns:
             ExtractedSiteData with all discovered design tokens, sections, and assets.
         """
+        self._validate_source_url(url)
         logger.info("WebsiteExtractor: extracting from %s", url)
 
         from ..browser_testing import BrowserTester
@@ -2367,7 +2394,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             '  <meta http-equiv="X-UA-Compatible" content="IE=edge">',
             '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
             # ── Security headers ──
-            "  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';\">",
+            "  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';\">",
             '  <meta http-equiv="X-Content-Type-Options" content="nosniff">',
             '  <meta http-equiv="X-Frame-Options" content="DENY">',
             '  <meta http-equiv="X-XSS-Protection" content="1; mode=block">',
@@ -2755,7 +2782,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },\n"
             "          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },\n"
             "          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },\n"
-            "          { key: 'Content-Security-Policy', value: \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\" },\n"
+            "          { key: 'Content-Security-Policy', value: \"default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\" },\n"
             "        ],\n"
             "      },\n"
             "    ];\n"
@@ -3102,7 +3129,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "  Referrer-Policy: strict-origin-when-cross-origin\n"
             "  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\n"
             "  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()\n"
-            "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\n"
+            "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\n"
             f"  Access-Control-Allow-Origin: {site_url}\n",
             encoding="utf-8",
         )
