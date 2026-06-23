@@ -35,16 +35,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 # FIXED: from .log_config import get_logger
-from ...log_config import get_logger
+from ..log_config import get_logger
 
 # FIXED: from .models import COST_TABLE, ROUTING_TABLE, Model, TaskType
-from ...models import COST_TABLE, ROUTING_TABLE, Model, TaskType
+from ..models import COST_TABLE, ROUTING_TABLE, Model, TaskType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     # FIXED: from .api_clients import UnifiedClient
-    from ...api_clients import UnifiedClient
+    from ..api_clients import UnifiedClient
 
 logger = get_logger(__name__)
 
@@ -474,7 +474,7 @@ class ModelLeaderboard:
             return self._api_client_factory(model)
         # Default client creation
         # FIXED: from .api_clients import create_client_for_model
-        from ...api_clients import create_client_for_model
+        from ..api_clients import create_client_for_model
 
         return create_client_for_model(model)
 
@@ -688,7 +688,7 @@ class ModelLeaderboard:
                 continue
 
             # FIXED: from .models import get_provider
-            from ...models import get_provider
+            from ..models import get_provider
 
             entry = LeaderboardEntry(
                 rank=0,  # Will be assigned after sorting
