@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import re
 
-from .models import Model
+from ..models import Model
 
 logger = logging.getLogger("orchestrator.context_condensing")
 
@@ -74,7 +74,7 @@ class ContextCondenser:
         self, context: str, target_ratio: float, preserve_formatting: bool
     ) -> str:
         """Condense context semantically using LLM."""
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 
@@ -111,7 +111,7 @@ class ContextCondenser:
         self, context: str, target_ratio: float, preserve_formatting: bool
     ) -> str:
         """Condense context by summarization."""
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 
@@ -142,7 +142,7 @@ class ContextCondenser:
         self, context: str, target_ratio: float, preserve_formatting: bool
     ) -> str:
         """Condense context by extracting key sentences based on keywords."""
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 
