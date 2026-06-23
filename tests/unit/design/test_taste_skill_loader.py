@@ -1,6 +1,5 @@
 """Unit tests for TasteSkillLoader."""
 
-
 import pytest
 
 

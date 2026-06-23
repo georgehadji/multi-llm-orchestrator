@@ -18,7 +18,6 @@ import pytest
 from orchestrator.application.verbalized_sampling import VSCandidate, VerbalizedSampler
 from orchestrator.models import Model, ProbabilityFormat, TaskType, VSConfig
 
-
 # ── Fake LLMClient for port-level testing ────────────────────────────────────
 
 
@@ -217,7 +216,9 @@ class TestParse:
 
     def test_bare_array_format(self):
         s = VerbalizedSampler(client=FakeLLMClient())
-        text = json.dumps([{"text": "bare A", "probability": 0.4}, {"text": "bare B", "probability": 0.6}])
+        text = json.dumps(
+            [{"text": "bare A", "probability": 0.4}, {"text": "bare B", "probability": 0.6}]
+        )
         candidates = s._parse(text, 2)
         assert len(candidates) == 2
 

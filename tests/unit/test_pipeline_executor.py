@@ -136,9 +136,7 @@ async def test_execute_retry_loop(executor, sample_task):
 
     p = MagicMock()
     p.run = AsyncMock(side_effect=retry_then_succeed)
-    exec_retry = PipelineExecutor(
-        pipeline=p, selector=executor._selector, background_tasks=set()
-    )
+    exec_retry = PipelineExecutor(pipeline=p, selector=executor._selector, background_tasks=set())
     result = await exec_retry.execute(sample_task)
     assert result.score == 0.9
     assert result.status == TaskStatus.COMPLETED
@@ -167,9 +165,7 @@ async def test_execute_ara_retry(executor, sample_task):
 
     p = MagicMock()
     p.run = AsyncMock(side_effect=ara_then_succeed)
-    exec_ara = PipelineExecutor(
-        pipeline=p, selector=executor._selector, background_tasks=set()
-    )
+    exec_ara = PipelineExecutor(pipeline=p, selector=executor._selector, background_tasks=set())
     result = await exec_ara.execute(sample_task)
     assert result.score == 0.95
     assert call_count == 2

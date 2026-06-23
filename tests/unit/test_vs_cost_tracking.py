@@ -24,9 +24,9 @@ def test_vs_sampler_receives_budget():
 
     budget = _FakeBudget()
     sampler = _get_vs_sampler(_FakeClient(), budget=budget)
-    assert sampler._budget is budget, (
-        "VS sampler must hold the budget reference so charges are applied"
-    )
+    assert (
+        sampler._budget is budget
+    ), "VS sampler must hold the budget reference so charges are applied"
 
 
 @pytest.mark.unit

@@ -26,22 +26,42 @@ def _write(root, rel, content=""):
 
 def _make_good_project(root):
     """A clean layered FastAPI-style micro-SaaS."""
-    _write(root, "app/domain/models.py", "from dataclasses import dataclass\n\n@dataclass\nclass User:\n    id: str\n    email: str\n")
+    _write(
+        root,
+        "app/domain/models.py",
+        "from dataclasses import dataclass\n\n@dataclass\nclass User:\n    id: str\n    email: str\n",
+    )
     _write(root, "app/domain/__init__.py")
-    _write(root, "app/application/user_service.py",
-           "from ..domain.models import User\n\n\ndef create_user(email: str) -> User:\n    return User(id='1', email=email)\n")
+    _write(
+        root,
+        "app/application/user_service.py",
+        "from ..domain.models import User\n\n\ndef create_user(email: str) -> User:\n    return User(id='1', email=email)\n",
+    )
     _write(root, "app/application/__init__.py")
-    _write(root, "app/infrastructure/user_repository.py",
-           "from ..domain.models import User\n\n\nclass UserRepository:\n    def save(self, user: User) -> None:\n        ...\n")
+    _write(
+        root,
+        "app/infrastructure/user_repository.py",
+        "from ..domain.models import User\n\n\nclass UserRepository:\n    def save(self, user: User) -> None:\n        ...\n",
+    )
     _write(root, "app/infrastructure/__init__.py")
-    _write(root, "app/api/routes.py",
-           "from ..application.user_service import create_user\n\n\ndef register(email: str):\n    try:\n        return create_user(email)\n    except ValueError as e:\n        raise e\n")
+    _write(
+        root,
+        "app/api/routes.py",
+        "from ..application.user_service import create_user\n\n\ndef register(email: str):\n    try:\n        return create_user(email)\n    except ValueError as e:\n        raise e\n",
+    )
     _write(root, "app/api/__init__.py")
     _write(root, "app/__init__.py")
-    _write(root, "tests/test_user_service.py",
-           "from app.application.user_service import create_user\n\n\ndef test_create_user():\n    assert create_user('a@b.com').email == 'a@b.com'\n")
+    _write(
+        root,
+        "tests/test_user_service.py",
+        "from app.application.user_service import create_user\n\n\ndef test_create_user():\n    assert create_user('a@b.com').email == 'a@b.com'\n",
+    )
     _write(root, "tests/test_routes.py", "def test_register():\n    assert True\n")
-    _write(root, "main.py", "from app.api.routes import register\n\nif __name__ == '__main__':\n    print('run')\n")
+    _write(
+        root,
+        "main.py",
+        "from app.api.routes import register\n\nif __name__ == '__main__':\n    print('run')\n",
+    )
     _write(root, "requirements.txt", "fastapi==0.110.0\nuvicorn==0.29.0\n")
     _write(root, ".env.example", "DATABASE_URL=\nAPI_KEY=\n")
     _write(root, "README.md", "# My SaaS\n\n" + ("A production-grade micro-SaaS. " * 20))
@@ -53,7 +73,9 @@ class TestArchitectureScorer:
     def test_good_project_scores_above_nine(self, Scorer, tmp_path):
         _make_good_project(tmp_path)
         result = Scorer().score(tmp_path)
-        assert result.total > 90, f"expected >90, got {result.total}: {[(d.name, d.score) for d in result.dimensions]}"
+        assert (
+            result.total > 90
+        ), f"expected >90, got {result.total}: {[(d.name, d.score) for d in result.dimensions]}"
         assert result.out_of_ten > 9.0
         assert abs(result.out_of_ten - result.total / 10) < 1e-6
 
@@ -66,7 +88,11 @@ class TestArchitectureScorer:
     def test_hardcoded_secret_is_flagged_and_penalized(self, Scorer, tmp_path):
         _make_good_project(tmp_path)
         clean = Scorer().score(tmp_path).total
-        _write(tmp_path, "app/leak.py", 'OPENAI_API_KEY = "sk-proj-abc123def456ghi789jkl012mno345pqr"\n')
+        _write(
+            tmp_path,
+            "app/leak.py",
+            'OPENAI_API_KEY = "sk-proj-abc123def456ghi789jkl012mno345pqr"\n',
+        )
         leaked = Scorer().score(tmp_path)
         assert leaked.total < clean
         assert any("secret" in w.lower() or "hardcoded" in w.lower() for w in leaked.weaknesses)
