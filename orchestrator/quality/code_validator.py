@@ -13,7 +13,7 @@ Features:
 - Safe code execution sandbox
 
 USAGE:
-    from orchestrator.code_validator import validate_code, extract_code_from_llm_response
+    from orchestrator.quality.code_validator import validate_code, extract_code_from_llm_response
 
     # Extract code from LLM response
     code = extract_code_from_llm_response("```python\nprint('hello')\n```")
@@ -31,7 +31,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-logger = logging.getLogger("orchestrator.code_validator")
+logger = logging.getLogger("orchestrator.quality.code_validator")
 
 
 # ─────────────────────────────────────────────

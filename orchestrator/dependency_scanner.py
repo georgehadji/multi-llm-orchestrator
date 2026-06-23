@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Adapter, Strategy, Repository
 
 Usage:
-    from orchestrator.dependency_scanner import DependencyScannerContext, NpmAdapter
+    from orchestrator.safety.dependency_scanner import DependencyScannerContext, NpmAdapter
 
     scanner = DependencyScannerContext(NpmAdapter())
     vulnerabilities = scanner.scan_project("/path/to/project")

@@ -3,7 +3,7 @@ TOML Validator — Validates and fixes TOML files
 =================================================
 
 Usage:
-    python -m orchestrator.toml_validator fix outputs/cinematic_webgl_framework/pyproject.toml
+    python -m orchestrator.quality.toml_validator fix outputs/cinematic_webgl_framework/pyproject.toml
 """
 
 import re
@@ -84,7 +84,7 @@ def fix_toml_newlines(file_path: Path) -> bool:
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python -m orchestrator.toml_validator <command> <file>")
+        print("Usage: python -m orchestrator.quality.toml_validator <command> <file>")
         print("Commands:")
         print("  validate - Check if TOML is valid")
         print("  fix      - Fix common TOML issues")

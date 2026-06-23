@@ -34,7 +34,7 @@ from .cli_helpers import (
     safe_print,
 )
 
-from ..resume_detector import (
+from ..state_mgmt.resume_detector import (
     ResumeCandidate,
     _extract_keywords,
     _is_exact_match,

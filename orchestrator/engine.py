@@ -29,7 +29,7 @@ from .api_clients import APIResponse
 from .prompt_builder import (
     RevisionPrompt,
 )
-from .autonomy_config import AutonomyConfig, AutonomyLevel
+from .operations.autonomy_config import AutonomyConfig, AutonomyLevel
 from .budget import Budget
 from .cache import DiskCache
 from .models import (

@@ -135,7 +135,6 @@ openclaude.txt
 
 scripts/
 docs/
-tests/
 .reasonix/
 
 # graphify: generated graph artifacts (large; regenerate with /graphify)

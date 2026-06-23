@@ -14,7 +14,7 @@ Features:
 - Rollback support
 
 USAGE:
-    from orchestrator.deployment_service import DeploymentService, DeploymentTarget
+    from orchestrator.operations.deployment_service import DeploymentService, DeploymentTarget
 
     service = DeploymentService()
 
@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-logger = logging.getLogger("orchestrator.deployment_service")
+logger = logging.getLogger("orchestrator.operations.deployment_service")
 
 
 # ─────────────────────────────────────────────

@@ -13,7 +13,7 @@ Unified integration layer that combines all SwiftStack-inspired features:
 - Database Generator
 
 USAGE:
-    from orchestrator.swiftstack_integration import SwiftStackIntegration, SwiftStackConfig
+    from orchestrator.integrations.swiftstack_integration import SwiftStackIntegration, SwiftStackConfig
 
     config = SwiftStackConfig(
         enable_all=True,
@@ -45,7 +45,7 @@ from .fullstack_generator import FullStackApp, FullStackGenerator, GenerationOpt
 from .github_sync import GitHubSync
 from .preview_server import PreviewConfig, PreviewServer
 
-logger = logging.getLogger("orchestrator.swiftstack_integration")
+logger = logging.getLogger("orchestrator.integrations.swiftstack_integration")
 
 
 # ─────────────────────────────────────────────

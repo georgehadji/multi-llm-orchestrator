@@ -34,7 +34,7 @@ from .api_clients import APIResponse, UnifiedClient
 from .budget import Budget
 from .cache import DiskCache
 from .codebase_analyzer import CodebaseAnalyzer
-from .dry_run import DryRunRenderer, ExecutionPlan, TaskPlan
+from .operations.dry_run import DryRunRenderer, ExecutionPlan, TaskPlan
 from .engine import Orchestrator
 from .models import (
     COST_TABLE,

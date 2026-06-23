@@ -20,7 +20,7 @@ from pathlib import Path
 
 from .workspace import ProjectWorkspace, FileVersion, ArchitectureDecision
 
-logger = logging.getLogger("orchestrator.workspace.persistent_workspace")
+logger = logging.getLogger("orchestrator.state_mgmt.workspace.persistent_workspace")
 
 
 class PersistentWorkspace(ProjectWorkspace):

@@ -20,7 +20,7 @@ _VS_SAMPLER = None
 _VS_IMPORT_LOCK = __import__("threading").Lock()
 
 
-def _get_vs_sampler(client):
+def _get_vs_sampler(client, budget=None):
     global _VS_SAMPLER
     if _VS_SAMPLER is None:
         with _VS_IMPORT_LOCK:
@@ -28,7 +28,7 @@ def _get_vs_sampler(client):
                 from ...application.verbalized_sampling import VerbalizedSampler as _VS
 
                 _VS_SAMPLER = _VS
-    return _VS_SAMPLER(client=client)
+    return _VS_SAMPLER(client=client, budget=budget)
 
 
 logger = logging.getLogger("orchestrator.engine_core.stages.generate")
@@ -88,7 +88,7 @@ class GenerateStage:
 
                 cfg = vs_variant_for(model, default_k=flags.vs_k)
                 if cfg is not None:
-                    sampler = _get_vs_sampler(self._client)
+                    sampler = _get_vs_sampler(self._client, self._budget)
                     candidates = await sampler.sample(
                         prompt=prompt_text,
                         model=model,
@@ -101,7 +101,8 @@ class GenerateStage:
                         # Pick the text of the first (highest-prob) candidate
                         best_text = candidates[0].text
                         ctx.output = best_text
-                        ctx.cost_usd += sum(getattr(c, "cost_usd", 0) for c in candidates[:1])
+                        # Cost is tracked inside VerbalizedSampler.sample() via budget.charge;
+                        # VSCandidate has no cost_usd so we do not double-count here.
                         # Use existing token tracking fallback for VS calls
                         ctx.tokens_used["output"] += len(best_text.split())
                         logger.info(

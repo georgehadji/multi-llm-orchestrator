@@ -21,7 +21,7 @@ _VS_SAMPLER = None
 _VS_LOCK = __import__("threading").Lock()
 
 
-def _get_vs_sampler(client):
+def _get_vs_sampler(client, budget=None):
     global _VS_SAMPLER
     if _VS_SAMPLER is None:
         with _VS_LOCK:
@@ -29,7 +29,7 @@ def _get_vs_sampler(client):
                 from ...application.verbalized_sampling import VerbalizedSampler as _VS
 
                 _VS_SAMPLER = _VS
-    return _VS_SAMPLER(client=client)
+    return _VS_SAMPLER(client=client, budget=budget)
 
 
 if TYPE_CHECKING:

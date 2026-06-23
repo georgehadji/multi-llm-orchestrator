@@ -27,7 +27,7 @@ class TestAutonomyConfig:
     """Tests for autonomy_config.py — Multi-Mode Selector."""
 
     def test_for_level_lite(self):
-        from orchestrator.autonomy_config import AutonomyConfig, AutonomyLevel
+        from orchestrator.operations.autonomy_config import AutonomyConfig, AutonomyLevel
 
         cfg = AutonomyConfig.for_level(AutonomyLevel.LITE)
         assert cfg.max_iterations == 0
@@ -36,7 +36,7 @@ class TestAutonomyConfig:
         assert not cfg.is_autonomous
 
     def test_for_level_standard(self):
-        from orchestrator.autonomy_config import AutonomyConfig, AutonomyLevel
+        from orchestrator.operations.autonomy_config import AutonomyConfig, AutonomyLevel
 
         cfg = AutonomyConfig.for_level(AutonomyLevel.STANDARD)
         assert cfg.max_iterations == 3
@@ -44,7 +44,7 @@ class TestAutonomyConfig:
         assert cfg.is_standard
 
     def test_for_level_max(self):
-        from orchestrator.autonomy_config import AutonomyConfig, AutonomyLevel
+        from orchestrator.operations.autonomy_config import AutonomyConfig, AutonomyLevel
 
         cfg = AutonomyConfig.for_level(AutonomyLevel.MAX)
         assert cfg.max_iterations == 10
@@ -55,7 +55,7 @@ class TestAutonomyConfig:
         assert cfg.is_max
 
     def test_from_agent_profile_mapping(self):
-        from orchestrator.autonomy_config import AutonomyConfig
+        from orchestrator.operations.autonomy_config import AutonomyConfig
 
         cfg = AutonomyConfig.from_agent_profile("max")
         assert cfg.level.value == "max"
@@ -63,7 +63,7 @@ class TestAutonomyConfig:
         assert cfg2.level.value == "standard"
 
     def test_apply_to_task_sets_limits(self):
-        from orchestrator.autonomy_config import AutonomyConfig, AutonomyLevel
+        from orchestrator.operations.autonomy_config import AutonomyConfig, AutonomyLevel
 
         task = type("Task", (), {"max_iterations": 0, "acceptance_threshold": 0.0})()
         cfg = AutonomyConfig.for_level(AutonomyLevel.AUTO)
@@ -72,7 +72,7 @@ class TestAutonomyConfig:
         assert task.acceptance_threshold == 0.85
 
     def test_model_tier_for_purposes(self):
-        from orchestrator.autonomy_config import AutonomyConfig, AutonomyLevel
+        from orchestrator.operations.autonomy_config import AutonomyConfig, AutonomyLevel
 
         cfg = AutonomyConfig.for_level(AutonomyLevel.MAX)
         assert cfg.model_tier_for("generation") == "reasoning"
@@ -83,7 +83,7 @@ class TestBrainstormingDecomposer:
     """Tests for brainstorming.py."""
 
     def test_clarifying_questions_complete(self):
-        from orchestrator.brainstorming import ClarifyingQuestions
+        from orchestrator.reasoning.brainstorming import ClarifyingQuestions
 
         cq = ClarifyingQuestions(questions=["Q1?", "Q2?"])
         assert not cq.is_complete
@@ -91,7 +91,7 @@ class TestBrainstormingDecomposer:
         assert cq.is_complete
 
     def test_clarifying_questions_context(self):
-        from orchestrator.brainstorming import ClarifyingQuestions
+        from orchestrator.reasoning.brainstorming import ClarifyingQuestions
 
         cq = ClarifyingQuestions(questions=["What framework?"], answers=["FastAPI"])
         ctx = cq.build_context()
@@ -99,14 +99,14 @@ class TestBrainstormingDecomposer:
         assert "FastAPI" in ctx
 
     def test_brainstorming_without_client_returns_empty(self):
-        from orchestrator.brainstorming import BrainstormingDecomposer
+        from orchestrator.reasoning.brainstorming import BrainstormingDecomposer
 
         decomposer = BrainstormingDecomposer(client=None)
         result = asyncio.run(decomposer.ask("Build an API"))
         assert result == []
 
     def test_inject_into_description(self):
-        from orchestrator.brainstorming import BrainstormingDecomposer, ClarifyingQuestions
+        from orchestrator.reasoning.brainstorming import BrainstormingDecomposer, ClarifyingQuestions
 
         decomposer = BrainstormingDecomposer(client=None)
         # Manually set pending state
@@ -152,7 +152,7 @@ class TestQuickActionResolver:
     """Tests for quick_actions.py."""
 
     def test_suggest_basic(self):
-        from orchestrator.quick_actions import QuickActionResolver
+        from orchestrator.operations.quick_actions import QuickActionResolver
 
         resolver = QuickActionResolver()
         actions = resolver.suggest(tasks_count=4, estimated_cost=1.0)
@@ -161,7 +161,7 @@ class TestQuickActionResolver:
         assert "Generate Docs" in labels  # tasks > 3
 
     def test_suggest_complex_plan(self):
-        from orchestrator.quick_actions import QuickActionResolver
+        from orchestrator.operations.quick_actions import QuickActionResolver
 
         resolver = QuickActionResolver()
         actions = resolver.suggest(tasks_count=12, estimated_cost=8.0, has_dependencies=True)
@@ -171,7 +171,7 @@ class TestQuickActionResolver:
         assert "Review Plan" in labels  # tasks > 10
 
     def test_resolve_hotkey(self):
-        from orchestrator.quick_actions import QuickActionResolver
+        from orchestrator.operations.quick_actions import QuickActionResolver
 
         resolver = QuickActionResolver()
         action = resolver.resolve("Enter")
@@ -179,7 +179,7 @@ class TestQuickActionResolver:
         assert action.label == "Implement Plan"
 
     def test_present_formats_actions(self):
-        from orchestrator.quick_actions import QuickActionResolver
+        from orchestrator.operations.quick_actions import QuickActionResolver
 
         resolver = QuickActionResolver()
         actions = resolver.suggest(tasks_count=2, estimated_cost=1.0)
@@ -255,7 +255,7 @@ class TestModuleRegistry:
     """Tests for module_system.py."""
 
     def test_register_and_get(self):
-        from orchestrator.module_system import ModuleRegistry, ModuleDefinition, ModuleKind
+        from orchestrator.operations.module_system import ModuleRegistry, ModuleDefinition, ModuleKind
 
         registry = ModuleRegistry()
         module = ModuleDefinition(
@@ -268,7 +268,7 @@ class TestModuleRegistry:
         assert result.version == "1.0.0"
 
     def test_resolve_dependencies_linear(self):
-        from orchestrator.module_system import ModuleRegistry, ModuleDefinition
+        from orchestrator.operations.module_system import ModuleRegistry, ModuleDefinition
 
         registry = ModuleRegistry()
         registry.register(ModuleDefinition(name="c", dependencies=["b"]))
@@ -278,7 +278,7 @@ class TestModuleRegistry:
         assert set(resolved) == {"a", "b", "c"}, f"Got: {resolved}"
 
     def test_circular_dependency_detection(self):
-        from orchestrator.module_system import ModuleRegistry, ModuleDefinition
+        from orchestrator.operations.module_system import ModuleRegistry, ModuleDefinition
 
         registry = ModuleRegistry()
         registry.register(ModuleDefinition(name="x", dependencies=["y"]))
@@ -287,7 +287,7 @@ class TestModuleRegistry:
             registry.resolve_dependencies("x")
 
     def test_validate_inputs(self):
-        from orchestrator.module_system import ModuleDefinition, ModuleInput
+        from orchestrator.operations.module_system import ModuleDefinition, ModuleInput
 
         module = ModuleDefinition(
             name="test",
@@ -306,7 +306,7 @@ class TestAutomationScheduler:
     """Tests for automations.py."""
 
     def test_cron_parser_wildcard(self):
-        from orchestrator.automations import CronParser
+        from orchestrator.operations.automations import CronParser
 
         # Every minute: * * * * *
         t = time.localtime()
@@ -314,21 +314,21 @@ class TestAutomationScheduler:
         assert result
 
     def test_cron_parser_specific_minute(self):
-        from orchestrator.automations import CronParser
+        from orchestrator.operations.automations import CronParser
 
         # At minute 99 (should never match)
         result = CronParser.matches("99 * * * *")
         assert not result
 
     def test_cron_parser_every_n(self):
-        from orchestrator.automations import CronParser
+        from orchestrator.operations.automations import CronParser
 
         # */1 * * * * matches every minute
         result = CronParser.matches("*/1 * * * *")
         assert result
 
     def test_scheduled_task_to_dict(self):
-        from orchestrator.automations import ScheduledTask, ScheduleType
+        from orchestrator.operations.automations import ScheduledTask, ScheduleType
 
         task = ScheduledTask(
             name="cleanup",
@@ -344,7 +344,7 @@ class TestAutomationScheduler:
 
     @pytest.mark.asyncio
     async def test_automation_scheduler_register(self):
-        from orchestrator.automations import AutomationScheduler, ScheduledTask, ScheduleType
+        from orchestrator.operations.automations import AutomationScheduler, ScheduledTask, ScheduleType
 
         scheduler = AutomationScheduler()
         task = ScheduledTask(
@@ -459,7 +459,7 @@ class TestSecurityReviewer:
     """Tests for security_review.py."""
 
     def test_quick_scan_detects_hardcoded_key(self):
-        from orchestrator.security_review import SecurityReviewer
+        from orchestrator.safety.security_review import SecurityReviewer
 
         sr = SecurityReviewer()
         report = sr.quick_scan("api_key = 'sk-abc123def456'")
@@ -467,21 +467,21 @@ class TestSecurityReviewer:
         assert any(f.rule_id == "SEC-001" for f in report.findings)
 
     def test_quick_scan_detects_debug_mode(self):
-        from orchestrator.security_review import SecurityReviewer
+        from orchestrator.safety.security_review import SecurityReviewer
 
         sr = SecurityReviewer()
         report = sr.quick_scan("DEBUG = True")
         assert any(f.rule_id == "SEC-007" for f in report.findings)
 
     def test_quick_scan_detects_md5(self):
-        from orchestrator.security_review import SecurityReviewer
+        from orchestrator.safety.security_review import SecurityReviewer
 
         sr = SecurityReviewer()
         report = sr.quick_scan("hashlib.md5(b'data')")
         assert any(f.rule_id == "SEC-005" for f in report.findings)
 
     def test_clean_code_passes(self):
-        from orchestrator.security_review import SecurityReviewer
+        from orchestrator.safety.security_review import SecurityReviewer
 
         sr = SecurityReviewer()
         report = sr.quick_scan("def add(a, b): return a + b")
@@ -489,7 +489,7 @@ class TestSecurityReviewer:
         assert report.passed
 
     def test_report_markdown_generation(self):
-        from orchestrator.security_review import SecurityReport, SecurityFinding, Severity, Category
+        from orchestrator.safety.security_review import SecurityReport, SecurityFinding, Severity, Category
 
         report = SecurityReport(
             findings=[
@@ -608,21 +608,21 @@ class TestSelfReviewer:
     """Tests for self_review.py."""
 
     def test_should_skip_cross_review_high_score(self):
-        from orchestrator.self_review import SelfReviewer, SelfReviewConfig
+        from orchestrator.quality.self_review import SelfReviewer, SelfReviewConfig
 
         reviewer = SelfReviewer()
         skip = reviewer.should_skip_cross_review(0.85, 0, SelfReviewConfig(pass_threshold=0.7))
         assert skip
 
     def test_should_not_skip_with_deterministic_issues(self):
-        from orchestrator.self_review import SelfReviewer, SelfReviewConfig
+        from orchestrator.quality.self_review import SelfReviewer, SelfReviewConfig
 
         reviewer = SelfReviewer()
         skip = reviewer.should_skip_cross_review(0.90, 3, SelfReviewConfig(pass_threshold=0.7))
         assert not skip
 
     def test_should_not_skip_when_disabled(self):
-        from orchestrator.self_review import SelfReviewer, SelfReviewConfig
+        from orchestrator.quality.self_review import SelfReviewer, SelfReviewConfig
 
         reviewer = SelfReviewer()
         skip = reviewer.should_skip_cross_review(0.99, 0, SelfReviewConfig(enabled=False))
@@ -671,7 +671,7 @@ class TestDocGenerator:
     """Tests for doc_generator.py."""
 
     def test_generate_readme_fast(self):
-        from orchestrator.doc_generator import DocGenerator
+        from orchestrator.generators.doc_generator import DocGenerator
 
         dg = DocGenerator()
         readme = dg.generate_readme_fast("MyApp", "A great app", ["Add auth", "Add API"])
@@ -680,7 +680,7 @@ class TestDocGenerator:
         assert "Add auth" in readme
 
     def test_generate_changelog(self):
-        from orchestrator.doc_generator import DocGenerator
+        from orchestrator.generators.doc_generator import DocGenerator
 
         dg = DocGenerator()
         changelog = dg.generate_changelog([("1.0.0", "Initial"), ("1.1.0", "Auth module")])
@@ -718,7 +718,7 @@ class TestI18nManager:
     """Tests for i18n.py."""
 
     def test_extract_translatable_strings(self):
-        from orchestrator.i18n import I18nManager
+        from orchestrator.operations.i18n import I18nManager
 
         i18n = I18nManager()
         keys = i18n.extract_from_code('_("Hello World")', "test.py")
@@ -726,13 +726,13 @@ class TestI18nManager:
         assert keys[0].default_text == "Hello World"
 
     def test_text_to_key_conversion(self):
-        from orchestrator.i18n import I18nManager
+        from orchestrator.operations.i18n import I18nManager
 
         key = I18nManager._text_to_key("Hello World!")
         assert key == "hello_world"
 
     def test_generate_base_locale(self):
-        from orchestrator.i18n import I18nManager
+        from orchestrator.operations.i18n import I18nManager
 
         with tempfile.TemporaryDirectory() as d:
             i18n = I18nManager(locales_dir=d)
@@ -747,7 +747,7 @@ class TestTypeGenerator:
     """Tests for type_generator.py."""
 
     def test_generate_pydantic(self):
-        from orchestrator.type_generator import DynamicTypeGenerator, TargetLanguage
+        from orchestrator.generators.type_generator import DynamicTypeGenerator, TargetLanguage
 
         gen = DynamicTypeGenerator()
         entity = type(
@@ -767,7 +767,7 @@ class TestTypeGenerator:
         assert output.filename.endswith(".py")
 
     def test_generate_typescript(self):
-        from orchestrator.type_generator import DynamicTypeGenerator, TargetLanguage
+        from orchestrator.generators.type_generator import DynamicTypeGenerator, TargetLanguage
 
         gen = DynamicTypeGenerator()
         entity = type(
@@ -783,7 +783,7 @@ class TestTypeGenerator:
         assert "number" in output.code
 
     def test_generate_sql(self):
-        from orchestrator.type_generator import DynamicTypeGenerator, TargetLanguage
+        from orchestrator.generators.type_generator import DynamicTypeGenerator, TargetLanguage
 
         gen = DynamicTypeGenerator()
         entity = type(
@@ -806,7 +806,7 @@ class TestSandboxExecutor:
 
     @pytest.mark.asyncio
     async def test_run_writes_to_sandbox(self):
-        from orchestrator.sandbox_executor import SandboxExecutor
+        from orchestrator.safety.sandbox_executor import SandboxExecutor
 
         with tempfile.TemporaryDirectory() as d:
             sandbox = SandboxExecutor(project_dir=d)
@@ -821,7 +821,7 @@ class TestSandboxExecutor:
 
     @pytest.mark.asyncio
     async def test_reject_discards_changes(self):
-        from orchestrator.sandbox_executor import SandboxExecutor
+        from orchestrator.safety.sandbox_executor import SandboxExecutor
 
         with tempfile.TemporaryDirectory() as d:
             sandbox = SandboxExecutor(project_dir=d)
@@ -887,7 +887,7 @@ class TestFileScope:
     """Tests for file_scope.py."""
 
     def test_can_modify_unlocked(self):
-        from orchestrator.file_scope import FileScopeManager
+        from orchestrator.operations.file_scope import FileScopeManager
 
         fs = FileScopeManager()
         fs.target(["src/main.py", "src/utils.py"])
@@ -895,7 +895,7 @@ class TestFileScope:
         assert not fs.can_modify("src/secret.py")
 
     def test_locked_files_cannot_modify(self):
-        from orchestrator.file_scope import FileScopeManager
+        from orchestrator.operations.file_scope import FileScopeManager
 
         fs = FileScopeManager()
         fs.lock(["config.json", ".env"])
@@ -904,7 +904,7 @@ class TestFileScope:
         assert fs.can_modify("src/main.py")
 
     def test_filter_files(self):
-        from orchestrator.file_scope import FileScopeManager
+        from orchestrator.operations.file_scope import FileScopeManager
 
         fs = FileScopeManager()
         fs.target(["src/app.py"])
@@ -951,7 +951,7 @@ class TestEntityRLS:
     """Tests for entity_rls.py."""
 
     def test_generate_row_level_policy(self):
-        from orchestrator.entity_rls import EntityRLSManager
+        from orchestrator.analysis.entity_rls import EntityRLSManager
 
         mgr = EntityRLSManager()
         policy = mgr.generate_row_level("users", owner_field="user_id")
@@ -959,14 +959,14 @@ class TestEntityRLS:
         assert "user_id = auth.uid()" in policy.condition
 
     def test_generate_tenant_isolation(self):
-        from orchestrator.entity_rls import EntityRLSManager
+        from orchestrator.analysis.entity_rls import EntityRLSManager
 
         mgr = EntityRLSManager()
         policy = mgr.generate_tenant_isolation("projects")
         assert "tenant_id = auth.tenant_id()" in policy.condition
 
     def test_to_sql_generation(self):
-        from orchestrator.entity_rls import EntityRLSManager
+        from orchestrator.analysis.entity_rls import EntityRLSManager
 
         mgr = EntityRLSManager()
         mgr.generate_row_level("users", "id", "auth.uid()")
@@ -975,7 +975,7 @@ class TestEntityRLS:
         assert "CREATE POLICY" in sql
 
     def test_validate_missing_policies(self):
-        from orchestrator.entity_rls import EntityRLSManager
+        from orchestrator.analysis.entity_rls import EntityRLSManager
 
         mgr = EntityRLSManager()
         issues = mgr.validate("nonexistent_table")
@@ -986,7 +986,7 @@ class TestMultiContext:
     """Tests for multi_context.py."""
 
     def test_create_and_list_threads(self):
-        from orchestrator.multi_context import MultiContextManager
+        from orchestrator.operations.multi_context import MultiContextManager
 
         with tempfile.TemporaryDirectory() as d:
             mgr = MultiContextManager(project_dir=d)
@@ -996,7 +996,7 @@ class TestMultiContext:
             assert len(threads) >= 2
 
     def test_switch_thread(self):
-        from orchestrator.multi_context import MultiContextManager
+        from orchestrator.operations.multi_context import MultiContextManager
 
         with tempfile.TemporaryDirectory() as d:
             mgr = MultiContextManager(project_dir=d)
@@ -1015,14 +1015,14 @@ class TestDesignRegistry:
     """Tests for design_registry.py."""
 
     def test_seed_defaults(self):
-        from orchestrator.design_registry import DesignRegistry
+        from orchestrator.design.design_registry import DesignRegistry
 
         registry = DesignRegistry()
         count = registry.seed_defaults()
         assert count > 0
 
     def test_register_and_get(self):
-        from orchestrator.design_registry import DesignRegistry, RegistryItem
+        from orchestrator.design.design_registry import DesignRegistry, RegistryItem
 
         registry = DesignRegistry()
         item = RegistryItem("hero", "component", "Hero section", files=["hero.tsx"])
@@ -1032,7 +1032,7 @@ class TestDesignRegistry:
         assert found.name == "hero"
 
     def test_resolve_dependencies(self):
-        from orchestrator.design_registry import DesignRegistry, RegistryItem
+        from orchestrator.design.design_registry import DesignRegistry, RegistryItem
 
         registry = DesignRegistry()
         registry.register(RegistryItem("dialog", "component", dependencies=["button"]))
@@ -1078,7 +1078,7 @@ class TestDiffViewProvider:
     """Tests for diff_view.py."""
 
     def test_diff_files(self):
-        from orchestrator.diff_view import DiffViewProvider
+        from orchestrator.generators.diff_view import DiffViewProvider
 
         provider = DiffViewProvider()
         diff = provider.diff_files("old line", "new line", "test.py")
@@ -1088,7 +1088,7 @@ class TestDiffViewProvider:
         assert diff.unified_diff != ""
 
     def test_record_checkpoint_and_timeline(self, tmp_path):
-        from orchestrator.diff_view import DiffViewProvider
+        from orchestrator.generators.diff_view import DiffViewProvider
 
         provider = DiffViewProvider(project_dir=str(tmp_path))
         provider.record_checkpoint("after-auth")
@@ -1101,7 +1101,7 @@ class TestKnowledgeSidebar:
     """Tests for knowledge_sidebar.py."""
 
     def test_get_sections(self):
-        from orchestrator.knowledge_sidebar import KnowledgeSidebarData
+        from orchestrator.knowledge.knowledge_sidebar import KnowledgeSidebarData
 
         sidebar = KnowledgeSidebarData()
         sections = sidebar.get_sections()
@@ -1153,7 +1153,7 @@ class TestTeamTemplates:
     """Tests for team_templates.py."""
 
     def test_create_template(self):
-        from orchestrator.team_templates import TeamTemplateManager
+        from orchestrator.generators.team_templates import TeamTemplateManager
 
         mgr = TeamTemplateManager()
         t = mgr.create(
@@ -1165,7 +1165,7 @@ class TestTeamTemplates:
         assert t.name == "fastapi-starter"
 
     def test_template_to_dict_roundtrip(self):
-        from orchestrator.team_templates import TeamTemplate
+        from orchestrator.generators.team_templates import TeamTemplate
 
         t = TeamTemplate(
             name="test", version="2.0", entities=[{"name": "Item"}], modules=["auth", "api"]
@@ -1207,7 +1207,7 @@ class TestProgressCollector:
     """Tests for progress_collector.py."""
 
     def test_task_lifecycle(self):
-        from orchestrator.progress_collector import ProgressCollector
+        from orchestrator.analysis.progress_collector import ProgressCollector
 
         pc = ProgressCollector()
         pc.task_start("t1", "Setup project")
@@ -1219,7 +1219,7 @@ class TestProgressCollector:
         assert status["cost_usd"] == 0.01
 
     def test_record_cost(self):
-        from orchestrator.progress_collector import ProgressCollector
+        from orchestrator.analysis.progress_collector import ProgressCollector
 
         pc = ProgressCollector()
         pc.record_cost("gpt-4o", 0.005, 100, 50, 245.0)
@@ -1233,7 +1233,7 @@ class TestSystemDiagnostics:
 
     @pytest.mark.asyncio
     async def test_check_python(self):
-        from orchestrator.system_diagnostics import SystemDiagnostics
+        from orchestrator.operations.system_diagnostics import SystemDiagnostics
 
         diag = SystemDiagnostics()
         check = diag._check_python()
@@ -1245,14 +1245,14 @@ class TestSystemDiagnostics:
     async def test_run_all(self):
         from unittest.mock import MagicMock, patch
 
-        from orchestrator.system_diagnostics import SystemDiagnostics
+        from orchestrator.operations.system_diagnostics import SystemDiagnostics
 
         diag = SystemDiagnostics()
         # The "tests" diagnostic shells out to `pytest --co` via subprocess; under
         # the test runner that recursively collects the whole suite and hangs.
         # Stub subprocess.run so the diagnostic stays fast and deterministic.
         fake = MagicMock(returncode=0, stdout="1 selected", stderr="")
-        with patch("orchestrator.system_diagnostics.subprocess.run", return_value=fake):
+        with patch("orchestrator.operations.system_diagnostics.subprocess.run", return_value=fake):
             report = await diag.run_all()
         assert report.overall_status in ("ok", "warning")
         assert len(report.checks) >= 4
@@ -1262,7 +1262,7 @@ class TestCrossProjectReferencer:
     """Tests for cross_project.py."""
 
     def test_index_project(self):
-        from orchestrator.cross_project import CrossProjectReferencer
+        from orchestrator.learning.cross_project import CrossProjectReferencer
 
         with tempfile.TemporaryDirectory() as d:
             proj = Path(d) / "myproject"
@@ -1274,7 +1274,7 @@ class TestCrossProjectReferencer:
             assert "app.py" in result.files
 
     def test_resolve_at_reference(self):
-        from orchestrator.cross_project import CrossProjectReferencer
+        from orchestrator.learning.cross_project import CrossProjectReferencer
 
         ref = CrossProjectReferencer()
         ref._projects["demo"] = type(
@@ -1284,7 +1284,7 @@ class TestCrossProjectReferencer:
         assert "def run" in result
 
     def test_find_file(self):
-        from orchestrator.cross_project import CrossProjectReferencer
+        from orchestrator.learning.cross_project import CrossProjectReferencer
 
         with tempfile.TemporaryDirectory() as d:
             proj = Path(d) / "myproject"

@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Specification, Builder, Immutable Data
 
 Usage:
-    from orchestrator.breakpoints import BreakpointBuilder, BreakpointSpecification
+    from orchestrator.operations.breakpoints import BreakpointBuilder, BreakpointSpecification
 
     breakpoints = (BreakpointBuilder()
         .add_standard()

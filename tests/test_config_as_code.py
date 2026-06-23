@@ -14,7 +14,7 @@ from orchestrator.config_as_code import (
     FieldType,
     AuthMethod,
 )
-from orchestrator.type_generator import (
+from orchestrator.generators.type_generator import (
     DynamicTypeGenerator,
     TargetLanguage,
 )

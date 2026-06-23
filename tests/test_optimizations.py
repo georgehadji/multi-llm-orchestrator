@@ -130,7 +130,7 @@ class TestAuditTrail:
     """C-9: Security audit trail."""
 
     def test_record_entry(self):
-        from orchestrator.workspace.audit import AuditTrail
+        from orchestrator.state_mgmt.workspace.audit import AuditTrail
 
         audit = AuditTrail()
         entry = audit.record("dev", "FILE_CREATED", "main.py")
@@ -138,14 +138,14 @@ class TestAuditTrail:
         assert entry.action == "FILE_CREATED"
 
     def test_get_recent(self):
-        from orchestrator.workspace.audit import AuditTrail
+        from orchestrator.state_mgmt.workspace.audit import AuditTrail
 
         audit = AuditTrail()
         audit.record("a", "TOOL_EXECUTED", "shell cmd")
         assert len(audit.get_recent(limit=10)) == 1
 
     def test_export_json(self):
-        from orchestrator.workspace.audit import AuditTrail
+        from orchestrator.state_mgmt.workspace.audit import AuditTrail
 
         audit = AuditTrail()
         audit.record("dev", "MODEL_CALL", "gpt-4o", duration_ms=1500)
@@ -154,7 +154,7 @@ class TestAuditTrail:
         assert "dev" in exported
 
     def test_clear(self):
-        from orchestrator.workspace.audit import AuditTrail
+        from orchestrator.state_mgmt.workspace.audit import AuditTrail
 
         audit = AuditTrail()
         audit.record("dev", "TOOL_EXECUTED", "ls")

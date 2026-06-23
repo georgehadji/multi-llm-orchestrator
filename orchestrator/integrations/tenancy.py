@@ -14,7 +14,7 @@ Benefits:
 - Usage-based scaling
 
 Usage:
-    from orchestrator.tenancy import TenantManager, Plan
+    from orchestrator.integrations.tenancy import TenantManager, Plan
 
     manager = TenantManager()
     tenant = await manager.create_tenant("acme-corp", "pro")

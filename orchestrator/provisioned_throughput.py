@@ -18,7 +18,7 @@ Pricing:
 - Overage at pay-as-you-go rates
 
 Usage:
-    from orchestrator.provisioned_throughput import ProvisionedThroughputManager
+    from orchestrator.operations.provisioned_throughput import ProvisionedThroughputManager
 
     manager = ProvisionedThroughputManager(units=4, models=["grok-4.20"])
     await manager.check_capacity(tokens=10000, is_input=True)
@@ -35,7 +35,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-logger = logging.getLogger("orchestrator.provisioned_throughput")
+logger = logging.getLogger("orchestrator.operations.provisioned_throughput")
 
 
 class CapacityType(str, Enum):

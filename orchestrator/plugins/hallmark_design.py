@@ -8,8 +8,8 @@ constraints before each frontend task, log design choices after each task,
 and emit design.md after each project.
 
 Usage:
-    from orchestrator.plugins.base import PluginRegistry, get_plugin_registry
-    from orchestrator.plugins.hallmark_design import HallmarkDesignPlugin
+    from orchestrator.plugin.plugins.base import PluginRegistry, get_plugin_registry
+    from orchestrator.plugin.plugins.hallmark_design import HallmarkDesignPlugin
     registry = get_plugin_registry()
     registry.register(HallmarkDesignPlugin())
 """

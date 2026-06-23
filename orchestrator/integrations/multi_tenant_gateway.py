@@ -9,7 +9,7 @@ Async: Yes — for I/O-bound operations
 Layer: L4 Supervisor
 
 Usage:
-    from orchestrator.multi_tenant_gateway import MultiTenantGateway
+    from orchestrator.integrations.multi_tenant_gateway import MultiTenantGateway
     gateway = MultiTenantGateway(jwt_secret="secret_key")
     await gateway.start_server()
 """
@@ -27,7 +27,7 @@ from typing import Any
 import jwt
 from aiohttp import web
 
-logger = logging.getLogger("orchestrator.multi_tenant_gateway")
+logger = logging.getLogger("orchestrator.integrations.multi_tenant_gateway")
 
 
 @dataclass

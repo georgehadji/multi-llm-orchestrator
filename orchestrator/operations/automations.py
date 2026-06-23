@@ -6,6 +6,7 @@ Part of Category 5, Phase B3 (Base44-inspired).
 """
 
 from __future__ import annotations
+import asyncio
 from dataclasses import dataclass
 from enum import Enum
 import json
@@ -56,7 +57,8 @@ class CronParser:
         if not cron:
             return False
         t = time.localtime(timestamp or time.time())
-        fields = [t.tm_min, t.tm_hour, t.tm_mday, t.tm_mon, t.tm_wday]
+        # Python tm_wday: Mon=0..Sun=6.  Cron weekday: Sun=0..Sat=6.
+        fields = [t.tm_min, t.tm_hour, t.tm_mday, t.tm_mon, (t.tm_wday + 1) % 7]
         cron_fields = cron.split()
         if len(cron_fields) != 5:
             return False
@@ -65,6 +67,8 @@ class CronParser:
                 continue
             if cf.startswith("*/"):
                 step = int(cf[2:])
+                if step == 0:
+                    return False
                 if val % step != 0:
                     return False
             else:
@@ -125,7 +129,11 @@ class AutomationScheduler:
             if task.schedule_type == ScheduleType.EVENT and task.event_entity == entity:
                 if task.name in self._handlers:
                     try:
-                        await self._handlers[task.name](payload)
+                        handler = self._handlers[task.name]
+                        if asyncio.iscoroutinefunction(handler):
+                            await handler(payload)
+                        else:
+                            handler(payload)
                         task.run_count += 1
                         task.last_run = time.time()
                         count += 1
@@ -149,7 +157,11 @@ class AutomationScheduler:
                 should_run = task.run_count == 0
             if should_run and task.name in self._handlers:
                 try:
-                    await self._handlers[task.name]()
+                    handler = self._handlers[task.name]
+                    if asyncio.iscoroutinefunction(handler):
+                        await handler()
+                    else:
+                        handler()
                     task.run_count += 1
                     task.last_run = now
                     count += 1

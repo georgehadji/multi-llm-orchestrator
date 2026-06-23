@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Prototype, Factory Method, Builder, Template Method
 
 Usage:
-    from orchestrator.testing_templates import TestTemplateFactory
+    from orchestrator.generators.testing_templates import TestTemplateFactory
 
     factory = TestTemplateFactory()
     unit_test = factory.create_unit_test("MyComponent", framework="jest")

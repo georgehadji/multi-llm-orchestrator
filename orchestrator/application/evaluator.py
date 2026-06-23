@@ -23,7 +23,7 @@ from typing import Callable
 
 from ..domain.ports import LLMClient, TelemetryPort, TracingPort
 from ..budget import Budget
-from ..feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
+from ..operations.feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
 

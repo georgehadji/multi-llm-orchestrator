@@ -7,7 +7,7 @@ Async file operations using aiofiles to prevent event loop blocking.
 Use these instead of pathlib's sync methods in async code.
 
 USAGE:
-    from orchestrator.async_file_io import async_write_text, async_read_text
+    from orchestrator.events.async_file_io import async_write_text, async_read_text
 
     # Write file asynchronously
     await async_write_text("output.txt", "Hello, World!")
@@ -22,7 +22,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-logger = logging.getLogger("orchestrator.async_file_io")
+logger = logging.getLogger("orchestrator.events.async_file_io")
 
 # Try to import aiofiles, fall back to sync if not available
 try:

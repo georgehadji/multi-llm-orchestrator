@@ -9,7 +9,7 @@ Async: Yes — for I/O-bound operations
 Layer: L3 Agents
 
 Usage:
-    from orchestrator.skills import SkillManager
+    from orchestrator.skills.skills import SkillManager
     skill_manager = SkillManager()
     skill_manager.register_skill("calculate_sum", calculate_sum, ["numbers"])
     result = await skill_manager.execute_skill("calculate_sum", numbers=[1, 2, 3, 4])
@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-logger = logging.getLogger("orchestrator.skills")
+logger = logging.getLogger("orchestrator.skills.skills")
 
 
 @dataclass

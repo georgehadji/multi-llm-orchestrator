@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 
-logger = logging.getLogger("orchestrator.workspace.audit")
+logger = logging.getLogger("orchestrator.state_mgmt.workspace.audit")
 
 
 @dataclass
