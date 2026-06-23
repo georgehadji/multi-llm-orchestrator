@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 
-def safe_print(msg: str, **kwargs) -> None:
+def safe_print(msg: str, **kwargs: Any) -> None:
     """Print message with UTF-8 to ASCII fallback for restricted terminals."""
     try:
         print(msg, **kwargs)
@@ -58,7 +58,7 @@ def _default_output_dir(project_id: str | None) -> str:
     return str(Path("outputs") / f"app_{timestamp}")
 
 
-def setup_logging(verbose: bool = False, suppress_cache: bool = True):
+def setup_logging(verbose: bool = False, suppress_cache: bool = True) -> None:
     """Configure logging for the CLI."""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
@@ -71,12 +71,12 @@ def setup_logging(verbose: bool = False, suppress_cache: bool = True):
         try:
             from ..output_organizer import suppress_cache_messages
 
-            suppress_cache_messages()
+            suppress_cache_messages()  # type: ignore[no-untyped-call]
         except ImportError:
             pass
 
 
-def _build_tracing_cfg(args) -> Any:
+def _build_tracing_cfg(args: Any) -> Any:
     """Return a TracingConfig when --tracing is set, otherwise None."""
     try:
         from ..tracing import TracingConfig
@@ -85,12 +85,12 @@ def _build_tracing_cfg(args) -> Any:
     if getattr(args, "tracing", False):
         return TracingConfig(
             enabled=True,
-            otlp_endpoint=getattr(args, "otlp_endpoint", None),
+            export_endpoint=getattr(args, "otlp_endpoint", "") or "",
         )
     return None
 
 
-def _print_results(state, orch=None):
+def _print_results(state: Any, orch: Any = None) -> None:
     """Print execution summary for a completed project."""
     print("\n" + "=" * 60)
     print(f"STATUS: {state.status.value}")
@@ -132,7 +132,7 @@ def _print_results(state, orch=None):
             pass
 
 
-def _resolve_task_paths(task_paths: dict[str, str], state) -> dict[str, str]:
+def _resolve_task_paths(task_paths: dict[str, str], state: Any) -> dict[str, str]:
     """
     Resolve a task_paths dict from the YAML file into a {task_id: target_path} mapping.
 

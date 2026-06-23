@@ -3,8 +3,6 @@ Tests for Capabilities 5-10 (Agent Communication, Learning, Runtime, CI, HITL, S
 """
 
 import pytest
-from datetime import datetime
-from pathlib import Path
 
 
 class TestAgentMessageBus:
@@ -33,7 +31,7 @@ class TestAgentMessageBus:
         assert len(bus.read_inbox("agent_b")) == 0
 
     def test_message_history(self):
-        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
+        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage
 
         bus = AgentMessageBus()
         bus.publish(AgentMessage(id="m1", sender="a", content="msg1"))
@@ -130,7 +128,7 @@ class TestDynamicScaffoldGenerator:
     """Capability 8: Dynamic scaffold generation."""
 
     def test_detect_python(self):
-        from orchestrator.scaffold.dynamic import DynamicScaffoldGenerator, TechStack
+        from orchestrator.scaffold.dynamic import DynamicScaffoldGenerator
 
         gen = DynamicScaffoldGenerator()
         stack = gen._detect_stack("Build a Python CLI app")

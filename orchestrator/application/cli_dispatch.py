@@ -17,6 +17,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from ..budget import Budget
 from ..engine import Orchestrator
@@ -270,7 +271,7 @@ def run() -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-async def _async_list_projects():
+async def _async_list_projects() -> None:
     sm = StateManager()
     try:
         projects = await sm.list_projects()
@@ -286,7 +287,7 @@ async def _async_list_projects():
         await sm.close()
 
 
-async def _async_resume(args):
+async def _async_resume(args: Any) -> None:
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
     orch = Orchestrator(
         budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)
@@ -322,7 +323,7 @@ async def _async_resume(args):
         safe_print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
 
 
-async def _async_file_project(args):
+async def _async_file_project(args: Any) -> None:
     try:
         result = load_project_file(args.file)
     except (FileNotFoundError, ValueError) as exc:
@@ -445,11 +446,11 @@ async def _async_file_project(args):
                     print(f"  ! {err}", file=sys.stderr)
 
     if getattr(args, "dependency_report", False) and state:
-        renderer = DagRenderer(state.tasks, results=state.results)
-        print("\n" + renderer.dependency_report())
+        dag_renderer = DagRenderer(state.tasks, results=state.results)
+        print("\n" + dag_renderer.dependency_report())
 
 
-async def _async_dry_run(args):
+async def _async_dry_run(args: Any) -> None:
     budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
     orch = Orchestrator(budget=budget, max_concurrency=args.concurrency)
 
@@ -463,7 +464,7 @@ async def _async_dry_run(args):
     await orch.cache.close()
 
 
-async def _async_new_project(args):
+async def _async_new_project(args: Any) -> None:
     if getattr(args, "tdd_first", False):
         from ..cost_optimization import get_optimization_config, update_config
 
@@ -605,11 +606,11 @@ async def _async_new_project(args):
         safe_print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
 
     if getattr(args, "dependency_report", False) and state:
-        renderer = DagRenderer(state.tasks, results=state.results)
-        print("\n" + renderer.dependency_report())
+        dag_renderer = DagRenderer(state.tasks, results=state.results)
+        print("\n" + dag_renderer.dependency_report())
 
 
-async def _async_visualize(args):
+async def _async_visualize(args: Any) -> None:
     if args.file:
         try:
             result = load_project_file(args.file)
@@ -652,9 +653,9 @@ async def _async_visualize(args):
 
 async def _check_resume(
     description: str,
-    state_mgr,
+    state_mgr: Any,
     new_project: bool = False,
-    _input_fn=None,
+    _input_fn: Any = None,
 ) -> str | None:
     """Gate that detects and offers to resume a previous project."""
     import asyncio

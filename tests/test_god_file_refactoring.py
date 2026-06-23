@@ -7,11 +7,8 @@ Architect, TaskPipeline, and engine.py delegation smoke tests.
 
 from __future__ import annotations
 
-import asyncio
 import json
-from dataclasses import dataclass
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -307,7 +304,7 @@ class TestTaskValidator:
     def test_filter_validators_non_python(self, mock_client, mock_budget):
         """Non-Python task should remove Python-specific validators."""
         from orchestrator.engine_core.validator import TaskValidator
-        from orchestrator.models import Task, TaskStatus, TaskType
+        from orchestrator.models import Task, TaskType
 
         task = Task(
             id="t1",
@@ -601,11 +598,6 @@ class TestEngineDelegation:
         )
         from orchestrator.engine_core.stages import (
             GenerateStage,
-            CritiqueStage,
-            EvaluateStage,
-            ValidateStage,
-            PreflightStage,
-            SelfConsistencyStage,
         )
 
         assert PipelineContext is not None

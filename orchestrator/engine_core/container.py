@@ -263,7 +263,7 @@ class ServiceContainer:
         self,
         skill_manager: Any = None,
         taste_skill_service: Any = None,
-        background_tasks: set | None = None,
+        background_tasks: set[Any] | None = None,
     ) -> None:
         """Late-bind engine-level deps into PipelineExecutor after Orchestrator.__init__."""
         if self.pipeline_executor is not None:
@@ -538,7 +538,7 @@ class ServiceContainer:
             # Requires engine-level callables (execute_task_fn / determine_final_
             # status_fn) not available here; the engine builds the authoritative
             # instance in __init__. Degrade to None if it can't be constructed.
-            resumption_service = ResumptionService()
+            resumption_service = ResumptionService()  # type: ignore[call-arg]
         except (ImportError, TypeError):
             pass
 

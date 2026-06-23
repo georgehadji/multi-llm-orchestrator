@@ -161,27 +161,28 @@ class ModelRegistry:
         "meta-llama/llama-3.1-405b-instruct": "meta-llama/llama-3.3-70b-instruct",
         # xAI — grok-4-mini not on OpenRouter; use grok-4.20
         "x-ai/grok-4-mini": "x-ai/grok-4.20",
-        # FLUX 2 models — not yet available on OpenRouter; fall back to FLUX 1 Pro
-        "black-forest-labs/flux.2-klein-4b": "black-forest-labs/flux-1-pro",
-        "black-forest-labs/flux.2-max": "black-forest-labs/flux-1-pro",
-        "black-forest-labs/flux.2-pro": "black-forest-labs/flux-1-pro",
-        # Recraft — v4/v4.1 ids not on OpenRouter; fall back to dall-e-3
-        "recraft/recraft-v3": "openai/dall-e-3",
-        "recraft/recraft-v4": "openai/dall-e-3",
-        "recraft/recraft-v4-pro": "openai/dall-e-3",
-        "recraft/recraft-v4-pro-vector": "openai/dall-e-3",
-        "recraft/recraft-v4-vector": "openai/dall-e-3",
-        "recraft/recraft-v4.1": "openai/dall-e-3",
-        "recraft/recraft-v4.1-pro": "openai/dall-e-3",
-        "recraft/recraft-v4.1-utility": "openai/dall-e-3",
-        # Sourceful Riverflow — preview ids not on OpenRouter; fall back to flux-1-pro
-        "sourceful/riverflow-v2-fast": "black-forest-labs/flux-1-pro",
-        "sourceful/riverflow-v2-fast-preview": "black-forest-labs/flux-1-pro",
-        "sourceful/riverflow-v2-max-preview": "black-forest-labs/flux-1-pro",
-        "sourceful/riverflow-v2-pro": "black-forest-labs/flux-1-pro",
-        "sourceful/riverflow-v2-standard-preview": "black-forest-labs/flux-1-pro",
+        # FLUX 2 models — not on OpenRouter; fall back to gpt-4o-mini
+        "black-forest-labs/flux.2-klein-4b": "openai/gpt-4o-mini",
+        "black-forest-labs/flux.2-max": "openai/gpt-4o-mini",
+        "black-forest-labs/flux.2-flex": "openai/gpt-4o-mini",
+        "black-forest-labs/flux.2-pro": "openai/gpt-4o-mini",
+        # Recraft — v4/v4.1 ids not on OpenRouter; fall back to gpt-4o-mini
+        "recraft/recraft-v3": "openai/gpt-4o-mini",
+        "recraft/recraft-v4": "openai/gpt-4o-mini",
+        "recraft/recraft-v4-pro": "openai/gpt-4o-mini",
+        "recraft/recraft-v4-pro-vector": "openai/gpt-4o-mini",
+        "recraft/recraft-v4-vector": "openai/gpt-4o-mini",
+        "recraft/recraft-v4.1": "openai/gpt-4o-mini",
+        "recraft/recraft-v4.1-pro": "openai/gpt-4o-mini",
+        "recraft/recraft-v4.1-utility": "openai/gpt-4o-mini",
+        # Sourceful Riverflow — preview ids not on OpenRouter; fall back to gpt-4o-mini
+        "sourceful/riverflow-v2-fast": "openai/gpt-4o-mini",
+        "sourceful/riverflow-v2-fast-preview": "openai/gpt-4o-mini",
+        "sourceful/riverflow-v2-max-preview": "openai/gpt-4o-mini",
+        "sourceful/riverflow-v2-pro": "openai/gpt-4o-mini",
+        "sourceful/riverflow-v2-standard-preview": "openai/gpt-4o-mini",
         # ByteDance Seedream — not on OpenRouter
-        "bytedance-seed/seedream-4.5": "openai/dall-e-3",
+        "bytedance-seed/seedream-4.5": "openai/gpt-4o-mini",
     }
 
     # ═══════════════════════════════════════════════════════

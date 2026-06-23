@@ -7,7 +7,6 @@ import pytest
 def test_taste_skill_enabled_default_true(monkeypatch):
     monkeypatch.delenv("ORCH_TASTE_SKILL_ENABLED", raising=False)
     # Re-import to pick up cleared env
-    import importlib
     import orchestrator.crosscutting.config as cfg_mod
 
     fresh = cfg_mod.FeatureFlags()

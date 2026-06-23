@@ -7,13 +7,7 @@ Part of Category 3, Phase D3 (Dyad-inspired).
 
 from __future__ import annotations
 from dataclasses import dataclass
-import json
 import logging
-import re
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .infrastructure.llm_client import UnifiedClient
 
 logger = logging.getLogger(__name__)
 

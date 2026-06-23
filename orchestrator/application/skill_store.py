@@ -22,10 +22,8 @@ import logging
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    pass
 
 from ..models import TaskType
 from ..models_skill import SkillPatch, Trajectory

@@ -162,6 +162,9 @@ class WebsiteConfig:
     image_quality: str = "balanced"  # "draft", "balanced", "premium"
     # ── Phase 3: URL source extraction ──
     source_url: str = ""  # Live URL to extract design tokens, fonts, and content from
+    # ── Hero video background ──
+    hero_video: bool = False  # Generate an MP4 hero background (image used as poster)
+    hero_video_model: str = ""  # OpenRouter video model ID; empty = per-tier auto-select
 
 
 @dataclass
@@ -1697,7 +1700,14 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
             if "hero" in section.lower():
                 component_path.write_text(
-                    self._build_hero_component(name, headline, tagline, ctas, design_system),
+                    self._build_hero_component(
+                        name,
+                        headline,
+                        tagline,
+                        ctas,
+                        design_system,
+                        hero_video=getattr(config, "hero_video", False),
+                    ),
                     encoding="utf-8",
                 )
             elif "feature" in section.lower():
@@ -1853,6 +1863,66 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         model_list = self._IMAGE_MODEL_MAP.get(image_type, self._IMAGE_MODEL_MAP["section"])
         return model_list[0]
 
+    # Hero-background video model per quality tier (cheapest→best). All are
+    # text+image->video models on OpenRouter, billed per second of output.
+    _HERO_VIDEO_TIERS: dict[str, str] = {
+        "draft": "bytedance/seedance-1-5-pro",  # ~$0.023/sec — cheapest
+        "balanced": "google/veo-3.1-fast",  # ~$0.10/sec — fast, good quality
+        "premium": "google/veo-3.1",  # ~$0.40/sec — top quality + native audio
+    }
+    _HERO_VIDEO_TIMEOUT_S: float = 240.0
+
+    def _select_hero_video_model(self) -> str:
+        """Pick the hero-background video model from the configured quality tier."""
+        quality = getattr(self, "_quality_tier", "balanced")
+        return self._HERO_VIDEO_TIERS.get(quality, self._HERO_VIDEO_TIERS["balanced"])
+
+    async def _generate_hero_video(self, output_dir, config, design_system) -> bool:
+        """Generate an MP4 hero background into ``public/videos/hero.mp4``.
+
+        The hero-bg image is still generated separately and used as the
+        ``<video poster>`` so the section renders instantly and degrades
+        gracefully when the video is absent or blocked.
+        """
+        model = getattr(config, "hero_video_model", "") or self._select_hero_video_model()
+        ds = design_system
+        colors = getattr(ds, "colors", ds)
+        primary = getattr(colors, "primary", "#4f9eff")
+        accent = getattr(colors, "accent", "#7c3aed")
+        site_name = getattr(config, "brand_name", "") or "the brand"
+        page_type = getattr(config, "page_type", "landing")
+        desc_short = (getattr(config, "description", "") or "")[:100]
+        desc_hint = f" — {desc_short}" if desc_short else ""
+        prompt = (
+            f"Seamless looping hero background video for a premium {page_type} "
+            f"website for {site_name}{desc_hint}. Slow, subtle abstract motion in "
+            f"{accent} and {primary} tones, cinematic depth, soft light, gentle "
+            "parallax. No text, no logos, no people, loopable."
+        )
+        vid_dir = output_dir / "public" / "videos"
+        try:
+            from ..infrastructure.video_client import VideoGenClient
+
+            client = VideoGenClient(cache=self._get_cache())
+            result = await asyncio.wait_for(
+                client.generate(
+                    prompt=prompt,
+                    model=model,
+                    output_path=vid_dir / "hero.mp4",
+                    duration_seconds=6,
+                ),
+                timeout=self._HERO_VIDEO_TIMEOUT_S,
+            )
+            if result.success:
+                logger.info("WebsiteGenerator: hero video generated via %s", model)
+                return True
+            logger.warning("Hero video generation failed (%s): %s", model, result.error)
+        except asyncio.TimeoutError:
+            logger.warning("Hero video generation timed out (model=%s)", model)
+        except Exception as e:  # noqa: BLE001 - never block the build on video
+            logger.warning("Hero video generation error: %s", e)
+        return False
+
     async def _generate_images(self, output_dir, config, design_system) -> None:
         """
         Generate all website images with per-type VFM model selection.
@@ -1889,6 +1959,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             client = ImageGenClient(cache=self._get_cache())
             success = await self._generate_images_llm(output_dir, config, design_system, client)
             if success:
+                if getattr(config, "hero_video", False):
+                    await self._generate_hero_video(output_dir, config, design_system)
                 return
         except Exception as e:
             logger.warning("LLM image generation failed, falling back to SVG: %s", e)
@@ -3170,14 +3242,35 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         """Assemble React page."""
         self._assemble_nextjs_page(output_dir, sections, design_system, config)
 
-    def _build_hero_component(self, name, headline, tagline, ctas, ds):
+    def _build_hero_component(self, name, headline, tagline, ctas, ds, hero_video: bool = False):
         cta1 = ctas[0] if ctas else "Get Started"
         cta2 = ctas[1] if len(ctas) > 1 else "Learn More"
+        # Optional autoplaying, muted, looping MP4 background with an image
+        # poster so the section renders instantly and degrades gracefully when
+        # the video is missing or blocked (e.g. data-saver / reduced motion).
+        video_bg = (
+            (
+                f"      <video\n"
+                f'        className="absolute inset-0 w-full h-full object-cover pointer-events-none"\n'
+                f"        autoPlay\n"
+                f"        muted\n"
+                f"        loop\n"
+                f"        playsInline\n"
+                f'        poster="/images/hero-bg.webp"\n'
+                f'        aria-hidden="true"\n'
+                f"      >\n"
+                f'        <source src="/videos/hero.mp4" type="video/mp4" />\n'
+                f"      </video>\n"
+            )
+            if hero_video
+            else ""
+        )
         return (
             f'"use client";\n\n'
             f"export default function {name}() {{\n"
             f"  return (\n"
-            f'    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center">\n'
+            f'    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center overflow-hidden">\n'
+            f"{video_bg}"
             f'      <div className="absolute inset-0 bg-gradient-to-b from-indigo-900/20 to-transparent pointer-events-none" />\n'
             f'      <h1 className="relative text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">\n'
             f"        {headline}\n"

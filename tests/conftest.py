@@ -7,8 +7,6 @@ temp state managers, mock clients, and common test data.
 
 from __future__ import annotations
 
-import asyncio
-import tempfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -24,7 +22,7 @@ from orchestrator.models import (
     TaskStatus,
     TaskResult,
 )
-from orchestrator.circuit_breaker import CircuitBreaker, CircuitState
+from orchestrator.circuit_breaker import CircuitBreaker
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Budget Fixtures

@@ -14,11 +14,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
-    from ..models import TaskResult, TaskType
+    from ..models import TaskType
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,6 @@ Source: Hallmark design skill (component-scope section)
 from __future__ import annotations
 
 import re
-from typing import Literal
 
 from orchestrator.models import DesignScope
 

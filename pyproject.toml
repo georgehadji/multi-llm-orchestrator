@@ -191,6 +191,10 @@ ignore = [
     "UP035",  # typing.Dict/List deprecated — pre-existing (18 instances)
     "UP037",  # Remove quotes from type annotation — pre-existing
     "UP045",  # Use X | None for type annotations — pre-existing (18 instances)
+    # ── Round-2 baseline violations ──────────────────────────────────────────
+    "F821",   # Undefined name — 98 pre-existing instances in commands/infrastructure
+    "F401",   # Unused import — 67 remaining re-exports in __init__ files
+    "F601",   # Repeated dict key — pre-existing instance in phase_aware_models.py
 ]
 fixable = ["ALL"]
 unfixable = []

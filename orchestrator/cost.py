@@ -41,7 +41,7 @@ import sqlite3
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .budget import Budget
 from .models import Model, Task, TaskType, estimate_cost

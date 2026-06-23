@@ -68,6 +68,30 @@ _ID_PATTERN = re.compile(r"""["']([a-z0-9-]+/[a-zA-Z0-9._:-]+)["']""")
 # (claude-opus-4-6 -> claude-opus-4.6). Verified with real calls 2026-06-20.
 _ANTHROPIC_HYPHEN = re.compile(r"^anthropic/claude-(opus|sonnet|haiku)-(\d+)-(\d+)$")
 
+# Video-generation models are served via OpenRouter's generation endpoint and
+# billed per-second, so they never appear in the /api/v1/models chat catalogue.
+# They DO resolve at /api/v1/models/<id>/endpoints (verified 2026-06-23). The
+# audit treats these as acceptable and `verify_runtime_only_ids` probes the
+# endpoints route to keep this allowlist honest (see the integration test).
+RUNTIME_ONLY_IDS = frozenset(
+    {
+        "openai/sora-2-pro",
+        "google/veo-3.1",
+        "google/veo-3.1-fast",
+        "google/veo-3.1-lite",
+        "kwaivgi/kling-v3.0-pro",
+        "kwaivgi/kling-v3.0-std",
+        "kwaivgi/kling-video-o1",
+        "minimax/hailuo-2.3",
+        "bytedance/seedance-2.0",
+        "bytedance/seedance-2.0-fast",
+        "bytedance/seedance-1-5-pro",
+        "alibaba/wan-2.7",
+        "alibaba/wan-2.6",
+        "x-ai/grok-imagine-video",
+    }
+)
+
 
 def normalize_for_lookup(model_id: str) -> str:
     """Return the canonical live id a referenced id resolves to.
@@ -153,12 +177,14 @@ def find_dead_ids(
     refs: dict[str, set[str]],
     live_ids: set[str],
     known_deprecated: dict[str, str] | None = None,
+    runtime_only: frozenset[str] = RUNTIME_ONLY_IDS,
 ) -> dict[str, set[str]]:
     """Return referenced ids that are neither live nor documented-deprecated.
 
     An id is acceptable when it is in the live catalogue, resolves there via a
-    runtime normalizer, or is a key in ``known_deprecated`` (a deliberately
-    recorded dead id with a live replacement).
+    runtime normalizer, is a key in ``known_deprecated`` (a deliberately
+    recorded dead id with a live replacement), or is a ``runtime_only`` id
+    (a generation model absent from /models but reachable via /endpoints).
     """
     known = known_deprecated or {}
     dead: dict[str, set[str]] = {}
@@ -169,8 +195,29 @@ def find_dead_ids(
             continue
         if model_id in known:
             continue
+        if model_id in runtime_only:
+            continue
         dead[model_id] = sources
     return dead
+
+
+def verify_runtime_only_ids(ids: frozenset[str] = RUNTIME_ONLY_IDS) -> dict[str, str]:
+    """Probe each runtime-only id at /endpoints; return {id: reason} for failures.
+
+    Keeps the RUNTIME_ONLY_IDS allowlist honest — a typo'd or retired video id
+    that no longer resolves is reported instead of being silently trusted.
+    """
+    failures: dict[str, str] = {}
+    for mid in sorted(ids):
+        url = f"https://openrouter.ai/api/v1/models/{mid}/endpoints"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "orchestrator-audit"})
+            with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310
+                if resp.status != 200:
+                    failures[mid] = f"HTTP {resp.status}"
+        except Exception as exc:  # noqa: BLE001
+            failures[mid] = repr(exc)
+    return failures
 
 
 def find_stale_replacements(known_deprecated: dict[str, str], live_ids: set[str]) -> dict[str, str]:

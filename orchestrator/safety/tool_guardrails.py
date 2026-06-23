@@ -27,7 +27,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, ClassVar
+from typing import ClassVar
 
 logger = logging.getLogger("orchestrator.guardrails")
 

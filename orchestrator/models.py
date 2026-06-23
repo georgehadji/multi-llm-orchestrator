@@ -93,6 +93,8 @@ class TaskType(str, Enum):
 
     IMAGE_GEN = "image_generation"
 
+    VIDEO_GEN = "video_generation"
+
 
 class DesignVariant(str, Enum):
     """Visual design direction for frontend code generation tasks.
@@ -168,6 +170,13 @@ class Model(str, Enum):
 
     GPT_5_4_PRO = "openai/gpt-5.4-pro"  # $30.00/$180.00, 32K ctx, maximum quality
 
+    GPT_5_5 = "openai/gpt-5.5"  # $5/$30, 1M+ ctx, frontier reasoning + coding
+    GPT_5_5_PRO = "openai/gpt-5.5-pro"  # $30/$180, 1M+ ctx, deep reasoning / high-stakes
+
+    # Floating aliases — always redirect to the latest model in the family
+    GPT_LATEST = "~openai/gpt-latest"  # $5/$30, 1M+ ctx, latest GPT flagship
+    GPT_MINI_LATEST = "~openai/gpt-mini-latest"  # $0.75/$4.50, 400K ctx, latest GPT Mini
+
     O1 = "openai/o1"
 
     O3_MINI = "openai/o3-mini"
@@ -181,8 +190,6 @@ class Model(str, Enum):
     GEMINI_FLASH_LITE = "google/gemini-3.1-flash-lite"  # cost-effective lite
 
     # Anthropic Claude Models
-
-    CLAUDE_FABLE_5 = "anthropic/claude-fable-5"  # $10/$50, 1M ctx, creative/agentic
 
     CLAUDE_OPUS_4 = "anthropic/claude-opus-4"  # $15/$75, most capable Opus 4 base
 
@@ -221,8 +228,6 @@ class Model(str, Enum):
     LLAMA_4_SCOUT = "meta-llama/llama-4-scout"  # 109B MoE
 
     LLAMA_3_3_70B = "meta-llama/llama-3.3-70b-instruct"  # 70B
-
-    LLAMA_3_1_405B = "meta-llama/llama-3.1-405b-instruct"  # 405B
 
     # Microsoft Phi Models (OpenRouter)
 
@@ -313,6 +318,8 @@ class Model(str, Enum):
 
     XAI_GROK_4_20_MULTI = "x-ai/grok-4.20-multi-agent"  # multi-agent optimized
 
+    XAI_GROK_BUILD = "x-ai/grok-build-0.1"  # $1/$2, 256K, agentic coding specialist
+
     # ═══════════════════════════════════════════════════════
 
     # QWEN MODELS — 2026 full lineup
@@ -388,31 +395,34 @@ class Model(str, Enum):
     GPT_5_IMAGE_MINI = "openai/gpt-5-image-mini"  # $2.50/$2 img, 400K ctx
     GPT_54_IMAGE_2 = "openai/gpt-5.4-image-2"  # $8/$15 img, 272K ctx
 
-    # Black Forest Labs FLUX series — image generation
-    FLUX_2_KLEIN = "black-forest-labs/flux.2-klein-4b"
-    FLUX_2_MAX = "black-forest-labs/flux.2-max"
-    FLUX_2_FLEX = "black-forest-labs/flux.2-flex"
-    FLUX_2_PRO = "black-forest-labs/flux.2-pro"
+    # ═══════════════════════════════════════════════════════
+    # VIDEO GENERATION MODELS
+    # Served via OpenRouter's generation endpoint (text/image → video).
+    # Priced per-second of generated video (USD), NOT per token, so they are
+    # absent from /api/v1/models; the audit validates them via /endpoints.
+    # ═══════════════════════════════════════════════════════
 
-    # Recraft V4 series — image generation
-    RECRAFT_V4_UTILITY = "recraft/recraft-v4.1-utility"
-    RECRAFT_V4_PRO = "recraft/recraft-v4-pro"
-    RECRAFT_V4 = "recraft/recraft-v4"
-    RECRAFT_V4_PRO_VECTOR = "recraft/recraft-v4-pro-vector"
-    RECRAFT_V4_VECTOR = "recraft/recraft-v4-vector"
-    RECRAFT_V4_1_PRO = "recraft/recraft-v4.1-pro"
-    RECRAFT_V4_1 = "recraft/recraft-v4.1"
-    RECRAFT_V3 = "recraft/recraft-v3"
-
-    # Sourceful Riverflow series — image generation
-    RIVERFLOW_V2_PRO = "sourceful/riverflow-v2-pro"
-    RIVERFLOW_V2_FAST = "sourceful/riverflow-v2-fast"
-    RIVERFLOW_V2_MAX = "sourceful/riverflow-v2-max-preview"
-    RIVERFLOW_V2_STANDARD = "sourceful/riverflow-v2-standard-preview"
-    RIVERFLOW_V2_FAST_PREVIEW = "sourceful/riverflow-v2-fast-preview"
-
-    # ByteDance Seedream — image generation
-    SEEDREAM_4_5 = "bytedance-seed/seedream-4.5"
+    # OpenAI Sora
+    SORA_2_PRO = "openai/sora-2-pro"  # from $0.30/sec, flagship cinematic
+    # Google Veo
+    VEO_3_1 = "google/veo-3.1"  # from $0.40/sec, top quality + audio
+    VEO_3_1_FAST = "google/veo-3.1-fast"  # from $0.10/sec, fast
+    VEO_3_1_LITE = "google/veo-3.1-lite"  # from $0.05/sec, cheapest Veo
+    # Kuaishou Kling
+    KLING_V3_PRO = "kwaivgi/kling-v3.0-pro"  # from $0.168/sec, pro quality
+    KLING_V3_STD = "kwaivgi/kling-v3.0-std"  # from $0.126/sec, standard
+    KLING_O1 = "kwaivgi/kling-video-o1"  # $0.112/sec, reasoning-guided
+    # MiniMax Hailuo
+    HAILUO_2_3 = "minimax/hailuo-2.3"  # $0.0817/sec, expressive motion
+    # ByteDance Seedance
+    SEEDANCE_2_0 = "bytedance/seedance-2.0"  # from $0.06726/sec
+    SEEDANCE_2_0_FAST = "bytedance/seedance-2.0-fast"  # from $0.0538/sec
+    SEEDANCE_1_5_PRO = "bytedance/seedance-1-5-pro"  # from $0.02306/sec, cheapest
+    # Alibaba Wan
+    WAN_2_7 = "alibaba/wan-2.7"  # $0.10/sec
+    WAN_2_6 = "alibaba/wan-2.6"  # from $0.04/sec
+    # xAI Grok Imagine
+    GROK_IMAGINE_VIDEO = "x-ai/grok-imagine-video"  # from $0.05/sec
 
 
 class ProjectStatus(str, Enum):
@@ -581,7 +591,6 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.LLAMA_4_MAVERICK: 8192,
     Model.LLAMA_4_SCOUT: 8192,
     Model.LLAMA_3_3_70B: 8192,
-    Model.LLAMA_3_1_405B: 8192,
     # Microsoft Phi models
     Model.PHI_4: 4096,
     Model.PHI_4_REASONING: 4096,
@@ -592,24 +601,6 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.GPT_5_IMAGE: 4096,
     Model.GPT_5_IMAGE_MINI: 4096,
     Model.GPT_54_IMAGE_2: 4096,
-    Model.FLUX_2_KLEIN: 4096,
-    Model.FLUX_2_MAX: 4096,
-    Model.FLUX_2_FLEX: 4096,
-    Model.FLUX_2_PRO: 4096,
-    Model.RECRAFT_V4_UTILITY: 4096,
-    Model.RECRAFT_V4_PRO: 4096,
-    Model.RECRAFT_V4: 4096,
-    Model.RECRAFT_V4_PRO_VECTOR: 4096,
-    Model.RECRAFT_V4_VECTOR: 4096,
-    Model.RECRAFT_V4_1_PRO: 4096,
-    Model.RECRAFT_V4_1: 4096,
-    Model.RECRAFT_V3: 4096,
-    Model.RIVERFLOW_V2_PRO: 4096,
-    Model.RIVERFLOW_V2_FAST: 4096,
-    Model.RIVERFLOW_V2_MAX: 4096,
-    Model.RIVERFLOW_V2_STANDARD: 4096,
-    Model.RIVERFLOW_V2_FAST_PREVIEW: 4096,
-    Model.SEEDREAM_4_5: 4096,
     # Xiaomi Mimo V2.5
     Model.XIAOMI_MIMO_V2_5: 8192,
     Model.XIAOMI_MIMO_V2_5_PRO: 8192,
@@ -657,7 +648,6 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.QWEN_3_235B_THINKING: 131072,
     Model.QWEN_3_MAX_THINKING: 131072,
     # Anthropic new additions
-    Model.CLAUDE_FABLE_5: 8192,
     Model.CLAUDE_OPUS_4: 8192,
     Model.CLAUDE_OPUS_4_1: 8192,
     Model.CLAUDE_SONNET_4: 8192,

@@ -6,7 +6,6 @@ GenerateStage — LLM code/text generation
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from ..pipeline import PipelineContext
 from ...domain.ports import LLMClient
@@ -15,9 +14,6 @@ from ...crosscutting.config import flags
 from ...model_selector import ModelSelector
 from ...models import TaskType
 from ...prompt_builder import SystemPrompt
-
-if TYPE_CHECKING:
-    pass
 
 # Lazy import for VerbalizedSampler (avoids circular dep at module level)
 _VS_SAMPLER = None
