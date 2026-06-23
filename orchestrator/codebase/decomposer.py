@@ -13,9 +13,9 @@ from __future__ import annotations
 import json
 import logging
 
-from .api_clients import UnifiedClient
-from .codebase_context import CodebaseContext
-from .models import Model, Task, TaskType
+from ..api_clients import UnifiedClient
+from ..codebase_context import CodebaseContext
+from ..models import Model, Task, TaskType
 
 logger = logging.getLogger("orchestrator.codebase_decomposer")
 

@@ -29,10 +29,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 # FIXED: from .log_config import get_logger
-from ...log_config import get_logger
+from ..log_config import get_logger
 
 # FIXED: from .models import Model
-from ...models import Model
+from ..models import Model
 
 if TYPE_CHECKING:
     from pathlib import Path
