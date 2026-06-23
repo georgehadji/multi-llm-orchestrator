@@ -645,6 +645,30 @@ HOST=127.0.0.1
 PORT=8000
 """
 
+            # Ensure real secrets never get committed.
+            code[".gitignore"] = """# Secrets — never commit real env files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+.next/
+
+# OS / editor
+.DS_Store
+*.log
+"""
+
         return code
 
     async def _generate_database_schema(
