@@ -42,9 +42,7 @@ async def test_automations_sync_handler_counts_as_success():
 
     sched = AutomationScheduler(storage_dir=tempfile.mkdtemp())
     fired = []
-    task = ScheduledTask(
-        name="t1", schedule_type=ScheduleType.EVENT, event_entity="e"
-    )
+    task = ScheduledTask(name="t1", schedule_type=ScheduleType.EVENT, event_entity="e")
     sched.register(task, lambda payload: fired.append(payload))
 
     count = await sched.fire_event("e", {"x": 1})

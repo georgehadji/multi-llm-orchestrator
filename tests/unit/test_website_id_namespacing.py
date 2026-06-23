@@ -24,8 +24,14 @@ def namespace():
 class TestIdNamespacing:
     def test_colliding_id_is_prefixed_in_both_components(self, namespace):
         comps = [
-            ("hero", '<div id="three-canvas"></div><script>document.getElementById("three-canvas")</script>'),
-            ("tech", '<div id="three-canvas"></div><script>document.getElementById("three-canvas")</script>'),
+            (
+                "hero",
+                '<div id="three-canvas"></div><script>document.getElementById("three-canvas")</script>',
+            ),
+            (
+                "tech",
+                '<div id="three-canvas"></div><script>document.getElementById("three-canvas")</script>',
+            ),
         ]
         out = dict(namespace(comps))
         assert 'id="hero-three-canvas"' in out["hero"]
@@ -57,8 +63,11 @@ class TestIdNamespacing:
     def test_prefix_collision_not_corrupted(self, namespace):
         # 'three-canvas' must not corrupt 'three-canvas-bg' (shared prefix).
         comps = [
-            ("hero", '<div id="three-canvas"></div><div id="three-canvas-bg"></div>'
-                     '<style>#three-canvas{}#three-canvas-bg{}</style>'),
+            (
+                "hero",
+                '<div id="three-canvas"></div><div id="three-canvas-bg"></div>'
+                "<style>#three-canvas{}#three-canvas-bg{}</style>",
+            ),
             ("tech", '<div id="three-canvas"></div><div id="three-canvas-bg"></div>'),
         ]
         out = dict(namespace(comps))

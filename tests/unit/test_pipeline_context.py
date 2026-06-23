@@ -34,7 +34,9 @@ def test_default_fields(sample_task):
 @pytest.mark.unit
 def test_reset_for_retry(sample_task):
     """reset_for_retry clears abort flags but preserves task context."""
-    ctx = PipelineContext(task=sample_task, score=0.5, should_abort=True, abort_reason="low quality")
+    ctx = PipelineContext(
+        task=sample_task, score=0.5, should_abort=True, abort_reason="low quality"
+    )
     ctx.reset_for_retry()
 
     assert ctx.should_abort is False

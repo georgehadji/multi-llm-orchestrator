@@ -98,6 +98,7 @@ async def test_evaluate_skip_empty_output(mock_evaluator):
 @pytest.mark.unit
 async def test_evaluate_exception_type_preserved(mock_evaluator, ctx):
     """Different exception types are captured in evaluation_error."""
+
     class _RaisingEvaluator:
         async def evaluate(self, task, output):
             raise ValueError("invalid output format")
@@ -106,4 +107,7 @@ async def test_evaluate_exception_type_preserved(mock_evaluator, ctx):
     result = await stage.process(ctx)
 
     assert result.evaluation_failed is True
-    assert "invalid output format" in result.evaluation_error or "ValueError" in result.evaluation_error
+    assert (
+        "invalid output format" in result.evaluation_error
+        or "ValueError" in result.evaluation_error
+    )

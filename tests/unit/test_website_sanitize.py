@@ -65,10 +65,7 @@ class TestCastRemoval:
         assert any("cast" in x for x in w)
 
     def test_removes_multiple_casts(self, sanitize):
-        raw = (
-            "style={{a:1} as React.CSSProperties}\n"
-            "style={{b:2} as React.CSSProperties}"
-        )
+        raw = "style={{a:1} as React.CSSProperties}\n" "style={{b:2} as React.CSSProperties}"
         out, w = sanitize(raw, "test")
         assert "as React.CSSProperties" not in out
         assert out.count("}}") == 2
@@ -168,9 +165,9 @@ class TestBraceInStrings:
         """Braces inside double-quoted strings should NOT trigger unbalanced warning."""
         raw = (
             'const url = "https://api.com/{id}";\n'
-            'export default function F() {\n'
-            '  return <div />;\n'
-            '}\n'
+            "export default function F() {\n"
+            "  return <div />;\n"
+            "}\n"
         )
         out, w = sanitize(raw, "test")
         # Fix #3: should NOT have "unbalanced" warning
@@ -190,10 +187,10 @@ class TestBraceInStrings:
     def test_braces_in_template_literal(self, sanitize):
         """Braces inside backtick template literals should NOT trigger unbalanced warning."""
         raw = (
-            'const cls = `item-${index}`;\n'
-            'export default function F() {\n'
-            '  return <div className={cls} />;\n'
-            '}\n'
+            "const cls = `item-${index}`;\n"
+            "export default function F() {\n"
+            "  return <div className={cls} />;\n"
+            "}\n"
         )
         out, w = sanitize(raw, "test")
         assert not any("unbalanced" in x for x in w)

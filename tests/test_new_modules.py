@@ -17,7 +17,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Category 1: Autonomous Execution
 # ═══════════════════════════════════════════════════════════════════════════
@@ -106,7 +105,10 @@ class TestBrainstormingDecomposer:
         assert result == []
 
     def test_inject_into_description(self):
-        from orchestrator.reasoning.brainstorming import BrainstormingDecomposer, ClarifyingQuestions
+        from orchestrator.reasoning.brainstorming import (
+            BrainstormingDecomposer,
+            ClarifyingQuestions,
+        )
 
         decomposer = BrainstormingDecomposer(client=None)
         # Manually set pending state
@@ -255,7 +257,11 @@ class TestModuleRegistry:
     """Tests for module_system.py."""
 
     def test_register_and_get(self):
-        from orchestrator.operations.module_system import ModuleRegistry, ModuleDefinition, ModuleKind
+        from orchestrator.operations.module_system import (
+            ModuleRegistry,
+            ModuleDefinition,
+            ModuleKind,
+        )
 
         registry = ModuleRegistry()
         module = ModuleDefinition(
@@ -344,7 +350,11 @@ class TestAutomationScheduler:
 
     @pytest.mark.asyncio
     async def test_automation_scheduler_register(self):
-        from orchestrator.operations.automations import AutomationScheduler, ScheduledTask, ScheduleType
+        from orchestrator.operations.automations import (
+            AutomationScheduler,
+            ScheduledTask,
+            ScheduleType,
+        )
 
         scheduler = AutomationScheduler()
         task = ScheduledTask(
@@ -489,7 +499,12 @@ class TestSecurityReviewer:
         assert report.passed
 
     def test_report_markdown_generation(self):
-        from orchestrator.safety.security_review import SecurityReport, SecurityFinding, Severity, Category
+        from orchestrator.safety.security_review import (
+            SecurityReport,
+            SecurityFinding,
+            Severity,
+            Category,
+        )
 
         report = SecurityReport(
             findings=[
