@@ -8,7 +8,7 @@ Async: Yes — for I/O-bound operations
 Layer: L1 Infrastructure
 
 Usage:
-    from orchestrator.workspace import WorkspaceManager
+    from orchestrator.state_mgmt.workspace import WorkspaceManager
     ws_manager = WorkspaceManager(base_dir="./workspaces")
     workspace = ws_manager.create_workspace("project_alpha", owner="user123")
     ws_manager.activate_workspace(workspace.id)
@@ -23,7 +23,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-logger = logging.getLogger("orchestrator.workspace")
+logger = logging.getLogger("orchestrator.state_mgmt.workspace")
 
 
 class Workspace:

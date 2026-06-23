@@ -15,7 +15,7 @@ Features:
 - Token-efficient generation
 
 USAGE:
-    from orchestrator.component_library import ComponentLibrary, ComponentType
+    from orchestrator.design.component_library import ComponentLibrary, ComponentType
 
     library = ComponentLibrary()
 
@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Protocol
 
-logger = logging.getLogger("orchestrator.component_library")
+logger = logging.getLogger("orchestrator.design.component_library")
 
 
 # ─────────────────────────────────────────────

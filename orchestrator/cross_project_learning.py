@@ -14,7 +14,7 @@ After 50 projects, the orchestrator "knows" that:
 - Projects with >15 tasks always need 2+ repair cycles at task 8+ (threshold pattern)
 
 Usage:
-    from orchestrator.cross_project_learning import CrossProjectLearning
+    from orchestrator.learning.cross_project_learning import CrossProjectLearning
 
     learning = CrossProjectLearning()
     insights = await learning.extract_insights()

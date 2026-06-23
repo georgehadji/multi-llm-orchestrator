@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thessaloniki Vision Clinic – Premium Ophthalmology Care</title>
+  <meta name="description" content="Thessaloniki Vision Clinic: cataract surgery, LASIK, retina care, glaucoma management, pediatric ophthalmology. Cutting-edge eye care in northern Greece.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== RESET & BASE ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0b0d1a; /* deep dark base */
+      color: #e2e8f0;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== DESIGN SYSTEM TOKENS ===== */
+    :root {
+      --primary: #818cf8;
+      --primary-hover: #6d78f0;
+      --primary-active: #5a66e8;
+      --primary-ghost: rgba(129, 140, 248, 0.08);
+      --primary-ghost-hover: rgba(129, 140, 248, 0.16);
+      --surface: #11131f;
+      --surface-elevated: #1a1d2b;
+      --border-subtle: #2a2d3e;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --spacing-xs: 0.25rem;
+      --spacing-sm: 0.5rem;
+      --spacing-md: 1rem;
+      --spacing-lg: 1.5rem;
+      --spacing-xl: 2rem;
+      --spacing-2xl: 3rem;
+      --spacing-3xl: 4rem;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --transition: 0.2s ease;
+      --font-sans: 'Inter', sans-serif;
+    }
+
+    /* ===== UTILITY ===== */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 var(--spacing-lg);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ===== FOOTER SECTION ===== */
+    .site-footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border-subtle);
+      padding: var(--spacing-3xl) 0 var(--spacing-xl);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* subtle 3D canvas background (Three.js) */
+    #footer-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.25;
+      z-index: 0;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--spacing-2xl);
+      position: relative;
+      z-index: 2;
+    }
+
+    @media (min-width: 640px) {
+      .footer-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .footer-grid {
+        grid-template-columns: 2fr 1fr 1fr 1.2fr;
+        gap: var(--spacing-3xl);
+      }
+    }
+
+    /* brand column */
+    .footer-brand {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      font-weight: 600;
+      font-size: 1.25rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+
+    .footer-logo svg {
+      width: 32px;
+      height: 32px;
+      color: var(--primary);
+    }
+
+    .footer-description {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      max-width: 28rem;
+      line-height: 1.6;
+    }
+
+    .footer-headline {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    /* newsletter form */
+    .newsletter-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-sm);
+    }
+
+    .newsletter-input-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+    }
+
+    .newsletter-input {
+      flex: 1 1 180px;
+      padding: 0.625rem 1rem;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      transition: border var(--transition), box-shadow var(--transition);
+    }
+
+    .newsletter-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .newsletter-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-xs);
+      padding: 0.625rem 1.25rem;
+      background: var(--primary);
+      color: #0b0d1a;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--transition), transform 0.15s, box-shadow var(--transition);
+      font-family: var(--font-sans);
+      white-space: nowrap;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(129, 140, 248, 0.3);
+    }
+
+    .btn-primary:active {
+      background: var(--primary-active);
+      transform: translateY(0);
+    }
+
+    .btn-primary:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      padding: 0.5rem 1rem;
+      background: transparent;
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.875rem;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition), border var(--transition);
+      font-family: var(--font-sans);
+    }
+
+    .btn-ghost:hover {
+      background: var(--primary-ghost-hover);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .btn-ghost:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    /* columns */
+    .footer-column {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+    }
+
+    .footer-column h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .footer-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .footer-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color var(--transition), padding-left var(--transition);
+      padding: 0.125rem 0;
+      display: inline-block;
+      position: relative;
+    }
+
+    .footer-links a::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 1px;
+      background: var(--primary);
+      transition: width var(--transition);
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+      padding-left: 4px;
+    }
+
+    .footer-links a:hover::before {
+      width: 100%;
+    }
+
+    .footer-links a:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 4px;
+      border-radius: 2px;
+    }
+
+    /* social icons row */
+    .social-row {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-xs);
+    }
+
+    .social-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+      transition: background var(--transition), color var(--transition), transform 0.15s;
+      text-decoration: none;
+    }
+
+    .social-link:hover {
+      background: var(--primary-ghost-hover);
+      color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    .social-link:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .social-link svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* bottom bar */
+    .footer-bottom {
+      margin-top: var(--spacing-3xl);
+      padding-top: var(--spacing-lg);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      position: relative;
+      z-index: 2;
+    }
+
+    .footer-copyright {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .footer-legal {
+      display: flex;
+      gap: var(--spacing-lg);
+    }
+
+    .footer-legal a {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+
+    .footer-legal a:hover {
+      color: var(--primary);
+    }
+
+    .footer-legal a:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    /* back to top */
+    .back-to-top {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      padding: 0.5rem 1rem;
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition), border var(--transition);
+      font-family: var(--font-sans);
+      text-decoration: none;
+    }
+
+    .back-to-top:hover {
+      background: var(--primary-ghost-hover);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .back-to-top:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .back-to-top svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @media (prefers-reduced-motion: no-preference) {
+      .footer-grid > * {
+        opacity: 0;
+        transform: translateY(12px);
+        animation: fadeUp 0.6s ease forwards;
+      }
+
+      .footer-grid > *:nth-child(1) { animation-delay: 0.05s; }
+      .footer-grid > *:nth-child(2) { animation-delay: 0.12s; }
+      .footer-grid > *:nth-child(3) { animation-delay: 0.18s; }
+      .footer-grid > *:nth-child(4) { animation-delay: 0.24s; }
+
+      @keyframes fadeUp {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .footer-bottom {
+        opacity: 0;
+        animation: fadeUp 0.5s ease 0.3s forwards;
+      }
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 639px) {
+      .footer-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .footer-legal {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+      }
+      .newsletter-input-group {
+        flex-direction: column;
+      }
+    }
+
+    /* ===== RATE LIMIT / ERROR STATE (hidden by default) ===== */
+    .rate-limit-error {
+      display: none;
+      color: #f87171;
+      font-size: 0.8rem;
+      margin-top: var(--spacing-xs);
+    }
+
+    .newsletter-form.error .rate-limit-error {
+      display: block;
+    }
+
+    /* ===== 3D CANVAS RESPECT ===== */
+    @media (prefers-reduced-motion: reduce) {
+      #footer-canvas {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<footer class="site-footer" role="contentinfo">
+  <!-- Three.js canvas for subtle 3D eye/lens effect -->
+  <canvas id="footer-canvas" aria-hidden="true"></canvas>
+
+  <div class="container">
+    <div class="footer-grid">
+      <!-- Brand + newsletter -->
+      <div class="footer-brand">
+        <a href="/" class="footer-logo" aria-label="Thessaloniki Vision Clinic home">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <circle cx="16" cy="16" r="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <circle cx="16" cy="16" r="2" fill="currentColor"/>
+            <path d="M16 2 L16 6 M16 26 L16 30 M2 16 L6 16 M26 16 L30 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Thessaloniki Vision Clinic
+        </a>
+        <p class="footer-description">
+          <span class="footer-headline">Empowering You with Clear Vision and Compassionate Care</span><br>
+          Advanced ophthalmology in Thessaloniki, serving northern Greece with cutting-edge cataract, LASIK, retina, glaucoma, and pediatric eye care.
+        </p>
+
+        <!-- Newsletter signup -->
+        <form class="newsletter-form" action="#" method="post" novalidate>
+          <label for="footer-email" class="sr-only">Email for newsletter</label>
+          <div class="newsletter-input-group">
+            <input type="email" id="footer-email" name="email" class="newsletter-input" placeholder="your@email.com" required autocomplete="email">
+            <button type="submit" class="btn-primary">Subscribe</button>
+          </div>
+          <div class="rate-limit-error" role="alert">429 — Too many requests. Please try again later.</div>
+          <p style="font-size:0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Get clinic updates &amp; eye health tips.</p>
+        </form>
+
+        <!-- social links -->
+        <div class="social-row">
+          <a href="#" class="social-link" aria-label="Facebook">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+          </a>
+          <a href="#" class="social-link" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+          </a>
+          <a href="#" class="social-link" aria-label="LinkedIn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+          </a>
+          <a href="#" class="social-link" aria-label="YouTube">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.94 2C5.12 20 12 20 12 20s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Site map column 1 -->
+      <div class="footer-column">
+        <h3>Services</h3>
+        <ul class="footer-links">
+          <li><a href="#">Cataract Surgery</a></li>
+          <li><a href="#">LASIK &amp; Femto-LASIK</a></li>
+          <li><a href="#">Retina &amp; Macula</a></li>
+          <li><a href="#">Glaucoma Management</a></li>
+          <li><a href="#">Pediatric Ophthalmology</a></li>
+          <li><a href="#">Comprehensive Exams</a></li>
+        </ul>
+      </div>
+
+      <!-- Site map column 2 -->
+      <div class="footer-column">
+        <h3>Clinic</h3>
+        <ul class="footer-links">
+          <li><a href="#">About Us</a></li>
+          <li><a href="#">Our Team</a></li>
+          <li><a href="#">Technology</a></li>
+          <li><a href="#">Patient Stories</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+
+      <!-- Contact & back to top -->
+      <div class="footer-column">
+        <h3>Contact</h3>
+        <ul class="footer-links" style="gap:0.35rem;">
+          <li><a href="tel:+302310000000">+30 2310 000 000</a></li>
+          <li><a href="mailto:info@thessvision.gr">info@thessvision.gr</a></li>
+          <li>Mitropoleos 12,<br>Thessaloniki 546 24</li>
+        </ul>
+        <div style="margin-top: var(--spacing-sm);">
+          <a href="#" class="back-to-top" aria-label="Back to top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+            Back to top
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- bottom bar -->
+    <div class="footer-bottom">
+      <span class="footer-copyright">&copy; 2025 Thessaloniki Vision Clinic. All rights reserved.</span>
+      <nav class="footer-legal" aria-label="Legal">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Use</a>
+        <a href="#">Cookie Policy</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+
+<!-- Three.js subtle 3D background (eye/lens motif) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+  import * as THREE from 'three';
+
+  const canvas = document.getElementById('footer-canvas');
+  if (canvas && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(canvas.parentElement.offsetWidth, canvas.parentElement.offsetHeight);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
+    camera.position.set(0, 0, 8);
+
+    // subtle lens / eye geometry
+    const group = new THREE.Group();
+
+    // outer ring (iris)
+    const ringGeo = new THREE.TorusGeometry(1.6, 0.06, 32, 64);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#818cf8'),
+      transparent: true,
+      opacity: 0.2,
+      wireframe: false,
+      roughness: 0.3,
+      metalness: 0.1,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2.8;
+    ring.rotation.z = 0.3;
+    group.add(ring);
+
+    // inner ring
+    const innerRingGeo = new THREE.TorusGeometry(1.0, 0.04, 24, 48);
+    const innerRingMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#818cf8'),
+      transparent: true,
+      opacity: 0.15,
+      roughness: 0.2,
+      metalness: 0.2,
+    });
+    const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
+    innerRing.rotation.x = Math.PI / 2.8;
+    innerRing.rotation.z = 0.3;
+    group.add(innerRing);
+
+    // small central sphere (lens highlight)
+    const sphereGeo = new THREE.SphereGeometry(0.25, 24, 24);
+    const sphereMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#818cf8'),
+      transparent: true,
+      opacity: 0.25,
+      emissive: new THREE.Color('#818cf8'),
+      emissiveIntensity: 0.1,
+    });
+    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    sphere.position.set(0.2, -0.1, 0);
+    group.add(sphere);
+
+    // floating particles (vitreous humor)
+    const particleCount = 120;
+    const particleGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount * 3; i += 3) {
+      const r = 2.8 + Math.random() * 1.5;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      positions[i] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i+1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i+2] = r * Math.cos(phi);
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particleMat = new THREE.PointsMaterial({
+      color: '#818cf8',
+      size: 0.035,
+      transparent: true,
+      opacity: 0.25,
+      blending: THREE.AdditiveBlending,
+    });
+    const particles = new THREE.Points(particleGeo, particleMat);
+    group.add(particles);
+
+    scene.add(group);
+
+    // subtle lighting
+    const ambient = new THREE.AmbientLight(0x404060);
+    scene.add(ambient);
+    const dirLight = new THREE.DirectionalLight(0x818cf8, 0.6);
+    dirLight.position.set(2, 3, 4);
+    scene.add(dirLight);
+    const backLight = new THREE.DirectionalLight(0x4a5a9a, 0.3);
+    backLight.position.set(-2, -1, -3);
+    scene.add(backLight);
+
+    // animation
+    let time = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      time += 0.002;
+      group.rotation.y = Math.sin(time * 0.3) * 0.2;
+      group.rotation.x = Math.sin(time * 0.2) * 0.05 + 0.1;
+      group.rotation.z = Math.sin(time * 0.15) * 0.03;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // resize
+    const resizeObserver = new ResizeObserver(() => {
+      const parent = canvas.parentElement;
+      const w = parent.offsetWidth;
+      const h = parent.offsetHeight;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    });
+    resizeObserver.observe(canvas.parentElement);
+  } else if (canvas) {
+    canvas.style.display = 'none';
+  }
+</script>
+
+</body>
+</html>

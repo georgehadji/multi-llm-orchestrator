@@ -10,7 +10,7 @@ Secure plugin execution with:
 - Capability-based security
 
 Usage:
-    from orchestrator.plugin_isolation import IsolatedPluginRuntime
+    from orchestrator.plugin.plugin_isolation import IsolatedPluginRuntime
 
     runtime = IsolatedPluginRuntime(
         memory_limit_mb=512,

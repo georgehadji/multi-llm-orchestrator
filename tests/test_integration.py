@@ -10,7 +10,7 @@ import pytest
 
 from orchestrator.models import Budget
 from orchestrator.circuit_breaker import CircuitBreaker, CircuitState
-from orchestrator.autonomy_config import AutonomyConfig, AutonomyLevel
+from orchestrator.operations.autonomy_config import AutonomyConfig, AutonomyLevel
 from orchestrator.cost_tracker import CostTracker
 
 # ═══════════════════════════════════════════════════════════════════════════

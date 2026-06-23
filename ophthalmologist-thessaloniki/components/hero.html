@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thessaloniki Vision Clinic – Transforming Vision, Enhancing Life</title>
+  <meta name="description" content="Premium ophthalmology clinic in Thessaloniki, Greece. Cataract surgery, LASIK, retina care, glaucoma management, pediatric ophthalmology, and comprehensive eye exams.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: #0b0b1a; color: #e2e8f0; line-height: 1.6; overflow-x: hidden; }
+
+    /* ===== DESIGN TOKENS ===== */
+    :root {
+      --primary: #818cf8;
+      --primary-light: #a5b4fc;
+      --primary-dark: #6366f1;
+      --bg-dark: #0b0b1a;
+      --bg-card: #13132b;
+      --text-light: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dark: #1e1b4b;
+      --radius: 16px;
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ===== HERO SECTION ===== */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem 5%;
+      overflow: hidden;
+      background: var(--bg-dark);
+    }
+
+    /* 3D canvas container */
+    #three-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Geometric decoration overlay */
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      right: -10%;
+      width: 60%;
+      height: 80%;
+      background: radial-gradient(circle at 70% 30%, rgba(129, 140, 248, 0.08) 0%, transparent 60%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 40%;
+      background: linear-gradient(to top, var(--bg-dark) 0%, transparent 100%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 720px;
+      animation: fadeInUp 1s ease-out;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(129, 140, 248, 0.12);
+      border: 1px solid rgba(129, 140, 248, 0.25);
+      padding: 0.4rem 1rem;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--primary-light);
+      letter-spacing: 0.02em;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .hero-badge::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: pulse-dot 2s infinite;
+    }
+
+    .hero-brand {
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 0.75rem;
+    }
+
+    .hero-title {
+      font-size: clamp(2.8rem, 8vw, 5.2rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-title .highlight {
+      background: linear-gradient(135deg, var(--primary-light), var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      font-weight: 400;
+      color: var(--text-muted);
+      max-width: 560px;
+      margin-bottom: 2.5rem;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.9rem 2rem;
+      border-radius: 60px;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: var(--transition);
+      border: none;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 4px 20px rgba(129, 140, 248, 0.3);
+    }
+
+    .btn-primary:hover,
+    .btn-primary:focus-visible {
+      background: var(--primary-dark);
+      box-shadow: 0 6px 28px rgba(129, 140, 248, 0.45);
+      transform: translateY(-2px);
+    }
+
+    .btn-primary:focus-visible {
+      outline: 2px solid var(--primary-light);
+      outline-offset: 3px;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-light);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-secondary:hover,
+    .btn-secondary:focus-visible {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--primary-light);
+      color: #ffffff;
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary:focus-visible {
+      outline: 2px solid var(--primary-light);
+      outline-offset: 3px;
+    }
+
+    .btn .arrow {
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+
+    .btn:hover .arrow {
+      transform: translateX(4px);
+    }
+
+    /* Stats row */
+    .hero-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      margin-top: 3.5rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-number {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    .stat-number .accent {
+      color: var(--primary);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-top: 0.2rem;
+    }
+
+    /* Decorative geometric lines (non-3D) */
+    .geo-line {
+      position: absolute;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.15;
+    }
+
+    .geo-line--1 {
+      top: 12%;
+      right: 5%;
+      width: 200px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      transform: rotate(-25deg);
+    }
+
+    .geo-line--2 {
+      bottom: 25%;
+      left: 3%;
+      width: 120px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
+      transform: rotate(40deg);
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .hero { padding: 2rem 1.5rem; align-items: flex-end; }
+      .hero-title { font-size: 2.4rem; }
+      .hero-stats { gap: 1.5rem; }
+      .stat-number { font-size: 1.4rem; }
+      .geo-line { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .hero-actions { flex-direction: column; width: 100%; }
+      .btn { width: 100%; }
+    }
+
+    /* ===== REDUCED MOTION ===== */
+    @media (prefers-reduced-motion: reduce) {
+      .hero-content { animation: none; }
+      .hero-badge::before { animation: none; }
+      .btn, .btn .arrow { transition: none; }
+      .btn:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <section class="hero" id="hero" aria-label="Thessaloniki Vision Clinic hero section">
+    <!-- 3D Canvas placeholder -->
+    <div id="three-canvas" aria-hidden="true"></div>
+
+    <!-- Geometric decoration lines -->
+    <div class="geo-line geo-line--1" aria-hidden="true"></div>
+    <div class="geo-line geo-line--2" aria-hidden="true"></div>
+
+    <div class="hero-content">
+      <div class="hero-badge">Advanced ophthalmology in Thessaloniki</div>
+      <p class="hero-brand">Thessaloniki Vision Clinic</p>
+      <h1 class="hero-title">
+        Transforming <span class="highlight">Vision</span>,<br>Enhancing Life
+      </h1>
+      <p class="hero-subtitle">
+        Premium eye care with cutting-edge technology — cataract surgery, LASIK, retina care, glaucoma management, and pediatric ophthalmology. Serving Thessaloniki and northern Greece with precision and compassion.
+      </p>
+      <div class="hero-actions">
+        <a href="#services" class="btn btn-primary" aria-label="Explore our services">
+          Our Services
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+        <a href="#contact" class="btn btn-secondary" aria-label="Book a consultation">
+          Book a Consultation
+        </a>
+      </div>
+
+      <!-- Trust indicators / stats -->
+      <div class="hero-stats">
+        <div class="stat-item">
+          <span class="stat-number">15<span class="accent">+</span></span>
+          <span class="stat-label">Years of excellence</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">12k<span class="accent">+</span></span>
+          <span class="stat-label">Successful surgeries</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">98<span class="accent">%</span></span>
+          <span class="stat-label">Patient satisfaction</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Three.js script for immersive 3D eye/lens background -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // Only run if browser supports WebGL and prefers-reduced-motion is not set
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      document.getElementById('three-canvas').style.display = 'none';
+    } else {
+      const canvasContainer = document.getElementById('three-canvas');
+      const width = canvasContainer.clientWidth;
+      const height = canvasContainer.clientHeight;
+
+      // Scene setup
+      const scene = new THREE.Scene();
+      scene.background = null; // transparent
+
+      const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+      camera.position.set(0, 0, 8);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      canvasContainer.appendChild(renderer.domElement);
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0x404060);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0x818cf8, 1.2);
+      dirLight.position.set(2, 3, 4);
+      scene.add(dirLight);
+
+      const fillLight = new THREE.DirectionalLight(0xa5b4fc, 0.6);
+      fillLight.position.set(-3, 1, 2);
+      scene.add(fillLight);
+
+      // Create a stylized eye/lens form using torus and sphere
+      const group = new THREE.Group();
+
+      // Outer ring (iris)
+      const ringGeo = new THREE.TorusGeometry(1.6, 0.08, 32, 64);
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: 0x818cf8,
+        emissive: 0x4f46e5,
+        emissiveIntensity: 0.3,
+        metalness: 0.4,
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0.7,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.rotation.z = 0.3;
+      group.add(ring);
+
+      // Inner sphere (lens/pupil)
+      const sphereGeo = new THREE.SphereGeometry(0.9, 32, 32);
+      const sphereMat = new THREE.MeshStandardMaterial({
+        color: 0x1e1b4b,
+        emissive: 0x312e81,
+        emissiveIntensity: 0.2,
+        metalness: 0.6,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0.85,
+      });
+      const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+      sphere.position.z = 0.1;
+      group.add(sphere);
+
+      // Small floating particles around (like vitreous humor)
+      const particleCount = 400;
+      const particleGeo = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      for (let i = 0; i < particleCount * 3; i += 3) {
+        const radius = 2.2 + Math.random() * 1.5;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+        positions[i] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i+1] = radius * Math.sin(phi) * Math.sin(theta);
+        positions[i+2] = radius * Math.cos(phi);
+      }
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const particleMat = new THREE.PointsMaterial({
+        color: 0xa5b4fc,
+        size: 0.035,
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending,
+      });
+      const particles = new THREE.Points(particleGeo, particleMat);
+      group.add(particles);
+
+      scene.add(group);
+
+      // Mouse interaction
+      let mouseX = 0, mouseY = 0;
+      document.addEventListener('mousemove', (event) => {
+        const x = (event.clientX / window.innerWidth) * 2 - 1;
+        const y = -(event.clientY / window.innerHeight) * 2 + 1;
+        mouseX = x * 0.3;
+        mouseY = y * 0.2;
+      });
+
+      // Resize handler
+      const resizeObserver = new ResizeObserver(() => {
+        const w = canvasContainer.clientWidth;
+        const h = canvasContainer.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+      resizeObserver.observe(canvasContainer);
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Smooth rotation based on mouse
+        group.rotation.y += (mouseX - group.rotation.y) * 0.03;
+        group.rotation.x += (mouseY - group.rotation.x) * 0.03;
+
+        // Slow auto-rotation
+        group.rotation.z += 0.001;
+
+        // Pulse particles
+        const time = Date.now() * 0.001;
+        particles.rotation.y = time * 0.02;
+        particles.rotation.x = Math.sin(time * 0.01) * 0.05;
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    }
+  </script>
+</body>
+</html>

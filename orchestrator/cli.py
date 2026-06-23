@@ -13,6 +13,7 @@ registration), the Click-based codebase-analysis entry point, and the
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from dotenv import load_dotenv

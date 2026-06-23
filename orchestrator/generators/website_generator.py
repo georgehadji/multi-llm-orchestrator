@@ -27,7 +27,7 @@ def _get_registry():
     global get_registry
     if get_registry is None:
         try:
-            from ..component_registry import get_registry as _gr
+            from ..design.component_registry import get_registry as _gr
 
             get_registry = _gr
         except ImportError:

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -97,7 +98,7 @@ class TriggerManager:
             Trigger: The created trigger
         """
 
-        trigger_id = f"trigger_{len(self.triggers)}"
+        trigger_id = f"trigger_{uuid.uuid4().hex[:8]}"
         trigger = Trigger(
             id=trigger_id,
             name=name,
@@ -318,7 +319,10 @@ class TriggerManager:
     async def _execute_action(self, action: str, context: dict[str, Any]):
         """Execute an action with the provided context."""
         if action in self.custom_actions:
-            await self.custom_actions[action](context)
+            fn = self.custom_actions[action]
+            result = fn(context)
+            if asyncio.iscoroutine(result):
+                await result
         else:
             # Default actions
             if action == "log":

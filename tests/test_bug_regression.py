@@ -344,7 +344,7 @@ class TestPersistentWorkspaceSyncSafe:
     def _make_workspace(self):
         import tempfile
         from pathlib import Path
-        from orchestrator.workspace.persistent_workspace import PersistentWorkspace
+        from orchestrator.state_mgmt.workspace.persistent_workspace import PersistentWorkspace
 
         tmp = tempfile.mkdtemp()
         return PersistentWorkspace(root=Path(tmp))
@@ -376,7 +376,7 @@ class TestPersistentWorkspaceSyncSafe:
 
     def test_write_file_returns_file_version_in_sync_context(self):
         """write_file() must succeed (return FileVersion) even without event loop."""
-        from orchestrator.workspace.workspace import FileVersion
+        from orchestrator.state_mgmt.workspace.workspace import FileVersion
 
         ws = self._make_workspace()
         result = ws.write_file("b.py", "y=2", author="bot")

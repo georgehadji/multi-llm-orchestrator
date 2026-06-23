@@ -8,7 +8,7 @@ Tracks metrics like parsing error rates, latency, cost, and quality
 to determine if optimizations should be rolled out.
 
 USAGE:
-    from orchestrator.openrouter_ab_testing import OpenRouterABTester
+    from orchestrator.integrations.openrouter_ab_testing import OpenRouterABTester
 
     ab_tester = OpenRouterABTester()
 
@@ -43,7 +43,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("orchestrator.openrouter_ab_testing")
+logger = logging.getLogger("orchestrator.integrations.openrouter_ab_testing")
 
 
 class OptimizationType(str, Enum):

@@ -46,7 +46,7 @@ def mock_budget():
 @pytest.fixture
 def mock_evaluator():
     """Mock EvaluatorService returning a CritiqueReport."""
-    from orchestrator.feedback import CritiqueReport
+    from orchestrator.operations.feedback import CritiqueReport
 
     evaluator = MagicMock()
     evaluator.evaluate = AsyncMock(return_value=CritiqueReport(task_id="t1", score=8.5))

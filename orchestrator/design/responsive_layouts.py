@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Composite, Strategy, Builder, Immutable Data
 
 Usage:
-    from orchestrator.responsive_layouts import ContainerComponent, GridLayoutComponent
+    from orchestrator.design.responsive_layouts import ContainerComponent, GridLayoutComponent
 
     layout = (ContainerComponent()
         .add_child(GridLayoutComponent(columns="12"))

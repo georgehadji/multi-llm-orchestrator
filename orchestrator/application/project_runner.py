@@ -332,7 +332,7 @@ class ProjectRunner:
         Makes one real API call (decomposition) then stops.
         Returns an ``ExecutionPlan`` that can be printed with ``plan.render()``.
         """
-        from ..dry_run import (
+        from ..operations.dry_run import (
             _DEFAULT_TOKENS,
             _TOKEN_ESTIMATES,
             ExecutionPlan,

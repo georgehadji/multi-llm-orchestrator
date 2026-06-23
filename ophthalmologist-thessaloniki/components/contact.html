@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact – Thessaloniki Vision Clinic | Clearer Vision Starts Here</title>
+  <meta name="description" content="Premium ophthalmology clinic in Thessaloniki, Greece. Book a consultation for cataract surgery, LASIK, retina care, glaucoma, pediatric eye exams.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== DESIGN SYSTEM TOKENS ===== */
+    :root {
+      --primary: #818cf8;
+      --primary-light: #a5b4fc;
+      --primary-dark: #6366f1;
+      --bg-dark: #0b0d1a;
+      --bg-card: #12142a;
+      --bg-elevated: #1a1d3a;
+      --text-light: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dark: #cbd5e1;
+      --border-subtle: #2a2d4a;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --shadow-card: 0 20px 40px -12px rgba(0,0,0,0.6);
+      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ===== RESET & BASE ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-dark);
+      color: var(--text-light);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .contact-section {
+      position: relative;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 5rem 1.5rem 6rem;
+      overflow: hidden;
+    }
+
+    /* ===== 3D CANVAS BACKGROUND (Three.js) ===== */
+    #three-canvas-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.35;
+      mix-blend-mode: screen;
+    }
+
+    /* ===== SECTION HEADER ===== */
+    .section-header {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    .section-header h2 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--text-light) 0%, var(--primary-light) 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-header p {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+      font-weight: 400;
+    }
+
+    .accent-line {
+      width: 60px;
+      height: 3px;
+      background: var(--primary);
+      border-radius: 4px;
+      margin: 1.25rem auto 0;
+    }
+
+    /* ===== SPLIT LAYOUT: FORM + INFO ===== */
+    .contact-grid {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .contact-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+      }
+    }
+
+    /* ===== FORM CARD ===== */
+    .form-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 2rem 1.75rem;
+      box-shadow: var(--shadow-card);
+      backdrop-filter: blur(4px);
+      transition: border-color var(--transition);
+    }
+
+    .form-card:focus-within {
+      border-color: var(--primary);
+    }
+
+    .form-card h3 {
+      font-size: 1.4rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--text-light);
+    }
+
+    .form-card .form-sub {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 1.75rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-dark);
+      margin-bottom: 0.35rem;
+      letter-spacing: 0.01em;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-light);
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.25);
+    }
+
+    .form-group textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .form-group .error-message {
+      font-size: 0.8rem;
+      color: #f87171;
+      margin-top: 0.25rem;
+      display: none;
+    }
+
+    .form-group.has-error input,
+    .form-group.has-error textarea {
+      border-color: #f87171;
+    }
+
+    .form-group.has-error .error-message {
+      display: block;
+    }
+
+    .rate-limit-error {
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid #f87171;
+      color: #fca5a5;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      margin-bottom: 1.25rem;
+      display: none;
+    }
+
+    .rate-limit-error.visible {
+      display: block;
+    }
+
+    .btn-submit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.85rem 1.5rem;
+      background: var(--primary);
+      color: #0b0d1a;
+      font-weight: 600;
+      font-size: 1rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background var(--transition), transform 0.15s, box-shadow var(--transition);
+      font-family: var(--font-sans);
+    }
+
+    .btn-submit:hover {
+      background: var(--primary-light);
+      box-shadow: 0 8px 20px -8px rgba(129, 140, 248, 0.4);
+    }
+
+    .btn-submit:focus-visible {
+      outline: 2px solid var(--primary-light);
+      outline-offset: 2px;
+    }
+
+    .btn-submit:active {
+      transform: scale(0.97);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* ===== INFO PANEL ===== */
+    .info-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    .info-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.5rem 1.75rem;
+      box-shadow: var(--shadow-card);
+      transition: border-color var(--transition);
+    }
+
+    .info-card:hover {
+      border-color: var(--primary-dark);
+    }
+
+    .info-card .icon {
+      color: var(--primary);
+      font-size: 1.4rem;
+      margin-bottom: 0.5rem;
+      display: inline-block;
+    }
+
+    .info-card h4 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 0.4rem;
+      color: var(--text-light);
+    }
+
+    .info-card p, .info-card a {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .info-card a {
+      color: var(--primary-light);
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+
+    .info-card a:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    .social-links {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .social-links a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+      text-decoration: none;
+    }
+
+    .social-links a:hover {
+      background: var(--primary);
+      color: #0b0d1a;
+      border-color: var(--primary);
+    }
+
+    .social-links a:focus-visible {
+      outline: 2px solid var(--primary-light);
+      outline-offset: 2px;
+    }
+
+    /* ===== MAP EMBED (static fallback) ===== */
+    .map-container {
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      margin-top: 0.75rem;
+      background: var(--bg-elevated);
+      aspect-ratio: 16 / 7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .map-container iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      filter: grayscale(0.8) invert(0.9) hue-rotate(200deg);
+    }
+
+    /* ===== RESPONSIVE & MISC ===== */
+    @media (max-width: 480px) {
+      .contact-section {
+        padding: 3rem 1rem 4rem;
+      }
+      .form-card {
+        padding: 1.5rem 1.25rem;
+      }
+      .info-card {
+        padding: 1.25rem;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ===== SUCCESS STATE ===== */
+    .form-success {
+      display: none;
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid #34d399;
+      color: #6ee7b7;
+      padding: 1rem 1.25rem;
+      border-radius: var(--radius-sm);
+      margin-top: 1rem;
+      font-weight: 500;
+    }
+
+    .form-success.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<section class="contact-section" aria-labelledby="contact-heading">
+  <!-- 3D Canvas background (Three.js) -->
+  <div id="three-canvas-bg" aria-hidden="true"></div>
+
+  <div class="section-header">
+    <h2 id="contact-heading">Take the First Step Towards Clearer Vision</h2>
+    <p>Book a consultation with our specialists in Thessaloniki. We serve patients from across northern Greece with cutting-edge ophthalmology care.</p>
+    <div class="accent-line" aria-hidden="true"></div>
+  </div>
+
+  <div class="contact-grid">
+    <!-- LEFT: Contact Form -->
+    <div class="form-card">
+      <h3>Request an appointment</h3>
+      <p class="form-sub">We'll respond within 24 hours. All fields are required.</p>
+
+      <form id="contactForm" novalidate>
+        <!-- Rate limit error -->
+        <div class="rate-limit-error" id="rateLimitError" role="alert">
+          ⚠️ Too many requests. Please wait a moment before trying again.
+        </div>
+
+        <div class="form-group">
+          <label for="fullName">Full name</label>
+          <input type="text" id="fullName" name="fullName" placeholder="e.g. Maria Papadopoulos" required autocomplete="name">
+          <span class="error-message">Please enter your full name.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email" placeholder="maria@example.com" required autocomplete="email">
+          <span class="error-message">Please enter a valid email.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone number</label>
+          <input type="tel" id="phone" name="phone" placeholder="+30 2310 000000" required autocomplete="tel">
+          <span class="error-message">Please enter a valid phone number.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="service">Service of interest</label>
+          <select id="service" name="service" required>
+            <option value="">— Select —</option>
+            <option value="cataract">Cataract surgery</option>
+            <option value="lasik">LASIK / femtosecond laser</option>
+            <option value="retina">Retina & macula</option>
+            <option value="glaucoma">Glaucoma management</option>
+            <option value="pediatric">Pediatric ophthalmology</option>
+            <option value="exam">Comprehensive eye exam</option>
+          </select>
+          <span class="error-message">Please select a service.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="message">Message (optional)</label>
+          <textarea id="message" name="message" placeholder="Tell us about your symptoms or questions…"></textarea>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <span>Send request</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+
+        <div class="form-success" id="formSuccess" role="status">
+          ✓ Your request has been sent. We'll contact you soon.
+        </div>
+      </form>
+    </div>
+
+    <!-- RIGHT: Info + Map -->
+    <div class="info-panel">
+      <div class="info-card">
+        <span class="icon">📍</span>
+        <h4>Clinic location</h4>
+        <p>Mitropoleos 45, 54623<br>Thessaloniki, Greece</p>
+        <div class="map-container">
+          <!-- OpenStreetMap embed (static, privacy-friendly) -->
+          <iframe src="https://www.openstreetmap.org/export/embed.html?bbox=22.940%2C40.630%2C22.950%2C40.640&amp;layer=mapnik&amp;marker=40.635%2C22.945" loading="lazy" title="Thessaloniki Vision Clinic map" referrerpolicy="no-referrer"></iframe>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <span class="icon">📞</span>
+        <h4>Phone &amp; email</h4>
+        <p>
+          <a href="tel:+302310123456">+30 2310 123456</a><br>
+          <a href="mailto:info@thessvision.gr">info@thessvision.gr</a>
+        </p>
+      </div>
+
+      <div class="info-card">
+        <span class="icon">🕒</span>
+        <h4>Office hours</h4>
+        <p>Mon–Fri: 09:00 – 20:00<br>Saturday: 10:00 – 15:00</p>
+      </div>
+
+      <div class="info-card">
+        <span class="icon">🌐</span>
+        <h4>Follow us</h4>
+        <div class="social-links">
+          <a href="#" aria-label="Facebook" title="Facebook">📘</a>
+          <a href="#" aria-label="Instagram" title="Instagram">📸</a>
+          <a href="#" aria-label="LinkedIn" title="LinkedIn">🔗</a>
+          <a href="#" aria-label="YouTube" title="YouTube">▶️</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Three.js + form validation + rate limiting -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+  // ===== 1. Three.js immersive background =====
+  import * as THREE from 'three';
+
+  (function initThree() {
+    const container = document.getElementById('three-canvas-bg');
+    if (!container) return;
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    const scene = new THREE.Scene();
+    scene.background = null; // transparent
+
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    camera.position.set(0, 0, 8);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    // Subtle 3D eye/lens-like geometry: torus knot + floating particles
+    const geometry = new THREE.TorusKnotGeometry(1.2, 0.4, 100, 16);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x818cf8,
+      emissive: 0x2a2d6a,
+      roughness: 0.3,
+      metalness: 0.1,
+      wireframe: false,
+      transparent: true,
+      opacity: 0.25,
+    });
+    const knot = new THREE.Mesh(geometry, material);
+    scene.add(knot);
+
+    // inner glow ring
+    const ringGeo = new THREE.TorusGeometry(1.6, 0.03, 32, 64);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0xa5b4fc,
+      emissive: 0x6366f1,
+      transparent: true,
+      opacity: 0.2,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    scene.add(ring);
+
+    // particles
+    const particlesGeo = new THREE.BufferGeometry();
+    const count = 400;
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count * 3; i += 3) {
+      positions[i] = (Math.random() - 0.5) * 20;
+      positions[i+1] = (Math.random() - 0.5) * 20;
+      positions[i+2] = (Math.random() - 0.5) * 10;
+    }
+    particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particlesMat = new THREE.PointsMaterial({
+      color: 0x818cf8,
+      size: 0.03,
+      transparent: true,
+      opacity: 0.5,
+    });
+    const particles = new THREE.Points(particlesGeo, particlesMat);
+    scene.add(particles);
+
+    // lights
+    const ambient = new THREE.AmbientLight(0x404060);
+    scene.add(ambient);
+    const dirLight = new THREE.DirectionalLight(0x818cf8, 0.8);
+    dirLight.position.set(2, 3, 4);
+    scene.add(dirLight);
+    const backLight = new THREE.DirectionalLight(0x6366f1, 0.4);
+    backLight.position.set(-2, -1, -3);
+    scene.add(backLight);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      knot.rotation.x += 0.002;
+      knot.rotation.y += 0.005;
+      ring.rotation.z += 0.001;
+      particles.rotation.y += 0.0005;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // resize
+    window.addEventListener('resize', () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+
+    // reduced motion: pause animation
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (prefersReduced.matches) {
+      renderer.setAnimationLoop(null);
+    }
+  })();
+
+  // ===== 2. Form validation + rate limiting =====
+  const form = document.getElementById('contactForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const rateLimitError = document.getElementById('rateLimitError');
+  const formSuccess = document.getElementById('formSuccess');
+
+  // Simple in-memory rate limit (per IP simulation)
+  let requestCount = 0;
+  const RATE_LIMIT = 5; // max requests per minute
+  let rateLimitReset = null;
+
+  function isRateLimited() {
+    if (rateLimitReset && Date.now() < rateLimitReset) {
+      return true;
+    }
+    if (requestCount >= RATE_LIMIT) {
+      rateLimitReset = Date.now() + 60000; // 1 minute
+      return true;
+    }
+    return false;
+  }
+
+  function incrementCounter() {
+    requestCount++;
+    // reset counter after 1 minute
+    setTimeout(() => {
+      requestCount = Math.max(0, requestCount - 1);
+    }, 60000);
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // clear previous errors
+    document.querySelectorAll('.form-group').forEach(g => g.classList.remove('has-error'));
+    rateLimitError.classList.remove('visible');
+    formSuccess.classList.remove('visible');
+
+    // validate fields
+    let valid = true;
+    const name = document.getElementById('fullName');
+    const email = document.getElementById('email');
+    const phone = document.getElementById('phone');
+    const service = document.getElementById('service');
+
+    if (!name.value.trim()) {
+      name.closest('.form-group').classList.add('has-error');
+      valid = false;
+    }
+    if (!email.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+      email.closest('.form-group').classList.add('has-error');
+      valid = false;
+    }
+    if (!phone.value.trim() || phone.value.trim().length < 7) {
+      phone.closest('.form-group').classList.add('has-error');
+      valid = false;
+    }
+    if (!service.value) {
+      service.closest('.form-group').classList.add('has-error');
+      valid = false;
+    }
+
+    if (!valid) return;
+
+    // rate limit check
+    if (isRateLimited()) {
+      rateLimitError.classList.add('visible');
+      return;
+    }
+
+    // simulate submission (no real API)
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    // artificial delay
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    // success
+    incrementCounter();
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `<span>Send request</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+    formSuccess.classList.add('visible');
+    form.reset();
+  });
+</script>
+
+</body>
+</html>

@@ -8,7 +8,7 @@ Technology Choices:
 - C++ (Adobe InDesign SDK) - Only for deep native access, custom hooks, high performance
 
 Usage:
-    from orchestrator.indesign_plugin_rules import InDesignPluginRules
+    from orchestrator.security.indesign_plugin_rules import InDesignPluginRules
 
     rules = InDesignPluginRules()
     config = rules.generate_config("My Plugin", technology="uxp")

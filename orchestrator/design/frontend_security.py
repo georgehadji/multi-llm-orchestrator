@@ -10,7 +10,7 @@ Paradigm: Hybrid (OOP for complex components, Functional for simple utilities)
 Patterns: Component Pattern, Functional Components, Factory Method, Builder
 
 Usage:
-    from orchestrator.frontend_security import generate_csp_meta_tag, create_csrf_component
+    from orchestrator.design.frontend_security import generate_csp_meta_tag, create_csrf_component
 
     csp_tag = generate_csp_meta_tag(policy=default_csp_policy)
     csrf_component = create_csrf_component()

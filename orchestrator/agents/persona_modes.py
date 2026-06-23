@@ -9,7 +9,7 @@ Async: No — pure logic operations
 Layer: L4 Supervisor
 
 Usage:
-    from orchestrator.persona_modes import PersonaModeManager
+    from orchestrator.agents.persona_modes import PersonaModeManager
     persona_manager = PersonaModeManager()
     persona_manager.set_persona("strict")
     result = await orchestrator.run_task(task, persona="creative")
@@ -25,7 +25,7 @@ from typing import Any
 from .models import Model
 from .modes import ModeConfig, ModeManager, OperationMode
 
-logger = logging.getLogger("orchestrator.persona_modes")
+logger = logging.getLogger("orchestrator.agents.persona_modes")
 
 
 class Persona(Enum):

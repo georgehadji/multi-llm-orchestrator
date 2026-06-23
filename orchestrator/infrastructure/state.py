@@ -625,7 +625,7 @@ def extract_and_store_keywords(description: str | None) -> str | None:
     if not description:
         return None
 
-    from ..resume_detector import _extract_keywords
+    from ..state_mgmt.resume_detector import _extract_keywords
 
     keywords = _extract_keywords(description)
 

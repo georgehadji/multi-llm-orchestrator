@@ -8,7 +8,7 @@ Async: Yes — for I/O-bound operations
 Layer: L6 Observability
 
 Usage:
-    from orchestrator.drift import DriftDetector
+    from orchestrator.operations.drift import DriftDetector
     detector = DriftDetector(window_size=100, threshold=0.05)
     is_drifting = await detector.check_drift(new_sample=np.array([...]))
 """
@@ -22,7 +22,7 @@ from typing import Any
 
 import numpy as np
 
-logger = logging.getLogger("orchestrator.drift")
+logger = logging.getLogger("orchestrator.operations.drift")
 
 
 class DriftDetectionResult:

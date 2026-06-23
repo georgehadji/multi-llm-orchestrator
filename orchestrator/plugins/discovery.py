@@ -16,7 +16,7 @@ Currently supported kinds:
 - "context"     → ContextProvider (see context_provider.py)
 
 Usage:
-    from orchestrator.plugins.discovery import discover_plugins, load_plugin
+    from orchestrator.plugin.plugins.discovery import discover_plugins, load_plugin
 
     memory_providers = await discover_plugins("memory")
     ctx_providers = await discover_plugins("context")
@@ -224,8 +224,8 @@ async def load_plugin(
 
         # Import the plugin module
         if source == "bundled":
-            # orchestrator.plugins.<kind>.<name>
-            module_name = f"orchestrator.plugins.{kind}.{name}"
+            # orchestrator.plugin.plugins.<kind>.<name>
+            module_name = f"orchestrator.plugin.plugins.{kind}.{name}"
         else:
             # User plugins: add to sys.path temporarily
             _USER_PLUGINS_ROOT.mkdir(parents=True, exist_ok=True)

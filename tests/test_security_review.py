@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from orchestrator.security_review import (
+from orchestrator.safety.security_review import (
     SecurityReviewer,
     SecurityReport,
     SecurityFinding,

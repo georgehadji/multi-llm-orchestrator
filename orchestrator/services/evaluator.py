@@ -20,7 +20,7 @@ from typing import Callable
 
 from ..api_clients import UnifiedClient
 from ..budget import Budget
-from ..feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
+from ..operations.feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
 from ..telemetry import TelemetryCollector

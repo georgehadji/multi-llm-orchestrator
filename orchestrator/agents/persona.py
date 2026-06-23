@@ -9,7 +9,7 @@ Implements Mnemo Cortex persona modes:
 - CUSTOM: User-defined persona
 
 Usage:
-    from orchestrator.persona import PersonaManager, Persona, PersonaMode
+    from orchestrator.agents.persona import PersonaManager, Persona, PersonaMode
 
     manager = PersonaManager()
 

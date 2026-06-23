@@ -13,7 +13,7 @@ def execute(args) -> None:
 
     from orchestrator.engine_core.control_plane import ControlPlane
     from orchestrator.orchestration_agent import OrchestrationAgent
-    from orchestrator.secure_execution import CommandInjectionError
+    from orchestrator.safety.secure_execution import CommandInjectionError
 
     # SECURITY FIX: Validate intent input length and content
     intent = args.intent.strip()

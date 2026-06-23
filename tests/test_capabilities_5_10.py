@@ -9,7 +9,7 @@ class TestAgentMessageBus:
     """Capability 5: Agent communication."""
 
     def test_publish_direct_message(self):
-        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
+        from orchestrator.state_mgmt.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
 
         bus = AgentMessageBus()
         bus.subscribe("agent_a", [MessageType.QUERY])
@@ -19,7 +19,7 @@ class TestAgentMessageBus:
         assert inbox[0].content == "hello"
 
     def test_broadcast_matches_subscribers(self):
-        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
+        from orchestrator.state_mgmt.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
 
         bus = AgentMessageBus()
         bus.subscribe("agent_a", [MessageType.QUERY])
@@ -31,7 +31,7 @@ class TestAgentMessageBus:
         assert len(bus.read_inbox("agent_b")) == 0
 
     def test_message_history(self):
-        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage
+        from orchestrator.state_mgmt.workspace.message_bus import AgentMessageBus, AgentMessage
 
         bus = AgentMessageBus()
         bus.publish(AgentMessage(id="m1", sender="a", content="msg1"))
@@ -39,7 +39,7 @@ class TestAgentMessageBus:
         assert len(bus.get_history()) == 2
 
     def test_agent_message_dataclass(self):
-        from orchestrator.workspace.message_bus import AgentMessage, MessageType
+        from orchestrator.state_mgmt.workspace.message_bus import AgentMessage, MessageType
 
         m = AgentMessage(id="m1", sender="dev", content="hello")
         assert m.msg_type == MessageType.QUERY

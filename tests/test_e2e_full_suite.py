@@ -254,7 +254,7 @@ class TestWorkspace:
     """ProjectWorkspace functions correctly."""
 
     def test_workspace_versioning(self):
-        from orchestrator.workspace.workspace import ProjectWorkspace
+        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         v1 = ws.write_file("main.py", "v1", author="dev")
@@ -265,7 +265,7 @@ class TestWorkspace:
         assert ws.read_file("main.py") == "v2"
 
     def test_workspace_conflict_detection(self):
-        from orchestrator.workspace.workspace import ProjectWorkspace
+        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         ws.write_file("auth.py", "v1", author="architect")
@@ -275,7 +275,7 @@ class TestWorkspace:
         assert ws.read_file("auth.py") == "v2"
 
     def test_workspace_decision_log(self):
-        from orchestrator.workspace.workspace import ProjectWorkspace
+        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         ad = ws.record_decision("Use FastAPI", "FastAPI chosen", "Best for APIs")
@@ -284,7 +284,7 @@ class TestWorkspace:
         assert len(ws.architectural_decisions) == 1
 
     def test_workspace_summary(self):
-        from orchestrator.workspace.workspace import ProjectWorkspace
+        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         summary = ws.get_summary()
@@ -293,7 +293,7 @@ class TestWorkspace:
         assert "Files modified: 0" in summary
 
     def test_workspace_missing_file(self):
-        from orchestrator.workspace.workspace import ProjectWorkspace
+        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         assert ws.read_file("nonexistent.py") is None

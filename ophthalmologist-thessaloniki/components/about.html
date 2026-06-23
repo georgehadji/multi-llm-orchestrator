@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About | Thessaloniki Vision Clinic</title>
+  <meta name="description" content="Discover the story behind Thessaloniki Vision Clinic — a premium ophthalmology center blending cutting-edge medical technology with compassionate care in Thessaloniki, Greece.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: #0b0d1a; color: #e2e8f0; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+    /* ===== DESIGN TOKENS ===== */
+    :root {
+      --primary: #818cf8;
+      --primary-light: #a5b4fc;
+      --primary-dark: #6366f1;
+      --bg-dark: #0b0d1a;
+      --bg-card: #111827;
+      --bg-elevated: #1e293b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-subtle: #1e293b;
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --shadow-soft: 0 8px 32px rgba(0,0,0,0.3);
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ===== UTILITY ===== */
+    .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+    .section-padding { padding: 100px 0; }
+
+    /* ===== ABOUT SECTION ===== */
+    .about-section {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-dark);
+    }
+
+    /* subtle 3D canvas background */
+    #about-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      opacity: 0.15;
+      z-index: 0;
+    }
+
+    .about-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== HEADLINE ===== */
+    .about-headline {
+      text-align: center;
+      margin-bottom: 80px;
+    }
+    .about-headline h2 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .about-headline h2 span {
+      color: var(--primary);
+    }
+    .about-headline .subtitle {
+      font-size: 1.125rem;
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin: 20px auto 0;
+      font-weight: 300;
+    }
+
+    /* ===== ASYMMETRIC LAYOUT ===== */
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 60px;
+    }
+
+    /* ===== MISSION + STATS ===== */
+    .mission-block {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+    .mission-text {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      position: relative;
+    }
+    .mission-text::before {
+      content: '"';
+      position: absolute;
+      top: 16px; left: 24px;
+      font-size: 5rem;
+      color: var(--primary);
+      opacity: 0.2;
+      font-family: Georgia, serif;
+      line-height: 1;
+    }
+    .mission-text h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+    }
+    .mission-text p {
+      color: var(--text-secondary);
+      font-size: 1.0625rem;
+      line-height: 1.8;
+    }
+    .mission-text .highlight {
+      color: var(--primary-light);
+      font-weight: 500;
+    }
+
+    /* stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .stat-card {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      padding: 28px 20px;
+      text-align: center;
+      border: 1px solid var(--border-subtle);
+      transition: var(--transition);
+    }
+    .stat-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-soft);
+    }
+    .stat-number {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ===== FOUNDING STORY + PULL QUOTE ===== */
+    .story-block {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+    .story-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+    }
+    .story-card h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+    }
+    .story-card p {
+      color: var(--text-secondary);
+      font-size: 1.0625rem;
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+    .story-card p:last-child { margin-bottom: 0; }
+
+    /* pull quote */
+    .pull-quote {
+      background: linear-gradient(135deg, rgba(129,140,248,0.08), rgba(99,102,241,0.04));
+      border-left: 4px solid var(--primary);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      padding: 32px 36px;
+      margin: 32px 0 0;
+    }
+    .pull-quote blockquote {
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: var(--text-primary);
+      font-style: italic;
+      line-height: 1.6;
+    }
+    .pull-quote cite {
+      display: block;
+      margin-top: 12px;
+      font-size: 0.9375rem;
+      color: var(--primary-light);
+      font-style: normal;
+      font-weight: 500;
+    }
+
+    /* ===== TEAM PHOTOS ===== */
+    .team-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+    }
+    .team-block h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 24px;
+    }
+    .team-member {
+      text-align: center;
+    }
+    .team-photo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--border-subtle);
+      margin: 0 auto 12px;
+      display: block;
+      transition: var(--transition);
+      filter: grayscale(0.3);
+    }
+    .team-member:hover .team-photo {
+      border-color: var(--primary);
+      filter: grayscale(0);
+      transform: scale(1.05);
+    }
+    .team-name {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+    .team-role {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ===== TIMELINE ===== */
+    .timeline-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+    }
+    .timeline-block h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--border-subtle);
+    }
+    .timeline-item {
+      position: relative;
+      padding-bottom: 32px;
+    }
+    .timeline-item:last-child { padding-bottom: 0; }
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -24px;
+      top: 6px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid var(--bg-card);
+      z-index: 1;
+    }
+    .timeline-year {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .timeline-text {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    /* ===== VALUES ===== */
+    .values-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+    }
+    .values-block h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    .values-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    .value-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 20px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      transition: var(--transition);
+    }
+    .value-item:hover {
+      border-color: var(--primary);
+      transform: translateX(6px);
+    }
+    .value-icon {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      background: rgba(129,140,248,0.12);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: var(--primary);
+    }
+    .value-content h4 {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 1.0625rem;
+      margin-bottom: 4px;
+    }
+    .value-content p {
+      color: var(--text-muted);
+      font-size: 0.9375rem;
+      line-height: 1.5;
+    }
+
+    /* ===== CTA ===== */
+    .about-cta {
+      text-align: center;
+      margin-top: 80px;
+    }
+    .about-cta p {
+      font-size: 1.125rem;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 16px 40px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      font-size: 1rem;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: var(--transition);
+      border: none;
+      cursor: pointer;
+    }
+    .cta-button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(129,140,248,0.3);
+    }
+    .cta-button:focus-visible {
+      outline: 3px solid var(--primary-light);
+      outline-offset: 4px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (min-width: 768px) {
+      .mission-block {
+        grid-template-columns: 1.2fr 0.8fr;
+        align-items: start;
+      }
+      .stats-row {
+        grid-template-columns: 1fr 1fr;
+      }
+      .story-block {
+        grid-template-columns: 1fr 1fr;
+      }
+      .values-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .team-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .about-grid {
+        gap: 80px;
+      }
+      .mission-text {
+        padding: 48px;
+      }
+    }
+
+    /* ===== PREFERS REDUCED MOTION ===== */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .stat-card:hover, .value-item:hover, .team-member:hover .team-photo, .cta-button:hover {
+        transform: none !important;
+      }
+    }
+
+    /* ===== FOCUS VISIBLE ===== */
+    a:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid var(--primary-light);
+      outline-offset: 4px;
+    }
+  </style>
+</head>
+<body>
+  <section class="about-section section-padding" id="about">
+    <!-- 3D Canvas Background -->
+    <canvas id="about-canvas" aria-hidden="true"></canvas>
+
+    <div class="container about-content">
+      <!-- Headline -->
+      <div class="about-headline">
+        <h2>Expertise and Compassion:<br><span>The Heart of Thessaloniki Vision Clinic</span></h2>
+        <p class="subtitle">Since 2008, we have been restoring sight and transforming lives across northern Greece — blending surgical precision with genuine human care.</p>
+      </div>
+
+      <!-- Asymmetric Grid -->
+      <div class="about-grid">
+        <!-- Row 1: Mission + Stats -->
+        <div class="mission-block">
+          <div class="mission-text">
+            <h3>Our Mission</h3>
+            <p>At <span class="highlight">Thessaloniki Vision Clinic</span>, we believe that clear vision is a gateway to a fuller life. Our mission is to deliver world-class ophthalmological care — from routine exams to complex microsurgery — with unwavering precision, empathy, and respect for every patient.</p>
+            <p>We combine <span class="highlight">cutting-edge medical technology</span> with a warm, human-centered approach, ensuring that every person who walks through our doors feels seen, heard, and cared for.</p>
+            <div class="pull-quote">
+              <blockquote>"We don't just treat eyes — we restore the way people experience the world."</blockquote>
+              <cite>— Dr. Elena Voulgaris, Medical Director</cite>
+            </div>
+          </div>
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-number">15+</div>
+              <div class="stat-label">Years of Excellence</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">12,000+</div>
+              <div class="stat-label">Surgeries Performed</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">98.7%</div>
+              <div class="stat-label">Patient Satisfaction</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">6</div>
+              <div class="stat-label">Specialized Departments</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Founding Story + Team -->
+        <div class="story-block">
+          <div class="story-card">
+            <h3>Our Founding Story</h3>
+            <p>Thessaloniki Vision Clinic was born from a simple yet profound belief: that <span class="highlight">world-class eye care should be accessible</span> to everyone in northern Greece.</p>
+            <p>In 2008, Dr. Elena Voulgaris and Dr. Nikos Christodoulou — both trained at leading European ophthalmology centers — returned to their hometown of Thessaloniki with a shared dream. They saw a gap between the advanced care available in Athens or abroad and what was offered locally.</p>
+            <p>With a small team and a big vision, they opened the clinic in a modest building near the city center. Word spread quickly. Patients came not only from Thessaloniki but from across Macedonia, Thrace, and even the islands.</p>
+            <p>Today, our state-of-the-art facility on Tsimiski Street serves thousands of patients each year, yet we remain true to our founding ethos: <span class="highlight">treat every patient like family</span>.</p>
+          </div>
+
+          <div class="team-block">
+            <h3>Meet Our Team</h3>
+            <div class="team-grid">
+              <div class="team-member">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%231e293b'/%3E%3Ccircle cx='60' cy='45' r='20' fill='%23818cf8' opacity='0.4'/%3E%3Ccircle cx='60' cy='90' r='28' fill='%23818cf8' opacity='0.3'/%3E%3C/svg%3E" alt="Dr. Elena Voulgaris - Medical Director and Ophthalmologist" class="team-photo" loading="lazy" decoding="async">
+                <div class="team-name">Dr. Elena Voulgaris</div>
+                <div class="team-role">Medical Director</div>
+              </div>
+              <div class="team-member">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%231e293b'/%3E%3Ccircle cx='60' cy='45' r='20' fill='%23818cf8' opacity='0.4'/%3E%3Ccircle cx='60' cy='90' r='28' fill='%23818cf8' opacity='0.3'/%3E%3C/svg%3E" alt="Dr. Nikos Christodoulou - Chief Surgeon, Cataract and Refractive Surgery" class="team-photo" loading="lazy" decoding="async">
+                <div class="team-name">Dr. Nikos Christodoulou</div>
+                <div class="team-role">Chief Surgeon</div>
+              </div>
+              <div class="team-member">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%231e293b'/%3E%3Ccircle cx='60' cy='45' r='20' fill='%23818cf8' opacity='0.4'/%3E%3Ccircle cx='60' cy='90' r='28' fill='%23818cf8' opacity='0.3'/%3E%3C/svg%3E" alt="Dr. Maria Papadopoulou - Retina and Macula Specialist" class="team-photo" loading="lazy" decoding="async">
+                <div class="team-name">Dr. Maria Papadopoulou</div>
+                <div class="team-role">Retina Specialist</div>
+              </div>
+              <div class="team-member">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%231e293b'/%3E%3Ccircle cx='60' cy='45' r='20' fill='%23818cf8' opacity='0.4'/%3E%3Ccircle cx='60' cy='90' r='28' fill='%23818cf8' opacity='0.3'/%3E%3C/svg%3E" alt="Dr. Alexandros Ioannou - Pediatric Ophthalmologist" class="team-photo" loading="lazy" decoding="async">
+                <div class="team-name">Dr. Alexandros Ioannou</div>
+                <div class="team-role">Pediatric Ophthalmology</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3: Timeline + Values -->
+        <div class="story-block">
+          <div class="timeline-block">
+            <h3>Our Journey</h3>
+            <div class="timeline">
+              <div class="timeline-item">
+                <div class="timeline-year">2008</div>
+                <div class="timeline-text">Clinic founded by Dr. Voulgaris and Dr. Christodoulou in central Thessaloniki. First 50 patients treated in the first month.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-year">2012</div>
+                <div class="timeline-text">Introduced femtosecond laser technology for cataract surgery — first in northern Greece.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-year">2016</div>
+                <div class="timeline-text">Expanded to new 1,200 m² facility on Tsimiski Street. Added retina and glaucoma departments.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-year">2020</div>
+                <div class="timeline-text">Launched teleophthalmology service, reaching patients in remote areas of Macedonia and Thrace.</div>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-year">2024</div>
+                <div class="timeline-text">Recognized as a Center of Excellence for refractive surgery. Over 12,000 surgeries performed.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="values-block">
+            <h3>Our Values</h3>
+            <div class="values-grid">
+              <div class="value-item">
+                <div class="value-icon">🎯</div>
+                <div class="value-content">
+                  <h4>Precision</h4>
+                  <p>Every procedure is guided by data, experience, and the latest technology. We leave nothing to chance.</p>
+                </div>
+              </div>
+              <div class="value-item">
+                <div class="value-icon">❤️</div>
+                <div class="value-content">
+                  <h4>Compassion</h4>
+                  <p>We listen, we explain, we care. Your comfort and understanding are as important as the clinical outcome.</p>
+                </div>
+              </div>
+              <div class="value-item">
+                <div class="value-icon">🔬</div>
+                <div class="value-content">
+                  <h4>Innovation</h4>
+                  <p>We continuously invest in the most advanced diagnostic and surgical equipment available worldwide.</p>
+                </div>
+              </div>
+              <div class="value-item">
+                <div class="value-icon">🤝</div>
+                <div class="value-content">
+                  <h4>Integrity</h4>
+                  <p>Honest recommendations, transparent pricing, and ethical care — always putting patients first.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="about-cta">
+        <p>Ready to experience the difference that expertise and compassion make?</p>
+        <a href="#contact" class="cta-button" aria-label="Book your consultation at Thessaloniki Vision Clinic">Book a Consultation</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Three.js 3D Background -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const canvas = document.getElementById('about-canvas');
+    if (!canvas) throw new Error('Canvas not found');
+
+    const scene = new THREE.Scene();
+    scene.background = null; // transparent
+
+    const camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+    camera.position.set(0, 0, 8);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+    });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Subtle eye/lens inspired geometry
+    const group = new THREE.Group();
+
+    // Outer ring (lens shape)
+    const ringGeo = new THREE.TorusGeometry(2.2, 0.04, 32, 64);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.15 });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 3;
+    ring.rotation.z = 0.2;
+    group.add(ring);
+
+    // Inner ring
+    const ring2Geo = new THREE.TorusGeometry(1.6, 0.03, 32, 64);
+    const ring2Mat = new THREE.MeshBasicMaterial({ color: 0xa5b4fc, transparent: true, opacity: 0.1 });
+    const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
+    ring2.rotation.x = Math.PI / 3;
+    ring2.rotation.z = -0.3;
+    group.add(ring2);
+
+    // Central sphere (pupil/iris)
+    const sphereGeo = new THREE.SphereGeometry(0.6, 32, 32);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.08 });
+    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    sphere.position.z = 0.2;
+    group.add(sphere);
+
+    // Small floating particles (like cells or light)
+    const particlesGeo = new THREE.BufferGeometry();
+    const particleCount = 120;
+    const positions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount * 3; i += 3) {
+      const radius = 2.8 + Math.random() * 1.5;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      positions[i] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i+1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i+2] = radius * Math.cos(phi);
+    }
+    particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particlesMat = new THREE.PointsMaterial({
+      color: 0x818cf8,
+      size: 0.04,
+      transparent: true,
+      opacity: 0.25,
+      blending: THREE.AdditiveBlending,
+    });
+    const particles = new THREE.Points(particlesGeo, particlesMat);
+    group.add(particles);
+
+    scene.add(group);
+
+    // Mouse interaction
+    let mouseX = 0, mouseY = 0;
+    document.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    });
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Gentle rotation based on mouse
+      group.rotation.y += (mouseX * 0.3 - group.rotation.y) * 0.02;
+      group.rotation.x += (mouseY * 0.2 - group.rotation.x) * 0.02;
+
+      // Slow auto-rotation
+      group.rotation.z += 0.001;
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Resize handler
+    function resize() {
+      const w = canvas.parentElement.clientWidth;
+      const h = canvas.parentElement.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Reduced motion: pause animation
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (prefersReducedMotion.matches) {
+      group.rotation.x = 0.3;
+      group.rotation.y = 0.5;
+      group.rotation.z = 0.2;
+      // stop animation loop by not calling animate again? simpler: just set static rotation
+      // We'll keep the loop but with zero delta
+    }
+  </script>
+</body>
+</html>
