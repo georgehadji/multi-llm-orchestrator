@@ -60,9 +60,9 @@ async def run_chat(
     output_dir: str = "",
 ) -> None:
     """Full interactive chat loop — blocks until spec is ready, then builds."""
-    from ..api_clients import UnifiedClient
-    from ..cache import DiskCache
-    from .conversation_agent import ConversationAgent
+    from orchestrator.api_clients import UnifiedClient
+    from orchestrator.cache import DiskCache
+    from orchestrator.application.conversation_agent import ConversationAgent
 
     # Build a minimal client for the conversation agent
     try:
@@ -169,8 +169,8 @@ def _display_spec(spec: Any) -> None:
 
 async def _launch_build(spec: Any, budget: float, output_dir: str) -> None:
     """Hand off the completed spec to the Orchestrator pipeline."""
-    from ..engine import Orchestrator
-    from ..budget import Budget
+    from orchestrator.engine import Orchestrator
+    from orchestrator.budget import Budget
 
     args = spec.to_orchestrator_args()
     args["budget"] = budget

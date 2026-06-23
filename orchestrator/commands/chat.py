@@ -7,7 +7,7 @@ def execute(args) -> int:
     """Handle the 'chat' subcommand — launch the interactive session."""
     import asyncio
 
-    from orchestrator.application.chat_cli import run_chat
+    from orchestrator.entrypoints.chat_cli import run_chat
 
     asyncio.run(
         run_chat(

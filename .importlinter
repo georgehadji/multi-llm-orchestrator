@@ -57,14 +57,6 @@ source_modules =
 forbidden_modules =
     orchestrator.engine
 ignore_imports =
-    # chat_cli.py is a thin driving adapter that wires Orchestrator; it is
-    # intentionally in application/ for co-location with ConversationAgent but
-    # is the sole permitted engine import.
-    orchestrator.application.chat_cli -> orchestrator.engine
-    # Phase 5: cli_dispatch.py is a CLI driving adapter — same pattern as chat_cli.
-    orchestrator.application.cli_dispatch -> orchestrator.engine
-    # cli_dispatch uses AppBuilder for the non-raw-tasks code path.
-    orchestrator.application.cli_dispatch -> orchestrator.app_builder
     # Phase 5: cli_helpers._print_results imports meta_integration for status
     # display — same pattern as project_runner (transitive to engine via meta_integration).
     orchestrator.application.cli_helpers -> orchestrator.meta_integration
