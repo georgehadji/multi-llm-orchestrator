@@ -15,13 +15,12 @@ from __future__ import annotations
 
 import hashlib
 
-import time
 
 from dataclasses import dataclass, field
 
 from enum import Enum
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from .budget import Budget  # noqa: F401
 
 # ─────────────────────────────────────────────
@@ -165,6 +164,10 @@ class Model(str, Enum):
 
     GPT_5_4_CODEX = "openai/gpt-5.3-codex"
 
+    GPT_5_CODEX = "openai/gpt-5-codex"  # $1.25/$10.00, 400K ctx, coding specialist
+
+    GPT_5_4_PRO = "openai/gpt-5.4-pro"  # $30.00/$180.00, 32K ctx, maximum quality
+
     O1 = "openai/o1"
 
     O3_MINI = "openai/o3-mini"
@@ -179,11 +182,13 @@ class Model(str, Enum):
 
     # Anthropic Claude Models
 
-    CLAUDE_3_5_SONNET = "anthropic/claude-sonnet-4.5"
+    CLAUDE_FABLE_5 = "anthropic/claude-fable-5"  # $10/$50, 1M ctx, creative/agentic
 
-    CLAUDE_3_OPUS = "anthropic/claude-opus-4"
+    CLAUDE_OPUS_4 = "anthropic/claude-opus-4"  # $15/$75, most capable Opus 4 base
 
-    CLAUDE_3_HAIKU = "anthropic/claude-3-haiku"
+    CLAUDE_OPUS_4_1 = "anthropic/claude-opus-4.1"  # $15/$75, Opus 4 revision
+
+    CLAUDE_SONNET_4 = "anthropic/claude-sonnet-4"  # $3/$15, Sonnet 4 base
 
     CLAUDE_SONNET_4_5 = "anthropic/claude-sonnet-4-5"
 
@@ -193,15 +198,21 @@ class Model(str, Enum):
 
     CLAUDE_OPUS_4_5 = "anthropic/claude-opus-4-5"
 
-    CLAUDE_OPUS_4_6 = "anthropic/claude-opus-4-6"
+    CLAUDE_OPUS_4_8 = "anthropic/claude-opus-4-8"  # $5/$25, best Opus available
 
     CLAUDE_HAIKU_4_5 = "anthropic/claude-haiku-4-5"
 
-    # DeepSeek Models — V4 series only
+    # DeepSeek Models — V3/V4 series
 
-    DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"  # flagship reasoning + coding
+    DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"  # $0.435/$0.870, flagship reasoning + coding
 
-    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # fast + cost-effective
+    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.090/$0.180, fast + cost-effective
+
+    DEEPSEEK_R1 = "deepseek/deepseek-r1"  # $0.70/$2.50, chain-of-thought reasoning
+
+    DEEPSEEK_V3_2 = "deepseek/deepseek-v3.2"  # $0.229/$0.343, efficient V3 series
+
+    DEEPSEEK_V3_1_TERMINUS = "deepseek/deepseek-v3.1-terminus"  # $0.27/$0.95, terminus variant
 
     # Meta LLaMA Models (OpenRouter)
 
@@ -211,7 +222,7 @@ class Model(str, Enum):
 
     LLAMA_3_3_70B = "meta-llama/llama-3.3-70b-instruct"  # 70B
 
-    LLAMA_3_1_405B = "meta-llama/llama-3.3-70b-instruct"  # 405B
+    LLAMA_3_1_405B = "meta-llama/llama-3.1-405b-instruct"  # 405B
 
     # Microsoft Phi Models (OpenRouter)
 
@@ -259,6 +270,12 @@ class Model(str, Enum):
 
     MOONSHOT_KIMI_K2 = "moonshotai/kimi-k2"  # $0.50/$1.50
 
+    MOONSHOT_KIMI_K2_5 = "moonshotai/kimi-k2.5"  # $0.375/$2.025, 262K, next-gen; supports :thinking
+
+    MOONSHOT_KIMI_K2_THINKING = "moonshotai/kimi-k2-thinking"  # $0.60/$2.50, 262K, COT mode
+
+    MOONSHOT_KIMI_K2_0905 = "moonshotai/kimi-k2-0905"  # $0.60/$2.50, 262K, dated release
+
     # Backward compatibility aliases
 
     KIMI_K2_6 = MOONSHOT_KIMI_K2_6
@@ -273,7 +290,7 @@ class Model(str, Enum):
 
     STEPFUN_STEP_3_5_FLASH = "stepfun/step-3.5-flash"  # $0.10/$0.30, 196B MoE ⭐
 
-    STEPFUN_STEP_3_5 = "stepfun/step-3.7-flash"  # $0.15/$0.45
+    STEPFUN_STEP_3_7_FLASH = "stepfun/step-3.7-flash"  # $0.15/$0.45
 
     # ═══════════════════════════════════════════════════════
 
@@ -281,28 +298,49 @@ class Model(str, Enum):
 
     # ═══════════════════════════════════════════════════════
 
-    ZHIPU_GLM_5_1 = "z-ai/glm-5.1"  # balanced, 202K context
+    ZHIPU_GLM_5_2 = "z-ai/glm-5.2"  # canonical GLM model, 202K context
     ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"  # fast variant
-    ZHIPU_GLM_5_2 = "z-ai/glm-5.2"  # latest model
 
     # ═══════════════════════════════════════════════════════
 
-    # XAI GROK MODELS — grok-4.20 only
+    # XAI GROK MODELS — 2026 lineup
 
     # ═══════════════════════════════════════════════════════
 
-    XAI_GROK_4_20 = "x-ai/grok-4.20"  # $2.00/$6.00, 2M context, lowest hallucination
+    XAI_GROK_4_20 = "x-ai/grok-4.20"  # $1.25/$2.50, 2M context, lowest hallucination
+
+    XAI_GROK_4_3 = "x-ai/grok-4.3"  # improved Grok 4 variant
+
+    XAI_GROK_4_20_MULTI = "x-ai/grok-4.20-multi-agent"  # multi-agent optimized
 
     # ═══════════════════════════════════════════════════════
 
-    # QWEN MODELS — two canonical models only
+    # QWEN MODELS — 2026 full lineup
 
     # ═══════════════════════════════════════════════════════
 
-    QWEN_3_7_MAX = "qwen/qwen3.7-max"  # flagship reasoning + coding
+    QWEN_3_7_MAX = "qwen/qwen3.7-max"  # flagship reasoning + coding; supports :thinking
     QWEN_3_7_PLUS = "qwen/qwen3.7-plus"  # $0.32/$1.28, 1M ctx, coding=46.5
 
-    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # fast + cost-effective
+    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # $0.188/$1.125, fast + cost-effective
+
+    QWEN_3_MAX = "qwen/qwen3-max"  # top Qwen3 intelligence; supports :thinking
+
+    QWEN_3_235B = "qwen/qwen3-235b-a22b"  # $2.00/$6.00, 235B base; supports :thinking
+
+    QWEN_3_CODER = "qwen/qwen3-coder"  # $0.20/$0.80, coding specialist; supports :thinking
+
+    QWEN_3_CODER_FLASH = "qwen/qwen3-coder-flash"  # fast coder variant
+
+    QWEN_3_CODER_PLUS = "qwen/qwen3-coder-plus"  # enhanced coder variant
+
+    QWEN_3_CODER_NEXT = "qwen/qwen3-coder-next"  # $0.50/$2.00, next-gen coder; supports :thinking
+
+    QWEN_3_5_397B = "qwen/qwen3.5-397b-a17b"  # $1.20/$4.80, 397B MoE
+
+    QWEN_3_235B_THINKING = "qwen/qwen3-235b-a22b-thinking-2507"  # $2.50/$10.00, 235B COT
+
+    QWEN_3_MAX_THINKING = "qwen/qwen3-max-thinking"  # $3.50/$14.00, max reasoning
 
     # ═══════════════════════════════════════════════════════
 
@@ -350,31 +388,31 @@ class Model(str, Enum):
     GPT_5_IMAGE_MINI = "openai/gpt-5-image-mini"  # $2.50/$2 img, 400K ctx
     GPT_54_IMAGE_2 = "openai/gpt-5.4-image-2"  # $8/$15 img, 272K ctx
 
-    # Black Forest Labs FLUX series
-    FLUX_2_KLEIN = "google/gemini-2.5-flash-image"  # $0.014/img, 40K ctx
-    FLUX_2_MAX = "google/gemini-3-pro-image"  # $0.07/img, 46K ctx
-    FLUX_2_FLEX = "google/gemini-3.1-flash-image"  # from $0.06/img, 67K ctx
-    FLUX_2_PRO = "google/gemini-3-pro-image"  # $0.03/img, 46K ctx
+    # Black Forest Labs FLUX series — image generation
+    FLUX_2_KLEIN = "black-forest-labs/flux.2-klein-4b"
+    FLUX_2_MAX = "black-forest-labs/flux.2-max"
+    FLUX_2_FLEX = "black-forest-labs/flux.2-flex"
+    FLUX_2_PRO = "black-forest-labs/flux.2-pro"
 
-    # Recraft V4 series
-    RECRAFT_V4_UTILITY = "google/gemini-2.5-flash-image"  # $0.04/img, 65K ctx
-    RECRAFT_V4_PRO = "google/gemini-3-pro-image"  # $0.25/img, 65K ctx
-    RECRAFT_V4 = "google/gemini-3.1-flash-image"  # $0.04/img, 65K ctx
-    RECRAFT_V4_PRO_VECTOR = "google/gemini-3-pro-image"  # $0.30/img, SVG
-    RECRAFT_V4_VECTOR = "google/gemini-2.5-flash-image"  # $0.08/img, SVG
-    RECRAFT_V4_1_PRO = "google/gemini-3-pro-image"  # $0.25/img, 65K ctx
-    RECRAFT_V4_1 = "google/gemini-3.1-flash-image"  # $0.04/img, 65K ctx
-    RECRAFT_V3 = "google/gemini-2.5-flash-image"  # $0.04/img, 65K ctx
+    # Recraft V4 series — image generation
+    RECRAFT_V4_UTILITY = "recraft/recraft-v4.1-utility"
+    RECRAFT_V4_PRO = "recraft/recraft-v4-pro"
+    RECRAFT_V4 = "recraft/recraft-v4"
+    RECRAFT_V4_PRO_VECTOR = "recraft/recraft-v4-pro-vector"
+    RECRAFT_V4_VECTOR = "recraft/recraft-v4-vector"
+    RECRAFT_V4_1_PRO = "recraft/recraft-v4.1-pro"
+    RECRAFT_V4_1 = "recraft/recraft-v4.1"
+    RECRAFT_V3 = "recraft/recraft-v3"
 
-    # Sourceful Riverflow series
-    RIVERFLOW_V2_PRO = "google/gemini-3-pro-image"  # from $0.15/img, 8K ctx
-    RIVERFLOW_V2_FAST = "google/gemini-2.5-flash-image"  # from $0.02/img, 8K ctx
-    RIVERFLOW_V2_MAX = "google/gemini-3-pro-image"  # $0.075/img, 8K ctx
-    RIVERFLOW_V2_STANDARD = "google/gemini-3.1-flash-image"  # $0.035/img, 8K ctx
-    RIVERFLOW_V2_FAST_PREVIEW = "google/gemini-2.5-flash-image"  # $0.03/img, 8K ctx
+    # Sourceful Riverflow series — image generation
+    RIVERFLOW_V2_PRO = "sourceful/riverflow-v2-pro"
+    RIVERFLOW_V2_FAST = "sourceful/riverflow-v2-fast"
+    RIVERFLOW_V2_MAX = "sourceful/riverflow-v2-max-preview"
+    RIVERFLOW_V2_STANDARD = "sourceful/riverflow-v2-standard-preview"
+    RIVERFLOW_V2_FAST_PREVIEW = "sourceful/riverflow-v2-fast-preview"
 
-    # ByteDance Seedream
-    SEEDREAM_4_5 = "google/gemini-3.1-flash-image"  # $0.04/img, 4K ctx
+    # ByteDance Seedream — image generation
+    SEEDREAM_4_5 = "bytedance-seed/seedream-4.5"
 
 
 class ProjectStatus(str, Enum):
@@ -525,14 +563,11 @@ def __getattr__(name: str) -> Any:
 
 MODEL_MAX_TOKENS: dict[Model, int] = {
     # Anthropic Claude models
-    Model.CLAUDE_3_HAIKU: 4096,
-    Model.CLAUDE_3_5_SONNET: 8192,
-    Model.CLAUDE_3_OPUS: 4096,
     Model.CLAUDE_HAIKU_4_5: 4096,
     Model.CLAUDE_SONNET_4_5: 8192,
     Model.CLAUDE_SONNET_4_6: 8192,
     Model.CLAUDE_OPUS_4_5: 4096,
-    Model.CLAUDE_OPUS_4_6: 4096,
+    Model.CLAUDE_OPUS_4_8: 4096,
     # Google Gemini models (high limits)
     Model.GEMINI_FLASH: 8192,
     Model.GEMINI_FLASH_LITE: 8192,
@@ -540,9 +575,8 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.DEEPSEEK_V4_FLASH: 8192,
     Model.DEEPSEEK_V4_PRO: 8192,
     # Z.AI GLM models
-    Model.ZHIPU_GLM_5_1: 16384,  # z-ai/glm-5.1 (balanced)
+    Model.ZHIPU_GLM_5_2: 16384,  # z-ai/glm-5.2 (canonical)
     Model.ZHIPU_GLM_5_TURBO: 16384,  # z-ai/glm-5-turbo (fast)
-    Model.ZHIPU_GLM_5_2: 16384,  # z-ai/glm-5.2 (latest)
     # Meta LLaMA models
     Model.LLAMA_4_MAVERICK: 8192,
     Model.LLAMA_4_SCOUT: 8192,
@@ -595,9 +629,38 @@ MODEL_MAX_TOKENS: dict[Model, int] = {
     Model.GPT_5: 8192,
     Model.GPT_5_MINI: 4096,
     Model.GPT_5_NANO: 4096,
+    Model.GPT_5_CODEX: 8192,
+    Model.GPT_5_4_PRO: 8192,
     Model.O1: 4096,
     Model.O3_MINI: 4096,
     Model.O4_MINI: 4096,
+    # xAI Grok 4 family
+    Model.XAI_GROK_4_20: 131072,
+    Model.XAI_GROK_4_3: 131072,
+    Model.XAI_GROK_4_20_MULTI: 131072,
+    # Moonshot Kimi K2 additions
+    Model.MOONSHOT_KIMI_K2_5: 262144,
+    Model.MOONSHOT_KIMI_K2_THINKING: 262144,
+    Model.MOONSHOT_KIMI_K2_0905: 262144,
+    # DeepSeek V3/R1 additions
+    Model.DEEPSEEK_R1: 65536,
+    Model.DEEPSEEK_V3_2: 65536,
+    Model.DEEPSEEK_V3_1_TERMINUS: 65536,
+    # Qwen 2026 extended lineup
+    Model.QWEN_3_MAX: 131072,
+    Model.QWEN_3_235B: 131072,
+    Model.QWEN_3_CODER: 32768,
+    Model.QWEN_3_CODER_FLASH: 32768,
+    Model.QWEN_3_CODER_PLUS: 32768,
+    Model.QWEN_3_CODER_NEXT: 32768,
+    Model.QWEN_3_5_397B: 131072,
+    Model.QWEN_3_235B_THINKING: 131072,
+    Model.QWEN_3_MAX_THINKING: 131072,
+    # Anthropic new additions
+    Model.CLAUDE_FABLE_5: 8192,
+    Model.CLAUDE_OPUS_4: 8192,
+    Model.CLAUDE_OPUS_4_1: 8192,
+    Model.CLAUDE_SONNET_4: 8192,
 }
 
 

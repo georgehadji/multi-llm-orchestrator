@@ -4,8 +4,10 @@ from __future__ import annotations
 
 def execute(args) -> None:
     """Handle the 'dashboard' subcommand: render persistent cross-run learning."""
-    from .metrics import render_dashboard
-    from .telemetry_store import TelemetryStore
+    import asyncio
+
+    from ..metrics import render_dashboard
+    from ..telemetry_store import TelemetryStore
 
     store = TelemetryStore()
     output = asyncio.run(render_dashboard(store, days=args.days))
@@ -25,4 +27,4 @@ def register(subparsers) -> None:
         metavar="N",
         help="Lookback window in days (default: 30)",
     )
-    dp.set_defaults(func=cmd_dashboard)
+    dp.set_defaults(func=execute)

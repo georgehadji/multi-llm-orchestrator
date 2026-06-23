@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -69,11 +70,13 @@ class OrganizationReport:
     tests_moved: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     debug_report: dict | None = None  # Added: Autonomous debugger report
+    format_report: dict | None = None  # Code formatting / lint-fix outcome
 
     def to_dict(self) -> dict:
         return {
             "tasks_moved": self.tasks_moved,
             "tests_created": self.tests_created,
+            "format_report": self.format_report,
             "tests_run": [
                 {
                     "test_file": r.test_file,
@@ -123,6 +126,7 @@ class OutputOrganizer:
         fix_tests: bool = True,
         max_fix_iterations: int = 3,
         min_pass_rate: float = 0.7,
+        format_code: bool = True,
     ):
         self.output_dir = Path(output_dir)
         self.auto_generate_tests = auto_generate_tests
@@ -131,6 +135,7 @@ class OutputOrganizer:
         self.fix_tests = fix_tests
         self.max_fix_iterations = max_fix_iterations
         self.min_pass_rate = min_pass_rate
+        self.format_code = format_code
 
         # Directories
         self.tasks_dir = self.output_dir / "tasks"
@@ -168,6 +173,12 @@ class OutputOrganizer:
             if self.auto_generate_tests and source_files:
                 await self._generate_missing_tests(source_files)
 
+            # Step 3b: Format + lint-fix generated code so the delivered output
+            # passes black/ruff. Done before running tests so the suite
+            # validates the formatted code.
+            if self.format_code:
+                await self._format_code()
+
             # Step 4: Run tests
             if self.run_tests:
                 await self._run_all_tests()
@@ -190,6 +201,28 @@ class OutputOrganizer:
         self._save_report()
 
         return self.report
+
+    async def _format_code(self):
+        """Run black + ruff (and prettier if available) over the output dir."""
+        try:
+            from .output.formatter import format_output_dir
+
+            fmt = await asyncio.to_thread(format_output_dir, self.output_dir)
+            self.report.format_report = fmt.to_dict()
+            if fmt.tools_used:
+                logger.info(
+                    "[FMT] Formatted %d py / %d web file(s) with %s",
+                    fmt.python_files,
+                    fmt.web_files,
+                    ", ".join(fmt.tools_used),
+                )
+            if fmt.remaining_issues:
+                logger.warning(
+                    "[FMT] %d lint issue(s) remain after auto-fix", len(fmt.remaining_issues)
+                )
+        except Exception as e:  # never block delivery on formatting
+            logger.warning(f"Code formatting step failed: {e}")
+            self.report.errors.append(f"format: {e}")
 
     async def _organize_task_files(self):
         """Move task_*.py/md/json files to tasks/ folder."""
@@ -919,6 +952,7 @@ async def organize_project_output(
     fix_tests: bool = True,
     max_fix_iterations: int = 3,
     min_pass_rate: float = 0.7,
+    format_code: bool = True,
 ) -> OrganizationReport:
     """
     Convenience function to organize project output.
@@ -930,6 +964,7 @@ async def organize_project_output(
         fix_tests: Whether to iteratively fix failing tests
         max_fix_iterations: Maximum iterations for test fixing
         min_pass_rate: Minimum pass rate to stop fixing
+        format_code: Whether to run black/ruff/prettier over the output
 
     Returns:
         OrganizationReport with details of what was done
@@ -941,5 +976,6 @@ async def organize_project_output(
         fix_tests=fix_tests,
         max_fix_iterations=max_fix_iterations,
         min_pass_rate=min_pass_rate,
+        format_code=format_code,
     )
     return await organizer.organize_project()

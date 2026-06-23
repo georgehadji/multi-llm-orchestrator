@@ -1,6 +1,9 @@
 """Cache stats command handler — extracted from cli.py."""
 from __future__ import annotations
 
+import argparse
+import asyncio
+
 def execute(args) -> None:
     """Show cache statistics."""
     from orchestrator.cache_optimizer import get_cache_optimizer
@@ -52,10 +55,9 @@ def execute(args) -> None:
 
 def execute_stats(args: argparse.Namespace) -> int:
     """Handle cache-stats subcommand."""
-    import asyncio
 
     async def _run():
-        from .cache_optimizer import get_cache_optimizer
+        from ..cache_optimizer import get_cache_optimizer
 
         optimizer = get_cache_optimizer()
 
@@ -115,4 +117,4 @@ def register(subparsers) -> None:
         action="store_true",
         help="Remove expired cache entries",
     )
-    parser.set_defaults(func=cmd_cache_stats)
+    parser.set_defaults(func=execute)

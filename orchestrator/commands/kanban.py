@@ -42,4 +42,4 @@ def register(subparsers) -> None:
     kp.add_argument("command", choices=["enqueue", "list", "stats", "start"], help="Kanban command")
     kp.add_argument("--description", "-d", default="", help="Project description")
     kp.add_argument("--status", "-s", default=None, help="Filter by status (list only)")
-    kp.set_defaults(func=cmd_kanban)
+    kp.set_defaults(func=execute)

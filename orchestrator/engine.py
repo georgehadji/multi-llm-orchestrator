@@ -22,57 +22,30 @@ FEAT:    Circuit breaker — model marked unhealthy after 3 consecutive failures
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
-import re
-import sqlite3
-import time
-import os
-from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List
 
-from .api_clients import APIResponse, UnifiedClient
-from .model_selector import ModelSelector
-from .task_factory import TaskFactory
+from .api_clients import APIResponse
 from .prompt_builder import (
-    CritiquePrompt,
-    DecompositionPrompt,
-    DeltaPrompt,
     RevisionPrompt,
-    SystemPrompt,
 )
 from .autonomy_config import AutonomyConfig, AutonomyLevel
 from .budget import Budget
-from .model_registry import ModelRegistry
 from .cache import DiskCache
 from .models import (
-    MODEL_MAX_TOKENS,
-    ROUTING_TABLE,
-    AttemptRecord,
     Model,
     ProjectState,
     ProjectStatus,
     Task,
     TaskResult,
-    TaskStatus,
     TaskType,
-    estimate_cost,
     get_provider,
 )
-from .application.model_profile_builder import build_default_profiles
 
-from .resilience import ResiliencePolicy, RetryTemplate
-from .semantic_cache import SemanticCache
-from .validators import all_validators_pass, async_run_validators
+from .resilience import ResiliencePolicy
 from .exceptions import (
-    BudgetExceededError,
     ConfigurationError,
-    OrchestratorError,
-    TruncatedResponseError,
-    TaskError,
 )
-from .tool_guardrails import ToolCallGuardrailController
 from .crosscutting.config import flags
 
 # OpenRouter Optimization Features (Phase 1)
@@ -106,8 +79,7 @@ else:
     CacheOptimizer = None
     CacheConfig = None
 
-from .policy import JobSpec, ModelProfile, Policy, PolicySet
-from .policy_engine import PolicyEngine
+from .policy import JobSpec, Policy, PolicySet
 from .state import StateManager
 
 # Test validation for reliable test generation
@@ -388,7 +360,6 @@ else:
 if TYPE_CHECKING:
     from .cost import BudgetHierarchy, CostPredictor
     from .metrics import MetricsExporter
-    from .optimization import OptimizationBackend
 
 # TDD-First and Diff-Based Generation
 if flags.tdd_enabled:
@@ -426,7 +397,6 @@ logger = logging.getLogger("orchestrator")
 
 # P3-7: _clean_code_output extracted to orchestrator/output/code_cleaner.py
 # This re-export keeps callers inside engine.py unchanged.
-from .output.code_cleaner import clean_code_output as _clean_code_output  # noqa: E402
 
 
 class Orchestrator:
@@ -447,8 +417,8 @@ class Orchestrator:
     def __init__(
         self,
         budget: Budget | None = None,
-        cache: "CachePort | DiskCache | None" = None,
-        state_manager: "StatePort | StateManager | None" = None,
+        cache: "CachePort | DiskCache | None" = None,  # noqa: F821
+        state_manager: "StatePort | StateManager | None" = None,  # noqa: F821
         max_concurrency: int = 3,
         max_parallel_tasks: int = 3,
         budget_hierarchy: BudgetHierarchy | None = None,
@@ -456,7 +426,7 @@ class Orchestrator:
         tracing_cfg: TracingConfig | None = None,
         telemetry_store: TelemetryStore | None = None,
         profiles: dict | None = None,
-        container: ServiceContainer | None = None,
+        container: "ServiceContainer | None" = None,  # noqa: F821
     ):
         from .engine_core.container import ServiceContainer
 
@@ -495,6 +465,7 @@ class Orchestrator:
         self._evaluator = container.evaluator
         self._generator = container.generator
         self._pipeline = container.pipeline
+        self._pipeline_executor = container.pipeline_executor
         self._event_bus = container.event_bus
         self._telemetry_store = container.telemetry_store
         self._semantic_cache = container.semantic_cache
@@ -593,6 +564,8 @@ class Orchestrator:
             generate_architecture_rules=self._generate_architecture_rules,
             analyze_completed_project=self._analyze_completed_project,
             client=self._c.client,
+            warm_start_fn=self._apply_warm_start,
+            flush_telemetry_fn=self._flush_telemetry_snapshots,
         )
         self._project_runner = _ProjectRunner(
             callables=_callables,
@@ -607,6 +580,7 @@ class Orchestrator:
             meta_v2=self.meta_v2,
             cache=self.cache,
             api_health=self.api_health,
+            budget_hierarchy=self._c.budget_hierarchy,
         )
         # SkillOpt: self-improving per-TaskType skill documents (P3-4 addendum)
         from .crosscutting.config import flags as _flags
@@ -634,6 +608,13 @@ class Orchestrator:
         self._taste_skill_service = _TasteSkillService(
             flags=_flags,
             settings=_settings,
+        )
+
+        # Phase 5: Late-bind engine-level deps into PipelineExecutor
+        container.wire_pipeline_executor(
+            skill_manager=getattr(self, "_skill_manager", None),
+            taste_skill_service=self._taste_skill_service,
+            background_tasks=self._background_tasks,
         )
 
         logger.info("Orchestrator initialized via ServiceContainer")
@@ -905,426 +886,14 @@ class Orchestrator:
     # Public API
     # ─────────────────────────────────────────
 
-    def set_optimization_backend(self, backend: OptimizationBackend) -> None:
-        """Swap the ConstraintPlanner's optimization strategy at runtime."""
-        self._planner.set_backend(backend)
-
-    @property
-    def audit_log(self) -> AuditLog:
-        """Read-only access to the policy audit log."""
-        return self._audit_log
-
-    @property
-    def cost_predictor(self) -> CostPredictor | None:
-        """Read-only access to the CostPredictor, if one was configured."""
-        return self._cost_predictor
-
-    def add_hook(self, event: str, callback) -> None:
-        """Register an event hook callback. See orchestrator.hooks.EventType for event names."""
-        self._hook_registry.add(event, callback)
-
-    def set_metrics_exporter(self, exporter: MetricsExporter) -> None:
-        """Set the MetricsExporter to use when export_metrics() is called."""
-        self._metrics_exporter = exporter
-
-    def export_metrics(self) -> None:
-        """Export live per-model telemetry stats via the configured MetricsExporter."""
-        if self._metrics_exporter is None:
-            return
-        self._metrics_exporter.export(self._build_metrics_dict())
-
-    def get_channel(self, name: str) -> TaskChannel:
-        """Return the named TaskChannel, creating it lazily on first access."""
-        if name not in self._channels:
-            self._channels[name] = TaskChannel()
-        return self._channels[name]
-
-    # ─────────────────────────────────────────
-    # Security & Accountability (arXiv:2602.20021)
-    # ─────────────────────────────────────────
-
-    @property
-    def task_verifier(self) -> TaskVerifier:
-        """Access TaskVerifier for task completion verification."""
-        return self._c.task_verifier
-
-    @property
-    def accountability(self) -> AccountabilityTracker:
-        """Access AccountabilityTracker for action attribution."""
-        return self._c.accountability
-
-    @property
-    def agent_safety(self) -> AgentSafetyMonitor:
-        """Access AgentSafetyMonitor for cross-agent safety."""
-        return self._c.agent_safety
-
-    @property
-    def red_team(self) -> RedTeamFramework:
-        """Access RedTeamFramework for stress testing."""
-        return self._c.red_team
-
-    # ─────────────────────────────────────────
-    # External Projects Integration (RTK, Mnemo Cortex, LiteLLM)
-    # ─────────────────────────────────────────
-
-    @property
-    def token_optimizer(self) -> TokenOptimizer:
-        """Access TokenOptimizer for CLI output filtering."""
-        return self._c.token_optimizer
-
-    @property
-    def preflight_validator(self) -> PreflightValidator:
-        """Access PreflightValidator for response quality control."""
-        return self._c.preflight_validator
-
-    @property
-    def session_watcher(self) -> SessionWatcher:
-        """Access SessionWatcher for conversation capture."""
-        return self._c.session_watcher
-
-    @property
-    def persona_manager(self) -> PersonaManager:
-        """Access PersonaManager for behavior customization."""
-        return self._c.persona_manager
-
-    @property
-    def memory_manager(self) -> MemoryTierManager:
-        """Access MemoryTierManager for multi-tier memory."""
-        return self._c.memory_manager
-
-    @property
-    def bm25_search(self) -> BM25Search:
-        """Access BM25Search for full-text search."""
-        return self._c.bm25_search
-
-    @property
-    def reranker(self) -> LLMReranker:
-        """Access LLMReranker for result re-ranking."""
-        return self._c.reranker
-
-    @property
-    def a2a_manager(self) -> A2AManager:
-        """Access A2AManager for agent-to-agent communication."""
-        return self._c.a2a_manager
-
-    # Convenience methods for external integrations
-
-    def optimize_command_output(self, command: str, output: str) -> str:
-        """Optimize command output for token efficiency (RTK)."""
-        return self._c.token_optimizer.optimize(command, output)
-
-    def preflight_check(
-        self,
-        response: str,
-        context: dict | None = None,
-        mode: PreflightMode = PreflightMode.AUTO,
-    ) -> Any:
-        """Validate response before sending (Mnemo Cortex)."""
-        return self._c.preflight_validator.validate(response, context, mode)
-
-    def start_session(self, project_id: str) -> str:
-        """Start a new session for conversation capture."""
-        return self._c.session_watcher.start_session(project_id)
-
-    def record_interaction(
-        self,
-        session_id: str,
-        task_input: str,
-        task_output: str,
-        task_type: str,
-        **kwargs,
-    ) -> str:
-        """Record an interaction in a session."""
-        return self._c.session_watcher.record_interaction(
-            session_id=session_id,
-            task_input=task_input,
-            task_output=task_output,
-            task_type=task_type,
-            **kwargs,
-        )
-
-    def set_persona(self, project_id: str, mode: PersonaMode) -> None:
-        """Set persona mode for a project."""
-        self._c.persona_manager.set_persona(project_id, mode)
-
-    def get_persona_settings(self, project_id: str) -> Any:
-        """Get persona settings for a project."""
-        return self._c.persona_manager.get_persona_settings(project_id)
-
-    async def store_memory(
-        self,
-        project_id: str,
-        content: str,
-        memory_type: str = "task",
-    ) -> str:
-        """Store a memory in the tiered memory system."""
-        from .memory_tier import MemoryType
-
-        return await self._c.memory_manager.store(
-            project_id=project_id,
-            content=content,
-            memory_type=MemoryType(memory_type),
-        )
-
-    async def retrieve_memories(
-        self,
-        project_id: str,
-        query: str | None = None,
-        limit: int = 5,
-        use_hybrid: bool = True,
-        use_reranking: bool = True,
-    ) -> list:
-        """
-        Retrieve memories from the tiered memory system.
-
-        Args:
-            project_id: Project to retrieve from
-            query: Search query
-            limit: Maximum results
-            use_hybrid: Use BM25 hybrid search
-            use_reranking: Use LLM re-ranking for better quality
-
-        Returns:
-            List of memory entries ordered by relevance
-        """
-        # Retrieve with hybrid search
-        memories = await self._c.memory_manager.retrieve(
-            project_id=project_id,
-            query=query,
-            limit=limit * 2 if use_reranking else limit,  # Get more for reranking
-            use_hybrid=use_hybrid,
-        )
-
-        # Convert to dicts for reranker
-        results = [m.to_dict() for m in memories]
-
-        # Apply re-ranking if enabled and we have results
-        if use_reranking and query and results:
-            reranked = await self._c.reranker.rerank(query, results, top_k=limit)
-            # Convert back to memory entries (or return ranked dicts)
-            return [r.to_dict() if hasattr(r, "to_dict") else r for r in reranked]
-
-        return memories[:limit]
-
-    async def hybrid_search(
-        self,
-        query: str,
-        project_id: str | None = None,
-        limit: int = 10,
-        use_reranking: bool = True,
-        use_query_expansion: bool = True,
-    ) -> list:
-        """
-        Perform hybrid search: BM25 + vector (RRF fusion) + optional reranking.
-
-        Uses HybridSearchPipeline with LLM-based query expansion (DeepSeek-Chat).
-        Falls back gracefully if any component is unavailable.
-        """
-        results = await self._c.hybrid_pipeline.search(
-            query,
-            project_id=project_id,
-            top_k=limit,
-            use_reranking=use_reranking,
-            use_query_expansion=use_query_expansion,
-        )
-        return [r.to_dict() for r in results]
-
-    def configure_rate_limits(
-        self,
-        tenant: str,
-        model: str,
-        tpm: int,
-        rpm: int,
-    ) -> None:
-        """
-        Set TPM/RPM rate limits for a specific tenant and model.
-
-        Args:
-            tenant: Tenant identifier (e.g. team name, org ID).
-            model: Model identifier string (e.g. "deepseek-chat").
-            tpm: Maximum tokens per minute for this tenant+model.
-            rpm: Maximum requests per minute for this tenant+model.
-        """
-        self._c.rate_limiter.set_limits(tenant, model, tpm, rpm)
-
-    def configure_session_lifecycle(
-        self,
-        migration_interval_hours: int = 1,
-        llm_model: str = "deepseek/deepseek-v4-flash",
-    ) -> None:
-        """
-        Configure automatic session lifecycle migration.
-
-        Must be called before starting the scheduler via
-        ``await self._lifecycle_manager.start()``.  Raises ``RuntimeError``
-        if the scheduler is already running.
-
-        Args:
-            migration_interval_hours: How often to run HOT/WARM/COLD migration.
-            llm_model: Model used for HOT→WARM entry summarization.
-        """
-        task = self._c.lifecycle_manager._task
-        if task is not None and not task.done():
-            raise ConfigurationError(
-                "configure_session_lifecycle() must be called before starting the scheduler; "
-                "call stop() first, then reconfigure.",
-                details={"hint": "call stop() before reconfiguring"},
-            )
-        self._c.lifecycle_manager._interval = migration_interval_hours * 3600
-        self._c.lifecycle_manager._model = llm_model
-
-    async def register_agent(
-        self,
-        agent_id: str,
-        name: str,
-        description: str,
-        capabilities: list[str],
-    ) -> None:
-        """Register an agent for A2A communication."""
-        card = AgentCard(
-            agent_id=agent_id,
-            name=name,
-            description=description,
-            capabilities=capabilities,
-        )
-        await self._c.a2a_manager.register_agent(card)
-
-    async def send_task_to_agent(
-        self,
-        task_id: str,
-        target_agent: str,
-        message: str,
-        context: dict | None = None,
-    ) -> Any:
-        """Send a task to another agent via A2A."""
-        from .a2a_protocol import TaskSendRequest
-
-        request = TaskSendRequest(
-            task_id=task_id,
-            target_agent=target_agent,
-            message=message,
-            context=context or {},
-        )
-        return await self._c.a2a_manager.send_task(request)
-
-    def register_task_expectations(
-        self,
-        task_id: str,
-        expected_files: list[str],
-        expected_outputs: list[str] | None = None,
-        required_patterns: list[str] | None = None,
-        forbidden_patterns: list[str] | None = None,
-    ) -> None:
-        """
-        Register expected outcomes for a task (call during planning phase).
-
-        This enables post-completion verification to detect task completion
-        misrepresentation (a key vulnerability from the "Agents of Chaos" paper).
-        """
-        self._c.task_verifier.register_expected_outcome(
-            task_id=task_id,
-            expected_files=expected_files,
-            expected_outputs=expected_outputs,
-            required_patterns=required_patterns,
-            forbidden_patterns=forbidden_patterns,
-        )
-
-    async def verify_task_completion(self, task_id: str) -> Any:
-        """
-        Verify task completion against registered expectations.
-
-        Returns VerificationResult with discrepancies if any.
-        """
-        return await self._c.task_verifier.verify_completion(task_id)
-
-    def record_action(
-        self,
-        actor_id: str,
-        actor_type: ActorType,
-        actor_name: str,
-        action_type: ActionType,
-        target: str,
-        **kwargs,
-    ) -> str:
-        """
-        Record an action for accountability tracking.
-
-        Returns action_id for linking downstream impacts.
-        """
-        return self._c.accountability.record_action(
-            actor_id=actor_id,
-            actor_type=actor_type,
-            actor_name=actor_name,
-            action_type=action_type,
-            target=target,
-            **kwargs,
-        )
-
-    def track_agent_event(
-        self,
-        agent_id: str,
-        event_type: SafetyEventType,
-        severity: int,
-        description: str,
-    ) -> str:
-        """
-        Report a safety-relevant event from an agent.
-
-        Returns event_id.
-        """
-        return self._c.agent_safety.report_event(
-            agent_id=agent_id,
-            event_type=event_type,
-            severity=severity,
-            description=description,
-        )
-
-    def set_dashboard_integration(self, integration: Any) -> None:
-        """Set dashboard integration for real-time updates."""
-        self._dashboard_integration = integration
-
-    def _notify_dashboard_project_start(self, project_id: str, state: Any):
-        """Delegates to DashboardBridge (P3-5)."""
-        self._dashboard_bridge.on_project_start(project_id, state, self._architecture_rules)
-
-    def _notify_dashboard_task_start(self, task_id: str, task: Task, model: Model | None):
-        """Delegates to DashboardBridge (P3-5)."""
-        self._dashboard_bridge.on_task_start(task_id, task, model)
-
-    def _notify_dashboard_task_progress(self, iteration: int, score: float):
-        """Delegates to DashboardBridge (P3-5)."""
-        self._dashboard_bridge.on_task_progress(iteration, score)
-
-    def _notify_dashboard_task_complete(self, task_id: str, status: str):
-        """Delegates to DashboardBridge (P3-5)."""
-        self._dashboard_bridge.on_task_complete(task_id, status)
-
-    def _build_metrics_dict(self) -> dict:
-        """Build a per-model metrics dict from live ModelProfile data."""
-        result: dict = {}
-        for model, profile in self._c.planner._profiles.items():
-            result[model.value] = {
-                "call_count": profile.call_count,
-                "failure_count": profile.failure_count,
-                "success_rate": profile.success_rate,
-                "avg_latency_ms": profile.avg_latency_ms,
-                "latency_p95_ms": profile.latency_p95_ms,
-                "quality_score": profile.quality_score,
-                "trust_factor": profile.trust_factor,
-                "avg_cost_usd": profile.avg_cost_usd,
-                "validator_fail_count": profile.validator_fail_count,
-                "error_rate": self._telemetry.error_rate(model),
-            }
-        return result
-
     async def run_project(
         self,
         project_description: str,
         success_criteria: str,
         project_id: str = "",
-        app_profile: AppProfile | None = None,
+        app_profile: AppProfile | None = None,  # noqa: F821
         analyze_on_complete: bool = False,
-        output_dir: Path | None = None,
+        output_dir: Path | None = None,  # noqa: F821
     ) -> ProjectState:
         """
         Main entry point. Decomposes project → executes tasks → returns state.
@@ -1348,6 +917,10 @@ class Orchestrator:
 
         The active PolicySet is threaded through model selection so that
         ConstraintPlanner enforces compliance on every API call.
+
+        State mutation (budget, policies, parallelism) happens here; the
+        lifecycle (warm-start → preflight → run_project → charge → flush)
+        is delegated to ProjectRunner.run_job().
         """
         self.budget = spec.budget
         self._active_policies = spec.policy_set
@@ -1355,37 +928,8 @@ class Orchestrator:
         # JobSpec may override the per-task parallelism limit
         if spec.max_parallel_tasks > 0:
             self._max_parallel_tasks = spec.max_parallel_tasks
-        # Warm-start: blend historical profiles before execution
-        await self._apply_warm_start()
-        # Extract once; both the pre-flight check and charge path need them.
-        job_id = getattr(spec, "job_id", "") or ""
-        team = getattr(spec, "team", "") or ""
-        # BudgetHierarchy pre-flight check via BudgetEnforcer
-        from .application.budget_enforcer import BudgetEnforcer
-
-        BudgetEnforcer.enforce_hierarchy_job(
-            self._c.budget_hierarchy, job_id, team, spec.budget.max_usd
-        )
-        try:
-            state = await self.run_project(
-                project_description=spec.project_description,
-                success_criteria=spec.success_criteria,
-            )
-        except Exception:
-            # BUG-001 FIX: release reservation on failure
-            if self._c.budget_hierarchy is not None:
-                self._c.budget_hierarchy.release_reservation(job_id, team)
-            raise
-        # Charge actual spend to BudgetHierarchy
-        if self._c.budget_hierarchy is not None:
-            actual_spend = self.budget.max_usd - self.budget.remaining_usd
-            BudgetEnforcer.enforce_hierarchy_job(
-                self._c.budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
-            )
-        # Persist telemetry snapshots for all models used this run (fire-and-forget)
-        job_id = getattr(spec, "job_id", "") or self._project_id
-        await self._flush_telemetry_snapshots(job_id)
-        return state
+        # Delegate lifecycle to ProjectRunner
+        return await self._project_runner.run_job(spec)
 
     async def run_project_streaming(
         self,
@@ -1419,7 +963,7 @@ class Orchestrator:
 
         await task  # propagate any unhandled exceptions
 
-    async def dry_run(self, project_description: str, success_criteria: str) -> ExecutionPlan:
+    async def dry_run(self, project_description: str, success_criteria: str) -> ExecutionPlan:  # noqa: F821
         """
         Dry-run: decompose the project, build an execution plan, and return it
         WITHOUT executing any tasks. (Improvement 12)
@@ -1439,7 +983,7 @@ class Orchestrator:
         self,
         project: str,
         criteria: str,
-        app_profile: AppProfile | None = None,
+        app_profile: AppProfile | None = None,  # noqa: F821
         policy: ResiliencePolicy | None = None,
     ) -> dict[str, Task]:
         """Break project into atomic tasks via Instructor (fast path) or Decomposer."""
@@ -1500,7 +1044,7 @@ class Orchestrator:
         execution_order: list[str],
         project_desc: str,
         success_criteria: str,
-        output_dir: Path | None = None,
+        output_dir: "Path | None" = None,  # noqa: F821
     ) -> ProjectState:
         """
         Execute all tasks respecting dependencies, with intra-level parallelism.
@@ -1601,85 +1145,9 @@ class Orchestrator:
     async def _execute_task(self, task: Task, policy: ResiliencePolicy | None = None) -> TaskResult:
         """
         Execute a single task via the TaskPipeline.
-        Delegates to engine_core.pipeline stages (Generate, Critique, Evaluate, etc).
+        Delegates to PipelineExecutor (engine_core).
         """
-        from .engine_core.pipeline import PipelineContext
-        from .models import TaskStatus
-
-        # Select initial model
-        model = task.preferred_model
-        if not model and hasattr(self, "_selector") and self._selector:
-            model = self._selector.select(task.type)
-
-        # Build skill prefix (SkillOpt + taste-skill)
-        skill_prefix = await self._build_skill_prefix(task)
-
-        # Optional image-reference visual-context enrichment
-        task = await self._enrich_with_visual_context(task)
-
-        ctx = PipelineContext(
-            task=task,
-            model=model,
-            tokens_used={"input": 0, "output": 0},
-            skill_prefix=skill_prefix,
-        )
-
-        # Loop for self-consistency / ARA retries
-        while True:
-            ctx = await self._pipeline.run(ctx)
-            if ctx.abort_reason not in ("retry_for_quality", "ara_retry"):
-                break
-            # Reset for next attempt
-            ctx.reset_for_retry()
-
-        # Determine final status
-        status = TaskStatus.COMPLETED
-        if ctx.score < task.acceptance_threshold:
-            status = TaskStatus.DEGRADED
-        if ctx.abort_reason and ctx.abort_reason.startswith("stage_error"):
-            status = TaskStatus.FAILED
-
-        result = ctx.to_task_result(status=status)
-
-        # taste-skill: soft anti-slop check (WARN only, never blocks)
-        self._check_anti_slop(task, ctx)
-
-        # SkillOpt: record trajectory for optimizer (fire-and-forget)
-        await self._record_trajectory(task, ctx)
-
-        return result
-
-    async def _build_skill_prefix(self, task: Task) -> str:
-        """Build combined skill prefix — delegates to TaskContextEnricher."""
-        enricher = self._get_enricher()
-        return await enricher.build_prefix(task)
-
-    async def _enrich_with_visual_context(self, task: Task) -> Task:
-        """Enrich task with visual context — delegates to TaskContextEnricher."""
-        enricher = self._get_enricher()
-        return await enricher.enrich_with_visual_context(task)
-
-    def _check_anti_slop(self, task: Task, ctx: Any) -> None:
-        """Soft anti-slop WARN check — delegates to TaskContextEnricher."""
-        enricher = self._get_enricher()
-        enricher.check_anti_slop(task, ctx)
-
-    async def _record_trajectory(self, task: Task, ctx: Any) -> None:
-        """Record SkillOpt trajectory — delegates to TaskContextEnricher."""
-        enricher = self._get_enricher()
-        await enricher.record_trajectory(task, ctx, self._background_tasks)
-
-    def _get_enricher(self):
-        """Lazy-init TaskContextEnricher for backward compatibility."""
-        if not hasattr(self, "_ctx_enricher") or self._ctx_enricher is None:
-            from .engine_core.stages.context_enricher import TaskContextEnricher
-
-            self._ctx_enricher = TaskContextEnricher(
-                skill_manager=self._skill_manager,
-                taste_skill_service=self._taste_skill_service,
-                client=self._c.client,
-            )
-        return self._ctx_enricher
+        return await self._pipeline_executor.execute(task, policy)
 
     async def _evaluate(self, task: Task, output: str) -> float:
         """Evaluate task quality via EvaluatorService (wired through container)."""
@@ -1734,36 +1202,12 @@ class Orchestrator:
     # PHASE-2: Tier constants and escalation count moved to model_selector.TieredModelRouter
 
     def _get_available_models(self, task_type: TaskType) -> list[Model]:
-        """PHASE-2: Delegates to TieredModelRouter.available_models."""
+        """Delegates to TieredModelRouter.available_models."""
         return self._tiered_router.available_models(task_type)
-
-    def _escalate_tier(self, task_type: TaskType) -> None:
-        """PHASE-2: Delegates to TieredModelRouter.escalate_tier."""
-        self._tiered_router.escalate_tier(task_type)
 
     def _select_decomposition_model(self, project_description: str) -> Model:
         """Delegates to ModelSelector — see model_selector.py for full logic."""
         return self._selector.decomposition_model(project_description)
-
-    def _get_fast_decomposition_model(self) -> Model:
-        """PHASE-2: Delegates to TieredModelRouter.fast_decomposition_model."""
-        return self._tiered_router.fast_decomposition_model()
-
-    def _get_cheapest_available(self) -> Model:
-        """PHASE-2: Delegates to TieredModelRouter.cheapest_available."""
-        return self._tiered_router.cheapest_available()
-
-    def _select_reviewer(self, generator: Model, task_type: TaskType) -> Model | None:
-        """Delegates to ModelSelector — see model_selector.py for full logic."""
-        return self._selector.reviewer(generator, task_type)
-
-    def _get_fallback(self, failed_model: Model) -> Model | None:
-        """Delegates to ModelSelector — see model_selector.py for full logic."""
-        return self._selector.fallback(failed_model)
-
-    def _get_next_tier_model(self, current_model: Model, task_type: TaskType) -> Model | None:
-        """Delegates to ModelSelector — see model_selector.py for full logic."""
-        return self._selector.next_tier(current_model, task_type)
 
     # ─────────────────────────────────────────
     # DAG & dependency management
@@ -1791,24 +1235,6 @@ class Orchestrator:
 
     # (P3-1: _gather_dependency_context was confirmed dead code — never called —
     # and removed in this refactoring. Context injection is handled elsewhere.)
-
-    # ─────────────────────────────────────────
-    # Protocol Implementations
-    # ─────────────────────────────────────────
-
-    @property
-    def spent_usd(self) -> float:
-        return self.budget.spent_usd
-
-    @property
-    def max_usd(self) -> float:
-        return self.budget.max_usd
-
-    async def charge(self, amount: float, phase: str) -> None:
-        await self.budget.charge(amount, phase)
-
-    def get_available_models(self, task_type: TaskType) -> list[Model]:
-        return self._get_available_models(task_type)
 
     # ─────────────────────────────────────────
     # Status & resume
@@ -1847,7 +1273,7 @@ class Orchestrator:
         """Delegates to StateCoordinator."""
         self._c.state_coordinator.log_summary(state)
 
-    async def _analyze_completed_project(self, state: ProjectState, output_dir: Path):
+    async def _analyze_completed_project(self, state: ProjectState, output_dir: Path):  # noqa: F821
         """
         Analyze completed project and generate improvement suggestions.
         Delegates to ProjectAnalyzer — extracted output formatting lives there.
@@ -1868,7 +1294,7 @@ class Orchestrator:
             logger.warning(f"Project analysis failed: {e}")
 
     async def _generate_architecture_rules(
-        self, project_description: str, success_criteria: str, output_dir: Path | None
+        self, project_description: str, success_criteria: str, output_dir: Path | None  # noqa: F821
     ) -> Any | None:
         """
         Generate architecture rules at project start.

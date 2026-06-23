@@ -384,7 +384,7 @@ def _select_model(description: str) -> Model:
         # Try budget-friendly options first (in priority order)
         priority_models = [
             Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30, 196B MoE ⭐ BEST VALUE
-            Model.ZHIPU_GLM_5_1,  # z-ai/glm-5.1, canonical GLM
+            Model.ZHIPU_GLM_5_2,  # z-ai/glm-5.2, canonical GLM
             Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench
         ]
     else:

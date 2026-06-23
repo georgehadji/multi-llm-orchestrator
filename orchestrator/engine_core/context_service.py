@@ -10,7 +10,7 @@ Extracted from engine.py to dismantle the God Object.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..prompt_builder import SystemPrompt
 

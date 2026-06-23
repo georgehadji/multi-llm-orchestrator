@@ -4,6 +4,8 @@ from __future__ import annotations
 
 def execute(args) -> int:
     """Handle the 'chat' subcommand — launch the interactive session."""
+    import asyncio
+
     from orchestrator.application.chat_cli import run_chat
 
     asyncio.run(
@@ -41,4 +43,4 @@ def register(subparsers) -> None:
         action="store_true",
         help="Show the final spec but do not start the build",
     )
-    p.set_defaults(func=cmd_chat)
+    p.set_defaults(func=execute)

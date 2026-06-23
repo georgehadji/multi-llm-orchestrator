@@ -94,13 +94,12 @@ def execute(args) -> None:
     except Exception as e:
         print(f"   Engine: content-brief fallback ({e})")
 
-    class _ExecutorAdapter:
-        def __init__(self, eng):
-            self._eng = eng
-        async def execute(self, task):
-            return await self._eng._execute_task(task)
+    from ..domain.ports import TaskExecutorAdapter
 
-    gen = WebsiteGenerator(executor=_ExecutorAdapter(engine) if engine else None)
+    gen = WebsiteGenerator(
+        executor=TaskExecutorAdapter(engine._execute_task) if engine else None,
+        orchestrator_engine=engine,
+    )
 
     async def _run():
         return await gen.generate(

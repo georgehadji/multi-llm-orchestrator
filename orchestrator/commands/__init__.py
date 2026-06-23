@@ -7,12 +7,7 @@ and it will be registered automatically.
 
 from __future__ import annotations
 
-import importlib
 import pkgutil
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from argparse import _SubParsersAction
 
 
 def discover_command_modules() -> list[str]:

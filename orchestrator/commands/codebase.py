@@ -2,6 +2,39 @@
 from __future__ import annotations
 
 
+def execute(args) -> None:
+    """Handle the 'modify' subcommand."""
+    import asyncio
+    from pathlib import Path
+
+    result = asyncio.run(
+        _run_modify(
+            repo=Path(args.repo).resolve(),
+            objective=args.objective,
+            dry_run=getattr(args, "dry_run", False),
+        )
+    )
+    print(result)
+
+
+async def _run_modify(repo, objective: str, dry_run: bool) -> str:
+    """Execute the codebase modification flow."""
+    from ..budget import Budget
+    from ..engine import Orchestrator
+
+    try:
+        orch = Orchestrator(budget=Budget(max_usd=10.0))
+        state = await orch.modify_codebase(
+            repo_path=repo,
+            objective=objective,
+            dry_run=dry_run,
+        )
+        return f"Modification complete.\nState keys: {list(state.keys()) if state else 'none'}"
+    except Exception as exc:
+        import traceback
+
+        return f"Modification failed: {exc}\n{traceback.format_exc()}"
+
 
 def register(subparsers) -> None:
     # Register the modify subcommand for codebase-aware operations.
@@ -13,4 +46,4 @@ def register(subparsers) -> None:
     mp.add_argument("--objective", required=True, help="What to do")
     mp.add_argument("--budget", type=float, default=10.0, help="Max LLM budget USD")
     mp.add_argument("--dry-run", action="store_true", help="Plan only")
-    mp.set_defaults(func=_handle_modify_command)
+    mp.set_defaults(func=execute)

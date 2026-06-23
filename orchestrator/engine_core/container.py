@@ -35,7 +35,6 @@ from ..domain.ports import (
     HookRegistryPort,
     NullEventBus,
     NullHookRegistry,
-    PlannerPort,
     StatePort,
     ValidatorPort,
 )
@@ -58,7 +57,6 @@ except ImportError:
     SpeculativeGenerator = None  # type: ignore[misc]
     StreamingValidator = None  # type: ignore[misc]
     TokenBudget = None  # type: ignore[misc]
-from ..model_registry import ModelRegistry
 
 try:
     from ..model_registry import ModelCascader  # type: ignore[attr-defined]
@@ -66,7 +64,6 @@ except ImportError:
     ModelCascader = None
 from ..model_selector import ModelSelector, TieredModelRouter
 from ..policy_engine import PolicyEngine
-from ..rate_limiter import RateLimiter
 from ..telemetry import TelemetryCollector
 from ..tracing import Tracer
 
@@ -111,6 +108,7 @@ class ServiceContainer:
     ara: Any = None
     ara_strategy: Any = None
     pipeline: Optional[TaskPipeline] = None
+    pipeline_executor: Any = None  # PipelineExecutor (wired via wire_pipeline_executor)
     dep_resolver: Any = None
     event_bus: Optional[EventPort] = None
     adaptive_router: Any = None
@@ -261,6 +259,19 @@ class ServiceContainer:
         ):
             self.generator.decompose_fn = decompose_fn
 
+    def wire_pipeline_executor(
+        self,
+        skill_manager: Any = None,
+        taste_skill_service: Any = None,
+        background_tasks: set | None = None,
+    ) -> None:
+        """Late-bind engine-level deps into PipelineExecutor after Orchestrator.__init__."""
+        if self.pipeline_executor is not None:
+            self.pipeline_executor._skill_manager = skill_manager
+            self.pipeline_executor._taste_skill_service = taste_skill_service
+            if background_tasks is not None:
+                self.pipeline_executor._background_tasks = background_tasks
+
     @classmethod
     def build(
         cls,
@@ -312,8 +323,7 @@ class ServiceContainer:
             ValidateStage,
         )
         from .validator import TaskValidator
-        from ..models import Model, TaskType
-        from ..output_organizer import OutputOrganizer
+        from ..models import Model
         from ..planner import ConstraintPlanner
         from ..preflight import PreflightValidator
         from ..state import StateManager
@@ -333,7 +343,6 @@ class ServiceContainer:
         # Local shims for legacy deps if not found in application layer
         try:
             from .engine_deps import (  # type: ignore[attr-defined]
-                _CBRegistry as CBRegistry,
                 _DepResolver as DepResolver,
                 # GeneratorService imported from services layer above
             )
@@ -510,17 +519,27 @@ class ServiceContainer:
         try:
             from ..application.model_health_tracker import ModelHealthTracker
 
+            # dashboard / adaptive_router are not yet built at this point in the
+            # container; the engine rebuilds the authoritative tracker with the
+            # real bridges later. Construct with the actual signature here
+            # (policy_engine is NOT a ModelHealthTracker arg).
             health_tracker = ModelHealthTracker(
                 telemetry=telemetry,
-                policy_engine=policy_engine,
+                dashboard=None,
+                adaptive_router=None,
+                state_mgr=state_manager,
             )
-        except ImportError:
+        except (ImportError, TypeError):
+            # Optional component: never let a wiring mismatch abort engine build.
             pass
         try:
             from ..application.resumption_service import ResumptionService
 
+            # Requires engine-level callables (execute_task_fn / determine_final_
+            # status_fn) not available here; the engine builds the authoritative
+            # instance in __init__. Degrade to None if it can't be constructed.
             resumption_service = ResumptionService()
-        except ImportError:
+        except (ImportError, TypeError):
             pass
 
         # Pipeline with all stages
@@ -539,6 +558,21 @@ class ServiceContainer:
                 ),
             ]
         )
+
+        # PipelineExecutor — wraps pipeline with context enrichment
+        # skill_manager and taste_skill_service are late-bound via wire_pipeline_executor
+        pipeline_executor = None
+        try:
+            from .pipeline_executor import PipelineExecutor as _PipelineExecutor
+
+            pipeline_executor = _PipelineExecutor(
+                pipeline=pipeline,
+                selector=selector,
+                client=client,
+            )
+            logger.debug("PipelineExecutor wired in ServiceContainer")
+        except ImportError:
+            logger.debug("PipelineExecutor not available — will be created after __init__")
 
         # State management
         if telemetry_store is None:
@@ -622,6 +656,7 @@ class ServiceContainer:
             ara=ara,
             ara_strategy=ara_strategy,
             pipeline=pipeline,
+            pipeline_executor=pipeline_executor,
             dep_resolver=dep_resolver,
             health_tracker=health_tracker,
             budget_enforcer=budget_enforcer,

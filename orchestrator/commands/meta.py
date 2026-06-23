@@ -4,9 +4,11 @@ from __future__ import annotations
 
 def execute(args) -> None:
     """Handle meta-optimization subcommands."""
+    import asyncio
+
     # Initialize a minimal orchestrator to access meta_v2
-    from .engine import Orchestrator
-    from .meta_integration import get_meta_status
+    from ..engine import Orchestrator
+    from ..meta_integration import get_meta_status
 
     async def run():
         orch = Orchestrator()
@@ -67,7 +69,7 @@ def execute(args) -> None:
                         )
 
                 elif args.meta_cmd == "transfer":
-                    from .transfer_learning import get_transfer_engine
+                    from ..transfer_learning import get_transfer_engine
 
                     transfer_engine = get_transfer_engine()
 
@@ -102,12 +104,12 @@ def register(subparsers):
 
     # Status command
     status_parser = meta_subparsers.add_parser("status", help="Show meta-optimization status")
-    status_parser.set_defaults(func=cmd_meta)
+    status_parser.set_defaults(func=execute)
 
     # Optimize command
     optimize_parser = meta_subparsers.add_parser("optimize", help="Run meta-optimization cycle")
-    optimize_parser.set_defaults(func=cmd_meta)
+    optimize_parser.set_defaults(func=execute)
 
     # Transfer command
     transfer_parser = meta_subparsers.add_parser("transfer", help="Show transfer learning status")
-    transfer_parser.set_defaults(func=cmd_meta)
+    transfer_parser.set_defaults(func=execute)

@@ -5,11 +5,12 @@ from __future__ import annotations
 def execute(args) -> None:
     """Handle the 'slash' subcommand."""
     import asyncio
+    from datetime import datetime
     from pathlib import Path
 
-    from .api_clients import UnifiedClient
-    from .cache import DiskCache
-    from .slash_commands import SlashCommandContext, get_slash_registry
+    from ..api_clients import UnifiedClient
+    from ..cache import DiskCache
+    from ..slash_commands import SlashCommandContext, get_slash_registry
 
     registry = get_slash_registry()
     cache = DiskCache()
@@ -30,7 +31,7 @@ def execute(args) -> None:
         print("║     Multi-LLM Orchestrator - Slash Command Mode          ║")
         print("╚══════════════════════════════════════════════════════════╝")
         print("\nType /help for available commands, or /quit to exit\n")
-        print_help()
+        print(asyncio.run(registry.execute("/help", ctx)))
 
         while True:
             try:
@@ -89,4 +90,4 @@ def register(subparsers) -> None:
         action="store_true",
         help="Enter interactive REPL mode",
     )
-    sp.set_defaults(func=cmd_slash)
+    sp.set_defaults(func=execute)

@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+import websockets
+
 logger = logging.getLogger("orchestrator.command_center")
 
 
@@ -167,8 +169,6 @@ class CommandCenterServer:
 
     async def start(self, host: str = "0.0.0.0", port: int = 8765):
         """Start the WebSocket server."""
-        import websockets
-
         self._running = True
 
         # Start batch broadcast loop

@@ -55,7 +55,17 @@ class ProjectRunnerCallables:
     """Optional post-completion analysis callback."""
 
     client: Any
-    """LLM client — needed for assumption-surfacing calls in dry_run."""
+    """LLM client — needed for assumption-surfacing calls in dry_run.
+
+    Required field; declared before the optional ``*_fn`` callables below so the
+    dataclass keeps all non-default fields ahead of defaulted ones.
+    """
+
+    warm_start_fn: Callable[..., Awaitable[None]] | None = None
+    """Async callable to blend historical profiles before execution (run_job)."""
+
+    flush_telemetry_fn: Callable[..., Awaitable[None]] | None = None
+    """Async callable to persist telemetry snapshots after completion (run_job)."""
 
 
 @dataclass

@@ -48,4 +48,4 @@ def register(subparsers) -> None:
         default=[],
         help="Platforms to enable (e.g. echo webhook:8080)",
     )
-    gp.set_defaults(func=cmd_gateway)
+    gp.set_defaults(func=execute)

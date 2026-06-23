@@ -317,7 +317,7 @@ class TestFallbackChainV3Models:
             Model.XIAOMI_MIMO_V2_FLASH,
             Model.XAI_GROK_4_20,
             Model.STEPFUN_STEP_3_5_FLASH,
-            Model.ZHIPU_GLM_5_1,
+            Model.ZHIPU_GLM_5_2,
         ]
         for model in v3_primaries:
             assert model in FALLBACK_CHAIN, (

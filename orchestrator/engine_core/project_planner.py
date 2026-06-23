@@ -22,7 +22,7 @@ logger = logging.getLogger("orchestrator.engine_core.project_planner")
 class ProjectPlanner:
     """Handles topological sorting and execution planning for projects."""
 
-    def __init__(self, dep_resolver: Any = None):
+    def __init__(self, dep_resolver: Any = None):  # noqa: F821
         self._dep_resolver = dep_resolver
 
     def get_execution_order(self, tasks: dict[str, Task]) -> list[str]:

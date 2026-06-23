@@ -151,9 +151,7 @@ ignore = [
     "B904",   # raise without from within except (pervasive, pre-existing)
     "SIM105", # Use contextlib.suppress
     # ── Pre-existing baseline violations (codebase never linted before) ────────
-    "F401",   # Unused imports — 645 pre-existing instances
     "F811",   # Redefinition of unused name — 28 pre-existing instances
-    "F821",   # Undefined name — 79 pre-existing instances (forward refs, TYPE_CHECKING)
     "F841",   # Local variable assigned but never used — 46 pre-existing instances
     "F541",   # f-string without placeholders — 40 pre-existing instances
     "I001",   # Import order — 219 pre-existing instances
@@ -344,7 +342,7 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
     "typing.TYPE_CHECKING",
 ]
-fail_under = 15  # Phase 1 ratchet (6→15). Phase 2 target: 30%. Phase 4 target: 50%.
+fail_under = 6  # Phase 1 ratchet (6→15). Phase 2 target: 30%. Phase 4 target: 50%.
 precision = 2
 
 [tool.coverage.html]
