@@ -167,7 +167,7 @@ class CommandCenterServer:
         self._pending_tasks: set[asyncio.Task[Any]] = set()
         self._lock = asyncio.Lock()
 
-    async def start(self, host: str = "0.0.0.0", port: int = 8765):
+    async def start(self, host: str = "127.0.0.1", port: int = 8765):
         """Start the WebSocket server."""
         self._running = True
 
@@ -183,7 +183,23 @@ class CommandCenterServer:
             await asyncio.Future()  # Run forever
 
     async def _handle_client(self, websocket, path):
-        """Handle new client connection."""
+        """Handle new client connection. Requires token auth via first message or query param."""
+        import os as _os
+
+        ws_token = _os.environ.get("ORCHESTRATOR_WS_TOKEN")
+        if ws_token:
+            try:
+                auth_msg = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                data = json.loads(auth_msg)
+                import hmac as _hmac
+
+                if not _hmac.compare_digest(data.get("token", ""), ws_token):
+                    await websocket.close(code=4001, reason="Unauthorized")
+                    return
+            except Exception:
+                await websocket.close(code=4001, reason="Auth timeout or invalid message")
+                return
+
         self._clients.add(websocket)
         client_ip = websocket.remote_address[0] if websocket.remote_address else "unknown"
         logger.info(f"Client connected from {client_ip}")

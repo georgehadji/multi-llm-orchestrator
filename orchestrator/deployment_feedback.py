@@ -255,16 +255,41 @@ class DeploymentFeedbackLoop:
 
             await asyncio.sleep(self.config.health_check_interval)
 
+    @staticmethod
+    def _validate_deployment_url(url: str) -> None:
+        """Prevent SSRF by requiring https:// and blocking private/metadata hosts."""
+        import ipaddress
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if parsed.scheme not in ("https",):
+            raise ValueError(f"deployment_url must use https:// (got {parsed.scheme!r})")
+        host = parsed.hostname or ""
+        if not host:
+            raise ValueError("deployment_url missing host")
+        try:
+            addr = ipaddress.ip_address(host)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise ValueError(f"deployment_url host {host!r} is in a disallowed IP range")
+        except ValueError as exc:
+            if "disallowed IP range" in str(exc):
+                raise
+        _BLOCKED = {"169.254.169.254", "metadata.google.internal", "metadata.internal"}
+        if host.lower() in _BLOCKED:
+            raise ValueError(f"deployment_url host {host!r} is blocked")
+
     async def _check_health(self, deployment_url: str) -> HealthCheck:
         """
         Check deployment health.
 
         Args:
-            deployment_url: Deployment URL
+            deployment_url: Deployment URL (must be https://)
 
         Returns:
             HealthCheck result
         """
+        self._validate_deployment_url(deployment_url)
+
         import httpx
 
         try:
