@@ -34,11 +34,13 @@ def _mock_client(patch_json: str = "[]") -> MagicMock:
 
 @pytest.fixture
 async def store(tmp_path: Path) -> SkillStore:
-    s = SkillStore(
+    from orchestrator.infrastructure.skill_store_adapter import SkillDbAdapter
+    db = SkillDbAdapter(
         traj_path=tmp_path / "trajectories.db",
         skill_path=tmp_path / "skills.db",
     )
-    await s.connect()
+    await db.connect()
+    s = SkillStore(db)
     yield s
     await s.close()
 

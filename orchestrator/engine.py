@@ -589,7 +589,9 @@ class Orchestrator:
             from .application.skill_store import SkillStore as _SkillStore
             from .application.skill_manager import SkillManager as _SkillManager
 
-            _skill_store = _SkillStore()
+            from ..infrastructure.skill_store_adapter import SkillDbAdapter as _SkillDbAdapter
+            _skill_db = _SkillDbAdapter()
+            _skill_store = _SkillStore(_skill_db)
             self._skill_manager: Any = _SkillManager(
                 optimizer_client=self._c.client,
                 skill_store=_skill_store,
