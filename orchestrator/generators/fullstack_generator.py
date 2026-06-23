@@ -467,11 +467,52 @@ export default App;
 
         # Generate main.py for FastAPI
         if app.backend_framework == BackendFramework.FASTAPI:
-            main_py = f"""from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
+            main_py = f'''"""
+{app.name} — secure FastAPI backend.
+
+SECURITY DEFAULTS (do not weaken without review):
+- CORS restricted to ALLOWED_ORIGINS env var (comma-separated). No wildcard.
+- Passwords hashed with bcrypt via passlib. Plaintext is never stored.
+- JWT signed with JWT_SECRET (HS256); the process refuses to start if it is unset.
+- EmailStr validation + minimum password length enforced by pydantic.
+- Bind host from HOST env var, defaulting to 127.0.0.1 (loopback only).
+
+This is a generated starter. Replace the in-memory _USERS store with a real
+database before going to production, but keep the hashing/JWT/CORS patterns.
+"""
+
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Annotated
+
 import uvicorn
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr, Field
+
+# ── Configuration (all secrets come from the environment) ──
+JWT_SECRET = os.environ.get("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError(
+        "JWT_SECRET environment variable is required. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(48))'"
+    )
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_MINUTES = int(os.environ.get("JWT_EXPIRY_MINUTES", "1440"))  # 24h
+# Comma-separated allowlist, e.g. "https://app.example.com,https://www.example.com"
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()
+]
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+# ── In-memory user store (REPLACE with a real database) ──
+# Maps email -> {{"email", "name", "password_hash"}}
+_USERS: dict[str, dict] = {{}}
 
 app = FastAPI(
     title="{app.name}",
@@ -479,55 +520,129 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
-# Models
+
+# ── Models ──
 class UserLogin(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
 
 class UserRegister(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    name: str = Field(min_length=1, max_length=255)
+
+
+class PublicUser(BaseModel):
+    email: EmailStr
     name: str
+
 
 class Token(BaseModel):
     token: str
-    user: dict
+    user: PublicUser
 
-# Routes
+
+# ── Auth helpers ──
+def _create_access_token(email: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRY_MINUTES)
+    return jwt.encode({{"sub": email, "exp": expire}}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
+    """Dependency that validates the bearer token and returns the user record."""
+    credentials_exc = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={{"WWW-Authenticate": "Bearer"}},
+    )
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise credentials_exc
+    except JWTError:
+        raise credentials_exc
+    user = _USERS.get(email)
+    if user is None:
+        raise credentials_exc
+    return user
+
+
+# ── Routes ──
+@app.post("/api/auth/register", response_model=Token, status_code=status.HTTP_201_CREATED)
+async def register(payload: UserRegister):
+    if payload.email in _USERS:
+        # Generic message — do not reveal which emails are registered.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Registration failed")
+    _USERS[payload.email] = {{
+        "email": payload.email,
+        "name": payload.name,
+        "password_hash": pwd_context.hash(payload.password),
+    }}
+    token = _create_access_token(payload.email)
+    return Token(token=token, user=PublicUser(email=payload.email, name=payload.name))
+
+
 @app.post("/api/auth/login", response_model=Token)
 async def login(credentials: UserLogin):
-    # TODO: Implement authentication
-    return {{"token": "jwt_token", "user": {{"email": credentials.email}}}}
+    user = _USERS.get(credentials.email)
+    # Always run a hash comparison to avoid leaking which emails exist (timing).
+    stored_hash = user["password_hash"] if user else pwd_context.hash("__invalid__")
+    if not pwd_context.verify(credentials.password, stored_hash) or user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
+        )
+    token = _create_access_token(user["email"])
+    return Token(token=token, user=PublicUser(email=user["email"], name=user["name"]))
 
-@app.post("/api/auth/register", response_model=Token)
-async def register(user: UserRegister):
-    # TODO: Implement registration
-    return {{"token": "jwt_token", "user": {{"email": user.email}}}}
+
+@app.get("/api/me", response_model=PublicUser)
+async def read_me(current_user: Annotated[dict, Depends(get_current_user)]):
+    return PublicUser(email=current_user["email"], name=current_user["name"])
+
 
 @app.get("/api/health")
 async def health_check():
     return {{"status": "ok"}}
 
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-"""
+    # Default to loopback; set HOST=0.0.0.0 explicitly only behind a trusted proxy.
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)
+'''
             code["main.py"] = main_py
 
             # Generate requirements.txt
-            code["requirements.txt"] = """fastapi==0.104.0
-uvicorn==0.24.0
-pydantic==2.0.0
+            code["requirements.txt"] = """fastapi==0.115.0
+uvicorn==0.30.6
+pydantic[email]==2.9.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+"""
+
+            # Generate .env.example so secrets are documented, never hardcoded.
+            code[".env.example"] = """# Required: sign JWTs. Generate with:
+#   python -c "import secrets; print(secrets.token_urlsafe(48))"
+JWT_SECRET=
+
+# Optional overrides
+JWT_EXPIRY_MINUTES=1440
+# Comma-separated CORS allowlist (no wildcards in production)
+ALLOWED_ORIGINS=http://localhost:3000
+# Bind address; keep 127.0.0.1 unless behind a trusted reverse proxy
+HOST=127.0.0.1
+PORT=8000
 """
 
         return code

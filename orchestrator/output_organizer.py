@@ -71,12 +71,14 @@ class OrganizationReport:
     errors: list[str] = field(default_factory=list)
     debug_report: dict | None = None  # Added: Autonomous debugger report
     format_report: dict | None = None  # Code formatting / lint-fix outcome
+    security_report: dict | None = None  # Generated-output secret/insecure-pattern scan
 
     def to_dict(self) -> dict:
         return {
             "tasks_moved": self.tasks_moved,
             "tests_created": self.tests_created,
             "format_report": self.format_report,
+            "security_report": self.security_report,
             "tests_run": [
                 {
                     "test_file": r.test_file,
@@ -127,6 +129,7 @@ class OutputOrganizer:
         max_fix_iterations: int = 3,
         min_pass_rate: float = 0.7,
         format_code: bool = True,
+        security_scan: bool = True,
     ):
         self.output_dir = Path(output_dir)
         self.auto_generate_tests = auto_generate_tests
@@ -136,6 +139,7 @@ class OutputOrganizer:
         self.max_fix_iterations = max_fix_iterations
         self.min_pass_rate = min_pass_rate
         self.format_code = format_code
+        self.security_scan = security_scan
 
         # Directories
         self.tasks_dir = self.output_dir / "tasks"
@@ -178,6 +182,11 @@ class OutputOrganizer:
             # validates the formatted code.
             if self.format_code:
                 await self._format_code()
+
+            # Step 3c: Security scan of generated output — flag hardcoded
+            # secrets and insecure patterns before delivery (defense-in-depth).
+            if self.security_scan:
+                await self._security_scan()
 
             # Step 4: Run tests
             if self.run_tests:
@@ -223,6 +232,36 @@ class OutputOrganizer:
         except Exception as e:  # never block delivery on formatting
             logger.warning(f"Code formatting step failed: {e}")
             self.report.errors.append(f"format: {e}")
+
+    async def _security_scan(self):
+        """Scan generated output for hardcoded secrets and insecure patterns."""
+        try:
+            from .safety.generated_output_scanner import scan_output_dir
+
+            scan = await asyncio.to_thread(scan_output_dir, self.output_dir)
+            self.report.security_report = scan.to_dict()
+            if scan.findings:
+                blocking = [f for f in scan.findings if f.severity in ("CRITICAL", "HIGH")]
+                logger.warning(
+                    "[SEC] %d security finding(s) in generated output (%d blocking) "
+                    "across %d file(s)",
+                    len(scan.findings),
+                    len(blocking),
+                    scan.files_scanned,
+                )
+                for f in blocking[:20]:
+                    logger.warning("[SEC] %s:%s %s: %s", f.path, f.line, f.severity, f.detail)
+                if blocking:
+                    # Surface as an error so delivery callers can see/fail on it,
+                    # but do not crash organization itself.
+                    self.report.errors.append(
+                        f"security: {len(blocking)} blocking finding(s) in generated output"
+                    )
+            else:
+                logger.info("[SEC] No secrets or insecure patterns found in generated output")
+        except Exception as e:  # never crash delivery on the scan itself
+            logger.warning(f"Security scan step failed: {e}")
+            self.report.errors.append(f"security-scan: {e}")
 
     async def _organize_task_files(self):
         """Move task_*.py/md/json files to tasks/ folder."""
