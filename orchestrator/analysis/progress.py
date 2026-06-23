@@ -12,77 +12,77 @@ from typing import Any
 
 try:
     # FIXED: from .unified_events import (
-    from ...unified_events import (
+    from ..unified_events import (
         BudgetWarningEvent as BudgetWarning,
     )
 
     # FIXED: from .unified_events import (
-    from ...unified_events import (
+    from ..unified_events import (
         ProjectCompletedEvent as ProjectCompleted,
     )
 
     # FIXED: from .unified_events import (
-    from ...unified_events import (
+    from ..unified_events import (
         ProjectStartedEvent as ProjectStarted,
     )
 
     # FIXED: from .unified_events import (
-    from ...unified_events import (
+    from ..unified_events import (
         TaskCompletedEvent as TaskCompleted,
     )
 
     # FIXED: from .unified_events import (
-    from ...unified_events import (
+    from ..unified_events import (
         TaskFailedEvent as TaskFailed,
     )
 
     # FIXED: from .unified_events import (
-    from ...unified_events import (
+    from ..unified_events import (
         TaskProgressEvent as TaskProgressUpdate,
     )
 
     # FIXED: from .unified_events import (
-    from ...unified_events import (
+    from ..unified_events import (
         TaskStartedEvent as TaskStarted,
     )
 except ImportError:
     # Fallback to standard events
     # FIXED: from .unified_events.core import (
-    from ...unified_events.core import (
+    from ..unified_events.core import (
         BudgetWarningEvent as BudgetWarning,
     )
 
     # FIXED: from .unified_events.core import (
-    from ...unified_events.core import (
+    from ..unified_events.core import (
         ProjectCompletedEvent as ProjectCompleted,
     )
 
     # FIXED: from .unified_events.core import (
-    from ...unified_events.core import (
+    from ..unified_events.core import (
         ProjectStartedEvent as ProjectStarted,
     )
 
     # FIXED: from .unified_events.core import (
-    from ...unified_events.core import (
+    from ..unified_events.core import (
         TaskCompletedEvent as TaskCompleted,
     )
 
     # FIXED: from .unified_events.core import (
-    from ...unified_events.core import (
+    from ..unified_events.core import (
         TaskFailedEvent as TaskFailed,
     )
 
     # FIXED: from .unified_events.core import (
-    from ...unified_events.core import (
+    from ..unified_events.core import (
         TaskProgressEvent as TaskProgressUpdate,
     )
 
     # FIXED: from .unified_events.core import (
-    from ...unified_events.core import (
+    from ..unified_events.core import (
         TaskStartedEvent as TaskStarted,
     )
 # FIXED: from .models import TaskStatus
-from ...models import TaskStatus
+from ..models import TaskStatus
 
 _STATUS_ICONS: dict[TaskStatus, str] = {
     TaskStatus.COMPLETED: "✓",
@@ -162,7 +162,7 @@ class ProgressRenderer:
             if status is None:
                 status_str = event.metadata.get("status", "completed")
                 # FIXED: from .models import TaskStatus
-                from ...models import TaskStatus
+                from ..models import TaskStatus
 
                 status = (
                     TaskStatus(status_str)

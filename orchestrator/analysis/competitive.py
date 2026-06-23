@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 # FIXED: from .models import Model, TaskType
-from ...models import Model, TaskType
+from ..models import Model, TaskType
 
 logger = logging.getLogger("orchestrator.competitive")
 
