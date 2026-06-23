@@ -245,14 +245,14 @@ class TestWorkspace:
     """Shared workspace (blackboard)."""
 
     def test_write_and_read(self):
-        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
+        from orchestrator.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         ws.write_file("main.py", "content", author="dev")
         assert ws.read_file("main.py") == "content"
 
     def test_versioning(self):
-        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
+        from orchestrator.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         v1 = ws.write_file("f.py", "v1")
@@ -261,7 +261,7 @@ class TestWorkspace:
         assert v2.version == 2
 
     def test_decision_record(self):
-        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
+        from orchestrator.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         ad = ws.record_decision("Use FastAPI", "Use FastAPI", "Best")
@@ -269,12 +269,12 @@ class TestWorkspace:
         assert len(ws.architectural_decisions) == 1
 
     def test_summary(self):
-        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
+        from orchestrator.workspace.workspace import ProjectWorkspace
 
         ws = ProjectWorkspace()
         assert "Files modified: 0" in ws.get_summary()
 
     def test_read_missing(self):
-        from orchestrator.state_mgmt.workspace.workspace import ProjectWorkspace
+        from orchestrator.workspace.workspace import ProjectWorkspace
 
         assert ProjectWorkspace().read_file("missing.py") is None
