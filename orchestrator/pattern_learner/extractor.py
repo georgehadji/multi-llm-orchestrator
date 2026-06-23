@@ -25,10 +25,10 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..models import TaskResult, TaskType
+    from ..models import TaskResult
 
 logger = logging.getLogger("orchestrator.pattern_learner.extractor")
 

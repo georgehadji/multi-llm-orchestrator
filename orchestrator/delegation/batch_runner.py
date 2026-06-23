@@ -29,7 +29,7 @@ from .subagent import SubAgent, SubAgentConfig
 
 if TYPE_CHECKING:
     from ..budget import Budget
-    from ..models import Task, TaskResult, TaskStatus
+    from ..models import Task, TaskResult
 
 logger = logging.getLogger("orchestrator.delegation.batch")
 

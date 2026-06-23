@@ -14,12 +14,9 @@ write_file() and record_decision() auto-save to disk.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from .workspace import ProjectWorkspace, FileVersion, ArchitectureDecision
 

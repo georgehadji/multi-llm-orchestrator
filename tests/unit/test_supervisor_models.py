@@ -13,7 +13,6 @@ from orchestrator.supervisor.models import (
     JobArgs,
     Lesson,
     SupervisorResult,
-    SupervisorSession,
 )
 
 pytestmark = pytest.mark.unit

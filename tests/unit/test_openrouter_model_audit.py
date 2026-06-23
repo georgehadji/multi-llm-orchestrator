@@ -152,3 +152,16 @@ def test_audit_against_live_catalogue_is_clean():
     stale = audit.find_stale_replacements(known, live_ids)
     assert dead == {}, f"dead referenced ids vs live catalogue: {dead}"
     assert stale == {}, f"UNAVAILABLE_MODELS replacements gone dead: {stale}"
+
+
+@pytest.mark.integration
+def test_runtime_only_ids_resolve_via_endpoints():
+    """Video-gen ids are absent from /models but must resolve at /endpoints.
+
+    Keeps the RUNTIME_ONLY_IDS allowlist honest: a retired or mistyped id is
+    reported instead of being silently trusted by find_dead_ids.
+    """
+    if not _has_network():
+        pytest.skip("no network access to openrouter.ai")
+    failures = audit.verify_runtime_only_ids()
+    assert failures == {}, f"runtime-only ids that no longer resolve: {failures}"

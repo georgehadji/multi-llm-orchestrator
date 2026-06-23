@@ -19,11 +19,10 @@ patterns appear as a "## Reference" section in the prompt.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .pattern_store import PatternStore
-    from ..models import TaskType
 
 logger = logging.getLogger("orchestrator.pattern_learner.injector")
 

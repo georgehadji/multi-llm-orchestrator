@@ -11,7 +11,7 @@ even when no template exists in the scaffold library.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -102,7 +102,6 @@ class DynamicScaffoldGenerator:
     def _apply_template(self, template: Any, output_dir: Path) -> bool:
         """Apply a scaffold template."""
         try:
-            from ..scaffold import ScaffoldTemplate
 
             if hasattr(template, "apply"):
                 result = template.apply(output_dir)

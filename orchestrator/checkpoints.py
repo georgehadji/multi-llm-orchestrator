@@ -358,7 +358,6 @@ class NamedCheckpointManager(CheckpointManager):
 
         # Hash artifacts if output_dir provided
         if output_dir:
-            import os
 
             out = Path(output_dir)
             if out.exists():

@@ -86,7 +86,7 @@ class TelemetryCollector:
         model: Model,
         latency_ms: float,
         cost_usd: float,
-        success: bool,
+        success: bool = True,
         quality_score: float | None = None,
     ) -> None:
         """

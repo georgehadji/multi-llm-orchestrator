@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..models import TaskResult, TaskType
+    from ..models import TaskResult
 
 logger = logging.getLogger(__name__)
 

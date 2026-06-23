@@ -10,7 +10,6 @@ Required imports (UnifiedClient, models, etc.) remain in engine.py.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 import logging
 
@@ -218,8 +217,6 @@ except (ImportError, TimeoutError):
     get_tracer = None
     traced_task = None
 
-if TYPE_CHECKING:
-    pass
 
 # PARADIGM SHIFT: TDD-First and Diff-Based Generation
 try:

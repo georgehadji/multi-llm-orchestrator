@@ -1,6 +1,5 @@
 """Unit tests for TasteSkillLoader."""
 
-from pathlib import Path
 
 import pytest
 

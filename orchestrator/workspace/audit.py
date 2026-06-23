@@ -13,7 +13,6 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 logger = logging.getLogger("orchestrator.workspace.audit")
 

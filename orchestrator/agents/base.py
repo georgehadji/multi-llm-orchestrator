@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from ..models import Model, Task, TaskResult, TaskStatus, TaskType
+from ..models import Model, TaskStatus, TaskType
 
 if TYPE_CHECKING:
     from ..api_clients import UnifiedClient

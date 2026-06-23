@@ -7,7 +7,6 @@ Part of Category 7, Phase U1 (UI): Plan review panel backend.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)

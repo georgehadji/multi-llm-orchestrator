@@ -26,11 +26,8 @@ import asyncio
 import logging
 import sqlite3
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-from ..models import TaskType as _TaskType
 
 if TYPE_CHECKING:
     from .extractor import ExtractedPattern

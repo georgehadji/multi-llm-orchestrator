@@ -13,7 +13,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from orchestrator.models import ProjectStatus, TaskResult, TaskStatus
 from orchestrator.services.generator import GeneratorResult
 
 

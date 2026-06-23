@@ -139,6 +139,7 @@ class TelemetryPort(Protocol):
         latency_ms: float,
         cost_usd: float,
         success: bool = True,
+        quality_score: float | None = None,
     ) -> None: ...
 
 

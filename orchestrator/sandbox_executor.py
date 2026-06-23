@@ -9,9 +9,7 @@ from __future__ import annotations
 import asyncio
 import difflib
 import logging
-import os
 import shutil
-import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path

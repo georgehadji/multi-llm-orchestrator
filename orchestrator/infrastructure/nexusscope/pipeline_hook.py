@@ -1,7 +1,7 @@
 """Profiling wrappers for TaskPipeline stages."""
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .profiler import NexusScopeProfiler
 

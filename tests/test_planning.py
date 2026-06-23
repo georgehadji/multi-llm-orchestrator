@@ -27,7 +27,7 @@ class TestGoalDecomposer:
 
     @pytest.mark.asyncio
     async def test_depth_limit(self):
-        from orchestrator.planning.decomposer import GoalDecomposer, MAX_DEPTH
+        from orchestrator.planning.decomposer import GoalDecomposer
 
         d = GoalDecomposer()
         # Create a deep recursion by splitting on "and" repeatedly

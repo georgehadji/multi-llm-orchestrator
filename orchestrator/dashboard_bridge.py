@@ -18,7 +18,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .models import Model, Task, TaskResult
+    from .models import TaskResult
 
 logger = logging.getLogger(__name__)
 

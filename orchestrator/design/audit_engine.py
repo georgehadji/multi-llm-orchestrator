@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from .catalogs import ARCHETYPES, MACROSTRUCTURES, THEMES
 from .slop_test import SlopTestEngine
 
 logger = logging.getLogger(__name__)

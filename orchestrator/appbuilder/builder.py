@@ -187,7 +187,6 @@ class AppBuilder:
         the CLI's --budget flag to be silently replaced by the default
         $8.00 Budget().
         """
-        from orchestrator.budget import Budget  # noqa: PLC0415
         from orchestrator.engine import Orchestrator  # noqa: PLC0415
 
         orchestrator = Orchestrator(

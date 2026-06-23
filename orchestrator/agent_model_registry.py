@@ -29,7 +29,6 @@ Design principles:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
 
 from .agents.base import AgentRole
 from .models import Model, TaskType

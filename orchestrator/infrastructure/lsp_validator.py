@@ -28,9 +28,8 @@ import os
 import re
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 from ..domain.ports import LSPDiagnostic, LSPValidatorPort
 

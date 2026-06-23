@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 from .api_clients import UnifiedClient
 from .codebase_context import CodebaseContext

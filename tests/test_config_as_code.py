@@ -4,9 +4,6 @@ Tests for config_as_code.py + type_generator.py — Entity schemas, type generat
 
 from __future__ import annotations
 
-import json
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -15,13 +12,11 @@ from orchestrator.config_as_code import (
     EntitySchema,
     EntityField,
     FieldType,
-    AuthConfig,
     AuthMethod,
 )
 from orchestrator.type_generator import (
     DynamicTypeGenerator,
     TargetLanguage,
-    TypeOutput,
 )
 
 

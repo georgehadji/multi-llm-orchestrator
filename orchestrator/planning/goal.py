@@ -3,7 +3,6 @@ Goal, SubGoal, Plan — Core data types for recursive planning.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass

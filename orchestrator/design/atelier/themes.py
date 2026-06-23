@@ -10,8 +10,7 @@ Maps directly to:
   - WebsiteConfig.theme selection
 """
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

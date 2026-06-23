@@ -15,7 +15,6 @@ import logging
 from typing import Any
 
 from .base import AgentBase, AgentRole, AgentTask, AgentTaskResult
-from ..models import TaskType
 
 logger = logging.getLogger("orchestrator.agents.user")
 

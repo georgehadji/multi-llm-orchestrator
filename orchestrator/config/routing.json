@@ -7,14 +7,19 @@
     "qwen/qwen3-coder-next",
     "moonshotai/kimi-k2.6",
     "deepseek/deepseek-v4-pro",
+    "x-ai/grok-build-0.1",
+    "openai/gpt-5.5",
     "openai/gpt-5.3-codex",
     "openai/gpt-5-codex",
+    "~openai/gpt-latest",
     "google/gemini-3.5-flash"
   ],
   "code_review": [
     "minimax/minimax-m3",
     "deepseek/deepseek-v4-pro",
     "moonshotai/kimi-k2.7-code",
+    "x-ai/grok-build-0.1",
+    "x-ai/grok-4.20-multi-agent",
     "x-ai/grok-4.20",
     "anthropic/claude-opus-4-8"
   ],
@@ -26,25 +31,30 @@
     "qwen/qwen3-235b-a22b-thinking-2507",
     "qwen/qwen3.5-397b-a17b",
     "moonshotai/kimi-k2.6",
+    "x-ai/grok-4.20-multi-agent",
+    "openai/gpt-5.5-pro",
+    "openai/gpt-5.5",
     "openai/gpt-5.4-pro",
     "anthropic/claude-opus-4-8"
   ],
   "creative_writing": [
     "anthropic/claude-sonnet-4-6",
     "openai/gpt-5.4",
+    "~openai/gpt-latest",
     "meta-llama/llama-4-maverick",
-    "nousresearch/hermes-3-llama-3.1-70b",
-    "meta-llama/llama-3.1-405b-instruct"
+    "nousresearch/hermes-3-llama-3.1-70b"
   ],
   "data_extraction": [
     "z-ai/glm-5.2",
     "microsoft/phi-4",
     "deepseek/deepseek-v4-flash",
+    "~openai/gpt-mini-latest",
     "google/gemini-3.5-flash"
   ],
   "summarization": [
     "z-ai/glm-5.2",
     "deepseek/deepseek-v4-flash",
+    "~openai/gpt-mini-latest",
     "google/gemini-3.5-flash",
     "microsoft/phi-4"
   ],
@@ -53,6 +63,7 @@
     "deepseek/deepseek-v4-pro",
     "moonshotai/kimi-k2.7-code",
     "anthropic/claude-sonnet-4-6",
+    "openai/gpt-5.5-pro",
     "x-ai/grok-4.20",
     "x-ai/grok-4-mini",
     "openai/gpt-5.4-pro"
@@ -82,5 +93,21 @@
     "sourceful/riverflow-v2-standard-preview",
     "sourceful/riverflow-v2-fast-preview",
     "bytedance-seed/seedream-4.5"
+  ],
+  "video_generation": [
+    "bytedance/seedance-1-5-pro",
+    "alibaba/wan-2.6",
+    "x-ai/grok-imagine-video",
+    "bytedance/seedance-2.0-fast",
+    "bytedance/seedance-2.0",
+    "minimax/hailuo-2.3",
+    "alibaba/wan-2.7",
+    "google/veo-3.1-lite",
+    "google/veo-3.1-fast",
+    "kwaivgi/kling-video-o1",
+    "kwaivgi/kling-v3.0-std",
+    "kwaivgi/kling-v3.0-pro",
+    "openai/sora-2-pro",
+    "google/veo-3.1"
   ]
 }

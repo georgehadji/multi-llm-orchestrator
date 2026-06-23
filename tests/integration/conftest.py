@@ -4,10 +4,9 @@ Integration test fixtures — reusable mocked Orchestrator with in-memory state.
 
 from __future__ import annotations
 
-import asyncio
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -15,7 +14,6 @@ from orchestrator.budget import Budget
 from orchestrator.engine import Orchestrator
 from orchestrator.models import (
     Model,
-    ProjectState,
     Task,
     TaskResult,
     TaskStatus,
