@@ -15,20 +15,7 @@ from ...model_selector import ModelSelector
 from ...models import TaskType
 from ...prompt_builder import SystemPrompt
 
-# Lazy import for VerbalizedSampler (avoids circular dep at module level)
-_VS_SAMPLER = None
-_VS_IMPORT_LOCK = __import__("threading").Lock()
-
-
-def _get_vs_sampler(client, budget=None):
-    global _VS_SAMPLER
-    if _VS_SAMPLER is None:
-        with _VS_IMPORT_LOCK:
-            if _VS_SAMPLER is None:
-                from ...application.verbalized_sampling import VerbalizedSampler as _VS
-
-                _VS_SAMPLER = _VS
-    return _VS_SAMPLER(client=client, budget=budget)
+from ...domain.ports import VSSamplerPort
 
 
 logger = logging.getLogger("orchestrator.engine_core.stages.generate")
@@ -48,8 +35,10 @@ class GenerateStage:
         selector: ModelSelector,
         event_bus: object = None,
         hook_registry: object = None,
+        vs_sampler: VSSamplerPort | None = None,
     ) -> None:
         self._client = client
+        self._vs_sampler = vs_sampler
         self._budget = budget
         self._selector = selector
         self._event_bus = event_bus
@@ -88,15 +77,17 @@ class GenerateStage:
 
                 cfg = vs_variant_for(model, default_k=flags.vs_k)
                 if cfg is not None:
-                    sampler = _get_vs_sampler(self._client, self._budget)
-                    candidates = await sampler.sample(
-                        prompt=prompt_text,
-                        model=model,
-                        cfg=cfg,
-                        system_extra=system_prompt,
-                        max_tokens=task.max_output_tokens,
-                        timeout=160,
-                    )
+                    if self._vs_sampler is not None:
+                        candidates = await self._vs_sampler.sample(
+                            prompt=prompt_text,
+                            model=model,
+                            cfg=cfg,
+                            system_extra=system_prompt,
+                            max_tokens=task.max_output_tokens,
+                            timeout=160,
+                        )
+                    else:
+                        candidates = []
                     if candidates:
                         # Pick the text of the first (highest-prob) candidate
                         best_text = candidates[0].text
