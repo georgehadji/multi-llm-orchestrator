@@ -16,6 +16,7 @@ from ...models import TaskType
 from ...prompt_builder import SystemPrompt
 
 from ...domain.ports import VSSamplerPort
+from ...operations.resilience import STAGE_RETRY_GENERATE
 
 logger = logging.getLogger("orchestrator.engine_core.stages.generate")
 
@@ -119,7 +120,7 @@ class GenerateStage:
             max_tokens=task.max_output_tokens,
             temperature=0.3,
             timeout=160,
-            retries=2,
+            retries=STAGE_RETRY_GENERATE,
         )
 
         ctx.output = response.text
