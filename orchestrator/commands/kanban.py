@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def execute(args) -> None:
     """Handle the 'kanban' subcommand: manage the work queue."""
     import asyncio

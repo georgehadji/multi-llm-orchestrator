@@ -149,9 +149,7 @@ class TracingPort(Protocol):
     Only the methods used by application-layer services are declared here.
     """
 
-    def trace(
-        self, name: str, attributes: dict[str, Any] | None = None
-    ) -> Any:
+    def trace(self, name: str, attributes: dict[str, Any] | None = None) -> Any:
         """Context manager for trace spans."""
         ...
 

@@ -16,7 +16,9 @@ def register(subparsers) -> None:
     """Register the 'build' subcommand arguments."""
     bp = subparsers.add_parser("build", help="Build a complete app from a description")
     bp.add_argument("--description", "-d", required=True, help="App description")
-    bp.add_argument("--criteria", "-c", default="The app must work correctly", help="Success criteria")
+    bp.add_argument(
+        "--criteria", "-c", default="The app must work correctly", help="Success criteria"
+    )
     bp.add_argument("--app-type", "-t", dest="app_type", default="", help="Force app type")
     bp.add_argument("--docker", action="store_true", default=False, help="Docker verification")
     bp.add_argument("--output-dir", "-o", dest="output_dir", default="", help="Output directory")
@@ -37,9 +39,11 @@ def execute(args) -> None:
             output_dir=Path(output_dir),
             app_type_override=args.app_type or None,
             docker=args.docker,
-            budget=Budget(max_usd=_budget, max_time_seconds=_time if _time is not None else 5400.0)
-            if _budget is not None
-            else None,
+            budget=(
+                Budget(max_usd=_budget, max_time_seconds=_time if _time is not None else 5400.0)
+                if _budget is not None
+                else None
+            ),
         )
     )
 

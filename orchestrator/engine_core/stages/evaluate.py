@@ -39,7 +39,8 @@ class EvaluateStage:
         except Exception as exc:
             logger.error(
                 "Evaluation failed for task %s: %s",
-                ctx.task.id, exc,
+                ctx.task.id,
+                exc,
                 exc_info=True,
             )
             ctx.evaluation_failed = True

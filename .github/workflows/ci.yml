@@ -57,7 +57,7 @@ jobs:
         run: |
           mypy orchestrator/domain/ orchestrator/application/ \
                orchestrator/engine_core/container.py \
-               --ignore-missing-imports --no-strict-optional
+               --ignore-missing-imports --no-strict-optional --python-version=3.12
       - name: Run mypy (full codebase — informational)
         run: mypy orchestrator/ --ignore-missing-imports --no-strict-optional
         continue-on-error: true

@@ -33,15 +33,51 @@ from pathlib import Path
 _LAYER_KEYWORDS: dict[str, tuple[int, tuple[str, ...]]] = {
     "domain": (0, ("domain", "models", "model", "entities", "entity", "schemas", "schema")),
     "application": (1, ("application", "services", "service", "usecases", "use_cases", "logic")),
-    "presentation": (2, ("api", "routes", "controllers", "views", "pages", "handlers",
-                          "endpoints", "interfaces", "web", "ui")),
-    "infrastructure": (2, ("infrastructure", "infra", "repositories", "repository", "repos",
-                           "database", "adapters", "persistence", "dao")),
+    "presentation": (
+        2,
+        (
+            "api",
+            "routes",
+            "controllers",
+            "views",
+            "pages",
+            "handlers",
+            "endpoints",
+            "interfaces",
+            "web",
+            "ui",
+        ),
+    ),
+    "infrastructure": (
+        2,
+        (
+            "infrastructure",
+            "infra",
+            "repositories",
+            "repository",
+            "repos",
+            "database",
+            "adapters",
+            "persistence",
+            "dao",
+        ),
+    ),
 }
 
 _CODE_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java"}
-_IGNORE_DIRS = {"node_modules", ".git", ".venv", "venv", "__pycache__", "dist",
-                "build", ".next", "coverage_html", ".mypy_cache", ".pytest_cache"}
+_IGNORE_DIRS = {
+    "node_modules",
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "dist",
+    "build",
+    ".next",
+    "coverage_html",
+    ".mypy_cache",
+    ".pytest_cache",
+}
 
 _MAX_FILE_LOC = 800
 _MAX_FUNC_LOC = 50
@@ -53,13 +89,18 @@ PRODUCTION_GRADE_THRESHOLD = 9.0
 # Hardcoded-secret heuristics (avoid env reads / empty assignments).
 _SECRET_PATTERNS = [
     re.compile(r"\bsk-[A-Za-z0-9_\-]{20,}"),
-    re.compile(r"\b(?:api[_-]?key|apikey|secret|password|passwd|token|access[_-]?key)\s*"
-               r"[:=]\s*['\"][^'\"]{8,}['\"]", re.IGNORECASE),
+    re.compile(
+        r"\b(?:api[_-]?key|apikey|secret|password|passwd|token|access[_-]?key)\s*"
+        r"[:=]\s*['\"][^'\"]{8,}['\"]",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),  # AWS access key id
 ]
 # Allow obvious non-secrets so env reads / placeholders don't trip the scanner.
-_SECRET_ALLOW = re.compile(r"os\.environ|getenv|process\.env|example|placeholder|your[_-]?key"
-                           r"|xxx|<.*>|\$\{", re.IGNORECASE)
+_SECRET_ALLOW = re.compile(
+    r"os\.environ|getenv|process\.env|example|placeholder|your[_-]?key" r"|xxx|<.*>|\$\{",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -76,8 +117,8 @@ class DimensionScore:
 class ArchitectureScore:
     """Full architecture scoring result for a project directory."""
 
-    total: float                      # 0-100
-    out_of_ten: float                 # 0-10
+    total: float  # 0-100
+    out_of_ten: float  # 0-10
     pattern: str
     dimensions: list[DimensionScore]
     strengths: list[str] = field(default_factory=list)
@@ -190,12 +231,18 @@ class ArchitectureScorer:
         if not nested and src:
             d.score *= 0.6
             d.notes.append("- Code is flat (no directory structure / module separation)")
-            d.notes.append("> Organise code into layered directories (domain, application, api, infrastructure)")
+            d.notes.append(
+                "> Organise code into layered directories (domain, application, api, infrastructure)"
+            )
         if n >= 3:
-            d.notes.append(f"+ Clear layering: {n} architectural layers ({', '.join(sorted(layers))})")
+            d.notes.append(
+                f"+ Clear layering: {n} architectural layers ({', '.join(sorted(layers))})"
+            )
         elif n == 0:
             d.notes.append("- No recognizable architectural layers")
-            d.notes.append("> Separate concerns into domain / application / interface / infrastructure layers")
+            d.notes.append(
+                "> Separate concerns into domain / application / interface / infrastructure layers"
+            )
         return d
 
     def _score_dependency_direction(self, files: list[Path]) -> DimensionScore:
@@ -216,20 +263,23 @@ class ArchitectureScorer:
                 if _LAYER_KEYWORDS[imported][0] > importer_rank:
                     violations += 1
                     d.notes.append(
-                        f"- {importer} layer imports outer {imported} layer "
-                        f"({f.name}: '{mod}')"
+                        f"- {importer} layer imports outer {imported} layer " f"({f.name}: '{mod}')"
                     )
         if arch_imports == 0:
             # No cross-layer imports to verify — give partial credit, don't reward fully.
             d.score = 10.0
-            d.notes.append("> Add explicit layer boundaries so dependency direction can be verified")
+            d.notes.append(
+                "> Add explicit layer boundaries so dependency direction can be verified"
+            )
             return d
         clean = 1 - violations / arch_imports
         d.score = round(20.0 * max(0.0, clean), 1)
         if violations == 0:
             d.notes.append("+ Dependency direction respected (inner layers do not import outer)")
         else:
-            d.notes.append(f"> Invert {violations} inward dependency violation(s) (use ports/interfaces)")
+            d.notes.append(
+                f"> Invert {violations} inward dependency violation(s) (use ports/interfaces)"
+            )
         return d
 
     def _score_modularity(self, files: list[Path]) -> DimensionScore:
@@ -269,14 +319,18 @@ class ArchitectureScorer:
         src = [f for f in files if not self._is_test_file(f)]
         if not tests:
             d.notes.append("- No test files detected")
-            d.notes.append("> Add unit and integration tests (aim for >= 1 test file per 4 source files)")
+            d.notes.append(
+                "> Add unit and integration tests (aim for >= 1 test file per 4 source files)"
+            )
             return d
         ratio = len(tests) / max(len(src), 1)
         d.score = round(min(1.0, ratio / 0.25) * 15.0, 1)
         if d.score >= 12:
             d.notes.append(f"+ Healthy test coverage surface ({len(tests)} test files)")
         else:
-            d.notes.append(f"> Increase test count ({len(tests)} tests for {len(src)} source files)")
+            d.notes.append(
+                f"> Increase test count ({len(tests)} tests for {len(src)} source files)"
+            )
         return d
 
     def _score_config_secrets(self, root: Path, files: list[Path]) -> DimensionScore:
@@ -301,29 +355,52 @@ class ArchitectureScorer:
                 f"- Hardcoded secret(s) detected in {len(secrets)} file(s): "
                 + ", ".join(sorted(secrets)[:3])
             )
-            d.notes.append("> Move secrets to environment variables / a secret manager and rotate them")
+            d.notes.append(
+                "> Move secrets to environment variables / a secret manager and rotate them"
+            )
         d.score = max(0.0, round(d.score, 1))
         return d
 
     def _score_runnability(self, root: Path) -> DimensionScore:
         d = DimensionScore("runnability", 0.0, 10.0)
-        manifests = ("requirements.txt", "pyproject.toml", "package.json", "go.mod", "Cargo.toml", "Pipfile")
+        manifests = (
+            "requirements.txt",
+            "pyproject.toml",
+            "package.json",
+            "go.mod",
+            "Cargo.toml",
+            "Pipfile",
+        )
         manifest = next((m for m in manifests if (root / m).exists()), None)
         if manifest:
             d.score += 5
             d.notes.append(f"+ Dependency manifest present ({manifest})")
         else:
             d.notes.append("- No dependency manifest")
-            d.notes.append("> Add a dependency manifest (requirements.txt / package.json / pyproject.toml)")
-        entry_points = ("main.py", "app.py", "manage.py", "wsgi.py", "asgi.py",
-                        "index.js", "index.ts", "server.js", "main.go")
-        has_entry = any((root / e).exists() for e in entry_points) or \
-            any((root / "src" / e).exists() for e in entry_points)
+            d.notes.append(
+                "> Add a dependency manifest (requirements.txt / package.json / pyproject.toml)"
+            )
+        entry_points = (
+            "main.py",
+            "app.py",
+            "manage.py",
+            "wsgi.py",
+            "asgi.py",
+            "index.js",
+            "index.ts",
+            "server.js",
+            "main.go",
+        )
+        has_entry = any((root / e).exists() for e in entry_points) or any(
+            (root / "src" / e).exists() for e in entry_points
+        )
         if has_entry:
             d.score += 3
             d.notes.append("+ Clear entry point present")
         else:
-            d.notes.append("> Provide a clear application entry point (main.py / index.ts / server.js)")
+            d.notes.append(
+                "> Provide a clear application entry point (main.py / index.ts / server.js)"
+            )
         if self._has_pinned_deps(root, manifest):
             d.score += 2
             d.notes.append("+ Dependencies are version-pinned")
@@ -332,7 +409,10 @@ class ArchitectureScorer:
 
     def _score_documentation(self, root: Path) -> DimensionScore:
         d = DimensionScore("documentation", 0.0, 5.0)
-        readme = next((root / n for n in ("README.md", "README.rst", "README.txt") if (root / n).exists()), None)
+        readme = next(
+            (root / n for n in ("README.md", "README.rst", "README.txt") if (root / n).exists()),
+            None,
+        )
         if readme is None:
             d.notes.append("- No README")
             d.notes.append("> Add a README documenting setup, usage, and architecture")
@@ -422,7 +502,12 @@ class ArchitectureScorer:
                 return False
         if manifest in ("package.json",):
             try:
-                return bool(re.search(r'"\^?~?\d+\.\d+', (root / manifest).read_text(encoding="utf-8", errors="replace")))
+                return bool(
+                    re.search(
+                        r'"\^?~?\d+\.\d+',
+                        (root / manifest).read_text(encoding="utf-8", errors="replace"),
+                    )
+                )
             except OSError:
                 return False
         return manifest in ("pyproject.toml", "go.mod", "Cargo.toml")

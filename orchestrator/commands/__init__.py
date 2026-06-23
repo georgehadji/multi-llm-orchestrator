@@ -21,6 +21,7 @@ def discover_command_modules() -> list[str]:
             modules.append(modname)
     return sorted(modules)
 
+
 # Backward-compat re-exports — pre-existing from before Phase 2 extraction
 from .center import *  # noqa: F401, F403
 from .integration import *  # noqa: F401, F403

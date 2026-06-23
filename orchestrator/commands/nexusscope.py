@@ -1,6 +1,6 @@
 """nexusscope command module."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 
 def register(subparsers) -> None:
@@ -24,6 +24,7 @@ def register(subparsers) -> None:
     )
     rep_p.add_argument("--output", "-o", default=None, help="Write to file")
     rep_p.set_defaults(func=report)
+
 
 def sessions(args):
     try:

@@ -92,8 +92,9 @@ async def run_chat(
         print()
         try:
             loop = asyncio.get_running_loop()
-            user_input = (await loop.run_in_executor(
-                None, lambda: input(f"{_C_BOLD}You ▸{_C_RESET} "))).strip()
+            user_input = (
+                await loop.run_in_executor(None, lambda: input(f"{_C_BOLD}You ▸{_C_RESET} "))
+            ).strip()
         except (EOFError, KeyboardInterrupt):
             print(f"\n{_C_DIM}Session cancelled.{_C_RESET}")
             return

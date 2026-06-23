@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def execute(args) -> None:
     """Handle the 'dashboard' subcommand: render persistent cross-run learning."""
     import asyncio

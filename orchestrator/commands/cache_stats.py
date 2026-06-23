@@ -1,8 +1,10 @@
 """Cache stats command handler — extracted from cli.py."""
+
 from __future__ import annotations
 
 import argparse
 import asyncio
+
 
 def execute(args) -> None:
     """Show cache statistics."""
@@ -53,6 +55,7 @@ def execute(args) -> None:
         )
         print(f"  Hit Rate: {l1['hit_rate']:.1%}")
 
+
 def execute_stats(args: argparse.Namespace) -> int:
     """Handle cache-stats subcommand."""
 
@@ -93,7 +96,6 @@ def execute_stats(args: argparse.Namespace) -> int:
         return 0
 
     return asyncio.run(_run())
-
 
 
 def register(subparsers) -> None:

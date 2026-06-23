@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def execute(args) -> None:
     """Handle meta-optimization subcommands."""
     import asyncio

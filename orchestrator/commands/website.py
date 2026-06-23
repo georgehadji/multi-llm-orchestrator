@@ -20,38 +20,48 @@ def register(subparsers) -> None:
     wp.add_argument("--description", "-d", required=True, help="Website description")
     wp.add_argument("--output-dir", "-o", default="outputs/website", help="Output directory")
     wp.add_argument(
-        "--framework", "-f", default="html", choices=["html", "react", "next.js"],
+        "--framework",
+        "-f",
+        default="html",
+        choices=["html", "react", "next.js"],
         help="Target framework",
     )
     wp.add_argument(
-        "--preset", default="modern",
+        "--preset",
+        default="modern",
         choices=["modern", "minimalist", "playful", "corporate", "luxury", "tech"],
         help="Design preset",
     )
     wp.add_argument(
-        "--image-model", default="auto",
+        "--image-model",
+        default="auto",
         help="OpenRouter image model (default: auto-select; use 'none' for SVG only)",
     )
     wp.add_argument(
-        "--image-quality", default="balanced",
+        "--image-quality",
+        default="balanced",
         choices=["draft", "balanced", "premium"],
         help="Image quality tier (draft=cheapest, balanced=best VFM, premium=best quality)",
     )
     wp.add_argument("--atelier-theme", default="", help="Atelier design theme")
     wp.add_argument(
-        "--sections", "-s",
+        "--sections",
+        "-s",
         default="hero,features,pricing,testimonials,faq,cta,footer",
         help="Comma-separated section names",
     )
     wp.add_argument("--company-name", default="", help="Brand/company name")
     wp.add_argument("--industry", default="technology", help="Client industry")
     wp.add_argument(
-        "--page-type", default="landing",
+        "--page-type",
+        default="landing",
         choices=["landing", "saas", "portfolio", "ecommerce", "agency", "editorial", "custom"],
         help="Type of page",
     )
     wp.add_argument("--deps", default="", help="Extra npm deps (comma-separated)")
-    wp.add_argument("--3d", dest="use_3d", action="store_true", default=False, help="3D FX shorthand")
+    wp.add_argument(
+        "--3d", dest="use_3d", action="store_true", default=False, help="3D FX shorthand"
+    )
     wp.add_argument("--source-url", default="", help="Live URL to clone via Playwright")
     wp.set_defaults(func=execute)
 
@@ -71,12 +81,18 @@ def execute(args) -> None:
     if getattr(args, "use_3d", False):
         extra_deps.extend(["three", "@react-three/fiber", "@react-three/drei"])
 
-    client_info = ClientInfo(name=company_name, industry=args.industry, description=args.description)
+    client_info = ClientInfo(
+        name=company_name, industry=args.industry, description=args.description
+    )
     config = WebsiteConfig(
         framework=args.framework,
         styling="tailwind" if args.framework != "html" else "css",
-        page_type=args.page_type, sections=sections, image_model=args.image_model,
-        atelier_theme=args.atelier_theme, description=args.description, brand_name=company_name,
+        page_type=args.page_type,
+        sections=sections,
+        image_model=args.image_model,
+        atelier_theme=args.atelier_theme,
+        description=args.description,
+        brand_name=company_name,
         dependencies=["react", "react-dom"] + extra_deps,
         image_quality=getattr(args, "image_quality", "balanced"),
         source_url=args.source_url if hasattr(args, "source_url") else "",
@@ -128,13 +144,18 @@ def execute(args) -> None:
 
     async def _run():
         return await gen.generate(
-            design_system=design_system, client_info=client_info, config=config, output_dir=output_dir,
+            design_system=design_system,
+            client_info=client_info,
+            config=config,
+            output_dir=output_dir,
         )
 
     result = asyncio.run(_run())
 
     if result.success:
-        print(f"[OK] Website: {output_dir.resolve()}  Components: {result.components_generated}  Cost: ${result.total_cost:.4f}")
+        print(
+            f"[OK] Website: {output_dir.resolve()}  Components: {result.components_generated}  Cost: ${result.total_cost:.4f}"
+        )
     elif (output_dir / "package.json").exists():
         print(f"!  Fallback: cd {output_dir} && npm install && npm run dev")
     elif (output_dir / "index.html").exists():

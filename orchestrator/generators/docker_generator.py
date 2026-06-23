@@ -463,9 +463,7 @@ class DockerfileBuilder:
     # PRESET CONFIGURATIONS
     # ═══════════════════════════════════════════════════════════════
 
-    def add_nonroot_user(
-        self, user: str = "appuser", uid: int = 10001
-    ) -> "DockerfileBuilder":
+    def add_nonroot_user(self, user: str = "appuser", uid: int = 10001) -> "DockerfileBuilder":
         """Create and switch to a non-root user (container hardening best practice).
 
         Running containers as root means a container escape grants host root.

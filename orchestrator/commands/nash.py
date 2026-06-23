@@ -1,6 +1,6 @@
 """nash command module."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 
 def register(subparsers):
@@ -36,6 +36,7 @@ def register(subparsers):
     compare_parser.add_argument("model_b", help="Second model to compare")
     compare_parser.add_argument("--task-type", default="CODE_GEN", help="Task type")
     compare_parser.set_defaults(func=compare)
+
 
 def backup(args):
     """Handle nash backup command."""

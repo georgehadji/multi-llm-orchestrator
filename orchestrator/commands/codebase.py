@@ -1,4 +1,5 @@
 """codebase command module."""
+
 from __future__ import annotations
 
 

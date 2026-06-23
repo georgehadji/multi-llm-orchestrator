@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def execute(args) -> None:
     """
     Handle the 'agent' subcommand: NL intent → draft specs → submit to ControlPlane.
@@ -28,9 +29,7 @@ def execute(args) -> None:
     ]
     for pattern in dangerous_patterns:
         if re.search(pattern, intent):
-            print(
-                "WARNING: Intent contains potentially dangerous characters", file=sys.stderr
-            )
+            print("WARNING: Intent contains potentially dangerous characters", file=sys.stderr)
             # Don't block, just warn - natural language can contain backticks
 
     agent = OrchestrationAgent()

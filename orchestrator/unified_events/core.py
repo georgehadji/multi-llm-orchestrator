@@ -27,7 +27,7 @@ from collections import defaultdict
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum, auto
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -814,6 +814,33 @@ class HookRegistry:
         else:
             key = event.value if isinstance(event, EventType) else str(event)
             self._hooks.pop(key, None)
+
+
+class DashboardHookRegistry(HookRegistry):
+    """
+    Hook registry tailored for Mission Control to tie hooks to the dashboard server.
+    """
+
+    def __init__(self, server: Any) -> None:
+        super().__init__()
+        self.server = server
+
+    def add(self, event: str | EventType, callback: Callable | None = None):
+        """
+        Support decorator-based registration, e.g.:
+            @hooks.add(EventType.TASK_STARTED)
+            def hook(...):
+        """
+        if callback is None:
+
+            def decorator(fn: Callable) -> Callable:
+                super(DashboardHookRegistry, self).add(event, fn)
+                return fn
+
+            return decorator
+
+        super().add(event, callback)
+        return callback
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
