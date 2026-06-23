@@ -50,6 +50,7 @@ for _name in [
     _mod = types.ModuleType(_name)
     sys.modules[_name] = _mod
 
+
 # Stub Budget with a real class
 class FakeBudget:
     def __init__(self):
@@ -310,9 +311,7 @@ class TestPhase6GenerateStage(unittest.TestCase):
         sampler = VerbalizedSampler(client=client, budget=budget)
         import asyncio
 
-        asyncio.run(
-            sampler.sample(prompt="test", model=Model.GPT_4O_MINI, cfg=VSConfig(k=3))
-        )
+        asyncio.run(sampler.sample(prompt="test", model=Model.GPT_4O_MINI, cfg=VSConfig(k=3)))
         self.assertGreater(len(budget.charges), 0)
         self.assertEqual(budget.charges[0][1], "verbalized_sampling")
 

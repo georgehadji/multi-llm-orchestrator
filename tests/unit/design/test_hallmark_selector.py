@@ -8,9 +8,15 @@ from orchestrator.design.design_log import DesignLog, DesignLogEntry
 from orchestrator.models import Genre
 
 
-def _entry(macro: str = "bento_grid", theme: str = "lumen", genre: str = "modern-minimal",
-           nav: str = "N1", footer: str = "Ft1") -> DesignLogEntry:
+def _entry(
+    macro: str = "bento_grid",
+    theme: str = "lumen",
+    genre: str = "modern-minimal",
+    nav: str = "N1",
+    footer: str = "Ft1",
+) -> DesignLogEntry:
     from datetime import datetime, timezone
+
     return DesignLogEntry(
         timestamp=datetime.now(timezone.utc).isoformat(),
         macrostructure=macro,

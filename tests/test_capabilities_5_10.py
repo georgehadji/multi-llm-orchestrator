@@ -9,7 +9,11 @@ class TestAgentMessageBus:
     """Capability 5: Agent communication."""
 
     def test_publish_direct_message(self):
-        from orchestrator.state_mgmt.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
+        from orchestrator.state_mgmt.workspace.message_bus import (
+            AgentMessageBus,
+            AgentMessage,
+            MessageType,
+        )
 
         bus = AgentMessageBus()
         bus.subscribe("agent_a", [MessageType.QUERY])
@@ -19,7 +23,11 @@ class TestAgentMessageBus:
         assert inbox[0].content == "hello"
 
     def test_broadcast_matches_subscribers(self):
-        from orchestrator.state_mgmt.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
+        from orchestrator.state_mgmt.workspace.message_bus import (
+            AgentMessageBus,
+            AgentMessage,
+            MessageType,
+        )
 
         bus = AgentMessageBus()
         bus.subscribe("agent_a", [MessageType.QUERY])
