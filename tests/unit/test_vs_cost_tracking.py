@@ -5,7 +5,7 @@ Regression tests for VS-first cost tracking bug:
 
 import pytest
 
-from orchestrator.engine_core.stages.generate import _get_vs_sampler
+from orchestrator.engine_core.stages.self_consistency import _get_vs_sampler
 
 
 @pytest.mark.unit
