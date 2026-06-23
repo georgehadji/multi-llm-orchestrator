@@ -17,7 +17,6 @@ from ...prompt_builder import SystemPrompt
 
 from ...domain.ports import VSSamplerPort
 
-
 logger = logging.getLogger("orchestrator.engine_core.stages.generate")
 
 
