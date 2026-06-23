@@ -312,6 +312,7 @@ markers = [
     "mock: marks tests that use mocked dependencies",
     "asyncio: marks tests that use asyncio",
     "edge_case: marks edge case and boundary tests",
+    "contract: marks architecture contract tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
