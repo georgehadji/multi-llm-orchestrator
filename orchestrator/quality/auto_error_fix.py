@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from ..models import Task
 
     # FIXED: from ..infrastructure.llm_client import UnifiedClient
-    from ...infrastructure.llm_client import UnifiedClient
+    from ..infrastructure.llm_client import UnifiedClient
 
 logger = logging.getLogger(__name__)
 

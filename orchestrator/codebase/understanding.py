@@ -119,8 +119,8 @@ Return as JSON:
         Uses UnifiedClient directly for the analysis task.
         """
         try:
-            from .api_clients import UnifiedClient
-            from .models import Model
+            from ..api_clients import UnifiedClient
+            from ..models import Model
 
             client = UnifiedClient()
             response = await client.call(
