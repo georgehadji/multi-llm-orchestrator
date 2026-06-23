@@ -463,8 +463,23 @@ class DockerfileBuilder:
     # PRESET CONFIGURATIONS
     # ═══════════════════════════════════════════════════════════════
 
-    def for_node_app(self, version: str = "latest") -> "DockerfileBuilder":
-        """Configure for Node.js app with best practices."""
+    def add_nonroot_user(
+        self, user: str = "appuser", uid: int = 10001
+    ) -> "DockerfileBuilder":
+        """Create and switch to a non-root user (container hardening best practice).
+
+        Running containers as root means a container escape grants host root.
+        This creates an unprivileged user and switches to it before CMD.
+        """
+        self._add_line(
+            f"RUN (addgroup --system {user} 2>/dev/null || true) && "
+            f"(adduser --system --uid {uid} --ingroup {user} {user} 2>/dev/null || "
+            f"adduser -S -u {uid} {user} 2>/dev/null || true)"
+        )
+        return self.add_user(user)
+
+    def for_node_app(self, version: str = "20-slim") -> "DockerfileBuilder":
+        """Configure for Node.js app with best practices (pinned image, non-root)."""
         return (
             self.for_node(version)
             .add_env("NODE_ENV", "production")
@@ -475,11 +490,12 @@ class DockerfileBuilder:
             .run("npm run build")
             .expose(3000)
             .add_healthcheck()
+            .add_nonroot_user()
             .cmd("npm start")
         )
 
-    def for_python_app(self, version: str = "latest") -> "DockerfileBuilder":
-        """Configure for Python app with best practices."""
+    def for_python_app(self, version: str = "3.12-slim") -> "DockerfileBuilder":
+        """Configure for Python app with best practices (pinned image, non-root)."""
         return (
             self.for_python(version)
             .add_env("PYTHONUNBUFFERED", "1")
@@ -489,11 +505,12 @@ class DockerfileBuilder:
             .copy_all()
             .expose(8000)
             .add_healthcheck()
+            .add_nonroot_user()
             .cmd("python -m gunicorn app:app")
         )
 
-    def for_go_app(self, version: str = "latest") -> "DockerfileBuilder":
-        """Configure for Go app with best practices."""
+    def for_go_app(self, version: str = "1.23-alpine") -> "DockerfileBuilder":
+        """Configure for Go app with best practices (pinned image, non-root)."""
         return (
             self.for_go(version)
             .add_workdir("/app")
@@ -503,11 +520,12 @@ class DockerfileBuilder:
             .run("go build -o /app/main")
             .expose(8080)
             .add_healthcheck()
+            .add_nonroot_user()
             .cmd("/app/main")
         )
 
-    def for_rust_app(self, version: str = "latest") -> "DockerfileBuilder":
-        """Configure for Rust app with best practices."""
+    def for_rust_app(self, version: str = "1.82-slim") -> "DockerfileBuilder":
+        """Configure for Rust app with best practices (pinned image, non-root)."""
         return (
             self.for_rust(version)
             .add_workdir("/app")
@@ -517,6 +535,7 @@ class DockerfileBuilder:
             .run("cargo build --release")
             .expose(8080)
             .add_healthcheck()
+            .add_nonroot_user()
             .cmd("/app/target/release/app")
         )
 
@@ -603,14 +622,18 @@ class DockerComposeBuilder:
         db_type: str = "postgres",
         name: str = "db",
     ) -> "DockerComposeBuilder":
-        """Add database service."""
+        """Add database service.
+
+        Credentials are read from environment variables (compose ${VAR} interpolation),
+        never hardcoded. Define them in a local .env file that is git-ignored.
+        """
         if db_type == "postgres":
             service = {
-                "image": "postgres:15-alpine",
+                "image": "postgres:16-alpine",
                 "environment": {
-                    "POSTGRES_USER": "postgres",
-                    "POSTGRES_PASSWORD": "postgres",
-                    "POSTGRES_DB": "app",
+                    "POSTGRES_USER": "${POSTGRES_USER:?set POSTGRES_USER in .env}",
+                    "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}",
+                    "POSTGRES_DB": "${POSTGRES_DB:-app}",
                 },
                 "volumes": ["postgres_data:/var/lib/postgresql/data"],
             }
@@ -618,8 +641,8 @@ class DockerComposeBuilder:
             service = {
                 "image": "mysql:8",
                 "environment": {
-                    "MYSQL_ROOT_PASSWORD": "root",
-                    "MYSQL_DATABASE": "app",
+                    "MYSQL_ROOT_PASSWORD": "${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}",
+                    "MYSQL_DATABASE": "${MYSQL_DATABASE:-app}",
                 },
                 "volumes": ["mysql_data:/var/lib/mysql"],
             }
