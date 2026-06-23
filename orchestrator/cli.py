@@ -92,6 +92,19 @@ def cmd_cache_stats(args) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _codebase_subparsers(subparsers) -> None:
+    # Register the modify subcommand for codebase-aware operations.
+    mp = subparsers.add_parser(
+        "modify",
+        help="Modify an existing codebase using AI reasoning",
+    )
+    mp.add_argument("--repo", required=True, help="Path to codebase root")
+    mp.add_argument("--objective", required=True, help="What to do")
+    mp.add_argument("--budget", type=float, default=10.0, help="Max LLM budget USD")
+    mp.add_argument("--dry-run", action="store_true", help="Plan only")
+    mp.set_defaults(func=_handle_modify_command)
+
+
 def _handle_modify_command(args):
     """Delegates to commands.codebase.execute."""
     from .commands.codebase import execute
@@ -186,6 +199,46 @@ def main():
     from .application.cli_dispatch import run
 
     run()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# supervisor — Persistent learning REPL
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _supervisor_subparsers(subparsers) -> None:
+    """Register the 'supervisor' subcommand."""
+    p = subparsers.add_parser(
+        "supervisor",
+        help="Persistent supervisor REPL — run directives with learning memory",
+    )
+    p.add_argument(
+        "--budget",
+        "-b",
+        type=float,
+        default=8.0,
+        help="Max LLM budget in USD for the run (default: 8.0)",
+    )
+    p.add_argument(
+        "--db-path",
+        type=str,
+        default="",
+        help="Override the default supervisor.db path",
+    )
+    p.set_defaults(func=cmd_supervisor)
+
+
+def cmd_supervisor(args) -> int:
+    """Handle the 'supervisor' subcommand."""
+    from orchestrator.supervisor.cli_adapter import run_repl
+
+    asyncio.run(
+        run_repl(
+            budget=getattr(args, "budget", 8.0),
+            db_path=getattr(args, "db_path", "") or None,
+        )
+    )
+    return 0
 
 
 if __name__ == "__main__":
