@@ -214,9 +214,11 @@ class MetaOptimizationV2Wrapper:
             total_cost=sum(r.cost_usd for r in task_records),
             total_time=state.budget.elapsed_seconds if hasattr(state, "budget") else 0.0,
             # status may be an enum (use .value) or a plain str — normalize both.
-            success=(getattr(state.status, "value", state.status) == "success")
-            if getattr(state, "status", None) is not None
-            else True,
+            success=(
+                (getattr(state.status, "value", state.status) == "success")
+                if getattr(state, "status", None) is not None
+                else True
+            ),
             task_records=task_records,
             model_sequence=[r.model_used for r in task_records],
         )

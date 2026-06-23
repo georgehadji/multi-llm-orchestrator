@@ -765,9 +765,7 @@ class QueryOptimizer:
         query = f"SELECT {col_str} FROM {table}"  # noqa: S608 — identifiers validated above
 
         if where:
-            conditions = " AND ".join(
-                f"{self._validate_identifier(k)} = ?" for k in where
-            )
+            conditions = " AND ".join(f"{self._validate_identifier(k)} = ?" for k in where)
             query += f" WHERE {conditions}"
 
         if order_by:

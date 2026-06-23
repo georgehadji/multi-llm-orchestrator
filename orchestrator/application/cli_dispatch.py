@@ -94,94 +94,132 @@ def run() -> None:
         "--file", "-f", type=str, default="", help="Load project spec from a YAML file"
     )
     parser.add_argument(
-        "--output-dir", "-o", type=str, default="",
+        "--output-dir",
+        "-o",
+        type=str,
+        default="",
         help="Write structured output files to this directory",
     )
     parser.add_argument(
-        "--fix-tests", action="store_true", default=True,
+        "--fix-tests",
+        action="store_true",
+        default=True,
         help="Iteratively fix failing tests (default: True)",
     )
     parser.add_argument(
-        "--no-fix-tests", action="store_false", dest="fix_tests",
+        "--no-fix-tests",
+        action="store_false",
+        dest="fix_tests",
         help="Disable iterative test fixing",
     )
     parser.add_argument(
-        "--max-fix-iterations", type=int, default=3,
+        "--max-fix-iterations",
+        type=int,
+        default=3,
         help="Maximum iterations for test fixing (default: 3)",
     )
     parser.add_argument(
-        "--min-pass-rate", type=float, default=0.7,
+        "--min-pass-rate",
+        type=float,
+        default=0.7,
         help="Minimum pass rate to stop fixing (default: 0.7)",
     )
 
     # TDD-First Generation
     parser.add_argument(
-        "--tdd-first", action="store_true",
+        "--tdd-first",
+        action="store_true",
         help="Enable Test-First Generation (TDD) for code tasks",
     )
     parser.add_argument(
-        "--tdd-quality", type=str, default="standard",
+        "--tdd-quality",
+        type=str,
+        default="standard",
         choices=["standard", "high", "maximum"],
         help="TDD quality tier (default: standard)",
     )
     parser.add_argument(
-        "--tdd-max-iterations", type=int, default=3,
+        "--tdd-max-iterations",
+        type=int,
+        default=3,
         help="Maximum iterations for TDD (default: 3)",
     )
     parser.add_argument(
-        "--tdd-min-coverage", type=float, default=0.0,
+        "--tdd-min-coverage",
+        type=float,
+        default=0.0,
         help="Minimum test coverage threshold (default: 0.0)",
     )
 
     # Visualization
     parser.add_argument(
-        "--visualize", type=str, choices=["mermaid", "ascii"],
+        "--visualize",
+        type=str,
+        choices=["mermaid", "ascii"],
         help="Visualize task dependency graph",
     )
     parser.add_argument(
-        "--critical-path", action="store_true", help="Show critical path",
+        "--critical-path",
+        action="store_true",
+        help="Show critical path",
     )
     parser.add_argument(
-        "--dependency-report", action="store_true",
+        "--dependency-report",
+        action="store_true",
         help="Show dependency report after execution",
     )
 
     # Misc
     parser.add_argument("--dry-run", action="store_true", help="Dry run — plan only, no execution")
     parser.add_argument(
-        "--mode", type=str, default="build",
+        "--mode",
+        type=str,
+        default="build",
         choices=["build", "query"],
         help="Execution mode (default: build)",
     )
     parser.add_argument(
-        "--tracing", action="store_true", help="Enable OpenTelemetry tracing",
+        "--tracing",
+        action="store_true",
+        help="Enable OpenTelemetry tracing",
     )
     parser.add_argument(
-        "--otlp-endpoint", type=str, default=None,
+        "--otlp-endpoint",
+        type=str,
+        default=None,
         help="OTLP endpoint for tracing",
     )
     parser.add_argument(
-        "--agent-profile", type=str, default=None,
+        "--agent-profile",
+        type=str,
+        default=None,
         help="Agent profile name (standard, max, creative, conservative, research)",
     )
     parser.add_argument(
-        "--new-project", action="store_true",
+        "--new-project",
+        action="store_true",
         help="Skip resume detection and start fresh",
     )
     parser.add_argument(
-        "--no-enhance", action="store_true",
+        "--no-enhance",
+        action="store_true",
         help="Skip project description enhancement",
     )
     parser.add_argument(
-        "--raw-tasks", action="store_true",
+        "--raw-tasks",
+        action="store_true",
         help="Use raw task mode (skip AppBuilder)",
     )
     parser.add_argument(
-        "--quiet", "-q", action="store_true", help="Suppress progress output",
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress progress output",
     )
     # Aggregate metrics — kept as no-op for backwards compat
     parser.add_argument(
-        "--aggregate-metrics", action="store_true",
+        "--aggregate-metrics",
+        action="store_true",
         help="Aggregate metrics across runs (NYI)",
     )
     # Nash subcommand (already registered via dynamic discovery)

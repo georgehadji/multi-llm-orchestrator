@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def execute(args) -> None:
     """
     Handle the 'analyze' subcommand: read a codebase and produce an analysis report.

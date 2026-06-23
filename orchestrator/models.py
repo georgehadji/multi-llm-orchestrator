@@ -901,9 +901,6 @@ def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
 
 
-
-
-
 # ─────────────────────────────────────────────
 
 # Verbalized Sampling types (CodeWhale Phase 0)

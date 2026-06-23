@@ -963,7 +963,9 @@ class Orchestrator:
 
         await task  # propagate any unhandled exceptions
 
-    async def dry_run(self, project_description: str, success_criteria: str) -> ExecutionPlan:  # noqa: F821
+    async def dry_run(
+        self, project_description: str, success_criteria: str
+    ) -> ExecutionPlan:  # noqa: F821
         """
         Dry-run: decompose the project, build an execution plan, and return it
         WITHOUT executing any tasks. (Improvement 12)

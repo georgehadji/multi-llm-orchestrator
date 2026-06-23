@@ -119,17 +119,34 @@ def extract_referenced_ids(files: list[Path]) -> dict[str, set[str]]:
 def load_known_deprecated() -> dict[str, str]:
     """Return ModelRegistry.UNAVAILABLE_MODELS (deprecated id -> replacement).
 
-    These are intentionally-documented dead ids kept as a runtime redirect map;
-    they are not registry drift. Degrades to an empty mapping if the orchestrator
-    package cannot be imported (keeps the script standalone-runnable).
+    Parses the source file via AST instead of importing the module, so it works
+    even when orchestrator's full import chain fails (e.g. missing optional deps
+    in a minimal CI environment).
     """
-    sys.path.insert(0, str(REPO_ROOT))
-    try:
-        from orchestrator.domain.model_registry import ModelRegistry
+    import ast
 
-        return dict(ModelRegistry.UNAVAILABLE_MODELS)
-    except Exception:  # pragma: no cover - import environment dependent
-        return {}
+    src_path = REPO_ROOT / "orchestrator" / "domain" / "model_registry.py"
+    try:
+        tree = ast.parse(src_path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.ClassDef) and node.name == "ModelRegistry"):
+                continue
+            for item in node.body:
+                if not isinstance(item, ast.Assign):
+                    continue
+                if not any(
+                    isinstance(t, ast.Name) and t.id == "UNAVAILABLE_MODELS" for t in item.targets
+                ):
+                    continue
+                if isinstance(item.value, ast.Dict):
+                    result: dict[str, str] = {}
+                    for k, v in zip(item.value.keys, item.value.values):
+                        if isinstance(k, ast.Constant) and isinstance(v, ast.Constant):
+                            result[str(k.value)] = str(v.value)
+                    return result
+    except Exception:  # pragma: no cover
+        pass
+    return {}
 
 
 def find_dead_ids(

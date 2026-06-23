@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def execute(args) -> None:
     """Handle the 'slash' subcommand."""
     import asyncio

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def execute(args) -> int:
     """Handle the 'chat' subcommand — launch the interactive session."""
     import asyncio
