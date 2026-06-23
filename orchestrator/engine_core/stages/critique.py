@@ -17,6 +17,7 @@ from ...crosscutting.config import flags
 from ...models import ProbabilityFormat, TaskType, VSConfig
 
 from ...domain.ports import VSSamplerPort
+from ...operations.resilience import STAGE_RETRY_CRITIQUE
 
 if TYPE_CHECKING:
     from ...domain.ports import LSPValidatorPort
@@ -93,7 +94,7 @@ class CritiqueStage:
                     max_tokens=2048,
                     temperature=0.3,
                     timeout=60,
-                    retries=1,
+                    retries=STAGE_RETRY_CRITIQUE,
                 )
                 ctx.critique = response.text[:2000]
         except Exception as e:
