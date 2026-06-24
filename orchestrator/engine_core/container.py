@@ -595,7 +595,7 @@ class ServiceContainer:
 
             skill_store = _SkillStore()
             skill_manager = _SkillManager(
-                optimizer_client=client,
+                optimizer_client=client,  # type: ignore[arg-type]
                 skill_store=skill_store,
             )
 
