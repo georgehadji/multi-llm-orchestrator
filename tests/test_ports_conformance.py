@@ -45,20 +45,19 @@ def test_all_null_adapters_in_registry():
     """All known runtime-checkable protocols have a Null adapter entry."""
     for proto_name in _get_protocols():
         assert proto_name in NULL_ADAPTERS, (
-            f"Protocol {proto_name} has no Null adapter in NULL_ADAPTERS registry. "
-            f"Add it."
+            f"Protocol {proto_name} has no Null adapter in NULL_ADAPTERS registry. " f"Add it."
         )
 
 
 def test_all_registry_entries_exist():
     """Every entry in NULL_ADAPTERS maps to an existing class."""
     for proto_name, null_name in NULL_ADAPTERS.items():
-        assert hasattr(domain_ports, proto_name), (
-            f"Protocol {proto_name} not found in orchestrator.domain.ports"
-        )
-        assert hasattr(domain_ports, null_name), (
-            f"Null adapter {null_name} not found in orchestrator.domain.ports"
-        )
+        assert hasattr(
+            domain_ports, proto_name
+        ), f"Protocol {proto_name} not found in orchestrator.domain.ports"
+        assert hasattr(
+            domain_ports, null_name
+        ), f"Null adapter {null_name} not found in orchestrator.domain.ports"
 
 
 def test_all_null_adapters_have_protocols():
@@ -98,11 +97,9 @@ def test_null_adapter_satisfies_protocol(proto_name, null_name):
 
     # 2. All public protocol methods exist on the Null adapter
     proto_methods = {
-        m
-        for m in dir(Protocol)
-        if not m.startswith("_") and callable(getattr(Protocol, m, None))
+        m for m in dir(Protocol) if not m.startswith("_") and callable(getattr(Protocol, m, None))
     }
     for method_name in proto_methods:
-        assert hasattr(instance, method_name), (
-            f"{null_name} is missing method '{method_name}' required by {proto_name}"
-        )
+        assert hasattr(
+            instance, method_name
+        ), f"{null_name} is missing method '{method_name}' required by {proto_name}"

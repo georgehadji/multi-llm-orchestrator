@@ -48,7 +48,11 @@ def test_anti_slop_flags_uniform_three_column_grid():
     css = ".features { display: grid; grid-template-columns: repeat(3, 1fr); }"
     result = validate_anti_slop(css)
     assert not result.passed
-    assert "3" in result.details or "column" in result.details.lower() or "grid" in result.details.lower()
+    assert (
+        "3" in result.details
+        or "column" in result.details.lower()
+        or "grid" in result.details.lower()
+    )
 
 
 @pytest.mark.unit
@@ -76,7 +80,9 @@ def test_anti_slop_flags_em_dash():
     html = "<p>Our product — built for professionals.</p>"
     result = validate_anti_slop(html)
     assert not result.passed
-    assert "em" in result.details.lower() or "dash" in result.details.lower() or "—" in result.details
+    assert (
+        "em" in result.details.lower() or "dash" in result.details.lower() or "—" in result.details
+    )
 
 
 @pytest.mark.unit

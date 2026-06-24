@@ -320,6 +320,92 @@ class NullEventBus:
         pass
 
 
+class NullConfig:
+    """No-op config. Returns empty defaults for all methods."""
+
+    def get_costs(self) -> dict[str, dict[str, float]]:
+        return {}
+
+    def get_routing(self) -> dict[str, list[str]]:
+        return {}
+
+    def get_fallbacks(self) -> dict[str, str]:
+        return {}
+
+    def get_thresholds(self) -> dict[str, float]:
+        return {}
+
+    def get_limits(self) -> dict[str, int]:
+        return {}
+
+
+class NullLLMClient:
+    """No-op LLM client. call() returns an empty response."""
+
+    async def call(  # type: ignore[no-untyped-def]
+        self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs
+    ):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(text="", cost_usd=0.0, input_tokens=0, output_tokens=0)
+
+
+class NullPlanner:
+    """No-op planner. Returns None for all selections."""
+
+    def available_models(self, task_type) -> list:
+        return []
+
+    def select(self, task_type):
+        return None
+
+
+class NullTelemetry:
+    """No-op telemetry. record_call() is a silent no-op."""
+
+    def record_call(self, model, latency_ms=0.0, cost_usd=0.0, success=True) -> None:
+        pass
+
+
+class NullPolicyEngine:
+    """No-op policy engine. evaluate() returns None."""
+
+    def evaluate(self, job_spec, profile):
+        return None
+
+
+class NullValidator:
+    """No-op validator. validate() always returns True."""
+
+    async def validate(self, task, output: str) -> bool:
+        return True
+
+
+class NullTaskQueue:
+    """No-op task queue. enqueue() returns empty string, other methods return defaults."""
+
+    async def enqueue(self, project_spec, priority: int = 0) -> str:
+        return ""
+
+    async def claim_next(self, assignee: str):
+        return None
+
+    async def complete(self, task_id: str, result=None) -> bool:
+        return True
+
+    async def record_failure(self, task_id: str, error: str = "") -> bool:
+        return True
+
+    async def list_tasks(self, status=None, limit: int = 50) -> list:
+        return []
+
+    async def get_stats(self) -> dict:
+        return {"queued": 0, "running": 0, "completed": 0, "failed": 0}
+
+    async def update_status(self, task_id: str, status: str, result=None) -> bool:
+        return True
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # LSPValidatorPort  (CodeWhale Phase 1 — deterministic post-generation validation)
 # ─────────────────────────────────────────────────────────────────────────────

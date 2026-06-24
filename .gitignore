@@ -135,5 +135,7 @@ openclaude.txt
 
 scripts/
 docs/
-tests/
+tests/__pycache__/
+tests/.pytest_cache/
+tests/*.log
 .reasonix/

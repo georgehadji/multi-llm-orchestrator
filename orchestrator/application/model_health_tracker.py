@@ -56,6 +56,38 @@ class ModelHealthTracker:
         """Snapshot of current model health flags."""
         return dict(self._api_health)
 
+    async def load_state(self) -> None:
+        """Restore circuit breaker failure counts from persistent store.
+
+        Reads persisted counts via ``_state_mgr``, maps string model names
+        to ``Model`` enum values, and updates the tracker's internal dicts.
+        Models whose failure count exceeds the threshold are marked unhealthy.
+
+        This consolidates the logic previously spread between
+        ``engine._load_circuit_breaker_state`` and
+        ``update_from_persisted_state``.
+        """
+        try:
+            persisted = await self._state_mgr.load_circuit_breaker_state()
+        except Exception as exc:
+            logger.debug("Could not load circuit breaker state: %s", exc)
+            return
+        for model_name, count in persisted.items():
+            try:
+                model = next(m for m in Model if m.value == model_name)
+            except StopIteration:
+                continue
+            self._consecutive_failures[model] = count
+            if count >= self._threshold:
+                self._api_health[model] = False
+                logger.info(
+                    "Circuit breaker restored: %s open (%d failures from previous run)",
+                    model_name,
+                    count,
+                )
+        if persisted:
+            logger.debug("Loaded circuit breaker state for %d models", len(persisted))
+
     def update_from_persisted_state(
         self,
         consecutive_failures: dict[Model, int],
@@ -65,6 +97,10 @@ class ModelHealthTracker:
 
         Called by the engine after ``_load_circuit_breaker_state()`` so the
         tracker reflects crash-recovery values without needing a shared reference.
+
+        .. deprecated::
+            Use ``load_state()`` instead, which reads from the state manager
+            and updates the tracker in a single call.
         """
         self._consecutive_failures.update(consecutive_failures)
         self._api_health.update(api_health)

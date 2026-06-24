@@ -33,7 +33,9 @@ def test_task_design_variant_defaults_none():
 def test_task_design_variant_can_be_set():
     from orchestrator.models import DesignVariant, Task, TaskType
 
-    task = Task(id="t1", type=TaskType.CODE_GEN, prompt="build a UI", design_variant=DesignVariant.BRUTALIST)
+    task = Task(
+        id="t1", type=TaskType.CODE_GEN, prompt="build a UI", design_variant=DesignVariant.BRUTALIST
+    )
     assert task.design_variant == DesignVariant.BRUTALIST
 
 

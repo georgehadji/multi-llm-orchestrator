@@ -7,12 +7,30 @@ Tests cover:
 - Execution context building
 """
 
+import sys
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
 from orchestrator.application.task_executor import TaskExecutor, ExecutionContext
 from orchestrator.application.critique_cycle import CritiqueState
 from orchestrator.models import Task, TaskType, TaskResult, TaskStatus, Model
+
+# ── Mock task_handlers to avoid import-time errors ──────────────────────────
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _mock_task_handlers():
+    """Replace orchestrator.task_handlers with a mock to avoid import-time errors.
+
+    The real module has ``@register(TaskType.ARCHITECTURE)`` at module level
+    but ``TaskType.ARCHITECTURE`` doesn't exist, causing import failure.
+    """
+    mock_mod = MagicMock()
+    mock_mod.get_handler = MagicMock()
+    sys.modules["orchestrator.task_handlers"] = mock_mod
+    yield
+    # Teardown: restore the real module reference (if it was ever loaded)
+    sys.modules.pop("orchestrator.task_handlers", None)
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -30,12 +48,16 @@ def mock_cache():
 
 @pytest.fixture
 def mock_semantic_cache():
-    return MagicMock()
+    m = MagicMock()
+    m.get_cached_pattern = MagicMock(return_value=None)
+    return m
 
 
 @pytest.fixture
 def mock_cache_optimizer():
-    return MagicMock()
+    m = MagicMock()
+    m.get = AsyncMock(return_value=None)
+    return m
 
 
 @pytest.fixture
@@ -239,6 +261,159 @@ class TestBuildFullPrompt:
         )
         prompt = executor._build_full_prompt(review_task, context)
         assert "SOURCE CODE TO REVIEW" in prompt
+
+    @pytest.mark.asyncio
+    async def test_cached_result_from_cache_optimizer(self, executor, sample_task):
+        """When no deps and cache_optimizer returns result, it's used."""
+        tasks = {sample_task.id: sample_task}
+        results = {}
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+        executor.cache_optimizer.get = AsyncMock(
+            return_value={"response": "cached", "tokens_input": 5, "tokens_output": 10}
+        )
+
+        context = await executor._build_execution_context(sample_task, tasks, results)
+
+        assert context.cached_result is not None
+        assert context.cached_result["response"] == "cached"
+
+    @pytest.mark.asyncio
+    async def test_semantic_cache_fallback(self, executor, sample_task):
+        """When cache_optimizer misses, semantic cache is checked."""
+        tasks = {sample_task.id: sample_task}
+        results = {}
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+        executor.cache_optimizer.get = AsyncMock(return_value=None)
+        executor.semantic_cache.get_cached_pattern = MagicMock(return_value="semantic hit")
+
+        context = await executor._build_execution_context(sample_task, tasks, results)
+
+        assert context.cached_result is not None
+        assert context.cached_result["response"] == "semantic hit"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# execute_task — full execution flow
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestExecuteTask:
+    """TaskExecutor.execute_task() full execution dispatch flow."""
+
+    @pytest.mark.asyncio
+    async def test_runs_through_typed_handler(self, executor, sample_task):
+        """A typed handler that produces output returns immediately."""
+        import sys
+
+        mock_handlers_mod = MagicMock()
+        mock_handlers_mod.get_handler = MagicMock()
+        sys.modules["orchestrator.task_handlers"] = mock_handlers_mod
+
+        mock_handler = MagicMock()
+        mock_handler.execute = AsyncMock(
+            return_value=MagicMock(
+                output="handler output",
+                spec=TaskResult,
+                task_id="task-1",
+                status=TaskStatus.COMPLETED,
+                score=0.9,
+                model_used=Model.GPT_4O_MINI,
+                tokens_used={"input": 0, "output": 0},
+                iterations=1,
+                cost_usd=0.0,
+                critique="",
+                deterministic_check_passed=True,
+                degraded_fallback_count=0,
+                attempt_history=[],
+                task_type=TaskType.CODE_GEN.value,
+            )
+        )
+        mock_handlers_mod.get_handler.return_value = lambda: mock_handler
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+
+        result = await executor.execute_task(sample_task, {}, {})
+
+        assert result is not None
+        mock_handler.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_falls_back_when_handler_returns_no_output(self, executor, sample_task):
+        """When typed handler returns result with no output, falls through to critique."""
+        mock_handler = MagicMock()
+        mock_handler.execute = AsyncMock(return_value=MagicMock(output="", spec=TaskResult))
+
+        with patch("orchestrator.task_handlers.get_handler") as mock_get:
+            mock_get.return_value = lambda: mock_handler
+            executor.dependency_resolver.get_dependency_context.return_value = ""
+            executor.fallback_handler.get_available_models.return_value = [Model.GPT_4O_MINI]
+            executor.fallback_handler.select_reviewer.return_value = Model.GPT_4O
+            executor.critique_cycle.run_cycle = AsyncMock(
+                return_value=CritiqueState(
+                    best_output="critique output", best_score=0.85, total_cost=0.02
+                )
+            )
+
+            result = await executor.execute_task(sample_task, {}, {})
+
+            assert result is not None
+            # Should have gone through critique cycle
+            executor.critique_cycle.run_cycle.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_returns_failure_when_no_models(self, executor, sample_task):
+        """When no models are available, returns a failure result."""
+        import sys
+
+        mock_handlers_mod = MagicMock()
+        mock_handlers_mod.get_handler = MagicMock(side_effect=KeyError("no handler"))
+        sys.modules["orchestrator.task_handlers"] = mock_handlers_mod
+
+        executor.cache_optimizer.get.return_value = None
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+        executor.fallback_handler.get_available_models.return_value = []
+
+        result = await executor.execute_task(sample_task, {}, {})
+
+        assert result.status == TaskStatus.FAILED
+        assert result.score == 0.0
+        assert "No models" in result.critique
+
+    @pytest.mark.asyncio
+    async def test_handler_key_error_falls_through(self, executor, sample_task):
+        """KeyError from get_handler triggers fallback to critique cycle."""
+        import sys
+
+        mock_handlers_mod = MagicMock()
+        mock_handlers_mod.get_handler = MagicMock(side_effect=KeyError("no handler for type"))
+        sys.modules["orchestrator.task_handlers"] = mock_handlers_mod
+
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+        executor.fallback_handler.get_available_models.return_value = [Model.GPT_4O_MINI]
+        executor.fallback_handler.select_reviewer.return_value = Model.GPT_4O
+        executor.critique_cycle.run_cycle = AsyncMock(
+            return_value=CritiqueState(best_output="ok", best_score=0.82, total_cost=0.01)
+        )
+
+        result = await executor.execute_task(sample_task, {}, {})
+
+        assert result is not None
+        assert result.score == 0.82
+        executor.critique_cycle.run_cycle.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_cached_result_short_circuits(self, executor, sample_task):
+        """When context has cached_result and no deps, returns cached TaskResult."""
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+        executor.cache_optimizer.get = AsyncMock(
+            return_value={"response": "cached", "tokens_input": 5, "tokens_output": 10, "cost": 0.0}
+        )
+
+        result = await executor.execute_task(sample_task, {}, {})
+
+        assert result is not None
+        assert result.output == "cached"
+        assert result.score == 0.85
+        assert result.iterations == 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

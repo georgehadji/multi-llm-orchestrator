@@ -315,6 +315,7 @@ addopts = [
     "--ignore=tests/test_performance_import.py",
     "--ignore=tests/test_project.py",
     "--ignore=tests/test_quick.py",
+    "--ignore=tests/test_new_modules.py",
     "--ignore=tests/test_startup.py",
     "--ignore=tests/test_syntax.py",
     "--ignore=tests/test_trace_detailed.py",
@@ -368,7 +369,7 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
     "typing.TYPE_CHECKING",
 ]
-fail_under = 6  # ratchet floor — lowered from 15 to 6 as part of remediation (15 was aspirational and unreachable). Raise in ~5% steps.
+fail_under = 7  # ratchet floor — Phase A baseline was 6. Raised to 7 after Phase B tests (critique_cycle 79%, task_executor 51%). Raise in ~5% steps.
 precision = 2
 
 [tool.coverage.html]

@@ -118,6 +118,13 @@ class ServiceContainer:
     semantic_cache: Any = None
     cb_registry: Any = None
     observability: Any = None
+
+    # Extracted from engine.__init__ to centralize wiring
+    skill_manager: Any = None
+    skill_store: Any = None
+    taste_skill_service: Any = None
+    dashboard_bridge: Any = None
+    git_bridge: Any = None
     context_compressor: Any = None
     memory_provider_mgr: Any = None
     pattern_store: Any = None
@@ -575,6 +582,39 @@ class ServiceContainer:
         except ImportError:
             pass
 
+        # ── Services extracted from engine.__init__ (Phase C.3) ────────
+        from ..crosscutting.config import flags as _flags
+        from ..crosscutting.config import settings as _settings
+
+        # SkillOpt: self-improving per-TaskType skill documents
+        skill_manager = None
+        skill_store = None
+        if _flags.skill_optimization_enabled:
+            from ..application.skill_store import SkillStore as _SkillStore
+            from ..application.skill_manager import SkillManager as _SkillManager
+
+            skill_store = _SkillStore()
+            skill_manager = _SkillManager(
+                optimizer_client=client,
+                skill_store=skill_store,
+            )
+
+        # Taste-skill: anti-slop design prefix for frontend tasks
+        taste_skill_service = None
+        try:
+            from ..design.taste_skill_service import TasteSkillService as _TasteSkillService
+
+            taste_skill_service = _TasteSkillService(flags=_flags, settings=_settings)
+        except ImportError:
+            pass
+
+        # Thin bridge wrappers (dashboard/git integrations default to None)
+        from ..application.dashboard_bridge import DashboardBridge as _DashboardBridge
+        from ..application.git_bridge import GitBridge as _GitBridge
+
+        dashboard_bridge = _DashboardBridge(None)
+        git_bridge = _GitBridge(None)
+
         return cls(
             budget=budget,
             client=client,
@@ -618,6 +658,11 @@ class ServiceContainer:
             git_integration=None,
             observability=observability,
             cb_registry=cb_registry,
+            skill_manager=skill_manager,
+            skill_store=skill_store,
+            taste_skill_service=taste_skill_service,
+            dashboard_bridge=dashboard_bridge,
+            git_bridge=git_bridge,
         )
 
 
