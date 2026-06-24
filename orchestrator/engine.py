@@ -546,12 +546,9 @@ class Orchestrator:
         # Dicts are shared by reference so engine.api_health and _consecutive_failures
         # stay in sync with what ModelHealthTracker writes.
         # P3-5: Thin bridges for optional dashboard / git integrations.
-        # Created before health_tracker so the bridge can be passed in.
-        from .application.dashboard_bridge import DashboardBridge as _DashboardBridge
-        from .application.git_bridge import GitBridge as _GitBridge
-
-        self._dashboard_bridge = _DashboardBridge(self._dashboard_integration)
-        self._git_bridge = _GitBridge(self._git_integration)
+        # Wired from ServiceContainer (Phase C.3).
+        self._dashboard_bridge = getattr(self._c, "dashboard_bridge", None)
+        self._git_bridge = getattr(self._c, "git_bridge", None)
         # M6: ModelHealthTracker now owns its dicts; pass existing state as
         # initial values so persisted circuit-breaker counts are preserved.
         from .application.model_health_tracker import ModelHealthTracker as _ModelHealthTracker
@@ -572,7 +569,7 @@ class Orchestrator:
             budget=self.budget,
             results=self.results,
             execute_task_fn=self._execute_task,
-            determine_final_status_fn=self._determine_final_status,
+            determine_final_status_fn=self._c.state_coordinator.determine_final_status,
         )
         # M3: ProjectRunner wired via callables + run_state (no host back-ref).
         from .application.project_runner import ProjectRunner as _ProjectRunner
@@ -583,11 +580,11 @@ class Orchestrator:
 
         self._run_state = _RunState(results=self.results)
         _callables = _Callables(
-            topological_sort=self._topological_sort,
-            topological_levels=self._topological_levels,
+            topological_sort=self._project_planner.get_execution_order,
+            topological_levels=self._project_planner.get_execution_levels,
             make_state=self._make_state,
-            determine_final_status=self._determine_final_status,
-            log_summary=self._log_summary,
+            determine_final_status=self._c.state_coordinator.determine_final_status,
+            log_summary=self._c.state_coordinator.log_summary,
             execute_all=self._execute_all,
             generate_architecture_rules=self._generate_architecture_rules,
             analyze_completed_project=self._analyze_completed_project,
@@ -608,32 +605,16 @@ class Orchestrator:
             api_health=self.api_health,
         )
         # SkillOpt: self-improving per-TaskType skill documents (P3-4 addendum)
-        from .crosscutting.config import flags as _flags
-
-        if _flags.skill_optimization_enabled:
-            from .application.skill_store import SkillStore as _SkillStore
-            from .application.skill_manager import SkillManager as _SkillManager
-
-            _skill_store = _SkillStore()
-            self._skill_manager: Any = _SkillManager(
-                optimizer_client=self._c.client,
-                skill_store=_skill_store,
-            )
-            logger.info("SkillOpt enabled — skill_manager initialized")
-        else:
-            self._skill_manager = None
+        # Wired from ServiceContainer (Phase C.3).
+        self._skill_manager = getattr(self._c, "skill_manager", None)
+        self._skill_store = getattr(self._c, "skill_store", None)
 
         if tracing_cfg is not None and configure_tracing is not None:
             configure_tracing(tracing_cfg)
 
         # taste-skill: anti-slop design prefix for frontend tasks
-        from .crosscutting.config import settings as _settings
-        from .design.taste_skill_service import TasteSkillService as _TasteSkillService
-
-        self._taste_skill_service = _TasteSkillService(
-            flags=_flags,
-            settings=_settings,
-        )
+        # Wired from ServiceContainer (Phase C.3).
+        self._taste_skill_service = getattr(self._c, "taste_skill_service", None)
 
         logger.info("Orchestrator initialized via ServiceContainer")
 
@@ -849,33 +830,18 @@ class Orchestrator:
         self._get_snapshotter().start_periodic_cleanup(interval_seconds)
 
     async def _load_circuit_breaker_state(self) -> None:
-        """Restore circuit breaker failure counts from the previous run (P1-4)."""
-        try:
-            persisted = await self.state_mgr.load_circuit_breaker_state()
-        except Exception as exc:
-            logger.debug("Could not load circuit breaker state: %s", exc)
-            return
-        for model_name, count in persisted.items():
-            # Map string name back to Model enum; skip unknown names gracefully
-            try:
-                model = next(m for m in Model if m.value == model_name)
-            except StopIteration:
-                continue
-            self._consecutive_failures[model] = count
-            if count >= self._CIRCUIT_BREAKER_THRESHOLD:
-                self.api_health[model] = False
-                logger.info(
-                    "Circuit breaker restored: %s open (%d failures from previous run)",
-                    model_name,
-                    count,
-                )
-        if persisted:
-            logger.debug("Loaded circuit breaker state for %d models", len(persisted))
-        # M6: propagate loaded state into the tracker's own dicts
+        """Restore circuit breaker failure counts from the previous run (P1-4).
+
+        Delegates to ``ModelHealthTracker.load_state()`` and then syncs the
+        engine-level ``api_health`` / ``_consecutive_failures`` dicts so
+        callers reading ``self.api_health`` (ProjectState construction,
+        decomposition, etc.) see the restored state.
+        """
         if hasattr(self, "_health_tracker") and self._health_tracker is not None:
-            self._health_tracker.update_from_persisted_state(
-                self._consecutive_failures, self.api_health
-            )
+            await self._health_tracker.load_state()
+            # Sync engine-level dicts from tracker (they are separate copies)
+            self._consecutive_failures.update(self._health_tracker.consecutive_failures)
+            self.api_health.update(self._health_tracker.api_health)
 
     # ─────────────────────────────────────────
     # Public API
@@ -1403,7 +1369,7 @@ class Orchestrator:
         policy: ResiliencePolicy | None = None,
     ) -> dict[str, Task]:
         """Break project into atomic tasks via Instructor (fast path) or Decomposer."""
-        model = self._select_decomposition_model(project)
+        model = self._selector.decomposition_model(project)
 
         # ── Fast path: Instructor structured decomposition ──────────────────
         _INSTRUCTOR_MAX_CHARS = 8_000
@@ -1447,12 +1413,6 @@ class Orchestrator:
         )
 
     # ─────────────────────────────────────────
-
-    def _check_phase_budget(self, phase: str) -> None:
-        """Check phase budget caps via BudgetEnforcer."""
-        from .application.budget_enforcer import BudgetEnforcer
-
-        BudgetEnforcer.check_phase_cap(self.budget, phase, logger, self._hook_registry)
 
     async def _execute_all(
         self,
@@ -1559,116 +1519,13 @@ class Orchestrator:
             )
         return self._ctx_enricher
 
-    async def _evaluate(self, task: Task, output: str) -> float:
-        """Evaluate task quality via EvaluatorService (wired through container)."""
-        return await self._evaluator.evaluate(
-            task_id=task.id,
-            result=output,
-            model=task.model if hasattr(task, "model") else None,
-        )
-
-    async def _record_success(self, model: Model, response: APIResponse) -> None:
-        """Record a successful API call — delegates to ModelHealthTracker (P3-2)."""
-        await self._health_tracker.record_success(model, response)
-        # Feed rate-limit tracker so _apply_filters can enforce sliding-window caps.
-        # Kept here because it requires self._planner which is engine-specific.
-        try:
-            self._planner.rate_limit_tracker.record(
-                provider=get_provider(model),
-                cost_usd=response.cost_usd,
-                tokens=response.input_tokens + response.output_tokens,
-            )
-        except Exception as _e:
-            logger.debug("Rate-limiter record skipped: %s", _e)
-
     async def _record_failure(self, model: Model, error: Exception | None = None) -> None:
         """Record a failed API call — delegates to ModelHealthTracker (P3-2)."""
         await self._health_tracker.record_failure(model, error)
 
-    def _get_active_policies(self, task_id: str = "") -> list[Policy]:
-        """Return merged global + node-level policies for the given task."""
-        return self._active_policies.policies_for(task_id)
-
-    def _should_exit_early(
-        self,
-        scores_history: list[float],
-        threshold: float,
-        confidence_window: int = 2,
-        variance_tolerance: float = 0.001,
-    ) -> bool:
-        """Determine if execution should exit early — delegates to BudgetEnforcer."""
-        from .application.budget_enforcer import BudgetEnforcer
-
-        return BudgetEnforcer.should_exit_early(
-            scores_history, threshold, confidence_window, variance_tolerance
-        )
-
     # ─────────────────────────────────────────
     # Model selection & fallback
     # ─────────────────────────────────────────
-
-    # OPTIMIZATION: Tiered model selection for cost efficiency v3.0
-    # PRIORITY: Best value models first (Xiaomi, StepFun, GLM, Grok)
-    # PHASE-2: Tier constants and escalation count moved to model_selector.TieredModelRouter
-
-    def _get_available_models(self, task_type: TaskType) -> list[Model]:
-        """PHASE-2: Delegates to TieredModelRouter.available_models."""
-        return self._tiered_router.available_models(task_type)
-
-    def _escalate_tier(self, task_type: TaskType) -> None:
-        """PHASE-2: Delegates to TieredModelRouter.escalate_tier."""
-        self._tiered_router.escalate_tier(task_type)
-
-    def _select_decomposition_model(self, project_description: str) -> Model:
-        """Delegates to ModelSelector — see model_selector.py for full logic."""
-        return self._selector.decomposition_model(project_description)
-
-    def _get_fast_decomposition_model(self) -> Model:
-        """PHASE-2: Delegates to TieredModelRouter.fast_decomposition_model."""
-        return self._tiered_router.fast_decomposition_model()
-
-    def _get_cheapest_available(self) -> Model:
-        """PHASE-2: Delegates to TieredModelRouter.cheapest_available."""
-        return self._tiered_router.cheapest_available()
-
-    def _select_reviewer(self, generator: Model, task_type: TaskType) -> Model | None:
-        """Delegates to ModelSelector — see model_selector.py for full logic."""
-        return self._selector.reviewer(generator, task_type)
-
-    def _get_fallback(self, failed_model: Model) -> Model | None:
-        """Delegates to ModelSelector — see model_selector.py for full logic."""
-        return self._selector.fallback(failed_model)
-
-    def _get_next_tier_model(self, current_model: Model, task_type: TaskType) -> Model | None:
-        """Delegates to ModelSelector — see model_selector.py for full logic."""
-        return self._selector.next_tier(current_model, task_type)
-
-    # ─────────────────────────────────────────
-    # DAG & dependency management
-    # ─────────────────────────────────────────
-
-    def _topological_sort(self, tasks: dict[str, Task]) -> list[str]:
-        """
-        Deterministic topological sort.
-        Delegates to ProjectPlanner (engine_core).
-        """
-        return self._project_planner.get_execution_order(tasks)
-
-    def _topological_levels(self, tasks: dict[str, Task]) -> list[list[str]]:
-        """
-        Group tasks into execution levels.
-        Delegates to ProjectPlanner (engine_core).
-        """
-        return self._project_planner.get_execution_levels(tasks)
-
-    def _filter_validators_for_task(self, task: Task, output: str) -> list[str]:
-        """PHASE-4: Delegates to orchestrator.validators.filter_validators_for_task."""
-        from .validators import filter_validators_for_task
-
-        return filter_validators_for_task(task, output)
-
-    # (P3-1: _gather_dependency_context was confirmed dead code — never called —
-    # and removed in this refactoring. Context injection is handled elsewhere.)
 
     # ─────────────────────────────────────────
     # Protocol Implementations
@@ -1686,19 +1543,11 @@ class Orchestrator:
         await self.budget.charge(amount, phase)
 
     def get_available_models(self, task_type: TaskType) -> list[Model]:
-        return self._get_available_models(task_type)
+        return self._tiered_router.available_models(task_type)
 
     # ─────────────────────────────────────────
-    # Status & resume
+    # State construction
     # ─────────────────────────────────────────
-
-    def _determine_final_status(self, state: ProjectState) -> ProjectStatus:
-        """Delegates to StateCoordinator."""
-        return self._c.state_coordinator.determine_final_status(state)
-
-    async def _resume_project(self, state: ProjectState) -> ProjectState:
-        """Resume from last checkpoint — delegates to ResumptionService (P3-3)."""
-        return await self._resumption_svc.resume(state)
 
     def _make_state(
         self,
@@ -1720,10 +1569,6 @@ class Orchestrator:
             status=status,
             execution_order=execution_order,
         )
-
-    def _log_summary(self, state: ProjectState):
-        """Delegates to StateCoordinator."""
-        self._c.state_coordinator.log_summary(state)
 
     async def _analyze_completed_project(self, state: ProjectState, output_dir: Path):
         """
