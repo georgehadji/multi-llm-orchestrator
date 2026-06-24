@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, AsyncMock, patch
 from orchestrator.application.evaluator import EvaluatorService
 from orchestrator.models import Task, TaskType, Model
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # parse_score — pure function, no mocks needed
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -212,7 +211,9 @@ class TestEvaluate:
 
     @pytest.fixture
     def sample_task(self):
-        return Task(id="eval-1", type=TaskType.CODE_GEN, prompt="Write a function", max_output_tokens=4096)
+        return Task(
+            id="eval-1", type=TaskType.CODE_GEN, prompt="Write a function", max_output_tokens=4096
+        )
 
     @pytest.fixture
     def get_models_fn(self):
@@ -263,14 +264,22 @@ class TestEvaluate:
         assert report.score == 0.5
 
     @pytest.mark.asyncio
-    async def test_evaluate_parses_issues_from_response(self, mock_client, mock_budget, get_models_fn, sample_task):
+    async def test_evaluate_parses_issues_from_response(
+        self, mock_client, mock_budget, get_models_fn, sample_task
+    ):
         """CritiqueReport includes parsed issues from JSON response."""
-        mock_client.call.return_value.text = json.dumps({
-            "score": 0.75,
-            "issues": [
-                {"severity": "major", "category": "security", "description": "SQL injection risk"}
-            ],
-        })
+        mock_client.call.return_value.text = json.dumps(
+            {
+                "score": 0.75,
+                "issues": [
+                    {
+                        "severity": "major",
+                        "category": "security",
+                        "description": "SQL injection risk",
+                    }
+                ],
+            }
+        )
         evaluator = EvaluatorService(
             client=mock_client, budget=mock_budget, get_models_fn=get_models_fn
         )

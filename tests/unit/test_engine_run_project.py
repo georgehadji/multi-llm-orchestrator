@@ -147,9 +147,7 @@ class TestRunProjectCharacterization:
         orchestrator_mocked._project_runner.run_project.return_value = expected
 
         # Positional args
-        result1 = await orchestrator_mocked.run_project(
-            "Sig test", "API unchanged", "test-id"
-        )
+        result1 = await orchestrator_mocked.run_project("Sig test", "API unchanged", "test-id")
         assert result1 is not None
 
         # Keyword args

@@ -70,9 +70,7 @@ def test_http_url_in_message_images_returns_url(client):
         {
             "role": "assistant",
             "content": None,
-            "images": [
-                {"type": "image_url", "image_url": {"url": "https://cdn.example/x.svg"}}
-            ],
+            "images": [{"type": "image_url", "image_url": {"url": "https://cdn.example/x.svg"}}],
         }
     )
 

@@ -5,6 +5,7 @@ Rule #2: Domain models must not execute I/O at import time.
 This test verifies that COST_TABLE, ROUTING_TABLE, FALLBACK_CHAIN, etc.
 are loaded lazily via __getattr__, not at module import time.
 """
+
 import sys
 import pytest
 

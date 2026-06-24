@@ -4,7 +4,6 @@ import pytest
 
 from orchestrator.design.slop_test import SlopTestEngine
 
-
 # A truly clean output that satisfies all structural gates
 _CLEAN_OUTPUT = """
 /* Hallmark · macrostructure: bento_grid · theme: lumen · nav: N1 · footer: Ft1 */
@@ -52,7 +51,9 @@ class TestSlopTestEngine:
         output = _CLEAN_OUTPUT + "\nhero text-align: center text-align: center text-align: center"
         result = engine.run(output)
         assert not result.passed
-        assert any("centred" in f.gate.name.lower() for f in result.findings), f"Findings: {result.summary}"
+        assert any(
+            "centred" in f.gate.name.lower() for f in result.findings
+        ), f"Findings: {result.summary}"
 
     def test_detects_inline_color(self):
         engine = SlopTestEngine()

@@ -70,5 +70,7 @@ def test_build_score_with_real_bundled_skill():
 
     loader = TasteSkillLoader()  # uses real bundled skills
     rubric = RedesignRubric(loader=loader)
-    result = rubric.build_score("redesign the hero section", "<section>...</section>", "code_generation")
+    result = rubric.build_score(
+        "redesign the hero section", "<section>...</section>", "code_generation"
+    )
     assert len(result) > 200  # real skill content is substantial
