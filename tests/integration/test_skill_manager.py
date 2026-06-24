@@ -105,8 +105,8 @@ async def test_epoch_fires_when_buffer_full(store: SkillStore):
     for i in range(5):
         await mgr.record_trajectory(_traj(score=0.8, n=i))
 
-    # Wait for the fire-and-forget epoch task to complete
-    await mgr.close()
+    # Wait for the fire-and-forget epoch task to complete (store stays open)
+    await mgr.wait_for_epochs()
 
     # The epoch should have persisted a new best skill
     result = await store.load_best_skill(TaskType.CODE_GEN)
@@ -127,7 +127,7 @@ async def test_disabled_manager_saves_nothing(store: SkillStore):
     )
     for i in range(5):
         await mgr.record_trajectory(_traj(n=i))
-    await mgr.close()
+    await mgr.wait_for_epochs()
     rows = await store.load_trajectories(TaskType.CODE_GEN)
     assert len(rows) == 0
 
