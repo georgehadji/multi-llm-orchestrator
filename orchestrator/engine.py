@@ -26,7 +26,6 @@ import hashlib
 import json
 import logging
 import re
-import sqlite3
 import time
 import os
 from collections import defaultdict
@@ -217,7 +216,6 @@ if flags.cost_optimization_enabled:
             inject_dependency_context,
             speculative_generate,
             stream_and_validate,
-            warm_prompt_cache,
         )
     except (ImportError, TimeoutError):
         OptimizationConfig = None
@@ -235,7 +233,6 @@ if flags.cost_optimization_enabled:
         inject_dependency_context = None
         speculative_generate = None
         stream_and_validate = None
-        warm_prompt_cache = None
 else:
     OptimizationConfig = None
     get_optimization_config = None
@@ -252,7 +249,6 @@ else:
     inject_dependency_context = None
     speculative_generate = None
     stream_and_validate = None
-    warm_prompt_cache = None
 
 try:
     from .hooks import EventType, HookRegistry
@@ -745,11 +741,11 @@ class Orchestrator:
         except Exception as e:
             logger.warning("Failed to flush telemetry store: %s", e)
 
-        # 2b. Flush audit log (getattr: minimal Orchestrator may lack _audit_log).
+        # 2b. Flush audit log (via container, not a direct _audit_log attr).
         try:
-            audit = getattr(self, "_audit_log", None)
-            if hasattr(audit, "flush"):
-                await audit.flush()
+            audit_log = getattr(self._c, "audit_log", None)
+            if audit_log is not None and hasattr(audit_log, "flush"):
+                await audit_log.flush()
         except Exception as e:
             logger.warning("Failed to flush audit log: %s", e)
 
@@ -867,12 +863,12 @@ class Orchestrator:
     @property
     def audit_log(self) -> AuditLog:
         """Read-only access to the policy audit log."""
-        return self._audit_log
+        return self._c.audit_log
 
     @property
     def cost_predictor(self) -> CostPredictor | None:
         """Read-only access to the CostPredictor, if one was configured."""
-        return self._cost_predictor
+        return self._c.cost_predictor
 
     def add_hook(self, event: str, callback) -> None:
         """Register an event hook callback. See orchestrator.hooks.EventType for event names."""
