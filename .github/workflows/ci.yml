@@ -28,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history so the root-freeze diff can resolve origin/master
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -40,6 +42,8 @@ jobs:
         # application-services-no-engine, engine-core-no-loose-infra,
         # root-modules-no-infra.
         # This job MUST pass — architecture violations block merge.
+      - name: Fetch baseline branch
+        run: git fetch --no-tags origin master:refs/remotes/origin/master
       - name: Check root module freeze
         run: python scripts/check_new_root_files.py --baseline origin/master
         # Ensures no new root-level orchestrator/*.py files appear outside the

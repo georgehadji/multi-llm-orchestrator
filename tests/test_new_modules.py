@@ -535,7 +535,7 @@ class TestContextSystem:
     """Tests for context_system.py."""
 
     def test_knowledge_file_add_and_get(self):
-        from orchestrator.context_system import WorkspaceKnowledge
+        from orchestrator.context_mgmt.system import WorkspaceKnowledge
 
         wk = WorkspaceKnowledge(str(Path(tempfile.mkdtemp())))
         kf = wk.add("conventions", "# Coding Style\nUse type hints.", "architecture")
@@ -545,7 +545,7 @@ class TestContextSystem:
         assert "type hints" in retrieved.content
 
     def test_knowledge_build_context(self):
-        from orchestrator.context_system import WorkspaceKnowledge
+        from orchestrator.context_mgmt.system import WorkspaceKnowledge
 
         wk = WorkspaceKnowledge(str(Path(tempfile.mkdtemp())))
         wk.add("security", "# Security\nNo hardcoded keys.")
@@ -558,7 +558,7 @@ class TestContextSystem:
             f.write(content)
             fpath = f.name
         try:
-            from orchestrator.context_system import Skill
+            from orchestrator.context_mgmt.system import Skill
 
             skill = Skill.from_file(Path(fpath))
             assert skill is not None
@@ -883,7 +883,7 @@ class TestSkillRegistry:
     """Tests for context_system.py SkillRegistry."""
 
     def test_skill_match_triggers(self):
-        from orchestrator.context_system import SkillRegistry
+        from orchestrator.context_mgmt.system import SkillRegistry
         import tempfile
 
         with tempfile.TemporaryDirectory() as d:
