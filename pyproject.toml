@@ -210,7 +210,7 @@ known-first-party = ["orchestrator"]
 # MyPy - Static Type Checking
 # ═══════════════════════════════════════════════════════════════════════════════
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
@@ -315,7 +315,6 @@ addopts = [
     "--ignore=tests/test_performance_import.py",
     "--ignore=tests/test_project.py",
     "--ignore=tests/test_quick.py",
-    "--ignore=tests/test_new_modules.py",
     "--ignore=tests/test_startup.py",
     "--ignore=tests/test_syntax.py",
     "--ignore=tests/test_trace_detailed.py",

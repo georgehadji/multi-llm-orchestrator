@@ -86,7 +86,7 @@ class TestBrainstormingDecomposer:
     """Tests for brainstorming.py."""
 
     def test_clarifying_questions_complete(self):
-        from orchestrator.brainstorming import ClarifyingQuestions
+        from orchestrator.reasoning.brainstorming import ClarifyingQuestions
 
         cq = ClarifyingQuestions(questions=["Q1?", "Q2?"])
         assert not cq.is_complete
@@ -94,7 +94,7 @@ class TestBrainstormingDecomposer:
         assert cq.is_complete
 
     def test_clarifying_questions_context(self):
-        from orchestrator.brainstorming import ClarifyingQuestions
+        from orchestrator.reasoning.brainstorming import ClarifyingQuestions
 
         cq = ClarifyingQuestions(questions=["What framework?"], answers=["FastAPI"])
         ctx = cq.build_context()
@@ -102,14 +102,17 @@ class TestBrainstormingDecomposer:
         assert "FastAPI" in ctx
 
     def test_brainstorming_without_client_returns_empty(self):
-        from orchestrator.brainstorming import BrainstormingDecomposer
+        from orchestrator.reasoning.brainstorming import BrainstormingDecomposer
 
         decomposer = BrainstormingDecomposer(client=None)
         result = asyncio.run(decomposer.ask("Build an API"))
         assert result == []
 
     def test_inject_into_description(self):
-        from orchestrator.brainstorming import BrainstormingDecomposer, ClarifyingQuestions
+        from orchestrator.reasoning.brainstorming import (
+            BrainstormingDecomposer,
+            ClarifyingQuestions,
+        )
 
         decomposer = BrainstormingDecomposer(client=None)
         # Manually set pending state
@@ -123,7 +126,7 @@ class TestAutoErrorFixer:
     """Tests for auto_error_fix.py."""
 
     def test_extract_syntax_error(self):
-        from orchestrator.auto_error_fix import AutoErrorFixer
+        from orchestrator.quality.auto_error_fix import AutoErrorFixer
 
         fixer = AutoErrorFixer()
         error = fixer.extract_error_from_output(
@@ -132,20 +135,20 @@ class TestAutoErrorFixer:
         assert "SyntaxError" in error
 
     def test_extract_type_error(self):
-        from orchestrator.auto_error_fix import AutoErrorFixer
+        from orchestrator.quality.auto_error_fix import AutoErrorFixer
 
         fixer = AutoErrorFixer()
         error = fixer.extract_error_from_output("TypeError: 'NoneType' object is not callable\n")
         assert "TypeError" in error
 
     def test_validate_fix_valid_syntax(self):
-        from orchestrator.auto_error_fix import AutoErrorFixer
+        from orchestrator.quality.auto_error_fix import AutoErrorFixer
 
         result = asyncio.run(AutoErrorFixer._validate_fix("def foo(): pass"))
         assert result
 
     def test_validate_fix_bad_syntax(self):
-        from orchestrator.auto_error_fix import AutoErrorFixer
+        from orchestrator.quality.auto_error_fix import AutoErrorFixer
 
         result = asyncio.run(AutoErrorFixer._validate_fix("def foo(: pass"))
         assert not result
@@ -611,21 +614,21 @@ class TestSelfReviewer:
     """Tests for self_review.py."""
 
     def test_should_skip_cross_review_high_score(self):
-        from orchestrator.self_review import SelfReviewer, SelfReviewConfig
+        from orchestrator.quality.self_review import SelfReviewer, SelfReviewConfig
 
         reviewer = SelfReviewer()
         skip = reviewer.should_skip_cross_review(0.85, 0, SelfReviewConfig(pass_threshold=0.7))
         assert skip
 
     def test_should_not_skip_with_deterministic_issues(self):
-        from orchestrator.self_review import SelfReviewer, SelfReviewConfig
+        from orchestrator.quality.self_review import SelfReviewer, SelfReviewConfig
 
         reviewer = SelfReviewer()
         skip = reviewer.should_skip_cross_review(0.90, 3, SelfReviewConfig(pass_threshold=0.7))
         assert not skip
 
     def test_should_not_skip_when_disabled(self):
-        from orchestrator.self_review import SelfReviewer, SelfReviewConfig
+        from orchestrator.quality.self_review import SelfReviewer, SelfReviewConfig
 
         reviewer = SelfReviewer()
         skip = reviewer.should_skip_cross_review(0.99, 0, SelfReviewConfig(enabled=False))
