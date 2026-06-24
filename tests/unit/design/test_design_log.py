@@ -7,9 +7,14 @@ import pytest
 from orchestrator.design.design_log import DesignLog, DesignLogEntry
 
 
-def _entry(macro: str = "bento_grid", theme: str = "lumen", genre: str = "modern-minimal",
-           nav: str = "N1", footer: str = "Ft1",
-           timestamp: str | None = None) -> DesignLogEntry:
+def _entry(
+    macro: str = "bento_grid",
+    theme: str = "lumen",
+    genre: str = "modern-minimal",
+    nav: str = "N1",
+    footer: str = "Ft1",
+    timestamp: str | None = None,
+) -> DesignLogEntry:
     return DesignLogEntry(
         timestamp=timestamp or datetime.now(timezone.utc).isoformat(),
         macrostructure=macro,
@@ -43,7 +48,9 @@ class TestDesignLog:
 
     def test_append_and_save(self, tmp_path):
         log = DesignLog(tmp_path)
-        entry = _entry(macro="manifesto", theme="midnight", genre="editorial", nav="N1a", footer="Ft1")
+        entry = _entry(
+            macro="manifesto", theme="midnight", genre="editorial", nav="N1a", footer="Ft1"
+        )
         log.append(entry)
 
         log2 = DesignLog(tmp_path)

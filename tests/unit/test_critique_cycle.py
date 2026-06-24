@@ -16,7 +16,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from orchestrator.application.critique_cycle import CritiqueCycle, CritiqueState
 from orchestrator.models import Task, TaskType, Model
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -102,7 +101,7 @@ class TestCleanCodeOutput:
 
     def test_removes_markdown_fences(self, cycle):
         """Strips ```python and ``` fences."""
-        code = '```python\ndef hello():\n    pass\n```'
+        code = "```python\ndef hello():\n    pass\n```"
         cleaned = cycle._clean_code_output(code)
         assert cleaned == "def hello():\n    pass"
 
@@ -137,9 +136,7 @@ class TestGetModelParams:
     def test_reasoning_model_gets_longer_timeout(self, cycle):
         """Reasoning models get 240s timeout and double max_tokens."""
         model = Model.GPT_5
-        timeout, max_tokens = cycle._get_model_params(
-            model, TaskType.CODE_GEN, max_tokens=4096
-        )
+        timeout, max_tokens = cycle._get_model_params(model, TaskType.CODE_GEN, max_tokens=4096)
         assert timeout == 240
         assert max_tokens >= 4096
 
@@ -225,7 +222,9 @@ class TestExtractFunctionName:
         assert cycle._extract_function_name(code) == "main"
 
     def test_ignores_dunder_methods(self, cycle):
-        code = "class Meta:\n    def __init__(self):\n        pass\n    def run(self):\n        pass"
+        code = (
+            "class Meta:\n    def __init__(self):\n        pass\n    def run(self):\n        pass"
+        )
         assert cycle._extract_function_name(code) == "run"
 
     def test_fallback_regex_on_syntax_error(self, cycle):
@@ -246,9 +245,10 @@ class TestRunCycle:
     @pytest.mark.asyncio
     async def test_plateau_detection_stops_early(self, cycle, sample_code_task):
         """When improvement is below plateau threshold, cycle stops."""
-        with patch.object(cycle, "_generate") as mock_gen, patch.object(
-            cycle, "_critique"
-        ) as mock_critique:
+        with (
+            patch.object(cycle, "_generate") as mock_gen,
+            patch.object(cycle, "_critique") as mock_critique,
+        ):
             # Return same score three times (plateau)
             mock_gen.return_value = MagicMock(
                 text="print('hello')",
@@ -278,9 +278,10 @@ class TestRunCycle:
     @pytest.mark.asyncio
     async def test_excellence_threshold_early_exit(self, cycle, sample_code_task):
         """When score >= 0.95, cycle stops early."""
-        with patch.object(cycle, "_generate") as mock_gen, patch.object(
-            cycle, "_critique"
-        ) as mock_critique:
+        with (
+            patch.object(cycle, "_generate") as mock_gen,
+            patch.object(cycle, "_critique") as mock_critique,
+        ):
             mock_gen.return_value = MagicMock(
                 text="perfect code",
                 cost_usd=0.01,
@@ -321,11 +322,51 @@ class TestRunCycle:
             assert state.best_output == ""
 
     @pytest.mark.asyncio
+    async def test_lsp_validation_executes_for_code_gen(self, cycle, sample_code_task):
+        """LSP validator is called for CODE_GEN tasks when lsp_validator is set."""
+        from unittest.mock import AsyncMock
+        from orchestrator.domain.ports import NullLspValidator
+
+        # Create a cycle WITH an LSP validator
+        lsp_cycle = CritiqueCycle(
+            client=MagicMock(),
+            lsp_validator=NullLspValidator(),
+            max_iterations=5,
+        )
+
+        with (
+            patch.object(lsp_cycle, "_generate") as mock_gen,
+            patch.object(lsp_cycle, "_critique") as mock_critique,
+        ):
+            mock_gen.return_value = MagicMock(
+                text="def foo():\n    pass",
+                cost_usd=0.01,
+                input_tokens=10,
+                output_tokens=5,
+            )
+            mock_critique.return_value = MagicMock(
+                text='{"score": 0.88}',
+                cost_usd=0.005,
+                input_tokens=5,
+                output_tokens=3,
+            )
+
+            state = await lsp_cycle.run_cycle(
+                task=sample_code_task,
+                primary_model=Model.GPT_4O_MINI,
+                reviewer_model=Model.GPT_4O,
+                full_prompt="Write a function",
+            )
+
+            assert state.best_score > 0
+
+    @pytest.mark.asyncio
     async def test_no_reviewer_skips_critique(self, cycle, sample_code_task):
         """When reviewer_model is None, critique step is skipped."""
-        with patch.object(cycle, "_generate") as mock_gen, patch.object(
-            cycle, "_critique"
-        ) as mock_critique:
+        with (
+            patch.object(cycle, "_generate") as mock_gen,
+            patch.object(cycle, "_critique") as mock_critique,
+        ):
             mock_gen.return_value = MagicMock(
                 text="output",
                 cost_usd=0.01,

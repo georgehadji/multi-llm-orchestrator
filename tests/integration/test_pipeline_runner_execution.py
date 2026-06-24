@@ -16,7 +16,6 @@ from orchestrator.engine_core.pipeline_runner import PipelineRunner
 from orchestrator.engine_core.project_planner import ProjectPlanner
 from orchestrator.models import Task, TaskType, TaskStatus
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -244,6 +243,6 @@ class TestPipelineRunnerExecution:
         b_idx = executed.index("b")
         c_idx = executed.index("c")
         d_idx = executed.index("d")
-        assert max(a_idx, b_idx) < min(c_idx, d_idx), (
-            f"Level 0 (a,b) before level 1 (c,d): executed={executed}"
-        )
+        assert max(a_idx, b_idx) < min(
+            c_idx, d_idx
+        ), f"Level 0 (a,b) before level 1 (c,d): executed={executed}"
