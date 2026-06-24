@@ -123,9 +123,10 @@ def test_engine_core_stages_no_application_imports():
         ):
             violations.append(f"{f.name}: {match.group(0).strip()}")
 
-    assert len(violations) == 0, (
-        f"engine_core/stages imports from application ({len(violations)}):\n  "
-        + "\n  ".join(violations)
+    assert (
+        len(violations) == 0
+    ), f"engine_core/stages imports from application ({len(violations)}):\n  " + "\n  ".join(
+        violations
     )
 
 
@@ -148,17 +149,14 @@ def test_application_no_aiosqlite():
     for f in sorted(app_dir.rglob("*.py")):
         text = f.read_text(encoding="utf-8", errors="ignore")
         # Check for actual import statements, not comments/docstrings
-        stripped = re.sub(r'"""', '', text)
+        stripped = re.sub(r'"""', "", text)
         for line in stripped.split("\n"):
-            if re.search(r"\bimport aiosqlite\b", line) or re.search(
-                r"\bfrom aiosqlite\b", line
-            ):
+            if re.search(r"\bimport aiosqlite\b", line) or re.search(r"\bfrom aiosqlite\b", line):
                 violations.append(f"{f.name}: {line.strip()}")
 
-    assert len(violations) == 0, (
-        f"Application layer aiosqlite imports ({len(violations)}):\n  "
-        + "\n  ".join(violations)
-    )
+    assert (
+        len(violations) == 0
+    ), f"Application layer aiosqlite imports ({len(violations)}):\n  " + "\n  ".join(violations)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -183,6 +181,6 @@ def test_no_fix_named_modules():
             rel = f.relative_to(PROJECT_ROOT)
             violations.append(str(rel))
 
-    assert len(violations) == 0, (
-        f"Fix-named modules found ({len(violations)}):\n  " + "\n  ".join(violations)
+    assert len(violations) == 0, f"Fix-named modules found ({len(violations)}):\n  " + "\n  ".join(
+        violations
     )

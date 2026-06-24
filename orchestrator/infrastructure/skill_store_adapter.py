@@ -41,8 +41,7 @@ class SkillDbAdapter:
 
         self._traj_db = await _aio.connect(self._traj_path)
         self._traj_db.row_factory = _aio.Row
-        await self._traj_db.executescript(
-            """
+        await self._traj_db.executescript("""
             CREATE TABLE IF NOT EXISTS trajectories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 task_id TEXT NOT NULL,
@@ -57,14 +56,12 @@ class SkillDbAdapter:
             );
             CREATE INDEX IF NOT EXISTS idx_trajectories_type
                 ON trajectories (task_type, recorded_at DESC);
-        """
-        )
+        """)
         await self._traj_db.commit()
 
         self._skill_db = await _aio.connect(self._skill_path)
         self._skill_db.row_factory = _aio.Row
-        await self._skill_db.executescript(
-            """
+        await self._skill_db.executescript("""
             CREATE TABLE IF NOT EXISTS skills (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 task_type TEXT NOT NULL,
@@ -96,8 +93,7 @@ class SkillDbAdapter:
             );
             CREATE INDEX IF NOT EXISTS idx_nfb_type_time
                 ON negative_feedback (task_type, created_at DESC);
-        """
-        )
+        """)
         await self._skill_db.commit()
         logger.debug(
             "SkillDbAdapter connected: traj=%s skill=%s", self._traj_path, self._skill_path
