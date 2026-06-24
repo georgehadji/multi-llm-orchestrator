@@ -179,7 +179,7 @@ class SkillStore:
 
     async def load_negative_feedback(
         self, task_type: TaskType, limit: int = 20
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Return the most recent *limit* rejected patch batches."""
         rows = await self._db.fetchall_skill(
             """

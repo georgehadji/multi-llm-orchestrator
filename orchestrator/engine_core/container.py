@@ -547,7 +547,7 @@ class ServiceContainer:
         try:
             from ..application.verbalized_sampling import VerbalizedSampler
 
-            vs_sampler = VerbalizedSampler(client=client, budget=budget)
+            vs_sampler = VerbalizedSampler(client=client, budget=budget)  # type: ignore[arg-type]
         except ImportError:
             logger.debug("VerbalizedSampler not available — VS features disabled")
 

@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 
-from orchestrator.context_system import (
+from orchestrator.context_mgmt.system import (
     WorkspaceKnowledge,
     ProjectKnowledge,
     SkillRegistry,

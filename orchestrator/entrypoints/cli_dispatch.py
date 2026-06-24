@@ -502,7 +502,11 @@ async def _async_new_project(args: Any) -> None:
     no_enhance = getattr(args, "no_enhance", False)
 
     if not no_enhance:
-        from orchestrator.enhancer import ProjectEnhancer, _apply_enhancements, _present_enhancements
+        from orchestrator.enhancer import (
+            ProjectEnhancer,
+            _apply_enhancements,
+            _present_enhancements,
+        )
 
         enhancer = ProjectEnhancer()
         suggestions = await enhancer.analyze(description, criteria)

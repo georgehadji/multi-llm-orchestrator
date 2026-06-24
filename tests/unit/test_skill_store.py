@@ -25,6 +25,7 @@ from orchestrator.models_skill import SkillPatch, Trajectory
 async def store(tmp_path: Path) -> SkillStore:
     """Return an open SkillStore backed by temp SQLite files."""
     from orchestrator.infrastructure.skill_store_adapter import SkillDbAdapter
+
     db = SkillDbAdapter(
         traj_path=tmp_path / "trajectories.db",
         skill_path=tmp_path / "skills.db",
