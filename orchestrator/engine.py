@@ -749,8 +749,8 @@ class Orchestrator:
                 task.cancel()
 
         # ── Phase 2: Container-managed services ──────────────────────────────
-        if self._container is not None:
-            await self._container.shutdown()
+        if self._c is not None:
+            await self._c.shutdown()
 
         # 2a. Flush audit log
         try:
@@ -848,16 +848,6 @@ class Orchestrator:
         """Start periodic cleanup timer — delegates to TelemetrySnapshotter."""
         self._get_snapshotter().start_periodic_cleanup(interval_seconds)
 
-    async def _safe_record_routing_event(
-        self,
-        project_id: str,
-        task_id: str,
-        task_type: TaskType,
-        result: TaskResult,
-    ) -> None:
-        """Record routing event — delegates to TelemetrySnapshotter."""
-        await self._get_snapshotter().record_routing_event(project_id, task_id, task_type, result)
-
     async def _load_circuit_breaker_state(self) -> None:
         """Restore circuit breaker failure counts from the previous run (P1-4)."""
         try:
@@ -893,7 +883,7 @@ class Orchestrator:
 
     def set_optimization_backend(self, backend: OptimizationBackend) -> None:
         """Swap the ConstraintPlanner's optimization strategy at runtime."""
-        self._planner.set_backend(backend)
+        self._c.planner.set_backend(backend)
 
     @property
     def audit_log(self) -> AuditLog:
@@ -1268,22 +1258,6 @@ class Orchestrator:
     def set_dashboard_integration(self, integration: Any) -> None:
         """Set dashboard integration for real-time updates."""
         self._dashboard_integration = integration
-
-    def _notify_dashboard_project_start(self, project_id: str, state: Any):
-        """Delegates to DashboardBridge (P3-5)."""
-        self._dashboard_bridge.on_project_start(project_id, state, self._architecture_rules)
-
-    def _notify_dashboard_task_start(self, task_id: str, task: Task, model: Model | None):
-        """Delegates to DashboardBridge (P3-5)."""
-        self._dashboard_bridge.on_task_start(task_id, task, model)
-
-    def _notify_dashboard_task_progress(self, iteration: int, score: float):
-        """Delegates to DashboardBridge (P3-5)."""
-        self._dashboard_bridge.on_task_progress(iteration, score)
-
-    def _notify_dashboard_task_complete(self, task_id: str, status: str):
-        """Delegates to DashboardBridge (P3-5)."""
-        self._dashboard_bridge.on_task_complete(task_id, status)
 
     def _build_metrics_dict(self) -> dict:
         """Build a per-model metrics dict from live ModelProfile data."""
