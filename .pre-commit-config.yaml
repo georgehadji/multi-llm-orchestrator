@@ -1,0 +1,34 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-commit hooks — Multi-LLM Orchestrator
+# Every hook must pass before "git commit" proceeds.
+# ─────────────────────────────────────────────────────────────────────────────
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: black (formatting check)
+        entry: black --check --line-length=100 orchestrator/ tests/
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ruff
+        name: ruff (linter)
+        entry: ruff check orchestrator/ tests/
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: import-linter
+        name: import-linter (architectural contracts)
+        entry: lint-imports
+        language: system
+        types: [python]
+        pass_filenames: false
+        description: |
+          Enforces 5 architectural contracts:
+            - domain → no infra/application/engine imports
+            - application → no concrete infra imports
+            - application → no engine imports
+            - engine_core pipeline → no direct infra imports
+            - root modules → no infra imports (shims excepted)
