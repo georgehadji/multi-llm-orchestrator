@@ -332,18 +332,21 @@ Skill documents are injected into `GenerateStage` via `PipelineContext.skill_pre
 
 ```
 orchestrator/
-├── domain/              — Protocols (ports), models, config schemas
-├── application/         — 15 extracted service classes
-│   ├── skill_optimizer.py        — per-TaskType epoch loop
-│   ├── skill_manager.py          — facade + epoch scheduling
-│   ├── skill_store.py            — aiosqlite trajectory + skill persistence
-│   ├── model_health_tracker.py   — circuit breaker record_success/record_failure
-│   ├── resumption_service.py     — resume_project logic
-│   ├── dashboard_bridge.py       — null-safe dashboard notifications
-│   ├── git_bridge.py             — git commit dispatch
-│   ├── project_runner.py         — run_project / run_job / dry_run
-│   └── ...                       — evaluator, critique_cycle, decomposer, etc.
-├── engine.py            — Mediator facade (2,643 lines, −50% from original)
+├── domain/              — 16 Protocols (ports), models, config schemas
+├── application/         — 17 extracted service classes
+│   ├── vs_selector.py             — VS candidate selection with quality scoring
+│   ├── skill_optimizer.py         — per-TaskType epoch loop
+│   ├── skill_manager.py           — facade + epoch scheduling
+│   ├── skill_store.py             — aiosqlite trajectory + skill persistence
+│   ├── model_health_tracker.py    — circuit breaker record_success/record_failure
+│   ├── resumption_service.py      — resume_project logic
+│   ├── dashboard_bridge.py        — null-safe dashboard notifications
+│   ├── git_bridge.py              — git commit dispatch
+│   ├── project_runner.py          — run_project / run_job / dry_run
+│   └── ...                        — evaluator, critique_cycle, decomposer, executor
+├── services/            — Adapter layer between ports and infrastructure
+│   └── scorers.py                — EvaluatorScorer, ProbabilityScorer (QualityScorer adapters)
+├── engine.py            — Mediator facade (1,725 lines, −7% from 1,867 baseline)
 ├── engine_core/         — ServiceContainer, TaskPipeline, 7 pipeline stages
 ├── infrastructure/      — SQLite state, disk cache, LLM adapter
 ├── agents/              — 9 specialized agent implementations
@@ -390,6 +393,56 @@ Task executes → Trajectory recorded (prompt, output, score, critique)
 | **Validate** | Syntax, bracket balance, ruff lint | $0.00 |
 | **Preflight** | PASS/WARN/ENRICH/BLOCK quality gate | $0.00–0.03 |
 | **SelfConsistency** | Score < 0.7 → retry with fallback model | $0.01–0.05 |
+
+---
+
+## Reranking (VS Selector + Two-Stage Knowledge Recall)
+
+Quality-driven candidate selection and LLM-based knowledge reranking. **Both features default OFF** — opt-in only, bounded cost.
+
+### VS Candidate Selector
+
+Turn `list[VSCandidate]` → single best candidate using a swappable quality scorer (`QualityScorer` port). Free probability prefilter bounds LLM scoring cost.
+
+```python
+# Adapters in services/scorers.py
+EvaluatorScorer(evaluator)    # LLM-based quality via EvaluatorService (consistency_runs=1)
+ProbabilityScorer()           # Free fallback based on VSCandidate.probability
+```
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `ORCH_VS_RERANKING_ENABLED` | `false` | Score top VS candidates via QualityScorer before selection |
+
+### Two-Stage Knowledge Recall
+
+`KnowledgeBase.find_similar()` can optionally enable a second LLM rerank stage:
+1. **Stage 1** — cosine similarity (free, local)
+2. **Stage 2** — LLM-based reranking refines ordering when `knowledge_rerank_enabled=true`
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `ORCH_KNOWLEDGE_RERANK_ENABLED` | `false` | Two-stage recall: cosine → rerank |
+
+`KnowledgeBase.find_similar()` gains optional `rerank=True` stage:
+1. **Stage 1** — cosine similarity (free, local)
+2. **Stage 2** — LLM-based `Reranker` port refines ordering
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `ORCH_KNOWLEDGE_RERANK_ENABLED` | `false` | Enable rerank stage in knowledge queries |
+
+### Architecture
+```
+QualityScorer (Protocol, domain/ports.py)  ←—  EvaluatorScorer, ProbabilityScorer (services/scorers.py)
+Reranker (Protocol, domain/ports.py)       ←—  LLMReranker (infrastructure/reranker.py)
+
+CandidateSelector (application/vs_selector.py)
+  └─ select(task, candidates) → best candidate (prefilter + parallel scoring)
+
+KnowledgeBase (knowledge_base.py)
+  └─ find_similar(..., rerank=True) → 2-stage (cosine → rerank) results
+```
 
 ---
 

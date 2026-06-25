@@ -15,6 +15,7 @@ Levers covered:
   5. Evaluator gate-veto  → no eval LLM spend on demonstrably broken artifacts.
   6. Default flags        → always-on cost features stay enabled by default.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -23,10 +24,10 @@ import pytest
 
 from orchestrator.models import Model
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Lever 1 + 2: response cache — hit is free and skips the provider entirely
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class _FakeCache:
     """Minimal DiskCache stand-in recording get/put and returning a fixed hit."""
@@ -91,6 +92,7 @@ class TestResponseCacheSavesSpend:
 # Lever 3 + 5: VerificationGate veto — broken artifact never reaches the LLM
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestGateVetoSavesEvalSpend:
     @pytest.mark.asyncio
     async def test_failing_gate_makes_zero_llm_calls(self):
@@ -133,6 +135,7 @@ class TestGateVetoSavesEvalSpend:
 # Lever 4: CompletionJudge routes to the cheapest non-generator candidate
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestJudgeUsesCheapTier:
     def test_from_models_picks_first_cheap_candidate(self):
         from orchestrator.services.completion_judge import CompletionJudge
@@ -142,13 +145,13 @@ class TestJudgeUsesCheapTier:
             m.value = v
             return m
 
-        generator = _m("openai/gpt-5")          # expensive generator
-        cheap = _m("openai/gpt-4o-mini")        # cheap judge (ordered first)
+        generator = _m("openai/gpt-5")  # expensive generator
+        cheap = _m("openai/gpt-4o-mini")  # cheap judge (ordered first)
         mid = _m("openai/gpt-4o")
 
         judge = CompletionJudge.from_models(
             client=MagicMock(),
-            judge_candidates=[cheap, mid],       # cheapest-first ordering
+            judge_candidates=[cheap, mid],  # cheapest-first ordering
             generator_model=generator,
         )
         assert judge is not None
@@ -159,6 +162,7 @@ class TestJudgeUsesCheapTier:
 # ──────────────────────────────────────────────────────────────────────────────
 # Lever 6: always-on cost flags remain enabled by default
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestCostFlagsDefaultOn:
     def test_core_cost_features_enabled_by_default(self):

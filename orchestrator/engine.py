@@ -857,33 +857,15 @@ class Orchestrator:
         await self._get_snapshotter().record_routing_event(project_id, task_id, task_type, result)
 
     async def _load_circuit_breaker_state(self) -> None:
-        """Restore circuit breaker failure counts from the previous run (P1-4)."""
-        try:
-            persisted = await self.state_mgr.load_circuit_breaker_state()
-        except Exception as exc:
-            logger.debug("Could not load circuit breaker state: %s", exc)
-            return
-        for model_name, count in persisted.items():
-            # Map string name back to Model enum; skip unknown names gracefully
-            try:
-                model = next(m for m in Model if m.value == model_name)
-            except StopIteration:
-                continue
-            self._consecutive_failures[model] = count
-            if count >= self._CIRCUIT_BREAKER_THRESHOLD:
-                self.api_health[model] = False
-                logger.info(
-                    "Circuit breaker restored: %s open (%d failures from previous run)",
-                    model_name,
-                    count,
-                )
-        if persisted:
-            logger.debug("Loaded circuit breaker state for %d models", len(persisted))
-        # M6: propagate loaded state into the tracker's own dicts
+        """Restore circuit breaker failure counts from the previous run (P1-4).
+
+        Delegates to ``ModelHealthTracker.load_state()`` and syncs engine-level
+        dicts for backward compatibility with ``_make_state`` and decomposition.
+        """
         if hasattr(self, "_health_tracker") and self._health_tracker is not None:
-            self._health_tracker.update_from_persisted_state(
-                self._consecutive_failures, self.api_health
-            )
+            await self._health_tracker.load_state()
+            self._consecutive_failures.update(self._health_tracker.consecutive_failures)
+            self.api_health.update(self._health_tracker.api_health)
 
     # ─────────────────────────────────────────
     # Public API
@@ -991,48 +973,28 @@ class Orchestrator:
         app_profile: AppProfile | None = None,  # noqa: F821
         policy: ResiliencePolicy | None = None,
     ) -> dict[str, Task]:
-        """Break project into atomic tasks via Instructor (fast path) or Decomposer."""
-        model = self._select_decomposition_model(project)
+        """Delegate to ``decomposer_service.decompose_project``.
 
-        # ── Fast path: Instructor structured decomposition ──────────────────
-        _INSTRUCTOR_MAX_CHARS = 8_000
-        try:
-            from .structured_outputs import TaskDecomposer
+        Extracted to ``application/decomposer_service.py`` for testability.
+        """
+        from .application.decomposer_service import decompose_project
 
-            if len(project) <= _INSTRUCTOR_MAX_CHARS:
-                decomposer = TaskDecomposer(api_client=self.client)
-                decomp_model = (
-                    "deepseek/deepseek-v4-flash" if "free" in model.value.lower() else model.value
-                )
-                logger.info("Using Instructor for structured decomposition with %s", decomp_model)
-                result = await decomposer.decompose(
-                    project_description=project,
-                    success_criteria=criteria,
-                    model=decomp_model,
-                    max_retries=1,
-                )
-                tasks = {task.id: task for task in result.to_tasks()}
-                logger.info("Instructor decomposition succeeded: %d tasks", len(tasks))
-                return tasks
-        except ImportError:
-            logger.warning("Instructor not available, using Decomposer")
-        except Exception as e:
-            logger.warning(
-                "Instructor decomposition failed (%s), using Decomposer", type(e).__name__
-            )
-
-        # ── Fallback: Decomposer from engine_core ───────────────────────────
         async def _record_fail(m: Model, error: Exception | None = None) -> None:
             await self._record_failure(m, error=error)
 
-        return await self._decomposer.decompose(
+        model = self._select_decomposition_model(project)
+
+        return await decompose_project(
             project=project,
             criteria=criteria,
-            app_profile=app_profile,
-            policy=policy,
+            model=model,
+            client=self.client,
+            decomposer=self._decomposer,
             api_health=self.api_health,
             record_failure_fn=_record_fail,
             charge_fn=lambda amount: self.budget.charge(amount, "decomposition"),
+            app_profile=app_profile,
+            policy=policy,
         )
 
     # ─────────────────────────────────────────
@@ -1066,44 +1028,17 @@ class Orchestrator:
         )
 
     async def _warm_cache_for_level(self, tasks: Dict[str, Task], runnable: List[str]) -> None:
+        """Delegate cache warming to ``cache_warmup.warm_cache_for_level``.
+
+        Extracted to ``application/cache_warmup.py`` for testability.
         """
-        OPTIMIZATION: Proactively warm cache before parallel execution.
+        from .application.cache_warmup import warm_cache_for_level
 
-        Prevents cache miss storm when firing parallel requests.
-        When multiple tasks start simultaneously, each would normally create
-        its own cache entry. By warming up front with a single call, all
-        subsequent parallel calls benefit from the shared cache.
-
-        Args:
-            tasks: All tasks in the project
-            runnable: Task IDs to be executed in this level
-        """
-        try:
-            # Get system prompt and project context
-            system_prompt = self._build_system_prompt()
-            project_context = self._build_project_context()
-
-            if not system_prompt and not project_context:
-                logger.debug("Cache warming skipped: no system prompt or context")
-                return
-
-            # Warm cache with a single call
-            await warm_prompt_cache(
-                system_prompt=system_prompt,
-                project_context=project_context,
-                client=self.client,
-            )
-            logger.info("Cache warmed for parallel execution level")
-        except Exception as e:
-            logger.warning(f"Cache warming failed (non-critical): {e}")
-
-    def _build_system_prompt(self, task_type: str = "") -> str:
-        """Build system prompt based on current quality_mode."""
-        return self._c.context_service.build_system_prompt(task_type)
-
-    def _build_project_context(self) -> str:
-        """Build project context from existing results."""
-        return self._c.context_service.build_project_context(self.results)
+        await warm_cache_for_level(
+            context_service=self._c.context_service,
+            results=self.results,
+            client=self.client,
+        )
 
     def _validate_syntax_streaming(self, partial_output: str) -> bool:
         """

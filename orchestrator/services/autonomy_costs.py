@@ -23,6 +23,7 @@ Usage:
     # CostSnapshot(verification_debt=1, comprehension_rot_pct=75.0,
     #              cognitive_surrender_pct=100.0, token_blowout=700)
 """
+
 from __future__ import annotations
 
 import logging

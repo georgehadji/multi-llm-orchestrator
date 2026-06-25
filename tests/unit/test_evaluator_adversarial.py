@@ -7,6 +7,7 @@ Verifies:
 - Gate pass allows LLM score through
 - passed_validators field reflects gate outcome
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -47,6 +48,7 @@ def _evaluator(gate: VerificationGate | None = None) -> EvaluatorService:
 
 # ── Adversarial prompt ────────────────────────────────────────────────────────
 
+
 class TestAdversarialPrompt:
     def test_system_prompt_contains_assume_broken(self):
         assert "BROKEN" in EvaluatorService._SYSTEM_PROMPT
@@ -58,6 +60,7 @@ class TestAdversarialPrompt:
 
 
 # ── Gate veto (nodding-loop regression) ──────────────────────────────────────
+
 
 class TestGateVeto:
     @pytest.mark.asyncio
@@ -75,6 +78,7 @@ class TestGateVeto:
     @pytest.mark.asyncio
     async def test_failing_gate_bypasses_llm(self):
         """LLM must not be called when gate fails — no spend wasted."""
+
         async def _fail(artifact: str):
             return False, "lint: 12 errors"
 
@@ -88,6 +92,7 @@ class TestGateVeto:
     @pytest.mark.asyncio
     async def test_passing_gate_allows_llm_path(self):
         """Gate pass → LLM evaluation attempted (mocked models empty → fallback 0.5)."""
+
         async def _pass(artifact: str):
             return True, ""
 
@@ -109,6 +114,7 @@ class TestGateVeto:
 
 
 # ── Nodding-loop core fixture ─────────────────────────────────────────────────
+
 
 class TestNodingLoopFixture:
     @pytest.mark.asyncio

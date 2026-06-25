@@ -144,6 +144,11 @@
       "name": "supabase",
       "type": "supabase",
       "url": "https://xyz.supabase.co"
+    },
+    {
+      "name": "supabase",
+      "type": "supabase",
+      "url": "https://xyz.supabase.co"
     }
   ]
 }

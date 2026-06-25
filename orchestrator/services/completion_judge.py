@@ -12,6 +12,7 @@ Design:
 - from_models() factory: picks cheapest non-generator candidate; returns None
   when no candidates differ from the generator (caller skips judge gracefully)
 """
+
 from __future__ import annotations
 
 import json
@@ -66,7 +67,9 @@ class CompletionJudge:
         generator_model: Any,
     ) -> None:
         judge_val = judge_model.value if hasattr(judge_model, "value") else str(judge_model)
-        gen_val = generator_model.value if hasattr(generator_model, "value") else str(generator_model)
+        gen_val = (
+            generator_model.value if hasattr(generator_model, "value") else str(generator_model)
+        )
         if judge_model is generator_model or judge_val == gen_val:
             raise SameModelError(
                 f"CompletionJudge: judge_model ({judge_val!r}) must differ from "
@@ -119,7 +122,9 @@ class CompletionJudge:
         Returns None when no suitable candidate exists (caller should skip judge).
         Judge candidates should be ordered cheapest-first.
         """
-        gen_val = generator_model.value if hasattr(generator_model, "value") else str(generator_model)
+        gen_val = (
+            generator_model.value if hasattr(generator_model, "value") else str(generator_model)
+        )
         for candidate in judge_candidates:
             cand_val = candidate.value if hasattr(candidate, "value") else str(candidate)
             if candidate is not generator_model and cand_val != gen_val:

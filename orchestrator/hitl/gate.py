@@ -12,6 +12,7 @@ Policy:
 Wire a real channel (CLIDecisionChannel, WebSocketDecisionChannel) for attended
 runs. Set ORCH_HITL_AUTOAPPROVE=true only in dev/test — never in production.
 """
+
 from __future__ import annotations
 
 import logging

@@ -4,6 +4,7 @@ thinking, and temperature settings.
 
 RED first.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -18,8 +19,8 @@ from orchestrator.domain.phase_policy import (
 )
 from orchestrator.models import TaskType
 
-
 # ── Policy completeness ───────────────────────────────────────────────────────
+
 
 class TestPolicyCompleteness:
     @pytest.mark.parametrize("phase", list(Phase))
@@ -37,6 +38,7 @@ class TestPolicyCompleteness:
 
 
 # ── Reasoning-heavy phases prefer reasoning + thinking ────────────────────────
+
 
 class TestReasoningPhases:
     @pytest.mark.parametrize("phase", [Phase.DECOMPOSE, Phase.CRITIQUE, Phase.EVALUATE])
@@ -56,6 +58,7 @@ class TestReasoningPhases:
 
 # ── Temperature discipline ────────────────────────────────────────────────────
 
+
 class TestTemperatureValues:
     def test_extract_is_deterministic(self):
         assert policy_for(Phase.EXTRACT).temperature == 0.0
@@ -74,6 +77,7 @@ class TestTemperatureValues:
 
 
 # ── Helper functions ──────────────────────────────────────────────────────────
+
 
 class TestHelpers:
     def test_temperature_for_returns_phase_default(self):
@@ -97,6 +101,7 @@ class TestHelpers:
 
 # ── Immutability ──────────────────────────────────────────────────────────────
 
+
 class TestPolicyImmutable:
     def test_policy_is_frozen(self):
         p = policy_for(Phase.GENERATE)
@@ -106,15 +111,16 @@ class TestPolicyImmutable:
 
 # ── Reasoning roster freshness ────────────────────────────────────────────────
 
+
 class TestReasoningRoster:
     """REASONING_MODELS must track the 2026 catalogue: no dead ids, current models."""
 
     def test_dead_grok_4_mini_removed(self):
         from orchestrator.domain.model_registry import ModelRegistry
 
-        assert not ModelRegistry.is_reasoning_model("x-ai/grok-4-mini"), (
-            "grok-4-mini is dead (not in enum, not live) — must not be a reasoning model"
-        )
+        assert not ModelRegistry.is_reasoning_model(
+            "x-ai/grok-4-mini"
+        ), "grok-4-mini is dead (not in enum, not live) — must not be a reasoning model"
 
     @pytest.mark.parametrize(
         "model_id",
@@ -131,9 +137,9 @@ class TestReasoningRoster:
     def test_2026_reasoning_models_classified(self, model_id):
         from orchestrator.domain.model_registry import ModelRegistry
 
-        assert ModelRegistry.is_reasoning_model(model_id), (
-            f"{model_id} is a 2026 reasoning model and must be classified as such"
-        )
+        assert ModelRegistry.is_reasoning_model(
+            model_id
+        ), f"{model_id} is a 2026 reasoning model and must be classified as such"
 
     @pytest.mark.parametrize(
         "model_id",

@@ -13,6 +13,7 @@ longer gate-crash completion.
 
 All checks run via the existing bash-safety guardrails; no new shell exposure.
 """
+
 from __future__ import annotations
 
 import logging
@@ -91,9 +92,7 @@ class VerificationGate:
                 passed_map[check.name] = ok
                 if not ok:
                     reasons[check.name] = reason
-                    logger.warning(
-                        "VerificationGate: check '%s' FAILED — %s", check.name, reason
-                    )
+                    logger.warning("VerificationGate: check '%s' FAILED — %s", check.name, reason)
                 else:
                     logger.debug("VerificationGate: check '%s' passed", check.name)
             except Exception as exc:

@@ -9,14 +9,15 @@ Loop Engineering §IX: "Four Silent Costs":
 
 Gauges are accumulative; snapshot() returns an immutable dict.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from orchestrator.services.autonomy_costs import AutonomyCostCollector, CostSnapshot
 
-
 # ── CostSnapshot ──────────────────────────────────────────────────────────────
+
 
 class TestCostSnapshot:
     def test_is_dataclass_like(self):
@@ -38,6 +39,7 @@ class TestCostSnapshot:
 
 
 # ── AutonomyCostCollector ─────────────────────────────────────────────────────
+
 
 class TestAutonomyCostCollector:
     def test_initial_snapshot_all_zero(self):
@@ -96,7 +98,7 @@ class TestAutonomyCostCollector:
     def test_token_blowout_accumulates(self):
         c = AutonomyCostCollector()
         c.record_tokens(baseline=100, actual=200)  # +100
-        c.record_tokens(baseline=50, actual=150)   # +100
+        c.record_tokens(baseline=50, actual=150)  # +100
         assert c.snapshot().token_blowout == 200
 
     def test_multiple_context_windows_uses_latest(self):

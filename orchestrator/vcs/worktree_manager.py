@@ -12,6 +12,7 @@ On success:  worktree/tempdir removed.
 On failure:  quarantined under <base_dir>/quarantine/<task_id> for inspection.
 Stale cap:   enforced at acquire time via MAX_LIVE env var (default 20).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -167,8 +168,6 @@ class WorktreeManager:
                 await loop.run_in_executor(None, lambda: shutil.rmtree(dest, ignore_errors=True))
             await loop.run_in_executor(None, lambda: shutil.copytree(wt_path, dest))
             await loop.run_in_executor(None, lambda: shutil.rmtree(wt_path, ignore_errors=True))
-            logger.warning(
-                "worktree quarantined after failure — inspect at %s", dest
-            )
+            logger.warning("worktree quarantined after failure — inspect at %s", dest)
         except Exception as exc:
             logger.error("Failed to quarantine worktree %s: %s", wt_path, exc)

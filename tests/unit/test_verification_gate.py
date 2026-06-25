@@ -3,6 +3,7 @@ Tests for ENH-1: VerificationGate — deterministic test/lint floor for the eval
 
 RED first.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -13,8 +14,8 @@ from orchestrator.application.verification_gate import (
     VerificationCheck,
 )
 
-
 # ── GateResult ────────────────────────────────────────────────────────────────
+
 
 class TestGateResult:
     def test_passed_when_all_checks_pass(self):
@@ -36,6 +37,7 @@ class TestGateResult:
 
 
 # ── VerificationGate ──────────────────────────────────────────────────────────
+
 
 class TestVerificationGateWithMockChecks:
     def _gate_with(self, results: dict[str, bool]) -> VerificationGate:
@@ -80,6 +82,7 @@ class TestVerificationGateWithMockChecks:
 
 # ── Score floor when gate fails ───────────────────────────────────────────────
 
+
 class TestScoreFloor:
     def test_floor_constant_is_below_acceptance_threshold(self):
         assert VerificationGate.FAIL_SCORE_FLOOR < 0.3
@@ -97,6 +100,7 @@ class TestScoreFloor:
 
 # ── Nodding-loop regression ───────────────────────────────────────────────────
 
+
 class TestNodingLoopRegression:
     """Core ENH-1 fixture: a failing artifact must not pass the gate."""
 
@@ -109,9 +113,7 @@ class TestNodingLoopRegression:
             # In real gate, this runs pytest; here we simulate the outcome
             return False, "AssertionError: assert add(1,2) == 3"
 
-        gate = VerificationGate(
-            checks=[VerificationCheck(name="tests", run=_fake_test_runner)]
-        )
+        gate = VerificationGate(checks=[VerificationCheck(name="tests", run=_fake_test_runner)])
         result = await gate.run(failing_artifact)
         assert result.passed is False
         assert result.score <= VerificationGate.FAIL_SCORE_FLOOR

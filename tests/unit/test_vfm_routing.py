@@ -6,6 +6,7 @@ Goal lock: every text task should try a free / ultra-cheap capable model FIRST
 and only escalate to premium on failure. Each routed model must be a real enum
 member with a cost entry (no silent drops, no un-priced spend).
 """
+
 from __future__ import annotations
 
 import json
@@ -15,7 +16,6 @@ from pathlib import Path
 import pytest
 
 from orchestrator.models import Model, ROUTING_TABLE, TaskType
-
 
 _CONFIG = Path(__file__).resolve().parents[2] / "orchestrator" / "config"
 _TEXT_TASKS = [
@@ -72,14 +72,15 @@ class TestVfmModelsDeclared:
 
 # ── Routing: VFM-first, no drops, fully priced ───────────────────────────────
 
+
 class TestRoutingIsVfmFirst:
     @pytest.mark.parametrize("task", _TEXT_TASKS)
     def test_lead_candidate_is_free_tier(self, task):
         """Each text task must try a $0 free-tier model first (max VFM)."""
         lead = ROUTING_TABLE[task][0]
-        assert lead.value.endswith(":free"), (
-            f"{task.value} should lead with a free model, got {lead.value}"
-        )
+        assert lead.value.endswith(
+            ":free"
+        ), f"{task.value} should lead with a free model, got {lead.value}"
 
     @pytest.mark.parametrize("task", _TEXT_TASKS)
     def test_no_silent_drops(self, task):
@@ -101,6 +102,6 @@ class TestRoutingIsVfmFirst:
         """Cascade must keep a paid fallback after the free lead (one door open)."""
         chain = ROUTING_TABLE[task]
         assert len(chain) >= 2, f"{task.value} needs at least one fallback after the free lead"
-        assert not chain[-1].value.endswith(":free"), (
-            f"{task.value} last-resort model must be a reliable paid model, not free"
-        )
+        assert not chain[-1].value.endswith(
+            ":free"
+        ), f"{task.value} last-resort model must be a reliable paid model, not free"
