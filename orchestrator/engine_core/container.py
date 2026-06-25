@@ -118,6 +118,8 @@ class ServiceContainer:
     health_tracker: Any = None  # ModelHealthTracker
     budget_enforcer: Any = None  # BudgetEnforcer
     resumption_service: Any = None  # ResumptionService
+    skill_store: Any = None
+    snapshotter: Any = None
     observability: Any = None
     context_compressor: Any = None
     memory_provider_mgr: Any = None
@@ -649,6 +651,32 @@ class ServiceContainer:
         except ImportError:
             pass
 
+        # ── Inline infra imports (consolidated from engine.py) ────────────
+        # SkillStore with SkillDbAdapter
+        skill_store = None
+        try:
+            from ..crosscutting.config import flags as _flags
+            if _flags.skill_optimization_enabled:
+                from ..infrastructure.skill_store_adapter import SkillDbAdapter
+                from ..application.skill_store import SkillStore
+                skill_store = SkillStore(SkillDbAdapter())
+        except Exception:
+            pass
+
+        # TelemetrySnapshotter
+        snapshotter = None
+        try:
+            from ..infrastructure.telemetry_snapshotter import TelemetrySnapshotter
+            snapshotter = TelemetrySnapshotter(
+                telemetry_store=telemetry_store,
+                get_active_profiles_fn=lambda: [
+                    p for p in (planner._profiles if planner else {}).values()
+                    if getattr(p, "call_count", 0) >= 1
+                ],
+            )
+        except Exception:
+            pass
+
         return cls(
             budget=budget,
             client=client,
@@ -697,6 +725,8 @@ class ServiceContainer:
             observability=observability,
             cb_registry=cb_registry,
             hitl=hitl,
+            skill_store=skill_store,
+            snapshotter=snapshotter,
         )
 
 
