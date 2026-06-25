@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Callable
 
 from ..api_clients import UnifiedClient
 from ..budget import Budget
+from ..domain.phase_policy import Phase, temperature_for
 from ..operations.feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
@@ -30,6 +31,10 @@ if TYPE_CHECKING:
     from ..application.verification_gate import VerificationGate
 
 logger = logging.getLogger("orchestrator.services.evaluator")
+
+# Optimal evaluation temperature — single source of truth (phase_policy).
+# Evaluation must be reproducible run-to-run; see docs/REASONING_AND_TEMPERATURE.md.
+_EVAL_TEMPERATURE = temperature_for(Phase.EVALUATE)
 
 
 class EvaluatorService:
@@ -167,7 +172,7 @@ class EvaluatorService:
                     eval_prompt,
                     system=self._SYSTEM_PROMPT,
                     max_tokens=_eval_max_tokens,
-                    temperature=0.1,
+                    temperature=_EVAL_TEMPERATURE,
                     timeout=_eval_timeout,
                     policy=policy,
                 )
