@@ -21,6 +21,7 @@ Usage
     if pol.use_thinking:
         ...  # request reasoning effort = pol.reasoning_effort.value
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -37,15 +38,15 @@ class Phase(str, Enum):
     creative) and the diversity-sampling phase (Verbalized Sampling).
     """
 
-    DECOMPOSE = "decompose"   # plan a project into a task graph
-    GENERATE = "generate"     # produce code (default generation)
-    CRITIQUE = "critique"     # review output for flaws
-    REVISE = "revise"         # apply known fixes
-    EVALUATE = "evaluate"     # adversarial scoring
-    EXTRACT = "extract"       # structured data extraction
-    SUMMARIZE = "summarize"   # faithful summarisation
-    CREATIVE = "creative"     # creative writing
-    SAMPLING = "sampling"     # diversity / Verbalized Sampling
+    DECOMPOSE = "decompose"  # plan a project into a task graph
+    GENERATE = "generate"  # produce code (default generation)
+    CRITIQUE = "critique"  # review output for flaws
+    REVISE = "revise"  # apply known fixes
+    EVALUATE = "evaluate"  # adversarial scoring
+    EXTRACT = "extract"  # structured data extraction
+    SUMMARIZE = "summarize"  # faithful summarisation
+    CREATIVE = "creative"  # creative writing
+    SAMPLING = "sampling"  # diversity / Verbalized Sampling
 
 
 class ReasoningEffort(str, Enum):
@@ -99,6 +100,7 @@ _PHASE_POLICY: dict[Phase, PhasePolicy] = {
     Phase.SAMPLING: PhasePolicy(0.9, False, ReasoningEffort.NONE, False),
 }
 
+
 # Per-TaskType temperature overrides. When a GENERATE-phase call is actually a
 # creative or extraction task, the task's nature wins over the phase default.
 # Built by value to stay robust across enum-name changes between versions.
@@ -125,6 +127,7 @@ _TASK_TEMPERATURE = _task_temp_table()
 
 
 # ── Public helpers ────────────────────────────────────────────────────────────
+
 
 def policy_for(phase: Phase) -> PhasePolicy:
     """Return the immutable policy for *phase* (GENERATE default if unknown)."""

@@ -10,6 +10,7 @@ Verifies:
 - No-judge-available → loop exits (conservative fallback)
 - Judge uses cheapest available model tier
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -40,6 +41,7 @@ def _mock_model(value: str = "deepseek/deepseek-chat") -> MagicMock:
 
 # ── JudgeVerdict ─────────────────────────────────────────────────────────────
 
+
 class TestJudgeVerdict:
     def test_pass_is_truthy(self):
         assert JudgeVerdict.PASS
@@ -56,12 +58,14 @@ class TestJudgeVerdict:
 
 # ── SameModelError ────────────────────────────────────────────────────────────
 
+
 class TestSameModelError:
     def test_is_runtime_error(self):
         assert issubclass(SameModelError, RuntimeError)
 
 
 # ── CompletionJudge construction ──────────────────────────────────────────────
+
 
 class TestCompletionJudgeConstruction:
     def test_raises_if_judge_equals_generator(self):
@@ -91,6 +95,7 @@ class TestCompletionJudgeConstruction:
 
 
 # ── judge() method ────────────────────────────────────────────────────────────
+
 
 class TestJudgeMethod:
     def _judge(self, response_text: str = '{"verdict": "PASS", "reason": "all checks pass"}'):
@@ -157,6 +162,7 @@ class TestJudgeMethod:
 
 
 # ── CompletionJudge.from_models factory ──────────────────────────────────────
+
 
 class TestFromModelsFactory:
     def test_returns_none_when_no_judge_models(self):

@@ -12,6 +12,7 @@ all issues in one pass rather than discovering them one by one.
 Disable for legacy environments: ORCH_UNATTENDED_GUARD=false
 Acknowledge no checkpoint (expert opt-out): ORCH_NO_CHECKPOINT_ACK=true
 """
+
 from __future__ import annotations
 
 import math
@@ -74,9 +75,7 @@ class UnattendedGuard:
 
         # ── Per-run cap ──────────────────────────────────────────────────────
         per_run_ok = (
-            ctx.budget is not None
-            and ctx.budget.max_usd > 0
-            and not math.isinf(ctx.budget.max_usd)
+            ctx.budget is not None and ctx.budget.max_usd > 0 and not math.isinf(ctx.budget.max_usd)
         )
         if not per_run_ok:
             missing.append(

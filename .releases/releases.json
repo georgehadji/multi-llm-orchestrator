@@ -1906,5 +1906,41 @@
     ],
     "author": "AI Orchestrator",
     "commit_hash": ""
+  },
+  {
+    "version": "1.0.0",
+    "status": "published",
+    "created_at": 1782336436.4394016,
+    "published_at": 1782336436.4429443,
+    "description": "First release",
+    "changes": [
+      "Added auth"
+    ],
+    "author": "AI Orchestrator",
+    "commit_hash": ""
+  },
+  {
+    "version": "1.0.0",
+    "status": "published",
+    "created_at": 1782336436.4604874,
+    "published_at": 1782336436.4635148,
+    "description": "Initial",
+    "changes": [
+      "Setup"
+    ],
+    "author": "AI Orchestrator",
+    "commit_hash": ""
+  },
+  {
+    "version": "1.1.0",
+    "status": "draft",
+    "created_at": 1782336436.466552,
+    "published_at": 0.0,
+    "description": "Feature",
+    "changes": [
+      "Auth module"
+    ],
+    "author": "AI Orchestrator",
+    "commit_hash": ""
   }
 ]

@@ -3,6 +3,7 @@ Tests for HITL gate — FIX-1: replace silent auto-approval.
 
 RED tests first; implementation must make all pass.
 """
+
 from __future__ import annotations
 
 import os
@@ -14,7 +15,6 @@ from orchestrator.hitl.channel import (
     FailClosedChannel,
     CLIDecisionChannel,
 )
-
 
 SECURITY_DECISION = Decision(
     category="security",
@@ -32,6 +32,7 @@ INFO_DECISION = Decision(
 
 
 # ── FailClosedChannel (default when no channel configured) ────────────────────
+
 
 class TestFailClosedChannel:
     @pytest.mark.asyncio
@@ -56,6 +57,7 @@ class TestFailClosedChannel:
 
 # ── AutoApproveChannel (explicit dev-only) ────────────────────────────────────
 
+
 class TestAutoApproveChannel:
     @pytest.mark.asyncio
     async def test_auto_approve_channel_approves_all(self):
@@ -71,6 +73,7 @@ class TestAutoApproveChannel:
 
 
 # ── Env flag: ORCH_HITL_AUTOAPPROVE=true ─────────────────────────────────────
+
 
 class TestEnvFlagAutoApprove:
     @pytest.mark.asyncio
@@ -97,6 +100,7 @@ class TestEnvFlagAutoApprove:
 
 # ── FailClosedChannel direct ──────────────────────────────────────────────────
 
+
 class TestFailClosedChannelDirect:
     @pytest.mark.asyncio
     async def test_always_rejects(self):
@@ -106,6 +110,7 @@ class TestFailClosedChannelDirect:
 
 
 # ── Security category invariant ───────────────────────────────────────────────
+
 
 class TestSecurityCategoryInvariant:
     @pytest.mark.asyncio

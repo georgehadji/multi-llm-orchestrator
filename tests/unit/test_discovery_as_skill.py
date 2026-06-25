@@ -10,14 +10,15 @@ Adds `skill_name` field to ScheduledTask:
 - Inline prompts continue to work for backward compatibility
 - to_dict() / round-trip through JSON preserves skill_name
 """
+
 from __future__ import annotations
 
 import pytest
 
 from orchestrator.operations.automations import ScheduledTask, ScheduleType
 
-
 # ── ScheduledTask.skill_name field ───────────────────────────────────────────
+
 
 class TestScheduledTaskSkillName:
     def test_skill_name_defaults_to_none(self):
@@ -64,6 +65,7 @@ class TestScheduledTaskSkillName:
 
 # ── Round-trip persistence ────────────────────────────────────────────────────
 
+
 class TestScheduledTaskRoundTrip:
     def test_roundtrip_with_skill_name(self):
         """to_dict() must include skill_name so _load() can restore it."""
@@ -91,7 +93,9 @@ class TestScheduledTaskRoundTrip:
 
     def test_roundtrip_without_skill_name(self):
         """skill_name=None preserved across round-trip (backward compat)."""
-        original = ScheduledTask(name="ping", schedule_type=ScheduleType.INTERVAL, interval_seconds=60)
+        original = ScheduledTask(
+            name="ping", schedule_type=ScheduleType.INTERVAL, interval_seconds=60
+        )
         d = original.to_dict()
         restored = ScheduledTask(
             name=d["name"],

@@ -3,6 +3,7 @@ Tests for FIX-2: worktree isolation in parallel sub-agent execution.
 
 RED first — WorktreeManager must exist and BatchRunner must use it.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -15,8 +16,8 @@ import pytest
 
 from orchestrator.vcs.worktree_manager import WorktreeManager, WorktreeError
 
-
 # ── WorktreeManager unit tests ────────────────────────────────────────────────
+
 
 class TestWorktreeManager:
     def test_create_returns_unique_paths_per_task(self, tmp_path):
@@ -91,6 +92,7 @@ class TestWorktreeManagerContextManager:
 
 
 # ── Parallel isolation invariant ──────────────────────────────────────────────
+
 
 class TestParallelIsolation:
     @pytest.mark.asyncio

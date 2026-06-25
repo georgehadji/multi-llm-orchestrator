@@ -366,6 +366,92 @@ class NullEventBus:
         pass
 
 
+class NullConfig:
+    """No-op config. Returns empty defaults."""
+
+    def get_costs(self) -> dict[str, dict[str, float]]:
+        return {}
+
+    def get_routing(self) -> dict[str, list[str]]:
+        return {}
+
+    def get_fallbacks(self) -> dict[str, str]:
+        return {}
+
+    def get_thresholds(self) -> dict[str, float]:
+        return {}
+
+    def get_limits(self) -> dict[str, int]:
+        return {}
+
+
+class NullLLMClient:
+    """No-op LLM client. call() returns empty response."""
+
+    async def call(
+        self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs
+    ):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(text="", cost_usd=0.0, input_tokens=0, output_tokens=0)
+
+
+class NullPlanner:
+    """No-op planner. Returns None."""
+
+    def available_models(self, task_type) -> list:
+        return []
+
+    def select(self, task_type):
+        return None
+
+
+class NullTelemetry:
+    """No-op telemetry. record_call() is a silent no-op."""
+
+    def record_call(self, model, latency_ms=0.0, cost_usd=0.0, success=True) -> None:
+        pass
+
+
+class NullPolicyEngine:
+    """No-op policy engine. evaluate() returns None."""
+
+    def evaluate(self, job_spec, profile):
+        return None
+
+
+class NullValidator:
+    """No-op validator. validate() always returns True."""
+
+    async def validate(self, task, output: str) -> bool:
+        return True
+
+
+class NullTaskQueue:
+    """No-op task queue. enqueue() returns '', other methods return defaults."""
+
+    async def enqueue(self, project_spec, priority: int = 0) -> str:
+        return ""
+
+    async def claim_next(self, assignee: str):
+        return None
+
+    async def complete(self, task_id: str, result=None) -> bool:
+        return True
+
+    async def record_failure(self, task_id: str, error: str = "") -> bool:
+        return True
+
+    async def list_tasks(self, status=None, limit: int = 50) -> list:
+        return []
+
+    async def get_stats(self) -> dict:
+        return {"queued": 0, "running": 0, "completed": 0, "failed": 0}
+
+    async def update_status(self, task_id: str, status: str, result=None) -> bool:
+        return True
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # LSPValidatorPort  (CodeWhale Phase 1 — deterministic post-generation validation)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -604,3 +690,54 @@ class NullSnapshotStore:
 
     async def delete(self, snapshot_id: str) -> bool:
         return False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# QualityScorer — Swappable scoring signal for candidate selection
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class QualityScorer(Protocol):
+    """Quality signal for ranking candidates.
+
+    Satisfied by: ``services/scorers.py`` adapters (EvaluatorScorer, ProbabilityScorer).
+
+    Enables the VS CandidateSelector to use different quality signals
+    (LLM eval, fallback probability) without depending on concrete scorers.
+    """
+
+    async def score(self, task: Any, text: str) -> float:
+        """Return quality score in [0.0, 1.0]. 1.0 = best."""
+        ...
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reranker — Two-stage retrieval reranking
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class Reranker(Protocol):
+    """Reranks a list of result dicts using an LLM or cross-encoder.
+
+    Satisfied by: ``infrastructure/reranker.LLMReranker``
+
+    Stage-2 in knowledge recall: takes stage-1 cosine results and refines
+    the ordering before returning top_k to the caller.
+    """
+
+    async def rerank(
+        self,
+        query: str,
+        results: list[dict],
+        top_k: int,
+        min_score: float = 0.3,
+    ) -> list[dict]:
+        """Rerank results and return top_k with updated relevance scores.
+
+        Each dict in ``results`` must have at least ``id`` and ``content`` keys.
+        Returns a reordered slice of results with an updated ``relevance_score``
+        (float 0.0-1.0) set on each dict.
+        """
+        ...

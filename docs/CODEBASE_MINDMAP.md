@@ -70,9 +70,9 @@
 ### 3. Domain Boundaries `orchestrator/domain/`
 - **Responsibility:** Abstract interfaces (hexagonal ports), domain exceptions, model registry, service contracts
 - **Type:** Core logic / interface definition
-- **Exports:** `CachePort`, `StatePort`, `EventPort`, `HookRegistryPort`, `PlannerPort`, `ValidatorPort`, `NullEventBus`, `NullHookRegistry`, `ModelRegistry`, domain exceptions (`ModelUnavailableError`, `BudgetExceededError`, etc.)
+- **Exports:** `CachePort`, `StatePort`, `EventPort`, `ConfigPort`, `LLMClient`, `PlannerPort`, `TelemetryPort`, `PolicyEnginePort`, `HookRegistryPort`, `ValidatorPort`, `TaskQueuePort`, `SkillStorePort`, `LSPValidatorPort`, `SnapshotPort`, `QualityScorer`, `Reranker`, 14 Null adapters, `ModelRegistry`, domain exceptions
 - **Internal Structure:**
-  - `ports.py` — 6 `Protocol` classes for cache/state/events/hooks/planner/validator (529 lines)
+  - `ports.py` — 16 `Protocol` classes (ports + quality/reranking) with 14 Null adapter implementations (606 lines)
   - `model_registry.py` — `ModelRegistry`: 52-model registry with cost tables, UNAVAILABLE_MODELS
   - `exceptions.py` — Domain exception hierarchy
   - `services/` — Service-level interfaces (e.g. `PlannerService`, `ValidatorService`)
@@ -83,11 +83,12 @@
 ### 4. Application Services `orchestrator/application/`
 - **Responsibility:** Orchestration-agnostic business logic — skill optimization, project execution, decomposition, evaluation, chat
 - **Type:** Core logic
-- **Exports:** `SkillOptimizer`, `SkillManager`, `SkillStore`, `ProjectRunner`, `ChatCLI`, `ConversationAgent`, `TaskExecutor`, `Evaluator`, `Decomposer`, `CritiqueCycle`, `BudgetEnforcer`, `FallbackHandler`, `ResumptionService`, `GitBridge`, `DashboardBridge`, `ModelHealthTracker`, `ContextCompressor`
+- **Exports:** `SkillOptimizer`, `SkillManager`, `SkillStore`, `ProjectRunner`, `ChatCLI`, `ConversationAgent`, `TaskExecutor`, `Evaluator`, `Decomposer`, `CritiqueCycle`, `BudgetEnforcer`, `FallbackHandler`, `ResumptionService`, `GitBridge`, `DashboardBridge`, `ModelHealthTracker`, `ContextCompressor`, `CandidateSelector`
 - **Internal Structure:**
   - `chat_cli.py` — Interactive REPL for spec gathering (194 lines)
   - `conversation_agent.py` — NL dialogue → structured spec
   - `project_runner.py` — `ProjectRunner`: coordinates `run_project`, `dry_run`
+  - `vs_selector.py` — `CandidateSelector`: VS candidate selection with quality scoring + prefilter
   - `skill_optimizer.py` — `SkillOptimizer`: per-TaskType prompt evolution via trajectory feedback
   - `skill_store.py` — `SkillStore`: aiosqlite trajectory + skill persistence
   - `evaluator.py` — Task result evaluator

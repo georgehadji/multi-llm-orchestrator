@@ -7,6 +7,7 @@ Default when no channel configured: FailClosedChannel (rejects requires_approval
 decisions). Override with AutoApproveChannel ONLY in dev/test via explicit wiring
 or ORCH_HITL_AUTOAPPROVE=true env flag.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,8 +23,7 @@ logger = logging.getLogger("orchestrator.hitl.channel")
 class DecisionChannel(Protocol):
     """Port: transport that delivers a decision to a human and returns their verdict."""
 
-    async def ask(self, decision: Decision, timeout: int) -> DecisionResult:
-        ...
+    async def ask(self, decision: Decision, timeout: int) -> DecisionResult: ...
 
 
 class FailClosedChannel:

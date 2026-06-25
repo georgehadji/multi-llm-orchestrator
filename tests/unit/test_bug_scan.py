@@ -19,10 +19,10 @@ Discovered & fixed during this scan:
   - _aggregate dropped runs 2..N when consistency_runs > 2 (returned scores[0]).
     Regression guard: TestAggregateNeverDiscardsRuns.
 """
+
 from __future__ import annotations
 
 import pytest
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # EvaluatorService.parse_score — output domain invariant
@@ -30,11 +30,10 @@ import pytest
 
 from orchestrator.services.evaluator import EvaluatorService
 
-
 _PARSE_INPUTS = [
     '{"score": 0.85}',
     '{"Score": 0.5}',
-    "```json\n{\"score\": 0.9}\n```",
+    '```json\n{"score": 0.9}\n```',
     "0.73",
     "1.0",
     "0.0",
@@ -45,12 +44,12 @@ _PARSE_INPUTS = [
     "100%",
     "7 out of 10",
     "评分: 0.55",
-    "<think>maybe 0.1</think> {\"score\": 0.95}",
+    '<think>maybe 0.1</think> {"score": 0.95}',
     "garbage no number here",
     "",
-    "score: 2.5",           # out-of-range raw → must clamp
-    "score: -0.3",          # negative → must clamp
-    "9999",                 # absurd → must stay bounded
+    "score: 2.5",  # out-of-range raw → must clamp
+    "score: -0.3",  # negative → must clamp
+    "9999",  # absurd → must stay bounded
 ]
 
 
@@ -80,6 +79,7 @@ class TestParseScoreDomain:
 # EvaluatorService._aggregate — N-run aggregation must not discard runs
 #   (regression guard for the bug fixed in this scan)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestAggregateNeverDiscardsRuns:
     def _ev(self):
@@ -264,6 +264,7 @@ class TestAutonomyCostInvariants:
 # BudgetHierarchy.remaining — never negative at any level
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestBudgetRemainingNonNegative:
     def _hierarchy(self):
         from orchestrator.cost import BudgetHierarchy
@@ -307,12 +308,12 @@ class TestCronParserRobustness:
             "",
             "* * * * *",
             "*/5 * * * *",
-            "*/0 * * * *",      # zero-step must not crash
+            "*/0 * * * *",  # zero-step must not crash
             "0 0 * * *",
             "bad expr",
-            "* * *",            # too few fields
+            "* * *",  # too few fields
             "1,2,3 * * * *",
-            "60 24 32 13 8",    # out-of-range values
+            "60 24 32 13 8",  # out-of-range values
         ],
     )
     def test_matches_never_raises(self, expr):

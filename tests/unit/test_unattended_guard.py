@@ -3,6 +3,7 @@ Tests for ENH-4: UnattendedGuard — pre-flight check before any unattended run.
 
 RED first.
 """
+
 from __future__ import annotations
 
 import math
@@ -37,8 +38,8 @@ class TestUnattendedGuard:
         """Attended runs bypass all checks — human is present."""
         ctx = RunContext(
             budget=_budget(0.0),  # no cap
-            daily_cap_usd=None,   # no daily
-            max_retries=None,     # no retry cap
+            daily_cap_usd=None,  # no daily
+            max_retries=None,  # no retry cap
             has_checkpoint=False,
             is_unattended=False,
         )
@@ -153,10 +154,10 @@ class TestUnattendedGuard:
     def test_error_message_lists_all_missing(self, monkeypatch):
         monkeypatch.delenv("ORCH_NO_CHECKPOINT_ACK", raising=False)
         ctx = RunContext(
-            budget=_budget(0.0),      # bad per-run
-            daily_cap_usd=None,       # bad daily
-            max_retries=None,         # bad retry
-            has_checkpoint=False,     # bad checkpoint
+            budget=_budget(0.0),  # bad per-run
+            daily_cap_usd=None,  # bad daily
+            max_retries=None,  # bad retry
+            has_checkpoint=False,  # bad checkpoint
             is_unattended=True,
         )
         with pytest.raises(UnattendedGuardError) as exc:

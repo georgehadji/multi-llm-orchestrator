@@ -283,11 +283,7 @@ class EvaluatorService:
         # 3+ runs: median is robust to one bad run; warn on high spread.
         ordered = sorted(scores)
         mid = len(ordered) // 2
-        median = (
-            ordered[mid]
-            if len(ordered) % 2 == 1
-            else (ordered[mid - 1] + ordered[mid]) / 2
-        )
+        median = ordered[mid] if len(ordered) % 2 == 1 else (ordered[mid - 1] + ordered[mid]) / 2
         if spread > self._consistency_delta:
             logger.warning(
                 "Evaluation inconsistency for %s across %d runs (spread=%.3f > %.2f). "
