@@ -30,6 +30,7 @@ from typing import Any
 from ..models import ProjectState, ProjectStatus, TaskStatus
 from ..resilience import RetryTemplate
 from .project_runner_deps import ProjectRunnerCallables, ProjectRunState
+from .unattended_guard import RunContext, UnattendedGuard
 
 logger = logging.getLogger("orchestrator")
 
@@ -110,6 +111,26 @@ class ProjectRunner:
 
             # Publish project_id to run_state so downstream callbacks can read it
             self._run_state.project_id = project_id
+
+            # ENH-4: pre-flight unattended guard — fail closed before any work starts
+            import sys
+            _daily = None
+            if self._budget_hierarchy is not None:
+                _daily = getattr(self._budget_hierarchy, "_org_max", None)
+            _hitl = getattr(self, "_hitl", None)
+            _has_checkpoint = (
+                _hitl is not None
+                and _hitl._channel.__class__.__name__ not in ("FailClosedChannel", "NoneType")
+            ) if _hitl is not None else False
+            UnattendedGuard.validate(
+                RunContext(
+                    budget=self._budget,
+                    daily_cap_usd=_daily,
+                    max_retries=getattr(self._run_state, "max_retries", None),
+                    has_checkpoint=_has_checkpoint,
+                    is_unattended=not sys.stdin.isatty(),
+                )
+            )
 
             logger.info("Starting project %s", project_id)
             logger.info(
