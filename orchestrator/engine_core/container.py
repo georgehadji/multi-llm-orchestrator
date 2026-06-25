@@ -160,6 +160,9 @@ class ServiceContainer:
     tdd_generator: Any = None
     diff_generator: Any = None
 
+    # HITL gate (FIX-1: fail-closed by default, no silent auto-approve)
+    hitl: Any = None
+
     # Accessory services (rarely used, kept here for reference)
     session_watcher: Any = None
     persona_manager: Any = None
@@ -632,6 +635,11 @@ class ServiceContainer:
         except ImportError:
             pass
 
+        # HITL gate (FIX-1) — channel resolved at request time via env/DI
+        from ..hitl.gate import HumanInTheLoop
+
+        hitl = HumanInTheLoop()  # no channel → fail-closed unless ORCH_HITL_AUTOAPPROVE=true
+
         # Circuit breaker registry
         cb_registry = None
         try:
@@ -688,6 +696,7 @@ class ServiceContainer:
             git_integration=None,
             observability=observability,
             cb_registry=cb_registry,
+            hitl=hitl,
         )
 
 
