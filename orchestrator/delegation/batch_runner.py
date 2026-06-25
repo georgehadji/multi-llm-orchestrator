@@ -23,9 +23,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .subagent import SubAgent, SubAgentConfig
+from ..vcs.worktree_manager import WorktreeManager
 
 if TYPE_CHECKING:
     from ..budget import Budget
@@ -58,6 +61,7 @@ class BatchRunner:
         self,
         max_concurrent: int = 3,
         max_depth: int = 2,
+        worktree_manager: WorktreeManager | None = None,
     ) -> None:
         """Initialize batch runner.
 
@@ -67,10 +71,22 @@ class BatchRunner:
             max_depth: Maximum spawn depth. 1 = only leaf tasks;
                 2 = orchestrator can spawn one level of children.
                 Default 2.
+            worktree_manager: Optional WorktreeManager for per-task isolation
+                (FIX-2). When None and ORCH_WORKTREE_ISOLATION=true, a default
+                manager is created. When ORCH_WORKTREE_ISOLATION=false (legacy),
+                no isolation is applied.
         """
         self.max_concurrent = max(1, max_concurrent)
         self.max_depth = max(1, max_depth)
         self._current_depth: int = 0
+        self._worktree_manager = worktree_manager or self._default_worktree_manager()
+
+    @staticmethod
+    def _default_worktree_manager() -> WorktreeManager | None:
+        enabled = os.getenv("ORCH_WORKTREE_ISOLATION", "true").lower()
+        if enabled == "false":
+            return None
+        return WorktreeManager(repo_root=Path.cwd())
 
     # ── Public API ──────────────────────────────────────────────────────────
 
@@ -142,7 +158,12 @@ class BatchRunner:
         async def _run_one(agent: SubAgent, task: "Task") -> tuple[str, "TaskResult"]:
             async with semaphore:
                 ctx = contexts.get(task.id, "")
-                result = await agent.execute(task, dependency_context=ctx)
+                if self._worktree_manager is not None:
+                    async with self._worktree_manager.acquire(task.id) as wt_path:
+                        logger.debug("Task %s isolated in worktree: %s", task.id, wt_path)
+                        result = await agent.execute(task, dependency_context=ctx)
+                else:
+                    result = await agent.execute(task, dependency_context=ctx)
                 return task.id, result
 
         logger.info(
