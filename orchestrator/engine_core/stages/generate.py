@@ -36,9 +36,11 @@ class GenerateStage:
         event_bus: object = None,
         hook_registry: object = None,
         vs_sampler: VSSamplerPort | None = None,
+        vs_selector: Any | None = None,
     ) -> None:
         self._client = client
         self._vs_sampler = vs_sampler
+        self._vs_selector = vs_selector
         self._budget = budget
         self._selector = selector
         self._event_bus = event_bus
@@ -89,8 +91,16 @@ class GenerateStage:
                     else:
                         candidates = []
                     if candidates:
-                        # Pick the text of the first (highest-prob) candidate
-                        best_text = candidates[0].text
+                        # Use CandidateSelector if reranking is enabled
+                        if self._vs_selector is not None and flags.vs_reranking_enabled:
+                            best = await self._vs_selector.select(task, candidates)
+                            if best is not None:
+                                best_text = best.text
+                            else:
+                                best_text = candidates[0].text
+                        else:
+                            # Default: highest-probability candidate
+                            best_text = candidates[0].text
                         ctx.output = best_text
                         # Cost is tracked inside VerbalizedSampler.sample() via budget.charge;
                         # VSCandidate has no cost_usd so we do not double-count here.
