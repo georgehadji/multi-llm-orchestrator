@@ -242,22 +242,58 @@ class EvaluatorService:
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _aggregate(self, scores: list[float], task_id: str) -> float:
-        """Apply self-consistency: if Δ > threshold, take the lower score."""
+        """Apply self-consistency aggregation across N scoring runs.
+
+        - 0 runs → 0.5 safe default.
+        - 1 run  → that run.
+        - 2 runs → mean, unless Δ > threshold (high disagreement) → lower score.
+        - 3+ runs → median (robust to a single outlier run), with the same
+          high-spread veto: if max-min spread exceeds the threshold, fall back
+          to the median (already outlier-robust) but log the disagreement.
+
+        BUGFIX: the previous implementation handled only len == 2 and returned
+        ``scores[0]`` for any other length, silently discarding runs 2..N when
+        ``consistency_runs`` was configured above 2.
+        """
+        if not scores:
+            return 0.5
+        if len(scores) == 1:
+            return scores[0]
+
+        spread = max(scores) - min(scores)
         if len(scores) == 2:
-            delta = abs(scores[0] - scores[1])
-            if delta > self._consistency_delta:
+            if spread > self._consistency_delta:
                 logger.warning(
                     "Evaluation inconsistency for %s: %.3f vs %.3f (Δ=%.3f > %.2f). "
                     "Using lower score.",
                     task_id,
                     scores[0],
                     scores[1],
-                    delta,
+                    spread,
                     self._consistency_delta,
                 )
                 return min(scores)
             return sum(scores) / len(scores)
-        return scores[0] if scores else 0.5
+
+        # 3+ runs: median is robust to one bad run; warn on high spread.
+        ordered = sorted(scores)
+        mid = len(ordered) // 2
+        median = (
+            ordered[mid]
+            if len(ordered) % 2 == 1
+            else (ordered[mid - 1] + ordered[mid]) / 2
+        )
+        if spread > self._consistency_delta:
+            logger.warning(
+                "Evaluation inconsistency for %s across %d runs (spread=%.3f > %.2f). "
+                "Using median=%.3f.",
+                task_id,
+                len(scores),
+                spread,
+                self._consistency_delta,
+                median,
+            )
+        return median
 
     @staticmethod
     def parse_score(text: str) -> float:
