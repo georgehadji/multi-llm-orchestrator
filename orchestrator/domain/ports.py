@@ -597,17 +597,19 @@ class SnapshotPort(Protocol):
 class NullSnapshotStore:
     """No-op fallback when snapshot storage is disabled."""
 
-    async def create(self, label, source_dir, metadata=None):
+    async def create(
+        self, label: str, source_dir: str, metadata: dict[str, Any] | None = None
+    ) -> str:
         return ""
 
-    async def restore(self, snapshot_id, target_dir):
+    async def restore(self, snapshot_id: str, target_dir: str) -> bool:
         return False
 
-    async def list_snapshots(self):
+    async def list_snapshots(self) -> list[dict[str, Any]]:
         return []
 
-    async def diff(self, snapshot_a, snapshot_b):
+    async def diff(self, snapshot_a: str, snapshot_b: str) -> dict[str, Any]:
         return {"added_files": [], "removed_files": [], "modified_files": [], "file_diffs": {}}
 
-    async def delete(self, snapshot_id):
+    async def delete(self, snapshot_id: str) -> bool:
         return False

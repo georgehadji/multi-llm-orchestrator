@@ -82,7 +82,7 @@ A `BudgetHierarchy` instance is passed into `Orchestrator` alongside the per-run
 
 ## Configuration
 
-**Environment variables:** Required API keys: `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`. Optional OpenRouter optimizations: `USE_JSON_SCHEMA_RESPONSES`, `USE_MODEL_VARIANTS`, `USE_NATIVE_FALLBACKS`, `USE_PROVIDER_SORTING`. Copy `.env.example` to `.env`.
+**Environment variables:** Required API keys: `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`. Optional OpenRouter optimizations: `USE_JSON_SCHEMA_RESPONSES`, `USE_MODEL_VARIANTS`, `USE_NATIVE_FALLBACKS`, `USE_PROVIDER_SORTING`, `USE_RESPONSE_HEALING` (server-side JSON repair for non-streaming structured-output requests). Copy `.env.example` to `.env`.
 
 ---
 
