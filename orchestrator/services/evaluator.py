@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from ..api_clients import UnifiedClient
 from ..budget import Budget
@@ -25,6 +25,9 @@ from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
 from ..telemetry import TelemetryCollector
 from ..tracing import Tracer
+
+if TYPE_CHECKING:
+    from ..application.verification_gate import VerificationGate
 
 logger = logging.getLogger("orchestrator.services.evaluator")
 
@@ -44,6 +47,14 @@ class EvaluatorService:
                             score (default 0.05).
     """
 
+    # ENH-1 (Loop Engineering §V.B): adversarial stance — assume broken until proven.
+    _SYSTEM_PROMPT = (
+        "Adversarial code reviewer. "
+        "ASSUME this output is BROKEN until proven otherwise. "
+        "Do NOT praise. Find what fails. "
+        "Score 0.0 for clearly broken code; reserve 0.8+ only when everything works correctly."
+    )
+
     def __init__(
         self,
         client: UnifiedClient,
@@ -53,6 +64,7 @@ class EvaluatorService:
         consistency_delta: float = 0.05,
         tracer: Tracer | None = None,
         telemetry: TelemetryCollector | None = None,
+        verification_gate: "VerificationGate | None" = None,
     ) -> None:
         self._client = client
         self._budget = budget
@@ -61,6 +73,7 @@ class EvaluatorService:
         self._consistency_delta = consistency_delta
         self._tracer = tracer
         self._telemetry = telemetry
+        self._gate = verification_gate
 
     # ── Public interface ──────────────────────────────────────────────────────
 
@@ -86,10 +99,30 @@ class EvaluatorService:
     async def _evaluate_inner(
         self, task: Task, output: str, policy: _ResiliencePolicy | None = None
     ) -> CritiqueReport:
+        # ENH-1: deterministic gate runs first — hard veto before LLM opinion
+        if self._gate is not None:
+            gate_result = await self._gate.run(output)
+            if not gate_result.passed:
+                from ..application.verification_gate import VerificationGate
+
+                logger.warning(
+                    "  %s: VerificationGate FAILED — deterministic floor applied "
+                    "(score=%.2f). Failures: %s",
+                    task.id,
+                    VerificationGate.FAIL_SCORE_FLOOR,
+                    gate_result.reasons,
+                )
+                return CritiqueReport(
+                    task_id=task.id,
+                    score=VerificationGate.FAIL_SCORE_FLOOR,
+                    passed_validators=False,
+                    items=[],
+                )
+
         eval_models = self._get_models(TaskType.EVALUATE)
         if not eval_models:
             logger.debug("  %s: no eval models available, returning 0.5", task.id)
-            return CritiqueReport(task_id=task.id, score=0.5)
+            return CritiqueReport(task_id=task.id, score=0.5, passed_validators=True)
 
         eval_model = eval_models[0]
         logger.debug("  %s: evaluating with %s", task.id, eval_model.value)
@@ -132,7 +165,7 @@ class EvaluatorService:
                 response = await self._client.call(
                     eval_model,
                     eval_prompt,
-                    system="You are a precise evaluator. Score exactly, return only JSON.",
+                    system=self._SYSTEM_PROMPT,
                     max_tokens=_eval_max_tokens,
                     temperature=0.1,
                     timeout=_eval_timeout,
@@ -198,6 +231,7 @@ class EvaluatorService:
         return CritiqueReport(
             task_id=task.id,
             score=final_score,
+            passed_validators=True,  # gate passed (or not wired)
             items=items,
             model_used=eval_model.value if eval_model else None,
             tokens_used=(
