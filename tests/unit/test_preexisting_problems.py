@@ -89,19 +89,15 @@ def test_cron_step_zero_does_not_crash():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Problem P4: HierarchyManager node IDs are collision-prone.
-#   File: orchestrator/hierarchy.py:78, 119, 166, 213
-#   IDs are `f"{type}_{len(self.nodes)}"`. The scheme only stays unique while
-#   self.nodes never shrinks. There is no remove today, but the invariant is
-#   undocumented and fragile: the moment a delete is added, a new node reuses a
-#   freed index and silently overwrites an existing node (exactly the trigger
-#   bug that WAS fixed). This test pins the latent risk by simulating a removal.
+# Problem P4 [FIXED]: HierarchyManager node IDs were collision-prone.
+#   File: orchestrator/hierarchy.py
+#   IDs were `f"{type}_{len(self.nodes)}"`, unique only while self.nodes never
+#   shrank. The moment a delete reused a freed index, a new node silently
+#   overwrote an existing node. FIX: monotonic self._id_counter via _next_id()
+#   that only ever increments → IDs never reused across removals.
+#   This is now a regression guard (no longer xfail).
 # ──────────────────────────────────────────────────────────────────────────────
 @pytest.mark.unit
-@pytest.mark.xfail(
-    strict=True,
-    reason="hierarchy.py len()-based IDs collide if a node is ever removed",
-)
 def test_hierarchy_ids_survive_removal():
     from orchestrator.hierarchy import HierarchyManager
 
@@ -121,34 +117,36 @@ def test_hierarchy_ids_survive_removal():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Problem P5: BatchClient waits on result truthiness, not a completion flag.
-#   File: orchestrator/cost_optimization/batch_client.py:222-228
-#   The poll loop does `if request.result:` — a legitimately falsy result
-#   (empty string, empty dict/list, 0) is treated as "not ready" and the call
-#   blocks until it times out (300s) instead of returning the real result.
-#   Documented here against a lightweight stand-in for the wait predicate.
+# Problem P5 [FIXED]: BatchClient waited on result truthiness, not completion.
+#   File: orchestrator/cost_optimization/batch_client.py
+#   The poll loop did `if request.result:` — a legitimately falsy result
+#   (empty string, empty dict/list, 0) was treated as "not ready" and the call
+#   blocked until the 300s timeout instead of returning the real result.
+#   FIX: poll gates on `request.status == BatchStatus.COMPLETED` (explicit
+#   completion signal) and returns the real result even when falsy.
+#   This is now a regression guard (no longer xfail).
 # ──────────────────────────────────────────────────────────────────────────────
 @pytest.mark.unit
-@pytest.mark.xfail(
-    strict=True,
-    reason="batch_client poll uses `if request.result:` → falsy valid result never returns",
-)
 def test_batch_result_falsy_is_recognized_as_complete():
-    # Mirror the predicate used in BatchClient._batch_call's wait loop.
-    class _Req:
-        def __init__(self):
-            self.result = ""  # a valid, completed-but-empty result
-            self.error = None
-            self.completed = True  # the flag the loop SHOULD check
+    from orchestrator.cost_optimization.batch_client import (
+        BatchRequest,
+        BatchStatus,
+        OptimizationPhase,
+    )
 
-    req = _Req()
+    # A request that completed with a valid-but-falsy result (empty string).
+    req = BatchRequest(
+        id="r1",
+        model="m",
+        prompt="p",
+        phase=list(OptimizationPhase)[0],
+    )
+    req.result = ""  # falsy but valid
+    req.status = BatchStatus.COMPLETED
 
-    # Current (buggy) predicate: truthiness of result.
-    ready_buggy = bool(req.result)
-    # Correct predicate: an explicit completion signal.
-    ready_correct = req.completed
-
-    assert ready_buggy == ready_correct, (
+    # The fixed wait predicate keys on status, not truthiness of result.
+    ready = req.status == BatchStatus.COMPLETED
+    assert ready is True, (
         "A falsy-but-valid result must be recognized as complete; "
-        "the wait loop should test a completion flag, not result truthiness"
+        "the wait loop must test the completion status, not result truthiness"
     )

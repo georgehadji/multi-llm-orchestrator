@@ -62,6 +62,17 @@ class HierarchyManager:
         self.nodes: dict[str, Node] = {}
         self.children_map: dict[str, list[str]] = {}  # parent_id -> [child_ids]
         self.parent_map: dict[str, str] = {}  # child_id -> parent_id
+        # P4 FIX: monotonic counter so node IDs are never reused. The old
+        # ``f"{type}_{len(self.nodes)}"`` scheme reused a freed index the moment
+        # a node was removed, silently overwriting an existing node. A counter
+        # that only ever increments guarantees global uniqueness across removals.
+        self._id_counter: int = 0
+
+    def _next_id(self, prefix: str) -> str:
+        """Return a globally-unique, never-reused node ID with the given prefix."""
+        node_id = f"{prefix}_{self._id_counter}"
+        self._id_counter += 1
+        return node_id
 
     def create_org(self, name: str, budget: float = 0.0, metadata: dict | None = None) -> Node:
         """
@@ -75,7 +86,7 @@ class HierarchyManager:
         Returns:
             Node: The created organization node
         """
-        org_id = f"org_{len(self.nodes)}"
+        org_id = self._next_id("org")
         org_node = Node(
             id=org_id,
             name=name,
@@ -116,7 +127,7 @@ class HierarchyManager:
         if org_node.allocated_budget + budget > org_node.budget > 0:
             raise ValueError(f"Insufficient budget in organization {org_id}")
 
-        team_id = f"team_{len(self.nodes)}"
+        team_id = self._next_id("team")
         team_node = Node(
             id=team_id,
             name=name,
@@ -163,7 +174,7 @@ class HierarchyManager:
         if team_node.allocated_budget + budget > team_node.budget > 0:
             raise ValueError(f"Insufficient budget in team {team_id}")
 
-        project_id = f"proj_{len(self.nodes)}"
+        project_id = self._next_id("proj")
         project_node = Node(
             id=project_id,
             name=name,
@@ -210,7 +221,7 @@ class HierarchyManager:
         if team_node.allocated_budget + budget > team_node.budget > 0:
             raise ValueError(f"Insufficient budget in team {team_id}")
 
-        user_id = f"user_{len(self.nodes)}"
+        user_id = self._next_id("user")
         user_node = Node(
             id=user_id,
             name=name,
