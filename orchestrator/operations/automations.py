@@ -36,6 +36,7 @@ class ScheduledTask:
     last_run: float = 0.0
     run_count: int = 0
     enabled: bool = True
+    skill_name: str | None = None  # ENH-5: named skill reference (preferred over inline prompts)
 
     def to_dict(self):
         return {
@@ -48,6 +49,7 @@ class ScheduledTask:
             "last_run": self.last_run,
             "run_count": self.run_count,
             "enabled": self.enabled,
+            "skill_name": self.skill_name,
         }
 
 
