@@ -656,9 +656,11 @@ class ServiceContainer:
         skill_store = None
         try:
             from ..crosscutting.config import flags as _flags
+
             if _flags.skill_optimization_enabled:
                 from ..infrastructure.skill_store_adapter import SkillDbAdapter
                 from ..application.skill_store import SkillStore
+
                 skill_store = SkillStore(SkillDbAdapter())
         except Exception:
             pass
@@ -667,10 +669,12 @@ class ServiceContainer:
         snapshotter = None
         try:
             from ..infrastructure.telemetry_snapshotter import TelemetrySnapshotter
+
             snapshotter = TelemetrySnapshotter(
                 telemetry_store=telemetry_store,
                 get_active_profiles_fn=lambda: [
-                    p for p in (planner._profiles if planner else {}).values()
+                    p
+                    for p in (planner._profiles if planner else {}).values()
                     if getattr(p, "call_count", 0) >= 1
                 ],
             )
