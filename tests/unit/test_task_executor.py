@@ -245,6 +245,16 @@ class TestExecuteTask:
         executor.critique_cycle.run_cycle.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_semantic_cache_fallback_in_execute(self, executor, sample_task):
+        """cache_optimizer misses, semantic cache hit in execute_task."""
+        executor.cache_optimizer.get.return_value = None
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+        executor.semantic_cache.get_cached_pattern = MagicMock(return_value="semantic fallback")
+        r = await executor.execute_task(sample_task, {}, {})
+        assert r is not None
+        assert r.score == 0.85  # cached result score
+
+    @pytest.mark.asyncio
     async def test_returns_failure_when_no_models(self, executor, sample_task):
         executor.cache_optimizer.get.return_value = None
         executor.dependency_resolver.get_dependency_context.return_value = ""
@@ -252,6 +262,42 @@ class TestExecuteTask:
         r = await executor.execute_task(sample_task, {}, {})
         assert r.status == TaskStatus.FAILED
         assert "No models" in r.critique
+
+    @pytest.mark.asyncio
+    async def test_handler_empty_output_falls_through(self, executor, sample_task):
+        """Handler returning result with empty output falls through to critique cycle."""
+        import sys
+        sys.modules["orchestrator.task_handlers"].get_handler.side_effect = None
+        handler = MagicMock()
+        handler.execute = AsyncMock(return_value=MagicMock(output="", spec=TaskResult))
+        sys.modules["orchestrator.task_handlers"].get_handler.return_value = lambda: handler
+        executor.cache_optimizer.get.return_value = None
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+        executor.fallback_handler.get_available_models.return_value = [Model.GPT_4O_MINI]
+        executor.fallback_handler.select_reviewer.return_value = Model.GPT_4O
+        executor.critique_cycle.run_cycle = AsyncMock(
+            return_value=CritiqueState(best_output="ok", best_score=0.82, total_cost=0.01))
+        r = await executor.execute_task(sample_task, {}, {})
+        assert r.score == 0.82
+        executor.critique_cycle.run_cycle.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_tdd_path_falls_through_to_critique(self, executor, sample_task):
+        """TDD enabled but returning None falls through to critique cycle."""
+        import sys
+        sys.modules["orchestrator.task_handlers"].get_handler.side_effect = None
+        sys.modules["orchestrator.task_handlers"].get_handler.side_effect = KeyError("no handler")
+        executor.cache_optimizer.get.return_value = None
+        executor.dependency_resolver.get_dependency_context.return_value = ""
+        executor.fallback_handler.get_available_models.return_value = [Model.GPT_4O_MINI]
+        executor.fallback_handler.select_reviewer.return_value = Model.GPT_4O
+        executor.critique_cycle.run_cycle = AsyncMock(
+            return_value=CritiqueState(best_output="tdd fallback", best_score=0.78, total_cost=0.01))
+        executor._has_tdd = True
+        executor.optim_config.enable_tdd_first = True
+        r = await executor.execute_task(sample_task, {}, {})
+        assert r.score == 0.78
+        executor.critique_cycle.run_cycle.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_typed_handler_succeeds(self, executor, sample_task):
