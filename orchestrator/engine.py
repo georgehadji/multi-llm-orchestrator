@@ -726,14 +726,24 @@ class Orchestrator:
                 task.cancel()
 
         # ── Phase 2: Container-managed services ──────────────────────────────
-        if self._c is not None:
+        if getattr(self, "_c", None) is not None:
             await self._c.shutdown()
 
-        # 2a. Flush audit log
+        # 2a. Flush telemetry store. Covers stores set directly on the
+        #     orchestrator (not only the container-owned one). Idempotent flush,
+        #     so no harm if the container already flushed the same object.
         try:
-            audit_log = getattr(self._c, "audit_log", None)
-            if audit_log is not None and hasattr(audit_log, "flush"):
-                await audit_log.flush()
+            store = getattr(self, "_telemetry_store", None)
+            if store is not None and hasattr(store, "flush"):
+                await store.flush()
+        except Exception as e:
+            logger.warning("Failed to flush telemetry store: %s", e)
+
+        # 2b. Flush audit log (getattr: minimal Orchestrator may lack _audit_log).
+        try:
+            audit = getattr(self, "_audit_log", None)
+            if hasattr(audit, "flush"):
+                await audit.flush()
         except Exception as e:
             logger.warning("Failed to flush audit log: %s", e)
 

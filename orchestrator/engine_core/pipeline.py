@@ -62,6 +62,10 @@ class PipelineContext:
     # SkillOpt: injected skill document prepended to the system prompt by GenerateStage.
     # Set to "" (default) when skill_optimization is disabled or no skill exists yet.
     skill_prefix: str = ""
+    # Design-critique results (defaults when the design-critique stage is
+    # skipped, e.g. for non-frontend tasks or empty output).
+    design_score: float = 0.0
+    design_critique: str = ""
 
     def reset_for_retry(self) -> None:
         """Reset mutable state for a retry attempt while preserving task context."""
