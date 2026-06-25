@@ -267,6 +267,7 @@ class TestExecuteTask:
     async def test_handler_empty_output_falls_through(self, executor, sample_task):
         """Handler returning result with empty output falls through to critique cycle."""
         import sys
+
         sys.modules["orchestrator.task_handlers"].get_handler.side_effect = None
         handler = MagicMock()
         handler.execute = AsyncMock(return_value=MagicMock(output="", spec=TaskResult))
@@ -276,7 +277,8 @@ class TestExecuteTask:
         executor.fallback_handler.get_available_models.return_value = [Model.GPT_4O_MINI]
         executor.fallback_handler.select_reviewer.return_value = Model.GPT_4O
         executor.critique_cycle.run_cycle = AsyncMock(
-            return_value=CritiqueState(best_output="ok", best_score=0.82, total_cost=0.01))
+            return_value=CritiqueState(best_output="ok", best_score=0.82, total_cost=0.01)
+        )
         r = await executor.execute_task(sample_task, {}, {})
         assert r.score == 0.82
         executor.critique_cycle.run_cycle.assert_called_once()
@@ -285,6 +287,7 @@ class TestExecuteTask:
     async def test_tdd_path_falls_through_to_critique(self, executor, sample_task):
         """TDD enabled but returning None falls through to critique cycle."""
         import sys
+
         sys.modules["orchestrator.task_handlers"].get_handler.side_effect = None
         sys.modules["orchestrator.task_handlers"].get_handler.side_effect = KeyError("no handler")
         executor.cache_optimizer.get.return_value = None
@@ -292,7 +295,8 @@ class TestExecuteTask:
         executor.fallback_handler.get_available_models.return_value = [Model.GPT_4O_MINI]
         executor.fallback_handler.select_reviewer.return_value = Model.GPT_4O
         executor.critique_cycle.run_cycle = AsyncMock(
-            return_value=CritiqueState(best_output="tdd fallback", best_score=0.78, total_cost=0.01))
+            return_value=CritiqueState(best_output="tdd fallback", best_score=0.78, total_cost=0.01)
+        )
         executor._has_tdd = True
         executor.optim_config.enable_tdd_first = True
         r = await executor.execute_task(sample_task, {}, {})
