@@ -346,11 +346,30 @@ class ModelRegistry:
         GPT_5,
         GPT_5_4_PRO,
         GROK_4_20,
-        GROK_4_MINI,
         STEP_3_5_FLASH,
         QWEN_3_235B_THINKING,
         QWEN_3_MAX_THINKING,
         QWEN_3_5_397B,
+        # 2026 reasoning tier (kept in sync with the live OpenRouter catalogue;
+        # see docs/REASONING_AND_TEMPERATURE.md). Literal ids: these models are
+        # not all declared as constants in this registry.
+        "openai/gpt-5.2",
+        "openai/gpt-5.5",
+        "openai/gpt-5.5-pro",
+        "x-ai/grok-4.3",
+        "x-ai/grok-4.20-multi-agent",
+        "minimax/minimax-m3",
+        "deepseek/deepseek-v3.2",
+        "qwen/qwen3-235b-a22b-thinking-2507",
+        "qwen/qwen3-next-80b-a3b-thinking",
+        "nvidia/nemotron-3-ultra-550b-a55b",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-super-120b-a12b",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "anthropic/claude-opus-4-8",  # extended-thinking capable
+        "openai/o1",
+        "openai/o3-mini",
+        "openai/o4-mini",
     }
 
     # Budget models - best value
@@ -384,7 +403,6 @@ class ModelRegistry:
         GPT_5,  # 400K
         GPT_5_CODEX,  # 400K
         GROK_4_20,  # 2M!
-        GROK_4_MINI,  # 128K
         STEP_3_5_FLASH,  # 262K
         STEP_3_5,  # 262K
         MIMO_V2_FLASH,  # 256K
