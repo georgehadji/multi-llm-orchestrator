@@ -586,16 +586,12 @@ class Orchestrator:
         from .crosscutting.config import flags as _flags
 
         if _flags.skill_optimization_enabled:
-            from .application.skill_store import SkillStore as _SkillStore
             from .application.skill_manager import SkillManager as _SkillManager
 
-            from ..infrastructure.skill_store_adapter import SkillDbAdapter as _SkillDbAdapter
-
-            _skill_db = _SkillDbAdapter()
-            _skill_store = _SkillStore(_skill_db)
+            skill_store = self._c.skill_store
             self._skill_manager: Any = _SkillManager(
                 optimizer_client=self._c.client,
-                skill_store=_skill_store,
+                skill_store=skill_store,
             )
             logger.info("SkillOpt enabled — skill_manager initialized")
         else:
@@ -819,19 +815,21 @@ class Orchestrator:
     # ── Telemetry & cleanup — delegated to TelemetrySnapshotter (extracted) ──
 
     def _get_snapshotter(self):
-        """Lazy-init TelemetrySnapshotter."""
+        """Lazy-init TelemetrySnapshotter — prefer from container."""
         if not hasattr(self, "_snapshotter") or self._snapshotter is None:
-            from .infrastructure.telemetry_snapshotter import TelemetrySnapshotter
+            self._snapshotter = getattr(self._c, "snapshotter", None)
+            if self._snapshotter is None:
+                from .infrastructure.telemetry_snapshotter import TelemetrySnapshotter
 
-            self._snapshotter = TelemetrySnapshotter(
-                telemetry_store=self._c.telemetry_store,
-                get_active_profiles_fn=lambda: [
-                    p
-                    for p in self._c.planner._profiles.values()
-                    if getattr(p, "call_count", 0) >= 1
-                ],
-                background_tasks=self._background_tasks,
-            )
+                self._snapshotter = TelemetrySnapshotter(
+                    telemetry_store=self._c.telemetry_store,
+                    get_active_profiles_fn=lambda: [
+                        p
+                        for p in self._c.planner._profiles.values()
+                        if getattr(p, "call_count", 0) >= 1
+                    ],
+                    background_tasks=self._background_tasks,
+                )
         return self._snapshotter
 
     async def _flush_telemetry_snapshots(self, project_id: str) -> None:
