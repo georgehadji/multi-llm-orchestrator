@@ -605,7 +605,8 @@ def __getattr__(name: str) -> Any:
 
 
 # Model-specific max tokens limits (override MAX_OUTPUT_TOKENS)
-
+# IMPORTANT: This dict is read-only at runtime. Do NOT mutate after module load.
+# All consumers read keys; writes during execution risk data races.
 MODEL_MAX_TOKENS: dict[Model, int] = {
     # Anthropic Claude models
     Model.CLAUDE_HAIKU_4_5: 4096,
