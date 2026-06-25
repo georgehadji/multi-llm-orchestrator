@@ -382,6 +382,41 @@ class Model(str, Enum):
     OPENROUTER_AUTO = "openrouter/auto"  # Dynamic routing
 
     # ═══════════════════════════════════════════════════════
+    # 2026 VALUE-FOR-MONEY (VFM) ADDITIONS
+    # Best intelligence-per-dollar picks from the live OpenRouter catalogue.
+    # ":free" variants are endpoint variants that reach OpenRouter intact and
+    # cost $0 (rate-limited) — ideal as the FIRST cascade tier with a paid
+    # fallback. Prices are USD per 1M tokens (input/output).
+    # ═══════════════════════════════════════════════════════
+
+    # ── Free tier ($0, rate-limited) — maximum VFM, try first ───────────────
+    QWEN_3_CODER_FREE = "qwen/qwen3-coder:free"  # free coding specialist, 1M ctx
+    GPT_OSS_120B_FREE = "openai/gpt-oss-120b:free"  # free 120B open GPT, general+code
+    QWEN_3_NEXT_80B_FREE = "qwen/qwen3-next-80b-a3b-instruct:free"  # free 80B general
+    LLAMA_3_3_70B_FREE = "meta-llama/llama-3.3-70b-instruct:free"  # free 70B general
+    NEMOTRON_3_ULTRA_FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"  # free 550B reasoning
+    NEMOTRON_3_SUPER_FREE = "nvidia/nemotron-3-super-120b-a12b:free"  # free 120B reasoning
+    NEMOTRON_NANO_9B_FREE = "nvidia/nemotron-nano-9b-v2:free"  # free 9B extract/summarize
+
+    # ── Ultra-cheap paid workhorses (reliable fallbacks for the free tier) ──
+    GPT_OSS_120B = "openai/gpt-oss-120b"  # $0.04/$0.18, 131K, top VFM general+code
+    GPT_OSS_20B = "openai/gpt-oss-20b"  # $0.03/$0.14, 131K, cheapest GPT-class
+    QWEN_3_NEXT_80B = "qwen/qwen3-next-80b-a3b-instruct"  # $0.09/$1.10, 262K general
+    ZHIPU_GLM_4_7_FLASH = "z-ai/glm-4.7-flash"  # $0.06/$0.40, 202K, cheap fast
+    MINIMAX_M2_5 = "minimax/minimax-m2.5"  # $0.15/$0.90, 205K, cheap reasoning
+
+    # ── Mid-tier VFM (quality lead) ─────────────────────────────────────────
+    DEVSTRAL_2512 = "mistralai/devstral-2512"  # $0.40/$2.00, 262K, coding specialist
+    MISTRAL_LARGE_2512 = "mistralai/mistral-large-2512"  # $0.50/$1.50, 262K, general
+    ZHIPU_GLM_5 = "z-ai/glm-5"  # $0.60/$1.92, 202K, strong general
+    GEMINI_3_FLASH = "google/gemini-3-flash-preview"  # $0.50/$3.00, 1M ctx, fast frontier
+
+    # ── Premium frontier (high-stakes fallback) ─────────────────────────────
+    GPT_5_2 = "openai/gpt-5.2"  # $1.75/$14.00, 400K, frontier reasoning
+    GEMINI_3_1_PRO = "google/gemini-3.1-pro-preview"  # $2.00/$12.00, 1M, frontier
+    CLAUDE_FABLE_5 = "anthropic/claude-fable-5"  # $10/$50, 1M, top-tier quality
+
+    # ═══════════════════════════════════════════════════════
     # IMAGE GENERATION MODELS
     # ═══════════════════════════════════════════════════════
 
