@@ -47,7 +47,7 @@ async def decompose_project(
         from ..structured_outputs import TaskDecomposer
 
         if len(project) <= _INSTRUCTOR_MAX_CHARS:
-            decomposer_inst = TaskDecomposer(api_client=client)
+            decomposer_inst = TaskDecomposer(api_client=client)  # type: ignore[no-untyped-call]
             decomp_model = (
                 "deepseek/deepseek-v4-flash" if "free" in model.value.lower() else model.value
             )
@@ -70,7 +70,7 @@ async def decompose_project(
         )
 
     # ── Fallback: DAG-based Decomposer from engine_core ────────────────
-    return await decomposer.decompose(
+    fallback_tasks: dict[str, Task] = await decomposer.decompose(
         project=project,
         criteria=criteria,
         app_profile=app_profile,
@@ -79,3 +79,4 @@ async def decompose_project(
         record_failure_fn=record_failure_fn,
         charge_fn=charge_fn,
     )
+    return fallback_tasks

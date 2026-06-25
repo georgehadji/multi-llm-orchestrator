@@ -5,6 +5,23 @@ from unittest.mock import AsyncMock, MagicMock
 
 from orchestrator.knowledge_base import KnowledgeBase, KnowledgeType, KnowledgeArtifact
 
+
+@pytest.fixture(autouse=True)
+def _pin_embeddings(monkeypatch):
+    """Pin query/artifact embeddings to a fixed 2-d vector.
+
+    These tests exercise rerank ordering logic, not embedding quality. Without
+    pinning, the query is embedded by the real (hash/SentenceTransformer)
+    pipeline and never matches the artifacts' hand-set [0.5, 0.5] vectors, so
+    cosine falls below the 0.5 floor and stage-1 returns nothing.
+    """
+
+    async def _fixed(self, text):  # noqa: ANN001
+        return [0.5, 0.5]
+
+    monkeypatch.setattr(KnowledgeBase, "_compute_embedding", _fixed)
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

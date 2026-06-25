@@ -389,8 +389,15 @@ class NullLLMClient:
     """No-op LLM client. call() returns empty response."""
 
     async def call(
-        self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs
-    ):
+        self,
+        model: Any,
+        prompt: Any,
+        system: str = "",
+        max_tokens: int = 1500,
+        temperature: float = 0.3,
+        timeout: int = 120,
+        **kwargs: Any,
+    ) -> Any:
         from types import SimpleNamespace
 
         return SimpleNamespace(text="", cost_usd=0.0, input_tokens=0, output_tokens=0)
@@ -399,56 +406,58 @@ class NullLLMClient:
 class NullPlanner:
     """No-op planner. Returns None."""
 
-    def available_models(self, task_type) -> list:
+    def available_models(self, task_type: Any) -> list[Any]:
         return []
 
-    def select(self, task_type):
+    def select(self, task_type: Any) -> Any:
         return None
 
 
 class NullTelemetry:
     """No-op telemetry. record_call() is a silent no-op."""
 
-    def record_call(self, model, latency_ms=0.0, cost_usd=0.0, success=True) -> None:
+    def record_call(
+        self, model: Any, latency_ms: float = 0.0, cost_usd: float = 0.0, success: bool = True
+    ) -> None:
         pass
 
 
 class NullPolicyEngine:
     """No-op policy engine. evaluate() returns None."""
 
-    def evaluate(self, job_spec, profile):
+    def evaluate(self, job_spec: Any, profile: Any) -> Any:
         return None
 
 
 class NullValidator:
     """No-op validator. validate() always returns True."""
 
-    async def validate(self, task, output: str) -> bool:
+    async def validate(self, task: Any, output: str) -> bool:
         return True
 
 
 class NullTaskQueue:
     """No-op task queue. enqueue() returns '', other methods return defaults."""
 
-    async def enqueue(self, project_spec, priority: int = 0) -> str:
+    async def enqueue(self, project_spec: Any, priority: int = 0) -> str:
         return ""
 
-    async def claim_next(self, assignee: str):
+    async def claim_next(self, assignee: str) -> Any:
         return None
 
-    async def complete(self, task_id: str, result=None) -> bool:
+    async def complete(self, task_id: str, result: Any = None) -> bool:
         return True
 
     async def record_failure(self, task_id: str, error: str = "") -> bool:
         return True
 
-    async def list_tasks(self, status=None, limit: int = 50) -> list:
+    async def list_tasks(self, status: Any = None, limit: int = 50) -> list[Any]:
         return []
 
-    async def get_stats(self) -> dict:
+    async def get_stats(self) -> dict[str, int]:
         return {"queued": 0, "running": 0, "completed": 0, "failed": 0}
 
-    async def update_status(self, task_id: str, status: str, result=None) -> bool:
+    async def update_status(self, task_id: str, status: str, result: Any = None) -> bool:
         return True
 
 
@@ -730,10 +739,10 @@ class Reranker(Protocol):
     async def rerank(
         self,
         query: str,
-        results: list[dict],
+        results: list[dict[str, Any]],
         top_k: int,
         min_score: float = 0.3,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Rerank results and return top_k with updated relevance scores.
 
         Each dict in ``results`` must have at least ``id`` and ``content`` keys.

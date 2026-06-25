@@ -219,8 +219,14 @@ class TestHumanInTheLoop:
         from orchestrator.hitl.gate import HumanInTheLoop, Decision, DecisionResult
 
         hitl = HumanInTheLoop()
+        # FIX-1: auto-approval now requires an explicit requires_approval=False.
+        # With no channel and requires_approval=True the gate fails closed
+        # (see tests/unit/test_hitl_gate.py for the fail-closed contract).
         decision = Decision(
-            category="architecture", title="Choose framework", description="FastAPI vs Django"
+            category="architecture",
+            title="Choose framework",
+            description="FastAPI vs Django",
+            requires_approval=False,
         )
         result = await hitl.request_decision(decision)
         assert result == DecisionResult.APPROVED
