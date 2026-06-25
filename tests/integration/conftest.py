@@ -22,6 +22,19 @@ from orchestrator.models import (
 from orchestrator.state import StateManager
 
 
+@pytest.fixture(autouse=True)
+def _bypass_unattended_guard(monkeypatch):
+    """Bypass the ENH-4 unattended guard for integration tests.
+
+    These tests exercise orchestration mechanics, not the safety gate itself
+    (that is covered by tests/unit/test_unattended_guard.py). Under CI stdin is
+    not a TTY, so ``is_unattended`` is True and the guard would otherwise block
+    every ``run_project`` call that does not wire a daily cap / retry cap /
+    checkpoint. ``ORCH_UNATTENDED_GUARD=false`` is the documented escape hatch.
+    """
+    monkeypatch.setenv("ORCH_UNATTENDED_GUARD", "false")
+
+
 @pytest.fixture
 async def temp_state_manager():
     """Provide a StateManager backed by a temporary SQLite DB."""

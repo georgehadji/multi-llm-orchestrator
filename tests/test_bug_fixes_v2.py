@@ -123,7 +123,9 @@ class TestBug002CircuitBreakerProbeRace:
             async with cb.context():
                 raise ConnectionError("trip")
 
-        await asyncio.sleep(0.03)
+        # 5x reset_timeout margin so the probe window is reliably open even
+        # when the event loop is congested by the rest of the suite.
+        await asyncio.sleep(0.1)
 
         # First probe + success (successes=1)
         await cb.check()
@@ -142,8 +144,8 @@ class TestBug002CircuitBreakerProbeRace:
         await cb.record_failure(TimeoutError("probe timeout"))
         assert cb._state.probe_in_flight is False
 
-        # Wait for reset timeout so check() can probe again
-        await asyncio.sleep(0.03)
+        # Wait for reset timeout so check() can probe again (5x margin).
+        await asyncio.sleep(0.1)
         await cb.check()
         assert cb.state == CircuitState.HALF_OPEN
         await cb.record_success()
