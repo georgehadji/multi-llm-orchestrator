@@ -1,4 +1,4 @@
-﻿"""
+"""
 OptimizationBackend — pluggable scoring strategies for ConstraintPlanner.
 =========================================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis

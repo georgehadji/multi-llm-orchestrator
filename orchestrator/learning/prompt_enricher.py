@@ -20,7 +20,7 @@ class AgentPromptEnricher:
                 best = self._graph.best_method_for(target)
                 if best:
                     parts.append(f"[Best method: {best}]")
-            except:
+            except Exception:
                 pass
         if agent_id and agent_id in self._memories:
             lesson = self._memories[agent_id].lesson()
@@ -31,7 +31,7 @@ class AgentPromptEnricher:
                 m = self._buffer.best_method_for(target)
                 if m:
                     parts.append(f"[Experience: {m} works best]")
-            except:
+            except Exception:
                 pass
         enriched = (context + " " + " ".join(parts)).strip()
         return enriched if parts else context
