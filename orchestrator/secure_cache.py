@@ -1,4 +1,4 @@
-﻿"""
+"""
 secure_cache — Backward-compatibility shim
 The canonical implementation lives in orchestrator/infrastructure/secure_cache.py.
 New code should import from `orchestrator.infrastructure.secure_cache` directly.

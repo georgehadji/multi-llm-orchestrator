@@ -1,4 +1,4 @@
-﻿"""
+"""
 System Diagnostics Module
 =========================
 Automated diagnostic tools for troubleshooting.

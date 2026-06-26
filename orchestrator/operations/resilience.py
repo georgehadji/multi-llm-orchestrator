@@ -1,4 +1,4 @@
-﻿"""
+"""
 Resilience Layer — Unified retry, fallback, and timeout policy
 ===============================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis

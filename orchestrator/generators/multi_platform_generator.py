@@ -1,4 +1,4 @@
-﻿"""
+"""
 Multi-Platform Output Generator
 ================================
 Author: Georgios-Chrysovalantis Chatzivantsidis

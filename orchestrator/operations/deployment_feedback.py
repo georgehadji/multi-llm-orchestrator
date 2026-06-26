@@ -1,4 +1,4 @@
-﻿"""
+"""
 Deployment Feedback Loop (Autonomous Software Maintainer)
 ==========================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis

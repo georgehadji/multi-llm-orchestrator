@@ -1,4 +1,4 @@
-﻿"""
+"""
 Production Feedback Loop
 ========================
 
