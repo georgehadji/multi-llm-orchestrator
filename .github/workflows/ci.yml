@@ -17,7 +17,9 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install lint dependencies
-        run: pip install black ruff
+        # Pin black so CI and local pre-commit format identically (a floating
+        # black version reformats files that pass locally and breaks the gate).
+        run: pip install "black==26.1.0" ruff
       - name: Check formatting
         run: black --check orchestrator/ tests/
       - name: Run ruff
