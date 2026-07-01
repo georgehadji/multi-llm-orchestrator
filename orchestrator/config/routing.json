@@ -1,5 +1,7 @@
 {
   "code_generation": [
+    "google/gemini-2.5-flash",
+    "meta-llama/llama-3.3-70b-instruct:free",
     "qwen/qwen3-coder:free",
     "openai/gpt-oss-120b",
     "deepseek/deepseek-v4-flash",
@@ -35,6 +37,7 @@
     "anthropic/claude-opus-4-8"
   ],
   "creative_writing": [
+    "google/gemini-2.5-flash",
     "meta-llama/llama-3.3-70b-instruct:free",
     "anthropic/claude-sonnet-5",
     "z-ai/glm-5",
