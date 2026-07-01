@@ -128,7 +128,7 @@ class ModeManager:
                 presence_penalty=0.2,
                 frequency_penalty=0.2,
                 stop_sequences=[],
-                model_override=Model.ZHIPU_GLM_5_1,  # Canonical GLM model
+                model_override=Model.ZHIPU_GLM_5_2,  # Canonical GLM model
                 validation_level="none",
                 creativity_boost=0.6,
             ),

@@ -1,7 +1,5 @@
 """Unit tests for RedesignRubric."""
 
-import json
-
 import pytest
 
 

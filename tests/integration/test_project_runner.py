@@ -9,9 +9,7 @@ behaviours as before without needing an Orchestrator instance.
 
 from __future__ import annotations
 
-import asyncio
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -20,7 +18,7 @@ from orchestrator.application.project_runner_deps import (
     ProjectRunnerCallables,
     ProjectRunState,
 )
-from orchestrator.models import ProjectState, ProjectStatus, TaskResult, TaskStatus
+from orchestrator.models import ProjectState, ProjectStatus
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers

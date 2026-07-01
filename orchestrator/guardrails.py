@@ -14,7 +14,7 @@ FEATURES:
 6. Configuration drift detection
 
 USAGE:
-    from orchestrator.guardrails import ProductionGuardrails, get_guardrails
+    from orchestrator.safety.guardrails import ProductionGuardrails, get_guardrails
 
     guardrails = get_guardrails()
 
@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-logger = logging.getLogger("orchestrator.guardrails")
+logger = logging.getLogger("orchestrator.safety.guardrails")
 
 
 @dataclass

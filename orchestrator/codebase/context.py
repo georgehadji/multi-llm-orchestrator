@@ -15,11 +15,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .codebase_reader import CodebaseReader, FileNode, ProjectProfile, ProjectProfiler, Symbol
+from .reader import CodebaseReader, FileNode, ProjectProfiler, Symbol
 
 logger = logging.getLogger("orchestrator.codebase_context")
 
@@ -704,7 +704,7 @@ class QualityAnalyzer:
         Returns:
             List of module paths (relative to root) missing test coverage.
         """
-        from .codebase_reader import ProjectProfiler, FileSystemWalker
+        from .reader import ProjectProfiler, FileSystemWalker
 
         walker = FileSystemWalker(self.root)
         files = walker.walk(extensions={".py"})

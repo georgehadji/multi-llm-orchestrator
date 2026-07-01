@@ -100,3 +100,30 @@ def test_unrecognised_format_reports_error(client):
 
     assert result.success is False
     assert result.error
+
+
+@pytest.mark.unit
+def test_gemini_3_1_flash_lite_image_response(client):
+    """Verify that Gemini-style image block inside content is correctly parsed."""
+    resp = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": _PNG_B64,
+                            },
+                        }
+                    ],
+                }
+            }
+        ]
+    }
+    result = client._parse_response(resp, None)
+    assert result.success is True
+    assert result.image_data == _PNG_BYTES

@@ -9,10 +9,8 @@ real server on a TCP port.
 
 from __future__ import annotations
 
-import json
 
 import pytest
-from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
 from orchestrator.api_server import APIServer

@@ -6,13 +6,13 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 Optional plugin architecture for advanced features.
 
 Usage:
-    from orchestrator.plugins import get_plugin_registry, Plugin
+    from orchestrator.plugin.plugins import get_plugin_registry, Plugin
 
     # Get registry
     registry = get_plugin_registry()
 
     # Register plugins
-    from orchestrator.plugins.cost_optimization import CostOptimizationPlugin
+    from orchestrator.plugin.plugins.cost_optimization import CostOptimizationPlugin
     registry.register(CostOptimizationPlugin())
 
     # Initialize

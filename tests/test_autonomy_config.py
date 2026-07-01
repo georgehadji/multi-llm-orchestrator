@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from orchestrator.autonomy_config import (
+from orchestrator.operations.autonomy_config import (
     AutonomyConfig,
     AutonomyLevel,
 )

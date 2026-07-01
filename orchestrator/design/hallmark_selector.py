@@ -13,8 +13,6 @@ macrostructure, nav, or footer archetype.
 from __future__ import annotations
 
 import logging
-import random
-import re
 from typing import TYPE_CHECKING
 
 from orchestrator.models import Genre

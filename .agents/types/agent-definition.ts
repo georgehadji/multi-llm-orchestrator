@@ -380,8 +380,8 @@ export type ModelName =
 
   // Anthropic
   | 'anthropic/claude-sonnet-4.6'
+  | 'anthropic/claude-opus-4.8'
   | 'anthropic/claude-opus-4.7'
-  | 'anthropic/claude-opus-4.6'
   | 'anthropic/claude-opus-4.5'
   | 'anthropic/claude-haiku-4.5'
   | 'anthropic/claude-sonnet-4.5'
@@ -429,7 +429,7 @@ export type ModelName =
   | 'moonshotai/kimi-k2:nitro'
   | 'moonshotai/kimi-k2.6'
   | 'z-ai/glm-5'
-  | 'z-ai/glm-5.1'
+  | 'z-ai/glm-5.2'
   | 'z-ai/glm-4.6'
   | 'z-ai/glm-4.6:nitro'
   | 'z-ai/glm-4.7'

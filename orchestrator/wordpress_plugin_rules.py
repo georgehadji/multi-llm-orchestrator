@@ -10,7 +10,7 @@ Based on:
 - WordPress.org Plugin Repository Guidelines
 
 Usage:
-    from orchestrator.wordpress_plugin_rules import WordPressPluginRules
+    from orchestrator.security.wordpress_plugin_rules import WordPressPluginRules
 
     rules = WordPressPluginRules()
     config = rules.generate_config(plugin_name="My Plugin")

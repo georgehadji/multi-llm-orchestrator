@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thessaloniki Vision Clinic – Cutting-Edge Vision Technology</title>
+  <meta name="description" content="Premium ophthalmology clinic in Thessaloniki, Greece. Advanced cataract surgery, LASIK, retina care, glaucoma management, pediatric ophthalmology, and comprehensive eye exams with cutting-edge 3D precision.">
+  <meta name="keywords" content="ophthalmology, Thessaloniki, cataract surgery, LASIK, femtosecond laser, retina, macula, glaucoma, pediatric eye care, vision correction">
+  <meta name="robots" content="index, follow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0b0d1a;
+      color: #e2e8f0;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .section-technology {
+      position: relative;
+      overflow: hidden;
+      padding: 6rem 1.5rem;
+      background: linear-gradient(145deg, #0b0d1a 0%, #14172b 100%);
+    }
+
+    .section-technology__container {
+      max-width: 1280px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ===== 3D CANVAS BACKGROUND ===== */
+    #three-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.35;
+    }
+
+    /* ===== HEADLINE ===== */
+    .section-technology__headline {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      max-width: 900px;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 2px 20px rgba(129, 140, 248, 0.15);
+    }
+
+    .section-technology__headline span {
+      color: #818cf8;
+      background: linear-gradient(135deg, #818cf8 0%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ===== SUBTEXT ===== */
+    .section-technology__subtext {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      font-weight: 400;
+      color: #a0aec0;
+      max-width: 700px;
+      margin-bottom: 3rem;
+      line-height: 1.7;
+    }
+
+    /* ===== GRID: TECHNOLOGY FEATURES ===== */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3.5rem;
+    }
+
+    .tech-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(129, 140, 248, 0.12);
+      border-radius: 1.25rem;
+      padding: 2rem 1.75rem;
+      transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tech-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at 20% 30%, rgba(129, 140, 248, 0.06), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .tech-card:hover {
+      border-color: rgba(129, 140, 248, 0.35);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(129, 140, 248, 0.08);
+    }
+
+    .tech-card:hover::before {
+      opacity: 1;
+    }
+
+    .tech-card:focus-within {
+      outline: 2px solid #818cf8;
+      outline-offset: 2px;
+    }
+
+    .tech-card__icon {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 1.25rem;
+      color: #818cf8;
+    }
+
+    .tech-card__icon svg {
+      width: 100%;
+      height: 100%;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .tech-card__title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.01em;
+    }
+
+    .tech-card__desc {
+      font-size: 0.95rem;
+      color: #a0aec0;
+      line-height: 1.7;
+    }
+
+    /* ===== CTA BUTTONS ===== */
+    .cta-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.9rem 2rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 2.5rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      text-decoration: none;
+      letter-spacing: 0.01em;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:focus-visible {
+      outline: 3px solid #818cf8;
+      outline-offset: 3px;
+    }
+
+    .btn--primary {
+      background: #818cf8;
+      color: #0b0d1a;
+      box-shadow: 0 4px 20px rgba(129, 140, 248, 0.25);
+    }
+
+    .btn--primary:hover {
+      background: #a5b4fc;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(129, 140, 248, 0.35);
+    }
+
+    .btn--primary:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 10px rgba(129, 140, 248, 0.2);
+    }
+
+    .btn--secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border: 1.5px solid rgba(129, 140, 248, 0.4);
+    }
+
+    .btn--secondary:hover {
+      background: rgba(129, 140, 248, 0.08);
+      border-color: #818cf8;
+      transform: translateY(-2px);
+    }
+
+    .btn--secondary:active {
+      transform: translateY(0);
+    }
+
+    .btn--ghost {
+      background: transparent;
+      color: #a0aec0;
+      border: 1.5px solid transparent;
+    }
+
+    .btn--ghost:hover {
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .btn--ghost:active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .section-technology {
+        padding: 4rem 1.25rem;
+      }
+
+      .tech-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .cta-group {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .section-technology__headline {
+        font-size: 1.75rem;
+      }
+
+      .tech-card {
+        padding: 1.5rem 1.25rem;
+      }
+    }
+
+    /* ===== REDUCED MOTION ===== */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .tech-card:hover {
+        transform: none;
+      }
+
+      .btn:hover {
+        transform: none;
+      }
+    }
+
+    /* ===== ACCESSIBILITY ===== */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <section class="section-technology" aria-labelledby="tech-heading">
+    <!-- 3D Canvas injected here -->
+    <div id="three-canvas" role="presentation" aria-hidden="true"></div>
+
+    <div class="section-technology__container">
+      <h1 id="tech-heading" class="section-technology__headline">
+        Cutting-Edge Innovation for <span>Precise Vision Correction</span>
+      </h1>
+
+      <p class="section-technology__subtext">
+        At Thessaloniki Vision Clinic, we combine world-class ophthalmology with the latest femtosecond laser, 
+        OCT imaging, and AI-guided diagnostics to deliver exceptional outcomes for every patient.
+      </p>
+
+      <!-- Technology Features Grid -->
+      <div class="tech-grid" role="list">
+        <!-- Card 1: Femtosecond Laser -->
+        <article class="tech-card" role="listitem">
+          <div class="tech-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <h2 class="tech-card__title">Femtosecond Laser</h2>
+          <p class="tech-card__desc">
+            Bladeless, computer-guided corneal incisions with sub-micron precision for LASIK, 
+            cataract capsulotomy, and corneal transplants.
+          </p>
+        </article>
+
+        <!-- Card 2: OCT Angiography -->
+        <article class="tech-card" role="listitem">
+          <div class="tech-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H5.78a1.65 1.65 0 0 0-1.51 1 1.65 1.65 0 0 0 .33 1.82l.07.07"/>
+              <path d="M12 2v4"/>
+              <path d="M12 18v4"/>
+              <path d="M4.93 4.93l2.83 2.83"/>
+              <path d="M16.24 16.24l2.83 2.83"/>
+              <path d="M2 12h4"/>
+              <path d="M18 12h4"/>
+            </svg>
+          </div>
+          <h2 class="tech-card__title">OCT Angiography</h2>
+          <p class="tech-card__desc">
+            Non-invasive, high-resolution imaging of retinal and choroidal vasculature — 
+            essential for early detection of macular degeneration and diabetic retinopathy.
+          </p>
+        </article>
+
+        <!-- Card 3: AI Diagnostics -->
+        <article class="tech-card" role="listitem">
+          <div class="tech-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+          </div>
+          <h2 class="tech-card__title">AI-Powered Diagnostics</h2>
+          <p class="tech-card__desc">
+            Deep learning algorithms analyze retinal scans, visual fields, and corneal topography 
+            to flag pathology with 98% sensitivity — supporting our specialists in real time.
+          </p>
+        </article>
+
+        <!-- Card 4: 3D Surgical Planning -->
+        <article class="tech-card" role="listitem">
+          <div class="tech-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+              <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+          </div>
+          <h2 class="tech-card__title">3D Surgical Planning</h2>
+          <p class="tech-card__desc">
+            Pre-operative 3D modeling of the anterior segment and retina allows our surgeons 
+            to simulate every step before entering the OR — reducing risk and improving accuracy.
+          </p>
+        </article>
+      </div>
+
+      <!-- CTA Group -->
+      <div class="cta-group" role="group" aria-label="Call to action buttons">
+        <a href="#hero" class="btn btn--primary" aria-label="Learn more about our technology">
+          Explore Our Technology
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </a>
+        <a href="#services" class="btn btn--secondary" aria-label="View our ophthalmology services">
+          Our Services
+        </a>
+        <a href="#contact" class="btn btn--ghost" aria-label="Contact Thessaloniki Vision Clinic">
+          Contact Us
+        </a>
+        <a href="#about" class="btn btn--ghost" aria-label="About our clinic">
+          About the Clinic
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Three.js 3D Background -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // Check reduced motion preference
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const container = document.getElementById('three-canvas');
+    if (!container) return;
+
+    const scene = new THREE.Scene();
+    scene.background = null; // transparent
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.set(0, 0, 8);
+
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    // ---- Lights ----
+    const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0x818cf8, 1.2);
+    dirLight.position.set(2, 3, 4);
+    scene.add(dirLight);
+
+    const fillLight = new THREE.DirectionalLight(0x4f46e5, 0.6);
+    fillLight.position.set(-3, 1, 2);
+    scene.add(fillLight);
+
+    // ---- Main Object: Abstract Eye / Lens ----
+    const group = new THREE.Group();
+
+    // Outer torus (corneal ring)
+    const torusGeo = new THREE.TorusGeometry(1.6, 0.08, 32, 64);
+    const torusMat = new THREE.MeshPhysicalMaterial({
+      color: 0x818cf8,
+      emissive: 0x4f46e5,
+      emissiveIntensity: 0.15,
+      metalness: 0.1,
+      roughness: 0.3,
+      transparent: true,
+      opacity: 0.7,
+      wireframe: false,
+    });
+    const torus = new THREE.Mesh(torusGeo, torusMat);
+    torus.rotation.x = Math.PI / 3;
+    torus.rotation.z = 0.2;
+    group.add(torus);
+
+    // Inner sphere (lens / vitreous)
+    const sphereGeo = new THREE.SphereGeometry(1.0, 48, 48);
+    const sphereMat = new THREE.MeshPhysicalMaterial({
+      color: 0x818cf8,
+      emissive: 0x6366f1,
+      emissiveIntensity: 0.08,
+      metalness: 0.05,
+      roughness: 0.2,
+      transparent: true,
+      opacity: 0.25,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.4,
+    });
+    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    sphere.position.z = 0.1;
+    group.add(sphere);
+
+    // Inner ring (iris detail)
+    const ringGeo = new THREE.TorusGeometry(0.65, 0.04, 24, 48);
+    const ringMat = new THREE.MeshPhysicalMaterial({
+      color: 0xa5b4fc,
+      emissive: 0x818cf8,
+      emissiveIntensity: 0.1,
+      metalness: 0.2,
+      roughness: 0.3,
+      transparent: true,
+      opacity: 0.5,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2.5;
+    ring.rotation.z = 0.4;
+    group.add(ring);
+
+    // Small particles around (floaters / cells)
+    const particleCount = 180;
+    const particleGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
+    for (let i = 0; i < particleCount; i++) {
+      const radius = 1.8 + Math.random() * 1.5;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = radius * Math.cos(phi);
+      sizes[i] = 0.02 + Math.random() * 0.04;
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particleGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+    const particleMat = new THREE.PointsMaterial({
+      color: 0x818cf8,
+      size: 0.04,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    });
+    const particles = new THREE.Points(particleGeo, particleMat);
+    group.add(particles);
+
+    scene.add(group);
+
+    // ---- Animation ----
+    let time = 0;
+    const speed = prefersReducedMotion ? 0 : 0.002;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      time += speed;
+
+      // Gentle rotation
+      group.rotation.y = Math.sin(time * 0.3) * 0.3;
+      group.rotation.x = Math.sin(time * 0.2) * 0.1 + 0.2;
+      group.rotation.z = Math.sin(time * 0.15) * 0.05;
+
+      // Pulse inner sphere opacity
+      sphere.material.opacity = 0.2 + Math.sin(time * 0.5) * 0.08;
+
+      // Particles drift
+      particles.rotation.y += 0.0005;
+      particles.rotation.x += 0.0003;
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ---- Resize ----
+    function onResize() {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    window.addEventListener('resize', onResize);
+
+    // ---- Cleanup on page unload (optional) ----
+    window.addEventListener('beforeunload', () => {
+      renderer.dispose();
+    });
+  </script>
+</body>
+</html>

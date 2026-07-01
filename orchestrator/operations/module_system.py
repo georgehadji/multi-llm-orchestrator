@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 import json
 import logging
-import hashlib
 
 logger = logging.getLogger(__name__)
 

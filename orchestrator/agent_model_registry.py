@@ -29,7 +29,6 @@ Design principles:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
 
 from .agents.base import AgentRole
 from .models import Model, TaskType
@@ -128,15 +127,15 @@ AGENT_MODELS: dict[AgentRole, AgentModelEntry] = {
     ),
     AgentRole.QA: AgentModelEntry(
         role=AgentRole.QA,
-        budget=Model.CLAUDE_SONNET_4_6,
-        premium=Model.CLAUDE_SONNET_4_6,
+        budget=Model.CLAUDE_SONNET_5,
+        premium=Model.CLAUDE_SONNET_5,
         task_type=TaskType.CODE_REVIEW,
         rationale="82.2 benchlm — best quality analysis for critical releases",
     ),
     AgentRole.USER: AgentModelEntry(
         role=AgentRole.USER,
-        budget=Model.CLAUDE_SONNET_4_6,
-        premium=Model.CLAUDE_SONNET_4_6,
+        budget=Model.CLAUDE_SONNET_5,
+        premium=Model.CLAUDE_SONNET_5,
         task_type=TaskType.WRITING,
         rationale="82.2 benchlm — best conversational quality for premium UX",
     ),

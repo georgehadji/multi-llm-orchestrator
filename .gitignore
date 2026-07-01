@@ -139,3 +139,9 @@ tests/__pycache__/
 tests/.pytest_cache/
 tests/*.log
 .reasonix/
+
+# graphify: generated graph artifacts (large; regenerate with /graphify)
+graphify-out/graph.json
+graphify-out/graph.html
+graphify-out/manifest.json
+orchestrator/graphify-out/

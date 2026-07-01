@@ -10,7 +10,7 @@ Async: No — subprocess calls are sync/bounded
 Layer: L2 Verification
 
 Usage:
-    from orchestrator.verification import REPLVerifier, VerificationLevel
+    from orchestrator.quality.verification import REPLVerifier, VerificationLevel
 
     verifier = REPLVerifier(level=VerificationLevel.SYNTAX)
     result = verifier.verify("print('hello')")
@@ -25,7 +25,7 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 
-logger = logging.getLogger("orchestrator.verification")
+logger = logging.getLogger("orchestrator.quality.verification")
 
 
 class VerificationLevel(Enum):

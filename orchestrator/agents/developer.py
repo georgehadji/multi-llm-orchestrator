@@ -14,7 +14,7 @@ import logging
 from typing import Any
 
 from .base import AgentBase, AgentRole, AgentTask, AgentTaskResult
-from ..models import Model, TaskType
+from ..models import TaskType
 
 logger = logging.getLogger("orchestrator.agents.developer")
 
@@ -94,7 +94,7 @@ class ArchitectAgent(AgentBase):
 
     Models (from orchestrator/agent_model_registry.py):
       Budget:  DEEPSEEK_V4_PRO   ($1.50/M in, $6.00/M out) — next-gen reasoning
-      Premium: CLAUDE_SONNET_4_6 ($3.00/M in, $15.00/M out) — best system design
+      Premium: CLAUDE_SONNET_5 ($3.00/M in, $15.00/M out) — best system design
     """
 
     def __init__(self, **kwargs: Any) -> None:

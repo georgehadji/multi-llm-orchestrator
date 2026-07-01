@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("orchestrator.workspace.workspace")
+logger = logging.getLogger("orchestrator.state_mgmt.workspace.workspace")
 
 
 @dataclass

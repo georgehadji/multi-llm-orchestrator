@@ -2,8 +2,6 @@
 Tests for optimization modules A-2, B-5, C-8, D-10.
 """
 
-import pytest
-
 
 class TestAgentCache:
     """D-10: Agent call caching."""
@@ -43,7 +41,7 @@ class TestAgentCache:
         assert cache.size == 0
 
     def test_expired_entry(self):
-        from orchestrator.learning.agent_cache import AgentCache, CachedResponse, CACHE_TTL_SECONDS
+        from orchestrator.learning.agent_cache import AgentCache, CACHE_TTL_SECONDS
         import time
 
         cache = AgentCache()

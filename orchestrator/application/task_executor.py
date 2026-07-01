@@ -101,7 +101,7 @@ class TaskExecutor:
 
         # Try to import TDD generator
         try:
-            from ..test_first_generator import TestFirstGenerator
+            from ..test_first_generator import TestFirstGenerator  # noqa: F401
 
             self._has_tdd = True
         except ImportError:

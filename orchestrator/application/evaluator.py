@@ -15,20 +15,17 @@ Dependencies injected at construction; no reference back to Orchestrator.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
 import time
 from typing import Callable
 
-from ..domain.ports import LLMClient
+from ..domain.ports import LLMClient, TelemetryPort, TracingPort
 from ..budget import Budget
-from ..feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
+from ..operations.feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
-from ..telemetry import TelemetryCollector
-from ..tracing import Tracer
 
 logger = logging.getLogger("orchestrator.services.evaluator")
 
@@ -55,8 +52,8 @@ class EvaluatorService:
         get_models_fn: Callable[[TaskType], list[Model]],
         consistency_runs: int = 2,
         consistency_delta: float = 0.05,
-        tracer: Tracer | None = None,
-        telemetry: TelemetryCollector | None = None,
+        tracer: TracingPort | None = None,
+        telemetry: TelemetryPort | None = None,
     ) -> None:
         self._client = client
         self._budget = budget
@@ -228,6 +225,12 @@ class EvaluatorService:
           4. Returns 0.5 as a safe default fallback
         """
         text = text.strip()
+
+        # Strip reasoning-model thinking so numbers inside the chain-of-thought
+        # are never mistaken for the score (closed blocks, then truncated tail).
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+
         logger.debug("parse_score: input length=%d", len(text))
 
         # -- Try 1: JSON / json5 ----------------------------------------------

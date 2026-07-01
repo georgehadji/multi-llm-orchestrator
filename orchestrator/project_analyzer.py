@@ -288,73 +288,23 @@ class ArchitectureAnalyzer:
     """Analyze project architecture and patterns."""
 
     def analyze_structure(self, project_path: Path) -> ArchitectureInsight:
-        """Analyze project structure and patterns."""
+        """Analyze project structure and patterns.
 
-        # Detect patterns
-        patterns = []
-        strengths = []
-        weaknesses = []
-        recommendations = []
+        Delegates to the rigorous, deterministic ``ArchitectureScorer`` (static
+        analysis: layering, dependency direction, modularity, tests, config /
+        secrets, runnability, docs, error handling) so the reported
+        ``quality_score`` (0-100) is a meaningful production-grade signal rather
+        than a filename-matching heuristic.
+        """
+        from .safety.architecture_scorer import ArchitectureScorer
 
-        # Check for common patterns
-        files = list(project_path.rglob("*"))
-
-        # MVC/MVT pattern
-        has_models = any("model" in f.name.lower() for f in files if f.is_file())
-        has_views = any("view" in f.name.lower() for f in files if f.is_file())
-        any("controller" in f.name.lower() for f in files if f.is_file())
-
-        if has_models and has_views:
-            patterns.append("MVC/MVT")
-            strengths.append("Separation of concerns with models and views")
-
-        # Layered architecture
-        has_services = any("service" in f.name.lower() for f in files if f.is_file())
-        has_repositories = any(
-            "repository" in f.name.lower() or "repo" in f.name.lower() for f in files if f.is_file()
-        )
-
-        if has_services and has_repositories:
-            patterns.append("Layered Architecture")
-            strengths.append("Clear separation between business logic and data access")
-
-        # Check for tests
-        has_tests = any("test" in f.name.lower() for f in files if f.is_file())
-        if not has_tests:
-            weaknesses.append("No test files detected")
-            recommendations.append("Add unit tests for core functionality")
-        else:
-            strengths.append("Testing infrastructure present")
-
-        # Check for documentation
-        has_docs = any(f.suffix in [".md", ".rst"] for f in files if f.is_file())
-        if not has_docs:
-            weaknesses.append("No documentation files")
-            recommendations.append("Add README and API documentation")
-
-        # Check for config management
-        has_config = (
-            (project_path / "config.py").exists()
-            or (project_path / "settings.py").exists()
-            or (project_path / ".env.example").exists()
-        )
-
-        if not has_config:
-            weaknesses.append("No clear configuration management")
-            recommendations.append("Add configuration files and environment templates")
-
-        # Calculate quality score
-        score = 70  # Base score
-        score += len(strengths) * 5
-        score -= len(weaknesses) * 10
-        score = max(0, min(100, score))
-
+        result = ArchitectureScorer().score(project_path)
         return ArchitectureInsight(
-            pattern_detected=", ".join(patterns) if patterns else "No clear pattern",
-            quality_score=score,
-            strengths=strengths,
-            weaknesses=weaknesses,
-            recommendations=recommendations,
+            pattern_detected=result.pattern,
+            quality_score=result.total,
+            strengths=result.strengths,
+            weaknesses=result.weaknesses,
+            recommendations=result.recommendations,
         )
 
 
@@ -862,8 +812,20 @@ class ProjectAnalyzer:
             for s in high_priority:
                 lines.append(f"  - {s.title} (~{s.estimated_effort})")
 
-        lines.append(f"\n💡 Architecture: {report.architecture_insights[0].pattern_detected}")
-        lines.append(f"   Quality: {report.architecture_insights[0].quality_score:.0f}/100")
+        from .safety.architecture_scorer import PRODUCTION_GRADE_THRESHOLD
+
+        arch = report.architecture_insights[0]
+        arch_ten = arch.quality_score / 10
+        gate = "PASS" if arch_ten >= PRODUCTION_GRADE_THRESHOLD else "BELOW TARGET"
+        lines.append(f"\n💡 Architecture: {arch.pattern_detected}")
+        lines.append(
+            f"   Score: {arch_ten:.1f}/10  "
+            f"[{gate} — target >{PRODUCTION_GRADE_THRESHOLD:.0f}/10]"
+        )
+        if arch_ten < PRODUCTION_GRADE_THRESHOLD and arch.recommendations:
+            lines.append("   To reach production-grade architecture:")
+            for rec in arch.recommendations[:4]:
+                lines.append(f"     - {rec}")
 
         return "\n".join(lines)
 

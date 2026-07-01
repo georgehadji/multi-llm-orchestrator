@@ -4,8 +4,9 @@ ImageGenClient — generates images via OpenRouter image models.
 Wraps OpenRouter's chat/completions endpoint for image-generation models
 (text+image->image). Handles base64 decoding and file output.
 
-Currently supports three models:
+Currently supports four models:
   - google/gemini-3.1-flash-image-preview  (Nano Banana 2, #1 Design Arena)
+  - google/gemini-3.1-flash-lite-image     (Ultra-fast, cost-effective Nano Banana 2 Lite)
   - recraft/recraft-v4.1-pro-vector         (SVG output)
   - black-forest-labs/flux.2-klein-4b       (fast, cost-effective)
 
@@ -23,9 +24,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 

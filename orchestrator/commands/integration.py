@@ -15,12 +15,17 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from .command_center_server import (
+from ..command_center_server import (
     Severity,
     SystemMetrics,
     get_command_center_server,
 )
-from .models import Model
+from ..models import Model
+
+# NOTE: ``Orchestrator`` is referenced only in lazy (string) annotations below.
+# It is intentionally NOT imported: importing engine here would create a
+# commands -> engine dependency that violates the architecture import contract.
+# The annotations are suppressed with ``# noqa: F821`` at their use sites.
 
 logger = logging.getLogger("orchestrator.command_center")
 
@@ -32,7 +37,7 @@ class CommandCenterIntegration:
     Automatically converts orchestrator events to dashboard alerts and metrics.
     """
 
-    def __init__(self, orchestrator: Orchestrator):
+    def __init__(self, orchestrator: Orchestrator):  # noqa: F821
         self._orchestrator = orchestrator
         self._server = get_command_center_server()
         self._running = False
@@ -148,7 +153,7 @@ class CommandCenterIntegration:
         """Check for alert conditions."""
         # Check model health changes
         if hasattr(self._orchestrator, "_adaptive_router"):
-            from .adaptive_router import ModelState
+            from ..adaptive_router import ModelState
 
             for model in Model:
                 state = self._orchestrator._adaptive_router.get_state(model)
@@ -218,7 +223,7 @@ class CommandCenterIntegration:
 
 
 # Convenience function
-def enable_command_center(orchestrator: Orchestrator) -> CommandCenterIntegration:
+def enable_command_center(orchestrator: Orchestrator) -> CommandCenterIntegration:  # noqa: F821
     """
     Enable command center dashboard for an orchestrator instance.
 

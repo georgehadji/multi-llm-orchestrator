@@ -12,7 +12,7 @@ Key Features:
 - Codebase-specific learning
 
 Usage:
-    from orchestrator.feedback_loop import FeedbackLoop, ProductionOutcome
+    from orchestrator.operations.feedback_loop import FeedbackLoop, ProductionOutcome
 
     loop = FeedbackLoop()
     await loop.record_outcome(ProductionOutcome(

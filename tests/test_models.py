@@ -13,12 +13,11 @@ from orchestrator.models import (
     Task,
     TaskType,
     TaskStatus,
-    TaskResult,
     ROUTING_TABLE,
     COST_TABLE,
-    build_default_profiles,
     estimate_cost,
 )
+from orchestrator.application.model_profile_builder import build_default_profiles
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Budget Tests

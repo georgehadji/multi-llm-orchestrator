@@ -6,34 +6,17 @@ GenerateStage — LLM code/text generation
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from ..pipeline import PipelineContext
 from ...domain.ports import LLMClient
 from ...budget import Budget
 from ...crosscutting.config import flags
 from ...model_selector import ModelSelector
-from ...models import Model, TaskType
+from ...models import TaskType
 from ...prompt_builder import SystemPrompt
 
-if TYPE_CHECKING:
-    from ...application.verbalized_sampling import VerbalizedSampler
-
-# Lazy import for VerbalizedSampler (avoids circular dep at module level)
-_VS_SAMPLER = None
-_VS_IMPORT_LOCK = __import__("threading").Lock()
-
-
-def _get_vs_sampler(client):
-    global _VS_SAMPLER
-    if _VS_SAMPLER is None:
-        with _VS_IMPORT_LOCK:
-            if _VS_SAMPLER is None:
-                from ...application.verbalized_sampling import VerbalizedSampler as _VS
-
-                _VS_SAMPLER = _VS
-    return _VS_SAMPLER(client=client)
-
+from ...domain.ports import VSSamplerPort
+from ...operations.resilience import STAGE_RETRY_GENERATE
 
 logger = logging.getLogger("orchestrator.engine_core.stages.generate")
 
@@ -52,8 +35,12 @@ class GenerateStage:
         selector: ModelSelector,
         event_bus: object = None,
         hook_registry: object = None,
+        vs_sampler: VSSamplerPort | None = None,
+        vs_selector: Any | None = None,
     ) -> None:
         self._client = client
+        self._vs_sampler = vs_sampler
+        self._vs_selector = vs_selector
         self._budget = budget
         self._selector = selector
         self._event_bus = event_bus
@@ -92,20 +79,31 @@ class GenerateStage:
 
                 cfg = vs_variant_for(model, default_k=flags.vs_k)
                 if cfg is not None:
-                    sampler = _get_vs_sampler(self._client)
-                    candidates = await sampler.sample(
-                        prompt=prompt_text,
-                        model=model,
-                        cfg=cfg,
-                        system_extra=system_prompt,
-                        max_tokens=task.max_output_tokens,
-                        timeout=160,
-                    )
+                    if self._vs_sampler is not None:
+                        candidates = await self._vs_sampler.sample(
+                            prompt=prompt_text,
+                            model=model,
+                            cfg=cfg,
+                            system_extra=system_prompt,
+                            max_tokens=task.max_output_tokens,
+                            timeout=160,
+                        )
+                    else:
+                        candidates = []
                     if candidates:
-                        # Pick the text of the first (highest-prob) candidate
-                        best_text = candidates[0].text
+                        # Use CandidateSelector if reranking is enabled
+                        if self._vs_selector is not None and flags.vs_reranking_enabled:
+                            best = await self._vs_selector.select(task, candidates)
+                            if best is not None:
+                                best_text = best.text
+                            else:
+                                best_text = candidates[0].text
+                        else:
+                            # Default: highest-probability candidate
+                            best_text = candidates[0].text
                         ctx.output = best_text
-                        ctx.cost_usd += sum(getattr(c, "cost_usd", 0) for c in candidates[:1])
+                        # Cost is tracked inside VerbalizedSampler.sample() via budget.charge;
+                        # VSCandidate has no cost_usd so we do not double-count here.
                         # Use existing token tracking fallback for VS calls
                         ctx.tokens_used["output"] += len(best_text.split())
                         logger.info(
@@ -132,7 +130,7 @@ class GenerateStage:
             max_tokens=task.max_output_tokens,
             temperature=0.3,
             timeout=160,
-            retries=2,
+            retries=STAGE_RETRY_GENERATE,
         )
 
         ctx.output = response.text

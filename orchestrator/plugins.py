@@ -14,7 +14,7 @@ Benefits:
 - Long-term defensibility
 
 Usage:
-    from orchestrator.plugins import PluginManager, PluginHook
+    from orchestrator.plugin.plugins import PluginManager, PluginHook
 
     manager = PluginManager()
     manager.discover(Path("./plugins"))

@@ -16,10 +16,9 @@ Covers:
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -574,10 +573,12 @@ class TestCodebaseReader:
 
     def test_ast_indexer_finds_symbols(self):
         """ASTIndexer extracts classes and functions."""
-        from orchestrator.codebase_reader import ASTIndexer
+        from orchestrator.codebase.reader import ASTIndexer
 
         idx = ASTIndexer()
-        symbols = idx.index_file(_ORCHESTRATOR_DIR / "codebase_reader.py")
+        # orchestrator/codebase_reader.py is now a re-export shim (no defs);
+        # index the canonical source so class/function symbols are present.
+        symbols = idx.index_file(_ORCHESTRATOR_DIR / "codebase" / "reader.py")
         assert len(symbols) > 0
         types = {s.type for s in symbols}
         assert "class" in types or "function" in types

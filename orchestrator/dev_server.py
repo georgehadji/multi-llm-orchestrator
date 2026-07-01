@@ -7,7 +7,6 @@ Part of Category 10, Phase B6 (Base44-inspired).
 
 from __future__ import annotations
 import subprocess
-import os
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -122,7 +121,7 @@ class DevServer:
         try:
             result = subprocess.run(
                 pt.install_command,
-                shell=True,
+                shell=True,  # nosec B602 — user-defined project commands
                 cwd=str(self.project_dir),
                 capture_output=True,
                 text=True,
@@ -139,11 +138,18 @@ class DevServer:
         if pt.default_port == 0:
             return None, "CLI project - no server needed"
 
-        cmd = pt.start_command.format(port=port or pt.default_port)
+        resolved_port = port or pt.default_port
+        try:
+            resolved_port = int(resolved_port)
+        except (TypeError, ValueError):
+            return None, f"Invalid port value: {resolved_port!r}"
+        if not (1 <= resolved_port <= 65535):
+            return None, f"Port out of range: {resolved_port}"
+        cmd = pt.start_command.format(port=resolved_port)
         if background:
             proc = subprocess.Popen(
                 cmd,
-                shell=True,
+                shell=True,  # nosec B602 — user-defined project commands
                 cwd=str(self.project_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -152,7 +158,7 @@ class DevServer:
         else:
             result = subprocess.run(
                 cmd,
-                shell=True,
+                shell=True,  # nosec B602 — user-defined project commands
                 cwd=str(self.project_dir),
                 capture_output=True,
                 text=True,

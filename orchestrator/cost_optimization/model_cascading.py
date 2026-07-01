@@ -22,7 +22,7 @@ Usage:
     cascade = [
         ("deepseek-v3.2", 0.80),      # Try cheapest, accept if score ≥ 0.80
         ("claude-sonnet-4.6", 0.75),   # Mid-tier, accept if score ≥ 0.75
-        ("claude-opus-4.6", 0.0),      # Premium, always accept
+        ("claude-opus-4.8", 0.0),      # Premium, always accept
     ]
 
     result = await cascader.cascading_generate(task, cascade)
@@ -97,17 +97,17 @@ class ModelCascader:
         "code_generation": [
             ("deepseek/deepseek-v4-flash", 0.80),  # Try cheapest first
             ("claude-sonnet-4.6", 0.75),  # Mid-tier
-            ("claude-opus-4.6", 0.0),  # Premium (always accept)
+            ("claude-opus-4.8", 0.0),  # Premium (always accept)
         ],
         "code_review": [
             ("deepseek/deepseek-v4-flash", 0.75),
             ("claude-sonnet-4.6", 0.70),
-            ("claude-opus-4.6", 0.0),
+            ("claude-opus-4.8", 0.0),
         ],
         "decomposition": [
             ("deepseek/deepseek-v4-flash", 0.85),
             ("claude-sonnet-4.6", 0.80),
-            ("claude-opus-4.6", 0.0),
+            ("claude-opus-4.8", 0.0),
         ],
         "evaluation": [
             ("deepseek/deepseek-v4-flash", 0.70),
@@ -119,7 +119,7 @@ class ModelCascader:
     MODEL_COSTS = {
         "deepseek/deepseek-v4-flash": {"input": 1.0, "output": 4.0},
         "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
-        "claude-opus-4.6": {"input": 15.0, "output": 75.0},
+        "claude-opus-4.8": {"input": 18.0, "output": 90.0},
         "gpt-4o": {"input": 5.0, "output": 15.0},
         "gpt-4": {"input": 30.0, "output": 60.0},
     }

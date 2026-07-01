@@ -5479,7 +5479,7 @@ def _model_flow_bedrock(config, current_model=""):
 
         _RECOMMENDED = [
             "us.anthropic.claude-sonnet-4-6",
-            "us.anthropic.claude-opus-4-6",
+            "us.anthropic.claude-opus-4-8",
             "us.anthropic.claude-haiku-4-5",
             "us.amazon.nova-pro",
             "us.amazon.nova-lite",

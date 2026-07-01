@@ -7,6 +7,7 @@ This file kept as backward-compat shim.
 
 from ..unified_events.core import (  # noqa: F401
     AgentMessageEvent as AgentMessage,
+    DashboardHookRegistry,
     EventType,
     UnifiedEventBus as EventBus,
     UnifiedEventBus as RedisEventBus,

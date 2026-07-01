@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("orchestrator.pattern_learner.curator")
 
 # Cheapest model for curator review calls — same tier as context compressor
-_DEFAULT_REVIEW_MODEL: Model = Model.ZHIPU_GLM_5_1
+_DEFAULT_REVIEW_MODEL: Model = Model.ZHIPU_GLM_5_2
 
 # Minimum group size to trigger duplicate detection (avoids 1-pattern no-ops)
 _MIN_GROUP_SIZE_FOR_DEDUP: int = 3
@@ -76,7 +76,7 @@ class PatternCurator:
             stale_days: Days of inactivity before a pattern is archived.
                 Default 60.
             review_model: Model to use for review LLM calls. Defaults to
-                ZHIPU_GLM_5_1 (canonical GLM model).
+                ZHIPU_GLM_5_2 (canonical GLM model).
         """
         self._store = store
         self._client = client

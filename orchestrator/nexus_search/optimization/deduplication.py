@@ -136,7 +136,9 @@ class ResultDeduplicator:
                     title_normalized = title_normalized[len(prefix) :]
 
             # Create hash
-            title_hash = hashlib.md5(title_normalized.encode("utf-8")).hexdigest()
+            title_hash = hashlib.md5(
+                title_normalized.encode("utf-8"), usedforsecurity=False
+            ).hexdigest()
 
             if title_hash not in seen_hashes:
                 seen_hashes.add(title_hash)

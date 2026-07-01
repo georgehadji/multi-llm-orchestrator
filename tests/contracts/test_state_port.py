@@ -1,7 +1,6 @@
 """Contract test: StatePort protocol."""
 
 import pytest
-from dataclasses import dataclass
 
 pytestmark = pytest.mark.asyncio
 

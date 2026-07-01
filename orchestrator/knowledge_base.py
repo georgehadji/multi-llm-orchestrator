@@ -100,7 +100,11 @@ class KnowledgeBase:
     - Async indexing for performance
     """
 
-    def __init__(self, storage_path: Path | None = None):
+    def __init__(
+        self,
+        storage_path: Path | None = None,
+        reranker: Any | None = None,
+    ):
         self.storage_path = storage_path or Path(".knowledge")
         self.storage_path.mkdir(exist_ok=True)
 
@@ -111,6 +115,9 @@ class KnowledgeBase:
 
         # Lazy-loaded embedding model
         self._embedding_model: Callable | None = None
+
+        # Optional reranker for two-stage recall (Stage 2)
+        self._reranker = reranker
 
         # Load existing knowledge
         self._load_index()
@@ -211,10 +218,27 @@ class KnowledgeBase:
         type_filter: KnowledgeType | None = None,
         top_k: int = 5,
         min_similarity: float = 0.5,
+        rerank: bool = False,
+        fetch_k: int = 20,
     ) -> list[KnowledgeArtifact]:
-        """Find similar knowledge artifacts."""
-        # Check cache
-        cache_key = f"sim_{hashlib.sha256(query.encode()).hexdigest()[:16]}_{type_filter}_{top_k}"
+        """Find similar knowledge artifacts, with optional two-stage rerank.
+
+        Stage 1: Cosine similarity as before.
+        Stage 2 (optional): LLM-based rerank if ``rerank=True`` and a reranker
+        is configured and stage-1 produced at least ``top_k`` hits.
+
+        Args:
+            rerank: If True, perform stage-2 LLM reranking.
+            fetch_k: Stage-1 recall width (cosine), used only when rerank=True.
+                Default 20. Capped to 20 to bound cost.
+        """
+        fetch_k = min(fetch_k, 20)  # hard cap
+        # Cache key includes rerank + fetch_k so reranked and raw results
+        # produce distinct cache entries.
+        cache_key = (
+            f"sim_{hashlib.sha256(query.encode()).hexdigest()[:16]}"
+            f"_{type_filter}_{top_k}_rerank{rerank}_fetch{fetch_k}"
+        )
         cached = await self._query_cache.get(cache_key)
         if cached:
             return [KnowledgeArtifact.from_dict(a) for a in cached]
@@ -225,7 +249,8 @@ class KnowledgeBase:
         # Compute query embedding
         query_embedding = await self._compute_embedding(query)
 
-        # Calculate similarities
+        # Stage 1: Cosine similarity — widen recall if reranking
+        stage1_k = fetch_k if rerank else top_k
         scored = []
         for artifact in self._artifacts.values():
             if type_filter and artifact.type != type_filter:
@@ -237,12 +262,51 @@ class KnowledgeBase:
                     artifact.similarity_score = similarity
                     scored.append((similarity, artifact))
 
-        # Sort by similarity
-        scored.sort(reverse=True)
-        results = [a for _, a in scored[:top_k]]
+        # Sort by similarity only — never fall through to comparing artifact
+        # objects (KnowledgeArtifact is not orderable; equal scores would crash).
+        scored.sort(key=lambda t: t[0], reverse=True)
+        stage1 = [a for _, a in scored[:stage1_k]]
+
+        # Stage 2: LLM rerank (enabled, reranker present, and at least top_k hits
+        # so reranking can meaningfully reorder the returned set).
+        if rerank and self._reranker is not None and len(stage1) >= top_k:
+            try:
+                docs = [{"id": a.id, "content": a.content or ""} for a in stage1]
+                ranked = await self._reranker.rerank(
+                    query=query,
+                    results=docs,
+                    top_k=top_k,
+                    min_score=0.0,
+                )
+                # Emit in the reranker's order (not stage-1/cosine order),
+                # carrying the reranker's relevance score onto each artifact.
+                by_id = {a.id: a for a in stage1}
+                results = []
+                for r in ranked:
+                    rid = r.get("id") if isinstance(r, dict) else getattr(r, "doc_id", None)
+                    artifact = by_id.get(rid)
+                    if artifact is None:
+                        continue
+                    rscore = (
+                        r.get("relevance_score")
+                        if isinstance(r, dict)
+                        else getattr(r, "relevance_score", None)
+                    )
+                    if rscore is not None:
+                        artifact.similarity_score = rscore
+                    results.append(artifact)
+                results = results[:top_k]
+            except Exception:
+                logger.warning("Rerank stage failed, falling back to cosine results", exc_info=True)
+                results = stage1[:top_k]
+        else:
+            results = stage1[:top_k]
 
         # Cache results
-        await self._query_cache.set(cache_key, [a.to_dict() for a in results], ttl=300)
+        try:
+            await self._query_cache.set(cache_key, [a.to_dict() for a in results], ttl=300)
+        except Exception:
+            pass
 
         return results
 

@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from .base import AgentBase, AgentRole, AgentTask, AgentTaskResult
+from .base import AgentBase, AgentTask, AgentTaskResult
 
 logger = logging.getLogger("orchestrator.agents.investigator")
 

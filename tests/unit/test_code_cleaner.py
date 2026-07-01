@@ -4,8 +4,6 @@ Unit tests for orchestrator.output.code_cleaner.clean_code_output
 P3-7 of REFACTORING_PLAN_V7.md — extracted from engine.py as a pure function.
 """
 
-import pytest
-
 from orchestrator.output.code_cleaner import clean_code_output
 from orchestrator.models import TaskType
 

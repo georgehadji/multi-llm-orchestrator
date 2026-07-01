@@ -108,11 +108,20 @@ class SkillManager:
             logger.warning("SkillManager: best_skill(%s) failed: %s", task_type.value, exc)
             return None
 
-    async def close(self) -> None:
-        """Wait for any in-flight epoch tasks and close the store."""
+    async def wait_for_epochs(self) -> None:
+        """Await any in-flight epoch tasks without closing the store.
+
+        Use this as a sync barrier when the caller still needs the store
+        afterwards (e.g. to read the persisted best skill). ``close()`` owns
+        the store's lifecycle and must not be used merely to flush epochs.
+        """
         if self._running_epochs:
             logger.debug("SkillManager: waiting for %d epoch tasks", len(self._running_epochs))
             await asyncio.gather(*self._running_epochs, return_exceptions=True)
+
+    async def close(self) -> None:
+        """Wait for any in-flight epoch tasks and close the store."""
+        await self.wait_for_epochs()
         await self._store.close()
 
     # ------------------------------------------------------------------

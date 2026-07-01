@@ -26,7 +26,7 @@ from typing import Any
 from ..api_clients import UnifiedClient
 
 # FIXED: from ..models import Model
-from ...models import Model
+from ..models import Model
 
 logger = logging.getLogger("orchestrator.advanced_query")
 

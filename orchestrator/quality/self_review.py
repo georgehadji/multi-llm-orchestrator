@@ -8,14 +8,9 @@ Part of Category 10, Phase 3 (Replit-inspired).
 from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
 import json
 import re
 import logging
-
-if TYPE_CHECKING:
-    # FIXED: from ..infrastructure.llm_client import UnifiedClient
-    from ..infrastructure.llm_client import UnifiedClient
 
 logger = logging.getLogger(__name__)
 

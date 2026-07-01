@@ -6,7 +6,7 @@ Pure-Python implementation — no external dependencies required.
 from __future__ import annotations
 
 # FIXED: from .models import Task, TaskResult, TaskType
-from ...models import Task, TaskResult, TaskType
+from ..models import Task, TaskResult, TaskType
 
 
 class DagRenderer:

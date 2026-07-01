@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .api_clients import UnifiedClient
+    from ..api_clients import UnifiedClient
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,7 @@ class CodebaseAnalyzer:
     async def _call_llm(self, prompt: str) -> str:
         if self._client is None:
             raise RuntimeError("CodebaseAnalyzer requires a UnifiedClient to call LLMs.")
-        from .models import Model
+        from ..models import Model
 
         response = await self._client.call(Model.GPT_4O_MINI, prompt)
         return response.text

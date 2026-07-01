@@ -27,7 +27,7 @@ from .models import Model
 # Cheapest available model for the lightweight assumption-surfacing call.
 # UnifiedClient has no get_cheapest_model() method; pin directly to the
 # lowest-cost non-free model so the gate stays at ~$0.001 per call.
-_ASSUMPTION_MODEL = Model.ZHIPU_GLM_5_1
+_ASSUMPTION_MODEL = Model.ZHIPU_GLM_5_2
 
 logger = logging.getLogger("orchestrator.assumption_gate")
 

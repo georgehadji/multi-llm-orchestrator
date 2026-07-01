@@ -13,7 +13,7 @@ Security Layers:
 5. Resource limits (existing)
 
 Usage:
-    from orchestrator.plugin_isolation_secure import SecureIsolatedRuntime
+    from orchestrator.plugin.plugin_isolation_secure import SecureIsolatedRuntime
 
     runtime = SecureIsolatedRuntime(IsolationConfig(
         memory_limit_mb=512,

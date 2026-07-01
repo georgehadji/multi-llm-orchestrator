@@ -9,7 +9,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Template Method, Memento, Factory Method, Builder
 
 Usage:
-    from orchestrator.copy_generator import CopyGenerator, HeroCopyGenerator
+    from orchestrator.generators.copy_generator import CopyGenerator, HeroCopyGenerator
 
     generator = HeroCopyGenerator()
     copy = generator.generate()

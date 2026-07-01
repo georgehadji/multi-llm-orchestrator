@@ -42,11 +42,10 @@ async def test_run_project_completes_with_two_tasks(
     orch._generator.decompose = AsyncMock(
         return_value=GeneratorResult(tasks=mock_tasks, wall_time_ms=100.0, error=None)
     )
-    orch._executor.execute = AsyncMock(
+    orch._execute_task = AsyncMock(
         side_effect=[
-            # ExecutorResult wrapping each TaskResult
-            type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
-            type("R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None})(),
+            ok_result_t1,
+            ok_result_t2,
         ]
     )
     orch._evaluator.evaluate = AsyncMock(return_value=0.90)
@@ -69,7 +68,7 @@ async def test_run_project_completes_with_two_tasks(
 
     # Verify services were called the expected number of times
     orch._generator.decompose.assert_called_once()
-    assert orch._executor.execute.call_count == 2
+    assert orch._execute_task.call_count == 2
     # Evaluator is called per-iteration inside _execute_task; with mocking at
     # the service level we only see the outer evaluate() if the engine wires
     # it directly.  For this integration test we focus on state correctness.
@@ -113,10 +112,10 @@ async def test_run_project_degradation_on_partial_failure(
     orch._generator.decompose = AsyncMock(
         return_value=GeneratorResult(tasks=mock_tasks, wall_time_ms=100.0, error=None)
     )
-    orch._executor.execute = AsyncMock(
+    orch._execute_task = AsyncMock(
         side_effect=[
-            type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
-            failed_result,
+            ok_result_t1,
+            failed_task_result,
         ]
     )
 
@@ -153,10 +152,10 @@ async def test_run_project_persists_state(
     orch._generator.decompose = AsyncMock(
         return_value=GeneratorResult(tasks=mock_tasks, wall_time_ms=100.0, error=None)
     )
-    orch._executor.execute = AsyncMock(
+    orch._execute_task = AsyncMock(
         side_effect=[
-            type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
-            type("R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None})(),
+            ok_result_t1,
+            ok_result_t2,
         ]
     )
 

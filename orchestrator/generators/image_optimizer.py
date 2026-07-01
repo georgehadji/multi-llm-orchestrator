@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Pipeline, Strategy, Factory Method, Immutable Data
 
 Usage:
-    from orchestrator.image_optimizer import ImageOptimizer, WebPOptimizer
+    from orchestrator.generators.image_optimizer import ImageOptimizer, WebPOptimizer
 
     optimizer = ImageOptimizer([WebPOptimizer(), AVIFOptimizer()])
     optimized = optimizer.optimize("input.jpg", output_format="webp")

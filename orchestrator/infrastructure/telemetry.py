@@ -86,7 +86,7 @@ class TelemetryCollector:
         model: Model,
         latency_ms: float,
         cost_usd: float,
-        success: bool,
+        success: bool = True,
         quality_score: float | None = None,
     ) -> None:
         """
@@ -97,8 +97,21 @@ class TelemetryCollector:
         """
         profile = self._profiles.get(model)
         if profile is None:
-            logger.warning(f"TelemetryCollector: unknown model {model!r}")
-            return
+            # Lazily register any valid Model enum member so telemetry tracks
+            # every model the orchestrator can actually route to — even if the
+            # collector was seeded from a partial profile dict. The enum is the
+            # curated source of truth; only non-enum values are truly unknown.
+            from ..models import Model  # noqa: PLC0415
+            from ..policy import ModelProfile  # noqa: PLC0415
+
+            if isinstance(model, Model):
+                profile = ModelProfile(model=model, provider="openrouter")
+                self._profiles[model] = profile
+                self._success_windows[model] = collections.deque(maxlen=_SUCCESS_WINDOW)
+                self._latency_buffers[model] = collections.deque(maxlen=_LATENCY_BUFFER_SIZE)
+            else:
+                logger.warning(f"TelemetryCollector: unknown model {model!r}")
+                return
 
         profile.call_count += 1
 

@@ -15,17 +15,16 @@ Usage:
     coder_model = ModelRegistry.QWEN_CODER
 
     # Get timeout for model
-    timeout = ModelRegistry.get_timeout("qwen/qwen-3-coder")
+    timeout = ModelRegistry.get_timeout("qwen/qwen3-coder")
 
     # Get cost info
     cost = ModelRegistry.get_cost("deepseek/deepseek-v4-flash")
 
     # Check if model is valid
-    is_valid = ModelRegistry.is_valid_model("qwen/qwen-3-coder")
+    is_valid = ModelRegistry.is_valid_model("qwen/qwen3-coder")
 """
 
 from __future__ import annotations
-from ..models import Model
 
 from dataclasses import dataclass
 from typing import Dict, Optional
@@ -63,64 +62,61 @@ class ModelRegistry:
     # Verified via direct OpenRouter URL checks
     # ═══════════════════════════════════════════════════════
 
-    # Qwen Models - Coding Specialists
-    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # $0.66/$1.00, 33K coding ⭐ VERIFIED
+    # Qwen Models — 2026 lineup
+    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # $0.12/$0.50, coding ⭐ VERIFIED
+    QWEN_3_CODER = "qwen/qwen3-coder"  # $0.20/$0.80, coding specialist
+    QWEN_3_CODER_NEXT = "qwen/qwen3-coder-next"  # $0.50/$2.00, next-gen coder
+    QWEN_3_5_397B = "qwen/qwen3.5-397b-a17b"  # $1.20/$4.80, 397B MoE
+    QWEN_3_235B_THINKING = "qwen/qwen3-235b-a22b-thinking-2507"  # $2.50/$10.00, 235B thinking
+    QWEN_3_MAX_THINKING = "qwen/qwen3-max-thinking"  # $3.50/$14.00, max reasoning
 
     # DeepSeek Models - Best Value
-    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.27/$1.10, battle-tested ⭐ VERIFIED
-    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.32/$0.89, 164K context ⭐ VERIFIED
-    DEEPSEEK_V4_PRO = "deepseek/deepseek-reasoner"  # $0.55/$2.19, reasoning specialist
+    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.27/$1.10, 164K context ⭐ VERIFIED
+    DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"  # $1.50/$6.00, reasoning specialist
 
     # Anthropic Claude Models - Balanced Quality
-    CLAUDE_SONNET_4_6 = (
-        "anthropic/claude-sonnet-4.6"  # Updated to verified 4.6 endpoint ⭐ VERIFIED
-    )
-    CLAUDE_OPUS_4_6 = "anthropic/claude-opus-4-6"  # $5.00/$25.00, complex analysis
-    CLAUDE_HAIKU_3_5 = "anthropic/claude-3-5-haiku"  # $0.25/$1.25, fast
-    CLAUDE_3_5_SONNET = (
-        "anthropic/claude-sonnet-4.6"  # Backward compatibility alias for the old endpoint ID
-    )
+    CLAUDE_SONNET_5 = "anthropic/claude-sonnet-5"  # $3.00/$15.00 ⭐ VERIFIED
+    CLAUDE_OPUS_4_8 = "anthropic/claude-opus-4-8"  # $6.00/$30.00, complex analysis
+    CLAUDE_HAIKU_4_5 = "anthropic/claude-haiku-4-5"  # $1.00/$5.00, fast
 
     # OpenAI Models - Premium Tier
     GPT_5 = "openai/gpt-5"  # $1.25/$10.00, 400K ⭐ VERIFIED
     GPT_5_CODEX = "openai/gpt-5-codex"  # $1.25/$10.00, coding specialist ⭐ VERIFIED
     GPT_5_4 = "openai/gpt-5.4"  # $2.50/$15.00, unified
     GPT_5_4_MINI = "openai/gpt-5.4-mini"  # $0.25/$2.00, fast
-    GPT_5_4_CODEX = "openai/gpt-5.4-codex"  # $1.75/$14.00, coding specialist
+    GPT_5_4_CODEX = "openai/gpt-5.3-codex"  # $1.75/$14.00, coding specialist
+    GPT_5_CODEX = "openai/gpt-5-codex"  # $1.25/$10.00, 400K, coding specialist
     GPT_5_4_PRO = "openai/gpt-5.4-pro"  # $30.00/$180.00, maximum quality
     GPT_4O = "openai/gpt-4o"  # $2.50/$10.00, previous gen
     GPT_4O_MINI = "openai/gpt-4o-mini"  # $0.15/$0.60, 128K ⭐ VERIFIED
 
     # Google Gemini Models
-    GEMINI_FLASH = "google/gemini-3.5-flash"  # $0.30/$2.50, 1M+ ⭐ VERIFIED
-    GEMINI_FLASH = "google/gemini-3.5-flash"  # $1.25/$10.00
-    GEMINI_FLASH = "google/gemini-3.5-flash"  # $0.15/$0.60, fast
+    GEMINI_FLASH = "google/gemini-3.5-flash"  # $0.15/$0.60, 1M+ ⭐ VERIFIED
 
-    # xAI Grok Models
-    GROK_4_20 = "x-ai/grok-4.20"  # $2.00/$6.00, 2M context ⭐ VERIFIED (NOT -beta)
-    GROK_4_1_FAST = "x-ai/grok-4.20"  # $0.20/$0.50, fast
+    # xAI Grok Models — 2026 lineup
+    GROK_4_20 = "x-ai/grok-4.20"  # $2.00/$6.00, 2M context ⭐ VERIFIED
+    GROK_4_MINI = "x-ai/grok-4-mini"  # $0.30/$0.60, faster/cheaper variant
 
     # Moonshot Kimi Models
     KIMI_K2_7_CODE = "moonshotai/kimi-k2.7-code"  # $0.95/$4.00, 256K, MoE 32B/1T
     KIMI_K2 = "moonshotai/kimi-k2"  # $0.57/$2.30, 128K ⭐ VERIFIED
     KIMI_K2_6 = "moonshotai/kimi-k2.6"  # $0.42/$2.20, visual coding SOTA
 
-    # Xiaomi MiMo Models - New Open-Source Leaders ⭐ VERIFIED
-    MIMO_V2_FLASH = "xiaomi/mimo-v2-flash"  # $0.09/$0.29, 256K, #1 SWE-bench ⭐ BEST VALUE
-    MIMO_V2_PRO = "xiaomi/mimo-v2-pro"  # $1.00/$3.00, 1T+ params, 1M+ ctx
+    # Xiaomi MiMo Models — mimo-v2-{flash,pro} deprecated by OpenRouter (404);
+    # repointed to the live v2.5 IDs.
+    MIMO_V2_FLASH = "xiaomi/mimo-v2.5"  # was mimo-v2-flash (deprecated), $0.14/$0.28, 1M ctx
+    MIMO_V2_PRO = "xiaomi/mimo-v2.5-pro"  # was mimo-v2-pro (deprecated), $0.43/$0.87, 1M ctx
 
     # StepFun Models - Best Value ⭐ VERIFIED
     STEP_3_5_FLASH = "stepfun/step-3.5-flash"  # $0.10/$0.30, 262K, 196B MoE ⭐ BEST VALUE
-    STEP_3_5 = "stepfun/step-3.5"  # $0.15/$0.45
+    STEP_3_5 = "stepfun/step-3.7-flash"  # $0.15/$0.45
 
     # Z-AI GLM Models ⭐ VERIFIED
-    GLM_5_1 = "z-ai/glm-5.1"  # canonical GLM model
+    GLM_5_2 = "z-ai/glm-5.2"  # canonical GLM model
     GLM_5_TURBO = "z-ai/glm-5-turbo"  # fast variant
-    GLM_5_2 = "z-ai/glm-5.2"  # latest model
 
     # Minimax Models ⭐ VERIFIED
     MINIMAX_M2_7 = "minimax/minimax-m2.7"  # $0.30/$1.20, 205K, multi-agent ⭐
-    MINIMAX_M2_7 = "minimax/minimax-m2.5"  # $0.30/$1.20
 
     # OpenRouter Auto-Router
     OPENROUTER_AUTO = "openrouter/auto"  # Dynamic routing
@@ -130,20 +126,65 @@ class ModelRegistry:
     # Verified via OpenRouter URL checks 2026-04-01
     # ═══════════════════════════════════════════════════════
 
+    # Deprecated/removed OpenRouter IDs → live replacements.
+    # Keys are the DEAD ids (verified absent from /api/v1/models, 404/400 on a
+    # real call); values are live replacements matched by provider + capability
+    # + price tier. validate_model_available() redirects these so any persisted
+    # state or external reference to an old id keeps resolving.
+    # NOTE: anthropic/claude-{opus,sonnet,haiku}-N-M (hyphen) are intentionally
+    # NOT listed — OpenRouter normalizes them server-side (verified live call).
     UNAVAILABLE_MODELS = {
-        # Anthropic models - Standardize on 4.6
-        "anthropic/claude-3.5-sonnet": "anthropic/claude-sonnet-4.6",
-        # Qwen models - NOT AVAILABLE
-        "qwen/qwen-3-coder-next": "qwen/qwen3.6-flash",
-        "qwen/qwen-3.5-397b-a17b": "openai/gpt-5",
-        "qwen/qwen-3-coder": "qwen/qwen3.6-flash",
-        "qwen/qwen-3.5-235b-a22b-thinking-2507": "openai/gpt-5",
-        # NVIDIA - NOT AVAILABLE
-        "nvidia/nemotron-3-super": "minimax/minimax-m2.7",
-        # AION Labs - NOT AVAILABLE
-        "aionlabs/aion-2.0": "z-ai/glm-5.1",
-        # Google - NOT AVAILABLE
-        "google/gemini-3.5-flash": "google/gemini-3.5-flash",
+        # Anthropic legacy ids (genuine 404)
+        "anthropic/claude-3.5-sonnet": "anthropic/claude-sonnet-5",
+        "anthropic/claude-3-opus": "anthropic/claude-opus-4-8",
+        "anthropic/claude-3-5-haiku": "anthropic/claude-haiku-4-5",
+        # Qwen — hyphenated/legacy ids OpenRouter no longer accepts
+        "qwen/qwen-3-coder-next": "qwen/qwen3-coder-next",
+        "qwen/qwen-3-coder": "qwen/qwen3-coder",
+        "qwen/qwen-3.5-397b-a17b": "qwen/qwen3.5-397b-a17b",
+        "qwen/qwen-3.5-235b-a22b-thinking-2507": "qwen/qwen3-235b-a22b-thinking-2507",
+        "qwen/qwen-3-max-thinking": "qwen/qwen3-max-thinking",
+        "qwen/qwen-3-697b-a17b": "qwen/qwen3.5-397b-a17b",
+        # NVIDIA — base alias replaced by the sized id
+        "nvidia/nemotron-3-super": "nvidia/nemotron-3-super-120b-a12b",
+        # AION Labs — provider no longer on OpenRouter
+        "aionlabs/aion-2.0": "qwen/qwen3.5-397b-a17b",
+        # OpenAI
+        "openai/gpt-5.4-codex": "openai/gpt-5.3-codex",
+        "openai/o4": "openai/o4-mini",
+        # DeepSeek
+        "deepseek/deepseek-reasoner": "deepseek/deepseek-v4-pro",
+        "deepseek/deepseek-r1": "deepseek/deepseek-v4-pro",
+        # Internal test models
+        "internal/nano-banana-2": "openai/gpt-4o-mini",
+        # StepFun
+        "stepfun/step-3.5": "stepfun/step-3.7-flash",
+        # Meta — 405B not on OpenRouter
+        "meta-llama/llama-3.1-405b-instruct": "meta-llama/llama-3.3-70b-instruct",
+        # xAI — grok-4-mini not on OpenRouter; use grok-4.20
+        "x-ai/grok-4-mini": "x-ai/grok-4.20",
+        # FLUX 2 models — not on OpenRouter; fall back to gpt-4o-mini
+        "black-forest-labs/flux.2-klein-4b": "openai/gpt-4o-mini",
+        "black-forest-labs/flux.2-max": "openai/gpt-4o-mini",
+        "black-forest-labs/flux.2-flex": "openai/gpt-4o-mini",
+        "black-forest-labs/flux.2-pro": "openai/gpt-4o-mini",
+        # Recraft — v4/v4.1 ids not on OpenRouter; fall back to gpt-4o-mini
+        "recraft/recraft-v3": "openai/gpt-4o-mini",
+        "recraft/recraft-v4": "openai/gpt-4o-mini",
+        "recraft/recraft-v4-pro": "openai/gpt-4o-mini",
+        "recraft/recraft-v4-pro-vector": "openai/gpt-4o-mini",
+        "recraft/recraft-v4-vector": "openai/gpt-4o-mini",
+        "recraft/recraft-v4.1": "openai/gpt-4o-mini",
+        "recraft/recraft-v4.1-pro": "openai/gpt-4o-mini",
+        "recraft/recraft-v4.1-utility": "openai/gpt-4o-mini",
+        # Sourceful Riverflow — preview ids not on OpenRouter; fall back to gpt-4o-mini
+        "sourceful/riverflow-v2-fast": "openai/gpt-4o-mini",
+        "sourceful/riverflow-v2-fast-preview": "openai/gpt-4o-mini",
+        "sourceful/riverflow-v2-max-preview": "openai/gpt-4o-mini",
+        "sourceful/riverflow-v2-pro": "openai/gpt-4o-mini",
+        "sourceful/riverflow-v2-standard-preview": "openai/gpt-4o-mini",
+        # ByteDance Seedream — not on OpenRouter
+        "bytedance-seed/seedream-4.5": "openai/gpt-4o-mini",
     }
 
     # ═══════════════════════════════════════════════════════
@@ -169,7 +210,7 @@ class ModelRegistry:
         "openai/gpt-5": 120,
         "openai/o1": 180,
         "openai/o3": 180,
-        "openai/o4": 180,
+        "openai/o4-mini": 180,
     }
 
     # Per-model timeout overrides
@@ -187,14 +228,19 @@ class ModelRegistry:
 
     COST_TABLE: Dict[str, dict] = {  # type: ignore[type-arg]
         # Qwen Models (VERIFIED)
-        QWEN_3_6_FLASH: {"input": 0.66, "output": 1.00},
+        QWEN_3_6_FLASH: {"input": 0.12, "output": 0.50},
+        QWEN_3_CODER: {"input": 0.20, "output": 0.80},
+        QWEN_3_CODER_NEXT: {"input": 0.50, "output": 2.00},
+        QWEN_3_5_397B: {"input": 1.20, "output": 4.80},
+        QWEN_3_235B_THINKING: {"input": 2.50, "output": 10.00},
+        QWEN_3_MAX_THINKING: {"input": 3.50, "output": 14.00},
         # DeepSeek Models (VERIFIED)
-        DEEPSEEK_V4_FLASH: {"input": 0.32, "output": 0.89},
-        DEEPSEEK_V4_PRO: {"input": 0.55, "output": 2.19},
+        DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},
+        DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},
         # Anthropic Models (VERIFIED)
-        CLAUDE_SONNET_4_6: {"input": 6.00, "output": 30.00},  # Updated price
-        CLAUDE_OPUS_4_6: {"input": 5.00, "output": 25.00},
-        CLAUDE_HAIKU_3_5: {"input": 0.25, "output": 1.25},
+        CLAUDE_SONNET_5: {"input": 3.00, "output": 15.00},
+        CLAUDE_OPUS_4_8: {"input": 6.00, "output": 30.00},
+        CLAUDE_HAIKU_4_5: {"input": 1.00, "output": 5.00},
         # OpenAI Models (VERIFIED)
         GPT_5: {"input": 1.25, "output": 10.00},
         GPT_5_CODEX: {"input": 1.25, "output": 10.00},
@@ -208,19 +254,18 @@ class ModelRegistry:
         GEMINI_FLASH: {"input": 0.15, "output": 0.60},
         # xAI Grok Models (VERIFIED)
         GROK_4_20: {"input": 2.00, "output": 6.00},
-        GROK_4_1_FAST: {"input": 0.20, "output": 0.50},
+        GROK_4_MINI: {"input": 0.30, "output": 0.60},
         # Moonshot Kimi Models (VERIFIED)
-        KIMI_K2_7_CODE: {"input": 0.95, "output": 4.00},
-        KIMI_K2: {"input": 0.57, "output": 2.30},
-        KIMI_K2_6: {"input": 0.42, "output": 2.20},
+        KIMI_K2_7_CODE: {"input": 1.10, "output": 4.50},
+        KIMI_K2: {"input": 0.50, "output": 1.50},
+        KIMI_K2_6: {"input": 0.95, "output": 4.00},
         # Xiaomi MiMo Models (VERIFIED)
-        MIMO_V2_FLASH: {"input": 0.09, "output": 0.29},  # ⭐ BEST VALUE
-        MIMO_V2_PRO: {"input": 1.00, "output": 3.00},
+        MIMO_V2_FLASH: {"input": 0.14, "output": 0.28},
+        MIMO_V2_PRO: {"input": 0.44, "output": 0.87},
         # StepFun Models (VERIFIED)
         STEP_3_5_FLASH: {"input": 0.10, "output": 0.30},  # ⭐ BEST VALUE
-        STEP_3_5: {"input": 0.15, "output": 0.45},
+        STEP_3_5: {"input": 0.15, "output": 0.45},  # stepfun/step-3.7-flash
         # Z-AI GLM Models (VERIFIED)
-        GLM_5_1: {"input": 0.10, "output": 0.40},  # z-ai/glm-5.1
         GLM_5_TURBO: {"input": 1.20, "output": 4.00},  # z-ai/glm-5-turbo
         GLM_5_2: {"input": 0.50, "output": 2.00},  # z-ai/glm-5.2
         # Minimax Models (VERIFIED)
@@ -239,9 +284,9 @@ class ModelRegistry:
         DEEPSEEK_V4_FLASH: 163840,
         DEEPSEEK_V4_PRO: 16384,
         # Anthropic Models (VERIFIED)
-        CLAUDE_SONNET_4_6: 200000,
-        CLAUDE_OPUS_4_6: 200000,
-        CLAUDE_HAIKU_3_5: 200000,
+        CLAUDE_SONNET_5: 200000,
+        CLAUDE_OPUS_4_8: 200000,
+        CLAUDE_HAIKU_4_5: 200000,
         # OpenAI Models (VERIFIED)
         GPT_5: 400000,
         GPT_5_CODEX: 400000,
@@ -255,7 +300,7 @@ class ModelRegistry:
         GEMINI_FLASH: 1048576,  # 1M+ context
         # xAI Grok Models (VERIFIED)
         GROK_4_20: 2000000,  # 2M context!
-        GROK_4_1_FAST: 131072,
+        GROK_4_MINI: 131072,
         # Moonshot Kimi Models (VERIFIED)
         KIMI_K2: 131072,
         KIMI_K2_7_CODE: 262144,
@@ -267,11 +312,16 @@ class ModelRegistry:
         STEP_3_5_FLASH: 262144,
         STEP_3_5: 262144,
         # Z-AI GLM Models (VERIFIED)
-        GLM_5_1: 202752,  # z-ai/glm-5.1
         GLM_5_TURBO: 202752,  # z-ai/glm-5-turbo
         GLM_5_2: 202752,  # z-ai/glm-5.2
         # Minimax Models (VERIFIED)
         MINIMAX_M2_7: 204800,
+        # Qwen extended lineup
+        QWEN_3_CODER: 32768,
+        QWEN_3_CODER_NEXT: 32768,
+        QWEN_3_5_397B: 131072,
+        QWEN_3_235B_THINKING: 131072,
+        QWEN_3_MAX_THINKING: 131072,
     }
 
     # ═══════════════════════════════════════════════════════
@@ -283,6 +333,8 @@ class ModelRegistry:
     CODING_SPECIALISTS = {
         KIMI_K2_7_CODE,
         QWEN_3_6_FLASH,
+        QWEN_3_CODER,
+        QWEN_3_CODER_NEXT,
         GPT_5_CODEX,
         GPT_5_4_CODEX,
         MIMO_V2_FLASH,
@@ -297,12 +349,35 @@ class ModelRegistry:
         GPT_5_4_PRO,
         GROK_4_20,
         STEP_3_5_FLASH,
+        QWEN_3_235B_THINKING,
+        QWEN_3_MAX_THINKING,
+        QWEN_3_5_397B,
+        # 2026 reasoning tier (kept in sync with the live OpenRouter catalogue;
+        # see docs/REASONING_AND_TEMPERATURE.md). Literal ids: these models are
+        # not all declared as constants in this registry.
+        "openai/gpt-5.2",
+        "openai/gpt-5.5",
+        "openai/gpt-5.5-pro",
+        "x-ai/grok-4.3",
+        "x-ai/grok-4.20-multi-agent",
+        "minimax/minimax-m3",
+        "deepseek/deepseek-v3.2",
+        "qwen/qwen3-235b-a22b-thinking-2507",
+        "qwen/qwen3-next-80b-a3b-thinking",
+        "nvidia/nemotron-3-ultra-550b-a55b",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-super-120b-a12b",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "anthropic/claude-opus-4-8",  # extended-thinking capable
+        "openai/o1",
+        "openai/o3-mini",
+        "openai/o4-mini",
     }
 
     # Budget models - best value
     BUDGET_MODELS = {
         MIMO_V2_FLASH,  # $0.09/$0.29 - Best value! ⭐
-        GLM_5_1,  # $0.06/$0.40 - Cheapest!
+        GLM_5_2,  # $0.50/$2.00 - Canonical GLM
         STEP_3_5_FLASH,  # $0.10/$0.30 - Best value reasoning
         QWEN_3_6_FLASH,  # $0.66/$1.00 - Coding specialist
         GPT_4O_MINI,  # $0.15/$0.60
@@ -313,8 +388,10 @@ class ModelRegistry:
     # Premium models - maximum quality
     PREMIUM_MODELS = {
         GPT_5_4_PRO,
-        CLAUDE_OPUS_4_6,
+        CLAUDE_OPUS_4_8,
         GROK_4_20,
+        QWEN_3_235B_THINKING,
+        QWEN_3_MAX_THINKING,
     }
 
     # Models with 200K+ context capability
@@ -322,22 +399,22 @@ class ModelRegistry:
         KIMI_K2_7_CODE,
         GEMINI_FLASH,  # 1M+
         MIMO_V2_PRO,  # 1M+
-        CLAUDE_SONNET_4_6,  # 200K
-        CLAUDE_OPUS_4_6,  # 200K
-        CLAUDE_HAIKU_3_5,  # 200K
+        CLAUDE_SONNET_5,  # 200K
+        CLAUDE_OPUS_4_8,  # 200K
+        CLAUDE_HAIKU_4_5,  # 200K
         GPT_5,  # 400K
         GPT_5_CODEX,  # 400K
         GROK_4_20,  # 2M!
         STEP_3_5_FLASH,  # 262K
         STEP_3_5,  # 262K
         MIMO_V2_FLASH,  # 256K
-        GLM_5_1,  # 202K
         GLM_5_TURBO,  # 202K
         GLM_5_2,  # 202K
         MINIMAX_M2_7,  # 205K
-        MINIMAX_M2_7,  # 205K
         DEEPSEEK_V4_FLASH,  # 164K
-        DEEPSEEK_V4_FLASH,  # 164K
+        QWEN_3_5_397B,  # 128K
+        QWEN_3_235B_THINKING,  # 128K
+        QWEN_3_MAX_THINKING,  # 128K
     }
 
     # Multimodal models — support image + text input (vision-capable)
@@ -345,12 +422,10 @@ class ModelRegistry:
         KIMI_K2_7_CODE,
         # Google Gemini — natively multimodal
         GEMINI_FLASH,
-        GEMINI_FLASH,
-        GEMINI_FLASH,
         # Anthropic Claude 3.x+ — all vision-capable
-        CLAUDE_SONNET_4_6,
-        CLAUDE_OPUS_4_6,
-        CLAUDE_HAIKU_3_5,
+        CLAUDE_SONNET_5,
+        CLAUDE_OPUS_4_8,
+        CLAUDE_HAIKU_4_5,
         # OpenAI — GPT-4o and GPT-5 family are multimodal
         GPT_4O,
         GPT_4O_MINI,
@@ -370,7 +445,7 @@ class ModelRegistry:
         Get timeout for a specific model.
 
         Args:
-            model_id: Full model ID (e.g., "qwen/qwen-3-coder")
+            model_id: Full model ID (e.g., "qwen/qwen3-coder")
 
         Returns:
             Timeout in seconds

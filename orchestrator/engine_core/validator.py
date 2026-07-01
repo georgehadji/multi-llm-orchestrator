@@ -186,7 +186,7 @@ class TaskValidator:
             return output, score, self._make_pass_result()
 
         try:
-            from ..preflight import PreflightAction, PreflightMode, PreflightResult
+            from ..preflight import PreflightAction, PreflightMode
 
             pf_result = self._preflight_validator.validate(
                 response=output,

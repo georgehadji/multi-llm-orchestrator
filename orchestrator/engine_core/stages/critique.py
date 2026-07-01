@@ -14,23 +14,10 @@ from typing import TYPE_CHECKING
 from ..pipeline import PipelineContext
 from ...domain.ports import LLMClient
 from ...crosscutting.config import flags
-from ...models import Model, ProbabilityFormat, TaskType, VSConfig
+from ...models import ProbabilityFormat, TaskType, VSConfig
 
-# Lazy import for VerbalizedSampler
-_VS_SAMPLER = None
-_VS_LOCK = __import__("threading").Lock()
-
-
-def _get_vs_sampler(client):
-    global _VS_SAMPLER
-    if _VS_SAMPLER is None:
-        with _VS_LOCK:
-            if _VS_SAMPLER is None:
-                from ...application.verbalized_sampling import VerbalizedSampler as _VS
-
-                _VS_SAMPLER = _VS
-    return _VS_SAMPLER(client=client)
-
+from ...domain.ports import VSSamplerPort
+from ...operations.resilience import STAGE_RETRY_CRITIQUE
 
 if TYPE_CHECKING:
     from ...domain.ports import LSPValidatorPort
@@ -54,10 +41,12 @@ class CritiqueStage:
         client: LLMClient,
         get_reviewer_fn: object = None,
         lsp_validator: LSPValidatorPort | None = None,
+        vs_sampler: VSSamplerPort | None = None,
     ) -> None:
         self._client = client
         self._get_reviewer_fn = get_reviewer_fn
         self._lsp_validator = lsp_validator
+        self._vs_sampler = vs_sampler
 
     async def process(self, ctx: PipelineContext) -> PipelineContext:
         """Run critique if a reviewer model is available."""
@@ -75,18 +64,18 @@ class CritiqueStage:
 
         try:
             if flags.vs_code_review and ctx.task and ctx.task.type == TaskType.CODE_GEN:
-                sampler = _get_vs_sampler(self._client)
-                candidates = await sampler.sample(
-                    prompt=critique_prompt,
-                    model=reviewer,
-                    cfg=VSConfig(k=3, temperature=0.2, fmt=ProbabilityFormat.CONFIDENCE),
-                    system_extra="You are a code reviewer. Generate 3 independent review "
-                    "hypotheses. Each must explore a different angle "
-                    "(correctness, performance, security, style, edge cases). "
-                    "Be specific and constructive.",
-                    max_tokens=2048,
-                    timeout=60,
-                )
+                if self._vs_sampler is not None:
+                    candidates = await self._vs_sampler.sample(
+                        prompt=critique_prompt,
+                        model=reviewer,
+                        cfg=VSConfig(k=3, temperature=0.2, fmt=ProbabilityFormat.CONFIDENCE),
+                        system_extra="You are a code reviewer. Generate 3 independent review "
+                        "hypotheses. Each must explore a different angle "
+                        "(correctness, performance, security, style, edge cases). "
+                        "Be specific and constructive.",
+                        max_tokens=2048,
+                        timeout=60,
+                    )
                 if candidates:
                     ctx.critique = "\n\n".join(
                         f"## Review {i+1} (confidence: {c.probability:.0%})\n{c.text[:1500]}"
@@ -105,7 +94,7 @@ class CritiqueStage:
                     max_tokens=2048,
                     temperature=0.3,
                     timeout=60,
-                    retries=1,
+                    retries=STAGE_RETRY_CRITIQUE,
                 )
                 ctx.critique = response.text[:2000]
         except Exception as e:

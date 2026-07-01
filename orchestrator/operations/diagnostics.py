@@ -184,7 +184,7 @@ class SystemDiagnostic:
         logger.debug("Checking API key validity...")
 
         # FIXED: from ..api_clients import UnifiedClient
-        from ...api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         test_models = [
             (Model.GPT_4O_MINI, "OpenAI"),
@@ -346,7 +346,7 @@ class SystemDiagnostic:
         # Check cache
         try:
             # FIXED: from ..performance import get_cache
-            from ...performance import get_cache
+            from ..performance import get_cache
 
             cache = get_cache()
             stats = cache.get_stats()
@@ -378,7 +378,7 @@ class ProjectDiagnostic:
     async def diagnose(self) -> dict[str, Any]:
         """Diagnose specific project issues."""
         # FIXED: from ..state import StateManager
-        from ...state import StateManager
+        from ..state import StateManager
 
         state_mgr = StateManager()
         state = state_mgr.load_state(self.project_id)

@@ -23,7 +23,7 @@ import time as _time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 logger = logging.getLogger("orchestrator.a2a_protocol")
 

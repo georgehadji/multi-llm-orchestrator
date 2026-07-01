@@ -17,9 +17,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from ..exceptions import TruncatedResponseError
 from ..models import FALLBACK_CHAIN, ROUTING_TABLE, Model, TaskType, get_provider
 
 logger = logging.getLogger("orchestrator.engine_core.utilities")

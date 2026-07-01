@@ -8,8 +8,8 @@ constraints before each frontend task, log design choices after each task,
 and emit design.md after each project.
 
 Usage:
-    from orchestrator.plugins.base import PluginRegistry, get_plugin_registry
-    from orchestrator.plugins.hallmark_design import HallmarkDesignPlugin
+    from orchestrator.plugin.plugins.base import PluginRegistry, get_plugin_registry
+    from orchestrator.plugin.plugins.hallmark_design import HallmarkDesignPlugin
     registry = get_plugin_registry()
     registry.register(HallmarkDesignPlugin())
 """
@@ -65,7 +65,6 @@ class HallmarkDesignPlugin(Plugin):
             try:
                 from orchestrator.design.hallmark_selector import HallmarkSelector
                 from orchestrator.design.preflight_scanner import PreflightScanner
-                from orchestrator.design.design_log import DesignLog
                 from orchestrator.design.scope_detector import ScopeDetector
 
                 self._selector = HallmarkSelector()
@@ -157,7 +156,6 @@ class HallmarkDesignPlugin(Plugin):
         # For page tasks: select macrostructure, theme, nav, footer
         try:
             from orchestrator.design.prompt_builder import HallmarkPromptBuilder
-            from orchestrator.design.catalogs import Macrostructure, Theme
 
             builder = HallmarkPromptBuilder()
 

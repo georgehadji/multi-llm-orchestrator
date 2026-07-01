@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 from orchestrator.budget import Budget
 from orchestrator.domain.ports import NullCache, NullState
 from orchestrator.engine import Orchestrator
-from orchestrator.models import Model, Task, TaskResult, TaskStatus, TaskType
+from orchestrator.models import Task, TaskResult, TaskStatus, TaskType
 
 
 def _inject_mock_client(orch: Orchestrator, mock_client: MagicMock) -> None:

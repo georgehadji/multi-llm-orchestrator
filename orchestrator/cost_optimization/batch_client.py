@@ -220,14 +220,18 @@ class BatchClient:
         start_time = time.time()
 
         while time.time() - start_time < timeout:
-            if request.result:
+            # P5 FIX: gate on the explicit completion status, NOT on
+            # ``request.result`` truthiness. A legitimately falsy result
+            # (empty string, empty dict/list, 0) was previously treated as
+            # "not ready" and the call blocked until the 300s timeout.
+            if request.status == BatchStatus.COMPLETED:
                 self.metrics.batch_completions += 1
                 # Track savings (50% of estimated cost)
                 estimated_cost = self._estimate_cost(model, prompt)
                 self.metrics.total_savings += estimated_cost * 0.5
                 return request.result
 
-            if request.error:
+            if request.status == BatchStatus.FAILED or request.error:
                 self.metrics.batch_failures += 1
                 raise RuntimeError(f"Batch request failed: {request.error}")
 

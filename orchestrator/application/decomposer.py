@@ -22,7 +22,7 @@ from ..api_clients import UnifiedClient
 from ..crosscutting.config import flags
 from ..exceptions import OrchestratorError, TaskError
 from ..models import Model, Task, TaskType, VSConfig
-from ..resilience import ResiliencePolicy, RetryTemplate
+from ..resilience import ResiliencePolicy
 from ..tracing import Tracer
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
 from ..project_context import ProjectContext as _ProjectContext

@@ -835,7 +835,7 @@ Choose the best options based on the project requirements. Be specific and pract
         from ...models import Model as M
 
         architecture_models = [
-            M.CLAUDE_SONNET_4_6,  # $3.00/$15.00, premium quality, reliable JSON
+            M.CLAUDE_SONNET_5,  # $3.00/$15.00, premium quality, reliable JSON
             M.GPT_5_4,  # $2.50/$10.00, reliable
             M.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
             M.XAI_GROK_4_20,  # $2.00/$6.00, lowest hallucination

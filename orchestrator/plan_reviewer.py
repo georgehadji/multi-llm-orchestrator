@@ -6,7 +6,6 @@ Part of Category 10, Phase 2 (Replit-inspired).
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Callable
 import logging
 
 logger = logging.getLogger(__name__)

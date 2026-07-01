@@ -28,8 +28,8 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.QWEN_3_7_MAX: 0,
     Model.QWEN_3_6_FLASH: 0,
     Model.XAI_GROK_4_20: 0,
-    Model.CLAUDE_SONNET_4_6: 0,
-    Model.CLAUDE_OPUS_4_6: 0,
+    Model.CLAUDE_SONNET_5: 0,
+    Model.CLAUDE_OPUS_4_8: 0,
     Model.GPT_4O: 0,
     Model.GPT_5_4: 0,
     Model.GPT_5_4_CODEX: 0,
@@ -39,17 +39,15 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.MOONSHOT_KIMI_K2_6: 0,
     Model.XIAOMI_MIMO_V2_FLASH: 0,
     Model.MINIMAX_M2_7: 0,
-    Model.ZHIPU_GLM_5_1: 0,
+    Model.ZHIPU_GLM_5_2: 0,
     Model.ZHIPU_GLM_5_TURBO: 0,
     Model.ZHIPU_GLM_5_2: 0,
     Model.STEPFUN_STEP_3_5_FLASH: 0,
     Model.LLAMA_4_MAVERICK: 0,
     Model.PHI_4: 0,
-    Model.CLAUDE_3_HAIKU: 0,
+    Model.CLAUDE_HAIKU_4_5: 0,
     # Image generation models
     Model.NANO_BANANA_2: 1,
-    Model.RECRAFT_V4_PRO_VECTOR: 1,
-    Model.FLUX_2_KLEIN: 1,
 }
 
 _COMPLEXITY_KEYWORDS = [
@@ -111,7 +109,7 @@ _TECH_STACK_KEYWORDS = [
 _RELIABLE_DECOMPOSITION_MODELS: list[Model] = [
     Model.MOONSHOT_KIMI_K2_7_CODE,
     Model.QWEN_3_7_MAX,
-    Model.CLAUDE_SONNET_4_6,
+    Model.CLAUDE_SONNET_5,
     Model.GPT_4O,
     Model.DEEPSEEK_V4_FLASH,
     Model.GEMINI_FLASH,

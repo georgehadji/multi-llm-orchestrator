@@ -80,7 +80,7 @@ class StudyEngine:
 
         try:
             response = await self._client.call(
-                model="anthropic/claude-sonnet-4-6",  # vision-capable
+                model="anthropic/claude-sonnet-5",  # vision-capable
                 prompt=prompt,
                 system="You are a precise design analyst. Extract only what's visible.",
                 max_tokens=500,
@@ -137,7 +137,7 @@ class StudyEngine:
             )
             try:
                 response = await self._client.call(
-                    model="anthropic/claude-sonnet-4-6",
+                    model="anthropic/claude-sonnet-5",
                     prompt=prompt,
                     max_tokens=500,
                     temperature=0.1,

@@ -29,10 +29,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 # FIXED: from .log_config import get_logger
-from ...log_config import get_logger
+from ..log_config import get_logger
 
 # FIXED: from .models import Model
-from ...models import Model
+from ..models import Model
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -153,7 +153,7 @@ class DesignToCodePipeline:
     # Supported frameworks
     FRAMEWORKS = ["react", "vue", "fastapi", "flask", "nextjs"]
 
-    def __init__(self, client, default_model: Model = Model.CLAUDE_SONNET_4_6):
+    def __init__(self, client, default_model: Model = Model.CLAUDE_SONNET_5):
         """
         Initialize design-to-code pipeline.
 

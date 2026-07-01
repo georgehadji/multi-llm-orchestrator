@@ -23,7 +23,7 @@ from typing import Any
 import httpx
 
 # FIXED: from ..log_config import get_logger
-from ....log_config import get_logger
+from ..log_config import get_logger
 
 logger = get_logger(__name__)
 
