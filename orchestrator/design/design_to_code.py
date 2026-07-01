@@ -153,7 +153,7 @@ class DesignToCodePipeline:
     # Supported frameworks
     FRAMEWORKS = ["react", "vue", "fastapi", "flask", "nextjs"]
 
-    def __init__(self, client, default_model: Model = Model.CLAUDE_SONNET_4_6):
+    def __init__(self, client, default_model: Model = Model.CLAUDE_SONNET_5):
         """
         Initialize design-to-code pipeline.
 

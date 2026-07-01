@@ -1,44 +1,30 @@
 """
-
-Multi-LLM Orchestrator — Core Models & Types
-
-=============================================
-
+Unified Model Registry
+========================
 Author: Georgios-Chrysovalantis Chatzivantsidis
 
-All data structures, enums, routing tables, cost tables, budget logic.
+Centralised enum for all LLM models used in the orchestrator.
+Provides a single source of truth for model names, validation,
+and metadata lookups (cost, provider, context size).
 
+Usage:
+    from orchestrator.models import Model, COST_TABLE, get_provider
+
+    # Access model enum
+    model = Model.GPT_4O
+
+    # Look up cost
+    cost = COST_TABLE[model]
+    print(f"Input cost: ${cost['input']}/M tokens")
+
+    # Get provider
+    provider = get_provider(model) # "openai"
 """
 
 from __future__ import annotations
 
-
-import hashlib
-
-
-from dataclasses import dataclass, field
-
 from enum import Enum
-
-from typing import Any
-from .budget import Budget  # noqa: F401
-
-# ─────────────────────────────────────────────
-
-# Enums
-
-# ─────────────────────────────────────────────
-
-
-@dataclass
-class ProviderStrategy:
-    """Provider sorting strategy for OpenRouter model selection."""
-
-    sort: str = "price"
-
-    preferred_min_throughput: float | None = None
-
-    preferred_max_latency: float | None = None
+from typing import Any, Literal, TypedDict
 
 
 class ProjectType(str, Enum):
@@ -135,329 +121,627 @@ class Genre(str, Enum):
     TERMINAL = "terminal"
 
 
-class Model(str, Enum):
+class Model(Enum):
+    """Unified enum for all supported LLM models."""
 
     # ═══════════════════════════════════════════════════════
-
-    # OPENROUTER MODELS - All models via OpenRouter
-
-    # Format: vendor/model-name (see https://openrouter.ai/models)
-
-    # Updated v3.0 with Xiaomi, Moonshot, StepFun, GLM models
+    # Free Tier (OpenRouter)
+    # ═══════════════════════════════════════════════════════
+    QWEN_CODER_FREE = "qwen/qwen3-coder:free"
+    GPT_OSS_120B_FREE = "openai/gpt-oss-120b:free"
+    QWEN_NEXT_80B_FREE = "qwen/qwen3-next-80b-a3b-instruct:free"
+    LLAMA_3_3_70B_FREE = "meta-llama/llama-3.3-70b-instruct:free"
+    NEMOTRON_3_ULTRA_FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"
+    NEMOTRON_3_SUPER_FREE = "nvidia/nemotron-3-super-120b-a12b:free"
+    NEMOTRON_NANO_9B_FREE = "nvidia/nemotron-nano-9b-v2:free"
 
     # ═══════════════════════════════════════════════════════
+    # Open-Source Models (Tier 1 - Top Performers)
+    # ═══════════════════════════════════════════════════════
+    GPT_OSS_120B = "openai/gpt-oss-120b"
+    GPT_OSS_20B = "openai/gpt-oss-20b"
+    QWEN_NEXT_80B = "qwen/qwen3-next-80b-a3b-instruct"
+    GLM_4_7_FLASH = "z-ai/glm-4.7-flash"
+    MINIMAX_M2_5 = "minimax/minimax-m2.5"
+    DEVSTRAL_2512 = "mistralai/devstral-2512"
+    MISTRAL_LARGE_2512 = "mistralai/mistral-large-2512"
+    GLM_5 = "z-ai/glm-5"
 
-    # OpenAI Models
+    # ═══════════════════════════════════════════════════════
+    # Proprietary Models (Tier 1 - Flagship)
+    # ═══════════════════════════════════════════════════════
+    # Google
+    GEMINI_3_FLASH_PREVIEW = "google/gemini-3-flash-preview"
+    GEMINI_3_1_PRO_PREVIEW = "google/gemini-3.1-pro-preview"
 
+    # OpenAI
+    GPT_5_2 = "openai/gpt-5.2"
     GPT_4O = "openai/gpt-4o"
-
     GPT_4O_MINI = "openai/gpt-4o-mini"
-
     GPT_5 = "openai/gpt-5"
-
     GPT_5_MINI = "openai/gpt-5-mini"
-
     GPT_5_NANO = "openai/gpt-5-nano"
-
-    GPT_5_4 = "openai/gpt-5.4"
-    GPT_5_4_NANO = "openai/gpt-5.4-nano"  # $0.20/$1.25, 400K ctx, intel=38.2
-
-    GPT_5_4_MINI = "openai/gpt-5.4-mini"
-
-    GPT_5_4_CODEX = "openai/gpt-5.3-codex"
-
-    GPT_5_CODEX = "openai/gpt-5-codex"  # $1.25/$10.00, 400K ctx, coding specialist
-
-    GPT_5_4_PRO = "openai/gpt-5.4-pro"  # $30.00/$180.00, 32K ctx, maximum quality
-
-    GPT_5_5 = "openai/gpt-5.5"  # $5/$30, 1M+ ctx, frontier reasoning + coding
-    GPT_5_5_PRO = "openai/gpt-5.5-pro"  # $30/$180, 1M+ ctx, deep reasoning / high-stakes
-
-    # Floating aliases — always redirect to the latest model in the family
-    GPT_LATEST = "~openai/gpt-latest"  # $5/$30, 1M+ ctx, latest GPT flagship
-    GPT_MINI_LATEST = "~openai/gpt-mini-latest"  # $0.75/$4.50, 400K ctx, latest GPT Mini
-
     O1 = "openai/o1"
-
     O3_MINI = "openai/o3-mini"
-
     O4_MINI = "openai/o4-mini"
 
-    # Google Gemini Models
+    # Google
+    GEMINI_FLASH = "google/gemini-3.5-flash"
+    GEMINI_FLASH_LITE = "google/gemini-3.1-flash-lite"
+    GEMINI_FLASH_LITE_IMAGE = "google/gemini-3.1-flash-lite-image"
 
-    GEMINI_FLASH = "google/gemini-3.5-flash"  # latest flash
-
-    GEMINI_FLASH_LITE = "google/gemini-3.1-flash-lite"  # cost-effective lite
-
-    # Anthropic Claude Models
-
-    CLAUDE_OPUS_4 = "anthropic/claude-opus-4"  # $15/$75, most capable Opus 4 base
-
-    CLAUDE_OPUS_4_1 = "anthropic/claude-opus-4.1"  # $15/$75, Opus 4 revision
-
-    CLAUDE_SONNET_4 = "anthropic/claude-sonnet-4"  # $3/$15, Sonnet 4 base
-
+    # Anthropic
+    CLAUDE_FABLE_5 = "anthropic/claude-fable-5"
     CLAUDE_SONNET_4_5 = "anthropic/claude-sonnet-4-5"
-
-    CLAUDE_SONNET_4_6 = "anthropic/claude-sonnet-4-6"
-
-    CLAUDE_SONNET = CLAUDE_SONNET_4_6
-
+    CLAUDE_SONNET_5 = "anthropic/claude-sonnet-5"
     CLAUDE_OPUS_4_5 = "anthropic/claude-opus-4-5"
-
-    CLAUDE_OPUS_4_8 = "anthropic/claude-opus-4-8"  # $5/$25, best Opus available
-
+    CLAUDE_OPUS_4_8 = "anthropic/claude-opus-4-8"
     CLAUDE_HAIKU_4_5 = "anthropic/claude-haiku-4-5"
 
-    # DeepSeek Models — V3/V4 series
+    # DeepSeek
+    DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"
+    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"
 
-    DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"  # $0.435/$0.870, flagship reasoning + coding
+    # Meta
+    LLAMA_4_MAVERICK = "meta-llama/llama-4-maverick"
+    LLAMA_4_SCOUT = "meta-llama/llama-4-scout"
+    LLAMA_3_3_70B = "meta-llama/llama-3.3-70b-instruct"
+    LLAMA_3_1_405B = "meta-llama/llama-3.1-405b-instruct"
 
-    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.090/$0.180, fast + cost-effective
+    # Microsoft
+    PHI_4 = "microsoft/phi-4"
 
-    DEEPSEEK_R1 = "deepseek/deepseek-r1"  # $0.70/$2.50, chain-of-thought reasoning
+    # Google (Open Source)
+    GEMMA_3_27B = "google/gemma-3-27b-it"
 
-    DEEPSEEK_V3_2 = "deepseek/deepseek-v3.2"  # $0.229/$0.343, efficient V3 series
-
-    DEEPSEEK_V3_1_TERMINUS = "deepseek/deepseek-v3.1-terminus"  # $0.27/$0.95, terminus variant
-
-    # Meta LLaMA Models (OpenRouter)
-
-    LLAMA_4_MAVERICK = "meta-llama/llama-4-maverick"  # 400B MoE
-
-    LLAMA_4_SCOUT = "meta-llama/llama-4-scout"  # 109B MoE
-
-    LLAMA_3_3_70B = "meta-llama/llama-3.3-70b-instruct"  # 70B
-
-    # Microsoft Phi Models (OpenRouter)
-
-    PHI_4 = "microsoft/phi-4"  # 14B
-
-    PHI_4_REASONING = "openai/o3-mini"  # Use o3-mini for reasoning
-
-    # Google Gemma Models (OpenRouter)
-
-    GEMMA_3_27B = "google/gemma-3-27b-it"  # 27B
-    GEMMA_4_31B = "google/gemma-4-31b-it"  # $0.12/$0.35, 262K ctx, coding=38.7
-
-    # Nous Research Hermes (OpenRouter)
-
-    HERMES_3_70B = "nousresearch/hermes-3-llama-3.1-70b"  # 70B fine-tuned
+    # Other High-Performers
+    HERMES_3_LLAMA_3_1_70B = "nousresearch/hermes-3-llama-3.1-70b"
+    MOONSHOT_KIMI_K2_7_CODE = "moonshotai/kimi-k2.7-code"
+    MOONSHOT_KIMI_K2_6 = "moonshotai/kimi-k2.6"
+    MOONSHOT_KIMI_K2 = "moonshotai/kimi-k2"
+    STEPFUN_STEP_3_5_FLASH = "stepfun/step-3.5-flash"
+    ZHIPU_GLM_5_2 = "z-ai/glm-5.2"
+    ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"
+    XAI_GROK_4_20 = "x-ai/grok-4.20"
+    QWEN_3_7_MAX = "qwen/qwen3.7-max"
+    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"
+    MINIMAX_M2_7 = "minimax/minimax-m2.7"
+    XIAOMI_MIMO_V2_FLASH = "xiaomi/mimo-v2.5"
+    XIAOMI_MIMO_V2_5 = "xiaomi/mimo-v2.5"
+    XIAOMI_MIMO_V2_5_PRO = "xiaomi/mimo-v2.5-pro"
 
     # ═══════════════════════════════════════════════════════
-
-    # XIAOMI MODELS (NEW v3.0) - GAME CHANGERS!
+    # Proprietary Models (Tier 2 - Next-Gen & Experimental)
+    # ═══════════════════════════════════════════════════════
+    GPT_5_4 = "openai/gpt-5.4"
+    GPT_5_4_MINI = "openai/gpt-5.4-mini"
+    GPT_5_4_CODEX = "openai/gpt-5.3-codex"
+    RING_2_6_1T = "inclusionai/ring-2.6-1t"
+    MINIMAX_M3 = "minimax/minimax-m3"
+    QWEN_3_7_PLUS = "qwen/qwen3.7-plus"
+    GPT_5_4_NANO = "openai/gpt-5.4-nano"
+    GEMMA_4_31B = "google/gemma-4-31b-it"
+    STEPFUN_STEP_3_7_FLASH = "stepfun/step-3.7-flash"
+    NEMOTRON_3_SUPER_120B = "nvidia/nemotron-3-super-120b-a12b"
+    GPT_5_CODEX = "openai/gpt-5-codex"
+    GPT_5_4_PRO = "openai/gpt-5.4-pro"
+    XAI_GROK_4_MINI = "x-ai/grok-4-mini"
+    QWEN_3_CODER = "qwen/qwen3-coder"
+    QWEN_3_CODER_NEXT = "qwen/qwen3-coder-next"
+    QWEN_3_5_397B = "qwen/qwen3.5-397b-a17b"
+    QWEN_3_235B_THINKING = "qwen/qwen3-235b-a22b-thinking-2507"
+    QWEN_3_MAX_THINKING = "qwen/qwen3-max-thinking"
+    DEEPSEEK_R1 = "deepseek/deepseek-r1"
+    DEEPSEEK_V3_2 = "deepseek/deepseek-v3.2"
+    DEEPSEEK_V3_1_TERMINUS = "deepseek/deepseek-v3.1-terminus"
+    MOONSHOT_KIMI_K2_5 = "moonshotai/kimi-k2.5"
+    MOONSHOT_KIMI_K2_THINKING = "moonshotai/kimi-k2-thinking"
+    MOONSHOT_KIMI_K2_0905 = "moonshotai/kimi-k2-0905"
+    XAI_GROK_4_3 = "x-ai/grok-4.3"
+    XAI_GROK_4_20_MULTI_AGENT = "x-ai/grok-4.20-multi-agent"
+    QWEN_3_MAX = "qwen/qwen3-max"
+    QWEN_3_235B = "qwen/qwen3-235b-a22b"
+    QWEN_3_CODER_FLASH = "qwen/qwen3-coder-flash"
+    QWEN_3_CODER_PLUS = "qwen/qwen3-coder-plus"
+    GPT_5_5 = "openai/gpt-5.5"
+    GPT_5_5_PRO = "openai/gpt-5.5-pro"
+    GPT_LATEST = "~openai/gpt-latest"
+    GPT_MINI_LATEST = "~openai/gpt-mini-latest"
+    XAI_GROK_BUILD_0_1 = "x-ai/grok-build-0.1"
 
     # ═══════════════════════════════════════════════════════
-
-    # NOTE: xiaomi/mimo-v2-{flash,pro,omni} were deprecated by OpenRouter (404,
-    # "migrate to xiaomi/mimo-v2.5"). Repointed to the live v2.5 IDs; the legacy
-    # enum names are retained as aliases so existing references keep resolving.
-    XIAOMI_MIMO_V2_FLASH = "xiaomi/mimo-v2.5"  # was mimo-v2-flash (deprecated)
-
-    XIAOMI_MIMO_V2_PRO = "xiaomi/mimo-v2.5-pro"  # was mimo-v2-pro (deprecated)
-
-    XIAOMI_MIMO_V2_OMNI = "xiaomi/mimo-v2.5"  # was mimo-v2-omni (deprecated); v2.5 is omni-modal
-
-    # Xiaomi Mimo V2.5 — best coding VFM
-    XIAOMI_MIMO_V2_5 = "xiaomi/mimo-v2.5"  # $0.14/$0.28, 1M ctx, coding=42.1
-    XIAOMI_MIMO_V2_5_PRO = "xiaomi/mimo-v2.5-pro"  # $0.44/$0.87, 1M ctx
-
+    # Alias Models
     # ═══════════════════════════════════════════════════════
-
-    # MOONSHOT KIMI MODELS (NEW v3.0)
-
-    # ═══════════════════════════════════════════════════════
-
-    MOONSHOT_KIMI_K2_7_CODE = "moonshotai/kimi-k2.7-code"  # $1.10/$4.50, 256K, code-optimized
-
-    MOONSHOT_KIMI_K2_6 = "moonshotai/kimi-k2.6"  # $0.95/$4.00, 256K, reasoning SOTA
-
-    MOONSHOT_KIMI_K2 = "moonshotai/kimi-k2"  # $0.50/$1.50
-
-    MOONSHOT_KIMI_K2_5 = "moonshotai/kimi-k2.5"  # $0.375/$2.025, 262K, next-gen; supports :thinking
-
-    MOONSHOT_KIMI_K2_THINKING = "moonshotai/kimi-k2-thinking"  # $0.60/$2.50, 262K, COT mode
-
-    MOONSHOT_KIMI_K2_0905 = "moonshotai/kimi-k2-0905"  # $0.60/$2.50, 262K, dated release
-
-    # Backward compatibility aliases
-
-    KIMI_K2_6 = MOONSHOT_KIMI_K2_6
-
-    KIMI_K2 = MOONSHOT_KIMI_K2
-
-    # ═══════════════════════════════════════════════════════
-
-    # STEPFUN MODELS (NEW v3.0) - BEST VALUE!
-
-    # ═══════════════════════════════════════════════════════
-
-    STEPFUN_STEP_3_5_FLASH = "stepfun/step-3.5-flash"  # $0.10/$0.30, 196B MoE ⭐
-
-    STEPFUN_STEP_3_7_FLASH = "stepfun/step-3.7-flash"  # $0.15/$0.45
-
-    # ═══════════════════════════════════════════════════════
-
-    # Z.AI GLM MODELS — three canonical models only
-
-    # ═══════════════════════════════════════════════════════
-
-    ZHIPU_GLM_5_2 = "z-ai/glm-5.2"  # canonical GLM model, 202K context
-    ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"  # fast variant
-
-    # ═══════════════════════════════════════════════════════
-
-    # XAI GROK MODELS — 2026 lineup
-
-    # ═══════════════════════════════════════════════════════
-
-    XAI_GROK_4_20 = "x-ai/grok-4.20"  # $1.25/$2.50, 2M context, lowest hallucination
-
-    XAI_GROK_4_3 = "x-ai/grok-4.3"  # improved Grok 4 variant
-
-    XAI_GROK_4_20_MULTI = "x-ai/grok-4.20-multi-agent"  # multi-agent optimized
-
-    XAI_GROK_BUILD = "x-ai/grok-build-0.1"  # $1/$2, 256K, agentic coding specialist
-
-    # ═══════════════════════════════════════════════════════
-
-    # QWEN MODELS — 2026 full lineup
-
-    # ═══════════════════════════════════════════════════════
-
-    QWEN_3_7_MAX = "qwen/qwen3.7-max"  # flagship reasoning + coding; supports :thinking
-    QWEN_3_7_PLUS = "qwen/qwen3.7-plus"  # $0.32/$1.28, 1M ctx, coding=46.5
-
-    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # $0.188/$1.125, fast + cost-effective
-
-    QWEN_3_MAX = "qwen/qwen3-max"  # top Qwen3 intelligence; supports :thinking
-
-    QWEN_3_235B = "qwen/qwen3-235b-a22b"  # $2.00/$6.00, 235B base; supports :thinking
-
-    QWEN_3_CODER = "qwen/qwen3-coder"  # $0.20/$0.80, coding specialist; supports :thinking
-
-    QWEN_3_CODER_FLASH = "qwen/qwen3-coder-flash"  # fast coder variant
-
-    QWEN_3_CODER_PLUS = "qwen/qwen3-coder-plus"  # enhanced coder variant
-
-    QWEN_3_CODER_NEXT = "qwen/qwen3-coder-next"  # $0.50/$2.00, next-gen coder; supports :thinking
-
-    QWEN_3_5_397B = "qwen/qwen3.5-397b-a17b"  # $1.20/$4.80, 397B MoE
-
-    QWEN_3_235B_THINKING = "qwen/qwen3-235b-a22b-thinking-2507"  # $2.50/$10.00, 235B COT
-
-    QWEN_3_MAX_THINKING = "qwen/qwen3-max-thinking"  # $3.50/$14.00, max reasoning
-
-    # ═══════════════════════════════════════════════════════
-
-    # MINIMAX MODELS (NEW v3.0)
-
-    # Note: Verified available 2026-04-01
-
-    # ═══════════════════════════════════════════════════════
-
-    MINIMAX_M2_7 = "minimax/minimax-m2.7"  # $0.30/$1.20, 205K, multi-agent
-    # MiniMax M3 — best intelligence + agentic VFM
-    MINIMAX_M3 = "minimax/minimax-m3"  # $0.30/$1.20, 1M ctx, intel=44.4, agentic=68.6
-
-    # Backward compatibility alias
-
-    MINIMAX_TEXT_01 = MINIMAX_M2_7
-
-    # ═══════════════════════════════════════════════════════
-
-    # NVIDIA MODELS (redirected via model_registry to fallback)
-
-    # ═══════════════════════════════════════════════════════
-
-    NVIDIA_NEMOTRON_3_SUPER = "nvidia/nemotron-3-super-120b-a12b"  # redirects → minimax-m2.7
-
-    # InclusionAI Ring Models
-
-    INCLUSION_RING_2_6_1T = "inclusionai/ring-2.6-1t"  # 1T params, strong reasoning
-
-    # OpenRouter Auto-Router
-
+    CLAUDE_OPUS = CLAUDE_OPUS_4_8
+    CLAUDE_SONNET = CLAUDE_SONNET_5
+    CLAUDE_HAIKU = CLAUDE_HAIKU_4_5
+    LLAMA_3_1_405B_INSTRUCT = LLAMA_3_1_405B  # Alias for clarity
     OPENROUTER_AUTO = "openrouter/auto"  # Dynamic routing
 
     # ═══════════════════════════════════════════════════════
-    # 2026 VALUE-FOR-MONEY (VFM) ADDITIONS
-    # Best intelligence-per-dollar picks from the live OpenRouter catalogue.
-    # ":free" variants are endpoint variants that reach OpenRouter intact and
-    # cost $0 (rate-limited) — ideal as the FIRST cascade tier with a paid
-    # fallback. Prices are USD per 1M tokens (input/output).
+    # Image Generation Models
     # ═══════════════════════════════════════════════════════
+    # Google
+    GEMINI_3_1_FLASH_IMAGE_PREVIEW = "google/gemini-3.1-flash-image-preview"
+    GEMINI_2_5_FLASH_IMAGE = "google/gemini-2.5-flash-image"
+    GEMINI_3_PRO_IMAGE_PREVIEW = "google/gemini-3-pro-image-preview"
 
-    # ── Free tier ($0, rate-limited) — maximum VFM, try first ───────────────
-    QWEN_3_CODER_FREE = "qwen/qwen3-coder:free"  # free coding specialist, 1M ctx
-    GPT_OSS_120B_FREE = "openai/gpt-oss-120b:free"  # free 120B open GPT, general+code
-    QWEN_3_NEXT_80B_FREE = "qwen/qwen3-next-80b-a3b-instruct:free"  # free 80B general
-    LLAMA_3_3_70B_FREE = "meta-llama/llama-3.3-70b-instruct:free"  # free 70B general
-    NEMOTRON_3_ULTRA_FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"  # free 550B reasoning
-    NEMOTRON_3_SUPER_FREE = "nvidia/nemotron-3-super-120b-a12b:free"  # free 120B reasoning
-    NEMOTRON_NANO_9B_FREE = "nvidia/nemotron-nano-9b-v2:free"  # free 9B extract/summarize
+    # OpenAI
+    GPT_5_IMAGE = "openai/gpt-5-image"
+    GPT_5_IMAGE_MINI = "openai/gpt-5-image-mini"
+    GPT_5_4_IMAGE_2 = "openai/gpt-5.4-image-2"
 
-    # ── Ultra-cheap paid workhorses (reliable fallbacks for the free tier) ──
-    GPT_OSS_120B = "openai/gpt-oss-120b"  # $0.04/$0.18, 131K, top VFM general+code
-    GPT_OSS_20B = "openai/gpt-oss-20b"  # $0.03/$0.14, 131K, cheapest GPT-class
-    QWEN_3_NEXT_80B = "qwen/qwen3-next-80b-a3b-instruct"  # $0.09/$1.10, 262K general
-    ZHIPU_GLM_4_7_FLASH = "z-ai/glm-4.7-flash"  # $0.06/$0.40, 202K, cheap fast
-    MINIMAX_M2_5 = "minimax/minimax-m2.5"  # $0.15/$0.90, 205K, cheap reasoning
+    # Black Forest Labs
+    FLUX_2_KLEIN = "black-forest-labs/flux.2-klein-4b"
+    FLUX_2_MAX = "black-forest-labs/flux.2-max"
+    FLUX_2_FLEX = "black-forest-labs/flux.2-flex"
+    FLUX_2_PRO = "black-forest-labs/flux.2-pro"
 
-    # ── Mid-tier VFM (quality lead) ─────────────────────────────────────────
-    DEVSTRAL_2512 = "mistralai/devstral-2512"  # $0.40/$2.00, 262K, coding specialist
-    MISTRAL_LARGE_2512 = "mistralai/mistral-large-2512"  # $0.50/$1.50, 262K, general
-    ZHIPU_GLM_5 = "z-ai/glm-5"  # $0.60/$1.92, 202K, strong general
-    GEMINI_3_FLASH = "google/gemini-3-flash-preview"  # $0.50/$3.00, 1M ctx, fast frontier
+    # Recraft
+    RECRAFT_V4_1_UTILITY = "recraft/recraft-v4.1-utility"
+    RECRAFT_V4_1_PRO = "recraft/recraft-v4.1-pro"
+    RECRAFT_V4_1 = "recraft/recraft-v4.1"
+    RECRAFT_V4_PRO_VECTOR = "recraft/recraft-v4-pro-vector"
+    RECRAFT_V4_VECTOR = "recraft/recraft-v4-vector"
+    RECRAFT_V4_PRO = "recraft/recraft-v4-pro"
+    RECRAFT_V4 = "recraft/recraft-v4"
+    RECRAFT_V3 = "recraft/recraft-v3"
 
-    # ── Premium frontier (high-stakes fallback) ─────────────────────────────
-    GPT_5_2 = "openai/gpt-5.2"  # $1.75/$14.00, 400K, frontier reasoning
-    GEMINI_3_1_PRO = "google/gemini-3.1-pro-preview"  # $2.00/$12.00, 1M, frontier
-    CLAUDE_FABLE_5 = "anthropic/claude-fable-5"  # $10/$50, 1M, top-tier quality
+    # Sourceful
+    RIVERFLOW_V2_PRO = "sourceful/riverflow-v2-pro"
+    RIVERFLOW_V2_FAST = "sourceful/riverflow-v2-fast"
+    RIVERFLOW_V2_MAX_PREVIEW = "sourceful/riverflow-v2-max-preview"
+    RIVERFLOW_V2_STANDARD_PREVIEW = "sourceful/riverflow-v2-standard-preview"
+    RIVERFLOW_V2_FAST_PREVIEW = "sourceful/riverflow-v2-fast-preview"
 
-    # ═══════════════════════════════════════════════════════
-    # IMAGE GENERATION MODELS
-    # ═══════════════════════════════════════════════════════
-
-    # Google Nano Banana series
-    NANO_BANANA = "google/gemini-2.5-flash-image"  # $0.30/$2.50 img, 32K ctx
-    NANO_BANANA_2 = "google/gemini-3.1-flash-image-preview"  # $0.50/$3 img, 131K ctx
-    NANO_BANANA_PRO = "google/gemini-3-pro-image-preview"  # $2/$12 img, 65K ctx
-
-    # OpenAI GPT Image series
-    GPT_5_IMAGE = "openai/gpt-5-image"  # $10/$10 img, 400K ctx
-    GPT_5_IMAGE_MINI = "openai/gpt-5-image-mini"  # $2.50/$2 img, 400K ctx
-    GPT_54_IMAGE_2 = "openai/gpt-5.4-image-2"  # $8/$15 img, 272K ctx
+    # Bytedance
+    SEEDREAM_4_5 = "bytedance-seed/seedream-4.5"
 
     # ═══════════════════════════════════════════════════════
-    # VIDEO GENERATION MODELS
-    # Served via OpenRouter's generation endpoint (text/image → video).
-    # Priced per-second of generated video (USD), NOT per token, so they are
-    # absent from /api/v1/models; the audit validates them via /endpoints.
+    # Video Generation Models
     # ═══════════════════════════════════════════════════════
+    SORA_2_PRO = "openai/sora-2-pro"
+    VEO_3_1 = "google/veo-3.1"
+    VEO_3_1_FAST = "google/veo-3.1-fast"
+    VEO_3_1_LITE = "google/veo-3.1-lite"
+    KLING_V3_0_PRO = "kwaivgi/kling-v3.0-pro"
+    KLING_V3_0_STD = "kwaivgi/kling-v3.0-std"
+    KLING_VIDEO_O1 = "kwaivgi/kling-video-o1"
+    HAILUO_2_3 = "minimax/hailuo-2.3"
+    SEEDANCE_2_0 = "bytedance/seedance-2.0"
+    SEEDANCE_2_0_FAST = "bytedance/seedance-2.0-fast"
+    SEEDANCE_1_5_PRO = "bytedance/seedance-1-5-pro"
+    WAN_2_7 = "alibaba/wan-2.7"
+    WAN_2_6 = "alibaba/wan-2.6"
+    GROK_IMAGINE_VIDEO = "x-ai/grok-imagine-video"
 
-    # OpenAI Sora
-    SORA_2_PRO = "openai/sora-2-pro"  # from $0.30/sec, flagship cinematic
-    # Google Veo
-    VEO_3_1 = "google/veo-3.1"  # from $0.40/sec, top quality + audio
-    VEO_3_1_FAST = "google/veo-3.1-fast"  # from $0.10/sec, fast
-    VEO_3_1_LITE = "google/veo-3.1-lite"  # from $0.05/sec, cheapest Veo
-    # Kuaishou Kling
-    KLING_V3_PRO = "kwaivgi/kling-v3.0-pro"  # from $0.168/sec, pro quality
-    KLING_V3_STD = "kwaivgi/kling-v3.0-std"  # from $0.126/sec, standard
-    KLING_O1 = "kwaivgi/kling-video-o1"  # $0.112/sec, reasoning-guided
-    # MiniMax Hailuo
-    HAILUO_2_3 = "minimax/hailuo-2.3"  # $0.0817/sec, expressive motion
-    # ByteDance Seedance
-    SEEDANCE_2_0 = "bytedance/seedance-2.0"  # from $0.06726/sec
-    SEEDANCE_2_0_FAST = "bytedance/seedance-2.0-fast"  # from $0.0538/sec
-    SEEDANCE_1_5_PRO = "bytedance/seedance-1-5-pro"  # from $0.02306/sec, cheapest
-    # Alibaba Wan
-    WAN_2_7 = "alibaba/wan-2.7"  # $0.10/sec
-    WAN_2_6 = "alibaba/wan-2.6"  # from $0.04/sec
-    # xAI Grok Imagine
-    GROK_IMAGINE_VIDEO = "x-ai/grok-imagine-video"  # from $0.05/sec
+    # ═══════════════════════════════════════════════════════
+    # Deprecated Models (for reference)
+    # ═══════════════════════════════════════════════════════
+    # CLAUDE_OPUS_4_0 = "anthropic/claude-opus-4"
+    # CLAUDE_OPUS_4_1 = "anthropic/claude-opus-4.1"
+    # CLAUDE_SONNET_4_0 = "anthropic/claude-sonnet-4"
+
+    # ═══════════════════════════════════════════════════════
+    # Special-purpose / internal models
+    # ═══════════════════════════════════════════════════════
+    NANO_BANANA_2 = "internal/nano-banana-2"  # Example internal model
+
+
+class CostDict(TypedDict):
+    """Strongly typed dict for model costs."""
+
+    input: float
+    output: float
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COST TABLE
+# ═══════════════════════════════════════════════════════════════════════════════
+COST_TABLE: dict[Model, CostDict] = {
+    # ------------------------------------------------
+    # Free Tier Models
+    # ------------------------------------------------
+    Model.QWEN_CODER_FREE: {"input": 0.00, "output": 0.00},
+    Model.GPT_OSS_120B_FREE: {"input": 0.00, "output": 0.00},
+    Model.QWEN_NEXT_80B_FREE: {"input": 0.00, "output": 0.00},
+    Model.LLAMA_3_3_70B_FREE: {"input": 0.00, "output": 0.00},
+    Model.NEMOTRON_3_ULTRA_FREE: {"input": 0.00, "output": 0.00},
+    Model.NEMOTRON_3_SUPER_FREE: {"input": 0.00, "output": 0.00},
+    Model.NEMOTRON_NANO_9B_FREE: {"input": 0.00, "output": 0.00},
+    # ------------------------------------------------
+    # Open-Source Models (Tier 1)
+    # ------------------------------------------------
+    Model.GPT_OSS_120B: {"input": 0.04, "output": 0.18},
+    Model.GPT_OSS_20B: {"input": 0.03, "output": 0.14},
+    Model.QWEN_NEXT_80B: {"input": 0.09, "output": 1.10},
+    Model.GLM_4_7_FLASH: {"input": 0.06, "output": 0.40},
+    Model.MINIMAX_M2_5: {"input": 0.15, "output": 0.90},
+    Model.DEVSTRAL_2512: {"input": 0.40, "output": 2.00},
+    Model.MISTRAL_LARGE_2512: {"input": 0.50, "output": 1.50},
+    Model.GLM_5: {"input": 0.60, "output": 1.92},
+    # ------------------------------------------------
+    # Proprietary Models (Tier 1)
+    # ------------------------------------------------
+    Model.GEMINI_3_FLASH_PREVIEW: {"input": 0.50, "output": 3.00},
+    Model.GEMINI_3_1_PRO_PREVIEW: {"input": 2.00, "output": 12.00},
+    Model.GPT_5_2: {"input": 1.75, "output": 14.00},
+    Model.GPT_4O: {"input": 2.50, "output": 10.00},
+    Model.GPT_4O_MINI: {"input": 0.15, "output": 0.60},
+    Model.GPT_5: {"input": 1.25, "output": 10.00},
+    Model.GPT_5_MINI: {"input": 0.25, "output": 2.00},
+    Model.GPT_5_NANO: {"input": 0.05, "output": 0.40},
+    Model.O1: {"input": 15.00, "output": 60.00},
+    Model.O3_MINI: {"input": 1.10, "output": 4.40},
+    Model.O4_MINI: {"input": 1.50, "output": 6.00},
+    Model.GEMINI_FLASH: {"input": 0.15, "output": 0.60},
+    Model.GEMINI_FLASH_LITE: {"input": 0.10, "output": 0.40},
+    Model.CLAUDE_FABLE_5: {"input": 10.00, "output": 50.00},
+    Model.CLAUDE_SONNET_4_5: {"input": 3.00, "output": 15.00},
+    Model.CLAUDE_SONNET_5: {"input": 3.00, "output": 15.00},
+    Model.CLAUDE_OPUS_4_5: {"input": 5.00, "output": 25.00},
+    Model.CLAUDE_OPUS_4_8: {"input": 6.00, "output": 30.00},
+    Model.CLAUDE_HAIKU_4_5: {"input": 1.00, "output": 5.00},
+    Model.DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},
+    Model.DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},
+    Model.LLAMA_4_MAVERICK: {"input": 0.17, "output": 0.17},
+    Model.LLAMA_4_SCOUT: {"input": 0.11, "output": 0.34},
+    Model.LLAMA_3_3_70B: {"input": 0.12, "output": 0.30},
+    Model.LLAMA_3_1_405B: {"input": 2.00, "output": 2.00},
+    Model.PHI_4: {"input": 0.07, "output": 0.14},
+    Model.GEMMA_3_27B: {"input": 0.08, "output": 0.20},
+    Model.HERMES_3_LLAMA_3_1_70B: {"input": 0.40, "output": 0.40},
+    Model.MOONSHOT_KIMI_K2_7_CODE: {"input": 1.10, "output": 4.50},
+    Model.MOONSHOT_KIMI_K2_6: {"input": 0.95, "output": 4.00},
+    Model.MOONSHOT_KIMI_K2: {"input": 0.50, "output": 1.50},
+    Model.STEPFUN_STEP_3_5_FLASH: {"input": 0.10, "output": 0.30},
+    Model.ZHIPU_GLM_5_2: {"input": 0.50, "output": 2.00},
+    Model.ZHIPU_GLM_5_TURBO: {"input": 1.20, "output": 4.00},
+    Model.XAI_GROK_4_20: {"input": 2.00, "output": 6.00},
+    Model.QWEN_3_7_MAX: {"input": 0.78, "output": 3.90},
+    Model.QWEN_3_6_FLASH: {"input": 0.12, "output": 0.50},
+    Model.MINIMAX_M2_7: {"input": 0.30, "output": 1.20},
+    Model.XIAOMI_MIMO_V2_FLASH: {"input": 0.14, "output": 0.28},
+    Model.XIAOMI_MIMO_V2_5_PRO: {"input": 0.44, "output": 0.87},
+    # ------------------------------------------------
+    # Proprietary Models (Tier 2)
+    # ------------------------------------------------
+    Model.GPT_5_4: {"input": 2.50, "output": 15.00},
+    Model.GPT_5_4_MINI: {"input": 0.75, "output": 4.50},
+    Model.GPT_5_4_CODEX: {"input": 1.75, "output": 14.00},
+    Model.RING_2_6_1T: {"input": 0.50, "output": 2.00},
+    Model.MINIMAX_M3: {"input": 0.30, "output": 1.20},
+    Model.QWEN_3_7_PLUS: {"input": 0.32, "output": 1.28},
+    Model.GPT_5_4_NANO: {"input": 0.20, "output": 1.25},
+    Model.GEMMA_4_31B: {"input": 0.12, "output": 0.35},
+    Model.STEPFUN_STEP_3_7_FLASH: {"input": 0.15, "output": 0.45},
+    Model.NEMOTRON_3_SUPER_120B: {"input": 0.10, "output": 0.50},
+    Model.GPT_5_CODEX: {"input": 1.25, "output": 10.00},
+    Model.GPT_5_4_PRO: {"input": 30.00, "output": 180.00},
+    Model.XAI_GROK_4_MINI: {"input": 0.30, "output": 0.60},
+    Model.QWEN_3_CODER: {"input": 0.20, "output": 0.80},
+    Model.QWEN_3_CODER_NEXT: {"input": 0.50, "output": 2.00},
+    Model.QWEN_3_5_397B: {"input": 1.20, "output": 4.80},
+    Model.QWEN_3_235B_THINKING: {"input": 2.50, "output": 10.00},
+    Model.QWEN_3_MAX_THINKING: {"input": 3.50, "output": 14.00},
+    Model.DEEPSEEK_R1: {"input": 0.70, "output": 2.50},
+    Model.DEEPSEEK_V3_2: {"input": 0.229, "output": 0.343},
+    Model.DEEPSEEK_V3_1_TERMINUS: {"input": 0.27, "output": 0.95},
+    Model.MOONSHOT_KIMI_K2_5: {"input": 0.375, "output": 2.025},
+    Model.MOONSHOT_KIMI_K2_THINKING: {"input": 0.60, "output": 2.50},
+    Model.MOONSHOT_KIMI_K2_0905: {"input": 0.60, "output": 2.50},
+    Model.XAI_GROK_4_3: {"input": 1.25, "output": 2.50},
+    Model.XAI_GROK_4_20_MULTI_AGENT: {"input": 2.00, "output": 6.00},
+    Model.QWEN_3_MAX: {"input": 0.78, "output": 3.90},
+    Model.QWEN_3_235B: {"input": 2.00, "output": 6.00},
+    Model.QWEN_3_CODER_FLASH: {"input": 0.12, "output": 0.50},
+    Model.QWEN_3_CODER_PLUS: {"input": 0.50, "output": 2.00},
+    Model.GPT_5_5: {"input": 5.00, "output": 30.00},
+    Model.GPT_5_5_PRO: {"input": 30.00, "output": 180.00},
+    Model.GPT_LATEST: {"input": 5.00, "output": 30.00},
+    Model.GPT_MINI_LATEST: {"input": 0.75, "output": 4.50},
+    Model.XAI_GROK_BUILD_0_1: {"input": 1.00, "output": 2.00},
+    # ------------------------------------------------
+    # Image Generation Models
+    # ------------------------------------------------
+    Model.GEMINI_3_1_FLASH_IMAGE_PREVIEW: {"input": 0.0005, "output": 0.003},
+    Model.GEMINI_2_5_FLASH_IMAGE: {"input": 0.0003, "output": 0.0025},
+    Model.GEMINI_3_PRO_IMAGE_PREVIEW: {"input": 0.002, "output": 0.012},
+    Model.GEMINI_FLASH_LITE_IMAGE: {"input": 0.25, "output": 1.50},
+    Model.GPT_5_IMAGE: {"input": 10.00, "output": 10.00},
+    Model.GPT_5_IMAGE_MINI: {"input": 2.50, "output": 2.00},
+    Model.GPT_5_4_IMAGE_2: {"input": 8.00, "output": 15.00},
+    Model.FLUX_2_KLEIN: {"input": 0.014, "output": 0},
+    Model.FLUX_2_MAX: {"input": 0.07, "output": 0},
+    Model.FLUX_2_FLEX: {"input": 0.06, "output": 0},
+    Model.FLUX_2_PRO: {"input": 0.03, "output": 0},
+    Model.RECRAFT_V4_1_UTILITY: {"input": 0.04, "output": 0},
+    Model.RECRAFT_V4_1_PRO: {"input": 0.25, "output": 0},
+    Model.RECRAFT_V4_1: {"input": 0.04, "output": 0},
+    Model.RECRAFT_V4_PRO_VECTOR: {"input": 0.30, "output": 0},
+    Model.RECRAFT_V4_VECTOR: {"input": 0.08, "output": 0},
+    Model.RECRAFT_V4_PRO: {"input": 0.25, "output": 0},
+    Model.RECRAFT_V4: {"input": 0.04, "output": 0},
+    Model.RECRAFT_V3: {"input": 0.04, "output": 0},
+    Model.RIVERFLOW_V2_PRO: {"input": 0.15, "output": 0},
+    Model.RIVERFLOW_V2_FAST: {"input": 0.02, "output": 0},
+    Model.RIVERFLOW_V2_MAX_PREVIEW: {"input": 0.075, "output": 0},
+    Model.RIVERFLOW_V2_STANDARD_PREVIEW: {"input": 0.035, "output": 0},
+    Model.RIVERFLOW_V2_FAST_PREVIEW: {"input": 0.03, "output": 0},
+    Model.SEEDREAM_4_5: {"input": 0.04, "output": 0},
+    # ------------------------------------------------
+    # Video Generation Models
+    # ------------------------------------------------
+    Model.SORA_2_PRO: {"input": 0.30, "output": 0},
+    Model.VEO_3_1: {"input": 0.40, "output": 0},
+    Model.VEO_3_1_FAST: {"input": 0.10, "output": 0},
+    Model.VEO_3_1_LITE: {"input": 0.05, "output": 0},
+    Model.KLING_V3_0_PRO: {"input": 0.168, "output": 0},
+    Model.KLING_V3_0_STD: {"input": 0.126, "output": 0},
+    Model.KLING_VIDEO_O1: {"input": 0.112, "output": 0},
+    Model.HAILUO_2_3: {"input": 0.0817, "output": 0},
+    Model.SEEDANCE_2_0: {"input": 0.06726, "output": 0},
+    Model.SEEDANCE_2_0_FAST: {"input": 0.0538, "output": 0},
+    Model.SEEDANCE_1_5_PRO: {"input": 0.02306, "output": 0},
+    Model.WAN_2_7: {"input": 0.10, "output": 0},
+    Model.WAN_2_6: {"input": 0.04, "output": 0},
+    Model.GROK_IMAGINE_VIDEO: {"input": 0.05, "output": 0},
+    # ------------------------------------------------
+    # Special / Internal
+    # ------------------------------------------------
+    Model.OPENROUTER_AUTO: {"input": 0.00, "output": 0.00},
+    Model.NANO_BANANA_2: {"input": 0.01, "output": 0.01},  # Example cost
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTEXT WINDOW TABLE
+# ═══════════════════════════════════════════════════════════════════════════════
+CONTEXT_WINDOWS: dict[Model, int] = {
+    # Free Tier
+    Model.QWEN_CODER_FREE: 32768,
+    Model.GPT_OSS_120B_FREE: 32768,
+    Model.QWEN_NEXT_80B_FREE: 32768,
+    Model.LLAMA_3_3_70B_FREE: 8192,
+    Model.NEMOTRON_3_ULTRA_FREE: 4096,
+    Model.NEMOTRON_3_SUPER_FREE: 4096,
+    Model.NEMOTRON_NANO_9B_FREE: 4096,
+    # Open Source (Tier 1)
+    Model.GPT_OSS_120B: 32768,
+    Model.GPT_OSS_20B: 32768,
+    Model.QWEN_NEXT_80B: 32768,
+    Model.GLM_4_7_FLASH: 128000,
+    Model.MINIMAX_M2_5: 32768,
+    Model.DEVSTRAL_2512: 32768,
+    Model.MISTRAL_LARGE_2512: 32768,
+    Model.GLM_5: 128000,
+    # Proprietary (Tier 1)
+    Model.GEMINI_3_FLASH_PREVIEW: 1048576,
+    Model.GEMINI_3_1_PRO_PREVIEW: 1048576,
+    Model.GPT_5_2: 131072,
+    Model.GPT_4O: 131072,
+    Model.GPT_4O_MINI: 131072,
+    Model.GPT_5: 131072,
+    Model.GPT_5_MINI: 131072,
+    Model.GPT_5_NANO: 131072,
+    Model.O1: 200000,
+    Model.O3_MINI: 131072,
+    Model.O4_MINI: 131072,
+    Model.GEMINI_FLASH: 1048576,
+    Model.GEMINI_FLASH_LITE: 1048576,
+    Model.GEMINI_FLASH_LITE_IMAGE: 66000,
+    Model.CLAUDE_FABLE_5: 200000,
+    Model.CLAUDE_SONNET_4_5: 200000,
+    Model.CLAUDE_SONNET_5: 200000,
+    Model.CLAUDE_OPUS_4_5: 200000,
+    Model.CLAUDE_OPUS_4_8: 200000,
+    Model.CLAUDE_HAIKU_4_5: 200000,
+    Model.DEEPSEEK_V4_PRO: 131072,
+    Model.DEEPSEEK_V4_FLASH: 1048576,
+    Model.LLAMA_4_MAVERICK: 131072,
+    Model.LLAMA_4_SCOUT: 131072,
+    Model.LLAMA_3_3_70B: 8192,
+    Model.LLAMA_3_1_405B: 131072,
+    Model.PHI_4: 131072,
+    Model.GEMMA_3_27B: 8192,
+    Model.HERMES_3_LLAMA_3_1_70B: 8192,
+    Model.MOONSHOT_KIMI_K2_7_CODE: 200000,
+    Model.MOONSHOT_KIMI_K2_6: 200000,
+    Model.MOONSHOT_KIMI_K2: 200000,
+    Model.STEPFUN_STEP_3_5_FLASH: 131072,
+    Model.ZHIPU_GLM_5_2: 128000,
+    Model.ZHIPU_GLM_5_TURBO: 128000,
+    Model.XAI_GROK_4_20: 131072,
+    Model.QWEN_3_7_MAX: 65536,
+    Model.QWEN_3_6_FLASH: 32768,
+    Model.MINIMAX_M2_7: 32768,
+    Model.XIAOMI_MIMO_V2_FLASH: 131072,
+    # Proprietary (Tier 2)
+    Model.GPT_5_4: 131072,
+    Model.GPT_5_4_MINI: 131072,
+    Model.GPT_5_4_CODEX: 131072,
+    Model.RING_2_6_1T: 1048576,
+    Model.MINIMAX_M3: 200000,
+    Model.QWEN_3_7_PLUS: 65536,
+    Model.GPT_5_4_NANO: 131072,
+    Model.GEMMA_4_31B: 8192,
+    Model.STEPFUN_STEP_3_7_FLASH: 131072,
+    Model.NEMOTRON_3_SUPER_120B: 4096,
+    Model.GPT_5_CODEX: 131072,
+    Model.GPT_5_4_PRO: 131072,
+    Model.XAI_GROK_4_MINI: 131072,
+    Model.QWEN_3_CODER: 65536,
+    Model.QWEN_3_CODER_NEXT: 65536,
+    Model.QWEN_3_5_397B: 65536,
+    Model.QWEN_3_235B_THINKING: 65536,
+    Model.QWEN_3_MAX_THINKING: 65536,
+    Model.DEEPSEEK_R1: 131072,
+    Model.DEEPSEEK_V3_2: 131072,
+    Model.DEEPSEEK_V3_1_TERMINUS: 131072,
+    Model.MOONSHOT_KIMI_K2_5: 200000,
+    Model.MOONSHOT_KIMI_K2_THINKING: 200000,
+    Model.MOONSHOT_KIMI_K2_0905: 200000,
+    Model.XAI_GROK_4_3: 131072,
+    Model.XAI_GROK_4_20_MULTI_AGENT: 131072,
+    Model.QWEN_3_MAX: 65536,
+    Model.QWEN_3_235B: 65536,
+    Model.QWEN_3_CODER_FLASH: 65536,
+    Model.QWEN_3_CODER_PLUS: 65536,
+    Model.GPT_5_5: 131072,
+    Model.GPT_5_5_PRO: 131072,
+    Model.GPT_LATEST: 131072,
+    Model.GPT_MINI_LATEST: 131072,
+    Model.XAI_GROK_BUILD_0_1: 131072,
+    # Image/Video - Context is N/A
+    Model.GEMINI_3_1_FLASH_IMAGE_PREVIEW: 0,
+    Model.GEMINI_2_5_FLASH_IMAGE: 0,
+    Model.GEMINI_3_PRO_IMAGE_PREVIEW: 0,
+    Model.GPT_5_IMAGE: 0,
+    Model.GPT_5_IMAGE_MINI: 0,
+    Model.GPT_5_4_IMAGE_2: 0,
+    Model.FLUX_2_KLEIN: 0,
+    Model.FLUX_2_MAX: 0,
+    Model.FLUX_2_FLEX: 0,
+    Model.FLUX_2_PRO: 0,
+    Model.RECRAFT_V4_1_UTILITY: 0,
+    Model.RECRAFT_V4_1_PRO: 0,
+    Model.RECRAFT_V4_1: 0,
+    Model.RECRAFT_V4_PRO_VECTOR: 0,
+    Model.RECRAFT_V4_VECTOR: 0,
+    Model.RECRAFT_V4_PRO: 0,
+    Model.RECRAFT_V4: 0,
+    Model.RECRAFT_V3: 0,
+    Model.RIVERFLOW_V2_PRO: 0,
+    Model.RIVERFLOW_V2_FAST: 0,
+    Model.RIVERFLOW_V2_MAX_PREVIEW: 0,
+    Model.RIVERFLOW_V2_STANDARD_PREVIEW: 0,
+    Model.RIVERFLOW_V2_FAST_PREVIEW: 0,
+    Model.SEEDREAM_4_5: 0,
+    Model.SORA_2_PRO: 0,
+    Model.VEO_3_1: 0,
+    Model.VEO_3_1_FAST: 0,
+    Model.VEO_3_1_LITE: 0,
+    Model.KLING_V3_0_PRO: 0,
+    Model.KLING_V3_0_STD: 0,
+    Model.KLING_VIDEO_O1: 0,
+    Model.HAILUO_2_3: 0,
+    Model.SEEDANCE_2_0: 0,
+    Model.SEEDANCE_2_0_FAST: 0,
+    Model.SEEDANCE_1_5_PRO: 0,
+    Model.WAN_2_7: 0,
+    Model.WAN_2_6: 0,
+    Model.GROK_IMAGINE_VIDEO: 0,
+    # Special / Internal
+    Model.OPENROUTER_AUTO: 8192,  # Varies, use a safe default
+    Model.NANO_BANANA_2: 4096,  # Example context size
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+Provider = Literal[
+    "openai",
+    "anthropic",
+    "google",
+    "deepseek",
+    "meta-llama",
+    "microsoft",
+    "nousresearch",
+    "moonshotai",
+    "stepfun",
+    "z-ai",
+    "x-ai",
+    "qwen",
+    "minimax",
+    "xiaomi",
+    "inclusionai",
+    "openrouter",
+    "internal",
+    "nvidia",
+    "black-forest-labs",
+    "recraft",
+    "sourceful",
+    "bytedance",
+    "kwaivgi",
+    "alibaba",
+]
+
+PROVIDER_MAP: dict[str, Provider] = {
+    "openai/": "openai",
+    "anthropic/": "anthropic",
+    "google/": "google",
+    "deepseek/": "deepseek",
+    "meta-llama/": "meta-llama",
+    "microsoft/": "microsoft",
+    "nousresearch/": "nousresearch",
+    "moonshotai/": "moonshotai",
+    "stepfun/": "stepfun",
+    "z-ai/": "z-ai",
+    "x-ai/": "x-ai",
+    "qwen/": "qwen",
+    "minimax/": "minimax",
+    "xiaomi/": "xiaomi",
+    "inclusionai/": "inclusionai",
+    "openrouter/": "openrouter",
+    "internal/": "internal",
+    "nvidia/": "nvidia",
+    "black-forest-labs/": "black-forest-labs",
+    "recraft/": "recraft",
+    "sourceful/": "sourceful",
+    "bytedance-seed/": "bytedance",
+    "kwaivgi/": "kwaivgi",
+    "alibaba/": "alibaba",
+}
+
+
+def get_provider(model: Model) -> Provider:
+    """Extract provider from model enum value."""
+    model_val = model.value
+    for prefix, provider in PROVIDER_MAP.items():
+        if model_val.startswith(prefix):
+            return provider
+    # Fallback for models without a standard prefix
+    if "claude" in model_val:
+        return "anthropic"
+    if "gemini" in model_val:
+        return "google"
+    if "gpt" in model_val or "o1" in model_val:
+        return "openai"
+    return "openrouter"
+
+
+import hashlib
+from dataclasses import dataclass, field
+
+
+import hashlib
+from dataclasses import dataclass, field
+
+
+import hashlib
+from dataclasses import dataclass, field
+
+
+class TaskType(str, Enum):
+
+    CODE_GEN = "code_generation"
+
+    CODE_REVIEW = "code_review"
+
+    REASONING = "complex_reasoning"
+
+    WRITING = "creative_writing"
+
+    DATA_EXTRACT = "data_extraction"
+
+    SUMMARIZE = "summarization"
+
+    EVALUATE = "evaluation"
+
+    IMAGE_GEN = "image_generation"
+
+    VIDEO_GEN = "video_generation"
 
 
 class ProjectStatus(str, Enum):
@@ -488,17 +772,6 @@ class TaskStatus(str, Enum):
     DEGRADED = "degraded"
 
 
-# ─────────────────────────────────────────────
-
-# Provider detection
-
-# ─────────────────────────────────────────────
-
-
-from functools import lru_cache
-
-
-@lru_cache(maxsize=256)
 def get_provider(model: Model) -> str:
     """
 
@@ -605,89 +878,92 @@ def __getattr__(name: str) -> Any:
 
 
 # Model-specific max tokens limits (override MAX_OUTPUT_TOKENS)
-# IMPORTANT: This dict is read-only at runtime. Do NOT mutate after module load.
-# All consumers read keys; writes during execution risk data races.
-MODEL_MAX_TOKENS: dict[Model, int] = {
+_MODEL_MAX_TOKENS_RAW = {
     # Anthropic Claude models
-    Model.CLAUDE_HAIKU_4_5: 4096,
-    Model.CLAUDE_SONNET_4_5: 8192,
-    Model.CLAUDE_SONNET_4_6: 8192,
-    Model.CLAUDE_OPUS_4_5: 4096,
-    Model.CLAUDE_OPUS_4_8: 4096,
+    "CLAUDE_HAIKU_4_5": 4096,
+    "CLAUDE_SONNET_4_5": 8192,
+    "CLAUDE_SONNET_5": 8192,
+    "CLAUDE_OPUS_4_5": 4096,
+    "CLAUDE_OPUS_4_8": 4096,
     # Google Gemini models (high limits)
-    Model.GEMINI_FLASH: 8192,
-    Model.GEMINI_FLASH_LITE: 8192,
+    "GEMINI_FLASH": 8192,
+    "GEMINI_FLASH_LITE": 8192,
     # DeepSeek models
-    Model.DEEPSEEK_V4_FLASH: 8192,
-    Model.DEEPSEEK_V4_PRO: 8192,
+    "DEEPSEEK_V4_FLASH": 8192,
+    "DEEPSEEK_V4_PRO": 8192,
     # Z.AI GLM models
-    Model.ZHIPU_GLM_5_2: 16384,  # z-ai/glm-5.2 (canonical)
-    Model.ZHIPU_GLM_5_TURBO: 16384,  # z-ai/glm-5-turbo (fast)
+    "ZHIPU_GLM_5_2": 16384,  # z-ai/glm-5.2 (canonical)
+    "ZHIPU_GLM_5_TURBO": 16384,  # z-ai/glm-5-turbo (fast)
     # Meta LLaMA models
-    Model.LLAMA_4_MAVERICK: 8192,
-    Model.LLAMA_4_SCOUT: 8192,
-    Model.LLAMA_3_3_70B: 8192,
+    "LLAMA_4_MAVERICK": 8192,
+    "LLAMA_4_SCOUT": 8192,
+    "LLAMA_3_3_70B": 8192,
     # Microsoft Phi models
-    Model.PHI_4: 4096,
-    Model.PHI_4_REASONING: 4096,
+    "PHI_4": 4096,
+    "PHI_4_REASONING": 4096,
     # Image generation models
-    Model.NANO_BANANA: 4096,
-    Model.NANO_BANANA_2: 4096,
-    Model.NANO_BANANA_PRO: 4096,
-    Model.GPT_5_IMAGE: 4096,
-    Model.GPT_5_IMAGE_MINI: 4096,
-    Model.GPT_54_IMAGE_2: 4096,
+    "NANO_BANANA": 4096,
+    "NANO_BANANA_2": 4096,
+    "NANO_BANANA_PRO": 4096,
+    "GPT_5_IMAGE": 4096,
+    "GPT_5_IMAGE_MINI": 4096,
+    "GPT_54_IMAGE_2": 4096,
     # Xiaomi Mimo V2.5
-    Model.XIAOMI_MIMO_V2_5: 8192,
-    Model.XIAOMI_MIMO_V2_5_PRO: 8192,
+    "XIAOMI_MIMO_V2_5": 8192,
+    "XIAOMI_MIMO_V2_5_PRO": 8192,
     # MiniMax M3
-    Model.MINIMAX_M3: 8192,
+    "MINIMAX_M3": 8192,
     # Qwen 3.7 Plus
-    Model.QWEN_3_7_PLUS: 8192,
+    "QWEN_3_7_PLUS": 8192,
     # GPT-5.4 Nano
-    Model.GPT_5_4_NANO: 4096,
+    "GPT_5_4_NANO": 4096,
     # Google Gemma models
-    Model.GEMMA_3_27B: 8192,
+    "GEMMA_3_27B": 8192,
     # Nous Hermes models
-    Model.HERMES_3_70B: 8192,
+    "HERMES_3_70B": 8192,
     # OpenAI models
-    Model.GPT_4O: 8192,
-    Model.GPT_4O_MINI: 4096,
-    Model.GPT_5: 8192,
-    Model.GPT_5_MINI: 4096,
-    Model.GPT_5_NANO: 4096,
-    Model.GPT_5_CODEX: 8192,
-    Model.GPT_5_4_PRO: 8192,
-    Model.O1: 4096,
-    Model.O3_MINI: 4096,
-    Model.O4_MINI: 4096,
+    "GPT_4O": 8192,
+    "GPT_4O_MINI": 4096,
+    "GPT_5": 8192,
+    "GPT_5_MINI": 4096,
+    "GPT_5_NANO": 4096,
+    "GPT_5_CODEX": 8192,
+    "GPT_5_4_PRO": 8192,
+    "O1": 4096,
+    "O3_MINI": 4096,
+    "O4_MINI": 4096,
     # xAI Grok 4 family
-    Model.XAI_GROK_4_20: 131072,
-    Model.XAI_GROK_4_3: 131072,
-    Model.XAI_GROK_4_20_MULTI: 131072,
+    "XAI_GROK_4_20": 131072,
+    "XAI_GROK_4_3": 131072,
+    "XAI_GROK_4_20_MULTI": 131072,
     # Moonshot Kimi K2 additions
-    Model.MOONSHOT_KIMI_K2_5: 262144,
-    Model.MOONSHOT_KIMI_K2_THINKING: 262144,
-    Model.MOONSHOT_KIMI_K2_0905: 262144,
+    "MOONSHOT_KIMI_K2_5": 262144,
+    "MOONSHOT_KIMI_K2_THINKING": 262144,
+    "MOONSHOT_KIMI_K2_0905": 262144,
     # DeepSeek V3/R1 additions
-    Model.DEEPSEEK_R1: 65536,
-    Model.DEEPSEEK_V3_2: 65536,
-    Model.DEEPSEEK_V3_1_TERMINUS: 65536,
+    "DEEPSEEK_R1": 65536,
+    "DEEPSEEK_V3_2": 65536,
+    "DEEPSEEK_V3_1_TERMINUS": 65536,
     # Qwen 2026 extended lineup
-    Model.QWEN_3_MAX: 131072,
-    Model.QWEN_3_235B: 131072,
-    Model.QWEN_3_CODER: 32768,
-    Model.QWEN_3_CODER_FLASH: 32768,
-    Model.QWEN_3_CODER_PLUS: 32768,
-    Model.QWEN_3_CODER_NEXT: 32768,
-    Model.QWEN_3_5_397B: 131072,
-    Model.QWEN_3_235B_THINKING: 131072,
-    Model.QWEN_3_MAX_THINKING: 131072,
+    "QWEN_3_MAX": 131072,
+    "QWEN_3_235B": 131072,
+    "QWEN_3_CODER": 32768,
+    "QWEN_3_CODER_FLASH": 32768,
+    "QWEN_3_CODER_PLUS": 32768,
+    "QWEN_3_CODER_NEXT": 32768,
+    "QWEN_3_5_397B": 131072,
+    "QWEN_3_235B_THINKING": 131072,
+    "QWEN_3_MAX_THINKING": 131072,
     # Anthropic new additions
-    Model.CLAUDE_OPUS_4: 8192,
-    Model.CLAUDE_OPUS_4_1: 8192,
-    Model.CLAUDE_SONNET_4: 8192,
+    "CLAUDE_OPUS_4": 8192,
+    "CLAUDE_OPUS_4_1": 8192,
+    "CLAUDE_SONNET_4": 8192,
 }
+
+MODEL_MAX_TOKENS: dict[Model, int] = {}
+for name, val in _MODEL_MAX_TOKENS_RAW.items():
+    if hasattr(Model, name):
+        MODEL_MAX_TOKENS[getattr(Model, name)] = val
 
 
 def get_max_iterations(task_type: TaskType) -> int:

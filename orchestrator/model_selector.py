@@ -28,7 +28,7 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.QWEN_3_7_MAX: 0,
     Model.QWEN_3_6_FLASH: 0,
     Model.XAI_GROK_4_20: 0,
-    Model.CLAUDE_SONNET_4_6: 0,
+    Model.CLAUDE_SONNET_5: 0,
     Model.CLAUDE_OPUS_4_8: 0,
     Model.GPT_4O: 0,
     Model.GPT_5_4: 0,
@@ -109,7 +109,7 @@ _TECH_STACK_KEYWORDS = [
 _RELIABLE_DECOMPOSITION_MODELS: list[Model] = [
     Model.MOONSHOT_KIMI_K2_7_CODE,
     Model.QWEN_3_7_MAX,
-    Model.CLAUDE_SONNET_4_6,
+    Model.CLAUDE_SONNET_5,
     Model.GPT_4O,
     Model.DEEPSEEK_V4_FLASH,
     Model.GEMINI_FLASH,

@@ -33,11 +33,11 @@ class TDDModelConfig:
     # ═══════════════════════════════════════════════════════
 
     # Test Generation: Best test design capability
-    test_generation: str = "anthropic/claude-sonnet-4-6"  # $3.00/$15.00
+    test_generation: str = "anthropic/claude-sonnet-5"  # $3.00/$15.00
     # Implementation: Cost-effective coding
     implementation: str = "qwen/qwen3.6-flash"  # $0.66/$1.00
     # Test Review: Best analysis capability
-    test_review: str = "anthropic/claude-sonnet-4-6"  # $3.00/$15.00
+    test_review: str = "anthropic/claude-sonnet-5"  # $3.00/$15.00
     # Refactoring: Cost-effective improvements
     refactoring: str = "qwen/qwen3.6-flash"  # $0.66/$1.00
 
@@ -97,7 +97,7 @@ class TDDModelConfig:
             language: Optional language-specific override (python, javascript, typescript, go, rust)
 
         Returns:
-            Model ID string (e.g., "anthropic/claude-sonnet-4-6")
+            Model ID string (e.g., "anthropic/claude-sonnet-5")
 
         Examples:
             >>> config = TDDModelConfig()
@@ -223,9 +223,9 @@ TDD_BUDGET_PROFILE = TDDModelConfig(
 
 # Balanced Profile: Best value (default)
 TDD_BALANCED_PROFILE = TDDModelConfig(
-    test_generation="anthropic/claude-sonnet-4-6",  # $3.00/$15.00
+    test_generation="anthropic/claude-sonnet-5",  # $3.00/$15.00
     implementation="qwen/qwen3.6-flash",  # $0.66/$1.00
-    test_review="anthropic/claude-sonnet-4-6",  # $3.00/$15.00
+    test_review="anthropic/claude-sonnet-5",  # $3.00/$15.00
     refactoring="qwen/qwen3.6-flash",  # $0.66/$1.00
 )
 
@@ -239,21 +239,21 @@ TDD_PREMIUM_PROFILE = TDDModelConfig(
 
 # Python-Specialized Profile (pytest)
 TDD_PYTHON_PROFILE = TDDModelConfig(
-    test_generation="anthropic/claude-sonnet-4-6",  # Best pytest knowledge
+    test_generation="anthropic/claude-sonnet-5",  # Best pytest knowledge
     implementation="qwen/qwen3.6-flash",  # Cost-effective
-    test_review="anthropic/claude-sonnet-4-6",  # Best test analysis
+    test_review="anthropic/claude-sonnet-5",  # Best test analysis
     refactoring="qwen/qwen3.6-flash",
-    python_test_generation="anthropic/claude-sonnet-4-6",
+    python_test_generation="anthropic/claude-sonnet-5",
     python_implementation="qwen/qwen3.6-flash",
 )
 
 # JavaScript-Specialized Profile (Jest)
 TDD_JAVASCRIPT_PROFILE = TDDModelConfig(
-    test_generation="anthropic/claude-sonnet-4-6",  # Best Jest knowledge
+    test_generation="anthropic/claude-sonnet-5",  # Best Jest knowledge
     implementation="qwen/qwen3.6-flash",  # Cost-effective
-    test_review="anthropic/claude-sonnet-4-6",  # Best test analysis
+    test_review="anthropic/claude-sonnet-5",  # Best test analysis
     refactoring="qwen/qwen3.6-flash",
-    javascript_test_generation="anthropic/claude-sonnet-4-6",
+    javascript_test_generation="anthropic/claude-sonnet-5",
     javascript_implementation="qwen/qwen3.6-flash",
 )
 

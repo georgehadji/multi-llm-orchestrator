@@ -39,9 +39,9 @@ async def test_resume_continues_from_partial_state(
     orch._generator.decompose = AsyncMock(
         return_value=GeneratorResult(tasks=mock_tasks, wall_time_ms=100.0, error=None)
     )
-    orch._executor.execute = AsyncMock(
+    orch._execute_task = AsyncMock(
         side_effect=[
-            type("R", (), {"task_result": ok_result_t1, "succeeded": True, "error": None})(),
+            ok_result_t1,
             RuntimeError("Simulated crash during t2"),
         ]
     )
@@ -68,11 +68,7 @@ async def test_resume_continues_from_partial_state(
     )
     orch2.cache = orch.cache
     orch2._generator.decompose = AsyncMock(return_value=mock_tasks)
-    orch2._executor.execute = AsyncMock(
-        return_value=type(
-            "R", (), {"task_result": ok_result_t2, "succeeded": True, "error": None}
-        )()
-    )
+    orch2._execute_task = AsyncMock(return_value=ok_result_t2)
 
     # Inject loaded results so engine knows t1 is done
     orch2.results = {r.task_id: r for r in loaded.results.values()}
