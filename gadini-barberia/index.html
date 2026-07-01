@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gadini Barberia — High-End Italian Grooming</title>
+  <meta name="description" content="A premium, luxurious Italian barber shop offering bespoke haircuts, traditional hot towel shaves, beard grooming, and facial treatments in an elegant classic salon.">
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Header / Navigation -->
+  <header class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="#hero" class="nav-logo">
+        <span class="logo-gold">GADINI</span>
+        <span class="logo-white">BARBERIA</span>
+      </a>
+      <nav class="nav-links" id="nav-links">
+        <a href="#about" class="nav-item">Our Story</a>
+        <a href="#services" class="nav-item">Services</a>
+        <a href="#barbers" class="nav-item">Master Barbers</a>
+        <a href="#gallery" class="nav-item">Gallery</a>
+        <a href="#testimonials" class="nav-item">Reviews</a>
+        <a href="#booking" class="btn btn-nav">Book Appointment</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-badge">Corte Squisito • Stile Senza Tempo</div>
+      <h1 class="hero-title">Bespoke Italian Grooming For The <span class="text-gold">Modern Gentleman</span></h1>
+      <p class="hero-subtitle">Experience the pinnacle of vintage Italian craftsmanship combined with modern styling. Bespoke haircuts, hot-towel shaves, and premium grooming treatments.</p>
+      <div class="hero-actions">
+        <a href="#booking" class="btn btn-primary">Reserve Your Chair</a>
+        <a href="#services" class="btn btn-secondary">Explore Services</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-item">
+          <span class="stat-num">40+</span>
+          <span class="stat-lbl">Years Tradition</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">15k+</span>
+          <span class="stat-lbl">Gentlemen Served</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">4.9★</span>
+          <span class="stat-lbl">Average Rating</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About Section -->
+  <section class="about" id="about">
+    <div class="about-container">
+      <div class="about-image-wrapper">
+        <div class="about-experience-badge">
+          <span class="badge-num">1986</span>
+          <span class="badge-lbl">Est. Bologna</span>
+        </div>
+        <!-- SVG Placeholder for vintage barbershop scene -->
+        <svg class="about-svg-scene" viewBox="0 0 500 500" width="100%" height="100%">
+          <rect width="100%" height="100%" fill="#1e1814" />
+          <circle cx="250" cy="250" r="180" fill="none" stroke="#d4af37" stroke-width="2" stroke-dasharray="10 5" />
+          <!-- Barber Pole Line -->
+          <g transform="translate(100, 100)">
+            <rect width="40" height="300" fill="#f5f2eb" rx="5" />
+            <path d="M 0,40 L 40,80 L 40,110 L 0,70 Z" fill="#b22222" />
+            <path d="M 0,120 L 40,160 L 40,190 L 0,150 Z" fill="#0f52ba" />
+            <path d="M 0,200 L 40,240 L 40,270 L 0,230 Z" fill="#b22222" />
+            <rect width="40" height="300" fill="none" stroke="#d4af37" stroke-width="3" rx="5" />
+            <circle cx="20" cy="-10" r="25" fill="url(#brass-grad)" />
+            <circle cx="20" cy="310" r="25" fill="url(#brass-grad)" />
+          </g>
+          <!-- Barber Scissors Symbol -->
+          <g transform="translate(250, 240) scale(1.5)" stroke="#d4af37" stroke-width="4" fill="none">
+            <circle cx="-15" cy="50" r="15" />
+            <circle cx="15" cy="50" r="15" />
+            <line x1="-7" y1="37" x2="20" y2="-40" />
+            <line x1="7" y1="37" x2="-20" y2="-40" />
+          </g>
+          <defs>
+            <linearGradient id="brass-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fff5cc" />
+              <stop offset="50%" stop-color="#d4af37" />
+              <stop offset="100%" stop-color="#8a731b" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="about-content">
+        <span class="overline">Our Legacy</span>
+        <h2 class="section-title">The Legend of Gadini Barberia</h2>
+        <p class="about-p">Founded in the historic alleys of Bologna, Italy in 1986 by Master Barber Matteo Gadini, Gadini Barberia was born out of a desire to protect and elevate the timeless rituals of classic Italian barbering.</p>
+        <p class="about-p">To us, grooming is not a chore—it is an art form, a therapeutic ritual, and a masculine sanctuary. Our barbers are trained extensively in the classic scissors-over-comb method, hot lather straight-razor neck shaves, and custom beard sculpting designed to accent each individual's facial structure.</p>
+        <p class="about-p">We select only the finest premium pomades, botanical beard oils, and sandalwood-infused shave creams to treat your hair and skin. Walk in, pour yourself an espresso or vintage Italian amaro, and relax in our restored 1950s Belmont leather chairs.</p>
+        <div class="about-bullets">
+          <div class="bullet-item">
+            <span class="bullet-icon">✓</span>
+            <span class="bullet-text">Bespoke consultation with every haircut</span>
+          </div>
+          <div class="bullet-item">
+            <span class="bullet-icon">✓</span>
+            <span class="bullet-text">Signature Italian hot-towel double shave</span>
+          </div>
+          <div class="bullet-item">
+            <span class="bullet-icon">✓</span>
+            <span class="bullet-text">Exclusive selection of luxury imported products</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services & Pricing Section -->
+  <section class="services" id="services">
+    <div class="container">
+      <div class="section-header">
+        <span class="overline">Bespoke Treatments</span>
+        <h2 class="section-title">Rituals &amp; Pricing</h2>
+        <p class="section-subtitle">Every service includes a complimentary beverage of choice (espresso, Italian soda, craft beer, or premium single-malt whiskey) and our signature hot-lather neck shave.</p>
+      </div>
+
+      <div class="services-tabs">
+        <button class="tab-btn active" data-tab="hair">Haircutting</button>
+        <button class="tab-btn" data-tab="shave">Shaving &amp; Beards</button>
+        <button class="tab-btn" data-tab="combo">Exclusive Packages</button>
+      </div>
+
+      <div class="tab-content-container">
+        <!-- Haircutting Tab -->
+        <div class="tab-pane active" id="hair">
+          <div class="pricing-grid">
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">Sartorial Haircut</span>
+                <span class="service-price">€45</span>
+              </div>
+              <p class="service-desc">Tailored cut matching your head shape, completed with scissors-over-comb finish, wash, hair tonic, and signature hot-razor clean-up.</p>
+            </div>
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">Classic Buzz &amp; Taper</span>
+                <span class="service-price">€30</span>
+              </div>
+              <p class="service-desc">Clean single-guard crop or taper with detailed edges, hot lather rinse, scalp massage, and refreshing aftershave lotion.</p>
+            </div>
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">Executive Styling Consultation</span>
+                <span class="service-price">€60</span>
+              </div>
+              <p class="service-desc">Comprehensive style makeover, blow-dry lesson, luxury mud mask wash, precise trim, and premium product application.</p>
+            </div>
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">Young Gentleman (Under 14)</span>
+                <span class="service-price">€25</span>
+              </div>
+              <p class="service-desc">Sharp haircut for the young gentleman, finished with a classic pomade style and sweet Italian soda.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shaving Tab -->
+        <div class="tab-pane" id="shave">
+          <div class="pricing-grid">
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">Bologna Hot-Towel Shave</span>
+                <span class="service-price">€40</span>
+              </div>
+              <p class="service-desc">Double pass straight-razor shave with hot lather, pre-shave oil, botanical hot towels, ice water finish, and sandalwood cream.</p>
+            </div>
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">Royal Beard Sculpting</span>
+                <span class="service-price">€35</span>
+              </div>
+              <p class="service-desc">Detailed beard trimming using scissors and clippers, razor line-up, hot-towel steam, and premium oud beard oil conditioning.</p>
+            </div>
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">The Quick Trim</span>
+                <span class="service-price">€20</span>
+              </div>
+              <p class="service-desc">Express clipper alignment for mustache and beard edges, finished with hydrating splash aftershave.</p>
+            </div>
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">Bespoke Head Shave</span>
+                <span class="service-price">€45</span>
+              </div>
+              <p class="service-desc">Traditional hot lather straight-razor shave for the scalp, accompanied by refreshing essential oils and protective sunscreen cream.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Combo Tab -->
+        <div class="tab-pane" id="combo">
+          <div class="pricing-grid">
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">The Gadini Signature Ritual</span>
+                <span class="service-price">€80</span>
+              </div>
+              <p class="service-desc">Our flagship combination: The Sartorial Haircut followed by the Bologna Hot-Towel Shave. The ultimate Italian gentleman's treatment.</p>
+            </div>
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">The Il Divo Grooming Package</span>
+                <span class="service-price">€110</span>
+              </div>
+              <p class="service-desc">Signature Haircut + Royal Beard Sculpting + Rejuvenating Charcoal Facial Mask + Essential Oil Scalp Massage. Perfect for special occasions.</p>
+            </div>
+            <div class="pricing-item">
+              <div class="pricing-info">
+                <span class="service-name">Father &amp; Son Session</span>
+                <span class="service-price">€65</span>
+              </div>
+              <p class="service-desc">A special bonding ritual. Sartorial Haircut for the father and Young Gentleman cut for the son, completed with dual beverages.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Master Barbers Section -->
+  <section class="barbers" id="barbers">
+    <div class="container">
+      <div class="section-header">
+        <span class="overline">Artisans of Style</span>
+        <h2 class="section-title">The Master Barbers</h2>
+        <p class="section-subtitle">Meet our elite team of craftsmen. With years of pedigree training in traditional scissor and razor techniques, they represent the absolute finest in male grooming.</p>
+      </div>
+
+      <div class="barbers-grid">
+        <!-- Barber 1 -->
+        <div class="barber-card">
+          <div class="barber-svg-holder">
+            <svg viewBox="0 0 300 350" class="barber-avatar">
+              <rect width="100%" height="100%" fill="#1a1411" />
+              <!-- Geometric avatar background -->
+              <circle cx="150" cy="150" r="100" fill="#2d221c" />
+              <path d="M150,50 L240,190 L60,190 Z" fill="#435237" opacity="0.3" />
+              <!-- Handcrafted stylized face vector -->
+              <path d="M110,130 C110,130 130,90 150,90 C170,90 190,130 190,130" stroke="#d4af37" stroke-width="3" fill="none" />
+              <!-- Beard/Mustache shape -->
+              <path d="M110,160 C110,230 190,230 190,160 C190,155 110,155 110,160" fill="#0d0d0d" />
+              <path d="M120,150 Q150,140 180,150 Q150,170 120,150" fill="#d4af37" />
+              <!-- Gold scissors background decoration -->
+              <path d="M 80,280 L 220,280" stroke="#d4af37" stroke-width="2" />
+            </svg>
+          </div>
+          <div class="barber-info">
+            <h3 class="barber-name">Matteo Gadini</h3>
+            <span class="barber-role">Founder &amp; Grand Master</span>
+            <p class="barber-bio">Boasting over 40 years of international master barbering pedigree. Trained in Bologna, Matteo specializes in classic sartorial styles and hot-towel double passes.</p>
+          </div>
+        </div>
+
+        <!-- Barber 2 -->
+        <div class="barber-card">
+          <div class="barber-svg-holder">
+            <svg viewBox="0 0 300 350" class="barber-avatar">
+              <rect width="100%" height="100%" fill="#1a1411" />
+              <circle cx="150" cy="150" r="100" fill="#2d221c" />
+              <path d="M150,60 L230,210 L70,210 Z" fill="#8a731b" opacity="0.2" />
+              <!-- Eyes outline -->
+              <circle cx="125" cy="130" r="8" fill="#d4af37" />
+              <circle cx="175" cy="130" r="8" fill="#d4af37" />
+              <!-- Slick Hair outline -->
+              <path d="M100,100 Q150,50 200,100" stroke="#d4af37" stroke-width="6" fill="none" />
+              <!-- Mustache -->
+              <path d="M120,160 C130,175 170,175 180,160 C190,150 110,150 120,160" fill="#0d0d0d" />
+            </svg>
+          </div>
+          <div class="barber-info">
+            <h3 class="barber-name">Lorenzo Russo</h3>
+            <span class="barber-role">Senior Beard Sculptor</span>
+            <p class="barber-bio">A true virtuoso of the straight razor. Lorenzo has carved a reputation as one of Europe's top beard-design specialists, aligning style perfectly with geometry.</p>
+          </div>
+        </div>
+
+        <!-- Barber 3 -->
+        <div class="barber-card">
+          <div class="barber-svg-holder">
+            <svg viewBox="0 0 300 350" class="barber-avatar">
+              <rect width="100%" height="100%" fill="#1a1411" />
+              <circle cx="150" cy="150" r="100" fill="#2d221c" />
+              <path d="M60,150 Q150,240 240,150" stroke="#435237" stroke-width="4" fill="none" />
+              <!-- Beard design -->
+              <path d="M100,135 C100,210 200,210 200,135" stroke="#d4af37" stroke-width="3" fill="none" />
+              <!-- Hair wave -->
+              <path d="M110,85 Q150,110 190,85" stroke="#d4af37" stroke-width="4" fill="none" />
+            </svg>
+          </div>
+          <div class="barber-info">
+            <h3 class="barber-name">Giovanni Bianco</h3>
+            <span class="barber-role">Modern Creative Stylist</span>
+            <p class="barber-bio">Blending classic retro craftsmanship with modern high-fades, pompadours, and textured crops. Giovanni brings fresh Bolognese fashion to every chair.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gallery Section -->
+  <section class="gallery" id="gallery">
+    <div class="container">
+      <div class="section-header">
+        <span class="overline">Visual Showcase</span>
+        <h2 class="section-title">The Sanctuary &amp; Styles</h2>
+        <p class="section-subtitle">A glimpse inside our bespoke studio and the meticulous results we deliver to our esteemed clientele daily.</p>
+      </div>
+
+      <div class="gallery-grid">
+        <div class="gallery-item">
+          <svg class="gallery-svg" viewBox="0 0 300 300">
+            <rect width="100%" height="100%" fill="#1a1411" />
+            <path d="M20,20 H280 V280 H20 Z" fill="none" stroke="#d4af37" stroke-width="2" />
+            <text x="50%" y="150" fill="#d4af37" font-family="'Playfair Display', serif" font-size="20" text-anchor="middle">Il Tempio</text>
+            <text x="50%" y="180" fill="#e5e0d5" font-family="'Montserrat', sans-serif" font-size="12" text-anchor="middle">Shop Interior Sanctuary</text>
+          </svg>
+        </div>
+        <div class="gallery-item">
+          <svg class="gallery-svg" viewBox="0 0 300 300">
+            <rect width="100%" height="100%" fill="#1f1a17" />
+            <circle cx="150" cy="150" r="100" fill="none" stroke="#435237" stroke-width="3" />
+            <text x="50%" y="150" fill="#d4af37" font-family="'Playfair Display', serif" font-size="20" text-anchor="middle">Il Taglio</text>
+            <text x="50%" y="180" fill="#e5e0d5" font-family="'Montserrat', sans-serif" font-size="12" text-anchor="middle">Master Scissor Trim</text>
+          </svg>
+        </div>
+        <div class="gallery-item">
+          <svg class="gallery-svg" viewBox="0 0 300 300">
+            <rect width="100%" height="100%" fill="#15110e" />
+            <path d="M50,150 Q150,50 250,150 T450,150" stroke="#d4af37" stroke-width="1" fill="none" />
+            <text x="50%" y="150" fill="#d4af37" font-family="'Playfair Display', serif" font-size="20" text-anchor="middle">La Sbarbata</text>
+            <text x="50%" y="180" fill="#e5e0d5" font-family="'Montserrat', sans-serif" font-size="12" text-anchor="middle">Royal Shave Ritual</text>
+          </svg>
+        </div>
+        <div class="gallery-item">
+          <svg class="gallery-svg" viewBox="0 0 300 300">
+            <rect width="100%" height="100%" fill="#231c18" />
+            <rect x="50" y="50" width="200" height="200" fill="none" stroke="#d4af37" stroke-width="1" transform="rotate(45 150 150)" />
+            <text x="50%" y="150" fill="#d4af37" font-family="'Playfair Display', serif" font-size="20" text-anchor="middle">Dettagli</text>
+            <text x="50%" y="180" fill="#e5e0d5" font-family="'Montserrat', sans-serif" font-size="12" text-anchor="middle">Sharp Edge Craftsmanship</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Booking Section -->
+  <section class="booking" id="booking">
+    <div class="booking-container">
+      <div class="booking-form-card">
+        <span class="overline">Prendere Appuntamento</span>
+        <h2 class="booking-title">Reserve Your Sanctuary Chair</h2>
+        <p class="booking-subtitle">Select your desired ritual, master barber, and your preferred slot in our calendar. We will verify and lock your appointment instantly.</p>
+
+        <form id="appointment-form" class="booking-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="client-name">Full Name</label>
+              <input type="text" id="client-name" required placeholder="e.g. Marcus Aurelius">
+            </div>
+            <div class="form-group">
+              <label for="client-email">Email Address</label>
+              <input type="email" id="client-email" required placeholder="e.g. marcus@rome.org">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="client-phone">Phone Number</label>
+              <input type="tel" id="client-phone" required placeholder="e.g. +39 051 123456">
+            </div>
+            <div class="form-group">
+              <label for="ritual-type">Select Ritual Service</label>
+              <select id="ritual-type" required>
+                <option value="" disabled selected>Choose a ritual...</option>
+                <option value="sartorial-cut">Sartorial Haircut (€45)</option>
+                <option value="classic-buzz">Classic Buzz &amp; Taper (€30)</option>
+                <option value="hot-shave">Bologna Hot-Towel Shave (€40)</option>
+                <option value="beard-sculpt">Royal Beard Sculpting (€35)</option>
+                <option value="signature-rit">Gadini Signature Ritual (€80)</option>
+                <option value="il-divo">The Il Divo Package (€110)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="barber-preference">Select Master Barber</label>
+              <select id="barber-preference" required>
+                <option value="" disabled selected>Choose an artisan...</option>
+                <option value="any">First Available Artisan</option>
+                <option value="matteo">Matteo Gadini (Grand Master)</option>
+                <option value="lorenzo">Lorenzo Russo (Senior Beard Sculptor)</option>
+                <option value="giovanni">Giovanni Bianco (Creative Stylist)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="appointment-date">Preferred Date</label>
+              <input type="date" id="appointment-date" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="appointment-time">Preferred Time Slot</label>
+              <select id="appointment-time" required>
+                <option value="" disabled selected>Choose a time slot...</option>
+                <option value="09:00">09:00 - 10:00 (Early Morning)</option>
+                <option value="10:30">10:30 - 11:30</option>
+                <option value="12:00">12:00 - 13:00 (Lunch Slot)</option>
+                <option value="14:30">14:30 - 15:30</option>
+                <option value="16:00">16:00 - 17:00</option>
+                <option value="17:30">17:30 - 18:30 (Aperitivo Hour)</option>
+                <option value="19:00">19:00 - 20:00 (Late Grooming)</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Confirm Appointment Request</button>
+        </form>
+
+        <div id="booking-success-message" class="booking-success-card hidden">
+          <div class="success-icon">✓</div>
+          <h3 class="success-title">Ritual Reserved Successfully!</h3>
+          <p class="success-text">Grazie, <span id="success-client-name" class="text-gold">Marcus</span>. Your reservation for the <span id="success-ritual" class="text-gold">Gadini Signature Ritual</span> with <span id="success-barber" class="text-gold">Matteo Gadini</span> on <span id="success-date" class="text-gold">2026-07-15</span> at <span id="success-time" class="text-gold">17:30</span> has been logged.</p>
+          <p class="success-text-sub">A confirmation and calendar invite have been dispatched to your email address. We look forward to pouring you a drink.</p>
+          <button id="book-another-btn" class="btn btn-secondary">Reserve Another Chair</button>
+        </div>
+      </div>
+
+      <div class="booking-info-card">
+        <div class="info-block">
+          <h3>La Posizione (Location)</h3>
+          <p>Via dell'Indipendenza, 42<br>40121 Bologna, Italy</p>
+        </div>
+        <div class="info-block">
+          <h3>Orari (Opening Hours)</h3>
+          <p><strong>Tuesday — Friday:</strong> 09:00 - 20:00</p>
+          <p><strong>Saturday:</strong> 08:30 - 19:30</p>
+          <p><strong>Sunday — Monday:</strong> Closed (Artisan Rest)</p>
+        </div>
+        <div class="info-block">
+          <h3>Contatto (Contact)</h3>
+          <p><strong>Phone:</strong> +39 051 987654</p>
+          <p><strong>Email:</strong> prenotazioni@gadinibarberia.it</p>
+        </div>
+        <!-- Decorative SVG crest -->
+        <svg class="booking-seal-svg" viewBox="0 0 100 100" width="80" height="80">
+          <circle cx="50" cy="50" r="45" fill="none" stroke="#d4af37" stroke-width="2" />
+          <path d="M 30,50 Q 50,20 70,50 T 30,50" fill="none" stroke="#d4af37" stroke-width="2" />
+          <text x="50%" y="85" fill="#d4af37" font-size="8" font-family="'Montserrat'" text-anchor="middle">BOLOGNA</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section -->
+  <section class="testimonials" id="testimonials">
+    <div class="container">
+      <div class="section-header">
+        <span class="overline">Client Chronicles</span>
+        <h2 class="section-title">Acclaim From Gentlemen</h2>
+        <p class="section-subtitle">We hold ourselves to absolute precision. Here is what some of our esteemed, long-time patrons say about the Gadini experience.</p>
+      </div>
+
+      <div class="testimonials-slider">
+        <!-- Slide 1 -->
+        <div class="testimonial-slide active">
+          <p class="quote">"Gadini is not just a barber shop, it's a sacred ritual. Every time I step in, Matteo serves me a perfect espresso, and Giovanni delivers the absolute cleanest low-fade taper in Italy. Their meticulous attention to detail is unrivaled."</p>
+          <h4 class="author-name">Alessandro Rossi</h4>
+          <span class="author-title">Milano Fashion Director</span>
+        </div>
+        <!-- Slide 2 -->
+        <div class="testimonial-slide">
+          <p class="quote">"I have visited high-end barbers from London to New York, but Lorenzo's Royal Beard Sculpting at Gadini is in a league of its own. He uses hot steam, premium essential oils, and straight-razor detailing that lasts for weeks."</p>
+          <h4 class="author-name">Dr. Valerio Moretti</h4>
+          <span class="author-title">University of Bologna Professor</span>
+        </div>
+        <!-- Slide 3 -->
+        <div class="testimonial-slide">
+          <p class="quote">"The Gadini Signature Ritual is ninety minutes of pure bliss. From the warm, rich shaving cream smelling of sandalwood, to the ice towel finish and scalp massage—it is the ultimate reset button for any hard-working man."</p>
+          <h4 class="author-name">Claudio Bianchi</h4>
+          <span class="author-title">Venture Capitalist</span>
+        </div>
+      </div>
+      <div class="testimonial-controls">
+        <button class="slider-dot active" data-index="0"></button>
+        <button class="slider-dot" data-index="1"></button>
+        <button class="slider-dot" data-index="2"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-branding">
+        <h3 class="footer-logo">GADINI <span class="text-gold">BARBERIA</span></h3>
+        <p class="footer-tagline">Exquisite Cuts, Timeless Italian Style. Preserving the fine art of traditional barbering since 1986.</p>
+        <div class="social-links">
+          <a href="#" class="social-icon">Instagram</a>
+          <a href="#" class="social-icon">Facebook</a>
+          <a href="#" class="social-icon">YouTube</a>
+        </div>
+      </div>
+      <div class="footer-links-group">
+        <h4>Navigation</h4>
+        <a href="#about">Our Story</a>
+        <a href="#services">Rituals</a>
+        <a href="#barbers">Artisans</a>
+        <a href="#gallery">Showcase</a>
+        <a href="#booking">Book Now</a>
+      </div>
+      <div class="footer-links-group">
+        <h4>The Sanctuary</h4>
+        <p>Via dell'Indipendenza, 42</p>
+        <p>40121 Bologna, Italy</p>
+        <p>Phone: +39 051 987654</p>
+        <p>Email: info@gadinibarberia.it</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 Gadini Barberia. All rights reserved. Handcrafted Italian Excellence.</p>
+      <p class="footer-legal">Privacy Policy &bull; Terms of Service &bull; Cookie Preferences</p>
+    </div>
+  </footer>
+
+</body>
+</html>
