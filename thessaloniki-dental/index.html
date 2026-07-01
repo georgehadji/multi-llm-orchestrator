@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thessaloniki Dental Excellence | Ultra-Modern Clinic</title>
+  <meta name="description" content="Awwwards-level, premium dental clinic in Thessaloniki offering advanced implantology, cosmetic dentistry, and invisible orthodontics.">
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Three.js & GSAP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+
+  <!-- WebGL Canvas Container -->
+  <div id="webgl-container"></div>
+
+  <!-- Custom Cursor -->
+  <div class="cursor"></div>
+  <div class="cursor-follower"></div>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="logo">TD<span>EXCELLENCE</span></div>
+    <nav class="nav-links">
+      <a href="#about" class="nav-link">About</a>
+      <a href="#services" class="nav-link">Services</a>
+      <a href="#technology" class="nav-link">Technology</a>
+      <a href="#team" class="nav-link">Team</a>
+      <a href="#contact" class="btn-primary">Book Consultation</a>
+    </nav>
+    <div class="menu-toggle">
+      <span></span>
+      <span></span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+      <div class="hero-content">
+        <div class="subtitle fade-up">Thessaloniki, Greece</div>
+        <h1 class="title fade-up">THE FUTURE OF<br><span class="gradient-text">DENTISTRY</span></h1>
+        <p class="description fade-up">Experience precision, aesthetics, and advanced technology. We redefine oral care through cutting-edge 3D implantology and digital smile design.</p>
+        <div class="fade-up">
+          <a href="#contact" class="btn-primary large">Discover Excellence</a>
+        </div>
+      </div>
+      <div class="scroll-indicator">
+        <div class="mouse"></div>
+        <p>Scroll to explore</p>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="about" id="about">
+      <div class="container">
+        <div class="about-grid">
+          <div class="about-text" data-speed="0.8">
+            <h2 class="section-title">ELEVATING<br>THE STANDARD</h2>
+            <p>At Thessaloniki Dental Excellence, we don't just treat teeth; we architect smiles. Located in the heart of Thessaloniki, our clinic blends luxury hospitality with clinical perfection. Our environment is designed to eliminate anxiety, replacing it with an atmosphere of absolute trust and high-tech sophistication.</p>
+            <div class="stats">
+              <div class="stat-box">
+                <span class="stat-number">15+</span>
+                <span class="stat-label">Years of Mastery</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-number">10k</span>
+                <span class="stat-label">Smiles Restored</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-number">100%</span>
+                <span class="stat-label">Digital Workflow</span>
+              </div>
+            </div>
+          </div>
+          <div class="about-image" data-speed="1.2">
+            <img src="https://images.unsplash.com/photo-1606811841689-23dfddce3e95?auto=format&fit=crop&q=80&w=800" alt="Ultra-modern dental clinic interior">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Services Section -->
+    <section class="services" id="services">
+      <div class="container">
+        <h2 class="section-title text-center">OUR EXPERTISE</h2>
+        <div class="services-wrapper">
+          
+          <div class="service-card">
+            <div class="service-number">01</div>
+            <h3>Advanced Implantology</h3>
+            <p>Utilizing 3D CBCT scanning and guided surgery for millimeter-perfect implant placement. Faster recovery, lifetime results.</p>
+            <div class="service-image">
+              <img src="https://images.unsplash.com/photo-1598256989800-fe5f95da9787?auto=format&fit=crop&q=80&w=600" alt="Implantology">
+            </div>
+          </div>
+
+          <div class="service-card">
+            <div class="service-number">02</div>
+            <h3>Cosmetic Dentistry</h3>
+            <p>Ultra-thin porcelain veneers and Digital Smile Design. We meticulously craft your perfect smile to match your facial symmetry.</p>
+            <div class="service-image">
+              <img src="https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=600" alt="Cosmetic Dentistry">
+            </div>
+          </div>
+
+          <div class="service-card">
+            <div class="service-number">03</div>
+            <h3>Invisible Orthodontics</h3>
+            <p>Discreet, rapid alignment using the latest clear aligner technology. A perfect bite without the aesthetic compromise.</p>
+            <div class="service-image">
+              <img src="https://images.unsplash.com/photo-1609840114035-3c981b782dfe?auto=format&fit=crop&q=80&w=600" alt="Invisible Orthodontics">
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Technology Section -->
+    <section class="technology" id="technology">
+      <div class="tech-marquee">
+        <div class="tech-track">
+          <span>3D CBCT SCANNING • INTRAORAL SCANNERS • AI SMILE DESIGN • LASER DENTISTRY • MICROSCOPE ENDODONTICS • </span>
+          <span>3D CBCT SCANNING • INTRAORAL SCANNERS • AI SMILE DESIGN • LASER DENTISTRY • MICROSCOPE ENDODONTICS • </span>
+        </div>
+      </div>
+      <div class="container">
+        <div class="tech-grid">
+          <div class="tech-content">
+            <h2 class="section-title">THE FOREFRONT<br>OF INNOVATION</h2>
+            <p>We have completely eliminated analogue impressions and guesswork. Our clinic operates on a 100% digital ecosystem. From hyper-accurate 3D mapping of your jaw to AI-driven aesthetic simulations, technology ensures your treatment is pain-free, predictable, and flawless.</p>
+          </div>
+          <div class="tech-visual">
+            <img src="https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&q=80&w=800" alt="High-tech medical equipment">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Team Section -->
+    <section class="team" id="team">
+      <div class="container">
+        <h2 class="section-title">MASTER<br>CLINICIANS</h2>
+        <div class="team-grid">
+          <div class="team-member">
+            <div class="member-img">
+              <img src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=500" alt="Dr. Andreas">
+            </div>
+            <div class="member-info">
+              <h3>Dr. Andreas Makris</h3>
+              <p>Lead Implantologist & Founder</p>
+            </div>
+          </div>
+          <div class="team-member">
+            <div class="member-img">
+              <img src="https://images.unsplash.com/photo-1594824432258-29d9196b01b3?auto=format&fit=crop&q=80&w=500" alt="Dr. Elena">
+            </div>
+            <div class="member-info">
+              <h3>Dr. Elena Kostopoulou</h3>
+              <p>Aesthetic Architect</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gallery Section -->
+    <section class="gallery" id="gallery">
+      <div class="container">
+        <h2 class="section-title text-center">THE SANCTUARY</h2>
+      </div>
+      <div class="gallery-slider">
+        <div class="gallery-item"><img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=800" alt="Clinic Interior"></div>
+        <div class="gallery-item"><img src="https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800" alt="Treatment Room"></div>
+        <div class="gallery-item"><img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=800" alt="Waiting Lounge"></div>
+      </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="testimonials" id="testimonials">
+      <div class="container">
+        <h2 class="section-title text-center">PATIENT STORIES</h2>
+        <div class="testimonial-carousel">
+          <div class="testimonial active">
+            <p class="quote">"An absolute architectural and clinical masterpiece. Dr. Andreas replaced my anxiety with awe. The 3D scanning process was seamless, and the results of my implants are indistinguishable from natural teeth."</p>
+            <p class="author">— Nikos V., CEO</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact" id="contact">
+      <div class="container">
+        <div class="contact-grid">
+          <div class="contact-info">
+            <h2 class="section-title">COMMENCE<br>YOUR JOURNEY</h2>
+            <p>Schedule a private consultation in our Thessaloniki clinic to discuss your bespoke treatment plan.</p>
+            
+            <div class="contact-details">
+              <div class="detail-item">
+                <h4>Location</h4>
+                <p>Tsimiski 45, 546 23<br>Thessaloniki, Greece</p>
+              </div>
+              <div class="detail-item">
+                <h4>Contact</h4>
+                <p>+30 2310 123 456<br>excellence@td-clinic.gr</p>
+              </div>
+              <div class="detail-item">
+                <h4>Hours</h4>
+                <p>Mon - Fri: 09:00 - 20:00<br>Sat: 10:00 - 15:00</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="contact-form-wrapper">
+            <form class="contact-form" id="booking-form">
+              <div class="input-group">
+                <input type="text" id="name" required placeholder="Full Name">
+              </div>
+              <div class="input-group">
+                <input type="email" id="email" required placeholder="Email Address">
+              </div>
+              <div class="input-group">
+                <select id="service" required>
+                  <option value="" disabled selected>Select Service</option>
+                  <option value="implant">Advanced Implantology</option>
+                  <option value="cosmetic">Cosmetic Dentistry</option>
+                  <option value="ortho">Invisible Orthodontics</option>
+                  <option value="consult">General Consultation</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <textarea id="message" rows="4" placeholder="How can we help you?"></textarea>
+              </div>
+              <button type="submit" class="btn-primary submit-btn">Request Appointment</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <div class="logo">TD<span>EXCELLENCE</span></div>
+          <p>Redefining oral aesthetics through technology and precision.</p>
+        </div>
+        <div class="footer-links">
+          <a href="#">Instagram</a>
+          <a href="#">LinkedIn</a>
+          <a href="#">Facebook</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 Thessaloniki Dental Excellence. All Rights Reserved.</p>
+        <p>Awwwards Concept by AI Orchestrator</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
