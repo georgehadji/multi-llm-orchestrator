@@ -3,15 +3,17 @@ Tests for Capabilities 5-10 (Agent Communication, Learning, Runtime, CI, HITL, S
 """
 
 import pytest
-from datetime import datetime
-from pathlib import Path
 
 
 class TestAgentMessageBus:
     """Capability 5: Agent communication."""
 
     def test_publish_direct_message(self):
-        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
+        from orchestrator.workspace.message_bus import (
+            AgentMessageBus,
+            AgentMessage,
+            MessageType,
+        )
 
         bus = AgentMessageBus()
         bus.subscribe("agent_a", [MessageType.QUERY])
@@ -21,7 +23,11 @@ class TestAgentMessageBus:
         assert inbox[0].content == "hello"
 
     def test_broadcast_matches_subscribers(self):
-        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
+        from orchestrator.workspace.message_bus import (
+            AgentMessageBus,
+            AgentMessage,
+            MessageType,
+        )
 
         bus = AgentMessageBus()
         bus.subscribe("agent_a", [MessageType.QUERY])
@@ -33,7 +39,7 @@ class TestAgentMessageBus:
         assert len(bus.read_inbox("agent_b")) == 0
 
     def test_message_history(self):
-        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage, MessageType
+        from orchestrator.workspace.message_bus import AgentMessageBus, AgentMessage
 
         bus = AgentMessageBus()
         bus.publish(AgentMessage(id="m1", sender="a", content="msg1"))
@@ -130,7 +136,7 @@ class TestDynamicScaffoldGenerator:
     """Capability 8: Dynamic scaffold generation."""
 
     def test_detect_python(self):
-        from orchestrator.scaffold.dynamic import DynamicScaffoldGenerator, TechStack
+        from orchestrator.scaffold.dynamic import DynamicScaffoldGenerator
 
         gen = DynamicScaffoldGenerator()
         stack = gen._detect_stack("Build a Python CLI app")
@@ -213,8 +219,14 @@ class TestHumanInTheLoop:
         from orchestrator.hitl.gate import HumanInTheLoop, Decision, DecisionResult
 
         hitl = HumanInTheLoop()
+        # FIX-1: auto-approval now requires an explicit requires_approval=False.
+        # With no channel and requires_approval=True the gate fails closed
+        # (see tests/unit/test_hitl_gate.py for the fail-closed contract).
         decision = Decision(
-            category="architecture", title="Choose framework", description="FastAPI vs Django"
+            category="architecture",
+            title="Choose framework",
+            description="FastAPI vs Django",
+            requires_approval=False,
         )
         result = await hitl.request_decision(decision)
         assert result == DecisionResult.APPROVED

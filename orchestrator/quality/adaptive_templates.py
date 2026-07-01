@@ -52,7 +52,7 @@ from typing import Any
 from ..log_config import get_logger
 
 # FIXED: from ..models import Model, TaskType
-from ...models import Model, TaskType
+from ..models import Model, TaskType
 
 logger = get_logger(__name__)
 

@@ -7,15 +7,13 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import pytest
 
-from orchestrator.context_system import (
+from orchestrator.context_mgmt.system import (
     WorkspaceKnowledge,
     ProjectKnowledge,
     SkillRegistry,
     Skill,
     ContextBuilder,
-    KnowledgeFile,
 )
 
 

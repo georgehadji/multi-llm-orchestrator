@@ -27,7 +27,7 @@ import asyncio
 import logging
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 logger = logging.getLogger("orchestrator.nexus_server")
 

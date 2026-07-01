@@ -7,12 +7,7 @@ Part of Category 5, Phase R7 (Retool-inspired).
 
 from __future__ import annotations
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    # FIXED: from .infrastructure.llm_client import UnifiedClient
-    from ...infrastructure.llm_client import UnifiedClient
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 

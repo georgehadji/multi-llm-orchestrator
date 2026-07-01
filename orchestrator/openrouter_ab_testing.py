@@ -8,7 +8,7 @@ Tracks metrics like parsing error rates, latency, cost, and quality
 to determine if optimizations should be rolled out.
 
 USAGE:
-    from orchestrator.openrouter_ab_testing import OpenRouterABTester
+    from orchestrator.integrations.openrouter_ab_testing import OpenRouterABTester
 
     ab_tester = OpenRouterABTester()
 
@@ -43,7 +43,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("orchestrator.openrouter_ab_testing")
+logger = logging.getLogger("orchestrator.integrations.openrouter_ab_testing")
 
 
 class OptimizationType(str, Enum):
@@ -230,7 +230,7 @@ class OpenRouterABTester:
 
         # Consistent hashing for deterministic assignment
         hash_input = f"{project_id}:{opt_type.value}"
-        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest(), 16)
+        hash_value = int(hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest(), 16)
 
         # Map to 0-1 range
         normalized = (hash_value % 10000) / 10000.0

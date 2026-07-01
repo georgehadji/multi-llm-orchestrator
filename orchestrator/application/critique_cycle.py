@@ -224,7 +224,7 @@ class CritiqueCycle:
         prompt: str,
         task_type: TaskType,
         max_tokens: int,
-    ) -> APIResponse | None:  # type: ignore[name-defined]
+    ) -> APIResponse | None:  # type: ignore[name-defined]  # noqa: F821
         timeout, effective_max_tokens = self._get_model_params(model, task_type, max_tokens)
         try:
             response = await self.client.call_with_retry(  # type: ignore[attr-defined]
@@ -245,7 +245,7 @@ class CritiqueCycle:
         generated_output: str,
         task_type: TaskType,
         redesign_rubric: object | None = None,
-    ) -> APIResponse | None:  # type: ignore[name-defined]
+    ) -> APIResponse | None:  # type: ignore[name-defined]  # noqa: F821
         if redesign_rubric is not None:
             critique_prompt = redesign_rubric.build_score(  # type: ignore[attr-defined]
                 original_prompt, generated_output, task_type.value
@@ -254,12 +254,21 @@ class CritiqueCycle:
             critique_prompt = CritiquePrompt.build_score(
                 original_prompt, generated_output, task_type.value
             )
+        # Reasoning reviewers spend their token budget on <think>; a flat 1000
+        # gets consumed before the verdict is emitted, so the critique truncates
+        # and the score defaults (root cause of near-zero task scores). Give
+        # reasoning models room for both the thinking and the verdict, with a
+        # longer timeout. (Interim: the proper fix is reasoning.exclude — see the
+        # reasoning-model request-handling task.)
+        is_reasoning = ModelRegistry.is_reasoning_model(model.value)
+        crit_max_tokens = 4000 if is_reasoning else 1200
+        crit_timeout = 240 if is_reasoning else 60
         try:
             response = await self.client.call_with_retry(  # type: ignore[attr-defined]
                 model=model,
                 prompt=critique_prompt,
-                max_tokens=1000,
-                timeout=60,
+                max_tokens=crit_max_tokens,
+                timeout=crit_timeout,
             )
             return response
         except Exception as e:
@@ -267,6 +276,16 @@ class CritiqueCycle:
             return None
 
     def _extract_score(self, critique_text: str) -> float:
+        # Strip reasoning-model thinking first: when the reviewer is truncated
+        # mid-<think>, the chain-of-thought ("score: 0.05 ...") must not be
+        # mistaken for the verdict — the root cause of near-zero task scores.
+        critique_text = re.sub(
+            r"<think>.*?</think>", "", critique_text, flags=re.DOTALL | re.IGNORECASE
+        )
+        critique_text = re.sub(
+            r"<think>.*$", "", critique_text, flags=re.DOTALL | re.IGNORECASE
+        ).strip()
+
         try:
             json_match = re.search(r'\{[^}]*"score"[^}]*\}', critique_text, re.DOTALL)
             if json_match:

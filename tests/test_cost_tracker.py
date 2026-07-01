@@ -4,7 +4,6 @@ Tests for cost_tracker.py — Per-call cost visibility.
 
 from __future__ import annotations
 
-import tempfile
 
 import pytest
 

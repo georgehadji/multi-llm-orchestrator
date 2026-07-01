@@ -158,6 +158,18 @@ class RetryTemplate(Enum):
         return template.to_policy()
 
 
+# Stage retry constants — single source of truth for engine_core pipeline stages.
+# Previously each stage had its own literal value (generate.py retries=2, critique.py retries=1).
+STAGE_RETRY_GENERATE: int = 2
+"""retries for GenerateStage — allows 1 retry for transient errors."""
+STAGE_RETRY_CRITIQUE: int = 1
+"""retries for CritiqueStage — low tolerance; re-run with a different model."""
+STAGE_RETRY_EVALUATE: int = 2
+"""retries for EvaluateStage — stable scoring path."""
+STAGE_RETRY_DESIGN_CRITIQUE: int = 1
+"""retries for DesignCritiqueStage — design feedback."""
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Fallback chain resolution
 # ─────────────────────────────────────────────────────────────────────────────

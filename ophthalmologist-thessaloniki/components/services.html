@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comprehensive Eye Care | Thessaloniki Vision Clinic</title>
+  <meta name="description" content="Premium ophthalmology services in Thessaloniki, Greece: cataract surgery, LASIK, retina care, glaucoma management, pediatric ophthalmology & comprehensive exams.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== DESIGN SYSTEM TOKENS ===== */
+    :root {
+      --primary: #818cf8;
+      --primary-light: #a5b4fc;
+      --primary-dark: #6366f1;
+      --bg-dark: #0b0d1a;
+      --bg-card: #12142a;
+      --bg-card-hover: #1a1d3a;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-subtle: rgba(129, 140, 248, 0.15);
+      --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+      --radius-card: 1.25rem;
+      --radius-sm: 0.75rem;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ===== RESET & BASE ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .services-section {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 5rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ===== 3D CANVAS BACKGROUND ===== */
+    #three-canvas-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.25;
+    }
+
+    /* ===== SECTION HEADER ===== */
+    .section-header {
+      text-align: center;
+      margin-bottom: 4rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .section-header .overline {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--primary-light);
+      background: rgba(129, 140, 248, 0.1);
+      padding: 0.4rem 1.2rem;
+      border-radius: 100px;
+      margin-bottom: 1.25rem;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .section-header h2 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      max-width: 700px;
+      margin: 0 auto 1rem;
+    }
+
+    .section-header p {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+      font-weight: 400;
+    }
+
+    /* ===== SERVICES GRID ===== */
+    .services-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    @media (min-width: 640px) {
+      .services-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .services-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    /* ===== SERVICE CARD ===== */
+    .service-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-card);
+      padding: 2rem 1.75rem;
+      transition: var(--transition);
+      box-shadow: var(--shadow-card);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .service-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary), var(--primary-light));
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .service-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(129, 140, 248, 0.3);
+      transform: translateY(-4px);
+    }
+
+    .service-card:hover::before {
+      opacity: 1;
+    }
+
+    .service-card:focus-within {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    /* card icon */
+    .card-icon {
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: var(--radius-sm);
+      background: rgba(129, 140, 248, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      transition: var(--transition);
+      flex-shrink: 0;
+    }
+
+    .service-card:hover .card-icon {
+      background: rgba(129, 140, 248, 0.2);
+    }
+
+    .card-icon svg {
+      width: 1.75rem;
+      height: 1.75rem;
+      color: var(--primary-light);
+      stroke-width: 1.5;
+    }
+
+    /* card content */
+    .service-card h3 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.6rem;
+      color: var(--text-primary);
+    }
+
+    .service-card .description {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 1.25rem;
+      flex: 1;
+    }
+
+    /* pricing / package tag */
+    .service-pricing {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--primary-light);
+      background: rgba(129, 140, 248, 0.08);
+      padding: 0.35rem 1rem;
+      border-radius: 100px;
+      border: 1px solid var(--border-subtle);
+      width: fit-content;
+      margin-top: auto;
+      transition: var(--transition);
+    }
+
+    .service-card:hover .service-pricing {
+      background: rgba(129, 140, 248, 0.15);
+      border-color: rgba(129, 140, 248, 0.25);
+    }
+
+    .service-pricing svg {
+      width: 1rem;
+      height: 1rem;
+      stroke: currentColor;
+      stroke-width: 2;
+    }
+
+    /* ===== CTA BANNER ===== */
+    .cta-banner {
+      margin-top: 4rem;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      background: linear-gradient(135deg, rgba(129, 140, 248, 0.08), rgba(129, 140, 248, 0.02));
+      border: 1px solid var(--border-subtle);
+      border-radius: 2rem;
+      padding: 3rem 2rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .cta-banner h3 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    .cta-banner p {
+      color: var(--text-secondary);
+      max-width: 480px;
+      margin: 0 auto 2rem;
+      font-size: 1.05rem;
+    }
+
+    .cta-button-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--primary);
+      color: #0b0d1a;
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 0.85rem 2.2rem;
+      border-radius: 100px;
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+      font-family: var(--font-sans);
+    }
+
+    .btn-primary:hover,
+    .btn-primary:focus-visible {
+      background: var(--primary-light);
+      transform: scale(1.02);
+      box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.3);
+    }
+
+    .btn-primary:focus-visible {
+      outline: 2px solid var(--text-primary);
+      outline-offset: 2px;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: transparent;
+      color: var(--text-primary);
+      font-weight: 500;
+      font-size: 1rem;
+      padding: 0.85rem 2.2rem;
+      border-radius: 100px;
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+      font-family: var(--font-sans);
+    }
+
+    .btn-secondary:hover,
+    .btn-secondary:focus-visible {
+      background: rgba(129, 140, 248, 0.1);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.15);
+    }
+
+    .btn-secondary:focus-visible {
+      outline: 2px solid var(--text-primary);
+      outline-offset: 2px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 480px) {
+      .services-section {
+        padding: 3rem 1rem;
+      }
+      .service-card {
+        padding: 1.5rem 1.25rem;
+      }
+      .cta-banner {
+        padding: 2rem 1.25rem;
+      }
+      .cta-button-group {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+
+    /* ===== REDUCED MOTION ===== */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+      .service-card:hover {
+        transform: none;
+      }
+      .btn-primary:hover {
+        transform: none;
+      }
+    }
+
+    /* ===== ACCESSIBILITY ===== */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (prefers-contrast: high) {
+      .service-card {
+        border-color: var(--text-primary);
+      }
+      .service-pricing {
+        border-color: var(--text-primary);
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="services-section" aria-labelledby="services-heading">
+    <!-- 3D Canvas background (Three.js) -->
+    <div id="three-canvas-bg" aria-hidden="true"></div>
+
+    <!-- Section header -->
+    <div class="section-header">
+      <span class="overline">Our expertise</span>
+      <h2 id="services-heading">Comprehensive Eye Care for a Brighter Tomorrow</h2>
+      <p>Advanced diagnostics and surgery in Thessaloniki — from cataract to retina, we bring clarity to every vision.</p>
+    </div>
+
+    <!-- Services grid -->
+    <div class="services-grid" role="list">
+      <!-- 1. Cataract Surgery -->
+      <article class="service-card" role="listitem">
+        <div class="card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+        </div>
+        <h3>Cataract Surgery</h3>
+        <p class="description">Premium phacoemulsification with advanced intraocular lenses (multifocal, toric). Restore clear vision with micro-incision precision.</p>
+        <span class="service-pricing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          From €1,950 / eye
+        </span>
+      </article>
+
+      <!-- 2. LASIK / Femto-LASIK -->
+      <article class="service-card" role="listitem">
+        <div class="card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12h20M12 2v20M20 12l-4 4M20 12l-4-4M4 12l4 4M4 12l4-4"/>
+          </svg>
+        </div>
+        <h3>LASIK &amp; Femto-LASIK</h3>
+        <p class="description">Blade‑free femtosecond laser correction for myopia, hyperopia &amp; astigmatism. Rapid recovery, exceptional outcomes.</p>
+        <span class="service-pricing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          From €1,490 / eye
+        </span>
+      </article>
+
+      <!-- 3. Retina & Macula -->
+      <article class="service-card" role="listitem">
+        <div class="card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a10 10 0 1 0 10 10h-2a8 8 0 1 1-8-8V2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </div>
+        <h3>Retina &amp; Macula Care</h3>
+        <p class="description">Medical and surgical management of diabetic retinopathy, macular degeneration, and retinal detachment. OCT‑guided therapy.</p>
+        <span class="service-pricing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Consultation €120
+        </span>
+      </article>
+
+      <!-- 4. Glaucoma Management -->
+      <article class="service-card" role="listitem">
+        <div class="card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M2 12h20M6 6l12 12M18 6l-12 12"/>
+          </svg>
+        </div>
+        <h3>Glaucoma Management</h3>
+        <p class="description">Early detection with tonometry &amp; OCT, medical therapy, selective laser trabeculoplasty (SLT) and minimally invasive surgery.</p>
+        <span class="service-pricing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          From €80 / visit
+        </span>
+      </article>
+
+      <!-- 5. Pediatric Ophthalmology -->
+      <article class="service-card" role="listitem">
+        <div class="card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a4 4 0 0 0-4 4v2a4 4 0 0 0 8 0V6a4 4 0 0 0-4-4z"/>
+            <path d="M6 14v1a6 6 0 0 0 12 0v-1"/>
+          </svg>
+        </div>
+        <h3>Pediatric Ophthalmology</h3>
+        <p class="description">Specialist care for children: amblyopia, strabismus, tear duct issues, and early refractive management. Gentle, child‑friendly environment.</p>
+        <span class="service-pricing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          From €70
+        </span>
+      </article>
+
+      <!-- 6. Comprehensive Eye Exam -->
+      <article class="service-card" role="listitem">
+        <div class="card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </div>
+        <h3>Comprehensive Eye Exam</h3>
+        <p class="description">Full refractive assessment, retinal imaging, glaucoma screening, and personalized consultation. The foundation of lifelong vision health.</p>
+        <span class="service-pricing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          €95 (includes OCT)
+        </span>
+      </article>
+    </div>
+
+    <!-- CTA Banner -->
+    <div class="cta-banner">
+      <h3>Your vision, our precision</h3>
+      <p>Book a consultation at our Thessaloniki clinic. We serve patients from all over northern Greece.</p>
+      <div class="cta-button-group">
+        <a href="#" class="btn-primary" aria-label="Book an appointment">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Book appointment
+        </a>
+        <a href="#" class="btn-secondary" aria-label="Call our clinic">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          +30 2310 555 000
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Three.js immersive background -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // Only run if browser supports WebGL and user prefers motion
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!prefersReduced) {
+      const container = document.getElementById('three-canvas-bg');
+      if (!container) throw new Error('Canvas container missing');
+
+      const scene = new THREE.Scene();
+      scene.background = null; // transparent
+
+      const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+      camera.position.set(0, 0, 8);
+
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      // === Subtle eye/lens inspired geometry ===
+      const group = new THREE.Group();
+
+      // Outer torus (lens ring)
+      const torusGeo = new THREE.TorusGeometry(1.6, 0.06, 32, 64);
+      const torusMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#818cf8'),
+        emissive: new THREE.Color('#818cf8'),
+        emissiveIntensity: 0.15,
+        transparent: true,
+        opacity: 0.3,
+        wireframe: false,
+        roughness: 0.3,
+        metalness: 0.1,
+      });
+      const torus = new THREE.Mesh(torusGeo, torusMat);
+      torus.rotation.x = Math.PI / 3;
+      torus.rotation.z = 0.2;
+      group.add(torus);
+
+      // Inner ring
+      const innerRingGeo = new THREE.TorusGeometry(1.0, 0.04, 24, 48);
+      const innerRingMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#a5b4fc'),
+        emissive: new THREE.Color('#a5b4fc'),
+        emissiveIntensity: 0.1,
+        transparent: true,
+        opacity: 0.25,
+      });
+      const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
+      innerRing.rotation.x = Math.PI / 3;
+      innerRing.rotation.z = 0.2;
+      group.add(innerRing);
+
+      // Central sphere (lens nucleus)
+      const sphereGeo = new THREE.SphereGeometry(0.55, 32, 32);
+      const sphereMat = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color('#818cf8'),
+        emissive: new THREE.Color('#818cf8'),
+        emissiveIntensity: 0.05,
+        transparent: true,
+        opacity: 0.2,
+        roughness: 0.1,
+        metalness: 0.0,
+        clearcoat: 0.3,
+        clearcoatRoughness: 0.2,
+      });
+      const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+      sphere.position.z = 0.1;
+      group.add(sphere);
+
+      // Small floating particles (vitreous humor)
+      const particlesGeo = new THREE.BufferGeometry();
+      const count = 180;
+      const positions = new Float32Array(count * 3);
+      for (let i = 0; i < count * 3; i += 3) {
+        const r = 2.2 + Math.random() * 1.5;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        positions[i] = r * Math.sin(phi) * Math.cos(theta);
+        positions[i+1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i+2] = r * Math.cos(phi);
+      }
+      particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const particlesMat = new THREE.PointsMaterial({
+        color: new THREE.Color('#a5b4fc'),
+        size: 0.035,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+      });
+      const particles = new THREE.Points(particlesGeo, particlesMat);
+      group.add(particles);
+
+      scene.add(group);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
+      scene.add(ambientLight);
+      const dirLight = new THREE.DirectionalLight(0x818cf8, 1.2);
+      dirLight.position.set(2, 3, 4);
+      scene.add(dirLight);
+      const backLight = new THREE.DirectionalLight(0x6366f1, 0.6);
+      backLight.position.set(-2, -1, -3);
+      scene.add(backLight);
+
+      // Mouse interaction (gentle parallax)
+      let mouseX = 0, mouseY = 0;
+      document.addEventListener('mousemove', (e) => {
+        const x = (e.clientX / window.innerWidth) * 2 - 1;
+        const y = -(e.clientY / window.innerHeight) * 2 + 1;
+        mouseX = x * 0.3;
+        mouseY = y * 0.2;
+      });
+
+      // Resize
+      const resizeObserver = new ResizeObserver(() => {
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+      resizeObserver.observe(container);
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+        group.rotation.y += 0.0015;
+        group.rotation.x = Math.PI / 3 + Math.sin(Date.now() * 0.0003) * 0.04;
+        group.rotation.z += 0.0008;
+
+        // subtle mouse parallax
+        group.rotation.x += mouseY * 0.002;
+        group.rotation.y += mouseX * 0.002;
+
+        renderer.render(scene, camera);
+      }
+      animate();
+    } else {
+      // Reduced motion: show static fallback (empty)
+      const container = document.getElementById('three-canvas-bg');
+      if (container) {
+        container.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>

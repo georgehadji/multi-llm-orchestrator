@@ -8,7 +8,7 @@ Async: Yes — for I/O-bound operations
 Layer: L3 Agents
 
 Usage:
-    from orchestrator.sandbox import Sandbox
+    from orchestrator.safety.sandbox import Sandbox
     sandbox = Sandbox()
     result = await sandbox.execute_code("python", "print('Hello, world!')")
 """
@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("orchestrator.sandbox")
+logger = logging.getLogger("orchestrator.safety.sandbox")
 
 
 @dataclass

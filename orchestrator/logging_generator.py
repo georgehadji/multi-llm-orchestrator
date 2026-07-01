@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Strategy, Builder, Factory Method, Template Method
 
 Usage:
-    from orchestrator.logging_generator import LoggingConfigBuilder
+    from orchestrator.generators.logging_generator import LoggingConfigBuilder
 
     config = (LoggingConfigBuilder()
         .for_node()

@@ -111,7 +111,7 @@ class QueryCache:
         key = f"{query.lower().strip()}:{sources_str}"
 
         # Return MD5 hash
-        return hashlib.md5(key.encode("utf-8")).hexdigest()
+        return hashlib.md5(key.encode("utf-8"), usedforsecurity=False).hexdigest()
 
     async def get(
         self,

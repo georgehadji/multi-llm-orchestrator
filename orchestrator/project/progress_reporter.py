@@ -1,7 +1,5 @@
 """ProgressReporter — Formatted progress tables."""
 
-from .sprint_planner import Sprint
-
 
 class ProgressReporter:
     def report(self, sprint):

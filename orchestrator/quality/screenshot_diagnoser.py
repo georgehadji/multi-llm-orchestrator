@@ -11,7 +11,6 @@ requires V3 (Browser-Use Agent) infrastructure.
 
 from __future__ import annotations
 
-import base64
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -134,8 +133,6 @@ class ScreenshotDiagnoser:
         else:
             img_description = ""
             prompt_text = description or "No screenshot description provided"
-
-        import json
 
         prompt = _DIAGNOSE_PROMPT.format(
             context=context or "No additional context",

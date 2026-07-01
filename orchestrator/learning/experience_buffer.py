@@ -12,13 +12,9 @@ from __future__ import annotations
 import os
 
 import hashlib
-import json
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Any
-
-from ..models import Model
+from dataclasses import dataclass
 
 logger = logging.getLogger("orchestrator.learning.experience_buffer")
 
@@ -115,7 +111,9 @@ class ExperienceBuffer:
         return best_model
 
     def _hash_pattern(self, task_type: str, method: str, model: str) -> str:
-        return hashlib.md5(f"{task_type}:{method}:{model}".encode()).hexdigest()[:12]
+        return hashlib.md5(
+            f"{task_type}:{method}:{model}".encode(), usedforsecurity=False
+        ).hexdigest()[:12]
 
     def save(self, path: str | None = None) -> None:
         import json

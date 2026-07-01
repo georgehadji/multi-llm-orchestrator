@@ -13,6 +13,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # FIXED: from .budget import Budget
 from ..budget import Budget
@@ -26,7 +27,7 @@ def _get_registry():
     global get_registry
     if get_registry is None:
         try:
-            from ..component_registry import get_registry as _gr
+            from ..design.component_registry import get_registry as _gr
 
             get_registry = _gr
         except ImportError:
@@ -161,6 +162,9 @@ class WebsiteConfig:
     image_quality: str = "balanced"  # "draft", "balanced", "premium"
     # ── Phase 3: URL source extraction ──
     source_url: str = ""  # Live URL to extract design tokens, fonts, and content from
+    # ── Hero video background ──
+    hero_video: bool = False  # Generate an MP4 hero background (image used as poster)
+    hero_video_model: str = ""  # OpenRouter video model ID; empty = per-tier auto-select
 
 
 @dataclass
@@ -208,6 +212,7 @@ class WebsiteBuildResult:
     sanitization_fixes: int = 0  # number of sections fixed by _sanitize_output
     total_cost: float = 0.0
     total_time_seconds: float = 0.0
+    format_report: dict | None = None  # black/ruff/prettier formatting outcome
 
 
 class ContentResearcher:
@@ -542,17 +547,44 @@ class WebsiteExtractor:
 })();
 """
 
+    @staticmethod
+    def _validate_source_url(url: str) -> None:
+        """Reject URLs that could reach internal/cloud-metadata networks (SSRF prevention)."""
+        import ipaddress
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if parsed.scheme not in ("https",):
+            raise ValueError(f"source_url must use https:// (got {parsed.scheme!r})")
+        host = parsed.hostname or ""
+        if not host:
+            raise ValueError("source_url missing host")
+        # Block bare IP addresses that fall in private/link-local/loopback ranges
+        try:
+            addr = ipaddress.ip_address(host)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise ValueError(f"source_url host {host!r} resolves to a disallowed IP range")
+        except ValueError as exc:
+            if "disallowed IP range" in str(exc):
+                raise
+            # Not an IP address — hostname, allow through
+        # Block well-known cloud metadata hostnames
+        _BLOCKED = {"169.254.169.254", "metadata.google.internal", "metadata.internal"}
+        if host.lower() in _BLOCKED:
+            raise ValueError(f"source_url host {host!r} is blocked")
+
     async def extract(self, url: str, output_dir: Path | None = None) -> ExtractedSiteData:
         """
         Navigate to a URL and extract design tokens, topology, and assets.
 
         Args:
-            url: The target website URL to extract from.
+            url: The target website URL to extract from (must be https://).
             output_dir: Optional directory to save screenshots and raw data.
 
         Returns:
             ExtractedSiteData with all discovered design tokens, sections, and assets.
         """
+        self._validate_source_url(url)
         logger.info("WebsiteExtractor: extracting from %s", url)
 
         from ..browser_testing import BrowserTester
@@ -679,8 +711,25 @@ class WebsiteGenerator:
         )
     """
 
-    def __init__(self, orchestrator_engine=None):
+    def __init__(self, executor=None, orchestrator_engine=None):
+        # The raw orchestrator engine is needed for the LLM-powered path:
+        # content-brief generation (engine._execute_task), the concurrency gate
+        # (engine.max_concurrency), and build-time syntax auto-fix. Keep it as a
+        # first-class attribute so generate() can branch on its presence.
         self._engine = orchestrator_engine
+
+        # _run_section() drives task execution via self._executor.execute(task).
+        # Accept either a ready TaskExecutorPort (e.g. TaskExecutorAdapter) or a
+        # bare engine, adapting the latter so .execute() is always available.
+        if executor is not None:
+            self._executor = executor
+        elif orchestrator_engine is not None:
+            from ..domain.ports import TaskExecutorAdapter
+
+            self._executor = TaskExecutorAdapter(orchestrator_engine._execute_task)
+        else:
+            self._executor = None
+
         self._registry = _get_registry()()
         self._researcher = ContentResearcher()
 
@@ -791,6 +840,139 @@ class WebsiteGenerator:
             logger.warning("WebsiteGenerator._sanitize [%s]: %s", section_name, "; ".join(warnings))
 
         return cleaned, warnings
+
+    # Tags that never have a closing tag — excluded from nesting checks.
+    _VOID_TAGS = frozenset(
+        {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        }
+    )
+    # Structural containers whose premature close indicates a real layout bug.
+    # Restricting mis-nesting reports to these avoids false positives from the
+    # HTML spec's optional-end-tag elements (<p>, <li>, <td>, ...).
+    _STRUCTURAL_TAGS = frozenset(
+        {
+            "details",
+            "summary",
+            "section",
+            "article",
+            "form",
+            "nav",
+            "header",
+            "footer",
+            "main",
+            "ul",
+            "ol",
+            "table",
+            "select",
+            "button",
+            "figure",
+            "aside",
+        }
+    )
+
+    @staticmethod
+    def _validate_html_structure(html: str) -> list[str]:
+        """Static structural validation of an assembled HTML document.
+
+        Catches the bug classes that ship broken sites despite passing a
+        Python-only syntax check:
+
+        - **Duplicate ``id`` attributes** — invalid HTML; breaks
+          ``getElementById`` and fragment navigation.
+        - **Dead internal anchors** — ``href="#x"`` with no element ``id="x"``.
+        - **Mis-nested / stray closing tags** — e.g. a ``</div>`` that
+          prematurely closes a still-open structural element (the real FAQ
+          accordion bug).
+
+        Returns a list of human-readable issue strings (empty == clean).
+        Never raises: a malformed parse degrades to "no issues" so validation
+        can't itself break a build.
+        """
+        from html.parser import HTMLParser
+
+        void = WebsiteGenerator._VOID_TAGS
+        structural = WebsiteGenerator._STRUCTURAL_TAGS
+
+        issues: list[str] = []
+        id_counts: dict[str, int] = {}
+        seen_ids: set[str] = set()
+        anchor_refs: list[tuple[str, int]] = []
+
+        class _Validator(HTMLParser):
+            def __init__(self) -> None:
+                super().__init__(convert_charrefs=True)
+                self.stack: list[tuple[str, int]] = []
+
+            def _record_attrs(self, attrs: list[tuple[str, str | None]]) -> None:
+                d = dict(attrs)
+                el_id = d.get("id")
+                if el_id:
+                    id_counts[el_id] = id_counts.get(el_id, 0) + 1
+                    seen_ids.add(el_id)
+                href = d.get("href") or ""
+                if href.startswith("#") and len(href) > 1:
+                    anchor_refs.append((href[1:], self.getpos()[0]))
+
+            def handle_starttag(self, tag: str, attrs: list) -> None:
+                self._record_attrs(attrs)
+                if tag not in void:
+                    self.stack.append((tag, self.getpos()[0]))
+
+            def handle_startendtag(self, tag: str, attrs: list) -> None:
+                # Explicitly self-closed (<x ... />) — record attrs, no stacking.
+                self._record_attrs(attrs)
+
+            def handle_endtag(self, tag: str) -> None:
+                if tag in void:
+                    return
+                for i in range(len(self.stack) - 1, -1, -1):
+                    if self.stack[i][0] == tag:
+                        # Any tag left open *above* the match is being closed
+                        # implicitly by this end tag. Flag only when a structural
+                        # element is the victim — that's a genuine layout break.
+                        for victim_tag, victim_line in self.stack[i + 1 :]:
+                            if victim_tag in structural:
+                                issues.append(
+                                    f"line ~{self.getpos()[0]}: </{tag}> "
+                                    f"prematurely closes <{victim_tag}> "
+                                    f"(opened line {victim_line}) - mis-nested tags"
+                                )
+                        del self.stack[i:]
+                        return
+                # No matching open tag at all.
+                if tag in structural:
+                    issues.append(
+                        f"line ~{self.getpos()[0]}: stray </{tag}> " "with no matching open tag"
+                    )
+
+        try:
+            _Validator().feed(html)
+        except Exception:  # noqa: BLE001 - validation must never break a build
+            return issues
+
+        for el_id, count in id_counts.items():
+            if count > 1:
+                issues.append(f"duplicate id '{el_id}' used {count} times")
+
+        for ref, line in anchor_refs:
+            if ref not in seen_ids:
+                issues.append(f"line ~{line}: dead anchor href='#{ref}' (no element id='{ref}')")
+
+        return issues
 
     async def generate(
         self,
@@ -927,7 +1109,7 @@ class WebsiteGenerator:
                         section_name = config.sections[i]
                         for attempt in range(2):
                             try:
-                                component_result = await self._engine._execute_task(task)
+                                component_result = await self._executor.execute(task)
                                 if not component_result or not component_result.output:
                                     logger.warning(f"  ✗ {section_name}: empty LLM output")
                                     return i, False
@@ -1038,6 +1220,23 @@ class WebsiteGenerator:
                     "WebsiteQualityValidator not available — skipping quality validation"
                 )
                 quality_report = None
+
+            # Step 6.7: Format generated assets (prettier for web, black/ruff
+            # for any Python). Best-effort — never blocks delivery.
+            try:
+                from ..output.formatter import format_output_dir
+
+                fmt = await asyncio.to_thread(format_output_dir, output_dir)
+                result.format_report = fmt.to_dict()
+                if fmt.tools_used:
+                    logger.info(
+                        "WebsiteGenerator: formatted %d web / %d py file(s) with %s",
+                        fmt.web_files,
+                        fmt.python_files,
+                        ", ".join(fmt.tools_used),
+                    )
+            except Exception as fmt_err:
+                logger.warning(f"Website formatting step failed: {fmt_err}")
 
             result.success = True
             result.total_time_seconds = time.time() - start_time
@@ -1501,7 +1700,14 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
             if "hero" in section.lower():
                 component_path.write_text(
-                    self._build_hero_component(name, headline, tagline, ctas, design_system),
+                    self._build_hero_component(
+                        name,
+                        headline,
+                        tagline,
+                        ctas,
+                        design_system,
+                        hero_video=getattr(config, "hero_video", False),
+                    ),
                     encoding="utf-8",
                 )
             elif "feature" in section.lower():
@@ -1526,7 +1732,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 )
             elif "cta" in section.lower() or "call" in section.lower():
                 component_path.write_text(
-                    self._build_cta_component(name, headline, ctas, design_system), encoding="utf-8"
+                    self._build_cta_component(name, headline, ctas, design_system, brand_ref),
+                    encoding="utf-8",
                 )
             elif "contact" in section.lower():
                 component_path.write_text(
@@ -1534,7 +1741,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 )
             elif "footer" in section.lower():
                 component_path.write_text(
-                    self._build_footer_component(name, design_system), encoding="utf-8"
+                    self._build_footer_component(name, design_system, brand_ref),
+                    encoding="utf-8",
                 )
             elif any(kw in section.lower() for kw in ("auth", "login", "register", "signup")):
                 component_path.write_text(
@@ -1655,6 +1863,66 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         model_list = self._IMAGE_MODEL_MAP.get(image_type, self._IMAGE_MODEL_MAP["section"])
         return model_list[0]
 
+    # Hero-background video model per quality tier (cheapest→best). All are
+    # text+image->video models on OpenRouter, billed per second of output.
+    _HERO_VIDEO_TIERS: dict[str, str] = {
+        "draft": "bytedance/seedance-1-5-pro",  # ~$0.023/sec — cheapest
+        "balanced": "google/veo-3.1-fast",  # ~$0.10/sec — fast, good quality
+        "premium": "google/veo-3.1",  # ~$0.40/sec — top quality + native audio
+    }
+    _HERO_VIDEO_TIMEOUT_S: float = 240.0
+
+    def _select_hero_video_model(self) -> str:
+        """Pick the hero-background video model from the configured quality tier."""
+        quality = getattr(self, "_quality_tier", "balanced")
+        return self._HERO_VIDEO_TIERS.get(quality, self._HERO_VIDEO_TIERS["balanced"])
+
+    async def _generate_hero_video(self, output_dir, config, design_system) -> bool:
+        """Generate an MP4 hero background into ``public/videos/hero.mp4``.
+
+        The hero-bg image is still generated separately and used as the
+        ``<video poster>`` so the section renders instantly and degrades
+        gracefully when the video is absent or blocked.
+        """
+        model = getattr(config, "hero_video_model", "") or self._select_hero_video_model()
+        ds = design_system
+        colors = getattr(ds, "colors", ds)
+        primary = getattr(colors, "primary", "#4f9eff")
+        accent = getattr(colors, "accent", "#7c3aed")
+        site_name = getattr(config, "brand_name", "") or "the brand"
+        page_type = getattr(config, "page_type", "landing")
+        desc_short = (getattr(config, "description", "") or "")[:100]
+        desc_hint = f" — {desc_short}" if desc_short else ""
+        prompt = (
+            f"Seamless looping hero background video for a premium {page_type} "
+            f"website for {site_name}{desc_hint}. Slow, subtle abstract motion in "
+            f"{accent} and {primary} tones, cinematic depth, soft light, gentle "
+            "parallax. No text, no logos, no people, loopable."
+        )
+        vid_dir = output_dir / "public" / "videos"
+        try:
+            from ..infrastructure.video_client import VideoGenClient
+
+            client = VideoGenClient(cache=self._get_cache())
+            result = await asyncio.wait_for(
+                client.generate(
+                    prompt=prompt,
+                    model=model,
+                    output_path=vid_dir / "hero.mp4",
+                    duration_seconds=6,
+                ),
+                timeout=self._HERO_VIDEO_TIMEOUT_S,
+            )
+            if result.success:
+                logger.info("WebsiteGenerator: hero video generated via %s", model)
+                return True
+            logger.warning("Hero video generation failed (%s): %s", model, result.error)
+        except asyncio.TimeoutError:
+            logger.warning("Hero video generation timed out (model=%s)", model)
+        except Exception as e:  # noqa: BLE001 - never block the build on video
+            logger.warning("Hero video generation error: %s", e)
+        return False
+
     async def _generate_images(self, output_dir, config, design_system) -> None:
         """
         Generate all website images with per-type VFM model selection.
@@ -1691,6 +1959,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             client = ImageGenClient(cache=self._get_cache())
             success = await self._generate_images_llm(output_dir, config, design_system, client)
             if success:
+                if getattr(config, "hero_video", False):
+                    await self._generate_hero_video(output_dir, config, design_system)
                 return
         except Exception as e:
             logger.warning("LLM image generation failed, falling back to SVG: %s", e)
@@ -1967,6 +2237,94 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "body_inner": body_inner.strip(),
         }
 
+    @staticmethod
+    def _namespace_colliding_ids(components: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        """Prefix ids that collide *across* section components with their section.
+
+        Each section is generated as a standalone document whose ids (e.g.
+        ``three-canvas``) are unique within itself but collide once merged into
+        one page. ``getElementById`` then returns only the first match, silently
+        breaking every later section's canvas/3D init. This rewrites only the
+        colliding ids, per-section, across every reference form within that same
+        component (``id=``, CSS/anchor ``#id``, ``getElementById('id')``) so
+        intra-component wiring stays correct.
+
+        Args:
+            components: list of ``(section_stem, html)`` pairs.
+
+        Returns:
+            New list of ``(section_stem, html)`` with collisions namespaced.
+            Returned unchanged (same objects) when there are no collisions.
+        """
+        import re
+
+        id_pat = re.compile(r'id=["\']([A-Za-z][\w-]*)["\']')
+
+        # Which components contain each id?
+        ids_per: list[set[str]] = []
+        presence: dict[str, set[int]] = {}
+        for i, (_stem, html) in enumerate(components):
+            ids = set(id_pat.findall(html))
+            ids_per.append(ids)
+            for el_id in ids:
+                presence.setdefault(el_id, set()).add(i)
+
+        colliding = {el_id for el_id, idxs in presence.items() if len(idxs) > 1}
+        if not colliding:
+            return components
+
+        out: list[tuple[str, str]] = []
+        for i, (stem, html) in enumerate(components):
+            local = ids_per[i] & colliding
+            new_html = html
+            # Longest ids first so a shorter id never rewrites a longer one that
+            # shares its prefix (e.g. three-canvas vs three-canvas-bg).
+            for el_id in sorted(local, key=len, reverse=True):
+                new_id = f"{stem}-{el_id}"
+                esc = re.escape(el_id)
+                # id="x" / id='x' (quote-bounded → exact match)
+                new_html = re.sub(rf'(id=["\']){esc}(["\'])', rf"\g<1>{new_id}\g<2>", new_html)
+                # #x in CSS / href / querySelector — not followed by word char or hyphen
+                new_html = re.sub(rf"#{esc}(?![\w-])", f"#{new_id}", new_html)
+                # getElementById('x') / ("x")
+                new_html = re.sub(
+                    rf'(getElementById\(\s*["\']){esc}(["\']\s*\))',
+                    rf"\g<1>{new_id}\g<2>",
+                    new_html,
+                )
+            out.append((stem, new_html))
+        return out
+
+    @staticmethod
+    def _inject_section_id(body_inner: str, stem: str) -> str:
+        """Ensure the section's wrapper element carries ``id="<stem>"``.
+
+        Components name themselves via a class (``services-section``) but often
+        lack an ``id``, so cross-section CTAs like ``href="#services"`` are dead.
+        Inject ``id="<stem>"`` onto the first ``<section>`` (or, failing that, the
+        first block-level wrapper) when it has no ``id`` yet. Idempotent: an
+        element that already has any ``id`` is left untouched.
+
+        Args:
+            body_inner: The inner HTML of a section component's ``<body>``.
+            stem: The section name (used as the id).
+
+        Returns:
+            ``body_inner`` with the wrapper id injected when applicable.
+        """
+        import re
+
+        for tag in ("section", "header", "footer", "main", "article", "nav", "div"):
+            m = re.search(rf"<{tag}\b([^>]*)>", body_inner, flags=re.IGNORECASE)
+            if not m:
+                continue
+            attrs = m.group(1)
+            if re.search(r"\bid\s*=", attrs):
+                return body_inner  # already identified — respect it
+            injected = f'<{tag}{attrs} id="{stem}">'
+            return body_inner[: m.start()] + injected + body_inner[m.end() :]
+        return body_inner
+
     def _assemble_page(
         self,
         output_dir: Path,
@@ -2074,6 +2432,32 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         json_ld_type, json_ld_category = _page_type_schema(page_type, site_name)
         page_title = f"{site_name} — {page_type.title()}"
 
+        # Only SoftwareApplication carries applicationCategory / operatingSystem /
+        # offers — emitting them on Organization/WebSite/etc. is invalid schema.
+        json_ld_lines = [
+            '  <script type="application/ld+json">',
+            "  {",
+            '    "@context": "https://schema.org",',
+            f'    "@type": "{json_ld_type}",',
+            f'    "name": "{site_name}",',
+        ]
+        if json_ld_type == "SoftwareApplication":
+            json_ld_lines += [
+                f'    "applicationCategory": "{json_ld_category or "BusinessApplication"}",',
+                '    "operatingSystem": "Web",',
+                '    "offers": {',
+                '      "@type": "Offer",',
+                '      "price": "0",',
+                '      "priceCurrency": "USD"',
+                "    },",
+            ]
+        json_ld_lines += [
+            f'    "description": "{page_desc}",',
+            f'    "url": "{site_url}"',
+            "  }",
+            "  </script>",
+        ]
+
         page_lines = [
             "<!DOCTYPE html>",
             '<html lang="en">',
@@ -2082,7 +2466,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             '  <meta http-equiv="X-UA-Compatible" content="IE=edge">',
             '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
             # ── Security headers ──
-            "  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';\">",
+            "  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';\">",
             '  <meta http-equiv="X-Content-Type-Options" content="nosniff">',
             '  <meta http-equiv="X-Frame-Options" content="DENY">',
             '  <meta http-equiv="X-XSS-Protection" content="1; mode=block">',
@@ -2114,22 +2498,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             '  <link rel="stylesheet" href="styles.css">',
             '  <script src="script.js" defer></script>',
             # ── JSON-LD Structured Data (page_type-aware) ──
-            '  <script type="application/ld+json">',
-            "  {",
-            '    "@context": "https://schema.org",',
-            f'    "@type": "{json_ld_type}",',
-            f'    "name": "{site_name}",',
-            '    "applicationCategory": "BusinessApplication",',
-            '    "operatingSystem": "Web",',
-            '    "offers": {',
-            '      "@type": "Offer",',
-            '      "price": "0",',
-            '      "priceCurrency": "USD"',
-            "    },",
-            f'    "description": "{page_desc}",',
-            f'    "url": "{site_url}"',
-            "  }",
-            "  </script>",
+            *json_ld_lines,
         ]
 
         # ── Collect component parts (single valid document, not nested docs) ──
@@ -2153,10 +2522,17 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                     ordered.append(extra)
                     seen.add(extra)
 
-            for section_file in ordered:
-                parts = self._extract_html_component_parts(section_file.read_text(encoding="utf-8"))
-                body_parts.append(f"  <!-- {section_file.stem} -->")
-                for line in parts["body_inner"].splitlines():
+            # Read all component texts, then namespace ids that collide across
+            # sections (e.g. every section's id="three-canvas") so each section's
+            # getElementById/canvas init targets its own element.
+            raw_components = [(sf.stem, sf.read_text(encoding="utf-8")) for sf in ordered]
+            namespaced = self._namespace_colliding_ids(raw_components)
+
+            for stem, html in namespaced:
+                parts = self._extract_html_component_parts(html)
+                body_inner = self._inject_section_id(parts["body_inner"], stem)
+                body_parts.append(f"  <!-- {stem} -->")
+                for line in body_inner.splitlines():
                     if line.strip():
                         body_parts.append(f"  {line}")
                 body_parts.append("")
@@ -2220,8 +2596,29 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
 
         # Write assembled files
         index_path = output_dir / "index.html"
-        index_path.write_text("\n".join(page_lines), encoding="utf-8")
+        index_html = "\n".join(page_lines)
+        index_path.write_text(index_html, encoding="utf-8")
         js_path.write_text("\n".join(js_lines) + "\n", encoding="utf-8")
+
+        # ── Post-assembly structural validation ──
+        # The Python AST validator only covers code_generation tasks; assembled
+        # HTML never reached it. Catch the bug classes that ship broken sites:
+        # duplicate ids, dead anchors, mis-nested structural tags.
+        issues = self._validate_html_structure(index_html)
+        if issues:
+            logger.warning(
+                "HTML structure validation found %d issue(s) in index.html:", len(issues)
+            )
+            for issue in issues:
+                logger.warning("  - %s", issue)
+            report = (
+                f"# HTML Structure Validation - {len(issues)} issue(s)\n\n"
+                + "\n".join(f"- {i}" for i in issues)
+                + "\n"
+            )
+            (output_dir / "VALIDATION_REPORT.md").write_text(report, encoding="utf-8")
+        else:
+            logger.info("HTML structure validation: clean (no issues)")
 
     async def _verify_and_fix_build(
         self,
@@ -2409,7 +2806,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
                 acceptance_threshold=0.7,
                 max_iterations=1,
             )
-            component_result = await self._engine._execute_task(task)
+            component_result = await self._executor.execute(task)
             if component_result and component_result.output:
                 cleaned, _ = self._sanitize_output(component_result.output, component_name)
                 if len(cleaned) > 200:
@@ -2457,7 +2854,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },\n"
             "          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },\n"
             "          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },\n"
-            "          { key: 'Content-Security-Policy', value: \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\" },\n"
+            "          { key: 'Content-Security-Policy', value: \"default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\" },\n"
             "        ],\n"
             "      },\n"
             "    ];\n"
@@ -2804,7 +3201,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             "  Referrer-Policy: strict-origin-when-cross-origin\n"
             "  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\n"
             "  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()\n"
-            "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\n"
+            "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'\n"
             f"  Access-Control-Allow-Origin: {site_url}\n",
             encoding="utf-8",
         )
@@ -2845,14 +3242,35 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         """Assemble React page."""
         self._assemble_nextjs_page(output_dir, sections, design_system, config)
 
-    def _build_hero_component(self, name, headline, tagline, ctas, ds):
+    def _build_hero_component(self, name, headline, tagline, ctas, ds, hero_video: bool = False):
         cta1 = ctas[0] if ctas else "Get Started"
         cta2 = ctas[1] if len(ctas) > 1 else "Learn More"
+        # Optional autoplaying, muted, looping MP4 background with an image
+        # poster so the section renders instantly and degrades gracefully when
+        # the video is missing or blocked (e.g. data-saver / reduced motion).
+        video_bg = (
+            (
+                f"      <video\n"
+                f'        className="absolute inset-0 w-full h-full object-cover pointer-events-none"\n'
+                f"        autoPlay\n"
+                f"        muted\n"
+                f"        loop\n"
+                f"        playsInline\n"
+                f'        poster="/images/hero-bg.webp"\n'
+                f'        aria-hidden="true"\n'
+                f"      >\n"
+                f'        <source src="/videos/hero.mp4" type="video/mp4" />\n'
+                f"      </video>\n"
+            )
+            if hero_video
+            else ""
+        )
         return (
             f'"use client";\n\n'
             f"export default function {name}() {{\n"
             f"  return (\n"
-            f'    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center">\n'
+            f'    <section className="relative flex flex-col items-center justify-center min-h-[90vh] px-6 text-center overflow-hidden">\n'
+            f"{video_bg}"
             f'      <div className="absolute inset-0 bg-gradient-to-b from-indigo-900/20 to-transparent pointer-events-none" />\n'
             f'      <h1 className="relative text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">\n'
             f"        {headline}\n"
@@ -3019,7 +3437,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f"}}\n"
         )
 
-    def _build_cta_component(self, name, headline, ctas, ds):
+    def _build_cta_component(self, name, headline, ctas, ds, brand="Site"):
         cta_text = ctas[0] if ctas else "Get Started Free"
         return (
             f"export default function {name}() {{\n"
@@ -3027,7 +3445,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'    <section className="py-24 px-6 text-center">\n'
             f'      <div className="max-w-3xl mx-auto bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-3xl p-16">\n'
             f'        <h2 className="text-3xl md:text-5xl font-bold mb-6">{headline}</h2>\n'
-            f'        <p className="text-gray-300 text-lg mb-10 max-w-xl mx-auto">Join thousands of teams already using {safe_brand}. Start free, upgrade when you\'re ready.</p>\n'
+            f'        <p className="text-gray-300 text-lg mb-10 max-w-xl mx-auto">Join thousands of teams already using {brand}. Start free, upgrade when you\'re ready.</p>\n'
             f'        <a href="#" className="bg-indigo-500 hover:bg-indigo-600 px-10 py-4 rounded-xl font-semibold text-white text-lg transition-all shadow-lg shadow-indigo-500/25">{cta_text}</a>\n'
             f"      </div>\n"
             f"    </section>\n"
@@ -3035,14 +3453,14 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f"}}\n"
         )
 
-    def _build_footer_component(self, name, ds):
+    def _build_footer_component(self, name, ds, brand="Site"):
         return (
             f"export default function {name}() {{\n"
             f"  return (\n"
             f'    <footer className="border-t border-gray-800 py-16 px-6">\n'
             f'      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">\n'
             f"        <div>\n"
-            f'          <h4 className="font-bold text-lg mb-4">{safe_brand}</h4>\n'
+            f'          <h4 className="font-bold text-lg mb-4">{brand}</h4>\n'
             f'          <p className="text-gray-500 text-sm">Intelligent SaaS platform for modern teams.</p>\n'
             f"        </div>\n"
             f'        <div><h4 className="font-semibold mb-3">Product</h4><ul className="space-y-2 text-gray-400 text-sm"><li><a href="#features">Features</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#">Integrations</a></li><li><a href="#">Changelog</a></li></ul></div>\n'
@@ -3050,7 +3468,7 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             f'        <div><h4 className="font-semibold mb-3">Legal</h4><ul className="space-y-2 text-gray-400 text-sm"><li><a href="#">Privacy</a></li><li><a href="#">Terms</a></li><li><a href="/security">Security</a></li></ul></div>\n'
             f"      </div>\n"
             f'      <div className="max-w-6xl mx-auto mt-12 pt-8 border-t border-gray-800 text-center text-gray-600 text-sm">\n'
-            f"        &copy; 2026 {safe_brand}. All rights reserved.\n"
+            f"        &copy; 2026 {brand}. All rights reserved.\n"
             f"      </div>\n"
             f"    </footer>\n"
             f"  );\n"

@@ -139,7 +139,20 @@ class TelemetryPort(Protocol):
         latency_ms: float,
         cost_usd: float,
         success: bool = True,
+        quality_score: float | None = None,
     ) -> None: ...
+
+
+@runtime_checkable
+class TracingPort(Protocol):
+    """Distributed tracing. Satisfied by Tracer.
+
+    Only the methods used by application-layer services are declared here.
+    """
+
+    def trace(self, name: str, attributes: dict[str, Any] | None = None) -> Any:
+        """Context manager for trace spans."""
+        ...
 
 
 @runtime_checkable
@@ -162,6 +175,39 @@ class ValidatorPort(Protocol):
     """Task output validation. Satisfied by TaskValidator."""
 
     async def validate(self, task: Any, output: str) -> bool: ...
+
+
+@runtime_checkable
+class TaskExecutorPort(Protocol):
+    """Task execution dispatcher. Satisfied by PipelineRunner / TaskPipeline.
+
+    Decouples task executors (WebsiteGenerator, etc.) from the concrete
+    engine._execute_task() private method.
+    """
+
+    async def execute(self, task: Any) -> Any:
+        """Execute a single task and return a TaskResult-like object."""
+        ...
+
+
+class TaskExecutorAdapter:
+    """Wraps any async callable to satisfy ``TaskExecutorPort``.
+
+    Useful for injecting a pre-existing function as a ``TaskExecutorPort``
+    without creating a closure or a partial.
+
+    Usage::
+
+        adapter = TaskExecutorAdapter(engine._execute_task)
+        await adapter.execute(task)
+
+    """
+
+    def __init__(self, execute_fn: Any) -> None:
+        self._execute_fn = execute_fn
+
+    async def execute(self, task: Any) -> Any:
+        return await self._execute_fn(task)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -321,7 +367,7 @@ class NullEventBus:
 
 
 class NullConfig:
-    """No-op config. Returns empty defaults for all methods."""
+    """No-op config. Returns empty defaults."""
 
     def get_costs(self) -> dict[str, dict[str, float]]:
         return {}
@@ -340,69 +386,78 @@ class NullConfig:
 
 
 class NullLLMClient:
-    """No-op LLM client. call() returns an empty response."""
+    """No-op LLM client. call() returns empty response."""
 
-    async def call(  # type: ignore[no-untyped-def]
-        self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs
-    ):
+    async def call(
+        self,
+        model: Any,
+        prompt: Any,
+        system: str = "",
+        max_tokens: int = 1500,
+        temperature: float = 0.3,
+        timeout: int = 120,
+        **kwargs: Any,
+    ) -> Any:
         from types import SimpleNamespace
 
         return SimpleNamespace(text="", cost_usd=0.0, input_tokens=0, output_tokens=0)
 
 
 class NullPlanner:
-    """No-op planner. Returns None for all selections."""
+    """No-op planner. Returns None."""
 
-    def available_models(self, task_type) -> list:
+    def available_models(self, task_type: Any) -> list[Any]:
         return []
 
-    def select(self, task_type):
+    def select(self, task_type: Any) -> Any:
         return None
 
 
 class NullTelemetry:
     """No-op telemetry. record_call() is a silent no-op."""
 
-    def record_call(self, model, latency_ms=0.0, cost_usd=0.0, success=True) -> None:
+    def record_call(
+        self, model: Any, latency_ms: float = 0.0, cost_usd: float = 0.0, success: bool = True
+    ) -> None:
         pass
 
 
 class NullPolicyEngine:
     """No-op policy engine. evaluate() returns None."""
 
-    def evaluate(self, job_spec, profile):
+    def evaluate(self, job_spec: Any, profile: Any) -> Any:
         return None
 
 
 class NullValidator:
     """No-op validator. validate() always returns True."""
 
-    async def validate(self, task, output: str) -> bool:
+    async def validate(self, task: Any, output: str) -> bool:
         return True
 
 
 class NullTaskQueue:
-    """No-op task queue. enqueue() returns empty string, other methods return defaults."""
+    """No-op task queue. enqueue() returns '', other methods return defaults."""
 
-    async def enqueue(self, project_spec, priority: int = 0) -> str:
+    async def enqueue(self, project_spec: Any, priority: int = 0) -> str:
         return ""
 
-    async def claim_next(self, assignee: str):
+    async def claim_next(self, assignee: str) -> Any:
         return None
 
-    async def complete(self, task_id: str, result=None) -> bool:
+    async def complete(self, task_id: str, result: Any = None) -> bool:
         return True
 
     async def record_failure(self, task_id: str, error: str = "") -> bool:
         return True
 
-    async def list_tasks(self, status=None, limit: int = 50) -> list:
+    async def list_tasks(self, status: Any = None, limit: int = 50) -> list[Any]:
         return []
 
-    async def get_stats(self) -> dict:
+    async def get_stats(self) -> dict[str, int]:
         return {"queued": 0, "running": 0, "completed": 0, "failed": 0}
 
-    async def update_status(self, task_id: str, status: str, result=None) -> bool:
+    async def update_status(self, task_id: str, status: str, result: Any = None) -> bool:
         return True
 
 
@@ -594,6 +649,37 @@ class SnapshotPort(Protocol):
         ...
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# VSSamplerPort — Verbalized Sampling (CodeWhale Phase 6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class VSSamplerPort(Protocol):
+    """Verbalized sampling interface for pipeline stages.
+
+    Satisfied by: orchestrator.application.verbalized_sampling.VerbalizedSampler
+
+    Decouples ``engine_core.stages.{generate,critique}`` from the concrete
+    application implementation, respecting the engine_core↔application
+    boundary.
+    """
+
+    async def sample(
+        self,
+        *,
+        prompt: str,
+        model: Any,
+        cfg: Any,
+        system_extra: str = "",
+        task_type: Any | None = None,
+        max_tokens: int = 4096,
+        timeout: int = 160,
+    ) -> Any:
+        """Generate k candidates with verbalized probabilities."""
+        ...
+
+
 class NullSnapshotStore:
     """No-op fallback when snapshot storage is disabled."""
 
@@ -613,3 +699,54 @@ class NullSnapshotStore:
 
     async def delete(self, snapshot_id: str) -> bool:
         return False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# QualityScorer — Swappable scoring signal for candidate selection
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class QualityScorer(Protocol):
+    """Quality signal for ranking candidates.
+
+    Satisfied by: ``services/scorers.py`` adapters (EvaluatorScorer, ProbabilityScorer).
+
+    Enables the VS CandidateSelector to use different quality signals
+    (LLM eval, fallback probability) without depending on concrete scorers.
+    """
+
+    async def score(self, task: Any, text: str) -> float:
+        """Return quality score in [0.0, 1.0]. 1.0 = best."""
+        ...
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reranker — Two-stage retrieval reranking
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class Reranker(Protocol):
+    """Reranks a list of result dicts using an LLM or cross-encoder.
+
+    Satisfied by: ``infrastructure/reranker.LLMReranker``
+
+    Stage-2 in knowledge recall: takes stage-1 cosine results and refines
+    the ordering before returning top_k to the caller.
+    """
+
+    async def rerank(
+        self,
+        query: str,
+        results: list[dict[str, Any]],
+        top_k: int,
+        min_score: float = 0.3,
+    ) -> list[dict[str, Any]]:
+        """Rerank results and return top_k with updated relevance scores.
+
+        Each dict in ``results`` must have at least ``id`` and ``content`` keys.
+        Returns a reordered slice of results with an updated ``relevance_score``
+        (float 0.0-1.0) set on each dict.
+        """
+        ...

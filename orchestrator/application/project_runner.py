@@ -30,6 +30,7 @@ from typing import Any
 from ..models import ProjectState, ProjectStatus, TaskStatus
 from ..resilience import RetryTemplate
 from .project_runner_deps import ProjectRunnerCallables, ProjectRunState
+from .unattended_guard import RunContext, UnattendedGuard
 
 logger = logging.getLogger("orchestrator")
 
@@ -56,6 +57,7 @@ class ProjectRunner:
         meta_v2: Any,
         cache: Any,
         api_health: dict,  # type: ignore[type-arg]
+        budget_hierarchy: Any = None,
     ) -> None:
         self._callables = callables
         self._run_state = run_state
@@ -69,6 +71,7 @@ class ProjectRunner:
         self._meta_v2 = meta_v2
         self._cache = cache
         self._api_health = api_health
+        self._budget_hierarchy = budget_hierarchy
 
     # ------------------------------------------------------------------
     # Public entry points
@@ -102,11 +105,37 @@ class ProjectRunner:
             span.set_attribute("project.description", project_description[:200])
             if not project_id:
                 project_id = hashlib.md5(
-                    f"{project_description[:100]}{time.time()}".encode()
+                    f"{project_description[:100]}{time.time()}".encode(),
+                    usedforsecurity=False,
                 ).hexdigest()[:12]
 
             # Publish project_id to run_state so downstream callbacks can read it
             self._run_state.project_id = project_id
+
+            # ENH-4: pre-flight unattended guard — fail closed before any work starts
+            import sys
+
+            _daily = None
+            if self._budget_hierarchy is not None:
+                _daily = getattr(self._budget_hierarchy, "_org_max", None)
+            _hitl = getattr(self, "_hitl", None)
+            _has_checkpoint = (
+                (
+                    _hitl is not None
+                    and _hitl._channel.__class__.__name__ not in ("FailClosedChannel", "NoneType")
+                )
+                if _hitl is not None
+                else False
+            )
+            UnattendedGuard.validate(
+                RunContext(
+                    budget=self._budget,
+                    daily_cap_usd=_daily,
+                    max_retries=getattr(self._run_state, "max_retries", None),
+                    has_checkpoint=_has_checkpoint,
+                    is_unattended=not sys.stdin.isatty(),
+                )
+            )
 
             logger.info("Starting project %s", project_id)
             logger.info(
@@ -268,6 +297,57 @@ class ProjectRunner:
                     await self._state_mgr.close()
                     await self._cache.close()
 
+    async def run_job(self, spec: Any) -> Any:
+        """
+        Policy-driven entry point. Accepts a JobSpec that bundles project
+        description, success criteria, budget, quality targets, and policies.
+
+        Orchestrator-level state mutation (budget assignment, policy set,
+        quality mode, max parallel tasks) is expected to happen BEFORE this
+        call. This method handles the lifecycle: warm-start → preflight
+        BudgetEnforcer → run_project → charge → flush telemetry.
+
+        Args:
+            spec: A JobSpec-like object with project_description, success_criteria,
+                  budget, job_id, team, max_parallel_tasks, quality_mode,
+                  and policy_set attributes.
+        """
+        # Warm-start: blend historical profiles before execution
+        if self._callables.warm_start_fn is not None:
+            await self._callables.warm_start_fn()
+
+        # Extract once; both the pre-flight check and charge path need them.
+        job_id = getattr(spec, "job_id", "") or ""
+        team = getattr(spec, "team", "") or ""
+
+        # BudgetHierarchy pre-flight check via BudgetEnforcer
+        from .budget_enforcer import BudgetEnforcer
+
+        BudgetEnforcer.enforce_hierarchy_job(
+            self._budget_hierarchy, job_id, team, spec.budget.max_usd
+        )
+        try:
+            state = await self.run_project(
+                project_description=spec.project_description,
+                success_criteria=spec.success_criteria,
+            )
+        except Exception:
+            # BUG-001 FIX: release reservation on failure
+            if self._budget_hierarchy is not None:
+                self._budget_hierarchy.release_reservation(job_id, team)
+            raise
+        # Charge actual spend to BudgetHierarchy
+        if self._budget_hierarchy is not None:
+            actual_spend = self._budget.max_usd - self._budget.remaining_usd
+            BudgetEnforcer.enforce_hierarchy_job(
+                self._budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
+            )
+        # Persist telemetry snapshots for all models used this run (fire-and-forget)
+        if self._callables.flush_telemetry_fn is not None:
+            await self._callables.flush_telemetry_fn(job_id)
+
+        return state
+
     async def dry_run(
         self,
         project_description: str,
@@ -278,7 +358,7 @@ class ProjectRunner:
         Makes one real API call (decomposition) then stops.
         Returns an ``ExecutionPlan`` that can be printed with ``plan.render()``.
         """
-        from ..dry_run import (
+        from ..operations.dry_run import (
             _DEFAULT_TOKENS,
             _TOKEN_ESTIMATES,
             ExecutionPlan,

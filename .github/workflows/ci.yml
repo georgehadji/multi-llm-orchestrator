@@ -17,7 +17,9 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install lint dependencies
-        run: pip install black ruff
+        # Pin black so CI and local pre-commit format identically (a floating
+        # black version reformats files that pass locally and breaks the gate).
+        run: pip install "black==26.1.0" ruff
       - name: Check formatting
         run: black --check orchestrator/ tests/
       - name: Run ruff
@@ -28,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history so the root-freeze diff can resolve origin/master
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -36,9 +40,16 @@ jobs:
         run: pip install -e ".[dev]" || pip install -e "." import-linter
       - name: Check import boundaries
         run: lint-imports
-        # Enforces 4 contracts: domain-purity, application-no-concrete-infra,
-        # application-services-no-engine, engine-core-no-loose-infra.
+        # Enforces 5 contracts: domain-purity, application-no-concrete-infra,
+        # application-services-no-engine, engine-core-no-loose-infra,
+        # root-modules-no-infra.
         # This job MUST pass — architecture violations block merge.
+      - name: Fetch baseline branch
+        run: git fetch --no-tags origin master:refs/remotes/origin/master
+      - name: Check root module freeze
+        run: python scripts/check_new_root_files.py --baseline origin/master
+        # Ensures no new root-level orchestrator/*.py files appear outside the
+        # kernel allowlist. Part of Architecture Remediation Plan Workstream A1.
 
   typecheck:
     name: Type Check
@@ -57,7 +68,7 @@ jobs:
         run: |
           mypy orchestrator/domain/ orchestrator/application/ \
                orchestrator/engine_core/container.py \
-               --ignore-missing-imports --no-strict-optional
+               --ignore-missing-imports --no-strict-optional --python-version=3.12
       - name: Run mypy (full codebase — informational)
         run: mypy orchestrator/ --ignore-missing-imports --no-strict-optional
         continue-on-error: true
@@ -99,6 +110,28 @@ jobs:
           file: ./coverage.xml
           fail_ci_if_error: false
 
+  model-audit:
+    name: OpenRouter Model Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Audit referenced model ids against live OpenRouter catalogue
+        # Keyless GET of https://openrouter.ai/api/v1/models; exits non-zero if
+        # any referenced id is dead or an UNAVAILABLE_MODELS replacement is dead.
+        # Exit 2 (network failure) is tolerated so transient flakes don't block.
+        run: |
+          set +e
+          python scripts/audit_openrouter_models.py
+          code=$?
+          if [ "$code" = "2" ]; then
+            echo "::warning::OpenRouter catalogue unreachable — audit skipped"
+            exit 0
+          fi
+          exit "$code"
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -117,4 +150,4 @@ jobs:
             --confidence-level medium \
             -x orchestrator/graphify-out \
             -f txt
-        continue-on-error: true  # warn until baseline is established
+        # continue-on-error removed — all HIGH findings fixed or justified (#nosec)

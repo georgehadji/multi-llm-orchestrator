@@ -9,7 +9,7 @@ Fluent API for chainable configuration.
 Paradigm: Builder Pattern (fluent interface, method chaining)
 
 Usage:
-    from orchestrator.opengraph_generator import OpenGraphBuilder
+    from orchestrator.generators.opengraph_generator import OpenGraphBuilder
 
     metadata = (OpenGraphBuilder()
         .with_title("My App")

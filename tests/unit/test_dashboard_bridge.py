@@ -6,7 +6,6 @@ P3-5 of REFACTORING_PLAN_V7.md.
 
 from unittest.mock import MagicMock
 
-import pytest
 
 from orchestrator.application.dashboard_bridge import DashboardBridge
 

@@ -11,15 +11,12 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from orchestrator.circuit_breaker import (
     CircuitBreakerOpen,
     CircuitBreakerRegistry,
-    CircuitState,
 )
 from orchestrator.models import Model
 from orchestrator.resilience import (

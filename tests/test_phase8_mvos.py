@@ -19,7 +19,6 @@ architecture invariants, this suite catches it immediately.
 
 from __future__ import annotations
 
-import asyncio
 
 import pytest
 

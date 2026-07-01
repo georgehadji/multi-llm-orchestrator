@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -97,7 +98,7 @@ class TriggerManager:
             Trigger: The created trigger
         """
 
-        trigger_id = f"trigger_{len(self.triggers)}"
+        trigger_id = f"trigger_{uuid.uuid4().hex[:8]}"
         trigger = Trigger(
             id=trigger_id,
             name=name,
@@ -257,38 +258,71 @@ class TriggerManager:
                 logger.error(f"Invalid condition expression: {condition}")
                 return False
 
+    # Explicit allowlist of AST node types permitted in trigger conditions.
+    # ast.Attribute, ast.Subscript, ast.Call, ast.Lambda, etc. are intentionally
+    # absent — they could be used to traverse object graphs or execute code.
+    _ALLOWED_AST_NODES = None  # populated lazily below
+
     def _eval_expr(self, node, context: dict[str, Any], ops: dict):
-        """Recursively evaluate an AST expression."""
+        """Recursively evaluate an AST expression against an explicit node allowlist."""
         import ast
 
-        if isinstance(node, ast.Constant):  # Numbers, strings, booleans
+        # Lazily build allowed-node set once
+        if self.__class__._ALLOWED_AST_NODES is None:
+            self.__class__._ALLOWED_AST_NODES = (
+                ast.Constant,
+                ast.Name,
+                ast.BinOp,
+                ast.UnaryOp,
+                ast.BoolOp,
+                ast.Compare,
+                # operators — not nodes themselves but isinstance checks below cover them
+            )
+
+        if not isinstance(node, self.__class__._ALLOWED_AST_NODES):
+            raise TypeError(f"Disallowed AST node type in condition: {type(node).__name__}")
+
+        if isinstance(node, ast.Constant):
             return node.value
-        elif isinstance(node, ast.Name):  # Variables
+        elif isinstance(node, ast.Name):
+            # Only look up top-level names from context — no attribute access
             return context.get(node.id, 0)
-        elif isinstance(node, ast.BinOp):  # Binary operations (e.g., x > y)
+        elif isinstance(node, ast.BinOp):
+            if type(node.op) not in ops:
+                raise TypeError(f"Unsupported binary operator: {type(node.op).__name__}")
             left = self._eval_expr(node.left, context, ops)
             right = self._eval_expr(node.right, context, ops)
             return ops[type(node.op)](left, right)
-        elif isinstance(node, ast.BoolOp):  # Boolean operations (and, or)
+        elif isinstance(node, ast.UnaryOp):
+            if isinstance(node.op, ast.Not):
+                return not self._eval_expr(node.operand, context, ops)
+            raise TypeError(f"Unsupported unary operator: {type(node.op).__name__}")
+        elif isinstance(node, ast.BoolOp):
             if isinstance(node.op, ast.And):
-                return all(self._eval_expr(value, context, ops) for value in node.values)
+                return all(self._eval_expr(v, context, ops) for v in node.values)
             elif isinstance(node.op, ast.Or):
-                return any(self._eval_expr(value, context, ops) for value in node.values)
-        elif isinstance(node, ast.Compare):  # Comparisons (e.g., x > y < z)
+                return any(self._eval_expr(v, context, ops) for v in node.values)
+            raise TypeError(f"Unsupported bool operator: {type(node.op).__name__}")
+        elif isinstance(node, ast.Compare):
             left = self._eval_expr(node.left, context, ops)
             result = True
             for op, comparator in zip(node.ops, node.comparators, strict=False):
+                if type(op) not in ops:
+                    raise TypeError(f"Unsupported comparison operator: {type(op).__name__}")
                 right = self._eval_expr(comparator, context, ops)
                 result = result and ops[type(op)](left, right)
                 left = right
             return result
         else:
-            raise TypeError(node)
+            raise TypeError(f"Unhandled allowed node: {type(node).__name__}")
 
     async def _execute_action(self, action: str, context: dict[str, Any]):
         """Execute an action with the provided context."""
         if action in self.custom_actions:
-            await self.custom_actions[action](context)
+            fn = self.custom_actions[action]
+            result = fn(context)
+            if asyncio.iscoroutine(result):
+                await result
         else:
             # Default actions
             if action == "log":

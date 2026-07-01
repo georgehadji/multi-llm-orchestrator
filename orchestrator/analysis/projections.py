@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     # FIXED: from .unified_events.core import (
-    from ...unified_events.core import (
+    from ..unified_events.core import (
         BudgetWarningEvent,
         CircuitBreakerTrippedEvent,
         EventBus,
@@ -607,7 +607,7 @@ def get_model_performance_projection(
 
     if "model_performance" not in _projections:
         # FIXED: from .unified_events.core import get_event_bus
-        from ...unified_events.core import get_event_bus
+        from ..unified_events.core import get_event_bus
 
         bus = event_bus or get_event_bus()
         _projections["model_performance"] = ModelPerformanceProjection(bus)
@@ -623,7 +623,7 @@ def get_budget_projection(
 
     if "budget" not in _projections:
         # FIXED: from .unified_events.core import get_event_bus
-        from ...unified_events.core import get_event_bus
+        from ..unified_events.core import get_event_bus
 
         bus = event_bus or get_event_bus()
         _projections["budget"] = BudgetProjection(bus)

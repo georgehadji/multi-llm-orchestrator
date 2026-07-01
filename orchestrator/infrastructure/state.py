@@ -541,7 +541,7 @@ class StateManager:
             columns = {row[1] for row in rows}
             return "project_description" in columns and "keywords_json" in columns
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the aiosqlite connection gracefully before the event loop shuts down."""
         if self._conn is not None:
             try:
@@ -625,7 +625,7 @@ def extract_and_store_keywords(description: str | None) -> str | None:
     if not description:
         return None
 
-    from ..resume_detector import _extract_keywords
+    from ..state_mgmt.resume_detector import _extract_keywords
 
     keywords = _extract_keywords(description)
 

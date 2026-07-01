@@ -10,6 +10,8 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 from typing import Any, Literal
 from pydantic import BaseModel, Field
 
+from .models import TaskType
+
 
 class CodeGenerationOutput(BaseModel):
     """Schema for CODE_GEN task outputs."""
@@ -217,28 +219,63 @@ TASK_OUTPUT_SCHEMAS: dict[str, type[BaseModel]] = {
 }
 
 
-def get_schema_for_task_type(task_type: str) -> type[BaseModel] | None:
+def _resolve_schema_key(task_type: "str | TaskType") -> str | None:
+    """Resolve a task-type identifier to the registry key (the enum *name*).
+
+    ``TASK_OUTPUT_SCHEMAS`` is keyed by enum name (e.g. ``"DATA_EXTRACT"``), but
+    callers across layers may pass the enum itself, its name, or its lowercase
+    value (e.g. ``"data_extraction"``). Accept all three so a value-keyed call
+    site can never silently miss the schema.
+
+    Returns the canonical registry key, or ``None`` if it does not map to a
+    schema-backed task type.
+    """
+    if isinstance(task_type, TaskType):
+        return task_type.name if task_type.name in TASK_OUTPUT_SCHEMAS else None
+    if not isinstance(task_type, str):
+        return None
+    if task_type in TASK_OUTPUT_SCHEMAS:  # already an enum name
+        return task_type
+    if task_type.upper() in TASK_OUTPUT_SCHEMAS:  # case-insensitive name
+        return task_type.upper()
+    for member in TaskType:  # enum value, e.g. "data_extraction"
+        if task_type == member.value and member.name in TASK_OUTPUT_SCHEMAS:
+            return member.name
+    return None
+
+
+def get_schema_for_task_type(task_type: "str | TaskType") -> type[BaseModel] | None:
     """Get the appropriate output schema for a task type.
 
     Args:
-        task_type: The task type identifier
+        task_type: A ``TaskType`` enum, its name, or its value.
 
     Returns:
         The Pydantic model class for the task output, or None if not found
     """
-    return TASK_OUTPUT_SCHEMAS.get(task_type)
+    key = _resolve_schema_key(task_type)
+    return TASK_OUTPUT_SCHEMAS.get(key) if key else None
 
 
-def generate_openrouter_schema(task_type: str) -> dict[str, Any] | None:
+def generate_openrouter_schema(task_type: "str | TaskType") -> dict[str, Any] | None:
     """Generate OpenRouter-compatible JSON schema for a task type.
 
     Args:
-        task_type: The task type identifier
+        task_type: A ``TaskType`` enum, its name, or its value.
 
     Returns:
         OpenRouter response_format schema dict, or None if task type unknown
+
+    Note:
+        ``strict`` is ``False`` on purpose. These output schemas contain
+        free-form ``dict`` fields (e.g. ``extracted_data: dict[str, Any]``),
+        which OpenAI/Azure reject under strict json_schema mode. Non-strict
+        mode supplies the schema as guidance while tolerating minor JSON
+        deviations — exactly the case the OpenRouter ``response-healing``
+        plugin repairs server-side.
     """
-    schema_class = get_schema_for_task_type(task_type)
+    key = _resolve_schema_key(task_type)
+    schema_class = TASK_OUTPUT_SCHEMAS.get(key) if key else None
     if not schema_class:
         return None
 
@@ -248,8 +285,8 @@ def generate_openrouter_schema(task_type: str) -> dict[str, Any] | None:
     return {
         "type": "json_schema",
         "json_schema": {
-            "name": f"{task_type.lower()}_output",
+            "name": f"{key.lower()}_output",
             "schema": json_schema,
-            "strict": True,
+            "strict": False,
         },
     }

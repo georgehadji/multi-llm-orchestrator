@@ -151,9 +151,7 @@ ignore = [
     "B904",   # raise without from within except (pervasive, pre-existing)
     "SIM105", # Use contextlib.suppress
     # ── Pre-existing baseline violations (codebase never linted before) ────────
-    "F401",   # Unused imports — 645 pre-existing instances
     "F811",   # Redefinition of unused name — 28 pre-existing instances
-    "F821",   # Undefined name — 79 pre-existing instances (forward refs, TYPE_CHECKING)
     "F841",   # Local variable assigned but never used — 46 pre-existing instances
     "F541",   # f-string without placeholders — 40 pre-existing instances
     "I001",   # Import order — 219 pre-existing instances
@@ -193,6 +191,10 @@ ignore = [
     "UP035",  # typing.Dict/List deprecated — pre-existing (18 instances)
     "UP037",  # Remove quotes from type annotation — pre-existing
     "UP045",  # Use X | None for type annotations — pre-existing (18 instances)
+    # ── Round-2 baseline violations ──────────────────────────────────────────
+    "F821",   # Undefined name — 98 pre-existing instances in commands/infrastructure
+    "F401",   # Unused import — 67 remaining re-exports in __init__ files
+    "F601",   # Repeated dict key — pre-existing instance in phase_aware_models.py
 ]
 fixable = ["ALL"]
 unfixable = []
@@ -210,7 +212,7 @@ known-first-party = ["orchestrator"]
 # MyPy - Static Type Checking
 # ═══════════════════════════════════════════════════════════════════════════════
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
@@ -335,6 +337,7 @@ markers = [
     "mock: marks tests that use mocked dependencies",
     "asyncio: marks tests that use asyncio",
     "edge_case: marks edge case and boundary tests",
+    "contract: marks architecture contract tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

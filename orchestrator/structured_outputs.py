@@ -330,7 +330,7 @@ class TaskDecomposer(StructuredClient):
         if complexity_score > 0.7:
             # Use larger model for complex projects
             original_model = model
-            model = "anthropic/claude-3.5-sonnet"
+            model = "anthropic/claude-sonnet-5"
             logger.info(
                 f"High complexity project detected ({complexity_score:.2f}), "
                 f"upgrading model from {original_model} to {model}"

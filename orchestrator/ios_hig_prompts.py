@@ -7,7 +7,7 @@ Apple Human Interface Guidelines (HIG) injection for iOS code generation.
 Ensures generated iOS code follows App Store requirements and HIG standards.
 
 Usage:
-    from orchestrator.ios_hig_prompts import IOS_GENERATION_CONTEXT, get_ios_prompt
+    from orchestrator.security.ios_hig_prompts import IOS_GENERATION_CONTEXT, get_ios_prompt
 
     prompt = get_ios_prompt(project_description, include_hig=True)
 """

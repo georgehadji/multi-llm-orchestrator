@@ -97,6 +97,10 @@ class FeatureFlags(BaseSettings):
     taste_skill_enabled: bool = True  # Inject taste-skill anti-slop prefix for frontend tasks
     image_reference_pipeline: bool = False  # Pre-generate text visual context before code gen
 
+    # ── Reranking gates ───────────────────────────────────────────────────
+    vs_reranking_enabled: bool = False  # CandidateSelector for VS: score top-k candidates
+    knowledge_rerank_enabled: bool = False  # Two-stage KB recall: cosine → LLM rerank
+
     model_config = SettingsConfigDict(
         env_prefix="ORCH_",
         env_file=".env",

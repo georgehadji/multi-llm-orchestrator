@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
 
 logger = logging.getLogger("orchestrator.security.enhancer")
 
@@ -265,7 +264,6 @@ class OpenGraphGenerator:
 
     def generate_json_ld(self, name: str, description: str, url: str, logo_url: str = "") -> str:
         """Generate JSON-LD structured data for the website."""
-        import html
 
         data = {
             "@context": "https://schema.org",

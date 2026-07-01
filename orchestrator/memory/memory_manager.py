@@ -23,12 +23,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..plugins.memory_provider import (
     BuiltinMemoryProvider,
     MemoryProvider,
-    MemoryQueryResult,
 )
 
 if TYPE_CHECKING:

@@ -33,8 +33,8 @@ from .agent_model_registry import (
 from .api_clients import APIResponse, UnifiedClient
 from .budget import Budget
 from .cache import DiskCache
-from .codebase_analyzer import CodebaseAnalyzer
-from .dry_run import DryRunRenderer, ExecutionPlan, TaskPlan
+from .codebase.analyzer import CodebaseAnalyzer
+from .operations.dry_run import DryRunRenderer, ExecutionPlan, TaskPlan
 from .engine import Orchestrator
 from .models import (
     COST_TABLE,

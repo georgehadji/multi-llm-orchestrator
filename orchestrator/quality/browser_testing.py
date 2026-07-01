@@ -8,7 +8,7 @@ Async: Yes — for I/O-bound browser operations
 Layer: L3 Agents
 
 Usage:
-    from orchestrator.browser_testing import BrowserTester
+    from orchestrator.quality.browser_testing import BrowserTester
     tester = BrowserTester(browser_type="chromium")
     result = await tester.test_page("https://example.com", [
         {"action": "click", "selector": "#button"},
@@ -23,7 +23,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-logger = logging.getLogger("orchestrator.browser_testing")
+logger = logging.getLogger("orchestrator.quality.browser_testing")
 
 
 @dataclass

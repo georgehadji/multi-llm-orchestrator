@@ -68,7 +68,7 @@ async def test_null_state_load_unknown_returns_none():
 @pytest.mark.asyncio
 async def test_null_state_save_and_load_roundtrip():
     from unittest.mock import MagicMock
-    from orchestrator.models import ProjectState, ProjectStatus
+    from orchestrator.models import ProjectState
 
     state = NullState()
     mock_ps = MagicMock(spec=ProjectState)

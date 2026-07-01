@@ -24,11 +24,14 @@ from orchestrator.models_skill import SkillPatch, Trajectory
 @pytest.fixture
 async def store(tmp_path: Path) -> SkillStore:
     """Return an open SkillStore backed by temp SQLite files."""
-    s = SkillStore(
+    from orchestrator.infrastructure.skill_store_adapter import SkillDbAdapter
+
+    db = SkillDbAdapter(
         traj_path=tmp_path / "trajectories.db",
         skill_path=tmp_path / "skills.db",
     )
-    await s.connect()
+    await db.connect()
+    s = SkillStore(db)
     yield s
     await s.close()
 

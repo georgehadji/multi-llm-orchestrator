@@ -11,7 +11,7 @@ Fixes common LLM-generated code mistakes before writing to disk:
 5. Validates and fixes syntax errors
 
 Usage:
-    from orchestrator.code_post_processor import CodePostProcessor
+    from orchestrator.quality.code_post_processor import CodePostProcessor
 
     processor = CodePostProcessor()
     fixed_code = processor.process(code, filename="task_001.py")
@@ -24,7 +24,7 @@ import logging
 import re
 from typing import Pattern
 
-logger = logging.getLogger("orchestrator.code_post_processor")
+logger = logging.getLogger("orchestrator.quality.code_post_processor")
 
 
 class CodePostProcessor:

@@ -142,7 +142,7 @@ class DesignToCodePipeline:
 
     # Supported vision models
     VISION_MODELS = {
-        "claude-sonnet-4.6": {"provider": "anthropic", "strength": "strong"},
+        "claude-sonnet-5": {"provider": "anthropic", "strength": "strong"},
         "gpt-4o": {"provider": "openai", "strength": "strong"},
         "gemini-3.1-flash-lite": {"provider": "google", "strength": "good"},
     }
@@ -150,7 +150,7 @@ class DesignToCodePipeline:
     # Supported frameworks
     FRAMEWORKS = ["react", "vue", "fastapi", "flask", "nextjs"]
 
-    def __init__(self, client, default_model: Model = Model.CLAUDE_SONNET_4_6):
+    def __init__(self, client, default_model: Model = Model.CLAUDE_SONNET_5):
         """
         Initialize design-to-code pipeline.
 

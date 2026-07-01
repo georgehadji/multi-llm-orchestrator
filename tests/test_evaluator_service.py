@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from orchestrator.api_clients import APIResponse
-from orchestrator.models import Model, Task, TaskStatus, TaskType
+from orchestrator.models import Model, Task, TaskType
 from orchestrator.services.evaluator import EvaluatorService
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -209,7 +209,7 @@ class AgentPool:
             return {}
 
         # Collect per-model lists of profiles
-        from .models import build_default_profiles
+        from .application.model_profile_builder import build_default_profiles
 
         all_profile_dicts: list[dict[Model, ModelProfile]] = [
             agent._profiles for agent in self._agents.values() if hasattr(agent, "_profiles")

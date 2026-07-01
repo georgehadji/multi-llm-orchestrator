@@ -6,7 +6,6 @@ Tests for the Decomposer module (extracted from engine.py Phase 2).
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

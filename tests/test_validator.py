@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from orchestrator.engine_core.validator import TaskValidator
-from orchestrator.models import Model, Task, TaskType
+from orchestrator.models import Task, TaskType
 
 
 @pytest.fixture

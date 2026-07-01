@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Builder, Visitor, Factory Method
 
 Usage:
-    from orchestrator.input_validation import SchemaBuilder, ZodSchemaVisitor
+    from orchestrator.safety.input_validation import SchemaBuilder, ZodSchemaVisitor
 
     schema = (SchemaBuilder()
         .add_string("email", min_length=1, max_length=255, pattern=r'^[^@]+@[^@]+[.][^@]+$')

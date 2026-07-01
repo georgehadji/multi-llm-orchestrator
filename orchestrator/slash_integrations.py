@@ -6,12 +6,9 @@ Part of Category 8, Phase X3 (Create.xyz-inspired).
 """
 
 from __future__ import annotations
-import json
 import logging
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Callable, Awaitable
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +227,6 @@ class SlashIntegrationManager:
         integration = self._integrations.get(command.lstrip("/"))
         if not integration:
             return None
-        import aiohttp
 
         headers = {"Content-Type": "application/json", **integration.headers}
         if integration.auth_env_var:

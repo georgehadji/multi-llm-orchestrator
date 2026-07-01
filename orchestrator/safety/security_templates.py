@@ -10,7 +10,7 @@ Paradigm: Hybrid (OOP for templates, Functional for utilities)
 Patterns: Template Method, Functional Composition, Factory Method
 
 Usage:
-    from orchestrator.security_templates import AuthTemplate, SecurityConfig
+    from orchestrator.safety.security_templates import AuthTemplate, SecurityConfig
 
     config = SecurityConfig(jwt_expiry=900, bcrypt_cost=12)
     template = AuthTemplate()

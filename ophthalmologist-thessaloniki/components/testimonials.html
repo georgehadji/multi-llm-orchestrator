@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Patient Testimonials | Thessaloniki Vision Clinic</title>
+  <meta name="description" content="Real stories from real patients at Thessaloniki Vision Clinic. Hear how our advanced ophthalmology care transformed their vision and lives.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0b0d17;
+      color: #e2e8f0;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ===== SECTION ===== */
+    .testimonials-section {
+      position: relative;
+      padding: 6rem 1.5rem;
+      max-width: 1280px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+
+    /* subtle 3D canvas background container */
+    .testimonials-canvas-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.15;
+    }
+
+    .testimonials-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== HEADLINE ===== */
+    .testimonials-headline {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .testimonials-headline h2 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .testimonials-headline p {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      max-width: 640px;
+      margin: 1rem auto 0;
+      font-weight: 400;
+    }
+
+    /* ===== GRID / MASONRY ===== */
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 2rem;
+      align-items: start;
+    }
+
+    /* ===== CARD ===== */
+    .testimonial-card {
+      background: rgba(129, 140, 248, 0.06);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(129, 140, 248, 0.15);
+      border-radius: 1.5rem;
+      padding: 2rem 1.75rem;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), 
+                  box-shadow 0.4s ease, 
+                  border-color 0.3s ease;
+      will-change: transform;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      position: relative;
+    }
+
+    .testimonial-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 40px -12px rgba(129, 140, 248, 0.25);
+      border-color: rgba(129, 140, 248, 0.4);
+    }
+
+    /* focus-visible ring for interactive cards (if any link inside) */
+    .testimonial-card:focus-within {
+      outline: 2px solid #818cf8;
+      outline-offset: 4px;
+    }
+
+    /* ===== QUOTE ===== */
+    .testimonial-quote {
+      font-size: 1rem;
+      font-weight: 400;
+      color: #cbd5e1;
+      line-height: 1.7;
+      flex: 1;
+      position: relative;
+      padding-left: 0.5rem;
+    }
+
+    .testimonial-quote::before {
+      content: '"';
+      font-size: 3rem;
+      font-weight: 700;
+      color: #818cf8;
+      line-height: 1;
+      position: absolute;
+      left: -0.5rem;
+      top: -0.5rem;
+      opacity: 0.5;
+    }
+
+    /* ===== AUTHOR ===== */
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      border-top: 1px solid rgba(129, 140, 248, 0.1);
+      padding-top: 1.25rem;
+    }
+
+    .testimonial-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(129, 140, 248, 0.3);
+      flex-shrink: 0;
+      background: #1e293b;
+    }
+
+    .testimonial-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .testimonial-name {
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: #f1f5f9;
+    }
+
+    .testimonial-role {
+      font-size: 0.85rem;
+      color: #818cf8;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .testimonial-company {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    /* ===== CTA ===== */
+    .testimonials-cta {
+      text-align: center;
+      margin-top: 4rem;
+    }
+
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #818cf8;
+      color: #0b0d17;
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 1rem 2.5rem;
+      border-radius: 60px;
+      text-decoration: none;
+      transition: background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+      border: none;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .cta-button:hover {
+      background: #a5b4fc;
+      transform: scale(1.02);
+      box-shadow: 0 8px 24px rgba(129, 140, 248, 0.35);
+    }
+
+    .cta-button:focus-visible {
+      outline: 3px solid #818cf8;
+      outline-offset: 4px;
+    }
+
+    .cta-button:active {
+      transform: scale(0.98);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .testimonials-section {
+        padding: 4rem 1rem;
+      }
+
+      .testimonials-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .testimonial-card {
+        padding: 1.5rem 1.25rem;
+      }
+
+      .cta-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .testimonials-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* ===== PREFERS REDUCED MOTION ===== */
+    @media (prefers-reduced-motion: reduce) {
+      .testimonial-card {
+        transition: none;
+      }
+
+      .testimonial-card:hover {
+        transform: none;
+      }
+
+      .cta-button {
+        transition: none;
+      }
+
+      .cta-button:hover {
+        transform: none;
+      }
+    }
+
+    /* ===== SKIP LINK (accessibility) ===== */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 1rem;
+      background: #818cf8;
+      color: #0b0d17;
+      padding: 0.5rem 1rem;
+      border-radius: 0 0 8px 8px;
+      z-index: 100;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .skip-link:focus {
+      top: 0;
+    }
+  </style>
+</head>
+<body>
+  <a href="#testimonials-content" class="skip-link">Skip to testimonials</a>
+
+  <section class="testimonials-section" aria-labelledby="testimonials-heading">
+    <!-- 3D Canvas Background (subtle eye/lens particles) -->
+    <div class="testimonials-canvas-bg" id="testimonials-canvas" aria-hidden="true"></div>
+
+    <div class="testimonials-content" id="testimonials-content">
+      <!-- Headline -->
+      <div class="testimonials-headline">
+        <h2 id="testimonials-heading">Real Stories, Real Results: Hear from Our Patients</h2>
+        <p>Discover how our advanced ophthalmology care has transformed vision and quality of life for patients across Thessaloniki and northern Greece.</p>
+      </div>
+
+      <!-- Testimonials Grid (masonry-like with varied card sizes) -->
+      <div class="testimonials-grid" role="list">
+        <!-- Card 1 – larger emphasis -->
+        <article class="testimonial-card" role="listitem" style="grid-row: span 1;">
+          <blockquote class="testimonial-quote">
+            After years of struggling with cataracts, I can finally see the world in brilliant clarity. The team at Thessaloniki Vision Clinic made me feel safe and informed every step of the way. I am forever grateful.
+          </blockquote>
+          <div class="testimonial-author">
+            <img 
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52' viewBox='0 0 52 52'%3E%3Ccircle cx='26' cy='26' r='26' fill='%231e293b'/%3E%3Ctext x='26' y='32' font-size='20' text-anchor='middle' fill='%23818cf8' font-family='Inter'%3EMK%3C/text%3E%3C/svg%3E"
+              alt="Maria K."
+              class="testimonial-avatar"
+              loading="lazy"
+              decoding="async"
+            >
+            <div class="testimonial-info">
+              <span class="testimonial-name">Maria K.</span>
+              <span class="testimonial-role">Cataract Surgery Patient</span>
+              <span class="testimonial-company">Thessaloniki</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Card 2 -->
+        <article class="testimonial-card" role="listitem">
+          <blockquote class="testimonial-quote">
+            I was nervous about LASIK, but the precision and care I received were outstanding. I now have 20/20 vision and feel like a new person. Highly recommend to anyone considering vision correction.
+          </blockquote>
+          <div class="testimonial-author">
+            <img 
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52' viewBox='0 0 52 52'%3E%3Ccircle cx='26' cy='26' r='26' fill='%231e293b'/%3E%3Ctext x='26' y='32' font-size='20' text-anchor='middle' fill='%23818cf8' font-family='Inter'%3EAP%3C/text%3E%3C/svg%3E"
+              alt="Alexandros P."
+              class="testimonial-avatar"
+              loading="lazy"
+              decoding="async"
+            >
+            <div class="testimonial-info">
+              <span class="testimonial-name">Alexandros P.</span>
+              <span class="testimonial-role">LASIK Patient</span>
+              <span class="testimonial-company">Kalamaria</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Card 3 – taller quote -->
+        <article class="testimonial-card" role="listitem" style="grid-row: span 1;">
+          <blockquote class="testimonial-quote">
+            Managing my glaucoma was a constant worry until I came here. The monitoring technology and personalized treatment plan have given me peace of mind. My vision has stabilized, and I feel cared for.
+          </blockquote>
+          <div class="testimonial-author">
+            <img 
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52' viewBox='0 0 52 52'%3E%3Ccircle cx='26' cy='26' r='26' fill='%231e293b'/%3E%3Ctext x='26' y='32' font-size='20' text-anchor='middle' fill='%23818cf8' font-family='Inter'%3EEG%3C/text%3E%3C/svg%3E"
+              alt="Eleni G."
+              class="testimonial-avatar"
+              loading="lazy"
+              decoding="async"
+            >
+            <div class="testimonial-info">
+              <span class="testimonial-name">Eleni G.</span>
+              <span class="testimonial-role">Glaucoma Patient</span>
+              <span class="testimonial-company">Serres</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Card 4 -->
+        <article class="testimonial-card" role="listitem">
+          <blockquote class="testimonial-quote">
+            Our daughter’s pediatric eye exam was thorough and gentle. The doctor explained everything in a way she could understand. We are so happy to have found such a compassionate clinic.
+          </blockquote>
+          <div class="testimonial-author">
+            <img 
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52' viewBox='0 0 52 52'%3E%3Ccircle cx='26' cy='26' r='26' fill='%231e293b'/%3E%3Ctext x='26' y='32' font-size='20' text-anchor='middle' fill='%23818cf8' font-family='Inter'%3EN%26D%3C/text%3E%3C/svg%3E"
+              alt="Nikos &amp; Dimitra"
+              class="testimonial-avatar"
+              loading="lazy"
+              decoding="async"
+            >
+            <div class="testimonial-info">
+              <span class="testimonial-name">Nikos &amp; Dimitra</span>
+              <span class="testimonial-role">Pediatric Ophthalmology</span>
+              <span class="testimonial-company">Thessaloniki</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Card 5 – retina/macula -->
+        <article class="testimonial-card" role="listitem">
+          <blockquote class="testimonial-quote">
+            The retina care I received was world-class. After my macular treatment, my central vision improved dramatically. I can read and recognize faces again. Thank you from the bottom of my heart.
+          </blockquote>
+          <div class="testimonial-author">
+            <img 
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52' viewBox='0 0 52 52'%3E%3Ccircle cx='26' cy='26' r='26' fill='%231e293b'/%3E%3Ctext x='26' y='32' font-size='20' text-anchor='middle' fill='%23818cf8' font-family='Inter'%3ESL%3C/text%3E%3C/svg%3E"
+              alt="Sofia L."
+              class="testimonial-avatar"
+              loading="lazy"
+              decoding="async"
+            >
+            <div class="testimonial-info">
+              <span class="testimonial-name">Sofia L.</span>
+              <span class="testimonial-role">Macula Care Patient</span>
+              <span class="testimonial-company">Kavala</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Card 6 – comprehensive exam -->
+        <article class="testimonial-card" role="listitem">
+          <blockquote class="testimonial-quote">
+            I came for a routine comprehensive eye exam and left with a deeper understanding of my eye health. The advanced diagnostic equipment is impressive. I trust this clinic completely.
+          </blockquote>
+          <div class="testimonial-author">
+            <img 
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52' viewBox='0 0 52 52'%3E%3Ccircle cx='26' cy='26' r='26' fill='%231e293b'/%3E%3Ctext x='26' y='32' font-size='20' text-anchor='middle' fill='%23818cf8' font-family='Inter'%3EYT%3C/text%3E%3C/svg%3E"
+              alt="Yiannis T."
+              class="testimonial-avatar"
+              loading="lazy"
+              decoding="async"
+            >
+            <div class="testimonial-info">
+              <span class="testimonial-name">Yiannis T.</span>
+              <span class="testimonial-role">Comprehensive Exam</span>
+              <span class="testimonial-company">Larissa</span>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- CTA -->
+      <div class="testimonials-cta">
+        <a href="/contact" class="cta-button" aria-label="Book your consultation at Thessaloniki Vision Clinic">
+          Book Your Consultation
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Three.js 3D subtle eye/lens particle background -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // Only run if canvas container exists and user hasn't set prefers-reduced-motion
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      document.getElementById('testimonials-canvas')?.remove();
+    } else {
+      const container = document.getElementById('testimonials-canvas');
+      if (!container) throw new Error('Canvas container not found');
+
+      // Scene setup
+      const scene = new THREE.Scene();
+      scene.background = null; // transparent
+
+      const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+      camera.position.z = 5;
+
+      const renderer = new THREE.WebGLRenderer({ 
+        antialias: true, 
+        alpha: true,
+        powerPreference: "low-power"
+      });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      // Particles: subtle floating lens-like shapes
+      const particleCount = 200;
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      const sizes = new Float32Array(particleCount);
+
+      for (let i = 0; i < particleCount; i++) {
+        positions[i*3] = (Math.random() - 0.5) * 20;
+        positions[i*3+1] = (Math.random() - 0.5) * 20;
+        positions[i*3+2] = (Math.random() - 0.5) * 10 - 2;
+        sizes[i] = Math.random() * 0.15 + 0.05;
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+      // Create a small circle texture for particles
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d');
+      ctx.beginPath();
+      ctx.arc(16, 16, 14, 0, 2 * Math.PI);
+      ctx.fillStyle = '#818cf8';
+      ctx.fill();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(16, 16, 8, 0, 2 * Math.PI);
+      ctx.fill();
+      const texture = new THREE.CanvasTexture(canvas);
+
+      const material = new THREE.PointsMaterial({
+        color: 0x818cf8,
+        size: 0.15,
+        map: texture,
+        transparent: true,
+        opacity: 0.4,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        sizeAttenuation: true
+      });
+
+      const particles = new THREE.Points(geometry, material);
+      scene.add(particles);
+
+      // Slow rotation
+      let time = 0;
+
+      function animate() {
+        requestAnimationFrame(animate);
+        time += 0.001;
+        particles.rotation.y = time * 0.1;
+        particles.rotation.x = Math.sin(time * 0.05) * 0.1;
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // Resize handler
+      function onResize() {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        renderer.setSize(width, height);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+
+      window.addEventListener('resize', onResize);
+
+      // Cleanup on page unload (optional but good practice)
+      window.addEventListener('beforeunload', () => {
+        renderer.dispose();
+        geometry.dispose();
+        material.dispose();
+        texture.dispose();
+      });
+    }
+  </script>
+</body>
+</html>

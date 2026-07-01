@@ -147,6 +147,10 @@ class GitHubActionsStrategy(CICDStrategy):
 
 name: {config.name}
 
+# Least-privilege default token. Grant additional scopes per-job only as needed.
+permissions:
+  contents: read
+
 on:
   push:
     branches: [{', '.join(config.branches)}]

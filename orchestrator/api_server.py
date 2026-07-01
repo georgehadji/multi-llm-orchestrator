@@ -133,6 +133,11 @@ class APIServer:
         self.host = host
         self.cors_origins = cors_origins or []  # Empty = same origin only
         self.auth_required = auth_required
+        if not auth_required:
+            logger.warning(
+                "APIServer: auth_required=False — all endpoints are unauthenticated. "
+                "Only use this in development."
+            )
         self.max_request_size = max_request_size
         self.supervisor = supervisor
 
@@ -343,7 +348,12 @@ class APIServer:
 
     async def get_task_status(self, request: web.Request) -> web.Response:
         """Get the status of a task."""
-        self._update_request_stats(success=True)
+        self._update_request_stats()
+
+        denied = self._require_auth(request)
+        if denied:
+            self._update_request_stats(success=False)
+            return denied
 
         task_id = request.match_info["task_id"]
 
@@ -361,7 +371,12 @@ class APIServer:
 
     async def list_models(self, request: web.Request) -> web.Response:
         """List available models."""
-        self._update_request_stats(success=True)
+        self._update_request_stats()
+
+        denied = self._require_auth(request)
+        if denied:
+            self._update_request_stats(success=False)
+            return denied
 
         # In a real implementation, we would get the actual list of models
         # For now, we'll return a simulated list
@@ -401,8 +416,13 @@ class APIServer:
         return web.json_response(models)
 
     async def register_api_key(self, request: web.Request) -> web.Response:
-        """Register a new API key."""
+        """Register a new API key. Requires ORCHESTRATOR_ADMIN_SECRET header."""
         self._update_request_stats()
+
+        denied = self._require_admin(request)
+        if denied:
+            self._update_request_stats(success=False)
+            return denied
 
         try:
             data = await request.json()
@@ -411,11 +431,17 @@ class APIServer:
                 self._update_request_stats(success=False)
                 return web.json_response({"error": "user_id required"}, status=400)
 
-            user_id = data["user_id"]
+            user_id = str(data["user_id"])
+            if not user_id.replace("-", "").replace("_", "").isalnum():
+                self._update_request_stats(success=False)
+                return web.json_response({"error": "user_id must be alphanumeric"}, status=400)
+
             permissions = data.get("permissions", ["read", "execute"])
 
-            # Generate a new API key
-            raw_key = f"orchestrator_{user_id}_{datetime.now().isoformat()}_{hashlib.sha256(str(hash(str(data))).encode()).hexdigest()[:16]}"
+            # Generate a cryptographically random API key
+            import secrets as _secrets
+
+            raw_key = f"orchestrator_{_secrets.token_urlsafe(32)}"
             hashed_key = hashlib.sha256(raw_key.encode()).hexdigest()
 
             # Store the API key
@@ -441,7 +467,12 @@ class APIServer:
 
     async def get_stats(self, request: web.Request) -> web.Response:
         """Get server statistics."""
-        self._update_request_stats(success=True)
+        self._update_request_stats()
+
+        denied = self._require_auth(request)
+        if denied:
+            self._update_request_stats(success=False)
+            return denied
 
         uptime = datetime.now() - self.request_stats["start_time"]
 
@@ -604,13 +635,45 @@ class APIServer:
         return None
 
     def _verify_api_key(self, api_key: str) -> bool:
-        """Verify an API key."""
+        """Verify an API key using constant-time comparison to prevent timing attacks."""
+        import hmac as _hmac
+
         hashed_key = hashlib.sha256(api_key.encode()).hexdigest()
-        if hashed_key in self.api_keys:
-            # Update last used timestamp
-            self.api_keys[hashed_key]["last_used"] = datetime.now().isoformat()
-            return True
+        for stored_key, meta in self.api_keys.items():
+            if _hmac.compare_digest(stored_key, hashed_key):
+                meta["last_used"] = datetime.now().isoformat()
+                return True
         return False
+
+    def _require_auth(self, request: web.Request) -> web.Response | None:
+        """Return 401 Response if auth fails, None if OK. Always call when auth_required."""
+        if not self.auth_required:
+            return None
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return web.json_response({"error": "Authorization header required"}, status=401)
+        if not self._verify_api_key(auth_header[7:]):
+            return web.json_response({"error": "Invalid API key"}, status=401)
+        return None
+
+    def _require_admin(self, request: web.Request) -> web.Response | None:
+        """Return 403 Response if not admin, None if OK. Use for key registration."""
+        import os as _os
+
+        admin_secret = _os.environ.get("ORCHESTRATOR_ADMIN_SECRET")
+        if not admin_secret:
+            return web.json_response(
+                {"error": "Admin key registration disabled (ORCHESTRATOR_ADMIN_SECRET not set)"},
+                status=503,
+            )
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return web.json_response({"error": "Admin authorization required"}, status=401)
+        import hmac as _hmac
+
+        if not _hmac.compare_digest(auth_header[7:], admin_secret):
+            return web.json_response({"error": "Invalid admin secret"}, status=403)
+        return None
 
     def _update_request_stats(self, success: bool = True):
         """Update request statistics."""

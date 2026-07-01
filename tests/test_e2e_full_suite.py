@@ -16,9 +16,8 @@ Covers:
 from __future__ import annotations
 
 import sys
-import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -46,8 +45,6 @@ def mock_client():
 @pytest.fixture
 def orchestrator_fixture():
     from orchestrator.budget import Budget
-    from orchestrator.state import StateManager
-    from orchestrator.cache import DiskCache
     from orchestrator.ports import NullCache, NullState
 
     return {
@@ -69,8 +66,6 @@ class TestFullTaskExecution:
     async def test_code_gen_task_through_pipeline(self, mock_client):
         """A CODE_GEN task goes through all pipeline stages."""
         from orchestrator.models import Task, TaskType, TaskStatus
-        from orchestrator.budget import Budget
-        from orchestrator.api_clients import UnifiedClient
 
         task = Task(
             id="e2e_test_001",
@@ -158,8 +153,6 @@ class TestAgentCoordination:
     @pytest.mark.asyncio
     async def test_orchestrator_dispatches_to_correct_agent(self):
         from orchestrator.agents.coordinator import AgentOrchestrator
-        from orchestrator.agents.developer import DeveloperAgent
-        from orchestrator.agents.base import AgentRole
 
         orch = AgentOrchestrator(agents={})
         tasks = orch._decompose_goal("Design architecture for web app")

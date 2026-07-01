@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 logger = logging.getLogger("orchestrator.agents.rate_limiter")
 

@@ -80,7 +80,6 @@ def test_orchestrator_package_import_no_io():
             del sys.modules[mod_name]
 
     # Import main package
-    from orchestrator import Orchestrator, Budget, Model, TaskType
 
     # Tables should NOT be loaded
     from orchestrator import models

@@ -43,8 +43,8 @@
     BAIDU_QIANFAN_OCR_FAST = "baidu/qianfan-ocr-fast"
     MOONSHOTAI_KIMI_K2_6 = "moonshotai/kimi-k2.6"
     ANTHROPIC_CLAUDE_OPUS_4_7 = "anthropic/claude-opus-4.7"
-    ANTHROPIC_CLAUDE_OPUS_4_6_FAST = "anthropic/claude-opus-4.6-fast"
-    Z_AI_GLM_5_1 = "z-ai/glm-5.1"
+    ANTHROPIC_CLAUDE_OPUS_4_8_FAST = "anthropic/claude-opus-4.8-fast"
+    Z_AI_GLM_5_2 = "z-ai/glm-5.2"
     GOOGLE_GEMMA_4_26B_A4B_IT_FREE = "google/gemma-4-26b-a4b-it:free"
     GOOGLE_GEMMA_4_26B_A4B_IT = "google/gemma-4-26b-a4b-it"
     GOOGLE_GEMMA_4_31B_IT_FREE = "google/gemma-4-31b-it:free"
@@ -93,7 +93,7 @@
     MINIMAX_MINIMAX_M2_5 = "minimax/minimax-m2.5"
     Z_AI_GLM_5 = "z-ai/glm-5"
     QWEN_QWEN3_MAX_THINKING = "qwen/qwen3-max-thinking"
-    ANTHROPIC_CLAUDE_OPUS_4_6 = "anthropic/claude-opus-4.6"
+    ANTHROPIC_CLAUDE_OPUS_4_8 = "anthropic/claude-opus-4.8"
     QWEN_QWEN3_CODER_NEXT = "qwen/qwen3-coder-next"
     OPENROUTER_FREE = "openrouter/free"
     STEPFUN_STEP_3_5_FLASH = "stepfun/step-3.5-flash"
@@ -403,8 +403,8 @@
     Model.BAIDU_QIANFAN_OCR_FAST: {"input": 0.680000, "output": 2.810000},
     Model.MOONSHOTAI_KIMI_K2_6: {"input": 0.730000, "output": 3.490000},
     Model.ANTHROPIC_CLAUDE_OPUS_4_7: {"input": 5.000000, "output": 25.000000},
-    Model.ANTHROPIC_CLAUDE_OPUS_4_6_FAST: {"input": 30.000000, "output": 150.000000},
-    Model.Z_AI_GLM_5_1: {"input": 0.980000, "output": 3.080000},
+    Model.ANTHROPIC_CLAUDE_OPUS_4_8_FAST: {"input": 36.000000, "output": 180.000000},
+    Model.Z_AI_GLM_5_2: {"input": 0.500000, "output": 2.000000},
     Model.GOOGLE_GEMMA_4_26B_A4B_IT_FREE: {"input": 0.000000, "output": 0.000000},
     Model.GOOGLE_GEMMA_4_26B_A4B_IT: {"input": 0.060000, "output": 0.330000},
     Model.GOOGLE_GEMMA_4_31B_IT_FREE: {"input": 0.000000, "output": 0.000000},
@@ -453,7 +453,7 @@
     Model.MINIMAX_MINIMAX_M2_5: {"input": 0.150000, "output": 1.150000},
     Model.Z_AI_GLM_5: {"input": 0.600000, "output": 1.920000},
     Model.QWEN_QWEN3_MAX_THINKING: {"input": 0.780000, "output": 3.900000},
-    Model.ANTHROPIC_CLAUDE_OPUS_4_6: {"input": 5.000000, "output": 25.000000},
+    Model.ANTHROPIC_CLAUDE_OPUS_4_8: {"input": 6.000000, "output": 30.000000},
     Model.QWEN_QWEN3_CODER_NEXT: {"input": 0.110000, "output": 0.800000},
     Model.OPENROUTER_FREE: {"input": 0.000000, "output": 0.000000},
     Model.STEPFUN_STEP_3_5_FLASH: {"input": 0.090000, "output": 0.300000},
@@ -763,8 +763,8 @@
     Model.BAIDU_QIANFAN_OCR_FAST: 8192,
     Model.MOONSHOTAI_KIMI_K2_6: 8192,
     Model.ANTHROPIC_CLAUDE_OPUS_4_7: 8192,
-    Model.ANTHROPIC_CLAUDE_OPUS_4_6_FAST: 8192,
-    Model.Z_AI_GLM_5_1: 8192,
+    Model.ANTHROPIC_CLAUDE_OPUS_4_8_FAST: 8192,
+    Model.Z_AI_GLM_5_2: 8192,
     Model.GOOGLE_GEMMA_4_26B_A4B_IT_FREE: 8192,
     Model.GOOGLE_GEMMA_4_26B_A4B_IT: 8192,
     Model.GOOGLE_GEMMA_4_31B_IT_FREE: 8192,

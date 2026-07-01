@@ -107,8 +107,11 @@ class AppVerifier:
         else:
             req_file = output_dir / "requirements.txt"
             if req_file.exists():
+                # Use an absolute path: the subprocess runs with cwd=output_dir, so a
+                # path relative to repo-root (e.g. a relative --output-dir) would be
+                # resolved against output_dir again and double-nest, failing to open.
                 result = subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
+                    [sys.executable, "-m", "pip", "install", "-r", str(req_file.resolve())],
                     capture_output=True,
                     text=True,
                     cwd=str(output_dir),

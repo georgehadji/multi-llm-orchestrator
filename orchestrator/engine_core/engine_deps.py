@@ -10,7 +10,6 @@ Required imports (UnifiedClient, models, etc.) remain in engine.py.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 import logging
 
@@ -34,9 +33,6 @@ except ImportError:
     HAS_CACHE_OPTIMIZER = False
     CacheOptimizer = None
     CacheConfig = None
-from ..policy import JobSpec, ModelProfile, Policy, PolicySet
-from ..policy_engine import PolicyEngine
-from ..state import StateManager
 
 # Test validation for reliable test generation
 try:
@@ -221,10 +217,6 @@ except (ImportError, TimeoutError):
     get_tracer = None
     traced_task = None
 
-if TYPE_CHECKING:
-    from .cost import BudgetHierarchy, CostPredictor
-    from .metrics import MetricsExporter
-    from .optimization import OptimizationBackend
 
 # PARADIGM SHIFT: TDD-First and Diff-Based Generation
 try:
@@ -260,7 +252,6 @@ except ImportError:
     SmartContextTruncator = None
 
 # Phase 5: Cross-phase context accumulator
-from ..project_context import ProjectContext
 
 # Phase 6: Test infrastructure — automatically repair failing tests
 try:

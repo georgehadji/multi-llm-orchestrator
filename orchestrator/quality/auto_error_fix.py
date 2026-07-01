@@ -21,7 +21,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from ..models import Task
 
     # FIXED: from ..infrastructure.llm_client import UnifiedClient
-    from ...infrastructure.llm_client import UnifiedClient
+    from ..infrastructure.llm_client import UnifiedClient
 
 logger = logging.getLogger(__name__)
 
@@ -138,8 +138,6 @@ class AutoErrorFixer:
                 fixed_code=code,
                 root_cause="No LLM client available for auto-fix",
             )
-
-        import json
 
         prompt = _FIX_PROMPT.format(
             code=code,

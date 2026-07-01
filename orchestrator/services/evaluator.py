@@ -13,21 +13,28 @@ Dependencies injected at construction; no reference back to Orchestrator.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from ..api_clients import UnifiedClient
 from ..budget import Budget
-from ..feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
+from ..domain.phase_policy import Phase, temperature_for
+from ..operations.feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
 from ..telemetry import TelemetryCollector
 from ..tracing import Tracer
 
+if TYPE_CHECKING:
+    from ..application.verification_gate import VerificationGate
+
 logger = logging.getLogger("orchestrator.services.evaluator")
+
+# Optimal evaluation temperature — single source of truth (phase_policy).
+# Evaluation must be reproducible run-to-run; see docs/REASONING_AND_TEMPERATURE.md.
+_EVAL_TEMPERATURE = temperature_for(Phase.EVALUATE)
 
 
 class EvaluatorService:
@@ -45,6 +52,14 @@ class EvaluatorService:
                             score (default 0.05).
     """
 
+    # ENH-1 (Loop Engineering §V.B): adversarial stance — assume broken until proven.
+    _SYSTEM_PROMPT = (
+        "Adversarial code reviewer. "
+        "ASSUME this output is BROKEN until proven otherwise. "
+        "Do NOT praise. Find what fails. "
+        "Score 0.0 for clearly broken code; reserve 0.8+ only when everything works correctly."
+    )
+
     def __init__(
         self,
         client: UnifiedClient,
@@ -54,6 +69,7 @@ class EvaluatorService:
         consistency_delta: float = 0.05,
         tracer: Tracer | None = None,
         telemetry: TelemetryCollector | None = None,
+        verification_gate: "VerificationGate | None" = None,
     ) -> None:
         self._client = client
         self._budget = budget
@@ -62,6 +78,7 @@ class EvaluatorService:
         self._consistency_delta = consistency_delta
         self._tracer = tracer
         self._telemetry = telemetry
+        self._gate = verification_gate
 
     # ── Public interface ──────────────────────────────────────────────────────
 
@@ -87,10 +104,30 @@ class EvaluatorService:
     async def _evaluate_inner(
         self, task: Task, output: str, policy: _ResiliencePolicy | None = None
     ) -> CritiqueReport:
+        # ENH-1: deterministic gate runs first — hard veto before LLM opinion
+        if self._gate is not None:
+            gate_result = await self._gate.run(output)
+            if not gate_result.passed:
+                from ..application.verification_gate import VerificationGate
+
+                logger.warning(
+                    "  %s: VerificationGate FAILED — deterministic floor applied "
+                    "(score=%.2f). Failures: %s",
+                    task.id,
+                    VerificationGate.FAIL_SCORE_FLOOR,
+                    gate_result.reasons,
+                )
+                return CritiqueReport(
+                    task_id=task.id,
+                    score=VerificationGate.FAIL_SCORE_FLOOR,
+                    passed_validators=False,
+                    items=[],
+                )
+
         eval_models = self._get_models(TaskType.EVALUATE)
         if not eval_models:
             logger.debug("  %s: no eval models available, returning 0.5", task.id)
-            return CritiqueReport(task_id=task.id, score=0.5)
+            return CritiqueReport(task_id=task.id, score=0.5, passed_validators=True)
 
         eval_model = eval_models[0]
         logger.debug("  %s: evaluating with %s", task.id, eval_model.value)
@@ -111,6 +148,18 @@ class EvaluatorService:
             f'"suggestion": "<optional>"}}]}}'
         )
 
+        # A reasoning evaluator burns its budget on <think>; 300 tokens never
+        # reaches the verdict, leaving the score un-parseable. Give reasoning
+        # models room for thinking plus the JSON verdict, with a longer timeout.
+        # (Interim until reasoning.exclude lands in the reasoning-model task.)
+        from ..model_registry import ModelRegistry
+
+        _eval_is_reasoning = ModelRegistry.is_reasoning_model(
+            eval_model.value if hasattr(eval_model, "value") else str(eval_model)
+        )
+        _eval_max_tokens = 2000 if _eval_is_reasoning else 400
+        _eval_timeout = 240 if _eval_is_reasoning else 60
+
         scores: list[float] = []
         total_cost = 0.0
         for run in range(self._consistency_runs):
@@ -121,10 +170,10 @@ class EvaluatorService:
                 response = await self._client.call(
                     eval_model,
                     eval_prompt,
-                    system="You are a precise evaluator. Score exactly, return only JSON.",
-                    max_tokens=300,
-                    temperature=0.1,
-                    timeout=60,
+                    system=self._SYSTEM_PROMPT,
+                    max_tokens=_eval_max_tokens,
+                    temperature=_EVAL_TEMPERATURE,
+                    timeout=_eval_timeout,
                     policy=policy,
                 )
                 parsed = self.parse_score(response.text)
@@ -187,6 +236,7 @@ class EvaluatorService:
         return CritiqueReport(
             task_id=task.id,
             score=final_score,
+            passed_validators=True,  # gate passed (or not wired)
             items=items,
             model_used=eval_model.value if eval_model else None,
             tokens_used=(
@@ -197,22 +247,54 @@ class EvaluatorService:
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _aggregate(self, scores: list[float], task_id: str) -> float:
-        """Apply self-consistency: if Δ > threshold, take the lower score."""
+        """Apply self-consistency aggregation across N scoring runs.
+
+        - 0 runs → 0.5 safe default.
+        - 1 run  → that run.
+        - 2 runs → mean, unless Δ > threshold (high disagreement) → lower score.
+        - 3+ runs → median (robust to a single outlier run), with the same
+          high-spread veto: if max-min spread exceeds the threshold, fall back
+          to the median (already outlier-robust) but log the disagreement.
+
+        BUGFIX: the previous implementation handled only len == 2 and returned
+        ``scores[0]`` for any other length, silently discarding runs 2..N when
+        ``consistency_runs`` was configured above 2.
+        """
+        if not scores:
+            return 0.5
+        if len(scores) == 1:
+            return scores[0]
+
+        spread = max(scores) - min(scores)
         if len(scores) == 2:
-            delta = abs(scores[0] - scores[1])
-            if delta > self._consistency_delta:
+            if spread > self._consistency_delta:
                 logger.warning(
                     "Evaluation inconsistency for %s: %.3f vs %.3f (Δ=%.3f > %.2f). "
                     "Using lower score.",
                     task_id,
                     scores[0],
                     scores[1],
-                    delta,
+                    spread,
                     self._consistency_delta,
                 )
                 return min(scores)
             return sum(scores) / len(scores)
-        return scores[0] if scores else 0.5
+
+        # 3+ runs: median is robust to one bad run; warn on high spread.
+        ordered = sorted(scores)
+        mid = len(ordered) // 2
+        median = ordered[mid] if len(ordered) % 2 == 1 else (ordered[mid - 1] + ordered[mid]) / 2
+        if spread > self._consistency_delta:
+            logger.warning(
+                "Evaluation inconsistency for %s across %d runs (spread=%.3f > %.2f). "
+                "Using median=%.3f.",
+                task_id,
+                len(scores),
+                spread,
+                self._consistency_delta,
+                median,
+            )
+        return median
 
     @staticmethod
     def parse_score(text: str) -> float:
@@ -226,6 +308,13 @@ class EvaluatorService:
           4. Returns 0.5 as a safe default fallback
         """
         text = text.strip()
+
+        # Strip reasoning-model thinking so numbers inside the chain-of-thought
+        # are never mistaken for the score. Remove closed <think>...</think>
+        # blocks, then any dangling open <think> tail (truncated reasoning).
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+
         logger.debug("parse_score: input length=%d", len(text))
 
         # ── Try 1: JSON / json5 ──────────────────────────────────────────────

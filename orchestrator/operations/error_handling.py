@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Strategy, Template Method, Factory Method, Builder
 
 Usage:
-    from orchestrator.error_handling import ErrorHandlerGenerator
+    from orchestrator.operations.error_handling import ErrorHandlerGenerator
 
     generator = ErrorHandlerGenerator("typescript")
     error_handler = generator.generate_error_handler()

@@ -6,7 +6,7 @@ import pytest
 
 
 def _make_task(prompt, target_path="", design_variant=None):
-    from orchestrator.models import DesignVariant, Task, TaskType
+    from orchestrator.models import Task, TaskType
 
     return Task(
         id="t1",

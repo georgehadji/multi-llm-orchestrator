@@ -35,7 +35,6 @@ from ..domain.ports import (
     HookRegistryPort,
     NullEventBus,
     NullHookRegistry,
-    PlannerPort,
     StatePort,
     ValidatorPort,
 )
@@ -58,7 +57,6 @@ except ImportError:
     SpeculativeGenerator = None  # type: ignore[misc]
     StreamingValidator = None  # type: ignore[misc]
     TokenBudget = None  # type: ignore[misc]
-from ..model_registry import ModelRegistry
 
 try:
     from ..model_registry import ModelCascader  # type: ignore[attr-defined]
@@ -66,7 +64,6 @@ except ImportError:
     ModelCascader = None
 from ..model_selector import ModelSelector, TieredModelRouter
 from ..policy_engine import PolicyEngine
-from ..rate_limiter import RateLimiter
 from ..telemetry import TelemetryCollector
 from ..tracing import Tracer
 
@@ -111,20 +108,19 @@ class ServiceContainer:
     ara: Any = None
     ara_strategy: Any = None
     pipeline: Optional[TaskPipeline] = None
+    pipeline_executor: Any = None  # PipelineExecutor (wired via wire_pipeline_executor)
     dep_resolver: Any = None
     event_bus: Optional[EventPort] = None
     adaptive_router: Any = None
     telemetry_store: Any = None
     semantic_cache: Any = None
     cb_registry: Any = None
-    observability: Any = None
-
-    # Extracted from engine.__init__ to centralize wiring
-    skill_manager: Any = None
+    health_tracker: Any = None  # ModelHealthTracker
+    budget_enforcer: Any = None  # BudgetEnforcer
+    resumption_service: Any = None  # ResumptionService
     skill_store: Any = None
-    taste_skill_service: Any = None
-    dashboard_bridge: Any = None
-    git_bridge: Any = None
+    snapshotter: Any = None
+    observability: Any = None
     context_compressor: Any = None
     memory_provider_mgr: Any = None
     pattern_store: Any = None
@@ -165,6 +161,9 @@ class ServiceContainer:
     eval_dataset: Any = None
     tdd_generator: Any = None
     diff_generator: Any = None
+
+    # HITL gate (FIX-1: fail-closed by default, no silent auto-approve)
+    hitl: Any = None
 
     # Accessory services (rarely used, kept here for reference)
     session_watcher: Any = None
@@ -265,6 +264,19 @@ class ServiceContainer:
         ):
             self.generator.decompose_fn = decompose_fn
 
+    def wire_pipeline_executor(
+        self,
+        skill_manager: Any = None,
+        taste_skill_service: Any = None,
+        background_tasks: set[Any] | None = None,
+    ) -> None:
+        """Late-bind engine-level deps into PipelineExecutor after Orchestrator.__init__."""
+        if self.pipeline_executor is not None:
+            self.pipeline_executor._skill_manager = skill_manager
+            self.pipeline_executor._taste_skill_service = taste_skill_service
+            if background_tasks is not None:
+                self.pipeline_executor._background_tasks = background_tasks
+
     @classmethod
     def build(
         cls,
@@ -316,8 +328,7 @@ class ServiceContainer:
             ValidateStage,
         )
         from .validator import TaskValidator
-        from ..models import Model, TaskType
-        from ..output_organizer import OutputOrganizer
+        from ..models import Model
         from ..planner import ConstraintPlanner
         from ..preflight import PreflightValidator
         from ..state import StateManager
@@ -337,7 +348,6 @@ class ServiceContainer:
         # Local shims for legacy deps if not found in application layer
         try:
             from .engine_deps import (  # type: ignore[attr-defined]
-                _CBRegistry as CBRegistry,
                 _DepResolver as DepResolver,
                 # GeneratorService imported from services layer above
             )
@@ -507,11 +517,50 @@ class ServiceContainer:
         except ImportError:
             ara_strategy = None
 
+        # ── Health tracker, budget enforcer, resumption (extracted from engine.py) ──
+        health_tracker = None
+        budget_enforcer = None
+        resumption_service = None
+        try:
+            from ..application.model_health_tracker import ModelHealthTracker
+
+            # dashboard / adaptive_router are not yet built at this point in the
+            # container; the engine rebuilds the authoritative tracker with the
+            # real bridges later. Construct with the actual signature here
+            # (policy_engine is NOT a ModelHealthTracker arg).
+            health_tracker = ModelHealthTracker(
+                telemetry=telemetry,
+                dashboard=None,
+                adaptive_router=None,
+                state_mgr=state_manager,
+            )
+        except (ImportError, TypeError):
+            # Optional component: never let a wiring mismatch abort engine build.
+            pass
+        try:
+            from ..application.resumption_service import ResumptionService
+
+            # Requires engine-level callables (execute_task_fn / determine_final_
+            # status_fn) not available here; the engine builds the authoritative
+            # instance in __init__. Degrade to None if it can't be constructed.
+            resumption_service = ResumptionService()  # type: ignore[call-arg]
+        except (ImportError, TypeError):
+            pass
+
+        # VerbalizedSampler: wire via port to break engine_core→application cycle
+        vs_sampler = None
+        try:
+            from ..application.verbalized_sampling import VerbalizedSampler
+
+            vs_sampler = VerbalizedSampler(client=client, budget=budget)  # type: ignore[arg-type]
+        except ImportError:
+            logger.debug("VerbalizedSampler not available — VS features disabled")
+
         # Pipeline with all stages
         pipeline = TaskPipeline(
             [
-                GenerateStage(client=client, budget=budget, selector=selector),  # type: ignore[arg-type]
-                CritiqueStage(client=client, lsp_validator=lsp_validator),  # type: ignore[arg-type]
+                GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
+                CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
                 EvaluateStage(evaluator=evaluator),
                 ValidateStage(),
                 PersuasionDefenseStage(ara_integration=ara),
@@ -523,6 +572,21 @@ class ServiceContainer:
                 ),
             ]
         )
+
+        # PipelineExecutor — wraps pipeline with context enrichment
+        # skill_manager and taste_skill_service are late-bound via wire_pipeline_executor
+        pipeline_executor = None
+        try:
+            from .pipeline_executor import PipelineExecutor as _PipelineExecutor
+
+            pipeline_executor = _PipelineExecutor(
+                pipeline=pipeline,
+                selector=selector,
+                client=client,
+            )
+            logger.debug("PipelineExecutor wired in ServiceContainer")
+        except ImportError:
+            logger.debug("PipelineExecutor not available — will be created after __init__")
 
         # State management
         if telemetry_store is None:
@@ -573,6 +637,11 @@ class ServiceContainer:
         except ImportError:
             pass
 
+        # HITL gate (FIX-1) — channel resolved at request time via env/DI
+        from ..hitl.gate import HumanInTheLoop
+
+        hitl = HumanInTheLoop()  # no channel → fail-closed unless ORCH_HITL_AUTOAPPROVE=true
+
         # Circuit breaker registry
         cb_registry = None
         try:
@@ -582,38 +651,35 @@ class ServiceContainer:
         except ImportError:
             pass
 
-        # ── Services extracted from engine.__init__ (Phase C.3) ────────
-        from ..crosscutting.config import flags as _flags
-        from ..crosscutting.config import settings as _settings
-
-        # SkillOpt: self-improving per-TaskType skill documents
-        skill_manager = None
+        # ── Inline infra imports (consolidated from engine.py) ────────────
+        # SkillStore with SkillDbAdapter
         skill_store = None
-        if _flags.skill_optimization_enabled:
-            from ..application.skill_store import SkillStore as _SkillStore
-            from ..application.skill_manager import SkillManager as _SkillManager
-
-            skill_store = _SkillStore()
-            skill_manager = _SkillManager(
-                optimizer_client=client,
-                skill_store=skill_store,
-            )
-
-        # Taste-skill: anti-slop design prefix for frontend tasks
-        taste_skill_service = None
         try:
-            from ..design.taste_skill_service import TasteSkillService as _TasteSkillService
+            from ..crosscutting.config import flags as _flags
 
-            taste_skill_service = _TasteSkillService(flags=_flags, settings=_settings)
-        except ImportError:
+            if _flags.skill_optimization_enabled:
+                from ..infrastructure.skill_store_adapter import SkillDbAdapter
+                from ..application.skill_store import SkillStore
+
+                skill_store = SkillStore(SkillDbAdapter())
+        except Exception:
             pass
 
-        # Thin bridge wrappers (dashboard/git integrations default to None)
-        from ..application.dashboard_bridge import DashboardBridge as _DashboardBridge
-        from ..application.git_bridge import GitBridge as _GitBridge
+        # TelemetrySnapshotter
+        snapshotter = None
+        try:
+            from ..infrastructure.telemetry_snapshotter import TelemetrySnapshotter
 
-        dashboard_bridge = _DashboardBridge(None)
-        git_bridge = _GitBridge(None)
+            snapshotter = TelemetrySnapshotter(
+                telemetry_store=telemetry_store,
+                get_active_profiles_fn=lambda: [
+                    p
+                    for p in (planner._profiles if planner else {}).values()
+                    if getattr(p, "call_count", 0) >= 1
+                ],
+            )
+        except Exception:
+            pass
 
         return cls(
             budget=budget,
@@ -639,7 +705,11 @@ class ServiceContainer:
             ara=ara,
             ara_strategy=ara_strategy,
             pipeline=pipeline,
+            pipeline_executor=pipeline_executor,
             dep_resolver=dep_resolver,
+            health_tracker=health_tracker,
+            budget_enforcer=budget_enforcer,
+            resumption_service=resumption_service,
             event_bus=event_bus,
             adaptive_router=adaptive_router,
             routing_service=routing_service,
@@ -658,11 +728,9 @@ class ServiceContainer:
             git_integration=None,
             observability=observability,
             cb_registry=cb_registry,
-            skill_manager=skill_manager,
+            hitl=hitl,
             skill_store=skill_store,
-            taste_skill_service=taste_skill_service,
-            dashboard_bridge=dashboard_bridge,
-            git_bridge=git_bridge,
+            snapshotter=snapshotter,
         )
 
 

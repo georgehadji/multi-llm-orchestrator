@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) in this repository.
 
 ## Project Overview
 
-**Multi-LLM Orchestrator** — Production-grade orchestrator for coordinating multiple LLM providers (Anthropic, OpenAI, Google, DeepSeek) with intelligent routing, budget hierarchy enforcement, and circuit breaker resilience.
+**Multi-LLM Orchestrator** — Production-grade orchestrator coordinating multiple LLM providers (Anthropic, OpenAI, Google, DeepSeek) with intelligent routing, budget hierarchy enforcement, circuit breaker resilience.
 
 **Core Capabilities:**
 - Multi-provider routing with quality-aware model selection
@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Resume capability with auto-detection (prevents infinite loops)
 - Policy-driven enforcement (compliance, latency, cost constraints)
 - Deterministic validation + LLM-based evaluation scoring
-- Telemetry collection and circuit breaker health tracking
+- Telemetry collection + circuit breaker health tracking
 
 **Repository:** https://github.com/georgehadji/multi-llm-orchestrator
 
@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture & Design Patterns
 
-> **Master reference:** [`docs/CODEBASE_MINDMAP.md`](docs/CODEBASE_MINDMAP.md) — read this file **before any architectural decision or implementation**.
+> **Master reference:** [`docs/CODEBASE_MINDMAP.md`](docs/CODEBASE_MINDMAP.md) — read **before any architectural decision or implementation**.
 
 ### Hexagonal Architecture (Ports & Adapters)
 - **Driving adapters:** `cli.py`, `api_server.py`, webhooks, tests
@@ -43,18 +43,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Budget Hierarchy | **Composite** | `cost.py` |
 | Resilience | **State Machine** | `resilience.py`, `rate_limiter.py` |
 
-> **Important naming distinction:** `api_clients.py::UnifiedClient` is the LLM provider adapter (normalizes OpenAI/Google/Anthropic/DeepSeek SDKs into a single `call_model()` interface). `gateway.py` is the HTTP API gateway for routing external requests — these are separate concerns.
+> `api_clients.py::UnifiedClient` = LLM provider adapter (normalizes OpenAI/Google/Anthropic/DeepSeek SDKs into single `call_model()` interface). `gateway.py` = HTTP API gateway for external request routing — separate concerns.
 
-### Three Unbreakable Rules
-1. **`engine.py` = Mediator** — New business logic goes into a new service module, **not** into `engine.py`. The engine only wires services together.
-2. **`models.py` = Pure data** — No I/O, no asyncio, no behavior. Only dataclasses and enums.
-3. **TDD without exceptions** — First failing test (RED), then implementation (GREEN), then commit.
+### Four Unbreakable Rules
+1. **`engine.py` = Mediator** — New logic → new service module, **not** `engine.py`. Engine only wires services.
+2. **`models.py` = Pure data** — No I/O, no asyncio, no behavior. Only dataclasses + enums.
+3. **TDD without exceptions** — First failing test (RED), then impl (GREEN), then commit.
+4. **No new root-level modules** — All new code in existing subpackages (`orchestrator/domain/`, `application/`, `engine_core/`, `infrastructure/`, `commands/`, `generators/`, etc.). No new `orchestrator/*.py` at depth 1.
 
 ---
 
 ## Core Execution Pipeline
 
-The primary control loop in `engine.py` follows this pipeline for each task:
+Primary control loop in `engine.py`:
 
 ```
 decompose project → [for each task]:
@@ -63,42 +64,41 @@ decompose project → [for each task]:
 ```
 
 Key data flows:
-- **`models.py`** defines `ROUTING_TABLE` (task type → preferred model) and `FALLBACK_CHAIN` (fallback order on failure).
+- **`models.py`** defines `ROUTING_TABLE` (task type → preferred model) + `FALLBACK_CHAIN` (fallback order on failure).
 - **`api_clients.py::UnifiedClient`** wraps all provider SDKs; returns normalized `APIResponse` with `text`, `input_tokens`, `output_tokens`, `cost_usd`.
 - **`state.py::StateManager`** persists `ProjectState` to `~/.orchestrator_cache/state.db` (async SQLite via `aiosqlite`) after each task — enables crash recovery.
 - **`planner.py::ConstraintPlanner`** selects models based on policy constraints before each task.
 
 ### Dual-Budget System
-There are two independent budget mechanisms that can be used together:
+Two independent budget mechanisms usable together:
 
 | Component | Location | Scope | Purpose |
 |-----------|----------|-------|---------|
-| `Budget` dataclass | `models.py` | Per-run | Tracks spend/time within a single `run_project()` call |
-| `BudgetHierarchy` | `cost.py` | Cross-run | Org → Team → Job caps that persist across multiple runs |
+| `Budget` dataclass | `models.py` | Per-run | Tracks spend/time within single `run_project()` call |
+| `BudgetHierarchy` | `cost.py` | Cross-run | Org → Team → Job caps persisting across runs |
 
-A `BudgetHierarchy` instance is passed into `Orchestrator` alongside the per-run `Budget`. Do not confuse them — they serve different purposes and both can be active simultaneously.
+`BudgetHierarchy` passed into `Orchestrator` alongside per-run `Budget`. Don't confuse them — different purposes, both can be active simultaneously.
 
 ---
 
 ## Configuration
 
-**Environment variables:** Required API keys: `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`. Optional OpenRouter optimizations: `USE_JSON_SCHEMA_RESPONSES`, `USE_MODEL_VARIANTS`, `USE_NATIVE_FALLBACKS`, `USE_PROVIDER_SORTING`, `USE_RESPONSE_HEALING` (server-side JSON repair for non-streaming structured-output requests). Copy `.env.example` to `.env`.
+**Env vars:** Required API keys: `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`. Optional OpenRouter optimizations: `USE_JSON_SCHEMA_RESPONSES`, `USE_MODEL_VARIANTS`, `USE_NATIVE_FALLBACKS`, `USE_PROVIDER_SORTING`, `USE_RESPONSE_HEALING` (server-side JSON repair for non-streaming structured-output requests). Copy `.env.example` to `.env`.
 
 ---
 
 ## Development Workflow
 
 ### Test-Driven Development (TDD)
-1. Write a failing test (RED phase) — verify it fails with the expected error.
-2. Implement minimal code to pass (GREEN phase).
-3. Run full test suite to verify no regressions.
-4. Commit with a detailed message.
+1. Write failing test (RED) — verify fails with expected error.
+2. Implement minimal code to pass (GREEN).
+3. Run full test suite, verify no regressions.
+4. Commit with detailed message.
 
 ### Tests Directory Note
-The `tests/` directory contains 200+ files, many being one-off verification/migration scripts (e.g., `verify_fix.py`, `move_tests.py`). Actual test modules follow the `test_*.py` pattern. Use `pytest tests/ -m unit` or `pytest tests/ -m integration` to target meaningful tests rather than running the full directory.
+`tests/` has 200+ files, many one-off verification/migration scripts (e.g., `verify_fix.py`, `move_tests.py`). Actual test modules follow `test_*.py` pattern. Use `pytest tests/ -m unit` or `pytest tests/ -m integration` — don't run full directory.
 
 ### Git Worktrees for Isolation
-This project uses git worktrees for isolated feature branches:
 ```bash
 # Create new worktree for feature
 git worktree add .claude/worktrees/feature-name -b feature-name
@@ -115,12 +115,12 @@ git push -u origin feature-name
 cd ../..
 git worktree remove .claude/worktrees/feature-name
 ```
-Note: `.claude/worktrees/` is in `.gitignore` for safety.
+`.claude/worktrees/` in `.gitignore` for safety.
 
 ### Plan Mode for Non-trivial Tasks
-- Enter plan mode for any task with 3+ steps or architectural decisions.
-- Write detailed specs upfront; verify plan with the user before implementation.
-- If something goes sideways, **STOP and re-plan immediately** — don't keep pushing.
+- Enter plan mode for tasks with 3+ steps or architectural decisions.
+- Write detailed specs upfront; verify plan before impl.
+- If something goes sideways, **STOP + re-plan immediately** — don't keep pushing.
 
 ---
 
@@ -181,7 +181,7 @@ python start_dashboard.py
 
 - **Test markers:** `unit`, `integration`, `slow`, `requires_api`, `e2e`, `load`, `stress`, `benchmark`
 - **Coverage:** Configured in `pyproject.toml`; `fail_under = 0` (temporarily relaxed)
-- **Pytest configuration:** See `[tool.pytest.ini_options]` in `pyproject.toml`
+- **Pytest config:** See `[tool.pytest.ini_options]` in `pyproject.toml`
 - **Stress tests:** Pre-existing failures in `tests/stress_test.py` (S2, S6, S7) — documented, not blocking
 
 ```bash
@@ -194,8 +194,8 @@ pytest -m integration     # Only integration tests
 
 ## Known Limitations
 
-- **Resume detection:** Uses file modification time heuristic; could be more robust.
-- **Policy system:** Enforcement mode selection (HARD/SOFT/MONITOR) not yet fully integrated.
+- **Resume detection:** Uses file mod time heuristic; could be more robust.
+- **Policy system:** Enforcement mode selection (HARD/SOFT/MONITOR) not fully integrated.
 - **Stress tests:** Pre-existing failures in `tests/stress_test.py` (S2, S6, S7) — documented, not blocking.
 
 ---
