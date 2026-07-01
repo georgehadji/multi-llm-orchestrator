@@ -30,7 +30,7 @@ TIER_ROUTING: dict[ModelTier, list[str]] = {
     # PREMIUM: frontier models — highest quality, higher cost
     ModelTier.PREMIUM: [
         "openai/gpt-4o",
-        "anthropic/claude-sonnet-4-6",
+        "anthropic/claude-sonnet-5",
         "google/gemini-3.5-flash",
         "meta-llama/llama-3.1-405b-instruct",  # OR: 405B open-source near-frontier
     ],

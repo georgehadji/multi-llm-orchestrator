@@ -67,14 +67,14 @@ def test_retry_template_for_task_type():
 def test_resolve_fallback_chain_known_model():
     chain = resolve_fallback_chain(Model.GPT_4O)
     assert len(chain) >= 1
-    assert chain[0] == Model.CLAUDE_SONNET_4_6
+    assert chain[0] == Model.CLAUDE_SONNET_5
 
 
 def test_resolve_fallback_chain_max_depth():
     # Verify max_depth limits the chain length
     chain = resolve_fallback_chain(Model.GPT_4O, max_depth=1)
     assert len(chain) == 1
-    assert chain[0] == Model.CLAUDE_SONNET_4_6
+    assert chain[0] == Model.CLAUDE_SONNET_5
 
 
 def test_resolve_fallback_chain_cycle_protection():

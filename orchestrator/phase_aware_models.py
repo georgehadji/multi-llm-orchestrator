@@ -79,7 +79,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
         ModelRegistry.GLM_5_2,  # $0.50/$2.00, enhanced programming, stable
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
-        ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative development
+        ModelRegistry.CLAUDE_SONNET_5,  # $3.00/$15.00, iterative development
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, SWE-Bench Pro SOTA
     ],
     # ═══════════════════════════════════════════════════════
@@ -103,7 +103,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx, agent ⭐ NEW!
         ModelRegistry.KIMI_K2_7_CODE,  # $0.95/$4.00, 256K, MoE 32B/1T, thinking mode
         "qwen/qwen3.5-397b-a17b",  # $0.39/$2.34, 397B MoE SOTA
-        ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, 1M context, codebase nav
+        ModelRegistry.CLAUDE_SONNET_5,  # $3.00/$15.00, 1M context, codebase nav
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, agent swarm, multimodal
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, unified Codex+GPT, 1M
         "google/gemini-3.5-flash",  # $2.00/$12.00, 1M context, agentic
@@ -116,7 +116,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.DEBATE: [
         ModelRegistry.GROK_4_20,  # $2.00/$6.00, strict adherence ⭐ BEST
-        ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, balanced, nuanced
+        ModelRegistry.CLAUDE_SONNET_5,  # $3.00/$15.00, balanced, nuanced
         ModelRegistry.GPT_5_4,  # $2.50/$15.00, strong argumentation
         "qwen/qwen3.5-397b-a17b",  # $0.39/$2.34, SOTA reasoning
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, broad knowledge
@@ -156,7 +156,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.REFINEMENT: [
         ModelRegistry.KIMI_K2_7_CODE,  # $0.95/$4.00, 3.1× cheaper than Sonnet, thinking mode
-        ModelRegistry.CLAUDE_SONNET_4_6,  # $3.00/$15.00, iterative dev specialist ⭐ BEST
+        ModelRegistry.CLAUDE_SONNET_5,  # $3.00/$15.00, iterative dev specialist ⭐ BEST
         ModelRegistry.GPT_5_4_CODEX,  # $1.75/$14.00, code reviews, 25% faster
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench, fast iterations
         ModelRegistry.MINIMAX_M2_7,  # $0.30/$1.20, 56.2% SWE-Pro
@@ -360,7 +360,7 @@ class ModelCapabilities:
         # ═══════════════════════════════════════════════════════
         # ANTHROPIC CLAUDE MODELS - PREMIUM QUALITY
         # ═══════════════════════════════════════════════════════
-        "anthropic/claude-sonnet-4-6": {
+        "anthropic/claude-sonnet-5": {
             "reasoning": 9.0,
             "coding": 9.5,  # ⭐ Iterative development
             "creativity": 9.0,
@@ -660,7 +660,7 @@ MODEL_COSTS: dict[str, dict[str, float]] = {
     # xAI Grok
     "x-ai/grok-4.20": {"input": 2.00, "output": 6.00},
     # Anthropic Claude
-    "anthropic/claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "anthropic/claude-sonnet-5": {"input": 3.00, "output": 15.00},
     "anthropic/claude-opus-4-6": {"input": 5.00, "output": 25.00},
     # OpenAI GPT
     "openai/gpt-5.4": {"input": 2.50, "output": 15.00},

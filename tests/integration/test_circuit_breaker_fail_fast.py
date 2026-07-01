@@ -58,6 +58,14 @@ async def test_circuit_breaker_open_raises_immediately(orchestrator_fixture):
     """
     orch = orchestrator_fixture
 
+    # Warm up client to avoid lazy-init overhead inside the timed block
+    from orchestrator.models import Model
+
+    try:
+        await orch.client._get_client_for_model(Model.GPT_4O_MINI)
+    except Exception:
+        pass
+
     # Manually trip the circuit breaker
     cb = orch.client.circuit_breaker
     for _ in range(cb.failure_threshold):

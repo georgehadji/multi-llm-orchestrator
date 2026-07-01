@@ -75,7 +75,7 @@ class ModelRegistry:
     DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"  # $1.50/$6.00, reasoning specialist
 
     # Anthropic Claude Models - Balanced Quality
-    CLAUDE_SONNET_4_6 = "anthropic/claude-sonnet-4-6"  # $3.00/$15.00 ⭐ VERIFIED
+    CLAUDE_SONNET_5 = "anthropic/claude-sonnet-5"  # $3.00/$15.00 ⭐ VERIFIED
     CLAUDE_OPUS_4_8 = "anthropic/claude-opus-4-8"  # $6.00/$30.00, complex analysis
     CLAUDE_HAIKU_4_5 = "anthropic/claude-haiku-4-5"  # $1.00/$5.00, fast
 
@@ -135,7 +135,7 @@ class ModelRegistry:
     # NOT listed — OpenRouter normalizes them server-side (verified live call).
     UNAVAILABLE_MODELS = {
         # Anthropic legacy ids (genuine 404)
-        "anthropic/claude-3.5-sonnet": "anthropic/claude-sonnet-4-6",
+        "anthropic/claude-3.5-sonnet": "anthropic/claude-sonnet-5",
         "anthropic/claude-3-opus": "anthropic/claude-opus-4-8",
         "anthropic/claude-3-5-haiku": "anthropic/claude-haiku-4-5",
         # Qwen — hyphenated/legacy ids OpenRouter no longer accepts
@@ -155,6 +155,8 @@ class ModelRegistry:
         # DeepSeek
         "deepseek/deepseek-reasoner": "deepseek/deepseek-v4-pro",
         "deepseek/deepseek-r1": "deepseek/deepseek-v4-pro",
+        # Internal test models
+        "internal/nano-banana-2": "openai/gpt-4o-mini",
         # StepFun
         "stepfun/step-3.5": "stepfun/step-3.7-flash",
         # Meta — 405B not on OpenRouter
@@ -236,7 +238,7 @@ class ModelRegistry:
         DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},
         DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},
         # Anthropic Models (VERIFIED)
-        CLAUDE_SONNET_4_6: {"input": 3.00, "output": 15.00},
+        CLAUDE_SONNET_5: {"input": 3.00, "output": 15.00},
         CLAUDE_OPUS_4_8: {"input": 6.00, "output": 30.00},
         CLAUDE_HAIKU_4_5: {"input": 1.00, "output": 5.00},
         # OpenAI Models (VERIFIED)
@@ -282,7 +284,7 @@ class ModelRegistry:
         DEEPSEEK_V4_FLASH: 163840,
         DEEPSEEK_V4_PRO: 16384,
         # Anthropic Models (VERIFIED)
-        CLAUDE_SONNET_4_6: 200000,
+        CLAUDE_SONNET_5: 200000,
         CLAUDE_OPUS_4_8: 200000,
         CLAUDE_HAIKU_4_5: 200000,
         # OpenAI Models (VERIFIED)
@@ -397,7 +399,7 @@ class ModelRegistry:
         KIMI_K2_7_CODE,
         GEMINI_FLASH,  # 1M+
         MIMO_V2_PRO,  # 1M+
-        CLAUDE_SONNET_4_6,  # 200K
+        CLAUDE_SONNET_5,  # 200K
         CLAUDE_OPUS_4_8,  # 200K
         CLAUDE_HAIKU_4_5,  # 200K
         GPT_5,  # 400K
@@ -421,7 +423,7 @@ class ModelRegistry:
         # Google Gemini — natively multimodal
         GEMINI_FLASH,
         # Anthropic Claude 3.x+ — all vision-capable
-        CLAUDE_SONNET_4_6,
+        CLAUDE_SONNET_5,
         CLAUDE_OPUS_4_8,
         CLAUDE_HAIKU_4_5,
         # OpenAI — GPT-4o and GPT-5 family are multimodal

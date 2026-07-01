@@ -121,7 +121,7 @@ class StreamingValidator:
 
     # Model fallback chain (using Model enum for consistency)
     FALLBACK_CHAIN = [
-        Model.CLAUDE_SONNET_4_6,
+        Model.CLAUDE_SONNET_5,
         Model.CLAUDE_OPUS_4_8,
         Model.GPT_4O,
         Model.DEEPSEEK_V4_FLASH,
@@ -130,7 +130,7 @@ class StreamingValidator:
     # Cost per 1M tokens (using Model enum keys for consistency)
     MODEL_COSTS = {
         Model.DEEPSEEK_V4_FLASH: {"input": 1.0, "output": 4.0},
-        Model.CLAUDE_SONNET_4_6: {"input": 3.0, "output": 15.0},
+        Model.CLAUDE_SONNET_5: {"input": 3.0, "output": 15.0},
         Model.CLAUDE_OPUS_4_8: {"input": 18.0, "output": 90.0},
         Model.GPT_4O: {"input": 5.0, "output": 15.0},
     }
