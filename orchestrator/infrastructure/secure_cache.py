@@ -388,9 +388,9 @@ def get_secure_cache(db_path: Path | None = None) -> SecureCache:
     return _default_cache
 
 
-def reset_secure_cache() -> None:
+async def reset_secure_cache() -> None:
     """Reset default cache (for testing)."""
     global _default_cache
     if _default_cache:
-        _default_cache.clear()
+        await _default_cache.clear()
     _default_cache = None

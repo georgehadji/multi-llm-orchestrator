@@ -676,7 +676,10 @@ async def _check_resume(
 
     try:
         rows = await asyncio.wait_for(state_mgr.find_resumable(keywords), timeout=0.2)
-    except (asyncio.TimeoutError, Exception):
+    except asyncio.TimeoutError:
+        return None
+    except Exception as exc:
+        logger.warning("Failed to check resumable projects: %s", exc)
         return None
 
     if not rows:

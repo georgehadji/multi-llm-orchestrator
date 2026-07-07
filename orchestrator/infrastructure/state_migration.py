@@ -18,8 +18,16 @@ import json
 import logging
 from pathlib import Path
 
-from .budget import Budget
-from .models import Model, ProjectState, Task, TaskResult, TaskStatus, TaskType
+from orchestrator.budget import Budget
+from orchestrator.models import (
+    Model,
+    ProjectState,
+    ProjectStatus,
+    Task,
+    TaskResult,
+    TaskStatus,
+    TaskType,
+)
 
 logger = logging.getLogger("orchestrator.state")
 
@@ -221,7 +229,7 @@ async def _attempt_state_reconstruction(
         tasks=tasks,
         results=results,
         api_health={},
-        status=TaskStatus.PARTIAL_SUCCESS,  # Best effort
+        status=ProjectStatus.PARTIAL_SUCCESS,  # Best effort
         execution_order=list(tasks.keys()),
     )
 

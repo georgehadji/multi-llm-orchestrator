@@ -185,20 +185,23 @@ class CommandCenterServer:
     async def _handle_client(self, websocket, path):
         """Handle new client connection. Requires token auth via first message or query param."""
         import os as _os
+        import hmac as _hmac
 
         ws_token = _os.environ.get("ORCHESTRATOR_WS_TOKEN")
-        if ws_token:
-            try:
-                auth_msg = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-                data = json.loads(auth_msg)
-                import hmac as _hmac
+        if not ws_token:
+            await websocket.close(code=4001, reason="Server token not configured")
+            return
 
-                if not _hmac.compare_digest(data.get("token", ""), ws_token):
-                    await websocket.close(code=4001, reason="Unauthorized")
-                    return
-            except Exception:
-                await websocket.close(code=4001, reason="Auth timeout or invalid message")
+        try:
+            auth_msg = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+            data = json.loads(auth_msg)
+
+            if not _hmac.compare_digest(data.get("token", ""), ws_token):
+                await websocket.close(code=4001, reason="Unauthorized")
                 return
+        except Exception:
+            await websocket.close(code=4001, reason="Auth timeout or invalid message")
+            return
 
         self._clients.add(websocket)
         client_ip = websocket.remote_address[0] if websocket.remote_address else "unknown"
@@ -322,7 +325,7 @@ class CommandCenterServer:
 
         # Send to all clients
         disconnected = set()
-        for client in self._clients:
+        for client in list(self._clients):
             try:
                 await client.send(message)
             except websockets.exceptions.ConnectionClosed:
@@ -344,7 +347,7 @@ class CommandCenterServer:
         )
 
         disconnected = set()
-        for client in self._clients:
+        for client in list(self._clients):
             try:
                 await client.send(message)
             except websockets.exceptions.ConnectionClosed:

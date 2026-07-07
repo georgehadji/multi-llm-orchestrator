@@ -130,6 +130,35 @@ ORCH_IMAGE_REFERENCE_PIPELINE=true \
 
 taste-skill is **always optional** — disabled flag or non-frontend task → no overhead.
 
+## Anti-Over-Engineering (ponytail)
+
+The orchestrator integrates the **ponytail** extension, a specialized agent mode that forces the laziest, simplest, and most minimal solution that actually works. It actively fights over-engineering, reinventing the standard library, and adding unnecessary dependencies.
+
+### Activate & Configure
+
+You can invoke ponytail directly via commands or by using specific keywords in your prompts.
+
+**Available Skills:**
+* `ponytail` (core): Use by saying "be lazy", "ponytail", or "simplest solution". Forces minimal code and YAGNI (You Aren't Gonna Need It) principles.
+* `ponytail-review`: Focused code review that only looks for what to delete (e.g., speculative abstractions, dead flexibility).
+* `ponytail-audit`: Whole-repo scan for bloat and complexity.
+* `ponytail-debt`: Harvests and tracks intentional shortcuts left behind with `ponytail:` comments in the code.
+* `ponytail-gain` / `ponytail-help`: Scoreboard and quick reference for the extension.
+
+### Usage Examples
+
+```bash
+# General coding with ponytail
+python -m orchestrator --project "Build a script to parse CSVs, be lazy and use ponytail"
+
+# Aggressive review
+python -m orchestrator slash
+> /ponytail-review
+
+# Audit the codebase for bloat
+> /ponytail-audit
+```
+
 ---
 
 ## Website Generator — Design-System-Driven Site Builder

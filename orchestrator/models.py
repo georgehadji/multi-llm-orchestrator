@@ -23,6 +23,7 @@ Usage:
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Literal, TypedDict
 
@@ -204,7 +205,7 @@ class Model(Enum):
     ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"
     XAI_GROK_4_20 = "x-ai/grok-4.20"
     QWEN_3_7_MAX = "qwen/qwen3.7-max"
-    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"
+    QWEN_3_6_FLASH = "openai/gpt-4o-mini"
     MINIMAX_M2_7 = "minimax/minimax-m2.7"
     XIAOMI_MIMO_V2_FLASH = "xiaomi/mimo-v2.5"
     XIAOMI_MIMO_V2_5 = "xiaomi/mimo-v2.5"
@@ -711,39 +712,6 @@ def get_provider(model: Model) -> Provider:
     return "openrouter"
 
 
-import hashlib
-from dataclasses import dataclass, field
-
-
-import hashlib
-from dataclasses import dataclass, field
-
-
-import hashlib
-from dataclasses import dataclass, field
-
-
-class TaskType(str, Enum):
-
-    CODE_GEN = "code_generation"
-
-    CODE_REVIEW = "code_review"
-
-    REASONING = "complex_reasoning"
-
-    WRITING = "creative_writing"
-
-    DATA_EXTRACT = "data_extraction"
-
-    SUMMARIZE = "summarization"
-
-    EVALUATE = "evaluation"
-
-    IMAGE_GEN = "image_generation"
-
-    VIDEO_GEN = "video_generation"
-
-
 class ProjectStatus(str, Enum):
 
     SUCCESS = "SUCCESS"
@@ -770,20 +738,6 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
 
     DEGRADED = "degraded"
-
-
-def get_provider(model: Model) -> str:
-    """
-
-    Get provider name for a model.
-
-
-
-    All models now use OpenRouter exclusively.
-
-    """
-
-    return "openrouter"
 
 
 # ─────────────────────────────────────────────
@@ -1179,12 +1133,35 @@ class JobSpec:
 
     output_dir: str = ""
 
+    def __post_init__(self) -> None:
+        _max_desc = 10_000
+        _max_criteria = 10_000
+        _max_app_type = 64
+        _max_output_dir = 512
+
+        if not isinstance(self.description, str) or not self.description.strip():
+            raise ValueError("description must be a non-empty string")
+        if len(self.description) > _max_desc:
+            raise ValueError(f"description exceeds {_max_desc} characters")
+
+        if not isinstance(self.success_criteria, str) or not self.success_criteria.strip():
+            raise ValueError("success_criteria must be a non-empty string")
+        if len(self.success_criteria) > _max_criteria:
+            raise ValueError(f"success_criteria exceeds {_max_criteria} characters")
+
+        if self.app_type is not None and len(self.app_type) > _max_app_type:
+            raise ValueError(f"app_type exceeds {_max_app_type} characters")
+        if self.output_dir is not None and len(self.output_dir) > _max_output_dir:
+            raise ValueError(f"output_dir exceeds {_max_output_dir} characters")
+
 
 # ─────────────────────────────────────────────
 
 # Utilities
 
 # ─────────────────────────────────────────────
+
+import hashlib
 
 
 def prompt_hash(

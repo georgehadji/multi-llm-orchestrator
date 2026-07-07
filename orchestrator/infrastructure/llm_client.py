@@ -191,9 +191,42 @@ class UnifiedClient:
             success_threshold=2,
         )
 
+    async def close(self) -> None:
+        """Close all cached HTTP clients and release connection pools."""
+        clients = list(self._clients.values())
+        if self._default_client is not None:
+            clients.append(self._default_client)
+
+        for client in clients:
+            try:
+                # instructor wraps AsyncOpenAI; close the underlying client.
+                await client.client.close()
+            except Exception:
+                logger.warning("Failed to close LLM client", exc_info=True)
+
+        self._clients.clear()
+        self._provider_clients.clear()
+        self._default_client = None
+
     def _init_clients(self) -> None:
         """Shim to support legacy mock-based tests."""
         pass
+
+    def _resolve_model_enum(self, model_str: str) -> Model:
+        """Resolve a model string to a Model enum, falling back to GPT_4O_MINI."""
+        from ..models import Model as _Model
+
+        for m in _Model:
+            if m.value == model_str or m.name == model_str:
+                return m
+        try:
+            return _Model(model_str)
+        except ValueError:
+            fallback = getattr(_Model, "GPT_4O_MINI", None)
+            if fallback is None:
+                fallback = list(_Model)[0]
+            logger.warning("Unknown model %r; falling back to %s", model_str, fallback.value)
+            return fallback
 
     def is_available(self, model: Model) -> bool:
         """Check if model is available (always True for OpenRouter models)."""
@@ -226,19 +259,12 @@ class UnifiedClient:
         # Resolve Model enum vs string
         from ..models import Model as _Model
 
+        if model is None:
+            model = _Model.GPT_4O_MINI
+
         if isinstance(model, str):
-            try:
-                # Find matching enum
-                model_enum = None
-                for m in _Model:
-                    if m.value == model or m.name == model:
-                        model_enum = m
-                        break
-                if model_enum is None:
-                    model_enum = _Model(model)
-            except ValueError:
-                model_enum = _Model.OPENROUTER_AUTO
             model_id = model
+            model_enum = self._resolve_model_enum(model)
         else:
             model_enum = model
             model_id = model.value
@@ -285,10 +311,8 @@ class UnifiedClient:
                 )
                 latency = asyncio.get_event_loop().time() - start_time
 
-                from unittest.mock import Mock, MagicMock
-
                 if (
-                    isinstance(dispatch_res, (APIResponse, Mock, MagicMock))
+                    isinstance(dispatch_res, APIResponse)
                     or hasattr(dispatch_res, "__mock_self__")
                     or (hasattr(dispatch_res, "text") and not hasattr(dispatch_res, "choices"))
                 ):
@@ -406,12 +430,8 @@ class UnifiedClient:
         logger.info("Creating new OpenRouter client")
         client = instructor.from_openai(
             AsyncOpenAI(
-                base_url="https://openrouter.ai/api/v1",
+                base_url="https://openrouter.ai/api/v1/",
                 api_key=self._api_key,
-                default_headers={
-                    "HTTP-Referer": "http://localhost:3000",
-                    "X-Title": "AI Orchestrator",
-                },
             ),
             mode=self._mode,
         )

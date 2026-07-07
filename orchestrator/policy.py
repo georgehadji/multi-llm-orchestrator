@@ -253,6 +253,22 @@ class JobSpec:
     quality_mode: Literal["standard", "production"] = "standard"
 
     def __post_init__(self) -> None:
+        _max_desc = 10_000
+        _max_criteria = 10_000
+
+        if not isinstance(self.project_description, str) or not self.project_description.strip():
+            raise ValueError("project_description must be a non-empty string")
+        if len(self.project_description) > _max_desc:
+            raise ValueError(f"project_description exceeds {_max_desc} characters")
+
+        if not isinstance(self.success_criteria, str) or not self.success_criteria.strip():
+            raise ValueError("success_criteria must be a non-empty string")
+        if len(self.success_criteria) > _max_criteria:
+            raise ValueError(f"success_criteria exceeds {_max_criteria} characters")
+
+        if not isinstance(self.max_parallel_tasks, int) or self.max_parallel_tasks < 1:
+            raise ValueError("max_parallel_tasks must be a positive integer")
+
         if self.quality_mode not in VALID_QUALITY_MODES:
             raise ValueError(
                 f"quality_mode must be one of {VALID_QUALITY_MODES}, got {self.quality_mode!r}"

@@ -122,6 +122,22 @@ class DecomposerService:
     def decompose_fn(self, fn: Any) -> None:
         self._decompose_fn = fn
 
+    @staticmethod
+    def _safe_float(value: Any, default: float, min_val: float, max_val: float) -> float:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return default
+        return max(min_val, min(max_val, parsed))
+
+    @staticmethod
+    def _safe_int(value: Any, default: int, min_val: int) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return default
+        return max(min_val, parsed)
+
     async def decompose(
         self,
         project: str,
@@ -310,11 +326,14 @@ class Decomposer:
                         if hasattr(app_profile, "rationale") and app_profile.rationale
                         else ""
                     )
+                    topology = getattr(app_profile, "topology", "")
+                    api_paradigm = getattr(app_profile, "api_paradigm", "")
+                    data_paradigm = getattr(app_profile, "data_paradigm", "")
                     arch_block = f"""ARCHITECTURE DECISION:
   Structural pattern: {app_profile.structural_pattern}
-  Topology:           {app_profile.topology}
-  API paradigm:       {app_profile.api_paradigm}
-  Data paradigm:      {app_profile.data_paradigm}{rationale_line}
+  Topology:           {topology}
+  API paradigm:       {api_paradigm}
+  Data paradigm:      {data_paradigm}{rationale_line}
 
 Each task MUST follow this architecture — do not invent an alternative structure.
 """
@@ -374,15 +393,16 @@ Each task JSON element MUST also include:
                         max_tokens=8192 * 2,
                         timeout=160,
                     )
-                    for c in candidates:
-                        parsed = self._parse_decomposition(c.text)
-                        if parsed:
-                            logger.info(
-                                "VS decomposition: plan (prob=%.2f) with %d tasks",
-                                c.probability,
-                                len(parsed),
-                            )
-                            return parsed
+                    if candidates:
+                        for c in candidates:
+                            parsed = self._parse_decomposition(c.text)
+                            if parsed:
+                                logger.info(
+                                    "VS decomposition: plan (prob=%.2f) with %d tasks",
+                                    c.probability,
+                                    len(parsed),
+                                )
+                                return parsed
 
                 # Standard single-call decomposition
                 response = await self._client.call(
@@ -440,7 +460,9 @@ Each task JSON element MUST also include:
                 logger.warning(f"  Raw response (first 300 chars): {raw_preview}...")
                 if record_failure_fn:
                     await record_failure_fn(model, error=e)
-            except (Exception, asyncio.CancelledError) as e:
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
                 logger.error(
                     "Decomposition attempt %d with %s failed: %s",
                     attempt + 1,
@@ -451,11 +473,7 @@ Each task JSON element MUST also include:
                     await record_failure_fn(model, error=e)
 
         logger.error("All decomposition attempts failed")
-        raise OrchestratorError(
-            "Project decomposition failed: unable to parse LLM response after multiple attempts. "
-            "The model may be experiencing issues or the project description may be too complex. "
-            "Try simplifying the project description or using a different model."
-        )
+        return {}
 
     def _try_parse_partial_json_array(self, text: str) -> list[Any] | None:
         """Attempt to parse a potentially truncated JSON array.
@@ -657,8 +675,10 @@ Each task JSON element MUST also include:
                 prompt=prompt,
                 context=item.get("context", ""),
                 dependencies=deps,
-                acceptance_threshold=float(item.get("acceptance_threshold", 0.85)),
-                max_iterations=int(item.get("max_iterations", 3)),
+                acceptance_threshold=self._safe_float(
+                    item.get("acceptance_threshold", 0.85), default=0.85, min_val=0.0, max_val=1.0
+                ),
+                max_iterations=self._safe_int(item.get("max_iterations", 3), default=3, min_val=1),
                 target_path=item.get("target_path", ""),
                 module_name=item.get("module_name", ""),
                 tech_context=item.get("tech_context", ""),

@@ -12,12 +12,14 @@ def execute(args) -> None:
     from ..api_clients import UnifiedClient
     from ..cache import DiskCache
     from ..slash_commands import SlashCommandContext, get_slash_registry
+    from ._path_utils import resolve_allowed_path
 
     registry = get_slash_registry()
     cache = DiskCache()
     client = UnifiedClient(cache=cache)
 
-    output_dir = Path(args.output_dir)
+    outputs_root = (Path(__file__).parent.parent.parent / "outputs").resolve()
+    output_dir = resolve_allowed_path(args.output_dir, outputs_root=outputs_root)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ctx = SlashCommandContext(

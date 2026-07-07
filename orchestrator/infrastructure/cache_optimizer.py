@@ -178,7 +178,9 @@ class L2DiskCache:
     async def _get_conn(self) -> aiosqlite.Connection:
         """Get database connection."""
         if self._conn is None:
-            self._conn = await aiosqlite.connect(str(self._db_path))
+            self._conn = await asyncio.wait_for(
+                aiosqlite.connect(str(self._db_path)), timeout=self._CONN_TIMEOUT
+            )
             await self._conn.execute("PRAGMA journal_mode=WAL")
             await self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS cache (

@@ -176,17 +176,19 @@ class DatabaseManager:
                     continue
                 try:
                     conn = await aiosqlite.connect(str(db_path))
-                    await conn.execute(
-                        "PRAGMA journal_mode=WAL"
-                        if self._wal_mode
-                        else "PRAGMA journal_mode=DELETE"
-                    )
-                    await conn.execute(f"PRAGMA synchronous={self._synchronous}")
-                    await conn.executescript(schema)
-                    await conn.commit()
-                    await conn.close()
-                    self._initialized.add(name)
-                    logger.debug("DatabaseManager: initialized %s (%s)", name, db_path)
+                    try:
+                        await conn.execute(
+                            "PRAGMA journal_mode=WAL"
+                            if self._wal_mode
+                            else "PRAGMA journal_mode=DELETE"
+                        )
+                        await conn.execute(f"PRAGMA synchronous={self._synchronous}")
+                        await conn.executescript(schema)
+                        await conn.commit()
+                        self._initialized.add(name)
+                        logger.debug("DatabaseManager: initialized %s (%s)", name, db_path)
+                    finally:
+                        await conn.close()
                 except aiosqlite.Error as exc:
                     logger.error("DatabaseManager: failed to init %s: %s", name, exc)
                     raise

@@ -405,6 +405,10 @@ class DiskCache(CacheBackend):
         if self._initialized:
             return
 
+        self._init_sync()
+        self._initialized = True
+
+    def _init_sync(self):
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS cache (
@@ -420,8 +424,6 @@ class DiskCache(CacheBackend):
             """)
             conn.commit()
 
-        self._initialized = True
-
     @property
     def level(self) -> CacheLevel:
         return CacheLevel.L3_DISK
@@ -430,31 +432,33 @@ class DiskCache(CacheBackend):
         self._init()
 
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
-                cursor = conn.execute("SELECT value, expires_at FROM cache WHERE key = ?", (key,))
-                row = cursor.fetchone()
-
-                if row is None:
-                    self._stats["misses"] += 1
-                    return None
-
-                value_blob, expires_at = row
-
-                # Check expiration
-                if expires_at:
-                    expires = datetime.fromisoformat(expires_at)
-                    if datetime.utcnow() > expires:
-                        conn.execute("DELETE FROM cache WHERE key = ?", (key,))
-                        conn.commit()
-                        self._stats["misses"] += 1
-                        return None
-
-                self._stats["hits"] += 1
-                return pickle.loads(value_blob)
-
+            return await asyncio.to_thread(self._get_sync, key)
         except Exception as e:
             logger.error(f"Disk cache get failed: {e}")
             return None
+
+    def _get_sync(self, key: str) -> Any | None:
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.execute("SELECT value, expires_at FROM cache WHERE key = ?", (key,))
+            row = cursor.fetchone()
+
+            if row is None:
+                self._stats["misses"] += 1
+                return None
+
+            value_blob, expires_at = row
+
+            # Check expiration
+            if expires_at:
+                expires = datetime.fromisoformat(expires_at)
+                if datetime.utcnow() > expires:
+                    conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+                    conn.commit()
+                    self._stats["misses"] += 1
+                    return None
+
+            self._stats["hits"] += 1
+            return pickle.loads(value_blob)
 
     async def set(
         self,
@@ -465,82 +469,93 @@ class DiskCache(CacheBackend):
         self._init()
 
         try:
-            # Serialize value
-            value_blob = pickle.dumps(value)
-            size = len(value_blob)
-
-            # Check if we need to evict
-            with sqlite3.connect(str(self.db_path)) as conn:
-                # Get current size
-                cursor = conn.execute("SELECT SUM(size_bytes) FROM cache")
-                current_size = cursor.fetchone()[0] or 0
-
-                # Evict if necessary (remove oldest)
-                while current_size + size > self.max_size_bytes:
-                    cursor = conn.execute(
-                        "SELECT key, size_bytes FROM cache ORDER BY created_at ASC LIMIT 1"
-                    )
-                    row = cursor.fetchone()
-                    if row is None:
-                        break
-
-                    conn.execute("DELETE FROM cache WHERE key = ?", (row[0],))
-                    current_size -= row[1]
-                    self._stats["evictions"] += 1
-
-                # Calculate expiration
-                expires_at = None
-                if ttl:
-                    expires_at = (datetime.utcnow() + ttl).isoformat()
-
-                # Insert or replace
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO cache (key, value, created_at, expires_at, size_bytes)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (key, value_blob, datetime.utcnow().isoformat(), expires_at, size),
-                )
-                conn.commit()
-
+            await asyncio.to_thread(self._set_sync, key, value, ttl)
         except Exception as e:
             logger.error(f"Disk cache set failed: {e}")
+
+    def _set_sync(self, key: str, value: Any, ttl: timedelta | None) -> None:
+        # Serialize value
+        value_blob = pickle.dumps(value)
+        size = len(value_blob)
+
+        # Check if we need to evict
+        with sqlite3.connect(str(self.db_path)) as conn:
+            # Get current size
+            cursor = conn.execute("SELECT SUM(size_bytes) FROM cache")
+            current_size = cursor.fetchone()[0] or 0
+
+            # Evict if necessary (remove oldest)
+            while current_size + size > self.max_size_bytes:
+                cursor = conn.execute(
+                    "SELECT key, size_bytes FROM cache ORDER BY created_at ASC LIMIT 1"
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    break
+
+                conn.execute("DELETE FROM cache WHERE key = ?", (row[0],))
+                current_size -= row[1]
+                self._stats["evictions"] += 1
+
+            # Calculate expiration
+            expires_at = None
+            if ttl:
+                expires_at = (datetime.utcnow() + ttl).isoformat()
+
+            # Insert or replace
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO cache (key, value, created_at, expires_at, size_bytes)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (key, value_blob, datetime.utcnow().isoformat(), expires_at, size),
+            )
+            conn.commit()
 
     async def delete(self, key: str) -> bool:
         self._init()
 
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
-                cursor = conn.execute("DELETE FROM cache WHERE key = ?", (key,))
-                conn.commit()
-                return cursor.rowcount > 0
+            return await asyncio.to_thread(self._delete_sync, key)
         except Exception as e:
             logger.error(f"Disk cache delete failed: {e}")
             return False
+
+    def _delete_sync(self, key: str) -> bool:
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+            conn.commit()
+            return cursor.rowcount > 0
 
     async def clear(self) -> None:
         self._init()
 
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
-                conn.execute("DELETE FROM cache")
-                conn.commit()
+            await asyncio.to_thread(self._clear_sync)
         except Exception as e:
             logger.error(f"Disk cache clear failed: {e}")
+
+    def _clear_sync(self) -> None:
+        with sqlite3.connect(str(self.db_path)) as conn:
+            conn.execute("DELETE FROM cache")
+            conn.commit()
 
     async def keys(self, pattern: str = "*") -> list[str]:
         self._init()
 
         try:
-            import fnmatch
-
-            with sqlite3.connect(str(self.db_path)) as conn:
-                cursor = conn.execute("SELECT key FROM cache")
-                all_keys = [row[0] for row in cursor.fetchall()]
-                return [k for k in all_keys if fnmatch.fnmatch(k, pattern)]
+            return await asyncio.to_thread(self._keys_sync, pattern)
         except Exception as e:
             logger.error(f"Disk cache keys failed: {e}")
             return []
+
+    def _keys_sync(self, pattern: str) -> list[str]:
+        import fnmatch
+
+        with sqlite3.connect(str(self.db_path)) as conn:
+            cursor = conn.execute("SELECT key FROM cache")
+            all_keys = [row[0] for row in cursor.fetchall()]
+            return [k for k in all_keys if fnmatch.fnmatch(k, pattern)]
 
     async def close(self) -> None:
         pass
@@ -593,6 +608,7 @@ class MultiLayerCache:
         self.backends = backends or self._create_default_backends()
         self.default_ttl = default_ttl
         self._promotion_lock = asyncio.Lock()
+        self._promotion_tasks: set[asyncio.Task[Any]] = set()
 
     def _create_default_backends(self) -> list[CacheBackend]:
         """Create default L1 and L3 backends."""
@@ -622,7 +638,9 @@ class MultiLayerCache:
 
         # Promote to faster caches (async, don't block)
         if found_at and found_at > 0:
-            asyncio.create_task(self._promote(key, value, found_at))
+            task = asyncio.create_task(self._promote(key, value, found_at))
+            self._promotion_tasks.add(task)
+            task.add_done_callback(self._promotion_tasks.discard)
 
         return value
 

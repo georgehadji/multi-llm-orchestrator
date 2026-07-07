@@ -75,7 +75,9 @@ def execute(args) -> None:
 
     design_system = DesignSystem(tone=args.preset)
 
-    company_name = args.company_name or args.description.split()[0][:20]
+    company_name = args.company_name or (
+        args.description.split()[0][:20] if args.description.split() else "Company"
+    )
     sections = [s.strip() for s in args.sections.split(",")]
     extra_deps = [d.strip() for d in args.deps.split(",")] if args.deps else []
     if getattr(args, "use_3d", False):
@@ -97,32 +99,10 @@ def execute(args) -> None:
         image_quality=getattr(args, "image_quality", "balanced"),
         source_url=args.source_url if hasattr(args, "source_url") else "",
     )
-    _raw_output_dir = Path(args.output_dir).resolve()
+    from ._path_utils import resolve_allowed_path
+
     _outputs_root = (Path(__file__).parent.parent.parent / "outputs").resolve()
-    try:
-        _raw_output_dir.relative_to(_outputs_root)
-    except ValueError:
-        # Allow any absolute path that isn't traversing into system dirs
-        _blocked_prefixes = (
-            Path("C:/Windows"),
-            Path("C:/Program Files"),
-            Path("/etc"),
-            Path("/usr"),
-            Path("/bin"),
-            Path("/sbin"),
-            Path("/root"),
-        )
-        for _blocked in _blocked_prefixes:
-            try:
-                _raw_output_dir.relative_to(_blocked.resolve())
-                raise ValueError(
-                    f"--output-dir {args.output_dir!r} targets a system directory. "
-                    "Use a path inside the project outputs/ folder."
-                )
-            except ValueError as _ve:
-                if "targets a system directory" in str(_ve):
-                    raise
-    output_dir = _raw_output_dir
+    output_dir = resolve_allowed_path(args.output_dir, outputs_root=_outputs_root)
 
     print(f"   Sections: {sections}   Page type: {args.page_type}")
     if config.source_url:

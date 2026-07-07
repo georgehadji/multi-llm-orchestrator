@@ -192,10 +192,16 @@ class ImageGenClient:
                                     result.image_data = resp.content
                                     logger.debug("Downloaded SVG from %s", result.image_url[:60])
                                 else:
+                                    result.success = False
+                                    result.error = (
+                                        f"Failed to download image URL: HTTP {resp.status_code}"
+                                    )
                                     logger.warning(
                                         "Failed to download image URL: HTTP %d", resp.status_code
                                     )
                         except Exception as e:
+                            result.success = False
+                            result.error = f"Failed to download image URL: {e}"
                             logger.warning("Failed to download image URL: %s", e)
                     # ── Cache write ──
                     if result.success and result.image_data and self._cache:

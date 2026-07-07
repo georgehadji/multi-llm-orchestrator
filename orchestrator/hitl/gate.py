@@ -69,6 +69,20 @@ class HumanInTheLoop:
 
         return FailClosedChannel()
 
+    def has_real_channel(self) -> bool:
+        """True if a human-interactive channel is configured.
+
+        Used by callers that need to know whether a human can actually be reached.
+        Fail-closed and auto-approve channels do not count because they do not
+        involve a human decision.
+        """
+        from .channel import AutoApproveChannel, FailClosedChannel
+
+        channel = self._channel
+        return channel is not None and not isinstance(
+            channel, (FailClosedChannel, AutoApproveChannel)
+        )
+
     async def request_decision(
         self, decision: Decision, timeout: int = DEFAULT_TIMEOUT
     ) -> DecisionResult:

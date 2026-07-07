@@ -139,6 +139,8 @@ class EvaluatorService:
                 await self._budget.charge(response.cost_usd, "evaluation")
                 total_cost += response.cost_usd
                 scores.append(parsed)
+            except asyncio.CancelledError:
+                raise
             except Exception as exc:
                 logger.warning(
                     "Evaluation run %d/%d failed: %s", run + 1, self._consistency_runs, exc
@@ -189,7 +191,10 @@ class EvaluatorService:
             items=items,
             model_used=eval_model.value if eval_model else None,
             tokens_used=(
-                last_response.input_tokens + last_response.output_tokens if last_response else 0
+                getattr(last_response, "input_tokens", 0)
+                + getattr(last_response, "output_tokens", 0)
+                if last_response
+                else 0
             ),
         )
 
@@ -249,6 +254,7 @@ class EvaluatorService:
 
             if isinstance(data, dict):
                 score = float(data.get("score", data.get("Score", 0.5)))
+                score = max(0.0, min(1.0, score))
             elif isinstance(data, (int, float)):
                 score = float(data)
             else:

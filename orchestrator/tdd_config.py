@@ -35,11 +35,11 @@ class TDDModelConfig:
     # Test Generation: Best test design capability
     test_generation: str = "anthropic/claude-sonnet-5"  # $3.00/$15.00
     # Implementation: Cost-effective coding
-    implementation: str = "qwen/qwen3.6-flash"  # $0.66/$1.00
+    implementation: str = "openai/gpt-4o-mini"  # $0.66/$1.00
     # Test Review: Best analysis capability
     test_review: str = "anthropic/claude-sonnet-5"  # $3.00/$15.00
     # Refactoring: Cost-effective improvements
-    refactoring: str = "qwen/qwen3.6-flash"  # $0.66/$1.00
+    refactoring: str = "openai/gpt-4o-mini"  # $0.66/$1.00
 
     # ═══════════════════════════════════════════════════════
     # Budget Tier - Best value with good test quality
@@ -50,9 +50,9 @@ class TDDModelConfig:
     budget_test_generation: str = (
         "deepseek/deepseek-v4-flash"  # $0.27/$1.10 — better at tests than qwen-coder
     )
-    budget_implementation: str = "qwen/qwen3.6-flash"  # $0.66/$1.00
+    budget_implementation: str = "openai/gpt-4o-mini"  # $0.66/$1.00
     budget_test_review: str = "deepseek/deepseek-v4-flash"  # $0.27/$1.10
-    budget_refactoring: str = "qwen/qwen3.6-flash"  # $0.66/$1.00
+    budget_refactoring: str = "openai/gpt-4o-mini"  # $0.66/$1.00
 
     # ═══════════════════════════════════════════════════════
     # Premium Tier - Maximum Quality
@@ -104,7 +104,7 @@ class TDDModelConfig:
             >>> config.get_model("test_generation", "balanced")
             'anthropic/claude-sonnet-4-6'
             >>> config.get_model("implementation", "budget")
-            'qwen/qwen3.6-flash'
+            'openai/gpt-4o-mini'
             >>> config.get_model("test_generation", "balanced", "python")
             'anthropic/claude-sonnet-4-6'  # or language-specific if configured
         """
@@ -126,7 +126,7 @@ class TDDModelConfig:
         model = getattr(self, key, None)
         if model is None:
             # Fallback to balanced tier default
-            model = getattr(self, phase, "qwen/qwen3.6-flash")
+            model = getattr(self, phase, "openai/gpt-4o-mini")
 
         return model
 
@@ -181,6 +181,7 @@ class TDDModelConfig:
             costs.get("test_generation_cost", 0.0) * 0.002
             + costs.get("implementation_cost", 0.0) * 0.005
             + costs.get("test_review_cost", 0.0) * 0.001
+            + costs.get("refactoring_cost", 0.0) * 0.001
         )
 
         return costs
@@ -215,17 +216,17 @@ class TDDModelConfig:
 # Budget Profile: Best value — DeepSeek for tests (strong test-writing), Qwen for implementation
 TDD_BUDGET_PROFILE = TDDModelConfig(
     test_generation="deepseek/deepseek-v4-flash",  # $0.27/$1.10 — strong test writer
-    implementation="qwen/qwen3.6-flash",  # $0.66/$1.00 — fast coder
+    implementation="openai/gpt-4o-mini",  # $0.66/$1.00 — fast coder
     test_review="deepseek/deepseek-v4-flash",  # $0.27/$1.10 — good analyser
-    refactoring="qwen/qwen3.6-flash",  # $0.66/$1.00
+    refactoring="openai/gpt-4o-mini",  # $0.66/$1.00
 )
 
 # Balanced Profile: Best value (default)
 TDD_BALANCED_PROFILE = TDDModelConfig(
     test_generation="anthropic/claude-sonnet-5",  # $3.00/$15.00
-    implementation="qwen/qwen3.6-flash",  # $0.66/$1.00
+    implementation="openai/gpt-4o-mini",  # $0.66/$1.00
     test_review="anthropic/claude-sonnet-5",  # $3.00/$15.00
-    refactoring="qwen/qwen3.6-flash",  # $0.66/$1.00
+    refactoring="openai/gpt-4o-mini",  # $0.66/$1.00
 )
 
 # Premium Profile: Maximum quality
@@ -239,21 +240,21 @@ TDD_PREMIUM_PROFILE = TDDModelConfig(
 # Python-Specialized Profile (pytest)
 TDD_PYTHON_PROFILE = TDDModelConfig(
     test_generation="anthropic/claude-sonnet-5",  # Best pytest knowledge
-    implementation="qwen/qwen3.6-flash",  # Cost-effective
+    implementation="openai/gpt-4o-mini",  # Cost-effective
     test_review="anthropic/claude-sonnet-5",  # Best test analysis
-    refactoring="qwen/qwen3.6-flash",
+    refactoring="openai/gpt-4o-mini",
     python_test_generation="anthropic/claude-sonnet-5",
-    python_implementation="qwen/qwen3.6-flash",
+    python_implementation="openai/gpt-4o-mini",
 )
 
 # JavaScript-Specialized Profile (Jest)
 TDD_JAVASCRIPT_PROFILE = TDDModelConfig(
     test_generation="anthropic/claude-sonnet-5",  # Best Jest knowledge
-    implementation="qwen/qwen3.6-flash",  # Cost-effective
+    implementation="openai/gpt-4o-mini",  # Cost-effective
     test_review="anthropic/claude-sonnet-5",  # Best test analysis
-    refactoring="qwen/qwen3.6-flash",
+    refactoring="openai/gpt-4o-mini",
     javascript_test_generation="anthropic/claude-sonnet-5",
-    javascript_implementation="qwen/qwen3.6-flash",
+    javascript_implementation="openai/gpt-4o-mini",
 )
 
 

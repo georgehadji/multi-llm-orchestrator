@@ -46,6 +46,7 @@ from .resilience import ResiliencePolicy
 from .exceptions import (
     ConfigurationError,
 )
+from .application.validators import validate_job_spec, validate_project_args
 from .crosscutting.config import flags
 
 # OpenRouter Optimization Features (Phase 1)
@@ -455,6 +456,7 @@ class Orchestrator:
         self._adaptive_router = container.adaptive_router
         self._telemetry = container.telemetry
         self._policy_engine = container.policy_engine
+        self._job_lock = asyncio.Lock()
         self._project_planner = container.project_planner
         self._pipeline_runner = container.pipeline_runner
         self._hook_registry = container.hook_registry
@@ -732,8 +734,8 @@ class Orchestrator:
         # ── Phase 2: Container-managed services ──────────────────────────────
         # Use getattr: a minimally-constructed Orchestrator (or one whose __init__
         # bailed early) may never have set _container, and __aexit__ must not raise.
-        if getattr(self, "_container", None) is not None:
-            await self._container.shutdown()
+        if getattr(self, "_c", None) is not None:
+            await self._c.shutdown()
 
         # 2a. Flush telemetry store. Covers stores set directly on the
         #     orchestrator (not only the container-owned one). Idempotent flush,
@@ -884,6 +886,7 @@ class Orchestrator:
         P3-4: Delegates to ProjectRunner. All coordination logic lives there;
         this shell preserves the public API signature and docstring.
         """
+        validate_project_args(project_description, success_criteria, project_id, output_dir)
         return await self._project_runner.run_project(
             project_description=project_description,
             success_criteria=success_criteria,
@@ -905,14 +908,16 @@ class Orchestrator:
         lifecycle (warm-start → preflight → run_project → charge → flush)
         is delegated to ProjectRunner.run_job().
         """
-        self.budget = spec.budget
-        self._active_policies = spec.policy_set
-        self._quality_mode: str = getattr(spec, "quality_mode", "standard")
-        # JobSpec may override the per-task parallelism limit
-        if spec.max_parallel_tasks > 0:
-            self._max_parallel_tasks = spec.max_parallel_tasks
-        # Delegate lifecycle to ProjectRunner
-        return await self._project_runner.run_job(spec)
+        validate_job_spec(spec)
+        async with self._job_lock:
+            self.budget = spec.budget
+            self._active_policies = spec.policy_set
+            self._quality_mode: str = getattr(spec, "quality_mode", "standard")
+            # JobSpec may override the per-task parallelism limit
+            if spec.max_parallel_tasks > 0:
+                self._max_parallel_tasks = spec.max_parallel_tasks
+            # Delegate lifecycle to ProjectRunner
+            return await self._project_runner.run_job(spec)
 
     async def run_project_streaming(
         self,
@@ -1101,7 +1106,7 @@ class Orchestrator:
         # Feed rate-limit tracker so _apply_filters can enforce sliding-window caps.
         # Kept here because it requires self._planner which is engine-specific.
         try:
-            self._planner.rate_limit_tracker.record(
+            self._project_planner.rate_limit_tracker.record(
                 provider=get_provider(model),
                 cost_usd=response.cost_usd,
                 tokens=response.input_tokens + response.output_tokens,

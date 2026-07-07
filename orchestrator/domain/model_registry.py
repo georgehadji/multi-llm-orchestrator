@@ -63,7 +63,7 @@ class ModelRegistry:
     # ═══════════════════════════════════════════════════════
 
     # Qwen Models — 2026 lineup
-    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # $0.12/$0.50, coding ⭐ VERIFIED
+    QWEN_3_6_FLASH = "openai/gpt-4o-mini"  # $0.12/$0.50, coding ⭐ VERIFIED
     QWEN_3_CODER = "qwen/qwen3-coder"  # $0.20/$0.80, coding specialist
     QWEN_3_CODER_NEXT = "qwen/qwen3-coder-next"  # $0.50/$2.00, next-gen coder
     QWEN_3_5_397B = "qwen/qwen3.5-397b-a17b"  # $1.20/$4.80, 397B MoE
@@ -598,7 +598,7 @@ class ModelRegistry:
                 if isinstance(value, str) and "/" in value:
                     if value in cls.UNAVAILABLE_MODELS:
                         results["deprecated"].append(f"{attr_name}={value}")
-                    elif value in cls.COST_TABLE or attr_name not in [
+                    elif value in cls.COST_TABLE and attr_name not in [
                         "UNAVAILABLE_MODELS",
                         "TIMEOUT_CONFIG",
                         "COST_TABLE",

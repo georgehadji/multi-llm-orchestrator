@@ -8,9 +8,11 @@ def execute(args) -> None:
     import asyncio
     from pathlib import Path
 
+    from ._path_utils import resolve_allowed_path
+
     result = asyncio.run(
         _run_modify(
-            repo=Path(args.repo).resolve(),
+            repo=resolve_allowed_path(args.repo),
             objective=args.objective,
             dry_run=getattr(args, "dry_run", False),
         )
