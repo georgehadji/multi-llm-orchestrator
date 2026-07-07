@@ -1,0 +1,45 @@
+# ──────────────────────────────────────────────────────
+# Scientific Computing: Chirikov Standard Map & KAM Tori Breakdown
+# Author: AI Orchestrator
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a high-performance scientific simulation in Python to analyze the Chirikov 
+  Standard Map and determine the critical parameter K_c where the last KAM torus 
+  (associated with the Golden Ratio) breaks down, using Greene's Residue Method.
+
+  The project must include:
+  1. STANDARD MAP ENGINE: Implement the Chirikov Standard Map recurrence relations on a 2D torus. 
+     Track phase space coordinates (theta, p) modulo 2pi. Ensure vectorized numpy operations 
+     for tracking thousands of initial conditions simultaneously.
+  2. FIBONACCI APPROXIMANT GENERATOR: Implement a module that generates the periodic orbits 
+     representing Fibonacci rational approximants q_n / q_{n+1} of the Golden Ratio.
+  3. GREENE'S RESIDUE METHOD: Calculate the Jacobian of the tangent map for these periodic 
+     orbits to evaluate their stability residue R.
+  4. CRITICAL PARAMETER ESTIMATION: Determine the critical transition parameter K_c 
+     where the residue converges to R ≈ 0.25008 (the KAM threshold), matching the historical 
+     value of K_c ≈ 0.971635.
+  5. VISUALIZATION: Generate beautiful fractal phase portraits zooming into the critical Golden 
+     Torus boundary, residue convergence plots, and stability maps.
+
+criteria: |
+  - Must use vectorized numpy operations for coordinate propagation and tangent map evaluations.
+  - The solver must calculate periodic orbit residues and correctly verify Greene's transition threshold.
+  - Output high-quality matplotlib visualizations to the output directory (phase portraits, residue convergence).
+  - All code must pass ruff linting without errors.
+
+budget_usd: 3.5
+time_seconds: 4800
+concurrency: 3
+project_id: "scientific-standardmap-kam-v1"
+output_dir: "./outputs/scientific_standardmap_kam"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false
