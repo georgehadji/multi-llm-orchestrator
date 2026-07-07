@@ -1,0 +1,42 @@
+# ──────────────────────────────────────────────────────
+# Scientific Computing: N-Body Chaos Solver
+# Author: AI Orchestrator
+# ──────────────────────────────────────────────────────
+
+project: |
+  Build a high-performance N-Body physics simulation in Python using a 4th-order 
+  Symplectic Integrator (Forest-Ruth algorithm) to ensure energy conservation 
+  over long time-scales.
+
+  The project must include:
+  1. PHYSICS ENGINE: Implement the Hamiltonian mechanics equations of motion for N bodies in 3D space. Compute Newtonian gravitational forces.
+  2. SOLVER: Write the 4th-order Forest-Ruth symplectic integration loop using vectorized numpy operations.
+  3. VALIDATION: Create a module that calculates total system energy (Kinetic + Potential) and proves energy drift is bounded (no secular growth over time).
+  4. SCENARIOS: Include two initial condition generators: 
+     - A stable orbital system (e.g. Earth-Sun or Jupiter Trojans).
+     - A chaotic 3-body system (e.g. figure-8 or a random chaotic configuration).
+  5. VISUALIZATION: Generate animated phase-space plots, 3D orbital trajectories, and an Energy vs. Time conservation graph using matplotlib.
+
+  Code must be heavily modularized (e.g. physics.py, integrator.py, scenarios.py, visualization.py) and well documented.
+
+criteria: |
+  - Must use vectorized numpy operations for computational speed; do not use slow nested python loops for particle forces if possible.
+  - Energy conservation must be strictly validated in the test suite, asserting that Delta E remains bounded over thousands of integration steps.
+  - The script must successfully run and output matplotlib visualizations/animations (saving them to disk as mp4 or gif if possible, or static frames).
+  - All code must pass ruff linting without errors.
+
+budget_usd: 3.5
+time_seconds: 4800
+concurrency: 3
+project_id: "scientific-nbody-symplectic-v1"
+output_dir: "./outputs/scientific_nbody_symplectic"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.90
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

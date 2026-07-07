@@ -1,0 +1,13 @@
+[project]
+name = "orchestrator-persona"
+version = "1.0.0"
+description = "Standalone Persona and Steering Engine for AI Agents"
+authors = [
+    {name = "AI Orchestrator Team"}
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
