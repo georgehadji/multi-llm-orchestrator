@@ -197,7 +197,7 @@ class FallbackHandler:
         logger.debug(f"Selected reviewer: {reviewer.value} (generator: {generator.value})")
         return reviewer
 
-    def record_model_success(self, model: Model) -> None:
+    async def record_model_success(self, model: Model) -> None:
         """
         Record successful model execution.
 
@@ -218,11 +218,11 @@ class FallbackHandler:
 
         # Update adaptive router
         if self._adaptive_router:
-            self._adaptive_router.record_success(model)  # type: ignore[unused-coroutine]
+            await self._adaptive_router.record_success(model)
 
         logger.debug(f"Recorded success for model: {model.value}")
 
-    def record_model_failure(
+    async def record_model_failure(
         self,
         model: Model,
         error: Exception | None = None,
@@ -257,7 +257,7 @@ class FallbackHandler:
 
         # Update adaptive router
         if self._adaptive_router:
-            self._adaptive_router.record_failure(model)  # type: ignore[attr-defined]
+            await self._adaptive_router.record_failure(model)
 
     def _trip_circuit_breaker(self, model: Model) -> None:
         """
@@ -358,14 +358,14 @@ class FallbackHandler:
 
         logger.info(f"Manually reset model: {model.value}")
 
-    def reset_all(self) -> None:
+    async def reset_all(self) -> None:
         """Reset all model state (for testing/recovery)."""
         self._consecutive_failures = dict.fromkeys(Model, 0)
         self.api_health = dict.fromkeys(Model, True)
         self._cooldown_until.clear()
 
         if self._adaptive_router:
-            self._adaptive_router.reset()  # type: ignore[attr-defined]
+            await self._adaptive_router.reset()
 
         logger.info("Fallback handler reset")
 

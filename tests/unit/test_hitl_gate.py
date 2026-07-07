@@ -138,3 +138,24 @@ class TestSecurityCategoryInvariant:
 
         assert result_closed == DecisionResult.REJECTED
         assert result_explicit == DecisionResult.APPROVED
+
+
+# ── has_real_channel guard ────────────────────────────────────────────────────
+
+
+class TestHasRealChannel:
+    def test_none_channel_is_not_real(self):
+        gate = HumanInTheLoop(channel=None)
+        assert gate.has_real_channel() is False
+
+    def test_fail_closed_channel_is_not_real(self):
+        gate = HumanInTheLoop(channel=FailClosedChannel())
+        assert gate.has_real_channel() is False
+
+    def test_auto_approve_channel_is_not_real(self):
+        gate = HumanInTheLoop(channel=AutoApproveChannel())
+        assert gate.has_real_channel() is False
+
+    def test_cli_channel_is_real(self):
+        gate = HumanInTheLoop(channel=CLIDecisionChannel())
+        assert gate.has_real_channel() is True

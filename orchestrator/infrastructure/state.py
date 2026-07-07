@@ -372,12 +372,35 @@ class StateManager:
     async def save_checkpoint(self, project_id: str, task_id: str, state: ProjectState):
         blob = json.dumps(_state_to_dict(state))
         db = await self._get_conn()
-        await db.execute(
-            "INSERT INTO checkpoints (project_id, task_id, state, created_at) "
-            "VALUES (?, ?, ?, ?)",
-            (project_id, task_id, blob, time.time()),
-        )
-        await db.commit()
+        await db.execute("BEGIN")
+        try:
+            await db.execute(
+                "INSERT INTO checkpoints (project_id, task_id, state, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (project_id, task_id, blob, time.time()),
+            )
+            # Retain only the 10 most recent checkpoints per project to prevent
+            # unbounded table growth.
+            await db.execute(
+                """
+                DELETE FROM checkpoints
+                WHERE project_id = ?
+                  AND id NOT IN (
+                      SELECT id FROM checkpoints
+                      WHERE project_id = ?
+                      ORDER BY created_at DESC
+                      LIMIT 10
+                  )
+                """,
+                (project_id, project_id),
+            )
+            await db.commit()
+        except Exception:
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            raise
         # CRITICAL FIX: Checkpoint WAL to main database after critical writes
         # This ensures data survives power failure
         await self._checkpoint_wal()
@@ -580,10 +603,11 @@ def migrate_add_resume_fields(db_path: str | Path) -> bool:
     - Handles empty databases gracefully
     - Existing projects get NULL for new columns
     """
-    try:
-        import sqlite3
+    import sqlite3
 
-        db_path = Path(db_path) if isinstance(db_path, str) else db_path
+    db_path = Path(db_path) if isinstance(db_path, str) else db_path
+    conn = None
+    try:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
 
@@ -600,12 +624,17 @@ def migrate_add_resume_fields(db_path: str | Path) -> bool:
             cursor.execute("ALTER TABLE projects ADD COLUMN keywords_json TEXT")
 
         conn.commit()
-        conn.close()
         return True
 
     except Exception as e:
         logger.error(f"Migration failed: {e}")
         return False
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def extract_and_store_keywords(description: str | None) -> str | None:

@@ -49,6 +49,8 @@ def sessions(args):
 def report(args):
     from pathlib import Path
 
+    from ._path_utils import resolve_allowed_path
+
     try:
         from orchestrator.infrastructure.nexusscope import get_profiler
 
@@ -57,7 +59,9 @@ def report(args):
         rendered = profiler.render_last(name=getattr(args, "name", None), fmt=fmt)
         output = getattr(args, "output", None)
         if output:
-            Path(output).write_text(str(rendered))
+            outputs_root = (Path(__file__).parent.parent.parent / "outputs").resolve()
+            out_path = resolve_allowed_path(output, outputs_root=outputs_root)
+            out_path.write_text(str(rendered))
             print(f"Report written to: {output}")
         else:
             print(rendered)

@@ -186,6 +186,7 @@ class CircuitBreaker:
                 # Only one probe at a time; block additional callers
                 if self._state.probe_in_flight:
                     raise CircuitBreakerOpen(self.name, reset_in=0.0)
+                self._state.probe_in_flight = True
                 self.total_calls += 1
 
     @asynccontextmanager

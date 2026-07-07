@@ -239,6 +239,14 @@ class ServiceContainer:
             except Exception as e:
                 logger.warning("Failed to close event bus: %s", e)
 
+        # 7. Close LLM client connection pools
+        if self.client is not None:
+            try:
+                if hasattr(self.client, "close"):
+                    await self.client.close()
+            except Exception as e:
+                logger.warning("Failed to close LLM client: %s", e)
+
     # Lazy-init cache for optional services. Managed by get_or_create().
     _lazy_cache: dict[str, Any] = field(default_factory=dict)
 

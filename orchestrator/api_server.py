@@ -141,7 +141,7 @@ class APIServer:
         self.max_request_size = max_request_size
         self.supervisor = supervisor
 
-        self.app = web.Application()
+        self.app = web.Application(client_max_size=self.max_request_size)
         self.runner: web.AppRunner | None = None
         self.site: web.TCPSite | None = None
 
@@ -517,14 +517,32 @@ class APIServer:
             self._update_request_stats(success=False)
             return web.json_response({"error": "text required"}, status=400)
 
+        def _to_str(value: Any, max_len: int = 1000) -> str:
+            if not isinstance(value, str):
+                return ""
+            return value[:max_len]
+
+        def _to_float(value: Any) -> float | None:
+            if value is None:
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        budget = _to_float(data.get("budget"))
+        if data.get("budget") is not None and budget is None:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": "budget must be a number"}, status=400)
+
         from orchestrator.supervisor.models import Directive
 
         directive = Directive(
             source="agent",
-            text=text,
-            project_id=data.get("project_id", ""),
-            criteria=data.get("criteria", ""),
-            budget=data.get("budget"),
+            text=text[:4000],
+            project_id=_to_str(data.get("project_id", ""), 256),
+            criteria=_to_str(data.get("criteria", ""), 4000),
+            budget=budget,
         )
 
         try:
@@ -540,7 +558,13 @@ class APIServer:
         except Exception as exc:
             logger.exception("Supervisor directive failed")
             self._update_request_stats(success=False)
-            return web.json_response({"error": str(exc)}, status=500)
+            return web.json_response(
+                {
+                    "error": "Supervisor directive failed",
+                    "detail": "See server logs for more information",
+                },
+                status=500,
+            )
 
     async def list_supervisor_sessions(self, request: web.Request) -> web.Response:
         """List supervisor sessions."""

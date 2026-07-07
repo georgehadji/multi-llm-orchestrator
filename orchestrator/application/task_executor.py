@@ -330,7 +330,7 @@ class TaskExecutor:
 
         return TaskResult(
             task_id=task.id,
-            output=cached["response"],
+            output=cached.get("response", ""),
             score=0.85,  # Cached patterns meet quality threshold
             model_used=context.primary_model,
             reviewer_model=None,

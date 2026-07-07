@@ -14,7 +14,17 @@ def execute(args) -> None:
             for pair in args.platforms:
                 if ":" in pair:
                     name, val = pair.split(":", 1)
-                    config.platforms[name.strip()] = {"port": int(val.strip())}
+                    try:
+                        port = int(val.strip())
+                    except ValueError as exc:
+                        raise ValueError(
+                            f"Invalid port for platform {name.strip()!r}: {val!r}"
+                        ) from exc
+                    if not 1 <= port <= 65535:
+                        raise ValueError(
+                            f"Port for platform {name.strip()!r} must be 1-65535, got {port}"
+                        )
+                    config.platforms[name.strip()] = {"port": port}
                 else:
                     config.platforms[pair.strip()] = {}
 

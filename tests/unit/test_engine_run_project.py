@@ -4,9 +4,11 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from orchestrator.application.validators import ValidationError
 from orchestrator.budget import Budget
 from orchestrator.engine import Orchestrator
 from orchestrator.models import ProjectState, Budget as BudgetModel
+from orchestrator.policy import JobSpec, PolicySet
 
 
 @pytest.fixture
@@ -129,3 +131,46 @@ class TestRunProjectCharacterization:
             "Sig test", "API unchanged", output_dir=Path("/tmp")
         )
         assert r1 is not None and r2 is not None and r3 is not None
+
+
+class TestRunProjectValidation:
+    @pytest.mark.asyncio
+    async def test_empty_project_description_raises(self, orchestrator_mocked):
+        with pytest.raises(ValidationError, match="project_description"):
+            await orchestrator_mocked.run_project("", "Works")
+
+    @pytest.mark.asyncio
+    async def test_oversized_project_description_raises(self, orchestrator_mocked):
+        huge = "x" * 10_001
+        with pytest.raises(ValidationError, match="project_description exceeds"):
+            await orchestrator_mocked.run_project(huge, "Works")
+
+    @pytest.mark.asyncio
+    async def test_invalid_output_dir_raises(self, orchestrator_mocked):
+        with pytest.raises(ValidationError, match="output_dir must be a Path"):
+            await orchestrator_mocked.run_project("Valid", "Works", output_dir="/tmp/output")
+
+    @pytest.mark.asyncio
+    async def test_validation_prevents_runner_call(self, orchestrator_mocked):
+        with pytest.raises(ValidationError):
+            await orchestrator_mocked.run_project("", "Works")
+        orchestrator_mocked._project_runner.run_project.assert_not_called()
+
+
+class TestRunJobValidation:
+    @pytest.mark.asyncio
+    async def test_invalid_job_spec_raises(self, orchestrator_mocked):
+        spec = JobSpec(
+            project_description="Valid",
+            success_criteria="Works",
+            budget=Budget(max_usd=10.0, max_time_seconds=300),
+            policy_set=PolicySet(),
+            max_parallel_tasks=101,
+        )
+        with pytest.raises(ValidationError, match="max_parallel_tasks"):
+            await orchestrator_mocked.run_job(spec)
+
+    @pytest.mark.asyncio
+    async def test_none_job_spec_raises(self, orchestrator_mocked):
+        with pytest.raises(ValidationError, match="JobSpec must not be None"):
+            await orchestrator_mocked.run_job(None)

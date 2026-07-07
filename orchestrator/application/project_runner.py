@@ -119,14 +119,7 @@ class ProjectRunner:
             if self._budget_hierarchy is not None:
                 _daily = getattr(self._budget_hierarchy, "_org_max", None)
             _hitl = getattr(self, "_hitl", None)
-            _has_checkpoint = (
-                (
-                    _hitl is not None
-                    and _hitl._channel.__class__.__name__ not in ("FailClosedChannel", "NoneType")
-                )
-                if _hitl is not None
-                else False
-            )
+            _has_checkpoint = _hitl is not None and _hitl.has_real_channel()
             UnattendedGuard.validate(
                 RunContext(
                     budget=self._budget,

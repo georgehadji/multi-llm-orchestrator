@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ..app_builder import AppBuilder
 from ..budget import Budget
+from ._path_utils import resolve_allowed_path
 
 
 def register(subparsers) -> None:
@@ -28,6 +29,8 @@ def register(subparsers) -> None:
 def execute(args) -> None:
     """Build a complete app from a description using the AppBuilder pipeline."""
     output_dir = args.output_dir or tempfile.mkdtemp(prefix="app-builder-")
+    outputs_root = (Path(__file__).parent.parent.parent / "outputs").resolve()
+    output_dir = resolve_allowed_path(str(output_dir), outputs_root=outputs_root)
 
     builder = AppBuilder()
     _budget = getattr(args, "budget", None)
@@ -36,7 +39,7 @@ def execute(args) -> None:
         builder.build(
             description=args.description,
             criteria=args.criteria,
-            output_dir=Path(output_dir),
+            output_dir=output_dir,
             app_type_override=args.app_type or None,
             docker=args.docker,
             budget=(
