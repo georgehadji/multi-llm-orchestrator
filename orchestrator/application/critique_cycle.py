@@ -208,7 +208,7 @@ class CritiqueCycle:
             if iteration < task.max_iterations - 1 and score < self.EXCELLENCE_THRESHOLD:
                 attempt = AttemptRecord(
                     attempt_num=iteration + 1,
-                    model_used=primary_model,
+                    model_used=primary_model.value,
                     output_snippet=output[:500],
                     failure_reason=critique or "Score below excellence threshold",
                     validators_failed=[],

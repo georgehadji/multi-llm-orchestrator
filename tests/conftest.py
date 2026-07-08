@@ -7,11 +7,17 @@ temp state managers, mock clients, and common test data.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+# UnifiedClient validates OPENROUTER_API_KEY eagerly at construction. Tests
+# never make real API calls (clients are mocked), so provide a dummy key for
+# keyless environments (CI). A real key in the environment takes precedence.
+os.environ.setdefault("OPENROUTER_API_KEY", "test-key-not-real")
 
 from orchestrator.application.model_profile_builder import build_default_profiles
 from orchestrator.models import (

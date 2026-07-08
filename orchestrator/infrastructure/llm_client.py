@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
-import instructor
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 
@@ -142,7 +141,18 @@ class UnifiedClient:
 
     _default_client: "AsyncInstructor[AsyncOpenAI] | None" = None
     _clients: ClassVar[dict[str, "AsyncInstructor[AsyncOpenAI]"]] = {}
-    _mode: ClassVar[instructor.Mode] = instructor.Mode.JSON
+
+    @staticmethod
+    def _instructor_mode() -> Any:
+        """Resolve instructor JSON mode lazily.
+
+        ``instructor`` costs ~30s to import cold on Windows; deferring keeps
+        `import orchestrator` (and CLI startup) fast for paths that never
+        create a client.
+        """
+        import instructor
+
+        return instructor.Mode.JSON
 
     def __init__(
         self,
@@ -406,12 +416,14 @@ class UnifiedClient:
             xai_api_key = os.environ.get("XAI_API_KEY")
             if xai_api_key:
                 logger.info("Using XAI API client for model %s", model.value)
+                import instructor
+
                 client = instructor.from_openai(
                     AsyncOpenAI(
                         base_url="https://api.xai.com/v1/",
                         api_key=xai_api_key,
                     ),
-                    mode=self._mode,
+                    mode=self._instructor_mode(),
                 )
                 self._clients[model] = client
                 return client
@@ -428,12 +440,14 @@ class UnifiedClient:
     async def _create_openrouter_client(self) -> "AsyncInstructor[AsyncOpenAI]":
         """Create a new OpenRouter client."""
         logger.info("Creating new OpenRouter client")
+        import instructor
+
         client = instructor.from_openai(
             AsyncOpenAI(
                 base_url="https://openrouter.ai/api/v1/",
                 api_key=self._api_key,
             ),
-            mode=self._mode,
+            mode=self._instructor_mode(),
         )
         return client
 

@@ -128,6 +128,19 @@ class AdaptiveRouter:
             self._timeout_counts[model] = 0
             self._degraded_since[model] = None
 
+    async def reset(self) -> None:
+        """
+        Reset all router health state (async-safe).
+
+        Clears timeout counts, degradation timers, disabled set, and latency
+        EMAs. Used by FallbackHandler.reset() to restore a clean slate.
+        """
+        async with self._lock:
+            self._timeout_counts = dict.fromkeys(Model, 0)
+            self._degraded_since = dict.fromkeys(Model)
+            self._disabled.clear()
+            self._latencies.clear()
+
     async def record_auth_failure(self, model: Model) -> None:
         """
         Record an authentication failure (async-safe).

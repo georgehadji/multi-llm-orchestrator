@@ -255,9 +255,9 @@ class FallbackHandler:
                 f"Model {model.value} failure {failures}/" f"{self.CIRCUIT_BREAKER_THRESHOLD}"
             )
 
-        # Update adaptive router
+        # Update adaptive router (record_timeout counts toward degradation)
         if self._adaptive_router:
-            await self._adaptive_router.record_failure(model)
+            await self._adaptive_router.record_timeout(model)
 
     def _trip_circuit_breaker(self, model: Model) -> None:
         """
