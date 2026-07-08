@@ -22,7 +22,6 @@
   "nousresearch/hermes-3-llama-3.1-70b": "meta-llama/llama-3.3-70b-instruct",
   "openrouter/auto": "meta-llama/llama-3.3-70b-instruct",
   "xiaomi/mimo-v2.5": "deepseek/deepseek-v4-flash",
-  "x-ai/grok-4.20": "deepseek/deepseek-v4-pro",
   "stepfun/step-3.5-flash": "deepseek/deepseek-v4-pro",
   "z-ai/glm-5.2": "microsoft/phi-4",
   "z-ai/glm-5-turbo": "z-ai/glm-5.2",

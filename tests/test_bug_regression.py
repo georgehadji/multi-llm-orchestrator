@@ -315,7 +315,7 @@ class TestFallbackChainV3Models:
 
         v3_primaries = [
             Model.XIAOMI_MIMO_V2_FLASH,
-            Model.XAI_GROK_4_20,
+            Model.XAI_GROK_4_5,
             Model.STEPFUN_STEP_3_5_FLASH,
             Model.ZHIPU_GLM_5_2,
         ]

@@ -27,7 +27,7 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.DEEPSEEK_V4_PRO: 0,
     Model.QWEN_3_7_MAX: 0,
     Model.QWEN_3_6_FLASH: 0,
-    Model.XAI_GROK_4_20: 0,
+    Model.XAI_GROK_4_5: 0,
     Model.CLAUDE_SONNET_5: 0,
     Model.CLAUDE_OPUS_4_8: 0,
     Model.GPT_4O: 0,
