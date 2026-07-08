@@ -17,7 +17,12 @@ def discover_command_modules() -> list[str]:
     modules = []
     this_dir = os.path.dirname(__file__)
     for importer, modname, ispkg in pkgutil.iter_modules([this_dir]):
-        if not ispkg and modname not in ("center", "integration", "server", "registry"):
+        # Underscore-prefixed modules are private helpers, not commands.
+        if (
+            not ispkg
+            and not modname.startswith("_")
+            and modname not in ("center", "integration", "server", "registry")
+        ):
             modules.append(modname)
     return sorted(modules)
 

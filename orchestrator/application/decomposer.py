@@ -675,10 +675,12 @@ Each task JSON element MUST also include:
                 prompt=prompt,
                 context=item.get("context", ""),
                 dependencies=deps,
-                acceptance_threshold=self._safe_float(
+                acceptance_threshold=DecomposerService._safe_float(
                     item.get("acceptance_threshold", 0.85), default=0.85, min_val=0.0, max_val=1.0
                 ),
-                max_iterations=self._safe_int(item.get("max_iterations", 3), default=3, min_val=1),
+                max_iterations=DecomposerService._safe_int(
+                    item.get("max_iterations", 3), default=3, min_val=1
+                ),
                 target_path=item.get("target_path", ""),
                 module_name=item.get("module_name", ""),
                 tech_context=item.get("tech_context", ""),

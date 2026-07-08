@@ -1,29 +1,116 @@
 {
   "code_generation": [
-    "gpt-4o-mini"
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemini-3.5-flash",
+    "qwen/qwen3-coder:free",
+    "openai/gpt-oss-120b",
+    "deepseek/deepseek-v4-flash",
+    "qwen/qwen3-coder",
+    "qwen/qwen3-coder-next",
+    "mistralai/devstral-2512",
+    "deepseek/deepseek-v4-pro",
+    "x-ai/grok-build-0.1",
+    "openai/gpt-5.3-codex",
+    "openai/gpt-5-codex",
+    "anthropic/claude-sonnet-5"
   ],
   "code_review": [
-    "gpt-4o-mini"
+    "openai/gpt-oss-120b:free",
+    "minimax/minimax-m3",
+    "deepseek/deepseek-v4-pro",
+    "moonshotai/kimi-k2.7-code",
+    "x-ai/grok-build-0.1",
+    "x-ai/grok-4.3",
+    "x-ai/grok-4.20-multi-agent",
+    "anthropic/claude-opus-4-8"
   ],
   "complex_reasoning": [
-    "gpt-4o-mini"
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "deepseek/deepseek-v4-pro",
+    "minimax/minimax-m3",
+    "qwen/qwen3-max-thinking",
+    "qwen/qwen3-235b-a22b-thinking-2507",
+    "x-ai/grok-4.3",
+    "openai/gpt-5.2",
+    "openai/gpt-5.5-pro",
+    "anthropic/claude-opus-4-8"
   ],
   "creative_writing": [
-    "gpt-4o-mini"
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemini-3.5-flash",
+    "anthropic/claude-sonnet-5",
+    "z-ai/glm-5",
+    "openai/gpt-5.4",
+    "meta-llama/llama-4-maverick",
+    "nousresearch/hermes-3-llama-3.1-70b"
   ],
   "data_extraction": [
-    "gpt-4o-mini"
+    "nvidia/nemotron-nano-9b-v2:free",
+    "openai/gpt-oss-20b",
+    "z-ai/glm-4.7-flash",
+    "deepseek/deepseek-v4-flash",
+    "microsoft/phi-4",
+    "google/gemini-3.5-flash"
   ],
   "summarization": [
-    "gpt-4o-mini"
+    "nvidia/nemotron-nano-9b-v2:free",
+    "openai/gpt-oss-20b",
+    "z-ai/glm-4.7-flash",
+    "deepseek/deepseek-v4-flash",
+    "google/gemini-3.5-flash",
+    "microsoft/phi-4"
   ],
   "evaluation": [
-    "gpt-4o-mini"
+    "openai/gpt-oss-120b:free",
+    "minimax/minimax-m3",
+    "deepseek/deepseek-v4-pro",
+    "moonshotai/kimi-k2.7-code",
+    "x-ai/grok-4.3",
+    "anthropic/claude-sonnet-5",
+    "openai/gpt-5.2"
   ],
   "image_generation": [
-    "gpt-4o-mini"
+    "google/gemini-3.1-flash-image-preview",
+    "google/gemini-3.1-flash-lite-image",
+    "google/gemini-3-pro-image-preview",
+    "google/gemini-2.5-flash-image",
+    "openai/gpt-5-image",
+    "openai/gpt-5-image-mini",
+    "openai/gpt-5.4-image-2",
+    "black-forest-labs/flux.2-klein-4b",
+    "black-forest-labs/flux.2-max",
+    "black-forest-labs/flux.2-flex",
+    "black-forest-labs/flux.2-pro",
+    "recraft/recraft-v4.1-pro",
+    "recraft/recraft-v4.1-utility",
+    "recraft/recraft-v4.1",
+    "recraft/recraft-v4-pro-vector",
+    "recraft/recraft-v4-vector",
+    "recraft/recraft-v4-pro",
+    "recraft/recraft-v4",
+    "recraft/recraft-v3",
+    "sourceful/riverflow-v2-pro",
+    "sourceful/riverflow-v2-fast",
+    "sourceful/riverflow-v2-max-preview",
+    "sourceful/riverflow-v2-standard-preview",
+    "sourceful/riverflow-v2-fast-preview",
+    "bytedance-seed/seedream-4.5"
   ],
   "video_generation": [
-    "gpt-4o-mini"
+    "bytedance/seedance-1-5-pro",
+    "alibaba/wan-2.6",
+    "x-ai/grok-imagine-video",
+    "bytedance/seedance-2.0-fast",
+    "bytedance/seedance-2.0",
+    "minimax/hailuo-2.3",
+    "alibaba/wan-2.7",
+    "google/veo-3.1-lite",
+    "google/veo-3.1-fast",
+    "kwaivgi/kling-video-o1",
+    "kwaivgi/kling-v3.0-std",
+    "kwaivgi/kling-v3.0-pro",
+    "openai/sora-2-pro",
+    "google/veo-3.1"
   ]
 }

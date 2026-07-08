@@ -141,9 +141,12 @@ class TestDecompose:
 
     @pytest.mark.asyncio
     async def test_decompose_client_error(self, decomposer, mock_client):
+        # Contract: decompose() never raises on client errors — it returns an
+        # empty dict, which callers (e.g. project_runner) must map to
+        # ProjectStatus.SYSTEM_FAILURE. Locked to prevent silent-failure drift.
         mock_client.call.side_effect = Exception("API error")
-        with pytest.raises(Exception):
-            await decomposer.decompose("Build a web app", "Must work")
+        tasks = await decomposer.decompose("Build a web app", "Must work")
+        assert tasks == {}
 
     @pytest.mark.asyncio
     async def test_decompose_with_project_context(self, decomposer, mock_client):

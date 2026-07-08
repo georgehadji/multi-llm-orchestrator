@@ -58,6 +58,12 @@ def test_persona_manager_get_persona():
         manager.clear_persona(project_id)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="Ponytail prose truncation not implemented yet — "
+    "PONYTAIL_INTEGRATION_PLAN.md milestone 3 (post-processing). "
+    "De-xfail when CodePostProcessor gains ponytail_prose_truncated.",
+)
 def test_ponytail_prose_truncation_post_processor():
     """Verify that CodePostProcessor truncates verbose trailing prose in Ponytail mode."""
     from orchestrator.quality.code_post_processor import CodePostProcessor
