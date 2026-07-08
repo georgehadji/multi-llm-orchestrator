@@ -203,7 +203,7 @@ class Model(Enum):
     STEPFUN_STEP_3_5_FLASH = "stepfun/step-3.5-flash"
     ZHIPU_GLM_5_2 = "z-ai/glm-5.2"
     ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"
-    XAI_GROK_4_20 = "x-ai/grok-4.20"
+    XAI_GROK_4_5 = "x-ai/grok-4.5"
     QWEN_3_7_MAX = "qwen/qwen3.7-max"
     QWEN_3_6_FLASH = "openai/gpt-4o-mini"
     MINIMAX_M2_7 = "minimax/minimax-m2.7"
@@ -239,7 +239,6 @@ class Model(Enum):
     MOONSHOT_KIMI_K2_THINKING = "moonshotai/kimi-k2-thinking"
     MOONSHOT_KIMI_K2_0905 = "moonshotai/kimi-k2-0905"
     XAI_GROK_4_3 = "x-ai/grok-4.3"
-    XAI_GROK_4_20_MULTI_AGENT = "x-ai/grok-4.20-multi-agent"
     QWEN_3_MAX = "qwen/qwen3-max"
     QWEN_3_235B = "qwen/qwen3-235b-a22b"
     QWEN_3_CODER_FLASH = "qwen/qwen3-coder-flash"
@@ -398,7 +397,7 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.STEPFUN_STEP_3_5_FLASH: {"input": 0.10, "output": 0.30},
     Model.ZHIPU_GLM_5_2: {"input": 0.50, "output": 2.00},
     Model.ZHIPU_GLM_5_TURBO: {"input": 1.20, "output": 4.00},
-    Model.XAI_GROK_4_20: {"input": 2.00, "output": 6.00},
+    Model.XAI_GROK_4_5: {"input": 1.50, "output": 4.00},
     Model.QWEN_3_7_MAX: {"input": 0.78, "output": 3.90},
     Model.QWEN_3_6_FLASH: {"input": 0.12, "output": 0.50},
     Model.MINIMAX_M2_7: {"input": 0.30, "output": 1.20},
@@ -432,7 +431,6 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.MOONSHOT_KIMI_K2_THINKING: {"input": 0.60, "output": 2.50},
     Model.MOONSHOT_KIMI_K2_0905: {"input": 0.60, "output": 2.50},
     Model.XAI_GROK_4_3: {"input": 1.25, "output": 2.50},
-    Model.XAI_GROK_4_20_MULTI_AGENT: {"input": 2.00, "output": 6.00},
     Model.QWEN_3_MAX: {"input": 0.78, "output": 3.90},
     Model.QWEN_3_235B: {"input": 2.00, "output": 6.00},
     Model.QWEN_3_CODER_FLASH: {"input": 0.12, "output": 0.50},
@@ -551,7 +549,7 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.STEPFUN_STEP_3_5_FLASH: 131072,
     Model.ZHIPU_GLM_5_2: 128000,
     Model.ZHIPU_GLM_5_TURBO: 128000,
-    Model.XAI_GROK_4_20: 131072,
+    Model.XAI_GROK_4_5: 131072,
     Model.QWEN_3_7_MAX: 65536,
     Model.QWEN_3_6_FLASH: 32768,
     Model.MINIMAX_M2_7: 32768,
@@ -582,7 +580,6 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.MOONSHOT_KIMI_K2_THINKING: 200000,
     Model.MOONSHOT_KIMI_K2_0905: 200000,
     Model.XAI_GROK_4_3: 131072,
-    Model.XAI_GROK_4_20_MULTI_AGENT: 131072,
     Model.QWEN_3_MAX: 65536,
     Model.QWEN_3_235B: 65536,
     Model.QWEN_3_CODER_FLASH: 65536,
@@ -887,9 +884,8 @@ _MODEL_MAX_TOKENS_RAW = {
     "O3_MINI": 4096,
     "O4_MINI": 4096,
     # xAI Grok 4 family
-    "XAI_GROK_4_20": 131072,
+    "XAI_GROK_4_5": 131072,
     "XAI_GROK_4_3": 131072,
-    "XAI_GROK_4_20_MULTI": 131072,
     # Moonshot Kimi K2 additions
     "MOONSHOT_KIMI_K2_5": 262144,
     "MOONSHOT_KIMI_K2_THINKING": 262144,

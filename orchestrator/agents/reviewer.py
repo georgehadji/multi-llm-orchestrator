@@ -24,7 +24,7 @@ class ReviewerAgent(AgentBase):
 
     Models (from orchestrator/agent_model_registry.py):
       Budget:  DEEPSEEK_V4_PRO        ($0.55/M in, $2.19/M out) — reasoning specialist
-      Premium: XAI_GROK_4_20 ($2.00/M in, $6.00/M out) — build-specialised review
+      Premium: XAI_GROK_4_5 ($1.50/M in, $4.00/M out) — strong reasoning review
     """
 
     def __init__(self, **kwargs: Any) -> None:

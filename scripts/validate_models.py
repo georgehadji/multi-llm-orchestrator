@@ -161,7 +161,7 @@ def test_model_validation():
     test_models = [
         (Model.XIAOMI_MIMO_V2_FLASH, True, None),
         (Model.STEPFUN_STEP_3_5_FLASH, True, None),
-        (Model.XAI_GROK_4_20, True, None),
+        (Model.XAI_GROK_4_5, True, None),
         (Model.QWEN_2_5_CODER_32B, True, None),
     ]
     

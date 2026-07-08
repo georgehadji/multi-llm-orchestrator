@@ -409,7 +409,7 @@ def _select_model(description: str) -> Model:
         priority_models = [
             Model.QWEN_3_7_MAX,  # $0.39/$2.34, 397B MoE ⭐ BEST OVERALL
             Model.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
-            Model.XAI_GROK_4_20,  # $2.00/$6.00, lowest hallucination
+            Model.XAI_GROK_4_5,  # $1.50/$4.00, strong reasoning
             Model.CLAUDE_SONNET_5,  # $3.00/$15.00, premium quality
         ]
 
