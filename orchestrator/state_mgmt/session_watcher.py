@@ -1,4 +1,4 @@
-﻿"""
+"""
 Session Watcher — Auto-capture Conversations in Real-time
 ==========================================================
 

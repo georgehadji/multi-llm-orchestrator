@@ -1,4 +1,4 @@
-﻿"""
+"""
 Capability Usage Logger
 =======================
 Tracks usage of system capabilities for analytics and debugging.

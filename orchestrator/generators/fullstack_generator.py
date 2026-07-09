@@ -1,4 +1,4 @@
-﻿"""
+"""
 Full-Stack Generator — Complete application generation
 =======================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis

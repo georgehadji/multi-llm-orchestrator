@@ -1,4 +1,4 @@
-﻿"""
+"""
 Auto-Remediation Engine.
 
 When a task fails or scores below threshold, RemediationEngine selects

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Multi-tier Memory — HOT/WARM/COLD Memory Hierarchy
 ==================================================
 

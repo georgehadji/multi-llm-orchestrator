@@ -1,4 +1,4 @@
-﻿"""
+"""
 TelemetryStore — persistent cross-run learning for the multi-LLM orchestrator.
 ===============================================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis

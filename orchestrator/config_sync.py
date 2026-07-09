@@ -1,4 +1,4 @@
-﻿"""
+"""
 config_sync — Backward-compatibility shim
 The canonical implementation lives in orchestrator/integrations/config_sync.py.
 New code should import from `orchestrator.integrations.config_sync` directly.
