@@ -127,7 +127,7 @@ class SystemDiagnostics:
                 if "selected" in l:
                     try:
                         count = int(l.split()[0])
-                    except:
+                    except Exception:
                         pass
             return DiagnosticCheck(
                 name="tests",

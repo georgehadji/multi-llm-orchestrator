@@ -1,4 +1,4 @@
-﻿"""
+"""
 SessionLifecycleManager — Automatic HOT/WARM/COLD Session Lifecycle
 ===================================================================
 Wraps MemoryTierManager and adds:
