@@ -13,6 +13,7 @@ from .validate import ValidateStage
 from .preflight import PreflightStage
 from .self_consistency import EnhancedSelfConsistencyStage as SelfConsistencyStage
 from .persuasion_defense import PersuasionDefenseStage
+from .constitution_gate import ConstitutionGate
 
 __all__ = [
     "GenerateStage",
@@ -22,4 +23,5 @@ __all__ = [
     "PreflightStage",
     "SelfConsistencyStage",
     "PersuasionDefenseStage",
+    "ConstitutionGate",
 ]

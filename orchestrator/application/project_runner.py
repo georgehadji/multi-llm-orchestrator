@@ -85,8 +85,14 @@ class ProjectRunner:
         app_profile: Any = None,
         analyze_on_complete: bool = False,
         output_dir: Path | None = None,
+        precomposed_tasks: dict[str, Any] | None = None,
+        constitution: Any = None,
     ) -> ProjectState:
         """Decompose project → execute tasks → return final ProjectState.
+
+        When ``precomposed_tasks`` is provided (a ``dict[str, Task]``), the
+        decomposition phase is **skipped** — used by the ``--from-speckit``
+        path where tasks were already parsed from Spec-Kit artifacts.
 
         Preserves all behaviours from the original engine.py method:
         - Resume detection from PARTIAL_SUCCESS checkpoint
@@ -155,45 +161,55 @@ class ProjectRunner:
                 self._run_state.architecture_rules = architecture_rules
 
                 # ── Phase 1: Decompose ───────────────────────────────────
-                # Surface hidden assumptions (Karpathy pattern)
-                try:
-                    from ..assumption_gate import surface_assumptions
+                if precomposed_tasks is not None:
+                    # Spec-Kit (or other) pre-composed path — skip LLM decomposition
+                    tasks = precomposed_tasks
+                    logger.info(
+                        "Using %d pre-composed tasks (decomposition skipped)",
+                        len(tasks),
+                    )
+                else:
+                    # Surface hidden assumptions (Karpathy pattern)
+                    try:
+                        from ..assumption_gate import surface_assumptions
 
-                    report = await surface_assumptions(project_description, self._callables.client)
-                    if report.has_ambiguity:
-                        logger.info(
-                            "Assumptions surfaced: %d assumptions, %d questions",
-                            len(report.assumptions),
-                            len(report.clarification_questions),
+                        report = await surface_assumptions(
+                            project_description, self._callables.client
                         )
-                        project_description = (
-                            f"{project_description}\n\n{report.to_prompt_context()}"
-                        )
-                except ImportError:
-                    pass
+                        if report.has_ambiguity:
+                            logger.info(
+                                "Assumptions surfaced: %d assumptions, %d questions",
+                                len(report.assumptions),
+                                len(report.clarification_questions),
+                            )
+                            project_description = (
+                                f"{project_description}\n\n{report.to_prompt_context()}"
+                            )
+                    except ImportError:
+                        pass
 
-                gen_result = await self._generator.decompose(
-                    project_description,
-                    success_criteria,
-                    app_profile=app_profile,
-                    policy=RetryTemplate.DECOMPOSE.to_policy(),
-                )
-                if not gen_result.succeeded:
-                    logger.error("Decomposition failed: %s", gen_result.error)
-                    return self._callables.make_state(  # type: ignore[no-any-return]
+                    gen_result = await self._generator.decompose(
                         project_description,
                         success_criteria,
-                        {},
-                        ProjectStatus.SYSTEM_FAILURE,
+                        app_profile=app_profile,
+                        policy=RetryTemplate.DECOMPOSE.to_policy(),
                     )
-                tasks = gen_result.tasks
-                if not tasks:
-                    return self._callables.make_state(  # type: ignore[no-any-return]
-                        project_description,
-                        success_criteria,
-                        {},
-                        ProjectStatus.SYSTEM_FAILURE,
-                    )
+                    if not gen_result.succeeded:
+                        logger.error("Decomposition failed: %s", gen_result.error)
+                        return self._callables.make_state(  # type: ignore[no-any-return]
+                            project_description,
+                            success_criteria,
+                            {},
+                            ProjectStatus.SYSTEM_FAILURE,
+                        )
+                    tasks = gen_result.tasks
+                    if not tasks:
+                        return self._callables.make_state(  # type: ignore[no-any-return]
+                            project_description,
+                            success_criteria,
+                            {},
+                            ProjectStatus.SYSTEM_FAILURE,
+                        )
 
                 # Topological sort
                 execution_order = self._callables.topological_sort(tasks)

@@ -82,6 +82,56 @@ class ProjectConstitution:
             warnings.append("max_file_size_bytes must be >= 0")
         return warnings
 
+    def check_task(self, task: Any) -> list[str]:
+        """Check a task against all constitutional constraints.
+
+        Aggregates violations for protected paths and forbidden imports.
+        This is a pure domain function (no I/O, no asyncio).
+
+        Parameters
+        ----------
+        task: A task-like object with ``target_path`` and ``declared_imports``
+            attributes (or the orchestrator ``Task`` dataclass).
+
+        Returns
+        -------
+        List of violation strings (empty = task passes constitution).
+        """
+        violations: list[str] = []
+
+        # Check protected paths
+        target_path = getattr(task, "target_path", "") or ""
+        if target_path:
+            if self.is_path_protected(target_path):
+                violations.append(f"writes protected path: {target_path}")
+            # Also check the task id and prompt for path references
+            for attr_name in ("id", "prompt", "context"):
+                attr_val = getattr(task, attr_name, None) or ""
+                if isinstance(attr_val, str):
+                    # Find path-like patterns in the text
+                    import re
+
+                    for m in re.finditer(
+                        r"(?:src/|tests/|docs/|app/|lib/|backend/|frontend/)\S+", attr_val
+                    ):
+                        path = m.group(0).rstrip(".,;:)")
+                        if self.is_path_protected(path):
+                            violation = f"references protected path in {attr_name}: {path}"
+                            if violation not in violations:
+                                violations.append(violation)
+
+        # Check forbidden imports
+        declared_imports = getattr(task, "declared_imports", None)
+        if declared_imports is not None:
+            for imp in declared_imports:
+                if self.is_import_forbidden(imp):
+                    violations.append(f"forbidden import: {imp}")
+
+        # Check file size constraint
+        # (Deferred to generation time — checked in ValidateStage)
+
+        return violations
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectConstitution:
         """Create from a dictionary (parsed JSON).
