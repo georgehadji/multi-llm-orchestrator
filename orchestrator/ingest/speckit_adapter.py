@@ -195,8 +195,10 @@ def parse_constitution_md(text: str) -> ProjectConstitution:
         stripped = line.strip()
         for kw in _PROTECTED_PATH_KEYWORDS:
             if kw in stripped.lower():
-                # Try to extract a path pattern from the line
-                path_match = re.search(r"(?:src/|tests/|docs/|config/)\S+", stripped)
+                # Try to extract a path pattern from the line. Use \S* (not \S+)
+                # so a bare directory token like "tests/" is captured even when
+                # followed by prose (e.g. "Do not modify tests/ directory ...").
+                path_match = re.search(r"(?:src/|tests/|docs/|config/)\S*", stripped)
                 if path_match:
                     p = path_match.group(0).rstrip(".,;")
                     if p not in protections:

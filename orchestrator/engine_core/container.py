@@ -566,7 +566,7 @@ class ServiceContainer:
             logger.debug("VerbalizedSampler not available — VS features disabled")
 
         # Pipeline with all stages
-        stages = [
+        stages: list[Any] = [
             GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
             CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
             EvaluateStage(evaluator=evaluator),

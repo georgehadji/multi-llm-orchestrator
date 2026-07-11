@@ -19,6 +19,7 @@ NULL_ADAPTERS = {
     "SkillStorePort": "NullSkillStore",
     "LSPValidatorPort": "NullLspValidator",
     "SnapshotPort": "NullSnapshotStore",
+    "FileReaderPort": "NullFileReader",
     "QualityScorer": None,
     "Reranker": None,
 }
