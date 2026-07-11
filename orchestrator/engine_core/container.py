@@ -109,6 +109,7 @@ class ServiceContainer:
     ara_strategy: Any = None
     pipeline: Optional[TaskPipeline] = None
     pipeline_executor: Any = None  # PipelineExecutor (wired via wire_pipeline_executor)
+    constitution_gate: Any = None  # ConstitutionGate (optional, phase -1 stage)
     dep_resolver: Any = None
     event_bus: Optional[EventPort] = None
     adaptive_router: Any = None
@@ -565,21 +566,45 @@ class ServiceContainer:
             logger.debug("VerbalizedSampler not available — VS features disabled")
 
         # Pipeline with all stages
-        pipeline = TaskPipeline(
-            [
-                GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
-                CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
-                EvaluateStage(evaluator=evaluator),
-                ValidateStage(),
-                PersuasionDefenseStage(ara_integration=ara),
-                PreflightStage(validator=validator),
-                SelfConsistencyStage(
-                    max_attempts=2,
-                    quality_threshold=0.7,
-                    ara_strategy=ara_strategy,
-                ),
-            ]
-        )
+        stages: list[Any] = [
+            GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
+            CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
+            EvaluateStage(evaluator=evaluator),
+            ValidateStage(),
+            PersuasionDefenseStage(ara_integration=ara),
+            PreflightStage(validator=validator),
+            SelfConsistencyStage(
+                max_attempts=2,
+                quality_threshold=0.7,
+                ara_strategy=ara_strategy,
+            ),
+        ]
+
+        # ConstitutionGate — prepend as phase -1 if constitution is loaded
+        # and non-empty. No-op when constitution is empty (default).
+        constitution_gate: Any = None
+        try:
+            from .stages import ConstitutionGate
+            from ..infrastructure.constitution_loader import ConstitutionLoader
+
+            _constitution = ConstitutionLoader().get()
+            if (
+                _constitution.protect_paths
+                or _constitution.forbidden_imports
+                or _constitution.require_tests
+            ):
+                constitution_gate = ConstitutionGate(constitution=_constitution)
+                stages.insert(0, constitution_gate)
+                logger.info(
+                    "ConstitutionGate active: %d protected paths, %d forbidden imports, require_tests=%s",
+                    len(_constitution.protect_paths),
+                    len(_constitution.forbidden_imports),
+                    _constitution.require_tests,
+                )
+        except Exception as exc:
+            logger.debug("ConstitutionGate not wired: %s", exc)
+
+        pipeline = TaskPipeline(stages)
 
         # PipelineExecutor — wraps pipeline with context enrichment
         # skill_manager and taste_skill_service are late-bound via wire_pipeline_executor
@@ -739,6 +764,7 @@ class ServiceContainer:
             hitl=hitl,
             skill_store=skill_store,
             snapshotter=snapshotter,
+            constitution_gate=constitution_gate,
         )
 
 

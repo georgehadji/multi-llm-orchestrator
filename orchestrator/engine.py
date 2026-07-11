@@ -896,6 +896,39 @@ class Orchestrator:
             output_dir=output_dir,
         )
 
+    async def run_project_with_tasks(
+        self,
+        project_description: str,
+        success_criteria: str,
+        tasks: dict,
+        project_id: str = "",
+        app_profile: Any = None,
+        analyze_on_complete: bool = False,
+        output_dir: Path | None = None,
+        constitution: Any = None,
+    ) -> ProjectState:
+        """
+        Run project with **pre-composed tasks** (skips LLM decomposition).
+
+        Used by ``--from-speckit`` and other ingest paths where tasks
+        were already parsed from external artifacts (Spec-Kit, etc.)
+        instead of being generated from a raw prompt.
+
+        All other pipeline phases (generate → critique → revise → evaluate)
+        run identically to ``run_project()``.
+        """
+        validate_project_args(project_description, success_criteria, project_id, output_dir)
+        return await self._project_runner.run_project(
+            project_description=project_description,
+            success_criteria=success_criteria,
+            project_id=project_id,
+            app_profile=app_profile,
+            analyze_on_complete=analyze_on_complete,
+            output_dir=output_dir,
+            precomposed_tasks=tasks,
+            constitution=constitution,
+        )
+
     async def run_job(self, spec: JobSpec) -> ProjectState:
         """
         Policy-driven entry point. Accepts a JobSpec that bundles project
