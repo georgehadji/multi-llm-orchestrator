@@ -32,7 +32,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .log_config import get_logger
+from ..log_config import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -61,12 +61,19 @@ Status legend: **SETTLED** = fixed + locked by tests/gates, do not relitigate.
   Same pass also fixed 4 bare `except:` clauses.
 - **Evidence:** `d913d136` "fix: remove BOM characters from 32 Python files" (2026-06-26)
   — 35 files, 36 insertions / 36 deletions (one-char diffs).
-- **Status:** SETTLED. This is the canonical example of the **environment/encoding trap**
-  class (Windows dev vs ubuntu-latest CI). If you see a Linux-only import error on a file
-  that "looks fine", check for BOM first:
+- **Status:** fix landed (`d913d136`) but new BOM files have since appeared — **re-run the
+  checker before assuming this is closed.** `python
+  .claude/skills/orchestrator-diagnostics-and-tooling/scripts/check_bom.py` found **2 files**
+  with BOM as of 2026-07-11 (`tests/integration/test_execute_task_golden_path.py`,
+  `tests/integration/test_resume_golden_path.py`) — down from a previously-reported 33, but
+  nonzero, confirming this class of regression keeps recurring in new files rather than being
+  a one-time, permanently-closed fix. This is the canonical example of the
+  **environment/encoding trap** class (Windows dev vs ubuntu-latest CI). If you see a
+  Linux-only import error on a file that "looks fine", check for BOM first:
   ```powershell
   Get-Content -Encoding Byte -TotalCount 3 path\to\file.py   # EF BB BF = BOM
   ```
+  or run the checker script above rather than eyeballing individual files.
 
 ### 2026-06-25 — HITL silent auto-approval → fail-closed gate (FIX-1)
 
@@ -113,7 +120,19 @@ Status legend: **SETTLED** = fixed + locked by tests/gates, do not relitigate.
 - **Evidence:** `e863f0c8` "test(bug-scan): proactive invariant suite + fix _aggregate
   dropping runs" (2026-06-25) — `orchestrator/services/evaluator.py` +
   `tests/unit/test_bug_scan.py` (321-line invariant suite).
-- **Status:** SETTLED. Median-for-3+ is the settled aggregation policy.
+- **Status: OPEN — do NOT mark this SETTLED.** An earlier revision of this entry said
+  SETTLED; that was wrong. There are **two `EvaluatorService` classes with two separate
+  `_aggregate` implementations**: `orchestrator/services/evaluator.py` got the median-for-3+
+  fix from `e863f0c8`; `orchestrator/application/evaluator.py` still has the unfixed
+  `_aggregate` that returns `scores[0]` for 3+ runs, silently discarding runs 2..N. Verified
+  live 2026-07-11: `orchestrator/engine_core/container.py:344` —
+  `from ..application.evaluator import EvaluatorService` — **production DI wiring
+  constructs the unfixed class.** If self-consistency actually runs 3+ evaluation passes in
+  production, the original bug may still be live behind the "fixed" commit. This is a human
+  decision (consolidate the two classes, or repoint `container.py` at
+  `services/evaluator.py`) via `orchestrator-change-control` — do not silently patch it as a
+  drive-by. Full reproduction, the exact diff between the two `_aggregate` bodies, and the
+  file:line evidence: `orchestrator-proof-and-analysis-toolkit` Recipe 4.
 - **Related open caveat:** the response DiskCache can **defeat self-consistency** (N
   "independent" runs hitting the same cached response are 1 run). Catalogued 2026-06-25,
   locked as documented behavior by `tests/unit/test_cost_reduction.py`. OPEN as a design
@@ -276,7 +295,7 @@ New evidence → escalate via `orchestrator-change-control`. Otherwise these are
 | Known-bug ledger uses **xfail(strict)**: catalogued bugs get an xfail test that FAILS the suite the moment the bug is accidentally (or deliberately) fixed — no silent drift either direction | `tests/unit/test_preexisting_problems.py` (note: under `tests/unit/`, not `tests/` root) | `416b9e18` era |
 | Import-linter **5 contracts are BLOCKING** in CI and pre-commit; `grimp` pinned `>=3.3,<3.4` because 3.4+ Rust-panics on Windows with this codebase | `.importlinter`, `pyproject.toml` lines 49–50, CI `lint-imports` step | remediation campaign |
 | Config JSON keys ≡ `Model` enum values exactly; builders never resolve aliases | drift tests (see 2026-06-23 entry) | repeated drift episodes |
-| `_aggregate`: median for 3+ self-consistency runs | `tests/unit/test_bug_scan.py` | `e863f0c8` |
+| ~~`_aggregate`: median for 3+ self-consistency runs~~ — **REOPENED, not settled** (`services/evaluator.py` fixed, but `container.py` wires the unfixed `application/evaluator.py`; see the 2026-06-25 entry above) | `tests/unit/test_bug_scan.py` (covers only the fixed class) | `e863f0c8` |
 | Completion checks gate on **status**, never result truthiness | ledger + `416b9e18` | P5 |
 | engine.py = Mediator only; no new logic there; no new root-level `orchestrator/*.py` | CI `check_new_root_files.py --baseline origin/master`, contracts | ARCH-AUDIT-V2 |
 | Old VerbalizedSamplingPipeline stays retired | `docs/VERBALIZED_SAMPLING_ANALYSIS.md` | VS retirement |

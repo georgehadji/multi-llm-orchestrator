@@ -29,7 +29,7 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
-from .budget import Budget
+from ..budget import Budget
 from .unified_events.core import (
     BudgetWarningEvent,
     DomainEvent,
@@ -42,7 +42,7 @@ from .unified_events.core import (
     TaskStartedEvent,
     get_event_bus,
 )
-from .models import Task, TaskResult
+from ..models import Task, TaskResult
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable

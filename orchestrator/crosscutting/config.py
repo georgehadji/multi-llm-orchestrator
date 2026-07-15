@@ -16,6 +16,8 @@ Environment variables use the ORCH_ prefix by convention.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -72,6 +74,16 @@ class FeatureFlags(BaseSettings):
     tracing_enabled: bool = False  # OpenTelemetry tracing (needs extra deps)
     skill_optimization_enabled: bool = False  # SkillOpt: self-improving per-TaskType skill docs
 
+    # ── Bilevel Autoresearch gates ─────────────────────────────────────
+    bilevel_autoresearch_enabled: bool = False  # Master switch for outer-loop self-improvement
+    bilevel_tabu_enabled: bool = False  # Tabu Search mechanism for retry diversity
+    bilevel_level15_enabled: bool = False  # Search-strategy tuner (Level 1.5)
+
+    # ── HTTP server gates ──────────────────────────────────────────────────
+    http_ingest_enabled: bool = True  # Enable /execute endpoints
+    http_stream_enabled: bool = True  # Enable SSE streaming /projects/{id}/stream
+    http_stream_polling: bool = True  # Use polling SSE fallback (True) instead of event-bus (False)
+
     # ── Secondary optional modules ────────────────────────────────────────────
     session_watcher_enabled: bool = True  # Session lifecycle watcher
     persona_enabled: bool = True  # Persona / role manager
@@ -81,6 +93,9 @@ class FeatureFlags(BaseSettings):
     session_lifecycle_enabled: bool = True  # Session lifecycle manager
     task_verifier_enabled: bool = True  # Task output verifier
     token_optimizer_enabled: bool = True  # Token usage optimizer
+
+    # ── Objective verifier gates (Router Enhancements Phase 1) ───────────
+    use_objective_verifiers: bool = False  # E1: wire Verifier port into cascade + self-consistency
 
     # ── Verbalized Sampling gates (CodeWhale Phase 0) ────────────────────
     vs_map_elites_seeding: bool = False  # Phase 2: VS-tail seed MAP-Elites grid
@@ -100,6 +115,12 @@ class FeatureFlags(BaseSettings):
     # ── Reranking gates ───────────────────────────────────────────────────
     vs_reranking_enabled: bool = False  # CandidateSelector for VS: score top-k candidates
     knowledge_rerank_enabled: bool = False  # Two-stage KB recall: cosine → LLM rerank
+
+    # ── Adaptive Capability Router (ACR) — Phase 0 seam ───────────────────
+    # off    = GreedyBackend (default; unchanged behaviour)
+    # shadow = ACR computes + logs its pick; GreedyBackend's pick is still authoritative
+    # on     = ACR is authoritative
+    acr_backend: Literal["off", "shadow", "on"] = "off"
 
     model_config = SettingsConfigDict(
         env_prefix="ORCH_",

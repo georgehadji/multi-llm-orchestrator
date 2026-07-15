@@ -1,0 +1,80 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 07: Content + Layout Stress — Multi-Lingual Docs Site
+# Author: Reasonix (stress-test suite)
+# Dimension: WRITING tasks at scale, RTL layout reasoning, IMAGE_GEN tasks
+# Run with:
+#   python -m orchestrator --file projects/stress_test/07_multilingual_docs_site.yaml
+# ──────────────────────────────────────────────────────
+#
+# Generates 40 pages of content across 5 locales, handles bidirectional
+# layouts (RTL for Arabic + Hebrew), and triggers IMAGE_GEN tasks for
+# locale-specific OG images. Tests the orchestrator's ability to
+# coordinate CODE_GEN, WRITING, and IMAGE_GEN tasks in one project.
+
+project: |
+  Build a multi-lingual documentation site for a fictional API product
+  called "NexusAPI" using Next.js 14 with next-intl for internationalization.
+
+  LOCALES (5):
+  - English (en) — LTR, source language
+  - Arabic (ar) — RTL, all layouts must mirror
+  - Hebrew (he) — RTL, all layouts must mirror
+  - Japanese (ja) — LTR, vertical-friendly typography where appropriate
+  - Chinese Simplified (zh) — LTR
+
+  PAGES PER LOCALE (8 pages = 40 total pages):
+  1. Getting Started — quickstart guide, installation, first API call
+  2. Authentication — API keys, OAuth 2.0 flow, token management, scopes
+  3. Endpoints — full API reference with method, path, parameters, response examples
+  4. Errors — error codes, response format, retry guidance
+  5. SDKs — overview of official SDKs (Python, JS, Go, Java) with install instructions
+  6. Rate Limits — tiered limits, headers, 429 response handling, burst allowance
+  7. Webhooks — event types, signature verification, retry policy, payload examples
+  8. Changelog — versioned release notes with dates and migration guides
+
+  TECHNICAL REQUIREMENTS:
+  9. next-intl for routing: /en/getting-started, /ar/getting-started, etc.
+  10. RTL layout using CSS logical properties (margin-inline-start, padding-inline-end, etc.)
+  11. RTL-aware components: sidebar on right, code blocks LTR always, icons mirrored
+  12. Locale switcher dropdown in header with native language names
+  13. Geo-IP detection middleware: redirect to best locale on first visit
+  14. hreflang tags in <head> for all 5 locale variants of each page
+  15. Code syntax highlighting with Shiki (server-side, no JS bundle)
+  16. Responsive sidebar that collapses to hamburger on mobile
+  17. Search across all locales using client-side Fuse.js (index built at build time)
+  18. OG images per locale: generate social share images with locale-appropriate text
+
+  CONTENT REQUIREMENTS:
+  19. All content written in professional, clear technical English first
+  20. Translations must be accurate (not literal word-for-word — culturally appropriate)
+  21. Code examples must use locale-appropriate variable names where idiomatic
+  22. Arabic and Hebrew text must render correctly (connected characters, no isolated glyphs)
+
+criteria: |
+  - All 40 pages (5 locales × 8 pages) render without 404 errors
+  - Arabic and Hebrew pages use RTL layout: sidebar on right, text right-aligned, logical properties
+  - Code blocks remain LTR in all locales (code is always left-to-right)
+  - Locale switcher preserves current page: /en/auth → /ar/auth (not /ar/)
+  - Geo-IP detection: first visit without locale prefix redirects based on Accept-Language
+  - hreflang tags are correct on every page (verify with SEO checker or view-source)
+  - Search works across all locales: searching "authentication" finds results in all 5 locales
+  - Arabic text renders as connected script (not isolated letter forms — test in Chrome)
+  - OG images exist for all 40 pages with locale-correct text overlay
+  - npm run build completes without errors
+  - Lighthouse performance ≥ 90, accessibility ≥ 95
+
+budget_usd: 7.0
+time_seconds: 7200
+concurrency: 6
+project_id: "stress-multilingual-docs-v1"
+output_dir: "./outputs/stress_test/07_multilingual_docs"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  creative_writing:  0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

@@ -17,9 +17,24 @@ from ..pipeline import PipelineContext
 from ...crosscutting.config import flags
 from ...models import AttemptRecord, FALLBACK_CHAIN, TaskType
 
+# Lazy import for Verifier protocol
+_Verifier: Any | None = None
+_IMPORT_LOCK = __import__("threading").Lock()
+
+
+def _get_verifier_protocol():
+    global _Verifier
+    if _Verifier is None:
+        with _IMPORT_LOCK:
+            if _Verifier is None:
+                from ...verification.port import Verifier as _V
+
+                _Verifier = _V
+    return _Verifier
+
+
 # Lazy import for VerbalizedSampler
 _VS_SAMPLER_MODULE = None
-_IMPORT_LOCK = __import__("threading").Lock()
 
 
 def _get_vs_sampler(client):
@@ -56,10 +71,12 @@ class EnhancedSelfConsistencyStage:
         max_attempts: int = 2,
         quality_threshold: float = 0.7,
         ara_strategy: Any = None,
+        verifier: Any = None,
     ) -> None:
         self._max_attempts = max_attempts
         self._quality_threshold = quality_threshold
         self._ara_strategy = ara_strategy
+        self._verifier = verifier
 
     async def process(self, ctx: PipelineContext) -> PipelineContext:
         """Check quality and signal retry if needed."""
@@ -67,6 +84,30 @@ class EnhancedSelfConsistencyStage:
         # contains "HTML tags" that trigger false-positive validator checks.
         if getattr(ctx.task, "target_path", "").startswith("components/"):
             return ctx
+
+        # ── Objective verifier override ───────────────────────────────────
+        # When USE_OBJECTIVE_VERIFIERS and a verifier are available, run the
+        # verifier and use its score for the quality gate decision.
+        if flags.use_objective_verifiers and self._verifier is not None:
+            VerifierProtocol = _get_verifier_protocol()
+            if isinstance(self._verifier, VerifierProtocol):
+                try:
+                    verdict = await self._verifier.verify(
+                        prompt=ctx.task.prompt,
+                        response=ctx.output or "",
+                        task_type=ctx.task.type,
+                    )
+                    logger.debug(
+                        "Objective verifier score=%.3f (passed=%s) for task %s",
+                        verdict.score,
+                        verdict.passed,
+                        ctx.task.id,
+                    )
+                    # Blend: if verifier score is significantly lower, use it
+                    if verdict.score < ctx.score * 0.8:
+                        ctx.score = verdict.score
+                except Exception as exc:
+                    logger.warning("Objective verifier failed for task %s: %s", ctx.task.id, exc)
 
         if ctx.score >= self._quality_threshold:
             return ctx

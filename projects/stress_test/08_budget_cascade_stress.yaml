@@ -1,0 +1,56 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 08: Budget Enforcement / Model Cascading Stress
+# Author: Reasonix (stress-test suite)
+# Dimension: Extreme budget pressure, cheapest-model-first routing, graceful degradation
+# Run with:
+#   python -m orchestrator --file projects/stress_test/08_budget_cascade_stress.yaml
+# ──────────────────────────────────────────────────────
+#
+# A normally $3.00 project given only $1.50. Forces the orchestrator to:
+# - Route to cheapest capable models aggressively
+# - Cascade through fallback chains on failure
+# - Potentially terminate gracefully when budget is exhausted
+# - Test pre-flight budget checks and mid-run abort logic
+# - Produce a working (if minimal) result or fail cleanly
+
+project: |
+  Build a REST API with FastAPI and JWT authentication for a "books"
+  resource with SQLite persistence.
+
+  The API must implement:
+  1. User registration endpoint (email + password, hashed with bcrypt)
+  2. Login endpoint returning JWT access token (15 min expiry) and refresh token
+  3. Token refresh endpoint
+  4. Protected CRUD for books: POST /books, GET /books, GET /books/{id}, PUT /books/{id}, DELETE /books/{id}
+  5. Book model: id, title, author, isbn, published_year, genre, created_at, updated_at
+  6. GET /books supports query params: ?genre=fiction&author=Orwell&page=1&limit=20
+  7. Pydantic v2 models for request/response validation
+  8. SQLAlchemy ORM with SQLite (file-based, no server needed)
+  9. Global exception handlers returning structured JSON: {"error": "...", "detail": "..."}
+  10. CORS middleware allowing all origins (development mode)
+
+criteria: |
+  - Register a user, login, get access token, call GET /books → returns 200 with empty list
+  - POST /books with valid data → returns 201 with created book
+  - GET /books?author=Orwell returns only Orwell's books
+  - PUT /books/{id} updates only the specified book
+  - DELETE /books/{id} removes the book (subsequent GET returns 404)
+  - Invalid JWT on protected endpoint → returns 401
+  - Missing required field in POST → returns 422 with field-level errors
+  - Token refresh works: expired access token + refresh token → new access token
+  - API docs available at /docs (Swagger UI) and /redoc
+
+budget_usd: 1.50
+time_seconds: 1800
+concurrency: 2
+project_id: "stress-budget-cascade-v1"
+output_dir: "./outputs/stress_test/08_budget_cascade"
+
+quality_targets:
+  code_generation:   0.80
+  code_review:       0.78
+  evaluation:        0.82
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

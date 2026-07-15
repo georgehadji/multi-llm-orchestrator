@@ -243,7 +243,7 @@ def write_output_dir(
         if not result.output:
             continue  # skip skipped/empty tasks
 
-        ext = _ext_for(task.type, result.output)
+        ext = _ext_for(task.type, result.output, target_language=getattr(task, "target_language", ""))
         filename = f"{task_id}_{task.type.value}{ext}"
         dest = out / filename
 
@@ -309,14 +309,36 @@ raise RuntimeError(
     _write_readme(state, out, file_map, project_id, extracted_count=len(extracted_total))
 
     # Improvement 10: Generate integrated project files using ProjectAssembler
-    try:
-        from .project_assembler import ProjectAssembler
+    # Only for Python projects — skip for HTML/CSS/JS/frontend projects
+    _py_exts = {".py", ".toml", ".dockerfile", ".yaml", ".yml"}
+    _non_py_count = sum(1 for f in file_map.values() if Path(f).suffix not in _py_exts)
+    _py_count = sum(1 for f in file_map.values() if Path(f).suffix in _py_exts)
+    _is_python_project = _py_count > _non_py_count or (_py_count == 0 and _non_py_count == 0)
 
-        assembler = ProjectAssembler(out, state)
-        created_files = assembler.assemble()
-        logger.info("Project Assembler: created %d integrated files", len(created_files))
-    except Exception as e:
-        logger.warning(f"Project Assembler failed: {e}. Continuing with task files only.")
+    if _is_python_project:
+        try:
+            from .project_assembler import ProjectAssembler
+
+            assembler = ProjectAssembler(out, state)
+            created_files = assembler.assemble()
+            logger.info("Project Assembler: created %d integrated files", len(created_files))
+        except Exception as e:
+            logger.warning(f"Project Assembler failed: {e}. Continuing with task files only.")
+    else:
+        logger.info(
+            "Skipping Python ProjectAssembler — detected %d non-Python files vs %d Python files",
+            _non_py_count,
+            _py_count,
+        )
+        # ── Web Project Assembler ───────────────────────────────────────
+        try:
+            from .web_assembler import WebProjectAssembler
+
+            web = WebProjectAssembler()
+            web_files = web.assemble(out, state)
+            logger.info("Web Assembler: created %d files in app/", len(web_files))
+        except Exception as e:
+            logger.warning(f"Web Assembler failed: {e}. Continuing with raw task files.")
 
     resolved = out.resolve()
     logger.info(f"Output written to: {resolved}")
@@ -326,13 +348,16 @@ raise RuntimeError(
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 
-def _ext_for(task_type: TaskType, output: str) -> str:
+def _ext_for(task_type: TaskType, output: str, target_language: str = "") -> str:
     """
     Determine the file extension for a task output.
 
     For CODE_GEN tasks, inspect the first fenced code block's language tag to
     choose the correct extension — Dockerfile, YAML, proto, etc. are common
     outputs that should NOT be saved as .py files.
+
+    If no fenced block is detected and ``target_language`` is provided (from
+    the Task model), use it as a fallback extension (e.g. "html" → ".html").
 
     DATA_EXTRACT falls back to .md if the output is not valid JSON.
     """
@@ -355,9 +380,33 @@ def _ext_for(task_type: TaskType, output: str) -> str:
                 "sql": ".sql",
                 "xml": ".xml",
                 "ini": ".ini",
+                "html": ".html",
+                "css": ".css",
+                "scss": ".scss",
+                "javascript": ".js",
+                "js": ".js",
+                "typescript": ".ts",
+                "ts": ".ts",
+                "jsx": ".jsx",
+                "tsx": ".tsx",
             }
             if lang in _lang_to_ext:
                 return _lang_to_ext[lang]
+        # Fallback: use target_language from Task model if available
+        if target_language:
+            _target_to_ext = {
+                "html": ".html",
+                "css": ".css",
+                "scss": ".scss",
+                "javascript": ".js",
+                "js": ".js",
+                "typescript": ".ts",
+                "ts": ".ts",
+                "jsx": ".jsx",
+                "tsx": ".tsx",
+                "python": ".py",
+            }
+            return _target_to_ext.get(target_language, ".py")
         # Default: keep .py for actual Python code
         return ".py"
 
@@ -382,6 +431,9 @@ def _render_content(task_type: TaskType, raw_output: str, ext: str, filename: st
     than running the Python extractor which would truncate to a few chars.
     """
     if ext == ".py":
+        return _extract_code_for_py_task(raw_output, filename)
+    if ext in (".html", ".css", ".scss", ".js", ".jsx", ".ts", ".tsx", ".dockerfile", ".yaml", ".sh", ".toml", ".sql", ".xml", ".ini", ".proto"):
+        # For non-Python code blocks: extract the matching fenced block, or strip fences
         return _extract_code_for_py_task(raw_output, filename)
     if ext == ".json":
         try:
@@ -409,6 +461,15 @@ _NON_PYTHON_FENCE_LANGS = (
     "sql",
     "xml",
     "ini",
+    "html",
+    "css",
+    "scss",
+    "javascript",
+    "js",
+    "typescript",
+    "ts",
+    "jsx",
+    "tsx",
 )
 
 
@@ -486,6 +547,8 @@ def _write_summary_json(
     """Write summary.json with full task list, outputs, and aggregate totals."""
     tasks_list = []
     total_cost = 0.0
+    total_input_tokens = 0
+    total_output_tokens = 0
     scores: list[float] = []
     completed = failed = degraded = 0
 
@@ -497,6 +560,8 @@ def _write_summary_json(
             continue
 
         total_cost += result.cost_usd
+        total_input_tokens += result.tokens_used.get("input", 0)
+        total_output_tokens += result.tokens_used.get("output", 0)
         if result.score > 0:
             scores.append(result.score)
 
@@ -528,6 +593,11 @@ def _write_summary_json(
                 ),
                 "iterations": result.iterations,
                 "cost_usd": round(result.cost_usd, 6),
+                "tokens_used": {
+                    "input": result.tokens_used.get("input", 0),
+                    "output": result.tokens_used.get("output", 0),
+                },
+                "phase_tokens": result.metadata.get("phase_tokens", {}),
                 "deterministic_check_passed": result.deterministic_check_passed,
                 "degraded_fallback_count": result.degraded_fallback_count,
                 "attempt_history": [
@@ -558,6 +628,8 @@ def _write_summary_json(
             "tasks_failed": failed,
             "tasks_degraded": degraded,
             "total_cost_usd": round(total_cost, 6),
+            "total_input_tokens": total_input_tokens,
+            "total_output_tokens": total_output_tokens,
             "average_score": round(sum(scores) / len(scores), 4) if scores else 0.0,
         },
     }

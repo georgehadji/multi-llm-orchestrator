@@ -383,6 +383,25 @@ class TaskExecutor:
             degraded_fallback_count=state.degraded_count,
             attempt_history=state.attempt_history,
             task_type=task.type.value,
+            metadata={
+                "phase_tokens": {
+                    "generation": {
+                        "input": state.generation_input_tokens,
+                        "output": state.generation_output_tokens,
+                        "cost": round(state.generation_cost, 6),
+                    },
+                    "critique": {
+                        "input": state.critique_input_tokens,
+                        "output": state.critique_output_tokens,
+                        "cost": round(state.critique_cost, 6),
+                    },
+                    "revision": {
+                        "input": state.revision_input_tokens,
+                        "output": state.revision_output_tokens,
+                        "cost": round(state.revision_cost, 6),
+                    },
+                }
+            },
         )
 
     def _build_failure_result(

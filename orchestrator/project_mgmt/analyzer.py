@@ -30,9 +30,9 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from .knowledge_base import KnowledgeType, get_knowledge_base
-from .log_config import get_logger
-from .quality_control import QualityController, TestLevel
+from ..knowledge_base import KnowledgeType, get_knowledge_base
+from ..log_config import get_logger
+from ..quality_control import QualityController, TestLevel
 
 if TYPE_CHECKING:
     from pathlib import Path

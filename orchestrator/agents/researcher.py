@@ -23,7 +23,7 @@ class ResearcherAgent(AgentBase):
 
     Models (from orchestrator/agent_model_registry.py):
       Budget:  INCLUSION_RING_2_6_1T ($0.50/M in, $2.00/M out) — 1T params, strong reasoning
-      Premium: XIAOMI_MIMO_V2_PRO  ($1.00/M in, $3.00/M out) — 1T+ params, 1M+ ctx
+      Premium: XIAOMI_MIMO_V2_5_PRO  ($1.00/M in, $3.00/M out) — 1T+ params, 1M+ ctx
     """
 
     def __init__(self, **kwargs: Any) -> None:

@@ -54,9 +54,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .budget import Budget
-from .models import Model, TaskType
-from .policy import JobSpec, Policy, PolicySet
+from ..budget import Budget
+from ..models import Model, TaskType
+from ..policy import JobSpec, Policy, PolicySet
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Public result type

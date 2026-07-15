@@ -1,0 +1,71 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 03: Multi-Tenant SaaS Dashboard
+# Author: Reasonix (stress-test suite)
+# Dimension: Auth/RBAC, tenant data isolation, security reasoning
+# Run with:
+#   python -m orchestrator --file projects/stress_test/03_multitenant_saas_dashboard.yaml
+# ──────────────────────────────────────────────────────
+#
+# Forces the orchestrator to reason about security boundaries (tenant
+# isolation, RBAC), generate auth middleware, and create proper database
+# schemas. quality_targets ≥ 0.90 forces multiple revision cycles on
+# security-critical code.
+
+project: |
+  Build a multi-tenant SaaS analytics dashboard with:
+
+  BACKEND (FastAPI + PostgreSQL + SQLAlchemy):
+  1. Tenant registration endpoint (company name, subdomain, admin email)
+  2. Subdomain-based tenant routing middleware
+  3. JWT authentication with access tokens (15 min) and refresh tokens (7 days)
+  4. Role-Based Access Control: admin, manager, viewer roles per tenant
+  5. Row-Level Security: every query scoped to current tenant_id
+  6. REST API for analytics data with filtering by date range and metric type
+  7. Billing endpoint returning usage stats and current tier pricing
+  8. Admin endpoints: list users, change roles, view audit log
+  9. Request logging middleware with correlation IDs
+
+  FRONTEND (React 18 + TypeScript + Recharts + Tailwind CSS):
+  10. Login page with tenant subdomain detection
+  11. Main dashboard with 5 widget types:
+      - Line chart: daily active users (30 days)
+      - Bar chart: events by category
+      - Stat card: total users, revenue, conversion rate
+      - Data table: recent activity with pagination and sorting
+      - Funnel chart: signup → activation → retention
+  12. Billing page: current plan, usage meters, upgrade/downgrade buttons
+  13. Admin panel: user management table, role assignment dropdown, audit log viewer
+  14. Sidebar navigation with tenant name and role badge
+
+  DATABASE:
+  15. Alembic migrations for all tables
+  16. Seed script generating mock data for 3 tenants with realistic patterns
+
+criteria: |
+  - Tenant A's API responses never contain Tenant B's data (verify with 3 tenants)
+  - Viewer role cannot access admin endpoints (returns 403)
+  - Manager role can manage users but cannot change tenant billing (returns 403)
+  - JWT refresh flow works: expired access token → refresh → new access token
+  - Subdomain routing: tenant-a.localhost → Tenant A data, tenant-b.localhost → Tenant B data
+  - All 5 widget types render with data from the API
+  - Billing page reflects correct usage-based tier
+  - Audit log records all admin actions with timestamp and user
+  - Alembic upgrade head runs without errors
+  - Seed script creates 3 tenants, 5 users each, 30 days of analytics data
+  - Lighthouse score ≥ 85
+
+budget_usd: 6.0
+time_seconds: 5400
+concurrency: 5
+project_id: "stress-multitenant-saas-v1"
+output_dir: "./outputs/stress_test/03_multitenant_saas"
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.88
+  complex_reasoning: 0.92
+  evaluation:        0.94
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

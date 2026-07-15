@@ -1,0 +1,92 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 04: Scale / File Count Stress — 30-Component Library
+# Author: Reasonix (stress-test suite)
+# Dimension: Task decomposition at scale (~100 files), parallel generation
+# Run with:
+#   python -m orchestrator --file projects/stress_test/04_component_library_30.yaml
+# ──────────────────────────────────────────────────────
+#
+# This forces the orchestrator to decompose into ~30 parallel CODE_GEN
+# tasks (one per component), evaluate them all, and integrate into a
+# working Storybook. Tests: max_output_tokens limits, parallel work
+# stealing, and evaluation of large output sets.
+
+project: |
+  Build a production-grade React 18 + TypeScript component library with
+  Storybook 8 documentation. Use CSS Modules for styling. Every component
+  must be accessible (WCAG 2.1 AA).
+
+  ATOMS (10 components):
+  1. Button — variants: primary, secondary, ghost, danger; sizes: sm, md, lg; loading state
+  2. Input — types: text, email, password, number; error state; helper text; prefix/suffix icons
+  3. Label — required indicator, tooltip for extra info
+  4. Badge — variants: default, success, warning, error, info; dot mode
+  5. Avatar — image, initials fallback, online/offline status dot, sizes
+  6. Icon — wraps 24 common SVG icons (use lucide-react or inline SVGs)
+  7. Spinner — sizes: sm, md, lg; color variants
+  8. Divider — horizontal, vertical, with label text
+  9. Tooltip — positions: top, bottom, left, right; delay show/hide
+  10. Tag — closable, color variants, max width with ellipsis
+
+  MOLECULES (10 components):
+  11. FormField — combines Label + Input + error message into one unit
+  12. SearchBar — Input with search icon, clear button, debounced onChange (300ms)
+  13. Breadcrumb — auto-collapse middle items with "...", last item non-link
+  14. Pagination — page numbers, prev/next, page size selector, total count display
+  15. Tabs — horizontal tab bar, active indicator, keyboard navigation (arrow keys)
+  16. Accordion — single or multi-expand mode, smooth height animation, chevron rotation
+  17. Card — header, body, footer slots; hover elevation; clickable variant
+  18. Modal — overlay, focus trap, Escape to close, body scroll lock, portal-based
+  19. Dropdown — trigger button, floating menu, keyboard navigation, click-outside-to-close
+  20. Alert — variants: info, success, warning, error; dismissible; optional action button
+
+  ORGANISMS (10 components):
+  21. Navbar — logo, nav links, user menu dropdown, mobile hamburger, responsive
+  22. Sidebar — collapsible, nested menu items, active state, icons
+  23. DataTable — sortable columns, selectable rows, pagination, loading skeleton, empty state
+  24. FilterPanel — multiple filter types (text, select, date range, checkbox group), apply/clear
+  25. LoginForm — email + password fields, remember me checkbox, forgot password link, validation
+  26. SignupForm — name, email, password, confirm password, terms checkbox, validation
+  27. FileUploader — drag-and-drop zone, file list with progress bars, remove button, accept filter
+  28. CommentList — threaded comments, author avatar, timestamp, reply/delete actions
+  29. NotificationStack — toast notifications, auto-dismiss (5s), pause on hover, 4 types
+  30. Calendar — month view, day cells, today highlight, prev/next month navigation, event dots
+
+  Deliverables per component:
+  - ComponentName.tsx (implementation)
+  - ComponentName.test.tsx (unit tests, min 3 tests per component)
+  - ComponentName.stories.tsx (Storybook story, min 2 stories per component)
+  - ComponentName.module.css (scoped styles)
+
+  Project-level:
+  - index.ts barrel export for all components
+  - Storybook configured with all 30 components registered
+  - README.md with usage examples for each category
+  - package.json with proper peerDependencies (react, react-dom)
+
+criteria: |
+  - All 90 per-component files generated (30 components × 3 files each)
+  - npm run build compiles all TypeScript without errors (strict mode)
+  - npm run test passes all unit tests (30 components × 3+ tests = 90+ tests)
+  - npm run storybook starts and shows all 30 components with all stories
+  - Every interactive component is keyboard-navigable (Tab, Enter, Escape, Arrow keys)
+  - Modal focus trap works: Tab cycles only within modal, Escape closes
+  - DataTable sorting works correctly for string, number, and date columns
+  - Form components show validation errors on blur and submit
+  - Toast notifications stack from top-right, auto-dismiss after 5 seconds
+  - Calendar navigates months correctly and handles month/year boundaries
+
+budget_usd: 8.0
+time_seconds: 7200
+concurrency: 8
+project_id: "stress-component-lib-v1"
+output_dir: "./outputs/stress_test/04_component_lib"
+
+quality_targets:
+  code_generation:   0.85
+  code_review:       0.82
+  evaluation:        0.88
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

@@ -1,0 +1,65 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 02: Concurrency + WebSocket Stress
+# Author: Reasonix (stress-test suite)
+# Dimension: High concurrency (8), real-time state sync, tight time budget
+# Run with:
+#   python -m orchestrator --file projects/stress_test/02_collaborative_whiteboard.yaml
+# ──────────────────────────────────────────────────────
+#
+# Stresses the orchestrator's ability to decompose into truly parallel
+# subtasks and manage inter-task dependencies. Canvas rendering +
+# WebSocket coordination = high CODE_GEN complexity. concurrency:8
+# pushes the parallel task scheduler to its limit.
+
+project: |
+  Build a collaborative real-time whiteboard application with:
+
+  FRONTEND (React 18 + TypeScript + HTML5 Canvas):
+  1. Infinite canvas with zoom (10%–500%) and pan (mouse drag + touch)
+  2. Drawing tools: freehand pencil, straight line, rectangle, circle, text tool
+  3. Color picker with 16 presets + custom hex input
+  4. Stroke width slider (1px–20px)
+  5. Undo/redo stack (per-user, Ctrl+Z / Ctrl+Y)
+  6. Layer system: bring forward, send backward, delete selected
+  7. Real-time cursor indicators showing other users' positions
+  8. User presence panel showing connected users with color-coded avatars
+
+  BACKEND (Node.js + ws library):
+  9. WebSocket server handling room creation, join/leave, and draw events
+  10. Room system: create room (returns 6-char join code), join room via code
+  11. Per-room state: all shapes serialized as JSON, broadcast on join
+  12. Delta-based sync: only send new strokes, not full state on each update
+  13. Rate limiting: max 30 messages/sec per connection
+  14. Room cleanup: delete rooms idle for > 60 minutes
+
+  FULLSTACK:
+  15. REST API for room listing and metadata (Express)
+  16. Export whiteboard as PNG (client-side canvas.toDataURL)
+  17. Dark mode toggle
+
+criteria: |
+  - Two browser tabs in the same room see each other's drawings in real-time (< 200ms latency on localhost)
+  - Join code system: create room → copy code → paste in another tab → both see shared canvas
+  - Undo only affects the current user's strokes (not other users')
+  - Canvas zoom and pan work smoothly (60fps) with touch gestures on mobile
+  - Rate limiting rejects messages and logs a warning (verify with rapid drawing)
+  - Room cleanup: leave a room idle for 2 minutes, verify it's removed from active room list
+  - Export PNG matches visible canvas content pixel-for-pixel
+  - TypeScript strict mode: no errors
+  - Backend handles 10 concurrent connections without message loss
+
+budget_usd: 5.0
+time_seconds: 2400
+concurrency: 8
+project_id: "stress-whiteboard-v1"
+output_dir: "./outputs/stress_test/02_whiteboard"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

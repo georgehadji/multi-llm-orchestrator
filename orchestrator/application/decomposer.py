@@ -563,6 +563,7 @@ Each task JSON element MUST also include:
                     target_path=obj.get("target_path", ""),
                     module_name=obj.get("module_name", ""),
                     tech_context=obj.get("tech_context", ""),
+                    target_language=obj.get("target_language", ""),
                 )
 
         return tasks if tasks else None
@@ -684,6 +685,7 @@ Each task JSON element MUST also include:
                 target_path=item.get("target_path", ""),
                 module_name=item.get("module_name", ""),
                 tech_context=item.get("tech_context", ""),
+                target_language=item.get("target_language", ""),
             )
 
         if not tasks:

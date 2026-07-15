@@ -18,9 +18,9 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from .api_clients import UnifiedClient
-from .budget import Budget
-from .models import Model
+from ..api_clients import UnifiedClient
+from ..budget import Budget
+from ..models import Model
 
 logger = logging.getLogger("orchestrator.test_fixer")
 

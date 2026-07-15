@@ -21,11 +21,40 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
+    from .architect import Architect
+    from .decomposer import Decomposer
     from .pipeline import TaskPipeline
+    from .pipeline_executor import PipelineExecutor
     from .pipeline_runner import PipelineRunner
     from .project_planner import ProjectPlanner
+    from .stages import ConstitutionGate
     from .state_coordinator import StateCoordinator
     from .context_service import ContextService
+    from ..application.executor import ExecutorService
+    from ..application.evaluator import EvaluatorService
+    from ..application.model_health_tracker import ModelHealthTracker
+    from ..application.resumption_service import ResumptionService
+    from ..application.skill_store import SkillStore
+    from ..circuit_breaker import CircuitBreakerRegistry
+    from ..cost import BudgetHierarchy
+    from ..cost_predictor import CostPredictor
+    from ..domain.services.config_services import (
+        RoutingService,
+        CostService,
+        ConfigurationService,
+    )
+    from ..hitl.gate import HumanInTheLoop
+    from ..infrastructure.telemetry_snapshotter import TelemetrySnapshotter
+    from ..preflight import PreflightValidator
+    from ..services import GeneratorService, ObservabilityService
+    from ..telemetry_store import TelemetryStore
+    from ..application.budget_enforcer import BudgetEnforcer
+    from ..ara_execution_strategy import ARAExecutionStrategy
+
+    try:
+        from ..task_guard import TaskGuard
+    except ImportError:
+        from ..concurrency_controller import TaskConcurrencyGuard as TaskGuard
 
 from ..api_clients import UnifiedClient
 from ..budget import Budget
@@ -39,7 +68,7 @@ from ..domain.ports import (
     ValidatorPort,
 )
 
-try:
+if TYPE_CHECKING:
     from ..cost_optimization import (
         AdaptiveTemperatureController,
         BatchClient,
@@ -49,25 +78,55 @@ try:
         StreamingValidator,
         TokenBudget,
     )
-except ImportError:
-    AdaptiveTemperatureController = None  # type: ignore[misc]
-    BatchClient = None  # type: ignore[misc]
-    DependencyContextInjector = None  # type: ignore[misc]
-    PromptCacher = None  # type: ignore[misc]
-    SpeculativeGenerator = None  # type: ignore[misc]
-    StreamingValidator = None  # type: ignore[misc]
-    TokenBudget = None  # type: ignore[misc]
-
-try:
     from ..model_registry import ModelCascader  # type: ignore[attr-defined]
-except ImportError:
-    ModelCascader = None
+else:
+    try:
+        from ..cost_optimization import (
+            AdaptiveTemperatureController,
+            BatchClient,
+            DependencyContextInjector,
+            PromptCacher,
+            SpeculativeGenerator,
+            StreamingValidator,
+            TokenBudget,
+        )
+    except ImportError:
+        AdaptiveTemperatureController = None
+        BatchClient = None
+        DependencyContextInjector = None
+        PromptCacher = None
+        SpeculativeGenerator = None
+        StreamingValidator = None
+        TokenBudget = None
+
+    try:
+        from ..model_registry import ModelCascader
+    except ImportError:
+        ModelCascader = None
 from ..model_selector import ModelSelector, TieredModelRouter
 from ..policy_engine import PolicyEngine
 from ..telemetry import TelemetryCollector
 from ..tracing import Tracer
 
 logger = logging.getLogger("orchestrator.container")
+
+
+def _wire_acr_backend(planner: Any, flags: Any) -> None:
+    """
+    ACR Phase 0 seam: swap ConstraintPlanner's backend per ORCH_ACR_BACKEND.
+
+    off    (default) — no-op, planner keeps its GreedyBackend default.
+    shadow            — ACR runs read-only alongside GreedyBackend; routing
+                         is untouched, only a comparison log line is added.
+    on                — ACR becomes the authoritative selection backend.
+    """
+    from ..operations.optimization import AdaptiveCapabilityBackend
+
+    if flags.acr_backend == "on":
+        planner.set_backend(AdaptiveCapabilityBackend(mode="on"))
+    elif flags.acr_backend == "shadow":
+        planner.set_shadow_backend(AdaptiveCapabilityBackend(mode="shadow"))
+    # else: "off" -> no-op
 
 
 @dataclass
@@ -87,41 +146,45 @@ class ServiceContainer:
     state_mgr: StatePort
 
     # Core services
-    task_guard: Any
+    task_guard: Any  # TaskGuard (import guarded)
     results_lock: asyncio.Lock
     selector: ModelSelector  # also satisfies PlannerPort
     tiered_router: TieredModelRouter = None
     telemetry: TelemetryCollector = None
     tracer: Tracer = None
     policy_engine: PolicyEngine = None
-    planner: Any = None
+    planner: Any = None  # ConstraintPlanner (circular-safe)
     project_planner: Optional[ProjectPlanner] = None
     pipeline_runner: Optional[PipelineRunner] = None
-    preflight_validator: Any = None
+    preflight_validator: Optional[PreflightValidator] = None
     hook_registry: Optional[HookRegistryPort] = None
     validator: Optional[ValidatorPort] = None
-    decomposer: Any = None
-    architect: Any = None
-    executor: Any = None
-    evaluator: Any = None
-    generator: Any = None
+    decomposer: Optional[Decomposer] = None
+    architect: Optional[Architect] = None
+    executor: Optional[ExecutorService] = None
+    evaluator: Optional[EvaluatorService] = None
+    generator: Optional[GeneratorService] = None
     ara: Any = None
-    ara_strategy: Any = None
+    ara_strategy: Optional[ARAExecutionStrategy] = None
     pipeline: Optional[TaskPipeline] = None
-    pipeline_executor: Any = None  # PipelineExecutor (wired via wire_pipeline_executor)
-    constitution_gate: Any = None  # ConstitutionGate (optional, phase -1 stage)
+    pipeline_executor: Optional[PipelineExecutor] = (
+        None  # PipelineExecutor (wired via wire_pipeline_executor)
+    )
+    constitution_gate: Optional[ConstitutionGate] = (
+        None  # ConstitutionGate (optional, phase -1 stage)
+    )
     dep_resolver: Any = None
     event_bus: Optional[EventPort] = None
     adaptive_router: Any = None
-    telemetry_store: Any = None
+    telemetry_store: Optional[TelemetryStore] = None
     semantic_cache: Any = None
-    cb_registry: Any = None
-    health_tracker: Any = None  # ModelHealthTracker
-    budget_enforcer: Any = None  # BudgetEnforcer
-    resumption_service: Any = None  # ResumptionService
-    skill_store: Any = None
-    snapshotter: Any = None
-    observability: Any = None
+    cb_registry: Optional[CircuitBreakerRegistry] = None
+    health_tracker: Optional[ModelHealthTracker] = None  # ModelHealthTracker
+    budget_enforcer: Optional[BudgetEnforcer] = None  # BudgetEnforcer
+    resumption_service: Optional[ResumptionService] = None  # ResumptionService
+    skill_store: Optional[SkillStore] = None
+    snapshotter: Optional[TelemetrySnapshotter] = None
+    observability: Optional[ObservabilityService] = None
     context_compressor: Any = None
     memory_provider_mgr: Any = None
     pattern_store: Any = None
@@ -135,9 +198,9 @@ class ServiceContainer:
     meta_v2: Any = None
 
     # New Domain Services (Phase 2 refactor)
-    routing_service: Any = None
-    cost_service: Any = None
-    config_service: Any = None
+    routing_service: Optional[RoutingService] = None
+    cost_service: Optional[CostService] = None
+    config_service: Optional[ConfigurationService] = None
     state_coordinator: Optional[StateCoordinator] = None
     context_service: Optional[ContextService] = None
 
@@ -149,8 +212,8 @@ class ServiceContainer:
 
     # Cost optimization
     cache_optimizer: Any = None
-    cost_predictor: Any = None
-    budget_hierarchy: Any = None
+    cost_predictor: Optional[CostPredictor] = None
+    budget_hierarchy: Optional[BudgetHierarchy] = None
     prompt_cacher: Any = None
     batch_client: Any = None
     token_budget: Any = None
@@ -164,7 +227,7 @@ class ServiceContainer:
     diff_generator: Any = None
 
     # HITL gate (FIX-1: fail-closed by default, no silent auto-approve)
-    hitl: Any = None
+    hitl: Optional[HumanInTheLoop] = None
 
     # Accessory services (rarely used, kept here for reference)
     session_watcher: Any = None
@@ -388,10 +451,9 @@ class ServiceContainer:
 
         profiles: dict[Model, Any] = {}  # type: ignore[no-redef]
         try:
-            from .models import ModelProfile
+            from ..application.model_profile_builder import build_default_profiles
 
-            for m in Model:
-                profiles[m] = ModelProfile(model=m)
+            profiles = build_default_profiles()
         except ImportError:
             pass
 
@@ -429,6 +491,9 @@ class ServiceContainer:
         planner = ConstraintPlanner(
             profiles=profiles, policy_engine=policy_engine, api_health=api_health
         )
+        from ..crosscutting.config import flags as _acr_flags
+
+        _wire_acr_backend(planner, _acr_flags)
 
         selector = ModelSelector(
             api_health=api_health,
@@ -580,21 +645,25 @@ class ServiceContainer:
             ),
         ]
 
-        # ConstitutionGate — prepend as phase -1 if constitution is loaded
-        # and non-empty. No-op when constitution is empty (default).
+        # ConstitutionGate — always prepended as phase -1, so run_project()
+        # can swap in a per-run constitution later (e.g. --from-speckit,
+        # where the constitution is parsed from an external artifact after
+        # container build, not from .orchestrator/constitution.json).
+        # ConstitutionGate.process() is a no-op when the active constitution
+        # is empty, so this has zero behavioural cost for the common case.
         constitution_gate: Any = None
         try:
             from .stages import ConstitutionGate
             from ..infrastructure.constitution_loader import ConstitutionLoader
 
             _constitution = ConstitutionLoader().get()
+            constitution_gate = ConstitutionGate(constitution=_constitution)
+            stages.insert(0, constitution_gate)
             if (
                 _constitution.protect_paths
                 or _constitution.forbidden_imports
                 or _constitution.require_tests
             ):
-                constitution_gate = ConstitutionGate(constitution=_constitution)
-                stages.insert(0, constitution_gate)
                 logger.info(
                     "ConstitutionGate active: %d protected paths, %d forbidden imports, require_tests=%s",
                     len(_constitution.protect_paths),

@@ -36,6 +36,15 @@ class ConstitutionGate:
     def __init__(self, constitution: ProjectConstitution | None = None) -> None:
         self._c = constitution or ProjectConstitution()
 
+    def set_constitution(self, constitution: ProjectConstitution) -> None:
+        """Swap the active constitution at runtime.
+
+        Needed for the --from-speckit path: the Spec-Kit constitution is
+        parsed per-run from an external artifact, not loaded once from
+        .orchestrator/constitution.json at container-build time.
+        """
+        self._c = constitution
+
     # Explicitly satisfy PipelineStage protocol
     @property
     def __constitution_gate_marker(self) -> bool:

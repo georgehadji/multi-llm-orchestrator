@@ -140,8 +140,8 @@ class AppDetector:
     def _get_client(self):
         """Return the client, creating one lazily if needed."""
         if self._client is None:
-            from .api_clients import UnifiedClient
-            from .cache import DiskCache
+            from ..api_clients import UnifiedClient
+            from ..cache import DiskCache
 
             self._client = UnifiedClient(cache=DiskCache(), max_concurrency=1)
         return self._client
@@ -194,7 +194,7 @@ class AppDetector:
         The response must be a JSON object matching the detection schema.
         Isolated into its own method so tests can patch it cleanly.
         """
-        from .models import Model
+        from ..models import Model
 
         client = self._get_client()
 
@@ -270,6 +270,6 @@ class AppDetector:
 # ── Backward compatibility ────────────────────────────────────────────────────
 # AppProfile is now a type alias for ArchitectureDecision.
 # All existing code importing AppProfile continues to work unchanged.
-from .architecture_advisor import ArchitectureDecision  # noqa: E402
+from ..architecture_advisor import ArchitectureDecision  # noqa: E402
 
 AppProfile = ArchitectureDecision

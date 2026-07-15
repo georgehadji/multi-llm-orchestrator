@@ -37,18 +37,21 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .ab_testing import ABTestingEngine, Recommendation
-from .gradual_rollout import (
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..events.ab_testing import ABTestingEngine, Recommendation
+from ..gradual_rollout import (
     GradualRolloutManager,
     RolloutConfig,
 )
-from .hitl_workflow import (
+from ..hitl_workflow import (
     ApprovalConfig,
     ApprovalStatus,
     HITLWorkflow,
     ImpactLevel,
 )
-from .meta_orchestrator import (
+from .orchestrator import (
     ExecutionArchive,
     MetaOptimizer,
     ProjectTrajectory,
@@ -136,11 +139,13 @@ class MetaOptimizationV2:
         # Initialize components
         self.optimizer = MetaOptimizer(archive)
 
-        self.ab_testing: ABTestingEngine | None = None
+        self.ab_testing = None  # ABTestingEngine, lazy-init in _init_ab_testing
         self.hitl: HITLWorkflow | None = None
         self.rollout: GradualRolloutManager | None = None
 
         if self.config.ab_testing_enabled:
+            from ..events.ab_testing import ABTestingEngine
+
             self.ab_testing = ABTestingEngine(
                 archive,
                 storage_path=self._get_storage_path() / "ab_testing",
@@ -389,6 +394,8 @@ class MetaOptimizationV2:
             result = await self.ab_testing.analyze_results(experiment.experiment_id)
 
             if result:
+                from ..events.ab_testing import Recommendation
+
                 if result.recommendation == Recommendation.ADOPT:
                     # Start rollout for winning variant
                     if self.rollout:

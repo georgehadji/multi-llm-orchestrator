@@ -14,7 +14,7 @@ import asyncio
 from typing import Any
 
 from .bm25_search import BM25Search, SearchResult
-from .log_config import get_logger
+from ..log_config import get_logger
 
 logger = get_logger(__name__)
 

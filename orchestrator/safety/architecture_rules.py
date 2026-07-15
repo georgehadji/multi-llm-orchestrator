@@ -837,7 +837,7 @@ Choose the best options based on the project requirements. Be specific and pract
         architecture_models = [
             M.CLAUDE_SONNET_5,  # $3.00/$15.00, premium quality, reliable JSON
             M.GPT_5_4,  # $2.50/$10.00, reliable
-            M.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
+            M.XIAOMI_MIMO_V2_5_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
             M.XAI_GROK_4_5,  # $1.50/$4.00, strong reasoning
             M.QWEN_3_7_MAX,  # $0.39/$2.34, 397B MoE (fallback)
         ]

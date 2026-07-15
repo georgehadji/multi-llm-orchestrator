@@ -48,6 +48,9 @@ class TaskInput(BaseModel):
     acceptance_threshold: float = Field(
         default=0.85, ge=0.0, le=1.0, description="Minimum acceptance score"
     )
+    target_language: str = Field(
+        default="", description="Target programming language: python, html, css, javascript, typescript, etc."
+    )
 
     @field_validator("id")
     @classmethod
@@ -78,6 +81,7 @@ class TaskInput(BaseModel):
             context=self.context,
             dependencies=self.dependencies,
             acceptance_threshold=self.acceptance_threshold,
+            target_language=self.target_language,
         )
 
 
@@ -390,7 +394,8 @@ REQUIREMENTS:
 2. Task types must be one of: code_generation, code_review, complex_reasoning, creative_writing, data_extraction, evaluation
 3. Dependencies must reference other task IDs
 4. Acceptance threshold between 0.5 and 0.95 (default: 0.85)
-5. Execution order must include ALL task IDs exactly once
+5. You MAY include an optional `target_language` field per task (e.g. "python", "html", "css", "javascript", "typescript") specifying what language the code should be in. Default is "python".
+6. Execution order must include ALL task IDs exactly once
 
 OUTPUT FORMAT:
 Return a JSON object with:

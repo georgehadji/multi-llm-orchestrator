@@ -40,6 +40,14 @@ class PreflightReport:
     findings: list[str] = field(default_factory=list)
     cached: bool = False
     conflicts: list[str] = field(default_factory=list)
+    # ── Animation quality signals (Emil Kowalski integration) ──────
+    has_motion_lib: bool = False  # framer-motion, gsap, etc. detected
+    has_reduced_motion: bool = False  # prefers-reduced-motion found in code
+    has_easing_tokens: bool = False  # --ease-* CSS variables found
+    has_will_change: bool = False  # will-change hints present
+    animates_layout: bool = False  # width/height/top/left animated (bad)
+    missing_motion_a11y: bool = False  # motion lib but no reduced-motion
+    # ───────────────────────────────────────────────────────────────
 
     def summary(self) -> str:
         lines = ["Pre-flight findings:"]
@@ -106,6 +114,7 @@ class PreflightScanner:
         if pkg:
             report.font_stack = self._detect_fonts(pkg, proj)
             report.motion_stance = self._detect_motion(pkg)
+            report.has_motion_lib = report.motion_stance != "motion-cut"
             report.framework = self._detect_framework(pkg)
             report.findings.append(f"package.json parsed")
 
@@ -117,6 +126,9 @@ class PreflightScanner:
 
         # 4. Detect conflicts
         report.conflicts = self._detect_conflicts(proj, pkg)
+
+        # 5. Animation quality scan (Emil Kowalski integration)
+        self._scan_animation_quality(proj, report)
 
         logger.debug("preflight_scanner: %s", report.summary().replace("\n", " | "))
         return report
@@ -273,3 +285,54 @@ class PreflightScanner:
             conflicts.append("Motion library installed but no usage found in source files")
 
         return conflicts
+
+    def _scan_animation_quality(self, proj: Path, report: PreflightReport) -> None:
+        """Scan generated frontend code for animation quality signals."""
+        if not report.has_motion_lib:
+            return
+
+        _fe_exts = {".css", ".tsx", ".jsx", ".ts", ".js", ".html"}
+        _fe_files = [f for f in proj.rglob("*") if f.suffix in _fe_exts and f.is_file()]
+
+        for _file in _fe_files:
+            try:
+                content = _file.read_text(encoding="utf-8")[:50000]
+            except (OSError, UnicodeDecodeError):
+                continue
+
+            # prefers-reduced-motion detection
+            if "prefers-reduced-motion" in content:
+                report.has_reduced_motion = True
+
+            # Easing tokens
+            if "--ease-out" in content or "--ease-in-out" in content:
+                report.has_easing_tokens = True
+
+            # will-change hints
+            if "will-change" in content:
+                report.has_will_change = True
+
+            # Layout property animation (bad practice)
+            if re.search(
+                r"(?:transition|animation)[^;{}]*(?:width|height|top|left|margin|padding)\s*:",
+                content,
+                re.IGNORECASE,
+            ):
+                report.animates_layout = True
+
+        # A11y gap: motion library present but no reduced-motion
+        if not report.has_reduced_motion:
+            report.missing_motion_a11y = True
+            report.findings.append(
+                "Animation library detected but no prefers-reduced-motion handling found"
+            )
+
+        # Performance gap: no easing tokens
+        if not report.has_easing_tokens:
+            report.findings.append("Animation library detected but no --ease-* CSS tokens defined")
+
+        # Performance gap: no will-change hints
+        if not report.has_will_change:
+            report.findings.append(
+                "Animation library detected but no will-change hints for animated elements"
+            )

@@ -55,7 +55,12 @@ class GenerateStage:
         model = task.preferred_model or self._selector.select(task.type)
         ctx.model = model
 
-        system_prompt = SystemPrompt.build(task)
+        target_lang = getattr(task, "target_language", "") or ""
+        system_prompt = SystemPrompt.build(
+            task_type=task.type.value,
+            mode=task.mode or "production",
+            target_language=target_lang,
+        )
         # SkillOpt: prepend the injected skill document when available
         if ctx.skill_prefix:
             system_prompt = f"<skill>\n{ctx.skill_prefix}\n</skill>\n\n{system_prompt}"

@@ -66,6 +66,45 @@ _GENERIC_SHADOW = re.compile(
 # Em-dash in copy (banned by taste-skill — use proper punctuation)
 _EM_DASH = re.compile(r"—")
 
+# ── Emil Kowalski animation anti-patterns ──────────────────────────
+
+# scale(0) entry — nothing in the real world appears from nothing
+_RE_SCALE_ZERO = re.compile(
+    r"(?:transform|scale)\s*:\s*scale\s*\(\s*0\s*\)",
+    re.IGNORECASE,
+)
+
+# ease-in on entering/exiting UI — always a finding
+_RE_EASE_IN_UI = re.compile(
+    r"transition[^;{}]*ease-in\b(?![-])",
+    re.IGNORECASE,
+)
+
+# transform-origin: center on popover/dropdown (modals are exempt)
+_RE_CENTER_ORIGIN_POPOVER = re.compile(
+    r"(?:popover|dropdown|tooltip|menu)[^;{}]*transform-origin\s*:\s*center",
+    re.IGNORECASE,
+)
+
+# @keyframes on toasts/toggles — should use transitions for interruptibility
+_RE_KEYFRAMES_TOGGLE = re.compile(
+    r"@keyframes\s+\w*(?:toast|toggle|alert|notification)\w*",
+    re.IGNORECASE,
+)
+
+# Framer Motion x/y/scale shorthand — main-thread, not GPU
+_RE_MOTION_SHORTHAND = re.compile(
+    r"<motion\.\w+\s[^>]*\b(?:x|y|scale)\s*=\s*\{",
+    re.IGNORECASE,
+)
+
+# Animated layout properties (width/height/top/left) via transition
+_RE_ANIMATE_LAYOUT_TRANSITION = re.compile(
+    r"transition[^;{}]*(?:width|height|top|left|margin|padding)\s",
+    re.IGNORECASE,
+)
+# ────────────────────────────────────────────────────────────────────
+
 # ---------------------------------------------------------------------------
 # Public validator
 # ---------------------------------------------------------------------------
@@ -78,6 +117,14 @@ _CHECKS: list[tuple[re.Pattern[str], str]] = [
     (_THREE_COLS, "Uniform 3-column grid detected (most generic AI layout)"),
     (_GENERIC_SHADOW, "Generic low-quality box-shadow detected"),
     (_EM_DASH, "Em-dash (—) in copy detected"),
+    # ── Emil Kowalski animation checks ─────────────────────────────
+    (_RE_SCALE_ZERO, "Animation: scale(0) entry — appears from nothing"),
+    (_RE_EASE_IN_UI, "Animation: ease-in on UI — feels sluggish"),
+    (_RE_CENTER_ORIGIN_POPOVER, "Animation: center origin on popover/dropdown"),
+    (_RE_KEYFRAMES_TOGGLE, "Animation: keyframes on toast/toggle — should use transitions"),
+    (_RE_MOTION_SHORTHAND, "Animation: Framer Motion x/y/scale shorthand — main thread"),
+    (_RE_ANIMATE_LAYOUT_TRANSITION, "Animation: animated layout property — triggers reflow"),
+    # ───────────────────────────────────────────────────────────────
 ]
 
 

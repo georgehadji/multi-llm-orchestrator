@@ -34,7 +34,21 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from orchestrator.crosscutting.config import flags
 from orchestrator.log_config import get_logger
+
+# Lazy import for Verifier protocol (avoids circular import at module level)
+_Verifier: Any | None = None
+
+
+def _get_verifier_protocol():
+    global _Verifier
+    if _Verifier is None:
+        from orchestrator.verification.port import Verifier as _V
+
+        _Verifier = _V
+    return _Verifier
+
 
 logger = get_logger(__name__)
 
@@ -124,19 +138,24 @@ class ModelCascader:
         "gpt-4": {"input": 30.0, "output": 60.0},
     }
 
-    def __init__(self, client=None, evaluator_client=None):
+    def __init__(self, client=None, evaluator_client=None, verifier=None):
         """
         Initialize model cascader.
 
         Args:
             client: API client for generation
             evaluator_client: Optional separate client for quick evaluation
+            verifier: Optional Verifier instance for objective scoring.
+                When provided and ``USE_OBJECTIVE_VERIFIERS`` is on,
+                ``_quick_evaluate`` delegates to it instead of the
+                heuristic score.
         """
         self.client = client
         self.evaluator_client = evaluator_client or client
         self.metrics = CascadeMetrics()
         self._cascade_chains = dict(self.DEFAULT_CASCADE_CHAINS)
         self._score_cache: dict[str, float] = {}
+        self._verifier = verifier
 
     def set_cascade_chain(
         self,
@@ -231,6 +250,7 @@ class ModelCascader:
                     prompt=task_prompt,
                     response=response,
                     model=model,
+                    task_type=task_type,
                 )
                 all_scores.append(score)
 
@@ -343,6 +363,7 @@ class ModelCascader:
         prompt: str,
         response: str,
         model: str,
+        task_type: str = "code_generation",
     ) -> float:
         """
         Quick quality evaluation (0-1 score).
@@ -353,6 +374,7 @@ class ModelCascader:
             prompt: Original prompt
             response: Generated response
             model: Model that generated response
+            task_type: Task type string for verifier routing
 
         Returns:
             Quality score (0-1)
@@ -363,7 +385,38 @@ class ModelCascader:
             return self._score_cache[cache_key]
 
         try:
-            # Quick heuristic evaluation
+            # Objective verifier path (when flag + verifier are available)
+            if flags.use_objective_verifiers and self._verifier is not None:
+                VerifierProtocol = _get_verifier_protocol()
+                if isinstance(self._verifier, VerifierProtocol):
+                    from orchestrator.models import TaskType
+
+                    # Map the cascade's task_type string to a TaskType enum
+                    _task_map: dict[str, TaskType] = {
+                        "code_generation": TaskType.CODE_GEN,
+                        "code_review": TaskType.CODE_REVIEW,
+                        "complex_reasoning": TaskType.REASONING,
+                        "creative_writing": TaskType.WRITING,
+                        "data_extraction": TaskType.DATA_EXTRACT,
+                        "summarization": TaskType.SUMMARIZE,
+                        "evaluation": TaskType.EVALUATE,
+                    }
+                    task_type_enum = _task_map.get(task_type, TaskType.CODE_GEN)
+                    verdict = await self._verifier.verify(
+                        prompt=prompt,
+                        response=response,
+                        task_type=task_type_enum,
+                    )
+                    score = verdict.score
+                    logger.debug(
+                        "Objective verifier returned score=%.3f (passed=%s)",
+                        score,
+                        verdict.passed,
+                    )
+                    self._score_cache[cache_key] = score
+                    return score
+
+            # Fallback: heuristic evaluation
             score = await self._heuristic_score(prompt, response)
 
             # Cache score

@@ -67,6 +67,13 @@ class ProjectRunnerCallables:
     flush_telemetry_fn: Callable[..., Awaitable[None]] | None = None
     """Async callable to persist telemetry snapshots after completion (run_job)."""
 
+    constitution_gate: Any = None
+    """ConstitutionGate pipeline stage (container.constitution_gate), if wired.
+
+    Exposes ``set_constitution()`` so run_project() can swap in a per-run
+    constitution (e.g. --from-speckit) before executing precomposed tasks.
+    """
+
 
 @dataclass
 class ProjectRunState:

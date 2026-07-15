@@ -106,7 +106,11 @@ class DryRunRenderer:
                 tp = next((t for t in plan.tasks if t.task_id == tid), None)
                 if tp is None:
                     continue
-                dep_str = f"  deps=[{', '.join(tp.dependencies)}]" if tp.dependencies else ""
+                dep_str = (
+                    f"  deps=[{', '.join(str(d) for d in tp.dependencies)}]"
+                    if tp.dependencies
+                    else ""
+                )
                 lines.append(
                     f"  {tp.task_id}  [{tp.task_type}]"
                     f"  model={tp.primary_model}"

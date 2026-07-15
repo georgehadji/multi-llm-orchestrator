@@ -179,12 +179,14 @@ class ConstraintPlanner:
         api_health: dict[Model, bool],
         backend: OptimizationBackend | None = None,
         cost_predictor: CostPredictor | None = None,
+        shadow_backend: OptimizationBackend | None = None,
     ):
         self._profiles = profiles
         self._policy_engine = policy_engine
         self._api_health = api_health
         self._backend: OptimizationBackend = backend or GreedyBackend()
         self._cost_predictor: CostPredictor | None = cost_predictor
+        self._shadow_backend: OptimizationBackend | None = shadow_backend
         self.rate_limit_tracker = RateLimitTracker()  # shared; record() called externally
 
     def set_backend(self, backend: OptimizationBackend) -> None:
@@ -197,6 +199,15 @@ class ConstraintPlanner:
             planner.set_backend(ParetoBackend())
         """
         self._backend = backend
+
+    def set_shadow_backend(self, backend: OptimizationBackend | None) -> None:
+        """
+        Run a second backend read-only alongside the active one, for
+        shadow-mode comparison data. Its pick is computed and logged but
+        never returned — exceptions are swallowed so it can never affect
+        the active selection path.
+        """
+        self._shadow_backend = backend
 
     # ─────────────────────────────────────────────────────────────────────────
     # Primary selection
@@ -247,6 +258,13 @@ class ConstraintPlanner:
                 type(self._backend).__name__,
                 task_id,
             )
+        if self._shadow_backend is not None:
+            try:
+                self._shadow_backend.select(
+                    candidates, self._profiles, task_type, self._estimate_typical_cost
+                )
+            except Exception:
+                logger.debug("Shadow backend selection failed", exc_info=True)
         return best
 
     def select_reviewer(

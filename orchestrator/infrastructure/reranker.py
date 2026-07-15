@@ -32,7 +32,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
-from .log_config import get_logger
+from ..log_config import get_logger
 
 logger = get_logger(__name__)
 
