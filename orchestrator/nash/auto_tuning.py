@@ -42,7 +42,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .log_config import get_logger
+from ..log_config import get_logger
 
 logger = get_logger(__name__)
 

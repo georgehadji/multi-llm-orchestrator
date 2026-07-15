@@ -48,8 +48,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-# FIXED: from ..meta_orchestrator import StrategyProposal
-from ..meta_orchestrator import StrategyProposal
+# FIXED: from ..meta.orchestrator import StrategyProposal
+from ..meta.orchestrator import StrategyProposal
 
 logger = logging.getLogger("orchestrator.hitl")
 

@@ -1,8 +1,6 @@
 {
   "code_generation": [
-    "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemini-3.5-flash",
-    "qwen/qwen3-coder:free",
     "openai/gpt-oss-120b",
     "deepseek/deepseek-v4-flash",
     "qwen/qwen3-coder",
@@ -15,7 +13,6 @@
     "anthropic/claude-sonnet-5"
   ],
   "code_review": [
-    "openai/gpt-oss-120b:free",
     "minimax/minimax-m3",
     "deepseek/deepseek-v4-pro",
     "moonshotai/kimi-k2.7-code",
@@ -24,7 +21,6 @@
     "anthropic/claude-opus-4-8"
   ],
   "complex_reasoning": [
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
     "nvidia/nemotron-3-super-120b-a12b",
     "deepseek/deepseek-v4-pro",
     "minimax/minimax-m3",
@@ -36,7 +32,6 @@
     "anthropic/claude-opus-4-8"
   ],
   "creative_writing": [
-    "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemini-3.5-flash",
     "anthropic/claude-sonnet-5",
     "z-ai/glm-5",
@@ -45,7 +40,6 @@
     "nousresearch/hermes-3-llama-3.1-70b"
   ],
   "data_extraction": [
-    "nvidia/nemotron-nano-9b-v2:free",
     "openai/gpt-oss-20b",
     "z-ai/glm-4.7-flash",
     "deepseek/deepseek-v4-flash",
@@ -53,7 +47,6 @@
     "google/gemini-3.5-flash"
   ],
   "summarization": [
-    "nvidia/nemotron-nano-9b-v2:free",
     "openai/gpt-oss-20b",
     "z-ai/glm-4.7-flash",
     "deepseek/deepseek-v4-flash",
@@ -61,7 +54,6 @@
     "microsoft/phi-4"
   ],
   "evaluation": [
-    "openai/gpt-oss-120b:free",
     "minimax/minimax-m3",
     "deepseek/deepseek-v4-pro",
     "moonshotai/kimi-k2.7-code",
@@ -111,5 +103,10 @@
     "kwaivgi/kling-v3.0-pro",
     "openai/sora-2-pro",
     "google/veo-3.1"
+  ],
+  "mechanism_research": [
+    "deepseek/deepseek-v4-pro",
+    "anthropic/claude-opus-4-8",
+    "deepseek/deepseek-v4-flash"
   ]
 }

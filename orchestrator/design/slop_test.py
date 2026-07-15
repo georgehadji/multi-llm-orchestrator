@@ -1,5 +1,5 @@
 """
-Slop Test Engine — 57 deterministic anti-slop gates.
+Slop Test Engine — 61 deterministic anti-slop gates.
 ===================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis
 
@@ -215,6 +215,40 @@ _RE_PROSE_WIDTH = re.compile(
     r"max-width\s*:\s*(?:\d+ch|\\[\d+ch\\])",
     re.IGNORECASE,
 )
+
+# ── Emil Kowalski animation gates ──────────────────────────────────
+
+# Missing press feedback (button without scale on :active).
+# Two separate patterns instead of one lookahead-based pattern: the greedy
+# quantifier before a negative lookahead can consume past a real
+# :active{scale} block when a button selector appears more than once
+# (e.g. .btn:focus-visible before .btn:active), producing false positives.
+_RE_HAS_BUTTON = re.compile(r"(?:<button|\.btn\b)", re.IGNORECASE)
+_RE_HAS_PRESS_FEEDBACK = re.compile(r":active[\s\S]{0,300}scale", re.IGNORECASE)
+
+
+def _missing_press_feedback(output: str) -> bool:
+    return bool(_RE_HAS_BUTTON.search(output)) and not _RE_HAS_PRESS_FEEDBACK.search(output)
+
+
+# Duration > 300ms on UI element
+_RE_LONG_UI_DURATION = re.compile(
+    r"transition[^;{}]*(?:[3-9]\d{2}|[1-9]\d{3,})ms",
+    re.IGNORECASE,
+)
+
+# Linear easing on enter/exit (should be ease-out)
+_RE_LINEAR_ENTER = re.compile(
+    r"(?:enter|appear|show|open|mount)[\s\S]{0,200}linear\b",
+    re.IGNORECASE,
+)
+
+# Missing stagger on group entrance (>3 children, same animation-delay)
+_RE_NO_STAGGER = re.compile(
+    r"(?:\.item\s*\{[^}]*animation[^}]*\}){3,}",
+    re.IGNORECASE,
+)
+# ────────────────────────────────────────────────────────────────────
 
 # Missing focus-visible or active styling
 _RE_MISSING_FOCUS = re.compile(
@@ -959,6 +993,44 @@ _DEFAULT_GATES: list[Gate] = [
         {},
         "Display-size text lacks overflow-wrap: anywhere",
     ),
+    # ── Emil Kowalski animation gates ────────────────────────────────────────
+    Gate(
+        58,
+        "microinteractions",
+        "Missing press feedback",
+        GateSeverity.MAJOR,
+        lambda o, g: _missing_press_feedback(o),
+        {},
+        "Button or pressable element has no :active scale feedback",
+    ),
+    Gate(
+        59,
+        "microinteractions",
+        "UI duration exceeds 300ms",
+        GateSeverity.MAJOR,
+        lambda o, g: bool(_RE_LONG_UI_DURATION.search(o)),
+        {},
+        "UI animation duration > 300ms (budget: 100-250ms for UI elements)",
+    ),
+    Gate(
+        60,
+        "microinteractions",
+        "Linear easing on enter/exit",
+        GateSeverity.MAJOR,
+        lambda o, g: bool(_RE_LINEAR_ENTER.search(o)),
+        {},
+        "Enter/exit animation uses linear instead of ease-out",
+    ),
+    Gate(
+        61,
+        "microinteractions",
+        "Missing stagger on group entrance",
+        GateSeverity.MINOR,
+        lambda o, g: bool(_RE_NO_STAGGER.search(o)),
+        {},
+        "Multiple items animate in without stagger (30-80ms delay between items)",
+    ),
+    # ─────────────────────────────────────────────────────────────────────────
 ]
 
 

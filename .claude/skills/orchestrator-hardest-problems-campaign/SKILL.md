@@ -13,7 +13,10 @@ verification commands yourself before trusting a stale number.
 in the original problem brief turned out to be **wrong** when checked against the live repo
 (Track A's "circular import" and Track B's "flag doesn't reach the payload" are both stale/false
 as of this date) — this is exactly why Phase 0 exists. Trust the command output, not the last
-session's memory note.
+session's memory note. (Note: an earlier revision of this skill also claimed Track A's
+"engine.py <= 300 lines" target was unsourced folklore — that claim was itself wrong; the
+target is cited in `docs/ARCHITECTURE_REMEDIATION_PLAN.md:38`. Even a "verified" doc can be
+stale — always re-check against the live repo, including this one.)
 
 ## How to use this skill
 
@@ -47,13 +50,18 @@ session's memory note.
 ```bash
 # 1. Current engine.py size
 wc -l orchestrator/engine.py
-# EXPECTED (2026-07-08): 1250 lines. (Session memory claims a prior 1867→post-remediation
-# figure and a "<300 line" target — that specific numeric target could NOT be found anywhere
-# in the repo docs (ARCHITECTURE_REMEDIATION_PLAN.md, ARCH-AUDIT-V2.md, CLAUDE.md). Treat
-# "<300" as UNVERIFIED folklore. What IS verifiable and binding: CLAUDE.md Unbreakable Rule #1
-# — "engine.py = Mediator. New logic → new service module, not engine.py." Measure success by
-# the trend line (git log -p --follow -- orchestrator/engine.py commit-by-commit LOC) and by
-# "did this PR add new logic to engine.py", not by chasing an unsourced number.
+# EXPECTED (2026-07-11): 1284 lines. The "<=300 lines" target IS sourced, correcting an
+# earlier version of this doc that called it unverified folklore:
+# docs/ARCHITECTURE_REMEDIATION_PLAN.md:38 states, verbatim, "Definition of done: engine.py
+# <= 300 lines, contains only construction + delegation; zero direct
+# orchestrator.infrastructure imports; all logic lives in application/ services wired by
+# engine_core/container.py." That same doc (line ~30) records engine.py at 1,867 lines when
+# the plan was written (2026-06-24) — it has since shrunk to 1284 via phased demolition, still
+# well above the 300-line target. Treat 300 as the binding, cited target, not a vibe. Also
+# binding: CLAUDE.md Unbreakable Rule #1 — "engine.py = Mediator. New logic → new service
+# module, not engine.py." Measure progress by the trend line (git log -p --follow --
+# orchestrator/engine.py commit-by-commit LOC) AND by distance to the 300-line target — both
+# matter; don't substitute one for the other.
 
 # 2. Count skip markers claiming circular-import blockage
 grep -n "circular" tests/test_phase6_10_comprehensive.py
@@ -181,7 +189,9 @@ class of change is architectural, route it through review, don't self-approve.
 ### Success metric
 
 Skip-count for this file: **10 → 0**, each removal individually proven (not bulk-deleted), zero
-new lint-imports exemptions, `engine.py` LOC flat-or-shrinking, full CI gate green.
+new lint-imports exemptions, `engine.py` LOC flat-or-shrinking toward the cited
+`<= 300 lines` target (`docs/ARCHITECTURE_REMEDIATION_PLAN.md:38`; 1284 lines as of
+2026-07-11 — still ~4x over), full CI gate green.
 
 ---
 
@@ -209,7 +219,29 @@ EXPECTED:
   `{"id": "response-healing"}` to `extra_body["plugins"]` — routed through `extra_body` because
   the OpenAI SDK used for OpenRouter calls does not accept a top-level `plugins` kwarg.
 
-### Phase 1 status: ALREADY DONE — verify, don't redo
+### Phase 0, finding 2 — the function is never actually called (verify before trusting Phase 1)
+
+```bash
+grep -rn "_maybe_add_response_healing" orchestrator/ --include=*.py
+```
+
+EXPECTED (verified 2026-07-11): matches only in `orchestrator/infrastructure/llm_client.py`
+itself — the `def` at line 493 and the `__all__` export at line ~523 — plus
+`tests/unit/test_response_healing.py`, which imports and calls it directly. **There is no
+call site anywhere in `UnifiedClient`'s actual dispatch/`call_model` path.** The function is
+fully implemented, exported, and unit-tested in isolation, but it is dead code from the
+perspective of a real request: enabling `USE_RESPONSE_HEALING=true` today does **not** cause
+any live call to add the `response-healing` plugin, because nothing calls this function while
+building the request that's actually sent.
+
+**This means Phase 0-Phase 2 below (which assumed the function only needed hit-rate telemetry)
+understate the actual gap.** Instrumentation, adversarial corpora, and hit-rate measurement are
+all pointless until `_maybe_add_response_healing` is wired into the real dispatch path (or a
+call site is added specifically for it) — measuring the hit rate of a function nothing calls
+produces a number for code that never runs in production. Treat wiring the call site as
+Phase 0.5, before Phase 2's telemetry work, and re-verify with the grep above after wiring it in.
+
+### Phase 1 status: request-shaping logic proven correct in isolation — NOT proven wired
 
 ```bash
 pytest tests/unit/test_response_healing.py -v
@@ -219,12 +251,14 @@ EXPECTED: **5 passing unit tests** — `test_added_via_extra_body_for_structured
 `test_not_added_when_flag_disabled`, `test_not_added_without_response_format`,
 `test_not_added_for_streaming`, `test_safe_when_opts_none`. These directly assert
 `params["extra_body"]["plugins"] == [{"id": "response-healing"}]` when enabled and
-`"extra_body" not in params` in every disabled/ineligible case.
+`"extra_body" not in params` in every disabled/ineligible case — but they call the function
+directly, not through `UnifiedClient.call_model()`. **They do not prove the function is reached
+by a real request** (see finding 2 above).
 
-**This means "prove the flag reaches the request payload" (the brief's Phase 1) is already
-proven, with tests, today.** Don't re-derive it — cite these 5 tests and move straight to Phase 2.
-If you re-run this and any of the 5 fail, something regressed; that's a bug fix via TDD, not this
-track's real work.
+**Revised: "prove the flag reaches the request payload" is proven only for the unit tested to
+directly call the function; it is NOT proven for an actual `call_model()` invocation.** Don't
+skip to Phase 2 until you've either found a call site this grep missed or wired one in — see
+finding 2's Phase 0.5.
 
 ### Phase 2: Measure healing hit-rate — the actual gap
 
@@ -268,6 +302,10 @@ modes OpenRouter's response-healing plugin is documented to repair). For each:
 
 ### Gate / promotion
 
+- [ ] `_maybe_add_response_healing` (or its replacement) has a real call site in
+      `UnifiedClient`'s dispatch path — re-run the Phase 0 finding-2 grep and confirm a match
+      outside `llm_client.py`'s own definition/tests. Do not proceed past this checkbox on the
+      strength of the 5 isolated unit tests alone.
 - [ ] Telemetry counter for healing applied/succeeded exists, is unit-tested, lands as its own
       TDD'd change.
 - [ ] N≥50 adversarial corpus exists under `tests/` (fixtures) with a documented measured

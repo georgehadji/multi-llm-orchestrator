@@ -15,6 +15,13 @@
 | `brutalist.SKILL.md` | `skills/brutalist-skill/SKILL.md` |
 | `imagegen_web.SKILL.md` | `skills/imagegen-frontend-web/SKILL.md` |
 | `image_to_code.SKILL.md` | `skills/image-to-code-skill/SKILL.md` |
+| `animation_vocabulary.SKILL.md` | `skills/animation-vocabulary/SKILL.md` |
+| `apple_design.SKILL.md` | `skills/apple-design/SKILL.md` |
+| `apple_springs.SKILL.md` | `skills/apple-design/SKILL.md` (extracted reference) |
+| `review_animations.SKILL.md` | `skills/review-animations/SKILL.md` |
+| `animation_standards.SKILL.md` | `skills/review-animations/STANDARDS.md` |
+
+**Animation skill upstream source:** https://github.com/emilkowalski/skills
 
 ## To refresh
 

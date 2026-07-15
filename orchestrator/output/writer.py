@@ -310,14 +310,27 @@ raise RuntimeError(
     _write_readme(state, out, file_map, project_id, extracted_count=len(extracted_total))
 
     # Improvement 10: Generate integrated project files using ProjectAssembler
-    try:
-        from .project_assembler import ProjectAssembler
+    # Only for Python projects — skip for HTML/CSS/JS/frontend projects
+    _py_exts = {".py", ".toml", ".dockerfile", ".yaml", ".yml"}
+    _non_py_count = sum(1 for f in file_map.values() if Path(f).suffix not in _py_exts)
+    _py_count = sum(1 for f in file_map.values() if Path(f).suffix in _py_exts)
+    _is_python_project = _py_count > _non_py_count or (_py_count == 0 and _non_py_count == 0)
 
-        assembler = ProjectAssembler(out, state)
-        created_files = assembler.assemble()
-        logger.info("Project Assembler: created %d integrated files", len(created_files))
-    except Exception as e:
-        logger.warning(f"Project Assembler failed: {e}. Continuing with task files only.")
+    if _is_python_project:
+        try:
+            from .project_assembler import ProjectAssembler
+
+            assembler = ProjectAssembler(out, state)
+            created_files = assembler.assemble()
+            logger.info("Project Assembler: created %d integrated files", len(created_files))
+        except Exception as e:
+            logger.warning(f"Project Assembler failed: {e}. Continuing with task files only.")
+    else:
+        logger.info(
+            "Skipping Python ProjectAssembler — detected %d non-Python files vs %d Python files",
+            _non_py_count,
+            _py_count,
+        )
 
     # CodeWhale Phase 2: Snapshot the output directory for rollback
     if snapshot_store:
@@ -428,6 +441,9 @@ def _render_content(task_type: TaskType, raw_output: str, ext: str, filename: st
     """
     if ext == ".py":
         return _extract_code_for_py_task(raw_output, filename)
+    if ext in (".html", ".css", ".scss", ".js", ".jsx", ".ts", ".tsx", ".dockerfile", ".yaml", ".sh", ".toml", ".sql", ".xml", ".ini", ".proto"):
+        # For non-Python code blocks: extract the matching fenced block, or strip fences
+        return _extract_code_for_py_task(raw_output, filename)
     if ext == ".json":
         try:
             text = _strip_fences(raw_output).strip()
@@ -454,6 +470,15 @@ _NON_PYTHON_FENCE_LANGS = (
     "sql",
     "xml",
     "ini",
+    "html",
+    "css",
+    "scss",
+    "javascript",
+    "js",
+    "typescript",
+    "ts",
+    "jsx",
+    "tsx",
 )
 
 
@@ -531,6 +556,8 @@ def _write_summary_json(
     """Write summary.json with full task list, outputs, and aggregate totals."""
     tasks_list = []
     total_cost = 0.0
+    total_input_tokens = 0
+    total_output_tokens = 0
     scores: list[float] = []
     completed = failed = degraded = 0
 
@@ -542,6 +569,8 @@ def _write_summary_json(
             continue
 
         total_cost += result.cost_usd
+        total_input_tokens += result.tokens_used.get("input", 0)
+        total_output_tokens += result.tokens_used.get("output", 0)
         if result.score > 0:
             scores.append(result.score)
 
@@ -573,6 +602,11 @@ def _write_summary_json(
                 ),
                 "iterations": result.iterations,
                 "cost_usd": round(result.cost_usd, 6),
+                "tokens_used": {
+                    "input": result.tokens_used.get("input", 0),
+                    "output": result.tokens_used.get("output", 0),
+                },
+                "phase_tokens": result.metadata.get("phase_tokens", {}),
                 "deterministic_check_passed": result.deterministic_check_passed,
                 "degraded_fallback_count": result.degraded_fallback_count,
                 "attempt_history": [
@@ -603,6 +637,8 @@ def _write_summary_json(
             "tasks_failed": failed,
             "tasks_degraded": degraded,
             "total_cost_usd": round(total_cost, 6),
+            "total_input_tokens": total_input_tokens,
+            "total_output_tokens": total_output_tokens,
             "average_score": round(sum(scores) / len(scores), 4) if scores else 0.0,
         },
     }

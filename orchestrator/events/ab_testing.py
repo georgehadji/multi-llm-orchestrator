@@ -10,7 +10,7 @@ to determine if proposals should be adopted.
 Inspired by standard A/B testing frameworks, adapted for AI Orchestrator.
 
 USAGE:
-    from orchestrator.ab_testing import ABTestingEngine, ExperimentConfig
+    # ABTestingEngine is defined in this module (line ~414); avoid circular import from root shim
 
     ab_engine = ABTestingEngine(archive)
 
@@ -46,7 +46,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from ..meta_orchestrator import ExecutionArchive, StrategyProposal
+from ..meta.orchestrator import ExecutionArchive, StrategyProposal
 
 logger = logging.getLogger("orchestrator.ab_testing")
 

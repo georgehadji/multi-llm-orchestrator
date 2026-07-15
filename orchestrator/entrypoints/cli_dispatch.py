@@ -223,10 +223,22 @@ def run() -> None:
         action="store_true",
         help="Aggregate metrics across runs (NYI)",
     )
+    # Spec-Kit ingestion
+    parser.add_argument(
+        "--from-speckit",
+        type=str,
+        default="",
+        help="Path to a Spec-Kit output directory (tasks.md, spec.md, plan.md)",
+    )
     # Nash subcommand (already registered via dynamic discovery)
     # Removed dead `_nash_subparsers(subparsers)` call (function never defined)
 
     args = parser.parse_args()
+
+    # ── Logging setup ─────────────────────────────────────────────────────────
+    from orchestrator.application.cli_helpers import setup_logging
+
+    setup_logging(getattr(args, "verbose", False))
 
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
@@ -256,8 +268,31 @@ def run() -> None:
         asyncio.run(_async_file_project(args))
         return
 
+    if args.from_speckit:
+        asyncio.run(_async_speckit_project(args))
+        return
+
     if not args.project or not args.criteria:
         parser.error("--project and --criteria are required")
+
+    # ── Input validation ──────────────────────────────────────────────
+    project = args.project.strip()
+    criteria = args.criteria.strip()
+    if not project:
+        parser.error("--project must not be empty or whitespace-only")
+    if not criteria:
+        parser.error("--criteria must not be empty or whitespace-only")
+    if len(project) < 3:
+        parser.error(f"--project must be at least 3 characters (got {len(project)})")
+    if len(project) > 8000:
+        parser.error(f"--project must be at most 8000 characters (got {len(project)})")
+    # Warn on suspicious input that looks like prompt injection
+    suspicious = ["ignore previous", "system prompt", "<|im_start|>", "<|im_end|>"]
+    for s in suspicious:
+        if s.lower() in project.lower() or s.lower() in criteria.lower():
+            logger.warning("Input contains suspicious pattern: %s", s)  # noqa: G004
+    args.project = project
+    args.criteria = criteria
 
     if args.dry_run or args.mode == "query":
         asyncio.run(_async_dry_run(args))
@@ -376,7 +411,9 @@ async def _async_file_project(args: Any) -> None:
         budget=budget, max_concurrency=concurrency, tracing_cfg=_build_tracing_cfg(args)
     )
 
-    output_dir = args.output_dir or result.output_dir or _default_output_dir(result.project_id)
+    output_dir = args.output_dir or result.output_dir or _default_output_dir(
+        result.project_id, description=spec.project_description
+    )
 
     renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
     project_id = result.project_id or ""
@@ -520,7 +557,9 @@ async def _async_new_project(args: Any) -> None:
         # Route through AppBuilder
         from orchestrator.app_builder import AppBuilder
 
-        output_dir = args.output_dir or _default_output_dir(None)
+        output_dir = args.output_dir or _default_output_dir(
+            getattr(args, "project_id", "") or "", description=description
+        )
         print(f"Starting app build (budget: ${args.budget})")
         print(f"Project: {description}")
         print(f"Criteria: {criteria}")
@@ -653,6 +692,107 @@ async def _async_visualize(args: Any) -> None:
     if args.critical_path:
         path = renderer.critical_path()
         print("Critical path: " + " -> ".join(path) if path else "Critical path: (empty)")
+
+
+async def _async_speckit_project(args: Any) -> None:
+    """Load a Spec-Kit directory and execute its tasks."""
+    from orchestrator.ingest import SpecKitAdapter
+    from orchestrator.infrastructure.file_reader import FileReader
+
+    # Show available tracing profile
+    tracing_cfg = _build_tracing_cfg(args)
+    spec_dir = Path(args.from_speckit)
+    if not spec_dir.is_dir():
+        print(f"ERROR: --from-speckit path is not a directory: {spec_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Loading Spec-Kit artifacts from: {spec_dir}")
+    print("-" * 60)
+
+    # Load artifacts
+    reader = FileReader()
+    adapter = SpecKitAdapter(file_reader=reader)
+    try:
+        artifacts = await adapter.load(str(spec_dir))
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    tasks = artifacts.tasks
+    constitution = artifacts.constitution
+    routing_hints = artifacts.routing_hints
+
+    if not tasks:
+        print("ERROR: No tasks parsed from tasks.md", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Parsed {len(tasks)} tasks from tasks.md")
+    print(
+        f"Constitution: {'loaded' if constitution.protect_paths or constitution.forbidden_imports else 'empty defaults'}"
+    )
+    if routing_hints:
+        print(f"Routing hints: {routing_hints}")
+    print("-" * 60)
+
+    # Build project description and criteria from spec
+    description = f"Spec-Kit project from {spec_dir}"
+    criteria = (
+        " ".join(artifacts.raw_spec_criteria)
+        if artifacts.raw_spec_criteria
+        else "All tasks complete"
+    )
+
+    budget = Budget(max_usd=args.budget, max_time_seconds=args.time)
+    orch = Orchestrator(budget=budget, max_concurrency=args.concurrency, tracing_cfg=tracing_cfg)
+
+    renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
+    project_id = args.project_id or ""
+
+    print(f"Starting execution (budget: ${args.budget})...")
+    try:
+        state = await orch.run_project_with_tasks(
+            project_description=description,
+            success_criteria=criteria,
+            tasks=tasks,
+            project_id=project_id,
+            constitution=constitution,
+        )
+    except Exception as e:
+        safe_print(f"\n❌ Error during execution: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return
+
+    actual_project_id = getattr(orch, "_project_id", None) or project_id
+
+    try:
+        state = state if state else await orch.state_mgr.load_project(actual_project_id)
+    except Exception:
+        pass
+
+    if state:
+        _print_results(state, orch)
+
+    output_dir = args.output_dir or _default_output_dir(actual_project_id)
+    path = write_output_dir(state, output_dir, project_id=actual_project_id)
+    print(f"\nOutput written to: {path}")
+
+    org_report = await organize_project_output(
+        path,
+        auto_generate_tests=True,
+        run_tests=True,
+        fix_tests=getattr(args, "fix_tests", True),
+        max_fix_iterations=getattr(args, "max_fix_iterations", 3),
+        min_pass_rate=getattr(args, "min_pass_rate", 0.7),
+    )
+    safe_print(f"  ✅ Tasks moved: {len(org_report.tasks_moved)}")
+    if org_report.tests_run:
+        passed = sum(1 for r in org_report.tests_run if r.passed)
+        safe_print(f"  ✅ Tests: {passed}/{len(org_report.tests_run)} passed")
 
 
 async def _check_resume(

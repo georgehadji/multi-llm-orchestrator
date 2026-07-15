@@ -25,6 +25,13 @@ SKILL_FILES: dict[str, str] = {
     "redesign": "redesign.SKILL.md",
     "imagegen_web": "imagegen_web.SKILL.md",
     "image_to_code": "image_to_code.SKILL.md",
+    # ── Emil Kowalski animation skills (skills-main) ──────────────
+    "animation_vocabulary": "animation_vocabulary.SKILL.md",
+    "apple_design": "apple_design.SKILL.md",
+    "apple_springs": "apple_springs.SKILL.md",
+    "review_animations": "review_animations.SKILL.md",
+    "animation_standards": "animation_standards.SKILL.md",
+    # ───────────────────────────────────────────────────────────────
 }
 
 # Trim large skill files to keep prompt overhead manageable.

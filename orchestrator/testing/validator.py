@@ -19,8 +19,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from .api_clients import UnifiedClient
-from .log_config import get_logger
+from ..api_clients import UnifiedClient
+from ..log_config import get_logger
 
 logger = get_logger(__name__)
 

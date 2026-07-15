@@ -105,7 +105,15 @@ class TelemetryCollector:
             from ..policy import ModelProfile  # noqa: PLC0415
 
             if isinstance(model, Model):
-                profile = ModelProfile(model=model, provider="openrouter")
+                from ..models import COST_TABLE, get_provider  # noqa: PLC0415
+
+                costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
+                profile = ModelProfile(
+                    model=model,
+                    provider=get_provider(model),
+                    cost_per_1m_input=costs["input"],
+                    cost_per_1m_output=costs["output"],
+                )
                 self._profiles[model] = profile
                 self._success_windows[model] = collections.deque(maxlen=_SUCCESS_WINDOW)
                 self._latency_buffers[model] = collections.deque(maxlen=_LATENCY_BUFFER_SIZE)

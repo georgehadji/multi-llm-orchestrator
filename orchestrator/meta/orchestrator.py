@@ -17,7 +17,7 @@ KEY CONCEPTS:
 - StagedEvaluation: Fast filtering before full strategy adoption
 
 USAGE:
-    from orchestrator.meta_orchestrator import MetaOptimizer, ExecutionArchive
+    # MetaOptimizer and ExecutionArchive are defined in this file; avoid circular import through shim
 
     archive = ExecutionArchive()
     optimizer = MetaOptimizer(archive)

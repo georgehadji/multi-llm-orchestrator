@@ -701,6 +701,32 @@ class NullSnapshotStore:
         return False
 
 
+@runtime_checkable
+class FileReaderPort(Protocol):
+    """Reads text files from the filesystem.
+
+    Port for the application ingest layer — keeps it pure (no direct
+    ``open()`` calls in application code). Satisfied by the stdlib
+    ``Path.read_text()`` wrapper in infrastructure.
+    """
+
+    async def read_text(self, path: str) -> str:
+        """Return the UTF-8 text content at *path* or raise FileNotFoundError."""
+        ...
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NullAdapter — FileReaderPort
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class NullFileReader:
+    """Always raises FileNotFoundError — use in tests where reads are not expected."""
+
+    async def read_text(self, path: str) -> str:
+        raise FileNotFoundError(f"NullFileReader: {path} not found")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # QualityScorer — Swappable scoring signal for candidate selection
 # ─────────────────────────────────────────────────────────────────────────────

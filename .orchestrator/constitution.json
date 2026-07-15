@@ -1,0 +1,22 @@
+{
+  "_comment": "Production-readiness constitution — enforces quality standards on generated output. See domain/constitution.py for schema.",
+  "require_tests": true,
+  "require_review_above": 0.85,
+  "required_validators": [
+    "python_syntax",
+    "ruff",
+    "file_content",
+    "error_placeholder",
+    "tool_safety",
+    "simplicity",
+    "length"
+  ],
+  "forbidden_imports": [],
+  "max_file_size_bytes": 500000,
+  "protect_paths": [
+    ".orchestrator/**",
+    ".orchestrator-rules.yml",
+    ".git/**",
+    ".gitignore"
+  ]
+}

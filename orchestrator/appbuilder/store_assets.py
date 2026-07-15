@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .models import ProjectSpec
+    from ..models import ProjectSpec
 
 logger = logging.getLogger("orchestrator.app_store_assets")
 

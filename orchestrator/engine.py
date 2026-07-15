@@ -483,8 +483,10 @@ class Orchestrator:
             decompose_fn=self._decompose,
         )
 
+        from .application.run_context import RunContext as _RunCtx
         from .meta_integration import initialize_meta_optimization
 
+        self._run_ctx = _RunCtx(budget=self._c.budget)
         self.meta_v2 = initialize_meta_optimization(
             orchestrator=self,
             state_manager=self.state_mgr,
@@ -494,15 +496,17 @@ class Orchestrator:
             enable_rollout=True,
         )
 
-        self._project_id: str = ""
-        self.results: dict[str, TaskResult] = {}
-        self._max_parallel_tasks: int = max(1, max_parallel_tasks)
-        self._analyze_on_complete: bool = False
+        self._project_id: str = ""  # DEPRECATED: use self._run_ctx.project_id
+        self.results: dict[str, TaskResult] = (
+            self._run_ctx.results
+        )  # shared ref to _run_ctx.results
+        self._run_ctx.max_parallel_tasks = max(1, max_parallel_tasks)
+        self._run_ctx.analyze_on_complete = False
         self._consecutive_failures: dict[Model, int] = dict.fromkeys(Model, 0)
-        self._active_policies: PolicySet = PolicySet()
+        self._run_ctx.active_policies = PolicySet()
         self.context_truncation_limit: int = 40000
         self._metrics_exporter: MetricsExporter | None = None
-        self._channels: dict[str, TaskChannel] = {}
+        self._run_ctx.channels = {}
         self._entered: bool = False
         self._dashboard_integration: Any | None = None
         self._architecture_rules: Any | None = None
@@ -568,6 +572,7 @@ class Orchestrator:
             client=self._c.client,
             warm_start_fn=self._apply_warm_start,
             flush_telemetry_fn=self._flush_telemetry_snapshots,
+            constitution_gate=getattr(self._c, "constitution_gate", None),
         )
         self._project_runner = _ProjectRunner(
             callables=_callables,
@@ -887,6 +892,12 @@ class Orchestrator:
         this shell preserves the public API signature and docstring.
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
+        # Reset per-run state for this new project
+        self._run_ctx.reset(
+            project_id=project_id,
+            budget=self._run_ctx.budget,
+            analyze_on_complete=analyze_on_complete,
+        )
         return await self._project_runner.run_project(
             project_description=project_description,
             success_criteria=success_criteria,
@@ -894,6 +905,45 @@ class Orchestrator:
             app_profile=app_profile,
             analyze_on_complete=analyze_on_complete,
             output_dir=output_dir,
+        )
+
+    async def run_project_with_tasks(
+        self,
+        project_description: str,
+        success_criteria: str,
+        tasks: dict,
+        project_id: str = "",
+        app_profile: Any = None,
+        analyze_on_complete: bool = False,
+        output_dir: Path | None = None,
+        constitution: Any = None,
+    ) -> ProjectState:
+        """
+        Run project with **pre-composed tasks** (skips LLM decomposition).
+
+        Used by ``--from-speckit`` and other ingest paths where tasks
+        were already parsed from external artifacts (Spec-Kit, etc.)
+        instead of being generated from a raw prompt.
+
+        All other pipeline phases (generate → critique → revise → evaluate)
+        run identically to ``run_project()``.
+        """
+        validate_project_args(project_description, success_criteria, project_id, output_dir)
+        # Reset per-run state for this new project
+        self._run_ctx.reset(
+            project_id=project_id,
+            budget=self._run_ctx.budget,
+            analyze_on_complete=analyze_on_complete,
+        )
+        return await self._project_runner.run_project(
+            project_description=project_description,
+            success_criteria=success_criteria,
+            project_id=project_id,
+            app_profile=app_profile,
+            analyze_on_complete=analyze_on_complete,
+            output_dir=output_dir,
+            precomposed_tasks=tasks,
+            constitution=constitution,
         )
 
     async def run_job(self, spec: JobSpec) -> ProjectState:
@@ -910,12 +960,12 @@ class Orchestrator:
         """
         validate_job_spec(spec)
         async with self._job_lock:
-            self.budget = spec.budget
-            self._active_policies = spec.policy_set
-            self._quality_mode: str = getattr(spec, "quality_mode", "standard")
+            self._run_ctx.budget = spec.budget
+            self._run_ctx.active_policies = spec.policy_set
+            self._run_ctx.quality_mode = getattr(spec, "quality_mode", "standard")
             # JobSpec may override the per-task parallelism limit
             if spec.max_parallel_tasks > 0:
-                self._max_parallel_tasks = spec.max_parallel_tasks
+                self._run_ctx.max_parallel_tasks = spec.max_parallel_tasks
             # Delegate lifecycle to ProjectRunner
             return await self._project_runner.run_job(spec)
 
@@ -975,6 +1025,7 @@ class Orchestrator:
         criteria: str,
         app_profile: AppProfile | None = None,  # noqa: F821
         policy: ResiliencePolicy | None = None,
+        project_context: Any = None,  # ProjectContext from architecture rules
     ) -> dict[str, Task]:
         """Delegate to ``decomposer_service.decompose_project``.
 
@@ -998,6 +1049,7 @@ class Orchestrator:
             charge_fn=lambda amount: self.budget.charge(amount, "decomposition"),
             app_profile=app_profile,
             policy=policy,
+            project_context=project_context,
         )
 
     # ─────────────────────────────────────────

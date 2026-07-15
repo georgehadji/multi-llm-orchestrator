@@ -67,10 +67,11 @@ class SystemPrompt:
     """Builds the system prompt for task execution, varying by quality mode."""
 
     @staticmethod
-    def build(task_type: str = "", mode: str = "standard") -> str:
-        if mode == "production":
-            return SystemPrompt._production(task_type)
-        return SystemPrompt._standard()
+    def build(task_type: str = "", mode: str = "production", target_language: str = "") -> str:
+        prompt = SystemPrompt._production(task_type) if mode == "production" else SystemPrompt._standard()
+        if target_language:
+            prompt = SystemPrompt._inject_language_guidance(prompt, target_language)
+        return prompt
 
     @staticmethod
     def karpathy_guidelines() -> str:
@@ -130,6 +131,195 @@ class SystemPrompt:
                 "10. Code must pass mypy --strict.\n"
             )
         return base + SystemPrompt.karpathy_guidelines()
+
+    @staticmethod
+    def _inject_language_guidance(prompt: str, target_language: str) -> str:
+        """Replace Python-specific requirements with target-language best practices.
+
+        Appends language-specific guidance covering:
+        - Industry best practices (semantic HTML, BEM CSS, modern JS)
+        - Security (CSP, XSS prevention, secure headers)
+        - Open Graph / Twitter Card metadata
+        - Accessibility (WCAG 2.1 AA)
+        - Separate file structure (HTML + CSS + JS)
+        """
+        lang = target_language.lower().strip()
+
+        # ── Strip Python-specific requirements (shared across all web languages) ──
+        _python_replacements = {
+            "Full type annotations on every function and class.": "",
+            "Unit tests for every public function (pytest style).": "",
+            "Docstrings on every module, class, and public function.": "",
+            "Code must pass mypy --strict.": "",
+            "Logging via the standard library logger (not print).": "",
+            "Follow SOLID principles and keep cyclomatic complexity <= 10.": "",
+            "Include a brief inline comment for any non-obvious logic.": "",
+        }
+        for old, new in _python_replacements.items():
+            prompt = prompt.replace(old, new)
+
+        # ── Build language-specific guidance block ──────────────────────
+        guidance = SystemPrompt._build_web_guidance(lang)
+        if guidance:
+            # Strip trailing whitespace lines from Python requirements that became empty
+            prompt = prompt.rstrip() + "\n\n" + guidance
+        return prompt
+
+    @staticmethod
+    def _build_web_guidance(lang: str) -> str:
+        """Build comprehensive web-development guidance for a target language."""
+        if lang not in ("html", "css", "scss", "javascript", "js", "typescript", "ts"):
+            return ""
+
+        lines = ["## Web Development Requirements (Production-Grade)", ""]
+
+        # ── HTML-specific ───────────────────────────────────────────────
+        if lang == "html":
+            lines += [
+                "### HTML5 Best Practices",
+                "1. Use semantic elements: <header>, <nav>, <main>, <section>, <article>, <aside>, <footer>.",
+                "2. Every page MUST have: <!DOCTYPE html>, lang attribute, charset utf-8, viewport meta tag.",
+                "3. Use aria-* attributes for accessibility (WCAG 2.1 AA minimum).",
+                "4. All images MUST have alt text. Decorative images use alt=\"\".",
+                "5. Form inputs MUST have associated <label> elements.",
+                "6. Use heading hierarchy correctly: single <h1> per page, no skipped levels.",
+                "7. External links: rel=\"noopener noreferrer\", internal links: plain <a href>.",
+                "8. Lazy-load offscreen images and iframes: loading=\"lazy\".",
+                "9. Use <picture> + srcset for responsive images.",
+                "10. No inline styles. No inline event handlers (onclick=\"...\"). Keep HTML structural.",
+                "",
+                "### CSS (linked as separate style.css file)",
+                "1. MUST be a SEPARATE .css file linked via <link rel=\"stylesheet\" href=\"style.css\">.",
+                "2. Use CSS custom properties for colors, spacing, fonts, breakpoints.",
+                "3. Mobile-first responsive: start with base styles, add @media (min-width: ...).",
+                "4. Use logical properties: margin-inline, padding-block (RTL-compatible).",
+                "5. BEM naming: .block__element--modifier for component classes.",
+                "6. System font stack: font-family: system-ui, -apple-system, sans-serif.",
+                "7. Smooth transitions: transition: 200ms ease on interactive elements.",
+                "8. Focus styles: :focus-visible with visible outline. Never outline: none without replacement.",
+                "9. Print stylesheet: @media print to hide nav/footer.",
+                "10. Dark mode: @media (prefers-color-scheme: dark) with reduced brightness.",
+                "",
+                "### JavaScript (linked as separate script.js file)",
+                "1. MUST be a SEPARATE .js file linked via <script src=\"script.js\" defer></script>.",
+                "2. Use 'use strict' at the top of every .js file.",
+                "3. Use const/let, never var. Prefer const by default.",
+                "4. Use addEventListener, never inline onclick attributes.",
+                "5. Wrap DOM-dependent code in DOMContentLoaded event.",
+                "6. Debounce scroll/resize handlers (300ms).",
+                "7. Use event delegation on parent containers, not per-element listeners.",
+                "8. Prefer fetch() with async/await over XMLHttpRequest.",
+                "9. Sanitize user input before inserting into DOM (textContent, not innerHTML).",
+                "10. No eval(), no document.write(), no inline <script> tags.",
+                "",
+                "### Security (MANDATORY)",
+                "1. Content Security Policy: <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';\">",
+                "2. Prevent MIME sniffing: <meta http-equiv=\"X-Content-Type-Options\" content=\"nosniff\">",
+                "3. Prevent clickjacking: <meta http-equiv=\"X-Frame-Options\" content=\"DENY\"> (or use frame-ancestors in CSP)",
+                "4. Referrer policy: <meta name=\"referrer\" content=\"strict-origin-when-cross-origin\">",
+                "5. All forms use HTTPS action URLs (or // for protocol-relative).",
+                "6. Sanitize all user input before display — use textContent, not innerHTML.",
+                "7. No secrets, API keys, or tokens in HTML/JS/CSS source.",
+                "8. Subresource Integrity (SRI) for any CDN-loaded scripts/styles.",
+                "",
+                "### Open Graph + Twitter Card",
+                "1. <meta property=\"og:title\" content=\"...\"> — page title (max 60 chars)",
+                "2. <meta property=\"og:description\" content=\"...\"> — compelling description (max 160 chars)",
+                "3. <meta property=\"og:image\" content=\"https://...\"> — 1200x630px JPG/PNG, full URL",
+                "4. <meta property=\"og:image:width\" content=\"1200\"> <meta property=\"og:image:height\" content=\"630\">",
+                "5. <meta property=\"og:url\" content=\"https://...\"> — canonical URL",
+                "6. <meta property=\"og:type\" content=\"website\"> — or 'article' for blog posts",
+                "7. <meta property=\"og:site_name\" content=\"...\">",
+                "8. <meta name=\"twitter:card\" content=\"summary_large_image\">",
+                "9. <meta name=\"twitter:title\" content=\"...\"> <meta name=\"twitter:description\" content=\"...\"> <meta name=\"twitter:image\" content=\"...\">",
+                "10. OG image MUST be a real image URL or a generated placeholder. Use a data URI placeholder only if no image generation is available.",
+                "",
+                "### Favicon + App Icons",
+                "1. <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\"> (modern)",
+                "2. <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\">",
+                "3. <link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon.png\">",
+                "4. <link rel=\"manifest\" href=\"/site.webmanifest\">",
+                "5. <meta name=\"theme-color\" content=\"#...\"> for browser chrome color",
+                "",
+                "### OUTPUT FORMAT — Named File Blocks (MANDATORY)",
+                "You MUST wrap each separate file in a named code block using this exact format:",
+                "",
+                "**index.html**",
+                "```html",
+                "<!DOCTYPE html>",
+                "<html lang=\"en\">",
+                "...complete HTML file with OG meta tags, CSP, favicon links...",
+                "</html>",
+                "```",
+                "",
+                "**style.css**",
+                "```css",
+                ":root { --color-primary: #...; }",
+                "...complete CSS file...",
+                "```",
+                "",
+                "**script.js**",
+                "```javascript",
+                "'use strict';",
+                "...complete JS file...",
+                "```",
+                "",
+                "CRITICAL RULES:",
+                "1. Every file MUST be in its own **filename.ext** header + fenced code block.",
+                "2. Do NOT put CSS inside <style> tags — use a separate **style.css** block.",
+                "3. Do NOT put JS inside <script> tags — use a separate **script.js** block.",
+                "4. The index.html file uses <link> and <script src> to reference external files.",
+                "5. Each named block must contain the COMPLETE file content, not snippets.",
+            ]
+        # ── CSS-specific ─────────────────────────────────────────────────
+        elif lang in ("css", "scss"):
+            lines += [
+                "### CSS Best Practices",
+                "1. CSS custom properties at :root for design tokens (--color-primary, --spacing-md, etc.).",
+                "2. Mobile-first: base styles for 375px, then @media (min-width: 768px), 1024px, 1440px.",
+                "3. BEM naming: .block__element--modifier. No ID selectors for styling.",
+                "4. Use logical properties: margin-inline, padding-block, inset-inline for RTL support.",
+                "5. System font stack with fallbacks.",
+                "6. Box-sizing: border-box globally via *, *::before, *::after.",
+                "7. Smooth scrolling: scroll-behavior: smooth on html.",
+                "8. Reduced motion: @media (prefers-reduced-motion: reduce) disables animations.",
+                "9. Dark mode: @media (prefers-color-scheme: dark) inverts surface colors.",
+                "10. Print styles: @media print hides non-content elements.",
+                "11. Focus states: :focus-visible with outline-offset, never outline:none alone.",
+                "12. Use modern layout: Grid for page structure, Flexbox for components.",
+                "13. gap property instead of margin hacks for spacing.",
+                "14. aspect-ratio for media containers instead of padding-top hacks.",
+                "15. container-type / container queries for component-level responsiveness.",
+            ]
+        # ── JS/TS-specific ───────────────────────────────────────────────
+        elif lang in ("javascript", "js", "typescript", "ts"):
+            lines += [
+                "### JavaScript Best Practices",
+                "1. 'use strict' at file top. const by default, let when mutation needed. Never var.",
+                "2. Use ES modules: export/import. Each file exports ONE primary concern.",
+                "3. Async/await over raw Promises. Always try/catch async operations.",
+                "4. Event delegation on parent containers. No per-element listeners for lists.",
+                "5. Debounce scroll/resize/input handlers (300ms). Throttle animation handlers (16ms).",
+                "6. Use AbortController for fetch() timeouts and cancellations.",
+                "7. Prefer template literals over string concatenation.",
+                "8. Optional chaining (?.) and nullish coalescing (??) over && checks.",
+                "9. Avoid any type in TypeScript. Use unknown + type guards if type is uncertain.",
+                "10. DOM access cached: const el = document.querySelector('#id') at module top.",
+                "11. Use requestAnimationFrame for visual updates, setTimeout for deferred logic.",
+                "12. No inline event handlers (onclick=\"\"). Use addEventListener.",
+                "13. Error boundary pattern: window.addEventListener('error', handler).",
+                "14. Use IntersectionObserver for scroll-triggered animations, not scroll events.",
+                "15. LocalStorage/IndexedDB wrapped in try/catch (private browsing may throw).",
+                "",
+                "### Security",
+                "1. All user input sanitized: use textContent (not innerHTML), DOMPurify if HTML needed.",
+                "2. CSRF tokens on state-changing requests if backend is involved.",
+                "3. No eval(), no new Function(), no innerHTML with user data.",
+                "4. No secrets in client code. API keys live on backend only.",
+                "5. Validate and sanitize URL parameters before use.",
+                "6. Use rel=\"noopener noreferrer\" on target=\"_blank\" links.",
+            ]
+        return "\n".join(lines)
 
 
 class DeltaPrompt:

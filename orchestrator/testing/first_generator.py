@@ -37,11 +37,11 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .log_config import get_logger
-from .models import Model, Task, TaskType
+from ..log_config import get_logger
+from ..models import Model, Task, TaskType
 
 if TYPE_CHECKING:
-    from .tdd_config import TDDModelConfig
+    from ..tdd_config import TDDModelConfig
 
 logger = get_logger(__name__)
 
@@ -328,7 +328,7 @@ class TestFirstGenerator:
             quality_tier: Quality tier (budget, balanced, premium)
             language: Language-specific optimizations (python, javascript, etc.)
         """
-        from .cost_optimization import get_tdd_profile
+        from ..cost_optimization import get_tdd_profile
 
         self.client = client
         self.sandbox = sandbox

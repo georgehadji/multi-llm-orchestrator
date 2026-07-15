@@ -40,7 +40,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from .log_config import get_logger
+from ..log_config import get_logger
 
 logger = get_logger(__name__)
 

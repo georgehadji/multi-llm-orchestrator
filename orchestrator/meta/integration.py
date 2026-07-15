@@ -7,7 +7,7 @@ Minimal-invasive integration of Meta-Optimization V2 with Transfer Learning
 into the main Orchestrator engine.
 
 USAGE (in engine.py __init__):
-    from .meta_integration import initialize_meta_optimization
+    from ..meta_integration import initialize_meta_optimization
 
     # After existing initialization
     self.meta_v2 = initialize_meta_optimization(
@@ -32,8 +32,8 @@ from typing import TYPE_CHECKING, Any
 logger = logging.getLogger("orchestrator.meta_integration")
 
 if TYPE_CHECKING:
-    from .engine import Orchestrator
-    from .state import StateManager
+    from ..engine import Orchestrator
+    from ..state import StateManager
 
 
 def initialize_meta_optimization(
@@ -61,8 +61,8 @@ def initialize_meta_optimization(
         Meta-optimization wrapper, or None if initialization fails
     """
     try:
-        from .meta_orchestrator import ExecutionArchive
-        from .meta_v2_integration import MetaOptimizationV2, MetaV2Config
+        from ..meta_orchestrator import ExecutionArchive
+        from ..meta_v2_integration import MetaOptimizationV2, MetaV2Config
 
         # Create archive from state manager
         archive = ExecutionArchive(
@@ -87,7 +87,7 @@ def initialize_meta_optimization(
 
         # Initialize transfer learning if enabled
         if enable_transfer_learning:
-            from .transfer_learning import initialize_transfer_engine
+            from ..transfer_learning import initialize_transfer_engine
 
             initialize_transfer_engine(archive, storage_path=storage_path)
             logger.info("Transfer learning enabled")
@@ -138,7 +138,7 @@ class MetaOptimizationV2Wrapper:
             await self.meta_v2.record_project_completion(trajectory)
 
             # Index for transfer learning
-            from .transfer_learning import get_transfer_engine
+            from ..transfer_learning import get_transfer_engine
 
             transfer_engine = get_transfer_engine()
             if transfer_engine:
@@ -179,7 +179,7 @@ class MetaOptimizationV2Wrapper:
 
     def _state_to_trajectory(self, state: Any) -> ProjectTrajectory:
         """Convert ProjectState to ProjectTrajectory."""
-        from .meta_orchestrator import ExecutionRecord, ProjectTrajectory
+        from ..meta_orchestrator import ExecutionRecord, ProjectTrajectory
 
         # Extract task records from results
         task_records = []

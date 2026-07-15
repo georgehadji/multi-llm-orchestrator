@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from typing_extensions import ParamSpec
 
-from .log_config import get_logger
+from ..log_config import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -179,6 +179,15 @@ This is a documented weak point (see `orchestrator-architecture-contract`), not
 something to "finally fix" without going through `orchestrator-change-control` — it is
 architectural surgery, not a bug fix.
 
+**Dated caveat (2026-07-11):** direct instantiation is **not currently reproducible as a live
+`ImportError`** — `OPENROUTER_API_KEY=sk-test-dummy python -c "from orchestrator.engine import
+Orchestrator; Orchestrator()"` succeeds cleanly. If your symptom really is an `ImportError`
+mentioning "circular import", confirm it isn't actually the eager `AuthenticationError` from
+`UnifiedClient.__init__` (`orchestrator/infrastructure/llm_client.py:182`) when no API key is
+set — that's a different bug with a different fix (set a dummy key / mock the client), not a
+cycle to repair. See `orchestrator-hardest-problems-campaign` Track A Phase 0 for the full,
+re-runnable reproduction before spending time on "fixing" a cycle that may not currently exist.
+
 **Known casualty:** `tests/test_phase6_10_comprehensive.py` carries 10 `pytest.mark.skip`
 markers (verified via `grep -c "pytest.mark.skip" tests/test_phase6_10_comprehensive.py`
 = 10, 2026-07-08) with reasons `"Relies on container.py imports which have circular deps"`

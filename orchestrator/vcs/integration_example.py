@@ -170,7 +170,8 @@ team:
 # EXAMPLE 4: Custom Git Integration Config
 # ============================================================================
 
-from orchestrator.git_service import GitIntegrationConfig, GitIntegrationHooks
+from orchestrator.vcs.hooks import GitIntegrationHooks
+from orchestrator.vcs.service import GitIntegrationConfig
 
 # Manual configuration (instead of env vars)
 config = GitIntegrationConfig(

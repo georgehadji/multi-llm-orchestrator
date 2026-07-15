@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .models import COST_TABLE, Model
+from ..models import COST_TABLE, Model
 
 logger = logging.getLogger("orchestrator.cost_analytics")
 

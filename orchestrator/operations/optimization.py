@@ -29,8 +29,11 @@ at construction time or at runtime via set_backend().
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
+
+logger = logging.getLogger("orchestrator.optimization")
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -107,6 +110,41 @@ class GreedyBackend(OptimizationBackend):
             return base - rank * 1e-6
 
         return max(candidates, key=_score)
+
+
+# ── AdaptiveCapabilityBackend (ACR Phase 0 stub) ────────────────────────────
+
+
+class AdaptiveCapabilityBackend(OptimizationBackend):
+    """
+    Phase 0 stub for the Adaptive Capability Router.
+
+    Delegates scoring entirely to GreedyBackend (identical selection logic —
+    no new utility formula yet; that lands in a later phase). Accepts an
+    optional delegate for testability. Logs every decision so shadow-mode
+    comparison data can be collected before this backend becomes authoritative.
+    """
+
+    def __init__(self, mode: str = "on", delegate: OptimizationBackend | None = None) -> None:
+        self._mode = mode
+        self._greedy: OptimizationBackend = delegate or GreedyBackend()
+
+    def select(
+        self,
+        candidates: list[Model],
+        profiles: dict[Model, ModelProfile],
+        task_type: TaskType,
+        typical_cost_fn: Callable[[ModelProfile, TaskType], float],
+    ) -> Model | None:
+        pick = self._greedy.select(candidates, profiles, task_type, typical_cost_fn)
+        logger.info(
+            "acr_decision mode=%s task_type=%s pick=%s candidates=%d",
+            self._mode,
+            task_type,
+            pick,
+            len(candidates),
+        )
+        return pick
 
 
 # ── WeightedSumBackend ────────────────────────────────────────────────────────

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from .models import Model
+from ..models import Model
 from .modes import ModeConfig, ModeManager, OperationMode
 
 logger = logging.getLogger("orchestrator.agents.persona_modes")

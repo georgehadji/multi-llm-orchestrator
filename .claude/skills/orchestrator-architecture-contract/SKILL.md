@@ -35,16 +35,27 @@ break the good parts nor trust the broken parts.
 
 ---
 
-## 1. The Four Unbreakable Rules (and why each exists)
+## 1. The Four Unbreakable Rules (compact restatement)
 
-These come from `CLAUDE.md` and are enforced by CI. Verbatim intent, with rationale:
+These come from `CLAUDE.md` and are enforced by CI. Full incident history, per-rule
+narratives, and the commits that motivated each rule: **`orchestrator-change-control` §2**
+(this skill does not duplicate that content — see it there).
 
-| # | Rule | Why it exists |
-|---|------|---------------|
-| 1 | **`engine.py` = Mediator.** New logic → new service module; engine only wires and delegates. | `engine.py` was once a 5,036-line, 104-method God object (`docs/ARCHITECTURAL_AUDIT_V5.md`). ARCH-AUDIT-V2 (commit `431fc89c`) scored the architecture 5/10 largely because of it. Every method added to engine deepens the engine↔container circular-import trap (§8). |
-| 2 | **`models.py` = pure data.** Dataclasses + enums only. No I/O, no asyncio, no behavior. | `models.py` (1,273 lines as of 2026-07-07) is imported by nearly everything, including the domain layer. Any I/O or heavy import added there becomes a universal import-time side effect and breaks the `domain-purity` contract. |
-| 3 | **TDD without exceptions.** Failing test first (RED), then impl (GREEN). | The proactive invariant-suite commit `e863f0c8` caught `EvaluatorService._aggregate` silently discarding self-consistency runs 3..N — a bug invisible without a test written against the *intended* behavior. |
-| 4 | **No new root-level `orchestrator/*.py` modules.** All new code goes in existing subpackages. | The root package accumulated ~256 loose `.py` files ("the root dump"). CI blocks new ones via `python scripts/check_new_root_files.py --baseline origin/master` (Workstream A1 of `docs/ARCHITECTURE_REMEDIATION_PLAN.md`). |
+| # | Rule |
+|---|------|
+| 1 | **`engine.py` = Mediator.** New logic → new service module; engine only wires and delegates. |
+| 2 | **`models.py` = pure data.** Dataclasses + enums only. No I/O, no asyncio, no behavior. |
+| 3 | **TDD without exceptions.** Failing test first (RED), then impl (GREEN). |
+| 4 | **No new root-level `orchestrator/*.py` modules.** All new code goes in existing subpackages. |
+
+**Note on historical `engine.py` size figures (two numbers, two dates, both true):**
+`docs/ARCHITECTURAL_AUDIT_V5.md` records `engine.py` at 5,036 lines / 104 methods at the V5
+audit (earlier snapshot). `orchestrator-change-control` cites ~1,867 lines as of the later
+ARCH-AUDIT-V2 (commit `431fc89c`, 2026-06-24) — i.e. the V5→V2 gap already reflects partial
+demolition before V2 was even taken. Current live count: **1,284 lines** (2026-07-11), still
+well above the cited `<= 300 lines` target (`docs/ARCHITECTURE_REMEDIATION_PLAN.md:38`; see
+§3 below). Don't treat either historical figure as "the" size — both were true at their
+respective dates; use `wc -l orchestrator/engine.py` for the current truth.
 
 If any rule blocks you and you think it is wrong: escalate per `orchestrator-change-control`.
 Never route around it.
@@ -88,13 +99,19 @@ Beyond these, ~55 other subpackages exist (`safety/`, `hitl/`, `quality/`, `gene
 
 ## 3. engine.py — the Mediator under demolition
 
-- **Current size: 1,250 lines** (2026-07-07; `docs/ARCHITECTURE_AUDIT_V2.md` recorded 1,245).
+- **Current size: 1,284 lines** (2026-07-11, `wc -l orchestrator/engine.py`; was 1,250 on
+  2026-07-07 — `docs/ARCHITECTURE_AUDIT_V2.md` recorded 1,245 at an earlier point). LOC has
+  drifted up slightly since 2026-07-07 despite the demolition campaign — re-verify before
+  assuming it is monotonically shrinking.
 - **Target: ≤ 300 lines.** Definition of done, quoted from
-  `docs/ARCHITECTURE_REMEDIATION_PLAN.md`: "`engine.py` ≤ 300 lines, contains only
+  `docs/ARCHITECTURE_REMEDIATION_PLAN.md:38`: "`engine.py` ≤ 300 lines, contains only
   construction + delegation; zero direct `orchestrator.infrastructure` imports; all
-  logic lives in `application/` services wired by `engine_core/container.py`."
-- History: 5,036 lines at audit V5 → 1,867 → 1,250 via phased demolition
-  (e.g. commit `4ac9b4f1` "Phase C.1 - Remove 5 dead methods + fix 2 critical bugs").
+  logic lives in `application/` services wired by `engine_core/container.py`." This target
+  is sourced and binding, not folklore — see `orchestrator-hardest-problems-campaign` Track A
+  Phase 0 for a worked correction of an earlier claim to the contrary.
+- History: 5,036 lines at audit V5 → 1,867 (ARCH-AUDIT-V2, `431fc89c`) → 1,250 → 1,284
+  via phased demolition, still ~4x the target (e.g. commit `4ac9b4f1` "Phase C.1 - Remove 5
+  dead methods + fix 2 critical bugs").
 
 **What legitimately remains in `Orchestrator`:** `__init__` (builds or accepts a
 `ServiceContainer`, copies handles onto `self`), the public entry points
@@ -188,26 +205,40 @@ not solved. **Evidence — skip markers in `tests/test_phase6_10_comprehensive.p
 
 These skips are the honest cost ledger of Rule 1 being incomplete. Do not delete the
 skips to make numbers look better; do not add new imports that widen the cycle.
-Fixing this properly is Track 1 of `orchestrator-hardest-problems-campaign`.
+Fixing this properly is **Track A** of `orchestrator-hardest-problems-campaign` — that
+skill's Track A Phase 0.5 is the executable reproduction; read it before touching this cycle.
+
+**Caveat (verified 2026-07-11, re-verify before trusting):** direct instantiation with a
+dummy API key succeeds today with no `ImportError`:
+```bash
+OPENROUTER_API_KEY=sk-test-dummy python -c "from orchestrator.engine import Orchestrator; Orchestrator()"
+```
+The cycle described above is the *documented mechanism* (lazy import at `engine.py:432`
+managing a real structural dependency), but as of this date it is **not reproducible as a
+live `ImportError`** — the 10 skip markers in `tests/test_phase6_10_comprehensive.py` fail on
+an eager `AuthenticationError` when `OPENROUTER_API_KEY` is unset, not a circular import. The
+skip markers may be misdiagnosing their own failure. See `orchestrator-hardest-problems-campaign`
+Track A Phase 0.5 for the full reproduction before assuming this is still a live blocker.
 
 ---
 
-## 7. The 5 import-linter contracts — executable architecture
+## 7. The 5 import-linter contracts — executable architecture (summary; owner: `orchestrator-change-control`)
 
 `.importlinter` at repo root; run in CI as a **blocking** step (`lint-imports`) and in
-pre-commit. The contracts *are* the architecture — the prose above is commentary.
+pre-commit. The contracts *are* the architecture — the prose above is commentary. The full
+table (verbatim contract text, `ignore_imports` entries, violation examples, and the
+rules-of-engagement doctrine) is owned by **`orchestrator-change-control` §3** — this skill
+does not duplicate it. One-line summary of what each contract protects, for orientation only:
 
-| # | Contract name | Forbids |
-|---|---|---|
-| 1 | `domain-purity` | `orchestrator.domain`, `orchestrator.models`, `orchestrator.exceptions` → `infrastructure` / `application` / `engine_core` / `engine` |
-| 2 | `application-no-concrete-infra` | `orchestrator.application` → `orchestrator.infrastructure` |
-| 3 | `application-services-no-engine` | `orchestrator.application` → `orchestrator.engine` (2 documented `ignore_imports` for `cli_helpers`/`project_runner` → `meta_integration`, a TYPE_CHECKING-only transitive path) |
-| 4 | `engine-core-no-loose-infra` | `engine_core.{pipeline,pipeline_executor,pipeline_runner,project_planner,state_coordinator,stages}` → `orchestrator.infrastructure`. `container.py` deliberately excluded — it is the composition root. |
-| 5 | `root-modules-no-infra` | root `orchestrator` modules → `orchestrator.infrastructure` (its `ignore_imports` list is currently empty — verified 2026-07-07) |
+1. `domain-purity` — domain/models/exceptions stay import-free of everything outward.
+2. `application-no-concrete-infra` — application layer depends on ports, not concrete adapters.
+3. `application-services-no-engine` — application never reaches back up into `engine.py`.
+4. `engine-core-no-loose-infra` — pipeline modules stay infra-free (`container.py` excepted, it's the composition root).
+5. `root-modules-no-infra` — root shims don't smuggle in infrastructure imports.
 
-Rules of engagement (owned in full by `orchestrator-change-control`):
-never add `ignore_imports` entries to pass a build; a contract failure means your
-code is in the wrong layer, not that the contract is wrong.
+Never add `ignore_imports` entries to pass a build; a contract failure means your code is
+in the wrong layer, not that the contract is wrong. For the full contract text and current
+`ignore_imports` state: `orchestrator-change-control` §3.
 
 **Windows note (2026-07-07):** running `lint-imports` locally on this Windows machine
 can crash with a grimp `PanicException: range end index ... out of range` — this is
