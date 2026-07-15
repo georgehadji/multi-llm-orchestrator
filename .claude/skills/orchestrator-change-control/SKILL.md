@@ -51,6 +51,11 @@ New logic goes in a new service module under an existing subpackage; the engine 
 
 **Incident.** ARCH-AUDIT-V2 (commit `431fc89c`, 2026-06-24) scored the codebase 5/10 with 2 CRITICAL risks; `engine.py` had grown to ~1,867 lines of accumulated logic. The demolition that followed (`4ac9b4f1`, `b7263052`, `9fb2b826`) removed dead methods and, in the process, uncovered real bugs hiding in the bloat — including a stale `self._container` reference (should have been `self._c`) and a broken planner reference in `set_optimization_backend`. Logic dumped into the mediator doesn't just bloat it; it rots unseen.
 
+*(Earlier snapshot, for context: `docs/ARCHITECTURAL_AUDIT_V5.md` records `engine.py` at
+5,036 lines / 104 methods at an even earlier audit than ARCH-AUDIT-V2's ~1,867 — both figures
+are true, just at different dates; see `orchestrator-architecture-contract` §1 for the full
+size timeline. Current live count as of 2026-07-11: 1,284 lines — `wc -l orchestrator/engine.py`.)*
+
 **What violating it looks like:** your PR adds an `async def _do_something_new` with business logic to `engine.py`. Reviewer must reject; extract to `orchestrator/application/` or `orchestrator/engine_core/`.
 
 ### Rule 2: `models.py` = pure data
@@ -66,7 +71,14 @@ First a failing test (RED), then the minimal implementation (GREEN), then commit
 ### Rule 4: No new root-level `orchestrator/*.py` modules
 All new code goes in existing subpackages (`domain/`, `application/`, `engine_core/`, `infrastructure/`, `commands/`, `generators/`, `hitl/`, `safety/`, `quality/`, ...). Enforced mechanically by the root-file freeze (§4).
 
-**Incident.** The "root dump" — 30+ modules at `orchestrator/` depth 1 — was a named CRITICAL finding of ARCH-AUDIT-V2 (`431fc89c`). Root-level modules import each other freely, which is how the engine↔container circular imports formed (still causing 6 skipped tests in `tests/test_phase6_10_comprehensive.py` as of 2026-07-07). The freeze stops the pile from growing while remediation shrinks it.
+**Incident.** The "root dump" — **257 modules** at `orchestrator/` depth 1 at the time of the audit (`ARCH-AUDIT-V2.md` line 18/37, not "30+" as an earlier revision of this doc claimed) — was a named CRITICAL finding of ARCH-AUDIT-V2 (`431fc89c`). Live count as of 2026-07-11: **256 files** (`ls orchestrator/*.py | wc -l`) — the root-file freeze has held it roughly flat, not shrunk it meaningfully. Root-level modules import each other freely, which is how the engine↔container circular imports formed — **10 skipped tests** in `tests/test_phase6_10_comprehensive.py` (6 with reason "Importing Orchestrator from engine.py has circular imports" + 4 with reason "Relies on container.py imports", verified 2026-07-11; an earlier revision of this doc undercounted this as "6"). The freeze stops the pile from growing while remediation shrinks it.
+
+**Circular-import caveat:** as of 2026-07-11, direct instantiation
+(`OPENROUTER_API_KEY=sk-test-dummy python -c "from orchestrator.engine import Orchestrator; Orchestrator()"`)
+succeeds with no `ImportError` — the 10 skips may be misdiagnosing an eager
+`AuthenticationError` rather than a live circular import. See
+`orchestrator-hardest-problems-campaign` Track A Phase 0.5 for the full reproduction before
+treating this as an active blocker.
 
 ## 3. The 5 import-linter contracts (`.importlinter`)
 
@@ -223,7 +235,10 @@ Sometimes the gate is genuinely wrong for a legitimate change (a true new kernel
 
 ## Provenance and maintenance
 
-All facts verified against the repo on 2026-07-07 (branch `feat/response-healing`). Re-verify before relying on volatile values:
+Facts originally verified 2026-07-07 (branch `feat/response-healing`); the root-file count,
+skip count, and engine.py line count were re-verified live on **2026-07-11** and corrected
+(root files: 256 not "30+"; skips: 10 not "6"; engine.py: 1,284 lines). Re-verify before
+relying on volatile values — numbers in this repo drift fast:
 
 | Fact | Re-verify with |
 |---|---|
@@ -236,3 +251,6 @@ All facts verified against the repo on 2026-07-07 (branch `feat/response-healing
 | HITL fail-closed + ORCH_HITL_AUTOAPPROVE escape hatch | `Get-Content orchestrator/hitl/gate.py` (module docstring) |
 | Incident commits (11deb573, d913d136, 416b9e18, e863f0c8, 611c1403, 431fc89c, 4ac9b4f1, ab17b5f4) | `git log -1 --format='%h %ad %s' --date=short <hash>` |
 | Four Unbreakable Rules wording | `Get-Content CLAUDE.md` (repo root) |
+| Root-level `orchestrator/*.py` file count (256 as of 2026-07-11) | `ls orchestrator/*.py \| wc -l` (bash) or `(Get-ChildItem orchestrator/*.py).Count` (PowerShell) |
+| Circular-import skip count (10 as of 2026-07-11) | `grep -c "pytest.mark.skip" tests/test_phase6_10_comprehensive.py` |
+| engine.py line count (1,284 as of 2026-07-11) | `wc -l orchestrator/engine.py` |

@@ -73,6 +73,7 @@ class TaskFactory:
         target_path: str = "",
         module_name: str = "",
         tech_context: str = "",
+        target_language: str = "",
     ) -> Task:
         """
         Create a Task with defaults computed from task_type.
@@ -93,4 +94,5 @@ class TaskFactory:
             target_path=target_path,
             module_name=module_name,
             tech_context=tech_context,
+            target_language=target_language,
         )

@@ -210,8 +210,21 @@ class GeneratorService:
             # Build decompose kwargs with optional project context
             decompose_kwargs = dict(kwargs)
             decompose_kwargs["policy"] = policy
+            # Pass project_context if the decompose function accepts it
             if project_context is not None:
-                decompose_kwargs["project_context"] = project_context
+                try:
+                    import inspect
+                    sig = inspect.signature(self._decompose_fn)
+                    params = sig.parameters
+                    # Accept if named param exists, or if function has **kwargs (VAR_KEYWORD)
+                    has_kwargs = any(
+                        p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+                    )
+                    if "project_context" in params or has_kwargs:
+                        decompose_kwargs["project_context"] = project_context
+                except (ValueError, TypeError):
+                    # Can't inspect — try passing and catch TypeError below
+                    decompose_kwargs["project_context"] = project_context
 
             if self._decompose_timeout is not None:
                 raw = await asyncio.wait_for(

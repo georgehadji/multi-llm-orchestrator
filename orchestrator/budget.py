@@ -56,6 +56,16 @@ class Budget:
             "reserve": 0.0,
         }
     )
+    # ── Per-phase token tracking (parallels phase_spent) ────
+    phase_tokens: dict[str, dict[str, int]] = field(
+        default_factory=lambda: {
+            "decomposition": {"input": 0, "output": 0},
+            "generation": {"input": 0, "output": 0},
+            "cross_review": {"input": 0, "output": 0},
+            "evaluation": {"input": 0, "output": 0},
+            "reserve": {"input": 0, "output": 0},
+        }
+    )
     # FIX-001a: Track reserved but not-yet-charged budget
     _reserved_usd: float = field(default=0.0, repr=False)
     # FIX-001a: Async lock for atomic operations (lazy initialized)
@@ -144,6 +154,23 @@ class Budget:
         async with self._lock:
             self._reserved_usd = max(0.0, self._reserved_usd - amount)
 
+    async def track_tokens(self, phase: str, input_tokens: int, output_tokens: int):
+        """Record token consumption for a phase (thread-safe)."""
+        async with self._lock:
+            if phase in self.phase_tokens:
+                self.phase_tokens[phase]["input"] += input_tokens
+                self.phase_tokens[phase]["output"] += output_tokens
+
+    @property
+    def total_input_tokens(self) -> int:
+        """Total input tokens across all phases."""
+        return sum(p["input"] for p in self.phase_tokens.values())
+
+    @property
+    def total_output_tokens(self) -> int:
+        """Total output tokens across all phases."""
+        return sum(p["output"] for p in self.phase_tokens.values())
+
     def to_dict(self) -> dict:
         return {
             "max_usd": self.max_usd,
@@ -153,6 +180,12 @@ class Budget:
             "elapsed_seconds": round(self.elapsed_seconds, 1),
             "remaining_seconds": round(self.remaining_seconds, 1),
             "phase_spent": {k: round(v, 4) for k, v in self.phase_spent.items()},
+            "phase_tokens": {
+                k: {"input": v["input"], "output": v["output"]}
+                for k, v in self.phase_tokens.items()
+            },
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
         }
 
 

@@ -1,0 +1,56 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 01: Smoke Test — Static Landing Page
+# Author: Reasonix (stress-test suite)
+# Dimension: Baseline pipeline health
+# Run with:
+#   python -m orchestrator --file projects/stress_test/01_smoke_landing_page.yaml
+# ──────────────────────────────────────────────────────
+#
+# This is the CANARY test. If this fails, the orchestrator's core
+# pipeline (generate → critique → revise → evaluate) is broken.
+# It tests CODE_GEN + WRITING on the cheapest possible path ($0.80).
+
+project: |
+  Build a single-page responsive landing page for a fictional SaaS product
+  called "CloudFlow" — a cloud-native workflow automation platform.
+
+  The page must include:
+  1. Navigation bar with logo, 4 links (Features, Pricing, Docs, Contact), and a "Start Free Trial" CTA button
+  2. Hero section with headline, subheadline, and a "Get Started" CTA
+  3. Features section with 3 feature cards (icon + title + description)
+  4. Social proof section with 4 placeholder company logos
+  5. Pricing section with 3 tier cards (Starter, Pro, Enterprise)
+  6. Contact form with name, email, message fields and submit button
+  7. Footer with links and copyright
+
+  Technical requirements:
+  - Pure HTML + CSS (no frameworks)
+  - CSS custom properties for all colors and spacing
+  - Responsive: single-column on mobile, multi-column on desktop (768px breakpoint)
+  - Semantic HTML5 elements (header, nav, main, section, footer)
+  - All images use placeholder SVGs or CSS gradients (no external image requests)
+
+criteria: |
+  - Page renders correctly at 375px and 1440px viewport widths
+  - Lighthouse accessibility score ≥ 90
+  - No JavaScript errors in browser console
+  - All navigation links scroll smoothly to correct sections
+  - Contact form validates required fields with HTML5 validation
+  - CSS uses custom properties (verify with browser DevTools)
+  - No external dependencies (single self-contained .html file)
+  - Loads in under 2 seconds on fast 3G throttling
+
+budget_usd: 0.80
+time_seconds: 900
+concurrency: 1
+project_id: "stress-smoke-landing-page-v1"
+output_dir: "./outputs/stress_test/01_landing_page"
+
+quality_targets:
+  code_generation:   0.82
+  creative_writing:  0.80
+  evaluation:        0.85
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

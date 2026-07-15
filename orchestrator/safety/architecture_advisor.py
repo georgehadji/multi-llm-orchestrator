@@ -383,15 +383,15 @@ def _select_model(description: str) -> Model:
     if word_count <= 50:
         # Try budget-friendly options first (in priority order)
         priority_models = [
-            Model.STEPFUN_STEP_3_5_FLASH,  # $0.10/$0.30, 196B MoE ⭐ BEST VALUE
-            Model.ZHIPU_GLM_5_2,  # z-ai/glm-5.2, canonical GLM
+            Model.GPT_4O_MINI,  # $0.15/$0.60, fast and reliable
+            Model.MOONSHOT_KIMI_K2_7_CODE,  # strong coding model
             Model.XIAOMI_MIMO_V2_FLASH,  # $0.09/$0.29, #1 SWE-bench
         ]
     else:
         # Complex projects: use powerful reasoning models
         priority_models = [
             Model.QWEN_3_7_MAX,  # $0.39/$2.34, 397B MoE ⭐ BEST OVERALL
-            Model.XIAOMI_MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
+            Model.XIAOMI_MIMO_V2_5_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
             Model.XAI_GROK_4_5,  # $1.50/$4.00, strong reasoning
             Model.CLAUDE_SONNET_5,  # $3.00/$15.00, premium quality
         ]

@@ -32,7 +32,7 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
-from .log_config import get_logger
+from ..log_config import get_logger
 from .streaming import (
     PipelineEvent,
     PipelineEventType,

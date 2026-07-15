@@ -19,6 +19,8 @@ logger = get_logger(__name__)
 # Constants
 _REQUEST_TIMEOUT_SECONDS = 300
 _MAX_RETRIES = 3
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/"
+_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 # Caching for API clients
 _CLIENT_CACHE: dict[str, "AsyncInstructor[AsyncOpenAI]"] = {}
@@ -158,6 +160,7 @@ class UnifiedClient:
         self,
         cost_service: CostService | None = None,
         openrouter_api_key: str | None = None,
+        deepseek_api_key: str | None = None,
         cache: Any = None,
         max_concurrency: int | None = None,
         **kwargs: Any,
@@ -169,6 +172,8 @@ class UnifiedClient:
             cost_service: Service for tracking API costs.
             openrouter_api_key: OpenRouter API key. If not provided, it's
                                 read from the OPENROUTER_API_KEY env var.
+            deepseek_api_key: DeepSeek API key. If not provided, it's read from
+                              the DEEPSEEK_API_KEY env var.
         """
         if cost_service is None:
             from ..domain.services.config_services import CostService
@@ -177,10 +182,13 @@ class UnifiedClient:
             cost_service = CostService(JsonConfigAdapter())
 
         self._cost_service = cost_service
-        self._api_key = openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
-        if not self._api_key:
+        self._openrouter_api_key = openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
+        self._deepseek_api_key = deepseek_api_key or os.environ.get("DEEPSEEK_API_KEY")
+        self._api_key = self._openrouter_api_key
+        if not self._openrouter_api_key and not self._deepseek_api_key:
             raise AuthenticationError(
-                "OpenRouter API key not found. " "Set OPENROUTER_API_KEY environment variable."
+                "LLM API key not found. Set OPENROUTER_API_KEY or DEEPSEEK_API_KEY "
+                "environment variable."
             )
 
         # Per-provider clients, lazily initialized
@@ -203,7 +211,7 @@ class UnifiedClient:
 
     async def close(self) -> None:
         """Close all cached HTTP clients and release connection pools."""
-        clients = list(self._clients.values())
+        clients = list(self._clients.values()) + list(self._provider_clients.values())
         if self._default_client is not None:
             clients.append(self._default_client)
 
@@ -295,6 +303,9 @@ class UnifiedClient:
                 )
 
         start_time = asyncio.get_event_loop().time()
+        provider = get_provider(model_enum)
+        use_deepseek_direct = provider == "deepseek" and bool(self._deepseek_api_key)
+        request_model_id = _to_deepseek_model_id(model_id) if use_deepseek_direct else model_id
         client = await self._get_client_for_model(model_enum)
         messages = [{"role": "user", "content": prompt}]
         if system:
@@ -310,15 +321,34 @@ class UnifiedClient:
 
         try:
             async with self.circuit_breaker.context():
-                dispatch_res = await self._dispatch(
-                    client=client,
-                    model_id=model_id,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    timeout=timeout,
-                    **kwargs,
-                )
+                try:
+                    dispatch_res = await self._dispatch(
+                        client=client,
+                        model_id=request_model_id,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        timeout=timeout,
+                        **kwargs,
+                    )
+                except Exception:
+                    if not use_deepseek_direct:
+                        raise
+                    logger.warning(
+                        "DeepSeek direct API call to %s failed; retrying through OpenRouter",
+                        request_model_id,
+                        exc_info=True,
+                    )
+                    openrouter_client = await self._get_openrouter_client()
+                    dispatch_res = await self._dispatch(
+                        client=openrouter_client,
+                        model_id=model_id,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        timeout=timeout,
+                        **kwargs,
+                    )
                 latency = asyncio.get_event_loop().time() - start_time
 
                 if (
@@ -411,6 +441,15 @@ class UnifiedClient:
         """Get or create an API client for the requested model."""
         provider = get_provider(model)
 
+        if provider == "deepseek":
+            if self._deepseek_api_key:
+                logger.info("Using DeepSeek API client for model %s", model.value)
+                return await self._get_deepseek_client()
+            logger.warning(
+                "DeepSeek model specified, but no DEEPSEEK_API_KEY found. "
+                "Falling back to OpenRouter."
+            )
+
         # XAI-specific client with fallback
         if provider == "xai":
             xai_api_key = os.environ.get("XAI_API_KEY")
@@ -433,9 +472,25 @@ class UnifiedClient:
                 )
 
         # Default to OpenRouter client
+        return await self._get_openrouter_client()
+
+    async def _get_openrouter_client(self) -> "AsyncInstructor[AsyncOpenAI]":
+        """Get or create the shared OpenRouter client."""
+        if not self._openrouter_api_key:
+            raise AuthenticationError(
+                "OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable."
+            )
         if self._default_client is None:
             self._default_client = await self._create_openrouter_client()
         return self._default_client
+
+    async def _get_deepseek_client(self) -> "AsyncInstructor[AsyncOpenAI]":
+        """Get or create the direct DeepSeek API client."""
+        client = self._provider_clients.get("deepseek")
+        if client is None:
+            client = await self._create_deepseek_client()
+            self._provider_clients["deepseek"] = client
+        return client
 
     async def _create_openrouter_client(self) -> "AsyncInstructor[AsyncOpenAI]":
         """Create a new OpenRouter client."""
@@ -444,8 +499,26 @@ class UnifiedClient:
 
         client = instructor.from_openai(
             AsyncOpenAI(
-                base_url="https://openrouter.ai/api/v1/",
-                api_key=self._api_key,
+                base_url=_OPENROUTER_BASE_URL,
+                api_key=self._openrouter_api_key,
+            ),
+            mode=self._instructor_mode(),
+        )
+        return client
+
+    async def _create_deepseek_client(self) -> "AsyncInstructor[AsyncOpenAI]":
+        """Create a new direct DeepSeek client."""
+        if not self._deepseek_api_key:
+            raise AuthenticationError(
+                "DeepSeek API key not found. Set DEEPSEEK_API_KEY environment variable."
+            )
+        logger.info("Creating new DeepSeek client")
+        import instructor
+
+        client = instructor.from_openai(
+            AsyncOpenAI(
+                base_url=_DEEPSEEK_BASE_URL,
+                api_key=self._deepseek_api_key,
             ),
             mode=self._instructor_mode(),
         )
@@ -470,6 +543,13 @@ async def validate_model_available(model: Model) -> bool:
 
 
 _SORT_ALIASES = {":nitro": "throughput", ":floor": "price"}
+
+
+def _to_deepseek_model_id(model_id: str) -> str:
+    """Convert an OpenRouter DeepSeek slug to DeepSeek's native model id."""
+    if model_id.startswith("deepseek/"):
+        return model_id.removeprefix("deepseek/")
+    return model_id
 
 
 def _resolve_provider_variant(model_id: str) -> tuple[str, str | None, bool]:
@@ -519,6 +599,7 @@ __all__ = [
     "AuthenticationError",
     "UnifiedClient",
     "validate_model_available",
+    "_to_deepseek_model_id",
     "_resolve_provider_variant",
     "_maybe_add_response_healing",
 ]

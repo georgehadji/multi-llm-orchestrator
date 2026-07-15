@@ -54,8 +54,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-# FIXED: from ..meta_orchestrator import ExecutionArchive, StrategyProposal
-from ..meta_orchestrator import ExecutionArchive, StrategyProposal
+# FIXED: from ..meta.orchestrator import ExecutionArchive, StrategyProposal
+from ..meta.orchestrator import ExecutionArchive, StrategyProposal
 
 logger = logging.getLogger("orchestrator.rollout")
 

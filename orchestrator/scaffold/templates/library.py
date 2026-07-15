@@ -6,8 +6,24 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 from __future__ import annotations
 
 FILES: dict[str, str] = {
-    "src/__init__.py": '"""My library."""\n__version__ = "0.1.0"\n',
-    "src/core.py": '"""Core library functionality."""\n\n\ndef hello() -> str:\n    return "Hello from library!"\n',
+    "src/__init__.py": (
+        '"""My library — production-ready scaffold."""\n'
+        "import logging\n"
+        "import os\n\n"
+        '__version__ = "0.1.0"\n\n'
+        "# ── Package-level logger ────────────────────────────────────────\n"
+        "logging.getLogger(__name__).addHandler(logging.NullHandler())\n"
+    ),
+    "src/core.py": (
+        '"""Core library functionality."""\n'
+        "import logging\n"
+        "from typing import Any\n\n"
+        "logger = logging.getLogger(__name__)\n\n\n"
+        "def hello() -> str:\n"
+        '    """Return a greeting string."""\n'
+        '    logger.debug("hello() called")\n'
+        '    return "Hello from library!"\n'
+    ),
     "tests/__init__.py": "",
     "tests/test_core.py": (
         "from src.core import hello\n\n\n"

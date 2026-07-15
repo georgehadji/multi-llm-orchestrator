@@ -30,6 +30,11 @@ _VARIANT_TO_KEY: dict[DesignVariant, str] = {
     DesignVariant.MINIMALIST: "minimalist",
     DesignVariant.BRUTALIST: "brutalist",
     DesignVariant.REDESIGN: "redesign",
+    # ── Emil Kowalski animation skills ──────
+    DesignVariant.ANIMATION_VOCABULARY: "animation_vocabulary",
+    DesignVariant.APPLE_FLUID: "apple_design",
+    DesignVariant.ANIMATION_REVIEW: "review_animations",
+    # ─────────────────────────────────────────
 }
 
 _DIAL_CLAMP_MIN = 1
@@ -97,6 +102,16 @@ class TasteSkillInjector:
                 )
 
         return "\n\n".join(p for p in parts if p)
+
+    def get_skill_content(self, skill_key: str) -> str:
+        """Return raw skill content for *skill_key*, or "" if not bundled.
+
+        Unlike get_prefix(), this does not wrap in variant headers or
+        include the default anti-slop content. Useful for conditional
+        injection of supplementary skills (e.g. animation vocabulary
+        when MOTION_INTENSITY >= 4).
+        """
+        return self._loader.load(skill_key)
 
     # ------------------------------------------------------------------
     # Internal

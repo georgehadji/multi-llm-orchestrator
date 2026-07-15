@@ -6,22 +6,57 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 from __future__ import annotations
 
 CLI_ENTRY = '''\
-"""Command-line interface entry point."""
+"""Command-line interface entry point — production-ready scaffold."""
 import argparse
+import logging
+import os
 import sys
+from typing import NoReturn
 
 
-def main() -> None:
+# ── Structured logging ──────────────────────────────────────────────
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger("cli")
+
+
+def setup_parser() -> argparse.ArgumentParser:
+    """Build argument parser — separate from main for testability."""
     parser = argparse.ArgumentParser(description="My CLI App")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
-    args = parser.parse_args()
-    print("Hello from CLI!")
+    parser.add_argument(
+        "--config", "-c",
+        default=os.getenv("APP_CONFIG", ""),
+        help="Path to config file (default: $APP_CONFIG)",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point. Returns exit code (0 = success, non-zero = error)."""
+    parser = setup_parser()
+    args = parser.parse_args(argv)
+
     if args.verbose:
-        print("Verbose mode enabled")
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug("Verbose mode enabled")
+
+    try:
+        logger.info("Starting CLI application")
+        # ── Your application logic here ──────────────────────────
+        print("Hello from CLI!")
+        logger.info("CLI completed successfully")
+        return 0
+    except Exception:
+        logger.exception("Fatal error in CLI")
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
 '''
 
 FILES: dict[str, str] = {
@@ -29,13 +64,12 @@ FILES: dict[str, str] = {
     "src/__init__.py": "",
     "tests/__init__.py": "",
     "tests/test_cli.py": (
-        "import subprocess\nimport sys\n\n\n"
-        "def test_cli_runs():\n"
-        "    result = subprocess.run(\n"
-        '        [sys.executable, "cli.py"],\n'
-        "        capture_output=True, text=True\n"
-        "    )\n"
-        "    assert result.returncode == 0\n"
+        "import sys\n"
+        "from cli import main\n\n\n"
+        "def test_cli_runs() -> None:\n"
+        '    result = main(["--help"])\n'
+        "    # --help returns 0 on success (argparse exits before main returns)\n"
+        "    assert result == 0\n"
     ),
     "pyproject.toml": (
         "[project]\n"
@@ -43,6 +77,13 @@ FILES: dict[str, str] = {
         'version = "0.1.0"\n'
         'requires-python = ">=3.11"\n'
         "dependencies = []\n\n"
+        "[project.optional-dependencies]\n"
+        "dev = [\n"
+        '    "pytest>=8.0",\n'
+        '    "pytest-cov>=5.0",\n'
+        '    "ruff>=0.4",\n'
+        '    "mypy>=1.8",\n'
+        "]\n\n"
         "[project.scripts]\n"
         'my-cli = "cli:main"\n\n'
         "[build-system]\n"

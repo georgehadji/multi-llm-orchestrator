@@ -365,9 +365,7 @@ class ModelRegistry:
         "qwen/qwen3-235b-a22b-thinking-2507",
         "qwen/qwen3-next-80b-a3b-thinking",
         "nvidia/nemotron-3-ultra-550b-a55b",
-        "nvidia/nemotron-3-ultra-550b-a55b:free",
         "nvidia/nemotron-3-super-120b-a12b",
-        "nvidia/nemotron-3-super-120b-a12b:free",
         "anthropic/claude-opus-4-8",  # extended-thinking capable
         "openai/o1",
         "openai/o3-mini",
@@ -522,8 +520,13 @@ class ModelRegistry:
 
     @classmethod
     def is_reasoning_model(cls, model_id: str) -> bool:
-        """Check if model is a reasoning specialist."""
-        return model_id in cls.REASONING_MODELS
+        """Check if model is a reasoning specialist.
+
+        Strips OpenRouter endpoint-variant suffixes (e.g. ":free") before
+        matching, since REASONING_MODELS is keyed by base model id.
+        """
+        base_id = model_id.split(":", 1)[0]
+        return base_id in cls.REASONING_MODELS
 
     @classmethod
     def is_budget_model(cls, model_id: str) -> bool:

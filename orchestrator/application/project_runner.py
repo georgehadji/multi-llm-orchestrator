@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,59 @@ from .project_runner_deps import ProjectRunnerCallables, ProjectRunState
 from .unattended_guard import RunContext, UnattendedGuard
 
 logger = logging.getLogger("orchestrator")
+
+
+def _slugify(text: str, max_words: int = 5, max_len: int = 50) -> str:
+    """Convert a project description into a filesystem-friendly slug.
+
+    Example: "Build a REST API with FastAPI" → "build-a-rest-api-with"
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    words = slug.split("-")
+    trimmed = "-".join(words[:max_words])
+    return trimmed[:max_len].rstrip("-")
+
+
+def _detect_primary_language(description: str) -> str:
+    """Heuristic to detect the primary output language from project description.
+
+    Checks for keywords that suggest HTML/CSS/frontend vs Python/backend.
+    Returns a language string suitable for ``target_language`` on Tasks.
+    """
+    desc_lower = description.lower()
+
+    # Strong HTML/frontend signals
+    html_keywords = {
+        "landing page", "website", "web page", "static site", "html",
+        "single-page", "landing", "frontend", "ui components",
+    }
+    for kw in html_keywords:
+        if kw in desc_lower:
+            return "html"
+
+    # CSS-specific signals
+    css_keywords = {"css", "stylesheet", "responsive design", "layout",
+                    "tailwind", "bootstrap", "scss", "sass"}
+    for kw in css_keywords:
+        if kw in desc_lower:
+            return "css"
+
+    # JavaScript signals
+    js_keywords = {"javascript", "dynamic", "interactive", "react",
+                   "vue", "angular", "svelte", "next.js", "node.js"}
+    for kw in js_keywords:
+        if kw in desc_lower:
+            return "javascript"
+
+    # Default to python for backend/data projects
+    python_keywords = {"api", "backend", "rest", "fastapi", "flask",
+                       "database", "sql", "migration", "endpoint",
+                       "microservice", "cli", "library", "package"}
+    for kw in python_keywords:
+        if kw in desc_lower:
+            return "python"
+
+    return ""
 
 
 class ProjectRunner:
@@ -110,13 +164,28 @@ class ProjectRunner:
         with tracer.start_as_current_span("run_project") as span:
             span.set_attribute("project.description", project_description[:200])
             if not project_id:
-                project_id = hashlib.md5(
+                # Generate a human-readable project_id: slug from description + short hash
+                slug = _slugify(project_description)
+                short_hash = hashlib.md5(
                     f"{project_description[:100]}{time.time()}".encode(),
                     usedforsecurity=False,
-                ).hexdigest()[:12]
+                ).hexdigest()[:6]
+                project_id = f"{slug}-{short_hash}" if slug else short_hash
 
             # Publish project_id to run_state so downstream callbacks can read it
             self._run_state.project_id = project_id
+
+            # Honour a per-run constitution (--from-speckit path): swap it into
+            # the already-wired ConstitutionGate pipeline stage so protect_paths/
+            # forbidden_imports/require_tests are enforced for precomposed tasks.
+            constitution_gate = getattr(self._callables, "constitution_gate", None)
+            if constitution is not None and constitution_gate is not None:
+                constitution_gate.set_constitution(constitution)
+            elif constitution is not None:
+                logger.warning(
+                    "constitution provided but no ConstitutionGate is wired — "
+                    "protect_paths/forbidden_imports/require_tests will NOT be enforced"
+                )
 
             # ENH-4: pre-flight unattended guard — fail closed before any work starts
             import sys
@@ -188,11 +257,24 @@ class ProjectRunner:
                     except ImportError:
                         pass
 
+                    # Build project context from heuristic language detection
+                    try:
+                        from ..project_mgmt.context import ProjectContext as _PContext
+
+                        _primary_lang = _detect_primary_language(project_description)
+                        _project_context = _PContext(
+                            project_type="frontend" if _primary_lang in ("html", "css", "javascript") else "backend",
+                            tech_stack=[_primary_lang] if _primary_lang else [],
+                        )
+                    except ImportError:
+                        _project_context = None
+
                     gen_result = await self._generator.decompose(
                         project_description,
                         success_criteria,
                         app_profile=app_profile,
                         policy=RetryTemplate.DECOMPOSE.to_policy(),
+                        project_context=_project_context,
                     )
                     if not gen_result.succeeded:
                         logger.error("Decomposition failed: %s", gen_result.error)
@@ -210,6 +292,27 @@ class ProjectRunner:
                             {},
                             ProjectStatus.SYSTEM_FAILURE,
                         )
+
+                    # ── Inject target_language into tasks that lack it ─────
+                    _primary_lang = _detect_primary_language(project_description)
+                    if _primary_lang and _primary_lang not in ("", "python"):
+                        injected = 0
+                        for task in tasks.values():
+                            if (not getattr(task, "target_language", "")
+                                    and task.type == TaskType.CODE_GEN):
+                                task.target_language = _primary_lang
+                                task.prompt = (
+                                    f"[LANGUAGE: {_primary_lang}] {task.prompt}\n\n"
+                                    f"IMPORTANT: Output MUST be valid {_primary_lang} code. "
+                                    f"Do NOT generate Python. Use the named-block format "
+                                    f"for separate files (**filename.ext** + code block)."
+                                )
+                                injected += 1
+                        if injected:
+                            logger.info(
+                                "Injected target_language=%s into %d tasks",
+                                _primary_lang, injected,
+                            )
 
                 # Topological sort
                 execution_order = self._callables.topological_sort(tasks)
@@ -435,7 +538,7 @@ class ProjectRunner:
                         if len(task.prompt) > 80
                         else task.prompt
                     ),
-                    dependencies=list(task.dependencies),
+                    dependencies=[str(d) for d in task.dependencies],
                     parallel_level=level_index.get(tid, 0),
                     primary_model=primary.value if primary else "unknown",
                     estimated_cost_usd=round(cost, 6),

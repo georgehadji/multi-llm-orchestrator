@@ -1,0 +1,109 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 09: Advanced 3D Effects — Particle Galaxy + Shader Playground
+# Author: Reasonix (stress-test suite)
+# Dimension: 3D graphics, custom GLSL shaders, post-processing, physics
+# Run with:
+#   python -m orchestrator --file projects/stress_test/09_3d_particle_galaxy.yaml
+# ──────────────────────────────────────────────────────
+#
+# Stresses: CODE_GEN for WebGL/GLSL, REASONING for 3D math and shader
+# optimization, IMAGE_GEN for procedural textures, WRITING for technical
+# documentation of graphics pipeline. The orchestrator must handle
+# graphics-heavy JavaScript/TypeScript with zero Python output.
+
+project: |
+  Build an interactive 3D Particle Galaxy Explorer using vanilla
+  JavaScript (no framework), Three.js, and custom GLSL shaders.
+
+  CORE 3D SCENE:
+  1. Procedural galaxy with 50,000+ particles arranged in spiral arms
+     - 4 spiral arms with logarithmic spiral formula (r = a * e^(b*θ))
+     - Each arm has color gradient (core: white/yellow → edge: blue/purple)
+     - Particle sizes vary by distance from center (0.5px to 4px)
+     - Use BufferGeometry with Float32Array for performance
+  2. Central black hole with accretion disk effect
+     - Lens flare using custom GLSL shader (chromatic aberration + bloom)
+     - Rotating ring of particles at event horizon (separate geometry)
+  3. Orbiting planets: 5 planets at different radii with procedural textures
+     - Each planet has its own rotation speed and axial tilt
+     - Planet 1: Rocky (procedural noise texture via fragment shader)
+     - Planet 2: Gas giant (banded turbulence shader)
+     - Planet 3: Ice world (Fresnel rim lighting)
+     - Planet 4: Lava (emissive glow + displacement)
+     - Planet 5: Ringed (custom ring geometry with alpha texture)
+
+  SHADERS (custom GLSL — write in <script type="x-shader/x-vertex"> and <script type="x-shader/x-fragment"> tags):
+  6. Vertex shader: GPU-based particle animation with sine-wave oscillation
+     - Pass time uniform for animation
+     - Jitter particles with pseudo-random offset based on position
+  7. Fragment shader: distance-based opacity falloff + color interpolation
+     - Particles fade at edges (soft clipping)
+     - HDR-like bloom via additive blending
+  8. Post-processing vertex/fragment shader pair for vignette + chromatic aberration
+  9. Skybox shader: procedural starfield with twinkling (time-based noise)
+
+  POST-PROCESSING (EffectComposer):
+  10. UnrealBloomPass: threshold 0.1, strength 1.5, radius 0.4
+  11. AfterimagePass: trail effect with 0.85 damp
+  12. ShaderPass with custom vignette + chromatic aberration
+  13. RenderPass + OutputPass for final output
+
+  INTERACTION (OrbitControls):
+  14. Mouse orbit with damping (enableDamping = true, dampingFactor = 0.08)
+  15. Scroll zoom (minDistance: 5, maxDistance: 200)
+  16. Auto-rotate toggle (autoRotate = true, autoRotateSpeed = 0.3)
+  17. Click on planets to focus (smooth camera lerp to target)
+  18. Hover tooltip showing planet name and stats
+  19. Keyboard shortcuts: R=reset view, P=pause animation, F=fullscreen, 1-5=jump to planet
+
+  UI OVERLAY (HTML/CSS):
+  20. FPS counter (top-left, update every 500ms)
+  21. Controls panel (bottom-right): auto-rotate toggle, bloom strength slider, speed slider
+  22. Planet info card (top-right): shows selected planet details
+  23. Loading screen: progress bar while assets initialize, fades out
+  24. Responsive: works at 375px mobile to 4K desktop (camera FOV adjusts)
+
+  PERFORMANCE TARGETS:
+  25. Maintain 60 FPS on mid-range GPU (test with 50K particles)
+  26. Particle count degrades gracefully: detect FPS < 30 → reduce to 10K particles
+  27. Use requestAnimationFrame with deltaTime for frame-independent animation
+  28. Dispose all geometries/materials/textures on scene change (no memory leaks)
+
+  OUTPUT STRUCTURE:
+  - index.html (single-file, all JS/CSS inline or loaded from CDN for Three.js)
+  - Uses Three.js from CDN (importmap or script tag)
+  - All shaders inline in HTML script tags
+  - No build step required — open index.html in browser
+
+criteria: |
+  - Galaxy renders 50,000+ particles at 60 FPS on a desktop GPU
+  - Spiral arms visible and color gradient correct (core white, edge blue)
+  - Black hole lens flare shader produces visible chromatic aberration
+  - All 5 planets visible with distinct procedural textures (no image files used)
+  - Bloom post-processing creates visible glow around bright particles
+  - Orbit controls work: rotate (left drag), zoom (scroll), pan (right drag)
+  - Clicking a planet smoothly moves camera to that planet
+  - FPS counter updates and shows accurate frame rate
+  - Auto-rotate toggle in UI panel works (starts/stops rotation)
+  - Loading screen appears and fades within 2 seconds
+  - Memory: no leaks after 60 seconds (check Chrome DevTools Performance monitor)
+  - Single index.html file — no build tools, no npm, just open in browser
+  - Planet info card updates correctly when clicking different planets
+  - All keyboard shortcuts function correctly
+  - Vignette effect visible (darker edges, brighter center)
+
+budget_usd: 6.0
+time_seconds: 5400
+concurrency: 5
+project_id: "stress-3d-particle-galaxy-v1"
+output_dir: "./outputs/stress_test/09_3d_galaxy"
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.88
+  complex_reasoning: 0.92
+  evaluation:        0.94
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

@@ -1,0 +1,75 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 05: Edge Case / Unusual Tech — PWA Offline-First News Reader
+# Author: Reasonix (stress-test suite)
+# Dimension: Unusual tech stack (Service Worker, IndexedDB, Background Sync)
+# Run with:
+#   python -m orchestrator --file projects/stress_test/05_pwa_news_reader.yaml
+# ──────────────────────────────────────────────────────
+#
+# Uses technology patterns where LLMs are typically weaker (service
+# workers, cache strategies, IndexedDB, background sync). Expects more
+# critique→revise cycles than standard projects. Tests the orchestrator's
+# ability to handle unfamiliar domains.
+
+project: |
+  Build an offline-first Progressive Web App (PWA) news reader with:
+
+  CORE PWA:
+  1. Service Worker with stale-while-revalidate caching strategy for articles
+  2. Cache-first strategy for static assets (CSS, JS, fonts, logos)
+  3. Network-first strategy for breaking news feed (fresh data when online)
+  4. Install prompt: "Add to Home Screen" with custom install button
+  5. Standalone display mode with custom splash screen and theme color
+  6. Web App Manifest with name, icons (192px + 512px), start_url, scope
+
+  OFFLINE DATA:
+  7. IndexedDB for storing articles, reading history, and bookmarks
+  8. Offline article reader: open any previously-viewed article without network
+  9. Reading list: save articles for offline reading with one tap
+  10. Read status: articles marked as "read" sync when coming back online
+  11. Search across cached articles using client-side Fuse.js fuzzy search
+
+  BACKGROUND SYNC:
+  12. Queued comments: write a comment while offline, it syncs when connectivity returns
+  13. Queued likes/bookmarks: toggle while offline, sync on reconnect
+  14. Sync status indicator: show pending queue count in the UI
+
+  UI (React 18 + TypeScript + Tailwind CSS):
+  15. News feed: infinite scroll with skeleton loading cards
+  16. Article detail: clean reading view with estimated read time
+  17. Category tabs: Top Stories, Tech, Science, Business, Sports
+  18. Bookmark button on each article with optimistic UI update
+  19. Offline indicator banner: "You're offline — showing cached articles"
+  20. Settings: clear cache, manage storage, toggle notifications
+
+  MOCK DATA:
+  21. Generate 50 realistic mock articles across 5 categories
+  22. Serve via a simple Express API with pagination (or static JSON)
+
+criteria: |
+  - Load the app, browse several articles, then go OFFLINE (DevTools → Offline) — previously viewed articles still open
+  - While offline, bookmark 3 articles and write 2 comments — they appear in the "pending sync" queue
+  - Go back ONLINE — queued comments and bookmarks sync to the server
+  - Install prompt works: "Add to Home Screen" button triggers beforeinstallprompt event
+  - Lighthouse PWA audit score = 100 (all PWA criteria met)
+  - Lighthouse performance score ≥ 90
+  - Service Worker registers without errors (check DevTools → Application → Service Workers)
+  - IndexedDB stores articles and survives page refresh (verify in DevTools → Application → IndexedDB)
+  - Fuse.js search returns relevant results across all cached articles (test with 5 different queries)
+  - Offline banner appears/disappears correctly when toggling network in DevTools
+
+budget_usd: 5.0
+time_seconds: 4800
+concurrency: 4
+project_id: "stress-pwa-news-v1"
+output_dir: "./outputs/stress_test/05_pwa_news"
+
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.88
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

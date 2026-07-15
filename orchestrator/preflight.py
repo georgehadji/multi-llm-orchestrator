@@ -65,6 +65,7 @@ class CheckType(Enum):
     FORMAT = "format"
     PRIVACY = "privacy"
     SECURITY = "security"
+    PRODUCTION_READINESS = "production_readiness"
 
 
 @dataclass
@@ -310,6 +311,27 @@ class PreflightValidator:
             passed=True,
             severity=0,
             message="Format appears correct",
+        )
+
+    def _check_production_readiness(self, response: str, context: dict[str, Any]) -> CheckResult:
+        """Check for production-readiness anti-patterns in generated code."""
+        issues: list[str] = []
+        for pattern, message, severity in self.PRODUCTION_READINESS_PATTERNS:
+            if re.search(pattern, response, re.IGNORECASE):
+                issues.append(message)
+        if issues:
+            return CheckResult(
+                check_type=CheckType.PRODUCTION_READINESS,
+                passed=False,
+                severity=5,
+                message="; ".join(issues),
+                details={"issue_count": len(issues)},
+            )
+        return CheckResult(
+            check_type=CheckType.PRODUCTION_READINESS,
+            passed=True,
+            severity=0,
+            message="No production-readiness issues detected",
         )
 
     def _determine_action(

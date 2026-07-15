@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
-from .log_config import get_logger
+from ..log_config import get_logger
 from .plugin_isolation import (
     IsolatedResult,
     IsolationConfig,

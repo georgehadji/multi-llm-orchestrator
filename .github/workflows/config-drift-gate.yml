@@ -1,0 +1,45 @@
+# Config-drift gate — Track C of .claude/skills/orchestrator-hardest-problems-campaign.
+#
+# Guards the repo's most-repeated failure mode: keys/values in
+# orchestrator/config/{costs,routing,fallbacks}.json drifting from the Model /
+# TaskType enum values in orchestrator/models.py. Drifted entries are SILENTLY
+# DROPPED by the config builders (no error, no log) — models stop being routed
+# to, costs stop being counted. See skill orchestrator-failure-archaeology for
+# the incident history.
+#
+# BLOCKING by design (baseline was cleaned 2026-07-11: 5 hard-drift entries
+# removed/re-keyed). Editing or weakening this workflow is an
+# architectural-class change per skill orchestrator-change-control.
+
+name: Config Drift Gate
+
+on:
+  pull_request:
+    paths:
+      - "orchestrator/models.py"
+      - "orchestrator/config/**"
+      - ".claude/skills/orchestrator-diagnostics-and-tooling/scripts/check_config_drift.py"
+      - ".github/workflows/config-drift-gate.yml"
+  push:
+    branches: [master]
+    paths:
+      - "orchestrator/models.py"
+      - "orchestrator/config/**"
+
+jobs:
+  config-drift:
+    name: Config keys == enum values
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The checker imports orchestrator.models only; install without extras.
+      - name: Install package
+        run: pip install -e . --quiet
+
+      - name: Check config/enum drift (silent-drop guard)
+        run: python .claude/skills/orchestrator-diagnostics-and-tooling/scripts/check_config_drift.py

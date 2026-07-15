@@ -32,6 +32,7 @@ async def decompose_project(
     charge_fn: Callable[..., Any],
     app_profile: Any = None,
     policy: Any = None,
+    project_context: Any = None,
 ) -> dict[str, Task]:
     """Decompose a project description into atomic tasks.
 
@@ -39,21 +40,41 @@ async def decompose_project(
     Decomposer if Instructor is unavailable, the project exceeds its context
     window, or the Instructor attempt fails.
 
+    If ``project_context`` is provided and contains a primary language, it is
+    injected into the project description so the decomposition LLM knows what
+    language to target.
+
     Returns:
         Dict mapping ``task.id → Task``.
     """
+    # ── Inject language hint from project_context into description ──────
+    enhanced_project = project
+    if project_context is not None:
+        try:
+            tech_stack = getattr(project_context, "tech_stack", None) or []
+            if tech_stack:
+                primary_lang = tech_stack[0] if isinstance(tech_stack, list) else str(tech_stack)
+                if primary_lang and primary_lang not in ("python",):
+                    enhanced_project = (
+                        f"{project}\n\n"
+                        f"IMPORTANT: This is a {primary_lang} project. "
+                        f"All code_generation tasks MUST produce {primary_lang} code output. "
+                        f"Do NOT generate Python code for this project."
+                    )
+                    logger.info("Injected target language into decomposition: %s", primary_lang)
+        except Exception:
+            pass
+
     # ── Fast path: Instructor structured decomposition ──────────────────
     try:
         from ..structured_outputs import TaskDecomposer
 
-        if len(project) <= _INSTRUCTOR_MAX_CHARS:
+        if len(enhanced_project) <= _INSTRUCTOR_MAX_CHARS:
             decomposer_inst = TaskDecomposer(api_client=client)  # type: ignore[no-untyped-call]
-            decomp_model = (
-                "deepseek/deepseek-v4-flash" if "free" in model.value.lower() else model.value
-            )
+            decomp_model = model.value
             logger.info("Using Instructor for structured decomposition with %s", decomp_model)
             result = await decomposer_inst.decompose(
-                project_description=project,
+                project_description=enhanced_project,
                 success_criteria=criteria,
                 model=decomp_model,
                 max_retries=1,
@@ -71,12 +92,13 @@ async def decompose_project(
 
     # ── Fallback: DAG-based Decomposer from engine_core ────────────────
     fallback_tasks: dict[str, Task] = await decomposer.decompose(
-        project=project,
+        project=enhanced_project,
         criteria=criteria,
         app_profile=app_profile,
         policy=policy,
         api_health=api_health,
         record_failure_fn=record_failure_fn,
         charge_fn=charge_fn,
+        project_context=project_context,
     )
     return fallback_tasks

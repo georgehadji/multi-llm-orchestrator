@@ -44,14 +44,27 @@ def safe_print(msg: str, **kwargs: Any) -> None:
             pass
 
 
-def _default_output_dir(project_id: str | None) -> str:
+def _default_output_dir(project_id: str | None, description: str = "") -> str:
     """
     Build a default output path when --output-dir is not supplied.
-    Format: ./outputs/<project_id> or ./outputs/app_<timestamp> if no project_id
+
+    Precedence:
+    1. If project_id is set → ./outputs/<project_id>
+    2. If description is provided → ./outputs/<slugified-description>
+    3. Otherwise → ./outputs/app_<timestamp>
+
     The directory is created by write_output_dir, not here.
     """
     if project_id:
         return str(Path("outputs") / project_id)
+    if description:
+        import re
+
+        slug = re.sub(r"[^a-z0-9]+", "-", description.lower()).strip("-")
+        words = slug.split("-")
+        trimmed = "-".join(words[:5])[:50].rstrip("-")
+        if trimmed:
+            return str(Path("outputs") / trimmed)
     from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

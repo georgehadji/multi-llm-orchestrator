@@ -235,6 +235,11 @@ def run() -> None:
 
     args = parser.parse_args()
 
+    # ── Logging setup ─────────────────────────────────────────────────────────
+    from orchestrator.application.cli_helpers import setup_logging
+
+    setup_logging(getattr(args, "verbose", False))
+
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
     if args.subcommand is not None:
@@ -269,6 +274,25 @@ def run() -> None:
 
     if not args.project or not args.criteria:
         parser.error("--project and --criteria are required")
+
+    # ── Input validation ──────────────────────────────────────────────
+    project = args.project.strip()
+    criteria = args.criteria.strip()
+    if not project:
+        parser.error("--project must not be empty or whitespace-only")
+    if not criteria:
+        parser.error("--criteria must not be empty or whitespace-only")
+    if len(project) < 3:
+        parser.error(f"--project must be at least 3 characters (got {len(project)})")
+    if len(project) > 8000:
+        parser.error(f"--project must be at most 8000 characters (got {len(project)})")
+    # Warn on suspicious input that looks like prompt injection
+    suspicious = ["ignore previous", "system prompt", "<|im_start|>", "<|im_end|>"]
+    for s in suspicious:
+        if s.lower() in project.lower() or s.lower() in criteria.lower():
+            logger.warning("Input contains suspicious pattern: %s", s)  # noqa: G004
+    args.project = project
+    args.criteria = criteria
 
     if args.dry_run or args.mode == "query":
         asyncio.run(_async_dry_run(args))
@@ -387,7 +411,9 @@ async def _async_file_project(args: Any) -> None:
         budget=budget, max_concurrency=concurrency, tracing_cfg=_build_tracing_cfg(args)
     )
 
-    output_dir = args.output_dir or result.output_dir or _default_output_dir(result.project_id)
+    output_dir = args.output_dir or result.output_dir or _default_output_dir(
+        result.project_id, description=spec.project_description
+    )
 
     renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
     project_id = result.project_id or ""
@@ -531,7 +557,9 @@ async def _async_new_project(args: Any) -> None:
         # Route through AppBuilder
         from orchestrator.app_builder import AppBuilder
 
-        output_dir = args.output_dir or _default_output_dir(None)
+        output_dir = args.output_dir or _default_output_dir(
+            getattr(args, "project_id", "") or "", description=description
+        )
         print(f"Starting app build (budget: ${args.budget})")
         print(f"Project: {description}")
         print(f"Criteria: {criteria}")

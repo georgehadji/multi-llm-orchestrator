@@ -82,6 +82,8 @@ class TaskType(str, Enum):
 
     VIDEO_GEN = "video_generation"
 
+    MECHANISM_RESEARCH = "mechanism_research"
+
 
 class DesignVariant(str, Enum):
     """Visual design direction for frontend code generation tasks.
@@ -95,6 +97,11 @@ class DesignVariant(str, Enum):
     MINIMALIST = "minimalist"  # Editorial / Notion-style
     BRUTALIST = "brutalist"  # Swiss / industrial mechanical
     REDESIGN = "redesign"  # Audit-first redesign of existing UI
+    # ── Emil Kowalski animation skills (skills-main) ──────────────
+    ANIMATION_VOCABULARY = "animation_vocabulary"  # Precise motion terminology
+    APPLE_FLUID = "apple_fluid"  # Apple WWDC fluid-interface principles
+    ANIMATION_REVIEW = "animation_review"  # 10-standard animation review bar
+    # ───────────────────────────────────────────────────────────────
 
 
 class DesignScope(str, Enum):
@@ -126,15 +133,15 @@ class Model(Enum):
     """Unified enum for all supported LLM models."""
 
     # ═══════════════════════════════════════════════════════
-    # Free Tier (OpenRouter)
+    # Free Tier (OpenRouter) — DEPRECATED, no longer routable
     # ═══════════════════════════════════════════════════════
-    QWEN_CODER_FREE = "qwen/qwen3-coder:free"
-    GPT_OSS_120B_FREE = "openai/gpt-oss-120b:free"
-    QWEN_NEXT_80B_FREE = "qwen/qwen3-next-80b-a3b-instruct:free"
-    LLAMA_3_3_70B_FREE = "meta-llama/llama-3.3-70b-instruct:free"
-    NEMOTRON_3_ULTRA_FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"
-    NEMOTRON_3_SUPER_FREE = "nvidia/nemotron-3-super-120b-a12b:free"
-    NEMOTRON_NANO_9B_FREE = "nvidia/nemotron-nano-9b-v2:free"
+    _QWEN_CODER_FREE = "qwen/qwen3-coder:free"  # deprecated
+    _GPT_OSS_120B_FREE = "openai/gpt-oss-120b:free"  # deprecated
+    _QWEN_NEXT_80B_FREE = "qwen/qwen3-next-80b-a3b-instruct:free"  # deprecated
+    _LLAMA_3_3_70B_FREE = "meta-llama/llama-3.3-70b-instruct:free"  # deprecated
+    _NEMOTRON_3_ULTRA_FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"  # deprecated
+    _NEMOTRON_3_SUPER_FREE = "nvidia/nemotron-3-super-120b-a12b:free"  # deprecated
+    _NEMOTRON_NANO_9B_FREE = "nvidia/nemotron-nano-9b-v2:free"  # deprecated
 
     # ═══════════════════════════════════════════════════════
     # Open-Source Models (Tier 1 - Top Performers)
@@ -342,13 +349,13 @@ COST_TABLE: dict[Model, CostDict] = {
     # ------------------------------------------------
     # Free Tier Models
     # ------------------------------------------------
-    Model.QWEN_CODER_FREE: {"input": 0.00, "output": 0.00},
-    Model.GPT_OSS_120B_FREE: {"input": 0.00, "output": 0.00},
-    Model.QWEN_NEXT_80B_FREE: {"input": 0.00, "output": 0.00},
-    Model.LLAMA_3_3_70B_FREE: {"input": 0.00, "output": 0.00},
-    Model.NEMOTRON_3_ULTRA_FREE: {"input": 0.00, "output": 0.00},
-    Model.NEMOTRON_3_SUPER_FREE: {"input": 0.00, "output": 0.00},
-    Model.NEMOTRON_NANO_9B_FREE: {"input": 0.00, "output": 0.00},
+    Model._QWEN_CODER_FREE: {"input": 0.00, "output": 0.00},
+    Model._GPT_OSS_120B_FREE: {"input": 0.00, "output": 0.00},
+    Model._QWEN_NEXT_80B_FREE: {"input": 0.00, "output": 0.00},
+    Model._LLAMA_3_3_70B_FREE: {"input": 0.00, "output": 0.00},
+    Model._NEMOTRON_3_ULTRA_FREE: {"input": 0.00, "output": 0.00},
+    Model._NEMOTRON_3_SUPER_FREE: {"input": 0.00, "output": 0.00},
+    Model._NEMOTRON_NANO_9B_FREE: {"input": 0.00, "output": 0.00},
     # ------------------------------------------------
     # Open-Source Models (Tier 1)
     # ------------------------------------------------
@@ -497,13 +504,13 @@ COST_TABLE: dict[Model, CostDict] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 CONTEXT_WINDOWS: dict[Model, int] = {
     # Free Tier
-    Model.QWEN_CODER_FREE: 32768,
-    Model.GPT_OSS_120B_FREE: 32768,
-    Model.QWEN_NEXT_80B_FREE: 32768,
-    Model.LLAMA_3_3_70B_FREE: 8192,
-    Model.NEMOTRON_3_ULTRA_FREE: 4096,
-    Model.NEMOTRON_3_SUPER_FREE: 4096,
-    Model.NEMOTRON_NANO_9B_FREE: 4096,
+    Model._QWEN_CODER_FREE: 32768,
+    Model._GPT_OSS_120B_FREE: 32768,
+    Model._QWEN_NEXT_80B_FREE: 32768,
+    Model._LLAMA_3_3_70B_FREE: 8192,
+    Model._NEMOTRON_3_ULTRA_FREE: 4096,
+    Model._NEMOTRON_3_SUPER_FREE: 4096,
+    Model._NEMOTRON_NANO_9B_FREE: 4096,
     # Open Source (Tier 1)
     Model.GPT_OSS_120B: 32768,
     Model.GPT_OSS_20B: 32768,
@@ -944,6 +951,21 @@ from .budget import Budget  # noqa: F401
 # ─────────────────────────────────────────────
 
 
+@dataclass(frozen=True)
+class Verdict:
+    """Binary verdict with score for objective verification.
+
+    Returned by Verifier implementations to signal pass/fail.
+    ``signals`` captures which sub-checks fired (for telemetry).
+    ``detail`` contains a human-readable explanation.
+    """
+
+    passed: bool
+    score: float  # 0..1, for cascade min_score comparison
+    signals: tuple[str, ...] = ()  # which checks fired, for telemetry
+    detail: str = ""
+
+
 @dataclass
 class Task:
 
@@ -974,6 +996,8 @@ class Task:
     module_name: str = ""  # e.g. "src.routes.auth"
 
     tech_context: str = ""  # brief note on tech stack for this file
+
+    target_language: str = ""  # "python", "html", "css", "javascript", "typescript", etc.
 
     preferred_model: object | None = None  # Model | None
 

@@ -1,0 +1,93 @@
+# ──────────────────────────────────────────────────────
+# STRESS TEST 06: Architecture Complexity — Micro-Frontend Shell
+# Author: Reasonix (stress-test suite)
+# Dimension: Architectural reasoning, module boundaries, inter-module contracts
+# Run with:
+#   python -m orchestrator --file projects/stress_test/06_microfrontend_shell.yaml
+# ──────────────────────────────────────────────────────
+#
+# The orchestrator must design the shell, define shared contracts, and
+# ensure each micro-frontend can be developed independently. Tests deep
+# REASONING tasks: architecture decisions, dependency graphs, and
+# contract design before any code is generated.
+
+project: |
+  Build a micro-frontend e-commerce platform using Webpack Module Federation.
+
+  ARCHITECTURE REQUIREMENTS:
+  - Each micro-frontend is a separate build with its own package.json
+  - Shell app orchestrates: routing, auth context, shared design tokens, error boundary
+  - All micro-frontends share a common design system and auth library (NOT duplicated)
+  - Communication between micro-frontends via custom DOM events (not direct imports)
+  - Each team's app can be developed, tested, and deployed independently
+
+  SHELL APP (Team Platform):
+  1. React 18 host application with React Router v6
+  2. Auth context provider wrapping all remote modules
+  3. Navigation bar with cart item count badge (from Cart team's events)
+  4. Lazy-loading remote modules with Suspense fallbacks
+  5. Shared design tokens (CSS custom properties): colors, spacing, typography, shadows
+  6. Global error boundary catching crashes from any remote module
+
+  TEAM A — HOME (Port 3001):
+  7. Hero banner with promotional carousel (3 slides, auto-rotate every 5s)
+  8. Featured products grid (8 products from shared mock data)
+  9. Category navigation cards (4 categories with images)
+  10. "Recently Viewed" section reading from shared local-storage utility
+
+  TEAM B — PRODUCTS (Port 3002):
+  11. Product listing page with URL-driven filters (category, price range, sort, search)
+  12. Product detail page: image gallery, description, price, size/color selector, add-to-cart
+  13. Related products carousel at bottom of detail page
+  14. Breadcrumb navigation synced with category hierarchy
+
+  TEAM C — CART (Port 3003):
+  15. Cart slide-over drawer accessible from any page via the shell's header icon
+  16. Cart items list with quantity stepper, remove button, product thumbnail
+  17. Cart summary: subtotal, shipping estimate, tax, total
+  18. Emits "cart-updated" custom event so shell badge stays in sync
+
+  TEAM D — PROFILE (Port 3004):
+  19. Order history with status badges (processing, shipped, delivered, returned)
+  20. Address book: add, edit, delete, set default
+  21. Account settings: name, email, password change
+  22. Wishlist grid
+
+  TEAM E — ADMIN (Port 3005):
+  23. Product management: table with CRUD, image upload, stock tracking
+  24. Order management: filter by status, view details, update status
+  25. Analytics dashboard: revenue chart, top products, order volume (Recharts)
+  26. Protected route: only accessible to users with "admin" role
+
+  SHARED LIBRARIES:
+  27. @shared/design-system — tokens, typography mixins, breakpoint constants
+  28. @shared/auth — login form, token management, useAuth hook, role checking
+  29. @shared/api — fetch wrapper with auth header injection, error handling
+  30. @shared/mock-data — 50 products across 4 categories, 20 mock orders
+
+criteria: |
+  - Each micro-frontend builds independently (cd team-* && npm run build succeeds)
+  - Shell app loads all 5 remote modules at runtime without build-time imports
+  - Shared dependencies (react, react-dom, react-router) are NOT duplicated in bundles
+  - Adding a product to cart from Team B updates the cart badge in the Shell header
+  - Team E (Admin) route redirects non-admin users to home with a toast message
+  - When Team C's app crashes (simulate by throwing in a component), the Shell error boundary catches it and shows "Cart is temporarily unavailable"
+  - All 5 teams use the same CSS custom properties from @shared/design-system
+  - Navigation between teams preserves cart state (Team B → Team C shows same items)
+  - TypeScript strict mode passes in every module
+
+budget_usd: 10.0
+time_seconds: 10800
+concurrency: 6
+project_id: "stress-microfrontend-v1"
+output_dir: "./outputs/stress_test/06_microfrontend"
+
+quality_targets:
+  code_generation:   0.90
+  code_review:       0.88
+  complex_reasoning: 0.92
+  evaluation:        0.94
+
+policies:
+  - name: no_training
+    allow_training_on_output: false

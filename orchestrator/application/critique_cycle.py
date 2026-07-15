@@ -46,6 +46,17 @@ class CritiqueState:
     failed_validators: list[str] = field(default_factory=list)
     model_escalated: bool = False
 
+    # ── Per-phase token tracking ──────────────────────────
+    generation_input_tokens: int = 0
+    generation_output_tokens: int = 0
+    generation_cost: float = 0.0
+    critique_input_tokens: int = 0
+    critique_output_tokens: int = 0
+    critique_cost: float = 0.0
+    revision_input_tokens: int = 0
+    revision_output_tokens: int = 0
+    revision_cost: float = 0.0
+
 
 class CritiqueCycle:
     """
@@ -105,6 +116,9 @@ class CritiqueCycle:
             state.total_cost += generate_response.cost_usd
             state.total_input_tokens += generate_response.input_tokens
             state.total_output_tokens += generate_response.output_tokens
+            state.generation_input_tokens += generate_response.input_tokens
+            state.generation_output_tokens += generate_response.output_tokens
+            state.generation_cost += generate_response.cost_usd
 
             if task.type == TaskType.CODE_GEN:
                 output = self._clean_code_output(output)
@@ -154,8 +168,31 @@ class CritiqueCycle:
                 except Exception:
                     pass
 
+                # ── taste-skill: animation review standards when variant == ANIMATION_REVIEW ──
+                _animation_standards_text = None
+                try:
+                    from ..models import DesignVariant as _DV2
+                    from ..design.taste_skill_loader import get_default_loader as _get_loader
+
+                    if getattr(task, "design_variant", None) == _DV2.ANIMATION_REVIEW:
+                        _loader = _get_loader()
+                        _review_text = _loader.load("review_animations")
+                        _standards_text = _loader.load("animation_standards")
+                        if _review_text and _standards_text:
+                            _animation_standards_text = (
+                                "<animation_review_standards>\n"
+                                f"{_review_text}\n\n"
+                                f"## Precise Values Reference\n\n{_standards_text}\n"
+                                "</animation_review_standards>"
+                            )
+                except Exception:
+                    pass
+                # ──────────────────────────────────────────────────────────────────────────────
+
                 # Enrich the critique prompt with LSP diagnostics summary
                 _critique_prompt = full_prompt
+                if _animation_standards_text:
+                    _critique_prompt = f"{_animation_standards_text}\n\n{_critique_prompt}"
                 if lsp_summary:
                     _critique_prompt = (
                         full_prompt
@@ -181,6 +218,9 @@ class CritiqueCycle:
                     state.total_cost += critique_response.cost_usd
                     state.total_input_tokens += critique_response.input_tokens
                     state.total_output_tokens += critique_response.output_tokens
+                    state.critique_input_tokens += critique_response.input_tokens
+                    state.critique_output_tokens += critique_response.output_tokens
+                    state.critique_cost += critique_response.cost_usd
 
             state.scores_history.append(score)
 

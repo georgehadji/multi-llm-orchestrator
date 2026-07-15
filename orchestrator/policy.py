@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from .budget import Budget
+    from .domain.capability_vector import CapabilityVector
     from .models import Model, TaskType
 
 VALID_QUALITY_MODES = ("standard", "production")
@@ -126,6 +127,9 @@ class ModelProfile:
     avg_cost_usd: float = 0.0  # EMA of actual per-call USD cost
     validator_fail_count: int = 0  # cumulative deterministic-check failures
     latency_samples: list[float] = field(default_factory=list)  # sorted buffer, last 50 samples
+
+    # ── ACR capability vector (Phase 0: inert, unused by any backend) ────────
+    capability: CapabilityVector | None = None
 
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Compute estimated USD cost for a hypothetical call."""

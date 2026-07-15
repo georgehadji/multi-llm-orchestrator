@@ -28,11 +28,11 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .log_config import get_logger
-from .performance import cached
+from ..log_config import get_logger
+from ..performance import cached
 
 if TYPE_CHECKING:
-    from .models import Task, TaskStatus
+    from ..models import Task, TaskStatus
 
 logger = get_logger(__name__)
 

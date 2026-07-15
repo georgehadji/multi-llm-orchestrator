@@ -656,7 +656,7 @@ class HealthChecker:
         start = time.time()
 
         try:
-            from .transfer_learning import get_transfer_engine
+            from ..transfer_learning import get_transfer_engine
 
             transfer_engine = get_transfer_engine()
 
