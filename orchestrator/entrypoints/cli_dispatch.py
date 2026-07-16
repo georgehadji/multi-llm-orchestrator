@@ -411,8 +411,10 @@ async def _async_file_project(args: Any) -> None:
         budget=budget, max_concurrency=concurrency, tracing_cfg=_build_tracing_cfg(args)
     )
 
-    output_dir = args.output_dir or result.output_dir or _default_output_dir(
-        result.project_id, description=spec.project_description
+    output_dir = (
+        args.output_dir
+        or result.output_dir
+        or _default_output_dir(result.project_id, description=spec.project_description)
     )
 
     renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))

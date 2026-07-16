@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from orchestrator.services.evaluator import EvaluatorService
+from orchestrator.application.evaluator import EvaluatorService
 from orchestrator.application.verification_gate import (
     GateResult,
     VerificationCheck,

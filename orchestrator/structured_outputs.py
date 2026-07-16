@@ -49,7 +49,8 @@ class TaskInput(BaseModel):
         default=0.85, ge=0.0, le=1.0, description="Minimum acceptance score"
     )
     target_language: str = Field(
-        default="", description="Target programming language: python, html, css, javascript, typescript, etc."
+        default="",
+        description="Target programming language: python, html, css, javascript, typescript, etc.",
     )
 
     @field_validator("id")

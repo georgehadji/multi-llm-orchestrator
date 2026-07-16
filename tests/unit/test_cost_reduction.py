@@ -100,7 +100,7 @@ class TestGateVetoSavesEvalSpend:
             VerificationCheck,
             VerificationGate,
         )
-        from orchestrator.services.evaluator import EvaluatorService
+        from orchestrator.application.evaluator import EvaluatorService
 
         async def _fail(artifact: str):
             return False, "tests failed"

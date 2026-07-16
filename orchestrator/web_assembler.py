@@ -88,7 +88,7 @@ class WebProjectAssembler:
         best_html: str = ""
         best_html_len: int = 0
 
-        for task_id in (state.execution_order or state.results):
+        for task_id in state.execution_order or state.results:
             result = state.results.get(task_id)
             task = state.tasks.get(task_id)
             if not result or not result.output:
@@ -164,8 +164,9 @@ def _guess_ext(task: Any, output: str) -> str:
 
     try:
         target_lang = getattr(task, "target_language", "") or ""
-        return _writer_ext_for(task.type if task else TaskType.CODE_GEN, output,
-                               target_language=target_lang)
+        return _writer_ext_for(
+            task.type if task else TaskType.CODE_GEN, output, target_language=target_lang
+        )
     except Exception:
         # Fallback: check content for HTML tags
         if re.search(r"<!DOCTYPE\s+html|<html|<head|<body", output, re.IGNORECASE):
@@ -206,7 +207,8 @@ def _extract_inline_js(html: str) -> str:
     # Match <script> blocks that are NOT loading external URLs
     matches = re.findall(
         r"<script(?![^>]*\bsrc\s*=\s*['\"])[^>]*>(.*?)</script>",
-        html, re.DOTALL | re.IGNORECASE,
+        html,
+        re.DOTALL | re.IGNORECASE,
     )
     return "\n\n".join(m.strip() for m in matches if m.strip())
 
@@ -218,7 +220,9 @@ def _strip_inline_css_js(html: str) -> str:
     # Remove non-CDN <script> blocks
     html = re.sub(
         r"<script(?![^>]*\bsrc\s*=\s*['\"])[^>]*>.*?</script>",
-        "", html, flags=re.DOTALL | re.IGNORECASE,
+        "",
+        html,
+        flags=re.DOTALL | re.IGNORECASE,
     )
     return html
 

@@ -1,4 +1,4 @@
-"""Unit tests for orchestrator.services.evaluator.EvaluatorService."""
+"""Unit tests for orchestrator.application.evaluator.EvaluatorService."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 
 from orchestrator.api_clients import APIResponse
 from orchestrator.models import Model, Task, TaskType
-from orchestrator.services.evaluator import EvaluatorService
+from orchestrator.application.evaluator import EvaluatorService
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures

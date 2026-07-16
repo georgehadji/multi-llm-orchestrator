@@ -182,6 +182,10 @@ class UnifiedClient:
             cost_service = CostService(JsonConfigAdapter())
 
         self._cost_service = cost_service
+        # OpenRouter feature flags (response-healing etc.); read once from env.
+        from ..config import OpenRouterOptimizations
+
+        self._or_opts = OpenRouterOptimizations.from_env()
         self._openrouter_api_key = openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
         self._deepseek_api_key = deepseek_api_key or os.environ.get("DEEPSEEK_API_KEY")
         self._api_key = self._openrouter_api_key
@@ -418,6 +422,8 @@ class UnifiedClient:
         **kwargs: Any,
     ) -> Any:
         """Surgically isolated method to perform the raw API request, allowing tests to mock it."""
+        # Opt-in OpenRouter server-side JSON repair for structured-output requests.
+        _maybe_add_response_healing(kwargs, getattr(self, "_or_opts", None))
         if "response_model" not in kwargs:
             return await client.client.chat.completions.create(
                 model=model_id,
