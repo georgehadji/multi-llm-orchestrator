@@ -8,7 +8,7 @@ import pytest
 
 from orchestrator.models import Model, Task, TaskResult, TaskStatus, TaskType
 from orchestrator.services.executor import ExecutorService
-from orchestrator.services.evaluator import EvaluatorService
+from orchestrator.application.evaluator import EvaluatorService
 from orchestrator.services.generator import GeneratorService
 from orchestrator.tracing import InMemoryExporter, Tracer
 

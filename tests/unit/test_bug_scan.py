@@ -28,7 +28,7 @@ import pytest
 # EvaluatorService.parse_score — output domain invariant
 # ──────────────────────────────────────────────────────────────────────────────
 
-from orchestrator.services.evaluator import EvaluatorService
+from orchestrator.application.evaluator import EvaluatorService
 
 _PARSE_INPUTS = [
     '{"score": 0.85}',

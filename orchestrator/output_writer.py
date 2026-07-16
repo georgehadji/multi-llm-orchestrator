@@ -243,7 +243,9 @@ def write_output_dir(
         if not result.output:
             continue  # skip skipped/empty tasks
 
-        ext = _ext_for(task.type, result.output, target_language=getattr(task, "target_language", ""))
+        ext = _ext_for(
+            task.type, result.output, target_language=getattr(task, "target_language", "")
+        )
         filename = f"{task_id}_{task.type.value}{ext}"
         dest = out / filename
 
@@ -432,7 +434,23 @@ def _render_content(task_type: TaskType, raw_output: str, ext: str, filename: st
     """
     if ext == ".py":
         return _extract_code_for_py_task(raw_output, filename)
-    if ext in (".html", ".css", ".scss", ".js", ".jsx", ".ts", ".tsx", ".dockerfile", ".yaml", ".sh", ".toml", ".sql", ".xml", ".ini", ".proto"):
+    if ext in (
+        ".html",
+        ".css",
+        ".scss",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".dockerfile",
+        ".yaml",
+        ".sh",
+        ".toml",
+        ".sql",
+        ".xml",
+        ".ini",
+        ".proto",
+    ):
         # For non-Python code blocks: extract the matching fenced block, or strip fences
         return _extract_code_for_py_task(raw_output, filename)
     if ext == ".json":

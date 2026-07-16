@@ -214,6 +214,7 @@ class GeneratorService:
             if project_context is not None:
                 try:
                     import inspect
+
                     sig = inspect.signature(self._decompose_fn)
                     params = sig.parameters
                     # Accept if named param exists, or if function has **kwargs (VAR_KEYWORD)

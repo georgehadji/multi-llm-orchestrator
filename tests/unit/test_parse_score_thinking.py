@@ -7,7 +7,7 @@ score because the thinking block was not stripped before parsing.
 
 import pytest
 
-from orchestrator.services.evaluator import EvaluatorService
+from orchestrator.application.evaluator import EvaluatorService
 
 pytestmark = pytest.mark.unit
 
