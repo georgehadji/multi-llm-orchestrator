@@ -122,7 +122,7 @@ class TestAutoErrorFixer:
     """Tests for auto_error_fix.py."""
 
     def test_extract_syntax_error(self):
-        from orchestrator.auto_error_fix import AutoErrorFixer
+        from orchestrator.quality.auto_error_fix import AutoErrorFixer
 
         fixer = AutoErrorFixer()
         error = fixer.extract_error_from_output(
@@ -131,20 +131,20 @@ class TestAutoErrorFixer:
         assert "SyntaxError" in error
 
     def test_extract_type_error(self):
-        from orchestrator.auto_error_fix import AutoErrorFixer
+        from orchestrator.quality.auto_error_fix import AutoErrorFixer
 
         fixer = AutoErrorFixer()
         error = fixer.extract_error_from_output("TypeError: 'NoneType' object is not callable\n")
         assert "TypeError" in error
 
     def test_validate_fix_valid_syntax(self):
-        from orchestrator.auto_error_fix import AutoErrorFixer
+        from orchestrator.quality.auto_error_fix import AutoErrorFixer
 
         result = asyncio.run(AutoErrorFixer._validate_fix("def foo(): pass"))
         assert result
 
     def test_validate_fix_bad_syntax(self):
-        from orchestrator.auto_error_fix import AutoErrorFixer
+        from orchestrator.quality.auto_error_fix import AutoErrorFixer
 
         result = asyncio.run(AutoErrorFixer._validate_fix("def foo(: pass"))
         assert not result

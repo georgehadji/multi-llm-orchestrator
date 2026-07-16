@@ -191,7 +191,6 @@ if flags.cost_optimization_enabled:
             inject_dependency_context,
             speculative_generate,
             stream_and_validate,
-            warm_prompt_cache,
         )
     except (ImportError, TimeoutError):
         OptimizationConfig = None
@@ -209,7 +208,6 @@ if flags.cost_optimization_enabled:
         inject_dependency_context = None
         speculative_generate = None
         stream_and_validate = None
-        warm_prompt_cache = None
 else:
     OptimizationConfig = None
     get_optimization_config = None
@@ -226,7 +224,6 @@ else:
     inject_dependency_context = None
     speculative_generate = None
     stream_and_validate = None
-    warm_prompt_cache = None
 
 try:
     from .hooks import EventType, HookRegistry
@@ -850,16 +847,6 @@ class Orchestrator:
     async def _start_periodic_cleanup(self, interval_seconds: int = 300) -> None:
         """Start periodic cleanup timer — delegates to TelemetrySnapshotter."""
         self._get_snapshotter().start_periodic_cleanup(interval_seconds)
-
-    async def _safe_record_routing_event(
-        self,
-        project_id: str,
-        task_id: str,
-        task_type: TaskType,
-        result: TaskResult,
-    ) -> None:
-        """Record routing event — delegates to TelemetrySnapshotter."""
-        await self._get_snapshotter().record_routing_event(project_id, task_id, task_type, result)
 
     async def _load_circuit_breaker_state(self) -> None:
         """Restore circuit breaker failure counts from the previous run (P1-4).
