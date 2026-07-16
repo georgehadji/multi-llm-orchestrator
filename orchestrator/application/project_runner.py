@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..models import ProjectState, ProjectStatus, TaskStatus
+from ..models import ProjectState, ProjectStatus, TaskStatus, TaskType
 from ..resilience import RetryTemplate
 from .project_runner_deps import ProjectRunnerCallables, ProjectRunState
 from .unattended_guard import RunContext, UnattendedGuard
