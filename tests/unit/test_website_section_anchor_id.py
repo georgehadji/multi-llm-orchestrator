@@ -9,6 +9,8 @@ when it lacks one, making intra-page navigation work.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(scope="module")
 def inject():

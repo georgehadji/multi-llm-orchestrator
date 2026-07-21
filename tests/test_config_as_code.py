@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.config_as_code import (
     AppConfig,
     EntitySchema,

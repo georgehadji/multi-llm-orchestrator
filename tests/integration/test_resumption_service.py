@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from orchestrator.budget import Budget
 from orchestrator.models import (
     ProjectState,

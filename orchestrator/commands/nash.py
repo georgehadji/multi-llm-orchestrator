@@ -88,7 +88,7 @@ def status(args):
     """Handle nash status command."""
     import asyncio
 
-    from orchestrator.nash_stable_orchestrator import get_nash_stable_orchestrator
+    from orchestrator.nash.stable_orchestrator import get_nash_stable_orchestrator
 
     async def show():
         orch = get_nash_stable_orchestrator()
@@ -146,7 +146,7 @@ def _print_nash_status(report):
 
 def tuning(args):
     """Handle nash tuning command."""
-    from orchestrator.nash_auto_tuning import get_auto_tuner
+    from orchestrator.nash.auto_tuning import get_auto_tuner
 
     tuner = get_auto_tuner()
 
@@ -176,7 +176,7 @@ def compare(args):
     import asyncio
 
     from orchestrator.models import Model, TaskType
-    from orchestrator.pareto_frontier import get_cost_quality_frontier
+    from orchestrator.analysis.pareto_frontier import get_cost_quality_frontier
 
     async def run():
         frontier = get_cost_quality_frontier()

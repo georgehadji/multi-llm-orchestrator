@@ -21,6 +21,9 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest
+
+pytestmark = pytest.mark.unit
 
 # Derive project root from this file's location (tests/ → project root)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent

@@ -1,6 +1,8 @@
 """Characterization tests for Orchestrator.run_project() delegation contract."""
 
 import pytest
+
+pytestmark = pytest.mark.unit
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 

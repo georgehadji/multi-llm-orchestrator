@@ -12,6 +12,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from orchestrator.engine_core.pipeline_runner import PipelineRunner
 from orchestrator.engine_core.project_planner import ProjectPlanner
 from orchestrator.models import Task, TaskType, TaskStatus

@@ -1,6 +1,8 @@
 """Unit tests for CritiqueCycle — score extraction, code cleaning, model params."""
 
 import pytest
+
+pytestmark = pytest.mark.unit
 from unittest.mock import MagicMock, AsyncMock, patch
 from orchestrator.application.critique_cycle import CritiqueCycle, CritiqueState
 from orchestrator.models import Task, TaskType, Model

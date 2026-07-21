@@ -1,7 +1,11 @@
 """
-Resilience Layer — Unified retry, fallback, and timeout policy
-===============================================================
+Resilience Layer — CANONICAL unified retry, fallback, and timeout policy
+=========================================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis
+
+CANONICAL PATH (Phase 1 — Resilience Unification).  All other retry/fallback/
+circuit-breaker mechanisms (fallback_handler.py, escalation.py, remediation.py,
+sagas.py, streaming_validator.py) must delegate to this module.
 
 Provides a single value object (ResiliencePolicy) that encapsulates all
 retry/fallback/timeout behavior, plus a task-aware preset table (RetryTemplate).
@@ -258,12 +262,23 @@ async def run_with_resilience(
         from tenacity import (
             AsyncRetrying,
             before_sleep_log,
-            retry_if_exception_type,
+            retry_if_exception,
             stop_after_attempt,
             stop_after_delay,
             wait_exponential,
             wait_random,
         )
+
+        # Custom retry predicate that uses ApplicationError.is_retriable()
+        # instead of hardcoded exception type lists.  This ensures the
+        # retriable flag on the ApplicationError hierarchy (including
+        # RateLimitError with retriable=True) is always respected.
+        from ..domain.exceptions import ApplicationError as _AppErr
+
+        def _should_retry(exc: BaseException) -> bool:
+            return _AppErr.is_retriable(exc) if isinstance(exc, Exception) else False
+
+        _retry_predicate = retry_if_exception(_should_retry)
     except ImportError as exc:
         logger.warning("tenacity not available; running callables without retry: %s", exc)
         last_exc: Exception | None = None
@@ -287,7 +302,7 @@ async def run_with_resilience(
         retrying = AsyncRetrying(
             stop=stop_after_attempt(policy.retries) | stop_after_delay(int(policy.timeout)),
             wait=wait_strategy,
-            retry=retry_if_exception_type(policy.retryable_exceptions),
+            retry=_retry_predicate,
             before_sleep=before_sleep_log(logger, logging.WARNING),
             reraise=True,
         )

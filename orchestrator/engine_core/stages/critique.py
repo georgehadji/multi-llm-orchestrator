@@ -36,6 +36,9 @@ class CritiqueStage:
     model sees concrete errors and warnings alongside generated code.
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 200
+
     def __init__(
         self,
         client: LLMClient,

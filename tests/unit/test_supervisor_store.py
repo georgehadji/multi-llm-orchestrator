@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.supervisor.models import Lesson, SupervisorSession
 from orchestrator.supervisor.store import SupervisorStore
 

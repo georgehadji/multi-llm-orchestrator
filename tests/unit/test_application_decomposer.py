@@ -12,6 +12,8 @@ import asyncio
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.application.decomposer import (
     Decomposer,
     DecomposerMetrics,

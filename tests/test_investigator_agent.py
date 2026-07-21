@@ -7,6 +7,8 @@ Unit tests — no LLM calls made. All CodebaseAnalyzer calls are mocked.
 from __future__ import annotations
 
 import pytest
+
+pytestmark = pytest.mark.unit
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from orchestrator.agents.base import AgentRole, AgentTask, AgentTaskResult

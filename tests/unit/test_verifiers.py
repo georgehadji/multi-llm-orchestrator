@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import TaskType, Verdict
 from orchestrator.verification.python_ast import PythonASTVerifier
 from orchestrator.verification.json_schema import JSONSchemaVerifier

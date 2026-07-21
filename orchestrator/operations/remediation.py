@@ -1,5 +1,10 @@
 """
-Auto-Remediation Engine.
+Auto-Remediation Engine — DEPRECATED
+=====================================
+⚠️  DEPRECATED (Phase 1 — Resilience Unification).  The strategy-ordering
+logic here should use the canonical ``UnifiedResiliencePolicy`` and
+``ResiliencePolicyConfig.fallback_strategies`` from
+``domain/resilience_policy.py`` instead.
 
 When a task fails or scores below threshold, RemediationEngine selects
 the next recovery strategy from an ordered RemediationPlan.

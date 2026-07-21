@@ -66,6 +66,9 @@ class EnhancedSelfConsistencyStage:
     - REASONING   -> CoVE (fact-check complex reasoning claims)
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 700
+
     def __init__(
         self,
         max_attempts: int = 2,

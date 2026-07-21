@@ -14,6 +14,8 @@ the response-healing) path unreachable:
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import TaskType
 from orchestrator.task_schemas import (
     generate_openrouter_schema,

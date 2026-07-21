@@ -6,6 +6,8 @@ not just unit coverage.
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from orchestrator.models import Model, TaskType
 from orchestrator.planner import ConstraintPlanner
 from orchestrator.policy import ModelProfile

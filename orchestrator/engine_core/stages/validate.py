@@ -19,6 +19,9 @@ class ValidateStage:
     on the task.
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 400
+
     def __init__(self) -> None:
         pass
 

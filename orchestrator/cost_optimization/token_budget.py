@@ -12,7 +12,7 @@ Features:
 - Cost estimation
 
 Usage:
-    from orchestrator.optimization import TokenBudget, OptimizationPhase
+    from orchestrator.operations.optimization import TokenBudget, OptimizationPhase
 
     budget = TokenBudget()
 

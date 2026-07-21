@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.domain.constitution import ProjectConstitution
 from orchestrator.domain.ports import FileReaderPort
 from orchestrator.ingest.speckit_adapter import (

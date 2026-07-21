@@ -12,7 +12,7 @@ Features:
 - Cost tracking and savings metrics
 
 Usage:
-    from orchestrator.optimization import BatchClient, OptimizationPhase
+    from orchestrator.operations.optimization import BatchClient, OptimizationPhase
 
     batch = BatchClient()
 

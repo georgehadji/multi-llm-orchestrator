@@ -16,6 +16,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.api_server import APIServer
 from typing import TYPE_CHECKING
 

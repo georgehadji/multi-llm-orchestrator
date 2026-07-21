@@ -1,6 +1,12 @@
 """
-Escalation — Automatic escalation to higher-capability models
-=============================================================
+Escalation — DEPRECATED
+========================
+⚠️  DEPRECATED (Phase 1 — Resilience Unification).  Quality-based escalation
+logic should use the canonical ``UnifiedResiliencePolicy`` path in
+``operations/resilience.py`` via ``CascadePolicy`` and ``resolve_fallback_chain()``.
+
+Keep this module for backward compatibility; new code must not import from it.
+
 Module for automatically escalating to higher-capability models when quality thresholds
 are not met or when specific conditions are triggered.
 
@@ -47,10 +53,25 @@ class EscalationResult:
 
 
 class EscalationHandler:
-    """Handles automatic escalation to higher-capability models."""
+    """Handles automatic escalation to higher-capability models.
+
+    ⚠️  DEPRECATED — use CascadePolicy and resolve_fallback_chain() from
+    operations/resilience.py instead.
+    """
 
     def __init__(self, evaluator: Evaluator | None = None):
-        """Initialize the escalation handler."""
+        """Initialize the escalation handler.
+
+        ⚠️  DEPRECATED — use cascade fallback via operations/resilience.py.
+        """
+        import warnings
+
+        warnings.warn(
+            "EscalationHandler is deprecated — use CascadePolicy from "
+            "orchestrator.operations.resilience",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.evaluator = evaluator or Evaluator()
         self.rules: list[EscalationRule] = []
         self.max_escalations = 3

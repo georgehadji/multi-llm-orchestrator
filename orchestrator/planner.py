@@ -195,7 +195,7 @@ class ConstraintPlanner:
 
         Example
         -------
-            from orchestrator.optimization import ParetoBackend
+            from orchestrator.operations.optimization import ParetoBackend
             planner.set_backend(ParetoBackend())
         """
         self._backend = backend

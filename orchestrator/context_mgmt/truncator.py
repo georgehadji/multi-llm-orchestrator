@@ -13,7 +13,7 @@ Strategies:
 4. Relevance filtering (keep task-type-relevant content)
 
 USAGE:
-    from orchestrator.context_truncator import SmartContextTruncator
+    from orchestrator.context_mgmt.truncator import SmartContextTruncator
 
     truncator = SmartContextTruncator()
 

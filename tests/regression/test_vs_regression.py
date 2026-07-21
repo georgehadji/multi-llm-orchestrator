@@ -8,6 +8,7 @@ Each test verifies:
 
 Runs standalone (no pytest, no conftest) — bypasses pre-existing
 import errors in the test infrastructure.
+pytestmark = pytest.mark.slow
 """
 
 from __future__ import annotations

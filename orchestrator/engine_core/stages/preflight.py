@@ -19,6 +19,9 @@ class PreflightStage:
     PASS/WARN/ENRICH/BLOCK gate logic.
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 600
+
     def __init__(self, validator: TaskValidator) -> None:
         self._validator = validator
 

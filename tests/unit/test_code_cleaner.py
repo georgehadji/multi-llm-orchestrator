@@ -6,6 +6,9 @@ P3-7 of REFACTORING_PLAN_V7.md — extracted from engine.py as a pure function.
 
 from orchestrator.output.code_cleaner import clean_code_output
 from orchestrator.models import TaskType
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_non_code_gen_returns_unchanged():

@@ -4,6 +4,8 @@ Unit tests for CritiqueStage — code review and critique injection.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.engine_core.pipeline import PipelineContext
 from orchestrator.engine_core.stages.critique import CritiqueStage
 from orchestrator.models import Task, TaskType

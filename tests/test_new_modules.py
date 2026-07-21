@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Category 1: Autonomous Execution
 # ═══════════════════════════════════════════════════════════════════════════

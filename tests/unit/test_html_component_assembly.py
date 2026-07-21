@@ -7,6 +7,8 @@ final ``index.html`` is a single valid document — not nested documents.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.generators.website_generator import WebsiteGenerator
 
 _COMPONENT = """<!DOCTYPE html>

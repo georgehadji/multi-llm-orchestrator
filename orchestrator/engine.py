@@ -48,6 +48,17 @@ from .exceptions import (
 )
 from .application.validators import validate_job_spec, validate_project_args
 from .crosscutting.config import flags
+from .engine_slimming import (
+    build_health_tracker,
+    build_resumption_service,
+    build_project_runner_callables,
+    build_skill_manager,
+    build_taste_skill_service,
+    build_dashboard_bridge,
+    build_git_bridge,
+    build_run_context,
+    build_meta_v2,
+)
 
 # OpenRouter Optimization Features (Phase 1)
 try:
@@ -480,17 +491,10 @@ class Orchestrator:
             decompose_fn=self._decompose,
         )
 
-        from .application.run_context import RunContext as _RunCtx
-        from .meta_integration import initialize_meta_optimization
-
-        self._run_ctx = _RunCtx(budget=self._c.budget)
-        self.meta_v2 = initialize_meta_optimization(
-            orchestrator=self,
+        self._run_ctx = build_run_context(budget=self._c.budget)
+        self.meta_v2 = build_meta_v2(
+            container=container,
             state_manager=self.state_mgr,
-            enable_transfer_learning=True,
-            enable_ab_testing=True,
-            enable_hitl=True,
-            enable_rollout=True,
         )
 
         self._project_id: str = ""  # DEPRECATED: use self._run_ctx.project_id
@@ -522,16 +526,12 @@ class Orchestrator:
         # stay in sync with what ModelHealthTracker writes.
         # P3-5: Thin bridges for optional dashboard / git integrations.
         # Created before health_tracker so the bridge can be passed in.
-        from .application.dashboard_bridge import DashboardBridge as _DashboardBridge
-        from .application.git_bridge import GitBridge as _GitBridge
-
-        self._dashboard_bridge = _DashboardBridge(self._dashboard_integration)
-        self._git_bridge = _GitBridge(self._git_integration)
+        self._dashboard_bridge = build_dashboard_bridge(self._dashboard_integration)
+        self._git_bridge = build_git_bridge(self._git_integration)
         # M6: ModelHealthTracker now owns its dicts; pass existing state as
         # initial values so persisted circuit-breaker counts are preserved.
-        from .application.model_health_tracker import ModelHealthTracker as _ModelHealthTracker
-
-        self._health_tracker = _ModelHealthTracker(
+        self._health_tracker = build_health_tracker(
+            container=container,
             telemetry=self._telemetry,
             dashboard=self._dashboard_bridge,
             adaptive_router=self._adaptive_router,
@@ -541,9 +541,7 @@ class Orchestrator:
             initial_api_health=self.api_health,
         )
         # P3-3: ResumptionService wraps _resume_project logic.
-        from .application.resumption_service import ResumptionService as _ResumptionService
-
-        self._resumption_svc = _ResumptionService(
+        self._resumption_svc = build_resumption_service(
             budget=self.budget,
             results=self.results,
             execute_task_fn=self._execute_task,
@@ -551,13 +549,10 @@ class Orchestrator:
         )
         # M3: ProjectRunner wired via callables + run_state (no host back-ref).
         from .application.project_runner import ProjectRunner as _ProjectRunner
-        from .application.project_runner_deps import (
-            ProjectRunnerCallables as _Callables,
-            ProjectRunState as _RunState,
-        )
+        from .application.project_runner_deps import ProjectRunState as _RunState
 
         self._run_state = _RunState(results=self.results)
-        _callables = _Callables(
+        _callables = build_project_runner_callables(
             topological_sort=self._topological_sort,
             topological_levels=self._topological_levels,
             make_state=self._make_state,
@@ -589,29 +584,15 @@ class Orchestrator:
         # SkillOpt: self-improving per-TaskType skill documents (P3-4 addendum)
         from .crosscutting.config import flags as _flags
 
-        if _flags.skill_optimization_enabled:
-            from .application.skill_manager import SkillManager as _SkillManager
-
-            skill_store = self._c.skill_store
-            self._skill_manager: Any = _SkillManager(
-                optimizer_client=self._c.client,
-                skill_store=skill_store,
-            )
-            logger.info("SkillOpt enabled — skill_manager initialized")
-        else:
-            self._skill_manager = None
+        self._skill_manager = build_skill_manager(container=container, flags=_flags)
 
         if tracing_cfg is not None and configure_tracing is not None:
             configure_tracing(tracing_cfg)
 
         # taste-skill: anti-slop design prefix for frontend tasks
         from .crosscutting.config import settings as _settings
-        from .design.taste_skill_service import TasteSkillService as _TasteSkillService
 
-        self._taste_skill_service = _TasteSkillService(
-            flags=_flags,
-            settings=_settings,
-        )
+        self._taste_skill_service = build_taste_skill_service(flags=_flags, settings=_settings)
 
         # Phase 5: Late-bind engine-level deps into PipelineExecutor
         container.wire_pipeline_executor(

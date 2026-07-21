@@ -4,6 +4,8 @@ import dataclasses
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.domain.capability_vector import CapabilityVector
 from orchestrator.models import Model
 from orchestrator.policy import ModelProfile

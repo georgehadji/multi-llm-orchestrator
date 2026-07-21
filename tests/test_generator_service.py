@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.exceptions import OrchestratorError
 from orchestrator.models import Task, TaskType
 from orchestrator.services.generator import GeneratorResult, GeneratorService

@@ -6,6 +6,8 @@ Run with: pytest tests/contracts/test_cache_port.py -v
 
 import pytest
 
+pytestmark = pytest.mark.contract
+
 pytestmark = pytest.mark.asyncio
 
 

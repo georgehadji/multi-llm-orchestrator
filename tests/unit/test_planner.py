@@ -4,6 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import Model, TaskType
 from orchestrator.planner import ConstraintPlanner
 from orchestrator.policy import ModelProfile

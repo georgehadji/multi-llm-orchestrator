@@ -29,6 +29,9 @@ class PersuasionDefenseStage:
     unverified claims for revision.
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 500
+
     def __init__(self, ara_integration: object = None) -> None:
         self._ara = ara_integration
 

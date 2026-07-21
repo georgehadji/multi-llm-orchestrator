@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import Budget, Task, TaskType
 from orchestrator.circuit_breaker import CircuitBreaker, CircuitState
 

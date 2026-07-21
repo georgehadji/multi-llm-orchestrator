@@ -12,7 +12,7 @@ This orchestrator creates Nash stability through accumulated intelligence
 that compounds over time, creating significant switching costs.
 
 Usage:
-    from orchestrator.nash_stable_orchestrator import NashStableOrchestrator
+    from orchestrator.nash.stable_orchestrator import NashStableOrchestrator
 
     orchestrator = NashStableOrchestrator()
 

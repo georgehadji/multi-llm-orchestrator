@@ -15,6 +15,8 @@ from typing import Any
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.application.verbalized_sampling import VSCandidate, VerbalizedSampler
 from orchestrator.models import Model, ProbabilityFormat, TaskType, VSConfig
 

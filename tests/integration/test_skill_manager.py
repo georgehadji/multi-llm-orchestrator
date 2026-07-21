@@ -14,6 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from orchestrator.application.skill_manager import SkillManager
 from orchestrator.application.skill_store import SkillStore
 from orchestrator.models import TaskType

@@ -8,7 +8,7 @@ Async: No — pure calculation and data processing
 Layer: L6 Observability
 
 Usage:
-    from orchestrator.cost_analytics import CostAnalytics
+    from orchestrator.costing.analytics import CostAnalytics
     analytics = CostAnalytics()
     analytics.track_usage(model="gpt-4", input_tokens=1000, output_tokens=500)
     forecast = analytics.forecast_cost(project_duration_days=30)

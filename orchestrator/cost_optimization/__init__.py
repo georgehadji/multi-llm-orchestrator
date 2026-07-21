@@ -12,7 +12,7 @@ Tiers:
 - Tier 4: DevOps Optimizations (Security + DX)
 
 Usage:
-    from orchestrator.optimization import PromptCacher, BatchClient, TokenBudget
+    from orchestrator.operations.optimization import PromptCacher, BatchClient, TokenBudget
 
     cacher = PromptCacher()
     batch = BatchClient()

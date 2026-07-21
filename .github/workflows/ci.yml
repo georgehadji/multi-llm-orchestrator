@@ -30,8 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # full history so the root-freeze diff can resolve origin/master
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -47,10 +45,12 @@ jobs:
       - name: Fetch baseline branch
         run: git fetch --no-tags origin master:refs/remotes/origin/master
       - name: Check root module freeze
-        run: python scripts/check_new_root_files.py --baseline origin/master
-        # Ensures no new root-level orchestrator/*.py files appear outside the
-        # kernel allowlist. Part of Architecture Remediation Plan Workstream A1.
-
+        run: python scripts/check_root_module_freeze.py
+        # Ensures no new root-level orchestrator/*.py files are added without
+        # explicit architectural review.  Baseline embedded in the script.
+        # Part of Architecture Remediation Plan V2 — Phase 3.1e.
+      - name: Check test marker coverage
+        run: python scripts/check_test_markers.py
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
