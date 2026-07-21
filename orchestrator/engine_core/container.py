@@ -398,32 +398,33 @@ class ServiceContainer:
         validator: Any,
     ) -> Any:
         """
-        Build a pipeline stage by class with appropriate constructor params.
+        Build a pipeline stage by class, using its ``build_kwargs`` classmethod.
+
+        Each stage class may define::
+
+            @classmethod
+            def build_kwargs(cls, **deps) -> dict: ...
+
+        which returns the kwargs needed for ``cls(**kwargs)``.  If not defined,
+        the stage is constructed with no arguments (zero-arg default).
         """
-        name = cls.__name__
-        if name == "GenerateStage":
-            return cls(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler)
-        if name == "CritiqueStage":
-            return cls(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler)
-        if name == "EvaluateStage":
-            return cls(evaluator=evaluator)
-        if name == "ValidateStage":
-            return cls()
-        if name == "PersuasionDefenseStage":
-            return cls(ara_integration=ara)
-        if name == "PreflightStage":
-            return cls(validator=validator)
-        if name == "EnhancedSelfConsistencyStage":
-            return cls(max_attempts=2, quality_threshold=0.7, ara_strategy=ara_strategy)
-        if name in (
-            "ConstitutionGate",
-            "TaskContextEnricher",
-            "DesignCritiqueStage",
-            "MAPElitesPipeline",
-        ):
-            return cls()
-        logger.warning("Unknown stage %s — constructing with no args", name)
-        return cls()
+        deps = {
+            "client": client,
+            "budget": budget,
+            "selector": selector,
+            "vs_sampler": vs_sampler,
+            "lsp_validator": lsp_validator,
+            "evaluator": evaluator,
+            "ara": ara,
+            "ara_strategy": ara_strategy,
+            "validator": validator,
+        }
+        builder = getattr(cls, "build_kwargs", None)
+        if builder is not None:
+            kwargs = builder(**deps)
+        else:
+            kwargs = {}
+        return cls(**kwargs)
 
     def wire_executor(self, execute_fn: Any, decompose_fn: Any = None) -> None:
         """Late-bind execute_fn and decompose_fn after Orchestrator.__init__ creates them."""

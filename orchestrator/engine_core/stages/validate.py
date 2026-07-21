@@ -21,6 +21,9 @@ class ValidateStage:
 
     # Pipeline stage ordering — lower values run first
     priority: int = 400
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {}
 
     def __init__(self) -> None:
         pass
