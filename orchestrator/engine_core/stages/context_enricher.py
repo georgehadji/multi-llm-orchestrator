@@ -40,6 +40,9 @@ class TaskContextEnricher:
 
     # Pipeline stage ordering — lower values run first
     priority: int = -50
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {}
 
     def __init__(self, skill_manager=None, taste_skill_service=None, client=None):
         self._skill_manager = skill_manager

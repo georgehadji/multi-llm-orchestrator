@@ -48,6 +48,7 @@ from .exceptions import (
 )
 from .application.validators import validate_job_spec, validate_project_args
 from .crosscutting.config import flags
+from .engine_flags import import_feature_modules
 from .engine_slimming import (
     build_health_tracker,
     build_resumption_service,
@@ -72,24 +73,17 @@ except ImportError:
     get_schema_for_task_type = None
 
 # P4-2: Optional imports are gated by FeatureFlags so the feature surface is
+
+_feat = import_feature_modules(flags)
+
 # explicit and testable.  Each block checks its flag first; if the flag is
 # disabled the import is never attempted and the symbols are set to None.
 # All flags default to True to preserve existing behaviour; users can opt out
 # via environment variables (e.g. ORCH_A2A_ENABLED=false).
 
-if flags.cache_optimizer_enabled:
-    try:
-        from .cache_optimizer import CacheConfig, CacheOptimizer
-
-        HAS_CACHE_OPTIMIZER = True
-    except ImportError:
-        HAS_CACHE_OPTIMIZER = False
-        CacheOptimizer = None
-        CacheConfig = None
-else:
-    HAS_CACHE_OPTIMIZER = False
-    CacheOptimizer = None
-    CacheConfig = None
+CacheOptimizer = _feat.get("CacheOptimizer")
+CacheConfig = _feat.get("CacheConfig")
+HAS_CACHE_OPTIMIZER = CacheOptimizer is not None
 
 from .policy import JobSpec, Policy, PolicySet
 from .state import StateManager

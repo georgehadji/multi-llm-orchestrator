@@ -57,6 +57,9 @@ class MAPElitesPipeline(BasePipeline):
 
     # Pipeline stage ordering — lower values run first
     priority: int = 800
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {}
 
     def __init__(self, grid_rows: int = 3, grid_cols: int = 3, generations: int = 3) -> None:
         self._grid: list[list[dict | None]] = [[None] * grid_cols for _ in range(grid_rows)]

@@ -27,6 +27,9 @@ class DesignCritiqueStage:
 
     # Pipeline stage ordering — lower values run first
     priority: int = 250
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {}
 
     def __init__(
         self,

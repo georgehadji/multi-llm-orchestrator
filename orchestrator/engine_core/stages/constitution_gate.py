@@ -35,6 +35,9 @@ class ConstitutionGate:
 
     # Pipeline stage ordering — lower values run first
     priority: int = -100
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {}
 
     def __init__(self, constitution: ProjectConstitution | None = None) -> None:
         self._c = constitution or ProjectConstitution()

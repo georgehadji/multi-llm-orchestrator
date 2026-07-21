@@ -28,47 +28,47 @@ logger = logging.getLogger("orchestrator.engine_flags")
 # Each entry is imported only when flags.flag_name is True.
 FEATURE_IMPORTS: dict[str, tuple[str, list[str], Any]] = {
     "cache_optimizer_enabled": (
-        ".cache_optimizer",
+        "orchestrator.cache_optimizer",
         ["CacheOptimizer", "CacheConfig"],
         None,
     ),
     "test_validation_enabled": (
-        ".test_validator",
+        "orchestrator.test_validator",
         ["TestValidator", "validate_and_generate_test"],
         None,
     ),
     "code_validation_enabled": (
-        ".code_validator",
+        "orchestrator.code_validator",
         ["validate_code", "extract_code_from_llm_response"],
         None,
     ),
     "a2a_enabled": (
-        ".a2a_manager",
+        "orchestrator.a2a_manager",
         ["A2AManager", "AgentCard"],
         None,
     ),
     "accountability_enabled": (
-        ".accountability",
+        "orchestrator.accountability",
         ["AccountabilityTracker", "ActionType", "ActorType"],
         None,
     ),
     "agent_safety_enabled": (
-        ".agent_safety",
+        "orchestrator.agent_safety",
         ["AgentSafetyMonitor", "SafetyEventType"],
         None,
     ),
     "audit_log": (
-        ".audit",
+        "orchestrator.audit",
         ["AuditLog"],
         None,
     ),
     "bm25_search_enabled": (
-        ".bm25_search",
+        "orchestrator.bm25_search",
         ["BM25Search", "get_bm25_search"],
         None,
     ),
     "cost_optimization_enabled": (
-        ".cost_optimization",
+        "orchestrator.cost_optimization",
         [
             "ModelCascader",
             "TokenBudget",
@@ -82,57 +82,57 @@ FEATURE_IMPORTS: dict[str, tuple[str, list[str], Any]] = {
         None,
     ),
     "memory_tier_enabled": (
-        ".memory_tier",
+        "orchestrator.memory_tier",
         ["MemoryTierManager"],
         None,
     ),
     "persona_enabled": (
-        ".persona",
+        "orchestrator.persona",
         ["PersonaManager", "PersonaMode"],
         None,
     ),
     "red_team_enabled": (
-        ".red_team",
+        "orchestrator.red_team",
         ["RedTeamFramework"],
         None,
     ),
     "reranker_enabled": (
-        ".reranker",
+        "orchestrator.reranker",
         ["LLMReranker", "get_reranker"],
         None,
     ),
     "session_lifecycle_enabled": (
-        ".session_lifecycle",
+        "orchestrator.session_lifecycle",
         ["SessionLifecycleManager"],
         None,
     ),
     "session_watcher_enabled": (
-        ".session_watcher",
+        "orchestrator.session_watcher",
         ["SessionWatcher"],
         None,
     ),
     "task_verifier_enabled": (
-        ".task_verifier",
+        "orchestrator.task_verifier",
         ["TaskVerifier"],
         None,
     ),
     "token_optimizer_enabled": (
-        ".token_optimizer",
+        "orchestrator.token_optimizer",
         ["TokenOptimizer"],
         None,
     ),
     "tracing_enabled": (
-        ".tracing",
+        "orchestrator.tracing",
         ["TracingConfig", "configure_tracing", "get_tracer", "traced_task"],
         None,
     ),
     "tdd_enabled": (
-        ".test_first_generator",
+        "orchestrator.test_first_generator",
         ["TestFirstGenerator", "TDDResult"],
         None,
     ),
     "diff_generation_enabled": (
-        ".diff_generator",
+        "orchestrator.diff_generator",
         ["DiffGenerator", "DiffResult", "apply_unified_diff"],
         None,
     ),
@@ -160,7 +160,7 @@ def import_feature_modules(flags: FeatureFlags) -> dict[str, Any]:
             continue
 
         try:
-            mod = importlib.import_module(module_path, package="orchestrator")
+            mod = importlib.import_module(module_path)
             for name in attr_names:
                 result[name] = getattr(mod, name, default)
         except (ImportError, AttributeError) as exc:
