@@ -11,7 +11,7 @@ Features:
 - Risk assessment
 
 Usage:
-    from orchestrator.project_manager import ProjectManager, TaskSchedule
+    from orchestrator.project_mgmt.manager import ProjectManager, TaskSchedule
 
     pm = ProjectManager()
     schedule = await pm.create_schedule(tasks, resources)

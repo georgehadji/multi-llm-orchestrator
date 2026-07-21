@@ -16,7 +16,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from orchestrator.git_service import (
+from orchestrator.vcs.service import (
     CheckRunConclusion,
     CheckRunOutput,
     CheckRunStatus,

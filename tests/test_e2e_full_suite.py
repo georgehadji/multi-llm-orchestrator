@@ -20,6 +20,9 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest
+
+pytestmark = pytest.mark.unit
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

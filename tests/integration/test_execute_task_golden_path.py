@@ -9,6 +9,8 @@ Uses NullState + mock LLM client — no API keys required, no disk I/O.
 from __future__ import annotations
 
 import pytest
+
+pytestmark = pytest.mark.integration
 from unittest.mock import AsyncMock, MagicMock
 
 from orchestrator.budget import Budget

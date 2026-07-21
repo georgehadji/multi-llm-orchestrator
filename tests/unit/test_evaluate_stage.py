@@ -5,6 +5,8 @@ Covers: exception handling, score normalization, evaluation_failed flags.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.engine_core.pipeline import PipelineContext
 from orchestrator.engine_core.stages.evaluate import EvaluateStage
 from orchestrator.models import Task, TaskType

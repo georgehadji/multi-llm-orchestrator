@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.application.validators import (
     MAX_BUDGET_USD,
     MAX_MAX_PARALLEL_TASKS,

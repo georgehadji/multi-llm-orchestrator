@@ -6,7 +6,7 @@ json-schema validation, Python AST compile-check, regex assertion,
 and a ``CompositeVerifier`` that weights multiple sub-verifiers.
 
 Usage:
-    from orchestrator.verification import Verifier, Verdict
+    from orchestrator.quality.verification import Verifier, Verdict
     from orchestrator.verification.python_ast import PythonASTVerifier
 
     verifier = PythonASTVerifier()

@@ -12,7 +12,7 @@ Unified YAML configuration for all meta-optimization features:
 - Monitoring configuration
 
 USAGE:
-    from orchestrator.meta_config import MetaOptimizationConfig
+    from orchestrator.meta.config import MetaOptimizationConfig
 
     # Load from YAML
     config = MetaOptimizationConfig.from_yaml("meta_config.yaml")

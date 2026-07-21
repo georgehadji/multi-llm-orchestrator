@@ -55,6 +55,9 @@ class MAPElitesPipeline(BasePipeline):
     50% exploratory (random grid cells).
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 800
+
     def __init__(self, grid_rows: int = 3, grid_cols: int = 3, generations: int = 3) -> None:
         self._grid: list[list[dict | None]] = [[None] * grid_cols for _ in range(grid_rows)]
         self._rows = grid_rows

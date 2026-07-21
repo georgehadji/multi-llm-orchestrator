@@ -1,11 +1,16 @@
 """
-Fallback Handler — Circuit Breaker & Model Health
-==================================================
+Fallback Handler — DEPRECATED
+==============================
 Author: Georgios-Chrysovalantis Chatzivantsidis
 
-Handles model selection, circuit breaker logic, fallback chains, and health tracking.
+⚠️  DEPRECATED (Phase 1 — Resilience Unification).  All retry/fallback/
+circuit-breaker logic should use the canonical path in ``operations/resilience.py``
+via ``run_with_resilience()`` and ``ResiliencePolicy``.
 
-Part of Application Layer (Phase 4) — Canonical location.
+The binary health-tracking and circuit-breaker logic here duplicates
+``CircuitBreakerRegistry`` (circuit_breaker.py) and ``resolve_fallback_chain()``
+(operations/resilience.py).  Keep this module for backward compatibility;
+new code must NOT import from it.
 """
 
 from __future__ import annotations
@@ -49,9 +54,20 @@ class FallbackHandler:
         """
         Initialize fallback handler.
 
+        ⚠️  DEPRECATED — use ``run_with_resilience()`` and ``CircuitBreakerRegistry``
+        from ``operations/resilience.py`` / ``circuit_breaker.py`` instead.
+
         Args:
             adaptive_router: Optional adaptive router for advanced routing
         """
+        import warnings
+
+        warnings.warn(
+            "FallbackHandler is deprecated — use run_with_resilience() from "
+            "orchestrator.operations.resilience",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Model health tracking
         self.api_health: dict[Model, bool] = dict.fromkeys(Model, True)
 

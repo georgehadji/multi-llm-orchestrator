@@ -2,6 +2,8 @@
 
 import json
 import pytest
+
+pytestmark = pytest.mark.unit
 from unittest.mock import MagicMock, AsyncMock
 
 from orchestrator.application.evaluator import EvaluatorService

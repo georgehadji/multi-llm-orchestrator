@@ -12,6 +12,8 @@ import types
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.engine_core.stages.evaluate import EvaluateStage
 
 pytestmark = pytest.mark.unit

@@ -20,6 +20,9 @@ import tempfile
 import time
 
 import pytest
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 # ──────────────────────────────────────────────────────────────────────────────

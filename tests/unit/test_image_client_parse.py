@@ -9,6 +9,8 @@ import base64
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.infrastructure.image_client import ImageGenClient
 
 # 1x1 transparent PNG

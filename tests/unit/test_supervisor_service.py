@@ -13,6 +13,8 @@ from typing import Any
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.supervisor.models import Directive, Lesson
 from orchestrator.supervisor.service import Supervisor
 from orchestrator.supervisor.store import SupervisorStore

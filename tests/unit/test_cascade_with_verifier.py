@@ -16,6 +16,8 @@ from typing import Any
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import TaskType, Verdict
 from orchestrator.verification.python_ast import PythonASTVerifier
 from orchestrator.verification.port import Verifier

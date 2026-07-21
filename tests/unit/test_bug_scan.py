@@ -23,7 +23,13 @@ Discovered & fixed during this scan:
 from __future__ import annotations
 
 import pytest
+import pytest
 
+pytestmark = pytest.mark.unit
+
+import pytest
+
+pytestmark = pytest.mark.unit
 # ──────────────────────────────────────────────────────────────────────────────
 # EvaluatorService.parse_score — output domain invariant
 # ──────────────────────────────────────────────────────────────────────────────

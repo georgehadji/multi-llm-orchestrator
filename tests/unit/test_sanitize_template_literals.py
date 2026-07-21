@@ -8,6 +8,8 @@ Such literals must be left untouched. All-simple literals may still be converted
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.generators.website_generator import WebsiteGenerator
 
 

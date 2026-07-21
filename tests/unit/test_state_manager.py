@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.budget import Budget
 from orchestrator.infrastructure.state import StateManager
 from orchestrator.models import ProjectState, ProjectStatus

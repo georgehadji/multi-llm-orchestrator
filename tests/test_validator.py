@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.engine_core.validator import TaskValidator
 from orchestrator.models import Task, TaskType
 

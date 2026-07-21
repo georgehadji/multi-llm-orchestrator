@@ -17,6 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.services.completion_judge import (
     CompletionJudge,
     JudgeVerdict,

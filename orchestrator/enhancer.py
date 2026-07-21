@@ -38,7 +38,7 @@ def _get_nexus_search():
 def _get_x_search():
     """Lazy import of X Search to avoid circular dependencies."""
     try:
-        from orchestrator.xai_search import XSearchClient
+        from orchestrator.knowledge.xai_search import XSearchClient
 
         return XSearchClient
     except ImportError:

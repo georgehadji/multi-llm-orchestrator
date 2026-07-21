@@ -4,6 +4,8 @@ Tests for Capabilities 5-10 (Agent Communication, Learning, Runtime, CI, HITL, S
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 class TestAgentMessageBus:
     """Capability 5: Agent communication."""

@@ -24,7 +24,7 @@ from orchestrator.engine import Orchestrator
 from orchestrator.output_organizer import organize_project_output
 from orchestrator.output_writer import write_output_dir
 from orchestrator.progress import ProgressRenderer
-from orchestrator.project_file import load_project_file
+from orchestrator.project_mgmt.file import load_project_file
 from orchestrator.state import StateManager
 from orchestrator.application.cli_helpers import (
     _build_tracing_cfg,

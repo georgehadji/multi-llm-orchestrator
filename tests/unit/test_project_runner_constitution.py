@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.application.project_runner import ProjectRunner
 from orchestrator.application.project_runner_deps import (
     ProjectRunnerCallables,

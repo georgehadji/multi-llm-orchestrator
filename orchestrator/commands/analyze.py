@@ -14,7 +14,7 @@ def execute(args) -> None:
     import sys
     from pathlib import Path
 
-    from orchestrator.analyzer import CodebaseAnalyzer
+    from orchestrator.analysis.analyzer import CodebaseAnalyzer
     from orchestrator.safety.secure_execution import InputValidator
 
     # SECURITY FIX: Validate input path to prevent path traversal

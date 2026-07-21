@@ -28,6 +28,9 @@ class GenerateStage:
     prompt construction, and API call with timeout.
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 100
+
     def __init__(
         self,
         client: LLMClient,

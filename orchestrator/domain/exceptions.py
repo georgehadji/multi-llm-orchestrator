@@ -89,6 +89,18 @@ class ApplicationError(Exception):
             "details": self.details,
         }
 
+    @classmethod
+    def is_retriable(cls, exc: Exception) -> bool:
+        """
+        Return True if *exc* should trigger a retry.
+
+        Checks both the ApplicationError.retriable flag and standard library
+        exception types that are always retryable (timeouts, connection errors).
+        """
+        if isinstance(exc, ApplicationError):
+            return exc.retriable
+        return isinstance(exc, (TimeoutError, ConnectionError, OSError))
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Configuration Errors
@@ -216,9 +228,16 @@ class RateLimitError(ModelError):
     retriable = True
 
     def __init__(self, provider: str, retry_after: int | None = None, **kwargs):  # type: ignore[no-untyped-def]
+        # Pop 'details' from kwargs to avoid duplicate keyword clash with
+        # the explicit details= argument passed to super().__init__().
+        extra_details = kwargs.pop("details", {})
         super().__init__(
             f"Rate limit exceeded for {provider}",
-            details={"provider": provider, "retry_after": retry_after, **kwargs.get("details", {})},
+            details={
+                "provider": provider,
+                "retry_after": retry_after,
+                **extra_details,
+            },
             **kwargs,
         )
 

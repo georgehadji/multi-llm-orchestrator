@@ -11,6 +11,8 @@ from __future__ import annotations
 
 
 import pytest
+
+pytestmark = pytest.mark.smoke
 from aiohttp.test_utils import TestClient, TestServer
 
 from orchestrator.api_server import APIServer

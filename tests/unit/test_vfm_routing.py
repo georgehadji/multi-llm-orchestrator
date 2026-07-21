@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import Model, ROUTING_TABLE, TaskType
 
 _CONFIG = Path(__file__).resolve().parents[2] / "orchestrator" / "config"

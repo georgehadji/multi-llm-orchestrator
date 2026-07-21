@@ -2,6 +2,8 @@
 
 import pytest
 
+pytestmark = pytest.mark.contract
+
 pytestmark = pytest.mark.asyncio
 
 FAKE_STATE = type(

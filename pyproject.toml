@@ -90,6 +90,19 @@ orchestrator = "orchestrator.cli:main"
 mllm = "orchestrator.cli:main"
 dashboard = "orchestrator.cli_dashboard:main"
 
+[project.entry-points."orchestrator.pipeline.stages"]
+constitution_gate = "orchestrator.engine_core.stages.constitution_gate:ConstitutionGate"
+context_enricher = "orchestrator.engine_core.stages.context_enricher:ContextEnricherStage"
+generate = "orchestrator.engine_core.stages.generate:GenerateStage"
+critique = "orchestrator.engine_core.stages.critique:CritiqueStage"
+design_critique = "orchestrator.engine_core.stages.design_critique:DesignCritiqueStage"
+evaluate = "orchestrator.engine_core.stages.evaluate:EvaluateStage"
+validate = "orchestrator.engine_core.stages.validate:ValidateStage"
+persuasion_defense = "orchestrator.engine_core.stages.persuasion_defense:PersuasionDefenseStage"
+preflight = "orchestrator.engine_core.stages.preflight:PreflightStage"
+self_consistency = "orchestrator.engine_core.stages.self_consistency:SelfConsistencyStage"
+map_elites = "orchestrator.engine_core.stages.map_elites:MapElitesStage"
+
 [project.urls]
 Homepage = "https://github.com/gchatz22/multi-llm-orchestrator"
 Repository = "https://github.com/gchatz22/multi-llm-orchestrator"
@@ -246,11 +259,11 @@ module = "orchestrator._vendor.*"
 ignore_errors = true
 
 # ── Legacy modules with pre-existing violations ────────────────────────────
+# Legacy modules with pre-existing violations
 # New code must NOT be added to this list. Remove entries as they are cleaned up.
 [[tool.mypy.overrides]]
 module = [
     "orchestrator.engine",
-    "orchestrator.dashboard_mission_control",
     "orchestrator.ide_backend.ide_orchestrator_server",
     "orchestrator.ara_pipelines",
     "orchestrator.project_assembler",
@@ -258,26 +271,20 @@ module = [
     "orchestrator.multi_platform_generator",
     "orchestrator.test_first_generator",
     "orchestrator.issue_tracking",
-    "orchestrator.dashboard_enhanced",
     "orchestrator.architecture_rules",
     "orchestrator.frontend_rules",
-    "orchestrator.nash_infrastructure_v2",
-    "orchestrator.dashboard_live",
     "orchestrator.indesign_plugin_rules",
     "orchestrator.frontend_security",
     "orchestrator.ab_testing",
     "orchestrator.adaptive_templates",
     "orchestrator.app_store_validator",
-    "orchestrator.security_templates",
     "orchestrator.output_organizer",
     "orchestrator.output_writer",
     "orchestrator.component_library",
     "orchestrator.knowledge_graph",
     "orchestrator.quality_control",
-    "orchestrator.sagas",
     "orchestrator.project_analyzer",
     "orchestrator.native_features",
-    "orchestrator.a2a_protocol",
 ]
 ignore_errors = true
 
@@ -301,30 +308,7 @@ addopts = [
     "--cov=orchestrator",
     "--cov-report=term-missing",
     "--cov-report=html:coverage_html",
-    "--ignore=tests/test_api.py",
-    "--ignore=tests/test_assembler_debug.py",
-    "--ignore=tests/test_assembler_import.py",
-    "--ignore=tests/test_basic_imports.py",
-    "--ignore=tests/test_bug_fixes_critical_batch1.py",
-    "--ignore=tests/test_cli_debug.py",
-    "--ignore=tests/test_circular_trace.py",
-    "--ignore=tests/test_direct_module_import.py",
-    "--ignore=tests/test_e2e_comprehensive.py",
-    "--ignore=tests/test_git_integration.py",
-    "--ignore=tests/test_importlib.py",
-    "--ignore=tests/test_mission_control.py",
-    "--ignore=tests/test_mission_control_real.py",
-    "--ignore=tests/test_normal_import.py",
-    "--ignore=tests/test_performance_import.py",
-    "--ignore=tests/test_project.py",
-    "--ignore=tests/test_quick.py",
     "--ignore=tests/test_new_modules.py",
-    "--ignore=tests/test_startup.py",
-    "--ignore=tests/test_syntax.py",
-    "--ignore=tests/test_trace_detailed.py",
-    "--ignore=tests/test_v65_fix.py",
-    "--ignore=tests/verify_frontend.py",
-    "--ignore=tests/verify_syntax.py",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -338,6 +322,7 @@ markers = [
     "mock: marks tests that use mocked dependencies",
     "asyncio: marks tests that use asyncio",
     "edge_case: marks edge case and boundary tests",
+    "smoke: marks tests as smoke/sanity tests",
     "contract: marks architecture contract tests",
 ]
 filterwarnings = [

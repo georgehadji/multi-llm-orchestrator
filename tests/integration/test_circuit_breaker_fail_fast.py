@@ -14,6 +14,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from orchestrator.circuit_breaker import CircuitBreakerOpen
 from orchestrator.models import ProjectStatus
 from orchestrator.services.generator import GeneratorResult

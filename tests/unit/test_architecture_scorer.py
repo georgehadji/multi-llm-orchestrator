@@ -9,6 +9,8 @@ scores low. Both must be derivable from static analysis only (no LLM, no network
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(scope="module")
 def Scorer():

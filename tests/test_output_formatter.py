@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.output.formatter import FormatReport, format_output_dir
 
 # Deliberately messy but syntactically valid Python: bad spacing, bad quotes,

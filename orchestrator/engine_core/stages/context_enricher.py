@@ -38,6 +38,9 @@ class TaskContextEnricher:
         ctx = await enricher.record_trajectory(task, ctx, background_tasks)
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = -50
+
     def __init__(self, skill_manager=None, taste_skill_service=None, client=None):
         self._skill_manager = skill_manager
         self._taste_skill_service = taste_skill_service

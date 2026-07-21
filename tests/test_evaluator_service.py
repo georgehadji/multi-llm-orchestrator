@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.api_clients import APIResponse
 from orchestrator.models import Model, Task, TaskType
 from orchestrator.application.evaluator import EvaluatorService

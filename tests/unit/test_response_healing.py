@@ -10,6 +10,8 @@ from dataclasses import dataclass
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.infrastructure.llm_client import _maybe_add_response_healing
 
 

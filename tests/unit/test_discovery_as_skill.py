@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.operations.automations import ScheduledTask, ScheduleType
 
 # ── ScheduledTask.skill_name field ───────────────────────────────────────────

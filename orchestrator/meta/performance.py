@@ -9,7 +9,7 @@ Performance optimizations for meta-optimization at scale:
 - Connection pooling for database operations
 
 USAGE:
-    from orchestrator.meta_performance import AsyncBatchProcessor, LRUCache
+    from orchestrator.meta.performance import AsyncBatchProcessor, LRUCache
 
     # Batch processing
     processor = AsyncBatchProcessor(batch_size=100, concurrency=10)

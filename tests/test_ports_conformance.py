@@ -2,6 +2,8 @@
 
 import inspect
 import pytest
+
+pytestmark = pytest.mark.unit
 from orchestrator.domain import ports as domain_ports
 
 NULL_ADAPTERS = {

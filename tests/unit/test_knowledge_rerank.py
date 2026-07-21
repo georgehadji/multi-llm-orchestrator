@@ -1,6 +1,8 @@
 """Tests for KnowledgeBase two-stage rerank."""
 
 import pytest
+
+pytestmark = pytest.mark.unit
 from unittest.mock import AsyncMock, MagicMock
 
 from orchestrator.knowledge_base import KnowledgeBase, KnowledgeType, KnowledgeArtifact

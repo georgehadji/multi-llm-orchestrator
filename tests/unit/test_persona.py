@@ -6,6 +6,8 @@ and configurations to the active persona.py system.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 pytestmark = [
     pytest.mark.unit,
     pytest.mark.skip(

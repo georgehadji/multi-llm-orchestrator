@@ -5,8 +5,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from orchestrator.codebase_analyzer import CodebaseAnalyzer
-from orchestrator.codebase_profile import CodebaseProfile
+from orchestrator.codebase.analyzer import CodebaseAnalyzer
+from orchestrator.codebase.profile import CodebaseProfile
 
 
 class CodebaseUnderstanding:

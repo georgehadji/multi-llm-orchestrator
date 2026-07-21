@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.supervisor.failure_tap import event_to_lesson
 from orchestrator.supervisor.models import Lesson
 from orchestrator.unified_events.core import (

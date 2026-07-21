@@ -21,9 +21,15 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest
+
+pytestmark = pytest.mark.unit
 
 from orchestrator.models import Model
 
+import pytest
+
+pytestmark = pytest.mark.unit
 # ──────────────────────────────────────────────────────────────────────────────
 # Lever 1 + 2: response cache — hit is free and skips the provider entirely
 # ──────────────────────────────────────────────────────────────────────────────

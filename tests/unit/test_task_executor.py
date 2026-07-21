@@ -2,6 +2,8 @@
 
 import sys
 import pytest
+
+pytestmark = pytest.mark.unit
 from unittest.mock import MagicMock, AsyncMock, patch
 
 from orchestrator.application.task_executor import TaskExecutor, ExecutionContext

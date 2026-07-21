@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.application.unattended_guard import (
     UnattendedGuard,
     UnattendedGuardError,

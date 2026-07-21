@@ -8,7 +8,7 @@ Async: Yes — for I/O-bound compression operations
 Layer: L2 Verification
 
 Usage:
-    from orchestrator.context_condensing import ContextCondenser
+    from orchestrator.context_mgmt.condensing import ContextCondenser
     condenser = ContextCondenser()
     compressed_context = await condenser.condense(context="...", target_ratio=0.5)
 """

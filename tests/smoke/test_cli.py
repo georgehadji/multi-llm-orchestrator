@@ -7,6 +7,9 @@ expected exit codes.  No LLM calls are made.
 """
 
 from __future__ import annotations
+import pytest
+
+pytestmark = pytest.mark.smoke
 
 import subprocess
 import sys

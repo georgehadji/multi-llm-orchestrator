@@ -2,6 +2,8 @@
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.design.slop_test import SlopTestEngine
 
 # A truly clean output that satisfies all structural gates

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.domain.constitution import ProjectConstitution
 from orchestrator.engine_core.pipeline import PipelineContext
 from orchestrator.engine_core.stages.constitution_gate import ConstitutionGate
