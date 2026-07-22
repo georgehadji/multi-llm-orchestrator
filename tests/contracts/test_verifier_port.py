@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.contract
+
 from orchestrator.models import TaskType, Verdict
 from orchestrator.verification.port import Verifier
 from orchestrator.verification.python_ast import PythonASTVerifier

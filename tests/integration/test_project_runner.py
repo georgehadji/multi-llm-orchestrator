@@ -13,6 +13,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from orchestrator.application.project_runner import ProjectRunner
 from orchestrator.application.project_runner_deps import (
     ProjectRunnerCallables,
@@ -151,9 +153,13 @@ async def test_run_project_generates_project_id_when_none_given():
     callables, run_state = _make_callables()
     runner = _make_runner(callables=callables, run_state=run_state)
     await runner.run_project("build X", "tests pass")
-    # A 12-char hex digest should have been generated
-    assert len(run_state.project_id) == 12
-    assert all(c in "0123456789abcdef" for c in run_state.project_id)
+    # A human-readable id "<slug>-<6-hex>" is generated from the description
+    # (slug from "build X" -> "build-x", plus a 6-char md5 suffix).
+    pid = run_state.project_id
+    assert pid, "project_id should be auto-generated when none is given"
+    slug, sep, short_hash = pid.rpartition("-")
+    assert sep == "-" and slug == "build-x", f"unexpected slug in {pid!r}"
+    assert len(short_hash) == 6 and all(c in "0123456789abcdef" for c in short_hash)
 
 
 @pytest.mark.asyncio

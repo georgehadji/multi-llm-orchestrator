@@ -29,6 +29,12 @@ class PersuasionDefenseStage:
     unverified claims for revision.
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 500
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {"ara_integration": deps.get("ara")}
+
     def __init__(self, ara_integration: object = None) -> None:
         self._ara = ara_integration
 

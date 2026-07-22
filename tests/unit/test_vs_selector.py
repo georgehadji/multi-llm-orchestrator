@@ -1,6 +1,8 @@
 """Tests for CandidateSelector — VS candidate selection with quality scoring."""
 
 import pytest
+
+pytestmark = pytest.mark.unit
 from unittest.mock import AsyncMock, MagicMock
 
 from orchestrator.application.vs_selector import CandidateSelector

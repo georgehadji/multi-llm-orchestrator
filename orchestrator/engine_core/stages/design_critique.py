@@ -25,6 +25,12 @@ logger = logging.getLogger("orchestrator.engine_core.stages.design_critique")
 class DesignCritiqueStage:
     """Run a design-focused critique on frontend output."""
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 250
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {}
+
     def __init__(
         self,
         client: LLMClient,

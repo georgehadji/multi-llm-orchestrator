@@ -163,6 +163,7 @@ class UnifiedClient:
         deepseek_api_key: str | None = None,
         cache: Any = None,
         max_concurrency: int | None = None,
+        telemetry: Any = None,
         **kwargs: Any,
     ):
         """
@@ -174,6 +175,9 @@ class UnifiedClient:
                                 read from the OPENROUTER_API_KEY env var.
             deepseek_api_key: DeepSeek API key. If not provided, it's read from
                               the DEEPSEEK_API_KEY env var.
+            telemetry: Optional TelemetryPort-compatible collector. If provided,
+                       every call() invocation automatically records latency,
+                       cost, and success/failure metrics.
         """
         if cost_service is None:
             from ..domain.services.config_services import CostService
@@ -182,6 +186,11 @@ class UnifiedClient:
             cost_service = CostService(JsonConfigAdapter())
 
         self._cost_service = cost_service
+        self._telemetry = telemetry  # TelemetryPort-compatible, or None
+        # OpenRouter feature flags (response-healing etc.); read once from env.
+        from ..config import OpenRouterOptimizations
+
+        self._or_opts = OpenRouterOptimizations.from_env()
         self._openrouter_api_key = openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
         self._deepseek_api_key = deepseek_api_key or os.environ.get("DEEPSEEK_API_KEY")
         self._api_key = self._openrouter_api_key
@@ -402,8 +411,31 @@ class UnifiedClient:
                         temperature,
                     )
 
+                # Record telemetry if a collector is wired
+                if self._telemetry is not None:
+                    try:
+                        self._telemetry.record_call(
+                            model=model_enum,
+                            latency_ms=latency * 1000.0,
+                            cost_usd=api_response.cost_usd,
+                            success=True,
+                        )
+                    except Exception:
+                        logger.debug("Telemetry record_call failed for %s", model_id, exc_info=True)
+
                 return api_response
         except Exception as e:
+            # Record failure telemetry
+            if self._telemetry is not None:
+                try:
+                    self._telemetry.record_call(
+                        model=model_enum,
+                        latency_ms=0.0,
+                        cost_usd=0.0,
+                        success=False,
+                    )
+                except Exception:
+                    logger.debug("Telemetry record_call (failure) failed for %s", model_id, exc_info=True)
             logger.error("API call to %s failed: %s", model_id, e)
             raise
 
@@ -418,6 +450,8 @@ class UnifiedClient:
         **kwargs: Any,
     ) -> Any:
         """Surgically isolated method to perform the raw API request, allowing tests to mock it."""
+        # Opt-in OpenRouter server-side JSON repair for structured-output requests.
+        _maybe_add_response_healing(kwargs, getattr(self, "_or_opts", None))
         if "response_model" not in kwargs:
             return await client.client.chat.completions.create(
                 model=model_id,

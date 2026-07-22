@@ -9,6 +9,8 @@ are loaded lazily via __getattr__, not at module import time.
 import sys
 import pytest
 
+pytestmark = pytest.mark.unit
+
 # NOTE: models.py implements lazy tables via __getattr__, but the package
 # eagerly imports the engine (orchestrator/__init__.py -> Orchestrator), whose
 # table-consumer modules do module-level `from .models import COST_TABLE/...`.

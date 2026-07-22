@@ -1,6 +1,9 @@
 """Unit tests for StateManager._deserialize_state (corrupt state handling)."""
 
 from __future__ import annotations
+import pytest
+
+pytestmark = pytest.mark.unit
 
 import json
 

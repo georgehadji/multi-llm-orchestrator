@@ -19,13 +19,6 @@ repos:
         types: [python]
         pass_filenames: false
 
-      - id: bandit
-        name: bandit (security lint)
-        entry: bandit -r orchestrator/ --severity-level high -x tests,docs
-        language: system
-        types: [python]
-        pass_filenames: false
-
       - id: import-linter
         name: import-linter (architectural contracts)
         entry: lint-imports

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from orchestrator.codebase_profile import CodebaseProfile
+from orchestrator.codebase.profile import CodebaseProfile
 
 
 @dataclass

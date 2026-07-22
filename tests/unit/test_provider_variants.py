@@ -9,6 +9,8 @@ not override it. Endpoint variants (:free/:thinking/:extended) are left intact.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.infrastructure.llm_client import _resolve_provider_variant
 
 pytestmark = pytest.mark.unit

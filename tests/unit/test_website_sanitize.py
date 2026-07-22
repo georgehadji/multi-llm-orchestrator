@@ -5,6 +5,8 @@ Covers all 4 bug-class fixers: fences, casts, template literals, truncation.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(scope="module")
 def sanitize():

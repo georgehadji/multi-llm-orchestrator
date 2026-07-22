@@ -12,6 +12,8 @@ correct.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(scope="module")
 def namespace():

@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.engine_core.pipeline_executor import PipelineExecutor
 from orchestrator.models import Task, TaskResult, TaskStatus, TaskType
 

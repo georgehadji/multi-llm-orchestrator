@@ -18,6 +18,12 @@ class EvaluateStage:
     with score (0.0-1.0) and structured critique items.
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 300
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {"evaluator": deps["evaluator"]}
+
     def __init__(self, evaluator: object) -> None:
         self._evaluator = evaluator
 

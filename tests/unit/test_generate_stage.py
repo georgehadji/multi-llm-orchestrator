@@ -4,6 +4,8 @@ Unit tests for GenerateStage — prompt construction and model selection.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.engine_core.pipeline import PipelineContext
 from orchestrator.engine_core.stages.generate import GenerateStage
 from orchestrator.models import Task, TaskType

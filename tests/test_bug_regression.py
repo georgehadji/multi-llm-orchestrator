@@ -19,6 +19,9 @@ import tempfile
 import time
 
 import pytest
+import pytest
+
+pytestmark = pytest.mark.unit
 
 # ─────────────────────────────────────────────────────────────────────────────
 # BUG-001: AgentCache timestamp persistence

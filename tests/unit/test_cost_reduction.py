@@ -21,9 +21,15 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest
+
+pytestmark = pytest.mark.unit
 
 from orchestrator.models import Model
 
+import pytest
+
+pytestmark = pytest.mark.unit
 # ──────────────────────────────────────────────────────────────────────────────
 # Lever 1 + 2: response cache — hit is free and skips the provider entirely
 # ──────────────────────────────────────────────────────────────────────────────
@@ -100,7 +106,7 @@ class TestGateVetoSavesEvalSpend:
             VerificationCheck,
             VerificationGate,
         )
-        from orchestrator.services.evaluator import EvaluatorService
+        from orchestrator.application.evaluator import EvaluatorService
 
         async def _fail(artifact: str):
             return False, "tests failed"

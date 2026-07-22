@@ -36,6 +36,12 @@ class CritiqueStage:
     model sees concrete errors and warnings alongside generated code.
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 200
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {"client": deps["client"], "lsp_validator": deps.get("lsp_validator"), "vs_sampler": deps.get("vs_sampler")}
+
     def __init__(
         self,
         client: LLMClient,

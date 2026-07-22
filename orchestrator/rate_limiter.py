@@ -45,12 +45,28 @@ logger = logging.getLogger("orchestrator.rate_limiter")
 # ─────────────────────────────────────────────
 
 
-class RateLimitExceeded(Exception):
-    """Exception raised when rate limit is exceeded."""
+from .domain.exceptions import RateLimitError
+
+
+class RateLimitExceeded(RateLimitError):
+    """Backward-compatible alias — now part of the ApplicationError hierarchy."""
+
+    code = "RATE_LIMIT_EXCEEDED"
+    retriable = True
 
     def __init__(self, message: str, limit_type: str = "unknown"):
-        super().__init__(message)
-        self.limit_type = limit_type
+        """Initialize with message and limit type.
+
+        Args:
+            message: Human-readable description.
+            limit_type: Type of rate limit encountered.
+        """
+        super().__init__(
+            provider="grok",
+            details={"limit_type": limit_type},
+        )
+        # Override the message set by RateLimitError
+        self.message = message
 
 
 class RateLimiter:

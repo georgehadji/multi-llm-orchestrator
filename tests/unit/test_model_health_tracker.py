@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import Model
 
 pytestmark = pytest.mark.asyncio

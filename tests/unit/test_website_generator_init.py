@@ -10,6 +10,8 @@ near-empty page.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 class _FakeEngine:
     """Minimal stand-in for Orchestrator with the attrs WebsiteGenerator reads."""

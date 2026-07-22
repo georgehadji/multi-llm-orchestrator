@@ -10,6 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.generators.website_generator import WebsiteGenerator
 
 

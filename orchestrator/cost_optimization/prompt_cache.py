@@ -12,7 +12,7 @@ Features:
 - Automatic cache invalidation
 
 Usage:
-    from orchestrator.optimization import PromptCacher
+    from orchestrator.operations.optimization import PromptCacher
 
     cacher = PromptCacher()
     await cacher.warm_cache(system_prompt, project_context)

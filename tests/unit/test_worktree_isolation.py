@@ -14,6 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.vcs.worktree_manager import WorktreeManager, WorktreeError
 
 # ── WorktreeManager unit tests ────────────────────────────────────────────────

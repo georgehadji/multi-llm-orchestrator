@@ -3,6 +3,9 @@ Tests for context_system.py — Workspace knowledge, project knowledge, skills.
 """
 
 from __future__ import annotations
+import pytest
+
+pytestmark = pytest.mark.unit
 
 import tempfile
 from pathlib import Path

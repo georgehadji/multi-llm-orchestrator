@@ -9,6 +9,8 @@ from __future__ import annotations
 import os
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.hitl.gate import Decision, DecisionResult, HumanInTheLoop
 from orchestrator.hitl.channel import (
     AutoApproveChannel,

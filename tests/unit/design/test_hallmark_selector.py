@@ -2,6 +2,8 @@
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.design.hallmark_selector import HallmarkSelector
 from orchestrator.design.catalogs import MACROSTRUCTURES, THEMES
 from orchestrator.design.design_log import DesignLog, DesignLogEntry

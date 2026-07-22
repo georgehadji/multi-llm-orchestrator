@@ -11,6 +11,8 @@ These cover the pure predicate; the I/O fetch/cache is exercised separately.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.infrastructure.model_capabilities import (
     build_capability_map,
     supports_structured_output,

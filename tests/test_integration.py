@@ -8,6 +8,8 @@ import asyncio
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import Budget
 from orchestrator.circuit_breaker import CircuitBreaker, CircuitState
 from orchestrator.operations.autonomy_config import AutonomyConfig, AutonomyLevel

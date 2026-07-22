@@ -8,7 +8,7 @@ Async: Yes — for I/O-bound operations
 Layer: L2 Verification
 
 Usage:
-    from orchestrator.context_sources import ContextSourceManager
+    from orchestrator.context_mgmt.sources import ContextSourceManager
     source_manager = ContextSourceManager()
     doc_source = source_manager.add_document_source("docs", "./documents/")
     context = await source_manager.get_context(query="What is AI?", sources=["docs"])

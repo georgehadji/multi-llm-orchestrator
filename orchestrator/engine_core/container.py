@@ -111,6 +111,65 @@ from ..tracing import Tracer
 logger = logging.getLogger("orchestrator.container")
 
 
+def _discover_stages() -> list[type] | None:
+    """
+    Discover pipeline stage classes via entry points, sorted by ``priority``.
+
+    Returns ``None`` on any failure (no entry-point group, import error, …),
+    signalling the caller to fall back to the hardcoded stage list.
+
+    Each stage must declare a ``priority: int`` class attribute.  Lower values
+    run first.  Entry points are registered in ``pyproject.toml`` under the
+    ``orchestrator.pipeline.stages`` group.
+    """
+    try:
+        from importlib.metadata import entry_points
+
+        eps = entry_points(group="orchestrator.pipeline.stages")
+        if not eps:
+            # Fall back to direct import when metadata isn't available
+            # (e.g. package not reinstalled after entry-point change)
+            eps = _FALLBACK_ENTRY_POINTS
+
+        stage_classes: list[tuple[int, type]] = []
+        for ep in eps:
+            cls = ep.load() if hasattr(ep, "load") else _load_fallback(ep)
+            prio = getattr(cls, "priority", 999)
+            stage_classes.append((prio, cls))
+
+        stage_classes.sort(key=lambda x: x[0])
+        return [cls for _, cls in stage_classes]
+    except Exception:
+        logger.debug("Entry-point stage discovery failed — using hardcoded stages")
+        return None
+
+
+# Fallback entry points when pip install -e . hasn't been re-run after
+# adding/modifying entry points in pyproject.toml.
+_FALLBACK_ENTRY_POINTS: list[str] = [
+    "orchestrator.engine_core.stages.constitution_gate:ConstitutionGate",
+    "orchestrator.engine_core.stages.context_enricher:TaskContextEnricher",
+    "orchestrator.engine_core.stages.generate:GenerateStage",
+    "orchestrator.engine_core.stages.critique:CritiqueStage",
+    "orchestrator.engine_core.stages.design_critique:DesignCritiqueStage",
+    "orchestrator.engine_core.stages.evaluate:EvaluateStage",
+    "orchestrator.engine_core.stages.validate:ValidateStage",
+    "orchestrator.engine_core.stages.persuasion_defense:PersuasionDefenseStage",
+    "orchestrator.engine_core.stages.preflight:PreflightStage",
+    "orchestrator.engine_core.stages.self_consistency:EnhancedSelfConsistencyStage",
+    "orchestrator.engine_core.stages.map_elites:MAPElitesPipeline",
+]
+
+
+def _load_fallback(path: str) -> type:
+    """Import a class from a ``module.path:ClassName`` string."""
+    module_path, class_name = path.split(":", 1)
+    import importlib
+
+    mod = importlib.import_module(module_path)
+    return getattr(mod, class_name)
+
+
 def _wire_acr_backend(planner: Any, flags: Any) -> None:
     """
     ACR Phase 0 seam: swap ConstraintPlanner's backend per ORCH_ACR_BACKEND.
@@ -164,6 +223,8 @@ class ServiceContainer:
     executor: Optional[ExecutorService] = None
     evaluator: Optional[EvaluatorService] = None
     generator: Optional[GeneratorService] = None
+    verification_gate: Optional[Any] = None  # VerificationGate (WBS-1)
+    verification_policy: Optional[Any] = None  # VerificationPolicy (WBS-1)
     ara: Any = None
     ara_strategy: Optional[ARAExecutionStrategy] = None
     pipeline: Optional[TaskPipeline] = None
@@ -325,6 +386,48 @@ class ServiceContainer:
             self._lazy_cache[name] = factory()
         return self._lazy_cache[name]
 
+    @staticmethod
+    def _build_stage(
+        cls: type,
+        client: Any,
+        budget: Any,
+        selector: Any,
+        vs_sampler: Any,
+        lsp_validator: Any,
+        evaluator: Any,
+        ara: Any,
+        ara_strategy: Any,
+        validator: Any,
+    ) -> Any:
+        """
+        Build a pipeline stage by class, using its ``build_kwargs`` classmethod.
+
+        Each stage class may define::
+
+            @classmethod
+            def build_kwargs(cls, **deps) -> dict: ...
+
+        which returns the kwargs needed for ``cls(**kwargs)``.  If not defined,
+        the stage is constructed with no arguments (zero-arg default).
+        """
+        deps = {
+            "client": client,
+            "budget": budget,
+            "selector": selector,
+            "vs_sampler": vs_sampler,
+            "lsp_validator": lsp_validator,
+            "evaluator": evaluator,
+            "ara": ara,
+            "ara_strategy": ara_strategy,
+            "validator": validator,
+        }
+        builder = getattr(cls, "build_kwargs", None)
+        if builder is not None:
+            kwargs = builder(**deps)
+        else:
+            kwargs = {}
+        return cls(**kwargs)
+
     def wire_executor(self, execute_fn: Any, decompose_fn: Any = None) -> None:
         """Late-bind execute_fn and decompose_fn after Orchestrator.__init__ creates them."""
         if self.executor is not None and hasattr(self.executor, "execute_fn"):
@@ -440,15 +543,7 @@ class ServiceContainer:
         if state_manager is None:
             state_manager = StateManager()
 
-        # Core infrastructure
-        client = UnifiedClient(cache=cache)
-        results_lock = asyncio.Lock()
-        task_guard = TaskGuard(name="tasks", max_concurrent=max_concurrency)
-        tracer = Tracer("orchestrator")
-        audit_log = AuditLog()
-        policy_engine = PolicyEngine(audit_log=audit_log)
-        models_dict = dict.fromkeys(Model, None)
-
+        # Profiles and telemetry — needed by UnifiedClient below
         profiles: dict[Model, Any] = {}  # type: ignore[no-redef]
         try:
             from ..application.model_profile_builder import build_default_profiles
@@ -458,6 +553,16 @@ class ServiceContainer:
             pass
 
         telemetry = TelemetryCollector(profiles)
+
+        # Core infrastructure
+        client = UnifiedClient(cache=cache, telemetry=telemetry)
+        results_lock = asyncio.Lock()
+        task_guard = TaskGuard(name="tasks", max_concurrent=max_concurrency)
+        tracer = Tracer("orchestrator")
+        audit_log = AuditLog()
+        policy_engine = PolicyEngine(audit_log=audit_log)
+        models_dict = dict.fromkeys(Model, None)
+
         api_health: dict[Model, bool] = {}
 
         # New Domain Services (Phase 2 refactor)
@@ -511,6 +616,42 @@ class ServiceContainer:
         def get_available_models(task_type: object = None) -> list[Model]:
             return selector.available_models(task_type)  # type: ignore[arg-type]
 
+        # WBS-1: Verification gate with default checks and policy
+        verification_gate = None
+        verification_policy = None
+        try:
+            from ..application.verification_gate import VerificationGate
+            from ..domain.verification import CheckOutcome, VerificationPolicy
+            from ..infrastructure.verification_checks import default_checks
+
+            from ..application.verification_gate import VerificationCheck
+
+            gate_checks = [
+                VerificationCheck(
+                    name=c.name, run=c, command=getattr(c, "command", None)
+                )  # type: ignore[arg-type]
+                for c in default_checks()
+            ]
+
+            verification_policy = VerificationPolicy(
+                checks={
+                    "syntax": CheckOutcome.REQUIRED,
+                    "security": CheckOutcome.REQUIRED,
+                    "build": CheckOutcome.RECOMMENDED,
+                    "lint": CheckOutcome.RECOMMENDED,
+                    "type_check": CheckOutcome.RECOMMENDED,
+                },
+                task_types=None,  # applies to all task types
+            )
+
+            verification_gate = VerificationGate(checks=gate_checks, policy=verification_policy)
+            logger.info(
+                "WBS-1: VerificationGate wired with %d checks and default policy",
+                len(gate_checks),
+            )
+        except ImportError as exc:
+            logger.debug("WBS-1: VerificationGate not wired: %s", exc)
+
         # Services (wrapped in type: ignore for optional dependencies)
         executor = ExecutorService(
             execute_fn=None,  # assigned later by Orchestrator
@@ -522,6 +663,7 @@ class ServiceContainer:
             budget=budget,
             get_models_fn=get_available_models,
             telemetry=telemetry,
+            verification_gate=verification_gate,
         )
         generator = GeneratorService(
             decompose_fn=None,  # assigned later
@@ -630,20 +772,38 @@ class ServiceContainer:
         except ImportError:
             logger.debug("VerbalizedSampler not available — VS features disabled")
 
-        # Pipeline with all stages
-        stages: list[Any] = [
-            GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
-            CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
-            EvaluateStage(evaluator=evaluator),
-            ValidateStage(),
-            PersuasionDefenseStage(ara_integration=ara),
-            PreflightStage(validator=validator),
-            SelfConsistencyStage(
-                max_attempts=2,
-                quality_threshold=0.7,
-                ara_strategy=ara_strategy,
-            ),
-        ]
+        # Pipeline with all stages — discover via entry points, fall back to hardcoded
+        discovered = _discover_stages()
+        if discovered:
+            stages = [
+                cls._build_stage(
+                    cls,
+                    client,
+                    budget,
+                    selector,
+                    vs_sampler,
+                    lsp_validator,
+                    evaluator,
+                    ara,
+                    ara_strategy,
+                    validator,
+                )
+                for cls in discovered
+            ]
+        else:
+            stages: list[Any] = [
+                GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
+                CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
+                EvaluateStage(evaluator=evaluator),
+                ValidateStage(),
+                PersuasionDefenseStage(ara_integration=ara),
+                PreflightStage(validator=validator),
+                SelfConsistencyStage(
+                    max_attempts=2,
+                    quality_threshold=0.7,
+                    ara_strategy=ara_strategy,
+                ),
+            ]
 
         # ConstitutionGate — always prepended as phase -1, so run_project()
         # can swap in a per-run constitution later (e.g. --from-speckit,

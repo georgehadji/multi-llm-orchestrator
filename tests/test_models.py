@@ -7,6 +7,8 @@ from __future__ import annotations
 import asyncio
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import (
     Budget,
     Model,

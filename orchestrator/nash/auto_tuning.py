@@ -13,7 +13,7 @@ Features:
 - A/B testing framework for parameters
 
 Usage:
-    from orchestrator.nash_auto_tuning import AutoTuner
+    from orchestrator.nash.auto_tuning import AutoTuner
 
     tuner = AutoTuner()
 

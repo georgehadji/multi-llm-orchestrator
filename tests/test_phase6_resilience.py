@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.circuit_breaker import (
     CircuitBreakerOpen,
     CircuitBreakerRegistry,

@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.design.design_log import DesignLog, DesignLogEntry
 
 

@@ -20,13 +20,16 @@ import json
 import logging
 import re
 import time
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from ..domain.ports import LLMClient, TelemetryPort, TracingPort
 from ..budget import Budget
 from ..operations.feedback import CritiqueItem, CritiqueReport, CritiqueSeverity
 from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
+
+if TYPE_CHECKING:
+    from .verification_gate import VerificationGate
 
 logger = logging.getLogger("orchestrator.services.evaluator")
 
@@ -46,6 +49,13 @@ class EvaluatorService:
                             score (default 0.05).
     """
 
+    _SYSTEM_PROMPT = (
+        "Adversarial code reviewer. "
+        "ASSUME this output is BROKEN until proven otherwise. "
+        "Do NOT praise. Find what fails. "
+        "Score 0.0 for clearly broken code; reserve 0.8+ only when everything works correctly."
+    )
+
     def __init__(
         self,
         client: LLMClient,
@@ -55,6 +65,7 @@ class EvaluatorService:
         consistency_delta: float = 0.05,
         tracer: TracingPort | None = None,
         telemetry: TelemetryPort | None = None,
+        verification_gate: "VerificationGate | None" = None,
     ) -> None:
         self._client = client
         self._budget = budget
@@ -63,6 +74,7 @@ class EvaluatorService:
         self._consistency_delta = consistency_delta
         self._tracer = tracer
         self._telemetry = telemetry
+        self._gate = verification_gate
 
     # -- Public interface ----------------------------------------------------
 
@@ -88,10 +100,38 @@ class EvaluatorService:
     async def _evaluate_inner(
         self, task: Task, output: str, policy: _ResiliencePolicy | None = None
     ) -> CritiqueReport:
+        # Deterministic gate runs first — hard veto before any LLM opinion.
+        gate_result = None
+        if self._gate is not None:
+            gate_result = await self._gate.run(output)
+            if not gate_result.passed:
+                from .verification_gate import VerificationGate
+
+                logger.warning(
+                    "  %s: VerificationGate FAILED — deterministic floor applied "
+                    "(score=%.2f). Failures: %s",
+                    task.id,
+                    VerificationGate.FAIL_SCORE_FLOOR,
+                    gate_result.reasons,
+                )
+                return CritiqueReport(
+                    task_id=task.id,
+                    score=VerificationGate.FAIL_SCORE_FLOOR,
+                    passed_validators=False,
+                    deterministic={
+                        "passed": False,
+                        "checks": gate_result.checks,
+                        "reasons": gate_result.reasons,
+                        "artifact_hash": gate_result.artifact_hash,
+                        "failure_summary": gate_result.failure_summary,
+                        "status_summary": gate_result.status_summary,
+                    },
+                )
+
         eval_models = self._get_models(TaskType.EVALUATE)
         if not eval_models:
             logger.debug("  %s: no eval models available, returning 0.5", task.id)
-            return CritiqueReport(task_id=task.id, score=0.5)
+            return CritiqueReport(task_id=task.id, score=0.5, passed_validators=True)
 
         eval_model = eval_models[0]
         logger.debug("  %s: evaluating with %s", task.id, eval_model.value)
@@ -123,7 +163,7 @@ class EvaluatorService:
                 response = await self._client.call(  # type: ignore[no-untyped-call]
                     eval_model,
                     eval_prompt,
-                    system="You are a precise evaluator. Score exactly, return only JSON.",
+                    system=self._SYSTEM_PROMPT,
                     max_tokens=300,
                     temperature=0.1,
                     timeout=60,
@@ -186,10 +226,23 @@ class EvaluatorService:
             except (json.JSONDecodeError, KeyError, TypeError):
                 pass
 
+        # Build deterministic data for the report
+        deterministic_data = None
+        if gate_result is not None:
+            deterministic_data = {
+                "passed": gate_result.passed,
+                "checks": gate_result.checks,
+                "reasons": gate_result.reasons,
+                "artifact_hash": gate_result.artifact_hash,
+                "failure_summary": gate_result.failure_summary,
+                "status_summary": gate_result.status_summary,
+            }
+
         return CritiqueReport(
             task_id=task.id,
             score=final_score,
             items=items,
+            passed_validators=True,
             model_used=eval_model.value if eval_model else None,
             tokens_used=(
                 getattr(last_response, "input_tokens", 0)
@@ -197,27 +250,59 @@ class EvaluatorService:
                 if last_response
                 else 0
             ),
+            deterministic=deterministic_data,
         )
 
     # -- Helpers -------------------------------------------------------------
 
     def _aggregate(self, scores: list[float], task_id: str) -> float:
-        """Apply self-consistency: if delta > threshold, take the lower score."""
+        """Apply self-consistency aggregation across N scoring runs.
+
+        - 0 runs → 0.5 safe default.
+        - 1 run  → that run.
+        - 2 runs → mean, unless Δ > threshold (high disagreement) → lower score.
+        - 3+ runs → median (robust to a single outlier run); still logs when the
+          max-min spread exceeds the threshold.
+
+        BUGFIX: the previous implementation handled only len == 2 and returned
+        ``scores[0]`` for any other length, silently discarding runs 2..N when
+        ``consistency_runs`` was configured above 2.
+        """
+        if not scores:
+            return 0.5
+        if len(scores) == 1:
+            return scores[0]
+
+        spread = max(scores) - min(scores)
         if len(scores) == 2:
-            delta = abs(scores[0] - scores[1])
-            if delta > self._consistency_delta:
+            if spread > self._consistency_delta:
                 logger.warning(
                     "Evaluation inconsistency for %s: %.3f vs %.3f (delta=%.3f > %.2f). "
                     "Using lower score.",
                     task_id,
                     scores[0],
                     scores[1],
-                    delta,
+                    spread,
                     self._consistency_delta,
                 )
                 return min(scores)
             return sum(scores) / len(scores)
-        return scores[0] if scores else 0.5
+
+        # 3+ runs: median is robust to one bad run; warn on high spread.
+        ordered = sorted(scores)
+        mid = len(ordered) // 2
+        median = ordered[mid] if len(ordered) % 2 == 1 else (ordered[mid - 1] + ordered[mid]) / 2
+        if spread > self._consistency_delta:
+            logger.warning(
+                "Evaluation inconsistency for %s across %d runs (spread=%.3f > %.2f). "
+                "Using median=%.3f.",
+                task_id,
+                len(scores),
+                spread,
+                self._consistency_delta,
+                median,
+            )
+        return median
 
     @staticmethod
     def parse_score(text: str) -> float:

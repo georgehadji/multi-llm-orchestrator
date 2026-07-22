@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.exceptions import TaskError, TaskTimeoutError
 from orchestrator.models import Model, Task, TaskResult, TaskStatus, TaskType
 from orchestrator.services.executor import ExecutorResult, ExecutorService

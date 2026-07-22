@@ -66,6 +66,12 @@ class EnhancedSelfConsistencyStage:
     - REASONING   -> CoVE (fact-check complex reasoning claims)
     """
 
+    # Pipeline stage ordering — lower values run first
+    priority: int = 700
+    @classmethod
+    def build_kwargs(cls, **deps):
+        return {"max_attempts": 2, "quality_threshold": 0.7, "ara_strategy": deps.get("ara_strategy")}
+
     def __init__(
         self,
         max_attempts: int = 2,

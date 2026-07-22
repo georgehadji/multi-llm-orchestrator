@@ -1,4 +1,6 @@
 import pytest
+
+pytestmark = pytest.mark.unit
 from orchestrator.safety.pii_masking_etl import PIIMaskingETL
 
 pytestmark = pytest.mark.unit

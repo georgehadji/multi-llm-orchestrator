@@ -5,6 +5,9 @@ P3-5 of REFACTORING_PLAN_V7.md.
 """
 
 from unittest.mock import MagicMock
+import pytest
+
+pytestmark = pytest.mark.unit
 
 from orchestrator.application.git_bridge import GitBridge
 

@@ -11,7 +11,7 @@ Unified integration layer for meta-optimization with:
 This integrates all Phase 1 & 2 features into a cohesive system.
 
 USAGE:
-    from orchestrator.meta_v2_integration import MetaOptimizationV2, MetaV2Config
+    from orchestrator.meta.v2_integration import MetaOptimizationV2, MetaV2Config
 
     config = MetaV2Config(
         ab_testing_enabled=True,

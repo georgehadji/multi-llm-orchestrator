@@ -13,6 +13,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.application.skill_optimizer import SkillOptimizer, _load_starter_skill
 from orchestrator.domain.ports import NullSkillStore
 from orchestrator.models import TaskType

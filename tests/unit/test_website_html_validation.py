@@ -11,6 +11,8 @@ A clean, well-formed document must produce zero issues (no false positives).
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(scope="module")
 def validate():

@@ -9,6 +9,8 @@ EvaluatorService.parse_score, but in the parser that actually drives best_score.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.application.critique_cycle import CritiqueCycle
 
 pytestmark = pytest.mark.unit

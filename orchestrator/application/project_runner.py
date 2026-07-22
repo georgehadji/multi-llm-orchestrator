@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..models import ProjectState, ProjectStatus, TaskStatus
+from ..models import ProjectState, ProjectStatus, TaskStatus, TaskType
 from ..resilience import RetryTemplate
 from .project_runner_deps import ProjectRunnerCallables, ProjectRunState
 from .unattended_guard import RunContext, UnattendedGuard
@@ -57,31 +57,67 @@ def _detect_primary_language(description: str) -> str:
 
     # Strong HTML/frontend signals
     html_keywords = {
-        "landing page", "website", "web page", "static site", "html",
-        "single-page", "landing", "frontend", "ui components",
+        "landing page",
+        "website",
+        "web page",
+        "static site",
+        "html",
+        "single-page",
+        "landing",
+        "frontend",
+        "ui components",
     }
     for kw in html_keywords:
         if kw in desc_lower:
             return "html"
 
     # CSS-specific signals
-    css_keywords = {"css", "stylesheet", "responsive design", "layout",
-                    "tailwind", "bootstrap", "scss", "sass"}
+    css_keywords = {
+        "css",
+        "stylesheet",
+        "responsive design",
+        "layout",
+        "tailwind",
+        "bootstrap",
+        "scss",
+        "sass",
+    }
     for kw in css_keywords:
         if kw in desc_lower:
             return "css"
 
     # JavaScript signals
-    js_keywords = {"javascript", "dynamic", "interactive", "react",
-                   "vue", "angular", "svelte", "next.js", "node.js"}
+    js_keywords = {
+        "javascript",
+        "dynamic",
+        "interactive",
+        "react",
+        "vue",
+        "angular",
+        "svelte",
+        "next.js",
+        "node.js",
+    }
     for kw in js_keywords:
         if kw in desc_lower:
             return "javascript"
 
     # Default to python for backend/data projects
-    python_keywords = {"api", "backend", "rest", "fastapi", "flask",
-                       "database", "sql", "migration", "endpoint",
-                       "microservice", "cli", "library", "package"}
+    python_keywords = {
+        "api",
+        "backend",
+        "rest",
+        "fastapi",
+        "flask",
+        "database",
+        "sql",
+        "migration",
+        "endpoint",
+        "microservice",
+        "cli",
+        "library",
+        "package",
+    }
     for kw in python_keywords:
         if kw in desc_lower:
             return "python"
@@ -263,7 +299,11 @@ class ProjectRunner:
 
                         _primary_lang = _detect_primary_language(project_description)
                         _project_context = _PContext(
-                            project_type="frontend" if _primary_lang in ("html", "css", "javascript") else "backend",
+                            project_type=(
+                                "frontend"
+                                if _primary_lang in ("html", "css", "javascript")
+                                else "backend"
+                            ),
                             tech_stack=[_primary_lang] if _primary_lang else [],
                         )
                     except ImportError:
@@ -298,8 +338,10 @@ class ProjectRunner:
                     if _primary_lang and _primary_lang not in ("", "python"):
                         injected = 0
                         for task in tasks.values():
-                            if (not getattr(task, "target_language", "")
-                                    and task.type == TaskType.CODE_GEN):
+                            if (
+                                not getattr(task, "target_language", "")
+                                and task.type == TaskType.CODE_GEN
+                            ):
                                 task.target_language = _primary_lang
                                 task.prompt = (
                                     f"[LANGUAGE: {_primary_lang}] {task.prompt}\n\n"
@@ -311,7 +353,8 @@ class ProjectRunner:
                         if injected:
                             logger.info(
                                 "Injected target_language=%s into %d tasks",
-                                _primary_lang, injected,
+                                _primary_lang,
+                                injected,
                             )
 
                 # Topological sort

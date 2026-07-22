@@ -36,6 +36,12 @@ from typing import TYPE_CHECKING, Any
 from orchestrator.log_config import get_logger
 from orchestrator.models import Model
 
+# The canonical FALLBACK_CHAIN and COST_TABLE live in orchestrator.models
+# (loaded from config/fallbacks.json and config/costs.json).  The hardcoded
+# local FALLBACK_CHAIN and MODEL_COSTS below are deprecated and should be
+# replaced with resolve_fallback_chain() from orchestrator.operations.resilience
+# and the centralized COST_TABLE from orchestrator.models.
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -119,7 +125,13 @@ class StreamingValidator:
         r"\\.\\.\\.",  # Ellipsis in code
     ]
 
-    # Model fallback chain (using Model enum for consistency)
+    # Model fallback chain — DEPRECATED hardcoded list.
+    # The canonical FALLBACK_CHAIN is a dict[Model, Model] loaded from
+    # orchestrator/config/fallbacks.json.  Use resolve_fallback_chain()
+    # from orchestrator.operations.resilience instead:
+    #   from orchestrator.models import FALLBACK_CHAIN
+    #   from orchestrator.operations.resilience import resolve_fallback_chain
+    #   chain = resolve_fallback_chain(Model.CLAUDE_SONNET_5)
     FALLBACK_CHAIN = [
         Model.CLAUDE_SONNET_5,
         Model.CLAUDE_OPUS_4_8,
@@ -127,7 +139,8 @@ class StreamingValidator:
         Model.DEEPSEEK_V4_FLASH,
     ]
 
-    # Cost per 1M tokens (using Model enum keys for consistency)
+    # Cost per 1M tokens — DEPRECATED hardcoded dict.
+    # The canonical COST_TABLE is in orchestrator.models (from costs.json).
     MODEL_COSTS = {
         Model.DEEPSEEK_V4_FLASH: {"input": 1.0, "output": 4.0},
         Model.CLAUDE_SONNET_5: {"input": 3.0, "output": 15.0},

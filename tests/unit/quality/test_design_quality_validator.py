@@ -8,6 +8,8 @@ is re-implemented, but are skipped for now.
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 pytestmark = pytest.mark.skip(
     reason="validate_design_quality removed during refactoring — re-implement when needed"
 )

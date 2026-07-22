@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.models import Model, TaskType
 from orchestrator.resilience import (
     FallbackTriggeredEvent,

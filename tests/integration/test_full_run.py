@@ -19,6 +19,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from orchestrator.models import ProjectStatus, TaskStatus, TaskType
 from orchestrator.services.generator import GeneratorResult
 

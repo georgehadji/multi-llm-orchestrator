@@ -938,7 +938,7 @@ class ResearchPipeline(BasePipeline):
         """Lazy import of X Search."""
         if self._x_search is None:
             try:
-                from orchestrator.xai_search import XSearchClient
+                from orchestrator.knowledge.xai_search import XSearchClient
 
                 self._XSearchClient = XSearchClient
                 return XSearchClient

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from orchestrator.supervisor.intake import normalize
 from orchestrator.supervisor.models import Directive
 

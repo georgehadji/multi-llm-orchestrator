@@ -24,7 +24,7 @@ from orchestrator.engine import Orchestrator
 from orchestrator.output_organizer import organize_project_output
 from orchestrator.output_writer import write_output_dir
 from orchestrator.progress import ProgressRenderer
-from orchestrator.project_file import load_project_file
+from orchestrator.project_mgmt.file import load_project_file
 from orchestrator.state import StateManager
 from orchestrator.application.cli_helpers import (
     _build_tracing_cfg,
@@ -411,8 +411,10 @@ async def _async_file_project(args: Any) -> None:
         budget=budget, max_concurrency=concurrency, tracing_cfg=_build_tracing_cfg(args)
     )
 
-    output_dir = args.output_dir or result.output_dir or _default_output_dir(
-        result.project_id, description=spec.project_description
+    output_dir = (
+        args.output_dir
+        or result.output_dir
+        or _default_output_dir(result.project_id, description=spec.project_description)
     )
 
     renderer = ProgressRenderer(quiet=getattr(args, "quiet", False))
