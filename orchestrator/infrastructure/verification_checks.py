@@ -55,6 +55,11 @@ async def _run_command(
         return proc.returncode or 0, stdout, stderr
     except asyncio.TimeoutError:
         logger.warning("Command timed out after %ss: %s", timeout, " ".join(command))
+        try:
+            proc.kill()
+        except Exception:
+            pass  # best-effort cleanup; proc may already be dead
+        await proc.wait()  # reap the zombie
         return -1, "", f"TIMEOUT after {timeout}s"
     except FileNotFoundError:
         logger.warning("Command not found: %s", command[0])
