@@ -223,6 +223,8 @@ class ServiceContainer:
     executor: Optional[ExecutorService] = None
     evaluator: Optional[EvaluatorService] = None
     generator: Optional[GeneratorService] = None
+    verification_gate: Optional[Any] = None  # VerificationGate (WBS-1)
+    verification_policy: Optional[Any] = None  # VerificationPolicy (WBS-1)
     ara: Any = None
     ara_strategy: Optional[ARAExecutionStrategy] = None
     pipeline: Optional[TaskPipeline] = None
@@ -614,6 +616,41 @@ class ServiceContainer:
         def get_available_models(task_type: object = None) -> list[Model]:
             return selector.available_models(task_type)  # type: ignore[arg-type]
 
+        # WBS-1: Verification gate with default checks and policy
+        verification_gate = None
+        verification_policy = None
+        try:
+            from ..application.verification_gate import VerificationGate
+            from ..domain.verification import CheckOutcome, VerificationPolicy
+            from ..infrastructure.verification_checks import default_checks
+
+            from ..application.verification_gate import VerificationCheck
+
+            gate_checks = [
+                VerificationCheck(name=c.name, run=c)  # type: ignore[arg-type]
+                for c in default_checks()
+            ]
+
+            verification_gate = VerificationGate(checks=gate_checks)
+
+            # Default policy: syntax and security are required; lint/build/type recommended
+            verification_policy = VerificationPolicy(
+                checks={
+                    "syntax": CheckOutcome.REQUIRED,
+                    "security": CheckOutcome.REQUIRED,
+                    "build": CheckOutcome.RECOMMENDED,
+                    "lint": CheckOutcome.RECOMMENDED,
+                    "type_check": CheckOutcome.RECOMMENDED,
+                },
+                task_types=None,  # applies to all task types
+            )
+            logger.info(
+                "WBS-1: VerificationGate wired with %d checks and default policy",
+                len(gate_checks),
+            )
+        except ImportError as exc:
+            logger.debug("WBS-1: VerificationGate not wired: %s", exc)
+
         # Services (wrapped in type: ignore for optional dependencies)
         executor = ExecutorService(
             execute_fn=None,  # assigned later by Orchestrator
@@ -625,6 +662,7 @@ class ServiceContainer:
             budget=budget,
             get_models_fn=get_available_models,
             telemetry=telemetry,
+            verification_gate=verification_gate,
         )
         generator = GeneratorService(
             decompose_fn=None,  # assigned later
