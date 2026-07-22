@@ -38,6 +38,8 @@ class VerificationCheck:
 
     name: str
     run: CheckFn
+    command: str | None = None
+    """Optional shell command or label for audit receipts."""
 
 
 @dataclass
@@ -175,6 +177,7 @@ class VerificationGate:
                         reason=reason or None,
                         duration_ms=duration,
                         artifact_hash=artifact_hash,
+                        command=check.command,
                     )
                 )
             except Exception as exc:
@@ -194,6 +197,7 @@ class VerificationGate:
                         reason=str(exc),
                         duration_ms=duration,
                         artifact_hash=artifact_hash,
+                        command=check.command,
                     )
                 )
 
