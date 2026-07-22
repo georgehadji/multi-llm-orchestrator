@@ -8,6 +8,7 @@ used by the application-level VerificationGate.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, FrozenSet
@@ -85,7 +86,7 @@ class VerificationPolicy:
                        If None, applies to all artifact types.
     """
 
-    checks: dict[str, CheckOutcome] = field(default_factory=dict)
+    checks: Mapping[str, CheckOutcome] = field(default_factory=dict)
     task_types: FrozenSet[Any] | None = None
     artifact_types: FrozenSet[str] | None = None
 

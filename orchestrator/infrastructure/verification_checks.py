@@ -45,7 +45,7 @@ async def _run_command(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             stdin=asyncio.subprocess.PIPE if input_text is not None else None,
-        )
+        )  # nosec B603 — list args prevent shell injection; stdin is LLM artifact
         stdout_bytes, stderr_bytes = await asyncio.wait_for(
             proc.communicate(input=input_text.encode("utf-8") if input_text is not None else None),
             timeout=timeout,
@@ -137,7 +137,7 @@ def _make_build_check() -> VerificationCheckAdapter:
         try:
             code = compile(artifact, "<verify>", "exec")
             ns: dict[str, object] = {}
-            exec(code, ns)
+            exec(code, ns)  # nosec B102 — isolated namespace (empty dict), no caller access
             return True, ""
         except SyntaxError as exc:
             return False, f"SyntaxError: {exc.msg} (line {exc.lineno})"
