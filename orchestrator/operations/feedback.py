@@ -78,6 +78,10 @@ class CritiqueReport:
     passed_validators: bool = False
     model_used: Optional[str] = None
     tokens_used: int = 0
+    deterministic: Optional[dict] = None
+    """Serialized GateResult data (WBS-1): passed, checks, reasons,
+    artifact_hash, failure_summary, status_summary.
+    None if no deterministic check ran."""
 
     @property
     def has_blockers(self) -> bool:
@@ -151,6 +155,7 @@ class CritiqueReport:
             "passed_validators": self.passed_validators,
             "model_used": self.model_used,
             "tokens_used": self.tokens_used,
+            "deterministic": self.deterministic,
         }
 
     @classmethod
@@ -172,4 +177,5 @@ class CritiqueReport:
             passed_validators=data.get("passed_validators", False),
             model_used=data.get("model_used"),
             tokens_used=data.get("tokens_used", 0),
+            deterministic=data.get("deterministic"),
         )

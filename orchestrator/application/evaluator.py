@@ -101,6 +101,7 @@ class EvaluatorService:
         self, task: Task, output: str, policy: _ResiliencePolicy | None = None
     ) -> CritiqueReport:
         # Deterministic gate runs first — hard veto before any LLM opinion.
+        gate_result = None
         if self._gate is not None:
             gate_result = await self._gate.run(output)
             if not gate_result.passed:
@@ -117,6 +118,14 @@ class EvaluatorService:
                     task_id=task.id,
                     score=VerificationGate.FAIL_SCORE_FLOOR,
                     passed_validators=False,
+                    deterministic={
+                        "passed": False,
+                        "checks": gate_result.checks,
+                        "reasons": gate_result.reasons,
+                        "artifact_hash": gate_result.artifact_hash,
+                        "failure_summary": gate_result.failure_summary,
+                        "status_summary": gate_result.status_summary,
+                    },
                 )
 
         eval_models = self._get_models(TaskType.EVALUATE)
@@ -217,6 +226,18 @@ class EvaluatorService:
             except (json.JSONDecodeError, KeyError, TypeError):
                 pass
 
+        # Build deterministic data for the report
+        deterministic_data = None
+        if gate_result is not None:
+            deterministic_data = {
+                "passed": gate_result.passed,
+                "checks": gate_result.checks,
+                "reasons": gate_result.reasons,
+                "artifact_hash": gate_result.artifact_hash,
+                "failure_summary": gate_result.failure_summary,
+                "status_summary": gate_result.status_summary,
+            }
+
         return CritiqueReport(
             task_id=task.id,
             score=final_score,
@@ -229,6 +250,7 @@ class EvaluatorService:
                 if last_response
                 else 0
             ),
+            deterministic=deterministic_data,
         )
 
     # -- Helpers -------------------------------------------------------------
