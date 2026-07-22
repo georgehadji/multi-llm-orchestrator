@@ -13,10 +13,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+if TYPE_CHECKING:
+    from orchestrator.application.verification_gate import VerificationCheck
 
 logger = logging.getLogger("orchestrator.infrastructure.verification_checks")
 
@@ -75,7 +79,7 @@ async def _run_command(
 # ── Check Factories ────────────────────────────────────────────────────────────
 
 
-def _make_syntax_check() -> VerificationCheckAdapter:
+def _make_syntax_check() -> VerificationCheck:
     """Check that Python code compiles (AST parse)."""
 
     async def _check(artifact: str) -> tuple[bool, str]:
@@ -85,10 +89,10 @@ def _make_syntax_check() -> VerificationCheckAdapter:
         except SyntaxError as exc:
             return False, f"SyntaxError: {exc.msg} (line {exc.lineno})"
 
-    return VerificationCheckAdapter(name="syntax", run=_check, command="compile(<verify>)")
+    return make_check_adapter(name="syntax", run=_check, command="compile(<verify>)")
 
 
-def _make_lint_check() -> VerificationCheckAdapter:
+def _make_lint_check() -> VerificationCheck:
     """Check artifact with ruff (if available)."""
 
     async def _check(artifact: str) -> tuple[bool, str]:
@@ -102,13 +106,22 @@ def _make_lint_check() -> VerificationCheckAdapter:
             return False, "ruff not installed"
         return False, stdout[:500] or stderr[:500]
 
-    return VerificationCheckAdapter(
+    return make_check_adapter(
         name="lint", run=_check, command="ruff check --stdin-filename verify.py -"
     )
 
 
-def _make_type_check() -> VerificationCheckAdapter:
+def _make_type_check() -> VerificationCheck:
     """Check artifact with mypy (if available)."""
+
+    # Configurable timeout via ORCH_MYPY_TIMEOUT env var (default 30s)
+    try:
+        mypy_timeout = float(os.environ.get("ORCH_MYPY_TIMEOUT", "30.0"))
+        if mypy_timeout <= 0 or mypy_timeout > 120:
+            raise ValueError("out of bounds")
+    except (ValueError, TypeError):
+        mypy_timeout = 30.0
+        logger.warning("Invalid ORCH_MYPY_TIMEOUT value, falling back to 30s")
 
     async def _check(artifact: str) -> tuple[bool, str]:
         with tempfile.NamedTemporaryFile(
@@ -120,7 +133,7 @@ def _make_type_check() -> VerificationCheckAdapter:
         try:
             returncode, stdout, stderr = await _run_command(
                 [sys.executable, "-m", "mypy", "--show-error-codes", tmp_path],
-                timeout=30.0,
+                timeout=mypy_timeout,
             )
             if returncode in (0, -2):  # 0 = clean, -2 = not found
                 return returncode == 0, stdout[:500] if returncode != 0 else ""
@@ -128,12 +141,12 @@ def _make_type_check() -> VerificationCheckAdapter:
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
-    return VerificationCheckAdapter(
+    return make_check_adapter(
         name="type_check", run=_check, command="mypy --show-error-codes <tempfile>"
     )
 
 
-def _make_build_check() -> VerificationCheckAdapter:
+def _make_build_check() -> VerificationCheck:
     """Check artifact can be imported (executes import-level code in isolated namespace)."""
 
     async def _check(artifact: str) -> tuple[bool, str]:
@@ -149,10 +162,10 @@ def _make_build_check() -> VerificationCheckAdapter:
         except Exception as exc:
             return False, f"{type(exc).__name__}: {exc}"
 
-    return VerificationCheckAdapter(name="build", run=_check, command="exec(<verify>)")
+    return make_check_adapter(name="build", run=_check, command="exec(<verify>)")
 
 
-def _make_security_check() -> VerificationCheckAdapter:
+def _make_security_check() -> VerificationCheck:
     """Basic security scan: detect common dangerous patterns.
 
     This is a lightweight static scan.  A full security check would use
@@ -183,39 +196,34 @@ def _make_security_check() -> VerificationCheckAdapter:
             return False, "; ".join(findings[:5])
         return True, ""
 
-    return VerificationCheckAdapter(name="security", run=_check, command="static-pattern-scan")
+    return make_check_adapter(name="security", run=_check, command="static-pattern-scan")
 
 
-# ── VerificationCheckAdapter (infrastructure-level) ───────────────────────────
+# ── VerificationCheckAdapter (factory for application-layer checks) ───────
 
 
-class VerificationCheckAdapter:
-    """A named check with a run function — infrastructure variant.
+def make_check_adapter(name: str, run: CheckFn, command: str | None = None) -> VerificationCheck:
+    """Create an application-layer VerificationCheck from infrastructure code.
 
-    This mirrors the application-level ``VerificationCheck`` dataclass
-    but lives in infrastructure so it can use shell commands and file I/O.
+    This is the only bridge between infrastructure and application layers —
+    it wraps a concrete check implementation into the CheckFn protocol
+    expected by the verification gate.
     """
+    from orchestrator.application.verification_gate import VerificationCheck
 
-    def __init__(self, name: str, run: CheckFn, command: str | None = None) -> None:
-        self.name = name
-        self._run = run
-        self.command = command
-
-    async def __call__(self, artifact: str) -> tuple[bool, str]:
-        """Convenience: callable interface."""
-        return await self._run(artifact)
+    return VerificationCheck(name=name, run=run, command=command)
 
 
 # ── Default Check Set ──────────────────────────────────────────────────────────
 
 
-def default_checks() -> list[VerificationCheckAdapter]:
+def default_checks() -> list[VerificationCheck]:
     """Return a list of all available check adapters.
 
     Lint and type checks are conditional on tool availability; syntax,
     build, and security checks always work.
     """
-    checks: list[VerificationCheckAdapter] = [
+    checks: list[VerificationCheck] = [
         _make_syntax_check(),
         _make_build_check(),
         _make_security_check(),

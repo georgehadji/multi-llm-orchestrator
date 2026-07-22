@@ -398,7 +398,7 @@ class TestCheckAdapters:
         default_checks = _once("default_checks")
         checks = default_checks()
         syntax = next(c for c in checks if c.name == "syntax")
-        ok, reason = await syntax("x = 1")
+        ok, reason = await syntax.run("x = 1")
         assert ok is True
 
     @pytest.mark.asyncio
@@ -406,7 +406,7 @@ class TestCheckAdapters:
         default_checks = _once("default_checks")
         checks = default_checks()
         syntax = next(c for c in checks if c.name == "syntax")
-        ok, reason = await syntax("x = ")
+        ok, reason = await syntax.run("x = ")
         assert ok is False
         assert "SyntaxError" in reason
 
@@ -415,7 +415,7 @@ class TestCheckAdapters:
         default_checks = _once("default_checks")
         checks = default_checks()
         syntax = next(c for c in checks if c.name == "syntax")
-        ok, reason = await syntax("")
+        ok, reason = await syntax.run("")
         assert ok is True
 
     @pytest.mark.asyncio
@@ -423,7 +423,7 @@ class TestCheckAdapters:
         default_checks = _once("default_checks")
         checks = default_checks()
         build = next(c for c in checks if c.name == "build")
-        ok, reason = await build("def f(): return 42")
+        ok, reason = await build.run("def f(): return 42")
         assert ok is True
 
     @pytest.mark.asyncio
@@ -431,7 +431,7 @@ class TestCheckAdapters:
         default_checks = _once("default_checks")
         checks = default_checks()
         build = next(c for c in checks if c.name == "build")
-        ok, reason = await build("import nonexistent_module_abc123")
+        ok, reason = await build.run("import nonexistent_module_abc123")
         assert ok is False
         assert "ImportError" in reason or "ModuleNotFoundError" in reason
 
@@ -440,7 +440,7 @@ class TestCheckAdapters:
         default_checks = _once("default_checks")
         checks = default_checks()
         security = next(c for c in checks if c.name == "security")
-        ok, reason = await security("x = 1 + 2")
+        ok, reason = await security.run("x = 1 + 2")
         assert ok is True
 
     @pytest.mark.asyncio
@@ -448,7 +448,7 @@ class TestCheckAdapters:
         default_checks = _once("default_checks")
         checks = default_checks()
         security = next(c for c in checks if c.name == "security")
-        ok, reason = await security("eval('1+1')")
+        ok, reason = await security.run("eval('1+1')")
         assert ok is False
         assert "eval" in reason.lower()
 
@@ -457,7 +457,7 @@ class TestCheckAdapters:
         default_checks = _once("default_checks")
         checks = default_checks()
         security = next(c for c in checks if c.name == "security")
-        ok, reason = await security("# eval is dangerous")
+        ok, reason = await security.run("# eval is dangerous")
         assert ok is True
 
     @pytest.mark.asyncio
@@ -467,7 +467,7 @@ class TestCheckAdapters:
         VerificationCheck = _once("VerificationCheck")
         default_checks = _once("default_checks")
 
-        gate_checks = [VerificationCheck(name=c.name, run=c) for c in default_checks()]
+        gate_checks = default_checks()
         gate = VerificationGate(checks=gate_checks)
 
         result = await gate.run("def add(a: int, b: int) -> int:\n    return a + b\n")

@@ -629,14 +629,7 @@ class ServiceContainer:
             from ..domain.verification import CheckOutcome, VerificationPolicy
             from ..infrastructure.verification_checks import default_checks
 
-            from ..application.verification_gate import VerificationCheck
-
-            gate_checks = [
-                VerificationCheck(
-                    name=c.name, run=c, command=getattr(c, "command", None)
-                )  # type: ignore[arg-type]
-                for c in default_checks()
-            ]
+            gate_checks = default_checks()
 
             verification_policy = VerificationPolicy(
                 checks={

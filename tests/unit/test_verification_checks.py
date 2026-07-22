@@ -23,7 +23,7 @@ class TestSyntaxCheck:
         from orchestrator.infrastructure.verification_checks import _make_syntax_check
 
         check = _make_syntax_check()
-        ok, reason = await check("x = 1")
+        ok, reason = await check.run("x = 1")
         assert ok is True
         assert reason == ""
 
@@ -32,7 +32,7 @@ class TestSyntaxCheck:
         from orchestrator.infrastructure.verification_checks import _make_syntax_check
 
         check = _make_syntax_check()
-        ok, reason = await check("x = ")
+        ok, reason = await check.run("x = ")
         assert ok is False
         assert "SyntaxError" in reason
 
@@ -41,7 +41,7 @@ class TestSyntaxCheck:
         from orchestrator.infrastructure.verification_checks import _make_syntax_check
 
         check = _make_syntax_check()
-        ok, reason = await check("")
+        ok, reason = await check.run("")
         assert ok is True
 
 
@@ -53,7 +53,7 @@ class TestBuildCheck:
         from orchestrator.infrastructure.verification_checks import _make_build_check
 
         check = _make_build_check()
-        ok, reason = await check("def foo(): return 42")
+        ok, reason = await check.run("def foo(): return 42")
         assert ok is True
 
     @pytest.mark.asyncio
@@ -61,7 +61,7 @@ class TestBuildCheck:
         from orchestrator.infrastructure.verification_checks import _make_build_check
 
         check = _make_build_check()
-        ok, reason = await check("raise RuntimeError('boom')")
+        ok, reason = await check.run("raise RuntimeError('boom')")
         assert ok is False
         assert "RuntimeError" in reason
 
@@ -74,7 +74,7 @@ class TestSecurityCheck:
         from orchestrator.infrastructure.verification_checks import _make_security_check
 
         check = _make_security_check()
-        ok, reason = await check("def add(a, b): return a + b")
+        ok, reason = await check.run("def add(a, b): return a + b")
         assert ok is True
 
     @pytest.mark.asyncio
@@ -82,7 +82,7 @@ class TestSecurityCheck:
         from orchestrator.infrastructure.verification_checks import _make_security_check
 
         check = _make_security_check()
-        ok, reason = await check("eval('print(1)')")
+        ok, reason = await check.run("eval('print(1)')")
         assert ok is False
         assert "eval" in reason
 
@@ -91,7 +91,7 @@ class TestSecurityCheck:
         from orchestrator.infrastructure.verification_checks import _make_security_check
 
         check = _make_security_check()
-        ok, reason = await check("import subprocess; subprocess.call('rm -rf /')")
+        ok, reason = await check.run("import subprocess; subprocess.call('rm -rf /')")
         assert ok is False
         assert "subprocess" in reason
 
@@ -100,7 +100,7 @@ class TestSecurityCheck:
         from orchestrator.infrastructure.verification_checks import _make_security_check
 
         check = _make_security_check()
-        ok, reason = await check("# eval is dangerous but this is a comment")
+        ok, reason = await check.run("# eval is dangerous but this is a comment")
         assert ok is True  # comment-only lines should pass
 
 
