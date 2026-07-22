@@ -627,13 +627,12 @@ class ServiceContainer:
             from ..application.verification_gate import VerificationCheck
 
             gate_checks = [
-                VerificationCheck(name=c.name, run=c)  # type: ignore[arg-type]
+                VerificationCheck(
+                    name=c.name, run=c, command=getattr(c, "command", None)
+                )  # type: ignore[arg-type]
                 for c in default_checks()
             ]
 
-            verification_gate = VerificationGate(checks=gate_checks)
-
-            # Default policy: syntax and security are required; lint/build/type recommended
             verification_policy = VerificationPolicy(
                 checks={
                     "syntax": CheckOutcome.REQUIRED,
@@ -644,6 +643,8 @@ class ServiceContainer:
                 },
                 task_types=None,  # applies to all task types
             )
+
+            verification_gate = VerificationGate(checks=gate_checks, policy=verification_policy)
             logger.info(
                 "WBS-1: VerificationGate wired with %d checks and default policy",
                 len(gate_checks),
@@ -775,7 +776,7 @@ class ServiceContainer:
         discovered = _discover_stages()
         if discovered:
             stages = [
-                self._build_stage(
+                cls._build_stage(
                     cls,
                     client,
                     budget,

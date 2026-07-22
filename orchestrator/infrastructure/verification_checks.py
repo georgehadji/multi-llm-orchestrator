@@ -77,7 +77,7 @@ def _make_syntax_check() -> VerificationCheckAdapter:
         except SyntaxError as exc:
             return False, f"SyntaxError: {exc.msg} (line {exc.lineno})"
 
-    return VerificationCheckAdapter(name="syntax", run=_check)
+    return VerificationCheckAdapter(name="syntax", run=_check, command="compile(<verify>)")
 
 
 def _make_lint_check() -> VerificationCheckAdapter:
@@ -94,7 +94,9 @@ def _make_lint_check() -> VerificationCheckAdapter:
             return False, "ruff not installed"
         return False, stdout[:500] or stderr[:500]
 
-    return VerificationCheckAdapter(name="lint", run=_check)
+    return VerificationCheckAdapter(
+        name="lint", run=_check, command="ruff check --stdin-filename verify.py -"
+    )
 
 
 def _make_type_check() -> VerificationCheckAdapter:
@@ -118,7 +120,9 @@ def _make_type_check() -> VerificationCheckAdapter:
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
-    return VerificationCheckAdapter(name="type_check", run=_check)
+    return VerificationCheckAdapter(
+        name="type_check", run=_check, command="mypy --show-error-codes <tempfile>"
+    )
 
 
 def _make_build_check() -> VerificationCheckAdapter:
@@ -137,7 +141,7 @@ def _make_build_check() -> VerificationCheckAdapter:
         except Exception as exc:
             return False, f"{type(exc).__name__}: {exc}"
 
-    return VerificationCheckAdapter(name="build", run=_check)
+    return VerificationCheckAdapter(name="build", run=_check, command="exec(<verify>)")
 
 
 def _make_security_check() -> VerificationCheckAdapter:
@@ -171,7 +175,7 @@ def _make_security_check() -> VerificationCheckAdapter:
             return False, "; ".join(findings[:5])
         return True, ""
 
-    return VerificationCheckAdapter(name="security", run=_check)
+    return VerificationCheckAdapter(name="security", run=_check, command="static-pattern-scan")
 
 
 # ── VerificationCheckAdapter (infrastructure-level) ───────────────────────────
@@ -184,9 +188,10 @@ class VerificationCheckAdapter:
     but lives in infrastructure so it can use shell commands and file I/O.
     """
 
-    def __init__(self, name: str, run: CheckFn) -> None:
+    def __init__(self, name: str, run: CheckFn, command: str | None = None) -> None:
         self.name = name
         self._run = run
+        self.command = command
 
     async def __call__(self, artifact: str) -> tuple[bool, str]:
         """Convenience: callable interface."""
