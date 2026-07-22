@@ -72,14 +72,12 @@ def _handler_contains_kill(handler: ast.ExceptHandler, var_name: str = "proc") -
 
 
 def _handler_contains_wait(handler: ast.ExceptHandler, var_name: str = "proc") -> bool:
-    """Return True if *handler* body calls ``<var_name>.wait()``."""
+    """Return True if *handler* body calls ``<var_name>.wait()`` (directly or wrapped)."""
     for node in ast.walk(handler):
-        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Await):
-            call = node.value.value if isinstance(node.value, ast.Await) else None
-            if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute):
-                if call.func.attr == "wait" and isinstance(call.func.value, ast.Name):
-                    if call.func.value.id == var_name:
-                        return True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr == "wait" and isinstance(node.func.value, ast.Name):
+                if node.func.value.id == var_name:
+                    return True
     return False
 
 
@@ -119,6 +117,10 @@ def check_file(filepath: str) -> list[str]:
             continue
 
         for handler in relevant_handlers:
+            # Skip handlers that live inside another timeout handler
+            # (e.g., the wait_for wrapper handler).
+            if _is_nested_handler(handler, timeout_handlers):
+                continue
             has_kill = _handler_contains_kill(handler, var_name)
             has_wait = _handler_contains_wait(handler, var_name)
 
@@ -149,6 +151,16 @@ def _enclosing_function(tree: ast.AST, node: ast.AST) -> ast.FunctionDef | None:
 def _node_in_function(node: ast.AST, func: ast.FunctionDef) -> bool:
     """Return True if *node* is a descendant of *func*."""
     return any(child is node for child in ast.walk(func))
+
+
+def _is_nested_handler(handler: ast.ExceptHandler, all_handlers: list[ast.ExceptHandler]) -> bool:
+    """Return True if *handler* lives inside another handler's body."""
+    for other in all_handlers:
+        if other is handler:
+            continue
+        if _node_in_function(handler, other):
+            return True
+    return False
 
 
 def main() -> int:

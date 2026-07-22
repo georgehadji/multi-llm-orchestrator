@@ -66,6 +66,10 @@ def _once(name: str):
             from orchestrator.infrastructure.verification_checks import default_checks
 
             _imported[name] = default_checks
+        elif name == "DeterministicResult":
+            from orchestrator.domain.verification import DeterministicResult
+
+            _imported[name] = DeterministicResult
     return _imported[name]
 
 
@@ -487,19 +491,19 @@ class TestCritiqueReportDeterministic:
 
     def test_deterministic_field_roundtrip(self):
         CritiqueReport = _once("CritiqueReport")
-        data = {
-            "passed": False,
-            "checks": {"lint": False},
-            "reasons": {"lint": "error"},
-            "artifact_hash": "abc123",
-            "failure_summary": {"lint": "error"},
-            "status_summary": "[FAIL] lint: failed",
-        }
-        report = CritiqueReport(
-            task_id="t1", score=0.5, deterministic=data, passed_validators=False
+        DeterministicResult = _once("DeterministicResult")
+        dr = DeterministicResult(
+            passed=False,
+            checks={"lint": False},
+            reasons={"lint": "error"},
+            artifact_hash="abc123",
+            failure_summary={"lint": "error"},
+            status_summary="[FAIL] lint: failed",
         )
-        assert report.deterministic == data
-        assert report.deterministic["passed"] is False
+        report = CritiqueReport(task_id="t1", score=0.5, deterministic=dr, passed_validators=False)
+        assert report.deterministic is not None
+        assert report.deterministic.passed is False
+        assert report.deterministic.checks == {"lint": False}
 
     def test_deterministic_none_by_default(self):
         CritiqueReport = _once("CritiqueReport")
@@ -508,11 +512,14 @@ class TestCritiqueReportDeterministic:
 
     def test_deterministic_to_dict_from_dict_roundtrip(self):
         CritiqueReport = _once("CritiqueReport")
-        data = {"passed": True, "checks": {"lint": True}}
-        report = CritiqueReport(task_id="t3", score=0.9, deterministic=data)
+        DeterministicResult = _once("DeterministicResult")
+        dr = DeterministicResult(passed=True, checks={"lint": True})
+        report = CritiqueReport(task_id="t3", score=0.9, deterministic=dr)
         d = report.to_dict()
         restored = CritiqueReport.from_dict(d)
-        assert restored.deterministic == data
+        assert restored.deterministic is not None
+        assert restored.deterministic.passed is True
+        assert restored.deterministic.checks == {"lint": True}
         assert restored.task_id == "t3"
         assert restored.score == 0.9
 

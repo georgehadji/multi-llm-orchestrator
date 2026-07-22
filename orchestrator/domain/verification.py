@@ -119,3 +119,57 @@ class VerificationPolicy:
         if self.artifact_types is None:
             return True
         return artifact_type in self.artifact_types
+
+
+@dataclass(frozen=True)
+class DeterministicResult:
+    """Serialized gate result carried through CritiqueReport.
+
+    Versioned for forward-compatibility across serialization boundaries
+    (CritiqueReport.to_dict / from_dict).
+
+    Attributes:
+        passed:         All checks passed.
+        checks:         name → passed (bool).
+        reasons:        name → failure reason.
+        artifact_hash:  SHA-256 hex digest of the artifact checked.
+        failure_summary:{check_name: reason} for each failed/blocked check.
+        status_summary: Human-readable one-liner of outcomes.
+        version:        Schema version for forward-compat.
+    """
+
+    passed: bool = True
+    checks: dict[str, bool] = field(default_factory=dict)
+    reasons: dict[str, str] = field(default_factory=dict)
+    artifact_hash: str | None = None
+    failure_summary: dict[str, str] = field(default_factory=dict)
+    status_summary: str = "(no checks)"
+    version: int = 1
+
+    def to_dict(self) -> dict:
+        """Serialize to dictionary including version marker."""
+        return {
+            "version": self.version,
+            "passed": self.passed,
+            "checks": self.checks,
+            "reasons": self.reasons,
+            "artifact_hash": self.artifact_hash,
+            "failure_summary": self.failure_summary,
+            "status_summary": self.status_summary,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DeterministicResult":
+        """Deserialize from dictionary with version validation."""
+        version = data.get("version", 1)
+        if version != 1:
+            raise ValueError(f"Unsupported DeterministicResult version={version}; expected 1")
+        # Accept both old (unversioned) and new (versioned) dicts
+        return cls(
+            passed=data.get("passed", True),
+            checks=data.get("checks", {}),
+            reasons=data.get("reasons", {}),
+            artifact_hash=data.get("artifact_hash"),
+            failure_summary=data.get("failure_summary", {}),
+            status_summary=data.get("status_summary", "(no checks)"),
+        )

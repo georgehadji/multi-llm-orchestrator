@@ -308,6 +308,11 @@ class ServiceContainer:
     accountability: Any = None
     agent_safety: Any = None
 
+    @property
+    def gate_active(self) -> bool:
+        """Return True if the verification gate is wired and ready."""
+        return self.verification_gate is not None
+
     async def shutdown(self) -> None:
         """Release all container-managed resources.
 
@@ -650,7 +655,10 @@ class ServiceContainer:
                 len(gate_checks),
             )
         except ImportError as exc:
-            logger.debug("WBS-1: VerificationGate not wired: %s", exc)
+            logger.warning(
+                "WBS-1: VerificationGate initialization FAILED — verification disabled: %s", exc
+            )
+            verification_gate = None
 
         # Services (wrapped in type: ignore for optional dependencies)
         executor = ExecutorService(

@@ -59,7 +59,10 @@ async def _run_command(
             proc.kill()
         except Exception:
             pass  # best-effort cleanup; proc may already be dead
-        await proc.wait()  # reap the zombie
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.error("Subprocess %d refused to die after kill — continuing", proc.pid)
         return -1, "", f"TIMEOUT after {timeout}s"
     except FileNotFoundError:
         logger.warning("Command not found: %s", command[0])

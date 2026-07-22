@@ -17,7 +17,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from ..domain.verification import DeterministicResult
 
 
 class CritiqueSeverity(Enum):
@@ -78,10 +81,11 @@ class CritiqueReport:
     passed_validators: bool = False
     model_used: Optional[str] = None
     tokens_used: int = 0
-    deterministic: Optional[dict] = None
+    deterministic: Optional[DeterministicResult] = None
     """Serialized GateResult data (WBS-1): passed, checks, reasons,
     artifact_hash, failure_summary, status_summary.
-    None if no deterministic check ran."""
+    None if no deterministic check ran. 
+    Serialized via DeterministicResult.to_dict() / from_dict()."""
 
     @property
     def has_blockers(self) -> bool:
@@ -155,7 +159,9 @@ class CritiqueReport:
             "passed_validators": self.passed_validators,
             "model_used": self.model_used,
             "tokens_used": self.tokens_used,
-            "deterministic": self.deterministic,
+            "deterministic": (
+                self.deterministic.to_dict() if self.deterministic is not None else None
+            ),
         }
 
     @classmethod
@@ -177,5 +183,14 @@ class CritiqueReport:
             passed_validators=data.get("passed_validators", False),
             model_used=data.get("model_used"),
             tokens_used=data.get("tokens_used", 0),
-            deterministic=data.get("deterministic"),
+            deterministic=CritiqueReport._deserialize_deterministic(data.get("deterministic")),
         )
+
+    @staticmethod
+    def _deserialize_deterministic(data: dict | None) -> DeterministicResult | None:
+        """Deserialize deterministic field, accepting old unversioned dicts."""
+        if data is None:
+            return None
+        from ..domain.verification import DeterministicResult
+
+        return DeterministicResult.from_dict(data)
