@@ -239,7 +239,7 @@ from .github_push import (
     push_to_github,
 )
 from .model_cascading import CascadeMetrics, CascadeResult, ModelCascader, cascading_generate
-from .prompt_cache import CacheMetrics, PromptCacher, warm_prompt_cache
+from .prompt_cache import CacheMetrics, PromptCacher, warm_codebase_cache, warm_prompt_cache
 from .speculative_gen import (
     SpeculativeGenerator,
     SpeculativeMetrics,
@@ -283,6 +283,7 @@ __all__ = [
     "PromptCacher",
     "CacheMetrics",
     "warm_prompt_cache",
+    "warm_codebase_cache",
     # Tier 1: Batch processing
     "BatchClient",
     "BatchStatus",

@@ -29,6 +29,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import re
 import subprocess
 import tempfile
@@ -943,17 +944,73 @@ class TestFirstGenerator:
                     output=f"Unsupported framework: {framework.value}",
                 )
 
+    @staticmethod
+    async def _exec_async(
+        argv: list[str],
+        *,
+        cwd: str | Path | None = None,
+        timeout: float = 120.0,
+        env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess:
+        """Run a child process asynchronously without blocking the event loop.
+
+        Args:
+            argv: Command and arguments.
+            cwd: Working directory.
+            timeout: Maximum execution time in seconds.
+            env: Environment variables (defaults to os.environ copy).
+
+        Returns:
+            A CompletedProcess-like object with stdout, stderr, returncode.
+        """
+        import os as _os
+
+        clean_env = dict(_os.environ) if env is None else env
+        for key in list(clean_env):
+            if "API_KEY" in key.upper() or "SECRET" in key.upper() or "TOKEN" in key.upper():
+                del clean_env[key]
+
+        try:
+            proc = await asyncio.wait_for(
+                asyncio.create_subprocess_exec(
+                    *argv,
+                    cwd=str(cwd) if cwd else None,
+                    env=clean_env,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                ),
+                timeout=timeout,
+            )
+            stdout_bytes, stderr_bytes = await proc.communicate()
+        except asyncio.TimeoutError:
+            if proc:
+                try:
+                    proc.kill()
+                except ProcessLookupError:
+                    pass
+            raise subprocess.TimeoutExpired(cmd=argv, timeout=timeout, output=b"", stderr=b"")
+
+        stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
+        stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+
+        # Build a CompletedProcess-compatible result
+        result = subprocess.CompletedProcess(
+            args=argv,
+            returncode=proc.returncode or 0,
+            stdout=stdout,
+            stderr=stderr,
+        )
+        return result
+
     async def _run_pytest_locally(
         self, temp_dir: str, implementation_code: str, test_code: str
     ) -> TestExecutionResult:
         """Run pytest tests locally."""
         try:
-            result = subprocess.run(
+            result = await self._exec_async(
                 ["python", "-m", "pytest", "test_main.py", "-v", "--tb=short"],
                 cwd=temp_dir,
-                capture_output=True,
-                text=True,
-                timeout=120,  # Increased timeout for complex tests
+                timeout=120,
             )
 
             output = result.stdout + result.stderr
@@ -1097,11 +1154,9 @@ class TestFirstGenerator:
             test_file.write_text(test_code)
 
             # Install dependencies first
-            install_result = subprocess.run(
+            install_result = await self._exec_async(
                 ["npm", "install"],
                 cwd=temp_dir,
-                capture_output=True,
-                text=True,
                 timeout=180,
             )
 
@@ -1117,11 +1172,9 @@ class TestFirstGenerator:
                 )
 
             # Run npm test
-            result = subprocess.run(
+            result = await self._exec_async(
                 ["npm", "test"],
                 cwd=temp_dir,
-                capture_output=True,
-                text=True,
                 timeout=120,
             )
 
@@ -1230,10 +1283,8 @@ class TestFirstGenerator:
         """Run Go tests locally."""
         try:
             # Check if Go is available
-            result = subprocess.run(
+            result = await self._exec_async(
                 ["go", "version"],
-                capture_output=True,
-                text=True,
                 timeout=10,
             )
             if result.returncode != 0:
@@ -1254,11 +1305,9 @@ class TestFirstGenerator:
             (Path(temp_dir) / "main_test.go").write_text(test_code)
 
             # Run tests
-            result = subprocess.run(
+            result = await self._exec_async(
                 ["go", "test", "-v"],
                 cwd=temp_dir,
-                capture_output=True,
-                text=True,
                 timeout=120,
             )
 
@@ -1319,10 +1368,8 @@ class TestFirstGenerator:
         """Run Rust/Cargo tests locally."""
         try:
             # Check if Cargo is available
-            result = subprocess.run(
+            result = await self._exec_async(
                 ["cargo", "--version"],
-                capture_output=True,
-                text=True,
                 timeout=10,
             )
             if result.returncode != 0:
@@ -1350,11 +1397,9 @@ edition = "2021"
             (src_dir / "lib.rs").write_text(implementation_code + "\n\n" + test_code)
 
             # Run tests
-            result = subprocess.run(
+            result = await self._exec_async(
                 ["cargo", "test"],
                 cwd=temp_dir,
-                capture_output=True,
-                text=True,
                 timeout=120,
             )
 

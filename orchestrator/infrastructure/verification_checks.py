@@ -28,6 +28,114 @@ CheckFn = Callable[[str], Awaitable[tuple[bool, str]]]
 """Async function (artifact: str) -> (passed: bool, reason: str)."""
 
 
+def strip_code_block(artifact: str) -> str:
+    """If the artifact is wrapped in a markdown code block, extract the inner content."""
+    text = artifact.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if len(lines) > 1 and lines[0].startswith("```"):
+            start_idx = 1
+            end_idx = len(lines)
+            if lines[-1].startswith("```"):
+                end_idx = len(lines) - 1
+            else:
+                for i in range(len(lines) - 1, 0, -1):
+                    if lines[i].startswith("```"):
+                        end_idx = i
+                        break
+            return "\n".join(lines[start_idx:end_idx])
+    return artifact
+
+
+def is_python_code(artifact: str) -> bool:
+    """Detect if the artifact is Python code. Returns False for TS/JS, JSON, and CLI/shell scripts."""
+    text = strip_code_block(artifact).strip()
+    if not text:
+        return False
+
+    # Remove markdown code-blocks if present
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if len(lines) > 1:
+            lang = lines[0].replace("```", "").strip().lower()
+            if lang in ("python", "py"):
+                return True
+            if lang in (
+                "typescript",
+                "ts",
+                "javascript",
+                "js",
+                "html",
+                "css",
+                "json",
+                "bash",
+                "sh",
+                "yaml",
+                "yml",
+                "markdown",
+                "md",
+            ):
+                return False
+
+    # Check for typescript/javascript/bash/json/html patterns
+    non_python_patterns = [
+        "import React",
+        "import {",
+        "export default",
+        "export const",
+        "export interface",
+        "interface ",
+        "const ",
+        "let ",
+        "type ",
+        "npm ",
+        "yarn ",
+        "pnpm ",
+        "npx ",
+        "node ",
+        "package.json",
+        "tsconfig.json",
+        "vite.config",
+        "<div",
+        "</",
+        "import type",
+        "as const",
+    ]
+    if any(p in text for p in non_python_patterns):
+        return False
+
+    # If it parses as JSON, it's not Python code (except maybe a trivial number or string)
+    import json
+
+    if text.startswith("{") or text.startswith("["):
+        try:
+            json.loads(text)
+            return False
+        except Exception:
+            pass
+
+    # Try compile. If it compiles successfully as Python, then it is indeed Python.
+    try:
+        compile(text, "<verify>", "exec")
+        return True
+    except SyntaxError:
+        # If compile failed, check for TS/JS patterns or CLI/shell scripts
+        import re
+
+        if re.search(r"===|=>|\bfunction\b", text):
+            return False
+        # If it starts with common bash commands:
+        if text.startswith(("npm ", "cd ", "git ", "pip install ", "python -m ", "python3 ")):
+            return False
+
+    # Check for standard Python markers:
+    python_markers = ["def ", "class ", "import ", "from ", "print(", "#"]
+    if any(m in text for m in python_markers):
+        return True
+
+    return False
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
@@ -83,6 +191,9 @@ def _make_syntax_check() -> VerificationCheck:
     """Check that Python code compiles (AST parse)."""
 
     async def _check(artifact: str) -> tuple[bool, str]:
+        artifact = strip_code_block(artifact)
+        if not is_python_code(artifact):
+            return True, ""
         try:
             compile(artifact, "<verify>", "exec")
             return True, ""
@@ -96,6 +207,9 @@ def _make_lint_check() -> VerificationCheck:
     """Check artifact with ruff (if available)."""
 
     async def _check(artifact: str) -> tuple[bool, str]:
+        artifact = strip_code_block(artifact)
+        if not is_python_code(artifact):
+            return True, ""
         returncode, stdout, stderr = await _run_command(
             [sys.executable, "-m", "ruff", "check", "--stdin-filename", "verify.py", "-"],
             input_text=artifact,
@@ -124,6 +238,9 @@ def _make_type_check() -> VerificationCheck:
         logger.warning("Invalid ORCH_MYPY_TIMEOUT value, falling back to 30s")
 
     async def _check(artifact: str) -> tuple[bool, str]:
+        artifact = strip_code_block(artifact)
+        if not is_python_code(artifact):
+            return True, ""
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".py", delete=False, encoding="utf-8"
         ) as f:
@@ -147,14 +264,47 @@ def _make_type_check() -> VerificationCheck:
 
 
 def _make_build_check() -> VerificationCheck:
-    """Check artifact can be imported (executes import-level code in isolated namespace)."""
+    """Check artifact can be imported (executes import-level code in isolated subprocess).
+
+    Uses asyncio.create_subprocess_exec in a temp directory instead of
+    in-process exec() to avoid security risks (D-2 fix).
+    """
 
     async def _check(artifact: str) -> tuple[bool, str]:
-        try:
-            code = compile(artifact, "<verify>", "exec")
-            ns: dict[str, object] = {}
-            exec(code, ns)  # nosec B102 — isolated namespace (empty dict), no caller access
+        artifact = strip_code_block(artifact)
+        if not is_python_code(artifact):
             return True, ""
+        try:
+            import tempfile as _tf
+
+            # Write artifact to a temp file and try to import it in a subprocess
+            with _tf.TemporaryDirectory() as td:
+                test_file = Path(td) / "_verify_target.py"
+                test_file.write_text(artifact, encoding="utf-8")
+
+                proc = await asyncio.create_subprocess_exec(
+                    sys.executable,
+                    "-c",
+                    f"import sys; sys.path.insert(0, '{td}'); import _verify_target",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    _, stderr = await asyncio.wait_for(proc.communicate(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    return False, "Import check timed out"
+
+                if proc.returncode != 0:
+                    stderr_text = stderr.decode("utf-8", errors="replace")
+                    if "SyntaxError" in stderr_text:
+                        return False, stderr_text.splitlines()[-1].strip()
+                    return False, (
+                        stderr_text.splitlines()[-1].strip() if stderr_text else "Import failed"
+                    )
+
+                return True, ""
         except SyntaxError as exc:
             return False, f"SyntaxError: {exc.msg} (line {exc.lineno})"
         except ImportError as exc:
@@ -162,7 +312,7 @@ def _make_build_check() -> VerificationCheck:
         except Exception as exc:
             return False, f"{type(exc).__name__}: {exc}"
 
-    return make_check_adapter(name="build", run=_check, command="exec(<verify>)")
+    return make_check_adapter(name="build", run=_check, command="subprocess_import(<verify>)")
 
 
 def _make_security_check() -> VerificationCheck:
@@ -182,6 +332,7 @@ def _make_security_check() -> VerificationCheck:
     ]
 
     async def _check(artifact: str) -> tuple[bool, str]:
+        artifact = strip_code_block(artifact)
         findings: list[str] = []
         for pattern, description in DANGEROUS_PATTERNS:
             for i, line in enumerate(artifact.splitlines(), 1):

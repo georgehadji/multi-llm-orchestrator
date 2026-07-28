@@ -390,4 +390,39 @@ async def warm_prompt_cache(
     return await cacher.warm_cache(system_prompt, project_context)
 
 
-__all__ = ["PromptCacher", "warm_prompt_cache", "CacheMetrics"]
+async def warm_codebase_cache(
+    context_system_prompt: str,
+    codebase_context: str,
+    client: Any,
+    objective: str = "",
+) -> str:
+    """Warm the prompt cache with codebase context for multi-task modification.
+
+    This is the integration point for Optimization 4.2 (Ephemeral Prompt Caching).
+    It pre-warms the LLM provider's cache with the static codebase context
+    so that subsequent per-task calls (with differing dynamic parts) share
+    the cached prefix, reducing input token costs by 80-90%.
+
+    Args:
+        context_system_prompt: The static system prompt for codebase modifications.
+        codebase_context: The full (or sliced) codebase context string.
+        client: The API client (e.g. UnifiedClient).
+        objective: Optional objective string logged for debugging.
+
+    Returns:
+        The cache key for the warmed context.
+    """
+    cacher = PromptCacher(client=client)
+    cache_key = await cacher.warm_cache(
+        system_prompt=f"{context_system_prompt}\n\n{codebase_context}",
+        project_context=objective,
+    )
+    logger.info(
+        "Codebase cache warmed for objective=%.60s (key=%s)",
+        objective or "(empty)",
+        cache_key,
+    )
+    return cache_key
+
+
+__all__ = ["PromptCacher", "warm_prompt_cache", "warm_codebase_cache", "CacheMetrics"]

@@ -1,16 +1,14 @@
 """
 VerificationGate — deterministic test/lint floor for the evaluator.
+==================================================================
 
 ENH-1 (Loop Engineering §V.C): "The evaluator should act, not just read."
 WBS-1: structured outcomes, artifact hashes, execution receipts, policy support.
 
-Composes pluggable async checks (tests, lint, type-check) into a boolean
-verdict that serves as a hard floor beneath the LLM quality score:
-  - gate passes  → LLM score determines quality
-  - gate fails   → score capped at FAIL_SCORE_FLOOR regardless of LLM opinion
-
-This prevents the nodding loop: an LLM praising its own broken output can no
-longer gate-crash completion.
+E-6 (Phase 2): Added CheckScope support — WORKSPACE-scoped checks receive
+a Workspace object alongside the artifact string. This enables test execution
+to be wired into the gate without breaking the artifact-only contract for
+existing callers (backward compatible by default).
 """
 
 from __future__ import annotations
@@ -19,8 +17,9 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable
 
+from ..domain.testing_models import CheckScope, Workspace
 from ..domain.verification import CheckOutcome, ExecutionReceipt, VerificationPolicy
 
 logger = logging.getLogger("orchestrator.application.verification_gate")
@@ -40,6 +39,8 @@ class VerificationCheck:
     run: CheckFn
     command: str | None = None
     """Optional shell command or label for audit receipts."""
+    scope: CheckScope = CheckScope.ARTIFACT
+    """Scope of the check — ARTIFACT (default) or WORKSPACE (needs materialized tree)."""
 
 
 @dataclass
@@ -129,17 +130,21 @@ class VerificationGate:
         self,
         artifact: str,
         policy: VerificationPolicy | None = None,
+        workspace: Workspace | None = None,
     ) -> GateResult:
         """Run all checks against *artifact*; return aggregated GateResult.
 
         All checks run regardless of early failures so the caller sees every
         problem in one pass.
 
+        WORKSPACE-scoped checks only execute when *workspace* is provided.
+        When workspace is None, WORKSPACE-scoped checks emit NOT_RUN receipts
+        to preserve backward compatibility with artifact-only callers.
+
         Args:
-            artifact: The text/code to verify.
-            policy:   Optional override policy. If set, gates without matching
-                      checks will still record NOT_RUN receipts for mandated
-                      checks that have no checker registered.
+            artifact:   The text/code to verify.
+            policy:     Optional override policy.
+            workspace:  Optional materialized Workspace for WORKSPACE-scoped checks.
 
         Returns:
             GateResult with backward-compat checks/reasons/score plus
@@ -157,6 +162,20 @@ class VerificationGate:
 
         # First, run all registered checks
         for check in self._checks:
+            # Skip WORKSPACE-scoped checks when no workspace is provided
+            if check.scope == CheckScope.WORKSPACE and workspace is None:
+                passed_map[check.name] = True  # not failed, just not applicable
+                receipts.append(
+                    ExecutionReceipt(
+                        check_name=check.name,
+                        outcome=CheckOutcome.NOT_RUN,
+                        reason="workspace not provided for WORKSPACE-scoped check",
+                        artifact_hash=artifact_hash,
+                        command=check.command,
+                    )
+                )
+                continue
+
             start = time.monotonic()
             duration: float | None = None
             try:

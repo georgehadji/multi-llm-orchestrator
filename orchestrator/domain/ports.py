@@ -18,12 +18,14 @@ NullAdapters for testing:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from ..models import ProjectState
 
 if TYPE_CHECKING:
     from ..models import Model, TaskType
+    from .testing_models import IsolationLevel, SuiteReport, TestSelection, Workspace
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CachePort
@@ -56,6 +58,10 @@ class CachePort(Protocol):
     ) -> None: ...
 
     async def close(self) -> None: ...
+    async def acquire_project_lock(self, project_id: str) -> bool:
+        return True
+
+    async def release_project_lock(self, project_id: str) -> None: ...
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -73,6 +79,14 @@ class StatePort(Protocol):
     async def save_circuit_breaker_state(self, model_name: str, failure_count: int) -> None: ...
     async def load_circuit_breaker_state(self) -> dict[str, int]: ...
     async def close(self) -> None: ...
+
+    async def acquire_project_lock(self, project_id: str) -> bool:
+        """Acquire an advisory lock for *project_id*. Returns True if acquired, False if held by another instance."""
+        ...
+
+    async def release_project_lock(self, project_id: str) -> None:
+        """Release the advisory lock for *project_id*."""
+        ...
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -776,3 +790,61 @@ class Reranker(Protocol):
         (float 0.0-1.0) set on each dict.
         """
         ...
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Testing ports (Phase 0 — Autonomous Testing Engine)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@runtime_checkable
+class TestExecutorPort(Protocol):
+    """Executes a suite in a workspace.
+
+    Implementations live in infrastructure/test_runners/.
+    """
+
+    async def run(
+        self,
+        workspace: Workspace,
+        selection: TestSelection | None = None,
+        *,
+        timeout_s: float = 120.0,
+    ) -> SuiteReport: ...
+
+    def supports(self, framework: str) -> bool: ...
+
+
+@runtime_checkable
+class SandboxPort(Protocol):
+    """Provides the isolation boundary a runner executes inside."""
+
+    level: IsolationLevel
+
+    async def exec(
+        self,
+        argv: list[str],
+        *,
+        cwd: Path,
+        env: dict[str, str],
+        timeout_s: float,
+    ) -> tuple[int, str, str]: ...
+
+
+@runtime_checkable
+class MetricCollectorPort(Protocol):
+    """Collects code quality metrics from a workspace (Phase 6)."""
+
+    async def collect(self, workspace: Workspace) -> dict[str, float]: ...
+
+
+@runtime_checkable
+class BenchmarkPort(Protocol):
+    """Runs benchmarks in a workspace (Phase 6)."""
+
+    async def run(
+        self,
+        workspace: Workspace,
+        *,
+        timeout_s: float = 300.0,
+    ) -> dict[str, float]: ...

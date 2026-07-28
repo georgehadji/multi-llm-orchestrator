@@ -17,6 +17,11 @@ from typing import TYPE_CHECKING
 
 from ..models import Model, TaskResult, TaskType
 
+# F-4: Score floor for failing test suites (mirrors VerificationGate.FAIL_SCORE_FLOOR)
+# When a TDD-generated test suite fails, the task score is capped at this value
+# instead of the previous 0.8, ensuring failing suites are never accepted.
+_FAIL_SCORE_FLOOR: float = 0.15
+
 if TYPE_CHECKING:
     from ..domain.ports import LLMClient
     from ..cache import DiskCache
@@ -270,8 +275,8 @@ class TaskExecutor:
 
                 self._tdd_generator = TestFirstGenerator(  # type: ignore[assignment]
                     client=self.client,
-                    sandbox=None,  # Optional sandbox
-                    max_test_iterations=3,
+                    sandbox=None,
+                    max_test_iterations=5,
                 )
 
             tdd_result = await self._tdd_generator.generate_with_tests(  # type: ignore[attr-defined]
@@ -292,7 +297,7 @@ class TaskExecutor:
                 return TaskResult(
                     task_id=task.id,
                     output=tdd_result.implementation_code,
-                    score=1.0 if tdd_result.test_result.passed else 0.8,
+                    score=1.0 if tdd_result.test_result.passed else _FAIL_SCORE_FLOOR,
                     model_used=context.primary_model,
                     reviewer_model=None,
                     tokens_used={

@@ -6,6 +6,10 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 Phase 3 of the Codebase-Aware Orchestrator enhancement.
 Given an objective and codebase context, produces a task plan
 for modifying an existing codebase.
+
+Optimization: Decomposer Task Consolidation (4.4)
+- Post-decomposition stage merges MODIFY_FILE tasks targeting the same file
+- Reduces orchestration overhead and critique cycles significantly
 """
 
 from __future__ import annotations
@@ -147,21 +151,94 @@ class CodebaseDecomposer:
             if isinstance(install_deps, str):
                 install_deps = [install_deps] if install_deps else []
 
-            tasks[task_id] = Task(
+            task = Task(
                 id=task_id,
                 type=task_type,
                 prompt=prompt,
                 dependencies=deps,
                 target_path=item.get("target_path", ""),
-                modification_strategy=item.get("modification_strategy", "replace"),
-                dependencies_to_install=install_deps,
                 max_output_tokens=4096,
             )
+            # Set dynamic attributes used by CodebaseWriter
+            object.__setattr__(
+                task, "modification_strategy", item.get("modification_strategy", "replace")
+            )
+            object.__setattr__(task, "dependencies_to_install", install_deps)
+
+            tasks[task_id] = task
 
         if not tasks:
             return self._fallback_plan(objective, "No tasks parsed")
 
+        # Optimization 4.4: Consolidate MODIFY_FILE tasks by target_path
+        tasks = self._consolidate_tasks(tasks)
+
         return tasks
+
+    @staticmethod
+    def _consolidate_tasks(tasks: dict[str, Task]) -> dict[str, Task]:
+        """Merge MODIFY_FILE tasks that target the same file into one task.
+
+        When multiple modification tasks target the same file, this reduces
+        orchestration overhead by combining their prompts into a single task.
+
+        Args:
+            tasks: Dict of task_id -> Task to consolidate.
+
+        Returns:
+            Consolidated dict of task_id -> Task.
+        """
+        from collections import defaultdict
+
+        # Group MODIFY_FILE tasks by target_path
+        grouped: dict[str, list[Task]] = defaultdict(list)
+        non_modify: dict[str, Task] = {}
+        for tid, task in tasks.items():
+            if task.type == TaskType.MODIFY_FILE and task.target_path:
+                grouped[task.target_path].append(task)
+            else:
+                non_modify[tid] = task
+
+        if not grouped:
+            return tasks  # Nothing to consolidate
+
+        consolidated: dict[str, Task] = dict(non_modify)
+        for path, sub_tasks in grouped.items():
+            if len(sub_tasks) == 1:
+                consolidated[sub_tasks[0].id] = sub_tasks[0]
+                continue
+
+            # Merge multiple tasks for the same file into one
+            combined_prompt_lines: list[str] = []
+            all_deps: list[str] = []
+            for i, st in enumerate(sub_tasks, 1):
+                combined_prompt_lines.append(f"{i}. {st.prompt}")
+                all_deps.extend(st.dependencies if isinstance(st.dependencies, list) else [])
+
+            merged_id = f"consolidated_{path.replace('/', '_').replace('.', '_')}"
+            # Use modification_strategy of the first task, fall back to "replace"
+            strategy = getattr(sub_tasks[0], "modification_strategy", "replace") or "replace"
+
+            merged = Task(
+                id=merged_id,
+                type=TaskType.MODIFY_FILE,
+                prompt="\n".join(combined_prompt_lines),
+                target_path=path,
+                dependencies=list(set(all_deps)),  # deduplicate
+                max_output_tokens=max(st.max_output_tokens for st in sub_tasks),
+            )
+            # Set dynamic attributes used by CodebaseWriter
+            object.__setattr__(merged, "modification_strategy", strategy)
+
+            logger.info(
+                "Consolidated %d MODIFY_FILE tasks for %s into %s",
+                len(sub_tasks),
+                path,
+                merged_id,
+            )
+            consolidated[merged_id] = merged
+
+        return consolidated
 
     def _fallback_plan(self, objective: str, error: str | None = None) -> dict[str, Task]:
         """Fallback when LLM decomposition fails."""

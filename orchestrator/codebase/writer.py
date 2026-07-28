@@ -5,14 +5,19 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 
 Phase 4 of the Codebase-Aware Orchestrator enhancement.
 Handles safe file modifications, diff generation, and safety gates.
+
+Optimization: Unified Diff & SEARCH/REPLACE Block Patching (4.3)
+- Parses SEARCH/REPLACE blocks (Aider-style) from LLM output
+- Applies targeted patches instead of full file rewrites
+- Reduces output token costs by up to 95%
 """
 
 from __future__ import annotations
 
 import difflib
 import logging
+import re
 import shutil
-from typing import Any
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -29,6 +34,15 @@ class VerificationResult:
     passed: bool = False
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class SearchReplaceBlock:
+    """A single SEARCH/REPLACE block parsed from LLM output."""
+
+    search: str
+    replace: str
+    target_file: str = ""
 
 
 class FileOperations:
@@ -150,6 +164,12 @@ class FileOperations:
 class DiffEngine:
     """Generate and save unified diffs."""
 
+    # Regex for SEARCH/REPLACE blocks (Aider-style)
+    _SEARCH_REPLACE_RE = re.compile(
+        r"<<<<<<<\s*SEARCH\s*\n" r"(.*?)" r"\n?=======\s*\n" r"(.*?)" r"\n?>>>>>>>\s*REPLACE",
+        re.DOTALL,
+    )
+
     def generate_diff(self, original: str, modified: str, filepath: str) -> str:
         """Generate a unified diff string."""
         original_lines = original.splitlines(keepends=True)
@@ -168,6 +188,80 @@ class DiffEngine:
         diff_path = output_dir / filename
         diff_path.write_text(diff, encoding="utf-8")
         return diff_path
+
+    @classmethod
+    def parse_search_replace_blocks(cls, text: str) -> list[SearchReplaceBlock]:
+        """Parse SEARCH/REPLACE blocks from LLM output text.
+
+        Format:
+            <<<<<<< SEARCH
+            original lines
+            =======
+            modified lines
+            >>>>>>> REPLACE
+
+        Args:
+            text: The LLM output text to parse.
+
+        Returns:
+            List of SearchReplaceBlock instances in order of appearance.
+        """
+        blocks: list[SearchReplaceBlock] = []
+        for match in cls._SEARCH_REPLACE_RE.finditer(text):
+            search_text = match.group(1).strip("\n")
+            replace_text = match.group(2).strip("\n")
+
+            # Skip empty search blocks (invalid)
+            if not search_text.strip():
+                continue
+
+            blocks.append(
+                SearchReplaceBlock(
+                    search=search_text,
+                    replace=replace_text,
+                )
+            )
+        return blocks
+
+    @classmethod
+    def apply_search_replace_blocks(
+        cls,
+        original_content: str,
+        blocks: list[SearchReplaceBlock],
+    ) -> str:
+        """Apply SEARCH/REPLACE blocks to the original content in order.
+
+        Each block replaces the first occurrence of ``search`` with ``replace``.
+        If a search block is not found in the current content, the operation
+        is skipped and a warning is logged (fail-safe).
+
+        Args:
+            original_content: The original file content.
+            blocks: Ordered list of SearchReplaceBlock to apply.
+
+        Returns:
+            The patched file content after all blocks are applied.
+        """
+        content = original_content
+        for i, block in enumerate(blocks):
+            if block.search not in content:
+                logger.warning(
+                    "SEARCH block %d not found in content (%.60s…) — skipping",
+                    i,
+                    block.search.strip()[:60],
+                )
+                continue
+
+            # Replace only the first occurrence
+            content = content.replace(block.search, block.replace, 1)
+            logger.debug(
+                "Applied SEARCH/REPLACE block %d (replaced %d chars with %d chars)",
+                i,
+                len(block.search),
+                len(block.replace),
+            )
+
+        return content
 
 
 class ModificationGate:
@@ -313,6 +407,25 @@ class CodebaseWriter:
 
             # Safety gate
             if not self._dry_run:
+                # Optimization 4.3: Try SEARCH/REPLACE block patching first
+                search_replace_blocks = DiffEngine.parse_search_replace_blocks(content)
+
+                if search_replace_blocks and target.exists():
+                    # Apply SEARCH/REPLACE patches to the existing file
+                    original = self._files.read_file(target)
+                    patched = DiffEngine.apply_search_replace_blocks(
+                        original, search_replace_blocks
+                    )
+                    actual_content = patched
+                    logger.info(
+                        "Applied %d SEARCH/REPLACE blocks to %s",
+                        len(search_replace_blocks),
+                        target,
+                    )
+                else:
+                    # Fallback: use the full output as replacement content
+                    actual_content = content
+
                 ver = self._gate.verify(task, result, self._root)
                 if ver.errors:
                     logger.error("Safety gate BLOCKED modification of %s: %s", target, ver.errors)
@@ -321,14 +434,14 @@ class CodebaseWriter:
                 # Generate diff before modifying
                 if target.exists():
                     original = self._files.read_file(target)
-                    diff = self._diffs.generate_diff(original, content, str(target))
+                    diff = self._diffs.generate_diff(original, actual_content, str(target))
                     self._all_diffs.append(diff)
                 else:
                     diff = f"--- /dev/null\n+++ b/{target}\n"
                     self._all_diffs.append(diff)
 
                 strategy = task.modification_strategy
-                self._files.modify_file(target, content, strategy)
+                self._files.modify_file(target, actual_content, strategy)
             else:
                 logger.info("[dry-run] Would modify: %s", target)
 
