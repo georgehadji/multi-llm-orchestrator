@@ -70,8 +70,14 @@ def run_project_tests(
 
     # In a full async context this would be awaited, but this sync stub
     # bridges to the new runner architecture synchronously for backward compat.
+    import os as _os
     import subprocess
-    import sys
+
+    # Scrub sensitive env vars before passing to test subprocess
+    clean_env = dict(_os.environ)
+    for key in list(clean_env):
+        if "API_KEY" in key.upper() or "SECRET" in key.upper() or "TOKEN" in key.upper():
+            del clean_env[key]
 
     try:
         cmd = runner.build_command(workspace)
@@ -81,6 +87,7 @@ def run_project_tests(
             capture_output=True,
             text=True,
             timeout=timeout_s,
+            env=clean_env,
         )
         stdout = result.stdout
         stderr = result.stderr

@@ -970,24 +970,23 @@ class TestFirstGenerator:
             if "API_KEY" in key.upper() or "SECRET" in key.upper() or "TOKEN" in key.upper():
                 del clean_env[key]
 
+        # Hoist proc creation outside wait_for so it's always bound
+        # in the TimeoutError handler (prevents UnboundLocalError).
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            cwd=str(cwd) if cwd else None,
+            env=clean_env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
         try:
-            proc = await asyncio.wait_for(
-                asyncio.create_subprocess_exec(
-                    *argv,
-                    cwd=str(cwd) if cwd else None,
-                    env=clean_env,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                ),
-                timeout=timeout,
-            )
-            stdout_bytes, stderr_bytes = await proc.communicate()
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError:
-            if proc:
-                try:
-                    proc.kill()
-                except ProcessLookupError:
-                    pass
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
             raise subprocess.TimeoutExpired(cmd=argv, timeout=timeout, output=b"", stderr=b"")
 
         stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
