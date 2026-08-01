@@ -124,6 +124,7 @@ class ModelRegistry:
 
     # Thinking Machines — Inkling: multimodal MoE, coding/agentic/RAG
     INKLING = "thinkingmachines/inkling"  # $1/$4.05, 1M context, 41B/975B MoE
+    INKLING_SMALL = "thinkingmachines/inkling-small"  # $0.50/$1.20, 512K ctx, budget multimodal
 
     # Meituan — LongCat 2.0: sparse MoE, coding/repo-level/agentic
     LONGCAT_2_0 = "meituan/longcat-2.0"  # $0.30/$1.20, 1M context, 48B/1.6T MoE
@@ -315,6 +316,7 @@ class ModelRegistry:
         KIMI_K3: {"input": 3.00, "output": 15.00},
         # Inkling
         INKLING: {"input": 1.00, "output": 4.05},
+        INKLING_SMALL: {"input": 0.50, "output": 1.20},
         # LongCat 2.0
         LONGCAT_2_0: {"input": 0.30, "output": 1.20},
         # Muse Spark 1.1
@@ -391,6 +393,7 @@ class ModelRegistry:
         KIMI_K2_6: 131072,
         KIMI_K3: 1048576,  # 1M context
         INKLING: 1048576,  # 1M context
+        INKLING_SMALL: 524288,
         LONGCAT_2_0: 1048576,  # 1M context
         MUSE_SPARK_1_1: 1048576,  # 1M context
         GEMINI_3_6_FLASH: 1048576,  # 1M context
@@ -503,6 +506,7 @@ class ModelRegistry:
         LONGCAT_2_0,  # $0.30/$1.20 - Great value MoE
         GPT_5_6_LUNA,  # $0.10/$0.60
         GPT_5_6_LUNA_PRO,  # $0.10/$0.60
+        INKLING_SMALL,  # $0.50/$1.20
     }
 
     # Premium models - maximum quality
@@ -561,6 +565,7 @@ class ModelRegistry:
         GPT_5_6_LUNA_PRO,  # 1.05M
         GPT_5_1_CODEX_MAX,  # 400K
         GLM_5_1,  # 205K
+        INKLING_SMALL,  # 512K
     }
 
     # Multimodal models — support image + text input (vision-capable)
@@ -585,6 +590,7 @@ class ModelRegistry:
         GPT_5_6_TERRA_PRO,
         GPT_5_6_LUNA,
         GPT_5_6_LUNA_PRO,
+        INKLING_SMALL,
         # Moonshot Kimi-K2.5 — described as visual coding SOTA
         KIMI_K3,
         INKLING,

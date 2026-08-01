@@ -21,7 +21,8 @@
     "anthropic/claude-opus-5-fast",
     "openai/gpt-5.1-codex-max",
     "openai/gpt-5.6-terra",
-    "openai/gpt-5.6-terra-pro"
+    "openai/gpt-5.6-terra-pro",
+    "thinkingmachines/inkling-small"
   ],
   "modify_file": [
     "anthropic/claude-sonnet-5",
@@ -257,5 +258,8 @@
   "z-ai/glm-5.1": [
     "code_generation",
     "creative_writing"
+  ],
+  "thinkingmachines/inkling-small": [
+    "code_generation"
   ]
 }

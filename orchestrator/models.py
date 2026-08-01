@@ -359,6 +359,7 @@ class Model(Enum):
     # ═══════════════════════════════════════════════════════
     # Thinking Machines — Inkling: 41B active/975B MoE, multimodal (image+audio), coding/agentic/RAG
     INKLING = "thinkingmachines/inkling"
+    INKLING_SMALL = "thinkingmachines/inkling-small"  # $0.50/$1.20, 512K ctx, budget multimodal
     # Meituan — LongCat 2.0: 48B active/1.6T MoE, coding/repo-level/agentic, great value
     LONGCAT_2_0 = "meituan/longcat-2.0"
     # MoonshotAI — Kimi K3: 2.8T params, multimodal reasoning, complex coding/knowledge-work
@@ -562,6 +563,7 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.GEMINI_3_5_FLASH_LITE: {"input": 0.30, "output": 2.50},
     Model.LAGUNA_S_2_1: {"input": 0.10, "output": 0.20},
     Model.INKLING: {"input": 1.00, "output": 4.05},
+    Model.INKLING_SMALL: {"input": 0.50, "output": 1.20},
     Model.LONGCAT_2_0: {"input": 0.30, "output": 1.20},
     Model.KIMI_K3: {"input": 3.00, "output": 15.00},
     Model.MUSE_SPARK_1_1: {"input": 1.25, "output": 4.25},
@@ -726,6 +728,7 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.GEMINI_3_5_FLASH_LITE: 1048576,
     Model.LAGUNA_S_2_1: 1048576,
     Model.INKLING: 1048576,
+    Model.INKLING_SMALL: 524288,
     Model.LONGCAT_2_0: 1048576,
     Model.KIMI_K3: 1048576,
     Model.MUSE_SPARK_1_1: 1048576,
