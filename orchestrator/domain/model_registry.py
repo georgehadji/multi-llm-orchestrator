@@ -72,7 +72,7 @@ class ModelRegistry:
     QWEN_3_MAX_THINKING = "qwen/qwen3-max-thinking"  # $3.50/$14.00, max reasoning
 
     # DeepSeek Models - Best Value
-    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.27/$1.10, 164K context ⭐ VERIFIED
+    DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"  # $0.14/$0.28, 1M context ⭐ VERIFIED
     DEEPSEEK_V4_PRO = "deepseek/deepseek-v4-pro"  # $1.50/$6.00, reasoning specialist
 
     # Anthropic Claude Models - Balanced Quality
@@ -286,7 +286,7 @@ class ModelRegistry:
         QWEN_3_235B_THINKING: {"input": 2.50, "output": 10.00},
         QWEN_3_MAX_THINKING: {"input": 3.50, "output": 14.00},
         # DeepSeek Models (VERIFIED)
-        DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},
+        DEEPSEEK_V4_FLASH: {"input": 0.14, "output": 0.28},
         DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},
         # Anthropic Models (VERIFIED)
         CLAUDE_SONNET_5: {"input": 3.00, "output": 15.00},
@@ -365,7 +365,7 @@ class ModelRegistry:
         QWEN_3_6_FLASH: 32768,
         QWEN_3_7_FLASH: 1048576,
         # DeepSeek Models (VERIFIED)
-        DEEPSEEK_V4_FLASH: 163840,
+        DEEPSEEK_V4_FLASH: 1048576,
         DEEPSEEK_V4_PRO: 16384,
         # Anthropic Models (VERIFIED)
         CLAUDE_SONNET_5: 200000,

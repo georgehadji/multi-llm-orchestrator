@@ -438,7 +438,7 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.CLAUDE_OPUS_5_FAST: {"input": 20.00, "output": 100.00},
     Model.CLAUDE_HAIKU_4_5: {"input": 1.00, "output": 5.00},
     Model.DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},
-    Model.DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},
+    Model.DEEPSEEK_V4_FLASH: {"input": 0.14, "output": 0.28},
     Model.LLAMA_4_MAVERICK: {"input": 0.17, "output": 0.17},
     Model.LLAMA_4_SCOUT: {"input": 0.11, "output": 0.34},
     Model.LLAMA_3_3_70B: {"input": 0.12, "output": 0.30},
