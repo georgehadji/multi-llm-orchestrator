@@ -122,7 +122,7 @@ class SessionRecord:
     @property
     def tier(self) -> MemoryTier:
         """Determine memory tier based on age."""
-        age = datetime.utcnow() - self.created_at
+        age = datetime.now(datetime.timezone.utc)() - self.created_at
         if age.days < 3:
             return MemoryTier.HOT
         elif age.days < 30:
@@ -246,7 +246,7 @@ class SessionWatcher:
             return self._active_sessions[project_id]
 
         session_id = str(uuid.uuid4())
-        now = datetime.utcnow()
+        now = datetime.now(datetime.timezone.utc)()
 
         session = SessionRecord(
             id=session_id,
@@ -305,7 +305,7 @@ class SessionWatcher:
 
         interaction = InteractionRecord(
             id=str(uuid.uuid4()),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.timezone.utc)(),
             task_input=task_input,
             task_output=task_output,
             task_type=task_type,
@@ -316,7 +316,7 @@ class SessionWatcher:
         )
 
         session.interactions.append(interaction)
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(datetime.timezone.utc)()
 
         # Save to disk
         self._save_session(session)
@@ -484,7 +484,7 @@ class SessionWatcher:
 
     def cleanup_old_sessions(self, days: int = 90) -> int:
         """Clean up sessions older than specified days."""
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(datetime.timezone.utc)() - timedelta(days=days)
         removed = 0
 
         for session_id, session in list(self._sessions.items()):

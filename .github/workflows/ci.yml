@@ -54,6 +54,10 @@ jobs:
         # Part of Architecture Remediation Plan V2 — Phase 3.1e.
       - name: Check test marker coverage
         run: python scripts/check_test_markers.py
+      - name: Check config drift (routing + fallbacks)
+        run: python scripts/check_config_drift.py
+        # P1: routing.json reverse mappings use valid TaskType values.
+        # P2: fallbacks.json has complete coverage, no orphan targets.
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest

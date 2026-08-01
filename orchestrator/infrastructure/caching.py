@@ -74,23 +74,23 @@ class CacheEntry:
     created_at: datetime
     expires_at: datetime | None
     access_count: int = 0
-    last_accessed: datetime = field(default_factory=datetime.utcnow)
+    last_accessed: datetime = field(default_factory=lambda: datetime.now(datetime.timezone.utc))
     size_bytes: int = 0
 
     @property
     def is_expired(self) -> bool:
         if self.expires_at is None:
             return False
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(datetime.timezone.utc)() > self.expires_at
 
     @property
     def age(self) -> timedelta:
-        return datetime.utcnow() - self.created_at
+        return datetime.now(datetime.timezone.utc)() - self.created_at
 
     def touch(self) -> None:
         """Update access metadata."""
         self.access_count += 1
-        self.last_accessed = datetime.utcnow()
+        self.last_accessed = datetime.now(datetime.timezone.utc)()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -208,13 +208,13 @@ class InMemoryCache(CacheBackend):
 
             expires = None
             if ttl:
-                expires = datetime.utcnow() + ttl
+                expires = datetime.now(datetime.timezone.utc)() + ttl
 
             entry = CacheEntry(
                 key=key,
                 value=value,
                 level=self.level,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(datetime.timezone.utc)(),
                 expires_at=expires,
                 size_bytes=size,
             )
@@ -451,7 +451,7 @@ class DiskCache(CacheBackend):
             # Check expiration
             if expires_at:
                 expires = datetime.fromisoformat(expires_at)
-                if datetime.utcnow() > expires:
+                if datetime.now(datetime.timezone.utc)() > expires:
                     conn.execute("DELETE FROM cache WHERE key = ?", (key,))
                     conn.commit()
                     self._stats["misses"] += 1
@@ -500,7 +500,7 @@ class DiskCache(CacheBackend):
             # Calculate expiration
             expires_at = None
             if ttl:
-                expires_at = (datetime.utcnow() + ttl).isoformat()
+                expires_at = (datetime.now(datetime.timezone.utc)() + ttl).isoformat()
 
             # Insert or replace
             conn.execute(
@@ -508,7 +508,13 @@ class DiskCache(CacheBackend):
                 INSERT OR REPLACE INTO cache (key, value, created_at, expires_at, size_bytes)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                (key, value_blob, datetime.utcnow().isoformat(), expires_at, size),
+                (
+                    key,
+                    value_blob,
+                    datetime.now(datetime.timezone.utc)().isoformat(),
+                    expires_at,
+                    size,
+                ),
             )
             conn.commit()
 

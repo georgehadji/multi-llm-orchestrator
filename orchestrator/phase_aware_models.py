@@ -74,6 +74,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.GENERATION: [
         ModelRegistry.MIMO_V2_FLASH,  # $0.09/$0.29, 309B MoE, #1 SWE-bench open ⭐ NEW!
+        "qwen/qwen3.7-flash",  # $0.03/$0.13, 1M ctx, vision-language, multimodal coding ⭐
         "qwen/qwen3-coder-next",  # $0.12/$0.75, 80B MoE coding agents
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, 1.24T tokens, battle-tested
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, visual coding SOTA
@@ -128,6 +129,7 @@ PHASE_MODEL_PREFERENCES: dict[PhaseType, list[str]] = {
     # ═══════════════════════════════════════════════════════
     PhaseType.RESEARCH: [
         "google/gemini-3.5-flash",  # $2.00/$12.00, 1M context, enhanced SE ⭐ BEST
+        "qwen/qwen3.7-flash",  # $0.03/$0.13, 1M ctx, vision-language, multimodal search ⭐
         ModelRegistry.KIMI_K2_6,  # $0.42/$2.20, agent swarm paradigm, multimodal
         ModelRegistry.DEEPSEEK_V4_FLASH,  # $0.27/$1.10, 1.24T tokens, broad knowledge
         ModelRegistry.MIMO_V2_PRO,  # $1.00/$3.00, 1T+ params, agent orchestration

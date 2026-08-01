@@ -34,7 +34,7 @@ criteria: |
 budget_usd: 3.5
 time_seconds: 3600
 concurrency: 3
-project_id: "frontend-react-realtime-v1"
+project_id: "frontend-react-realtime-v2"
 output_dir: "./outputs/frontend_react_realtime"
 
 quality_targets:

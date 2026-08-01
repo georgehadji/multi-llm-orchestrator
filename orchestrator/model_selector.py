@@ -26,6 +26,7 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.DEEPSEEK_V4_FLASH: 0,
     Model.DEEPSEEK_V4_PRO: 0,
     Model.QWEN_3_7_MAX: 0,
+    Model.QWEN_3_7_FLASH: 0,
     Model.QWEN_3_6_FLASH: 0,
     Model.XAI_GROK_4_5: 0,
     Model.CLAUDE_SONNET_5: 0,
@@ -34,8 +35,8 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.GPT_5_4: 0,
     Model.GPT_5_4_CODEX: 0,
     Model.GPT_4O_MINI: 0,
-    Model.GEMINI_FLASH: 0,
-    Model.GEMINI_FLASH_LITE: 0,
+    Model.GEMINI_FLASH: 0,  # DEPRECATED — use GEMINI_3_6_FLASH
+    Model.GEMINI_FLASH_LITE: 0,  # DEPRECATED — use GEMINI_3_5_FLASH_LITE
     Model.MOONSHOT_KIMI_K2_6: 0,
     Model.XIAOMI_MIMO_V2_FLASH: 0,
     Model.MINIMAX_M2_7: 0,
@@ -46,8 +47,18 @@ _MODEL_TIERS: dict[Model, int] = {
     Model.LLAMA_4_MAVERICK: 0,
     Model.PHI_4: 0,
     Model.CLAUDE_HAIKU_4_5: 0,
+    Model.INKLING: 0,  # text, coding/agentic
+    Model.LONGCAT_2_0: 0,  # text, budget coding MoE
+    Model.KIMI_K3: 0,  # text, premium reasoning
+    Model.MUSE_SPARK_1_1: 0,  # text, multi-agent
     # Image generation models
     Model.NANO_BANANA_2: 1,
+    Model.KREA_2_LARGE: 1,
+    Model.KREA_2_MEDIUM: 1,
+    Model.KREA_2_MEDIUM_TURBO: 1,
+    Model.GEMINI_3_6_FLASH: 0,
+    Model.GEMINI_3_5_FLASH_LITE: 0,
+    Model.LAGUNA_S_2_1: 0,
 }
 
 _COMPLEXITY_KEYWORDS = [
@@ -112,8 +123,14 @@ _RELIABLE_DECOMPOSITION_MODELS: list[Model] = [
     Model.CLAUDE_SONNET_5,
     Model.DEEPSEEK_V4_FLASH,
     Model.QWEN_3_7_MAX,
+    Model.QWEN_3_7_FLASH,
     Model.MOONSHOT_KIMI_K2_7_CODE,
-    Model.GEMINI_FLASH,
+    Model.GEMINI_3_6_FLASH,  # replaces deprecated GEMINI_FLASH
+    Model.INKLING,
+    Model.LONGCAT_2_0,
+    Model.KIMI_K3,
+    Model.LAGUNA_S_2_1,  # coding agent $0.10/$0.20
+    Model.GEMINI_3_6_FLASH,  # coding/agentic
 ]
 
 

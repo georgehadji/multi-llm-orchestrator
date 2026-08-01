@@ -288,3 +288,7 @@ class MAPElitesPipeline(BasePipeline):
             status=TaskStatus.COMPLETED if state.final_score > 0 else TaskStatus.DEGRADED,
             metadata={"method": self.get_method().value},
         )
+
+    async def process(self, ctx: Any) -> Any:
+        """No-op process method to satisfy pipeline stage execution."""
+        return ctx

@@ -90,7 +90,7 @@ class CapabilityEvent:
     ) -> CapabilityEvent:
         """Factory method to create an event with current timestamp."""
         return cls(
-            timestamp=datetime.utcnow().isoformat() + "Z",
+            timestamp=datetime.now(datetime.timezone.utc)().isoformat() + "Z",
             capability=capability.name,
             task_type=task_type,
             model=model,

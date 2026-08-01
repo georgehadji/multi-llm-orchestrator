@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import socket
 import time
 from pathlib import Path
 from typing import Optional
@@ -295,6 +296,11 @@ class StateManager:
                                 created_at REAL NOT NULL,
                                 FOREIGN KEY (project_id) REFERENCES projects(project_id)
                             );
+                            CREATE TABLE IF NOT EXISTS project_locks (
+                                project_id TEXT PRIMARY KEY,
+                                locked_at  REAL NOT NULL,
+                                locked_by  TEXT NOT NULL
+                            );
                             CREATE TABLE IF NOT EXISTS circuit_breaker_state (
                                 model_name    TEXT PRIMARY KEY,
                                 failure_count INTEGER NOT NULL DEFAULT 0,
@@ -569,13 +575,42 @@ class StateManager:
         if self._conn is not None:
             try:
                 await self._conn.close()
-                # Yield control so the aiosqlite background thread can finish
-                # its final callbacks before asyncio.run() closes the loop.
                 await asyncio.sleep(0)
             except Exception:
-                pass
-            finally:
                 self._conn = None
+
+    async def acquire_project_lock(self, project_id: str) -> bool:
+        """Acquire advisory lock for *project_id* with 30s auto-expiry.
+
+        Returns True if acquired, False if held by another instance.
+        """
+        conn = await self._get_conn()
+        try:
+            await conn.execute(
+                "DELETE FROM project_locks WHERE locked_at < ?",
+                (time.monotonic() - 30.0,),
+            )
+            await conn.execute(
+                "INSERT INTO project_locks (project_id, locked_at, locked_by) VALUES (?, ?, ?)",
+                (project_id, time.monotonic(), __import__("os").getpid()),
+            )
+            await conn.commit()
+            return True
+        except aiosqlite.IntegrityError:
+            await conn.rollback()
+            return False
+        except Exception:
+            await conn.rollback()
+            return False
+
+    async def release_project_lock(self, project_id: str) -> None:
+        """Release a previously acquired advisory lock."""
+        conn = await self._get_conn()
+        try:
+            await conn.execute("DELETE FROM project_locks WHERE project_id = ?", (project_id,))
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
 
 
 # ─────────────────────────────────────────────

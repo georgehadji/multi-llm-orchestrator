@@ -1,0 +1,168 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# LLM Battle Arena — Backend Service
+# Author: Reasonix
+# Run with:
+#   python -m orchestrator --file projects/battle_arena_backend.yaml
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Project Description ───────────────────────────────────────────────────
+project: |
+  Build a FastAPI backend service for the LLM Battle Arena — a website
+  where users submit a single prompt to multiple AI models (GPT-4o, Claude
+  3.5 Sonnet, Gemini 2.0 Flash, DeepSeek V3) and see responses compared
+  side-by-side with real latency, token counts, and cost in USD.
+
+  The backend must implement:
+
+  1. POST /api/battle — Accepts a JSON body with "prompt" (string) and
+     "models" (list of model IDs). Fans out the prompt to all selected
+     LLM providers concurrently via the existing orchestrator infrastructure
+     (import UnifiedClient from orchestrator.infrastructure.llm_client).
+     Collects APIResponse objects (text, input_tokens, output_tokens,
+     cost_usd, latency_ms) for each model. Ranks fastest and cheapest.
+     Returns a BattleResponse[] with all metrics. Persists battle and
+     responses to SQLite for history.
+
+  2. POST /api/vote — Accepts a JSON body with "battle_id", "modelId",
+     and "vote" ("up" or "down"). Persists the vote to SQLite with a
+     unique constraint (one vote per model per battle). Updates the
+     leaderboard materialized view.
+
+  3. GET /api/leaderboard — Returns all models ranked by aggregated
+     votes (votes_up, votes_down, winRate), ordered by win rate descending.
+     Each entry includes: rank, modelId, name, provider, votesUp, votesDown,
+     winRate, avgLatency.
+
+  4. GET /api/models — Returns the available model configurations from the
+     orchestrator's Model enum and COST_TABLE. Each model config includes:
+     id, name, provider, inputCostPer1M, outputCostPer1M, speedRating,
+     qualityRating.
+
+  The service must use:
+  - FastAPI with CORS middleware allowing localhost:3000 (Next.js dev server)
+  - SQLite via aiosqlite for persistence (battles, responses, votes,
+    leaderboard tables)
+  - orchestrator.infrastructure.llm_client.UnifiedClient for multi-provider
+    LLM calls (handles OpenRouter, caching, circuit breaking, retries, cost
+    tracking)
+  - Pydantic v2 models for request/response validation
+  - Structured JSON error responses with consistent format
+  - The orchestrator's existing Model enum, COST_TABLE, and get_provider()
+    for model metadata
+
+  The database schema:
+
+  CREATE TABLE battles (
+      id TEXT PRIMARY KEY,
+      prompt TEXT NOT NULL,
+      models TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE battle_responses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      battle_id TEXT NOT NULL REFERENCES battles(id),
+      model_id TEXT NOT NULL,
+      response_text TEXT NOT NULL,
+      latency_ms INTEGER NOT NULL,
+      input_tokens INTEGER NOT NULL,
+      output_tokens INTEGER NOT NULL,
+      cost_usd REAL NOT NULL
+  );
+
+  CREATE TABLE votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      battle_id TEXT NOT NULL REFERENCES battles(id),
+      model_id TEXT NOT NULL,
+      vote_type TEXT NOT NULL CHECK(vote_type IN ('up', 'down')),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(battle_id, model_id)
+  );
+
+  CREATE TABLE leaderboard (
+      model_id TEXT PRIMARY KEY,
+      model_name TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      votes_up INTEGER DEFAULT 0,
+      votes_down INTEGER DEFAULT 0,
+      avg_latency_ms REAL DEFAULT 0,
+      total_battles INTEGER DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
+  File structure:
+  battle_arena_backend/
+  ├── main.py                  # FastAPI app, route registration, CORS
+  ├── config.py                # Settings (port, CORS origins, DB path)
+  ├── services/
+  │   ├── __init__.py
+  │   ├── battle_service.py    # BattleExecution — fans out to UnifiedClient
+  │   ├── vote_service.py      # Vote persistence + aggregation
+  │   └── model_service.py     # Model registry from orchestrator
+  ├── models/
+  │   ├── __init__.py
+  │   └── schemas.py           # Pydantic models
+  ├── db/
+  │   ├── __init__.py
+  │   └── database.py          # SQLite setup, table creation
+  ├── requirements.txt
+  └── README.md
+
+# ── Success Criteria ──────────────────────────────────────────────────────
+criteria: |
+  - POST /api/battle returns real LLM responses with accurate token counts,
+    latency in milliseconds, and cost in USD for each selected model
+  - Concurrent fan-out to all selected models using asyncio.gather
+  - POST /api/vote persists votes and enforces unique constraint
+  - GET /api/leaderboard returns correctly ranked models by vote aggregation
+  - GET /api/models returns model configs from the orchestrator's registry
+  - All endpoints have Pydantic request/response validation
+  - CORS allows requests from localhost:3000
+  - SQLite database is created automatically on first run
+  - Error responses are structured JSON with "error" and "detail" fields
+  - Unit tests cover battle service, vote service, and API endpoints
+  - README.md documents all endpoints with curl examples
+
+# ── Budget & Time ─────────────────────────────────────────────────────────
+budget_usd: 3.0
+time_seconds: 3600
+
+# ── Concurrency & Logging ─────────────────────────────────────────────────
+concurrency: 3
+verbose: false
+
+# ── Project Identity ──────────────────────────────────────────────────────
+project_id: "battle-arena-backend-v1"
+output_dir: "./outputs/battle_arena_backend"
+
+# ── Quality Targets ───────────────────────────────────────────────────────
+quality_targets:
+  code_generation:   0.88
+  code_review:       0.85
+  complex_reasoning: 0.90
+  evaluation:        0.92
+
+# ── Assembly & Verification ───────────────────────────────────────────────
+assemble: true
+verify_cmd: "pytest battle_arena_backend/tests/ -v"
+
+# ── TDD ───────────────────────────────────────────────────────────────────
+tdd_first: true
+tdd_quality: balanced
+
+# ── Per-task target paths ─────────────────────────────────────────────────
+task_paths:
+  1: battle_arena_backend/config.py
+  2: battle_arena_backend/models/schemas.py
+  3: battle_arena_backend/db/database.py
+  4: battle_arena_backend/services/model_service.py
+  5: battle_arena_backend/services/battle_service.py
+  6: battle_arena_backend/services/vote_service.py
+  7: battle_arena_backend/main.py
+  8: battle_arena_backend/requirements.txt
+  9: battle_arena_backend/README.md
+
+# ── Policies ──────────────────────────────────────────────────────────────
+policies:
+  - name: no_training
+    allow_training_on_output: false

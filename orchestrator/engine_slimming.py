@@ -42,7 +42,7 @@ logger = logging.getLogger("orchestrator.engine_slimming")
 def build_health_tracker(
     container: Any,
     telemetry: Any,
-    dashboard_bridge: Any,
+    dashboard: Any,
     adaptive_router: Any,
     state_mgr: Any,
     circuit_breaker_threshold: int,
@@ -54,7 +54,7 @@ def build_health_tracker(
 
     return _ModelHealthTracker(
         telemetry=telemetry,
-        dashboard=dashboard_bridge,
+        dashboard=dashboard,
         adaptive_router=adaptive_router,
         state_mgr=state_mgr,
         circuit_breaker_threshold=circuit_breaker_threshold,

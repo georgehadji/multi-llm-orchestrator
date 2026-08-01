@@ -1,5 +1,8 @@
 {
   "code_generation": 8192,
+  "modify_file": 8192,
+  "delete_file": 1024,
+  "install_dependency": 1024,
   "code_review": 4096,
   "complex_reasoning": 4096,
   "creative_writing": 4096,

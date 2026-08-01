@@ -706,6 +706,8 @@ Each task JSON element MUST also include:
         primary = self._selector.decomposition_model(project_description)
         fallback = FALLBACK_CHAIN.get(primary, primary)
         models = [primary, fallback]
+        if _M.QWEN_3_7_FLASH not in models:
+            models.append(_M.QWEN_3_7_FLASH)
         if _M.QWEN_3_6_FLASH not in models:
             models.append(_M.QWEN_3_6_FLASH)
         if _M.XIAOMI_MIMO_V2_FLASH not in models:

@@ -1,0 +1,91 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# LLM Battle Arena — Frontend API Wiring
+# Author: Reasonix
+# Run AFTER battle_arena_backend.yaml completes:
+#   python -m orchestrator --file projects/battle_arena_frontend_wiring.yaml
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Project Description ───────────────────────────────────────────────────
+project: |
+  Modify the existing LLM Battle Arena Next.js frontend at
+  output/llm-battle-arena-v2/components/hero.tsx to replace the mock
+  battle simulation with real API calls to the FastAPI backend at
+  localhost:8000.
+
+  Current state (what needs to change):
+
+  1. The handleBattle function uses setTimeout with hardcoded mock
+     responses from MOCK_RESPONSES_DB. Replace with:
+     - async fetch('http://localhost:8000/api/battle', { method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({ prompt, models: selectedModels }) })
+     - Parse the JSON response and setBattleResults(data.results)
+     - Add error handling: if fetch fails, show a user-friendly error
+       message ("Battle service unavailable — is the backend running?")
+     - Add a loading state while the battle is in progress
+
+  2. The handleVote function currently updates React state in-memory.
+     Replace with:
+     - async fetch('http://localhost:8000/api/vote', { method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({ battle_id: currentBattleId, modelId, vote }) })
+     - After successful vote, refetch the leaderboard from
+       GET http://localhost:8000/api/leaderboard
+
+  3. On component mount (useEffect), fetch the leaderboard from
+     GET http://localhost:8000/api/leaderboard instead of using the
+     hardcoded INITIAL_LEADERBOARD array. Add a loading spinner while
+     fetching.
+
+  4. On component mount, fetch available models from
+     GET http://localhost:8000/api/models to dynamically populate the
+     model selection checkboxes, replacing the hardcoded MODELS array.
+
+  5. Add a backend status indicator in the header showing whether the
+     backend is reachable (green dot = connected, red dot = disconnected).
+     Check with a lightweight GET http://localhost:8000/ health endpoint.
+
+  6. Add a battle_id state variable to store the ID returned by the
+     backend, used for subsequent vote calls.
+
+  Key constraints:
+  - Keep the existing Tailwind styling and component structure intact
+  - The hero.tsx file is ~800 lines; modify only the specific sections
+    described above, not the entire file
+  - Add a .env.local file with NEXT_PUBLIC_API_URL=http://localhost:8000
+    to make the backend URL configurable
+  - Handle all error states gracefully with user-visible messages
+  - Show loading spinners during API calls
+  - Preserve the "use client" directive at the top of hero.tsx
+
+# ── Success Criteria ──────────────────────────────────────────────────────
+criteria: |
+  - handleBattle calls POST /api/battle and displays real LLM responses
+    instead of mock data
+  - handleVote calls POST /api/vote and updates leaderboard from the server
+  - Leaderboard loads from GET /api/leaderboard on mount
+  - Model selection checkboxes are populated from GET /api/models
+  - Backend status indicator shows green when backend is reachable
+  - Error states show user-friendly messages, not blank screens
+  - Loading spinners appear during API calls
+  - .env.local file created with NEXT_PUBLIC_API_URL
+  - All existing Tailwind styling and layout preserved
+  - TypeScript interfaces (BattleResponse, ModelConfig, LeaderboardEntry)
+    are updated to match the backend API response format exactly
+
+# ── Budget & Time ─────────────────────────────────────────────────────────
+budget_usd: 1.5
+time_seconds: 1800
+
+# ── Concurrency & Logging ─────────────────────────────────────────────────
+concurrency: 1
+verbose: false
+
+# ── Project Identity ──────────────────────────────────────────────────────
+project_id: "battle-arena-frontend-wiring-v1"
+output_dir: "./outputs/battle_arena_frontend_wiring"
+
+# ── Policies ──────────────────────────────────────────────────────────────
+policies:
+  - name: no_training
+    allow_training_on_output: false

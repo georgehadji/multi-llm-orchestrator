@@ -705,6 +705,14 @@ class Orchestrator:
         Exceptions during cleanup are logged but not raised to avoid masking
         the original exception.
         """
+        # Release any held project lock
+        _lock_pid = getattr(self._run_ctx, "_lock_held", None)
+        if _lock_pid and self.state_mgr is not None:
+            try:
+                await self.state_mgr.release_project_lock(_lock_pid)
+            except Exception:
+                logger.warning("Failed to release project lock for %s", _lock_pid)
+
         await self._cleanup_resources()
 
     async def _cleanup_resources(self) -> None:
@@ -860,6 +868,90 @@ class Orchestrator:
     # Public API
     # ─────────────────────────────────────────
 
+    async def modify_codebase(
+        self,
+        repo_path: Path | str,
+        objective: str,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Decomposes codebase objective -> executes tasks -> applies modifications with rollback & safety gates.
+        """
+        import logging
+        from pathlib import Path
+        from orchestrator.codebase.reader import CodebaseReader
+        from orchestrator.codebase.context import CodebaseContext
+        from orchestrator.codebase.decomposer import CodebaseDecomposer
+        from orchestrator.codebase.writer import CodebaseWriter
+
+        logger = logging.getLogger("orchestrator.modify_codebase")
+        logger.info("Starting codebase modification at %s", repo_path)
+        repo_path = Path(repo_path).resolve()
+
+        # 1. Read the codebase to build context
+        reader = CodebaseReader(repo_path)
+        await reader.read(quiet=True)
+
+        # 2. Build the context for the decomposer
+        context = CodebaseContext(reader=reader)
+
+        # 3. Decompose the objective into tasks
+        decomposer = CodebaseDecomposer(client=self.client)
+        tasks = await decomposer.decompose(objective=objective, context=context)
+
+        logger.info("Decomposed objective into %d tasks", len(tasks))
+
+        # 4. Prepare CodebaseWriter
+        writer = CodebaseWriter(root=repo_path, dry_run=dry_run)
+
+        # 5. Execute each task and apply changes topologically
+        results = {}
+        sorted_ids = self._topological_sort(tasks)
+
+        for task_id in sorted_ids:
+            task = tasks[task_id]
+            logger.info(
+                "Executing codebase task: %s (type: %s, target: %s)",
+                task_id,
+                task.type,
+                task.target_path,
+            )
+
+            # Execute the task
+            result = await self._execute_task(task)
+            results[task_id] = result
+
+            if result.score < 0.5:
+                logger.error(
+                    "Task %s failed to meet quality bar (score: %.2f)", task_id, result.score
+                )
+                if not dry_run:
+                    logger.warning("Rolling back changes due to task failure.")
+                    writer.rollback_all()
+                raise RuntimeError(
+                    f"Task {task_id} failed quality check. Aborting and rolling back."
+                )
+
+            # Apply the changes to the codebase
+            applied = await writer.apply(task, result)
+            if not applied:
+                logger.error("Failed to apply task %s", task_id)
+                if not dry_run:
+                    logger.warning("Rolling back changes due to failure to apply task.")
+                    writer.rollback_all()
+                raise RuntimeError(f"Failed to apply task {task_id} to codebase.")
+
+        # Save all generated diffs
+        if not dry_run:
+            writer.save_diffs()
+
+        state = {
+            "tasks": tasks,
+            "results": results,
+            "diffs": writer.all_diffs,
+        }
+        return state
+
     async def run_project(
         self,
         project_description: str,
@@ -885,6 +977,18 @@ class Orchestrator:
         the run keeps whatever budget is already set on ``_run_ctx``.
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
+
+        # Acquire advisory lock to prevent concurrent modification
+        _pid = project_id or self._run_ctx.project_id
+        if _pid and self.state_mgr is not None:
+            acquired = await self.state_mgr.acquire_project_lock(_pid)
+            if not acquired:
+                raise ConfigurationError(
+                    f"Project '{_pid}' is locked by another orchestrator instance. "
+                    f"Wait for it to complete or release the lock."
+                )
+            self._run_ctx._lock_held = _pid
+
         # Reset per-run state for this new project
         self._run_ctx.reset(
             project_id=project_id,
@@ -926,6 +1030,18 @@ class Orchestrator:
         externally.
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
+
+        # Acquire advisory lock to prevent concurrent modification
+        _pid = project_id or self._run_ctx.project_id
+        if _pid and self.state_mgr is not None:
+            acquired = await self.state_mgr.acquire_project_lock(_pid)
+            if not acquired:
+                raise ConfigurationError(
+                    f"Project '{_pid}' is locked by another orchestrator instance. "
+                    f"Wait for it to complete or release the lock."
+                )
+            self._run_ctx._lock_held = _pid
+
         # Reset per-run state for this new project
         self._run_ctx.reset(
             project_id=project_id,

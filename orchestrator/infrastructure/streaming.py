@@ -90,7 +90,7 @@ class PipelineEvent:
 
     type: PipelineEventType
     project_id: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(datetime.timezone.utc))
     data: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

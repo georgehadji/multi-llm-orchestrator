@@ -24,6 +24,12 @@ python -m orchestrator --project "Build a FastAPI todo app" --budget 2.0
 # Generate a website (design-system-driven, any page type)
 python -m orchestrator website -d "A modern SaaS landing page" --framework next.js
 
+# Hunt for bugs, security issues, performance hotspots in an existing codebase
+python -m orchestrator analyze --path "/path/to/codebase" --focus "quality,security,performance"
+
+# Apply a smart modification/feature to an existing codebase safely with rollback
+python -m orchestrator modify --repo "/path/to/codebase" --objective "Add login endpoint"
+
 # Plan only (no execution)
 python -m orchestrator --project "Build a REST API" --criteria "All tests pass" --dry-run
 
@@ -66,6 +72,7 @@ python -m orchestrator slash
 | **Import Boundary Enforcement** | `lint-imports` with 5 enforceable contracts (domain purity, application-no-infra, engine-core-no-infra, root-no-infra, application-no-engine) |
 | **Website Generator** | Design-system-driven site builder with 20 curated themes, 3D/WebGL support, LLM-powered content |
 | **Verification Receipts** | Structured execution receipts with timings, artifact hashes, and outcome classification (not_run/passed/failed/blocked) |
+| **Codebase-Aware Agent** | Scans codebases using `CodebaseReader`, analyses patterns, hunts bugs, and applies safe topological modifications with automatic rollback on validation failure. |
 
 ---
 

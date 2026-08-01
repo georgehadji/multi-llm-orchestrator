@@ -134,3 +134,7 @@ class TaskContextEnricher:
             _task_handle.add_done_callback(background_tasks.discard)
         except Exception as _e:
             logger.debug("SkillOpt trajectory skipped: %s", _e)
+
+    async def process(self, ctx: Any) -> Any:
+        """No-op process method to satisfy pipeline stage execution."""
+        return ctx

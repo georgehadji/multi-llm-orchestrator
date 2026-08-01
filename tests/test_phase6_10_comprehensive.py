@@ -954,3 +954,84 @@ class TestCrossCutting:
             timeout=120,
         )
         assert result.returncode == 0, f"Reference tests failed:\n{result.stdout}"
+
+
+# ═════════════════════════════════════════════
+# Test: Orchestrator Codebase Modification
+# ═════════════════════════════════════════════
+
+
+class TestOrchestratorCodebaseModification:
+    """Tests for the modify_codebase method of Orchestrator."""
+
+    @pytest.mark.asyncio
+    async def test_modify_codebase_flow(self):
+        """modify_codebase correctly coordinates reading, decomposing, executing, and writing."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from orchestrator.engine import Orchestrator
+        from orchestrator.models import Task, TaskType, TaskResult, TaskStatus
+        from orchestrator.budget import Budget
+        import tempfile
+
+        # Setup mock decomposer and mock reader
+        mock_tasks = {
+            "task_001": Task(
+                id="task_001",
+                type=TaskType.MODIFY_FILE,
+                prompt="Add login endpoint",
+                target_path="app.py",
+            )
+        }
+
+        mock_result = TaskResult(
+            task_id="task_001",
+            output="print('login route')",
+            score=0.9,
+            model_used=None,
+            status=TaskStatus.COMPLETED,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            (tmp_path / "app.py").write_text("print('hello')\n")
+
+            # Patch reading, decomposing, writing and executing
+            with (
+                patch(
+                    "orchestrator.codebase.reader.CodebaseReader.read", new_callable=AsyncMock
+                ) as mock_read,
+                patch(
+                    "orchestrator.codebase.decomposer.CodebaseDecomposer.decompose",
+                    new_callable=AsyncMock,
+                ) as mock_decomp,
+                patch(
+                    "orchestrator.codebase.writer.CodebaseWriter.apply", new_callable=AsyncMock
+                ) as mock_apply,
+            ):
+
+                mock_decomp.return_value = mock_tasks
+                mock_apply.return_value = True
+
+                # Initialize orchestrator with low budget
+                orch = Orchestrator(budget=Budget(max_usd=5.0))
+                orch._execute_task = AsyncMock(return_value=mock_result)
+
+                # Run modify codebase
+                state = await orch.modify_codebase(
+                    repo_path=tmp_dir,
+                    objective="Add login endpoint",
+                    dry_run=False,
+                )
+
+                # Assert flow was executed
+                mock_read.assert_called_once()
+                mock_decomp.assert_called_once()
+                orch._execute_task.assert_called_once_with(mock_tasks["task_001"])
+                mock_apply.assert_called_once_with(mock_tasks["task_001"], mock_result)
+
+                # Verify returned state
+                assert "tasks" in state
+                assert "results" in state
+                assert "diffs" in state
+                assert state["tasks"] == mock_tasks
+                assert state["results"] == {"task_001": mock_result}

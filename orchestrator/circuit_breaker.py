@@ -244,6 +244,22 @@ class CircuitBreaker:
             cause_str,
             self.reset_timeout,
         )
+        # Publish trip event for alerting subscribers
+        try:
+            from .events import get_event_bus
+
+            bus = get_event_bus()
+            if bus is not None:
+                bus.publish(
+                    "circuit_breaker.tripped",
+                    {
+                        "name": self.name,
+                        "failures": self._state.failures,
+                        "reset_timeout": self.reset_timeout,
+                    },
+                )
+        except Exception:
+            pass
 
     def _close(self) -> None:
         self._state.state = CircuitState.CLOSED

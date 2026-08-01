@@ -144,7 +144,8 @@ class TesterAgent(AgentBase):
     """Agent responsible for writing and running tests.
 
     Models (from orchestrator/agent_model_registry.py):
-      Budget:  QWEN_3_6_FLASH  ($0.66/M in, $1.00/M out) — 33K coding specialist
+      Budget:  QWEN_3_7_FLASH  ($0.03/M in, $0.13/M out) — 1M ctx, vision-language flash
+               QWEN_3_6_FLASH  ($0.66/M in, $1.00/M out) — 33K coding specialist (legacy)
       Premium: GPT_5               ($1.25/M in, $10.00/M out) — comprehensive test gen
     """
 
