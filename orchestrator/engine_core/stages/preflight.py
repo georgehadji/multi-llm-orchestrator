@@ -21,6 +21,7 @@ class PreflightStage:
 
     # Pipeline stage ordering — lower values run first
     priority: int = 600
+
     @classmethod
     def build_kwargs(cls, **deps):
         return {"validator": deps["validator"]}

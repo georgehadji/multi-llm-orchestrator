@@ -20,6 +20,7 @@ class EvaluateStage:
 
     # Pipeline stage ordering — lower values run first
     priority: int = 300
+
     @classmethod
     def build_kwargs(cls, **deps):
         return {"evaluator": deps["evaluator"]}

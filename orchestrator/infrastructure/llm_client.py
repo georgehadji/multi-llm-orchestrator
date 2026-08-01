@@ -435,7 +435,9 @@ class UnifiedClient:
                         success=False,
                     )
                 except Exception:
-                    logger.debug("Telemetry record_call (failure) failed for %s", model_id, exc_info=True)
+                    logger.debug(
+                        "Telemetry record_call (failure) failed for %s", model_id, exc_info=True
+                    )
             logger.error("API call to %s failed: %s", model_id, e)
             raise
 

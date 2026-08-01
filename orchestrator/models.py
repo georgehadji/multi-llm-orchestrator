@@ -84,6 +84,12 @@ class TaskType(str, Enum):
 
     MECHANISM_RESEARCH = "mechanism_research"
 
+    MODIFY_FILE = "modify_file"
+
+    DELETE_FILE = "delete_file"
+
+    INSTALL_DEP = "install_dependency"
+
 
 class DesignVariant(str, Enum):
     """Visual design direction for frontend code generation tasks.
@@ -151,7 +157,8 @@ class Model(Enum):
     QWEN_NEXT_80B = "qwen/qwen3-next-80b-a3b-instruct"
     GLM_4_7_FLASH = "z-ai/glm-4.7-flash"
     MINIMAX_M2_5 = "minimax/minimax-m2.5"
-    DEVSTRAL_2512 = "mistralai/devstral-2512"
+    DEVSTRAL_2512 = "mistralai/devstral-2512"  # DEPRECATED — retired, use CODESTRAL_2508
+    CODESTRAL_2508 = "mistralai/codestral-2508"  # $0.30/$0.90, 256K ctx, coding specialist
     MISTRAL_LARGE_2512 = "mistralai/mistral-large-2512"
     GLM_5 = "z-ai/glm-5"
 
@@ -174,9 +181,11 @@ class Model(Enum):
     O4_MINI = "openai/o4-mini"
 
     # Google
-    GEMINI_FLASH = "google/gemini-3.5-flash"
-    GEMINI_FLASH_LITE = "google/gemini-3.1-flash-lite"
-    GEMINI_FLASH_LITE_IMAGE = "google/gemini-3.1-flash-lite-image"
+    GEMINI_FLASH = "google/gemini-3.5-flash"  # DEPRECATED — superseded by GEMINI_3_6_FLASH
+    GEMINI_FLASH_LITE = "google/gemini-3.1-flash-lite"  # DEPRECATED — use GEMINI_3_5_FLASH_LITE
+    GEMINI_FLASH_LITE_IMAGE = (
+        "google/gemini-3.1-flash-lite-image"  # DEPRECATED — use KREA_2_MEDIUM_TURBO
+    )
 
     # Anthropic
     CLAUDE_FABLE_5 = "anthropic/claude-fable-5"
@@ -184,6 +193,8 @@ class Model(Enum):
     CLAUDE_SONNET_5 = "anthropic/claude-sonnet-5"
     CLAUDE_OPUS_4_5 = "anthropic/claude-opus-4-5"
     CLAUDE_OPUS_4_8 = "anthropic/claude-opus-4-8"
+    CLAUDE_OPUS_5 = "anthropic/claude-opus-5"  # flagship reasoning, $10/$50, 1M ctx
+    CLAUDE_OPUS_5_FAST = "anthropic/claude-opus-5-fast"  # fast variant, $20/$100, 1M ctx
     CLAUDE_HAIKU_4_5 = "anthropic/claude-haiku-4-5"
 
     # DeepSeek
@@ -212,6 +223,7 @@ class Model(Enum):
     ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"
     XAI_GROK_4_5 = "x-ai/grok-4.5"
     QWEN_3_7_MAX = "qwen/qwen3.7-max"
+    QWEN_3_7_FLASH = "qwen/qwen3.7-flash"
     QWEN_3_6_FLASH = "openai/gpt-4o-mini"
     MINIMAX_M2_7 = "minimax/minimax-m2.7"
     XIAOMI_MIMO_V2_FLASH = "xiaomi/mimo-v2.5"
@@ -231,7 +243,7 @@ class Model(Enum):
     GEMMA_4_31B = "google/gemma-4-31b-it"
     STEPFUN_STEP_3_7_FLASH = "stepfun/step-3.7-flash"
     NEMOTRON_3_SUPER_120B = "nvidia/nemotron-3-super-120b-a12b"
-    GPT_5_CODEX = "openai/gpt-5-codex"
+    GPT_5_CODEX = "openai/gpt-5-codex"  # DEPRECATED — retired, use GPT_5_1_CODEX_MAX
     GPT_5_4_PRO = "openai/gpt-5.4-pro"
     XAI_GROK_4_MINI = "x-ai/grok-4-mini"
     QWEN_3_CODER = "qwen/qwen3-coder"
@@ -255,6 +267,14 @@ class Model(Enum):
     GPT_LATEST = "~openai/gpt-latest"
     GPT_MINI_LATEST = "~openai/gpt-mini-latest"
     XAI_GROK_BUILD_0_1 = "x-ai/grok-build-0.1"
+    GPT_5_1_CODEX_MAX = "openai/gpt-5.1-codex-max"  # coding specialist, $1.25/$10, 400K ctx
+    GPT_5_6_SOL = "openai/gpt-5.6-sol"  # premium tier, $5/$30, 1.05M ctx
+    GPT_5_6_SOL_PRO = "openai/gpt-5.6-sol-pro"  # premium tier, $5/$30, 1.05M ctx
+    GPT_5_6_TERRA = "openai/gpt-5.6-terra"  # mid tier, $1/$6, 1.05M ctx
+    GPT_5_6_TERRA_PRO = "openai/gpt-5.6-terra-pro"  # mid tier, $1/$6, 1.05M ctx
+    GPT_5_6_LUNA = "openai/gpt-5.6-luna"  # budget tier, $0.10/$0.60, 1.05M ctx
+    GPT_5_6_LUNA_PRO = "openai/gpt-5.6-luna-pro"  # budget tier, $0.10/$0.60, 1.05M ctx
+    GLM_5_1 = "z-ai/glm-5.1"  # $0.97/$3.04, 204K ctx
 
     # ═══════════════════════════════════════════════════════
     # Alias Models
@@ -321,6 +341,30 @@ class Model(Enum):
     WAN_2_7 = "alibaba/wan-2.7"
     WAN_2_6 = "alibaba/wan-2.6"
     GROK_IMAGINE_VIDEO = "x-ai/grok-imagine-video"
+    # Krea 2 Large — high-capability image gen, photorealism/artistic, $0.06/image
+    KREA_2_LARGE = "krea/krea-2-large"
+    # Krea 2 Medium — balanced image gen, illustration/anime/painting, $0.03/image
+    KREA_2_MEDIUM = "krea/krea-2-medium"
+    # Krea 2 Medium Turbo — speed-focused distilled variant, $0.015/image
+    KREA_2_MEDIUM_TURBO = "krea/krea-2-medium-turbo"
+    # Google Gemini 3.6 Flash — high-efficiency coding/agentic, $1.50/$7.50, 1M ctx
+    GEMINI_3_6_FLASH = "google/gemini-3.6-flash"
+    # Google Gemini 3.5 Flash-Lite — subagent specialist, $0.30/$2.50, 1M ctx
+    GEMINI_3_5_FLASH_LITE = "google/gemini-3.5-flash-lite"
+    # Poolside Laguna S 2.1 — coding agent, 118B/8B MoE, $0.10/$0.20, 1M ctx
+    LAGUNA_S_2_1 = "poolside/laguna-s-2.1"
+
+    # ═══════════════════════════════════════════════════════
+    # New Models (Added 2025-07-21)
+    # ═══════════════════════════════════════════════════════
+    # Thinking Machines — Inkling: 41B active/975B MoE, multimodal (image+audio), coding/agentic/RAG
+    INKLING = "thinkingmachines/inkling"
+    # Meituan — LongCat 2.0: 48B active/1.6T MoE, coding/repo-level/agentic, great value
+    LONGCAT_2_0 = "meituan/longcat-2.0"
+    # MoonshotAI — Kimi K3: 2.8T params, multimodal reasoning, complex coding/knowledge-work
+    KIMI_K3 = "moonshotai/kimi-k3"
+    # Meta — Muse Spark 1.1: multimodal reasoning, multi-agent orchestration, structured output
+    MUSE_SPARK_1_1 = "meta/muse-spark-1.1"
 
     # ═══════════════════════════════════════════════════════
     # Deprecated Models (for reference)
@@ -364,7 +408,8 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.QWEN_NEXT_80B: {"input": 0.09, "output": 1.10},
     Model.GLM_4_7_FLASH: {"input": 0.06, "output": 0.40},
     Model.MINIMAX_M2_5: {"input": 0.15, "output": 0.90},
-    Model.DEVSTRAL_2512: {"input": 0.40, "output": 2.00},
+    Model.DEVSTRAL_2512: {"input": 0.40, "output": 2.00},  # DEPRECATED
+    Model.CODESTRAL_2508: {"input": 0.30, "output": 0.90},
     Model.MISTRAL_LARGE_2512: {"input": 0.50, "output": 1.50},
     Model.GLM_5: {"input": 0.60, "output": 1.92},
     # ------------------------------------------------
@@ -382,12 +427,14 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.O3_MINI: {"input": 1.10, "output": 4.40},
     Model.O4_MINI: {"input": 1.50, "output": 6.00},
     Model.GEMINI_FLASH: {"input": 0.15, "output": 0.60},
-    Model.GEMINI_FLASH_LITE: {"input": 0.10, "output": 0.40},
+    Model.GEMINI_FLASH_LITE: {"input": 0.10, "output": 0.40},  # DEPRECATED
     Model.CLAUDE_FABLE_5: {"input": 10.00, "output": 50.00},
     Model.CLAUDE_SONNET_4_5: {"input": 3.00, "output": 15.00},
     Model.CLAUDE_SONNET_5: {"input": 3.00, "output": 15.00},
     Model.CLAUDE_OPUS_4_5: {"input": 5.00, "output": 25.00},
     Model.CLAUDE_OPUS_4_8: {"input": 6.00, "output": 30.00},
+    Model.CLAUDE_OPUS_5: {"input": 10.00, "output": 50.00},
+    Model.CLAUDE_OPUS_5_FAST: {"input": 20.00, "output": 100.00},
     Model.CLAUDE_HAIKU_4_5: {"input": 1.00, "output": 5.00},
     Model.DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},
     Model.DEEPSEEK_V4_FLASH: {"input": 0.27, "output": 1.10},
@@ -406,6 +453,7 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.ZHIPU_GLM_5_TURBO: {"input": 1.20, "output": 4.00},
     Model.XAI_GROK_4_5: {"input": 1.50, "output": 4.00},
     Model.QWEN_3_7_MAX: {"input": 0.78, "output": 3.90},
+    Model.QWEN_3_7_FLASH: {"input": 0.03, "output": 0.13},
     Model.QWEN_3_6_FLASH: {"input": 0.12, "output": 0.50},
     Model.MINIMAX_M2_7: {"input": 0.30, "output": 1.20},
     Model.XIAOMI_MIMO_V2_FLASH: {"input": 0.14, "output": 0.28},
@@ -447,13 +495,21 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.GPT_LATEST: {"input": 5.00, "output": 30.00},
     Model.GPT_MINI_LATEST: {"input": 0.75, "output": 4.50},
     Model.XAI_GROK_BUILD_0_1: {"input": 1.00, "output": 2.00},
+    Model.GPT_5_1_CODEX_MAX: {"input": 1.25, "output": 10.00},
+    Model.GPT_5_6_SOL: {"input": 5.00, "output": 30.00},
+    Model.GPT_5_6_SOL_PRO: {"input": 5.00, "output": 30.00},
+    Model.GPT_5_6_TERRA: {"input": 1.00, "output": 6.00},
+    Model.GPT_5_6_TERRA_PRO: {"input": 1.00, "output": 6.00},
+    Model.GPT_5_6_LUNA: {"input": 0.10, "output": 0.60},
+    Model.GPT_5_6_LUNA_PRO: {"input": 0.10, "output": 0.60},
+    Model.GLM_5_1: {"input": 0.97, "output": 3.04},
     # ------------------------------------------------
     # Image Generation Models
     # ------------------------------------------------
     Model.GEMINI_3_1_FLASH_IMAGE_PREVIEW: {"input": 0.0005, "output": 0.003},
     Model.GEMINI_2_5_FLASH_IMAGE: {"input": 0.0003, "output": 0.0025},
     Model.GEMINI_3_PRO_IMAGE_PREVIEW: {"input": 0.002, "output": 0.012},
-    Model.GEMINI_FLASH_LITE_IMAGE: {"input": 0.25, "output": 1.50},
+    Model.GEMINI_FLASH_LITE_IMAGE: {"input": 0.25, "output": 1.50},  # DEPRECATED
     Model.GPT_5_IMAGE: {"input": 10.00, "output": 10.00},
     Model.GPT_5_IMAGE_MINI: {"input": 2.50, "output": 2.00},
     Model.GPT_5_4_IMAGE_2: {"input": 8.00, "output": 15.00},
@@ -497,6 +553,18 @@ COST_TABLE: dict[Model, CostDict] = {
     # ------------------------------------------------
     Model.OPENROUTER_AUTO: {"input": 0.00, "output": 0.00},
     Model.NANO_BANANA_2: {"input": 0.01, "output": 0.01},  # Example cost
+    # Krea image generation — per-image pricing, no output tokens
+    Model.KREA_2_LARGE: {"input": 0.06, "output": 0},
+    Model.KREA_2_MEDIUM: {"input": 0.03, "output": 0},
+    Model.KREA_2_MEDIUM_TURBO: {"input": 0.015, "output": 0},
+    # 2026-07 batch — declared in the enum but never wired into COST_TABLE
+    Model.GEMINI_3_6_FLASH: {"input": 1.50, "output": 7.50},
+    Model.GEMINI_3_5_FLASH_LITE: {"input": 0.30, "output": 2.50},
+    Model.LAGUNA_S_2_1: {"input": 0.10, "output": 0.20},
+    Model.INKLING: {"input": 1.00, "output": 4.05},
+    Model.LONGCAT_2_0: {"input": 0.30, "output": 1.20},
+    Model.KIMI_K3: {"input": 3.00, "output": 15.00},
+    Model.MUSE_SPARK_1_1: {"input": 1.25, "output": 4.25},
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -517,7 +585,8 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.QWEN_NEXT_80B: 32768,
     Model.GLM_4_7_FLASH: 128000,
     Model.MINIMAX_M2_5: 32768,
-    Model.DEVSTRAL_2512: 32768,
+    Model.DEVSTRAL_2512: 32768,  # DEPRECATED
+    Model.CODESTRAL_2508: 256000,
     Model.MISTRAL_LARGE_2512: 32768,
     Model.GLM_5: 128000,
     # Proprietary (Tier 1)
@@ -540,6 +609,8 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.CLAUDE_SONNET_5: 200000,
     Model.CLAUDE_OPUS_4_5: 200000,
     Model.CLAUDE_OPUS_4_8: 200000,
+    Model.CLAUDE_OPUS_5: 1000000,
+    Model.CLAUDE_OPUS_5_FAST: 1000000,
     Model.CLAUDE_HAIKU_4_5: 200000,
     Model.DEEPSEEK_V4_PRO: 131072,
     Model.DEEPSEEK_V4_FLASH: 1048576,
@@ -558,6 +629,7 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.ZHIPU_GLM_5_TURBO: 128000,
     Model.XAI_GROK_4_5: 131072,
     Model.QWEN_3_7_MAX: 65536,
+    Model.QWEN_3_7_FLASH: 1048576,
     Model.QWEN_3_6_FLASH: 32768,
     Model.MINIMAX_M2_7: 32768,
     Model.XIAOMI_MIMO_V2_FLASH: 131072,
@@ -596,6 +668,14 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.GPT_LATEST: 131072,
     Model.GPT_MINI_LATEST: 131072,
     Model.XAI_GROK_BUILD_0_1: 131072,
+    Model.GPT_5_1_CODEX_MAX: 400000,
+    Model.GPT_5_6_SOL: 1050000,
+    Model.GPT_5_6_SOL_PRO: 1050000,
+    Model.GPT_5_6_TERRA: 1050000,
+    Model.GPT_5_6_TERRA_PRO: 1050000,
+    Model.GPT_5_6_LUNA: 1050000,
+    Model.GPT_5_6_LUNA_PRO: 1050000,
+    Model.GLM_5_1: 204800,
     # Image/Video - Context is N/A
     Model.GEMINI_3_1_FLASH_IMAGE_PREVIEW: 0,
     Model.GEMINI_2_5_FLASH_IMAGE: 0,
@@ -638,6 +718,18 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     # Special / Internal
     Model.OPENROUTER_AUTO: 8192,  # Varies, use a safe default
     Model.NANO_BANANA_2: 4096,  # Example context size
+    Model.KREA_2_LARGE: 0,
+    Model.KREA_2_MEDIUM: 0,
+    Model.KREA_2_MEDIUM_TURBO: 0,
+    # 2026-07 batch — declared in the enum but never wired into CONTEXT_WINDOWS
+    Model.GEMINI_3_6_FLASH: 1048576,
+    Model.GEMINI_3_5_FLASH_LITE: 1048576,
+    Model.LAGUNA_S_2_1: 1048576,
+    Model.INKLING: 1048576,
+    Model.LONGCAT_2_0: 1048576,
+    Model.KIMI_K3: 1048576,
+    Model.MUSE_SPARK_1_1: 1048576,
+    Model.XIAOMI_MIMO_V2_5_PRO: 1048576,
 }
 
 
@@ -873,6 +965,7 @@ _MODEL_MAX_TOKENS_RAW = {
     "MINIMAX_M3": 8192,
     # Qwen 3.7 Plus
     "QWEN_3_7_PLUS": 8192,
+    "QWEN_3_7_FLASH": 8192,
     # GPT-5.4 Nano
     "GPT_5_4_NANO": 4096,
     # Google Gemma models

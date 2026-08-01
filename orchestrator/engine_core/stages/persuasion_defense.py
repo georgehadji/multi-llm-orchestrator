@@ -31,6 +31,7 @@ class PersuasionDefenseStage:
 
     # Pipeline stage ordering — lower values run first
     priority: int = 500
+
     @classmethod
     def build_kwargs(cls, **deps):
         return {"ara_integration": deps.get("ara")}

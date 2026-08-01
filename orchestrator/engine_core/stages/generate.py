@@ -30,9 +30,15 @@ class GenerateStage:
 
     # Pipeline stage ordering — lower values run first
     priority: int = 100
+
     @classmethod
     def build_kwargs(cls, **deps):
-        return {"client": deps["client"], "budget": deps["budget"], "selector": deps["selector"], "vs_sampler": deps.get("vs_sampler")}
+        return {
+            "client": deps["client"],
+            "budget": deps["budget"],
+            "selector": deps["selector"],
+            "vs_sampler": deps.get("vs_sampler"),
+        }
 
     def __init__(
         self,
