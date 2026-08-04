@@ -222,6 +222,7 @@ class Model(Enum):
     ZHIPU_GLM_5_2 = "z-ai/glm-5.2"
     ZHIPU_GLM_5_TURBO = "z-ai/glm-5-turbo"
     XAI_GROK_4_5 = "x-ai/grok-4.5"
+    QWEN_3_8_MAX = "qwen/qwen3.8-max"
     QWEN_3_7_MAX = "qwen/qwen3.7-max"
     QWEN_3_7_FLASH = "qwen/qwen3.7-flash"
     QWEN_3_6_FLASH = "qwen/qwen3.6-flash"
@@ -453,6 +454,7 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.ZHIPU_GLM_5_2: {"input": 0.7601, "output": 2.3888},
     Model.ZHIPU_GLM_5_TURBO: {"input": 1.20, "output": 4.00},
     Model.XAI_GROK_4_5: {"input": 2.00, "output": 6.00},
+    Model.QWEN_3_8_MAX: {"input": 2.00, "output": 6.00},
     Model.QWEN_3_7_MAX: {"input": 1.475, "output": 4.425},
     Model.QWEN_3_7_FLASH: {"input": 0.03, "output": 0.13},
     Model.QWEN_3_6_FLASH: {"input": 0.1875, "output": 1.125},
@@ -630,7 +632,8 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.ZHIPU_GLM_5_2: 128000,
     Model.ZHIPU_GLM_5_TURBO: 128000,
     Model.XAI_GROK_4_5: 131072,
-    Model.QWEN_3_7_MAX: 65536,
+    Model.QWEN_3_8_MAX: 1000000,
+    Model.QWEN_3_7_MAX: 1000000,
     Model.QWEN_3_7_FLASH: 1048576,
     Model.QWEN_3_6_FLASH: 1000000,
     Model.MINIMAX_M2_7: 32768,
