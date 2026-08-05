@@ -63,6 +63,11 @@ class ExecutionReceipt:
     duration_ms: float | None = None
     command: str | None = None
     artifact_hash: str | None = None
+    # E-8: test-execution metadata stamped on the receipt (additive).
+    isolation: str | None = None
+    executed: int | None = None
+    mutation_score: float | None = None
+    flaky_count: int | None = None
 
     @property
     def is_blocked(self) -> bool:

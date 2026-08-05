@@ -67,6 +67,7 @@ class EvaluatorService:
         tracer: TracingPort | None = None,
         telemetry: TelemetryPort | None = None,
         verification_gate: "VerificationGate | None" = None,
+        gate_non_blocking: set[str] | None = None,
     ) -> None:
         self._client = client
         self._budget = budget
@@ -76,35 +77,58 @@ class EvaluatorService:
         self._tracer = tracer
         self._telemetry = telemetry
         self._gate = verification_gate
+        # E-6 shadow mode: names of checks that run and record receipts but
+        # do not floor the score (ORCH_TEST_GATE=shadow).
+        self._gate_non_blocking = gate_non_blocking or set()
 
     # -- Public interface ----------------------------------------------------
 
     async def evaluate(
-        self, task: Task, output: str, policy: _ResiliencePolicy | None = None
+        self,
+        task: Task,
+        output: str,
+        policy: _ResiliencePolicy | None = None,
+        workspace=None,
     ) -> CritiqueReport:
         """
         Score output against task using self-consistency evaluation.
 
         Returns a CritiqueReport with score (0.0-1.0) and structured critique items.
         Falls back to score 0.5 if no evaluation models are available or all runs fail.
+
+        Args:
+            task: The task being evaluated.
+            output: Generated artifact text.
+            policy: Optional resilience policy.
+            workspace: Optional materialized Workspace (E-6) — enables the
+                WORKSPACE-scoped test_execution gate check. Passed through
+                when the task carries one.
         """
         if self._tracer is not None:
             with self._tracer.trace(
                 "evaluator.evaluate",
                 {"task_id": task.id, "task_type": task.type.value},
             ) as span:
-                report = await self._evaluate_inner(task, output, policy)
+                report = await self._evaluate_inner(task, output, policy, workspace)
                 span.set_attribute("eval.score", report.score)
                 return report
-        return await self._evaluate_inner(task, output, policy)
+        return await self._evaluate_inner(task, output, policy, workspace)
 
     async def _evaluate_inner(
-        self, task: Task, output: str, policy: _ResiliencePolicy | None = None
+        self,
+        task: Task,
+        output: str,
+        policy: _ResiliencePolicy | None = None,
+        workspace=None,
     ) -> CritiqueReport:
         # Deterministic gate runs first — hard veto before any LLM opinion.
         gate_result = None
         if self._gate is not None:
-            gate_result = await self._gate.run(output)
+            gate_result = await self._gate.run(
+                output,
+                workspace=workspace,
+                non_blocking=self._gate_non_blocking,
+            )
             if not gate_result.passed:
                 from .verification_gate import VerificationGate
 

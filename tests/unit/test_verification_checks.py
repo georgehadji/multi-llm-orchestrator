@@ -44,6 +44,51 @@ class TestSyntaxCheck:
         ok, reason = await check.run("")
         assert ok is True
 
+    @pytest.mark.asyncio
+    async def test_ambiguous_assignment_is_checked(self):
+        """is_python_code fix: 'x = ' is treated as Python, so the syntax
+        error surfaces instead of silently passing (pre-existing bug)."""
+        from orchestrator.infrastructure.verification_checks import (
+            _make_syntax_check,
+            is_python_code,
+        )
+
+        assert is_python_code("x = ") is True
+        check = _make_syntax_check()
+        ok, reason = await check.run("x = ")
+        assert ok is False
+        assert "SyntaxError" in reason
+
+
+class TestWorkspaceMaterializerSecurity:
+    """Audit fix #4: path traversal guard on workspace file names."""
+
+    @pytest.mark.asyncio
+    async def test_path_traversal_rejected(self):
+        from orchestrator.infrastructure.workspace_materializer import (
+            WorkspaceMaterializer,
+        )
+
+        materializer = WorkspaceMaterializer()
+        with pytest.raises(ValueError, match="Path traversal"):
+            await materializer.materialize(
+                framework="pytest",
+                extra_files={"../../etc/passwd": "pwned"},
+            )
+
+    @pytest.mark.asyncio
+    async def test_source_path_traversal_rejected(self):
+        from orchestrator.infrastructure.workspace_materializer import (
+            WorkspaceMaterializer,
+        )
+
+        materializer = WorkspaceMaterializer()
+        with pytest.raises(ValueError, match="Path traversal"):
+            await materializer.materialize(
+                framework="pytest",
+                source_files={"../outside.py": "print(1)"},
+            )
+
 
 class TestBuildCheck:
     """Build check — exec() in isolated namespace."""

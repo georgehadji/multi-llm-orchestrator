@@ -629,20 +629,43 @@ class ServiceContainer:
         verification_gate = None
         verification_policy = None
         try:
+            import os as _os
+
             from ..application.verification_gate import VerificationGate
             from ..domain.verification import CheckOutcome, VerificationPolicy
             from ..infrastructure.verification_checks import default_checks
 
             gate_checks = default_checks()
 
+            # E-6: test execution participates in the gate. ORCH_TEST_GATE:
+            #   off      — test_execution check removed entirely
+            #   shadow   — check runs, receipts recorded, score unaffected
+            #              (default for one release — plan §E-6 rollout)
+            #   enforce  — failing suite floors the score at FAIL_SCORE_FLOOR
+            test_gate_mode = _os.environ.get("ORCH_TEST_GATE", "shadow").lower()
+            gate_non_blocking: set[str] = set()
+            if test_gate_mode == "off":
+                gate_checks = [c for c in gate_checks if c.name != "test_execution"]
+            elif test_gate_mode == "shadow":
+                gate_non_blocking = {"test_execution"}
+            logger.info(
+                "E-6: ORCH_TEST_GATE=%s (test_execution %s)",
+                test_gate_mode,
+                "blocking" if test_gate_mode == "enforce" else "shadow",
+            )
+
+            policy_checks = {
+                "syntax": CheckOutcome.REQUIRED,
+                "security": CheckOutcome.REQUIRED,
+                "build": CheckOutcome.RECOMMENDED,
+                "lint": CheckOutcome.RECOMMENDED,
+                "type_check": CheckOutcome.RECOMMENDED,
+            }
+            if test_gate_mode != "off":
+                policy_checks["test_execution"] = CheckOutcome.REQUIRED  # E-6
+
             verification_policy = VerificationPolicy(
-                checks={
-                    "syntax": CheckOutcome.REQUIRED,
-                    "security": CheckOutcome.REQUIRED,
-                    "build": CheckOutcome.RECOMMENDED,
-                    "lint": CheckOutcome.RECOMMENDED,
-                    "type_check": CheckOutcome.RECOMMENDED,
-                },
+                checks=policy_checks,
                 task_types=None,  # applies to all task types
             )
 
@@ -656,6 +679,7 @@ class ServiceContainer:
                 "WBS-1: VerificationGate initialization FAILED — verification disabled: %s", exc
             )
             verification_gate = None
+            gate_non_blocking = set()
 
         # Services (wrapped in type: ignore for optional dependencies)
         executor = ExecutorService(
@@ -669,6 +693,7 @@ class ServiceContainer:
             get_models_fn=get_available_models,
             telemetry=telemetry,
             verification_gate=verification_gate,
+            gate_non_blocking=gate_non_blocking,
         )
         generator = GeneratorService(
             decompose_fn=None,  # assigned later

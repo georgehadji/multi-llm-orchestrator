@@ -143,6 +143,15 @@ def is_python_code(artifact: str) -> bool:
     if any(m in text for m in python_markers):
         return True
 
+    # Ambiguous assignment/expression fragments (e.g. "x = ") — treat as
+    # Python so the syntax check can report the real SyntaxError instead
+    # of silently passing broken code (pre-existing bug: is_python_code
+    # returned False for "x = ", letting invalid Python through the gate).
+    import re as _re
+
+    if _re.search(r"\b\w+\s*=", text):
+        return True
+
     return False
 
 
@@ -295,7 +304,10 @@ def _make_build_check() -> VerificationCheck:
                 proc = await asyncio.create_subprocess_exec(
                     sys.executable,
                     "-c",
-                    f"import sys; sys.path.insert(0, '{td}'); import _verify_target",
+                    "import sys, os; "
+                    "sys.path.insert(0, os.environ['_ORCH_VERIFY_DIR']); "
+                    "import _verify_target",
+                    env={**os.environ, "_ORCH_VERIFY_DIR": td},
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
@@ -375,6 +387,70 @@ def make_check_adapter(name: str, run: CheckFn, command: str | None = None) -> V
     return VerificationCheck(name=name, run=run, command=command)
 
 
+# ── Test execution check (E-6) ──────────────────────────────────────────────
+
+
+def _make_test_execution_check(
+    runner=None, sandbox=None, timeout_s: float = 120.0
+) -> VerificationCheck:
+    """Create the WORKSPACE-scoped test-execution check (E-6).
+
+    The check materializes nothing itself — it receives a pre-built
+    ``Workspace`` (domain object) from the gate dispatch and executes the
+    suite through the authoritative runner (F-6). A vacuous result (zero
+    executed tests) is never a pass (D-7); collection errors are reported
+    as infrastructure failures.
+
+    Args:
+        runner: Optional TestExecutorPort; defaults to the framework
+            registry's pytest runner bound to the resolved sandbox.
+        sandbox: Optional SandboxPort; defaults to the resolved tier.
+        timeout_s: Suite timeout.
+
+    Returns:
+        A WORKSPACE-scoped VerificationCheck named ``test_execution``.
+    """
+
+    async def _check(artifact: str, workspace=None) -> tuple[bool, str]:
+        if workspace is None:
+            return False, "workspace required for test execution (E-6)"
+        from ..domain.testing_models import TestStatus
+
+        try:
+            from .test_runners import get_runner
+
+            effective_runner = runner
+            if effective_runner is None:
+                effective_runner = get_runner(workspace.framework, sandbox=sandbox)
+            report = await effective_runner.run(workspace, timeout_s=timeout_s)
+            # E-8: stamp structured metadata for the gate receipt.
+            check.last_report = report  # type: ignore[attr-defined]
+        except Exception as exc:
+            return False, f"test execution failed: {exc}"
+
+        if report.is_vacuous_result:
+            return False, ("0 tests executed — a vacuous suite is never a pass (D-7)")
+        if report.collection_errors:
+            return False, "collection errors: " + "; ".join(report.collection_errors[:2])
+        failed = sum(
+            1 for o in report.outcomes if o.status in (TestStatus.FAILED, TestStatus.ERROR)
+        )
+        if not report.passed or failed:
+            return False, f"{failed}/{report.executed} tests failed"
+        return True, f"{report.executed} tests passed"
+
+    from orchestrator.application.verification_gate import VerificationCheck
+    from ..domain.testing_models import CheckScope
+
+    check = VerificationCheck(
+        name="test_execution",
+        run=_check,
+        command="sandboxed suite execution",
+        scope=CheckScope.WORKSPACE,
+    )
+    return check
+
+
 # ── Default Check Set ──────────────────────────────────────────────────────────
 
 
@@ -382,12 +458,15 @@ def default_checks() -> list[VerificationCheck]:
     """Return a list of all available check adapters.
 
     Lint and type checks are conditional on tool availability; syntax,
-    build, and security checks always work.
+    build, security, and test-execution checks always work. The
+    test-execution check is WORKSPACE-scoped: it emits NOT_RUN when no
+    workspace is provided (E-6).
     """
     checks: list[VerificationCheck] = [
         _make_syntax_check(),
         _make_build_check(),
         _make_security_check(),
+        _make_test_execution_check(),
     ]
 
     # Try adding lint check

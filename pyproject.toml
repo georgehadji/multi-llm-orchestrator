@@ -55,6 +55,7 @@ dev = [
     "scipy>=1.10,<2.0",  # Required by networkx.pagerank() (_pagerank_scipy)
     "pytest-asyncio>=0.21,<1.0",
     "pytest-xdist>=3.3,<4.0",
+    "pytest-json-report>=1.5,<2.0",  # F-7: machine-readable test output
     "black>=23.7,<25.0",
     "ruff>=0.1.0,<1.0",
     "mypy>=1.5,<2.0",

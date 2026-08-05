@@ -88,6 +88,13 @@ class EventType(str, Enum):
     CAPABILITY_COMPLETED = "capability_completed"
     CAPABILITY_FAILED = "capability_failed"
 
+    # Testing subsystem (E-8, Autonomous Testing Engine)
+    TEST_SUITE_GENERATED = "test.suite.generated"
+    TEST_SUITE_EXECUTED = "test.suite.executed"
+    TEST_REPAIR_ITERATION = "test.repair.iteration"
+    TEST_MUTATION_SCORED = "test.mutation.scored"
+    TEST_FLAKE_QUARANTINED = "test.flake.quarantined"
+
     # Nash Stability (from nash/events.py)
     KG_UPDATED = "kg_updated"
     KG_NODE_ADDED = "kg_node_added"

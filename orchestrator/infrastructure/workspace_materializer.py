@@ -79,7 +79,11 @@ class WorkspaceMaterializer:
 
         # Write extra files (requirements.txt, package.json, etc.)
         for filename, content in (extra_files or {}).items():
-            target = root / filename
+            target = (root / filename).resolve()
+            # Audit fix #4: path traversal guard — no file may escape the
+            # materialized workspace root (e.g. filename="../../etc/passwd").
+            if root.resolve() not in target.parents and target != root.resolve():
+                raise ValueError(f"Path traversal rejected in workspace file name: {filename!r}")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
             if filename in (
@@ -95,7 +99,9 @@ class WorkspaceMaterializer:
         # Write source files (from dict or artifact string)
         if source_files:
             for filepath, content in source_files.items():
-                target = root / filepath
+                target = (root / filepath).resolve()
+                if root.resolve() not in target.parents and target != root.resolve():
+                    raise ValueError(f"Path traversal rejected in source file name: {filepath!r}")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(content, encoding="utf-8")
                 written_sources.append(target)
@@ -109,7 +115,9 @@ class WorkspaceMaterializer:
         # Write test files (from dict or test_code string)
         if test_files:
             for filepath, content in test_files.items():
-                target = root / filepath
+                target = (root / filepath).resolve()
+                if root.resolve() not in target.parents and target != root.resolve():
+                    raise ValueError(f"Path traversal rejected in test file name: {filepath!r}")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(content, encoding="utf-8")
                 written_tests.append(target)

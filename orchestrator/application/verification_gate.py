@@ -131,6 +131,8 @@ class VerificationGate:
         artifact: str,
         policy: VerificationPolicy | None = None,
         workspace: Workspace | None = None,
+        *,
+        non_blocking: set[str] | None = None,
     ) -> GateResult:
         """Run all checks against *artifact*; return aggregated GateResult.
 
@@ -145,6 +147,10 @@ class VerificationGate:
             artifact:   The text/code to verify.
             policy:     Optional override policy.
             workspace:  Optional materialized Workspace for WORKSPACE-scoped checks.
+            non_blocking: Names of checks whose failure is recorded in the
+                receipts but excluded from the score computation (E-6 shadow
+                mode: the check runs and its outcome is visible, but it does
+                not floor the score yet).
 
         Returns:
             GateResult with backward-compat checks/reasons/score plus
@@ -159,6 +165,7 @@ class VerificationGate:
 
         # Build a set of check names we have registered
         registered_names = {c.name for c in self._checks}
+        non_blocking = non_blocking or set()
 
         # First, run all registered checks
         for check in self._checks:
@@ -179,7 +186,10 @@ class VerificationGate:
             start = time.monotonic()
             duration: float | None = None
             try:
-                ok, reason = await check.run(artifact)
+                if check.scope == CheckScope.WORKSPACE:
+                    ok, reason = await check.run(artifact, workspace)
+                else:
+                    ok, reason = await check.run(artifact)
                 duration = (time.monotonic() - start) * 1000
                 passed_map[check.name] = ok
                 if not ok:
@@ -189,6 +199,21 @@ class VerificationGate:
                     logger.debug("VerificationGate: check '%s' passed", check.name)
 
                 outcome = CheckOutcome.PASSED if ok else CheckOutcome.FAILED
+                # E-8: checks may stamp structured metadata (isolation,
+                # executed counts, mutation score, flake count) via a
+                # ``last_report`` attribute on the check object.
+                last_report = getattr(check, "last_report", None)
+                isolation_val = None
+                executed_val = None
+                mutation_val = None
+                flaky_val = None
+                if last_report is not None:
+                    iso = getattr(last_report, "isolation", None)
+                    if iso is not None:
+                        isolation_val = iso.value if hasattr(iso, "value") else str(iso)
+                    executed_val = getattr(last_report, "executed", None)
+                    mutation_val = getattr(last_report, "mutation_score", None)
+                    flaky_val = len(getattr(last_report, "flaky_node_ids", ()) or ())
                 receipts.append(
                     ExecutionReceipt(
                         check_name=check.name,
@@ -197,6 +222,10 @@ class VerificationGate:
                         duration_ms=duration,
                         artifact_hash=artifact_hash,
                         command=check.command,
+                        isolation=isolation_val,
+                        executed=executed_val,
+                        mutation_score=mutation_val,
+                        flaky_count=flaky_val,
                     )
                 )
             except Exception as exc:
@@ -235,8 +264,10 @@ class VerificationGate:
                         )
                     )
 
-        all_passed = all(passed_map.values()) if passed_map else True
-        score = 1.0 if all_passed else self.FAIL_SCORE_FLOOR
+        blocking_passed = (
+            all(v for k, v in passed_map.items() if k not in non_blocking) if passed_map else True
+        )
+        score = 1.0 if blocking_passed else self.FAIL_SCORE_FLOOR
 
         return GateResult(
             checks=passed_map,

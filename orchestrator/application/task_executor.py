@@ -75,6 +75,7 @@ class TaskExecutor:
         fallback_handler: FallbackHandler,
         budget_enforcer: BudgetEnforcer,
         dependency_resolver: DependencyResolver,
+        sandbox=None,
     ):
         """
         Initialize task executor.
@@ -89,6 +90,9 @@ class TaskExecutor:
             fallback_handler: Model health & fallback
             budget_enforcer: Budget enforcement
             dependency_resolver: Dependency management
+            sandbox: SandboxPort for TDD test execution (F-3). Defaults to
+                the resolved sandbox tier so model code is never executed
+                unisolated even if the caller omits it.
         """
         self.client = client
         self.cache = cache
@@ -99,6 +103,11 @@ class TaskExecutor:
         self.fallback_handler = fallback_handler
         self.budget_enforcer = budget_enforcer
         self.dependency_resolver = dependency_resolver
+
+        # F-3: the sandbox is injected by the composition root (container),
+        # never resolved here — Contract 2 (application must not import
+        # infrastructure). None is refused at use, not silently defaulted.
+        self._sandbox = sandbox
 
         # Lazy-loaded components
         self._tdd_generator = None
@@ -273,9 +282,18 @@ class TaskExecutor:
             if self._tdd_generator is None:
                 from ..test_first_generator import TestFirstGenerator
 
+                if self._sandbox is None:
+                    # F-3: no NONE tier — refuse rather than execute model
+                    # output unisolated. The container injects a sandbox.
+                    raise RuntimeError(
+                        "TestFirstGenerator requires a sandbox (F-3); the "
+                        "composition root must inject one — refusing to "
+                        "execute model output without an isolation boundary."
+                    )
+
                 self._tdd_generator = TestFirstGenerator(  # type: ignore[assignment]
                     client=self.client,
-                    sandbox=None,
+                    sandbox=self._sandbox,
                     max_test_iterations=5,
                 )
 

@@ -226,3 +226,87 @@ class MutationSampler:
             ],
             score=killed / max(total, 1),
         )
+
+    async def score(
+        self,
+        source_code: str,
+        test_code: str,
+        *,
+        runner,
+        materializer,
+        framework: str = "pytest",
+        max_total_s: float = 60.0,
+    ) -> MutationScore:
+        """Execute mutants and measure how many the suite kills (E-4).
+
+        Each mutant is materialized into its own workspace and the suite is
+        run against it. A mutant is *killed* when the suite fails (or fails
+        to collect) with the mutant in place — the test caught the change.
+        A mutant that still passes the suite *survived* — a suite gap.
+
+        Budget-capped: at most ``max_mutations`` mutants, bounded wall-clock
+        by ``max_total_s``.
+
+        Args:
+            source_code: Original implementation source.
+            test_code: Test suite source.
+            runner: A TestExecutorPort instance (injected).
+            materializer: WorkspaceMaterializer (injected — infrastructure
+                object passed in by the composition root).
+            framework: Framework identifier for the materializer.
+            max_total_s: Total wall-clock budget for all mutant runs.
+
+        Returns:
+            MutationScore with score = killed / total.
+        """
+        import time as _time
+
+        started = _time.monotonic()
+        results: list[MutationResult] = []
+        mutants = self.generate_mutants(source_code)
+
+        for mutant_source, operator, line in mutants:
+            if _time.monotonic() - started > max_total_s:
+                logger.warning("Mutation scoring hit the %ss wall-clock cap", max_total_s)
+                break
+
+            workspace = await materializer.materialize(
+                artifact=mutant_source,
+                test_code=test_code,
+                framework=framework,
+            )
+            try:
+                report = await runner.run(workspace, timeout_s=min(30.0, max_total_s))
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("Mutant run failed: %s", exc)
+                results.append(
+                    MutationResult(
+                        original_line=line,
+                        operator=type(operator).__name__,
+                        killed=True,
+                        error=str(exc),
+                    )
+                )
+                continue
+            finally:
+                await materializer.cleanup(workspace)
+
+            # Killed = the suite failed (or errored) with the mutant in place.
+            killed = not report.passed
+            results.append(
+                MutationResult(
+                    original_line=line,
+                    operator=type(operator).__name__,
+                    killed=killed,
+                    error="",
+                )
+            )
+
+        killed = sum(1 for r in results if r.killed)
+        return MutationScore(
+            total=len(results),
+            killed=killed,
+            survived=len(results) - killed,
+            results=results,
+            score=(killed / len(results)) if results else 0.0,
+        )

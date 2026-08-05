@@ -51,13 +51,12 @@ def run_project_tests(
         raise TestRunnerUnavailableError("Test runner infrastructure not available") from None
 
     try:
-        runner_cls = get_runner(framework)
+        runner = get_runner(framework)
     except KeyError:
         raise TestRunnerUnavailableError(
             f"No runner registered for framework: {framework}"
         ) from None
 
-    runner = runner_cls()
     root = Path(project_dir).resolve()
 
     from orchestrator.domain.testing_models import Workspace
@@ -78,6 +77,9 @@ def run_project_tests(
     for key in list(clean_env):
         if "API_KEY" in key.upper() or "SECRET" in key.upper() or "TOKEN" in key.upper():
             del clean_env[key]
+    # Match the async runner: plugin autoload disabled, explicit loads only
+    # (prevents third-party plugin side effects and double-loading).
+    clean_env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
 
     try:
         cmd = runner.build_command(workspace)

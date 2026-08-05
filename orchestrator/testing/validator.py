@@ -419,33 +419,41 @@ def test_{function_name}_placeholder():
     async def _run_test(
         self, test_file: Path, cwd: Path | None = None
     ) -> subprocess.CompletedProcess:
-        """Run pytest on test file."""
+        """Run pytest on test file (async — F-1: no blocking subprocess.run)."""
+        import os
+
+        env = None
+        if cwd:
+            env = dict(os.environ)
+            python_path = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = str(cwd) + (os.pathsep + python_path if python_path else "")
+
+        argv = ["python", "-m", "pytest", str(test_file), "-v", "--tb=short"]
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            cwd=str(cwd) if cwd else str(test_file.parent),
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.DEVNULL,
+        )
         try:
-            # Add parent directory to Python path
-            env = None
-            if cwd:
-                import os
-
-                env = dict(**os.environ)
-                python_path = env.get("PYTHONPATH", "")
-                env["PYTHONPATH"] = str(cwd) + (os.pathsep + python_path if python_path else "")
-
-            result = subprocess.run(
-                ["python", "-m", "pytest", str(test_file), "-v", "--tb=short"],
-                cwd=cwd or test_file.parent,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                env=env,
-            )
-            return result
-
-        except subprocess.TimeoutExpired:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=30)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
             return subprocess.CompletedProcess(
                 args=[], returncode=1, stdout="", stderr="Test execution timeout"
             )
         except Exception as e:
             return subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr=str(e))
+
+        return subprocess.CompletedProcess(
+            args=argv,
+            returncode=proc.returncode or 0,
+            stdout=stdout_bytes.decode("utf-8", errors="replace"),
+            stderr=stderr_bytes.decode("utf-8", errors="replace"),
+        )
 
 
 # Convenience function

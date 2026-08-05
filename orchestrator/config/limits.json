@@ -7,5 +7,11 @@
   "complex_reasoning": 4096,
   "creative_writing": 4096,
   "data_extraction": 2048,
-  "summarization": 1024
+  "summarization": 1024,
+  "testing": {
+    "max_repair_iterations": 5,
+    "suite_timeout_s": 120,
+    "mutation_sample_size": 12,
+    "mutation_timeout_s": 60
+  }
 }

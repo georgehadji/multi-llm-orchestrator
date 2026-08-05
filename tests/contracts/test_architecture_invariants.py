@@ -186,3 +186,134 @@ def test_no_fix_named_modules():
     assert len(violations) == 0, f"Fix-named modules found ({len(violations)}):\n  " + "\n  ".join(
         violations
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Invariant 5: Exactly one authoritative test-execution implementation (F-6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.contract
+def test_single_authoritative_test_runner():
+    """F-6: exactly one non-shim ``class TestRunner`` exists in the tree.
+
+    The four historical runner implementations (runtime/sandbox.py,
+    quality/quality_control.py, testing/first_generator.py, quality/run_tests.py)
+    were consolidated into ``infrastructure/test_runners/``. Any remaining
+    ``class TestRunner`` must be a deprecation shim that delegates.
+    """
+    shims = {
+        "orchestrator/runtime/sandbox.py",
+        "orchestrator/quality/quality_control.py",
+    }
+    non_shim: list[str] = []
+    for f in sorted(ORCHESTRATOR.rglob("*.py")):
+        text = f.read_text(encoding="utf-8", errors="ignore")
+        if re.search(r"^class TestRunner\b", text, re.MULTILINE):
+            rel = f.relative_to(PROJECT_ROOT).as_posix()
+            if rel not in shims:
+                non_shim.append(rel)
+    assert non_shim == [], (
+        f"More than one authoritative TestRunner ({non_shim}); "
+        f"consolidate into infrastructure/test_runners/ (F-6)"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Invariant 6: No blocking subprocess.run under testing/ (F-1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.contract
+def test_no_blocking_subprocess_in_testing():
+    """F-1: no ``subprocess.run`` remains under ``orchestrator/testing/``.
+
+    Blocking subprocess calls inside the async test-execution path stall
+    the event loop (D-1). All child-process work must go through
+    ``asyncio.create_subprocess_exec``.
+    """
+    testing_dir = ORCHESTRATOR / "testing"
+    violations: list[str] = []
+    for f in sorted(testing_dir.rglob("*.py")):
+        text = f.read_text(encoding="utf-8", errors="ignore")
+        for line in text.split("\n"):
+            if re.search(r"subprocess\.run\(", line):
+                violations.append(f"{f.name}: {line.strip()}")
+    assert violations == [], f"subprocess.run in testing/ (F-1):\n  " + "\n  ".join(violations)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Invariant 7: No exec()/eval() of model-derived strings (F-2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.contract
+def test_no_exec_of_model_derived_strings():
+    """F-2: no ``exec(``/``eval(`` applied to artifact strings in verification.
+
+    D-2 removed the in-process ``exec(compile(artifact))`` from
+    ``verification_checks.py``; the import check now runs out of process.
+    This guard prevents the pattern from returning. ``exec()`` of literal,
+    non-model-derived constants (e.g. exec of a fixed template) is allowed.
+    """
+    violations: list[str] = []
+    for f in sorted(ORCHESTRATOR.rglob("*.py")):
+        if "__pycache__" in str(f):
+            continue
+        text = f.read_text(encoding="utf-8", errors="ignore")
+        for line in text.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if re.search(r"\bexec\(\s*(compile\(|artifact|code|source)", stripped):
+                violations.append(f"{f.relative_to(PROJECT_ROOT)}: {stripped}")
+    assert violations == [], f"exec() of model-derived string (F-2):\n  " + "\n  ".join(violations)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Invariant 8: Testing limits live only in config/limits.json (F-8)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.contract
+def test_testing_limits_have_single_source_of_truth():
+    """F-8: testing limits are declared once in config/limits.json.
+
+    ``max_repair_iterations``, ``suite_timeout_s``, ``mutation_sample_size``
+    and ``mutation_timeout_s`` are read via ``testing_config.py``. The
+    first_generator must not re-declare their default values as literals.
+    """
+    import json
+
+    limits_path = PROJECT_ROOT / "orchestrator" / "config" / "limits.json"
+    data = json.loads(limits_path.read_text(encoding="utf-8"))
+    testing = data.get("testing", {})
+    for key in (
+        "max_repair_iterations",
+        "suite_timeout_s",
+        "mutation_sample_size",
+        "mutation_timeout_s",
+    ):
+        assert key in testing, f"limits.json missing testing.{key} (F-8)"
+
+    # The loader may declare defaults; the generator must not duplicate them.
+    # Env overrides and explicit per-call overrides (e.g. in tests) are fine.
+    # LLM-call timeouts (timeout=120) are a different limit and are allowed.
+    generator_text = (PROJECT_ROOT / "orchestrator" / "testing" / "first_generator.py").read_text(
+        encoding="utf-8", errors="ignore"
+    )
+    for literal in ("120", "60"):
+        line_hits = [
+            ln.strip()
+            for ln in generator_text.split("\n")
+            if re.search(rf"timeout_s\s*=\s*{literal}\b|\b{literal}\b.*suite_timeout", ln)
+            and "ORCH_" not in ln
+            and "limits.json" not in ln
+            and "testing_config" not in ln
+            and "F-8" not in ln
+        ]
+        assert (
+            not line_hits
+        ), f"F-8: suite timeout {literal} hardcoded in first_generator.py:\n  " + "\n  ".join(
+            line_hits
+        )
