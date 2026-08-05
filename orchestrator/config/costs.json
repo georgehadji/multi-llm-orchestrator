@@ -540,6 +540,16 @@
     "output": 0,
     "pricing_model": "per_image"
   },
+  "qwen/qwen-image-3": {
+    "input": 0.03,
+    "output": 0,
+    "pricing_model": "per_image"
+  },
+  "qwen/qwen-image-3-pro": {
+    "input": 0.04,
+    "output": 0,
+    "pricing_model": "per_image"
+  },
   "google/gemini-3.6-flash": {
     "input": 1.5,
     "output": 7.5

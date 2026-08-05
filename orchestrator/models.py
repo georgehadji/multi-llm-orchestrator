@@ -325,6 +325,10 @@ class Model(Enum):
     # Bytedance
     SEEDREAM_4_5 = "bytedance-seed/seedream-4.5"
 
+    # Qwen
+    QWEN_IMAGE_3 = "qwen/qwen-image-3"
+    QWEN_IMAGE_3_PRO = "qwen/qwen-image-3-pro"
+
     # ═══════════════════════════════════════════════════════
     # Video Generation Models
     # ═══════════════════════════════════════════════════════
@@ -560,6 +564,9 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.KREA_2_LARGE: {"input": 0.06, "output": 0},
     Model.KREA_2_MEDIUM: {"input": 0.03, "output": 0},
     Model.KREA_2_MEDIUM_TURBO: {"input": 0.015, "output": 0},
+    # Qwen image generation — per-image pricing (OpenRouter: $0.03 / $0.04 per image)
+    Model.QWEN_IMAGE_3: {"input": 0.03, "output": 0},
+    Model.QWEN_IMAGE_3_PRO: {"input": 0.04, "output": 0},
     # 2026-07 batch — declared in the enum but never wired into COST_TABLE
     Model.GEMINI_3_6_FLASH: {"input": 1.50, "output": 7.50},
     Model.GEMINI_3_5_FLASH_LITE: {"input": 0.30, "output": 2.50},
@@ -706,6 +713,8 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.RIVERFLOW_V2_STANDARD_PREVIEW: 0,
     Model.RIVERFLOW_V2_FAST_PREVIEW: 0,
     Model.SEEDREAM_4_5: 0,
+    Model.QWEN_IMAGE_3: 0,
+    Model.QWEN_IMAGE_3_PRO: 0,
     Model.SORA_2_PRO: 0,
     Model.VEO_3_1: 0,
     Model.VEO_3_1_FAST: 0,
@@ -964,6 +973,8 @@ _MODEL_MAX_TOKENS_RAW = {
     "GPT_5_IMAGE": 4096,
     "GPT_5_IMAGE_MINI": 4096,
     "GPT_54_IMAGE_2": 4096,
+    "QWEN_IMAGE_3": 4096,
+    "QWEN_IMAGE_3_PRO": 4096,
     # Xiaomi Mimo V2.5
     "XIAOMI_MIMO_V2_5": 8192,
     "XIAOMI_MIMO_V2_5_PRO": 8192,

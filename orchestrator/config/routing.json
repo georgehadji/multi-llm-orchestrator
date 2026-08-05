@@ -154,7 +154,9 @@
     "sourceful/riverflow-v2-standard-preview",
     "sourceful/riverflow-v2-fast-preview",
     "bytedance-seed/seedream-4.5",
-    "krea/krea-2-large"
+    "krea/krea-2-large",
+    "qwen/qwen-image-3-pro",
+    "qwen/qwen-image-3"
   ],
   "video_generation": [
     "bytedance/seedance-1-5-pro",

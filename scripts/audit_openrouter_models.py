@@ -73,6 +73,8 @@ _ANTHROPIC_HYPHEN = re.compile(r"^anthropic/claude-(opus|sonnet|haiku)-(\d+)-(\d
 # They DO resolve at /api/v1/models/<id>/endpoints (verified 2026-06-23). The
 # audit treats these as acceptable and `verify_runtime_only_ids` probes the
 # endpoints route to keep this allowlist honest (see the integration test).
+# Qwen image-generation models (2026-08-05 release) are the same class: absent
+# from the chat catalogue but reachable via the generation endpoints route.
 RUNTIME_ONLY_IDS = frozenset(
     {
         "openai/sora-2-pro",
@@ -89,6 +91,8 @@ RUNTIME_ONLY_IDS = frozenset(
         "alibaba/wan-2.7",
         "alibaba/wan-2.6",
         "x-ai/grok-imagine-video",
+        "qwen/qwen-image-3",
+        "qwen/qwen-image-3-pro",
     }
 )
 
