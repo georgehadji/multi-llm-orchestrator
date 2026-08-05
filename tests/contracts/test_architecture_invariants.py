@@ -162,7 +162,53 @@ def test_application_no_aiosqlite():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Invariant 4: No fix-named modules in production paths
+# Invariant 9: Refinement domain purity + no module-level singleton (Phase 6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.contract
+def test_refinement_domain_is_stdlib_only():
+    """Phase 6: ``domain/refinement.py`` imports stdlib only (Contract 1)."""
+    import ast as _ast
+
+    path = ORCHESTRATOR / "domain" / "refinement.py"
+    tree = _ast.parse(path.read_text(encoding="utf-8"))
+    imports: list[str] = []
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Import):
+            imports.extend(a.name for a in node.names)
+        elif isinstance(node, _ast.ImportFrom):
+            imports.append(node.module or "")
+    stdlib = {
+        "__future__",
+        "dataclasses",
+        "enum",
+        "typing",
+        "functools",
+        "abc",
+        "re",
+        "collections",
+    }
+    foreign = [i for i in imports if i.split(".")[0] not in stdlib]
+    assert foreign == [], f"domain/refinement.py imports non-stdlib: {foreign}"
+
+
+@pytest.mark.contract
+def test_no_module_level_singleton_registry_in_metrics():
+    """Phase 6: metric collectors have no module-level singleton registry.
+
+    The plan (§3.4.2) requires the collector registry to be constructed in
+    the composition root like every other collaborator, never as a global.
+    """
+    text = (ORCHESTRATOR / "infrastructure" / "metrics" / "collector.py").read_text(
+        encoding="utf-8", errors="ignore"
+    )
+    assert "_registry" not in text
+    assert re.search(r"^registry\s*=", text, re.MULTILINE) is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Invariant 10: No fix-named modules in production paths
 # ─────────────────────────────────────────────────────────────────────────────
 
 

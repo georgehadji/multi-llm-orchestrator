@@ -841,9 +841,13 @@ class SandboxPort(Protocol):
 
 @runtime_checkable
 class MetricCollectorPort(Protocol):
-    """Collects code quality metrics from a workspace (Phase 6)."""
+    """Collects code quality metrics from a workspace (Phase 6).
 
-    async def collect(self, workspace: Workspace) -> dict[str, float]: ...
+    Implementations live in infrastructure/metrics/. Returns a frozen
+    :class:`MetricSnapshot` (pure value object).
+    """
+
+    async def collect(self, workspace: Workspace) -> "MetricSnapshot": ...
 
 
 @runtime_checkable

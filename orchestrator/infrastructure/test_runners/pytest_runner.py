@@ -49,6 +49,8 @@ class PytestRunner(TestRunnerBase):
             "-q",
             "--no-header",
             "-p",
+            "no:cacheprovider",  # E-5: no .pytest_cache side effects in the workspace
+            "-p",
             "pytest_jsonreport.plugin",  # F-7: machine-readable output (explicit load)
         ]
         # E-5: keep run order deterministic (no random plugin side effects).

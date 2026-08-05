@@ -230,6 +230,7 @@ class ServiceContainer:
     generator: Optional[GeneratorService] = None
     verification_gate: Optional[Any] = None  # VerificationGate (WBS-1)
     verification_policy: Optional[Any] = None  # VerificationPolicy (WBS-1)
+    refinement_service: Optional[Any] = None  # RefinementService (Phase 6)
     ara: Any = None
     ara_strategy: Optional[ARAExecutionStrategy] = None
     pipeline: Optional[TaskPipeline] = None
@@ -977,6 +978,36 @@ class ServiceContainer:
         except Exception:
             pass
 
+        # Phase 6 (E-9/E-10): green-anchored refinement — measurement
+        # harness + mechanical tier. The service is inert unless invoked;
+        # structural/performance operators register here when implemented.
+        refinement_service = None
+        try:
+            from ..application.refinement.operators.dead_code import DeadCodeOperator
+            from ..application.refinement.operators.formatter import FormatterOperator
+            from ..application.refinement.service import RefinementService
+            from ..infrastructure.metrics.collector import collect_snapshot
+            from ..infrastructure.sandboxes import resolve_sandbox
+            from ..infrastructure.test_runners import get_runner
+
+            _ref_sandbox = resolve_sandbox()
+            _ref_runner = get_runner("pytest", sandbox=_ref_sandbox)
+            refinement_service = RefinementService(
+                runner=_ref_runner,
+                materializer=None,
+                collect_snapshot=collect_snapshot,
+                event_bus=event_bus,
+            )
+            refinement_service.register_operator(DeadCodeOperator())
+            refinement_service.register_operator(FormatterOperator())
+            logger.info(
+                "Phase 6: RefinementService wired with %d operator(s)",
+                len(refinement_service.operators),
+            )
+        except Exception as exc:
+            logger.warning("Phase 6: RefinementService unavailable: %s", exc)
+            refinement_service = None
+
         return cls(
             budget=budget,
             client=client,
@@ -999,6 +1030,7 @@ class ServiceContainer:
             architect=architect,
             executor=executor,
             evaluator=evaluator,
+            refinement_service=refinement_service,
             generator=generator,
             ara=ara,
             ara_strategy=ara_strategy,
